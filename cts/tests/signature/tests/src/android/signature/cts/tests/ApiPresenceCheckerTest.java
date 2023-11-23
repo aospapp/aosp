@@ -21,8 +21,13 @@ import android.signature.cts.ExcludingClassProvider;
 import android.signature.cts.FailureType;
 import android.signature.cts.JDiffClassDescription;
 import android.signature.cts.ResultObserver;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.lang.reflect.Modifier;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.function.Consumer;
 
 import org.junit.Assert;
@@ -83,9 +88,10 @@ public abstract class ApiPresenceCheckerTest<T extends ApiPresenceChecker> {
 
     void checkSignatureCompliance(JDiffClassDescription classDescription,
             String... excludedRuntimeClassNames) {
-        ResultObserver resultObserver = new NoFailures();
-        checkSignatureCompliance(classDescription, resultObserver,
-                excludedRuntimeClassNames);
+        try (NoFailures resultObserver = new NoFailures()) {
+            checkSignatureCompliance(classDescription, resultObserver,
+                    excludedRuntimeClassNames);
+        }
     }
 
     void checkSignatureCompliance(JDiffClassDescription classDescription,
@@ -112,47 +118,106 @@ public abstract class ApiPresenceCheckerTest<T extends ApiPresenceChecker> {
         return clz;
     }
 
+    protected static JDiffClassDescription.JDiffConstructor ctor(String name, int modifiers) {
+        return new JDiffClassDescription.JDiffConstructor(name, modifiers);
+    }
+
     protected static JDiffClassDescription.JDiffMethod method(
             String name, int modifiers, String returnType) {
         return new JDiffClassDescription.JDiffMethod(name, modifiers, returnType);
     }
 
-    protected static class NoFailures implements ResultObserver {
+    protected static class Failure {
+        private final FailureType type;
+        private final String name;
+        private final String errorMessage;
+        private final Throwable throwable;
+
+        public Failure(FailureType type, String name, String errorMessage, Throwable throwable) {
+            this.type = type;
+            this.name = name;
+            this.errorMessage = errorMessage;
+            this.throwable = throwable;
+        }
 
         @Override
-        public void notifyFailure(FailureType type, String name, String errmsg) {
-            Assert.fail("Saw unexpected test failure: " + name + " failure type: " + type
-                    + " error message: " + errmsg);
+        public String toString() {
+            String exception = "<none>";
+            if (throwable != null) {
+                StringWriter out = new StringWriter();
+                throwable.printStackTrace(new PrintWriter(out));
+                exception = out.toString();
+            }
+            return "Failure{" +
+                    "type=" + type +
+                    ", name='" + name + '\'' +
+                    ", errorMessage='" + errorMessage + '\'' +
+                    ", throwable=" + exception +
+                    '}';
         }
     }
 
-    protected static class ExpectFailure implements ResultObserver {
+    /**
+     * Collect failures and check them after the test has run.
+     *
+     * <p>Throwing an exception in the {@link #notifyFailure} method causes that exception to be
+     * reported as another failure which then fails again failing the test and losing information
+     * about the original exception.</p>
+     */
+    protected static abstract class FailureGathererObserver
+            implements ResultObserver, AutoCloseable {
 
-        private FailureType expectedType;
+        private final List<Failure> failures;
 
-        private boolean failureSeen;
+        public FailureGathererObserver() {
+            failures = new ArrayList<>();
+        }
+
+        @Override
+        public final void notifyFailure(FailureType type, String name, String errorMessage,
+                Throwable throwable) {
+            failures.add(new Failure(type, name, errorMessage, throwable));
+        }
+
+        @Override
+        public void close() {
+            checkFailures(failures);
+        }
+
+        public abstract void checkFailures(List<Failure> failures);
+    }
+
+    protected static class NoFailures extends FailureGathererObserver {
+
+        @Override
+        public void checkFailures(List<Failure> failures) {
+            Assert.assertEquals("Unexpected test failure", Collections.emptyList(), failures);
+        }
+    }
+
+    protected static class ExpectFailure extends FailureGathererObserver {
+
+        private final FailureType expectedType;
 
         ExpectFailure(FailureType expectedType) {
             this.expectedType = expectedType;
         }
 
         @Override
-        public void notifyFailure(FailureType type, String name, String errMsg) {
-            if (type == expectedType) {
-                if (failureSeen) {
-                    Assert.fail("Saw second test failure: " + name + " failure type: " + type);
-                } else {
-                    // We've seen the error, mark it and keep going
-                    failureSeen = true;
+        public void checkFailures(List<Failure> failures) {
+            int count = failures.size();
+            boolean ok = count == 1;
+            if (ok) {
+                Failure failure = failures.get(0);
+                if (failure.type != expectedType) {
+                    ok = false;
                 }
-            } else {
-                Assert.fail("Saw unexpected test failure: " + name + " failure type: " + type);
+            }
+
+            if (!ok) {
+                Assert.fail("Expect one failure of type " + expectedType + " but found " + count
+                        + " failures: " + failures);
             }
         }
-
-        void validate() {
-            Assert.assertTrue(failureSeen);
-        }
     }
-
 }

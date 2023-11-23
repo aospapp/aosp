@@ -15,28 +15,69 @@
  */
 package android.service.dreams.cts;
 
-import android.service.dreams.DreamService;
-import android.test.InstrumentationTestCase;
-import android.test.UiThreadTest;
-import android.view.ActionMode;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assume.assumeFalse;
 
-public class DreamServiceTest extends InstrumentationTestCase {
-    @UiThreadTest
+import android.content.ComponentName;
+import android.content.pm.PackageManager;
+import android.server.wm.ActivityManagerTestBase;
+import android.server.wm.DreamCoordinator;
+import android.service.dreams.DreamService;
+import android.view.ActionMode;
+import android.view.Display;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+
+public class DreamServiceTest extends ActivityManagerTestBase {
+    private static final String DREAM_SERVICE_COMPONENT =
+            "android.app.dream.cts.app/.SeparateProcessDreamService";
+
+    private DreamCoordinator mDreamCoordinator = new DreamCoordinator(mContext);
+
+    @Before
+    public void setup() {
+        mDreamCoordinator.setup();
+    }
+
+    @After
+    public void reset()  {
+        mDreamCoordinator.restoreDefaults();
+    }
+
+    @Test
     public void testOnWindowStartingActionMode() {
         DreamService dreamService = new DreamService();
 
         ActionMode actionMode = dreamService.onWindowStartingActionMode(null);
 
-        assertNull(actionMode);
+        assertEquals(actionMode, null);
     }
 
-    @UiThreadTest
+    @Test
     public void testOnWindowStartingActionModeTyped() {
         DreamService dreamService = new DreamService();
 
         ActionMode actionMode = dreamService.onWindowStartingActionMode(
                 null, ActionMode.TYPE_FLOATING);
 
-        assertNull(actionMode);
+        assertEquals(actionMode, null);
     }
+
+    @Test
+    public void testDreamInSeparateProcess() {
+        assumeFalse(mContext.getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_AUTOMOTIVE));
+
+        final ComponentName dreamService =
+                ComponentName.unflattenFromString(DREAM_SERVICE_COMPONENT);
+        final ComponentName dreamActivity = mDreamCoordinator.setActiveDream(dreamService);
+
+        mDreamCoordinator.startDream(dreamService);
+        waitAndAssertTopResumedActivity(dreamActivity, Display.DEFAULT_DISPLAY,
+                "Dream activity should be the top resumed activity");
+        mDreamCoordinator.stopDream();
+    }
+
 }

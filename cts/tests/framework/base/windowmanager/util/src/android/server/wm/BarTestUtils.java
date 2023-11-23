@@ -16,12 +16,13 @@
 
 package android.server.wm;
 
+import static android.server.wm.ActivityManagerTestBase.isTablet;
+
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
-import android.app.Activity;
 import android.app.ActivityManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -73,6 +74,7 @@ public final class BarTestUtils {
     }
 
     public static void assumeHasColoredNavigationBar(ActivityTestRule<?> rule) {
+        assumeFalse("No colored navigation bar on Tablet", isTablet());
         assumeHasColoredBars();
 
         assumeTrue("Bottom stable inset is non-positive, no navigation bar",

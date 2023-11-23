@@ -18,13 +18,14 @@ package android.security.cts;
 
 import android.platform.test.annotations.AsbSecurityTest;
 import androidx.test.runner.AndroidJUnit4;
+import com.android.sts.common.util.StsExtraBusinessLogicTestCase;
 import dalvik.system.VMRuntime;
 import org.junit.runner.RunWith;
 import org.junit.Test;
 import static org.junit.Assert.assertFalse;
 
 @RunWith(AndroidJUnit4.class)
-public class CVE_2021_0394 {
+public class CVE_2021_0394 extends StsExtraBusinessLogicTestCase {
     static {
         System.loadLibrary("ctssecurity_jni");
     }

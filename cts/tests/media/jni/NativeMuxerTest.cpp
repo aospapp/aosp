@@ -18,14 +18,14 @@
 #define LOG_TAG "NativeMuxerTest"
 #include <log/log.h>
 
-#include <NdkMediaExtractor.h>
-#include <NdkMediaFormat.h>
-#include <NdkMediaMuxer.h>
+#include <dlfcn.h>
 #include <fcntl.h>
 #include <jni.h>
+#include <media/NdkMediaExtractor.h>
+#include <media/NdkMediaFormat.h>
+#include <media/NdkMediaMuxer.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <dlfcn.h>
 
 #include <cmath>
 #include <cstring>

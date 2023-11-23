@@ -226,7 +226,7 @@ public class ContextHubStressTestExecutor extends ContextHubClientCallback {
 
         mWifiScanMonitorTriggered.set(false);
         mCountDownLatch = new CountDownLatch(1);
-        manager.startScan();
+        Assert.assertTrue(manager.startScan());
 
         try {
             mCountDownLatch.await(30, TimeUnit.SECONDS);
@@ -237,6 +237,15 @@ public class ContextHubStressTestExecutor extends ContextHubClientCallback {
         checkTestFailure();
 
         sendTestMessage(ChreStressTest.TestCommand.Feature.WIFI_SCAN_MONITOR, false /* start */);
+
+        // Add a short delay to ensure the scan monitor request is stopped at the nanoapp.
+        // This avoids the requests to leak beyond this test.
+        // TODO(b/144189870): Remove when unload safety is implemented in CHRE.
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            Assert.fail(e.getMessage());
+        }
     }
 
     /**

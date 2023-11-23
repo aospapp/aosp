@@ -155,6 +155,9 @@ public class ScanningSettingsTest extends AndroidTestCase {
             // Scrolling can fail if the UI is not scrollable
         }
 
+        // Wait for the preference to appear
+        mDevice.wait(Until.hasObject(By.text(res.getString(resId))), TIMEOUT);
+
         UiObject2 pref = mDevice.findObject(By.text(res.getString(resId)));
         // Click the preference to show the Scanning fragment
         pref.click();

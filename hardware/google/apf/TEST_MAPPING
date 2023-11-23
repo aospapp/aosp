@@ -1,7 +1,5 @@
 {
     "presubmit": [
-        { "name": "NetworkStackTests" },
-        { "name": "apf_run_test",
-          "host": true }
+        { "name": "NetworkStackTests" }
     ]
 }

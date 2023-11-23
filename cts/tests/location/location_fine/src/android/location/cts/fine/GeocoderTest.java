@@ -16,56 +16,57 @@
 
 package android.location.cts.fine;
 
+import static android.content.pm.PackageManager.MATCH_DIRECT_BOOT_AWARE;
+import static android.content.pm.PackageManager.MATCH_DIRECT_BOOT_UNAWARE;
 
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.verify;
 
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
+import android.content.pm.PackageManager.ResolveInfoFlags;
 import android.location.Geocoder;
+import android.location.Geocoder.GeocodeListener;
 
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
+import com.android.compatibility.common.util.RetryRule;
+
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.io.IOException;
 import java.util.Locale;
 
 @RunWith(AndroidJUnit4.class)
 public class GeocoderTest {
 
-    private static final int MAX_NUM_RETRIES = 2;
-    private static final int TIME_BETWEEN_RETRIES_MS = 2000;
+    // retry just in case of network failure
+    @Rule
+    public final RetryRule mRetryRule = new RetryRule(2);
 
     private Context mContext;
+    private Geocoder mGeocoder;
 
     @Before
     public void setUp() {
         mContext = ApplicationProvider.getApplicationContext();
-    }
-
-    @Test
-    public void testConstructor() {
-        new Geocoder(mContext);
-
-        new Geocoder(mContext, Locale.ENGLISH);
-
-        try {
-            new Geocoder(mContext, null);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-            // expected.
-        }
+        mGeocoder = new Geocoder(mContext, Locale.US);
     }
 
     @Test
     public void testIsPresent() {
-        if (isServiceMissing()) {
+        if (mContext.getPackageManager().queryIntentServices(
+                new Intent("com.android.location.service.GeocodeProvider"), ResolveInfoFlags.of(
+                        MATCH_DIRECT_BOOT_AWARE | MATCH_DIRECT_BOOT_UNAWARE)).isEmpty()) {
             assertFalse(Geocoder.isPresent());
         } else {
             assertTrue(Geocoder.isPresent());
@@ -73,129 +74,62 @@ public class GeocoderTest {
     }
 
     @Test
-    public void testGetFromLocation() throws IOException, InterruptedException {
-        Geocoder geocoder = new Geocoder(mContext);
+    public void testGetFromLocation() {
+        assumeTrue(Geocoder.isPresent());
 
-        // There is no guarantee that geocoder.getFromLocation returns accurate results
-        // Thus only test that calling the method with valid arguments doesn't produce
-        // an unexpected exception
-        // Note: there is a risk this test will fail if device under test does not have
-        // a network connection. This is why we try the geocode 5 times if it fails due
-        // to a network error.
-        int numRetries = 0;
-        while (numRetries < MAX_NUM_RETRIES) {
-            try {
-                geocoder.getFromLocation(60, 30, 5);
-                break;
-            } catch (IOException e) {
-                Thread.sleep(TIME_BETWEEN_RETRIES_MS);
-                numRetries++;
-            }
-        }
-        if (numRetries >= MAX_NUM_RETRIES) {
-            fail("Failed to geocode location " + MAX_NUM_RETRIES + " times.");
-        }
-
-
-        try {
-            // latitude is less than -90
-            geocoder.getFromLocation(-91, 30, 5);
-            fail("should throw IllegalArgumentException");
-        } catch (IllegalArgumentException e) {
-            // pass
-        }
-
-        try {
-            // latitude is greater than 90
-            geocoder.getFromLocation(91, 30, 5);
-            fail("should throw IllegalArgumentException");
-        } catch (IllegalArgumentException e) {
-            // pass
-        }
-
-        try {
-            // longitude is less than -180
-            geocoder.getFromLocation(10, -181, 5);
-            fail("should throw IllegalArgumentException");
-        } catch (IllegalArgumentException e) {
-            // pass
-        }
-
-        try {
-            // longitude is greater than 180
-            geocoder.getFromLocation(10, 181, 5);
-            fail("should throw IllegalArgumentException");
-        } catch (IllegalArgumentException e) {
-            // pass
-        }
+        GeocodeListener listener = mock(GeocodeListener.class);
+        mGeocoder.getFromLocation(60, 30, 5, listener);
+        verify(listener, timeout(10000)).onGeocode(anyList());
     }
 
     @Test
-    public void testGetFromLocationName() throws IOException, InterruptedException {
-        Geocoder geocoder = new Geocoder(mContext, Locale.US);
+    public void testGetFromLocation_sync() throws Exception {
+        assumeTrue(Geocoder.isPresent());
 
-        // There is no guarantee that geocoder.getFromLocationName returns accurate results.
-        // Thus only test that calling the method with valid arguments doesn't produce
-        // an unexpected exception
-        // Note: there is a risk this test will fail if device under test does not have
-        // a network connection. This is why we try the geocode 5 times if it fails due
-        // to a network error.
-        int numRetries = 0;
-        while (numRetries < MAX_NUM_RETRIES) {
-            try {
-                geocoder.getFromLocationName("Dalvik,Iceland", 5);
-                break;
-            } catch (IOException e) {
-                Thread.sleep(TIME_BETWEEN_RETRIES_MS);
-                numRetries++;
-            }
-        }
-        if (numRetries >= MAX_NUM_RETRIES) {
-            fail("Failed to geocode location name " + MAX_NUM_RETRIES + " times.");
-        }
-
-        try {
-            geocoder.getFromLocationName(null, 5);
-            fail("should throw IllegalArgumentException");
-        } catch (IllegalArgumentException e) {
-            // pass
-        }
-
-        try {
-            geocoder.getFromLocationName("Beijing", 5, -91, 100, 45, 130);
-            fail("should throw IllegalArgumentException");
-        } catch (IllegalArgumentException e) {
-            // pass
-        }
-
-        try {
-            geocoder.getFromLocationName("Beijing", 5, 25, 190, 45, 130);
-            fail("should throw IllegalArgumentException");
-        } catch (IllegalArgumentException e) {
-            // pass
-        }
-
-        try {
-            geocoder.getFromLocationName("Beijing", 5, 25, 100, 91, 130);
-            fail("should throw IllegalArgumentException");
-        } catch (IllegalArgumentException e) {
-            // pass
-        }
-
-        try {
-            geocoder.getFromLocationName("Beijing", 5, 25, 100, 45, -181);
-            fail("should throw IllegalArgumentException");
-        } catch (IllegalArgumentException e) {
-            // pass
-        }
+        mGeocoder.getFromLocation(60, 30, 5);
     }
 
-    private boolean isServiceMissing() {
-        PackageManager pm = mContext.getPackageManager();
+    @Test
+    public void testGetFromLocation_badInput() {
+        GeocodeListener listener = mock(GeocodeListener.class);
+        assertThrows(IllegalArgumentException.class,
+                () -> mGeocoder.getFromLocation(-91, 30, 5, listener));
+        assertThrows(IllegalArgumentException.class,
+                () -> mGeocoder.getFromLocation(91, 30, 5, listener));
+        assertThrows(IllegalArgumentException.class,
+                () -> mGeocoder.getFromLocation(10, -181, 5, listener));
+        assertThrows(IllegalArgumentException.class,
+                () -> mGeocoder.getFromLocation(10, 181, 5, listener));
+    }
 
-        final Intent intent = new Intent("com.android.location.service.GeocodeProvider");
-        final int flags = PackageManager.MATCH_DIRECT_BOOT_AWARE
-                | PackageManager.MATCH_DIRECT_BOOT_UNAWARE;
-        return pm.queryIntentServices(intent, flags).isEmpty();
+    @Test
+    public void testGetFromLocationName() {
+        assumeTrue(Geocoder.isPresent());
+
+        GeocodeListener listener = mock(GeocodeListener.class);
+        mGeocoder.getFromLocationName("Dalvik,Iceland", 5, listener);
+        verify(listener, timeout(10000)).onGeocode(anyList());
+    }
+
+    @Test
+    public void testGetFromLocationName_sync() throws Exception {
+        assumeTrue(Geocoder.isPresent());
+
+        mGeocoder.getFromLocationName("Dalvik,Iceland", 5);
+    }
+
+    @Test
+    public void testGetFromLocationName_badInput() {
+        GeocodeListener listener = mock(GeocodeListener.class);
+        assertThrows(IllegalArgumentException.class,
+                () -> mGeocoder.getFromLocationName(null, 5, listener));
+        assertThrows(IllegalArgumentException.class,
+                () -> mGeocoder.getFromLocationName("Beijing", 5, -91, 100, 45, 130, listener));
+        assertThrows(IllegalArgumentException.class,
+                () -> mGeocoder.getFromLocationName("Beijing", 5, 25, 190, 45, 130, listener));
+        assertThrows(IllegalArgumentException.class,
+                () -> mGeocoder.getFromLocationName("Beijing", 5, 25, 100, 91, 130, listener));
+        assertThrows(IllegalArgumentException.class,
+                () -> mGeocoder.getFromLocationName("Beijing", 5, 25, 100, 45, -181, listener));
     }
 }

@@ -22,11 +22,11 @@ python_test_host {
     name: "vts_kernel_checkpoint_test",
     main: "vts_kernel_checkpoint_test.py",
     srcs: [
-        "checkpoint_utils.py",
         "vts_kernel_checkpoint_test.py",
     ],
     libs: [
         "vndk_utils",
+        "vts_kernel_utils",
         "vts_vndk_utils",
     ],
     test_suites: [

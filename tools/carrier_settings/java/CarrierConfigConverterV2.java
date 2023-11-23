@@ -102,6 +102,8 @@ public final class CarrierConfigConverterV2 {
   @Parameter(names = "--version", description = "The version number for all output textpb.")
   private long version = 1L;
 
+  private static final String MCCMNC_FOR_DEFAULT_SETTINGS = "000000";
+
   // Resource file path to the AOSP carrier list file
   private static final String RESOURCE_CARRIER_LIST =
       "/assets/latest_carrier_id/carrier_list.textpb";
@@ -238,11 +240,18 @@ public final class CarrierConfigConverterV2 {
           // Then, try to parse CarrierId
           CarrierId.Builder id = parseCarrierId(element);
           // A valid mccmnc is 5- or 6-digit. But vendor.xml see special cases below:
-          // <carrier_config> element may have just "mcc" and not "mnc" for
+          // Case 1: a <carrier_config> element may have neither "mcc" nor "mnc".
+          // Such a tag provides configs that should be applied to all carriers, including to
+          // unspecified carriers via the 000/000 default configs. Make sure 000/000 exists as
+          // a carrier.
+          // Case 2: a <carrier_config> element may have just "mcc" and not "mnc" for
           // country-wise config. Such a element doesn't make a carrier; but still keep it so
           // can be used if a mccmnc appears in APNs later.
-          if (id.getMccMnc().length() == 3) {
-            // special case
+          if (id.getMccMnc().isEmpty()) {
+            // special case 1
+            carriers.add(id.setMccMnc(MCCMNC_FOR_DEFAULT_SETTINGS).build());
+          } else if (id.getMccMnc().length() == 3) {
+            // special case 2
             carriers.add(id.build());
           } else if (id.getMccMnc().length() == 5 || id.getMccMnc().length() == 6) {
             // Normal mcc+mnc

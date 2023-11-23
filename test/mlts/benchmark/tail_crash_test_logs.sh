@@ -68,7 +68,7 @@ while [ $# -gt 0 ] ; do
   esac
 done
 
-CRASH_TEST_LOG_TAGS+=("NN_BENCHMARK")
+CRASH_TEST_LOG_TAGS+=("NN_BENCHMARK" "NN_TESTBASE")
 while IFS='' read -r tag; do
   CRASH_TEST_LOG_TAGS+=("$tag");
 done <<< $(find src/com/android/nn/crashtest -name '*.java' -exec grep "TAG =" {} \; \
@@ -102,7 +102,7 @@ elif [ ${#DRIVER_LOG_TAGS[@]} -ne 0 ]; then
 fi
 
 # Fatal message for everything else to show crash dumps
-LOG_TAG_FILTER="${LOG_TAG_FILTER} *:F"
+LOG_TAG_FILTER="${LOG_TAG_FILTER} QCSL:V tflite:E *:F"
 
 export ANDROID_LOG_TAGS="${LOG_TAG_FILTER}"
 

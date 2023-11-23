@@ -39,7 +39,7 @@ import (
 // modified as necessary by the Mutator.
 //
 // The Module implementation can access the build configuration as well as any
-// modules on which on which it depends (as defined by the "deps" property
+// modules on which it depends (as defined by the "deps" property
 // specified in the Blueprints file, dynamically added by implementing the
 // (deprecated) DynamicDependerModule interface, or dynamically added by a
 // BottomUpMutator) using the ModuleContext passed to GenerateBuildActions.
@@ -132,14 +132,14 @@ type EarlyModuleContext interface {
 	// the module was created, but may have been modified by calls to BaseMutatorContext.Rename.
 	ModuleName() string
 
-	// ModuleDir returns the path to the directory that contains the defintion of the module.
+	// ModuleDir returns the path to the directory that contains the definition of the module.
 	ModuleDir() string
 
 	// ModuleType returns the name of the module type that was used to create the module, as specified in
-	// RegisterModuleType.
+	// Context.RegisterModuleType().
 	ModuleType() string
 
-	// BlueprintFile returns the name of the blueprint file that contains the definition of this
+	// BlueprintsFile returns the name of the blueprint file that contains the definition of this
 	// module.
 	BlueprintsFile() string
 
@@ -227,7 +227,7 @@ type BaseModuleContext interface {
 	// invalidated by future mutators.
 	VisitDepsDepthFirst(visit func(Module))
 
-	// VisitDepsDepthFirst calls pred for each transitive dependency, and if pred returns true calls visit, traversing
+	// VisitDepsDepthFirstIf calls pred for each transitive dependency, and if pred returns true calls visit, traversing
 	// the dependency tree in depth first order.  visit will only be called once for any given module, even if there are
 	// multiple paths through the dependency tree to the module or multiple direct dependencies with different tags.
 	// OtherModuleDependencyTag will return the tag for the first path found to the module.  The return value of pred
@@ -293,6 +293,14 @@ type BaseModuleContext interface {
 	// OtherModuleExists returns true if a module with the specified name exists, as determined by the NameInterface
 	// passed to Context.SetNameInterface, or SimpleNameInterface if it was not called.
 	OtherModuleExists(name string) bool
+
+	// ModuleFromName returns (module, true) if a module exists by the given name and same context namespace,
+	// or (nil, false) if it does not exist. It panics if there is either more than one
+	// module of the given name, or if the given name refers to an alias instead of a module.
+	// There are no guarantees about which variant of the module will be returned.
+	// Prefer retrieving the module using GetDirectDep or a visit function, when possible, as
+	// this will guarantee the appropriate module-variant dependency is returned.
+	ModuleFromName(name string) (Module, bool)
 
 	// OtherModuleDependencyVariantExists returns true if a module with the
 	// specified name and variant exists. The variant must match the given
@@ -530,6 +538,23 @@ func (m *baseModuleContext) OtherModuleDependencyTag(logicModule Module) Depende
 	}
 
 	return nil
+}
+
+func (m *baseModuleContext) ModuleFromName(name string) (Module, bool) {
+	moduleGroup, exists := m.context.nameInterface.ModuleFromName(name, m.module.namespace())
+	if exists {
+		if len(moduleGroup.modules) != 1 {
+			panic(fmt.Errorf("Expected exactly one module named %q, but got %d", name, len(moduleGroup.modules)))
+		}
+		moduleInfo := moduleGroup.modules[0].module()
+		if moduleInfo != nil {
+			return moduleInfo.logicModule, true
+		} else {
+			panic(fmt.Errorf(`Expected actual module named %q, but group did not contain a module.
+    There may instead be an alias by that name.`, name))
+		}
+	}
+	return nil, exists
 }
 
 func (m *baseModuleContext) OtherModuleExists(name string) bool {
@@ -806,32 +831,6 @@ type BaseMutatorContext interface {
 	MutatorName() string
 }
 
-type EarlyMutatorContext interface {
-	BaseMutatorContext
-
-	// CreateVariations splits  a module into mulitple variants, one for each name in the variationNames
-	// parameter.  It returns a list of new modules in the same order as the variationNames
-	// list.
-	//
-	// If any of the dependencies of the module being operated on were already split
-	// by calling CreateVariations with the same name, the dependency will automatically
-	// be updated to point the matching variant.
-	//
-	// If a module is split, and then a module depending on the first module is not split
-	// when the Mutator is later called on it, the dependency of the depending module will
-	// automatically be updated to point to the first variant.
-	CreateVariations(...string) []Module
-
-	// CreateLocationVariations splits a module into mulitple variants, one for each name in the variantNames
-	// parameter.  It returns a list of new modules in the same order as the variantNames
-	// list.
-	//
-	// Local variations do not affect automatic dependency resolution - dependencies added
-	// to the split module via deps or DynamicDependerModule must exactly match a variant
-	// that contains all the non-local variations.
-	CreateLocalVariations(...string) []Module
-}
-
 type TopDownMutatorContext interface {
 	BaseMutatorContext
 
@@ -860,7 +859,7 @@ type BottomUpMutatorContext interface {
 	// module's dependency list.
 	AddReverseDependency(module Module, tag DependencyTag, name string)
 
-	// CreateVariations splits  a module into mulitple variants, one for each name in the variationNames
+	// CreateVariations splits  a module into multiple variants, one for each name in the variationNames
 	// parameter.  It returns a list of new modules in the same order as the variationNames
 	// list.
 	//
@@ -871,16 +870,16 @@ type BottomUpMutatorContext interface {
 	// If a module is split, and then a module depending on the first module is not split
 	// when the Mutator is later called on it, the dependency of the depending module will
 	// automatically be updated to point to the first variant.
-	CreateVariations(...string) []Module
+	CreateVariations(variationNames ...string) []Module
 
-	// CreateLocationVariations splits a module into mulitple variants, one for each name in the variantNames
+	// CreateLocalVariations splits a module into multiple variants, one for each name in the variationNames
 	// parameter.  It returns a list of new modules in the same order as the variantNames
 	// list.
 	//
 	// Local variations do not affect automatic dependency resolution - dependencies added
 	// to the split module via deps or DynamicDependerModule must exactly match a variant
 	// that contains all the non-local variations.
-	CreateLocalVariations(...string) []Module
+	CreateLocalVariations(variationNames ...string) []Module
 
 	// SetDependencyVariation sets all dangling dependencies on the current module to point to the variation
 	// with given name. This function ignores the default variation set by SetDefaultDependencyVariation.
@@ -917,7 +916,7 @@ type BottomUpMutatorContext interface {
 	AddFarVariationDependencies([]Variation, DependencyTag, ...string) []Module
 
 	// AddInterVariantDependency adds a dependency between two variants of the same module.  Variants are always
-	// ordered in the same orderas they were listed in CreateVariations, and AddInterVariantDependency does not change
+	// ordered in the same order as they were listed in CreateVariations, and AddInterVariantDependency does not change
 	// that ordering, but it associates a DependencyTag with the dependency and makes it visible to VisitDirectDeps,
 	// WalkDeps, etc.
 	AddInterVariantDependency(tag DependencyTag, from, to Module)
@@ -927,7 +926,7 @@ type BottomUpMutatorContext interface {
 	// after the mutator pass is finished.
 	ReplaceDependencies(string)
 
-	// ReplaceDependencies replaces all dependencies on the identical variant of the module with the
+	// ReplaceDependenciesIf replaces all dependencies on the identical variant of the module with the
 	// specified name with the current variant of this module as long as the supplied predicate returns
 	// true.
 	//
@@ -970,7 +969,6 @@ type BottomUpMutatorContext interface {
 // if a second Mutator chooses to split the module a second time.
 type TopDownMutator func(mctx TopDownMutatorContext)
 type BottomUpMutator func(mctx BottomUpMutatorContext)
-type EarlyMutator func(mctx EarlyMutatorContext)
 
 // DependencyTag is an interface to an arbitrary object that embeds BaseDependencyTag.  It can be
 // used to transfer information on a dependency between the mutator that called AddDependency
@@ -1010,13 +1008,8 @@ func (mctx *mutatorContext) SetVariationProvider(module Module, provider Provide
 	panic(fmt.Errorf("module %q is not a newly created variant of %q", module, mctx.module))
 }
 
-type pendingAlias struct {
-	fromVariant variant
-	target      *moduleInfo
-}
-
 func (mctx *mutatorContext) createVariations(variationNames []string, local bool) []Module {
-	ret := []Module{}
+	var ret []Module
 	modules, errs := mctx.context.createVariations(mctx.module, mctx.name, mctx.defaultVariation, variationNames, local)
 	if len(errs) > 0 {
 		mctx.errs = append(mctx.errs, errs...)
@@ -1268,20 +1261,21 @@ type LoadHookContext interface {
 
 	// CreateModule creates a new module by calling the factory method for the specified moduleType, and applies
 	// the specified property structs to it as if the properties were set in a blueprint file.
-	CreateModule(ModuleFactory, ...interface{}) Module
+	CreateModule(ModuleFactory, string, ...interface{}) Module
 
 	// RegisterScopedModuleType creates a new module type that is scoped to the current Blueprints
 	// file.
 	RegisterScopedModuleType(name string, factory ModuleFactory)
 }
 
-func (l *loadHookContext) CreateModule(factory ModuleFactory, props ...interface{}) Module {
+func (l *loadHookContext) CreateModule(factory ModuleFactory, typeName string, props ...interface{}) Module {
 	module := newModule(factory)
 
 	module.relBlueprintsFile = l.module.relBlueprintsFile
 	module.pos = l.module.pos
 	module.propertyPos = l.module.propertyPos
 	module.createdBy = l.module
+	module.typeName = typeName
 
 	for _, p := range props {
 		err := proptools.AppendMatchingProperties(module.properties, p, nil)
@@ -1305,7 +1299,7 @@ func (l *loadHookContext) RegisterScopedModuleType(name string, factory ModuleFa
 	}
 
 	if *l.scopedModuleFactories == nil {
-		(*l.scopedModuleFactories) = make(map[string]ModuleFactory)
+		*l.scopedModuleFactories = make(map[string]ModuleFactory)
 	}
 
 	(*l.scopedModuleFactories)[name] = factory
@@ -1343,16 +1337,16 @@ func runAndRemoveLoadHooks(ctx *Context, config interface{}, module *moduleInfo,
 
 	if v, exists := pendingHooks.Load(module.logicModule); exists {
 		hooks := v.(*[]LoadHook)
-		mctx := &loadHookContext{
-			baseModuleContext: baseModuleContext{
-				context: ctx,
-				config:  config,
-				module:  module,
-			},
-			scopedModuleFactories: scopedModuleFactories,
-		}
 
 		for _, hook := range *hooks {
+			mctx := &loadHookContext{
+				baseModuleContext: baseModuleContext{
+					context: ctx,
+					config:  config,
+					module:  module,
+				},
+				scopedModuleFactories: scopedModuleFactories,
+			}
 			hook(mctx)
 			newModules = append(newModules, mctx.newModules...)
 			deps = append(deps, mctx.ninjaFileDeps...)

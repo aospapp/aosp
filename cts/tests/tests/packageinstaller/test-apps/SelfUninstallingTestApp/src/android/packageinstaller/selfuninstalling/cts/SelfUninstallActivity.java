@@ -28,6 +28,6 @@ public class SelfUninstallActivity extends Activity {
                         Uri.fromParts("package", getPackageName(), null));
                 startActivity(i);
             }
-        }, new IntentFilter(ACTION_SELF_UNINSTALL));
+        }, new IntentFilter(ACTION_SELF_UNINSTALL), Context.RECEIVER_EXPORTED);
     }
 }

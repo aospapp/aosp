@@ -137,6 +137,35 @@ public class BatteryUsageStatsTests extends DeviceTestCase implements IBuildRece
         }
 
         assertThat(hasAppData).isTrue();
+
+        final int testUid = DeviceUtils.getStatsdTestAppUid(getDevice());
+        BatteryUsageStatsAtomsProto.UidBatteryConsumer testConsumer = null;
+        for (BatteryUsageStatsAtomsProto.UidBatteryConsumer consumer : uidBatteryConsumers) {
+            if (consumer.getUid() == testUid) {
+                testConsumer = consumer;
+                break;
+            }
+        }
+
+        // If the test app consumed a measurable amount of power, the break-up
+        // by process state should also be present in the atom.
+        if (testConsumer != null
+                && testConsumer.getBatteryConsumerData().getTotalConsumedPowerDeciCoulombs() > 0) {
+            boolean hasProcStateData = false;
+            for (int i = 0; i < testConsumer.getBatteryConsumerData().getSlicesCount(); i++) {
+                final BatteryConsumerData.PowerComponentUsageSlice slice =
+                        testConsumer.getBatteryConsumerData().getSlices(i);
+                if (slice.getProcessState()
+                        != BatteryConsumerData.PowerComponentUsageSlice.ProcessState.UNSPECIFIED
+                        && (slice.getPowerComponent().getPowerDeciCoulombs() > 0
+                        || slice.getPowerComponent().getDurationMillis() > 0)) {
+                    hasProcStateData = true;
+                    break;
+                }
+            }
+
+            assertThat(hasProcStateData).isTrue();
+        }
     }
 
     private boolean hasBattery() throws DeviceNotAvailableException  {

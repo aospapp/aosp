@@ -88,8 +88,9 @@ public abstract class LocaleObjectCache<K, V> {
         return (oldEntry == null) ? null : oldEntry.get();
     }
 
+    // Android-changed: Make it public / protected to clean stale entries before Zygote forks
     @SuppressWarnings("unchecked")
-    private void cleanStaleEntries() {
+    public void cleanStaleEntries() {
         CacheEntry<K, V> entry;
         while ((entry = (CacheEntry<K, V>)queue.poll()) != null) {
             map.remove(entry.getKey());

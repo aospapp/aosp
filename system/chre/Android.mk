@@ -39,6 +39,9 @@ LOCAL_INIT_RC := chre_daemon.rc
 
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_CFLAGS += -Wall -Werror -Wextra
+LOCAL_CFLAGS += -DCHRE_DAEMON_METRIC_ENABLED
+
+LOCAL_TIDY_CHECKS := -google-runtime-int
 
 # Enable the LPMA feature for devices that support audio
 ifeq ($(CHRE_DAEMON_LPMA_ENABLED),true)
@@ -49,14 +52,11 @@ ifeq ($(CHRE_DAEMON_LOAD_INTO_SENSORSPD),true)
 LOCAL_CFLAGS += -DCHRE_DAEMON_LOAD_INTO_SENSORSPD
 endif
 
-# Disable Tokenized Logging
-CHRE_USE_TOKENIZED_LOGGING := false
-
 LOCAL_SRC_FILES := \
     host/common/daemon_base.cc \
     host/common/fragmented_load_transaction.cc \
     host/common/host_protocol_host.cc \
-    host/common/log_message_parser_base.cc \
+    host/common/log_message_parser.cc \
     host/common/socket_server.cc \
     host/common/st_hal_lpma_handler.cc \
     host/msm/daemon/fastrpc_daemon.cc \
@@ -85,25 +85,29 @@ LOCAL_SHARED_LIBRARIES := \
     libhidlbase \
     libbase \
     android.hardware.soundtrigger@2.0 \
-    libpower
+    libpower \
+    libprotobuf-cpp-lite \
+    pixelatoms-cpp \
+    android.frameworks.stats-V1-ndk \
+    libbinder_ndk
 
-# Enable tokenized logging
-ifeq ($(CHRE_USE_TOKENIZED_LOGGING),true)
-LOCAL_CFLAGS += -DCHRE_USE_TOKENIZED_LOGGING
-PIGWEED_TOKENIZER_DIR = vendor/google_contexthub/chre/external/pigweed
-PIGWEED_TOKENIZER_DIR_RELPATH = ../../$(PIGWEED_TOKENIZER_DIR)
-LOCAL_CFLAGS += -I$(PIGWEED_TOKENIZER_DIR)/pw_polyfill/public
-LOCAL_CFLAGS += -I$(PIGWEED_TOKENIZER_DIR)/pw_polyfill/public_overrides
-LOCAL_CFLAGS += -I$(PIGWEED_TOKENIZER_DIR)/pw_polyfill/standard_library_public
-LOCAL_CFLAGS += -I$(PIGWEED_TOKENIZER_DIR)/pw_preprocessor/public
-LOCAL_CFLAGS += -I$(PIGWEED_TOKENIZER_DIR)/pw_tokenizer/public
-LOCAL_CFLAGS += -I$(PIGWEED_TOKENIZER_DIR)/pw_varint/public
-LOCAL_CFLAGS += -I$(PIGWEED_TOKENIZER_DIR)/pw_span/public
+LOCAL_CPPFLAGS += -std=c++20
+LOCAL_CFLAGS += -Wno-sign-compare
+LOCAL_CFLAGS += -Wno-c++11-narrowing
+LOCAL_CFLAGS += -Wno-deprecated-volatile
+PIGWEED_DIR = external/pigweed
+PIGWEED_DIR_RELPATH = ../../$(PIGWEED_DIR)
+LOCAL_CFLAGS += -I$(PIGWEED_DIR)/pw_polyfill/public
+LOCAL_CFLAGS += -I$(PIGWEED_DIR)/pw_polyfill/public_overrides
+LOCAL_CFLAGS += -I$(PIGWEED_DIR)/pw_polyfill/standard_library_public
+LOCAL_CFLAGS += -I$(PIGWEED_DIR)/pw_preprocessor/public
+LOCAL_CFLAGS += -I$(PIGWEED_DIR)/pw_tokenizer/public
+LOCAL_CFLAGS += -I$(PIGWEED_DIR)/pw_varint/public
+LOCAL_CFLAGS += -I$(PIGWEED_DIR)/pw_span/public
 
-LOCAL_SRC_FILES += $(PIGWEED_TOKENIZER_DIR_RELPATH)/pw_tokenizer/detokenize.cc
-LOCAL_SRC_FILES += $(PIGWEED_TOKENIZER_DIR_RELPATH)/pw_tokenizer/decode.cc
-LOCAL_SRC_FILES += $(PIGWEED_TOKENIZER_DIR_RELPATH)/pw_varint/varint.cc
-endif
+LOCAL_SRC_FILES += $(PIGWEED_DIR_RELPATH)/pw_tokenizer/detokenize.cc
+LOCAL_SRC_FILES += $(PIGWEED_DIR_RELPATH)/pw_tokenizer/decode.cc
+LOCAL_SRC_FILES += $(PIGWEED_DIR_RELPATH)/pw_varint/varint.cc
 
 ifeq ($(CHRE_DAEMON_USE_SDSPRPC),true)
 LOCAL_SHARED_LIBRARIES += libsdsprpc

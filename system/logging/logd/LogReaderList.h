@@ -18,7 +18,7 @@
 
 #include <list>
 #include <memory>
-#include <mutex>
+#include <vector>
 
 #include "LogBuffer.h"
 #include "LogReaderThread.h"
@@ -28,10 +28,18 @@ class LogReaderList {
   public:
     void NotifyNewLog(LogMask log_mask) const REQUIRES(logd_lock);
 
-    std::list<std::unique_ptr<LogReaderThread>>& reader_threads() REQUIRES(logd_lock) {
-        return reader_threads_;
+    void AddAndRunThread(std::unique_ptr<LogReaderThread> thread) REQUIRES(logd_lock);
+    void RemoveRunningThread(LogReaderThread* thread) REQUIRES(logd_lock);
+    void AddPendingThread(std::unique_ptr<LogReaderThread> thread) REQUIRES(logd_lock);
+    bool HandlePendingThread(uid_t uid, gid_t gid, pid_t pid, int32_t fd, bool approve);
+    bool ReleaseThreadByName(const std::string& cli_name) REQUIRES(logd_lock);
+
+    const std::list<std::unique_ptr<LogReaderThread>>& running_reader_threads() const
+            REQUIRES(logd_lock) {
+        return running_reader_threads_;
     }
 
   private:
-    std::list<std::unique_ptr<LogReaderThread>> reader_threads_ GUARDED_BY(logd_lock);
+    std::list<std::unique_ptr<LogReaderThread>> running_reader_threads_ GUARDED_BY(logd_lock);
+    std::vector<std::unique_ptr<LogReaderThread>> pending_reader_threads_ GUARDED_BY(logd_lock);
 };

@@ -123,8 +123,6 @@ Monitors capture test artifacts for each transition run. They are started before
 Captures Layers trace. This monitor is started by default. Build a transition with `skipLayersTrace()` to disable this monitor.
 #### WindowManagerTraceMonitor
 Captures Window Manager trace. This monitor is started by default. Build a transition with `skipWindowManagerTrace()` to disable this monitor.
-#### WindowAnimationFrameStatsMonitor
-Captures WindowAnimationFrameStats for the transition. This monitor is started by default and is used to eliminate *janky* runs. If an iteration has skipped frames, as determined by WindowAnimationFrameStats, the results for the iteration is skipped. If the list of results is empty after all iterations are completed, then the test should fail. Build a transition with `includeJankyRuns()` to disable this monitor.
 #### ScreenRecorder
 Captures screen to a video file. This monitor is disabled by default. Build a transition with `recordEachRun()` to capture each transition or build with `recordAllRuns()` to capture every transition including setup and teardown.
 

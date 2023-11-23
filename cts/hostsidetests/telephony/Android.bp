@@ -31,4 +31,8 @@ java_test_host {
         "tradefed",
         "compatibility-host-util",
     ],
+    data: [
+        ":TelephonyDeviceTest",
+    ],
+    per_testcase_directory: true,
 }

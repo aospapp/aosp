@@ -23,8 +23,9 @@ from acloud.internal.lib import ssh
 from acloud.public.actions import gce_device_factory
 
 class RemoteInstanceDeviceFactory(gce_device_factory.GCEDeviceFactory):
+    """A class that can produce a FVP device."""
     def __init__(self, avd_spec):
-        super(RemoteInstanceDeviceFactory, self).__init__(avd_spec)
+        super().__init__(avd_spec)
 
     def CreateInstance(self):
         """Start a GCE instance, copy the necessary artifacts to it and then

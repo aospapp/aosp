@@ -33,7 +33,11 @@ class EntireScreenCoveredAtStart : BaseAssertion() {
         layerSubject: LayersTraceSubject
     ) {
         val subject = layerSubject.first()
-        subject.entry.displays.forEach { display ->
+        val displays = subject.entry.displays
+        if (displays.isEmpty()) {
+            subject.fail("No displays found")
+        }
+        displays.forEach { display ->
             subject.visibleRegion().coversAtLeast(display.layerStackSpace)
         }
     }

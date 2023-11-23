@@ -26,9 +26,9 @@ from acts_contrib.test_utils.bt import BtEnum
 from acts_contrib.test_utils.bt import bt_test_utils
 from acts_contrib.test_utils.car import car_telecom_utils
 from acts_contrib.test_utils.tel import tel_defines
-from acts_contrib.test_utils.tel.tel_test_utils import hangup_call
-from acts_contrib.test_utils.tel.tel_test_utils import initiate_call
-from acts_contrib.test_utils.tel.tel_test_utils import wait_and_answer_call
+from acts_contrib.test_utils.tel.tel_voice_utils import hangup_call
+from acts_contrib.test_utils.tel.tel_voice_utils import initiate_call
+from acts_contrib.test_utils.tel.tel_voice_utils import wait_and_answer_call
 from acts_contrib.test_utils.tel.tel_test_utils import wait_for_ringing_call
 from acts_contrib.test_utils.tel.tel_voice_utils import get_audio_route
 from acts_contrib.test_utils.tel.tel_voice_utils import set_audio_route

@@ -49,6 +49,8 @@ class ScannerImpl : public android::net::wifi::nl80211::BnWifiScannerImpl {
   ::android::binder::Status getPnoScanResults(
       std::vector<android::net::wifi::nl80211::NativeScanResult>*
           out_scan_results) override;
+  ::android::binder::Status getMaxSsidsPerScan(
+      int32_t* out_max_ssids_per_scan) override;
   ::android::binder::Status scan(
       const android::net::wifi::nl80211::SingleScanSettings&
           scan_settings,

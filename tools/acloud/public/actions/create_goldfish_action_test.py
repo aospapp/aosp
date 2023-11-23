@@ -50,16 +50,18 @@ class CreateGoldfishActionTest(driver_test_lib.BaseDriverTest):
     EXTRA_DATA_DISK_GB = 4
     EXTRA_SCOPES = None
     LAUNCH_ARGS = "fake-args"
+    DEFAULT_ADB_PORT = 5555
 
     def setUp(self):
         """Sets up the test."""
-        super(CreateGoldfishActionTest, self).setUp()
+        super().setUp()
         self.build_client = mock.MagicMock()
         self.Patch(
             android_build_client,
             "AndroidBuildClient",
             return_value=self.build_client)
         self.compute_client = mock.MagicMock()
+        self.compute_client.openwrt = False
         self.Patch(
             goldfish_compute_client,
             "GoldfishComputeClient",
@@ -155,7 +157,7 @@ class CreateGoldfishActionTest(driver_test_lib.BaseDriverTest):
             "devices": [
                 {
                     "instance_name": self.INSTANCE,
-                    "ip": self.IP.external,
+                    "ip": self.IP.external + ":" + str(self.DEFAULT_ADB_PORT),
                     "branch": self.BRANCH,
                     "build_id": self.BUILD_ID,
                     "build_target": self.BUILD_TARGET,
@@ -276,7 +278,7 @@ class CreateGoldfishActionTest(driver_test_lib.BaseDriverTest):
         self.assertEqual(report.data, {
             "devices": [{
                 "instance_name": self.INSTANCE,
-                "ip": self.IP.external,
+                "ip": self.IP.external + ":" + str(self.DEFAULT_ADB_PORT),
                 "branch": self.BRANCH,
                 "build_id": self.BUILD_ID,
                 "build_target": self.BUILD_TARGET,
@@ -389,7 +391,7 @@ class CreateGoldfishActionTest(driver_test_lib.BaseDriverTest):
         self.assertEqual(report.data, {
             "devices": [{
                 "instance_name": self.INSTANCE,
-                "ip": self.IP.external,
+                "ip": self.IP.external + ":" + str(self.DEFAULT_ADB_PORT),
                 "branch": self.BRANCH,
                 "build_id": self.BUILD_ID,
                 "build_target": self.BUILD_TARGET,

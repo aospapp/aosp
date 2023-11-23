@@ -24,6 +24,8 @@ import static android.autofillservice.cts.testcore.Helper.ID_USERNAME;
 import static android.autofillservice.cts.testcore.Helper.NULL_DATASET_ID;
 import static android.autofillservice.cts.testcore.Helper.assertFillEventForDatasetSelected;
 import static android.autofillservice.cts.testcore.Helper.assertFillEventForDatasetShown;
+import static android.service.autofill.FillEventHistory.Event.UI_TYPE_INLINE;
+import static android.service.autofill.FillEventHistory.Event.UI_TYPE_UNKNOWN;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -96,9 +98,10 @@ public class InlineAugmentedLoginActivityTest
         final FillEventHistory history = augmentedService.getFillEventHistory(2);
         assertThat(history).isNotNull();
         final List<Event> events = history.getEvents();
-        assertFillEventForDatasetShown(events.get(0), CLIENT_STATE_KEY, CLIENT_STATE_VALUE);
+        assertFillEventForDatasetShown(events.get(0), CLIENT_STATE_KEY,
+                CLIENT_STATE_VALUE, UI_TYPE_INLINE);
         assertFillEventForDatasetSelected(events.get(1), NULL_DATASET_ID, CLIENT_STATE_KEY,
-                CLIENT_STATE_VALUE);
+                CLIENT_STATE_VALUE, UI_TYPE_UNKNOWN);
     }
 
     @Test

@@ -73,6 +73,7 @@ public class RcsContactUceCapabilityTest {
                 RcsContactUceCapability.REQUEST_RESULT_FOUND);
         presenceBuilder.addCapabilityTuple(mmtelTuple);
         presenceBuilder.addCapabilityTuples(Collections.singletonList(ftTuple));
+        presenceBuilder.setEntityUri(TEST_CONTACT);
 
         final RcsContactUceCapability testCapability = presenceBuilder.build();
 
@@ -87,6 +88,7 @@ public class RcsContactUceCapabilityTest {
         assertEquals(unparceledCapability.getContactUri(), testCapability.getContactUri());
         assertEquals(unparceledCapability.getSourceType(), testCapability.getSourceType());
         assertEquals(unparceledCapability.getRequestResult(), testCapability.getRequestResult());
+        assertEquals(unparceledCapability.getEntityUri(), testCapability.getEntityUri());
         assertEquals(unparceledCapability.getCapabilityMechanism(),
                 testCapability.getCapabilityMechanism());
 
@@ -224,6 +226,7 @@ public class RcsContactUceCapabilityTest {
         assertEquals(expectedCap.getContactUri(), unparceledCapability.getContactUri());
         assertEquals(expectedCap.getSourceType(), unparceledCapability.getSourceType());
         assertEquals(expectedCap.getRequestResult(), unparceledCapability.getRequestResult());
+        assertEquals(expectedCap.getEntityUri(), unparceledCapability.getEntityUri());
         assertEquals(expectedCap.getCapabilityMechanism(),
                 unparceledCapability.getCapabilityMechanism());
 

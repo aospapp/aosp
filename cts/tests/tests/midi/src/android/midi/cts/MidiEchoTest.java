@@ -18,25 +18,24 @@ package android.midi.cts;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.media.midi.MidiManager;
-import android.media.midi.MidiOutputPort;
 import android.media.midi.MidiDevice;
-import android.media.midi.MidiDevice.MidiConnection;
 import android.media.midi.MidiDeviceInfo;
 import android.media.midi.MidiDeviceInfo.PortInfo;
 import android.media.midi.MidiDeviceStatus;
 import android.media.midi.MidiInputPort;
+import android.media.midi.MidiManager;
+import android.media.midi.MidiOutputPort;
 import android.media.midi.MidiReceiver;
-import android.media.midi.MidiSender;
 import android.os.Bundle;
-import android.util.Log;
 import android.test.AndroidTestCase;
+import android.util.Log;
 
 import com.android.midi.CTSMidiEchoTestService;
 import com.android.midi.MidiEchoTestService;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Random;
 
 /**
@@ -307,6 +306,8 @@ public class MidiEchoTest extends AndroidTestCase {
 
         assertEquals("MIDI device type", MidiDeviceInfo.TYPE_VIRTUAL,
                 echoInfo.getType());
+        assertEquals("MIDI default protocol", MidiDeviceInfo.PROTOCOL_UNKNOWN,
+                echoInfo.getDefaultProtocol());
     }
 
     // Is the MidiManager supported?
@@ -324,6 +325,14 @@ public class MidiEchoTest extends AndroidTestCase {
         MidiDeviceInfo[] infos = midiManager.getDevices();
         assertTrue("device list was null", infos != null);
         assertTrue("device list was empty", infos.length >= 1);
+
+        Collection<MidiDeviceInfo> legacyDeviceInfos = midiManager.getDevicesForTransport(
+                MidiManager.TRANSPORT_MIDI_BYTE_STREAM);
+        assertTrue("Legacy Device list was null.", legacyDeviceInfos != null);
+        assertTrue("Legacy Device list was empty", legacyDeviceInfos.size() >= 1);
+        Collection<MidiDeviceInfo> universalDeviceInfos = midiManager.getDevicesForTransport(
+                MidiManager.TRANSPORT_UNIVERSAL_MIDI_PACKETS);
+        assertTrue("Universal Device list was null.", universalDeviceInfos != null);
     }
 
     public void testDeviceInfo() throws Exception {
@@ -554,7 +563,7 @@ public class MidiEchoTest extends AndroidTestCase {
 
     // Store history of status changes.
     private class MyDeviceCallback extends MidiManager.DeviceCallback {
-        private MidiDeviceStatus mStatus;
+        private volatile MidiDeviceStatus mStatus;
         private MidiDeviceInfo mInfo;
 
         public MyDeviceCallback(MidiDeviceInfo info) {
@@ -613,7 +622,19 @@ public class MidiEchoTest extends AndroidTestCase {
             midiManager.registerDeviceCallback(deviceCallback, null);
 
             MidiDeviceStatus status = deviceCallback.waitForStatus(TIMEOUT_STATUS_MSEC);
-            assertEquals("we should not have any status yet", null, status);
+            // The DeviceStatus callback is supposed to be "sticky".
+            // That means we expect to get the status of every device that is
+            // already available when we register for the callback.
+            // If it was not "sticky" then we would only get a callback when there
+            // was a change in the available devices.
+            // TODO Often this is null. But sometimes not. Why?
+            if (status == null) {
+                Log.d(TAG, "testDeviceCallback() first status was null!");
+            } else {
+                // InputPort should be closed because we have not opened it yet.
+                assertEquals("input port should be closed before we open it.",
+                             false, status.isInputPortOpen(0));
+            }
 
             // Open input port.
             MidiInputPort echoInputPort = echoDevice.openInputPort(0);
@@ -621,13 +642,13 @@ public class MidiEchoTest extends AndroidTestCase {
 
             status = deviceCallback.waitForStatus(TIMEOUT_STATUS_MSEC);
             assertTrue("should have status by now", null != status);
-            assertEquals("input port open?", true, status.isInputPortOpen(0));
+            assertEquals("input port should be open", true, status.isInputPortOpen(0));
 
             deviceCallback.clear();
             echoInputPort.close();
             status = deviceCallback.waitForStatus(TIMEOUT_STATUS_MSEC);
             assertTrue("should have status by now", null != status);
-            assertEquals("input port closed?", false, status.isInputPortOpen(0));
+            assertEquals("input port should be closed", false, status.isInputPortOpen(0));
 
             // Make sure we do NOT get called after unregistering.
             midiManager.unregisterDeviceCallback(deviceCallback);

@@ -21,7 +21,7 @@ BaseDeviceFactory provides basic interface to create a device factory.
 """
 
 
-class BaseDeviceFactory(object):
+class BaseDeviceFactory():
     """A class that provides basic interface to create a device factory."""
 
     LATEST = "latest"
@@ -57,3 +57,12 @@ class BaseDeviceFactory(object):
           A build info dictionary.
         """
         return None
+
+    # pylint: disable=no-self-use
+    def GetLogs(self):
+        """Get log files of created instances.
+
+        Returns:
+            A dictionary that maps instance names to lists of report.LogFile.
+        """
+        return {}

@@ -27,7 +27,7 @@ use anyhow::{Context, Result};
 use async_task::AsyncTask;
 use std::sync::{
     atomic::{AtomicU8, Ordering},
-    Arc,
+    Arc, RwLock,
 };
 
 pub struct Gc {
@@ -47,7 +47,7 @@ impl Gc {
         F: FnOnce() -> (
                 Box<dyn Fn(&Uuid, &[u8]) -> Result<()> + Send + 'static>,
                 KeystoreDB,
-                Arc<SuperKeyManager>,
+                Arc<RwLock<SuperKeyManager>>,
             ) + Send
             + 'static,
     {
@@ -87,7 +87,7 @@ struct GcInternal {
     invalidate_key: Box<dyn Fn(&Uuid, &[u8]) -> Result<()> + Send + 'static>,
     db: KeystoreDB,
     async_task: std::sync::Weak<AsyncTask>,
-    super_key: Arc<SuperKeyManager>,
+    super_key: Arc<RwLock<SuperKeyManager>>,
     notified: Arc<AtomicU8>,
 }
 
@@ -121,9 +121,11 @@ impl GcInternal {
             if let Some(uuid) = blob_metadata.km_uuid() {
                 let blob = self
                     .super_key
+                    .read()
+                    .unwrap()
                     .unwrap_key_if_required(&blob_metadata, &blob)
                     .context("In process_one_key: Trying to unwrap to-be-deleted blob.")?;
-                (self.invalidate_key)(&uuid, &*blob)
+                (self.invalidate_key)(uuid, &*blob)
                     .context("In process_one_key: Trying to invalidate key.")?;
             }
         }

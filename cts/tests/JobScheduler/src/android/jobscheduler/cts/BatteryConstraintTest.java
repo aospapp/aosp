@@ -22,7 +22,6 @@ import android.app.job.JobInfo;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.BatteryManager;
-import android.os.SystemClock;
 import android.provider.Settings;
 import android.util.Log;
 
@@ -90,34 +89,6 @@ public class BatteryConstraintTest extends BaseJobSchedulerTest {
             Log.i(TAG, "Device doesn't have a battery.");
         }
         return present;
-    }
-
-    void setBatteryState(boolean plugged, int level) throws Exception {
-        if (plugged) {
-            SystemUtil.runShellCommand(getInstrumentation(), "cmd battery set ac 1");
-        } else {
-            SystemUtil.runShellCommand(getInstrumentation(), "cmd battery unplug");
-        }
-        int seq = Integer.parseInt(SystemUtil.runShellCommand(getInstrumentation(),
-                "cmd battery set -f level " + level).trim());
-        long startTime = SystemClock.elapsedRealtime();
-
-        // Wait for the battery update to be processed by job scheduler before proceeding.
-        int curSeq;
-        boolean curCharging;
-        do {
-            Thread.sleep(50);
-            curSeq = Integer.parseInt(SystemUtil.runShellCommand(getInstrumentation(),
-                    "cmd jobscheduler get-battery-seq").trim());
-            curCharging = Boolean.parseBoolean(SystemUtil.runShellCommand(getInstrumentation(),
-                    "cmd jobscheduler get-battery-charging").trim());
-            if (curSeq >= seq && curCharging == plugged) {
-                return;
-            }
-        } while ((SystemClock.elapsedRealtime() - startTime) < 5000);
-
-        fail("Timed out waiting for job scheduler: expected seq=" + seq + ", cur=" + curSeq
-                + ", expected plugged=" + plugged + " curCharging=" + curCharging);
     }
 
     void verifyChargingState(boolean charging) throws Exception {

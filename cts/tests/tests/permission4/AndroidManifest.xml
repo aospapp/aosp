@@ -22,12 +22,10 @@
 
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application>
-
         <uses-library android:name="android.test.runner" />
-
-        <activity android:name=".StartForFutureActivity" />
     </application>
 
     <instrumentation

@@ -35,5 +35,6 @@ class AppWindowReplacesLauncherAsTopWindow : AppComponentBaseTest() {
         wmSubject.isAppWindowOnTop(Components.LAUNCHER)
             .then()
             .isAppWindowOnTop(getComponentName(tag, wmSubject))
+            .forAllEntries()
     }
 }

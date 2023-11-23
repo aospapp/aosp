@@ -24,7 +24,6 @@ package {
 
 cc_defaults {
     name: "libhwbinder_test_defaults",
-    defaults: ["hwbinder_benchmark_pgo",],
 
     cflags: [
         "-Wall",
@@ -40,7 +39,7 @@ cc_defaults {
 
     static_libs: [
         "android.hardware.tests.libhwbinder@1.0",
-        "libhidlbase_pgo",
+        "libhidlbase",
     ],
 
     // Allow dlsym'ing self for statically linked passthrough implementations

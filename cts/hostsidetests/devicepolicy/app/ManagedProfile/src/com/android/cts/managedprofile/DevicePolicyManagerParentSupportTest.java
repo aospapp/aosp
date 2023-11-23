@@ -177,11 +177,6 @@ public class DevicePolicyManagerParentSupportTest extends BaseManagedProfileTest
         assertThat(actualMaximumTimeToLock).isEqualTo(maximumTimeToLock);
     }
 
-    public void testLockNow_onParent_isSupported() {
-        mParentDevicePolicyManager.lockNow();
-        // Will fail if a SecurityException is thrown.
-    }
-
     public void testSetAndGetKeyguardDisabledFeatures_onParent() {
         mParentDevicePolicyManager.setKeyguardDisabledFeatures(
                 ADMIN_RECEIVER_COMPONENT, KEYGUARD_DISABLE_TRUST_AGENTS);

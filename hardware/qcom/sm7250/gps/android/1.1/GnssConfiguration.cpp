@@ -289,7 +289,7 @@ bool GnssConfiguration::setBlacklistedSource(
         break;
     default:
         copyToSource.constellation = GNSS_SV_TYPE_UNKNOWN;
-        LOC_LOGe("Invalid constellation %d", copyFromSource.constellation);
+        LOC_LOGe("Invalid constellation %hhu", copyFromSource.constellation);
         retVal = false;
         break;
     }

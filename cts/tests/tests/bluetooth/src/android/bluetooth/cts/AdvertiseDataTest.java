@@ -17,10 +17,15 @@
 package android.bluetooth.cts;
 
 import android.bluetooth.le.AdvertiseData;
+import android.bluetooth.le.TransportDiscoveryData;
+import android.bluetooth.le.TransportBlock;
 import android.os.Parcel;
 import android.os.ParcelUuid;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Unit test cases for {@link AdvertiseData}.
@@ -175,6 +180,40 @@ public class AdvertiseDataTest extends AndroidTestCase {
                 AdvertiseData.CREATOR.createFromParcel(parcel);
         assertEquals(data, dataFromParcel);
         TestUtils.assertArrayEquals(serviceData, dataFromParcel.getServiceData().get(uuid));
+    }
+
+    @SmallTest
+    public void testTransportDiscoveryData() {
+        Parcel parcel = Parcel.obtain();
+        ParcelUuid uuid = ParcelUuid.fromString("0000110A-0000-1000-8000-00805F9B34FB");
+        List<TransportBlock> transportBlocks = new ArrayList();
+        transportBlocks.add(new TransportBlock(1, 0, 4, new byte[] {
+                (byte) 0xF0, 0x00, 0x02, 0x15 }));
+        TransportDiscoveryData discoveryData = new TransportDiscoveryData(0, transportBlocks);
+        AdvertiseData data =
+                mAdvertiseDataBuilder.setIncludeDeviceName(true)
+                        .addTransportDiscoveryData(discoveryData).build();
+        data.writeToParcel(parcel, 0);
+        parcel.setDataPosition(0);
+        AdvertiseData dataFromParcel =
+                AdvertiseData.CREATOR.createFromParcel(parcel);
+
+        assertEquals(discoveryData.getTransportDataType(),
+                dataFromParcel.getTransportDiscoveryData().get(0).getTransportDataType());
+
+        assertEquals(discoveryData.getTransportBlocks().get(0).getOrgId(),
+                dataFromParcel.getTransportDiscoveryData().get(0).getTransportBlocks().get(0).getOrgId());
+
+        assertEquals(discoveryData.getTransportBlocks().get(0).getTdsFlags(),
+                dataFromParcel.getTransportDiscoveryData().get(0).getTransportBlocks().get(0).getTdsFlags());
+
+        assertEquals(discoveryData.getTransportBlocks().get(0).totalBytes(),
+                dataFromParcel.getTransportDiscoveryData().get(0).getTransportBlocks().get(0).totalBytes());
+
+        TestUtils.assertArrayEquals(discoveryData.toByteArray(),
+                dataFromParcel.getTransportDiscoveryData().get(0).toByteArray());
+
+        assertEquals(data, dataFromParcel);
     }
 
     @SmallTest

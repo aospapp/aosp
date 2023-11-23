@@ -21,11 +21,14 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources;
 import android.os.Process;
+import android.system.ErrnoException;
+import android.system.Os;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.Scanner;
 
 /**
@@ -109,9 +112,20 @@ public class ProcessUserData extends BroadcastReceiver {
                 throw new UserDataException("User handle expected to be: " + userHandle
                         + ", but was actually " + readUserHandle);
             }
+
+            int xattrVersion = Integer.valueOf(
+                    new String(Os.getxattr(versionFile.getAbsolutePath(), "user.test")));
+
+            if (xattrVersion > appVersion) {
+                throw new UserDataException("xattr data is from version " + xattrVersion
+                        + ", which is not compatible with this version " + appVersion
+                        + " of the RollbackTestApp");
+            }
         } catch (FileNotFoundException e) {
             // No problem. This is a fresh install of the app or the user data
             // has been wiped.
+        } catch (ErrnoException e) {
+            throw new UserDataException("Error while retrieving xattr.", e);
         }
 
         // Record the current version of the app in the user data.
@@ -120,8 +134,12 @@ public class ProcessUserData extends BroadcastReceiver {
             pw.println(appVersion);
             pw.println(userHandle);
             pw.close();
+            Os.setxattr(versionFile.getAbsolutePath(), "user.test",
+                    Integer.toString(appVersion).getBytes(StandardCharsets.UTF_8), 0);
         } catch (IOException e) {
             throw new UserDataException("Unable to write user data.", e);
+        } catch (ErrnoException e) {
+            throw new UserDataException("Unable to set xattr.", e);
         }
     }
 

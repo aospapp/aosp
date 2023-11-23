@@ -19,7 +19,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="com.android.bedstead.testapp.LockTaskApp">
     <application
-        android:appComponentFactory="com.android.bedstead.testapp.TestAppAppComponentFactory"
         android:testOnly="true">
 
         <activity android:name="android.testapp.ifwhitelistedactivity" android:lockTaskMode="if_whitelisted" android:exported="true" />

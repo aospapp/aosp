@@ -25,7 +25,7 @@ class SdkFileWriterTest : DriverTest() {
     fun `Test generating broadcast actions`() {
         check(
             expectedIssues = """
-                src/android/telephony/SubscriptionManager.java:7: lint: Field 'ACTION_DEFAULT_SUBSCRIPTION_CHANGED' is missing @BroadcastBehavior [BroadcastBehavior]
+                src/android/telephony/SubscriptionManager.java:11: lint: Field 'ACTION_DEFAULT_SUBSCRIPTION_CHANGED' is missing @BroadcastBehavior [BroadcastBehavior]
                 """,
             sourceFiles = arrayOf(
                 java(

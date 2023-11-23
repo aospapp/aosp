@@ -72,6 +72,7 @@ cc_defaults {
         + ",-cert-oop54-cpp" // in powerstats_util.pb.h
         + ",-bugprone-unhandled-self-assignment" // in powerstats_util.pb.h
         + ",-google-global-names-in-headers" // in PowerStatsCollector.h
+        + ",-google-readability-casting" // in pwrstatsutil.pb.h
     ],
     shared_libs: [
         "libbase",

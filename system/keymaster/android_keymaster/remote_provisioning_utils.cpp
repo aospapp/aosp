@@ -126,7 +126,7 @@ validateAndExtractEekPubAndId(bool testMode, const KeymasterBlob& endpointEncryp
 
 StatusOr<std::vector<uint8_t> /* pubkeys */>
 validateAndExtractPubkeys(bool testMode, uint32_t numKeys, KeymasterBlob* keysToSign,
-                          cppcose::HmacSha256Function macFunction) {
+                          const cppcose::HmacSha256Function& macFunction) {
     auto pubKeysToMac = cppbor::Array();
     for (size_t i = 0; i < numKeys; i++) {
         auto [macedKeyItem, _, coseMacErrMsg] =

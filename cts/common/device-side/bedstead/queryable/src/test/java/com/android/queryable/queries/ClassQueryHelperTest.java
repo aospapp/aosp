@@ -16,14 +16,14 @@
 
 package com.android.queryable.queries;
 
+import static com.android.bedstead.nene.utils.ParcelTest.assertParcelsCorrectly;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import android.app.Activity;
 
-import com.android.eventlib.events.CustomEvent;
 import com.android.queryable.Queryable;
 import com.android.queryable.info.ClassInfo;
-import com.android.queryable.queries.ClassQueryHelper;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -105,5 +105,15 @@ public class ClassQueryHelperTest {
         classQueryHelper.simpleName().isEqualTo(CLASS_1_SIMPLE_NAME);
 
         assertThat(classQueryHelper.matches(CLASS_2_CLASS_INFO)).isFalse();
+    }
+
+    @Test
+    public void parcel_parcelsCorrectly() {
+        ClassQueryHelper<Queryable> classQueryHelper = new ClassQueryHelper<>(mQuery);
+
+        classQueryHelper.className().isEqualTo(CLASS_1_CLASS_NAME);
+        classQueryHelper.simpleName().isEqualTo(CLASS_1_SIMPLE_NAME);
+
+        assertParcelsCorrectly(ClassQueryHelper.class, classQueryHelper);
     }
 }

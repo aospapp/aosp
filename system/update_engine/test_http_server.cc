@@ -253,14 +253,14 @@ size_t WritePayload(int fd,
   if (start_modulo) {
     string partial = line.substr(start_modulo, remaining_len);
     ssize_t ret = WriteString(fd, partial);
-    if ((success = (ret >= 0 && (size_t)ret == partial.length())))
+    if ((success = (ret >= 0 && static_cast<size_t>(ret) == partial.length())))
       remaining_len -= partial.length();
   }
 
   // Output full lines up to the maximal line boundary below the end offset.
   while (success && remaining_len >= line_len) {
     ssize_t ret = WriteString(fd, line);
-    if ((success = (ret >= 0 && (size_t)ret == line_len)))
+    if ((success = (ret >= 0 && static_cast<size_t>(ret) == line_len)))
       remaining_len -= line_len;
   }
 
@@ -268,7 +268,7 @@ size_t WritePayload(int fd,
   if (success && remaining_len) {
     string partial = line.substr(0, remaining_len);
     ssize_t ret = WriteString(fd, partial);
-    if ((success = (ret >= 0 && (size_t)ret == partial.length())))
+    if ((success = (ret >= 0 && static_cast<size_t>(ret) == partial.length())))
       remaining_len -= partial.length();
   }
 

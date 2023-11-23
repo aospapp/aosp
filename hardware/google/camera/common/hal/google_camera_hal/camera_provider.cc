@@ -26,11 +26,9 @@
 #include "vendor_tag_defs.h"
 #include "vendor_tag_utils.h"
 
+#if GCH_HWL_USE_DLOPEN
 // HWL layer implementation path
-#if defined(_LP64)
-std::string kCameraHwlLib = "/vendor/lib64/libgooglecamerahwl_impl.so";
-#else  // defined(_LP64)
-std::string kCameraHwlLib = "/vendor/lib/libgooglecamerahwl_impl.so";
+constexpr std::string_view kCameraHwlLib = "libgooglecamerahwl_impl.so";
 #endif
 
 namespace android {
@@ -301,11 +299,11 @@ status_t CameraProvider::CreateHwl(
 #if GCH_HWL_USE_DLOPEN
   CreateCameraProviderHwl_t create_hwl;
 
-  ALOGI("%s:Loading %s library", __FUNCTION__, kCameraHwlLib.c_str());
-  hwl_lib_handle_ = dlopen(kCameraHwlLib.c_str(), RTLD_NOW);
+  ALOGI("%s:Loading %s library", __FUNCTION__, kCameraHwlLib.data());
+  hwl_lib_handle_ = dlopen(kCameraHwlLib.data(), RTLD_NOW);
 
   if (hwl_lib_handle_ == nullptr) {
-    ALOGE("HWL loading %s failed due to error: %s", kCameraHwlLib.c_str(),
+    ALOGE("HWL loading %s failed due to error: %s", kCameraHwlLib.data(),
           dlerror());
     return NO_INIT;
   }
@@ -313,22 +311,22 @@ status_t CameraProvider::CreateHwl(
   create_hwl = (CreateCameraProviderHwl_t)dlsym(hwl_lib_handle_,
                                                 "CreateCameraProviderHwl");
   if (create_hwl == nullptr) {
-    ALOGE("%s: dlsym failed (%s).", __FUNCTION__, kCameraHwlLib.c_str());
+    ALOGE("%s: dlsym failed (%s).", __FUNCTION__, kCameraHwlLib.data());
     dlclose(hwl_lib_handle_);
     hwl_lib_handle_ = nullptr;
     return NO_INIT;
   }
 
   // Create the HWL camera provider
-  *camera_provider_hwl = std::unique_ptr<CameraProviderHwl>(create_hwl());
+  camera_provider_hwl->reset(create_hwl());
+#else
+  camera_provider_hwl->reset(CreateCameraProviderHwl());
+#endif
+
   if (*camera_provider_hwl == nullptr) {
     ALOGE("Error! Creating CameraProviderHwl failed");
     return UNKNOWN_ERROR;
   }
-#else
-  *camera_provider_hwl =
-      std::unique_ptr<CameraProviderHwl>(CreateCameraProviderHwl());
-#endif
 
   return OK;
 }

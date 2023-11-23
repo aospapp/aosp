@@ -110,6 +110,11 @@ cc_binary_host {
     srcs: [
         "lpmake.cc",
     ],
+    target: {
+        windows: {
+            enabled: true,
+        },
+    },
 }
 
 cc_binary_host {

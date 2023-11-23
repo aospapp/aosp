@@ -106,7 +106,7 @@ void SerializedLogBuffer::Init() {
 
     // Release any sleeping reader threads to dump their current content.
     auto lock = std::lock_guard{logd_lock};
-    for (const auto& reader_thread : reader_list_->reader_threads()) {
+    for (const auto& reader_thread : reader_list_->running_reader_threads()) {
         reader_thread->TriggerReader();
     }
 }
@@ -186,7 +186,7 @@ void SerializedLogBuffer::Prune(log_id_t log_id, size_t bytes_to_free) {
     auto& log_buffer = logs_[log_id];
     auto it = log_buffer.begin();
     while (it != log_buffer.end()) {
-        for (const auto& reader_thread : reader_list_->reader_threads()) {
+        for (const auto& reader_thread : reader_list_->running_reader_threads()) {
             if (!reader_thread->IsWatching(log_id)) {
                 continue;
             }
@@ -231,7 +231,7 @@ void SerializedLogBuffer::Prune(log_id_t log_id, size_t bytes_to_free) {
 
 void SerializedLogBuffer::UidClear(log_id_t log_id, uid_t uid) {
     // Wake all readers; see comment in Prune().
-    for (const auto& reader_thread : reader_list_->reader_threads()) {
+    for (const auto& reader_thread : reader_list_->running_reader_threads()) {
         if (!reader_thread->IsWatching(log_id)) {
             continue;
         }

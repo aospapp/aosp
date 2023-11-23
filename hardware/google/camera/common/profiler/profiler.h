@@ -20,6 +20,7 @@
 #include <cutils/properties.h>
 
 #include <limits>
+#include <list>
 #include <memory>
 #include <string>
 
@@ -207,8 +208,9 @@ class Profiler {
   // The interval unit is second and interval_seconds must >= 1
   virtual void SetFpsPrintInterval(int32_t interval_seconds) = 0;
 
-  virtual int64_t GetLatencyInNanoseconds(const std::string& name,
-                                          int request_id) = 0;
+  virtual std::list<std::pair<std::string, float>> GetLatencyData() = 0;
+
+  virtual std::string GetUseCase() const = 0;
 
  protected:
   Profiler() = default;

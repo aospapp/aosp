@@ -17,6 +17,7 @@
 #include "update_engine/payload_generator/delta_diff_utils.h"
 
 #include <endian.h>
+#include <sys/user.h>
 #if defined(__clang__)
 // TODO(*): Remove these pragmas when b/35721782 is fixed.
 #pragma clang diagnostic push
@@ -30,22 +31,30 @@
 
 #include <algorithm>
 #include <functional>
+#include <limits>
 #include <list>
 #include <map>
 #include <memory>
 #include <numeric>
 #include <utility>
+#include <vector>
 
 #include <base/files/file_util.h>
 #include <base/format_macros.h>
 #include <base/strings/string_util.h>
 #include <base/strings/stringprintf.h>
 #include <base/threading/simple_thread.h>
-#include <base/time/time.h>
 #include <brillo/data_encoding.h>
 #include <bsdiff/bsdiff.h>
+#include <bsdiff/constants.h>
+#include <bsdiff/control_entry.h>
+#include <bsdiff/patch_reader.h>
 #include <bsdiff/patch_writer_factory.h>
+#include <puffin/brotli_util.h>
 #include <puffin/utils.h>
+#include <zucchini/buffer_view.h>
+#include <zucchini/patch_writer.h>
+#include <zucchini/zucchini.h>
 
 #include "update_engine/common/hash_calculator.h"
 #include "update_engine/common/subprocess.h"
@@ -58,8 +67,10 @@
 #include "update_engine/payload_generator/delta_diff_generator.h"
 #include "update_engine/payload_generator/extent_ranges.h"
 #include "update_engine/payload_generator/extent_utils.h"
+#include "update_engine/payload_generator/merge_sequence_generator.h"
 #include "update_engine/payload_generator/squashfs_filesystem.h"
 #include "update_engine/payload_generator/xz.h"
+#include "update_engine/lz4diff/lz4diff.h"
 
 using std::list;
 using std::map;
@@ -80,6 +91,10 @@ const uint64_t kMaxBsdiffDestinationSize = 200 * 1024 * 1024;  // bytes
 // should work for arbitrary big files, but the payload application is quite
 // memory intensive, so we limit these operations to 150 MiB.
 const uint64_t kMaxPuffdiffDestinationSize = 150 * 1024 * 1024;  // bytes
+
+// The maximum destination size allowed for zucchini. We are conservative here
+// as zucchini tends to use more peak memory.
+const uint64_t kMaxZucchiniDestinationSize = 150 * 1024 * 1024;  // bytes
 
 const int kBrotliCompressionQuality = 11;
 
@@ -131,9 +146,252 @@ int LevenshteinDistance(const string& a, const string& b) {
   }
   return distances.back();
 }
+
+static bool ShouldCreateNewOp(const std::vector<CowMergeOperation>& ops,
+                              size_t src_block,
+                              size_t dst_block,
+                              size_t src_offset) {
+  if (ops.empty()) {
+    return true;
+  }
+  const auto& op = ops.back();
+  if (op.src_offset() != src_offset) {
+    return true;
+  }
+  const auto& src_extent = op.src_extent();
+  const auto& dst_extent = op.dst_extent();
+  return src_extent.start_block() + src_extent.num_blocks() != src_block ||
+         dst_extent.start_block() + dst_extent.num_blocks() != dst_block;
+}
+
+void AppendXorBlock(std::vector<CowMergeOperation>* ops,
+                    size_t src_block,
+                    size_t dst_block,
+                    size_t src_offset) {
+  if (!ops->empty() && ExtentContains(ops->back().dst_extent(), dst_block)) {
+    return;
+  }
+  CHECK_NE(src_block, std::numeric_limits<uint64_t>::max());
+  CHECK_NE(dst_block, std::numeric_limits<uint64_t>::max());
+  if (ShouldCreateNewOp(*ops, src_block, dst_block, src_offset)) {
+    auto& op = ops->emplace_back();
+    op.mutable_src_extent()->set_start_block(src_block);
+    op.mutable_src_extent()->set_num_blocks(1);
+    op.mutable_dst_extent()->set_start_block(dst_block);
+    op.mutable_dst_extent()->set_num_blocks(1);
+    op.set_src_offset(src_offset);
+    op.set_type(CowMergeOperation::COW_XOR);
+  } else {
+    auto& op = ops->back();
+    auto& src_extent = *op.mutable_src_extent();
+    auto& dst_extent = *op.mutable_dst_extent();
+    src_extent.set_num_blocks(src_extent.num_blocks() + 1);
+    dst_extent.set_num_blocks(dst_extent.num_blocks() + 1);
+  }
+}
+
 }  // namespace
 
 namespace diff_utils {
+bool BestDiffGenerator::GenerateBestDiffOperation(AnnotatedOperation* aop,
+                                                  brillo::Blob* data_blob) {
+  std::vector<std::pair<InstallOperation_Type, size_t>> diff_candidates = {
+      {InstallOperation::SOURCE_BSDIFF, kMaxBsdiffDestinationSize},
+      {InstallOperation::PUFFDIFF, kMaxPuffdiffDestinationSize},
+      {InstallOperation::ZUCCHINI, kMaxZucchiniDestinationSize},
+  };
+
+  return GenerateBestDiffOperation(diff_candidates, aop, data_blob);
+}
+
+std::vector<bsdiff::CompressorType>
+BestDiffGenerator::GetUsableCompressorTypes() const {
+  return config_.compressors;
+}
+
+bool BestDiffGenerator::GenerateBestDiffOperation(
+    const std::vector<std::pair<InstallOperation_Type, size_t>>&
+        diff_candidates,
+    AnnotatedOperation* aop,
+    brillo::Blob* data_blob) {
+  CHECK(aop);
+  CHECK(data_blob);
+  if (!old_block_info_.blocks.empty() && !new_block_info_.blocks.empty() &&
+      config_.OperationEnabled(InstallOperation::LZ4DIFF_BSDIFF) &&
+      config_.OperationEnabled(InstallOperation::LZ4DIFF_PUFFDIFF)) {
+    brillo::Blob patch;
+    InstallOperation::Type op_type;
+    if (Lz4Diff(old_data_,
+                new_data_,
+                old_block_info_,
+                new_block_info_,
+                &patch,
+                &op_type)) {
+      aop->op.set_type(op_type);
+      // LZ4DIFF is likely significantly better than BSDIFF/PUFFDIFF when
+      // working with EROFS. So no need to even try other diffing algorithms.
+      *data_blob = std::move(patch);
+      return true;
+    }
+  }
+
+  const uint64_t input_bytes = std::max(utils::BlocksInExtents(src_extents_),
+                                        utils::BlocksInExtents(dst_extents_)) *
+                               kBlockSize;
+
+  for (auto [op_type, limit] : diff_candidates) {
+    if (!config_.OperationEnabled(op_type)) {
+      continue;
+    }
+
+    // Disable the specific diff algorithm when the data is too big.
+    if (input_bytes > limit) {
+      LOG(INFO) << op_type << " ignored, file " << aop->name
+                << " too big: " << input_bytes << " bytes";
+      continue;
+    }
+
+    // Prefer BROTLI_BSDIFF as it gives smaller patch size.
+    if (op_type == InstallOperation::SOURCE_BSDIFF &&
+        config_.OperationEnabled(InstallOperation::BROTLI_BSDIFF)) {
+      op_type = InstallOperation::BROTLI_BSDIFF;
+    }
+
+    switch (op_type) {
+      case InstallOperation::SOURCE_BSDIFF:
+      case InstallOperation::BROTLI_BSDIFF:
+        TEST_AND_RETURN_FALSE(
+            TryBsdiffAndUpdateOperation(op_type, aop, data_blob));
+        break;
+      case InstallOperation::PUFFDIFF:
+        TEST_AND_RETURN_FALSE(TryPuffdiffAndUpdateOperation(aop, data_blob));
+        break;
+      case InstallOperation::ZUCCHINI:
+        TEST_AND_RETURN_FALSE(TryZucchiniAndUpdateOperation(aop, data_blob));
+        break;
+      default:
+        NOTREACHED();
+    }
+  }
+
+  return true;
+}
+
+bool BestDiffGenerator::TryBsdiffAndUpdateOperation(
+    InstallOperation_Type operation_type,
+    AnnotatedOperation* aop,
+    brillo::Blob* data_blob) {
+  base::FilePath patch;
+  TEST_AND_RETURN_FALSE(base::CreateTemporaryFile(&patch));
+  ScopedPathUnlinker unlinker(patch.value());
+
+  std::unique_ptr<bsdiff::PatchWriterInterface> bsdiff_patch_writer;
+  if (operation_type == InstallOperation::BROTLI_BSDIFF) {
+    bsdiff_patch_writer = bsdiff::CreateBSDF2PatchWriter(
+        patch.value(), GetUsableCompressorTypes(), kBrotliCompressionQuality);
+  } else {
+    bsdiff_patch_writer = bsdiff::CreateBsdiffPatchWriter(patch.value());
+  }
+
+  brillo::Blob bsdiff_delta;
+  TEST_AND_RETURN_FALSE(0 == bsdiff::bsdiff(old_data_.data(),
+                                            old_data_.size(),
+                                            new_data_.data(),
+                                            new_data_.size(),
+                                            bsdiff_patch_writer.get(),
+                                            nullptr));
+
+  TEST_AND_RETURN_FALSE(utils::ReadFile(patch.value(), &bsdiff_delta));
+  TEST_AND_RETURN_FALSE(!bsdiff_delta.empty());
+
+  InstallOperation& operation = aop->op;
+  if (IsDiffOperationBetter(operation,
+                            data_blob->size(),
+                            bsdiff_delta.size(),
+                            src_extents_.size())) {
+    // VABC XOR won't work with compressed files just yet.
+    if (config_.enable_vabc_xor) {
+      StoreExtents(src_extents_, operation.mutable_src_extents());
+      diff_utils::PopulateXorOps(aop, bsdiff_delta);
+    }
+    operation.set_type(operation_type);
+    *data_blob = std::move(bsdiff_delta);
+  }
+  return true;
+}
+
+bool BestDiffGenerator::TryPuffdiffAndUpdateOperation(AnnotatedOperation* aop,
+                                                      brillo::Blob* data_blob) {
+  // Only Puffdiff if both files have at least one deflate left.
+  if (!old_deflates_.empty() && !new_deflates_.empty()) {
+    brillo::Blob puffdiff_delta;
+    ScopedTempFile temp_file("puffdiff-delta.XXXXXX");
+    // Perform PuffDiff operation.
+    TEST_AND_RETURN_FALSE(puffin::PuffDiff(old_data_,
+                                           new_data_,
+                                           old_deflates_,
+                                           new_deflates_,
+                                           GetUsableCompressorTypes(),
+                                           temp_file.path(),
+                                           &puffdiff_delta));
+    TEST_AND_RETURN_FALSE(!puffdiff_delta.empty());
+
+    InstallOperation& operation = aop->op;
+    if (IsDiffOperationBetter(operation,
+                              data_blob->size(),
+                              puffdiff_delta.size(),
+                              src_extents_.size())) {
+      operation.set_type(InstallOperation::PUFFDIFF);
+      *data_blob = std::move(puffdiff_delta);
+    }
+  }
+  return true;
+}
+
+bool BestDiffGenerator::TryZucchiniAndUpdateOperation(AnnotatedOperation* aop,
+                                                      brillo::Blob* data_blob) {
+  // zip files are ignored for now. We expect puffin to perform better on those.
+  // Investigate whether puffin over zucchini yields better results on those.
+  if (!deflate_utils::IsFileExtensions(
+          aop->name,
+          {".ko",
+           ".so",
+           ".art",
+           ".odex",
+           ".vdex",
+           "<kernel>",
+           "<modem-partition>",
+           /*, ".capex",".jar", ".apk", ".apex"*/})) {
+    return true;
+  }
+  zucchini::ConstBufferView src_bytes(old_data_.data(), old_data_.size());
+  zucchini::ConstBufferView dst_bytes(new_data_.data(), new_data_.size());
+
+  zucchini::EnsemblePatchWriter patch_writer(src_bytes, dst_bytes);
+  auto status = zucchini::GenerateBuffer(src_bytes, dst_bytes, &patch_writer);
+  TEST_AND_RETURN_FALSE(status == zucchini::status::kStatusSuccess);
+
+  brillo::Blob zucchini_delta(patch_writer.SerializedSize());
+  patch_writer.SerializeInto({zucchini_delta.data(), zucchini_delta.size()});
+
+  // Compress the delta with brotli.
+  // TODO(197361113) support compressing the delta with different algorithms,
+  // similar to the usage in puffin.
+  brillo::Blob compressed_delta;
+  TEST_AND_RETURN_FALSE(puffin::BrotliEncode(
+      zucchini_delta.data(), zucchini_delta.size(), &compressed_delta));
+
+  InstallOperation& operation = aop->op;
+  if (IsDiffOperationBetter(operation,
+                            data_blob->size(),
+                            compressed_delta.size(),
+                            src_extents_.size())) {
+    operation.set_type(InstallOperation::ZUCCHINI);
+    *data_blob = std::move(compressed_delta);
+  }
+
+  return true;
+}
 
 // This class encapsulates a file delta processing thread work. The
 // processor computes the delta between the source and target files;
@@ -142,22 +400,18 @@ class FileDeltaProcessor : public base::DelegateSimpleThread::Delegate {
  public:
   FileDeltaProcessor(const string& old_part,
                      const string& new_part,
-                     const PayloadVersion& version,
-                     const vector<Extent>& old_extents,
-                     const vector<Extent>& new_extents,
-                     const vector<puffin::BitExtent>& old_deflates,
-                     const vector<puffin::BitExtent>& new_deflates,
+                     const PayloadGenerationConfig& config,
+                     const File& old_extents,
+                     const File& new_extents,
                      const string& name,
                      ssize_t chunk_blocks,
                      BlobFileWriter* blob_file)
       : old_part_(old_part),
         new_part_(new_part),
-        version_(version),
+        config_(config),
         old_extents_(old_extents),
         new_extents_(new_extents),
-        new_extents_blocks_(utils::BlocksInExtents(new_extents)),
-        old_deflates_(old_deflates),
-        new_deflates_(new_deflates),
+        new_extents_blocks_(utils::BlocksInExtents(new_extents.extents)),
         name_(name),
         chunk_blocks_(chunk_blocks),
         blob_file_(blob_file) {}
@@ -179,14 +433,12 @@ class FileDeltaProcessor : public base::DelegateSimpleThread::Delegate {
  private:
   const string& old_part_;  // NOLINT(runtime/member_string_references)
   const string& new_part_;  // NOLINT(runtime/member_string_references)
-  const PayloadVersion& version_;
+  const PayloadGenerationConfig& config_;
 
   // The block ranges of the old/new file within the src/tgt image
-  const vector<Extent> old_extents_;
-  const vector<Extent> new_extents_;
+  const File old_extents_;
+  const File new_extents_;
   const size_t new_extents_blocks_;
-  const vector<puffin::BitExtent> old_deflates_;
-  const vector<puffin::BitExtent> new_deflates_;
   const string name_;
   // Block limit of one aop.
   const ssize_t chunk_blocks_;
@@ -209,11 +461,8 @@ void FileDeltaProcessor::Run() {
                      new_part_,
                      old_extents_,
                      new_extents_,
-                     old_deflates_,
-                     new_deflates_,
-                     name_,
                      chunk_blocks_,
-                     version_,
+                     config_,
                      blob_file_)) {
     LOG(ERROR) << "Failed to generate delta for " << name_ << " ("
                << new_extents_blocks_ << " blocks)";
@@ -222,7 +471,7 @@ void FileDeltaProcessor::Run() {
   }
 
   if (!ABGenerator::FragmentOperations(
-          version_, &file_aops_, new_part_, blob_file_)) {
+          config_.version, &file_aops_, new_part_, blob_file_)) {
     LOG(ERROR) << "Failed to fragment operations for " << name_;
     failed_ = true;
     return;
@@ -235,7 +484,6 @@ void FileDeltaProcessor::Run() {
 bool FileDeltaProcessor::MergeOperation(vector<AnnotatedOperation>* aops) {
   if (failed_)
     return false;
-  aops->reserve(aops->size() + file_aops_.size());
   std::move(file_aops_.begin(), file_aops_.end(), std::back_inserter(*aops));
   return true;
 }
@@ -268,13 +516,27 @@ FilesystemInterface::File GetOldFile(
   return *old_file;
 }
 
+std::vector<Extent> RemoveDuplicateBlocks(const std::vector<Extent>& extents) {
+  ExtentRanges extent_set;
+  std::vector<Extent> ret;
+  for (const auto& extent : extents) {
+    auto vec = FilterExtentRanges({extent}, extent_set);
+    ret.insert(ret.end(),
+               std::make_move_iterator(vec.begin()),
+               std::make_move_iterator(vec.end()));
+    extent_set.AddExtent(extent);
+  }
+  return ret;
+}
+
 bool DeltaReadPartition(vector<AnnotatedOperation>* aops,
                         const PartitionConfig& old_part,
                         const PartitionConfig& new_part,
                         ssize_t hard_chunk_blocks,
                         size_t soft_chunk_blocks,
-                        const PayloadVersion& version,
+                        const PayloadGenerationConfig& config,
                         BlobFileWriter* blob_file) {
+  const auto& version = config.version;
   ExtentRanges old_visited_blocks;
   ExtentRanges new_visited_blocks;
 
@@ -290,20 +552,40 @@ bool DeltaReadPartition(vector<AnnotatedOperation>* aops,
     new_visited_blocks.AddExtent(new_part.verity.fec_extent);
   }
 
-  ExtentRanges old_zero_blocks;
-  TEST_AND_RETURN_FALSE(DeltaMovedAndZeroBlocks(aops,
-                                                old_part.path,
-                                                new_part.path,
-                                                old_part.size / kBlockSize,
-                                                new_part.size / kBlockSize,
-                                                soft_chunk_blocks,
-                                                version,
-                                                blob_file,
-                                                &old_visited_blocks,
-                                                &new_visited_blocks,
-                                                &old_zero_blocks));
+  const bool puffdiff_allowed =
+      config.OperationEnabled(InstallOperation::PUFFDIFF);
 
-  bool puffdiff_allowed = version.OperationAllowed(InstallOperation::PUFFDIFF);
+  TEST_AND_RETURN_FALSE(new_part.fs_interface);
+  vector<FilesystemInterface::File> new_files;
+  TEST_AND_RETURN_FALSE(deflate_utils::PreprocessPartitionFiles(
+      new_part, &new_files, puffdiff_allowed));
+
+  ExtentRanges old_zero_blocks;
+  // Prematurely removing moved blocks will render compression info useless.
+  // Even if a single block inside a 100MB file is filtered out, the entire
+  // 100MB file can't be decompressed. In this case we will fallback to BSDIFF,
+  // which performs much worse than LZ4diff. It's better to let LZ4DIFF perform
+  // decompression, and let underlying BSDIFF to take care of moved blocks.
+  // TODO(b/206729162) Implement block filtering with compression block info
+  const auto no_compressed_files =
+      std::all_of(new_files.begin(), new_files.end(), [](const File& a) {
+        return a.compressed_file_info.blocks.empty();
+      });
+  if (!config.OperationEnabled(InstallOperation::LZ4DIFF_BSDIFF) ||
+      no_compressed_files) {
+    TEST_AND_RETURN_FALSE(DeltaMovedAndZeroBlocks(aops,
+                                                  old_part.path,
+                                                  new_part.path,
+                                                  old_part.size / kBlockSize,
+                                                  new_part.size / kBlockSize,
+                                                  soft_chunk_blocks,
+                                                  config,
+                                                  blob_file,
+                                                  &old_visited_blocks,
+                                                  &new_visited_blocks,
+                                                  &old_zero_blocks));
+  }
+
   map<string, FilesystemInterface::File> old_files_map;
   if (old_part.fs_interface) {
     vector<FilesystemInterface::File> old_files;
@@ -312,11 +594,6 @@ bool DeltaReadPartition(vector<AnnotatedOperation>* aops,
     for (const FilesystemInterface::File& file : old_files)
       old_files_map[file.name] = file;
   }
-
-  TEST_AND_RETURN_FALSE(new_part.fs_interface);
-  vector<FilesystemInterface::File> new_files;
-  TEST_AND_RETURN_FALSE(deflate_utils::PreprocessPartitionFiles(
-      new_part, &new_files, puffdiff_allowed));
 
   list<FileDeltaProcessor> file_delta_processors;
 
@@ -339,27 +616,32 @@ bool DeltaReadPartition(vector<AnnotatedOperation>* aops,
     if (new_file_extents.empty())
       continue;
 
-    // We can't visit each dst image inode more than once, as that would
-    // duplicate work. Here, we avoid visiting each source image inode
-    // more than once. Technically, we could have multiple operations
-    // that read the same blocks from the source image for diffing, but
-    // we choose not to avoid complexity. Eventually we will move away
-    // from using a graph/cycle detection/etc to generate diffs, and at that
-    // time, it will be easy (non-complex) to have many operations read
-    // from the same source blocks. At that time, this code can die. -adlr
     FilesystemInterface::File old_file =
         GetOldFile(old_files_map, new_file.name);
-    auto old_file_extents =
-        FilterExtentRanges(old_file.extents, old_zero_blocks);
-    old_visited_blocks.AddExtents(old_file_extents);
+    old_visited_blocks.AddExtents(old_file.extents);
 
+    // TODO(b/177104308) Filtering |new_file_extents| might confuse puffdiff, as
+    // we might filterout extents with deflate streams. PUFFDIFF is written with
+    // that in mind, so it will try to adapt to the filtered extents.
+    // Correctness is intact, but might yield larger patch sizes. From what we
+    // experimented, this has little impact on OTA size. Meanwhile, XOR ops
+    // depend on this. So filter out duplicate blocks from new file.
+    // TODO(b/194237829) |old_file.extents| is used instead of the de-duped
+    // |old_file_extents|. This is because zucchini diffing algorithm works
+    // better when given the full source file.
+    // Current logic:
+    // 1. src extent is completely unfiltered. It may contain
+    // duplicate blocks across files, within files, it may contain zero blocks,
+    // etc.
+    // 2. dst extent is completely filtered, no duplicate blocks or zero blocks
+    // whatsoever.
+    auto filtered_new_file = new_file;
+    filtered_new_file.extents = RemoveDuplicateBlocks(new_file_extents);
     file_delta_processors.emplace_back(old_part.path,
                                        new_part.path,
-                                       version,
-                                       std::move(old_file_extents),
-                                       std::move(new_file_extents),
-                                       old_file.deflates,
-                                       new_file.deflates,
+                                       config,
+                                       std::move(old_file),
+                                       std::move(filtered_new_file),
                                        new_file.name,  // operation name
                                        hard_chunk_blocks,
                                        blob_file);
@@ -382,17 +664,18 @@ bool DeltaReadPartition(vector<AnnotatedOperation>* aops,
     // We use the soft_chunk_blocks limit for the <non-file-data> as we don't
     // really know the structure of this data and we should not expect it to
     // have redundancy between partitions.
-    file_delta_processors.emplace_back(
-        old_part.path,
-        new_part.path,
-        version,
-        std::move(old_unvisited),
-        std::move(new_unvisited),
-        vector<puffin::BitExtent>{},  // old_deflates,
-        vector<puffin::BitExtent>{},  // new_deflates
-        "<non-file-data>",            // operation name
-        soft_chunk_blocks,
-        blob_file);
+    File old_file;
+    old_file.extents = old_unvisited;
+    File new_file;
+    new_file.extents = RemoveDuplicateBlocks(new_unvisited);
+    file_delta_processors.emplace_back(old_part.path,
+                                       new_part.path,
+                                       config,
+                                       old_file,
+                                       new_file,
+                                       "<non-file-data>",  // operation name
+                                       soft_chunk_blocks,
+                                       blob_file);
   }
 
   size_t max_threads = GetMaxThreads();
@@ -424,7 +707,7 @@ bool DeltaMovedAndZeroBlocks(vector<AnnotatedOperation>* aops,
                              size_t old_num_blocks,
                              size_t new_num_blocks,
                              ssize_t chunk_blocks,
-                             const PayloadVersion& version,
+                             const PayloadGenerationConfig& config,
                              BlobFileWriter* blob_file,
                              ExtentRanges* old_visited_blocks,
                              ExtentRanges* new_visited_blocks,
@@ -494,7 +777,7 @@ bool DeltaMovedAndZeroBlocks(vector<AnnotatedOperation>* aops,
   size_t num_ops = aops->size();
   new_visited_blocks->AddExtents(new_zeros);
   for (const Extent& extent : new_zeros) {
-    if (version.OperationAllowed(InstallOperation::ZERO)) {
+    if (config.OperationEnabled(InstallOperation::ZERO)) {
       for (uint64_t offset = 0; offset < extent.num_blocks();
            offset += chunk_blocks) {
         uint64_t num_blocks =
@@ -507,16 +790,17 @@ bool DeltaMovedAndZeroBlocks(vector<AnnotatedOperation>* aops,
         aops->push_back({.name = "<zeros>", .op = operation});
       }
     } else {
+      File old_file;
+      File new_file;
+      new_file.name = "<zeros>";
+      new_file.extents = {extent};
       TEST_AND_RETURN_FALSE(DeltaReadFile(aops,
                                           "",
                                           new_part,
-                                          {},        // old_extents
-                                          {extent},  // new_extents
-                                          {},        // old_deflates
-                                          {},        // new_deflates
-                                          "<zeros>",
+                                          old_file,  // old_extents
+                                          new_file,  // new_extents
                                           chunk_blocks,
-                                          version,
+                                          config,
                                           blob_file));
     }
   }
@@ -566,19 +850,19 @@ bool DeltaMovedAndZeroBlocks(vector<AnnotatedOperation>* aops,
   return true;
 }
 
-bool DeltaReadFile(vector<AnnotatedOperation>* aops,
-                   const string& old_part,
-                   const string& new_part,
-                   const vector<Extent>& old_extents,
-                   const vector<Extent>& new_extents,
-                   const vector<puffin::BitExtent>& old_deflates,
-                   const vector<puffin::BitExtent>& new_deflates,
-                   const string& name,
+bool DeltaReadFile(std::vector<AnnotatedOperation>* aops,
+                   const std::string& old_part,
+                   const std::string& new_part,
+                   const File& old_file,
+                   const File& new_file,
                    ssize_t chunk_blocks,
-                   const PayloadVersion& version,
+                   const PayloadGenerationConfig& config,
                    BlobFileWriter* blob_file) {
+  const auto& old_extents = old_file.extents;
+  const auto& new_extents = new_file.extents;
+  const auto& name = new_file.name;
+
   brillo::Blob data;
-  InstallOperation operation;
 
   uint64_t total_blocks = utils::BlocksInExtents(new_extents);
   if (chunk_blocks == 0) {
@@ -602,30 +886,29 @@ bool DeltaReadFile(vector<AnnotatedOperation>* aops,
     NormalizeExtents(&old_extents_chunk);
     NormalizeExtents(&new_extents_chunk);
 
+    // Now, insert into the list of operations.
+    AnnotatedOperation aop;
+    aop.name = new_file.name;
     TEST_AND_RETURN_FALSE(ReadExtentsToDiff(old_part,
                                             new_part,
                                             old_extents_chunk,
                                             new_extents_chunk,
-                                            old_deflates,
-                                            new_deflates,
-                                            version,
+                                            old_file,
+                                            new_file,
+                                            config,
                                             &data,
-                                            &operation));
+                                            &aop));
 
     // Check if the operation writes nothing.
-    if (operation.dst_extents_size() == 0) {
+    if (aop.op.dst_extents_size() == 0) {
       LOG(ERROR) << "Empty non-MOVE operation";
       return false;
     }
 
-    // Now, insert into the list of operations.
-    AnnotatedOperation aop;
-    aop.name = name;
     if (static_cast<uint64_t>(chunk_blocks) < total_blocks) {
       aop.name = base::StringPrintf(
           "%s:%" PRIu64, name.c_str(), block_offset / chunk_blocks);
     }
-    aop.op = operation;
 
     // Write the data
     TEST_AND_RETURN_FALSE(aop.SetOperationBlob(data, blob_file));
@@ -688,47 +971,96 @@ bool GenerateBestFullOperation(const brillo::Blob& new_data,
   return true;
 }
 
+// Decide which blocks are similar from bsdiff patch.
+// Blocks included in out_op->xor_map will be converted to COW_XOR during OTA
+// installation
+bool PopulateXorOps(AnnotatedOperation* aop, const uint8_t* data, size_t size) {
+  bsdiff::BsdiffPatchReader patch_reader;
+  TEST_AND_RETURN_FALSE(patch_reader.Init(data, size));
+  ControlEntry entry;
+  size_t new_off = 0;
+  int64_t old_off = 0;
+  auto& xor_ops = aop->xor_ops;
+  size_t total_xor_blocks = 0;
+  const auto new_file_size =
+      utils::BlocksInExtents(aop->op.dst_extents()) * kBlockSize;
+  while (new_off < new_file_size) {
+    if (!patch_reader.ParseControlEntry(&entry)) {
+      LOG(ERROR)
+          << "Exhausted bsdiff patch data before reaching end of new file. "
+             "Current position: "
+          << new_off << " new file size: " << new_file_size;
+      return false;
+    }
+    if (old_off >= 0) {
+      auto dst_off_aligned = utils::RoundUp(new_off, kBlockSize);
+      const auto skip = dst_off_aligned - new_off;
+      auto src_off = old_off + skip;
+      const size_t chunk_size =
+          entry.diff_size - std::min(skip, entry.diff_size);
+      const auto xor_blocks = (chunk_size + kBlockSize / 2) / kBlockSize;
+      total_xor_blocks += xor_blocks;
+      // Append chunk_size/kBlockSize number of XOR blocks, subject to rounding
+      // rules: if decimal part of that division is >= 0.5, round up.
+      for (size_t i = 0; i < xor_blocks; i++) {
+        AppendXorBlock(
+            &xor_ops,
+            GetNthBlock(aop->op.src_extents(), src_off / kBlockSize),
+            GetNthBlock(aop->op.dst_extents(), dst_off_aligned / kBlockSize),
+            src_off % kBlockSize);
+        src_off += kBlockSize;
+        dst_off_aligned += kBlockSize;
+      }
+    }
+
+    old_off += entry.diff_size + entry.offset_increment;
+    new_off += entry.diff_size + entry.extra_size;
+  }
+
+  for (auto& op : xor_ops) {
+    CHECK_EQ(op.src_extent().num_blocks(), op.dst_extent().num_blocks());
+    // If |src_offset| is greater than 0, then we are reading 1
+    // extra block at the end of src_extent. This dependency must
+    // be honored during merge sequence generation, or we can end
+    // up with a corrupted device after merge.
+    if (op.src_offset() > 0) {
+      op.mutable_src_extent()->set_num_blocks(op.dst_extent().num_blocks() + 1);
+    }
+  }
+
+  if (xor_ops.size() > 0) {
+    // TODO(177104308) Filter out duplicate blocks in XOR op
+    LOG(INFO) << "Added " << total_xor_blocks << " XOR blocks, "
+              << total_xor_blocks * 100.0f / new_off * kBlockSize
+              << "% of blocks in this InstallOp are XOR";
+  }
+  return true;
+}
+
 bool ReadExtentsToDiff(const string& old_part,
                        const string& new_part,
-                       const vector<Extent>& old_extents,
-                       const vector<Extent>& new_extents,
-                       const vector<puffin::BitExtent>& old_deflates,
-                       const vector<puffin::BitExtent>& new_deflates,
-                       const PayloadVersion& version,
+                       const vector<Extent>& src_extents,
+                       const vector<Extent>& dst_extents,
+                       const File& old_file,
+                       const File& new_file,
+                       const PayloadGenerationConfig& config,
                        brillo::Blob* out_data,
-                       InstallOperation* out_op) {
-  InstallOperation operation;
+                       AnnotatedOperation* out_op) {
+  const auto& version = config.version;
+  AnnotatedOperation& aop = *out_op;
+  InstallOperation& operation = aop.op;
 
   // We read blocks from old_extents and write blocks to new_extents.
-  uint64_t blocks_to_read = utils::BlocksInExtents(old_extents);
-  uint64_t blocks_to_write = utils::BlocksInExtents(new_extents);
+  const uint64_t blocks_to_read = utils::BlocksInExtents(src_extents);
+  const uint64_t blocks_to_write = utils::BlocksInExtents(dst_extents);
 
-  // Disable bsdiff, and puffdiff when the data is too big.
-  bool bsdiff_allowed =
-      version.OperationAllowed(InstallOperation::SOURCE_BSDIFF);
-  if (bsdiff_allowed &&
-      blocks_to_read * kBlockSize > kMaxBsdiffDestinationSize) {
-    LOG(INFO) << "bsdiff ignored, data too big: " << blocks_to_read * kBlockSize
-              << " bytes";
-    bsdiff_allowed = false;
-  }
-
-  bool puffdiff_allowed = version.OperationAllowed(InstallOperation::PUFFDIFF);
-  if (puffdiff_allowed &&
-      blocks_to_read * kBlockSize > kMaxPuffdiffDestinationSize) {
-    LOG(INFO) << "puffdiff ignored, data too big: "
-              << blocks_to_read * kBlockSize << " bytes";
-    puffdiff_allowed = false;
-  }
-
-  // Make copies of the extents so we can modify them.
-  vector<Extent> src_extents = old_extents;
-  vector<Extent> dst_extents = new_extents;
+  // All operations have dst_extents.
+  StoreExtents(dst_extents, operation.mutable_dst_extents());
 
   // Read in bytes from new data.
   brillo::Blob new_data;
   TEST_AND_RETURN_FALSE(utils::ReadExtents(new_part,
-                                           new_extents,
+                                           dst_extents,
                                            &new_data,
                                            kBlockSize * blocks_to_write,
                                            kBlockSize));
@@ -744,8 +1076,8 @@ bool ReadExtentsToDiff(const string& old_part,
       GenerateBestFullOperation(new_data, version, &data_blob, &op_type));
   operation.set_type(op_type);
 
-  brillo::Blob old_data;
   if (blocks_to_read > 0) {
+    brillo::Blob old_data;
     // Read old data.
     TEST_AND_RETURN_FALSE(utils::ReadExtents(old_part,
                                              src_extents,
@@ -760,85 +1092,17 @@ bool ReadExtentsToDiff(const string& old_part,
                    operation, data_blob.size(), 0, src_extents.size())) {
       // No point in trying diff if zero blob size diff operation is
       // still worse than replace.
-      if (bsdiff_allowed) {
-        base::FilePath patch;
-        TEST_AND_RETURN_FALSE(base::CreateTemporaryFile(&patch));
-        ScopedPathUnlinker unlinker(patch.value());
 
-        std::unique_ptr<bsdiff::PatchWriterInterface> bsdiff_patch_writer;
-        InstallOperation::Type operation_type = InstallOperation::SOURCE_BSDIFF;
-        if (version.OperationAllowed(InstallOperation::BROTLI_BSDIFF)) {
-          bsdiff_patch_writer =
-              bsdiff::CreateBSDF2PatchWriter(patch.value(),
-                                             bsdiff::CompressorType::kBrotli,
-                                             kBrotliCompressionQuality);
-          operation_type = InstallOperation::BROTLI_BSDIFF;
-        } else {
-          bsdiff_patch_writer = bsdiff::CreateBsdiffPatchWriter(patch.value());
-        }
-
-        brillo::Blob bsdiff_delta;
-        TEST_AND_RETURN_FALSE(0 == bsdiff::bsdiff(old_data.data(),
-                                                  old_data.size(),
-                                                  new_data.data(),
-                                                  new_data.size(),
-                                                  bsdiff_patch_writer.get(),
-                                                  nullptr));
-
-        TEST_AND_RETURN_FALSE(utils::ReadFile(patch.value(), &bsdiff_delta));
-        CHECK_GT(bsdiff_delta.size(), static_cast<brillo::Blob::size_type>(0));
-        if (IsDiffOperationBetter(operation,
-                                  data_blob.size(),
-                                  bsdiff_delta.size(),
-                                  src_extents.size())) {
-          operation.set_type(operation_type);
-          data_blob = std::move(bsdiff_delta);
-        }
-      }
-      if (puffdiff_allowed) {
-        // Find all deflate positions inside the given extents and then put all
-        // deflates together because we have already read all the extents into
-        // one buffer.
-        vector<puffin::BitExtent> src_deflates;
-        TEST_AND_RETURN_FALSE(deflate_utils::FindAndCompactDeflates(
-            src_extents, old_deflates, &src_deflates));
-
-        vector<puffin::BitExtent> dst_deflates;
-        TEST_AND_RETURN_FALSE(deflate_utils::FindAndCompactDeflates(
-            dst_extents, new_deflates, &dst_deflates));
-
-        puffin::RemoveEqualBitExtents(
-            old_data, new_data, &src_deflates, &dst_deflates);
-
-        // See crbug.com/915559.
-        if (version.minor <= kPuffdiffMinorPayloadVersion) {
-          TEST_AND_RETURN_FALSE(puffin::RemoveDeflatesWithBadDistanceCaches(
-              old_data, &src_deflates));
-
-          TEST_AND_RETURN_FALSE(puffin::RemoveDeflatesWithBadDistanceCaches(
-              new_data, &dst_deflates));
-        }
-
-        // Only Puffdiff if both files have at least one deflate left.
-        if (!src_deflates.empty() && !dst_deflates.empty()) {
-          brillo::Blob puffdiff_delta;
-          ScopedTempFile temp_file("puffdiff-delta.XXXXXX");
-          // Perform PuffDiff operation.
-          TEST_AND_RETURN_FALSE(puffin::PuffDiff(old_data,
-                                                 new_data,
-                                                 src_deflates,
-                                                 dst_deflates,
-                                                 temp_file.path(),
-                                                 &puffdiff_delta));
-          TEST_AND_RETURN_FALSE(puffdiff_delta.size() > 0);
-          if (IsDiffOperationBetter(operation,
-                                    data_blob.size(),
-                                    puffdiff_delta.size(),
-                                    src_extents.size())) {
-            operation.set_type(InstallOperation::PUFFDIFF);
-            data_blob = std::move(puffdiff_delta);
-          }
-        }
+      BestDiffGenerator best_diff_generator(old_data,
+                                            new_data,
+                                            src_extents,
+                                            dst_extents,
+                                            old_file,
+                                            new_file,
+                                            config);
+      if (!best_diff_generator.GenerateBestDiffOperation(&aop, &data_blob)) {
+        LOG(INFO) << "Failed to generate diff for " << new_file.name;
+        return false;
       }
     }
   }
@@ -851,20 +1115,22 @@ bool ReadExtentsToDiff(const string& old_part,
   // parameters for those minor versions, the delta payloads will be invalid.
   if (operation.type() == InstallOperation::SOURCE_BSDIFF &&
       version.minor <= kOpSrcHashMinorPayloadVersion) {
-    operation.set_src_length(old_data.size());
-    operation.set_dst_length(new_data.size());
+    operation.set_src_length(blocks_to_read * kBlockSize);
+    operation.set_dst_length(blocks_to_write * kBlockSize);
   }
 
   // Embed extents in the operation. Replace (all variants), zero and discard
   // operations should not have source extents.
   if (!IsNoSourceOperation(operation.type())) {
-    StoreExtents(src_extents, operation.mutable_src_extents());
+    if (operation.src_extents_size() == 0) {
+      StoreExtents(src_extents, operation.mutable_src_extents());
+    }
+  } else {
+    operation.clear_src_extents();
   }
-  // All operations have dst_extents.
-  StoreExtents(dst_extents, operation.mutable_dst_extents());
 
   *out_data = std::move(data_blob);
-  *out_op = operation;
+  *out_op = aop;
   return true;
 }
 
@@ -888,7 +1154,7 @@ bool InitializePartitionInfo(const PartitionConfig& part, PartitionInfo* info) {
   const brillo::Blob& hash = hasher.raw_hash();
   info->set_hash(hash.data(), hash.size());
   LOG(INFO) << part.path << ": size=" << part.size
-            << " hash=" << brillo::data_encoding::Base64Encode(hash);
+            << " hash=" << HexEncode(hash);
   return true;
 }
 

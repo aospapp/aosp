@@ -20,7 +20,7 @@ from acts.controllers.android_device import SL4A_APK_NAME
 from acts.libs.ota import ota_updater
 import acts.signals as signals
 from acts.test_decorators import test_tracker_info
-from acts_contrib.test_utils.tel.tel_test_utils import WIFI_CONFIG_APBAND_5G
+from acts_contrib.test_utils.tel.tel_wifi_utils import WIFI_CONFIG_APBAND_5G
 import acts_contrib.test_utils.wifi.wifi_test_utils as wutils
 from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
 import acts.utils as utils

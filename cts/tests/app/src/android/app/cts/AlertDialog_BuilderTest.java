@@ -53,6 +53,7 @@ import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
 
 import com.android.compatibility.common.util.PollingCheck;
+import com.android.compatibility.common.util.WindowUtil;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -99,7 +100,7 @@ public class AlertDialog_BuilderTest  {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
         Activity activity = mActivityRule.getActivity();
         mContext = activity;
-        PollingCheck.waitFor(activity::hasWindowFocus);
+        WindowUtil.waitForFocus(activity);
     }
 
     @Test

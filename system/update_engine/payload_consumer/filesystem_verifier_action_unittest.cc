@@ -170,7 +170,7 @@ class FilesystemVerifierActionTest : public ::testing::Test {
       bytes_to_read -= bytes_read;
       offset += bytes_read;
     }
-    ASSERT_TRUE(verity_writer.Finalize(fd, fd));
+    ASSERT_TRUE(verity_writer.Finalize(fd.get(), fd.get()));
     ASSERT_TRUE(fd->IsOpen());
     ASSERT_TRUE(HashCalculator::RawHashOfFile(target_part_.path(),
                                               &partition->target_hash));
@@ -565,7 +565,7 @@ void FilesystemVerifierActionTest::DoTestVABC(bool clear_target_hash,
 
   EnableVABC(&dynamic_control, part.name);
   auto open_cow = [part]() {
-    auto cow_fd = std::make_shared<EintrSafeFileDescriptor>();
+    auto cow_fd = std::make_unique<EintrSafeFileDescriptor>();
     EXPECT_TRUE(cow_fd->Open(part.readonly_target_path.c_str(), O_RDWR))
         << "Failed to open part " << part.readonly_target_path
         << strerror(errno);
@@ -618,14 +618,14 @@ void FilesystemVerifierActionTest::DoTestVABC(bool clear_target_hash,
   if (enable_verity) {
     std::vector<unsigned char> actual_fec(fec_size);
     ssize_t bytes_read = 0;
-    ASSERT_TRUE(utils::PReadAll(cow_fd,
+    ASSERT_TRUE(utils::PReadAll(cow_fd.get(),
                                 actual_fec.data(),
                                 actual_fec.size(),
                                 fec_start_offset,
                                 &bytes_read));
     ASSERT_EQ(actual_fec, fec_data_);
     std::vector<unsigned char> actual_hash_tree(hash_tree_size);
-    ASSERT_TRUE(utils::PReadAll(cow_fd,
+    ASSERT_TRUE(utils::PReadAll(cow_fd.get(),
                                 actual_hash_tree.data(),
                                 actual_hash_tree.size(),
                                 HASH_TREE_START_OFFSET,

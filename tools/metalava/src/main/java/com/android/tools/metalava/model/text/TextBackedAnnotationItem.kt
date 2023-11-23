@@ -28,10 +28,10 @@ class TextBackedAnnotationItem(
     source: String,
     mapName: Boolean = true
 ) : DefaultAnnotationItem(codebase) {
-    private val originalName: String
-    private val qualifiedName: String?
+    override val originalName: String
+    override val qualifiedName: String?
     private val full: String
-    private val attributes: List<AnnotationAttribute>
+    override val attributes: List<AnnotationAttribute>
 
     init {
         val index = source.indexOf("(")
@@ -56,8 +56,5 @@ class TextBackedAnnotationItem(
         }
     }
 
-    override fun originalName(): String? = originalName
-    override fun qualifiedName(): String? = qualifiedName
-    override fun attributes(): List<AnnotationAttribute> = attributes
     override fun toSource(target: AnnotationTarget, showDefaultAttrs: Boolean): String = full
 }

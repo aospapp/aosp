@@ -17,10 +17,11 @@
 #ifndef HARDWARE_GOOGLE_PIXEL_HEALTH_BATTERYDEFENDER_H
 #define HARDWARE_GOOGLE_PIXEL_HEALTH_BATTERYDEFENDER_H
 
+#include <aidl/android/hardware/health/HealthInfo.h>
 #include <batteryservice/BatteryService.h>
-
 #include <stdbool.h>
 #include <time.h>
+
 #include <string>
 
 namespace hardware {
@@ -43,22 +44,28 @@ const int DEFAULT_CAPACITY_LEVEL = 100;
 const int WRITE_DELAY_SECS = 2 * ONE_MIN_IN_SECONDS;
 
 const char *const PATH_NOT_SUPPORTED = "";
+const char *const DEFAULT_START_LEVEL_PATH =
+        "/sys/devices/platform/soc/soc:google,charger/charge_start_level";
+const char *const DEFAULT_STOP_LEVEL_PATH =
+        "/sys/devices/platform/soc/soc:google,charger/charge_stop_level";
 
 class BatteryDefender {
   public:
     // Set default google charger paths - can be overridden for other devices
     BatteryDefender(const std::string pathWirelessPresent = PATH_NOT_SUPPORTED,
-                    const std::string pathChargeLevelStart =
-                            "/sys/devices/platform/soc/soc:google,charger/charge_start_level",
-                    const std::string pathChargeLevelStop =
-                            "/sys/devices/platform/soc/soc:google,charger/charge_stop_level",
+                    const std::string pathChargeLevelStart = DEFAULT_START_LEVEL_PATH,
+                    const std::string pathChargeLevelStop = DEFAULT_STOP_LEVEL_PATH,
                     const int32_t timeToActivateSecs = DEFAULT_TIME_TO_ACTIVATE_SECONDS,
-                    const int32_t timeToClearTimerSecs = DEFAULT_TIME_TO_CLEAR_SECONDS);
+                    const int32_t timeToClearTimerSecs = DEFAULT_TIME_TO_CLEAR_SECONDS,
+                    const bool useTypeC = true);
 
-    // This function shall be called periodically in HealthService
+    // Either of the update() function shall be called periodically in HealthService
+    // Deprecated. Use update(HealthInfo*)
     void update(struct android::BatteryProperties *props);
+    void update(aidl::android::hardware::health::HealthInfo *health_info);
 
     // Set wireless not supported if this is not a device with a wireless charger
+    // (must be checked at runtime)
     void setWirelessNotSupported(void);
 
   private:
@@ -78,14 +85,18 @@ class BatteryDefender {
             [STATE_ACTIVE] = "ACTIVE",
     };
 
+    // Constructor
     std::string mPathWirelessPresent;
     const std::string kPathChargeLevelStart;
     const std::string kPathChargeLevelStop;
     const int32_t kTimeToActivateSecs;
     const int32_t kTimeToClearTimerSecs;
+    const bool kUseTypeC;
 
     // Sysfs
     const std::string kPathUSBChargerPresent = "/sys/class/power_supply/usb/present";
+    const std::string kPathDOCKChargerPresent = "/sys/class/power_supply/dock/present";
+    const std::string kTypeCPath = "/sys/class/typec/";
     const std::string kPathPersistChargerPresentTime =
             "/mnt/vendor/persist/battery/defender_charger_time";
     const std::string kPathPersistDefenderActiveTime =
@@ -124,8 +135,9 @@ class BatteryDefender {
     // Inputs
     int64_t mTimeBetweenUpdateCalls = 0;
     int64_t mTimePreviousSecs;
-    bool mIsUsbPresent = false;
+    bool mIsWiredPresent = false;
     bool mIsWirelessPresent = false;
+    bool mIsDockPresent = false;
     bool mIsPowerAvailable = false;
     bool mIsDefenderDisabled = false;
     int32_t mTimeToActivateSecsModified;
@@ -145,7 +157,7 @@ class BatteryDefender {
 
     // Process state actions
     void stateMachine_runAction(const state_E state,
-                                const struct android::BatteryProperties *props);
+                                const aidl::android::hardware::health::HealthInfo &health_info);
 
     // Check state transitions
     state_E stateMachine_getNextState(const state_E state);
@@ -153,17 +165,20 @@ class BatteryDefender {
     // Process state entry actions
     void stateMachine_firstAction(const state_E state);
 
-    void updateDefenderProperties(struct android::BatteryProperties *props);
+    void updateDefenderProperties(aidl::android::hardware::health::HealthInfo *health_info);
     void clearStateData(void);
     void loadPersistentStorage(void);
     int64_t getTime(void);
     int64_t getDeltaTimeSeconds(int64_t *timeStartSecs);
     int32_t getTimeToActivate(void);
     void removeLineEndings(std::string *str);
-    int readFileToInt(const std::string &path);
+    int readFileToInt(const std::string &path, const bool silent = false);
     bool writeIntToFile(const std::string &path, const int value);
     void writeTimeToFile(const std::string &path, const int value, int64_t *previous);
     void writeChargeLevelsToFile(const int vendorStart, const int vendorStop);
+    bool isTypeCSink(const std::string &path);
+    bool isWiredPresent(void);
+    bool isDockPresent(void);
     bool isChargePowerAvailable(void);
     bool isDefaultChargeLevel(const int start, const int stop);
     bool isBatteryDefenderDisabled(const int vendorStart, const int vendorStop);

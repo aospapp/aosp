@@ -34,6 +34,7 @@ import android.content.pm.UserInfo;
 import android.os.Build;
 import android.os.UserHandle;
 import android.os.UserManager;
+import android.util.Log;
 
 import androidx.annotation.CheckResult;
 import androidx.annotation.Nullable;
@@ -58,11 +59,14 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public final class Users {
+
+    private static final String LOG_TAG = "Users";
 
     static final int SYSTEM_USER_ID = 0;
     private static final Duration WAIT_FOR_USER_TIMEOUT = Duration.ofMinutes(4);
@@ -73,6 +77,7 @@ public final class Users {
     private final AdbUserParser mParser;
     private static final UserManager sUserManager =
             TestApis.context().instrumentedContext().getSystemService(UserManager.class);
+    private Map<Integer, UserReference> mUsers = new ConcurrentHashMap<>();
 
     public static final Users sInstance = new Users();
 
@@ -89,7 +94,7 @@ public final class Users {
         }
 
         return users().map(
-                ui -> new UserReference(ui.id)
+                ui -> find(ui.id)
         ).collect(Collectors.toSet());
     }
 
@@ -99,13 +104,24 @@ public final class Users {
      * <p>This will be the {@link #system()} user on most systems.</p>
      */
     public UserReference initial() {
+        boolean skipUserZero = false;
+
         if (!isHeadlessSystemUserMode()) {
             return system();
         }
         if (TestApis.packages().features().contains("android.hardware.type.automotive")) {
             try {
-                return ShellCommand.builder("cmd car_service get-initial-user")
+                UserReference user =
+                        ShellCommand.builder("cmd car_service get-initial-user")
                         .executeAndParseOutput(i -> find(Integer.parseInt(i.trim())));
+
+                if (user.exists()) {
+                    return user;
+                } else {
+                    Log.d(LOG_TAG, "Initial user " + user + " does not exist."
+                            + "Finding first non-system full user");
+                    skipUserZero = true;
+                }
             } catch (AdbException e) {
                 throw new NeneException("Error finding initial user on Auto", e);
             }
@@ -115,9 +131,14 @@ public final class Users {
         users.sort(Comparator.comparingInt(UserReference::id));
 
         for (UserReference user : users) {
-            if (user.parent() == null) {
-                return user;
+            if (user.parent() != null) {
+                continue;
             }
+            if (skipUserZero && user.id() == 0) {
+                continue;
+            }
+
+            return user;
         }
 
         throw new NeneException("No initial user available");
@@ -152,12 +173,15 @@ public final class Users {
 
     /** Get a {@link UserReference} by {@code id}. */
     public UserReference find(int id) {
-        return new UserReference(id);
+        if (!mUsers.containsKey(id)) {
+            mUsers.put(id, new UserReference(id));
+        }
+        return mUsers.get(id);
     }
 
     /** Get a {@link UserReference} by {@code userHandle}. */
     public UserReference find(UserHandle userHandle) {
-        return new UserReference(userHandle.getIdentifier());
+        return find(userHandle.getIdentifier());
     }
 
     /** Get all supported {@link UserType}s. */
@@ -328,7 +352,7 @@ public final class Users {
             id++;
         }
 
-        return new UserReference(id);
+        return find(id);
     }
 
     private void fillCache() {

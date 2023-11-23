@@ -80,6 +80,23 @@ public class UserControlDisabledPackagesTest extends BaseDeviceOwnerTest {
         assertThat(mDevicePolicyManager.getUserControlDisabledPackages(getWho())).isEmpty();
     }
 
+    public void testFgsStopWithUserControlDisabled() throws Exception {
+        final ArrayList<String> pkgs = new ArrayList<>();
+        pkgs.add(SIMPLE_APP_PKG);
+        // Check if package is part of UserControlDisabledPackages before checking if
+        // package is stopped since it is a necessary condition to prevent stopping of
+        // package
+
+        assertThat(mDevicePolicyManager.getUserControlDisabledPackages(getWho()))
+                .containsExactly(SIMPLE_APP_PKG);
+        assertPackageRunningState(/* running= */ true);
+    }
+
+    public void testFgsStopWithUserControlEnabled() throws Exception {
+        assertPackageRunningState(/* running= */ false);
+        assertThat(mDevicePolicyManager.getUserControlDisabledPackages(getWho())).isEmpty();
+    }
+
     private boolean isPackageStopped(String packageName) throws Exception {
         PackageInfo packageInfo = mContext.getPackageManager()
                 .getPackageInfoAsUser(packageName, PackageManager.GET_META_DATA,
@@ -96,5 +113,16 @@ public class UserControlDisabledPackagesTest extends BaseDeviceOwnerTest {
         assertWithMessage("Package %s stopped for user %s", SIMPLE_APP_PKG,
                 getCurrentUser().getIdentifier())
                 .that(isPackageStopped(SIMPLE_APP_PKG)).isEqualTo(stopped);
+    }
+
+    private boolean isPackageRunning(String packageName) throws Exception {
+        String pid = executeShellCommand(String.format("pidof %s", packageName)).trim();
+        return pid.length() > 0;
+    }
+
+    private void assertPackageRunningState(boolean shouldBeRunning) throws Exception {
+        assertWithMessage("Package %s running for user %s", SIMPLE_APP_PKG,
+                getCurrentUser().getIdentifier())
+                .that(isPackageRunning(SIMPLE_APP_PKG)).isEqualTo(shouldBeRunning);
     }
 }

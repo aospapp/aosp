@@ -56,16 +56,18 @@ class CreateCuttlefishActionTest(driver_test_lib.BaseDriverTest):
     STABLE_HOST_IMAGE_PROJECT = "fake-stable-host-image-project"
     EXTRA_DATA_DISK_GB = 4
     EXTRA_SCOPES = ["scope1", "scope2"]
+    DEFAULT_ADB_PORT = 6520
 
     def setUp(self):
         """Set up the test."""
-        super(CreateCuttlefishActionTest, self).setUp()
+        super().setUp()
         self.build_client = mock.MagicMock()
         self.Patch(
             android_build_client,
             "AndroidBuildClient",
             return_value=self.build_client)
         self.compute_client = mock.MagicMock()
+        self.compute_client.openwrt = False
         self.Patch(
             cvd_compute_client,
             "CvdComputeClient",
@@ -173,7 +175,7 @@ class CreateCuttlefishActionTest(driver_test_lib.BaseDriverTest):
                     "bootloader_build_id": self.BOOTLOADER_BUILD_ID,
                     "bootloader_build_target": self.BOOTLOADER_BUILD_TARGET,
                     "instance_name": self.INSTANCE,
-                    "ip": self.IP.external,
+                    "ip": self.IP.external + ":" + str(self.DEFAULT_ADB_PORT),
                 },
             ],
         })

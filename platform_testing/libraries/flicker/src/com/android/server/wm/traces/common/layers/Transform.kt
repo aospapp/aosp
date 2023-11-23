@@ -16,11 +16,16 @@
 
 package com.android.server.wm.traces.common.layers
 
-import com.android.server.wm.traces.common.FloatFormatter
+import com.android.server.wm.traces.common.Matrix33
 import com.android.server.wm.traces.common.RectF
 import com.android.server.wm.traces.common.service.PlatformConsts
 
-open class Transform(val type: Int?, val matrix: Matrix) {
+/**
+ * Wrapper for TransformProto (frameworks/native/services/surfaceflinger/layerproto/common.proto)
+ *
+ * This class is used by flicker and Winscope
+ */
+open class Transform(val type: Int?, val matrix: Matrix33) {
 
     /**
      * Returns true if the applying the transform on an an axis aligned rectangle
@@ -122,34 +127,9 @@ open class Transform(val type: Int?, val matrix: Matrix) {
         return multiplyRect(matrix, bounds ?: RectF.EMPTY)
     }
 
-    //          |dsdx dsdy  tx|
-    // matrix = |dtdx dtdy  ty|
-    //          |0    0     1 |
-    data class Matrix(
-        val dsdx: Float,
-        val dtdx: Float,
-        val tx: Float,
-
-        val dsdy: Float,
-        val dtdy: Float,
-        val ty: Float
-    ) {
-        fun prettyPrint(): String {
-            val dsdx = FloatFormatter.format(dsdx)
-            val dtdx = FloatFormatter.format(dtdx)
-            val dsdy = FloatFormatter.format(dsdy)
-            val dtdy = FloatFormatter.format(dtdy)
-            return "dsdx:$dsdx   dtdx:$dtdx   dsdy:$dsdy   dtdy:$dtdy"
-        }
-
-        companion object {
-            val EMPTY: Matrix = Matrix(0f, 0f, 0f, 0f, 0f, 0f)
-        }
-    }
-
     private data class Vec2(val x: Float, val y: Float)
 
-    private fun multiplyRect(matrix: Matrix, rect: RectF): RectF {
+    private fun multiplyRect(matrix: Matrix33, rect: RectF): RectF {
         //          |dsdx dsdy  tx|         | left, top         |
         // matrix = |dtdx dtdy  ty|  rect = |                   |
         //          |0    0     1 |         |     right, bottom |
@@ -167,7 +147,7 @@ open class Transform(val type: Int?, val matrix: Matrix) {
         )
     }
 
-    private fun multiplyVec2(matrix: Matrix, x: Float, y: Float): Vec2 {
+    private fun multiplyVec2(matrix: Matrix33, x: Float, y: Float): Vec2 {
         // |dsdx dsdy  tx|     | x |
         // |dtdx dtdy  ty|  x  | y |
         // |0    0     1 |     | 1 |
@@ -178,7 +158,7 @@ open class Transform(val type: Int?, val matrix: Matrix) {
     }
 
     companion object {
-        val EMPTY: Transform = Transform(type = null, matrix = Matrix.EMPTY)
+        val EMPTY: Transform = Transform(type = null, matrix = Matrix33.EMPTY)
 
         /* transform type flags */
         const val TRANSLATE_VAL = 0x0001

@@ -181,6 +181,7 @@ def parse_activities(application_element, android_app):
             continue # Special case: androidx adds non-logging activities
 
         activity.exported = activity_element.attributes.get("exported", "false") == "true"
+        activity.permission = activity_element.attributes.get("permission", "")
 
         parse_intent_filters(activity_element, activity)
         android_app.activities.append(activity)

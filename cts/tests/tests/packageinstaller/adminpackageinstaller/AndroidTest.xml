@@ -29,7 +29,9 @@
 
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="mkdir -p /data/local/tmp/cts/packageinstaller/" />
+        <option name="run-command" value="pm uninstall com.android.cts.install.lib.testapp.A" />
         <option name="teardown-command" value="rm -rf /data/local/tmp/cts"/>
+        <option name="teardown-command" value="pm uninstall com.android.cts.install.lib.testapp.A" />
     </target_preparer>
 
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">

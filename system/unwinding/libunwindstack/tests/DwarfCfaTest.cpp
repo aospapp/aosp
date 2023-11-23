@@ -32,7 +32,7 @@
 #include "DwarfCfa.h"
 
 #include "LogFake.h"
-#include "MemoryFake.h"
+#include "utils/MemoryFake.h"
 
 namespace unwindstack {
 
@@ -204,7 +204,7 @@ TYPED_TEST_P(DwarfCfaTest, cfa_restore) {
   ASSERT_EQ(0x2001U, this->dmem_->cur_offset());
   ASSERT_EQ(0U, loc_regs.size());
 
-  ASSERT_EQ("4 unwind restore while processing cie\n", GetFakeLogPrint());
+  ASSERT_EQ("6 unwind Invalid: restore while processing cie.\n", GetFakeLogPrint());
   ASSERT_EQ("", GetFakeLogBuf());
 
   ResetLogs();
@@ -233,7 +233,7 @@ TYPED_TEST_P(DwarfCfaTest, cfa_restore_extended) {
   ASSERT_EQ(0x4002U, this->dmem_->cur_offset());
   ASSERT_EQ(0U, loc_regs.size());
 
-  ASSERT_EQ("4 unwind restore while processing cie\n", GetFakeLogPrint());
+  ASSERT_EQ("6 unwind Invalid: restore while processing cie.\n", GetFakeLogPrint());
   ASSERT_EQ("", GetFakeLogBuf());
 
   ResetLogs();
@@ -598,7 +598,7 @@ TYPED_TEST_P(DwarfCfaTest, cfa_def_cfa_register) {
   ASSERT_EQ(0U, loc_regs.size());
   ASSERT_EQ(DWARF_ERROR_ILLEGAL_STATE, this->cfa_->LastErrorCode());
 
-  ASSERT_EQ("4 unwind Attempt to set new register, but cfa is not already set to a register.\n",
+  ASSERT_EQ("6 unwind Attempt to set new register, but cfa is not already set to a register.\n",
             GetFakeLogPrint());
   ASSERT_EQ("", GetFakeLogBuf());
 
@@ -641,7 +641,7 @@ TYPED_TEST_P(DwarfCfaTest, cfa_def_cfa_offset) {
   ASSERT_EQ(0U, loc_regs.size());
   ASSERT_EQ(DWARF_ERROR_ILLEGAL_STATE, this->cfa_->LastErrorCode());
 
-  ASSERT_EQ("4 unwind Attempt to set offset, but cfa is not set to a register.\n",
+  ASSERT_EQ("6 unwind Attempt to set offset, but cfa is not set to a register.\n",
             GetFakeLogPrint());
   ASSERT_EQ("", GetFakeLogBuf());
 
@@ -683,7 +683,7 @@ TYPED_TEST_P(DwarfCfaTest, cfa_def_cfa_offset_sf) {
   ASSERT_FALSE(this->cfa_->GetLocationInfo(this->fde_.pc_start, 0x100, 0x102, &loc_regs));
   ASSERT_EQ(DWARF_ERROR_ILLEGAL_STATE, this->cfa_->LastErrorCode());
 
-  ASSERT_EQ("4 unwind Attempt to set offset, but cfa is not set to a register.\n",
+  ASSERT_EQ("6 unwind Attempt to set offset, but cfa is not set to a register.\n",
             GetFakeLogPrint());
   ASSERT_EQ("", GetFakeLogBuf());
 

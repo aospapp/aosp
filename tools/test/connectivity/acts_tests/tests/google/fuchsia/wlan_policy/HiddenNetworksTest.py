@@ -41,6 +41,7 @@ class HiddenNetworksTest(WifiBaseTest):
     * One or more Fuchsia devices
     * One Access Point
     """
+
     def setup_class(self):
         super().setup_class()
         # Start an AP with a hidden network

@@ -45,77 +45,22 @@ var PrepareForIntegrationTestWithRust = android.GroupFixturePreparers(
 	PrepareForTestWithRustDefaultModules,
 )
 
+var PrepareForTestWithRustIncludeVndk = android.GroupFixturePreparers(
+	PrepareForIntegrationTestWithRust,
+	cc.PrepareForTestWithCcIncludeVndk,
+)
+
 func GatherRequiredDepsForTest() string {
 	bp := `
 		rust_prebuilt_library {
-				name: "libstd_x86_64-unknown-linux-gnu",
-                                crate_name: "std",
-                                rlib: {
-                                    srcs: ["libstd.rlib"],
-                                },
-                                dylib: {
-                                    srcs: ["libstd.so"],
-                                },
-				host_supported: true,
-				sysroot: true,
-		}
-		rust_prebuilt_library {
-				name: "libtest_x86_64-unknown-linux-gnu",
-                                crate_name: "test",
-                                rlib: {
-                                    srcs: ["libtest.rlib"],
-                                },
-                                dylib: {
-                                    srcs: ["libtest.so"],
-                                },
-				host_supported: true,
-				sysroot: true,
-		}
-		rust_prebuilt_library {
-				name: "libstd_i686-unknown-linux-gnu",
-                                crate_name: "std",
-                                rlib: {
-                                    srcs: ["libstd.rlib"],
-                                },
-                                dylib: {
-                                    srcs: ["libstd.so"],
-                                },
-				host_supported: true,
-				sysroot: true,
-		}
-		rust_prebuilt_library {
-				name: "libtest_i686-unknown-linux-gnu",
-                                crate_name: "test",
-                                rlib: {
-                                    srcs: ["libtest.rlib"],
-                                },
-                                dylib: {
-                                    srcs: ["libtest.so"],
-                                },
-				host_supported: true,
-				sysroot: true,
-		}
-		rust_prebuilt_library {
-				name: "libstd_x86_64-apple-darwin",
-                                crate_name: "std",
-                                rlib: {
-                                    srcs: ["libstd.rlib"],
-                                },
-                                dylib: {
-                                    srcs: ["libstd.so"],
-                                },
-				host_supported: true,
-				sysroot: true,
-		}
-		rust_prebuilt_library {
-				name: "libtest_x86_64-apple-darwin",
-                                crate_name: "test",
-                                rlib: {
-                                    srcs: ["libtest.rlib"],
-                                },
-                                dylib: {
-                                    srcs: ["libtest.so"],
-                                },
+				name: "libstd",
+				crate_name: "std",
+				rlib: {
+					srcs: ["libstd.rlib"],
+				},
+				dylib: {
+					srcs: ["libstd.so"],
+				},
 				host_supported: true,
 				sysroot: true,
 		}
@@ -130,6 +75,10 @@ func GatherRequiredDepsForTest() string {
 			apex_available: ["//apex_available:platform", "//apex_available:anyapex"],
 			min_sdk_version: "29",
 			vendor_available: true,
+			recovery_available: true,
+			llndk: {
+				symbol_file: "liblog.map.txt",
+			},
 		}
 		cc_library {
 			name: "libprotobuf-cpp-full",
@@ -139,11 +88,16 @@ func GatherRequiredDepsForTest() string {
 			export_include_dirs: ["libprotobuf-cpp-full-includes"],
 		}
 		cc_library {
-			name: "libclang_rt.asan-aarch64-android",
+			name: "libclang_rt.asan",
 			no_libcrt: true,
 			nocrt: true,
 			system_shared_libs: [],
-			export_include_dirs: ["libprotobuf-cpp-full-includes"],
+		}
+		cc_library {
+			name: "libclang_rt.hwasan_static",
+			no_libcrt: true,
+			nocrt: true,
+			system_shared_libs: [],
 		}
 		rust_library {
 			name: "libstd",
@@ -153,6 +107,7 @@ func GatherRequiredDepsForTest() string {
 			host_supported: true,
 			vendor_available: true,
 			vendor_ramdisk_available: true,
+			recovery_available: true,
 			native_coverage: false,
 			sysroot: true,
 			apex_available: ["//apex_available:platform", "//apex_available:anyapex"],
@@ -165,6 +120,7 @@ func GatherRequiredDepsForTest() string {
 			host_supported: true,
 			vendor_available: true,
 			vendor_ramdisk_available: true,
+			recovery_available: true,
 			native_coverage: false,
 			apex_available: ["//apex_available:platform", "//apex_available:anyapex"],
 			min_sdk_version: "29",
@@ -238,4 +194,8 @@ func registerRequiredBuildComponentsForTest(ctx android.RegistrationContext) {
 		ctx.BottomUp("rust_begin", BeginMutator).Parallel()
 	})
 	ctx.RegisterSingletonType("rust_project_generator", rustProjectGeneratorSingleton)
+	ctx.PostDepsMutators(func(ctx android.RegisterMutatorsContext) {
+		ctx.BottomUp("rust_sanitizers", rustSanitizerRuntimeMutator).Parallel()
+	})
+	registerRustSnapshotModules(ctx)
 }

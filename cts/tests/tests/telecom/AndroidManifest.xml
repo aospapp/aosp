@@ -79,6 +79,14 @@
             </intent-filter>
         </service>
 
+        <service android:name="android.telecom.cts.NullBindingConnectionService"
+                 android:permission="android.permission.BIND_TELECOM_CONNECTION_SERVICE"
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="android.telecom.ConnectionService"/>
+            </intent-filter>
+        </service>
+
         <service android:name="android.telecom.cts.MockInCallService"
              android:permission="android.permission.BIND_INCALL_SERVICE"
              android:exported="true">

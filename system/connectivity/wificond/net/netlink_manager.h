@@ -26,6 +26,7 @@
 
 #include <android-base/macros.h>
 #include <android-base/unique_fd.h>
+#include <libnlinterceptor/libnlinterceptor.h>
 
 #include "event_loop.h"
 
@@ -97,6 +98,7 @@ enum ChannelBandwidth {
     BW_80,
     BW_80P80,
     BW_160,
+    BW_320,
 };
 
 // This describes a type of function handling channel switch notification.
@@ -273,11 +275,13 @@ class NetlinkManager {
   virtual void UnsubscribeFrameTxStatusEvent(uint32_t interface_index);
 
  private:
-  bool SetupSocket(android::base::unique_fd* netlink_fd);
+  bool SetupSocket(android::base::unique_fd* netlink_fd,
+                   android::nlinterceptor::InterceptedSocket* nl_destination);
   bool WatchSocket(android::base::unique_fd* netlink_fd);
   void ReceivePacketAndRunHandler(int fd);
   bool DiscoverFamilyId();
-  bool SendMessageInternal(const NL80211Packet& packet, int fd);
+  bool SendMessageInternal(const NL80211Packet& packet, int fd,
+                           android::nlinterceptor::InterceptedSocket nl_destination);
   void BroadcastHandler(std::unique_ptr<const NL80211Packet> packet);
   void OnRegChangeEvent(std::unique_ptr<const NL80211Packet> packet);
   void OnMlmeEvent(std::unique_ptr<const NL80211Packet> packet);
@@ -299,6 +303,12 @@ class NetlinkManager {
   // rescheduling.
   android::base::unique_fd sync_netlink_fd_;
   android::base::unique_fd async_netlink_fd_;
+
+  // Each netlink socket will either communicate directly with the kernel (pid = 0), or will be
+  // assigned a Netlink Interceptor socket, and will have a non-zero pid to which messages should be
+  // sent.
+  android::nlinterceptor::InterceptedSocket sync_netlink_destination_ = {NETLINK_GENERIC, 0};
+  android::nlinterceptor::InterceptedSocket async_netlink_destination_ = {NETLINK_GENERIC, 0};
   EventLoop* event_loop_;
 
   // This is a collection of message handlers, for each sequence number.

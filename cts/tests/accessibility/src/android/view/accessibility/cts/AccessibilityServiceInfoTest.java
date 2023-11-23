@@ -136,10 +136,13 @@ public class AccessibilityServiceInfoTest {
                 | AccessibilityServiceInfo.CAPABILITY_CAN_REQUEST_TOUCH_EXPLORATION
                 | AccessibilityServiceInfo.CAPABILITY_CAN_RETRIEVE_WINDOW_CONTENT);
         assertEquals("foo.bar.Activity", speakingService.getSettingsActivityName());
+        assertEquals("foo.bar.TileService", speakingService.getTileServiceName());
         assertEquals(/* expected= */ "Some description",
                 speakingService.loadDescription(mPackageManager));
         assertEquals(/* expected= */ "Some summary",
                 speakingService.loadSummary(mPackageManager));
+        assertEquals(/* expected= */ "Some intro",
+                speakingService.loadIntro(mPackageManager));
         assertNotNull(speakingService.getResolveInfo());
         assertEquals(/* expected= */ 6000,
                 speakingService.getInteractiveUiTimeoutMillis());

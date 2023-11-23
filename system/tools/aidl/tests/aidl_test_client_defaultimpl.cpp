@@ -38,8 +38,19 @@ struct Def : public ITestServiceDefault {
   }
 };
 
+/* Make sure the unimplementedMethod behaves as expected before testing the
+ * default impl
+ */
+TEST_F(AidlTest, unimplementedMethodImpl) {
+  int32_t returned_value;
+  auto status = service->UnimplementedMethod(kExpectedArgValue, &returned_value);
+  ASSERT_FALSE(status.isOk()) << status;
+  ASSERT_EQ(status.exceptionCode(), android::binder::Status::EX_TRANSACTION_FAILED);
+  EXPECT_EQ(status.transactionError(), android::UNKNOWN_TRANSACTION);
+}
+
 TEST_F(AidlTest, defaultImpl) {
-  std::unique_ptr<ITestService> defImpl = std::make_unique<Def>();
+  android::sp<ITestService> defImpl = android::sp<Def>::make();
   auto ret = ITestService::setDefaultImpl(std::move(defImpl));
   ASSERT_TRUE(ret);
 

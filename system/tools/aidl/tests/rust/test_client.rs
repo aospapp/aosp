@@ -16,25 +16,46 @@
 
 //! Test Rust client for the AIDL compiler.
 
+use ::binder::{binder_impl::Parcel, Parcelable};
+use aidl_test_fixedsizearray::aidl::android::aidl::fixedsizearray::FixedSizeArrayExample::{
+    FixedSizeArrayExample,
+    IRepeatFixedSizeArray::{BpRepeatFixedSizeArray, IRepeatFixedSizeArray},
+    IntParcelable::IntParcelable,
+};
+use aidl_test_interface::aidl::android::aidl::tests::nested::{
+    INestedService, ParcelableWithNested,
+};
+use aidl_test_interface::aidl::android::aidl::tests::unions::EnumUnion::EnumUnion;
 use aidl_test_interface::aidl::android::aidl::tests::INewName::{self, BpNewName};
 use aidl_test_interface::aidl::android::aidl::tests::IOldName::{self, BpOldName};
 use aidl_test_interface::aidl::android::aidl::tests::ITestService::{
-    self, BpTestService, ITestServiceDefault, ITestServiceDefaultRef,
+    self, BpTestService, Empty::Empty, ITestServiceDefault, ITestServiceDefaultRef,
 };
 use aidl_test_interface::aidl::android::aidl::tests::{
-    BackendType::BackendType, ByteEnum::ByteEnum, IntEnum::IntEnum, LongEnum::LongEnum, StructuredParcelable, Union,
+    extension::ExtendableParcelable::ExtendableParcelable, extension::MyExt::MyExt,
+    extension::MyExt2::MyExt2, extension::MyExtLike::MyExtLike, BackendType::BackendType,
+    ByteEnum::ByteEnum, IntEnum::IntEnum, LongEnum::LongEnum, RecursiveList::RecursiveList,
+    StructuredParcelable, Union,
 };
-use aidl_test_interface::aidl::android::aidl::tests::unions::{
-    EnumUnion::EnumUnion,
+use aidl_test_interface::binder::{self, BinderFeatures, IBinder, Interface};
+use aidl_test_nonvintf_parcelable::aidl::android::aidl::tests::nonvintf::{
+    NonVintfExtendableParcelable::NonVintfExtendableParcelable,
+    NonVintfParcelable::NonVintfParcelable,
 };
-use aidl_test_interface::binder;
+use aidl_test_unstable_parcelable::aidl::android::aidl::tests::unstable::{
+    UnstableExtendableParcelable::UnstableExtendableParcelable,
+    UnstableParcelable::UnstableParcelable,
+};
 use aidl_test_versioned_interface::aidl::android::aidl::versioned::tests::{
-    IFooInterface, IFooInterface::BpFooInterface, BazUnion::BazUnion,
+    BazUnion::BazUnion, Foo::Foo, IFooInterface, IFooInterface::BpFooInterface,
+};
+use aidl_test_vintf_parcelable::aidl::android::aidl::tests::vintf::{
+    VintfExtendableParcelable::VintfExtendableParcelable, VintfParcelable::VintfParcelable,
 };
 use std::fs::File;
 use std::io::{Read, Write};
 use std::os::unix::io::FromRawFd;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 fn get_test_service() -> binder::Strong<dyn ITestService::ITestService> {
     binder::get_interface(<BpTestService as ITestService::ITestService>::get_descriptor())
@@ -160,7 +181,7 @@ fn test_repeat_string() {
         ITestService::STRING_TEST_CONSTANT2.into(),
     ];
     for input in &inputs {
-        let result = service.RepeatString(&input);
+        let result = service.RepeatString(input);
         assert_eq!(result.as_ref(), Ok(input));
     }
 }
@@ -169,7 +190,7 @@ macro_rules! test_reverse_array {
     ($test:ident, $func:ident, $array:expr) => {
         #[test]
         fn $test() {
-            let mut array = $array;
+            let mut array = $array.to_vec();
 
             // Java needs initial values here (can't resize arrays)
             let mut repeated = vec![Default::default(); array.len()];
@@ -208,6 +229,11 @@ test_reverse_array! {
     vec![ByteEnum::FOO, ByteEnum::BAR, ByteEnum::BAR]
 }
 test_reverse_array! {
+    test_array_byte_enum_values,
+    ReverseByteEnum,
+    ByteEnum::enum_values()
+}
+test_reverse_array! {
     test_array_byte_enum_v2,
     ReverseByteEnum,
     vec![ByteEnum::FOO, ByteEnum::BAR, ByteEnum::BAZ]
@@ -243,11 +269,56 @@ test_reverse_array! {
 fn test_binder_exchange() {
     const NAME: &str = "Smythe";
     let service = get_test_service();
-    let got = service
-        .GetOtherTestService(NAME)
-        .expect("error calling GetOtherTestService");
+    let got = service.GetOtherTestService(NAME).expect("error calling GetOtherTestService");
     assert_eq!(got.GetName().as_ref().map(String::as_ref), Ok(NAME));
     assert_eq!(service.VerifyName(&got, NAME), Ok(true));
+}
+
+#[test]
+fn test_binder_array_exchange() {
+    let names = vec!["Fizz".into(), "Buzz".into()];
+    let service = get_test_service();
+    let got = service.GetInterfaceArray(&names).expect("error calling GetInterfaceArray");
+    assert_eq!(got.iter().map(|s| s.GetName()).collect::<Result<Vec<_>, _>>(), Ok(names.clone()));
+    assert_eq!(service.VerifyNamesWithInterfaceArray(&got, &names), Ok(true));
+}
+
+#[test]
+fn test_binder_nullable_array_exchange() {
+    let names = vec![Some("Fizz".into()), None, Some("Buzz".into())];
+    let service = get_test_service();
+    let got = service
+        .GetNullableInterfaceArray(Some(&names))
+        .expect("error calling GetNullableInterfaceArray");
+    assert_eq!(
+        got.as_ref().map(|arr| arr
+            .iter()
+            .map(|opt_s| opt_s.as_ref().map(|s| s.GetName().expect("error calling GetName")))
+            .collect::<Vec<_>>()),
+        Some(names.clone())
+    );
+    assert_eq!(
+        service.VerifyNamesWithNullableInterfaceArray(got.as_ref().map(|v| &v[..]), Some(&names)),
+        Ok(true)
+    );
+}
+
+#[test]
+fn test_interface_list_exchange() {
+    let names = vec![Some("Fizz".into()), None, Some("Buzz".into())];
+    let service = get_test_service();
+    let got = service.GetInterfaceList(Some(&names)).expect("error calling GetInterfaceList");
+    assert_eq!(
+        got.as_ref().map(|arr| arr
+            .iter()
+            .map(|opt_s| opt_s.as_ref().map(|s| s.GetName().expect("error calling GetName")))
+            .collect::<Vec<_>>()),
+        Some(names.clone())
+    );
+    assert_eq!(
+        service.VerifyNamesWithInterfaceList(got.as_ref().map(|v| &v[..]), Some(&names)),
+        Ok(true)
+    );
 }
 
 fn build_pipe() -> (File, File) {
@@ -275,15 +346,10 @@ fn test_parcel_file_descriptor() {
         .expect("error calling RepeatParcelFileDescriptor");
 
     const TEST_DATA: &[u8] = b"FrazzleSnazzleFlimFlamFlibbityGumboChops";
-    result_pfd
-        .as_ref()
-        .write_all(TEST_DATA)
-        .expect("error writing to pipe");
+    result_pfd.as_ref().write_all(TEST_DATA).expect("error writing to pipe");
 
     let mut buf = [0u8; TEST_DATA.len()];
-    read_file
-        .read_exact(&mut buf)
-        .expect("error reading from pipe");
+    read_file.read_exact(&mut buf).expect("error reading from pipe");
     assert_eq!(&buf[..], TEST_DATA);
 }
 
@@ -311,27 +377,18 @@ fn test_parcel_file_descriptor_array() {
         .ReverseParcelFileDescriptorArray(&input[..], &mut repeated)
         .expect("error calling ReverseParcelFileDescriptorArray");
 
-    input[1]
-        .as_ref()
-        .write_all(b"First")
-        .expect("error writing to pipe");
+    input[1].as_ref().write_all(b"First").expect("error writing to pipe");
     repeated[1]
         .as_mut()
         .expect("received None for ParcelFileDescriptor")
         .as_ref()
         .write_all(b"Second")
         .expect("error writing to pipe");
-    result[0]
-        .as_ref()
-        .write_all(b"Third")
-        .expect("error writing to pipe");
+    result[0].as_ref().write_all(b"Third").expect("error writing to pipe");
 
     const TEST_DATA: &[u8] = b"FirstSecondThird";
     let mut buf = [0u8; TEST_DATA.len()];
-    input[0]
-        .as_ref()
-        .read_exact(&mut buf)
-        .expect("error reading from pipe");
+    input[0].as_ref().read_exact(&mut buf).expect("error reading from pipe");
     assert_eq!(&buf[..], TEST_DATA);
 }
 
@@ -339,21 +396,12 @@ fn test_parcel_file_descriptor_array() {
 fn test_service_specific_exception() {
     let service = get_test_service();
 
-    let backend = service.getBackendType().expect("error getting backend type");
-    if backend == BackendType::JAVA {
-        // TODO(b/178861468): not correctly thrown from Java
-        return;
-    }
-
     for i in -1..2 {
         let result = service.ThrowServiceException(i);
         assert!(result.is_err());
 
         let status = result.unwrap_err();
-        assert_eq!(
-            status.exception_code(),
-            binder::ExceptionCode::SERVICE_SPECIFIC
-        );
+        assert_eq!(status.exception_code(), binder::ExceptionCode::SERVICE_SPECIFIC);
         assert_eq!(status.service_specific_error(), i);
     }
 }
@@ -405,10 +453,7 @@ test_nullable! {
 
 #[test]
 fn test_nullable_parcelable() {
-    let value = StructuredParcelable::StructuredParcelable{
-        f: 42,
-        ..Default::default()
-    };
+    let value = Empty {};
 
     let service = get_test_service();
     let value = Some(value);
@@ -419,13 +464,28 @@ fn test_nullable_parcelable() {
     assert_eq!(result, Ok(None));
 }
 
+test_nullable! {
+    test_nullable_parcelable_array,
+    RepeatNullableParcelableArray,
+    vec![
+        Some(Empty {}),
+        None,
+    ]
+}
+
+test_nullable! {
+    test_nullable_parcelable_list,
+    RepeatNullableParcelableList,
+    vec![
+        Some(Empty {}),
+        None,
+    ]
+}
+
 #[test]
 fn test_binder() {
     let service = get_test_service();
-    assert!(service
-        .GetCallback(true)
-        .expect("error calling GetCallback")
-        .is_none());
+    assert!(service.GetCallback(true).expect("error calling GetCallback").is_none());
     let callback = service
         .GetCallback(false)
         .expect("error calling GetCallback")
@@ -519,11 +579,11 @@ fn test_parcelable() {
     assert_eq!(parcelable.byteDefaultsToFour, 4);
     assert_eq!(parcelable.intDefaultsToFive, 5);
     assert_eq!(parcelable.longDefaultsToNegativeSeven, -7);
-    assert_eq!(parcelable.booleanDefaultsToTrue, true);
+    assert!(parcelable.booleanDefaultsToTrue);
     assert_eq!(parcelable.charDefaultsToC, 'C' as u16);
     assert_eq!(parcelable.floatDefaultsToPi, 3.14f32);
     assert_eq!(parcelable.doubleWithDefault, -3.14e17f64);
-    assert_eq!(parcelable.boolDefault, false);
+    assert!(!parcelable.boolDefault);
     assert_eq!(parcelable.byteDefault, 0);
     assert_eq!(parcelable.intDefault, 0);
     assert_eq!(parcelable.longDefault, 0);
@@ -535,15 +595,15 @@ fn test_parcelable() {
     let result = service.FillOutStructuredParcelable(&mut parcelable);
     assert_eq!(result, Ok(()));
 
-    assert_eq!(
-        parcelable.shouldContainThreeFs,
-        [DESIRED_VALUE, DESIRED_VALUE, DESIRED_VALUE]
-    );
+    assert_eq!(parcelable.shouldContainThreeFs, [DESIRED_VALUE, DESIRED_VALUE, DESIRED_VALUE]);
     assert_eq!(parcelable.shouldBeJerry, "Jerry");
     assert_eq!(parcelable.int32_min, i32::MIN);
     assert_eq!(parcelable.int32_max, i32::MAX);
     assert_eq!(parcelable.int64_max, i64::MAX);
     assert_eq!(parcelable.hexInt32_neg_1, -1);
+    for i in parcelable.int8_1 {
+        assert_eq!(i, 1);
+    }
     for i in parcelable.int32_1 {
         assert_eq!(i, 1);
     }
@@ -563,15 +623,211 @@ fn test_parcelable() {
     assert_eq!(parcelable.const_exprs_9.0, 1);
     assert_eq!(parcelable.const_exprs_10.0, 1);
     assert_eq!(parcelable.addString1, "hello world!");
-    assert_eq!(
-        parcelable.addString2,
-        "The quick brown fox jumps over the lazy dog."
-    );
+    assert_eq!(parcelable.addString2, "The quick brown fox jumps over the lazy dog.");
 
-    assert_eq!(parcelable.shouldSetBit0AndBit2, StructuredParcelable::BIT0 | StructuredParcelable::BIT2);
+    assert_eq!(
+        parcelable.shouldSetBit0AndBit2,
+        StructuredParcelable::BIT0 | StructuredParcelable::BIT2
+    );
 
     assert_eq!(parcelable.u, Some(Union::Union::Ns(vec![1, 2, 3])));
     assert_eq!(parcelable.shouldBeConstS1, Some(Union::Union::S(Union::S1.to_string())))
+}
+
+#[test]
+fn test_repeat_extendable_parcelable() {
+    let service = get_test_service();
+
+    let ext = Arc::new(MyExt { a: 42, b: "EXT".into() });
+    let mut ep = ExtendableParcelable { a: 1, b: "a".into(), c: 42, ..Default::default() };
+    ep.ext.set_parcelable(Arc::clone(&ext)).expect("error setting parcelable");
+
+    let mut ep2 = ExtendableParcelable::default();
+    let result = service.RepeatExtendableParcelable(&ep, &mut ep2);
+    assert_eq!(result, Ok(()));
+    assert_eq!(ep2.a, ep.a);
+    assert_eq!(ep2.b, ep.b);
+
+    let ret_ext = ep2.ext.get_parcelable::<MyExt>().expect("error getting parcelable");
+    assert!(ret_ext.is_some());
+
+    let ret_ext = ret_ext.unwrap();
+    assert_eq!(ret_ext.a, ext.a);
+    assert_eq!(ret_ext.b, ext.b);
+}
+
+macro_rules! test_parcelable_holder_stability {
+    ($test:ident, $holder:path, $parcelable:path) => {
+        #[test]
+        fn $test() {
+            let mut holder = <$holder>::default();
+            let parcelable = Arc::new(<$parcelable>::default());
+            let result = holder.ext.set_parcelable(Arc::clone(&parcelable));
+            assert_eq!(result, Ok(()));
+
+            let parcelable2 = holder.ext.get_parcelable::<$parcelable>().unwrap().unwrap();
+            assert!(Arc::ptr_eq(&parcelable, &parcelable2));
+        }
+    };
+}
+
+test_parcelable_holder_stability! {
+    test_vintf_parcelable_holder_can_contain_vintf_parcelable,
+    VintfExtendableParcelable,
+    VintfParcelable
+}
+test_parcelable_holder_stability! {
+    test_stable_parcelable_holder_can_contain_vintf_parcelable,
+    NonVintfExtendableParcelable,
+    VintfParcelable
+}
+test_parcelable_holder_stability! {
+    test_stable_parcelable_holder_can_contain_non_vintf_parcelable,
+    NonVintfExtendableParcelable,
+    NonVintfParcelable
+}
+test_parcelable_holder_stability! {
+    test_stable_parcelable_holder_can_contain_unstable_parcelable,
+    NonVintfExtendableParcelable,
+    UnstableParcelable
+}
+test_parcelable_holder_stability! {
+    test_unstable_parcelable_holder_can_contain_vintf_parcelable,
+    UnstableExtendableParcelable,
+    VintfParcelable
+}
+test_parcelable_holder_stability! {
+    test_unstable_parcelable_holder_can_contain_non_vintf_parcelable,
+    UnstableExtendableParcelable,
+    NonVintfParcelable
+}
+test_parcelable_holder_stability! {
+    test_unstable_parcelable_holder_can_contain_unstable_parcelable,
+    UnstableExtendableParcelable,
+    UnstableParcelable
+}
+
+#[test]
+fn test_vintf_parcelable_holder_cannot_contain_not_vintf_parcelable() {
+    let mut holder = VintfExtendableParcelable::default();
+    let parcelable = Arc::new(NonVintfParcelable::default());
+    let result = holder.ext.set_parcelable(Arc::clone(&parcelable));
+    assert_eq!(result, Err(binder::StatusCode::BAD_VALUE));
+
+    let parcelable2 = holder.ext.get_parcelable::<NonVintfParcelable>();
+    assert!(parcelable2.unwrap().is_none());
+}
+
+#[test]
+fn test_vintf_parcelable_holder_cannot_contain_unstable_parcelable() {
+    let mut holder = VintfExtendableParcelable::default();
+    let parcelable = Arc::new(UnstableParcelable::default());
+    let result = holder.ext.set_parcelable(Arc::clone(&parcelable));
+    assert_eq!(result, Err(binder::StatusCode::BAD_VALUE));
+
+    let parcelable2 = holder.ext.get_parcelable::<UnstableParcelable>();
+    assert!(parcelable2.unwrap().is_none());
+}
+
+#[test]
+fn test_read_write_extension() {
+    let ext = Arc::new(MyExt { a: 42, b: "EXT".into() });
+    let ext2 = Arc::new(MyExt2 { a: 42, b: MyExt { a: 24, b: "INEXT".into() }, c: "EXT2".into() });
+
+    let mut ep = ExtendableParcelable { a: 1, b: "a".into(), c: 42, ..Default::default() };
+
+    ep.ext.set_parcelable(Arc::clone(&ext)).unwrap();
+    ep.ext2.set_parcelable(Arc::clone(&ext2)).unwrap();
+
+    let ext_like = ep.ext.get_parcelable::<MyExtLike>();
+    assert_eq!(ext_like.unwrap_err(), binder::StatusCode::BAD_VALUE);
+
+    let actual_ext = ep.ext.get_parcelable::<MyExt>();
+    assert!(actual_ext.unwrap().is_some());
+    let actual_ext2 = ep.ext2.get_parcelable::<MyExt2>();
+    assert!(actual_ext2.unwrap().is_some());
+
+    check_extension_content(&ep, &ext, &ext2);
+
+    let mut parcel = Parcel::new();
+    ep.write_to_parcel(&mut parcel.borrowed()).unwrap();
+
+    unsafe {
+        parcel.set_data_position(0).unwrap();
+    }
+    let mut ep1 = ExtendableParcelable::default();
+    ep1.read_from_parcel(parcel.borrowed_ref()).unwrap();
+
+    unsafe {
+        parcel.set_data_position(0).unwrap();
+    }
+    ep1.write_to_parcel(&mut parcel.borrowed()).unwrap();
+
+    unsafe {
+        parcel.set_data_position(0).unwrap();
+    }
+    let mut ep2 = ExtendableParcelable::default();
+    ep2.read_from_parcel(parcel.borrowed_ref()).unwrap();
+
+    let ext_like = ep2.ext.get_parcelable::<MyExtLike>();
+    assert!(ext_like.unwrap().is_none());
+
+    let actual_ext = ep2.ext.get_parcelable::<MyExt>();
+    assert!(actual_ext.unwrap().is_some());
+
+    let new_ext2 =
+        Arc::new(MyExt2 { a: 79, b: MyExt { a: 42, b: "INNEWEXT".into() }, c: "NEWEXT2".into() });
+    ep2.ext2.set_parcelable(Arc::clone(&new_ext2)).unwrap();
+
+    check_extension_content(&ep1, &ext, &ext2);
+    check_extension_content(&ep2, &ext, &new_ext2);
+}
+
+fn check_extension_content(ep: &ExtendableParcelable, ext: &MyExt, ext2: &MyExt2) {
+    assert_eq!(ep.a, 1);
+    assert_eq!(ep.b, "a");
+    assert_eq!(ep.c, 42);
+
+    let actual_ext = ep.ext.get_parcelable::<MyExt>().unwrap().unwrap();
+    assert_eq!(ext.a, actual_ext.a);
+    assert_eq!(ext.b, actual_ext.b);
+
+    let actual_ext2 = ep.ext2.get_parcelable::<MyExt2>().unwrap().unwrap();
+    assert_eq!(ext2.a, actual_ext2.a);
+    assert_eq!(ext2.b.a, actual_ext2.b.a);
+    assert_eq!(ext2.b.b, actual_ext2.b.b);
+    assert_eq!(ext2.c, actual_ext2.c);
+}
+
+#[test]
+fn test_reverse_recursive_list() {
+    let service = get_test_service();
+
+    let mut head = None;
+    for n in 0..10 {
+        let node = RecursiveList { value: n, next: head };
+        head = Some(Box::new(node));
+    }
+    // head = [9, 8, .., 0]
+    let result = service.ReverseList(head.as_ref().unwrap());
+    assert!(result.is_ok());
+
+    // reversed should be [0, 1, ... 9]
+    let mut reversed: Option<&RecursiveList> = result.as_ref().ok();
+    for n in 0..10 {
+        assert_eq!(reversed.map(|inner| inner.value), Some(n));
+        reversed = reversed.unwrap().next.as_ref().map(|n| n.as_ref());
+    }
+    assert!(reversed.is_none())
+}
+
+#[test]
+fn test_get_union_tags() {
+    let service = get_test_service();
+    let result = service.GetUnionTags(&[]);
+    assert_eq!(result, Ok(vec![]));
+    let result = service.GetUnionTags(&[Union::Union::N(0), Union::Union::Ns(vec![])]);
+    assert_eq!(result, Ok(vec![Union::Tag::Tag::n, Union::Tag::Tag::ns]));
 }
 
 #[test]
@@ -621,10 +877,7 @@ fn test_versioned_interface_hash() {
             .expect("did not get binder service");
 
     let hash = service.getInterfaceHash();
-    assert_eq!(
-        hash.as_ref().map(String::as_str),
-        Ok("9e7be1859820c59d9d55dd133e71a3687b5d2e5b")
-    );
+    assert_eq!(hash.as_ref().map(String::as_str), Ok("9e7be1859820c59d9d55dd133e71a3687b5d2e5b"));
 }
 
 #[test]
@@ -643,7 +896,7 @@ fn test_versioned_unknown_union_field_triggers_error() {
             .expect("did not get binder service");
 
     let ret = service.acceptUnionAndReturnString(&BazUnion::LongNum(42));
-    assert!(!ret.is_ok());
+    assert!(ret.is_err());
 
     let main_service = get_test_service();
     let backend = main_service.getBackendType().expect("error getting backend type");
@@ -674,10 +927,12 @@ fn test_read_data_correctly_after_parcelable_with_new_field() {
             .expect("did not get binder service");
 
     let in_foo = Default::default();
-    let mut inout_foo = Default::default();
-    let mut out_foo = Default::default();
+    let mut inout_foo = Foo { intDefault42: 0 };
+    let mut out_foo = Foo { intDefault42: 0 };
     let ret = service.ignoreParcelablesAndRepeatInt(&in_foo, &mut inout_foo, &mut out_foo, 43);
     assert_eq!(ret, Ok(43));
+    assert_eq!(inout_foo.intDefault42, 0);
+    assert_eq!(out_foo.intDefault42, 0);
 }
 
 fn test_renamed_interface<F>(f: F)
@@ -723,9 +978,7 @@ fn test_renamed_interface_new_as_new() {
 #[test]
 fn test_renamed_interface_old_as_new() {
     test_renamed_interface(|old_name, _| {
-        let new_name = old_name
-            .as_binder()
-            .into_interface::<dyn INewName::INewName>();
+        let new_name = old_name.as_binder().into_interface::<dyn INewName::INewName>();
         assert!(new_name.is_ok());
 
         let real_name = new_name.unwrap().RealName();
@@ -736,12 +989,232 @@ fn test_renamed_interface_old_as_new() {
 #[test]
 fn test_renamed_interface_new_as_old() {
     test_renamed_interface(|_, new_name| {
-        let old_name = new_name
-            .as_binder()
-            .into_interface::<dyn IOldName::IOldName>();
+        let old_name = new_name.as_binder().into_interface::<dyn IOldName::IOldName>();
         assert!(old_name.is_ok());
 
         let real_name = old_name.unwrap().RealName();
         assert_eq!(real_name.as_ref().map(String::as_str), Ok("NewName"));
     });
+}
+
+#[derive(Debug, Default)]
+struct Callback {
+    received: Arc<Mutex<Option<ParcelableWithNested::Status::Status>>>,
+}
+
+impl Interface for Callback {}
+
+impl INestedService::ICallback::ICallback for Callback {
+    fn done(&self, st: ParcelableWithNested::Status::Status) -> binder::Result<()> {
+        *self.received.lock().unwrap() = Some(st);
+        Ok(())
+    }
+}
+
+#[test]
+fn test_nested_type() {
+    let service: binder::Strong<dyn INestedService::INestedService> = binder::get_interface(
+        <INestedService::BpNestedService as INestedService::INestedService>::get_descriptor(),
+    )
+    .expect("did not get binder service");
+
+    let p = ParcelableWithNested::ParcelableWithNested {
+        status: ParcelableWithNested::Status::Status::OK,
+    };
+    // OK -> NOT_OK
+    let ret = service.flipStatus(&p);
+    assert_eq!(
+        ret,
+        Ok(INestedService::Result::Result { status: ParcelableWithNested::Status::Status::NOT_OK })
+    );
+    let received = Arc::new(Mutex::new(None));
+    // NOT_OK -> OK with nested callback interface
+    let cb = INestedService::ICallback::BnCallback::new_binder(
+        Callback { received: Arc::clone(&received) },
+        BinderFeatures::default(),
+    );
+    let ret = service.flipStatusWithCallback(ParcelableWithNested::Status::Status::NOT_OK, &cb);
+    assert_eq!(ret, Ok(()));
+    let received = received.lock().unwrap();
+    assert_eq!(*received, Some(ParcelableWithNested::Status::Status::OK))
+}
+
+#[test]
+fn test_nonnull_binder() {
+    let service = get_test_service();
+    let result = service.TakesAnIBinder(&service.as_binder());
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_binder_list_without_null() {
+    let service = get_test_service();
+    let result = service.TakesAnIBinderList(&[service.as_binder()]);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_null_binder_to_annotated_method() {
+    let service = get_test_service();
+    let result = service.TakesANullableIBinder(None);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_binder_list_with_null_to_annotated_method() {
+    let service = get_test_service();
+    let result = service.TakesANullableIBinderList(Some(&[Some(service.as_binder()), None]));
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_binder_array() {
+    let service = get_test_service();
+    let callback = service
+        .GetCallback(false)
+        .expect("error calling GetCallback")
+        .expect("expected Some from GetCallback");
+
+    let mut array = vec![service.as_binder(), callback.as_binder()];
+
+    // Java needs initial values here (can't resize arrays)
+    let mut repeated = vec![Default::default(); array.len()];
+
+    let result = service.ReverseIBinderArray(&array, &mut repeated);
+    assert_eq!(repeated.into_iter().collect::<Option<Vec<_>>>().as_ref(), Some(&array));
+    array.reverse();
+    assert_eq!(result, Ok(array));
+}
+
+#[test]
+fn test_nullable_binder_array() {
+    let service = get_test_service();
+    let mut array = vec![Some(service.as_binder()), None];
+
+    // Java needs initial values here (can't resize arrays)
+    let mut repeated = Some(vec![Default::default(); array.len()]);
+
+    let result = service.ReverseNullableIBinderArray(Some(&array[..]), &mut repeated);
+    assert_eq!(repeated.as_ref(), Some(&array));
+    array.reverse();
+    assert_eq!(result, Ok(Some(array)));
+}
+
+#[test]
+fn test_read_write_fixed_size_array() {
+    let mut parcel = Parcel::new();
+    let mut p: FixedSizeArrayExample = Default::default();
+    p.byteMatrix[0][0] = 0;
+    p.byteMatrix[0][1] = 1;
+    p.byteMatrix[1][0] = 2;
+    p.byteMatrix[1][1] = 3;
+
+    p.floatMatrix[0][0] = 0.0;
+    p.floatMatrix[0][1] = 1.0;
+    p.floatMatrix[1][0] = 2.0;
+    p.floatMatrix[1][1] = 3.0;
+
+    p.boolNullableArray = Some([true, false]);
+    p.byteNullableArray = Some([42, 0]);
+    p.stringNullableArray = Some([Some("hello".into()), Some("world".into())]);
+
+    p.boolNullableMatrix = Some([[true, false], Default::default()]);
+    p.byteNullableMatrix = Some([[42, 0], Default::default()]);
+    p.stringNullableMatrix =
+        Some([[Some("hello".into()), Some("world".into())], Default::default()]);
+
+    assert_eq!(parcel.write(&p), Ok(()));
+    unsafe {
+        parcel.set_data_position(0).unwrap();
+    }
+    assert_eq!(p, parcel.read::<FixedSizeArrayExample>().unwrap());
+}
+
+#[test]
+fn test_fixed_size_array_uses_array_optimization() {
+    let mut parcel = Parcel::new();
+    let byte_array = [[1u8, 2u8, 3u8], [4u8, 5u8, 6u8]];
+    assert_eq!(parcel.write(&byte_array), Ok(()));
+    unsafe {
+        parcel.set_data_position(0).unwrap();
+    }
+    assert_eq!(parcel.read::<i32>(), Ok(2i32));
+    assert_eq!(parcel.read::<Vec<u8>>(), Ok(vec![1u8, 2u8, 3u8]));
+    assert_eq!(parcel.read::<Vec<u8>>(), Ok(vec![4u8, 5u8, 6u8]));
+}
+
+macro_rules! test_repeat_fixed_size_array {
+    ($service:ident, $func:ident, $value:expr) => {
+        let array = $value;
+        let mut repeated = Default::default();
+        let result = $service.$func(&array, &mut repeated).unwrap();
+        assert_eq!(repeated, array);
+        assert_eq!(result, array);
+    };
+}
+
+macro_rules! test_repeat_fixed_size_array_1d_binder {
+    ($service:ident, $func:ident, $value:expr) => {
+        let array = $value;
+        let mut repeated = Default::default();
+        let result = $service.$func(&array, &mut repeated).unwrap();
+        assert_eq!(result, array.clone());
+        assert_eq!(repeated, array.map(Some));
+    };
+}
+
+macro_rules! test_repeat_fixed_size_array_2d_binder {
+    ($service:ident, $func:ident, $value:expr) => {
+        let array = $value;
+        let mut repeated = Default::default();
+        let result = $service.$func(&array, &mut repeated).unwrap();
+        assert_eq!(result, array.clone());
+        assert_eq!(repeated, array.map(|row| row.map(Some)));
+    };
+}
+
+#[test]
+fn test_fixed_size_array_over_binder() {
+    let test_service = get_test_service();
+    let service: binder::Strong<dyn IRepeatFixedSizeArray> =
+        binder::get_interface(<BpRepeatFixedSizeArray as IRepeatFixedSizeArray>::get_descriptor())
+            .expect("did not get binder service");
+
+    test_repeat_fixed_size_array!(service, RepeatBytes, [1u8, 2u8, 3u8]);
+    test_repeat_fixed_size_array!(service, RepeatInts, [1i32, 2i32, 3i32]);
+
+    let binder1 = test_service.as_binder();
+    let binder2 = test_service
+        .GetCallback(false)
+        .expect("error calling GetCallback")
+        .expect("expected Some from GetCallback")
+        .as_binder();
+    let binder3 = service.as_binder();
+    test_repeat_fixed_size_array_1d_binder!(
+        service,
+        RepeatBinders,
+        [binder1.clone(), binder2.clone(), binder3.clone()]
+    );
+
+    let p1 = IntParcelable { value: 1 };
+    let p2 = IntParcelable { value: 2 };
+    let p3 = IntParcelable { value: 3 };
+    test_repeat_fixed_size_array!(service, RepeatParcelables, [p1, p2, p3]);
+
+    test_repeat_fixed_size_array!(service, Repeat2dBytes, [[1u8, 2u8, 3u8], [1u8, 2u8, 3u8]]);
+    test_repeat_fixed_size_array!(service, Repeat2dInts, [[1i32, 2i32, 3i32], [1i32, 2i32, 3i32]]);
+
+    test_repeat_fixed_size_array_2d_binder!(
+        service,
+        Repeat2dBinders,
+        [[binder1.clone(), binder2.clone(), binder3.clone()], [binder1, binder2, binder3]]
+    );
+
+    test_repeat_fixed_size_array!(service, Repeat2dParcelables, [[p1, p2, p3], [p1, p2, p3]]);
+}
+
+#[test]
+fn test_ping() {
+    let test_service = get_test_service();
+    assert_eq!(test_service.as_binder().ping_binder(), Ok(()));
 }

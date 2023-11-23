@@ -17,16 +17,22 @@
 package android.hardware.camera2.cts;
 
 import static android.hardware.camera2.cts.CameraTestUtils.*;
+
 import static junit.framework.Assert.*;
+
+import static org.junit.Assume.assumeNotNull;
+import static org.junit.Assume.assumeTrue;
 
 import android.graphics.ImageFormat;
 import android.graphics.SurfaceTexture;
-import android.hardware.camera2.cts.CameraTestUtils.SimpleCaptureCallback;
-import android.hardware.camera2.cts.testcases.Camera2AndroidTestCase;
+import android.hardware.DataSpace;
+import android.hardware.HardwareBuffer;
+import android.hardware.SyncFence;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
-import android.hardware.HardwareBuffer;
+import android.hardware.camera2.cts.CameraTestUtils.SimpleCaptureCallback;
+import android.hardware.camera2.cts.testcases.Camera2AndroidTestCase;
 import android.media.Image;
 import android.media.Image.Plane;
 import android.media.ImageReader;
@@ -35,14 +41,16 @@ import android.util.Log;
 import android.util.Size;
 import android.view.Surface;
 
+import com.android.cts.hardware.SyncFenceUtil;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.Test;
 
 /**
  * <p>
@@ -59,6 +67,8 @@ public class ImageWriterTest extends Camera2AndroidTestCase {
     // Max number of images can be accessed simultaneously from ImageReader.
     private static final int MAX_NUM_IMAGES = 3;
     private static final int CAMERA_PRIVATE_FORMAT = ImageFormat.PRIVATE;
+    private static final int BUFFER_WIDTH = 640;
+    private static final int BUFFER_HEIGHT = 480;
     private ImageReader mReaderForWriter;
     private ImageWriter mWriter;
 
@@ -196,8 +206,8 @@ public class ImageWriterTest extends Camera2AndroidTestCase {
     @Test
     public void testWriterFormatOverride() throws Exception {
         int[] TEXTURE_TEST_FORMATS = {ImageFormat.YV12, ImageFormat.YUV_420_888};
-        SurfaceTexture texture = new SurfaceTexture(/*random int*/1);
-        texture.setDefaultBufferSize(640, 480);
+        SurfaceTexture texture = new SurfaceTexture(false);
+        texture.setDefaultBufferSize(BUFFER_WIDTH, BUFFER_HEIGHT);
         Surface surface = new Surface(texture);
 
         // Make sure that the default newInstance is still valid.
@@ -213,6 +223,179 @@ public class ImageWriterTest extends Camera2AndroidTestCase {
                     image.getFormat());
             assertTrue(image.getFormat() == format);
             writer.close();
+        }
+    }
+
+    @Test
+    public void testWriterWithImageFormatOverride() throws Exception {
+        final int imageReaderFormat = ImageFormat.YUV_420_888;
+        final int imageWriterFormat = ImageFormat.YV12;
+        final int dataSpace = DataSpace.DATASPACE_JFIF;
+        final int hardwareBufferFormat = ImageFormat.YV12;
+        try (
+            ImageReader reader = new ImageReader
+                .Builder(BUFFER_WIDTH, BUFFER_HEIGHT)
+                .setImageFormat(imageReaderFormat)
+                .build();
+            ImageWriter writer = new ImageWriter
+                .Builder(reader.getSurface())
+                .setImageFormat(imageWriterFormat)
+                .build();
+            Image outputImage = writer.dequeueInputImage()
+        ) {
+            assertEquals(1, reader.getMaxImages());
+            assertEquals(imageReaderFormat, reader.getImageFormat());
+            assertEquals(dataSpace, reader.getDataSpace());
+
+            assertEquals(HardwareBuffer.USAGE_CPU_READ_OFTEN, reader.getUsage());
+            assertEquals(dataSpace, writer.getDataSpace());
+            assertEquals(imageWriterFormat, writer.getFormat());
+
+            assertEquals(BUFFER_WIDTH, outputImage.getWidth());
+            assertEquals(BUFFER_HEIGHT, outputImage.getHeight());
+            assertEquals(imageWriterFormat, outputImage.getFormat());
+            assertEquals(dataSpace, outputImage.getDataSpace());
+        }
+    }
+
+    @Test
+    public void testWriterBuilderDefault() throws Exception {
+        try (
+            ImageReader reader = new ImageReader
+                .Builder(BUFFER_WIDTH, BUFFER_HEIGHT)
+                .setImageFormat(ImageFormat.HEIC)
+                .setDefaultHardwareBufferFormat(HardwareBuffer.RGBA_8888)
+                .setDefaultDataSpace(DataSpace.DATASPACE_BT709)
+                .build();
+            ImageWriter writer = new ImageWriter
+                .Builder(reader.getSurface())
+                .build();
+            Image outputImage = writer.dequeueInputImage()
+        ) {
+            assertEquals(1, reader.getMaxImages()); // default maxImages
+            assertEquals(HardwareBuffer.USAGE_CPU_READ_OFTEN, reader.getUsage()); // default usage
+            assertEquals(HardwareBuffer.RGBA_8888, reader.getHardwareBufferFormat());
+            assertEquals(DataSpace.DATASPACE_BT709, reader.getDataSpace());
+
+            assertEquals(BUFFER_WIDTH, outputImage.getWidth());
+            assertEquals(BUFFER_HEIGHT, outputImage.getHeight());
+            assertEquals(HardwareBuffer.RGBA_8888, outputImage.getFormat());
+        }
+    }
+
+    @Test
+    public void testWriterBuilderSetImageFormatAndSize() throws Exception {
+        SurfaceTexture texture = new SurfaceTexture(false);
+        texture.setDefaultBufferSize(BUFFER_WIDTH, BUFFER_HEIGHT);
+        Surface surface = new Surface(texture);
+        final int imageWriterWidth = 20;
+        final int imageWriterHeight = 50;
+
+        long usage = HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE;
+        try (
+            ImageWriter writer = new ImageWriter
+                .Builder(surface)
+                .setWidthAndHeight(imageWriterWidth, imageWriterHeight)
+                .setMaxImages(MAX_NUM_IMAGES)
+                .setImageFormat(ImageFormat.YV12)
+                .setUsage(usage)
+                .build();
+            Image image = writer.dequeueInputImage()
+        ) {
+            // ImageFormat.YV12 HAL dataspace is DataSpace.DATASPACE_JFIF
+            assertEquals(imageWriterWidth, writer.getWidth());
+            assertEquals(imageWriterHeight, writer.getHeight());
+            assertEquals(MAX_NUM_IMAGES, writer.getMaxImages());
+            assertEquals(DataSpace.DATASPACE_JFIF, writer.getDataSpace());
+            assertEquals(usage, writer.getUsage());
+
+            assertEquals(DataSpace.DATASPACE_JFIF, image.getDataSpace());
+            assertEquals(ImageFormat.YV12, image.getFormat());
+            assertEquals(imageWriterWidth, image.getWidth());
+        }
+    }
+
+    @Test
+    public void testWriterBuilderSetHardwareBufferFormatAndDataSpace() throws Exception {
+        SurfaceTexture texture = new SurfaceTexture(false);
+        texture.setDefaultBufferSize(BUFFER_WIDTH, BUFFER_HEIGHT);
+        Surface surface = new Surface(texture);
+
+        long usage = HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE | HardwareBuffer.USAGE_GPU_COLOR_OUTPUT;
+        try (
+            ImageWriter writer = new ImageWriter
+                .Builder(surface)
+                .setImageFormat(ImageFormat.YV12)
+                .setHardwareBufferFormat(HardwareBuffer.RGBA_8888)
+                .setDataSpace(DataSpace.DATASPACE_BT709)
+                .setUsage(usage)
+                .build();
+            Image image = writer.dequeueInputImage()
+        ) {
+            assertEquals(BUFFER_WIDTH, writer.getWidth());
+            assertEquals(BUFFER_HEIGHT, writer.getHeight());
+            assertEquals(DataSpace.DATASPACE_BT709, writer.getDataSpace());
+            assertEquals(HardwareBuffer.RGBA_8888, writer.getHardwareBufferFormat());
+            assertEquals(usage, writer.getUsage());
+
+            assertEquals(DataSpace.DATASPACE_BT709, image.getDataSpace());
+            assertEquals(BUFFER_WIDTH, image.getWidth());
+            assertEquals(BUFFER_HEIGHT, image.getHeight());
+        }
+    }
+
+    @Test
+    public void testGetFence() throws Exception {
+        try (
+            ImageReader reader = new ImageReader
+                .Builder(20, 45)
+                .setMaxImages(2)
+                .setImageFormat(ImageFormat.YUV_420_888)
+                .build();
+            ImageWriter writer = new ImageWriter
+                .Builder(reader.getSurface())
+                .build();
+            Image outputImage = writer.dequeueInputImage()
+        ) {
+            assertEquals(false, outputImage.getFence().isValid());
+        }
+    }
+
+    @Test
+    public void testSetFence() throws Exception {
+        SyncFence fence = SyncFenceUtil.createUselessFence();
+        assumeNotNull(fence);
+
+        SurfaceTexture texture = new SurfaceTexture(false);
+        texture.setDefaultBufferSize(BUFFER_WIDTH, BUFFER_HEIGHT);
+        Surface surface = new Surface(texture);
+        // fence may not be valid on cuttlefish using swiftshader
+        assumeTrue(fence.isValid());
+
+        try (
+            ImageWriter writer = new ImageWriter
+                    .Builder(surface)
+                    .build();
+            Image outputImage = writer.dequeueInputImage()
+        ) {
+            outputImage.setFence(fence);
+            assertEquals(fence.getSignalTime(), outputImage.getFence().getSignalTime());
+        }
+    }
+
+    @Test
+    public void testGetPlanesAndFence() throws Exception {
+        try (
+            ImageReader reader = new ImageReader
+                    .Builder(BUFFER_WIDTH, BUFFER_HEIGHT)
+                    .build();
+            ImageWriter writer = new ImageWriter
+                    .Builder(reader.getSurface())
+                    .build();
+            Image outputImage = writer.dequeueInputImage();
+        ) {
+            outputImage.getPlanes();
+            assertEquals(false, outputImage.getFence().isValid());
         }
     }
 

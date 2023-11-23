@@ -29,9 +29,9 @@
 #include <nnapi/Result.h>
 #include <nnapi/Types.h>
 #include <nnapi/hal/1.0/Callbacks.h>
+#include <nnapi/hal/1.0/HandleError.h>
+#include <nnapi/hal/1.0/ProtectCallback.h>
 #include <nnapi/hal/CommonUtils.h>
-#include <nnapi/hal/HandleError.h>
-#include <nnapi/hal/ProtectCallback.h>
 
 #include <functional>
 #include <memory>
@@ -47,7 +47,7 @@ namespace {
 
 nn::GeneralResult<nn::Capabilities> capabilitiesCallback(V1_0::ErrorStatus status,
                                                          const Capabilities& capabilities) {
-    HANDLE_HAL_STATUS(status) << "getting capabilities failed with " << toString(status);
+    HANDLE_STATUS_HIDL(status) << "getting capabilities failed with " << toString(status);
     return nn::convert(capabilities);
 }
 
@@ -99,7 +99,7 @@ const std::string& Device::getVersionString() const {
 }
 
 nn::Version Device::getFeatureLevel() const {
-    return nn::Version::ANDROID_P;
+    return kVersion;
 }
 
 nn::DeviceType Device::getType() const {
@@ -143,7 +143,9 @@ nn::GeneralResult<std::vector<bool>> Device::getSupportedOperations(const nn::Mo
 nn::GeneralResult<nn::SharedPreparedModel> Device::prepareModel(
         const nn::Model& model, nn::ExecutionPreference preference, nn::Priority /*priority*/,
         nn::OptionalTimePoint /*deadline*/, const std::vector<nn::SharedHandle>& /*modelCache*/,
-        const std::vector<nn::SharedHandle>& /*dataCache*/, const nn::CacheToken& /*token*/) const {
+        const std::vector<nn::SharedHandle>& /*dataCache*/, const nn::CacheToken& /*token*/,
+        const std::vector<nn::TokenValuePair>& /*hints*/,
+        const std::vector<nn::ExtensionNameAndPrefix>& /*extensionNameToPrefix*/) const {
     // Ensure that model is ready for IPC.
     std::optional<nn::Model> maybeModelInShared;
     const nn::Model& modelInShared =
@@ -157,7 +159,7 @@ nn::GeneralResult<nn::SharedPreparedModel> Device::prepareModel(
 
     const auto ret = kDevice->prepareModel_1_1(hidlModel, hidlPreference, cb);
     const auto status = HANDLE_TRANSPORT_FAILURE(ret);
-    HANDLE_HAL_STATUS(status) << "model preparation failed with " << toString(status);
+    HANDLE_STATUS_HIDL(status) << "model preparation failed with " << toString(status);
 
     return cb->get();
 }

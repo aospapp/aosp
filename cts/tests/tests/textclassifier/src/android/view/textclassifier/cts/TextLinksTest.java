@@ -231,6 +231,7 @@ public class TextLinksTest {
         assertNull(request.getDefaultLocales());
         assertTrue(request.getExtras().isEmpty());
         assertNull(request.getEntityConfig());
+        assertNull(request.getCallingPackageName());
     }
 
     @Test
@@ -253,6 +254,7 @@ public class TextLinksTest {
                 TextClassifier.HINT_TEXT_IS_EDITABLE,
                 request.getEntityConfig().getHints().iterator().next());
         assertEquals(referenceTime, request.getReferenceTime());
+        assertNull(request.getCallingPackageName());
     }
 
 }

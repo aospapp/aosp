@@ -47,6 +47,8 @@ class UnwindStackMap : public BacktraceMap {
 
   void FillIn(uint64_t addr, backtrace_map_t* map) override;
 
+  std::string GetBuildId(uint64_t addr) override;
+
   virtual std::string GetFunctionName(uint64_t pc, uint64_t* offset) override;
   virtual std::shared_ptr<unwindstack::Memory> GetProcessMemory() override final;
 

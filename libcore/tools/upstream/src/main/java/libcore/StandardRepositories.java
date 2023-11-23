@@ -28,6 +28,7 @@ import java.util.Set;
 import libcore.Repository.OjluniRepository;
 
 import static libcore.Repository.openJdk9;
+import static libcore.Repository.openJdk11;
 import static libcore.Repository.openJdkLegacy;
 
 public class StandardRepositories {
@@ -51,10 +52,12 @@ public class StandardRepositories {
         this.openJdk8u222 = addAndReturn(allUpstreams, openJdkLegacy(upstreamRoot, "8u222-b01"));
         this.openJdk9p181 = addAndReturn(allUpstreams, openJdk9(upstreamRoot, "9+181"));
         Repository openJdk8u60 = addAndReturn(allUpstreams, openJdkLegacy(upstreamRoot, "8u60"));
+        Repository openJdk11p28 = addAndReturn(allUpstreams, openJdk11(upstreamRoot, "11+28"));
         this.openJdk7u40 = addAndReturn(allUpstreams, openJdkLegacy(upstreamRoot, "7u40"));
         this.allUpstreams = Collections.unmodifiableList(new ArrayList<>(allUpstreams));
         this.historicUpstreams = Collections.unmodifiableList(new ArrayList<>(
-                Arrays.asList(openJdk8u60, openJdk7u40)
+                Arrays.asList(openJdk8u121, openJdk8u60, openJdk11p28, openJdk9p181, openJdk9b113,
+                    openJdk7u40)
         ));
         this.ojluni = new OjluniRepository(buildTop);
     }

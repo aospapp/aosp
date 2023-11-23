@@ -16,15 +16,20 @@
 
 package android.telephony.ims.cts;
 
+import android.os.Bundle;
+import android.telephony.ims.ImsCallProfile;
+import android.telephony.ims.ImsStreamMediaProfile;
 import android.telephony.ims.RtpHeaderExtensionType;
 import android.telephony.ims.feature.CapabilityChangeRequest;
 import android.telephony.ims.feature.MmTelFeature;
+import android.telephony.ims.stub.ImsCallSessionImplBase;
 import android.telephony.ims.stub.ImsRegistrationImplBase;
 import android.util.Log;
 
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
 
 public class TestMmTelFeature extends MmTelFeature {
 
@@ -33,16 +38,33 @@ public class TestMmTelFeature extends MmTelFeature {
     private final TestImsService.CapabilitiesSetListener mCapSetListener;
 
     private static final String TAG = "CtsTestImsService";
+    public static ConferenceHelper sConferenceHelper = new ConferenceHelper();
 
     private MmTelCapabilities mCapabilities =
             new MmTelCapabilities(MmTelCapabilities.CAPABILITY_TYPE_SMS);
     private TestImsSmsImpl mSmsImpl;
     private Set<RtpHeaderExtensionType> mOfferedRtpHeaderExtensionTypes;
     private CountDownLatch mOfferedRtpHeaderExtensionLatch = new CountDownLatch(1);
+    private TestImsCallSessionImpl mCallSession;
 
     TestMmTelFeature(TestImsService.ReadyListener readyListener,
             TestImsService.RemovedListener removedListener,
             TestImsService.CapabilitiesSetListener setListener) {
+        Log.d(TAG, "TestMmTelFeature with default constructor");
+        mReadyListener = readyListener;
+        mRemovedListener = removedListener;
+        mCapSetListener = setListener;
+        mSmsImpl = new TestImsSmsImpl();
+        // Must set the state to READY in the constructor - onFeatureReady depends on the state
+        // being ready.
+        setFeatureState(STATE_READY);
+    }
+
+    TestMmTelFeature(TestImsService.ReadyListener readyListener,
+            TestImsService.RemovedListener removedListener,
+            TestImsService.CapabilitiesSetListener setListener, Executor executor) {
+        super(executor);
+        Log.d(TAG, "TestMmTelFeature with Executor constructor");
         mReadyListener = readyListener;
         mRemovedListener = removedListener;
         mCapSetListener = setListener;
@@ -104,6 +126,27 @@ public class TestMmTelFeature extends MmTelFeature {
         mOfferedRtpHeaderExtensionLatch.countDown();
     }
 
+    @Override
+    public ImsCallProfile createCallProfile(int serviceType, int callType) {
+        ImsStreamMediaProfile mediaProfile = new ImsStreamMediaProfile(
+                ImsStreamMediaProfile.AUDIO_QUALITY_AMR,
+                ImsStreamMediaProfile.DIRECTION_INVALID,
+                ImsStreamMediaProfile.VIDEO_QUALITY_NONE,
+                ImsStreamMediaProfile.DIRECTION_INVALID,
+                ImsStreamMediaProfile.RTT_MODE_DISABLED);
+        ImsCallProfile profile = new ImsCallProfile(serviceType, callType,
+                    new Bundle(), mediaProfile);
+        return profile;
+    }
+
+    @Override
+    public ImsCallSessionImplBase createCallSession(ImsCallProfile profile) {
+        ImsCallSessionImplBase s = new TestImsCallSessionImpl(profile);
+        mCallSession = (TestImsCallSessionImpl) s;
+        onCallCreate(mCallSession);
+        return s != null ? s : null;
+    }
+
     public void setCapabilities(MmTelCapabilities capabilities) {
         mCapabilities = capabilities;
     }
@@ -118,5 +161,46 @@ public class TestMmTelFeature extends MmTelFeature {
 
     public CountDownLatch getOfferedRtpHeaderExtensionLatch() {
         return mOfferedRtpHeaderExtensionLatch;
+    }
+
+    public TestImsCallSessionImpl getImsCallsession() {
+        return mCallSession;
+    }
+
+    public boolean isCallSessionCreated() {
+        return (mCallSession != null);
+    }
+
+    public void onIncomingCallReceived(Bundle extras) {
+        Log.d(TAG, "onIncomingCallReceived");
+
+        ImsStreamMediaProfile mediaProfile = new ImsStreamMediaProfile(
+                ImsStreamMediaProfile.AUDIO_QUALITY_AMR,
+                ImsStreamMediaProfile.DIRECTION_SEND_RECEIVE,
+                ImsStreamMediaProfile.VIDEO_QUALITY_NONE,
+                ImsStreamMediaProfile.DIRECTION_INVALID,
+                ImsStreamMediaProfile.RTT_MODE_DISABLED);
+
+        ImsCallProfile callProfile = new ImsCallProfile(ImsCallProfile.SERVICE_TYPE_NORMAL,
+                ImsCallProfile.CALL_TYPE_VOICE, new Bundle(), mediaProfile);
+
+        TestImsCallSessionImpl incomingSession = new TestImsCallSessionImpl(callProfile);
+        mCallSession = incomingSession;
+
+        Executor executor = incomingSession.getExecutor();
+        executor.execute(() -> {
+            notifyIncomingCall(incomingSession, extras);
+        });
+    }
+
+    private void onCallCreate(TestImsCallSessionImpl session) {
+        if (sConferenceHelper != null) {
+            sConferenceHelper.addSession(session);
+            session.setConferenceHelper(sConferenceHelper);
+        }
+    }
+
+    public ConferenceHelper getConferenceHelper() {
+        return sConferenceHelper;
     }
 }

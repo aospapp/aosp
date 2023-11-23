@@ -91,7 +91,6 @@ import android.annotation.SystemApi;
  */
 
 @SystemApi(client = MODULE_LIBRARIES)
-@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 public final class FP16 {
     /**
      * The number of bits used to represent a half-precision float value.
@@ -99,7 +98,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static final int SIZE = 16;
 
     /**
@@ -109,7 +107,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static final short EPSILON = (short) 0x1400;
 
     /**
@@ -118,7 +115,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static final int MAX_EXPONENT = 15;
     /**
      * Minimum exponent a normalized half-precision float may have.
@@ -126,7 +122,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static final int MIN_EXPONENT = -14;
 
     /**
@@ -135,7 +130,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static final short LOWEST_VALUE = (short) 0xfbff;
     /**
      * Maximum positive finite value a half-precision float may have.
@@ -143,7 +137,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static final short MAX_VALUE = (short) 0x7bff;
     /**
      * Smallest positive normal value a half-precision float may have.
@@ -151,7 +144,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static final short MIN_NORMAL = (short) 0x0400;
     /**
      * Smallest positive non-zero value a half-precision float may have.
@@ -159,7 +151,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static final short MIN_VALUE = (short) 0x0001;
     /**
      * A Not-a-Number representation of a half-precision float.
@@ -167,7 +158,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static final short NaN = (short) 0x7e00;
     /**
      * Negative infinity of type half-precision float.
@@ -175,7 +165,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static final short NEGATIVE_INFINITY = (short) 0xfc00;
     /**
      * Negative 0 of type half-precision float.
@@ -183,7 +172,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static final short NEGATIVE_ZERO = (short) 0x8000;
     /**
      * Positive infinity of type half-precision float.
@@ -191,7 +179,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static final short POSITIVE_INFINITY = (short) 0x7c00;
     /**
      * Positive 0 of type half-precision float.
@@ -199,7 +186,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static final short POSITIVE_ZERO = (short) 0x0000;
 
     /**
@@ -208,7 +194,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static final int SIGN_SHIFT                = 15;
 
     /**
@@ -217,7 +202,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static final int EXPONENT_SHIFT            = 10;
 
     /**
@@ -226,7 +210,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static final int SIGN_MASK                 = 0x8000;
 
     /**
@@ -235,7 +218,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static final int SHIFTED_EXPONENT_MASK     = 0x1f;
 
     /**
@@ -244,7 +226,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static final int SIGNIFICAND_MASK          = 0x3ff;
 
     /**
@@ -253,7 +234,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static final int EXPONENT_SIGNIFICAND_MASK = 0x7fff;
 
     /**
@@ -262,7 +242,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static final int EXPONENT_BIAS             = 15;
 
     private static final int FP32_SIGN_SHIFT            = 31;
@@ -299,7 +278,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static int compare(short x, short y) {
         if (less(x, y)) return -1;
         if (greater(x, y)) return 1;
@@ -332,7 +310,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static short rint(short h) {
         int bits = h & 0xffff;
         int abs = bits & EXPONENT_SIGNIFICAND_MASK;
@@ -378,7 +355,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static short ceil(short h) {
         int bits = h & 0xffff;
         int abs = bits & EXPONENT_SIGNIFICAND_MASK;
@@ -422,7 +398,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static short floor(short h) {
         int bits = h & 0xffff;
         int abs = bits & EXPONENT_SIGNIFICAND_MASK;
@@ -464,7 +439,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static short trunc(short h) {
         int bits = h & 0xffff;
         int abs = bits & EXPONENT_SIGNIFICAND_MASK;
@@ -496,7 +470,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static short min(short x, short y) {
         if (isNaN(x)) return NaN;
         if (isNaN(y)) return NaN;
@@ -525,7 +498,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static short max(short x, short y) {
         if (isNaN(x)) return NaN;
         if (isNaN(y)) return NaN;
@@ -551,7 +523,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static boolean less(short x, short y) {
         if (isNaN(x)) return false;
         if (isNaN(y)) return false;
@@ -573,7 +544,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static boolean lessEquals(short x, short y) {
         if (isNaN(x)) return false;
         if (isNaN(y)) return false;
@@ -595,7 +565,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static boolean greater(short x, short y) {
         if (isNaN(x)) return false;
         if (isNaN(y)) return false;
@@ -617,7 +586,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static boolean greaterEquals(short x, short y) {
         if (isNaN(x)) return false;
         if (isNaN(y)) return false;
@@ -639,7 +607,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static boolean equals(short x, short y) {
         if (isNaN(x)) return false;
         if (isNaN(y)) return false;
@@ -658,7 +625,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static boolean isInfinite(short h) {
         return (h & EXPONENT_SIGNIFICAND_MASK) == POSITIVE_INFINITY;
     }
@@ -673,7 +639,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static boolean isNaN(short h) {
         return (h & EXPONENT_SIGNIFICAND_MASK) > POSITIVE_INFINITY;
     }
@@ -691,7 +656,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static boolean isNormalized(short h) {
         return (h & POSITIVE_INFINITY) != 0 && (h & POSITIVE_INFINITY) != POSITIVE_INFINITY;
     }
@@ -714,7 +678,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static float toFloat(short h) {
         int bits = h & 0xffff;
         int s = bits & SIGN_MASK;
@@ -772,7 +735,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static short toHalf(float f) {
         int bits = Float.floatToRawIntBits(f);
         int s = (bits >>> FP32_SIGN_SHIFT    );
@@ -855,7 +817,6 @@ public final class FP16 {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static String toHexString(short h) {
         StringBuilder o = new StringBuilder();
 

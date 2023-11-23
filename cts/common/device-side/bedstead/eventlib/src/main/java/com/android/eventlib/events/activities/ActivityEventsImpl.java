@@ -16,77 +16,82 @@
 
 package com.android.eventlib.events.activities;
 
+import android.content.ComponentName;
+import android.os.UserHandle;
+
 import com.android.bedstead.nene.activities.NeneActivity;
 
 /** Default implementation of {@link ActivityEvents}. */
 public final class ActivityEventsImpl implements ActivityEvents {
-    private final NeneActivity mActivity;
+    private final ComponentName mComponentName;
+    private final UserHandle mUser;
 
     ActivityEventsImpl(NeneActivity activity) {
-        mActivity = activity;
+        mComponentName = activity.getComponentName();
+        mUser = activity.getUser();
+    }
+
+    ActivityEventsImpl(ComponentName componentName, UserHandle user) {
+        mComponentName = componentName;
+        mUser = user;
     }
 
     @Override
     public ActivityCreatedEvent.ActivityCreatedEventQuery activityCreated() {
-        return ActivityCreatedEvent.queryPackage(
-                mActivity.getComponentName().getPackageName())
+        return ActivityCreatedEvent.queryPackage(mComponentName.getPackageName())
                 .whereActivity().activityClass().className().isEqualTo(
-                        mActivity.getComponentName().getClassName())
-                .onUser(mActivity.getUser());
+                        mComponentName.getClassName())
+                .onUser(mUser);
     }
 
     @Override
     public ActivityDestroyedEvent.ActivityDestroyedEventQuery activityDestroyed() {
-        return ActivityDestroyedEvent.queryPackage(
-                mActivity.getComponentName().getPackageName())
+        return ActivityDestroyedEvent.queryPackage(mComponentName.getPackageName())
                 .whereActivity().activityClass().className().isEqualTo(
-                        mActivity.getComponentName().getClassName())
-                .onUser(mActivity.getUser());
+                        mComponentName.getClassName())
+                .onUser(mUser);
     }
 
     @Override
     public ActivityPausedEvent.ActivityPausedEventQuery activityPaused() {
-        return ActivityPausedEvent.queryPackage(
-                mActivity.getComponentName().getPackageName())
+        return ActivityPausedEvent.queryPackage(mComponentName.getPackageName())
                 .whereActivity().activityClass().className().isEqualTo(
-                        mActivity.getComponentName().getClassName())
-                .onUser(mActivity.getUser());
+                        mComponentName.getClassName())
+                .onUser(mUser);
     }
 
     @Override
     public ActivityRestartedEvent.ActivityRestartedEventQuery activityRestarted() {
-        return ActivityRestartedEvent.queryPackage(
-                mActivity.getComponentName().getPackageName())
+        return ActivityRestartedEvent.queryPackage(mComponentName.getPackageName())
                 .whereActivity().activityClass().className().isEqualTo(
-                        mActivity.getComponentName().getClassName())
-                .onUser(mActivity.getUser());
+                        mComponentName.getClassName())
+                .onUser(mUser);
     }
 
     @Override
     public ActivityResumedEvent.ActivityResumedEventQuery activityResumed() {
-        return ActivityResumedEvent.queryPackage(
-                mActivity.getComponentName().getPackageName())
+        return ActivityResumedEvent.queryPackage(mComponentName.getPackageName())
                 .whereActivity().activityClass().className().isEqualTo(
-                        mActivity.getComponentName().getClassName())
-                .onUser(mActivity.getUser());
+                        mComponentName.getClassName())
+                .onUser(mUser);
     }
 
     @Override
     public ActivityStartedEvent.ActivityStartedEventQuery activityStarted() {
         return ActivityStartedEvent.queryPackage(
-                mActivity.getComponentName().getPackageName())
+                mComponentName.getPackageName())
                 .whereActivity().activityClass().className().isEqualTo(
-                        mActivity.getComponentName().getClassName())
-                .onUser(mActivity.getUser());
+                        mComponentName.getClassName())
+                .onUser(mUser);
     }
 
     @Override
     public ActivityStoppedEvent.ActivityStoppedEventQuery activityStopped() {
         return ActivityStoppedEvent.queryPackage(
-                mActivity.getComponentName().getPackageName())
+                mComponentName.getPackageName())
                 .whereActivity().activityClass().className().isEqualTo(
-                        mActivity.getComponentName().getClassName())
-                .onUser(mActivity.getUser());
+                        mComponentName.getClassName())
+                .onUser(mUser);
     }
 
 }

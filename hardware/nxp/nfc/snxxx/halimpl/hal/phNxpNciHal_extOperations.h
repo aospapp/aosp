@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 NXP Semiconductors
+ * Copyright 2019-2021 NXP
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
  */
 
 #pragma once
+
+#include <phNxpNciHal_ext.h>
 
 #include "phNfcStatus.h"
 
@@ -94,3 +96,43 @@ NFCSTATUS phNxpNciHal_configure_merge_sak();
  *
  ******************************************************************************/
 NFCSTATUS phNxpNciHal_setSrdtimeout();
+/******************************************************************************
+ * Function         phNxpNciHal_set_uicc_hci_params
+ *
+ * Description      This will update value of uicc session status to store flag
+ *                  to eeprom
+ *
+ * Parameters       value - this value will be updated to eeprom flag.
+ *
+ * Returns          status of the write
+ *
+ ******************************************************************************/
+NFCSTATUS
+phNxpNciHal_set_uicc_hci_params(std::vector<uint8_t>& ptr, uint8_t bufflen,
+                                phNxpNci_EEPROM_request_type_t uiccType);
+/******************************************************************************
+ * Function         phNxpNciHal_get_uicc_hci_params
+ *
+ * Description      This will read the value of fw download status flag
+ *                  from eeprom
+ *
+ * Parameters       value - this parameter will be updated with the flag
+ *                  value from eeprom.
+ *
+ * Returns          status of the read
+ *
+ ******************************************************************************/
+NFCSTATUS
+phNxpNciHal_get_uicc_hci_params(std::vector<uint8_t>& ptr, uint8_t bufflen,
+                                phNxpNci_EEPROM_request_type_t uiccType);
+
+/******************************************************************************
+ * Function         phNxpNciHal_setExtendedFieldMode
+ *
+ * Description      This function can be used to set nfcc extended field mode
+ *
+ * Returns          NFCSTATUS_FAILED or NFCSTATUS_SUCCESS or
+ *                  NFCSTATUS_FEATURE_NOT_SUPPORTED
+ *
+ ******************************************************************************/
+NFCSTATUS phNxpNciHal_setExtendedFieldMode();

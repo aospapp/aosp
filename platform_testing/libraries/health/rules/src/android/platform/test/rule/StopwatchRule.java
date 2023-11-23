@@ -41,7 +41,11 @@ public class StopwatchRule extends Stopwatch {
      */
     @VisibleForTesting static final int INST_STATUS_IN_PROGRESS = 2;
 
-    @VisibleForTesting static final String METRIC_FORMAT = "duration_ms_%s#%s";
+    @VisibleForTesting static final String METRIC_BASE = "duration_ms";
+    @VisibleForTesting static final String METRIC_FORMAT = METRIC_BASE + "_%s#%s";
+
+    // If true, append the test name to the metric key. Otherwise, don't.
+    @VisibleForTesting static final String APPEND_TEST_NAME = "append-test-name";
 
     private final Bundle mResult = new Bundle();
     private Instrumentation mInstrumentation = InstrumentationRegistry.getInstrumentation();
@@ -53,11 +57,7 @@ public class StopwatchRule extends Stopwatch {
      * @param description Description for for the test
      */
     private void reportMetric(long nanos, Description description) {
-        String metricKey =
-                String.format(
-                        METRIC_FORMAT, description.getClassName(), description.getMethodName());
-        long millis = NANOSECONDS.toMillis(nanos);
-        mResult.putLong(metricKey, millis);
+        mResult.putLong(getMetricKey(description), NANOSECONDS.toMillis(nanos));
         mInstrumentation.sendStatus(INST_STATUS_IN_PROGRESS, mResult);
     }
 
@@ -70,6 +70,24 @@ public class StopwatchRule extends Stopwatch {
     @VisibleForTesting
     Bundle getMetric() {
         return mResult;
+    }
+
+    private String getMetricKey(Description description) {
+        if ("true".equals(getArguments().getString(APPEND_TEST_NAME, "true"))) {
+            return String.format(
+                    METRIC_FORMAT, description.getClassName(), description.getMethodName());
+        } else {
+            return METRIC_BASE;
+        }
+    }
+
+    /**
+     * Returns the {@link Bundle} containing registered arguments.
+     *
+     * <p>Override this for unit testing device calls.
+     */
+    protected Bundle getArguments() {
+        return InstrumentationRegistry.getArguments();
     }
 
     @VisibleForTesting

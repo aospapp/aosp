@@ -21,6 +21,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
 
 import android.app.Instrumentation;
 import android.content.pm.PackageManager;
@@ -97,9 +98,7 @@ public final class GbaServiceTest {
 
     @Before
     public void setUp() throws Exception {
-        if (!isFeatureSupported()) {
-            return;
-        }
+        assumeTrue(isFeatureSupported());
 
         setService(SERVICE_PACKAGE);
         setReleaseTime(RELEASE_DEFAULT);
@@ -107,20 +106,12 @@ public final class GbaServiceTest {
 
     @Test (expected = SecurityException.class)
     public void testPermissions() {
-        if (!isFeatureSupported()) {
-            throw new SecurityException("Feaure is not supported");
-        }
-
         runGbaFailCase(TelephonyManager.GBA_FAILURE_REASON_FEATURE_NOT_SUPPORTED,
                 android.Manifest.permission.READ_PHONE_STATE);
     }
 
     @Test
     public void testAuthSuccess() {
-        if (!isFeatureSupported()) {
-            return;
-        }
-
         Random rand = new Random();
 
         for (int i = 0; i < 20; i++) {
@@ -172,10 +163,6 @@ public final class GbaServiceTest {
 
     @Test
     public void testGbaNotSupported() throws Exception {
-        if (!isFeatureSupported()) {
-            return;
-        }
-
         setService("");
         sConfig.setConfig(true, new byte[16], BTID, TelephonyManager.GBA_FAILURE_REASON_UNKNOWN);
 
@@ -187,10 +174,6 @@ public final class GbaServiceTest {
 
     @Test
     public void testAuthFail() {
-        if (!isFeatureSupported()) {
-            return;
-        }
-
         for (int r = TelephonyManager.GBA_FAILURE_REASON_UNKNOWN;
                 r <= TelephonyManager.GBA_FAILURE_REASON_SECURITY_PROTOCOL_NOT_SUPPORTED; r++) {
             sConfig.setConfig(false, new byte[16], BTID, r);
@@ -235,10 +218,6 @@ public final class GbaServiceTest {
 
     @Test
     public void testServiceReleaseDefault() throws Exception {
-        if (!isFeatureSupported()) {
-            return;
-        }
-
         int ss = sConfig.getServiceState();
         boolean isExpected = (ss == TestGbaConfig.STATE_UNKNOWN
                 || ss == TestGbaConfig.STATE_REMOVED
@@ -256,10 +235,6 @@ public final class GbaServiceTest {
 
     @Test
     public void testServiceReleaseDuration() throws Exception {
-        if (!isFeatureSupported()) {
-            return;
-        }
-
         int ss = sConfig.getServiceState();
         boolean isExpected = (ss == TestGbaConfig.STATE_UNKNOWN
                 || ss == TestGbaConfig.STATE_REMOVED
@@ -281,10 +256,6 @@ public final class GbaServiceTest {
 
     @Test
     public void testServiceNoRelease() throws Exception {
-        if (!isFeatureSupported()) {
-            return;
-        }
-
         int ss = sConfig.getServiceState();
         boolean isExpected = (ss == TestGbaConfig.STATE_UNKNOWN
                 || ss == TestGbaConfig.STATE_REMOVED
@@ -325,11 +296,14 @@ public final class GbaServiceTest {
 
     private static boolean isFeatureSupported() {
         if (!InstrumentationRegistry.getContext().getPackageManager().hasSystemFeature(
-                PackageManager.FEATURE_TELEPHONY)) {
+                PackageManager.FEATURE_TELEPHONY_SUBSCRIPTION)) {
             return false;
         }
-        int[] activeSubs = InstrumentationRegistry.getContext().getSystemService(
-                SubscriptionManager.class).getActiveSubscriptionIdList();
+
+        SubscriptionManager subscriptionManager = InstrumentationRegistry.getContext()
+                .getSystemService(SubscriptionManager.class);
+        int[] activeSubs = ShellIdentityUtils.invokeMethodWithShellPermissions(subscriptionManager,
+                (sm) -> sm.getActiveSubscriptionIdList());
         if (activeSubs.length == 0) {
             return false;
         }

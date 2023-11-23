@@ -37,4 +37,8 @@ android_test {
         "cts",
         "general-tests",
     ],
+    data: [
+        ":CtsUnaffiliatedAccountAuthenticators",
+    ],
+    per_testcase_directory: true,
 }

@@ -19,16 +19,12 @@ package android.hdmicec.cts.playback;
 import android.hdmicec.cts.BaseHdmiCecCtsTest;
 import android.hdmicec.cts.CecMessage;
 import android.hdmicec.cts.CecOperand;
-import android.hdmicec.cts.HdmiCecClientWrapper;
 import android.hdmicec.cts.HdmiCecConstants;
 import android.hdmicec.cts.LogicalAddress;
-import android.hdmicec.cts.RequiredFeatureRule;
-import android.hdmicec.cts.RequiredPropertyRule;
 
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.RuleChain;
@@ -58,11 +54,12 @@ public final class HdmiCecOneTouchPlayTest extends BaseHdmiCecCtsTest {
 
     @Rule
     public RuleChain ruleChain =
-        RuleChain
-            .outerRule(CecRules.requiresCec(this))
-            .around(CecRules.requiresLeanback(this))
-            .around(CecRules.requiresDeviceType(this, LogicalAddress.PLAYBACK_1))
-            .around(hdmiCecClient);
+            RuleChain.outerRule(CecRules.requiresCec(this))
+                    .around(CecRules.requiresLeanback(this))
+                    .around(
+                            CecRules.requiresDeviceType(
+                                    this, HdmiCecConstants.CEC_DEVICE_TYPE_PLAYBACK_DEVICE))
+                    .around(hdmiCecClient);
 
     /**
      * Test 11.2.1-1
@@ -73,7 +70,7 @@ public final class HdmiCecOneTouchPlayTest extends BaseHdmiCecCtsTest {
     public void cect_11_2_1_1_OneTouchPlay() throws Exception {
         ITestDevice device = getDevice();
         device.reboot();
-        sendOtp(device);
+        sendOtp();
         hdmiCecClient.checkExpectedOutput(LogicalAddress.TV, CecOperand.TEXT_VIEW_ON);
         String message = hdmiCecClient.checkExpectedOutput(CecOperand.ACTIVE_SOURCE);
         CecMessage.assertPhysicalAddressValid(message, getDumpsysPhysicalAddress());
@@ -92,9 +89,5 @@ public final class HdmiCecOneTouchPlayTest extends BaseHdmiCecCtsTest {
         String message = hdmiCecClient.checkExpectedOutput(CecOperand.ACTIVE_SOURCE);
         CecMessage.assertPhysicalAddressValid(message, getDumpsysPhysicalAddress());
         device.executeShellCommand(FORCE_STOP_COMMAND + SETTINGS_PACKAGE);
-    }
-
-    private void sendOtp(ITestDevice device) throws Exception {
-        device.executeShellCommand("cmd hdmi_control onetouchplay");
     }
 }

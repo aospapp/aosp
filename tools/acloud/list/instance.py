@@ -28,6 +28,7 @@ The details include:
 
 import collections
 import datetime
+import json
 import logging
 import os
 import re
@@ -44,13 +45,23 @@ from acloud.internal.lib import cvd_runtime_config
 from acloud.internal.lib import utils
 from acloud.internal.lib.adb_tools import AdbTools
 from acloud.internal.lib.local_instance_lock import LocalInstanceLock
+from acloud.internal.lib.gcompute_client import GetInstanceIP
 
 
 logger = logging.getLogger(__name__)
 
 _ACLOUD_CVD_TEMP = os.path.join(tempfile.gettempdir(), "acloud_cvd_temp")
+_CVD_CONFIG_FOLDER = "%(cvd_runtime)s/instances/cvd-%(id)d"
+_CVD_LOG_FOLDER = _CVD_CONFIG_FOLDER + "/logs"
 _CVD_RUNTIME_FOLDER_NAME = "cuttlefish_runtime"
+_CVD_BIN = "cvd"
+_CVD_BIN_FOLDER = "host_bins/bin"
 _CVD_STATUS_BIN = "cvd_status"
+_CVD_SERVER = "cvd_server"
+_CVD_STOP_ERROR_KEYWORDS = "cvd_internal_stop E"
+# Default timeout 30 secs for cvd commands.
+_CVD_TIMEOUT = 30
+_INSTANCE_ASSEMBLY_DIR = "cuttlefish_assembly"
 _LOCAL_INSTANCE_NAME_FORMAT = "local-instance-%(id)d"
 _LOCAL_INSTANCE_NAME_PATTERN = re.compile(r"^local-instance-(?P<id>\d+)$")
 _ACLOUDWEB_INSTANCE_START_STRING = "cf-"
@@ -62,6 +73,7 @@ _RE_SSH_TUNNEL_PATTERN = (r"((.*\s*-L\s)(?P<%s>\d+):127.0.0.1:%s)"
                           r"((.*\s*-L\s)(?P<%s>\d+):127.0.0.1:%s)"
                           r"(.+%s)")
 _RE_TIMEZONE = re.compile(r"^(?P<time>[0-9\-\.:T]*)(?P<timezone>[+-]\d+:\d+)$")
+_RE_DEVICE_INFO = re.compile(r"(?s).*(?P<device_info>[{][\s\w\W]+})")
 
 _COMMAND_PS_LAUNCH_CVD = ["ps", "-wweo", "lstart,cmd"]
 _RE_RUN_CVD = re.compile(r"(?P<date_str>^[^/]+)(.*run_cvd)")
@@ -116,7 +128,7 @@ def GetLocalInstanceIdByName(name):
     return None
 
 
-def GetLocalInstanceConfig(local_instance_id):
+def GetLocalInstanceConfigPath(local_instance_id):
     """Get the path of instance config.
 
     Args:
@@ -125,8 +137,21 @@ def GetLocalInstanceConfig(local_instance_id):
     Return:
         String, path of cf runtime config.
     """
-    cfg_path = os.path.join(GetLocalInstanceRuntimeDir(local_instance_id),
-                            constants.CUTTLEFISH_CONFIG_FILE)
+    ins_assembly_dir = os.path.join(GetLocalInstanceHomeDir(local_instance_id),
+                                    _INSTANCE_ASSEMBLY_DIR)
+    return os.path.join(ins_assembly_dir, constants.CUTTLEFISH_CONFIG_FILE)
+
+
+def GetLocalInstanceConfig(local_instance_id):
+    """Get the path of existed config from local instance.
+
+    Args:
+        local_instance_id: Integer of instance id.
+
+    Return:
+        String, path of cf runtime config. None for config not exist.
+    """
+    cfg_path = GetLocalInstanceConfigPath(local_instance_id)
     if os.path.isfile(cfg_path):
         return cfg_path
     return None
@@ -196,6 +221,37 @@ def GetLocalInstanceRuntimeDir(local_instance_id):
                         _CVD_RUNTIME_FOLDER_NAME)
 
 
+def GetLocalInstanceLogDir(local_instance_id):
+    """Get local instance log directory.
+
+    Cuttlefish log directories are different between versions:
+
+    In Android 10, the logs are in `<runtime_dir>`.
+
+    In Android 11, the logs are in `<runtime_dir>.<id>`.
+    `<runtime_dir>` is a symbolic link to `<runtime_dir>.<id>`.
+
+    In the latest version, the logs are in
+    `<runtime_dir>/instances/cvd-<id>/logs`.
+    `<runtime_dir>_runtime` and `<runtime_dir>.<id>` are symbolic links to
+    `<runtime_dir>/instances/cvd-<id>`.
+
+    This method looks for `<runtime_dir>/instances/cvd-<id>/logs` which is the
+    latest known location. If it doesn't exist, this method returns
+    `<runtime_dir>` which is compatible with the old versions.
+
+    Args:
+        local_instance_id: Integer of instance id.
+
+    Returns:
+        The path to the log directory.
+    """
+    runtime_dir = GetLocalInstanceRuntimeDir(local_instance_id)
+    log_dir = _CVD_LOG_FOLDER % {"cvd_runtime": runtime_dir,
+                                 "id": local_instance_id}
+    return log_dir if os.path.isdir(log_dir) else runtime_dir
+
+
 def _GetCurrentLocalTime():
     """Return a datetime object for current time in local time zone."""
     return datetime.datetime.now(dateutil.tz.tzlocal())
@@ -224,6 +280,20 @@ def _GetElapsedTime(start_time):
         logger.debug(("Can't parse datetime string(%s)."), start_time)
         return _MSG_UNABLE_TO_CALCULATE
 
+def _IsProcessRunning(process):
+    """Check if this process is running.
+
+    Returns:
+        Boolean, True for this process is running.
+    """
+    match_pattern = re.compile(f"(.+)({process} )(.+)")
+    process_output = utils.CheckOutput(constants.COMMAND_PS)
+    for line in process_output.splitlines():
+        process_match = match_pattern.match(line)
+        if process_match:
+            return True
+    return False
+
 
 # pylint: disable=useless-object-inheritance
 class Instance(object):
@@ -234,7 +304,7 @@ class Instance(object):
                  vnc_port=None, ssh_tunnel_is_connected=None, createtime=None,
                  elapsed_time=None, avd_type=None, avd_flavor=None,
                  is_local=False, device_information=None, zone=None,
-                 webrtc_port=None):
+                 webrtc_port=None, webrtc_forward_port=None):
         self._name = name
         self._fullname = fullname
         self._status = status
@@ -243,6 +313,7 @@ class Instance(object):
         self._adb_port = adb_port  # adb port which is forwarding to remote
         self._vnc_port = vnc_port  # vnc port which is forwarding to remote
         self._webrtc_port = webrtc_port
+        self._webrtc_forward_port = webrtc_forward_port
         # True if ssh tunnel is still connected
         self._ssh_tunnel_is_connected = ssh_tunnel_is_connected
         self._createtime = createtime
@@ -252,6 +323,7 @@ class Instance(object):
         self._is_local = is_local  # True if this is a local instance
         self._device_information = device_information
         self._zone = zone
+        self._autoconnect = self._GetAutoConnect()
 
     def __repr__(self):
         """Return full name property for print."""
@@ -269,11 +341,15 @@ class Instance(object):
         representation.append("%s display: %s" % (_INDENT, self._display))
         representation.append("%s vnc: 127.0.0.1:%s" % (_INDENT, self._vnc_port))
         representation.append("%s zone: %s" % (_INDENT, self._zone))
+        representation.append("%s autoconnect: %s" % (_INDENT, self._autoconnect))
         representation.append("%s webrtc port: %s" % (_INDENT, self._webrtc_port))
+        representation.append("%s webrtc forward port: %s" %
+                              (_INDENT, self._webrtc_forward_port))
 
         if self._adb_port and self._device_information:
-            representation.append("%s adb serial: 127.0.0.1:%s" %
-                                  (_INDENT, self._adb_port))
+            serial_ip = self._ip if self._ip == "0.0.0.0" else "127.0.0.1"
+            representation.append("%s adb serial: %s:%s" %
+                                  (_INDENT, serial_ip, self._adb_port))
             representation.append("%s product: %s" % (
                 _INDENT, self._device_information["product"]))
             representation.append("%s model: %s" % (
@@ -296,6 +372,20 @@ class Instance(object):
         if self._adb_port and self._device_information:
             return True
         return False
+
+    def _GetAutoConnect(self):
+        """Get the autoconnect of instance.
+
+        Returns:
+            String of autoconnect type. None for no autoconnect.
+        """
+        if self._webrtc_port or self._webrtc_forward_port:
+            return constants.INS_KEY_WEBRTC
+        if self._vnc_port:
+            return constants.INS_KEY_VNC
+        if self._adb_port:
+            return constants.INS_KEY_ADB
+        return None
 
     @property
     def name(self):
@@ -363,9 +453,19 @@ class Instance(object):
         return self._webrtc_port
 
     @property
+    def webrtc_forward_port(self):
+        """Return webrtc_forward_port."""
+        return self._webrtc_forward_port
+
+    @property
     def zone(self):
         """Return zone."""
         return self._zone
+
+    @property
+    def autoconnect(self):
+        """Return autoconnect."""
+        return self._autoconnect
 
 
 class LocalInstance(Instance):
@@ -380,7 +480,6 @@ class LocalInstance(Instance):
         self._instance_dir = self._cf_runtime_cfg.instance_dir
         self._virtual_disk_paths = self._cf_runtime_cfg.virtual_disk_paths
         self._local_instance_id = int(self._cf_runtime_cfg.instance_id)
-
         display = _DISPLAY_STRING % {"x_res": self._cf_runtime_cfg.x_res,
                                      "y_res": self._cf_runtime_cfg.y_res,
                                      "dpi": self._cf_runtime_cfg.dpi}
@@ -391,9 +490,13 @@ class LocalInstance(Instance):
                     {"device_serial": "0.0.0.0:%s" % self._cf_runtime_cfg.adb_port,
                      "instance_name": name,
                      "elapsed_time": None})
-        adb_device = AdbTools(self._cf_runtime_cfg.adb_port)
+        adb_device = AdbTools(device_serial="0.0.0.0:%s" % self._cf_runtime_cfg.adb_port)
         webrtc_port = local_image_local_instance.LocalImageLocalInstance.GetWebrtcSigServerPort(
             self._local_instance_id)
+        cvd_fleet_info = self.GetDevidInfoFromCvdFleet()
+        if cvd_fleet_info:
+            display = cvd_fleet_info.get("displays")
+
         device_information = None
         if adb_device.IsAdbConnected():
             device_information = adb_device.device_information
@@ -412,6 +515,76 @@ class LocalInstance(Instance):
         instance_home = "%s instance home: %s" % (_INDENT, self._instance_dir)
         return "%s\n%s" % (super().Summary(), instance_home)
 
+    def _GetCvdEnv(self):
+        """Get the environment to run cvd commands.
+
+        Returns:
+            os.environ with cuttlefish variables updated.
+        """
+        cvd_env = os.environ.copy()
+        cvd_env[constants.ENV_ANDROID_SOONG_HOST_OUT] = os.path.dirname(
+            self._cf_runtime_cfg.cvd_tools_path)
+        cvd_env[constants.ENV_CUTTLEFISH_CONFIG_FILE] = self._cf_runtime_cfg.config_path
+        cvd_env[constants.ENV_CVD_HOME] = GetLocalInstanceHomeDir(self._local_instance_id)
+        cvd_env[constants.ENV_CUTTLEFISH_INSTANCE] = str(self._local_instance_id)
+        return cvd_env
+
+    def GetDevidInfoFromCvdFleet(self):
+        """Get device information from 'cvd fleet'.
+
+        Execute 'cvd fleet' cmd to get device information.
+
+        Returns
+            Output of 'cvd fleet'. None for fail to run 'cvd fleet'.
+        """
+        ins_home_dir = GetLocalInstanceHomeDir(self._local_instance_id)
+        try:
+            cvd_tool = os.path.join(ins_home_dir, _CVD_BIN_FOLDER, _CVD_BIN)
+            cvd_fleet_cmd = f"{cvd_tool} fleet"
+            if not os.path.exists(cvd_tool):
+                logger.warning("Cvd tools path doesn't exist:%s", cvd_tool)
+                return None
+            if not _IsProcessRunning(_CVD_SERVER):
+                logger.warning("The %s is not active.", _CVD_SERVER)
+                return None
+            logger.debug("Running cmd [%s] to get device info.", cvd_fleet_cmd)
+            process = subprocess.Popen(cvd_fleet_cmd, shell=True, text=True,
+                                       env=self._GetCvdEnv(),
+                                       stdout=subprocess.PIPE,
+                                       stderr=subprocess.PIPE)
+            stdout, _ = process.communicate(timeout=_CVD_TIMEOUT)
+            logger.debug("Output of cvd fleet: %s", stdout)
+            return json.loads(self._ParsingCvdFleetOutput(stdout))
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired,
+                json.JSONDecodeError) as error:
+            logger.error("Failed to run 'cvd fleet': %s", str(error))
+            return None
+
+    @staticmethod
+    def _ParsingCvdFleetOutput(output):
+        """Parsing the output of cvd fleet.
+
+        The output example:
+            WARNING: cvd_server client version (8245608) does not match.
+            {
+                "adb_serial" : "0.0.0.0:6520",
+                "assembly_dir" : "/home/cuttlefish_runtime/assembly",
+                "displays" : ["720 x 1280 ( 320 )"],
+                "instance_dir" : "/home/cuttlefish_runtime/instances/cvd-1",
+                "instance_name" : "cvd-1",
+                "status" : "Running",
+                "web_access" : "https://0.0.0.0:8443/client.html?deviceId=cvd-1",
+                "webrtc_port" : "8443"
+            }
+
+        Returns:
+            Parsed output filtered warning message.
+        """
+        device_match = _RE_DEVICE_INFO.match(output)
+        if device_match:
+            return device_match.group("device_info")
+        return ""
+
     def CvdStatus(self):
         """check if local instance is active.
 
@@ -424,10 +597,6 @@ class LocalInstance(Instance):
             logger.debug("No cvd tools path found from config:%s",
                          self._cf_runtime_cfg.config_path)
             return False
-        cvd_env = os.environ.copy()
-        cvd_env[constants.ENV_CUTTLEFISH_CONFIG_FILE] = self._cf_runtime_cfg.config_path
-        cvd_env[constants.ENV_CVD_HOME] = GetLocalInstanceHomeDir(self._local_instance_id)
-        cvd_env[constants.ENV_CUTTLEFISH_INSTANCE] = str(self._local_instance_id)
         try:
             cvd_status_cmd = os.path.join(self._cf_runtime_cfg.cvd_tools_path,
                                           _CVD_STATUS_BIN)
@@ -441,7 +610,7 @@ class LocalInstance(Instance):
                     if os.environ.get(env_host_out, _NO_ANDROID_ENV) in cvd_status_cmd:
                         logger.warning(
                             "Can't find the cvd_status tool (Try lunching a "
-                            "cuttlefish target like aosp_cf_x86_phone-userdebug "
+                            "cuttlefish target like aosp_cf_x86_64_phone-userdebug "
                             "and running 'make hosttar' before list/delete local "
                             "instances)")
                 return False
@@ -450,7 +619,7 @@ class LocalInstance(Instance):
                                        stdin=None,
                                        stdout=subprocess.PIPE,
                                        stderr=subprocess.STDOUT,
-                                       env=cvd_env)
+                                       env=self._GetCvdEnv())
             stdout, _ = process.communicate()
             if process.returncode != 0:
                 if stdout:
@@ -463,36 +632,51 @@ class LocalInstance(Instance):
             return False
 
     def Delete(self):
-        """Execute stop_cvd to stop local cuttlefish instance.
+        """Execute "cvd stop" to stop local cuttlefish instance.
 
-        - We should get the same host tool used to launch cvd to delete instance
-        , So get stop_cvd bin from the cvd runtime config.
-        - Add CUTTLEFISH_CONFIG_FILE env variable to tell stop_cvd which cvd
-        need to be deleted.
+        - We should get the same host tool used to delete instance.
+        - Add CUTTLEFISH_CONFIG_FILE env variable to tell cvd which cvd need to
+          be deleted.
         - Stop adb since local instance use the fixed adb port and could be
          reused again soon.
         """
-        stop_cvd_cmd = os.path.join(self.cf_runtime_cfg.cvd_tools_path,
-                                    constants.CMD_STOP_CVD)
+        ins_home_dir = GetLocalInstanceHomeDir(self._local_instance_id)
+        cvd_tool = os.path.join(ins_home_dir, _CVD_BIN_FOLDER, _CVD_BIN)
+        stop_cvd_cmd = f"{cvd_tool} stop"
         logger.debug("Running cmd[%s] to delete local cvd", stop_cvd_cmd)
-        cvd_env = os.environ.copy()
-        if self.instance_dir:
-            cvd_env[constants.ENV_CUTTLEFISH_CONFIG_FILE] = self._cf_runtime_cfg.config_path
-            cvd_env[constants.ENV_CVD_HOME] = GetLocalInstanceHomeDir(
-                self._local_instance_id)
-            cvd_env[constants.ENV_CUTTLEFISH_INSTANCE] = str(self._local_instance_id)
-        else:
+        if not self.instance_dir:
             logger.error("instance_dir is null!! instance[%d] might not be"
                          " deleted", self._local_instance_id)
-        subprocess.check_call(
-            utils.AddUserGroupsToCmd(stop_cvd_cmd,
-                                     constants.LIST_CF_USER_GROUPS),
-            stderr=subprocess.STDOUT, shell=True, env=cvd_env)
+        try:
+            output = subprocess.check_output(
+                utils.AddUserGroupsToCmd(stop_cvd_cmd,
+                                         constants.LIST_CF_USER_GROUPS),
+                stderr=subprocess.STDOUT, shell=True, env=self._GetCvdEnv(),
+                text=True, timeout=_CVD_TIMEOUT)
+            # TODO: Remove workaround of stop_cvd when 'cvd stop' is stable.
+            if _CVD_STOP_ERROR_KEYWORDS in output:
+                logger.debug("Fail to stop cvd: %s", output)
+                self._ExecuteStopCvd(os.path.join(ins_home_dir, _CVD_BIN_FOLDER))
+        except (subprocess.TimeoutExpired, subprocess.CalledProcessError) as e:
+            logger.debug("'cvd stop' error: %s", str(e))
+            self._ExecuteStopCvd(os.path.join(ins_home_dir, _CVD_BIN_FOLDER))
 
         adb_cmd = AdbTools(self.adb_port)
         # When relaunch a local instance, we need to pass in retry=True to make
         # sure adb device is completely gone since it will use the same adb port
         adb_cmd.DisconnectAdb(retry=True)
+
+    def _ExecuteStopCvd(self, dir_path):
+        """Execute "stop_cvd" to stop local cuttlefish instance.
+
+        Args:
+            bin_dir: String, directory path of "stop_cvd".
+        """
+        stop_cvd_cmd = os.path.join(dir_path, constants.CMD_STOP_CVD)
+        subprocess.check_call(
+            utils.AddUserGroupsToCmd(
+                stop_cvd_cmd, constants.LIST_CF_USER_GROUPS),
+            stderr=subprocess.STDOUT, shell=True, env=self._GetCvdEnv())
 
     def GetLock(self):
         """Return the LocalInstanceLock for this object."""
@@ -694,15 +878,14 @@ class RemoteInstance(Instance):
         status = gce_instance.get(constants.INS_KEY_STATUS)
         zone = self._GetZoneName(gce_instance.get(constants.INS_KEY_ZONE))
 
-        ip = None
-        for network_interface in gce_instance.get("networkInterfaces"):
-            for access_config in network_interface.get("accessConfigs"):
-                ip = access_config.get("natIP")
+        instance_ip = GetInstanceIP(gce_instance)
+        ip = instance_ip.external or instance_ip.internal
 
-        # Get metadata
+        # Get metadata, webrtc_port will be removed if "cvd fleet" show it.
         display = None
         avd_type = None
         avd_flavor = None
+        webrtc_port = None
         for metadata in gce_instance.get("metadata", {}).get("items", []):
             key = metadata["key"]
             value = metadata["value"]
@@ -712,6 +895,8 @@ class RemoteInstance(Instance):
                 avd_type = value
             elif key == constants.INS_KEY_AVD_FLAVOR:
                 avd_flavor = value
+            elif key == constants.INS_KEY_WEBRTC_PORT:
+                webrtc_port = value
         # TODO(176884236): Insert avd information into metadata of instance.
         if not avd_type and name.startswith(_ACLOUDWEB_INSTANCE_START_STRING):
             avd_type = constants.TYPE_CF
@@ -719,12 +904,14 @@ class RemoteInstance(Instance):
         # Find ssl tunnel info.
         adb_port = None
         vnc_port = None
+        webrtc_forward_port = None
         device_information = None
         if ip:
             forwarded_ports = self.GetAdbVncPortFromSSHTunnel(ip, avd_type)
             adb_port = forwarded_ports.adb_port
             vnc_port = forwarded_ports.vnc_port
             ssh_tunnel_is_connected = adb_port is not None
+            webrtc_forward_port = utils.GetWebrtcPortFromSSHTunnel(ip)
 
             adb_device = AdbTools(adb_port)
             if adb_device.IsAdbConnected():
@@ -753,8 +940,8 @@ class RemoteInstance(Instance):
             createtime=create_time, elapsed_time=elapsed_time, avd_type=avd_type,
             avd_flavor=avd_flavor, is_local=False,
             device_information=device_information,
-            zone=zone,
-            webrtc_port=constants.WEBRTC_LOCAL_PORT)
+            zone=zone, webrtc_port=webrtc_port,
+            webrtc_forward_port=webrtc_forward_port)
 
     @staticmethod
     def _GetZoneName(zone_info):
@@ -809,8 +996,8 @@ class RemoteInstance(Instance):
                 vnc_port = int(match.group(_RE_GROUP_VNC))
                 break
 
-        logger.debug(("grathering detail for ssh tunnel. "
-                      "IP:%s, forwarding (adb:%d, vnc:%d)"), ip, adb_port,
+        logger.debug(("gathering detail for ssh tunnel. "
+                      "IP:%s, forwarding (adb:%s, vnc:%s)"), ip, adb_port,
                      vnc_port)
 
         return utils.ForwardedPorts(vnc_port=vnc_port, adb_port=adb_port)

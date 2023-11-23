@@ -52,9 +52,10 @@ class BootImgFilesystem : public FilesystemInterface {
   // The boot.img file path.
   std::string filename_;
 
-  uint32_t kernel_size_;  /* size in bytes */
-  uint32_t ramdisk_size_; /* size in bytes */
-  uint32_t page_size_;    /* flash page size we assume */
+  uint32_t kernel_size_ = 0;    /* size in bytes */
+  uint32_t ramdisk_size_ = 0;   /* size in bytes */
+  uint32_t signature_size_ = 0; /* size in bytes */
+  uint32_t page_size_ = 4096;   /* flash page size we assume */
 
   DISALLOW_COPY_AND_ASSIGN(BootImgFilesystem);
 };

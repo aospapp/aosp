@@ -19,13 +19,10 @@ package android.car.cts;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.car.VehicleGear;
-import android.car.VehiclePropertyIds;
-import android.util.Log;
+import android.car.cts.utils.VehiclePropertyUtils;
 
 import org.junit.Test;
 
-import java.lang.reflect.Field;
-import java.util.ArrayList;
 import java.util.List;
 
 public class VehicleGearTest {
@@ -60,25 +57,10 @@ public class VehicleGearTest {
      */
     @Test
     public void testAllGearsAreMappedInToString() {
-        List<Integer> gears = getIntegersFromDataEnums(VehicleGear.class);
+        List<Integer> gears = VehiclePropertyUtils.getIntegersFromDataEnums(VehicleGear.class);
         for (int gear : gears) {
             String gearString = VehicleGear.toString(gear);
             assertThat(gearString.startsWith("0x")).isFalse();
         }
-    }
-    // Get all enums from the class.
-    private static List<Integer> getIntegersFromDataEnums(Class clazz) {
-        Field[] fields = clazz.getDeclaredFields();
-        List<Integer> integerList = new ArrayList<>(5);
-        for (Field f : fields) {
-            if (f.getType() == int.class) {
-                try {
-                    integerList.add(f.getInt(clazz));
-                } catch (IllegalAccessException | RuntimeException e) {
-                    Log.w(TAG, "Failed to get value");
-                }
-            }
-        }
-        return integerList;
     }
 }

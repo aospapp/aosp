@@ -226,6 +226,10 @@ class NonConcurrencyTest(AwareBaseTest):
     def test_run_aware_then_softap(self):
         """Validate that a running Aware session terminates when softAp is
     started"""
+        #Adding dbs support verifying before test start
+        asserts.skip_if(
+            self.android_devices[0].model not in self.dbs_supported_models,
+            "Device %s doesn't support STA+AP." % self.android_devices[0].model)
         self.run_aware_then_incompat_service(is_p2p=False)
 
     @test_tracker_info(uuid="2ac27ac6-8010-4d05-b892-00242420b075")

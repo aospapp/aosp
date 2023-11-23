@@ -21,6 +21,7 @@ cc_defaults {
     shared_libs: [
         "libbase",
         "libbinder",
+        "libbinder_ndk",
         "libcutils",
         "libhidlbase",
         "liblog",
@@ -51,6 +52,7 @@ cc_binary {
     init_rc: ["android.system.suspend@1.0-service.rc"],
     vintf_fragments: ["android.system.suspend@1.0-service.xml"],
     shared_libs: [
+        "android.system.suspend-V1-ndk",
         "android.system.suspend.control-V1-cpp",
         "android.system.suspend.control.internal-cpp",
         "android.system.suspend@1.0",
@@ -60,6 +62,8 @@ cc_binary {
         "main.cpp",
         "SuspendControlService.cpp",
         "SystemSuspend.cpp",
+        "SystemSuspendHidl.cpp",
+        "SystemSuspendAidl.cpp",
         "WakeLockEntryList.cpp",
         "WakeupList.cpp",
     ],
@@ -74,15 +78,19 @@ cc_test {
         "system_suspend_stats_defaults",
     ],
     static_libs: [
+        "android.system.suspend-V1-ndk",
         "android.system.suspend.control-V1-cpp",
         "android.system.suspend.control.internal-cpp",
-        "android.system.suspend@1.0",
         "libgmock",
         "SuspendProperties",
+    ],
+    tidy_timeout_srcs: [
+        "SystemSuspendUnitTest.cpp",
     ],
     srcs: [
         "SuspendControlService.cpp",
         "SystemSuspend.cpp",
+        "SystemSuspendAidl.cpp",
         "SystemSuspendUnitTest.cpp",
         "WakeLockEntryList.cpp",
         "WakeupList.cpp",
@@ -92,7 +100,7 @@ cc_test {
 }
 
 cc_test {
-    name:"SystemSuspendV1_0AidlTest",
+    name: "SystemSuspendV1_0AidlTest",
     srcs: [
         "SystemSuspendAidlTest.cpp",
     ],
@@ -103,8 +111,21 @@ cc_test {
     static_libs: [
         "android.system.suspend.control-V1-cpp",
     ],
-    test_suites: ["device-tests", "vts"],
+    test_suites: [
+        "device-tests",
+        "vts",
+    ],
     require_root: true,
+}
+
+sh_test {
+    name: "SuspendSepolicyTests",
+    src: "SuspendSepolicyTests.sh",
+    test_suites: [
+        "device-tests",
+        "vts",
+    ],
+    test_config: "suspend-sepolicy-tests.xml",
 }
 
 cc_benchmark {
@@ -115,7 +136,7 @@ cc_benchmark {
     shared_libs: [
         "android.system.suspend.control-V1-cpp",
         "android.system.suspend.control.internal-cpp",
-        "android.system.suspend@1.0",
+        "android.system.suspend-V1-ndk",
     ],
     srcs: [
         "SystemSuspendBenchmark.cpp",

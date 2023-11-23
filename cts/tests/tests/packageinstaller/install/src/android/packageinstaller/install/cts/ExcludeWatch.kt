@@ -28,15 +28,16 @@ class ExcludeWatch(
 ) : TestRule {
 
     override fun apply(stmt: Statement?, desc: Description?): Statement {
-        return FeatureStatement()
+        return FeatureStatement(stmt)
     }
 
-    inner class FeatureStatement : Statement() {
+    inner class FeatureStatement(private val stmt: Statement?) : Statement() {
         override fun evaluate() {
             assumeFalse(
                 motivation,
                 packageManager.hasSystemFeature(PackageManager.FEATURE_WATCH)
             )
+            stmt?.evaluate()
         }
     }
 }

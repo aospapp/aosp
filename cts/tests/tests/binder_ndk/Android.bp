@@ -26,14 +26,14 @@ android_test {
     ],
     static_libs: [
         "ctstestrunner-axt",
-        "libbinder_ndk_test_interface-V1-java",
+        "libbinder_ndk_test_interface-java",
         "libbinder_ndk_compat_test_interface-V3-java",
         "nativetesthelper",
     ],
     jni_libs: [
         "libbinder_ndk_test",
         "libbinder_ndk_test_utilities",
-        "libbinder_ndk_test_interface-V1-ndk",
+        "libbinder_ndk_test_interface-ndk",
         "libbinder_ndk_compat_test_interface-V3-ndk",
         "libbinder_ndk_test_interface_old",
         "libbinder_ndk_test_interface_new",

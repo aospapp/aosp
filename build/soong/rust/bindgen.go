@@ -15,6 +15,7 @@
 package rust
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/google/blueprint"
@@ -29,7 +30,7 @@ var (
 	defaultBindgenFlags = []string{""}
 
 	// bindgen should specify its own Clang revision so updating Clang isn't potentially blocked on bindgen failures.
-	bindgenClangVersion = "clang-r416183b"
+	bindgenClangVersion = "clang-r450784d"
 
 	_ = pctx.VariableFunc("bindgenClangVersion", func(ctx android.PackageVarContext) string {
 		if override := ctx.Config().Getenv("LLVM_BINDGEN_PREBUILTS_VERSION"); override != "" {
@@ -137,15 +138,40 @@ func (b *bindgenDecorator) GenerateSource(ctx ModuleContext, deps PathDeps) andr
 	implicits = append(implicits, deps.depGeneratedHeaders...)
 
 	// Default clang flags
-	cflags = append(cflags, "${cc_config.CommonClangGlobalCflags}")
+	cflags = append(cflags, "${cc_config.CommonGlobalCflags}")
 	if ctx.Device() {
-		cflags = append(cflags, "${cc_config.DeviceClangGlobalCflags}")
+		cflags = append(cflags, "${cc_config.DeviceGlobalCflags}")
 	}
 
 	// Toolchain clang flags
 	cflags = append(cflags, "-target "+ccToolchain.ClangTriple())
-	cflags = append(cflags, strings.ReplaceAll(ccToolchain.ClangCflags(), "${config.", "${cc_config."))
-	cflags = append(cflags, strings.ReplaceAll(ccToolchain.ToolchainClangCflags(), "${config.", "${cc_config."))
+	cflags = append(cflags, strings.ReplaceAll(ccToolchain.Cflags(), "${config.", "${cc_config."))
+	cflags = append(cflags, strings.ReplaceAll(ccToolchain.ToolchainCflags(), "${config.", "${cc_config."))
+
+	if ctx.RustModule().UseVndk() {
+		cflags = append(cflags, "-D__ANDROID_VNDK__")
+		if ctx.RustModule().InVendor() {
+			cflags = append(cflags, "-D__ANDROID_VENDOR__")
+		} else if ctx.RustModule().InProduct() {
+			cflags = append(cflags, "-D__ANDROID_PRODUCT__")
+		}
+	}
+
+	if ctx.RustModule().InRecovery() {
+		cflags = append(cflags, "-D__ANDROID_RECOVERY__")
+	}
+
+	if mctx, ok := ctx.(*moduleContext); ok && mctx.apexVariationName() != "" {
+		cflags = append(cflags, "-D__ANDROID_APEX__")
+		if ctx.Device() {
+			cflags = append(cflags, fmt.Sprintf("-D__ANDROID_APEX_MIN_SDK_VERSION__=%d",
+				ctx.RustModule().apexSdkVersion.FinalOrFutureInt()))
+		}
+	}
+
+	if ctx.Target().NativeBridge == android.NativeBridgeEnabled {
+		cflags = append(cflags, "-D__ANDROID_NATIVE_BRIDGE__")
+	}
 
 	// Dependency clang flags and include paths
 	cflags = append(cflags, deps.depClangFlags...)
@@ -262,6 +288,8 @@ func (b *bindgenDecorator) SourceProviderDeps(ctx DepsContext, deps Deps) Deps {
 	deps = b.BaseSourceProvider.SourceProviderDeps(ctx, deps)
 	if ctx.toolchain().Bionic() {
 		deps = bionicDeps(ctx, deps, false)
+	} else if ctx.Os() == android.LinuxMusl {
+		deps = muslDeps(ctx, deps, false)
 	}
 
 	deps.SharedLibs = append(deps.SharedLibs, b.ClangProperties.Shared_libs...)

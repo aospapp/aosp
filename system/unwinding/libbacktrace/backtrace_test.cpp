@@ -45,6 +45,7 @@
 #include <backtrace/Backtrace.h>
 #include <backtrace/BacktraceMap.h>
 
+#include <android-base/file.h>
 #include <android-base/macros.h>
 #include <android-base/stringprintf.h>
 #include <android-base/test_utils.h>
@@ -281,7 +282,7 @@ TEST_F(BacktraceTest, local_no_unwind_frames) {
   // None of the frames should be in the backtrace libraries.
   for (const auto& frame : *backtrace ) {
     if (BacktraceMap::IsValid(frame.map)) {
-      const std::string name = basename(frame.map.name.c_str());
+      const std::string name = android::base::Basename(frame.map.name);
       for (const auto& lib : kBacktraceLibs) {
         ASSERT_TRUE(name != lib) << DumpFrames(backtrace.get());
       }
@@ -302,7 +303,7 @@ TEST_F(BacktraceTest, local_unwind_frames) {
   size_t first_frame_non_backtrace_lib = 0;
   for (const auto& frame : *backtrace) {
     if (BacktraceMap::IsValid(frame.map)) {
-      const std::string name = basename(frame.map.name.c_str());
+      const std::string name = android::base::Basename(frame.map.name);
       bool found = false;
       for (const auto& lib : kBacktraceLibs) {
         if (name == lib) {

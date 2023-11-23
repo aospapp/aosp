@@ -49,27 +49,27 @@ constexpr char kAtcModeNormalStr[] = "normal";
 constexpr char kAtcModeHbmStr[] = "hbm";
 constexpr char kAtcModePowerSaveStr[] = "power_save";
 
-#define ATC_AMBIENT_LIGHT_FILE_NAME "/sys/class/dqe/atc/ambient_light"
-#define ATC_ST_FILE_NAME "/sys/class/dqe/atc/st"
-#define ATC_ENABLE_FILE_NAME "/sys/class/dqe/atc/en"
-#define ATC_LT_FILE_NAME "/sys/class/dqe/atc/lt"
-#define ATC_NS_FILE_NAME "/sys/class/dqe/atc/ns"
-#define ATC_DITHER_FILE_NAME "/sys/class/dqe/atc/dither"
-#define ATC_PL_W1_FILE_NAME "/sys/class/dqe/atc/pl_w1"
-#define ATC_PL_W2_FILE_NAME "/sys/class/dqe/atc/pl_w2"
-#define ATC_CTMODE_FILE_NAME "/sys/class/dqe/atc/ctmode"
-#define ATC_PP_EN_FILE_NAME "/sys/class/dqe/atc/pp_en"
-#define ATC_UPGRADE_ON_FILE_NAME "/sys/class/dqe/atc/upgrade_on"
-#define ATC_TDR_MAX_FILE_NAME "/sys/class/dqe/atc/tdr_max"
-#define ATC_TDR_MIN_FILE_NAME "/sys/class/dqe/atc/tdr_min"
-#define ATC_BACKLIGHT_FILE_NAME "/sys/class/dqe/atc/back_light"
-#define ATC_DSTEP_FILE_NAME "/sys/class/dqe/atc/dstep"
-#define ATC_SCALE_MODE_FILE_NAME "/sys/class/dqe/atc/scale_mode"
-#define ATC_THRESHOLD_1_FILE_NAME "/sys/class/dqe/atc/threshold_1"
-#define ATC_THRESHOLD_2_FILE_NAME "/sys/class/dqe/atc/threshold_2"
-#define ATC_THRESHOLD_3_FILE_NAME "/sys/class/dqe/atc/threshold_3"
-#define ATC_GAIN_LIMIT_FILE_NAME "/sys/class/dqe/atc/gain_limit"
-#define ATC_LT_CALC_AB_SHIFT_FILE_NAME "/sys/class/dqe/atc/lt_calc_ab_shift"
+#define ATC_AMBIENT_LIGHT_FILE_NAME "/sys/class/dqe%d/atc/ambient_light"
+#define ATC_ST_FILE_NAME "/sys/class/dqe%d/atc/st"
+#define ATC_ENABLE_FILE_NAME "/sys/class/dqe%d/atc/en"
+#define ATC_LT_FILE_NAME "/sys/class/dqe%d/atc/lt"
+#define ATC_NS_FILE_NAME "/sys/class/dqe%d/atc/ns"
+#define ATC_DITHER_FILE_NAME "/sys/class/dqe%d/atc/dither"
+#define ATC_PL_W1_FILE_NAME "/sys/class/dqe%d/atc/pl_w1"
+#define ATC_PL_W2_FILE_NAME "/sys/class/dqe%d/atc/pl_w2"
+#define ATC_CTMODE_FILE_NAME "/sys/class/dqe%d/atc/ctmode"
+#define ATC_PP_EN_FILE_NAME "/sys/class/dqe%d/atc/pp_en"
+#define ATC_UPGRADE_ON_FILE_NAME "/sys/class/dqe%d/atc/upgrade_on"
+#define ATC_TDR_MAX_FILE_NAME "/sys/class/dqe%d/atc/tdr_max"
+#define ATC_TDR_MIN_FILE_NAME "/sys/class/dqe%d/atc/tdr_min"
+#define ATC_BACKLIGHT_FILE_NAME "/sys/class/dqe%d/atc/back_light"
+#define ATC_DSTEP_FILE_NAME "/sys/class/dqe%d/atc/dstep"
+#define ATC_SCALE_MODE_FILE_NAME "/sys/class/dqe%d/atc/scale_mode"
+#define ATC_THRESHOLD_1_FILE_NAME "/sys/class/dqe%d/atc/threshold_1"
+#define ATC_THRESHOLD_2_FILE_NAME "/sys/class/dqe%d/atc/threshold_2"
+#define ATC_THRESHOLD_3_FILE_NAME "/sys/class/dqe%d/atc/threshold_3"
+#define ATC_GAIN_LIMIT_FILE_NAME "/sys/class/dqe%d/atc/gain_limit"
+#define ATC_LT_CALC_AB_SHIFT_FILE_NAME "/sys/class/dqe%d/atc/lt_calc_ab_shift"
 
 const std::unordered_map<std::string, std::string> kAtcSubSetting =
         {{"local_tone_gain", ATC_LT_FILE_NAME},
@@ -111,13 +111,18 @@ class ExynosPrimaryDisplayModule : public ExynosPrimaryDisplay {
         virtual int32_t setColorModeWithRenderIntent(int32_t mode,
                 int32_t intent);
         virtual int32_t setColorTransform(const float* matrix, int32_t hint);
+        virtual int32_t getClientTargetProperty(
+                hwc_client_target_property_t* outClientTargetProperty,
+                HwcDimmingStage *outDimmingStage = nullptr) override;
         virtual int deliverWinConfigData();
         virtual int32_t updateColorConversionInfo();
         virtual int32_t updatePresentColorConversionInfo();
         virtual bool checkRrCompensationEnabled() {
             const DisplayType display = getDisplayTypeFromIndex(mIndex);
             IDisplayColorGS101* displayColorInterface = getDisplayColorInterface();
-            return displayColorInterface->IsRrCompensationEnabled(display);
+            return displayColorInterface
+                ? displayColorInterface->IsRrCompensationEnabled(display)
+                : false;
         }
 
         virtual bool isColorCalibratedByDevice();
@@ -128,6 +133,8 @@ class ExynosPrimaryDisplayModule : public ExynosPrimaryDisplay {
         virtual void setLbeState(LbeState state);
         virtual void setLbeAmbientLight(int value);
         virtual LbeState getLbeState();
+
+        virtual PanelCalibrationStatus getPanelCalibrationStatus();
 
         class DisplaySceneInfo {
             public:
@@ -251,6 +258,9 @@ class ExynosPrimaryDisplayModule : public ExynosPrimaryDisplay {
             return displayColorInterface->GetPipelineData(display)->Dqe();
         };
 
+        // primary or secondary
+        DisplayType getBuiltInDisplayType() { return getDisplayTypeFromIndex(mIndex); }
+
     private:
         int32_t setLayersColorData();
         DisplaySceneInfo mDisplaySceneInfo;
@@ -266,6 +276,10 @@ class ExynosPrimaryDisplayModule : public ExynosPrimaryDisplay {
             std::unordered_map<std::string, int32_t> sub_setting;
             uint32_t st_up_step;
             uint32_t st_down_step;
+        };
+        struct atc_sysfs {
+            String8 node;
+            CtrlValue<int32_t> value;
         };
 
         bool parseAtcProfile();
@@ -303,10 +317,10 @@ class ExynosPrimaryDisplayModule : public ExynosPrimaryDisplay {
         std::string mCurrentAtcModeName;
         uint32_t mCurrentLux = 0;
         uint32_t mAtcLuxMapIndex = 0;
-        CtrlValue<uint32_t> mAtcAmbientLight;
-        CtrlValue<uint32_t> mAtcStrength;
-        CtrlValue<uint32_t> mAtcEnable;
-        std::unordered_map<std::string, CtrlValue<int32_t>> mAtcSubSetting;
+        struct atc_sysfs mAtcAmbientLight;
+        struct atc_sysfs mAtcStrength;
+        struct atc_sysfs mAtcEnable;
+        std::unordered_map<std::string, struct atc_sysfs> mAtcSubSetting;
         uint32_t mAtcStStepCount = 0;
         uint32_t mAtcStTarget = 0;
         uint32_t mAtcStUpStep;

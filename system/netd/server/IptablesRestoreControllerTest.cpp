@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "IptablesRestoreControllerTest"
+#include "IptablesRestoreController.h"
+
 #include <fcntl.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -25,14 +28,12 @@
 #include <iostream>
 #include <string>
 
-#define LOG_TAG "IptablesRestoreControllerTest"
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 #include <log/log.h>
 #include <netdutils/MockSyscalls.h>
 #include <netdutils/Stopwatch.h>
 
-#include "IptablesRestoreController.h"
 #include "NetdConstants.h"
 #include "bpf/BpfUtils.h"
 

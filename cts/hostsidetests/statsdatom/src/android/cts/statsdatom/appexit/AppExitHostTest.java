@@ -33,15 +33,23 @@ import android.cts.statsdatom.lib.ReportUtils;
 import com.android.os.AtomsProto;
 import com.android.os.StatsLog;
 import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IBuildReceiver;
+import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class AppExitHostTest extends DeviceTestCase implements IBuildReceiver {
+@RunWith(DeviceJUnit4ClassRunner.class)
+public class AppExitHostTest extends BaseHostJUnit4Test implements IBuildReceiver {
     private static final String TEST_PKG = "android.app.cts.appexit";
     private static final String HELPER_PKG1 = "android.externalservice.service";
     private static final String HELPER_PKG2 = "com.android.cts.launcherapps.simpleapp";
@@ -55,9 +63,8 @@ public class AppExitHostTest extends DeviceTestCase implements IBuildReceiver {
 
     private IBuildInfo mCtsBuild;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
         assertThat(mCtsBuild).isNotNull();
         ConfigUtils.removeConfig(getDevice());
         ReportUtils.clearReports(getDevice());
@@ -71,8 +78,8 @@ public class AppExitHostTest extends DeviceTestCase implements IBuildReceiver {
         getDevice().executeShellCommand("pm grant " + TEST_PKG + " " + PERM_READ_LOGS);
     }
 
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         ConfigUtils.removeConfig(getDevice());
         ReportUtils.clearReports(getDevice());
         getDevice().executeShellCommand("pm revoke " + TEST_PKG + " " + PERM_PACKAGE_USAGE_STATS);
@@ -80,7 +87,6 @@ public class AppExitHostTest extends DeviceTestCase implements IBuildReceiver {
         DeviceUtils.uninstallTestApp(getDevice(), TEST_PKG);
         DeviceUtils.uninstallTestApp(getDevice(), HELPER_PKG1);
         DeviceUtils.uninstallTestApp(getDevice(), HELPER_PKG2);
-        super.tearDown();
     }
 
     @Override
@@ -88,6 +94,7 @@ public class AppExitHostTest extends DeviceTestCase implements IBuildReceiver {
         mCtsBuild = buildInfo;
     }
 
+    @Test
     public void testLogStatsdPermChanged() throws Exception {
         final String helperPackage = HELPER_PKG2;
         final int expectedUid = getAppUid(helperPackage);
@@ -101,6 +108,7 @@ public class AppExitHostTest extends DeviceTestCase implements IBuildReceiver {
         });
     }
 
+    @Test
     public void testLogStatsdOther() throws Exception {
         final String helperPackage = HELPER_PKG1;
         final int expectedUid = getAppUid(TEST_PKG);

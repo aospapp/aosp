@@ -59,6 +59,7 @@ cc_defaults {
         "-ffunction-sections",
         "-fstack-protector-strong",
         "-fvisibility=hidden",
+        "-g3",
     ],
     cppflags: [
         "-Wnon-virtual-dtor",
@@ -147,6 +148,7 @@ cc_defaults {
 cc_library_static {
     name: "update_metadata-protos",
     host_supported: true,
+    ramdisk_available: true,
     recovery_available: true,
 
     srcs: ["update_engine/update_metadata.proto"],
@@ -183,11 +185,14 @@ cc_defaults {
         "libpayload_extent_ranges",
         "libpayload_extent_utils",
         "libcow_operation_convert",
+        "lz4diff-protos",
+        "liblz4patch",
     ],
     shared_libs: [
         "libbase",
         "libcrypto",
         "libfec",
+        "liblz4",
         "libziparchive",
     ],
 }
@@ -232,6 +237,7 @@ cc_library_static {
         "payload_consumer/file_descriptor_utils.cc",
         "payload_consumer/file_writer.cc",
         "payload_consumer/filesystem_verifier_action.cc",
+        "payload_consumer/install_operation_executor.cc",
         "payload_consumer/install_plan.cc",
         "payload_consumer/mount_history.cc",
         "payload_consumer/payload_constants.cc",
@@ -240,12 +246,16 @@ cc_library_static {
         "payload_consumer/partition_writer.cc",
         "payload_consumer/partition_writer_factory_android.cc",
         "payload_consumer/vabc_partition_writer.cc",
+        "payload_consumer/xor_extent_writer.cc",
+        "payload_consumer/block_extent_writer.cc",
         "payload_consumer/snapshot_extent_writer.cc",
         "payload_consumer/postinstall_runner_action.cc",
+        "payload_consumer/verified_source_fd.cc",
         "payload_consumer/verity_writer_android.cc",
         "payload_consumer/xz_extent_writer.cc",
         "payload_consumer/fec_file_descriptor.cc",
         "payload_consumer/partition_update_generator_android.cc",
+        "update_status_utils.cc",
     ],
 }
 
@@ -274,6 +284,7 @@ cc_defaults {
         "libutils",
         "android.hardware.boot@1.0",
         "android.hardware.boot@1.1",
+        "android.hardware.boot@1.2",
     ],
     header_libs: [
         "avb_headers",
@@ -386,7 +397,6 @@ cc_library_static {
         "libcurl_http_fetcher.cc",
         "metrics_utils.cc",
         "update_boot_flags_action.cc",
-        "update_status_utils.cc",
     ],
 }
 
@@ -452,6 +462,7 @@ cc_binary {
     shared_libs: [
         "libbase",
         "liblog",
+        "liblz4",
     ],
     static_libs: [
         "libpayload_consumer",
@@ -524,6 +535,7 @@ cc_defaults {
     defaults: [
         "libpayload_consumer_exports",
         "update_metadata-protos_exports",
+        "erofs-utils_export_defaults",
     ],
 
     header_libs: [
@@ -538,14 +550,21 @@ cc_defaults {
         "liblzma",
         "libpayload_consumer",
         "libpuffdiff",
+        "libzucchini",
         "libverity_tree",
         "update_metadata-protos",
         "libpayload_extent_utils",
         "libcow_size_estimator",
+        "liberofs",
+        "lz4diff-protos",
+        "liblz4diff",
     ],
     shared_libs: [
         "libbase",
         "libext2fs",
+        // LZ4 has to be a shared lib, as we want to override it with
+        // LD_LIBRARY_PRELOAD later
+        "liblz4",
     ],
 }
 
@@ -583,6 +602,67 @@ cc_library_static {
     ],
 }
 
+cc_defaults {
+    name: "liblz4diff_defaults",
+    static_libs: [
+        "lz4diff-protos",
+        "update_metadata-protos",
+        "libssl",
+        "libbsdiff",
+        "libpuffdiff",
+    ],
+    shared_libs: [
+        "liblz4",
+    ],
+}
+
+cc_library_static {
+    name: "liblz4diff",
+    host_supported: true,
+    defaults: ["ue_defaults", "liblz4diff_defaults"],
+    srcs: [
+        "lz4diff/lz4diff.cc",
+        "lz4diff/lz4diff_compress.cc",
+    ],
+}
+
+cc_library_static {
+    name: "liblz4patch",
+    host_supported: true,
+    recovery_available: true,
+    defaults: ["ue_defaults"],
+    static_libs: [
+        "lz4diff-protos",
+        "update_metadata-protos",
+        "libssl",
+        "libbspatch",
+        "libpuffpatch",
+    ],
+    shared_libs: [
+        "liblz4",
+    ],
+    srcs: [
+        "lz4diff/lz4patch.cc",
+        "lz4diff/lz4diff_compress.cc",
+    ],
+}
+
+cc_binary_host {
+    name: "lz4diff",
+    defaults: [
+        "ue_defaults",
+        "libpayload_generator_exports",
+    ],
+    static_libs: [
+        "libpayload_generator",
+        "liblz4diff",
+        "liblz4patch",
+    ],
+    srcs: [
+        "lz4diff/lz4diff_main.cc",
+    ],
+}
+
 cc_library_static {
     name: "libpayload_generator",
     defaults: [
@@ -604,6 +684,7 @@ cc_library_static {
         "payload_generator/delta_diff_generator.cc",
         "payload_generator/delta_diff_utils.cc",
         "payload_generator/ext2_filesystem.cc",
+        "payload_generator/erofs_filesystem.cc",
         "payload_generator/extent_ranges.cc",
         "payload_generator/full_update_generator.cc",
         "payload_generator/mapfile_filesystem.cc",
@@ -640,6 +721,7 @@ cc_binary_host {
 }
 
 cc_test {
+    host_supported: true,
     name: "ue_unittest_delta_generator",
     defaults: [
         "ue_defaults",
@@ -721,6 +803,186 @@ genrule {
     ],
 }
 
+genrule {
+    name: "ue_unittest_erofs_imgs",
+    cmd: "$(in) $(location mkfs.erofs) $(location gen/erofs_empty.img) && " +
+         "$(in) $(location mkfs.erofs) $(location gen/erofs.img) $(location delta_generator) && " +
+         "$(in) $(location mkfs.erofs) $(location gen/erofs_new.img) $(location delta_generator) lz4hc,7",
+    srcs: ["sample_images/generate_test_erofs_images.sh"],
+    out: [
+        "gen/erofs.img",
+        "gen/erofs_new.img",
+        "gen/erofs_empty.img",
+    ],
+    tools: [
+        "mkfs.erofs",
+        "delta_generator",
+    ],
+}
+
+filegroup {
+    name: "update_engine_host_unittest_timeout_srcs",
+    srcs: [
+        "common/action_processor_unittest.cc",
+        "common/file_fetcher_unittest.cc",
+        "payload_generator/delta_diff_utils_unittest.cc",
+    ],
+}
+
+filegroup {
+    name: "update_engine_host_unittest_srcs",
+    srcs: [
+        "common/action_pipe_unittest.cc",
+        "common/action_processor_unittest.cc",
+        "common/action_unittest.cc",
+        "common/cow_operation_convert_unittest.cc",
+        "common/cpu_limiter_unittest.cc",
+        "common/fake_prefs.cc",
+        "common/file_fetcher_unittest.cc",
+        "common/hash_calculator_unittest.cc",
+        "common/hwid_override_unittest.cc",
+        "common/metrics_reporter_stub.cc",
+        "common/mock_http_fetcher.cc",
+        "common/prefs_unittest.cc",
+        "common/terminator_unittest.cc",
+        "common/test_utils.cc",
+        "lz4diff/lz4diff_compress_unittest.cc",
+        "lz4diff/lz4diff_unittest.cc",
+        "payload_generator/ab_generator_unittest.cc",
+        "payload_generator/blob_file_writer_unittest.cc",
+        "payload_generator/block_mapping_unittest.cc",
+        "payload_generator/boot_img_filesystem_unittest.cc",
+        "payload_generator/deflate_utils_unittest.cc",
+        "payload_generator/delta_diff_utils_unittest.cc",
+        "payload_generator/erofs_filesystem_unittest.cc",
+        "payload_generator/ext2_filesystem_unittest.cc",
+        "payload_generator/extent_ranges_unittest.cc",
+        "payload_generator/extent_utils_unittest.cc",
+        "payload_generator/fake_filesystem.cc",
+        "payload_generator/full_update_generator_unittest.cc",
+        "payload_generator/mapfile_filesystem_unittest.cc",
+        "payload_generator/merge_sequence_generator_unittest.cc",
+        "payload_generator/payload_file_unittest.cc",
+        "payload_generator/payload_generation_config_android_unittest.cc",
+        "payload_generator/payload_generation_config_unittest.cc",
+        "payload_generator/payload_properties_unittest.cc",
+        "payload_generator/payload_signer_unittest.cc",
+        "payload_generator/squashfs_filesystem_unittest.cc",
+        "payload_generator/zip_unittest.cc",
+        "payload_consumer/verity_writer_android_unittest.cc",
+        "payload_consumer/xz_extent_writer_unittest.cc",
+        "testrunner.cc",
+    ],
+}
+
+cc_test_host {
+    name: "update_engine_host_unittests",
+    defaults: [
+        "ue_defaults",
+        "libpayload_generator_exports",
+    ],
+    strip: {
+        none: true,
+    },
+    cflags: [
+        "-g3",
+    ],
+    tidy_timeout_srcs: [":update_engine_host_unittest_timeout_srcs"],
+    srcs: [":update_engine_host_unittest_srcs"],
+    data: [
+        ":ue_unittest_delta_generator",
+        ":ue_unittest_disk_imgs",
+        ":ue_unittest_erofs_imgs",
+        ":ue_unittest_keys",
+        "otacerts.zip",
+        "unittest_key.pem",
+        "unittest_key2.pem",
+        "unittest_key_RSA4096.pem",
+        "unittest_key_EC.pem",
+        "update_engine.conf",
+    ],
+    static_libs: [
+        "libgmock",
+        "libpayload_generator",
+    ],
+}
+
+// update_engine_unittests (type: executable)
+// ========================================================
+// Main unittest file.
+cc_test {
+    name: "update_engine_http_unittests",
+    defaults: [
+        "ue_defaults",
+        "liblz4diff_defaults",
+        "update_metadata-protos_exports",
+    ],
+    require_root: true,
+    static_libs: [
+        "libbase",
+        "libbrillo-test-helpers",
+        "libchrome_test_helpers",
+        "libcurl",
+        "libcutils",
+        "libdm",
+        "libgmock",
+        "libz",
+    ],
+    shared_libs: [
+        "libssl",
+        "libcrypto",
+        "libziparchive",
+        "liblog",
+    ],
+
+    data: [
+        ":test_http_server",
+        ":test_subprocess",
+        ":ue_unittest_keys",
+        "otacerts.zip",
+        "unittest_key.pem",
+        "unittest_key2.pem",
+        "unittest_key_RSA4096.pem",
+        "unittest_key_EC.pem",
+    ],
+
+    // We cannot use the default generated AndroidTest.xml because of the use of helper modules
+    // (i.e. test_http_server, test_subprocess, ue_unittest_delta_generator).
+    // test_config: "test_config.xml",
+    test_suites: ["device-tests"],
+
+    srcs: [
+        "aosp/platform_constants_android.cc",
+        "certificate_checker.cc",
+        "common/action_processor.cc",
+        "common/boot_control_stub.cc",
+        "common/error_code_utils.cc",
+        "common/file_fetcher.cc",
+        "common/hash_calculator.cc",
+        "common/http_fetcher.cc",
+        "common/multi_range_http_fetcher.cc",
+        "common/http_common.cc",
+        "common/subprocess.cc",
+        "common/test_utils.cc",
+        "common/utils.cc",
+        "common/proxy_resolver.cc",
+        "libcurl_http_fetcher.cc",
+        "payload_consumer/certificate_parser_android.cc",
+        "payload_consumer/payload_verifier.cc",
+        "payload_generator/payload_signer.cc",
+        "update_status_utils.cc",
+
+        "certificate_checker_unittest.cc",
+        "common/http_fetcher_unittest.cc",
+        "common/mock_http_fetcher.cc",
+        "common/proxy_resolver_unittest.cc",
+        "common/subprocess_unittest.cc",
+        "libcurl_http_fetcher_unittest.cc",
+        "payload_consumer/certificate_parser_android_unittest.cc",
+        "update_status_utils_unittest.cc",
+    ],
+}
+
 // update_engine_unittests (type: executable)
 // ========================================================
 // Main unittest file.
@@ -746,10 +1008,9 @@ cc_test {
     ],
 
     data: [
-        ":test_http_server",
-        ":test_subprocess",
         ":ue_unittest_delta_generator",
         ":ue_unittest_disk_imgs",
+        ":ue_unittest_erofs_imgs",
         ":ue_unittest_keys",
         "otacerts.zip",
         "unittest_key.pem",
@@ -764,73 +1025,42 @@ cc_test {
     test_config: "test_config.xml",
     test_suites: ["device-tests"],
 
+    tidy_timeout_srcs: [
+        ":update_engine_host_unittest_timeout_srcs",
+        "aosp/dynamic_partition_control_android_unittest.cc",
+        "common/http_fetcher_unittest.cc",
+        "payload_consumer/delta_performer_integration_test.cc",
+        "payload_consumer/delta_performer_unittest.cc",
+    ],
     srcs: [
+        ":update_engine_host_unittest_srcs",
         "aosp/apex_handler_android_unittest.cc",
         "aosp/cleanup_previous_update_action_unittest.cc",
         "aosp/dynamic_partition_control_android_unittest.cc",
+        "aosp/update_attempter_android_integration_test.cc",
         "aosp/update_attempter_android_unittest.cc",
-        "certificate_checker_unittest.cc",
-        "common/action_pipe_unittest.cc",
-        "common/action_processor_unittest.cc",
-        "common/action_unittest.cc",
-        "common/cow_operation_convert_unittest.cc",
-        "common/cpu_limiter_unittest.cc",
-        "common/fake_prefs.cc",
-        "common/file_fetcher_unittest.cc",
-        "common/hash_calculator_unittest.cc",
-        "common/http_fetcher_unittest.cc",
-        "common/hwid_override_unittest.cc",
-        "common/metrics_reporter_stub.cc",
-        "common/mock_http_fetcher.cc",
-        "common/prefs_unittest.cc",
-        "common/proxy_resolver_unittest.cc",
-        "common/subprocess_unittest.cc",
-        "common/terminator_unittest.cc",
-        "common/test_utils.cc",
         "common/utils_unittest.cc",
         "download_action_android_unittest.cc",
-        "libcurl_http_fetcher_unittest.cc",
         "payload_consumer/bzip_extent_writer_unittest.cc",
         "payload_consumer/cached_file_descriptor_unittest.cc",
         "payload_consumer/cow_writer_file_descriptor_unittest.cc",
-        "payload_consumer/certificate_parser_android_unittest.cc",
         "payload_consumer/delta_performer_integration_test.cc",
         "payload_consumer/delta_performer_unittest.cc",
-        "payload_consumer/partition_writer_unittest.cc",
         "payload_consumer/extent_reader_unittest.cc",
         "payload_consumer/extent_writer_unittest.cc",
-        "payload_consumer/snapshot_extent_writer_unittest.cc",
+        "payload_consumer/extent_map_unittest.cc",
         "payload_consumer/fake_file_descriptor.cc",
         "payload_consumer/file_descriptor_utils_unittest.cc",
         "payload_consumer/file_writer_unittest.cc",
         "payload_consumer/filesystem_verifier_action_unittest.cc",
         "payload_consumer/install_plan_unittest.cc",
+        "payload_consumer/install_operation_executor_unittest.cc",
         "payload_consumer/partition_update_generator_android_unittest.cc",
+        "payload_consumer/partition_writer_unittest.cc",
         "payload_consumer/postinstall_runner_action_unittest.cc",
-        "payload_consumer/verity_writer_android_unittest.cc",
-        "payload_consumer/xz_extent_writer_unittest.cc",
-        "payload_generator/ab_generator_unittest.cc",
-        "payload_generator/blob_file_writer_unittest.cc",
-        "payload_generator/block_mapping_unittest.cc",
-        "payload_generator/boot_img_filesystem_unittest.cc",
-        "payload_generator/deflate_utils_unittest.cc",
-        "payload_generator/delta_diff_utils_unittest.cc",
-        "payload_generator/ext2_filesystem_unittest.cc",
-        "payload_generator/extent_ranges_unittest.cc",
-        "payload_generator/extent_utils_unittest.cc",
-        "payload_generator/fake_filesystem.cc",
-        "payload_generator/full_update_generator_unittest.cc",
-        "payload_generator/mapfile_filesystem_unittest.cc",
-        "payload_generator/merge_sequence_generator_unittest.cc",
-        "payload_generator/payload_file_unittest.cc",
-        "payload_generator/payload_generation_config_android_unittest.cc",
-        "payload_generator/payload_generation_config_unittest.cc",
-        "payload_generator/payload_properties_unittest.cc",
-        "payload_generator/payload_signer_unittest.cc",
-        "payload_generator/squashfs_filesystem_unittest.cc",
-        "payload_generator/zip_unittest.cc",
-        "testrunner.cc",
-        "update_status_utils_unittest.cc",
+        "payload_consumer/snapshot_extent_writer_unittest.cc",
+        "payload_consumer/vabc_partition_writer_unittest.cc",
+        "payload_consumer/xor_extent_writer_unittest.cc",
     ],
 }
 
@@ -898,6 +1128,45 @@ cc_binary_host {
         "libpayload_extent_utils",
         "libsnapshot_cow",
         "libz",
+        "update_metadata-protos",
+    ],
+}
+
+cc_library_static {
+    name: "lz4diff-protos",
+    host_supported: true,
+    ramdisk_available: true,
+    recovery_available: true,
+
+    srcs: ["lz4diff/lz4diff.proto"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
+    proto: {
+        canonical_path_from_root: false,
+        export_proto_headers: true,
+    },
+}
+
+cc_binary_host {
+    name: "ota_extractor",
+    defaults: [
+        "ue_defaults",
+        "libpayload_consumer_exports",
+    ],
+    srcs: [
+        "aosp/ota_extractor.cc",
+    ],
+    static_libs: [
+        "liblog",
+        "libbrotli",
+        "libbase",
+        "libpayload_consumer",
+        "libpayload_extent_ranges",
+        "libpayload_extent_utils",
+        "libz",
+        "libgflags",
         "update_metadata-protos",
     ],
 }

@@ -56,6 +56,7 @@ struct WellKnownClasses {
  public:
   static jclass dalvik_annotation_optimization_CriticalNative;
   static jclass dalvik_annotation_optimization_FastNative;
+  static jclass dalvik_annotation_optimization_NeverCompile;
   static jclass dalvik_system_BaseDexClassLoader;
   static jclass dalvik_system_DelegateLastClassLoader;
   static jclass dalvik_system_DexClassLoader;
@@ -116,6 +117,8 @@ struct WellKnownClasses {
   static jmethodID java_lang_Float_floatToRawIntBits;
   static jmethodID java_lang_Float_valueOf;
   static jmethodID java_lang_Integer_valueOf;
+  static jmethodID java_lang_invoke_MethodHandle_asType;
+  static jmethodID java_lang_invoke_MethodHandle_invokeExact;
   static jmethodID java_lang_invoke_MethodHandles_lookup;
   static jmethodID java_lang_invoke_MethodHandles_Lookup_findConstructor;
   static jmethodID java_lang_Long_valueOf;
@@ -143,12 +146,14 @@ struct WellKnownClasses {
 
   static jfieldID dalvik_system_BaseDexClassLoader_pathList;
   static jfieldID dalvik_system_BaseDexClassLoader_sharedLibraryLoaders;
+  static jfieldID dalvik_system_BaseDexClassLoader_sharedLibraryLoadersAfter;
   static jfieldID dalvik_system_DexFile_cookie;
   static jfieldID dalvik_system_DexFile_fileName;
   static jfieldID dalvik_system_DexPathList_dexElements;
   static jfieldID dalvik_system_DexPathList__Element_dexFile;
   static jfieldID dalvik_system_VMRuntime_nonSdkApiUsageConsumer;
   static jfieldID java_io_FileDescriptor_descriptor;
+  static jfieldID java_lang_ClassLoader_parent;
   static jfieldID java_lang_Thread_parkBlocker;
   static jfieldID java_lang_Thread_daemon;
   static jfieldID java_lang_Thread_group;

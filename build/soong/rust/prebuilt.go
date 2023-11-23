@@ -22,6 +22,7 @@ func init() {
 	android.RegisterModuleType("rust_prebuilt_library", PrebuiltLibraryFactory)
 	android.RegisterModuleType("rust_prebuilt_dylib", PrebuiltDylibFactory)
 	android.RegisterModuleType("rust_prebuilt_rlib", PrebuiltRlibFactory)
+	android.RegisterModuleType("rust_prebuilt_proc_macro", PrebuiltProcMacroFactory)
 }
 
 type PrebuiltProperties struct {
@@ -32,12 +33,48 @@ type PrebuiltProperties struct {
 }
 
 type prebuiltLibraryDecorator struct {
+	android.Prebuilt
+
 	*libraryDecorator
 	Properties PrebuiltProperties
 }
 
+type prebuiltProcMacroDecorator struct {
+	android.Prebuilt
+
+	*procMacroDecorator
+	Properties PrebuiltProperties
+}
+
+func PrebuiltProcMacroFactory() android.Module {
+	module, _ := NewPrebuiltProcMacro(android.HostSupportedNoCross)
+	return module.Init()
+}
+
+type rustPrebuilt interface {
+	prebuiltSrcs() []string
+	prebuilt() *android.Prebuilt
+}
+
+func NewPrebuiltProcMacro(hod android.HostOrDeviceSupported) (*Module, *prebuiltProcMacroDecorator) {
+	module, library := NewProcMacro(hod)
+	prebuilt := &prebuiltProcMacroDecorator{
+		procMacroDecorator: library,
+	}
+	module.compiler = prebuilt
+
+	addSrcSupplier(module, prebuilt)
+
+	return module, prebuilt
+}
+
 var _ compiler = (*prebuiltLibraryDecorator)(nil)
 var _ exportedFlagsProducer = (*prebuiltLibraryDecorator)(nil)
+var _ rustPrebuilt = (*prebuiltLibraryDecorator)(nil)
+
+var _ compiler = (*prebuiltProcMacroDecorator)(nil)
+var _ exportedFlagsProducer = (*prebuiltProcMacroDecorator)(nil)
+var _ rustPrebuilt = (*prebuiltProcMacroDecorator)(nil)
 
 func PrebuiltLibraryFactory() android.Module {
 	module, _ := NewPrebuiltLibrary(android.HostAndDeviceSupported)
@@ -54,6 +91,13 @@ func PrebuiltRlibFactory() android.Module {
 	return module.Init()
 }
 
+func addSrcSupplier(module android.PrebuiltInterface, prebuilt rustPrebuilt) {
+	srcsSupplier := func(_ android.BaseModuleContext, _ android.Module) []string {
+		return prebuilt.prebuiltSrcs()
+	}
+	android.InitPrebuiltModuleWithSrcSupplier(module, srcsSupplier, "srcs")
+}
+
 func NewPrebuiltLibrary(hod android.HostOrDeviceSupported) (*Module, *prebuiltLibraryDecorator) {
 	module, library := NewRustLibrary(hod)
 	library.BuildOnlyRust()
@@ -62,6 +106,9 @@ func NewPrebuiltLibrary(hod android.HostOrDeviceSupported) (*Module, *prebuiltLi
 		libraryDecorator: library,
 	}
 	module.compiler = prebuilt
+
+	addSrcSupplier(module, prebuilt)
+
 	return module, prebuilt
 }
 
@@ -73,6 +120,9 @@ func NewPrebuiltDylib(hod android.HostOrDeviceSupported) (*Module, *prebuiltLibr
 		libraryDecorator: library,
 	}
 	module.compiler = prebuilt
+
+	addSrcSupplier(module, prebuilt)
+
 	return module, prebuilt
 }
 
@@ -84,6 +134,9 @@ func NewPrebuiltRlib(hod android.HostOrDeviceSupported) (*Module, *prebuiltLibra
 		libraryDecorator: library,
 	}
 	module.compiler = prebuilt
+
+	addSrcSupplier(module, prebuilt)
+
 	return module, prebuilt
 }
 
@@ -100,6 +153,7 @@ func (prebuilt *prebuiltLibraryDecorator) compile(ctx ModuleContext, flags Flags
 	if len(paths) > 0 {
 		ctx.PropertyErrorf("srcs", "prebuilt libraries can only have one entry in srcs (the prebuilt path)")
 	}
+	prebuilt.baseCompiler.unstrippedOutputFile = srcPath
 	return srcPath
 }
 
@@ -128,4 +182,49 @@ func (prebuilt *prebuiltLibraryDecorator) prebuiltSrcs() []string {
 	}
 
 	return srcs
+}
+
+func (prebuilt *prebuiltLibraryDecorator) prebuilt() *android.Prebuilt {
+	return &prebuilt.Prebuilt
+}
+
+func (prebuilt *prebuiltProcMacroDecorator) prebuiltSrcs() []string {
+	srcs := prebuilt.Properties.Srcs
+	return srcs
+}
+
+func (prebuilt *prebuiltProcMacroDecorator) prebuilt() *android.Prebuilt {
+	return &prebuilt.Prebuilt
+}
+
+func (prebuilt *prebuiltProcMacroDecorator) compilerProps() []interface{} {
+	return append(prebuilt.procMacroDecorator.compilerProps(),
+		&prebuilt.Properties)
+}
+
+func (prebuilt *prebuiltProcMacroDecorator) compile(ctx ModuleContext, flags Flags, deps PathDeps) android.Path {
+	prebuilt.flagExporter.exportLinkDirs(android.PathsForModuleSrc(ctx, prebuilt.Properties.Link_dirs).Strings()...)
+	prebuilt.flagExporter.setProvider(ctx)
+
+	srcPath, paths := srcPathFromModuleSrcs(ctx, prebuilt.prebuiltSrcs())
+	if len(paths) > 0 {
+		ctx.PropertyErrorf("srcs", "prebuilt libraries can only have one entry in srcs (the prebuilt path)")
+	}
+	prebuilt.baseCompiler.unstrippedOutputFile = srcPath
+	return srcPath
+}
+
+func (prebuilt *prebuiltProcMacroDecorator) rustdoc(ctx ModuleContext, flags Flags,
+	deps PathDeps) android.OptionalPath {
+
+	return android.OptionalPath{}
+}
+
+func (prebuilt *prebuiltProcMacroDecorator) compilerDeps(ctx DepsContext, deps Deps) Deps {
+	deps = prebuilt.baseCompiler.compilerDeps(ctx, deps)
+	return deps
+}
+
+func (prebuilt *prebuiltProcMacroDecorator) nativeCoverage() bool {
+	return false
 }

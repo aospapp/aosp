@@ -80,7 +80,7 @@ bool isValidInterfaceField(const std::string& identifier, std::string *errorMsg)
 
         // Inherited names from HidlInstrumentor
         "InstrumentationEvent", "configureInstrumentation", "registerInstrumentationCallbacks",
-        "isInstrumentationLib", "mInstrumentationCal1lbacks", "mEnableInstrumentation",
+        "isInstrumentationLib", "mInstrumentationCallbacks", "mEnableInstrumentation",
         "mInstrumentationLibPackage", "mInterfaceName",
 
         // Collide with names in BsFoo

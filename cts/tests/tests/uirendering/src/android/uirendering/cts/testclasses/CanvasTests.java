@@ -32,6 +32,7 @@ import android.graphics.PorterDuff;
 import android.graphics.RadialGradient;
 import android.graphics.Rect;
 import android.graphics.RectF;
+import android.graphics.Region;
 import android.graphics.Shader;
 import android.uirendering.cts.R;
 import android.uirendering.cts.bitmapverifiers.BitmapVerifier;
@@ -40,13 +41,15 @@ import android.uirendering.cts.testinfrastructure.ActivityTestBase;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.MediumTest;
-import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
+
 @MediumTest
-@RunWith(AndroidJUnit4.class)
+@RunWith(JUnitParamsRunner.class)
 public class CanvasTests extends ActivityTestBase {
 
     private static final int PAINT_COLOR = 0xff00ff00;
@@ -68,8 +71,12 @@ public class CanvasTests extends ActivityTestBase {
         return immutableBitmap;
     }
 
+    public Bitmap getMutableBitmap(Bitmap.Config config) {
+        return Bitmap.createBitmap(BITMAP_WIDTH, BITMAP_HEIGHT, config);
+    }
+
     public Bitmap getMutableBitmap() {
-        return Bitmap.createBitmap(BITMAP_WIDTH, BITMAP_HEIGHT, Bitmap.Config.ARGB_8888);
+        return getMutableBitmap(Bitmap.Config.ARGB_8888);
     }
 
     @Test
@@ -167,7 +174,7 @@ public class CanvasTests extends ActivityTestBase {
                 .runWithVerifier(new SamplePointVerifier(testPoints, colors));
     }
 
-    private void drawRotatedBitmap(boolean aa, Canvas canvas) {
+    private void drawRotatedBitmap(boolean aa, Canvas canvas, Bitmap.Config config) {
         // create a black bitmap to be drawn to the canvas
         Bitmap bm = getMutableBitmap();
         bm.eraseColor(Color.BLACK);
@@ -185,23 +192,32 @@ public class CanvasTests extends ActivityTestBase {
         canvas.drawBitmap(bm, 0, 0, aaPaint);
     }
 
+    private Object[] testConfigs() {
+        return new Object[] {
+            Bitmap.Config.ARGB_8888,
+            Bitmap.Config.RGBA_1010102
+        };
+    }
+
     @Test
-    public void testDrawRotatedBitmapWithAA() {
+    @Parameters(method = "testConfigs")
+    public void testDrawRotatedBitmapWithAA(Bitmap.Config config) {
         createTest()
                 .addCanvasClient((canvas, width, height) -> {
                     canvas.setDensity(400);
-                    drawRotatedBitmap(true, canvas);
+                    drawRotatedBitmap(true, canvas, config);
                 })
                 // Test asserts there are more than 10 grey pixels.
                 .runWithVerifier(AntiAliasPixelCounter.aaVerifier(Color.WHITE, Color.BLACK, 10));
     }
 
     @Test
-    public void testDrawRotatedBitmapWithoutAA() {
+    @Parameters(method = "testConfigs")
+    public void testDrawRotatedBitmapWithoutAA(Bitmap.Config config) {
         createTest()
                 .addCanvasClient((canvas, width, height) -> {
                     canvas.setDensity(400);
-                    drawRotatedBitmap(false, canvas);
+                    drawRotatedBitmap(false, canvas, config);
                 })
                 // Test asserts there are no grey pixels.
                 .runWithVerifier(AntiAliasPixelCounter.noAAVerifier(Color.WHITE, Color.BLACK));
@@ -834,6 +850,60 @@ public class CanvasTests extends ActivityTestBase {
         new Canvas(getMutableBitmap()).drawPosText(text, new float[]{
                 10.0f, 30.f
         }, getPaint());
+    }
+
+    @Test
+    public void testClipIntersectAndDifference() {
+        Point[] testPoints = {
+            new Point(1, 1),
+            new Point(10, 10),
+            new Point(25, 25)
+        };
+        int[] colors = {
+            Color.WHITE,
+            Color.RED,
+            Color.GREEN
+        };
+        createTest()
+                .addCanvasClient((canvas, width, height) -> {
+                    // Base is white
+                    Paint paint = new Paint();
+                    paint.setColor(Color.WHITE);
+                    canvas.drawRect(0, 0, width, height, paint);
+
+                    // Fill inset with green, which will later be overwitten with
+                    // red except for a subsequent difference clip op
+                    canvas.clipRect(5, 5, width - 5, height - 5);
+                    paint.setColor(Color.GREEN);
+                    canvas.drawRect(0, 0, width, height, paint);
+
+                    // Cut out the inner region, so that it remains green
+                    canvas.clipOutRect(20, 20, width - 20, height - 20);
+                    paint.setColor(Color.RED);
+                    canvas.drawRect(0, 0, width, height, paint);
+                })
+                .runWithVerifier(new SamplePointVerifier(testPoints, colors));
+    }
+
+    // Expanding region ops (replace, reverse diff, union, and xor) are not allowed for clipping
+    @Test(expected = IllegalArgumentException.class)
+    public void testClipReplace() {
+        new Canvas(getMutableBitmap()).clipRect(0, 0, 10, 10, Region.Op.REPLACE);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testClipReverseDifference() {
+        new Canvas(getMutableBitmap()).clipRect(0, 0, 10, 10, Region.Op.REVERSE_DIFFERENCE);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testClipUnion() {
+        new Canvas(getMutableBitmap()).clipRect(0, 0, 10, 10, Region.Op.UNION);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testClipXor() {
+        new Canvas(getMutableBitmap()).clipRect(0, 0, 10, 10, Region.Op.XOR);
     }
 
     @Test

@@ -29,46 +29,66 @@
 
 namespace chromeos_update_engine {
 
-class CachedFileDescriptor : public FileDescriptor {
+class CachedFileDescriptorBase : public FileDescriptor {
  public:
-  CachedFileDescriptor(FileDescriptorPtr fd, size_t cache_size) : fd_(fd) {
-    cache_.resize(cache_size);
-  }
-  ~CachedFileDescriptor() override = default;
+  CachedFileDescriptorBase(size_t cache_size) : cache_(cache_size) {}
+  ~CachedFileDescriptorBase() override = default;
 
   bool Open(const char* path, int flags, mode_t mode) override {
-    return fd_->Open(path, flags, mode);
+    return GetFd()->Open(path, flags, mode);
   }
   bool Open(const char* path, int flags) override {
-    return fd_->Open(path, flags);
+    return GetFd()->Open(path, flags);
   }
   ssize_t Read(void* buf, size_t count) override {
-    return fd_->Read(buf, count);
+    return GetFd()->Read(buf, count);
   }
   ssize_t Write(const void* buf, size_t count) override;
   off64_t Seek(off64_t offset, int whence) override;
-  uint64_t BlockDevSize() override { return fd_->BlockDevSize(); }
+  uint64_t BlockDevSize() override { return GetFd()->BlockDevSize(); }
   bool BlkIoctl(int request,
                 uint64_t start,
                 uint64_t length,
                 int* result) override {
-    return fd_->BlkIoctl(request, start, length, result);
+    return GetFd()->BlkIoctl(request, start, length, result);
   }
   bool Flush() override;
   bool Close() override;
-  bool IsSettingErrno() override { return fd_->IsSettingErrno(); }
-  bool IsOpen() override { return fd_->IsOpen(); }
+  bool IsSettingErrno() override { return GetFd()->IsSettingErrno(); }
+  bool IsOpen() override { return GetFd()->IsOpen(); }
+
+ protected:
+  virtual FileDescriptor* GetFd() = 0;
 
  private:
   // Internal flush without the need to call |fd_->Flush()|.
   bool FlushCache();
 
-  FileDescriptorPtr fd_;
   brillo::Blob cache_;
   size_t bytes_cached_{0};
   off64_t offset_{0};
 
-  DISALLOW_COPY_AND_ASSIGN(CachedFileDescriptor);
+  DISALLOW_COPY_AND_ASSIGN(CachedFileDescriptorBase);
+};
+
+class CachedFileDescriptor final : public CachedFileDescriptorBase {
+ public:
+  CachedFileDescriptor(FileDescriptorPtr fd, size_t cache_size)
+      : CachedFileDescriptorBase(cache_size), fd_(fd) {}
+
+ protected:
+  virtual FileDescriptor* GetFd() { return fd_.get(); }
+  FileDescriptorPtr fd_;
+};
+
+class UnownedCachedFileDescriptor final : public CachedFileDescriptorBase {
+ public:
+  UnownedCachedFileDescriptor(FileDescriptor* fd, size_t cache_size)
+      : CachedFileDescriptorBase(cache_size), fd_(fd) {}
+
+ protected:
+  virtual FileDescriptor* GetFd() { return fd_; }
+  FileDescriptor* fd_;
 };
 
 }  // namespace chromeos_update_engine

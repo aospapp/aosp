@@ -148,6 +148,32 @@ class FtraceImporterTest {
 
     }
 
+    @Test fun testKernel515Changes() {
+        val trace = """ # tracer: nop
+            > #                                        ||| / _-=> migrate-disable
+            > #                                        |||| /     delay
+            > #           TASK-PID       TGID    CPU#  |||||  TIMESTAMP  FUNCTION
+            > #              | |           |       |   |||||     |         |
+            >           atrace-6950    (   6950) [001] .....  7048.491867: tracing_mark_write: trace_event_clock_sync: parent_ts=7048.491699
+            >           atrace-6950    (   6950) [001] .....  7048.491873: tracing_mark_write: trace_event_clock_sync: realtime_ts=1648582795693
+            >  roidJUnitRunner-6981    (   6966) [000] .....  7048.755913: tracing_mark_write: S|6966|AtraceDeviceTest::asyncBeginEndSection|42
+            >  roidJUnitRunner-6981    (   6966) [000] .....  7048.755920: tracing_mark_write: F|6966|AtraceDeviceTest::asyncBeginEndSection|42
+            >  roidJUnitRunner-6981    (   6966) [000] .....  7048.755924: tracing_mark_write: S|6966|ndk::asyncBeginEndSection|4770
+            >  roidJUnitRunner-6981    (   6966) [000] .....  7048.755926: tracing_mark_write: F|6966|ndk::asyncBeginEndSection|4770
+        """.trimMargin(">")
+
+        val importer = FtraceImporter(FatalImportFeedback)
+        val modelFragment = importer.import(trace.makeReader())
+        assertNotNull(modelFragment)
+        val model = Model(modelFragment!!)
+        assertNotNull(model)
+        val p = model.processes[6966].also {
+            assertNotNull(it)
+        }!!
+        assertEquals(6966, p.id)
+        assertEquals(1, p.threads.size)
+    }
+
     fun parse(vararg lines: String): Model {
         val traceData = withHeader(*lines)
         val importer = FtraceImporter(FatalImportFeedback)

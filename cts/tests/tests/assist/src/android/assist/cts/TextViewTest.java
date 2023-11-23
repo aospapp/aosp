@@ -19,6 +19,7 @@ package android.assist.cts;
 import android.assist.common.AutoResetLatch;
 import android.assist.common.Utils;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.util.Log;
 
 import org.junit.Test;
@@ -44,6 +45,7 @@ public class TextViewTest extends AssistTestBase {
 
         start3pApp(TEST_CASE_TYPE);
         scrollTestApp(0, 0, true, false);
+        SystemClock.sleep(500);
 
         // Verify that the text view contains the right text
         startTest(TEST_CASE_TYPE);
@@ -57,21 +59,33 @@ public class TextViewTest extends AssistTestBase {
 
         // Verify that the scroll position of the text view is accurate after scrolling.
         scrollTestApp(10, 50, true /* scrollTextView */, false /* scrollScrollView */);
+        // TODO: Check if we can get TextView's position to expected position instead of waiting
+        SystemClock.sleep(500);
+
         final AutoResetLatch latch2 = startSession();
         waitForContext(latch2);
         verifyAssistStructure(Utils.getTestAppComponent(TEST_CASE_TYPE), false);
 
         scrollTestApp(-1, -1, true, false);
+        // TODO: Check if we can get TextView's position to expected position instead of waiting
+        SystemClock.sleep(500);
+
         final AutoResetLatch latch3 = startSession();
         waitForContext(latch3);
         verifyAssistStructure(Utils.getTestAppComponent(TEST_CASE_TYPE), false);
 
         scrollTestApp(0, 0, true, true);
+        // TODO: Check if we can get TextView's position to expected position instead of waiting
+        SystemClock.sleep(500);
+
         final AutoResetLatch latch4 = startSession();
         waitForContext(latch4);
         verifyAssistStructure(Utils.getTestAppComponent(TEST_CASE_TYPE), false);
 
         scrollTestApp(10, 50, false, true);
+        // TODO: Check if we can get TextView's position to expected position instead of waiting
+        SystemClock.sleep(500);
+
         final AutoResetLatch latch5 = startSession();
         waitForContext(latch5);
         verifyAssistStructure(Utils.getTestAppComponent(TEST_CASE_TYPE), false);

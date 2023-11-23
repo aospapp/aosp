@@ -43,6 +43,9 @@ This is all to say this documentation pattern is expected.
 
 """
 
+from acts_contrib.test_utils.audio_analysis_lib.check_quality import quality_analysis
+from acts_contrib.test_utils.bt.bt_constants import audio_bits_per_sample_32
+from acts_contrib.test_utils.bt.bt_constants import audio_sample_rate_48000
 from acts_contrib.test_utils.abstract_devices.bluetooth_device import create_bluetooth_device
 from acts_contrib.test_utils.bt.bt_constants import bt_attribute_values
 from acts_contrib.test_utils.bt.bt_constants import sig_appearance_constants
@@ -2275,6 +2278,58 @@ class CommandInput(cmd.Cmd):
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
 
+    def do_audio_5_min_test(self, line):
+        """
+        Description: Capture and anlyize sine audio waves played from a Bluetooth A2DP
+        Source device.
+
+        Pre steps:
+        1. Pair A2DP source device
+        2. Prepare generated SOX file over preferred codec on source device.
+            Quick way to generate necessary audio files:
+            sudo apt-get install sox
+            sox -b 16 -r 48000 -c 2 -n audio_file_2k1k_5_min.wav synth 300 sine 2000 sine 3000
+
+        Usage:
+          Examples:
+            audio_5_min_test
+        """
+        cmd = "5 min audio capture test"
+        input("Press Enter once Source device is streaming audio file")
+        try:
+            result = self.pri_dut.audio_lib.startOutputSave()
+            self.log.info(result)
+            for i in range(5):
+                print("Minutes left: {}".format(10 - i))
+                time.sleep(60)
+            result = self.pri_dut.audio_lib.stopOutputSave()
+            log_time = int(time.time())
+            save_path = "{}/{}".format(self.pri_dut.log_path,
+                                       "{}_audio.raw".format(log_time))
+            analysis_path = "{}/{}".format(
+                self.pri_dut.log_path,
+                "{}_audio_analysis.txt".format(log_time))
+            result = self.pri_dut.audio_lib.getOutputAudio(save_path)
+
+            channels = 1
+            try:
+                quality_analysis(filename=save_path,
+                                 output_file=analysis_path,
+                                 bit_width=audio_bits_per_sample_32,
+                                 rate=audio_sample_rate_48000,
+                                 channel=channels,
+                                 spectral_only=False)
+
+            except Exception as err:
+                self.log.error("Failed to analyze raw audio: {}".format(err))
+                return False
+
+            self.log.info("Analysis output here: {}".format(analysis_path))
+            self.log.info("Analysis Results: {}".format(
+                open(analysis_path).readlines()))
+        except Exception as err:
+            self.log.error(FAILURE.format(cmd, err))
+
     """End Audio wrappers"""
     """Begin HFP wrappers"""
 
@@ -2321,7 +2376,7 @@ class CommandInput(cmd.Cmd):
         cmd = "Lists connected peers"
         try:
             result = self.pri_dut.hfp_lib.listPeers()
-            self.log.info(result)
+            self.log.info(pprint.pformat(result))
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
 
@@ -2357,7 +2412,7 @@ class CommandInput(cmd.Cmd):
         cmd = "Lists all calls"
         try:
             result = self.pri_dut.hfp_lib.listCalls()
-            self.log.info(result)
+            self.log.info(pprint.pformat(result))
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
 
@@ -2369,23 +2424,27 @@ class CommandInput(cmd.Cmd):
             remote: The number of the remote party on the simulated call
             state: The state of the call. Must be one of "ringing", "waiting",
                    "dialing", "alerting", "active", "held".
+            direction: The direction of the call. Must be one of "incoming", "outgoing".
 
         Usage:
           Examples:
-            hfp_new_call <remote> <state>
-            hfp_new_call 14085555555 active
-            hfp_new_call 14085555555 held
-            hfp_new_call 14085555555 ringing
-            hfp_new_call 14085555555 alerting
-            hfp_new_call 14085555555 dialing
+            hfp_new_call <remote> <state> <direction>
+            hfp_new_call 14085555555 active incoming
+            hfp_new_call 14085555555 held outgoing
+            hfp_new_call 14085555555 ringing incoming
+            hfp_new_call 14085555555 waiting incoming
+            hfp_new_call 14085555555 alerting outgoing
+            hfp_new_call 14085555555 dialing outgoing
         """
         cmd = "Simulates a call"
         try:
             info = line.strip().split()
-            if len(info) != 2:
-                raise ValueError("Exactly two command line arguments required: <remote> <state>")
-            remote, state = info[0], info[1]
-            result = self.pri_dut.hfp_lib.newCall(remote, state)
+            if len(info) != 3:
+                raise ValueError(
+                    "Exactly three command line arguments required: <remote> <state> <direction>"
+                )
+            remote, state, direction = info[0], info[1], info[2]
+            result = self.pri_dut.hfp_lib.newCall(remote, state, direction)
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2406,6 +2465,27 @@ class CommandInput(cmd.Cmd):
         try:
             remote = line.strip()
             result = self.pri_dut.hfp_lib.initiateIncomingCall(remote)
+            self.log.info(result)
+        except Exception as err:
+            self.log.error(FAILURE.format(cmd, err))
+
+    def do_hfp_waiting_call(self, line):
+        """
+        Description: Simulate an incoming call on the call manager when there is
+        an onging active call already.
+
+        Input(s):
+            remote: The number of the remote party on the incoming call
+
+        Usage:
+          Examples:
+            hfp_waiting_call <remote>
+            hfp_waiting_call 14085555555
+        """
+        cmd = "Simulates an incoming call"
+        try:
+            remote = line.strip()
+            result = self.pri_dut.hfp_lib.initiateIncomingWaitingCall(remote)
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2741,7 +2821,9 @@ class CommandInput(cmd.Cmd):
         try:
             info = line.strip().split()
             if len(info) != 2:
-                raise ValueError("Exactly two command line arguments required: <location> <number>")
+                raise ValueError(
+                    "Exactly two command line arguments required: <location> <number>"
+                )
             location, number = info[0], info[1]
             result = self.pri_dut.hfp_lib.setMemoryLocation(location, number)
             self.log.info(result)
@@ -2784,10 +2866,12 @@ class CommandInput(cmd.Cmd):
         try:
             info = line.strip().split()
             if len(info) != 2:
-                raise ValueError("Exactly two command line arguments required: <number> <status>")
+                raise ValueError(
+                    "Exactly two command line arguments required: <number> <status>"
+                )
             number, status = info[0], int(info[1])
             result = self.pri_dut.hfp_lib.setDialResult(number, status)
-            self.log.info(result)
+            self.log.info(pprint.pformat(result))
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
 
@@ -2802,7 +2886,157 @@ class CommandInput(cmd.Cmd):
         cmd = "Get the call manager's state"
         try:
             result = self.pri_dut.hfp_lib.getState()
+            self.log.info(pprint.pformat(result))
+        except Exception as err:
+            self.log.error(FAILURE.format(cmd, err))
+
+    def do_hfp_set_connection_behavior(self, line):
+        """
+        Description: Set the Service Level Connection (SLC) behavior when a new peer connects.
+
+        Input(s):
+            autoconnect: Enable/Disable autoconnection of SLC.
+
+        Usage:
+          Examples:
+            hfp_set_connection_behavior <autoconnect>
+            hfp_set_connection_behavior true
+            hfp_set_connection_behavior false
+        """
+        cmd = "Set the Service Level Connection (SLC) behavior"
+        try:
+            autoconnect = line.strip().lower() == "true"
+            result = self.pri_dut.hfp_lib.setConnectionBehavior(autoconnect)
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
+
     """End HFP wrappers"""
+    """Begin RFCOMM wrappers"""
+
+    def do_rfcomm_init(self, line):
+        """
+        Description: Initialize the RFCOMM component services.
+
+        Usage:
+          Examples:
+            rfcomm_init
+        """
+        cmd = "Initialize RFCOMM proxy"
+        try:
+            result = self.pri_dut.rfcomm_lib.init()
+            self.log.info(result)
+        except Exception as err:
+            self.log.error(FAILURE.format(cmd, err))
+
+    def do_rfcomm_remove_service(self, line):
+        """
+        Description: Removes the RFCOMM service in use.
+
+        Usage:
+          Examples:
+            rfcomm_remove_service
+        """
+        cmd = "Remove RFCOMM service"
+        try:
+            result = self.pri_dut.rfcomm_lib.removeService()
+            self.log.info(result)
+        except Exception as err:
+            self.log.error(FAILURE.format(cmd, err))
+
+    def do_rfcomm_disconnect_session(self, line):
+        """
+        Description: Closes the RFCOMM Session.
+
+        Usage:
+          Examples:
+            rfcomm_disconnect_session
+            rfcomm_disconnect_session
+        """
+        cmd = "Disconnect the RFCOMM Session"
+        try:
+            result = self.pri_dut.rfcomm_lib.disconnectSession(
+                self.unique_mac_addr_id)
+            self.log.info(result)
+        except Exception as err:
+            self.log.error(FAILURE.format(cmd, err))
+
+    def do_rfcomm_connect_rfcomm_channel(self, line):
+        """
+        Description: Make an outgoing RFCOMM connection.
+
+        Usage:
+          Examples:
+            rfcomm_connect_rfcomm_channel <server_channel_number>
+            rfcomm_connect_rfcomm_channel 2
+        """
+        cmd = "Make an outgoing RFCOMM connection"
+        try:
+            server_channel_number = int(line.strip())
+            result = self.pri_dut.rfcomm_lib.connectRfcommChannel(
+                self.unique_mac_addr_id, server_channel_number)
+            self.log.info(result)
+        except Exception as err:
+            self.log.error(FAILURE.format(cmd, err))
+
+    def do_rfcomm_disconnect_rfcomm_channel(self, line):
+        """
+        Description: Close the RFCOMM connection with the peer
+
+        Usage:
+          Examples:
+            rfcomm_disconnect_rfcomm_channel <server_channel_number>
+            rfcomm_disconnect_rfcomm_channel 2
+        """
+        cmd = "Close the RFCOMM channel"
+        try:
+            server_channel_number = int(line.strip())
+            result = self.pri_dut.rfcomm_lib.disconnectRfcommChannel(
+                self.unique_mac_addr_id, server_channel_number)
+            self.log.info(result)
+        except Exception as err:
+            self.log.error(FAILURE.format(cmd, err))
+
+    def do_rfcomm_send_remote_line_status(self, line):
+        """
+        Description: Send a remote line status for the RFCOMM channel.
+
+        Usage:
+          Examples:
+            rfcomm_send_remote_line_status <server_channel_number>
+            rfcomm_send_remote_line_status 2
+        """
+        cmd = "Send a remote line status update for the RFCOMM channel"
+        try:
+            server_channel_number = int(line.strip())
+            result = self.pri_dut.rfcomm_lib.sendRemoteLineStatus(
+                self.unique_mac_addr_id, server_channel_number)
+            self.log.info(result)
+        except Exception as err:
+            self.log.error(FAILURE.format(cmd, err))
+
+    def do_rfcomm_write_rfcomm(self, line):
+        """
+        Description: Send data over the RFCOMM channel.
+
+        Usage:
+          Examples:
+            rfcomm_write_rfcomm <server_channel_number> <data>
+            rfcomm_write_rfcomm 2 foobar
+        """
+        cmd = "Send data using the RFCOMM channel"
+        try:
+            info = line.strip().split()
+            if len(info) != 2:
+                raise ValueError(
+                    "Exactly two command line arguments required: <server_channel_number> <data>"
+                )
+            server_channel_number = int(info[0])
+            data = info[1]
+            result = self.pri_dut.rfcomm_lib.writeRfcomm(
+                self.unique_mac_addr_id, server_channel_number, data)
+            self.log.info(result)
+        except Exception as err:
+            self.log.error(FAILURE.format(cmd, err))
+
+    """End RFCOMM wrappers"""

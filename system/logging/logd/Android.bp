@@ -73,6 +73,7 @@ cc_library_static {
         "SerializedLogBuffer.cpp",
         "SerializedLogChunk.cpp",
         "SimpleLogBuffer.cpp",
+        ":ILogcatManagerService_aidl"
     ],
     static_libs: ["liblog"],
     logtags: ["event.logtags"],
@@ -86,28 +87,34 @@ cc_binary {
     init_rc: ["logd.rc"],
 
     srcs: [
+        "libaudit.cpp",
         "main.cpp",
-        "LogPermissions.cpp",
         "CommandListener.cpp",
-        "LogListener.cpp",
-        "LogReader.cpp",
+        "LogdNativeService.cpp",
         "LogAudit.cpp",
         "LogKlog.cpp",
-        "libaudit.cpp",
+        "LogListener.cpp",
+        "LogPermissions.cpp",
+        "LogReader.cpp",
+        "TrustyLog.cpp",
         "PkgIds.cpp",
+        ":ILogcatManagerService_aidl"
     ],
 
     static_libs: [
         "liblog",
         "liblogd",
+        "liblogd_binder",
     ],
 
     shared_libs: [
+        "libbinder",
         "libsysutils",
         "libcutils",
         "libpackagelistparser",
         "libprocessgroup",
         "libcap",
+        "libutils",
     ],
 }
 
@@ -169,6 +176,10 @@ cc_defaults {
         "libz",
         "libzstd",
     ],
+    shared_libs: [
+        "libbinder",
+        "libutils",
+    ],
 }
 
 // Build tests for the logger. Run with:
@@ -218,4 +229,39 @@ cc_binary {
         "libz",
         "libzstd",
     ],
+    shared_libs: [
+        "libbinder",
+        "libutils",
+    ],
+}
+
+cc_library_static {
+    name: "liblogd_binder",
+    defaults: ["logd_defaults"],
+
+    srcs: [
+        ":logd_aidl",
+    ],
+    shared_libs: [
+        "libbinder",
+        "libutils",
+    ],
+    aidl: {
+        local_include_dirs: ["binder"],
+        export_aidl_headers: true,
+    },
+    whole_static_libs: [
+        "libincremental_aidl-cpp",
+    ],
+    export_shared_lib_headers: [
+        "libbinder",
+    ],
+}
+
+filegroup {
+    name: "logd_aidl",
+    srcs: [
+        "binder/android/os/ILogd.aidl",
+    ],
+    path: "binder",
 }

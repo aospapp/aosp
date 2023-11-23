@@ -58,7 +58,10 @@ cc_defaults {
 //
 cc_binary {
     name: "wificond",
-    defaults: ["wificond_defaults"],
+    defaults: [
+        "keystore2_use_latest_aidl_ndk_shared",
+        "wificond_defaults",
+    ],
     init_rc: ["wificond.rc"],
     srcs: [
 	"main.cpp",
@@ -67,8 +70,8 @@ cc_binary {
     include_dirs: ["system/security/keystore/include"],
 
     shared_libs: [
-        "android.system.keystore2-V1-ndk_platform",
-        "android.security.legacykeystore-ndk_platform",
+        "android.hardware.net.nlinterceptor-V1-ndk",
+        "android.security.legacykeystore-ndk",
         "libbinder",
         "libbinder_ndk",
         "libbase",
@@ -82,6 +85,7 @@ cc_binary {
         "android.system.wifi.keystore@1.0",
     ],
     static_libs: [
+        "libnlinterceptor",
         "libwificond", // Wificond daemon
         "libwifikeystorehal"  // Wifi Keystore HAL service
     ],
@@ -114,11 +118,13 @@ cc_library_static {
     ],
 
     shared_libs: [
+        "android.hardware.net.nlinterceptor-V1-ndk",
         "libbase",
         "libutils",
         "libwifi-system-iface",
     ],
     whole_static_libs: [
+        "libnlinterceptor",
         "libwificond_ipc",
         "libwificond_nl",
         "libwificond_event_loop",
@@ -138,8 +144,16 @@ cc_library_static {
         "net/nl80211_attribute.cpp",
         "net/nl80211_packet.cpp",
     ],
-    shared_libs: ["libbase"],
-
+    shared_libs: [
+        "android.hardware.net.nlinterceptor-V1-ndk",
+        "libbinder_ndk",
+        "libbase",
+    ],
+    whole_static_libs: [
+        "libnlinterceptor",
+        "android.hardware.automotive.can@libnetdevice",
+        "libnl++",
+    ],
 }
 
 //
@@ -152,7 +166,6 @@ cc_library_static {
     whole_static_libs: [
         "liblog",
         "libbase",
-        "libutils",
     ],
 
 }
@@ -180,7 +193,11 @@ cc_library_static {
         "scanning/scan_result.cpp",
         "scanning/single_scan_settings.cpp",
     ],
-    shared_libs: ["libbinder"],
+    shared_libs: [
+        "android.hardware.net.nlinterceptor-V1-ndk",
+        "libbinder",
+    ],
+    static_libs: ["libnlinterceptor"],
 }
 
 filegroup {
@@ -225,6 +242,13 @@ cc_test {
     name: "wificond_unit_test",
     defaults: ["wificond_defaults"],
     test_suites: ["device-tests"],
+    tidy_timeout_srcs: [
+        "tests/client_interface_impl_unittest.cpp",
+        "tests/netlink_utils_unittest.cpp",
+        "tests/scanner_unittest.cpp",
+        "tests/scan_utils_unittest.cpp",
+        "tests/server_unittest.cpp",
+    ],
     srcs: [
         "tests/ap_interface_impl_unittest.cpp",
         "tests/client_interface_impl_unittest.cpp",
@@ -249,13 +273,16 @@ cc_test {
     static_libs: [
         "libgmock",
         "libgtest",
+        "libnlinterceptor",
         "libwifi-system-iface-test",
         "libwificond",
         "libwificond_nl",
     ],
     shared_libs: [
+        "android.hardware.net.nlinterceptor-V1-ndk",
         "libbase",
         "libbinder",
+        "libbinder_ndk",
         "libcutils",
         "liblog",
         "libutils",

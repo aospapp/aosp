@@ -58,6 +58,9 @@ EXTRA_CONFIG_FILE = os.path.join(MODULE_DIR, MODULE_CONFIG_NAME + '.xml')
 CONFIG2_FILE = os.path.join(MODULE2_DIR, constants.MODULE_CONFIG)
 JSON_FILE = 'module-info.json'
 MODULE_INFO_TARGET = '/out/%s' % JSON_FILE
+CC_DEP_FILE = 'module_bp_cc_deps.json'
+JAVA_DEP_FILE = 'module_bp_java_deps.json'
+MERGED_DEP_FILE = 'atest_merged_dep.json'
 MODULE_BUILD_TARGETS = {'tradefed-core', MODULE_INFO_TARGET,
                         'MODULES-IN-%s' % MODULE_DIR.replace('/', '-'),
                         'module-specific-target'}
@@ -223,7 +226,7 @@ FIND_CC_ONE = ROOT + 'foo/bt/hci/test/pf_test.cc\n'
 CC_MODULE_NAME = 'net_test_hci'
 CC_CLASS_NAME = 'PFTest'
 CC_MODULE_DIR = 'system/bt/hci'
-CC_CLASS_FILTER = test_info.TestFilter(CC_CLASS_NAME+".*", frozenset())
+CC_CLASS_FILTER = test_info.TestFilter(CC_CLASS_NAME, frozenset())
 CC_CONFIG_FILE = os.path.join(CC_MODULE_DIR, constants.MODULE_CONFIG)
 CC_MODULE_CLASS_DATA = {constants.TI_REL_CONFIG: CC_CONFIG_FILE,
                         constants.TI_FILTER: frozenset([CC_CLASS_FILTER])}
@@ -251,6 +254,8 @@ CC_METHOD_FILTER = test_info.TestFilter(CC_CLASS_NAME+"."+CC_METHOD_NAME,
 CC_METHOD2_FILTER = test_info.TestFilter(CC_CLASS_NAME+"."+CC_METHOD_NAME+ \
                                          ":"+CC_CLASS_NAME+"."+CC_METHOD2_NAME,
                                          frozenset())
+CC_METHOD3_FILTER = test_info.TestFilter(CC_CLASS_NAME,
+                                         frozenset([CC_METHOD_NAME]))
 CC_METHOD_INFO = test_info.TestInfo(
     CC_MODULE_NAME,
     atf_tr.AtestTradefedTestRunner.NAME,
@@ -263,6 +268,12 @@ CC_METHOD2_INFO = test_info.TestInfo(
     MODULE_BUILD_TARGETS,
     data={constants.TI_REL_CONFIG: CC_CONFIG_FILE,
           constants.TI_FILTER: frozenset([CC_METHOD2_FILTER])})
+CC_METHOD3_INFO = test_info.TestInfo(
+    CC_MODULE_NAME,
+    atf_tr.AtestTradefedTestRunner.NAME,
+    MODULE_BUILD_TARGETS,
+    data={constants.TI_REL_CONFIG: CC_CONFIG_FILE,
+          constants.TI_FILTER: frozenset([CC_METHOD3_FILTER])})
 CC_PATH_DATA = {
     constants.TI_REL_CONFIG: TEST_DATA_CONFIG,
     constants.TI_FILTER: frozenset()}
@@ -292,12 +303,13 @@ FUZZY_MOD1 = 'Mod1'
 FUZZY_MOD2 = 'nod2'
 FUZZY_MOD3 = 'mod3mod3'
 
-LOCATE_CACHE = '/tmp/mcloate.db'
-CLASS_INDEX = '/tmp/classes.idx'
-QCLASS_INDEX = '/tmp/fqcn.idx'
-CC_CLASS_INDEX = '/tmp/cc_classes.idx'
-PACKAGE_INDEX = '/tmp/packages.idx'
-MODULE_INDEX = '/tmp/modules.idx'
+INDEX_DIR = os.path.join('/tmp', 'indexes')
+LOCATE_CACHE = os.path.join(INDEX_DIR, 'plocate.db')
+LOCATE_CACHE_MD5 = os.path.join(INDEX_DIR, 'plocate.md5')
+CLASS_INDEX = os.path.join(INDEX_DIR, 'classes.idx')
+QCLASS_INDEX = os.path.join(INDEX_DIR, 'fqcn.idx')
+CC_CLASS_INDEX = os.path.join(INDEX_DIR, 'cc_classes.idx')
+PACKAGE_INDEX = os.path.join(INDEX_DIR, 'packages.idx')
 
 # TF's log dir
 TEST_INFO_DIR = '/tmp/atest_run_1510085893_pi_Nbi'

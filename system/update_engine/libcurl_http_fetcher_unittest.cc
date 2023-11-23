@@ -31,8 +31,8 @@ using std::string;
 namespace chromeos_update_engine {
 
 namespace {
+
 constexpr char kHeaderName[] = "X-Goog-Test-Header";
-}
 
 class LibcurlHttpFetcherTest : public ::testing::Test {
  protected:
@@ -47,6 +47,8 @@ class LibcurlHttpFetcherTest : public ::testing::Test {
   MockLibcurlHttpFetcher libcurl_fetcher_{nullptr, &fake_hardware_};
   UnresolvedHostStateMachine state_machine_;
 };
+
+}  // namespace
 
 TEST_F(LibcurlHttpFetcherTest, GetEmptyHeaderValueTest) {
   const string header_value = "";

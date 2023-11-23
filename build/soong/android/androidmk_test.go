@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -147,6 +148,9 @@ func buildContextAndCustomModuleFoo(t *testing.T, bp string) (*TestContext, *cus
 		FixtureRegisterWithContext(func(ctx RegistrationContext) {
 			ctx.RegisterModuleType("custom", customModuleFactory)
 		}),
+		FixtureModifyProductVariables(func(variables FixtureProductVariables) {
+			variables.DeviceProduct = proptools.StringPtr("bar")
+		}),
 		FixtureWithRootAndroidBp(bp),
 	).RunTest(t)
 
@@ -155,6 +159,11 @@ func buildContextAndCustomModuleFoo(t *testing.T, bp string) (*TestContext, *cus
 }
 
 func TestAndroidMkSingleton_PassesUpdatedAndroidMkDataToCustomCallback(t *testing.T) {
+	if runtime.GOOS == "darwin" {
+		// Device modules are not exported on Mac, so this test doesn't work.
+		t.SkipNow()
+	}
+
 	bp := `
 	custom {
 		name: "foo",
@@ -393,6 +402,25 @@ func TestGetDistContributions(t *testing.T) {
 				},
 			},
 		})
+
+	testHelper(t, "append-artifact-with-product", `
+			custom {
+				name: "foo",
+				dist: {
+					targets: ["my_goal"],
+					append_artifact_with_product: true,
+				}
+			}
+`, &distContributions{
+		copiesForGoals: []*copiesForGoals{
+			{
+				goals: "my_goal",
+				copies: []distCopy{
+					distCopyForTest("one.out", "one_bar.out"),
+				},
+			},
+		},
+	})
 
 	testHelper(t, "dists-with-tag", `
 			custom {

@@ -121,7 +121,6 @@ cc_library_static {
     defaults: [
         "libhwbinder_defaults",
         "libhwbinder-impl-shared-libs",
-        "hwbinder_pgo",
         "hwbinder_lto",
     ],
     host_supported: true,
@@ -133,47 +132,12 @@ cc_library_static {
     apex_available: [
         "//apex_available:platform",
         "com.android.neuralnetworks",
-        "com.android.bluetooth.updatable",
+        "com.android.bluetooth",
         "com.android.media",
         "com.android.media.swcodec",
         "com.android.tethering",
     ],
     min_sdk_version: "29",
-}
-
-// Only libhwbinder_benchmark needs to have pgo enabled. When all places
-// support having PGO selectively enabled, all places can use libhwbinder.
-//
-// http://b/77320844
-cc_library_static {
-    name: "libhwbinder_pgo-impl-internal",
-    defaults: [
-        "libhwbinder_defaults",
-        "libhwbinder-impl-shared-libs",
-        "hwbinder_benchmark_pgo",
-        "hwbinder_lto",
-    ],
-}
-
-// Provide pgo property to build hwbinder with PGO
-cc_defaults {
-    name: "hwbinder_pgo",
-    pgo: {
-        instrumentation: true,
-        profile_file: "hwbinder/hwbinder.profdata",
-        benchmarks: ["hwbinder"],
-        enable_profile_use: true,
-    },
-}
-
-cc_defaults {
-    name: "hwbinder_benchmark_pgo",
-    pgo: {
-        instrumentation: true,
-        profile_file: "hwbinder/hwbinder.profdata",
-        benchmarks: ["hwbinder_benchmark"],
-        enable_profile_use: true,
-    },
 }
 
 // Provide lto property to build hwbinder with LTO

@@ -24,13 +24,14 @@ android_test {
         "androidx.annotation_annotation",
         "androidx.test.ext.junit",
         "androidx.test.rules",
-	"ctsdeviceutillegacy-axt",
+        "ctsdeviceutillegacy-axt",
         "mockito-target-minus-junit4",
         "android-common",
         "compatibility-device-util-axt",
         "ctstestrunner-axt",
         "platform-test-annotations",
         "truth-prebuilt",
+        "CtsMockInputMethodLib",
     ],
 
     libs: ["android.test.runner"],
@@ -49,4 +50,10 @@ android_test {
         "general-tests",
     ],
 
+    data: [
+        ":TestIme",
+        ":CtsMockInputMethod",
+        ":CtsWidgetApp",
+    ],
+    per_testcase_directory: true,
 }

@@ -27,6 +27,7 @@ import static android.view.accessibility.AccessibilityEvent.TYPE_WINDOW_STATE_CH
 
 import static org.hamcrest.Matchers.both;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
 import android.accessibility.cts.common.AccessibilityDumpOnFailureRule;
 import android.accessibilityservice.cts.activities.AccessibilityEndToEndActivity;
@@ -65,6 +66,13 @@ public class AccessibilityPaneTest {
 
     private AccessibilityDumpOnFailureRule mDumpOnFailureRule =
             new AccessibilityDumpOnFailureRule();
+
+    private final AccessibilityEventFilter mPaneAppearsFilter =
+            both(new AccessibilityEventTypeMatcher(TYPE_WINDOW_STATE_CHANGED)).and(
+                    new ContentChangesMatcher(CONTENT_CHANGE_TYPE_PANE_APPEARED))::matches;
+    private final AccessibilityEventFilter mPaneDisappearsFilter =
+            both(new AccessibilityEventTypeMatcher(TYPE_WINDOW_STATE_CHANGED)).and(
+                    new ContentChangesMatcher(CONTENT_CHANGE_TYPE_PANE_DISAPPEARED))::matches;
 
     @Rule
     public final RuleChain mRuleChain = RuleChain
@@ -106,27 +114,39 @@ public class AccessibilityPaneTest {
 
         AccessibilityNodeInfo windowLikeNode = getPaneNode();
         assertEquals(newTitle, windowLikeNode.getPaneTitle());
+
+        // Disappear
+        sUiAutomation.executeAndWaitForEvent(() -> sInstrumentation.runOnMainSync(() -> {
+            mPaneView.setAccessibilityPaneTitle(null);
+            assertNull(mPaneView.getAccessibilityPaneTitle());
+        }), mPaneDisappearsFilter, DEFAULT_TIMEOUT_MS);
+
+        windowLikeNode.refresh();
+        assertNull(windowLikeNode.getPaneTitle());
+
+        // Appear
+        sUiAutomation.executeAndWaitForEvent(() -> sInstrumentation.runOnMainSync(() -> {
+            mPaneView.setAccessibilityPaneTitle(newTitle);
+            assertEquals(newTitle, mPaneView.getAccessibilityPaneTitle());
+        }), mPaneAppearsFilter, DEFAULT_TIMEOUT_MS);
+
+        windowLikeNode.refresh();
+        assertEquals(newTitle, windowLikeNode.getPaneTitle());
     }
 
     @Test
     public void windowLikeViewVisibility_reportAsWindowStateChanges() throws Exception {
-        final AccessibilityEventFilter paneAppearsFilter =
-                both(new AccessibilityEventTypeMatcher(TYPE_WINDOW_STATE_CHANGED)).and(
-                        new ContentChangesMatcher(CONTENT_CHANGE_TYPE_PANE_APPEARED))::matches;
-        final AccessibilityEventFilter paneDisappearsFilter =
-                both(new AccessibilityEventTypeMatcher(TYPE_WINDOW_STATE_CHANGED)).and(
-                        new ContentChangesMatcher(CONTENT_CHANGE_TYPE_PANE_DISAPPEARED))::matches;
         sUiAutomation.executeAndWaitForEvent(setPaneViewVisibility(View.GONE),
-                paneDisappearsFilter, DEFAULT_TIMEOUT_MS);
+                mPaneDisappearsFilter, DEFAULT_TIMEOUT_MS);
 
         sUiAutomation.executeAndWaitForEvent(setPaneViewVisibility(View.VISIBLE),
-                paneAppearsFilter, DEFAULT_TIMEOUT_MS);
+                mPaneAppearsFilter, DEFAULT_TIMEOUT_MS);
 
         sUiAutomation.executeAndWaitForEvent(setPaneViewParentVisibility(View.GONE),
-                paneDisappearsFilter, DEFAULT_TIMEOUT_MS);
+                mPaneDisappearsFilter, DEFAULT_TIMEOUT_MS);
 
         sUiAutomation.executeAndWaitForEvent(setPaneViewParentVisibility(View.VISIBLE),
-                paneAppearsFilter, DEFAULT_TIMEOUT_MS);
+                mPaneAppearsFilter, DEFAULT_TIMEOUT_MS);
     }
 
     private AccessibilityNodeInfo getPaneNode() {

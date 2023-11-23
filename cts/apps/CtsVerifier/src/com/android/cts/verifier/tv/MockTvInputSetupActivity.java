@@ -39,10 +39,10 @@ public class MockTvInputSetupActivity extends Activity {
     private static final String TAG = "MockTvInputSetupActivity";
 
     /* package-private */ static final String CHANNEL_NUMBER = "999-0";
-    /* package-private */ static final String CHANNEL_NAME = "Dummy";
+    /* package-private */ static final String CHANNEL_NAME = "Placeholder";
 
-    /* package-private */ static final String PROGRAM_TITLE = "Dummy Program";
-    /* package-private */ static final String PROGRAM_DESCRIPTION = "Dummy Program Description";
+    /* package-private */ static final String PROGRAM_TITLE = "Placeholder Program";
+    /* package-private */ static final String PROGRAM_DESCRIPTION = "Placeholder Program Description";
 
     /* package-private */ static final String APP_LINK_TEST_KEY = "app_link_test_key";
     /* package-private */ static final String APP_LINK_TEST_VALUE = "app_link_test_value";

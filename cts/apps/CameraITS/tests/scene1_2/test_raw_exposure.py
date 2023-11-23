@@ -85,15 +85,16 @@ def create_plot(exps, means, sens, log_path):
   gb = [m[2] for m in means[1:]]
   b = [m[3] for m in means[1:]]
   pylab.figure('%s_%s' % (NAME, sens))
-  pylab.plot(exps, r, 'r.-')
-  pylab.plot(exps, b, 'b.-')
-  pylab.plot(exps, gr, 'g.-')
-  pylab.plot(exps, gb, 'k.-')
+  pylab.plot(exps, r, 'r.-', label='R')
+  pylab.plot(exps, gr, 'g.-', label='Gr')
+  pylab.plot(exps, gb, 'k.-', label='Gb')
+  pylab.plot(exps, b, 'b.-', label='B')
   pylab.xscale('log')
   pylab.yscale('log')
   pylab.title('%s ISO=%d' % (NAME, sens))
   pylab.xlabel('Exposure time (ms)')
   pylab.ylabel('Center patch pixel mean')
+  pylab.legend(loc='lower right', numpoints=1, fancybox=True)
   matplotlib.pyplot.savefig(
       '%s_s=%d.png' % (os.path.join(log_path, NAME), sens))
   pylab.clf()
@@ -111,6 +112,8 @@ def assert_increasing_means(means, exps, sens, black_levels, white_level):
   Returns:
     None
   """
+  lower_thresh = np.array(black_levels) * (1 + BLK_LVL_RTOL)
+  logging.debug('Lower threshold for check: %s', lower_thresh)
   allow_under_saturated = True
   for i in range(1, len(means)):
     prev_mean = means[i-1]
@@ -121,19 +124,21 @@ def assert_increasing_means(means, exps, sens, black_levels, white_level):
                     white_level, max(mean))
       break
 
-    if allow_under_saturated and np.allclose(
-        mean, black_levels, rtol=BLK_LVL_RTOL):
+    if allow_under_saturated and min(mean-lower_thresh) < 0:
       # All channel means are close to black level
       continue
-
     allow_under_saturated = False
     # Check pixel means are increasing (with small tolerance)
+    logging.debug('iso: %d, exp: %.3f, means: %s', sens, exps[i-1], mean)
     for ch, color in enumerate(COLORS):
-      e_msg = 'ISO=%d, %s, exp %3fms mean: %.2f, %s mean: %.2f, TOL=%.f%%' % (
-          sens, color, exps[i-1], mean[ch],
-          'black level' if i == 1 else 'exp_time %.3fms'%exps[i-2],
-          prev_mean[ch], IMG_DELTA_THRESH*100)
       if mean[ch] <= prev_mean[ch] * IMG_DELTA_THRESH:
+        e_msg = f'{color} not increasing with increased exp time! ISO: {sens}, '
+        if i == 1:
+          e_msg += f'black_level: {black_levels[ch]}, '
+        else:
+          e_msg += f'exp[i-1]: {exps[i-2]:.3f}ms, mean[i-1]: {prev_mean[ch]:.2f}, '
+        e_msg += (f'exp[i]: {exps[i-1]:.3f}ms, mean[i]: {mean[ch]}, '
+                  f'TOL: {IMG_DELTA_THRESH}')
         raise AssertionError(e_msg)
 
 

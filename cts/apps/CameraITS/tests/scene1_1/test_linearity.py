@@ -126,9 +126,11 @@ class LinearityTest(its_base_test.ItsBaseTest):
             range(len(sensitivities)), means, 1, full=True)
         logging.debug('Line: m=%f, b=%f, resid=%f',
                       line[0], line[1], residuals[0])
-        msg = 'residual: %.5f, THRESH: %.4f' % (residuals[0], RESIDUAL_THRESH)
-        assert residuals[0] < RESIDUAL_THRESH, msg
-        assert line[0] > 0, 'slope %.6f less than 0!' % line[0]
+        if residuals[0] > RESIDUAL_THRESH:
+          raise AssertionError(
+              'residual: {residuals[0]:.5f}, THRESH: {RESIDUAL_THRESH}')
+        if line[0] <= 0:
+          raise AssertionError(f'slope {line[0]:.6f} <=  0!')
 
 if __name__ == '__main__':
   test_runner.main()

@@ -235,9 +235,7 @@ public:
         return mVal;
     }
 
-    T withDefault(T t) {
-        return isOk() ? mVal : t;
-    }
+    T withDefault(T t) const { return isOk() ? mVal : t; }
 };
 
 template<typename T> class Return<sp<T>> : public details::return_status {
@@ -264,9 +262,7 @@ public:
         return mVal;
     }
 
-    sp<T> withDefault(sp<T> t) {
-        return isOk() ? mVal : t;
-    }
+    sp<T> withDefault(sp<T> t) const { return isOk() ? mVal : t; }
 };
 
 

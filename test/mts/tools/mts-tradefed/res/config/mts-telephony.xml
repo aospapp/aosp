@@ -25,7 +25,6 @@
     <option name="compatibility:include-filter" value="CtsSimRestrictedApisTestCases" />
     <option name="compatibility:include-filter" value="CtsTelephony3TestCases" />
     <option name="compatibility:include-filter" value="CtsTelephony2TestCases" />
-    <option name="compatibility:include-filter" value="CtsTelephonySdk28TestCases" />
     <option name="compatibility:include-filter" value="CtsTelephonyTestCases" />
 
     <!-- TODO: Uncomment this after the instrumentation signature issue is resolved:

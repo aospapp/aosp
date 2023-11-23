@@ -265,6 +265,7 @@ genrule {
     ":com.android.apex.cts.shim.v2_with_post_install_hook",
     ":com.android.apex.cts.shim.v2_sdk_target_p",
     ":com.android.apex.cts.shim.v2_apk_in_apex_sdk_target_p",
+    ":com.android.apex.cts.shim.v2_apk_in_apex_upgrades",
     ":com.android.apex.cts.shim.v2_rebootless",
     ":com.android.apex.cts.shim.v3",
     ":com.android.apex.cts.shim.v3_rebootless",
@@ -447,7 +448,7 @@ genrule {
     targets: ["com.android.apex.cts.shim.v2_signed_bob_rot"],
     dest: "com.android.apex.cts.shim.v2_signed_bob_rot.apex",
   },
-  cmd: "$(location :apksigner) sign --v1-signing-enabled false --v2-signing-enabled false --key $(location :com.android.apex.rotation.key.bob.pk8) --cert $(location :com.android.apex.rotation.key.bob.x509.pem) --lineage $(location :com.android.apex.rotation.key.bob.rot) --out $(out) $(location :com.android.apex.cts.shim.v2)",
+  cmd: "$(location :apksigner) sign --v1-signing-enabled false --v2-signing-enabled false --key $(location :com.android.apex.rotation.key.bob.pk8) --cert $(location :com.android.apex.rotation.key.bob.x509.pem) --lineage $(location :com.android.apex.rotation.key.bob.rot) --rotation-min-sdk-version 28 --out $(out) $(location :com.android.apex.cts.shim.v2)",
 }
 
 // v2 cts shim package signed by bob + lineage + rollback capability
@@ -465,7 +466,7 @@ genrule {
     targets: ["com.android.apex.cts.shim.v2_signed_bob_rot_rollback"],
     dest: "com.android.apex.cts.shim.v2_signed_bob_rot_rollback.apex",
   },
-  cmd: "$(location :apksigner) sign --v1-signing-enabled false --v2-signing-enabled false --key $(location :com.android.apex.rotation.key.bob.pk8) --cert $(location :com.android.apex.rotation.key.bob.x509.pem) --lineage $(location :com.android.apex.rotation.key.bob.rot.rollback) --out $(out) $(location :com.android.apex.cts.shim.v2)",
+  cmd: "$(location :apksigner) sign --v1-signing-enabled false --v2-signing-enabled false --key $(location :com.android.apex.rotation.key.bob.pk8) --cert $(location :com.android.apex.rotation.key.bob.x509.pem) --lineage $(location :com.android.apex.rotation.key.bob.rot.rollback) --rotation-min-sdk-version 28 --out $(out) $(location :com.android.apex.cts.shim.v2)",
 }
 
 // v3 cts shim package signed by bob
@@ -500,7 +501,7 @@ genrule {
     targets: ["com.android.apex.cts.shim.v3_signed_bob_rot"],
     dest: "com.android.apex.cts.shim.v3_signed_bob_rot.apex",
   },
-  cmd: "$(location :apksigner) sign --v1-signing-enabled false --v2-signing-enabled false --key $(location :com.android.apex.rotation.key.bob.pk8) --cert $(location :com.android.apex.rotation.key.bob.x509.pem) --lineage $(location :com.android.apex.rotation.key.bob.rot) --out $(out) $(location :com.android.apex.cts.shim.v3)",
+  cmd: "$(location :apksigner) sign --v1-signing-enabled false --v2-signing-enabled false --key $(location :com.android.apex.rotation.key.bob.pk8) --cert $(location :com.android.apex.rotation.key.bob.x509.pem) --lineage $(location :com.android.apex.rotation.key.bob.rot) --rotation-min-sdk-version 28 --out $(out) $(location :com.android.apex.cts.shim.v3)",
 }
 
 // This one is only used in ApexdHostTest and not meant to be installed
@@ -579,6 +580,19 @@ apex {
   file_contexts: ":apex.test-file_contexts",
   key: "com.android.apex.cts.shim.key",
   prebuilts: ["hash_of_dev_null"],
+  installable: false,
+  updatable: false,
+}
+
+// Apex shim with upgraded apk-in-apexes
+apex {
+  name: "com.android.apex.cts.shim.v2_apk_in_apex_upgrades",
+  manifest: "manifest_v2.json",
+  androidManifest: "AndroidManifest.xml",
+  file_contexts: ":apex.test-file_contexts",
+  key: "com.android.apex.cts.shim.key",
+  prebuilts: ["hash_of_dev_null"],
+  apps: ["CtsShim", "CtsShimPrivUpgrade"],
   installable: false,
   updatable: false,
 }

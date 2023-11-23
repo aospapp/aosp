@@ -42,6 +42,10 @@ import androidx.test.runner.AndroidJUnit4;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+
 @SmallTest
 @RunWith(AndroidJUnit4.class)
 public class TextClassificationTest {
@@ -174,14 +178,18 @@ public class TextClassificationTest {
 
     @Test
     public void testTextClassificationRequest() {
+        final ZonedDateTime referenceTime = ZonedDateTime.ofInstant(Instant.ofEpochMilli(1000L),
+                ZoneId.of("UTC"));
         final TextClassification.Request request =
                 new TextClassification.Request.Builder(TEXT, START, END)
                         .setDefaultLocales(LOCALES)
+                        .setReferenceTime(referenceTime)
                         .setExtras(BUNDLE)
                         .build();
 
         assertEquals(LOCALES, request.getDefaultLocales());
         assertEquals(BUNDLE_VALUE, request.getExtras().getString(BUNDLE_KEY));
+        assertEquals(referenceTime, request.getReferenceTime());
     }
 
     @Test

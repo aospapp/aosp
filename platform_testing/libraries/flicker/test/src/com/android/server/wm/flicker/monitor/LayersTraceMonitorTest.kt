@@ -18,7 +18,6 @@ package com.android.server.wm.flicker.monitor
 
 import android.surfaceflinger.nano.Layerstrace
 import androidx.test.uiautomator.UiDevice
-import com.android.server.wm.flicker.FlickerRunResult
 import com.google.common.truth.Truth
 import org.junit.FixMethodOrder
 import org.junit.Test
@@ -39,10 +38,6 @@ class LayersTraceMonitorTest : TraceMonitorTest<LayersTraceMonitor>() {
         Truth.assertThat(trace.magicNumber)
                 .isEqualTo(Layerstrace.LayersTraceFileProto.MAGIC_NUMBER_H.toLong() shl 32
                         or Layerstrace.LayersTraceFileProto.MAGIC_NUMBER_L.toLong())
-    }
-
-    override fun getTraceFile(result: FlickerRunResult): Path? {
-        return result.traceFiles.firstOrNull { it.toString().contains("layers_trace") }
     }
 
     @Test

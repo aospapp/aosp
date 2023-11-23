@@ -29,7 +29,6 @@ import webbrowser
 import unittest
 
 from unittest import mock
-import six
 
 from acloud import errors
 from acloud.internal.lib import driver_test_lib
@@ -191,7 +190,7 @@ class UtilsTest(driver_test_lib.BaseDriverTest):
         mock_open = mock.mock_open(read_data=public_key)
         self.Patch(subprocess, "check_output")
         self.Patch(os, "rename")
-        with mock.patch.object(six.moves.builtins, "open", mock_open):
+        with mock.patch("builtins.open", mock_open):
             utils.CreateSshKeyPairIfNotExist(private_key, public_key)
         self.assertEqual(subprocess.check_output.call_count, 1)  #pylint: disable=no-member
         subprocess.check_output.assert_called_with(  #pylint: disable=no-member
@@ -262,7 +261,7 @@ class UtilsTest(driver_test_lib.BaseDriverTest):
                 mock.call(16)
             ])
 
-    @mock.patch.object(six.moves, "input")
+    @mock.patch("builtins.input")
     def testGetAnswerFromList(self, mock_raw_input):
         """Test GetAnswerFromList."""
         answer_list = ["image1.zip", "image2.zip", "image3.zip"]
@@ -367,6 +366,24 @@ class UtilsTest(driver_test_lib.BaseDriverTest):
         except errors.FunctionTimeoutError:
             self.fail("shouldn't timeout")
 
+    def testEstablishSshTunnel(self):
+        """Test EstablishSshTunnel."""
+        ip_addr = "1.1.1.1"
+        rsa_key_file = "/tmp/rsa_file"
+        port_mapping = [(1111, 2222), (8888, 9999)]
+        ssh_user = "fake_user"
+        mock_execute_command = self.Patch(utils, "_ExecuteCommand")
+        utils.EstablishSshTunnel(ip_addr, rsa_key_file, ssh_user,
+                                 port_mapping, "-o command='shell %s %h'")
+        arg_list = ["-i", rsa_key_file, "-o", "UserKnownHostsFile=/dev/null",
+                    "-o", "StrictHostKeyChecking=no",
+                    "-L", "1111:127.0.0.1:2222",
+                    "-L", "8888:127.0.0.1:9999",
+                    "-N", "-f",
+                    "-l", ssh_user, ip_addr,
+                    "-o", "command=shell %s %h"]
+        mock_execute_command.assert_called_with("ssh", arg_list)
+
     def testAutoConnectCreateSSHTunnelFail(self):
         """Test auto connect."""
         fake_ip_addr = "1.1.1.1"
@@ -377,15 +394,14 @@ class UtilsTest(driver_test_lib.BaseDriverTest):
         call_side_effect = subprocess.CalledProcessError(123, "fake",
                                                          "fake error")
         result = utils.ForwardedPorts(vnc_port=None, adb_port=None)
-        self.Patch(subprocess, "check_call", side_effect=call_side_effect)
+        self.Patch(utils, "EstablishSshTunnel", side_effect=call_side_effect)
         self.assertEqual(result, utils.AutoConnect(fake_ip_addr,
                                                    fake_rsa_key_file,
                                                    fake_target_vnc_port,
                                                    target_adb_port,
                                                    ssh_user))
 
-    # pylint: disable=protected-access,no-member
-    def testExtraArgsSSHTunnel(self):
+    def testAutoConnectWithExtraArgs(self):
         """Test extra args will be the same with expanded args."""
         fake_ip_addr = "1.1.1.1"
         fake_rsa_key_file = "/tmp/rsa_file"
@@ -394,8 +410,8 @@ class UtilsTest(driver_test_lib.BaseDriverTest):
         ssh_user = "fake_user"
         fake_port = 12345
         self.Patch(utils, "PickFreePort", return_value=fake_port)
-        self.Patch(utils, "_ExecuteCommand")
-        self.Patch(subprocess, "check_call", return_value=True)
+        mock_execute_command = self.Patch(utils, "_ExecuteCommand")
+        mock_establish_ssh_tunnel = self.Patch(utils, "EstablishSshTunnel")
         extra_args_ssh_tunnel = "-o command='shell %s %h' -o command1='ls -la'"
         utils.AutoConnect(ip_addr=fake_ip_addr,
                           rsa_key_file=fake_rsa_key_file,
@@ -404,54 +420,84 @@ class UtilsTest(driver_test_lib.BaseDriverTest):
                           ssh_user=ssh_user,
                           client_adb_port=fake_port,
                           extra_args_ssh_tunnel=extra_args_ssh_tunnel)
-        args_list = ["-i", "/tmp/rsa_file",
-                     "-o", "UserKnownHostsFile=/dev/null",
-                     "-o", "StrictHostKeyChecking=no",
-                     "-L", "12345:127.0.0.1:9999",
-                     "-L", "12345:127.0.0.1:8888",
-                     "-N", "-f", "-l", "fake_user", "1.1.1.1",
-                     "-o", "command=shell %s %h",
-                     "-o", "command1=ls -la"]
-        first_call_args = utils._ExecuteCommand.call_args_list[0][0]
-        self.assertEqual(first_call_args[1], args_list)
+        mock_establish_ssh_tunnel.assert_called_with(
+            fake_ip_addr,
+            fake_rsa_key_file,
+            ssh_user,
+            [utils.PortMapping(fake_port, target_adb_port),
+             utils.PortMapping(fake_port, fake_target_vnc_port)],
+            extra_args_ssh_tunnel)
+        mock_execute_command.assert_called_with(
+            "adb", ["connect", "127.0.0.1:12345"])
 
-    # pylint: disable=protected-access,no-member
     def testEstablishWebRTCSshTunnel(self):
         """Test establish WebRTC ssh tunnel."""
         fake_ip_addr = "1.1.1.1"
         fake_rsa_key_file = "/tmp/rsa_file"
         ssh_user = "fake_user"
-        self.Patch(utils, "ReleasePort")
-        self.Patch(utils, "_ExecuteCommand")
-        self.Patch(subprocess, "check_call", return_value=True)
-        extra_args_ssh_tunnel = "-o command='shell %s %h' -o command1='ls -la'"
+        fake_webrtc_local_port = 12345
+        self.Patch(utils, "GetWebRTCServerPort", return_value=8443)
+        mock_establish_ssh_tunnel = self.Patch(utils, "EstablishSshTunnel")
+        fake_port_mapping = [utils.PortMapping(15550, 15550),
+                             utils.PortMapping(15551, 15551),
+                             utils.PortMapping(15552, 15552),
+                             utils.PortMapping(12345, 8443)]
+
         utils.EstablishWebRTCSshTunnel(
             ip_addr=fake_ip_addr, rsa_key_file=fake_rsa_key_file,
-            ssh_user=ssh_user, extra_args_ssh_tunnel=None)
-        args_list = ["-i", "/tmp/rsa_file",
-                     "-o", "UserKnownHostsFile=/dev/null",
-                     "-o", "StrictHostKeyChecking=no",
-                     "-L", "8443:127.0.0.1:8443",
-                     "-L", "15550:127.0.0.1:15550",
-                     "-L", "15551:127.0.0.1:15551",
-                     "-N", "-f", "-l", "fake_user", "1.1.1.1"]
-        first_call_args = utils._ExecuteCommand.call_args_list[0][0]
-        self.assertEqual(first_call_args[1], args_list)
+            ssh_user=ssh_user, webrtc_local_port=fake_webrtc_local_port)
+        mock_establish_ssh_tunnel.assert_called_with(
+            fake_ip_addr,
+            fake_rsa_key_file,
+            ssh_user,
+            fake_port_mapping,
+            None)
 
+        mock_establish_ssh_tunnel.reset_mock()
         extra_args_ssh_tunnel = "-o command='shell %s %h'"
         utils.EstablishWebRTCSshTunnel(
             ip_addr=fake_ip_addr, rsa_key_file=fake_rsa_key_file,
-            ssh_user=ssh_user, extra_args_ssh_tunnel=extra_args_ssh_tunnel)
-        args_list_with_extra_args = ["-i", "/tmp/rsa_file",
-                                     "-o", "UserKnownHostsFile=/dev/null",
-                                     "-o", "StrictHostKeyChecking=no",
-                                     "-L", "8443:127.0.0.1:8443",
-                                     "-L", "15550:127.0.0.1:15550",
-                                     "-L", "15551:127.0.0.1:15551",
-                                     "-N", "-f", "-l", "fake_user", "1.1.1.1",
-                                     "-o", "command=shell %s %h"]
-        first_call_args = utils._ExecuteCommand.call_args_list[1][0]
-        self.assertEqual(first_call_args[1], args_list_with_extra_args)
+            ssh_user=ssh_user, extra_args_ssh_tunnel=extra_args_ssh_tunnel,
+            webrtc_local_port=fake_webrtc_local_port)
+        mock_establish_ssh_tunnel.assert_called_with(
+            fake_ip_addr,
+            fake_rsa_key_file,
+            ssh_user,
+            fake_port_mapping,
+            extra_args_ssh_tunnel)
+
+    def testGetWebRTCServerPort(self):
+        """test GetWebRTCServerPort."""
+        fake_ip_addr = "1.1.1.1"
+        fake_rsa_key_file = "/tmp/rsa_file"
+        ssh_user = "fake_user"
+        extra_args_ssh_tunnel = "-o command='shell %s %h'"
+        fake_subprocess = mock.MagicMock()
+        fake_subprocess.returncode = 0
+        fake_subprocess.communicate = mock.MagicMock(
+            return_value=('', ''))
+        self.Patch(subprocess, "Popen", return_value=fake_subprocess)
+        self.assertEqual(1443, utils.GetWebRTCServerPort(
+            fake_ip_addr, fake_rsa_key_file,ssh_user,extra_args_ssh_tunnel))
+
+        # Test the case that find "webrtc_operator" process.
+        webrtc_operator_process = "11:45 bin/webrtc_operator -assets_dir=assets"
+        fake_subprocess.communicate = mock.MagicMock(
+            return_value=(webrtc_operator_process, ''))
+        self.assertEqual(8443, utils.GetWebRTCServerPort(
+            fake_ip_addr, fake_rsa_key_file,ssh_user,extra_args_ssh_tunnel))
+
+    def testGetWebrtcPortFromSSHTunnel(self):
+        """"Test Get forwarding webrtc port from ssh tunnel."""
+        fake_ps_output = ("/fake_ps_1 --fake arg \n"
+                          "/fake_ps_2 --fake arg \n"
+                          "/usr/bin/ssh -i ~/.ssh/acloud_rsa "
+                          "-o UserKnownHostsFile=/dev/null "
+                          "-o StrictHostKeyChecking=no -L 15551:127.0.0.1:15551 "
+                          "-L 12345:127.0.0.1:8443 -N -f -l user 1.1.1.1").encode()
+        self.Patch(subprocess, "check_output", return_value=fake_ps_output)
+        webrtc_ports = utils.GetWebrtcPortFromSSHTunnel("1.1.1.1")
+        self.assertEqual(12345, webrtc_ports)
 
     # pylint: disable=protected-access, no-member
     def testCleanupSSVncviwer(self):
@@ -513,6 +559,51 @@ class UtilsTest(driver_test_lib.BaseDriverTest):
                 pass
             utils.SetDirectoryTreeExecutable(temp_dir)
             self.assertEqual(os.stat(file_path).st_mode & 0o777, 0o755)
+
+    def testSetCvdPort(self):
+        """test base_instance_num."""
+        utils.SetCvdPorts(2)
+        self.assertEqual(utils.GetCvdPorts().adb_port, 6521)
+        self.assertEqual(utils.GetCvdPorts().vnc_port, 6445)
+        utils.SetCvdPorts(None)
+
+
+    @mock.patch.object(utils, "PrintColorString")
+    def testPrintDeviceSummary(self, mock_print):
+        """test PrintDeviceSummary."""
+        fake_report = mock.MagicMock(data={})
+        fake_report.data = {
+            "devices": [{"instance_name": "remote_cf_instance_name",
+                         "ip": "192.168.1.1",
+                         "device_serial": "127.0.0.1:399"},],}
+        utils.PrintDeviceSummary(fake_report)
+        self.assertEqual(mock_print.call_count, 7)
+
+        # Test for OpenWrt device case.
+        fake_report.data = {
+            "devices": [{"instance_name": "remote_cf_instance_name",
+                         "ip": "192.168.1.1",
+                         "ssh_command": "fake_ssh_cmd",
+                         "screen_command": "fake_screen_cmd"},],}
+        mock_print.reset_mock()
+        utils.PrintDeviceSummary(fake_report)
+        self.assertEqual(mock_print.call_count, 13)
+
+        # Test for fail case
+        fake_report.data = {
+            "errors": "Fail to create devices"}
+        mock_print.reset_mock()
+        utils.PrintDeviceSummary(fake_report)
+        self.assertEqual(mock_print.call_count, 3)
+
+    # pylint: disable=protected-access
+    def testIsSupportedKvm(self):
+        """Test IsSupportedKvm."""
+        self.Patch(os.path, "exists", return_value=True)
+        self.assertTrue(utils.IsSupportedKvm())
+
+        self.Patch(os.path, "exists", return_value=False)
+        self.assertFalse(utils.IsSupportedKvm())
 
 
 if __name__ == "__main__":

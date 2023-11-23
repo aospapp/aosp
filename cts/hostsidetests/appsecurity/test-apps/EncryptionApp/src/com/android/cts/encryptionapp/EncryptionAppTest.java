@@ -115,7 +115,8 @@ public class EncryptionAppTest extends InstrumentationTestCase {
         // Set a PIN for this user
         mDevice.executeShellCommand("settings put global require_password_to_decrypt 0");
         mDevice.executeShellCommand("locksettings set-disabled false");
-        mDevice.executeShellCommand("locksettings set-pin 1234");
+        String output = mDevice.executeShellCommand("locksettings set-pin 1234");
+        assertTrue("set-pin failed. Output: " + output, output.contains("1234"));
     }
 
     public void testTearDown() throws Exception {
@@ -208,9 +209,7 @@ public class EncryptionAppTest extends InstrumentationTestCase {
         mDevice.pressEnter();
         mDevice.waitForIdle();
 
-        // Give enough time for the RoR clients to get the unlock broadcast.
         // TODO(189853309) make sure RebootEscrowManager get the unlock event
-        SystemClock.sleep(10 * 1000);
     }
 
     private void dismissKeyguard() throws Exception {

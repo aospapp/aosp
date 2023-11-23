@@ -441,7 +441,7 @@ func TestBinary(t *testing.T) {
 		}
 	`)
 
-	buildOS := android.BuildOs.String()
+	buildOS := ctx.Config().BuildOS.String()
 
 	bar := ctx.ModuleForTests("bar", buildOS+"_common")
 	barJar := bar.Output("bar.jar").Output.String()
@@ -478,7 +478,7 @@ func TestTest(t *testing.T) {
 		}
 	`)
 
-	buildOS := android.BuildOs.String()
+	buildOS := ctx.Config().BuildOS.String()
 
 	foo := ctx.ModuleForTests("foo", buildOS+"_common").Module().(*TestHost)
 
@@ -523,7 +523,7 @@ func TestHostBinaryNoJavaDebugInfoOverride(t *testing.T) {
 	}
 
 	// check that -g is not overridden for host modules
-	buildOS := android.BuildOs.String()
+	buildOS := result.Config.BuildOS.String()
 	hostBinary := result.ModuleForTests("host_binary", buildOS+"_common")
 	hostJavaFlags := hostBinary.Module().VariablesForTests()["javacFlags"]
 	if strings.Contains(hostJavaFlags, "-g:source,lines") {
@@ -600,8 +600,8 @@ func TestPrebuilts(t *testing.T) {
 	}
 
 	barDexJar := barModule.Module().(*Import).DexJarBuildPath()
-	if barDexJar != nil {
-		t.Errorf("bar dex jar build path expected to be nil, got %q", barDexJar)
+	if barDexJar.IsSet() {
+		t.Errorf("bar dex jar build path expected to be set, got %s", barDexJar)
 	}
 
 	if !strings.Contains(javac.Args["classpath"], sdklibStubsJar.String()) {
@@ -612,7 +612,7 @@ func TestPrebuilts(t *testing.T) {
 		t.Errorf("foo combineJar inputs %v does not contain %q", combineJar.Inputs, bazJar.String())
 	}
 
-	bazDexJar := bazModule.Module().(*Import).DexJarBuildPath()
+	bazDexJar := bazModule.Module().(*Import).DexJarBuildPath().Path()
 	expectedDexJar := "out/soong/.intermediates/baz/android_common/dex/baz.jar"
 	android.AssertPathRelativeToTopEquals(t, "baz dex jar build path", expectedDexJar, bazDexJar)
 
@@ -973,7 +973,7 @@ func TestTurbine(t *testing.T) {
 
 	fooHeaderJar := filepath.Join("out", "soong", ".intermediates", "foo", "android_common", "turbine-combined", "foo.jar")
 	barTurbineJar := filepath.Join("out", "soong", ".intermediates", "bar", "android_common", "turbine", "bar.jar")
-	android.AssertStringDoesContain(t, "bar turbine classpath", barTurbine.Args["classpath"], fooHeaderJar)
+	android.AssertStringDoesContain(t, "bar turbine classpath", barTurbine.Args["turbineFlags"], fooHeaderJar)
 	android.AssertStringDoesContain(t, "bar javac classpath", barJavac.Args["classpath"], fooHeaderJar)
 	android.AssertPathsRelativeToTopEquals(t, "bar turbine combineJar", []string{barTurbineJar, fooHeaderJar}, barTurbineCombined.Inputs)
 	android.AssertStringDoesContain(t, "baz javac classpath", bazJavac.Args["classpath"], "prebuilts/sdk/14/public/android.jar")
@@ -988,66 +988,12 @@ func TestSharding(t *testing.T) {
 		}
 		`)
 
-	barHeaderJar := filepath.Join("out", "soong", ".intermediates", "bar", "android_common", "turbine-combined", "bar.jar")
+	barHeaderJar := filepath.Join("out", "soong", ".intermediates", "bar", "android_common", "turbine", "bar.jar")
 	for i := 0; i < 3; i++ {
 		barJavac := ctx.ModuleForTests("bar", "android_common").Description("javac" + strconv.Itoa(i))
-		if !strings.Contains(barJavac.Args["classpath"], barHeaderJar) {
-			t.Errorf("bar javac classpath %v does not contain %q", barJavac.Args["classpath"], barHeaderJar)
+		if !strings.HasPrefix(barJavac.Args["classpath"], "-classpath "+barHeaderJar+":") {
+			t.Errorf("bar javac classpath %v does start with %q", barJavac.Args["classpath"], barHeaderJar)
 		}
-	}
-}
-
-func TestJarGenrules(t *testing.T) {
-	ctx, _ := testJava(t, `
-		java_library {
-			name: "foo",
-			srcs: ["a.java"],
-		}
-
-		java_genrule {
-			name: "jargen",
-			tool_files: ["b.java"],
-			cmd: "$(location b.java) $(in) $(out)",
-			out: ["jargen.jar"],
-			srcs: [":foo"],
-		}
-
-		java_library {
-			name: "bar",
-			static_libs: ["jargen"],
-			srcs: ["c.java"],
-		}
-
-		java_library {
-			name: "baz",
-			libs: ["jargen"],
-			srcs: ["c.java"],
-		}
-	`)
-
-	foo := ctx.ModuleForTests("foo", "android_common").Output("javac/foo.jar")
-	jargen := ctx.ModuleForTests("jargen", "android_common").Output("jargen.jar")
-	bar := ctx.ModuleForTests("bar", "android_common").Output("javac/bar.jar")
-	baz := ctx.ModuleForTests("baz", "android_common").Output("javac/baz.jar")
-	barCombined := ctx.ModuleForTests("bar", "android_common").Output("combined/bar.jar")
-
-	if g, w := jargen.Implicits.Strings(), foo.Output.String(); !android.InList(w, g) {
-		t.Errorf("expected jargen inputs [%q], got %q", w, g)
-	}
-
-	if !strings.Contains(bar.Args["classpath"], jargen.Output.String()) {
-		t.Errorf("bar classpath %v does not contain %q", bar.Args["classpath"], jargen.Output.String())
-	}
-
-	if !strings.Contains(baz.Args["classpath"], jargen.Output.String()) {
-		t.Errorf("baz classpath %v does not contain %q", baz.Args["classpath"], jargen.Output.String())
-	}
-
-	if len(barCombined.Inputs) != 2 ||
-		barCombined.Inputs[0].String() != bar.Output.String() ||
-		barCombined.Inputs[1].String() != jargen.Output.String() {
-		t.Errorf("bar combined jar inputs %v is not [%q, %q]",
-			barCombined.Inputs.Strings(), bar.Output.String(), jargen.Output.String())
 	}
 }
 
@@ -1183,7 +1129,7 @@ func checkPatchModuleFlag(t *testing.T, ctx *android.TestContext, moduleName str
 			break
 		}
 	}
-	if expected != android.StringPathRelativeToTop(ctx.Config().BuildDir(), got) {
+	if expected != android.StringPathRelativeToTop(ctx.Config().SoongOutDir(), got) {
 		t.Errorf("Unexpected patch-module flag for module %q - expected %q, but got %q", moduleName, expected, got)
 	}
 }
@@ -1357,6 +1303,72 @@ func TestAidlFlagsArePassedToTheAidlCompiler(t *testing.T) {
 	}
 }
 
+func TestAidlFlagsWithMinSdkVersion(t *testing.T) {
+	fixture := android.GroupFixturePreparers(
+		prepareForJavaTest, FixtureWithPrebuiltApis(map[string][]string{"14": {"foo"}}))
+
+	for _, tc := range []struct {
+		name       string
+		sdkVersion string
+		expected   string
+	}{
+		{"default is current", "", "current"},
+		{"use sdk_version", `sdk_version: "14"`, "14"},
+		{"system_current", `sdk_version: "system_current"`, "current"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := fixture.RunTestWithBp(t, `
+				java_library {
+					name: "foo",
+					srcs: ["aidl/foo/IFoo.aidl"],
+					`+tc.sdkVersion+`
+				}
+			`)
+			aidlCommand := ctx.ModuleForTests("foo", "android_common").Rule("aidl").RuleParams.Command
+			expectedAidlFlag := "--min_sdk_version=" + tc.expected
+			if !strings.Contains(aidlCommand, expectedAidlFlag) {
+				t.Errorf("aidl command %q does not contain %q", aidlCommand, expectedAidlFlag)
+			}
+		})
+	}
+}
+
+func TestAidlEnforcePermissions(t *testing.T) {
+	ctx, _ := testJava(t, `
+		java_library {
+			name: "foo",
+			srcs: ["aidl/foo/IFoo.aidl"],
+			aidl: { enforce_permissions: true },
+		}
+	`)
+
+	aidlCommand := ctx.ModuleForTests("foo", "android_common").Rule("aidl").RuleParams.Command
+	expectedAidlFlag := "-Wmissing-permission-annotation -Werror"
+	if !strings.Contains(aidlCommand, expectedAidlFlag) {
+		t.Errorf("aidl command %q does not contain %q", aidlCommand, expectedAidlFlag)
+	}
+}
+
+func TestAidlEnforcePermissionsException(t *testing.T) {
+	ctx, _ := testJava(t, `
+		java_library {
+			name: "foo",
+			srcs: ["aidl/foo/IFoo.aidl", "aidl/foo/IFoo2.aidl"],
+			aidl: { enforce_permissions: true, enforce_permissions_exceptions: ["aidl/foo/IFoo2.aidl"] },
+		}
+	`)
+
+	aidlCommand := ctx.ModuleForTests("foo", "android_common").Rule("aidl").RuleParams.Command
+	expectedAidlFlag := "$$FLAGS -Wmissing-permission-annotation -Werror aidl/foo/IFoo.aidl"
+	if !strings.Contains(aidlCommand, expectedAidlFlag) {
+		t.Errorf("aidl command %q does not contain %q", aidlCommand, expectedAidlFlag)
+	}
+	expectedAidlFlag = "$$FLAGS  aidl/foo/IFoo2.aidl"
+	if !strings.Contains(aidlCommand, expectedAidlFlag) {
+		t.Errorf("aidl command %q does not contain %q", aidlCommand, expectedAidlFlag)
+	}
+}
+
 func TestDataNativeBinaries(t *testing.T) {
 	ctx, _ := testJava(t, `
 		java_test_host {
@@ -1371,7 +1383,7 @@ func TestDataNativeBinaries(t *testing.T) {
 		}
 	`)
 
-	buildOS := android.BuildOs.String()
+	buildOS := ctx.Config().BuildOS.String()
 
 	test := ctx.ModuleForTests("foo", buildOS+"_common").Module().(*TestHost)
 	entries := android.AndroidMkEntriesForTest(t, ctx, test)[0]
@@ -1387,8 +1399,271 @@ func TestDefaultInstallable(t *testing.T) {
 		}
 	`)
 
-	buildOS := android.BuildOs.String()
+	buildOS := ctx.Config().BuildOS.String()
 	module := ctx.ModuleForTests("foo", buildOS+"_common").Module().(*TestHost)
 	assertDeepEquals(t, "Default installable value should be true.", proptools.BoolPtr(true),
 		module.properties.Installable)
+}
+
+func TestErrorproneEnabled(t *testing.T) {
+	ctx, _ := testJava(t, `
+		java_library {
+			name: "foo",
+			srcs: ["a.java"],
+			errorprone: {
+				enabled: true,
+			},
+		}
+	`)
+
+	javac := ctx.ModuleForTests("foo", "android_common").Description("javac")
+
+	// Test that the errorprone plugins are passed to javac
+	expectedSubstring := "-Xplugin:ErrorProne"
+	if !strings.Contains(javac.Args["javacFlags"], expectedSubstring) {
+		t.Errorf("expected javacFlags to contain %q, got %q", expectedSubstring, javac.Args["javacFlags"])
+	}
+
+	// Modules with errorprone { enabled: true } will include errorprone checks
+	// in the main javac build rule. Only when RUN_ERROR_PRONE is true will
+	// the explicit errorprone build rule be created.
+	errorprone := ctx.ModuleForTests("foo", "android_common").MaybeDescription("errorprone")
+	if errorprone.RuleParams.Description != "" {
+		t.Errorf("expected errorprone build rule to not exist, but it did")
+	}
+}
+
+func TestErrorproneDisabled(t *testing.T) {
+	bp := `
+		java_library {
+			name: "foo",
+			srcs: ["a.java"],
+			errorprone: {
+				enabled: false,
+			},
+		}
+	`
+	ctx := android.GroupFixturePreparers(
+		PrepareForTestWithJavaDefaultModules,
+		android.FixtureMergeEnv(map[string]string{
+			"RUN_ERROR_PRONE": "true",
+		}),
+	).RunTestWithBp(t, bp)
+
+	javac := ctx.ModuleForTests("foo", "android_common").Description("javac")
+
+	// Test that the errorprone plugins are not passed to javac, like they would
+	// be if enabled was true.
+	expectedSubstring := "-Xplugin:ErrorProne"
+	if strings.Contains(javac.Args["javacFlags"], expectedSubstring) {
+		t.Errorf("expected javacFlags to not contain %q, got %q", expectedSubstring, javac.Args["javacFlags"])
+	}
+
+	// Check that no errorprone build rule is created, like there would be
+	// if enabled was unset and RUN_ERROR_PRONE was true.
+	errorprone := ctx.ModuleForTests("foo", "android_common").MaybeDescription("errorprone")
+	if errorprone.RuleParams.Description != "" {
+		t.Errorf("expected errorprone build rule to not exist, but it did")
+	}
+}
+
+func TestErrorproneEnabledOnlyByEnvironmentVariable(t *testing.T) {
+	bp := `
+		java_library {
+			name: "foo",
+			srcs: ["a.java"],
+		}
+	`
+	ctx := android.GroupFixturePreparers(
+		PrepareForTestWithJavaDefaultModules,
+		android.FixtureMergeEnv(map[string]string{
+			"RUN_ERROR_PRONE": "true",
+		}),
+	).RunTestWithBp(t, bp)
+
+	javac := ctx.ModuleForTests("foo", "android_common").Description("javac")
+	errorprone := ctx.ModuleForTests("foo", "android_common").Description("errorprone")
+
+	// Check that the errorprone plugins are not passed to javac, because they
+	// will instead be passed to the separate errorprone compilation
+	expectedSubstring := "-Xplugin:ErrorProne"
+	if strings.Contains(javac.Args["javacFlags"], expectedSubstring) {
+		t.Errorf("expected javacFlags to not contain %q, got %q", expectedSubstring, javac.Args["javacFlags"])
+	}
+
+	// Check that the errorprone plugin is enabled
+	if !strings.Contains(errorprone.Args["javacFlags"], expectedSubstring) {
+		t.Errorf("expected errorprone to contain %q, got %q", expectedSubstring, javac.Args["javacFlags"])
+	}
+}
+
+func TestDataDeviceBinsBuildsDeviceBinary(t *testing.T) {
+	testCases := []struct {
+		dataDeviceBinType  string
+		depCompileMultilib string
+		variants           []string
+		expectedError      string
+	}{
+		{
+			dataDeviceBinType:  "first",
+			depCompileMultilib: "first",
+			variants:           []string{"android_arm64_armv8-a"},
+		},
+		{
+			dataDeviceBinType:  "first",
+			depCompileMultilib: "both",
+			variants:           []string{"android_arm64_armv8-a"},
+		},
+		{
+			// this is true because our testing framework is set up with
+			// Targets ~ [<64bit target>, <32bit target>], where 64bit is "first"
+			dataDeviceBinType:  "first",
+			depCompileMultilib: "32",
+			expectedError:      `Android.bp:2:3: dependency "bar" of "foo" missing variant`,
+		},
+		{
+			dataDeviceBinType:  "first",
+			depCompileMultilib: "64",
+			variants:           []string{"android_arm64_armv8-a"},
+		},
+		{
+			dataDeviceBinType:  "both",
+			depCompileMultilib: "both",
+			variants: []string{
+				"android_arm_armv7-a-neon",
+				"android_arm64_armv8-a",
+			},
+		},
+		{
+			dataDeviceBinType:  "both",
+			depCompileMultilib: "32",
+			expectedError:      `Android.bp:2:3: dependency "bar" of "foo" missing variant`,
+		},
+		{
+			dataDeviceBinType:  "both",
+			depCompileMultilib: "64",
+			expectedError:      `Android.bp:2:3: dependency "bar" of "foo" missing variant`,
+		},
+		{
+			dataDeviceBinType:  "both",
+			depCompileMultilib: "first",
+			expectedError:      `Android.bp:2:3: dependency "bar" of "foo" missing variant`,
+		},
+		{
+			dataDeviceBinType:  "32",
+			depCompileMultilib: "32",
+			variants:           []string{"android_arm_armv7-a-neon"},
+		},
+		{
+			dataDeviceBinType:  "32",
+			depCompileMultilib: "first",
+			expectedError:      `Android.bp:2:3: dependency "bar" of "foo" missing variant`,
+		},
+		{
+			dataDeviceBinType:  "32",
+			depCompileMultilib: "both",
+			variants:           []string{"android_arm_armv7-a-neon"},
+		},
+		{
+			dataDeviceBinType:  "32",
+			depCompileMultilib: "64",
+			expectedError:      `Android.bp:2:3: dependency "bar" of "foo" missing variant`,
+		},
+		{
+			dataDeviceBinType:  "64",
+			depCompileMultilib: "64",
+			variants:           []string{"android_arm64_armv8-a"},
+		},
+		{
+			dataDeviceBinType:  "64",
+			depCompileMultilib: "both",
+			variants:           []string{"android_arm64_armv8-a"},
+		},
+		{
+			dataDeviceBinType:  "64",
+			depCompileMultilib: "first",
+			variants:           []string{"android_arm64_armv8-a"},
+		},
+		{
+			dataDeviceBinType:  "64",
+			depCompileMultilib: "32",
+			expectedError:      `Android.bp:2:3: dependency "bar" of "foo" missing variant`,
+		},
+		{
+			dataDeviceBinType:  "prefer32",
+			depCompileMultilib: "32",
+			variants:           []string{"android_arm_armv7-a-neon"},
+		},
+		{
+			dataDeviceBinType:  "prefer32",
+			depCompileMultilib: "both",
+			variants:           []string{"android_arm_armv7-a-neon"},
+		},
+		{
+			dataDeviceBinType:  "prefer32",
+			depCompileMultilib: "first",
+			expectedError:      `Android.bp:2:3: dependency "bar" of "foo" missing variant`,
+		},
+		{
+			dataDeviceBinType:  "prefer32",
+			depCompileMultilib: "64",
+			expectedError:      `Android.bp:2:3: dependency "bar" of "foo" missing variant`,
+		},
+	}
+
+	bpTemplate := `
+		java_test_host {
+			name: "foo",
+			srcs: ["test.java"],
+			data_device_bins_%s: ["bar"],
+		}
+
+		cc_binary {
+			name: "bar",
+			compile_multilib: "%s",
+		}
+	`
+
+	for _, tc := range testCases {
+		bp := fmt.Sprintf(bpTemplate, tc.dataDeviceBinType, tc.depCompileMultilib)
+
+		errorHandler := android.FixtureExpectsNoErrors
+		if tc.expectedError != "" {
+			errorHandler = android.FixtureExpectsAtLeastOneErrorMatchingPattern(tc.expectedError)
+		}
+
+		testName := fmt.Sprintf(`data_device_bins_%s with compile_multilib:"%s"`, tc.dataDeviceBinType, tc.depCompileMultilib)
+		t.Run(testName, func(t *testing.T) {
+			ctx := android.GroupFixturePreparers(PrepareForIntegrationTestWithJava).
+				ExtendWithErrorHandler(errorHandler).
+				RunTestWithBp(t, bp)
+			if tc.expectedError != "" {
+				return
+			}
+
+			buildOS := ctx.Config.BuildOS.String()
+			fooVariant := ctx.ModuleForTests("foo", buildOS+"_common")
+			fooMod := fooVariant.Module().(*TestHost)
+			entries := android.AndroidMkEntriesForTest(t, ctx.TestContext, fooMod)[0]
+
+			expectedAutogenConfig := `<option name="push-file" key="bar" value="/data/local/tests/unrestricted/foo/bar" />`
+			autogen := fooVariant.Rule("autogen")
+			if !strings.Contains(autogen.Args["extraConfigs"], expectedAutogenConfig) {
+				t.Errorf("foo extraConfigs %v does not contain %q", autogen.Args["extraConfigs"], expectedAutogenConfig)
+			}
+
+			expectedData := []string{}
+			for _, variant := range tc.variants {
+				barVariant := ctx.ModuleForTests("bar", variant)
+				relocated := barVariant.Output("bar")
+				expectedInput := fmt.Sprintf("out/soong/.intermediates/bar/%s/unstripped/bar", variant)
+				android.AssertPathRelativeToTopEquals(t, "relocation input", expectedInput, relocated.Input)
+
+				expectedData = append(expectedData, fmt.Sprintf("out/soong/.intermediates/bar/%s/bar:bar", variant))
+			}
+
+			actualData := entries.EntryMap["LOCAL_COMPATIBILITY_SUPPORT_FILES"]
+			android.AssertStringPathsRelativeToTopEquals(t, "LOCAL_TEST_DATA", ctx.Config, expectedData, actualData)
+		})
+	}
 }

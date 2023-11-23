@@ -41,7 +41,7 @@ constexpr uint32_t kAppVersion = 99;
 
 void handleUnload(uint16_t /*type*/, void * /*data*/, void * /*extraData*/) {
   EventLoop &eventLoop = EventLoopManagerSingleton::get()->getEventLoop();
-  uint32_t instanceId;
+  uint16_t instanceId;
 
   LOGD("About to unload spammer nanoapp");
   if (!eventLoop.findNanoappInstanceIdByAppId(kSpammerAppId, &instanceId)) {

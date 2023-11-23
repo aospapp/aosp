@@ -54,6 +54,8 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -93,7 +95,7 @@ public class SELinuxHostTest extends BaseHostJUnit4Test {
 
     private static final Map<ITestDevice, File> cachedDevicePolicyFiles = new HashMap<>(1);
     private static final Map<ITestDevice, File> cachedDevicePlatFcFiles = new HashMap<>(1);
-    private static final Map<ITestDevice, File> cachedDeviceNonplatFcFiles = new HashMap<>(1);
+    private static final Map<ITestDevice, File> cachedDeviceVendorFcFiles = new HashMap<>(1);
     private static final Map<ITestDevice, File> cachedDeviceVendorManifest = new HashMap<>(1);
     private static final Map<ITestDevice, File> cachedDeviceVintfJson = new HashMap<>(1);
     private static final Map<ITestDevice, File> cachedDeviceSystemPolicy = new HashMap<>(1);
@@ -108,14 +110,15 @@ public class SELinuxHostTest extends BaseHostJUnit4Test {
     private File devicePolicyFile;
     private File deviceSystemPolicyFile;
     private File devicePlatSeappFile;
-    private File deviceNonplatSeappFile;
+    private File deviceVendorSeappFile;
     private File devicePlatFcFile;
-    private File deviceNonplatFcFile;
+    private File deviceVendorFcFile;
     private File devicePcFile;
     private File deviceSvcFile;
     private File seappNeverAllowFile;
     private File libsepolwrap;
     private File libcpp;
+    private File copyLibcpp;
     private File sepolicyTests;
 
     private IBuildInfo mBuild;
@@ -168,20 +171,14 @@ public class SELinuxHostTest extends BaseHostJUnit4Test {
         if (isSepolicySplit(mDevice)) {
             devicePlatFcFile = getDeviceFile(mDevice, cachedDevicePlatFcFiles,
                     "/system/etc/selinux/plat_file_contexts", "plat_file_contexts");
-            if (mDevice.doesFileExist("/vendor/etc/selinux/nonplat_file_contexts")){
-                // Old nonplat_* naming can be present if a framework-only OTA was done.
-                deviceNonplatFcFile = getDeviceFile(mDevice, cachedDeviceNonplatFcFiles,
-                        "/vendor/etc/selinux/nonplat_file_contexts", "nonplat_file_contexts");
-            } else {
-                deviceNonplatFcFile = getDeviceFile(mDevice, cachedDeviceNonplatFcFiles,
-                        "/vendor/etc/selinux/vendor_file_contexts", "vendor_file_contexts");
-            }
+            deviceVendorFcFile = getDeviceFile(mDevice, cachedDeviceVendorFcFiles,
+                    "/vendor/etc/selinux/vendor_file_contexts", "vendor_file_contexts");
             deviceSystemPolicyFile =
                     android.security.cts.SELinuxHostTest.getDeviceSystemPolicyFile(mDevice);
         } else {
             devicePlatFcFile = getDeviceFile(mDevice, cachedDevicePlatFcFiles,
                     "/plat_file_contexts", "plat_file_contexts");
-            deviceNonplatFcFile = getDeviceFile(mDevice, cachedDeviceNonplatFcFiles,
+            deviceVendorFcFile = getDeviceFile(mDevice, cachedDeviceVendorFcFiles,
                     "/vendor_file_contexts", "vendor_file_contexts");
         }
     }
@@ -631,13 +628,13 @@ public class SELinuxHostTest extends BaseHostJUnit4Test {
         /* obtain seapp_contexts file from running device */
         devicePlatSeappFile = File.createTempFile("plat_seapp_contexts", ".tmp");
         devicePlatSeappFile.deleteOnExit();
-        deviceNonplatSeappFile = File.createTempFile("nonplat_seapp_contexts", ".tmp");
-        deviceNonplatSeappFile.deleteOnExit();
+        deviceVendorSeappFile = File.createTempFile("vendor_seapp_contexts", ".tmp");
+        deviceVendorSeappFile.deleteOnExit();
         if (mDevice.pullFile("/system/etc/selinux/plat_seapp_contexts", devicePlatSeappFile)) {
-            mDevice.pullFile("/vendor/etc/selinux/nonplat_seapp_contexts", deviceNonplatSeappFile);
+            mDevice.pullFile("/vendor/etc/selinux/vendor_seapp_contexts", deviceVendorSeappFile);
         }else {
             mDevice.pullFile("/plat_seapp_contexts", devicePlatSeappFile);
-            mDevice.pullFile("/nonplat_seapp_contexts", deviceNonplatSeappFile);
+            mDevice.pullFile("/vendor_seapp_contexts", deviceVendorSeappFile);
 	}
 
         /* retrieve the checkseapp executable from jar */
@@ -652,7 +649,7 @@ public class SELinuxHostTest extends BaseHostJUnit4Test {
                 "-p", devicePolicyFile.getAbsolutePath(),
                 seappNeverAllowFile.getAbsolutePath(),
                 devicePlatSeappFile.getAbsolutePath(),
-                deviceNonplatSeappFile.getAbsolutePath());
+                deviceVendorSeappFile.getAbsolutePath());
         pb.redirectOutput(ProcessBuilder.Redirect.PIPE);
         pb.redirectErrorStream(true);
         Process p = pb.start();
@@ -803,11 +800,11 @@ public class SELinuxHostTest extends BaseHostJUnit4Test {
         checkFc = copyResourceToTempFile("/checkfc");
         checkFc.setExecutable(true);
 
-        /* combine plat and nonplat policies for testing */
+        /* combine plat and vendor policies for testing */
         File combinedFcFile = File.createTempFile("combined_file_context", ".tmp");
         combinedFcFile.deleteOnExit();
         appendTo(combinedFcFile.getAbsolutePath(), devicePlatFcFile.getAbsolutePath());
-        appendTo(combinedFcFile.getAbsolutePath(), deviceNonplatFcFile.getAbsolutePath());
+        appendTo(combinedFcFile.getAbsolutePath(), deviceVendorFcFile.getAbsolutePath());
 
         /* run checkfc sepolicy file_contexts */
         ProcessBuilder pb = new ProcessBuilder(checkFc.getAbsolutePath(),
@@ -913,17 +910,21 @@ public class SELinuxHostTest extends BaseHostJUnit4Test {
     private void setupLibraries() throws Exception {
         // The host side binary tests are host OS specific. Use Linux
         // libraries on Linux and Mac libraries on Mac.
+        CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mBuild);
         if (isMac()) {
-            libsepolwrap = copyResourceToTempFile("/libsepolwrap.dylib");
-            libcpp = copyResourceToTempFile("/libc++.dylib");
-            libcpp.renameTo(new File(System.getProperty("java.io.tmpdir") + "/libc++.dylib"));
+            libsepolwrap = buildHelper.getTestFile("libsepolwrap.dylib");
+            libcpp = buildHelper.getTestFile("libc++.dylib");
+            copyLibcpp = new File(System.getProperty("java.io.tmpdir") + "/libc++.dylib");
+            Files.copy(libcpp.toPath(), copyLibcpp.toPath(), StandardCopyOption.REPLACE_EXISTING);
         } else {
-            libsepolwrap = copyResourceToTempFile("/libsepolwrap.so");
-            libcpp = copyResourceToTempFile("/libc++.so");
-            libcpp.renameTo(new File(System.getProperty("java.io.tmpdir") + "/libc++.so"));
+            libsepolwrap = buildHelper.getTestFile("libsepolwrap.so");
+            libcpp = buildHelper.getTestFile("libc++.so");
+            copyLibcpp = new File(System.getProperty("java.io.tmpdir") + "/libc++.so");
+            Files.copy(libcpp.toPath(), copyLibcpp.toPath(), StandardCopyOption.REPLACE_EXISTING);
         }
         libsepolwrap.deleteOnExit();
         libcpp.deleteOnExit();
+        copyLibcpp.deleteOnExit();
     }
 
     private void assertSepolicyTests(String test, String testExecutable,
@@ -934,8 +935,6 @@ public class SELinuxHostTest extends BaseHostJUnit4Test {
 
         List<String> args = new ArrayList<String>();
         args.add(sepolicyTests.getAbsolutePath());
-        args.add("-l");
-        args.add(libsepolwrap.getAbsolutePath());
         args.add("-f");
         args.add(devicePlatFcFile.getAbsolutePath());
         args.add("--test");
@@ -943,7 +942,7 @@ public class SELinuxHostTest extends BaseHostJUnit4Test {
 
         if (includeVendorSepolicy) {
             args.add("-f");
-            args.add(deviceNonplatFcFile.getAbsolutePath());
+            args.add(deviceVendorFcFile.getAbsolutePath());
             args.add("-p");
             args.add(devicePolicyFile.getAbsolutePath());
         } else {
@@ -981,6 +980,17 @@ public class SELinuxHostTest extends BaseHostJUnit4Test {
     public void testDataTypeViolators() throws Exception {
         assertSepolicyTests("TestDataTypeViolations", "/sepolicy_tests",
                 PropertyUtil.isVendorApiLevelNewerThan(mDevice, 27) /* includeVendorSepolicy */);
+    }
+
+    /**
+     * Tests that all types in /sys/fs/bpf have the bpffs_type attribute.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void testBpffsTypeViolators() throws Exception {
+        assertSepolicyTests("TestBpffsTypeViolations", "/sepolicy_tests",
+                PropertyUtil.isVendorApiLevelNewerThan(mDevice, 33) /* includeVendorSepolicy */);
     }
 
     /**
@@ -1357,7 +1367,7 @@ public class SELinuxHostTest extends BaseHostJUnit4Test {
     @CddTest(requirement="9.7")
     @Test
     public void testDrmServerDomain() throws DeviceNotAvailableException {
-        assertDomainZeroOrOne("u:r:drmserver:s0", "/system/bin/drmserver");
+        assertDomainN("u:r:drmserver:s0", "/system/bin/drmserver", "/system/bin/drmserver64");
     }
 
     /* Installd is always running */

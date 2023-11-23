@@ -150,9 +150,6 @@ struct AST {
     void generateCppImplHeader(Formatter& out) const;
     void generateCppImplSource(Formatter& out) const;
 
-    void generateCppAdapterHeader(Formatter& out) const;
-    void generateCppAdapterSource(Formatter& out) const;
-
     void generateJava(Formatter& out, const std::string& limitToType) const;
     void generateJavaImpl(Formatter& out) const;
     void generateJavaTypes(Formatter& out, const std::string& limitToType) const;
@@ -315,8 +312,6 @@ struct AST {
                                          const Method* method, const Interface* superInterface) const;
     void generateProxyMethodSource(Formatter& out, const std::string& className,
                                    const Method* method, const Interface* superInterface) const;
-    void generateAdapterMethod(Formatter& out, const Method* method) const;
-
     void generateFetchSymbol(Formatter &out, const std::string &ifaceName) const;
 
     void generateProxySource(Formatter& out, const FQName& fqName) const;

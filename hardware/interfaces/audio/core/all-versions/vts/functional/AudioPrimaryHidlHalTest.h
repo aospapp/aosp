@@ -34,18 +34,21 @@
 
 #include <hwbinder/IPCThreadState.h>
 
+#include <android-base/expected.h>
 #include <android-base/logging.h>
 #include <system/audio_config.h>
 
+// clang-format off
 #include PATH(android/hardware/audio/FILE_VERSION/IDevice.h)
 #include PATH(android/hardware/audio/FILE_VERSION/IDevicesFactory.h)
 #include PATH(android/hardware/audio/FILE_VERSION/IPrimaryDevice.h)
-#include PATH(android/hardware/audio/FILE_VERSION/types.h)
-#include PATH(android/hardware/audio/common/FILE_VERSION/types.h)
+#include PATH(android/hardware/audio/CORE_TYPES_FILE_VERSION/types.h)
+#include PATH(android/hardware/audio/common/COMMON_TYPES_FILE_VERSION/types.h)
 #if MAJOR_VERSION >= 7
-#include <android_audio_policy_configuration_V7_0-enums.h>
-#include <android_audio_policy_configuration_V7_0.h>
+#include PATH(APM_XSD_ENUMS_H_FILENAME)
+#include PATH(APM_XSD_H_FILENAME)
 #endif
+// clang-format on
 
 #include <fmq/EventFlag.h>
 #include <fmq/MessageQueue.h>
@@ -86,11 +89,12 @@ using ::android::hardware::audio::common::utils::EnumBitfield;
 using ::android::hardware::audio::common::utils::mkEnumBitfield;
 using ::android::hardware::details::toHexString;
 
-using namespace ::android::hardware::audio::common::CPP_VERSION;
+using namespace ::android::hardware::audio::common::COMMON_TYPES_CPP_VERSION;
 using namespace ::android::hardware::audio::common::test::utility;
 using namespace ::android::hardware::audio::CPP_VERSION;
-using ReadParameters = ::android::hardware::audio::CPP_VERSION::IStreamIn::ReadParameters;
-using ReadStatus = ::android::hardware::audio::CPP_VERSION::IStreamIn::ReadStatus;
+using ReadParameters =
+        ::android::hardware::audio::CORE_TYPES_CPP_VERSION::IStreamIn::ReadParameters;
+using ReadStatus = ::android::hardware::audio::CORE_TYPES_CPP_VERSION::IStreamIn::ReadStatus;
 using WriteCommand = ::android::hardware::audio::CPP_VERSION::IStreamOut::WriteCommand;
 using WriteStatus = ::android::hardware::audio::CPP_VERSION::IStreamOut::WriteStatus;
 #if MAJOR_VERSION >= 7
@@ -124,6 +128,36 @@ static auto invalidStateOrNotSupported = {Result::INVALID_STATE, Result::NOT_SUP
 
 class HidlTest : public ::testing::Test {
   public:
+    using IDevice = ::android::hardware::audio::CPP_VERSION::IDevice;
+    using IDevicesFactory = ::android::hardware::audio::CPP_VERSION::IDevicesFactory;
+
+    static android::base::expected<std::vector<std::string>, std::string> getAllFactoryInstances() {
+        using ::android::hardware::audio::CPP_VERSION::IDevicesFactory;
+        const std::string factoryDescriptor = IDevicesFactory::descriptor;
+        // Make sure that the instance is the exact minor version.
+        // Using a 7.1 factory for 7.0 test is not always possible because
+        // 7.1 can be configured via the XML config to use features that are
+        // absent in 7.0.
+        auto instances = ::android::hardware::getAllHalInstanceNames(factoryDescriptor);
+        if (instances.empty()) return instances;
+        // Use the default instance for checking the implementation version.
+        auto defaultInstance = IDevicesFactory::getService("default");
+        if (defaultInstance == nullptr) {
+            return ::android::base::unexpected("Failed to obtain IDevicesFactory/default");
+        }
+        std::string actualDescriptor;
+        auto intDescRet = defaultInstance->interfaceDescriptor(
+                [&](const auto& descriptor) { actualDescriptor = descriptor; });
+        if (!intDescRet.isOk()) {
+            return ::android::base::unexpected("Failed to obtain interface descriptor: " +
+                                               intDescRet.description());
+        }
+        if (factoryDescriptor == actualDescriptor)
+            return instances;
+        else
+            return {};
+    }
+
     virtual ~HidlTest() = default;
     // public access to avoid annoyances when using this method in template classes
     // derived from test classes
@@ -168,8 +202,11 @@ const PolicyConfig& getCachedPolicyConfig() {
 }
 
 TEST(CheckConfig, audioPolicyConfigurationValidation) {
-    const auto factories = ::android::hardware::getAllHalInstanceNames(IDevicesFactory::descriptor);
-    if (factories.size() == 0) {
+    const auto factories = HidlTest::getAllFactoryInstances();
+    if (!factories.ok()) {
+        FAIL() << factories.error();
+    }
+    if (factories.value().size() == 0) {
         GTEST_SKIP() << "Skipping audioPolicyConfigurationValidation because no factory instances "
                         "are found.";
     }
@@ -198,11 +235,11 @@ static inline std::string DeviceParameterToString(
 const std::vector<DeviceParameter>& getDeviceParameters() {
     static std::vector<DeviceParameter> parameters = [] {
         std::vector<DeviceParameter> result;
-        const auto factories =
-                ::android::hardware::getAllHalInstanceNames(IDevicesFactory::descriptor);
+        const auto factories = HidlTest::getAllFactoryInstances();
+        if (!factories.ok()) return result;
         const auto devices = getCachedPolicyConfig().getModulesWithDevicesNames();
         result.reserve(devices.size());
-        for (const auto& factoryName : factories) {
+        for (const auto& factoryName : factories.value()) {
             for (const auto& deviceName : devices) {
                 if (DeviceManager::getInstance().get(factoryName, deviceName) != nullptr) {
                     result.emplace_back(factoryName, deviceName);
@@ -217,9 +254,9 @@ const std::vector<DeviceParameter>& getDeviceParameters() {
 const std::vector<DeviceParameter>& getDeviceParametersForFactoryTests() {
     static std::vector<DeviceParameter> parameters = [] {
         std::vector<DeviceParameter> result;
-        const auto factories =
-                ::android::hardware::getAllHalInstanceNames(IDevicesFactory::descriptor);
-        for (const auto& factoryName : factories) {
+        const auto factories = HidlTest::getAllFactoryInstances();
+        if (!factories.ok()) return result;
+        for (const auto& factoryName : factories.value()) {
             result.emplace_back(factoryName,
                                 DeviceManager::getInstance().getPrimary(factoryName) != nullptr
                                         ? DeviceManager::kPrimaryDevice
@@ -288,6 +325,8 @@ GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(AudioPolicyConfigTest);
 // Test audio devices factory
 class AudioHidlTest : public AudioHidlTestWithDeviceParameter {
   public:
+    using IPrimaryDevice = ::android::hardware::audio::CPP_VERSION::IPrimaryDevice;
+
     void SetUp() override {
         ASSERT_NO_FATAL_FAILURE(AudioHidlTestWithDeviceParameter::SetUp());  // setup base
         ASSERT_TRUE(getDevicesFactory() != nullptr);
@@ -301,7 +340,7 @@ TEST_P(AudioHidlTest, GetAudioDevicesFactoryService) {
 TEST_P(AudioHidlTest, OpenDeviceInvalidParameter) {
     doc::test("Test passing an invalid parameter to openDevice");
     Result result;
-    sp<IDevice> device;
+    sp<::android::hardware::audio::CORE_TYPES_CPP_VERSION::IDevice> device;
 #if MAJOR_VERSION == 2
     auto invalidDevice = IDevicesFactory::Device(-1);
 #elif MAJOR_VERSION >= 4
@@ -572,8 +611,8 @@ static std::string DeviceConfigParameterToString(
                     [](auto&& arg) -> std::string {
                         using T = std::decay_t<decltype(arg)>;
                         // Need to use FQN of toString to avoid confusing the compiler
-                        return ::android::hardware::audio::common::CPP_VERSION::toString<T>(
-                                hidl_bitfield<T>(arg));
+                        return ::android::hardware::audio::common::COMMON_TYPES_CPP_VERSION::
+                                toString<T>(hidl_bitfield<T>(arg));
                     },
                     std::get<PARAM_FLAGS>(info.param)));
 #elif MAJOR_VERSION >= 7
@@ -890,6 +929,8 @@ class OpenStreamTest : public AudioHidlTestWithDeviceConfigParameter {
 
 class StreamWriter : public StreamWorker<StreamWriter> {
   public:
+    using IStreamOut = ::android::hardware::audio::CPP_VERSION::IStreamOut;
+
     StreamWriter(IStreamOut* stream, size_t bufferSize)
         : mStream(stream), mBufferSize(bufferSize), mData(mBufferSize) {}
     ~StreamWriter() {
@@ -998,7 +1039,9 @@ class StreamWriter : public StreamWorker<StreamWriter> {
     EventFlag* mEfGroup = nullptr;
 };
 
-class OutputStreamTest : public OpenStreamTest<IStreamOut> {
+class OutputStreamTest
+    : public OpenStreamTest<::android::hardware::audio::CPP_VERSION::IStreamOut> {
+  protected:
     void SetUp() override {
         ASSERT_NO_FATAL_FAILURE(OpenStreamTest::SetUp());  // setup base
 #if MAJOR_VERSION <= 6
@@ -1012,16 +1055,18 @@ class OutputStreamTest : public OpenStreamTest<IStreamOut> {
                 [&](AudioIoHandle handle, AudioConfig config, auto cb) {
 #if MAJOR_VERSION == 2
                     return getDevice()->openOutputStream(handle, address, config, flags, cb);
-#elif MAJOR_VERSION >= 4
+#elif MAJOR_VERSION >= 4 && (MAJOR_VERSION < 7 || (MAJOR_VERSION == 7 && MINOR_VERSION == 0))
                     return getDevice()->openOutputStream(handle, address, config, flags,
                                                          initMetadata, cb);
+#elif MAJOR_VERSION == 7 && MINOR_VERSION == 1
+                    return getDevice()->openOutputStream_7_1(handle, address, config, flags,
+                                                             initMetadata, cb);
 #endif
                 },
                 config);
     }
 #if MAJOR_VERSION >= 4 && MAJOR_VERSION <= 6
 
-  protected:
     const SourceMetadata initMetadata = {
         { { AudioUsage::MEDIA,
             AudioContentType::MUSIC,
@@ -1075,6 +1120,8 @@ GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(OutputStreamTest);
 
 class StreamReader : public StreamWorker<StreamReader> {
   public:
+    using IStreamIn = ::android::hardware::audio::CORE_TYPES_CPP_VERSION::IStreamIn;
+
     StreamReader(IStreamIn* stream, size_t bufferSize)
         : mStream(stream), mBufferSize(bufferSize), mData(mBufferSize) {}
     ~StreamReader() {
@@ -1188,26 +1235,34 @@ class StreamReader : public StreamWorker<StreamReader> {
     EventFlag* mEfGroup = nullptr;
 };
 
-class InputStreamTest : public OpenStreamTest<IStreamIn> {
+class InputStreamTest
+    : public OpenStreamTest<::android::hardware::audio::CORE_TYPES_CPP_VERSION::IStreamIn> {
     void SetUp() override {
         ASSERT_NO_FATAL_FAILURE(OpenStreamTest::SetUp());  // setup base
+        auto flags = getInputFlags();
 #if MAJOR_VERSION <= 6
         address.device = AudioDevice::IN_DEFAULT;
 #elif MAJOR_VERSION >= 7
         auto maybeSourceAddress = getCachedPolicyConfig().getSourceDeviceForMixPort(
                 getDeviceName(), getMixPortName());
+        auto& metadata = initMetadata.tracks[0];
         if (maybeSourceAddress.has_value() &&
             !xsd::isTelephonyDevice(maybeSourceAddress.value().deviceType)) {
             address = maybeSourceAddress.value();
-            auto& metadata = initMetadata.tracks[0];
             metadata.source = toString(xsd::AudioSource::AUDIO_SOURCE_UNPROCESSED);
             metadata.channelMask = getConfig().base.channelMask;
         } else {
             address.deviceType = toString(xsd::AudioDevice::AUDIO_DEVICE_IN_DEFAULT);
         }
-#endif
+#if MAJOR_VERSION == 7 && MINOR_VERSION >= 1
+        auto flagsIt = std::find(flags.begin(), flags.end(),
+                                 toString(xsd::AudioInOutFlag::AUDIO_INPUT_FLAG_ULTRASOUND));
+        if (flagsIt != flags.end()) {
+            metadata.source = toString(xsd::AudioSource::AUDIO_SOURCE_ULTRASOUND);
+        }
+#endif  // 7.1
+#endif  // MAJOR_VERSION >= 7
         const AudioConfig& config = getConfig();
-        auto flags = getInputFlags();
         testOpen(
                 [&](AudioIoHandle handle, AudioConfig config, auto cb) {
                     return getDevice()->openInputStream(handle, address, config, flags,
@@ -1584,7 +1639,9 @@ TEST_P(InputStreamTest, SetGain) {
                             "InputStream::setGain");
 }
 
-static void testPrepareForReading(IStreamIn* stream, uint32_t frameSize, uint32_t framesCount) {
+static void testPrepareForReading(
+        ::android::hardware::audio::CORE_TYPES_CPP_VERSION::IStreamIn* stream, uint32_t frameSize,
+        uint32_t framesCount) {
     Result res;
     // Ignore output parameters as the call should fail
     ASSERT_OK(stream->prepareForReading(frameSize, framesCount,
@@ -1655,7 +1712,8 @@ TEST_P(OutputStreamTest, setVolume) {
                             "setVolume");
 }
 
-static void testPrepareForWriting(IStreamOut* stream, uint32_t frameSize, uint32_t framesCount) {
+static void testPrepareForWriting(::android::hardware::audio::CPP_VERSION::IStreamOut* stream,
+                                  uint32_t frameSize, uint32_t framesCount) {
     Result res;
     // Ignore output parameters as the call should fail
     ASSERT_OK(stream->prepareForWriting(frameSize, framesCount,
@@ -1682,6 +1740,8 @@ TEST_P(OutputStreamTest, PrepareForWritingCheckOverflow) {
 }
 
 struct Capability {
+    using IStreamOut = ::android::hardware::audio::CPP_VERSION::IStreamOut;
+
     Capability(IStreamOut* stream) {
         EXPECT_OK(stream->supportsPauseAndResume(returnIn(pause, resume)));
         drain = extract(stream->supportsDrain());
@@ -1725,7 +1785,7 @@ class MockOutCallbacks : public IStreamOutCallback {
     Return<void> onError() override { return {}; }
 };
 
-static bool isAsyncModeSupported(IStreamOut* stream) {
+static bool isAsyncModeSupported(::android::hardware::audio::CPP_VERSION::IStreamOut* stream) {
     auto res = stream->setCallback(new MockOutCallbacks);
     stream->clearCallback();  // try to restore the no callback state, ignore
                               // any error
@@ -1780,7 +1840,8 @@ TEST_P(OutputStreamTest, Pause) {
     ASSERT_RESULT(Result::INVALID_STATE, stream->pause());
 }
 
-static void testDrain(IStreamOut* stream, AudioDrain type) {
+static void testDrain(::android::hardware::audio::CPP_VERSION::IStreamOut* stream,
+                      AudioDrain type) {
     if (!Capability(stream).drain) {
         doc::partialTest("The output stream does not support drain");
         return;
@@ -1866,7 +1927,8 @@ TEST_P(BoolAccessorPrimaryHidlTest, setGetBtScoWidebandEnabled) {
 }
 
 using TtyModeAccessorPrimaryHidlTest =
-        AccessorHidlTest<IPrimaryDevice::TtyMode, AudioPrimaryHidlTest>;
+        AccessorHidlTest<::android::hardware::audio::CPP_VERSION::IPrimaryDevice::TtyMode,
+                         AudioPrimaryHidlTest>;
 TEST_P(TtyModeAccessorPrimaryHidlTest, setGetTtyMode) {
     doc::test("Query and set the TTY mode state");
     testAccessors<OPTIONAL>(

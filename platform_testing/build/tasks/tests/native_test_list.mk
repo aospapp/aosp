@@ -14,22 +14,21 @@
 
 native_tests := \
     adbd_test \
-    android_logger_device_test_src_lib \
-    android_logger_device_test_tests_config_log_level \
-    android_logger_device_test_tests_default_init \
-    android_logger_device_test_tests_multiple_init \
-    anyhow_device_test_src_lib \
-    anyhow_device_test_tests_test_autotrait \
-    anyhow_device_test_tests_test_boxed \
-    anyhow_device_test_tests_test_chain \
-    anyhow_device_test_tests_test_context \
-    anyhow_device_test_tests_test_convert \
-    anyhow_device_test_tests_test_downcast \
-    anyhow_device_test_tests_test_ffi \
-    anyhow_device_test_tests_test_fmt \
-    anyhow_device_test_tests_test_macros \
-    anyhow_device_test_tests_test_repr \
-    anyhow_device_test_tests_test_source \
+    android_logger_test_src_lib \
+    android_logger_test_tests_config_log_level \
+    android_logger_test_tests_default_init \
+    android_logger_test_tests_multiple_init \
+    anyhow_test_src_lib \
+    anyhow_test_tests_test_autotrait \
+    anyhow_test_tests_test_boxed \
+    anyhow_test_tests_test_chain \
+    anyhow_test_tests_test_context \
+    anyhow_test_tests_test_convert \
+    anyhow_test_tests_test_downcast \
+    anyhow_test_tests_test_fmt \
+    anyhow_test_tests_test_macros \
+    anyhow_test_tests_test_repr \
+    anyhow_test_tests_test_source \
     audio_health_tests \
     backtrace_test \
     bionic-unit-tests \
@@ -39,15 +38,25 @@ native_tests := \
     bootstat_tests \
     boringssl_crypto_test \
     boringssl_ssl_test \
+    bsdiff_unittest \
     buffer_hub-test \
     buffer_hub_queue-test \
     buffer_hub_queue_producer-test \
     bugreportz_test \
-    bsdiff_unittest \
+    bytes_test_tests_test_buf \
+    bytes_test_tests_test_buf_mut \
+    bytes_test_tests_test_bytes \
+    bytes_test_tests_test_bytes_odd_alloc \
+    bytes_test_tests_test_bytes_vec_alloc \
+    bytes_test_tests_test_chain \
+    bytes_test_tests_test_debug \
+    bytes_test_tests_test_iter \
+    bytes_test_tests_test_reader \
+    bytes_test_tests_test_take \
     camera_client_test \
+    cesu8_test_src_lib \
     clatd_test \
     confirmationui_invocation_test \
-    crashcollector \
     debuggerd_test \
     doh_ffi_test \
     doh_unit_test \
@@ -66,17 +75,19 @@ native_tests := \
     inputflinger_tests \
     installd_cache_test \
     installd_dexopt_test \
+    installd_file_test \
     installd_otapreopt_test \
     installd_service_test \
     installd_utils_test \
+    jni_test_src_lib \
     keystore2_crypto_test_rust \
     keystore2_selinux_test \
     keystore2_test \
-    lazy_static_device_test_src_lib \
-    lazy_static_device_test_tests_test \
+    lazy_static_test_tests_test \
     libandroidfw_tests \
     libappfuse_test \
     libbase_test \
+    libbinder_rs-internal_test \
     libbpf_android_test \
     libcutils_test \
     libcutils_test_static \
@@ -87,15 +98,20 @@ native_tests := \
     liblog-unit-tests \
     libminijail_unittest_gtest \
     libnativehelper_tests \
-    libnetdbpf_test \
+    libnetworkstats_test \
     libprocinfo_test \
     libtextclassifier_tests \
     libsurfaceflinger_unittest \
     libunwindstack_unit_test \
+    libuwb_core_tests \
+    libuwb_uci_jni_rust_tests \
+    libuwb_uci_rust_tests \
+    libuwb_uci_packet_tests \
     libvintf_test \
     linker-unit-tests \
     logcat-unit-tests \
     logd-unit-tests \
+    logger_device_unit_tests \
     kernel-config-unit-tests \
     malloc_debug_unit_tests \
     memory_replay_tests \
@@ -127,6 +143,8 @@ native_tests := \
     netd_unit_test \
     netdutils_test \
     nfc_test_utils \
+    num-traits_test_src_lib \
+    num-traits_test_tests_cast \
     perfetto_integrationtests \
     posix_async_io_test \
     prioritydumper_test \
@@ -136,67 +154,98 @@ native_tests := \
     resolv_gold_test \
     resolv_integration_test \
     resolv_unit_test \
-    ring_device_test_src_lib \
-    ring_device_test_tests_aead_tests \
-    ring_device_test_tests_agreement_tests \
-    ring_device_test_tests_constant_time_tests \
-    ring_device_test_tests_digest_tests \
-    ring_device_test_tests_ecdsa_tests \
-    ring_device_test_tests_ed25519_tests \
-    ring_device_test_tests_hkdf_tests \
-    ring_device_test_tests_hmac_tests \
-    ring_device_test_tests_pbkdf2_tests \
-    ring_device_test_tests_quic_tests \
-    ring_device_test_tests_rand_tests \
-    ring_device_test_tests_rsa_tests \
-    ring_device_test_tests_signature_tests \
+    ring_test_src_lib \
+    ring_test_tests_aead_tests \
+    ring_test_tests_agreement_tests \
+    ring_test_tests_constant_time_tests \
+    ring_test_tests_digest_tests \
+    ring_test_tests_ecdsa_tests \
+    ring_test_tests_ed25519_tests \
+    ring_test_tests_hkdf_tests \
+    ring_test_tests_hmac_tests \
+    ring_test_tests_pbkdf2_tests \
+    ring_test_tests_quic_tests \
+    ring_test_tests_rand_tests \
+    ring_test_tests_rsa_tests \
+    ring_test_tests_signature_tests \
     scrape_mmap_addr \
     simpleperf_cpu_hotplug_test \
     simpleperf_unit_test \
     statsd_test \
     syscall_filter_unittest_gtest \
     time-unit-tests \
-    tokio_device_test_tests_buffered \
-    tokio_device_test_tests_io_async_read \
-    tokio_device_test_tests_io_copy_bidirectional \
-    tokio_device_test_tests_io_lines \
-    tokio_device_test_tests_io_mem_stream \
-    tokio_device_test_tests_io_read \
-    tokio_device_test_tests_io_read_buf \
-    tokio_device_test_tests_io_read_to_end \
-    tokio_device_test_tests_io_take \
-    tokio_device_test_tests_io_write \
-    tokio_device_test_tests_io_write_all \
-    tokio_device_test_tests_io_write_buf \
-    tokio_device_test_tests_io_write_int \
-    tokio_device_test_tests_macros_join \
-    tokio_device_test_tests_no_rt \
-    tokio_device_test_tests_rt_basic \
-    tokio_device_test_tests_rt_threaded \
-    tokio_device_test_tests_sync_barrier \
-    tokio_device_test_tests_sync_broadcast \
-    tokio_device_test_tests_sync_errors \
-    tokio_device_test_tests_sync_mpsc \
-    tokio_device_test_tests_sync_mutex_owned \
-    tokio_device_test_tests_sync_rwlock \
-    tokio_device_test_tests_sync_watch \
-    tokio_device_test_tests_task_local \
-    tokio_device_test_tests_task_local_set \
-    tokio_device_test_tests_tcp_accept \
-    tokio_device_test_tests_tcp_echo \
-    tokio_device_test_tests_tcp_into_std \
-    tokio_device_test_tests_tcp_shutdown \
-    tokio_device_test_tests_time_rt \
-    tokio_device_test_tests_uds_split \
-    tokio-test_device_test_src_lib \
-    tokio-test_device_test_tests_block_on \
-    tokio-test_device_test_tests_io \
-    tokio-test_device_test_tests_macros \
-    unicode-xid_device_test_src_lib \
+    tokio_test_tests__require_full \
+    tokio_test_tests_buffered \
+    tokio_test_tests_io_async_fd \
+    tokio_test_tests_io_async_read \
+    tokio_test_tests_io_chain \
+    tokio_test_tests_io_copy \
+    tokio_test_tests_io_copy_bidirectional \
+    tokio_test_tests_io_driver \
+    tokio_test_tests_io_driver_drop \
+    tokio_test_tests_io_lines \
+    tokio_test_tests_io_mem_stream \
+    tokio_test_tests_io_read \
+    tokio_test_tests_io_read_buf \
+    tokio_test_tests_io_read_exact \
+    tokio_test_tests_io_read_line \
+    tokio_test_tests_io_read_to_end \
+    tokio_test_tests_io_read_to_string \
+    tokio_test_tests_io_read_until \
+    tokio_test_tests_io_split \
+    tokio_test_tests_io_take \
+    tokio_test_tests_io_write \
+    tokio_test_tests_io_write_all \
+    tokio_test_tests_io_write_buf \
+    tokio_test_tests_io_write_int \
+    tokio_test_tests_macros_join \
+    tokio_test_tests_macros_pin \
+    tokio_test_tests_macros_select \
+    tokio_test_tests_macros_test \
+    tokio_test_tests_macros_try_join \
+    tokio_test_tests_net_bind_resource \
+    tokio_test_tests_net_lookup_host \
+    tokio_test_tests_no_rt \
+    tokio_test_tests_process_kill_on_drop \
+    tokio_test_tests_rt_basic \
+    tokio_test_tests_rt_common \
+    tokio_test_tests_rt_threaded \
+    tokio_test_tests_sync_barrier \
+    tokio_test_tests_sync_broadcast \
+    tokio_test_tests_sync_errors \
+    tokio_test_tests_sync_mpsc \
+    tokio_test_tests_sync_mutex \
+    tokio_test_tests_sync_mutex_owned \
+    tokio_test_tests_sync_notify \
+    tokio_test_tests_sync_oneshot \
+    tokio_test_tests_sync_rwlock \
+    tokio_test_tests_sync_semaphore \
+    tokio_test_tests_sync_semaphore_owned \
+    tokio_test_tests_sync_watch \
+    tokio_test_tests_task_abort \
+    tokio_test_tests_task_blocking \
+    tokio_test_tests_task_local \
+    tokio_test_tests_task_local_set \
+    tokio_test_tests_tcp_accept \
+    tokio_test_tests_tcp_connect \
+    tokio_test_tests_tcp_echo \
+    tokio_test_tests_tcp_into_split \
+    tokio_test_tests_tcp_into_std \
+    tokio_test_tests_tcp_peek \
+    tokio_test_tests_tcp_shutdown \
+    tokio_test_tests_tcp_socket \
+    tokio_test_tests_tcp_split \
+    tokio_test_tests_time_rt \
+    tokio_test_tests_udp \
+    tokio_test_tests_uds_cred \
+    tokio_test_tests_uds_split \
+    tokio-test_test_tests_block_on \
+    tokio-test_test_tests_io \
+    tokio-test_test_tests_macros \
+    unicode-xid_test_src_lib \
     update_engine_unittests \
-    url_device_test_src_lib \
-    url_device_test_tests_data \
-    url_device_test_tests_unit \
+    url_test_tests_data \
+    url_test_tests_unit \
     vintf_object_test \
     wificond_unit_test \
     ziparchive-tests \
@@ -206,9 +255,12 @@ native_tests := \
     NeuralNetworksTest_static \
     NeuralNetworksTest_utils \
     SurfaceFlinger_test \
-    lmkd_unit_test \
-    vrflinger_test
+    lmkd_unit_test
 
 ifeq ($(BOARD_IS_AUTOMOTIVE), true)
 native_tests += libwatchdog_test
+endif
+
+ifneq ($(strip $(BOARD_PERFSETUP_SCRIPT)),)
+native_tests += perf-setup
 endif

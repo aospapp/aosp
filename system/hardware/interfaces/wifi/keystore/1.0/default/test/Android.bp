@@ -23,7 +23,11 @@ cc_test {
     srcs: [
         "WifiLegacyKeystoreIntegrationTest.cpp",
     ],
-    defaults: ["VtsHalTargetTestDefaults"],
+    defaults: [
+        "VtsHalTargetTestDefaults",
+        "keymint_use_latest_hal_aidl_ndk_static",
+        "keystore2_use_latest_aidl_ndk_static",
+    ],
     shared_libs: [
         "libbase",
         "liblog",
@@ -36,9 +40,8 @@ cc_test {
     ],
     static_libs: [
         "VtsHalHidlTargetTestBase",
-        "android.hardware.security.keymint-V1-ndk_platform",
-        "android.security.legacykeystore-ndk_platform",
-        "android.system.keystore2-V1-ndk_platform",
+        "android.hardware.security.secureclock-V1-ndk",
+        "android.security.legacykeystore-ndk",
         "android.system.wifi.keystore@1.0",
         "libkeymint_support",
     ],

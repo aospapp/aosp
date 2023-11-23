@@ -776,6 +776,56 @@ public class ValueAnimatorTest {
         });
     }
 
+    @Test
+    public void testRegisterAndUnregisterDurationScaleListener() {
+        ValueAnimator.DurationScaleChangeListener listener = scale -> {
+            return;
+        };
+        assertTrue("Listener not registered",
+                ValueAnimator.registerDurationScaleChangeListener(listener));
+        assertFalse("Listener was registered again",
+                ValueAnimator.registerDurationScaleChangeListener(listener));
+        assertTrue("Listener not unregistered",
+                ValueAnimator.unregisterDurationScaleChangeListener(listener));
+        assertFalse("Listener was unregistered again",
+                ValueAnimator.unregisterDurationScaleChangeListener(listener));
+    }
+
+    @Test
+    public void testGetDurationScale() {
+        float currentDurationScale = ValueAnimator.getDurationScale();
+        try {
+            ValueAnimator.setDurationScale(0f);
+            assertEquals(0f, ValueAnimator.getDurationScale(), 0.0f);
+        } finally {
+            // restore scale value to avoid messing up future tests
+            ValueAnimator.setDurationScale(currentDurationScale);
+        }
+
+    }
+
+    @Test
+    public void testDurationScaleListenerOnChange() throws InterruptedException {
+        float currentDurationScale = ValueAnimator.getDurationScale();
+
+        ValueAnimator.setDurationScale(1f);
+        final CountDownLatch durationScaleUpdateLatch = new CountDownLatch(1);
+        ValueAnimator.DurationScaleChangeListener listener = scale -> {
+            assertEquals(0f, ValueAnimator.getDurationScale(), 0.0f);
+            durationScaleUpdateLatch.countDown();
+        };
+
+        try {
+            ValueAnimator.registerDurationScaleChangeListener(listener);
+            ValueAnimator.setDurationScale(0f);
+            assertTrue(durationScaleUpdateLatch.await(100, TimeUnit.MILLISECONDS));
+        } finally {
+            ValueAnimator.unregisterDurationScaleChangeListener(listener);
+            // restore scale value to avoid messing up future tests
+            ValueAnimator.setDurationScale(currentDurationScale);
+        }
+    }
+
     private ValueAnimator getAnimator() {
         Object object = mActivity.view.newBall;
         String property = "y";

@@ -516,7 +516,7 @@ public class JDiffClassDescription {
      *
      * @param extendsClass the class being extended.
      */
-    void setExtendsClass(String extendsClass) {
+    public void setExtendsClass(String extendsClass) {
         mExtendedClass = extendsClass;
     }
 

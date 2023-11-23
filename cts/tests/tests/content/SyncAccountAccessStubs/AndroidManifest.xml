@@ -18,6 +18,10 @@
      package="com.android.cts.stub">
 
     <application>
+        <activity android:name=".StubActivity" android:exported="true" />
+
+        <service android:name=".StubService" android:exported="true" />
+
         <service android:name=".StubAuthenticator"
              android:exported="true">
             <intent-filter>

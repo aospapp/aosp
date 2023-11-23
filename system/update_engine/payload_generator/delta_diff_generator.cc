@@ -53,7 +53,6 @@ namespace chromeos_update_engine {
 
 // bytes
 const size_t kRootFSPartitionSize = static_cast<size_t>(2) * 1024 * 1024 * 1024;
-const size_t kBlockSize = 4096;  // bytes
 
 class PartitionProcessor : public base::DelegateSimpleThread::Delegate {
   bool IsDynamicPartition(const std::string& partition_name) {
@@ -120,9 +119,6 @@ class PartitionProcessor : public base::DelegateSimpleThread::Delegate {
     LOG(INFO) << "Estimating COW size for partition: " << new_part_.name;
     // Need the contents of source/target image bytes when doing
     // dry run.
-    FileDescriptorPtr source_fd{new EintrSafeFileDescriptor()};
-    source_fd->Open(old_part_.path.c_str(), O_RDONLY);
-
     auto target_fd = std::make_unique<EintrSafeFileDescriptor>();
     target_fd->Open(new_part_.path.c_str(), O_RDONLY);
 
@@ -131,18 +127,22 @@ class PartitionProcessor : public base::DelegateSimpleThread::Delegate {
     for (const AnnotatedOperation& aop : *aops_) {
       *operations.Add() = aop.op;
     }
+
+    FileDescriptorPtr source_fd = nullptr;
+    if (config_.enable_vabc_xor) {
+      source_fd = std::make_shared<EintrSafeFileDescriptor>();
+      source_fd->Open(old_part_.path.c_str(), O_RDONLY);
+    }
+
     *cow_size_ = EstimateCowSize(
+        std::move(source_fd),
         std::move(target_fd),
         std::move(operations),
         {cow_merge_sequence_->begin(), cow_merge_sequence_->end()},
         config_.block_size,
-        config_.target.dynamic_partition_metadata->vabc_compression_param());
-    if (!new_part_.disable_fec_computation) {
-      *cow_size_ +=
-          new_part_.verity.fec_extent.num_blocks() * config_.block_size;
-    }
-    *cow_size_ +=
-        new_part_.verity.hash_tree_extent.num_blocks() * config_.block_size;
+        config_.target.dynamic_partition_metadata->vabc_compression_param(),
+        new_part_.size,
+        config_.enable_vabc_xor);
     LOG(INFO) << "Estimated COW size for partition: " << new_part_.name << " "
               << *cow_size_;
   }

@@ -3335,7 +3335,7 @@ fail:
 /* install UL filter rule from Q6 */
 int IPACM_Lan::handle_uplink_filter_rule(ipacm_ext_prop *prop, ipa_ip_type iptype, uint8_t xlat_mux_id)
 {
-	ipa_flt_rule_add flt_rule_entry;
+	static ipa_flt_rule_add flt_rule_entry;
 	int len = 0, cnt, ret = IPACM_SUCCESS;
 	ipa_ioc_add_flt_rule *pFilteringTable;
 	ipa_fltr_installed_notif_req_msg_v01 flt_index;
@@ -6632,11 +6632,11 @@ int IPACM_Lan::construct_mtu_rule(struct ipa_flt_rule *rule, ipa_ip_type iptype,
 		&flt_eq.eq_attrib, sizeof(rule->eq_attrib));
 
 	//add IHL offsets
-#ifdef FEATURE_IPA_V3
+	if(IPACM_Iface::ipacmcfg->GetIPAVer() >= IPA_HW_v3_0)
 		rule->eq_attrib.rule_eq_bitmap |= (1<<10);
-#else
+	else
 		rule->eq_attrib.rule_eq_bitmap |= (1<<4);
-#endif
+
 	rule->eq_attrib.num_ihl_offset_range_16 = 1;
 	if (iptype == IPA_IP_v4)
 		rule->eq_attrib.ihl_offset_range_16[0].offset = 0x82;

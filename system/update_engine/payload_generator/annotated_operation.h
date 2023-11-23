@@ -19,6 +19,7 @@
 
 #include <ostream>  // NOLINT(readability/streams)
 #include <string>
+#include <vector>
 
 #include <brillo/secure_blob.h>
 
@@ -34,6 +35,11 @@ struct AnnotatedOperation {
 
   // The InstallOperation, as defined by the protobuf.
   InstallOperation op;
+
+  // Array of blocks which should be converted to XOR during OTA install.
+  // All elements in this array should have |merge_op.type() == COW_XOR|.
+  // This information is typically derived from BSDIFF patch data.
+  std::vector<CowMergeOperation> xor_ops;
 
   // Writes |blob| to the end of |blob_file|. It sets the data_offset and
   // data_length in AnnotatedOperation to match the offset and size of |blob|

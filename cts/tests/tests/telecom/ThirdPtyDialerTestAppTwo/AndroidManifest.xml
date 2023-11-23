@@ -29,7 +29,7 @@
     <uses-permission android:name="android.permission.CALL_COMPANION_APP"/>
 
     <application android:label="ThirdPtyDialerTestAppTwo">
-        <service android:name=".android.telecom.cts.thirdptydialertwo.CtsThirdPtyDialerInCallServiceTwo"
+        <service android:name=".CtsThirdPtyDialerInCallServiceTwo"
                  android:permission="android.permission.BIND_INCALL_SERVICE"
                  android:launchMode="singleInstance"
                  android:exported="true">

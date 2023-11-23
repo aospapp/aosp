@@ -119,6 +119,9 @@ typedef struct {
   uint8_t num_tlvs;                       /* number of TLVs           */
   tNFA_EE_TLV ee_tlv[NFC_MAX_EE_TLVS];    /* the TLV                  */
   uint8_t ee_power_supply_status;         /* The NFCEE Power supply */
+  tNFA_NFC_PROTOCOL la_protocol;          /* Listen A protocol    */
+  tNFA_NFC_PROTOCOL lb_protocol;          /* Listen B protocol    */
+  tNFA_NFC_PROTOCOL lf_protocol;          /* Listen F protocol    */
 } tNFA_EE_INFO;
 
 typedef struct {

@@ -18,6 +18,8 @@ package android.view.cts;
 
 import android.opengl.GLSurfaceView;
 import android.util.Log;
+import android.view.Window;
+import android.view.WindowManager;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
@@ -140,5 +142,15 @@ public class DisplayRefreshRateCtsActivity extends GLSurfaceViewCtsActivity {
 
     public FpsResult getFpsResult() {
         return mResult;
+    }
+
+    public void setModeId(int modeId) {
+        runOnUiThread(() -> {
+            Window w = getWindow();
+            WindowManager.LayoutParams params = w.getAttributes();
+            params.preferredDisplayModeId = modeId;
+            w.setAttributes(params);
+        });
+
     }
 }

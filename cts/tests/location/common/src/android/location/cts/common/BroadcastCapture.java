@@ -41,7 +41,8 @@ public class BroadcastCapture extends BroadcastReceiver implements AutoCloseable
     }
 
     protected void register(String action) {
-        mContext.registerReceiver(this, new IntentFilter(action));
+        mContext.registerReceiver(this, new IntentFilter(action),
+                Context.RECEIVER_EXPORTED_UNAUDITED);
     }
 
     public Intent getNextIntent(long timeoutMs) throws InterruptedException {

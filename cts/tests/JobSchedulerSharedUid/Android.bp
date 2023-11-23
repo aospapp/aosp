@@ -39,4 +39,10 @@ android_test {
     //sdk_version: "current"
     platform_apis: true,
 
+    data: [
+        ":CtsJobSchedulerJobPerm",
+        ":CtsJobSchedulerSharedUid",
+        ":CtsJobSharedUidTestApp",
+    ],
+    per_testcase_directory: true,
 }

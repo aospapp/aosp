@@ -251,8 +251,9 @@ void chreWifiScanCacheScanEventAdd(const struct chreWifiScanResult *result) {
              sizeof(const struct chreWifiScanResult));
 
       // ageMs will be properly populated in chreWifiScanCacheScanEventEnd
-      gWifiCacheState.resultList[index].ageMs = (uint32_t)(
-          gSystemApi->getCurrentTime() / kOneMillisecondInNanoseconds);
+      gWifiCacheState.resultList[index].ageMs =
+          (uint32_t)gSystemApi->getCurrentTime() /
+          (uint32_t)kOneMillisecondInNanoseconds;
     }
   }
 }
@@ -274,8 +275,8 @@ void chreWifiScanCacheScanEventEnd(enum chreError errorCode) {
       gWifiCacheState.event.referenceTime = gSystemApi->getCurrentTime();
       gWifiCacheState.event.scannedFreqList = gWifiCacheState.scannedFreqList;
 
-      uint32_t referenceTimeMs = (uint32_t)(
-          gWifiCacheState.event.referenceTime / kOneMillisecondInNanoseconds);
+      uint32_t referenceTimeMs = (uint32_t)gWifiCacheState.event.referenceTime /
+                                 (uint32_t)kOneMillisecondInNanoseconds;
       for (uint16_t i = 0; i < gWifiCacheState.event.resultTotal; i++) {
         gWifiCacheState.resultList[i].ageMs =
             referenceTimeMs - gWifiCacheState.resultList[i].ageMs;

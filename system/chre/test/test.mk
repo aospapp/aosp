@@ -13,7 +13,7 @@
 #   e.g. core/tests/*, util/tests/*)
 
 ifeq ($(CHRE_ON_DEVICE_TESTS_ENABLED),true)
-include $(CHRE_PREFIX)/build/pw_unit_test.mk
+include $(CHRE_PREFIX)/external/pigweed/pw_unit_test.mk
 COMMON_CFLAGS += $(PW_UT_CFLAGS)
 COMMON_CFLAGS += -I$(CHRE_PREFIX)/test/common/include
 COMMON_SRCS += $(CHRE_PREFIX)/test/common/run_tests.cc
@@ -35,8 +35,11 @@ COMMON_SRCS += $(CHRE_PREFIX)/chpp/test/wwan_convert_test.cpp
 
 # PAL unit tests
 COMMON_CFLAGS += -I$(CHRE_PREFIX)/pal/tests/include
+COMMON_CFLAGS += -I$(CHRE_PREFIX)/pal/util/include
 
 COMMON_SRCS += $(CHRE_PREFIX)/pal/tests/src/version_test.cc
 COMMON_SRCS += $(CHRE_PREFIX)/pal/tests/src/wwan_test.cc
+COMMON_SRCS += $(CHRE_PREFIX)/pal/util/wifi_pal_convert.c
+COMMON_SRCS += $(CHRE_PREFIX)/pal/util/tests/wifi_pal_convert_test.cc
 
 endif

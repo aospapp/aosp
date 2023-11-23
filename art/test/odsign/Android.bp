@@ -16,8 +16,8 @@ package {
     default_applicable_licenses: ["art_license"],
 }
 
-java_test_host {
-    name: "odsign_e2e_tests",
+java_defaults {
+    name: "odsign_e2e_tests_defaults",
     defaults: ["art_module_source_build_java_defaults"],
     srcs: ["test-src/**/*.java"],
     libs: ["tradefed"],
@@ -25,16 +25,40 @@ java_test_host {
         "cts-install-lib-host",
         "frameworks-base-hostutils",
     ],
+}
+
+java_test_host {
+    name: "odsign_e2e_tests",
+    defaults: ["odsign_e2e_tests_defaults"],
+    // TODO(b/228838581): Do not add `data` to the defaults unless the bug is
+    // fixed.
     data: [
-        ":test_com.android.art",
         ":odsign_e2e_test_app",
     ],
     test_config: "odsign-e2e-tests.xml",
-    test_suites: ["device-tests"],
+    test_suites: [
+        "general-tests",
+        "cts",
+    ],
+}
+
+java_test_host {
+    name: "odsign_e2e_tests_full",
+    defaults: ["odsign_e2e_tests_defaults"],
+    // TODO(b/228838581): Do not add `data` to the defaults unless the bug is
+    // fixed.
+    data: [
+        ":odsign_e2e_test_app",
+    ],
+    test_config: "odsign-e2e-tests-full.xml",
+    test_suites: [
+        "general-tests",
+    ],
 }
 
 cc_library_shared {
     name: "libOdsignTestAppJni",
+    defaults: ["art_defaults"],
     srcs: ["jni/**/*.cc"],
     shared_libs: [
         "libnativehelper_compat_libc++",
@@ -43,16 +67,13 @@ cc_library_shared {
     static_libs: [
         "libbase_ndk",
     ],
-    cflags: [
-        "-Wall",
-        "-Werror",
-    ],
     stl: "c++_static",
     sdk_version: "current",
 }
 
 android_test_helper_app {
     name: "odsign_e2e_test_app",
+    defaults: ["art_module_source_build_java_defaults"],
     manifest: "AndroidManifest.xml",
     srcs: ["src/**/*.java"],
     jni_libs: [
@@ -63,6 +84,7 @@ android_test_helper_app {
         "junit",
     ],
     static_libs: [
+        "androidx.test.ext.truth",
         "androidx.test.runner",
         "ctstestrunner-axt",
     ],

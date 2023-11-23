@@ -59,7 +59,7 @@ class ArmVIXLAssemblerTest : public AssemblerTestBase {
     disassembly = std::regex_replace(disassembly, annotation_re, "");
 
     std::string expected2 = "\n" +
-        obj_file + ": file format elf32-littlearm\n\n\n"
+        obj_file + ": file format elf32-littlearm\n\n"
         "Disassembly of section .text:\n\n"
         "00000000 <.text>:\n" +
         expected;
@@ -99,6 +99,7 @@ TEST_F(ArmVIXLAssemblerTest, VixlJniHelpers) {
 
   const bool is_static = true;
   const bool is_synchronized = false;
+  const bool is_fast_native = false;
   const bool is_critical_native = false;
   const char* shorty = "IIFII";
 
@@ -106,6 +107,7 @@ TEST_F(ArmVIXLAssemblerTest, VixlJniHelpers) {
       JniCallingConvention::Create(&allocator,
                                    is_static,
                                    is_synchronized,
+                                   is_fast_native,
                                    is_critical_native,
                                    shorty,
                                    InstructionSet::kThumb2));
@@ -169,15 +171,18 @@ TEST_F(ArmVIXLAssemblerTest, VixlJniHelpers) {
   __ Move(hidden_arg_register, method_register, 4);
   __ VerifyObject(scratch_register, false);
 
-  __ CreateJObject(scratch_register, FrameOffset(48), scratch_register, true);
-  __ CreateJObject(scratch_register, FrameOffset(48), scratch_register, false);
-  __ CreateJObject(method_register, FrameOffset(48), scratch_register, true);
+  // Note: `CreateJObject()` may need the scratch register IP. Test with another high register.
+  const ManagedRegister high_register = ArmManagedRegister::FromCoreRegister(R11);
+  __ CreateJObject(high_register, FrameOffset(48), high_register, true);
+  __ CreateJObject(high_register, FrameOffset(48), high_register, false);
+  __ CreateJObject(method_register, FrameOffset(48), high_register, true);
   __ CreateJObject(FrameOffset(48), FrameOffset(64), true);
-  __ CreateJObject(method_register, FrameOffset(0), scratch_register, true);
-  __ CreateJObject(method_register, FrameOffset(1025), scratch_register, true);
-  __ CreateJObject(scratch_register, FrameOffset(1025), scratch_register, true);
+  __ CreateJObject(method_register, FrameOffset(0), high_register, true);
+  __ CreateJObject(method_register, FrameOffset(1028), high_register, true);
+  __ CreateJObject(high_register, FrameOffset(1028), high_register, true);
 
-  __ ExceptionPoll(0);
+  std::unique_ptr<JNIMacroLabel> exception_slow_path = __ CreateLabel();
+  __ ExceptionPoll(exception_slow_path.get());
 
   // Push the target out of range of branch emitted by ExceptionPoll.
   for (int i = 0; i < 64; i++) {
@@ -187,6 +192,9 @@ TEST_F(ArmVIXLAssemblerTest, VixlJniHelpers) {
   __ DecreaseFrameSize(4096);
   __ DecreaseFrameSize(32);
   __ RemoveFrame(frame_size, callee_save_regs, /* may_suspend= */ true);
+
+  __ Bind(exception_slow_path.get());
+  __ DeliverPendingException();
 
   EmitAndCheck("VixlJniHelpers", VixlJniHelpersResults);
 }

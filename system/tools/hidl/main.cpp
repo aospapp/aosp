@@ -553,62 +553,6 @@ status_t isOdmPackage(const FQName& fqName, const Coordinator* coordinator, bool
     return hasVariantFile(fqName, coordinator, ".hidl_for_odm", isOdm);
 }
 
-static status_t generateAdapterMainSource(const FQName& packageFQName,
-                                          const Coordinator* coordinator,
-                                          const FileGenerator::GetFormatter& getFormatter) {
-    std::vector<FQName> packageInterfaces;
-    status_t err =
-        coordinator->appendPackageInterfacesToVector(packageFQName,
-                                                     &packageInterfaces);
-    if (err != OK) {
-        return err;
-    }
-
-    // b/146223994: parse all interfaces
-    // - causes files to get read (filling out dep file)
-    // - avoid creating successful output for broken files
-    for (const FQName& fqName : packageInterfaces) {
-        AST* ast = coordinator->parse(fqName);
-        if (ast == nullptr) {
-            fprintf(stderr, "ERROR: Could not parse %s. Aborting.\n", fqName.string().c_str());
-            return UNKNOWN_ERROR;
-        }
-    }
-
-    Formatter out = getFormatter();
-    if (!out.isValid()) {
-        return UNKNOWN_ERROR;
-    }
-
-    out << "#include <hidladapter/HidlBinderAdapter.h>\n";
-
-    for (auto &interface : packageInterfaces) {
-        if (interface.name() == "types") {
-            continue;
-        }
-        AST::generateCppPackageInclude(out, interface, interface.getInterfaceAdapterName());
-    }
-
-    out << "int main(int argc, char** argv) ";
-    out.block([&] {
-        out << "return ::android::hardware::adapterMain<\n";
-        out.indent();
-        for (auto &interface : packageInterfaces) {
-            if (interface.name() == "types") {
-                continue;
-            }
-            out << interface.getInterfaceAdapterFqName().cppName();
-
-            if (&interface != &packageInterfaces.back()) {
-                out << ",\n";
-            }
-        }
-        out << ">(\"" << packageFQName.string() << "\", argc, argv);\n";
-        out.unindent();
-    }).endl();
-    return OK;
-}
-
 static status_t generateAndroidBpForPackage(const FQName& packageFQName,
                                             const Coordinator* coordinator,
                                             const FileGenerator::GetFormatter& getFormatter) {
@@ -1112,26 +1056,6 @@ static const std::vector<FileGenerator> kCppImplSourceFormats = {
     },
 };
 
-static const std::vector<FileGenerator> kCppAdapterHeaderFormats = {
-    {
-        FileGenerator::alwaysGenerate,
-        [](const FQName& fqName) {
-            return fqName.isInterfaceName() ? fqName.getInterfaceAdapterName() + ".h" : "Atypes.h";
-        },
-        astGenerationFunction(&AST::generateCppAdapterHeader),
-    },
-};
-
-static const std::vector<FileGenerator> kCppAdapterSourceFormats = {
-    {
-        FileGenerator::alwaysGenerate,
-        [](const FQName& fqName) {
-            return fqName.isInterfaceName() ? fqName.getInterfaceAdapterName() + ".cpp" : "Atypes.cpp";
-        },
-        astGenerationFunction(&AST::generateCppAdapterSource),
-    },
-};
-
 static const std::vector<OutputHandler> kFormats = {
     {
         "check",
@@ -1212,42 +1136,6 @@ static const std::vector<OutputHandler> kFormats = {
         kCppImplSourceFormats,
     },
     {
-        "c++-adapter",
-        "Takes a x.(y+n) interface and mocks an x.y interface.",
-        OutputMode::NEEDS_DIR,
-        Coordinator::Location::GEN_OUTPUT,
-        GenerationGranularity::PER_FILE,
-        validateForSource,
-        kCppAdapterHeaderFormats + kCppAdapterSourceFormats,
-    },
-    {
-        "c++-adapter-headers",
-        "c++-adapter but helper headers only.",
-        OutputMode::NEEDS_DIR,
-        Coordinator::Location::GEN_OUTPUT,
-        GenerationGranularity::PER_FILE,
-        validateForSource,
-        kCppAdapterHeaderFormats,
-    },
-    {
-        "c++-adapter-sources",
-        "c++-adapter but helper sources only.",
-        OutputMode::NEEDS_DIR,
-        Coordinator::Location::GEN_OUTPUT,
-        GenerationGranularity::PER_FILE,
-        validateForSource,
-        kCppAdapterSourceFormats,
-    },
-    {
-        "c++-adapter-main",
-        "c++-adapter but the adapter binary source only.",
-        OutputMode::NEEDS_DIR,
-        Coordinator::Location::DIRECT,
-        GenerationGranularity::PER_PACKAGE,
-        validateIsPackage,
-        {singleFileGenerator("main.cpp", generateAdapterMainSource)},
-    },
-    {
         "java",
         "(internal) Generates Java library for talking to HIDL interfaces in Java.",
         OutputMode::NEEDS_DIR,
@@ -1319,7 +1207,7 @@ static const std::vector<OutputHandler> kFormats = {
     },
     {
         "androidbp",
-        "(internal) Generates Soong bp files for -Lc++-headers, -Lc++-sources, -Ljava, -Ljava-constants, and -Lc++-adapter.",
+        "(internal) Generates Soong bp files for -Lc++-headers, -Lc++-sources, -Ljava, and -Ljava-constants",
         OutputMode::NEEDS_SRC,
         Coordinator::Location::PACKAGE_ROOT,
         GenerationGranularity::PER_PACKAGE,

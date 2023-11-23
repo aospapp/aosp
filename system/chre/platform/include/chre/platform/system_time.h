@@ -54,6 +54,14 @@ class SystemTime {
    * @return The current estimated offset in nanoseconds.
    */
   static int64_t getEstimatedHostTimeOffset();
+
+  /**
+   * Sets the estimated offset between the host and CHRE time. The offset can
+   * be queried using the 'SystemTime::getEstimatedHostTimeOffset' method.
+   *
+   * @param offset Time offset (Host time - CHRE time)
+   */
+  static void setEstimatedHostTimeOffset(int64_t offset);
 };
 
 }  // namespace chre

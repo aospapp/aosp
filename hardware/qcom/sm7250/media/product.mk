@@ -1,6 +1,6 @@
 MSM_VIDC_TARGET_LIST := kona lito bengal
 
-ifeq ($(call is-board-platform-in-list, $(QCOM_BOARD_PLATFORMS)),true)
+ifneq (,$(call is-board-platform-in-list2, $(QCOM_BOARD_PLATFORMS)))
 
 #MM_CORE
 MM_CORE := libmm-omxcore
@@ -10,7 +10,7 @@ PRODUCT_PACKAGES += $(MM_CORE)
 
 endif
 
-ifeq ($(call is-board-platform-in-list, $(MSM_VIDC_TARGET_LIST)), true)
+ifneq (,$(call is-board-platform-in-list2, $(MSM_VIDC_TARGET_LIST)))
 
 MM_VIDEO := ExoplayerDemo
 MM_VIDEO += libc2dcolorconvert

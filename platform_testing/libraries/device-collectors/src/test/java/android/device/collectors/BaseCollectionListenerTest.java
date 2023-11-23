@@ -77,7 +77,7 @@ public class BaseCollectionListenerTest {
         b.putString(BaseCollectionListener.COLLECT_PER_RUN, "true");
         mListener = initListener(b);
 
-        mListener.onTestRunStart(mListener.createDataRecord(), FAKE_DESCRIPTION);
+        mListener.testRunStarted(FAKE_DESCRIPTION);
         verify(helper, times(1)).startCollecting();
         mListener.onTestStart(mListener.createDataRecord(), FAKE_TEST_DESCRIPTION);
         verify(helper, times(1)).startCollecting();
@@ -97,7 +97,7 @@ public class BaseCollectionListenerTest {
         b.putString(BaseCollectionListener.COLLECT_PER_RUN, "false");
         mListener = initListener(b);
 
-        mListener.onTestRunStart(mListener.createDataRecord(), FAKE_DESCRIPTION);
+        mListener.testRunStarted(FAKE_DESCRIPTION);
 
         verify(helper, times(0)).startCollecting();
         mListener.onTestStart(mListener.createDataRecord(), FAKE_TEST_DESCRIPTION);
@@ -123,7 +123,7 @@ public class BaseCollectionListenerTest {
         Bundle b = new Bundle();
         mListener = initListener(b);
 
-        mListener.onTestRunStart(mListener.createDataRecord(), FAKE_DESCRIPTION);
+        mListener.testRunStarted(FAKE_DESCRIPTION);
         verify(helper, times(0)).startCollecting();
         mListener.onTestStart(mListener.createDataRecord(), FAKE_TEST_DESCRIPTION);
         verify(helper, times(1)).startCollecting();
@@ -148,7 +148,7 @@ public class BaseCollectionListenerTest {
         b.putString(BaseCollectionListener.SKIP_TEST_FAILURE_METRICS, "false");
         mListener = initListener(b);
 
-        mListener.onTestRunStart(mListener.createDataRecord(), FAKE_DESCRIPTION);
+        mListener.testRunStarted(FAKE_DESCRIPTION);
         verify(helper, times(0)).startCollecting();
         mListener.testStarted(FAKE_TEST_DESCRIPTION);
         verify(helper, times(1)).startCollecting();
@@ -169,7 +169,7 @@ public class BaseCollectionListenerTest {
         b.putString(BaseCollectionListener.COLLECT_PER_RUN, "false");
         mListener = initListener(b);
 
-        mListener.onTestRunStart(mListener.createDataRecord(), FAKE_DESCRIPTION);
+        mListener.testRunStarted(FAKE_DESCRIPTION);
         verify(helper, times(0)).startCollecting();
         mListener.testStarted(FAKE_TEST_DESCRIPTION);
         verify(helper, times(1)).startCollecting();
@@ -193,7 +193,7 @@ public class BaseCollectionListenerTest {
         b.putString(BaseCollectionListener.SKIP_TEST_FAILURE_METRICS, "true");
         mListener = initListener(b);
 
-        mListener.onTestRunStart(mListener.createDataRecord(), FAKE_DESCRIPTION);
+        mListener.testRunStarted(FAKE_DESCRIPTION);
         verify(helper, times(0)).startCollecting();
         mListener.testStarted(FAKE_TEST_DESCRIPTION);
         verify(helper, times(1)).startCollecting();
@@ -217,7 +217,7 @@ public class BaseCollectionListenerTest {
         b.putString(BaseCollectionListener.SKIP_TEST_FAILURE_METRICS, "true");
         mListener = initListener(b);
 
-        mListener.onTestRunStart(mListener.createDataRecord(), FAKE_DESCRIPTION);
+        mListener.testRunStarted(FAKE_DESCRIPTION);
         verify(helper, times(0)).startCollecting();
         mListener.testStarted(FAKE_TEST_DESCRIPTION);
         verify(helper, times(1)).startCollecting();

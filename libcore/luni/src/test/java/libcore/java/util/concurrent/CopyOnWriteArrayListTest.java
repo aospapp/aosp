@@ -285,7 +285,7 @@ public final class CopyOnWriteArrayListTest extends TestCase {
     public void testDoesNotRetainToArray() {
         String[] strings = { "a", "b", "c" };
         List<String> asList = Arrays.asList(strings);
-        assertEquals(String[].class, asList.toArray().getClass());
+
         CopyOnWriteArrayList<Object> objects = new CopyOnWriteArrayList<Object>(asList);
         objects.add(Boolean.TRUE);
     }
@@ -433,5 +433,31 @@ public final class CopyOnWriteArrayListTest extends TestCase {
             fail();
         } catch (NullPointerException expected) {
         }
+    }
+
+    public void test_get_returnType() {
+        List<TestBase> input = new ArrayList();
+        input.add(new TestBase());
+        input.add(new TestDerived());
+        List<TestBase> l = new CopyOnWriteArrayList(input);
+
+        assertEquals(TestBase.class, l.get(0).getClass());
+        assertEquals(TestDerived.class, l.get(1).getClass());
+    }
+
+    public void test_toArray_returnType() {
+        List<TestBase> input = new ArrayList();
+        input.add(new TestBase());
+        input.add(new TestDerived());
+        List<TestBase> l = new CopyOnWriteArrayList(input);
+
+        assertEquals(Object[].class, l.toArray().getClass());
+    }
+
+
+    private static class TestBase {
+    }
+
+    private static class TestDerived extends TestBase {
     }
 }

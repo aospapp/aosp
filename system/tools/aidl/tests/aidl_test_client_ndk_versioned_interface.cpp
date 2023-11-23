@@ -64,8 +64,12 @@ TEST_F(VersionedInterfaceTest, arrayOfParcelableWithNewField) {
 
 TEST_F(VersionedInterfaceTest, readDataCorrectlyAfterParcelableWithNewField) {
   Foo inFoo, inoutFoo, outFoo;
+  inoutFoo.intDefault42 = 0;
+  outFoo.intDefault42 = 0;
   int32_t ret;
   auto status = versioned->ignoreParcelablesAndRepeatInt(inFoo, &inoutFoo, &outFoo, 43, &ret);
   EXPECT_TRUE(status.isOk()) << status.getDescription();
   EXPECT_EQ(43, ret);
+  EXPECT_EQ(0, inoutFoo.intDefault42);
+  EXPECT_EQ(0, outFoo.intDefault42);
 }

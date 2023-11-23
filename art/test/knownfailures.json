@@ -6,6 +6,12 @@
         "bug": "http://b/33389022"
     },
     {
+        "tests": "304-method-tracing",
+        "description": ["Disable 304-method-tracing temporarily until a fix",
+                        "arrives."],
+        "bug": "http://b/203253172"
+    },
+    {
         "tests": "132-daemon-locks-shutdown",
         "description": ["This test seems to fail occasionally on redefine-stress for unknown reasons without stack-traces"],
         "variant": "redefine-stress",
@@ -369,10 +375,10 @@
     },
     {
         "tests": ["530-checker-lse",
-                  "530-checker-lse2",
                   "030-bad-finalizer",
                   "080-oom-throw",
-                  "1336-short-finalizer-timeout"],
+                  "1336-short-finalizer-timeout",
+                  "2041-bad-cleaner"],
         "bug": "http://b/36377828",
         "variant": "interp-ac"
     },
@@ -443,6 +449,7 @@
             ".*var-handle.*",
             "160-read-barrier-stress",
             "716-jli-jit-samples",
+            "1002-notify-startup",
             "1975-hello-structural-transformation",
             "1976-hello-structural-static-methods",
             "1985-structural-redefine-stack-scope",
@@ -519,7 +526,8 @@
             "607-daemon-stress",
             "602-deoptimizeable",
             "121-simple-suspend-check",
-            "083-compiler-regressions"
+            "083-compiler-regressions",
+            "830-goto-zero"
         ],
         "description": ["Tests that have failed on redefine stress for unknown reasons"],
         "bug": "b/73177368",
@@ -564,6 +572,7 @@
             "691-hiddenapi-proxy",
             "692-vdex-inmem-loader",
             "693-vdex-inmem-loader-evict",
+            "817-hiddenapi",
             "944-transform-classloaders",
             "999-redefine-hiddenapi",
             "2038-hiddenapi-jvmti-ext"
@@ -712,6 +721,17 @@
         "tests": ["059-finalizer-throw", "063-process-manager"],
         "description": [ "Tests that take too long on target with gcstress and debug" ],
         "variant": "gcstress & target & debug"
+    },
+    {
+        "tests": ["2040-huge-native-alloc"],
+        "variant": "debuggable | gcstress | interpreter | interp-ac | trace",
+        "bug": "b/190148586",
+        "description": [ "Checks exact GC timing; fails for many variants that alter that dramatically." ]
+    },
+    {
+        "tests": ["2040-huge-native-alloc"],
+        "env_vars": {"SANITIZE_HOST": "address"},
+        "description": [ "Depends on other native allocated memory, probably confused by shadow memory." ]
     },
     {
         "tests": ["905-object-free"],
@@ -923,7 +943,7 @@
           "574-irreducible-and-constant-area",
           "575-checker-string-init-alias",
           "580-checker-string-fact-intrinsics",
-          "580-fp16",
+          "580-checker-fp16",
           "585-inline-unresolved",
           "586-checker-null-array-get",
           "587-inline-class-error",
@@ -1038,7 +1058,6 @@
           "954-invoke-polymorphic-verifier",
           "955-methodhandles-smali",
           "956-methodhandles",
-          "957-methodhandle-transforms",
           "958-methodhandle-stackframe",
           "972-default-imt-collision",
           "972-iface-super-multidex",
@@ -1070,6 +1089,7 @@
           "1945-proxy-method-arguments",
           "1946-list-descriptors",
           "1947-breakpoint-redefine-deopt",
+          "2041-bad-cleaner",
           "2230-profile-save-hotness"
         ],
         "variant": "jvm",
@@ -1142,7 +1162,12 @@
                   "820-vdex-multidex",
                   "821-many-args",
                   "822-hiddenapi-future",
+                  "827-resolve-method",
+                  "830-goto-zero",
                   "831-unverified-bcp",
+                  "831-unresolved-field",
+                  "833-background-verification",
+                  "836-32768classes",
                   "999-redefine-hiddenapi",
                   "1000-non-moving-space-stress",
                   "1001-app-image-regions",
@@ -1191,7 +1216,9 @@
                   "2033-shutdown-mechanics",
                   "2035-structural-native-method",
                   "2036-structural-subclass-shadow",
-                  "2038-hiddenapi-jvmti-ext"],
+                  "2038-hiddenapi-jvmti-ext",
+                  "2040-huge-native-alloc",
+                  "2238-checker-polymorphic-recursive-inlining"],
         "variant": "jvm",
         "description": ["Doesn't run on RI."]
     },
@@ -1231,7 +1258,7 @@
         "description" : ["Gcstress requires the ability to open at least one file which means this test fails when it runs out."]
     },
     {
-        "tests": ["530-checker-lse2", "141-class-unload", "071-dexfile"],
+        "tests": ["141-class-unload", "071-dexfile"],
         "variant": "gcstress",
         "bug": "b/111543628",
         "description" : ["Test seems to timeout when run with gcstress due to slower unwinding by libbacktrace"]
@@ -1418,5 +1445,57 @@
         "variant": "host",
         "bug": "b/176786675",
         "description": ["Out of memory"]
+    },
+    {
+        "tests": ["2235-JdkUnsafeTest",
+                  "2236-JdkUnsafeGetLong-regression",
+                  "2239-varhandle-perf"],
+        "variant": "jvm",
+        "bug": "b/195387473",
+        "description": ["Depends on using language level 11."]
+    },
+    {
+        "tests": ["727-checker-unresolved-class"],
+        "description": ["The run-test-jar script does not support *-bcpex.jar for RI."],
+        "bug": "b/203171409",
+        "variant": "jvm"
+    },
+    {
+        "tests": ["004-ReferenceMap"],
+        "variant": "redefine-stress & jit",
+        "description": ["Test expects specific dex pcs which breaks with redefine-stress"]
+    },
+    {
+        "tests": ["597-deopt-invoke-stub"],
+        "variant": "redefine-stress & jit | jvmti-stress & jit",
+        "description": ["Test expects few methods to be interpreted but jvmti enables",
+                        "jit-on-first-use which breaks this expectation"]
+    },
+    {
+        "tests": ["667-jit-jni-stub"],
+        "variant": "jit-on-first-use | redefine-stress",
+        "description": ["jit-on-first-use disables jit GC but this test requires jit GC"]
+    },
+    {
+        "tests": ["445-checker-licm",
+                  "449-checker-bce",
+                  "455-checker-gvn",
+                  "530-checker-lse",
+                  "530-checker-peel-unroll",
+                  "552-checker-sharpening",
+                  "577-checker-fp2int",
+                  "580-checker-string-fact-intrinsics",
+                  "603-checker-instanceof",
+                  "623-checker-loop-regressions",
+                  "639-checker-code-sinking",
+                  "640-checker-integer-valueof"],
+        "variant": "optimizing & no-image",
+        "description": ["Expected failures when compiling without a boot image"]
+    },
+    {
+        "tests": ["719-varhandle-concurrency"],
+        "variant": "target & ndebug & 64",
+        "bug": "b/224733324",
+        "description": ["segfault in VarHandle::GetMethodTypeMatchForAccessMode"]
     }
 ]

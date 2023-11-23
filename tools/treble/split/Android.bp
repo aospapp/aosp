@@ -87,9 +87,6 @@ python_test_host {
         "xml_diff.py",
         "xml_diff_test.py",
     ],
-    libs: [
-        "py-mock",
-    ],
     test_config: "test.xml",
     test_suites: ["general-tests"],
 }

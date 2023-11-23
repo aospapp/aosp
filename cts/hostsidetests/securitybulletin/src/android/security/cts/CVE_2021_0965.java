@@ -16,18 +16,20 @@
 
 package android.security.cts;
 
-import static org.junit.Assert.assertFalse;
+
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.AsbSecurityTest;
+
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
-import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
+import com.android.sts.common.tradefed.testtype.StsExtraBusinessLogicHostTestBase;
+
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import java.util.regex.Pattern;
 
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class CVE_2021_0965 extends BaseHostJUnit4Test {
+public class CVE_2021_0965 extends StsExtraBusinessLogicHostTestBase {
     private static final String TEST_PKG = "android.security.cts.CVE_2021_0965";
     private static final String TEST_CLASS = TEST_PKG + "." + "DeviceTest";
     private static final String TEST_APP = "CVE-2021-0965.apk";
@@ -45,10 +47,6 @@ public class CVE_2021_0965 extends BaseHostJUnit4Test {
     @Test
     public void testPocCVE_2021_0965() throws Exception {
         installPackage(TEST_APP, new String[0]);
-        runDeviceTests(TEST_PKG, TEST_CLASS, "testPermission");
-        String errorLog = "Vulnerable to b/194300867 !!";
-        String logcat = AdbUtils.runCommandLine("logcat -d AndroidRuntime:E *:S", getDevice());
-        Pattern pattern = Pattern.compile(errorLog, Pattern.MULTILINE);
-        assertFalse(pattern.matcher(logcat).find());
+        Assert.assertTrue(runDeviceTests(TEST_PKG, TEST_CLASS, "testPermission"));
     }
 }

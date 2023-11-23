@@ -51,9 +51,9 @@ class SensorEventTest(its_base_test.ItsBaseTest):
       for key, existing in sensors.items():
         # Vibrator does not return any sensor event. b/142653973
         if existing and key != 'vibrator':
-          e_msg = 'Sensor %s has no events!' % key
           # Check len(events[key]) > 0
-          assert events[key], e_msg
+          if not events[key]:
+            raise AssertionError(f'Sensor {key} has no events!')
 
 
 if __name__ == '__main__':

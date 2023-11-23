@@ -19,6 +19,7 @@ import logging
 import math
 import os
 import re
+import shutil
 import socket
 import time
 from builtins import open
@@ -60,8 +61,10 @@ CRASH_REPORT_PATHS = ("/data/tombstones/", "/data/vendor/ramdump/",
                       "/data/vendor/ramdump/bluetooth", "/data/vendor/log/cbd")
 CRASH_REPORT_SKIPS = ("RAMDUMP_RESERVED", "RAMDUMP_STATUS", "RAMDUMP_OUTPUT",
                       "bluetooth")
+ALWAYS_ON_LOG_PATH = "/data/vendor/radio/logs/always-on"
 DEFAULT_QXDM_LOG_PATH = "/data/vendor/radio/diag_logs"
 DEFAULT_SDM_LOG_PATH = "/data/vendor/slog/"
+DEFAULT_SCREENSHOT_PATH = "/sdcard/Pictures/screencap"
 BUG_REPORT_TIMEOUT = 1800
 PULL_TIMEOUT = 300
 PORT_RETRY_COUNT = 3
@@ -428,7 +431,7 @@ class AndroidDevice:
         self.skip_sl4a = False
         self.crash_report = None
         self.data_accounting = collections.defaultdict(int)
-        self._sl4a_manager = sl4a_manager.Sl4aManager(self.adb)
+        self._sl4a_manager = sl4a_manager.create_sl4a_manager(self.adb)
         self.last_logcat_timestamp = None
         # Device info cache.
         self._user_added_device_info = {}
@@ -444,6 +447,34 @@ class AndroidDevice:
         self._services.clear()
         if self._ssh_connection:
             self._ssh_connection.close()
+
+    def recreate_services(self, serial):
+        """Clean up the AndroidDevice object and re-create adb/sl4a services.
+
+        Unregister the existing services and re-create adb and sl4a services,
+        call this method when the connection break after certain API call
+        (e.g., enable USB tethering by #startTethering)
+
+        Args:
+            serial: the serial number of the AndroidDevice
+        """
+        # Clean the old services
+        for service in self._services:
+            service.unregister()
+        self._services.clear()
+        if self._ssh_connection:
+            self._ssh_connection.close()
+        self._sl4a_manager.stop_service()
+
+        # Wait for old services to stop
+        time.sleep(5)
+
+        # Re-create the new adb and sl4a services
+        self.register_service(services.AdbLogcatService(self))
+        self.register_service(services.Sl4aService(self))
+        self.adb.wait_for_device()
+        self.terminate_all_sessions()
+        self.start_services()
 
     def register_service(self, service):
         """Registers the service on the device. """
@@ -734,11 +765,11 @@ class AndroidDevice:
                 except (IndexError, ValueError) as e:
                     # Possible ValueError from string to int cast.
                     # Possible IndexError from split.
-                    self.log.warn(
+                    self.log.warning(
                         'Command \"%s\" returned output line: '
                         '\"%s\".\nError: %s', cmd, out, e)
             except Exception as e:
-                self.log.warn(
+                self.log.warning(
                     'Device fails to check if %s running with \"%s\"\n'
                     'Exception %s', package_name, cmd, e)
         self.log.debug("apk %s is not running", package_name)
@@ -900,7 +931,7 @@ class AndroidDevice:
         save the logcat in a file.
         """
         if self.is_adb_logcat_on:
-            self.log.warn(
+            self.log.warning(
                 'Android device %s already has a running adb logcat thread. ' %
                 self.serial)
             return
@@ -921,7 +952,7 @@ class AndroidDevice:
         """Stops the adb logcat collection subprocess.
         """
         if not self.is_adb_logcat_on:
-            self.log.warn(
+            self.log.warning(
                 'Android device %s does not have an ongoing adb logcat ' %
                 self.serial)
             return
@@ -947,6 +978,29 @@ class AndroidDevice:
             return result.group(1)
         else:
             None
+
+    @record_api_usage
+    def get_apk_version(self, package_name):
+        """Get the version of the given apk.
+
+        Args:
+            package_name: Name of the package, e.g., com.android.phone.
+
+        Returns:
+            Version of the given apk.
+        """
+        try:
+            output = self.adb.shell("dumpsys package %s | grep versionName" %
+                                    package_name)
+            pattern = re.compile(r"versionName=(.+)", re.I)
+            result = pattern.findall(output)
+            if result:
+                return result[0]
+        except Exception as e:
+            self.log.warning("Fail to get the version of package %s: %s",
+                             package_name, e)
+        self.log.debug("apk %s is not found", package_name)
+        return None
 
     def is_apk_installed(self, package_name):
         """Check if the given apk is already installed.
@@ -990,7 +1044,7 @@ class AndroidDevice:
                     self.log.info("apk %s is running", package_name)
                     return True
             except Exception as e:
-                self.log.warn(
+                self.log.warning(
                     "Device fails to check is %s running by %s "
                     "Exception %s", package_name, cmd, e)
                 continue
@@ -1013,21 +1067,15 @@ class AndroidDevice:
             self.adb.shell('am force-stop %s' % package_name,
                            ignore_status=True)
         except Exception as e:
-            self.log.warn("Fail to stop package %s: %s", package_name, e)
+            self.log.warning("Fail to stop package %s: %s", package_name, e)
 
-    def stop_sl4a(self):
-        # TODO(markdr): Move this into sl4a_manager.
-        return self.force_stop_apk(SL4A_APK_NAME)
-
-    def start_sl4a(self):
-        self._sl4a_manager.start_sl4a_service()
-
-    def take_bug_report(self, test_name, begin_time):
+    def take_bug_report(self, test_name=None, begin_time=None):
         """Takes a bug report on the device and stores it in a file.
 
         Args:
             test_name: Name of the test case that triggered this bug report.
-            begin_time: Epoch time when the test started.
+            begin_time: Epoch time when the test started. If none is specified,
+                the current time will be used.
         """
         self.adb.wait_for_device(timeout=WAIT_FOR_DEVICE_TIMEOUT)
         new_br = True
@@ -1041,15 +1089,18 @@ class AndroidDevice:
             new_br = False
         br_path = self.device_log_path
         os.makedirs(br_path, exist_ok=True)
+        epoch = begin_time if begin_time else utils.get_current_epoch_time()
         time_stamp = acts_logger.normalize_log_line_timestamp(
-            acts_logger.epoch_to_log_line_timestamp(begin_time))
-        out_name = "AndroidDevice%s_%s" % (
-            self.serial, time_stamp.replace(" ", "_").replace(":", "-"))
+            acts_logger.epoch_to_log_line_timestamp(epoch))
+        out_name = "AndroidDevice%s_%s" % (self.serial, time_stamp)
         out_name = "%s.zip" % out_name if new_br else "%s.txt" % out_name
         full_out_path = os.path.join(br_path, out_name)
         # in case device restarted, wait for adb interface to return
         self.wait_for_boot_completion()
-        self.log.info("Taking bugreport for %s.", test_name)
+        if test_name:
+            self.log.info("Taking bugreport for %s.", test_name)
+        else:
+            self.log.info("Taking bugreport.")
         if new_br:
             out = self.adb.shell("bugreportz", timeout=BUG_REPORT_TIMEOUT)
             if not out.startswith("OK"):
@@ -1061,8 +1112,11 @@ class AndroidDevice:
         else:
             self.adb.bugreport(" > {}".format(full_out_path),
                                timeout=BUG_REPORT_TIMEOUT)
-        self.log.info("Bugreport for %s taken at %s.", test_name,
-                      full_out_path)
+        if test_name:
+            self.log.info("Bugreport for %s taken at %s.", test_name,
+                          full_out_path)
+        else:
+            self.log.info("Bugreport taken at %s.", test_name, full_out_path)
         self.adb.wait_for_device(timeout=WAIT_FOR_DEVICE_TIMEOUT)
 
     def get_file_names(self,
@@ -1153,8 +1207,7 @@ class AndroidDevice:
             if crashes:
                 crash_reports.extend(crashes)
         if crash_reports and log_crash_report:
-            test_name = test_name or time.strftime("%Y-%m-%d-%Y-%H-%M-%S")
-            crash_log_path = os.path.join(self.log_path, test_name,
+            crash_log_path = os.path.join(self.device_log_path,
                                           "Crashes_%s" % self.serial)
             os.makedirs(crash_log_path, exist_ok=True)
             self.pull_files(crash_reports, crash_log_path)
@@ -1172,11 +1225,16 @@ class AndroidDevice:
             qxdm_log_path = os.path.join(self.device_log_path,
                                          "QXDM_%s" % self.serial)
             os.makedirs(qxdm_log_path, exist_ok=True)
+
             self.log.info("Pull QXDM Log %s to %s", qxdm_logs, qxdm_log_path)
             self.pull_files(qxdm_logs, qxdm_log_path)
+
             self.adb.pull("/firmware/image/qdsp6m.qdb %s" % qxdm_log_path,
                           timeout=PULL_TIMEOUT,
                           ignore_status=True)
+            # Zip Folder
+            utils.zip_directory('%s.zip' % qxdm_log_path, qxdm_log_path)
+            shutil.rmtree(qxdm_log_path)
         else:
             self.log.error("Didn't find QXDM logs in %s." % log_path)
         if "Verizon" in self.adb.getprop("gsm.sim.operator.alpha"):
@@ -1194,10 +1252,15 @@ class AndroidDevice:
         """Get sdm logs."""
         # Sleep 10 seconds for the buffered log to be written in sdm log file
         time.sleep(10)
-        log_path = getattr(self, "sdm_log_path", DEFAULT_SDM_LOG_PATH)
-        sdm_logs = self.get_file_names(log_path,
-                                       begin_time=begin_time,
-                                       match_string="*.sdm*")
+        log_paths = [
+            ALWAYS_ON_LOG_PATH,
+            getattr(self, "sdm_log_path", DEFAULT_SDM_LOG_PATH)
+        ]
+        sdm_logs = []
+        for path in log_paths:
+            sdm_logs += self.get_file_names(path,
+                                            begin_time=begin_time,
+                                            match_string="*.sdm*")
         if sdm_logs:
             sdm_log_path = os.path.join(self.device_log_path,
                                         "SDM_%s" % self.serial)
@@ -1457,10 +1520,9 @@ class AndroidDevice:
     def get_my_current_focus_window(self):
         """Get the current focus window on screen"""
         output = self.adb.shell(
-            'dumpsys window displays | grep -E mCurrentFocus',
+            'dumpsys window displays | grep -E mCurrentFocus | grep -v null',
             ignore_status=True)
-        if not output or "not found" in output or "Can't find" in output or (
-                "mCurrentFocus=null" in output):
+        if not output or "not found" in output or "Can't find" in output:
             result = ''
         else:
             result = output.split(' ')[-1].strip("}")
@@ -1534,16 +1596,9 @@ class AndroidDevice:
     @record_api_usage
     def is_screen_lock_enabled(self):
         """Check if screen lock is enabled"""
-        cmd = ("sqlite3 /data/system/locksettings.db .dump"
-               " | grep lockscreen.password_type | grep -v alternate")
+        cmd = ("dumpsys window policy | grep showing=")
         out = self.adb.shell(cmd, ignore_status=True)
-        if "unable to open" in out:
-            self.root_adb()
-            out = self.adb.shell(cmd, ignore_status=True)
-        if ",0,'0'" not in out and out != "":
-            self.log.info("Screen lock is enabled")
-            return True
-        return False
+        return "true" in out
 
     @record_api_usage
     def is_waiting_for_unlock_pin(self):
@@ -1607,6 +1662,23 @@ class AndroidDevice:
                 self.send_keycode_number_pad(number)
             self.send_keycode("ENTER")
             self.send_keycode("BACK")
+
+    @record_api_usage
+    def screenshot(self, name=""):
+        """Take a screenshot on the device.
+
+        Args:
+            name: additional information of screenshot on the file name.
+        """
+        if name:
+            file_name = "%s_%s" % (DEFAULT_SCREENSHOT_PATH, name)
+        file_name = "%s_%s.png" % (file_name, utils.get_current_epoch_time())
+        self.ensure_screen_on()
+        self.log.info("Log screenshot to %s", file_name)
+        try:
+            self.adb.shell("screencap -p %s" % file_name)
+        except:
+            self.log.error("Fail to log screenshot to %s", file_name)
 
     @record_api_usage
     def exit_setup_wizard(self):

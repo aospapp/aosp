@@ -30,6 +30,7 @@
 #include "chre/util/non_copyable.h"
 #include "chre/util/synchronized_memory_pool.h"
 #include "chre/util/system/debug_dump.h"
+#include "chre/util/system/stats_container.h"
 #include "chre/util/unique_ptr.h"
 #include "chre_api/chre/event.h"
 
@@ -73,7 +74,7 @@ class EventLoop : public NonCopyable {
    *        Must not be null.
    * @return true if the given app ID was found and instanceId was populated
    */
-  bool findNanoappInstanceIdByAppId(uint64_t appId, uint32_t *instanceId) const;
+  bool findNanoappInstanceIdByAppId(uint64_t appId, uint16_t *instanceId) const;
 
   /*
    * Checks if the new wakeup buckets need to be pushed to nanoapps because the
@@ -133,7 +134,7 @@ class EventLoop : public NonCopyable {
    *
    * @return true if the nanoapp with the given instance ID was found & unloaded
    */
-  bool unloadNanoapp(uint32_t instanceId, bool allowSystemNanoappUnload);
+  bool unloadNanoapp(uint16_t instanceId, bool allowSystemNanoappUnload);
 
   /**
    * Executes the loop that blocks on the event queue and delivers received
@@ -172,7 +173,7 @@ class EventLoop : public NonCopyable {
    */
   void postEventOrDie(uint16_t eventType, void *eventData,
                       chreEventCompleteFunction *freeCallback,
-                      uint32_t targetInstanceId = kBroadcastInstanceId,
+                      uint16_t targetInstanceId = kBroadcastInstanceId,
                       uint16_t targetGroupMask = kDefaultTargetGroupMask);
 
   /**
@@ -199,8 +200,8 @@ class EventLoop : public NonCopyable {
   bool postLowPriorityEventOrFree(
       uint16_t eventType, void *eventData,
       chreEventCompleteFunction *freeCallback,
-      uint32_t senderInstanceId = kSystemInstanceId,
-      uint32_t targetInstanceId = kBroadcastInstanceId,
+      uint16_t senderInstanceId = kSystemInstanceId,
+      uint16_t targetInstanceId = kBroadcastInstanceId,
       uint16_t targetGroupMask = kDefaultTargetGroupMask);
 
   /**
@@ -267,7 +268,7 @@ class EventLoop : public NonCopyable {
    * @param instanceId The nanoapp instance ID to search for.
    * @return a pointer to the found nanoapp or nullptr if no match was found.
    */
-  Nanoapp *findNanoappByInstanceId(uint32_t instanceId) const;
+  Nanoapp *findNanoappByInstanceId(uint16_t instanceId) const;
 
   /**
    * Looks for an app with the given ID and if found, populates info with its
@@ -284,7 +285,7 @@ class EventLoop : public NonCopyable {
    *
    * @see chreGetNanoappInfoByInstanceId
    */
-  bool populateNanoappInfoForInstanceId(uint32_t instanceId,
+  bool populateNanoappInfoForInstanceId(uint16_t instanceId,
                                         struct chreNanoappInfo *info) const;
 
   /**
@@ -308,6 +309,18 @@ class EventLoop : public NonCopyable {
    */
   PowerControlManager &getPowerControlManager() {
     return mPowerControlManager;
+  }
+
+  inline uint32_t getMaxEventQueueSize() const {
+    return mEventPoolUsage.getMax();
+  }
+
+  inline uint32_t getMeanEventQueueSize() const {
+    return mEventPoolUsage.getMean();
+  }
+
+  inline uint32_t getNumEventsDropped() const {
+    return mNumDroppedLowPriEvents;
   }
 
  private:
@@ -365,8 +378,11 @@ class EventLoop : public NonCopyable {
   //! The object which manages power related controls.
   PowerControlManager mPowerControlManager;
 
-  //! The maximum number of events ever waiting in the event pool.
-  size_t mMaxEventPoolUsage = 0;
+  //! The stats collection used to collect event pool usage
+  StatsContainer<uint32_t> mEventPoolUsage;
+
+  //! The number of events dropped due to capacity limits
+  uint32_t mNumDroppedLowPriEvents = 0;
 
   /**
    * Modifies the run loop state so it no longer iterates on new events. This
@@ -384,26 +400,14 @@ class EventLoop : public NonCopyable {
    */
   bool allocateAndPostEvent(uint16_t eventType, void *eventData,
                             chreEventCompleteFunction *freeCallback,
-                            uint32_t senderInstanceId,
-                            uint32_t targetInstanceId,
+                            uint16_t senderInstanceId,
+                            uint16_t targetInstanceId,
                             uint16_t targetGroupMask);
 
   /**
-   * Do one round of Nanoapp event delivery, only considering events in
-   * Nanoapps' own queues (not mEvents).
-   *
-   * @return true if there are more events pending in Nanoapps' own queues
+   * Delivers the next event pending to the Nanoapp.
    */
-  bool deliverEvents();
-
-  /**
-   * Delivers the next event pending in the Nanoapp's queue, and takes care of
-   * freeing events once they have been delivered to all nanoapps. Must only be
-   * called after confirming that the app has at least 1 pending event.
-   *
-   * @return true if the nanoapp has another event pending in its queue
-   */
-  bool deliverNextEvent(const UniquePtr<Nanoapp> &app);
+  void deliverNextEvent(const UniquePtr<Nanoapp> &app, Event *event);
 
   /**
    * Given an event pulled from the main incoming event queue (mEvents), deliver
@@ -422,11 +426,6 @@ class EventLoop : public NonCopyable {
    * long as postEvent() will accept them.
    */
   void flushInboundEventQueue();
-
-  /**
-   * Delivers events pending in Nanoapps' own queues until they are all empty.
-   */
-  void flushNanoappEventQueues();
 
   /**
    * Call after when an Event has been delivered to all intended recipients.
@@ -457,7 +456,7 @@ class EventLoop : public NonCopyable {
    * @param instanceId Nanoapp instance identifier
    * @return Nanoapp with the given instanceId, or nullptr if not found
    */
-  Nanoapp *lookupAppByInstanceId(uint32_t instanceId) const;
+  Nanoapp *lookupAppByInstanceId(uint16_t instanceId) const;
 
   /**
    * Sends an event with payload struct chreNanoappInfo populated from the given
@@ -478,6 +477,14 @@ class EventLoop : public NonCopyable {
    * nanoapp's own memory (even if there is no free callback).
    */
   void unloadNanoappAtIndex(size_t index);
+
+  /**
+   * Logs dangling resources when a nanoapp is unloaded.
+   *
+   * @param name The name of the resource.
+   * @param count The number of dangling resources.
+   */
+  void logDanglingResources(const char *name, uint32_t count);
 };
 
 }  // namespace chre

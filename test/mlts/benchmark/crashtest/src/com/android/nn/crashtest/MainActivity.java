@@ -275,12 +275,16 @@ public class MainActivity extends AppCompatActivity {
         final String acceleratorName = mAcceleratorName.get();
         final boolean mmapModel = mMmapModel.isChecked();
         final boolean runModelCompilationOnly = mCompileModelsOnly.isChecked();
+        final boolean useNnapiSl = NNTestBase.shouldUseNnApiSupportLibrary();
+        final boolean extractNnapiSl = NNTestBase.shouldExtractNnApiSupportLibrary();
         coordinator.startTest(RunModelsInParallel.class,
-                RunModelsInParallel.intentInitializer(testList, threadCount,
-                        Duration.ofMinutes(testDurationMinutes),
-                        testName, acceleratorName, false, runModelCompilationOnly, mmapModel),
-                testCompletionListener,
-                mUseSeparateProcess.get(), testName);
+            RunModelsInParallel.intentInitializer(testList, threadCount,
+                Duration.ofMinutes(testDurationMinutes),
+                testName, acceleratorName, false,
+                runModelCompilationOnly, mmapModel, TestModels.getModelFilterRegex(), useNnapiSl,
+                extractNnapiSl),
+            testCompletionListener,
+            mUseSeparateProcess.get(), testName);
 
         mMessage.setText(
                 String.format(

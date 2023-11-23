@@ -24,7 +24,7 @@
 
 namespace android::net {
 
-typedef std::map<uint32_t, UidRanges> UidRangeMap;
+typedef std::map<int32_t, UidRanges> UidRangeMap;
 
 // A Network represents a collection of interfaces participating as a single administrative unit.
 class Network {
@@ -47,11 +47,11 @@ public:
 
     std::string toString() const;
     std::string uidRangesToString() const;
-    bool appliesToUser(uid_t uid, uint32_t* subPriority) const;
-    [[nodiscard]] virtual int addUsers(const UidRanges&, uint32_t /*subPriority*/) {
+    bool appliesToUser(uid_t uid, int32_t* subPriority) const;
+    [[nodiscard]] virtual int addUsers(const UidRanges&, int32_t /*subPriority*/) {
         return -EINVAL;
     };
-    [[nodiscard]] virtual int removeUsers(const UidRanges&, uint32_t /*subPriority*/) {
+    [[nodiscard]] virtual int removeUsers(const UidRanges&, int32_t /*subPriority*/) {
         return -EINVAL;
     };
     bool isSecure() const;
@@ -59,18 +59,18 @@ public:
     virtual bool isUnreachable() { return false; }
     virtual bool isVirtual() { return false; }
     virtual bool canAddUsers() { return false; }
-    virtual bool isValidSubPriority(uint32_t /*priority*/) { return false; }
-    virtual void addToUidRangeMap(const UidRanges& uidRanges, uint32_t subPriority);
-    virtual void removeFromUidRangeMap(const UidRanges& uidRanges, uint32_t subPriority);
+    virtual bool isValidSubPriority(int32_t /*priority*/) { return false; }
+    virtual void addToUidRangeMap(const UidRanges& uidRanges, int32_t subPriority);
+    virtual void removeFromUidRangeMap(const UidRanges& uidRanges, int32_t subPriority);
 
 protected:
-    explicit Network(unsigned netId, bool mSecure = false);
-    bool canAddUidRanges(const UidRanges& uidRanges, uint32_t subPriority) const;
+    explicit Network(unsigned netId, bool secure = false);
+    bool canAddUidRanges(const UidRanges& uidRanges, int32_t subPriority) const;
 
     const unsigned mNetId;
     std::set<std::string> mInterfaces;
     // Each subsidiary priority maps to a set of UID ranges of a feature.
-    std::map<uint32_t, UidRanges> mUidRangeMap;
+    std::map<int32_t, UidRanges> mUidRangeMap;
     const bool mSecure;
 
 private:

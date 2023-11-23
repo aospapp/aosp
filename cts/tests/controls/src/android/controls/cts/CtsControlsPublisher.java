@@ -38,7 +38,7 @@ public class CtsControlsPublisher implements Publisher<Control> {
         }
     }
 
-    public void subscribe​(Subscriber<? super Control> subscriber) {
+    public void subscribe(Subscriber<? super Control> subscriber) {
         mSubscriber = subscriber;
         mSubscriber.onSubscribe(new Subscription() {
                 public void request(long n) {

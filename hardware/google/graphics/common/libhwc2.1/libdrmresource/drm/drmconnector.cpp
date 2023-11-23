@@ -20,6 +20,7 @@
 #include "drmdevice.h"
 
 #include <errno.h>
+#include <inttypes.h>
 #include <stdint.h>
 
 #include <array>
@@ -107,8 +108,15 @@ int DrmConnector::Init() {
     ALOGE("Could not get hdr_formats property\n");
   }
 
-  ret = drm_->GetConnectorProperty(*this, "lp_mode", &lp_mode_);
+  ret = drm_->GetConnectorProperty(*this, "panel orientation", &orientation_);
   if (ret) {
+    ALOGE("Could not get orientation property\n");
+  }
+
+  ret = drm_->GetConnectorProperty(*this, "lp_mode", &lp_mode_property_);
+  if (!ret) {
+      UpdateLpMode();
+  } else {
       ALOGE("Could not get lp_mode property\n");
   }
 
@@ -137,9 +145,14 @@ int DrmConnector::Init() {
       ALOGE("Could not get local_hbm_mode property\n");
   }
 
-  ret = drm_->GetConnectorProperty(*this, "sync_rr_switch", &sync_rr_switch_);
+  ret = drm_->GetConnectorProperty(*this, "mipi_sync", &mipi_sync_);
   if (ret) {
-      ALOGE("Could not get sync_rr_switch property\n");
+      ALOGE("Could not get mipi_sync property\n");
+  }
+
+  ret = drm_->GetConnectorProperty(*this, "panel_idle_support", &panel_idle_support_);
+  if (ret) {
+      ALOGE("Could not get panel_idle_support property\n");
   }
 
   properties_.push_back(&dpms_property_);
@@ -154,13 +167,15 @@ int DrmConnector::Init() {
   properties_.push_back(&max_avg_luminance_);
   properties_.push_back(&min_luminance_);
   properties_.push_back(&hdr_formats_);
-  properties_.push_back(&lp_mode_);
+  properties_.push_back(&orientation_);
+  properties_.push_back(&lp_mode_property_);
   properties_.push_back(&brightness_cap_);
   properties_.push_back(&brightness_level_);
   properties_.push_back(&hbm_mode_);
   properties_.push_back(&dimming_on_);
   properties_.push_back(&lhbm_on_);
-  properties_.push_back(&sync_rr_switch_);
+  properties_.push_back(&mipi_sync_);
+  properties_.push_back(&panel_idle_support_);
 
   return 0;
 }
@@ -323,16 +338,57 @@ const DrmProperty &DrmConnector::lhbm_on() const {
     return lhbm_on_;
 }
 
-const DrmProperty &DrmConnector::sync_rr_switch() const {
-    return sync_rr_switch_;
+const DrmProperty &DrmConnector::mipi_sync() const {
+    return mipi_sync_;
 }
 
 const DrmProperty &DrmConnector::hdr_formats() const {
   return hdr_formats_;
 }
 
-const DrmProperty &DrmConnector::lp_mode() const {
+const DrmProperty &DrmConnector::orientation() const {
+  return orientation_;
+}
+
+const DrmMode &DrmConnector::lp_mode() const {
     return lp_mode_;
+}
+
+int DrmConnector::UpdateLpMode() {
+    auto [ret, blobId] = lp_mode_property_.value();
+    if (ret) {
+        ALOGE("Fail to get blob id for lp mode");
+        return ret;
+    }
+    drmModePropertyBlobPtr blob = drmModeGetPropertyBlob(drm_->fd(), blobId);
+    if (!blob) {
+        ALOGE("Fail to get blob for lp mode(%" PRId64 ")", blobId);
+        return -ENOENT;
+    }
+
+    auto modeInfoPtr = static_cast<drmModeModeInfoPtr>(blob->data);
+    lp_mode_ = DrmMode(modeInfoPtr);
+    drmModeFreePropertyBlob(blob);
+
+    ALOGD("Updating LP mode to: %s", lp_mode_.name().c_str());
+
+    return 0;
+}
+
+int DrmConnector::ResetLpMode() {
+    int ret = drm_->UpdateConnectorProperty(*this, &lp_mode_property_);
+
+    if (ret) {
+        return ret;
+    }
+
+    UpdateLpMode();
+
+    return 0;
+}
+
+const DrmProperty &DrmConnector::panel_idle_support() const {
+    return panel_idle_support_;
 }
 
 DrmEncoder *DrmConnector::encoder() const {

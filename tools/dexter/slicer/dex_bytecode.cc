@@ -15,10 +15,12 @@
  */
 
 #include "slicer/dex_bytecode.h"
+
 #include "slicer/common.h"
 
-#include <assert.h>
 #include <array>
+#include <iomanip>
+#include <sstream>
 
 namespace dex {
 
@@ -244,7 +246,7 @@ Instruction DecodeInstruction(const u2* bytecode) {
       switch (dec.vA) {
         case 5:
           // A fifth arg is verboten for inline invokes
-          SLICER_CHECK(format != k35mi);
+          SLICER_CHECK_NE(format, k35mi);
 
           // Per note at the top of this format decoder, the
           // fifth argument comes from the A field in the
@@ -302,8 +304,33 @@ Instruction DecodeInstruction(const u2* bytecode) {
       dec.vB_wide = FetchU8(bytecode + 1);
       return dec;
   }
-  SLICER_FATAL("Can't decode unexpected format 0x%02x (op=0x%02x)", format,
-               opcode);
+
+  std::stringstream ss;
+  ss << "Can't decode unexpected format " << format << " for " << opcode;
+  SLICER_FATAL(ss.str());
+}
+
+static inline std::string HexByte(int value) {
+  std::stringstream ss;
+  ss << "0x" << std::setw(2) << std::setfill('0') << std::hex << value;
+  return ss.str();
+}
+
+std::ostream& operator<<(std::ostream& os, Opcode opcode) {
+  return os << "[" << HexByte(opcode) << "] " << gOpcodeNames[opcode];
+}
+
+std::ostream& operator<<(std::ostream& os, InstructionFormat format) {
+  switch (format) {
+  #define EMIT_INSTRUCTION_FORMAT_NAME(name) \
+    case InstructionFormat::k##name: return os << #name;
+  #include "export/slicer/dex_instruction_list.h"
+  DEX_INSTRUCTION_FORMAT_LIST(EMIT_INSTRUCTION_FORMAT_NAME)
+  #undef EMIT_INSTRUCTION_FORMAT_NAME
+  #undef DEX_INSTRUCTION_FORMAT_LIST
+  #undef DEX_INSTRUCTION_LIST
+  }
+  return os << "[" << HexByte(format) << "] " << "Unknown";
 }
 
 }  // namespace dex

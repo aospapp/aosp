@@ -437,6 +437,34 @@ public class LayerTests extends ActivityTestBase {
 
     @LargeTest
     @Test
+    public void testWebViewNoOverlappingRenderingAndAlpha() {
+        // Turn off overlapping rendering and apply an alpha. The current behavior is
+        // technically wrong - the alpha is ignored. But the only straightforward way to respect it
+        // would be to promote to a layer, which defeats the purpose of using
+        // forceHasOverlappingRendering, which is to skip promoting to a layer for speed.
+        // If we do ever respect the alpha, the verifier will need to be updated. In the meantime,
+        // this test verifies that we do not crash.
+        if (!getActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_WEBVIEW)) {
+            return; // no WebView to run test on
+        }
+        CountDownLatch hwFence = new CountDownLatch(1);
+        createTest()
+                .addLayout(R.layout.frame_layout_webview, (ViewInitializer) view -> {
+                    FrameLayout layout = view.requireViewById(R.id.frame_layout);
+                    layout.forceHasOverlappingRendering(false);
+                    layout.setAlpha(.5f);
+
+                    WebView webview = view.requireViewById(R.id.webview);
+                    WebViewReadyHelper helper = new WebViewReadyHelper(webview, hwFence);
+                    helper.loadData("<body style=\"background-color:blue\">");
+                }, true, hwFence)
+                // See comments above. This verifies the current behavior, but more importantly,
+                // verifies that this does not crash.
+                .runWithVerifier(new ColorVerifier(Color.BLUE));
+    }
+
+    @LargeTest
+    @Test
     public void testWebViewWithParentLayer() {
         if (!getActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_WEBVIEW)) {
             return; // no WebView to run test on

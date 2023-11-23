@@ -216,8 +216,10 @@ static void DumpUnwindingResult(const UnwindingResult& result, FILE* fp) {
 class SampleUnwinder : public RecordFileProcessor {
  public:
   SampleUnwinder(const std::string& output_filename,
-                 const std::unordered_set<uint64_t>& sample_times)
-      : RecordFileProcessor(output_filename, false), sample_times_(sample_times) {}
+                 const std::unordered_set<uint64_t>& sample_times, bool skip_sample_print)
+      : RecordFileProcessor(output_filename, false),
+        sample_times_(sample_times),
+        skip_sample_print_(skip_sample_print) {}
 
  protected:
   bool CheckRecordCmd(const std::string& record_cmd) override {
@@ -231,8 +233,6 @@ class SampleUnwinder : public RecordFileProcessor {
   }
 
   bool Process() override {
-    recording_file_dso_ = Dso::CreateDso(DSO_ELF_FILE, record_filename_);
-
     if (!GetMemStat(&stat_.mem_before_unwinding)) {
       return false;
     }
@@ -248,6 +248,7 @@ class SampleUnwinder : public RecordFileProcessor {
   }
 
   bool ProcessRecord(std::unique_ptr<Record> r) {
+    UpdateRecord(r.get());
     thread_tree_.Update(*r);
     if (r->type() == SIMPLE_PERF_RECORD_UNWINDING_RESULT) {
       last_unwinding_result_.reset(static_cast<UnwindingResultRecord*>(r.release()));
@@ -271,70 +272,84 @@ class SampleUnwinder : public RecordFileProcessor {
     return true;
   }
 
+  void UpdateRecord(Record* record) {
+    if (record->type() == PERF_RECORD_MMAP) {
+      UpdateMmapRecordForEmbeddedFiles(*static_cast<MmapRecord*>(record));
+    } else if (record->type() == PERF_RECORD_MMAP2) {
+      UpdateMmapRecordForEmbeddedFiles(*static_cast<Mmap2Record*>(record));
+    }
+  }
+
+  template <typename MmapRecordType>
+  void UpdateMmapRecordForEmbeddedFiles(MmapRecordType& record) {
+    // Modify mmap records to point to files stored in DEBUG_UNWIND_FILE feature section.
+    std::string filename = record.filename;
+    if (auto it = debug_unwind_files_.find(filename); it != debug_unwind_files_.end()) {
+      auto data = *record.data;
+      uint64_t old_pgoff = data.pgoff;
+      if (JITDebugReader::IsPathInJITSymFile(filename)) {
+        data.pgoff = it->second.offset;
+      } else {
+        data.pgoff += it->second.offset;
+      }
+      debug_unwind_dsos_[data.pgoff] =
+          std::make_pair(thread_tree_.FindUserDsoOrNew(filename), old_pgoff);
+      record.SetDataAndFilename(data, record_filename_);
+    }
+  }
+
   bool UnwindRecord(const SampleRecord& r, const PerfSampleRegsUserType& regs,
                     const PerfSampleStackUserType& stack) {
     ThreadEntry* thread = thread_tree_.FindThreadOrNew(r.tid_data.pid, r.tid_data.tid);
-    ThreadEntry thread_with_new_maps = CreateThreadWithUpdatedMaps(*thread);
 
     RegSet reg_set(regs.abi, regs.reg_mask, regs.regs);
     std::vector<uint64_t> ips;
     std::vector<uint64_t> sps;
-    if (!unwinder_->UnwindCallChain(thread_with_new_maps, reg_set, stack.data, stack.size, &ips,
-                                    &sps)) {
+    if (!unwinder_->UnwindCallChain(*thread, reg_set, stack.data, stack.size, &ips, &sps)) {
       return false;
     }
     stat_.AddUnwindingResult(unwinder_->GetUnwindingResult());
 
-    // Print unwinding result.
-    fprintf(out_fp_, "sample_time: %" PRIu64 "\n", r.Timestamp());
-    DumpUnwindingResult(unwinder_->GetUnwindingResult(), out_fp_);
-    std::vector<CallChainReportEntry> entries = callchain_report_builder_.Build(thread, ips, 0);
-    for (size_t i = 0; i < entries.size(); i++) {
-      size_t id = i + 1;
-      const auto& entry = entries[i];
-      fprintf(out_fp_, "ip_%zu: 0x%" PRIx64 "\n", id, entry.ip);
-      fprintf(out_fp_, "sp_%zu: 0x%" PRIx64 "\n", id, sps[i]);
-      fprintf(out_fp_, "map_%zu: [0x%" PRIx64 "-0x%" PRIx64 "], pgoff 0x%" PRIx64 "\n", id,
-              entry.map->start_addr, entry.map->get_end_addr(), entry.map->pgoff);
-      fprintf(out_fp_, "dso_%zu: %s\n", id, entry.map->dso->Path().c_str());
-      fprintf(out_fp_, "vaddr_in_file_%zu: 0x%" PRIx64 "\n", id, entry.vaddr_in_file);
-      fprintf(out_fp_, "symbol_%zu: %s\n", id, entry.symbol->DemangledName());
-    }
-    fprintf(out_fp_, "\n");
-    return true;
-  }
+    if (!skip_sample_print_) {
+      // Print unwinding result.
+      fprintf(out_fp_, "sample_time: %" PRIu64 "\n", r.Timestamp());
+      DumpUnwindingResult(unwinder_->GetUnwindingResult(), out_fp_);
+      std::vector<CallChainReportEntry> entries = callchain_report_builder_.Build(thread, ips, 0);
+      for (size_t i = 0; i < entries.size(); i++) {
+        size_t id = i + 1;
+        auto& entry = entries[i];
+        fprintf(out_fp_, "ip_%zu: 0x%" PRIx64 "\n", id, entry.ip);
+        fprintf(out_fp_, "sp_%zu: 0x%" PRIx64 "\n", id, sps[i]);
 
-  // To use files stored in DEBUG_UNWIND_FILE feature section, create maps mapping to them.
-  ThreadEntry CreateThreadWithUpdatedMaps(const ThreadEntry& thread) {
-    ThreadEntry new_thread = thread;
-    new_thread.maps.reset(new MapSet);
-    new_thread.maps->version = thread.maps->version;
-    for (auto& p : thread.maps->maps) {
-      const MapEntry* old_map = p.second;
-      MapEntry* map = nullptr;
-      const std::string& path = old_map->dso->Path();
-      if (auto it = debug_unwind_files_.find(path); it != debug_unwind_files_.end()) {
-        map_storage_.emplace_back(new MapEntry);
-        map = map_storage_.back().get();
-        *map = *old_map;
-        map->dso = recording_file_dso_.get();
-        if (JITDebugReader::IsPathInJITSymFile(old_map->dso->Path())) {
-          map->pgoff = it->second.offset;
-        } else {
-          map->pgoff += it->second.offset;
+        Dso* dso = entry.map->dso;
+        uint64_t pgoff = entry.map->pgoff;
+        if (dso->Path() == record_filename_) {
+          auto it = debug_unwind_dsos_.find(entry.map->pgoff);
+          CHECK(it != debug_unwind_dsos_.end());
+          const auto& p = it->second;
+          dso = p.first;
+          pgoff = p.second;
+          if (!JITDebugReader::IsPathInJITSymFile(dso->Path())) {
+            entry.vaddr_in_file = dso->IpToVaddrInFile(entry.ip, entry.map->start_addr, pgoff);
+          }
+          entry.symbol = dso->FindSymbol(entry.vaddr_in_file);
         }
-      } else {
-        map = const_cast<MapEntry*>(p.second);
+        fprintf(out_fp_, "map_%zu: [0x%" PRIx64 "-0x%" PRIx64 "], pgoff 0x%" PRIx64 "\n", id,
+                entry.map->start_addr, entry.map->get_end_addr(), pgoff);
+        fprintf(out_fp_, "dso_%zu: %s\n", id, dso->Path().c_str());
+        fprintf(out_fp_, "vaddr_in_file_%zu: 0x%" PRIx64 "\n", id, entry.vaddr_in_file);
+        fprintf(out_fp_, "symbol_%zu: %s\n", id, entry.symbol->DemangledName());
       }
-      new_thread.maps->maps[p.first] = map;
+      fprintf(out_fp_, "\n");
     }
-    return new_thread;
+    return true;
   }
 
  private:
   const std::unordered_set<uint64_t> sample_times_;
-  std::unique_ptr<Dso> recording_file_dso_;
-  std::vector<std::unique_ptr<MapEntry>> map_storage_;
+  bool skip_sample_print_;
+  // Map from offset in recording file to the corresponding debug_unwind_file.
+  std::unordered_map<uint64_t, std::pair<Dso*, uint64_t>> debug_unwind_dsos_;
   UnwindingStat stat_;
   std::unique_ptr<UnwindingResultRecord> last_unwinding_result_;
 };
@@ -389,17 +404,13 @@ class TestFileGenerator : public RecordFileProcessor {
       auto attr = reader_->AttrSection()[0].attr;
       auto event_id = reader_->AttrSection()[0].ids[0];
 
-      size_t kernel_ip_count;
-      std::vector<uint64_t> ips = r.GetCallChain(&kernel_ip_count);
-      for (size_t i = kernel_ip_count; i < ips.size(); i++) {
-        const MapEntry* map = thread_tree_.FindMap(thread, ips[i], false);
-        if (!thread_tree_.IsUnknownDso(map->dso)) {
-          Mmap2Record map_record(*attr, false, r.tid_data.pid, r.tid_data.tid, map->start_addr,
-                                 map->len, map->pgoff, map->flags, map->dso->Path(), event_id,
-                                 r.Timestamp());
-          if (!writer_->WriteRecord(map_record)) {
-            return false;
-          }
+      for (const auto& p : thread->maps->maps) {
+        const MapEntry* map = p.second;
+        Mmap2Record map_record(*attr, false, r.tid_data.pid, r.tid_data.tid, map->start_addr,
+                               map->len, map->pgoff, map->flags, map->dso->Path(), event_id,
+                               r.Timestamp());
+        if (!writer_->WriteRecord(map_record)) {
+          return false;
         }
       }
     }
@@ -432,7 +443,8 @@ class TestFileGenerator : public RecordFileProcessor {
         if (!writer_->WriteDebugUnwindFeature(feature)) {
           return false;
         }
-      } else if (feat_type == PerfFileFormat::FEAT_FILE) {
+      } else if (feat_type == PerfFileFormat::FEAT_FILE ||
+                 feat_type == PerfFileFormat::FEAT_FILE2) {
         size_t read_pos = 0;
         FileFeature file_feature;
         while (reader_->ReadFileFeature(read_pos, &file_feature)) {
@@ -598,6 +610,7 @@ class DebugUnwindCommand : public Command {
 "--sample-time time1,time2...      Only process samples recorded at selected times.\n"
 "--symfs <dir>                     Look for files with symbols relative to this directory.\n"
 "--unwind-sample                   Unwind samples.\n"
+"--skip-sample-print               Skip printing unwound samples.\n"
 "\n"
 "Examples:\n"
 "1. Unwind a sample.\n"
@@ -622,6 +635,7 @@ class DebugUnwindCommand : public Command {
   std::string input_filename_ = "perf.data";
   std::string output_filename_;
   bool unwind_sample_ = false;
+  bool skip_sample_print_ = false;
   bool generate_report_ = false;
   bool generate_test_file_;
   std::unordered_set<std::string> kept_binaries_in_test_file_;
@@ -636,7 +650,7 @@ bool DebugUnwindCommand::Run(const std::vector<std::string>& args) {
 
   // 2. Distribute sub commands.
   if (unwind_sample_) {
-    SampleUnwinder sample_unwinder(output_filename_, sample_times_);
+    SampleUnwinder sample_unwinder(output_filename_, sample_times_, skip_sample_print_);
     return sample_unwinder.ProcessFile(input_filename_);
   }
   if (generate_test_file_) {
@@ -659,6 +673,7 @@ bool DebugUnwindCommand::ParseOptions(const std::vector<std::string>& args) {
       {"--keep-binaries-in-test-file", {OptionValueType::STRING, OptionType::MULTIPLE}},
       {"-o", {OptionValueType::STRING, OptionType::SINGLE}},
       {"--sample-time", {OptionValueType::STRING, OptionType::MULTIPLE}},
+      {"--skip-sample-print", {OptionValueType::NONE, OptionType::SINGLE}},
       {"--symfs", {OptionValueType::STRING, OptionType::MULTIPLE}},
       {"--unwind-sample", {OptionValueType::NONE, OptionType::SINGLE}},
   };
@@ -674,6 +689,7 @@ bool DebugUnwindCommand::ParseOptions(const std::vector<std::string>& args) {
     std::vector<std::string> binaries = android::base::Split(*value.str_value, ",");
     kept_binaries_in_test_file_.insert(binaries.begin(), binaries.end());
   }
+  skip_sample_print_ = options.PullBoolValue("--skip-sample-print");
   options.PullStringValue("-o", &output_filename_);
   for (auto& value : options.PullValues("--sample-time")) {
     auto times = ParseUintVector<uint64_t>(*value.str_value);

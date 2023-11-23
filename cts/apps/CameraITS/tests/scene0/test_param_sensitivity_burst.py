@@ -46,7 +46,8 @@ class ParamSensitivityBurstTest(its_base_test.ItsBaseTest):
       sens_step = (sens_range[1] - sens_range[0]) // NUM_STEPS
       sens_list = range(sens_range[0], sens_range[1], sens_step)
       exp = min(props['android.sensor.info.exposureTimeRange'])
-      assert exp != 0
+      if exp == 0:
+        raise AssertionError('Minimum exposure time is 0')
       reqs = [
           capture_request_utils.manual_capture_request(s, exp)
           for s in sens_list
@@ -56,11 +57,10 @@ class ParamSensitivityBurstTest(its_base_test.ItsBaseTest):
       caps = cam.do_capture(reqs, fmt)
       for i, cap in enumerate(caps):
         s_req = sens_list[i]
-        s_res = cap['metadata']['android.sensor.sensitivity']
-        msg = 's_write: %d, s_read: %d, TOL: %.2f' % (s_req, s_res,
-                                                      ERROR_TOLERANCE)
-        assert s_req >= s_res, msg
-        assert s_res / float(s_req) > ERROR_TOLERANCE, msg
+        s_cap = cap['metadata']['android.sensor.sensitivity']
+        if (s_req < s_cap or s_cap / float(s_req) < ERROR_TOLERANCE):
+          raise AssertionError(f's_request: {s_req}, s_capture: {s_cap}, '
+                               f'TOL: {ERROR_TOLERANCE:.2f}')
 
 
 if __name__ == '__main__':

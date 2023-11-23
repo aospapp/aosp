@@ -194,7 +194,6 @@ class VdexFile {
                                                  const std::string& vdex_filename,
                                                  bool writable,
                                                  bool low_4gb,
-                                                 bool unquicken,
                                                  std::string* error_msg);
 
   // Returns nullptr if the vdex file cannot be opened or is not valid.
@@ -207,14 +206,12 @@ class VdexFile {
                                                  const std::string& vdex_filename,
                                                  bool writable,
                                                  bool low_4gb,
-                                                 bool unquicken,
                                                  std::string* error_msg);
 
   // Returns nullptr if the vdex file cannot be opened or is not valid.
   static std::unique_ptr<VdexFile> Open(const std::string& vdex_filename,
                                         bool writable,
                                         bool low_4gb,
-                                        bool unquicken,
                                         std::string* error_msg) {
     return OpenAtAddress(nullptr,
                          0,
@@ -222,7 +219,6 @@ class VdexFile {
                          vdex_filename,
                          writable,
                          low_4gb,
-                         unquicken,
                          error_msg);
   }
 
@@ -232,7 +228,6 @@ class VdexFile {
                                         const std::string& vdex_filename,
                                         bool writable,
                                         bool low_4gb,
-                                        bool unquicken,
                                         std::string* error_msg) {
     return OpenAtAddress(nullptr,
                          0,
@@ -242,9 +237,11 @@ class VdexFile {
                          vdex_filename,
                          writable,
                          low_4gb,
-                         unquicken,
                          error_msg);
   }
+
+  static std::unique_ptr<VdexFile> OpenFromDm(const std::string& filename,
+                                              const ZipArchive& archive);
 
   const uint8_t* Begin() const { return mmap_.Begin(); }
   const uint8_t* End() const { return mmap_.End(); }

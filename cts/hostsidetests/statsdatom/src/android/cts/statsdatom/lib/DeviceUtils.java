@@ -374,6 +374,24 @@ public final class DeviceUtils {
         return device.executeShellCommand("getprop " + prop).replace("\n", "");
     }
 
+    public static String getDeviceConfigFeature(ITestDevice device, String namespace,
+            String key) throws Exception {
+        return device.executeShellCommand(
+                "device_config get " + namespace + " " + key).replace("\n", "");
+    }
+
+    public static String putDeviceConfigFeature(ITestDevice device, String namespace,
+            String key, String value) throws Exception {
+        return device.executeShellCommand(
+                "device_config put " + namespace + " " + key + " " + value).replace("\n", "");
+    }
+
+    public static String deleteDeviceConfigFeature(ITestDevice device, String namespace,
+            String key) throws Exception {
+        return device.executeShellCommand(
+                "device_config delete " + namespace + " " + key).replace("\n", "");
+    }
+
     public static boolean isDebuggable(ITestDevice device) throws Exception {
         return Integer.parseInt(getProperty(device, "ro.debuggable")) == 1;
     }

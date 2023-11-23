@@ -18,6 +18,8 @@ package android.permission3.cts
 
 import android.app.Activity
 import androidx.test.runner.AndroidJUnit4
+import com.android.modules.utils.build.SdkLevel
+import org.junit.Assume
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -25,6 +27,7 @@ import org.junit.runner.RunWith
 class NoPermissionTest : BaseUsePermissionTest() {
     @Test
     fun testStartActivity22() {
+        Assume.assumeFalse(SdkLevel.isAtLeastT())
         installPackage(APP_APK_PATH_22_NONE)
 
         startAppActivityAndAssertResultCode(Activity.RESULT_OK) {}

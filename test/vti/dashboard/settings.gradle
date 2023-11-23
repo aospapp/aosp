@@ -1,6 +1,0 @@
-rootProject.name = 'vts-dashboard'
-
-ext {
-    deployTarget = "test"
-    loggingProperty = "WEB-INF/logging.properties"
-}

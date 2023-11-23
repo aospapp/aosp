@@ -43,7 +43,8 @@ typedef enum {
     WIFI_RTT_BW_20  = 0x04,
     WIFI_RTT_BW_40  = 0x08,
     WIFI_RTT_BW_80  = 0x10,
-    WIFI_RTT_BW_160 = 0x20
+    WIFI_RTT_BW_160 = 0x20,
+    WIFI_RTT_BW_320 = 0x40
 } wifi_rtt_bw;
 
 /* RTT Measurement Preamble */
@@ -51,7 +52,8 @@ typedef enum {
     WIFI_RTT_PREAMBLE_LEGACY = 0x1,
     WIFI_RTT_PREAMBLE_HT     = 0x2,
     WIFI_RTT_PREAMBLE_VHT    = 0x4,
-    WIFI_RTT_PREAMBLE_HE     = 0x8
+    WIFI_RTT_PREAMBLE_HE     = 0x8,
+    WIFI_RTT_PREAMBLE_EHT    = 0x10,
 } wifi_rtt_preamble;
 
 /* RTT Type */
@@ -186,6 +188,7 @@ wifi_error wifi_rtt_channel_map_clear(wifi_request_id id,  wifi_interface_handle
 #define PREAMBLE_HT     0x2
 #define PREAMBLE_VHT    0x4
 #define PREAMBLE_HE     0x8
+#define PREAMBLE_EHT    0x10
 
 // BW definition for bit mask used in wifi_rtt_capabilities
 #define BW_5_SUPPORT   0x1
@@ -194,6 +197,7 @@ wifi_error wifi_rtt_channel_map_clear(wifi_request_id id,  wifi_interface_handle
 #define BW_40_SUPPORT  0x8
 #define BW_80_SUPPORT  0x10
 #define BW_160_SUPPORT 0x20
+#define BW_320_SUPPORT 0x40
 
 /* RTT Capabilities */
 typedef struct {

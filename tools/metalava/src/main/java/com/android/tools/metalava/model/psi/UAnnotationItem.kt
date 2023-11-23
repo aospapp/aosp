@@ -16,7 +16,7 @@
 
 package com.android.tools.metalava.model.psi
 
-import com.android.SdkConstants
+import com.android.SdkConstants.ATTR_VALUE
 import com.android.tools.lint.detector.api.ConstantEvaluator
 import com.android.tools.metalava.model.AnnotationArrayAttributeValue
 import com.android.tools.metalava.model.AnnotationAttribute
@@ -38,22 +38,20 @@ import org.jetbrains.kotlin.asJava.elements.KtLightNullabilityAnnotation
 import org.jetbrains.uast.UAnnotation
 import org.jetbrains.uast.UBinaryExpression
 import org.jetbrains.uast.UCallExpression
+import org.jetbrains.uast.UClassLiteralExpression
 import org.jetbrains.uast.UElement
 import org.jetbrains.uast.UExpression
 import org.jetbrains.uast.ULiteralExpression
+import org.jetbrains.uast.UQualifiedReferenceExpression
 import org.jetbrains.uast.UReferenceExpression
 import org.jetbrains.uast.util.isArrayInitializer
 
 class UAnnotationItem private constructor(
     override val codebase: PsiBasedCodebase,
     val uAnnotation: UAnnotation,
-    private val originalName: String?
+    override val originalName: String?
 ) : DefaultAnnotationItem(codebase) {
-    private val qualifiedName = AnnotationItem.mapName(codebase, originalName)
-
-    private var attributes: List<AnnotationAttribute>? = null
-
-    override fun originalName(): String? = originalName
+    override val qualifiedName: String? = AnnotationItem.mapName(codebase, originalName)
 
     override fun toString(): String = toSource()
 
@@ -77,37 +75,14 @@ class UAnnotationItem private constructor(
         return super.isNonNull()
     }
 
-    override fun qualifiedName() = qualifiedName
-
-    override fun attributes(): List<AnnotationAttribute> {
-        if (attributes == null) {
-            val uAttributes = uAnnotation.attributeValues
-            attributes = if (uAttributes.isEmpty()) {
-                emptyList()
-            } else {
-                val list = mutableListOf<AnnotationAttribute>()
-                for (parameter in uAttributes) {
-                    list.add(
-                        UAnnotationAttribute(
-                            codebase,
-                            parameter.name ?: SdkConstants.ATTR_VALUE, parameter.expression
-                        )
-                    )
-                }
-                list
-            }
-        }
-
-        return attributes!!
+    override val attributes: List<UAnnotationAttribute> by lazy {
+        uAnnotation.attributeValues.map { attribute ->
+            UAnnotationAttribute(codebase, attribute.name ?: ATTR_VALUE, attribute.expression)
+        }.toList()
     }
 
-    override fun targets(): Set<AnnotationTarget> {
-        if (targets == null) {
-            targets = AnnotationItem.computeTargets(this) { className ->
-                codebase.findOrCreateClass(className)
-            }
-        }
-        return targets!!
+    override val targets: Set<AnnotationTarget> by lazy {
+        AnnotationItem.computeTargets(this, codebase::findOrCreateClass)
     }
 
     companion object {
@@ -120,7 +95,7 @@ class UAnnotationItem private constructor(
         }
 
         private fun getAttributes(annotation: UAnnotation, showDefaultAttrs: Boolean):
-                List<Pair<String?, UExpression?>> {
+            List<Pair<String?, UExpression?>> {
             val annotationClass = annotation.javaPsi?.nameReferenceElement?.resolve() as? PsiClass
             val list = mutableListOf<Pair<String?, UExpression?>>()
             if (annotationClass != null && showDefaultAttrs) {
@@ -157,7 +132,7 @@ class UAnnotationItem private constructor(
             sb.append("@")
             sb.append(qualifiedName)
             sb.append("(")
-            if (attributes.size == 1 && (attributes[0].first == null || attributes[0].first == SdkConstants.ATTR_VALUE)) {
+            if (attributes.size == 1 && (attributes[0].first == null || attributes[0].first == ATTR_VALUE)) {
                 // Special case: omit "value" if it's the only attribute
                 appendValue(codebase, sb, attributes[0].second, target, showDefaultAttrs)
             } else {
@@ -168,7 +143,7 @@ class UAnnotationItem private constructor(
                     } else {
                         sb.append(", ")
                     }
-                    sb.append(attribute.first ?: SdkConstants.ATTR_VALUE)
+                    sb.append(attribute.first ?: ATTR_VALUE)
                     sb.append('=')
                     appendValue(codebase, sb, attribute.second, target, showDefaultAttrs)
                 }
@@ -187,42 +162,21 @@ class UAnnotationItem private constructor(
             // because that may not use fully qualified names, e.g. the source may say
             //  @RequiresPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
             // and we want to compute
-            //  @android.support.annotation.RequiresPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION)
+            //  @androidx.annotation.RequiresPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION)
             when (value) {
                 null -> sb.append("null")
                 is ULiteralExpression -> sb.append(CodePrinter.constantToSource(value.value))
+                is UQualifiedReferenceExpression -> { // the value is a Foo.BAR type of reference.
+                    // expand `Foo` to fully qualified name `com.example.Foo`
+                    appendQualifiedName(codebase, sb, value.receiver as UReferenceExpression)
+                    // append accessor `.`
+                    sb.append(value.accessType.name)
+                    // append `BAR`
+                    sb.append(value.selector.asRenderString())
+                }
                 is UReferenceExpression -> {
-                    when (val resolved = value.resolve()) {
-                        is PsiField -> {
-                            val containing = resolved.containingClass
-                            if (containing != null) {
-                                // If it's a field reference, see if it looks like the field is hidden; if
-                                // so, inline the value
-                                val cls = codebase.findOrCreateClass(containing)
-                                val initializer = resolved.initializer
-                                if (initializer != null) {
-                                    val fieldItem = cls.findField(resolved.name)
-                                    if (fieldItem == null || fieldItem.isHiddenOrRemoved()) {
-                                        // Use the literal value instead
-                                        val source = getConstantSource(initializer)
-                                        if (source != null) {
-                                            sb.append(source)
-                                            return
-                                        }
-                                    }
-                                }
-                                containing.qualifiedName?.let {
-                                    sb.append(it).append('.')
-                                }
-                            }
-
-                            sb.append(resolved.name)
-                        }
-                        is PsiClass -> resolved.qualifiedName?.let { sb.append(it) }
-                        else -> {
-                            sb.append(value.sourcePsi?.text ?: value.asSourceString())
-                        }
-                    }
+                    // expand Foo to fully qualified name com.example.Foo
+                    appendQualifiedName(codebase, sb, value)
                 }
                 is UBinaryExpression -> {
                     appendValue(codebase, sb, value.leftOperand, target, showDefaultAttrs)
@@ -255,6 +209,40 @@ class UAnnotationItem private constructor(
                         sb.append(source)
                         return
                     }
+                    sb.append(value.sourcePsi?.text ?: value.asSourceString())
+                }
+            }
+        }
+
+        private fun appendQualifiedName(codebase: PsiBasedCodebase, sb: StringBuilder, value: UReferenceExpression) {
+            when (val resolved = value.resolve()) {
+                is PsiField -> {
+                    val containing = resolved.containingClass
+                    if (containing != null) {
+                        // If it's a field reference, see if it looks like the field is hidden; if
+                        // so, inline the value
+                        val cls = codebase.findOrCreateClass(containing)
+                        val initializer = resolved.initializer
+                        if (initializer != null) {
+                            val fieldItem = cls.findField(resolved.name)
+                            if (fieldItem == null || fieldItem.isHiddenOrRemoved()) {
+                                // Use the literal value instead
+                                val source = getConstantSource(initializer)
+                                if (source != null) {
+                                    sb.append(source)
+                                    return
+                                }
+                            }
+                        }
+                        containing.qualifiedName?.let {
+                            sb.append(it).append('.')
+                        }
+                    }
+
+                    sb.append(resolved.name)
+                }
+                is PsiClass -> resolved.qualifiedName?.let { sb.append(it) }
+                else -> {
                     sb.append(value.sourcePsi?.text ?: value.asSourceString())
                 }
             }
@@ -318,6 +306,15 @@ class UAnnotationSingleAttributeValue(
             val value = ConstantEvaluator.evaluate(null, psiValue)
             if (value != null) {
                 return value
+            }
+
+            if (psiValue is UClassLiteralExpression) {
+                // The value of a class literal expression like String.class or String::class
+                // is the fully qualified name, java.lang.String
+                val type = psiValue.type
+                if (type != null) {
+                    return type.canonicalText
+                }
             }
 
             return getText(psiValue).removeSurrounding("\"")

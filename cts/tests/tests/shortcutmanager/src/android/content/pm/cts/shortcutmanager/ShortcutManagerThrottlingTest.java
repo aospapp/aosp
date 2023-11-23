@@ -21,10 +21,12 @@ import static android.content.pm.cts.shortcutmanager.common.Constants.INLINE_REP
 import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils.resetAllThrottling;
 import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils.runCommandForNoOutput;
 
+import android.Manifest;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.pm.cts.shortcutmanager.common.Constants;
 import android.content.pm.cts.shortcutmanager.common.ReplyUtil;
+import android.permission.cts.PermissionUtils;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
@@ -64,11 +66,19 @@ public class ShortcutManagerThrottlingTest extends ShortcutManagerCtsTestsBase {
     protected void setUp() throws Exception {
         super.setUp();
 
+        PermissionUtils.grantPermission(TARGET_PACKAGE, Manifest.permission.POST_NOTIFICATIONS);
+
         resetAllThrottling(getInstrumentation());
 
         UiDevice.getInstance(getInstrumentation()).pressHome();
 
         runCommandForNoOutput(getInstrumentation(), "am force-stop " + TARGET_PACKAGE);
+    }
+
+    @Override
+    protected void tearDown() throws Exception {
+        PermissionUtils.revokePermission(TARGET_PACKAGE, Manifest.permission.POST_NOTIFICATIONS);
+        super.tearDown();
     }
 
     public void testSetDynamicShortcuts() throws InterruptedException {

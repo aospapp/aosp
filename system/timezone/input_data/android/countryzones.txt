@@ -25,7 +25,7 @@
 # a time zone for an Android device.
 
 # ianaVersion: The version of the IANA rules this file matches.
-ianaVersion:"2021a"
+ianaVersion:"2022a"
 
 # countries:
 #
@@ -101,16 +101,39 @@ ianaVersion:"2021a"
 
 # TimeZoneMapping:
 #
-# id:
-# The ID of the time zone to use on device. See also aliasId.
+# A TimeZoneMapping maps a time zone to a country / region. It references TZDB
+# time zone IDs via "id" and "alternative_ids".
 #
-# aliasId:
-# (Optional) Used to identify the modern Olson ID when the id property is
-# using an obsoleted time zone ID. A legacy time zone ID may be used on device
-# to avoid problems if the zone ID is widely used. This is intentionally
-# explicit to make it clear the use of an old ID is intentional rather than an
-# accident. The id must also link to the aliasId in IANA's data (see the IANA
-# "backward" file).
+# TZDB's own zone.tab provides a mapping between ISO country codes and time zone
+# IDs, but only lists a subset of time zone IDs known by the TZDB.
+# Some TZDB IDs are not included in zone.tab because they are not regional IDs,
+# and some are not included because they are link for other IDs that are.
+# A TimeZoneMapping is Android's way of associating time zones to
+# regions/country, though because TZDB doesn't currently guarantee an ID is only
+# used in a single region, the mappings here may not satisfy everybody.
+#
+# In the common case, "id" will reference a TZDB ID that can also be found in
+# zone.tab and will map to the same ISO country code. TZDB IDs referenced by
+# alternativeIds will usually not be found in zone.tab, but to "link" IDs in
+# files like "backward" that directly or indirectly link to the same rules as
+# "id" *and* are used in the same country / region.
+#
+# In rare cases, Android may choose to continue using an older ID for the "id",
+# particularly in old Android releases. This is usually because libraries like
+# ICU require a major release update to provide mappings / localized
+# translations for new IDs, and so the new IDs have a worse UX for Android
+# users. In these cases, "id" won't reference the ID used in zone.tab and will
+# reference a link, and the new ID will be in alternativeIds instead.
+#
+# In rare cases, Android and TZDB may not agree on the actual region ID mapped
+# to zones. zone.tab and TZDB links are no longer considered a completely
+# reliable source of region mapping data after version 2021a, see
+# changes proposed to zone.tab in https://mm.icann.org/pipermail/tz/2021-May/030071.html.
+# These changes were reverted, but backward file still has cross-country links
+# and going forward they are unlikely to disappear.
+#
+# id:
+# The ID of the time zone to use on device. See also alternativeIds.
 #
 # utcOffset:
 # The expected non-DST offset for the time zone. Used as a form of
@@ -136,6 +159,14 @@ ianaVersion:"2021a"
 # Often the exact priority assigned doesn't matter and zone priorities are
 # only used when there is otherwise a tie. See comments for each country below
 # for details.
+#
+# alternativeIds:
+# (Optional) Obsolete and equivalent, but not preferred names of the time zone
+# (like Europe/Belfast for Europe/London, America/Godthab for America/Nuuk).
+# The modern Olson ID should be added as alternative to obsolete time zone ID
+# if the latter is widely used.
+# Order does not matter, but keep it alphabetically sorted for easier manual
+# checks / debugging purposes.
 
 # ANDORRA
 countries:<
@@ -287,18 +318,22 @@ countries:<
     id:"America/Argentina/Buenos_Aires"
     # 15.6M
     priority:15600
+    alternativeIds: "America/Buenos_Aires"
   >
   timeZoneMappings:<
     utcOffset:"-3:00"
     id:"America/Argentina/Cordoba"
     # 3.31M
     priority:3310
+    alternativeIds: "America/Cordoba"
+    alternativeIds: "America/Rosario"
   >
   timeZoneMappings:<
     utcOffset:"-3:00"
     id:"America/Argentina/Mendoza"
     # 1.74M
     priority:1740
+    alternativeIds: "America/Mendoza"
   >
   timeZoneMappings:<
     utcOffset:"-3:00"
@@ -323,12 +358,15 @@ countries:<
     id:"America/Argentina/Jujuy"
     # 673K
     priority:673
+    alternativeIds: "America/Jujuy"
   >
   timeZoneMappings:<
     utcOffset:"-3:00"
     id:"America/Argentina/Catamarca"
     # 368K
     priority:368
+    alternativeIds: "America/Argentina/ComodRivadavia"
+    alternativeIds: "America/Catamarca"
   >
   timeZoneMappings:<
     utcOffset:"-3:00"
@@ -362,6 +400,8 @@ countries:<
   timeZoneMappings:<
     utcOffset:"-11:00"
     id:"Pacific/Pago_Pago"
+    alternativeIds: "Pacific/Samoa"
+    alternativeIds: "US/Samoa"
   >
 >
 
@@ -387,24 +427,31 @@ countries:<
     id:"Australia/Sydney"
     # 5.03M
     priority:5030
+    alternativeIds: "Australia/ACT"
+    alternativeIds: "Australia/Canberra"
+    alternativeIds: "Australia/NSW"
   >
   timeZoneMappings:<
     utcOffset:"10:00"
     id:"Australia/Melbourne"
     # 4.73M
     priority:4730
+    alternativeIds: "Australia/Victoria"
   >
   timeZoneMappings:<
     utcOffset:"10:00"
     id:"Australia/Hobart"
     # 224K
     priority:224
+    alternativeIds: "Australia/Currie"
+    alternativeIds: "Australia/Tasmania"
   >
   timeZoneMappings:<
     utcOffset:"10:00"
     id:"Australia/Brisbane"
     # 2.36M
     priority:2360
+    alternativeIds: "Australia/Queensland"
   >
   timeZoneMappings:<
     utcOffset:"10:00"
@@ -425,6 +472,7 @@ countries:<
     id:"Australia/Lord_Howe"
     # < 1K
     priority:1
+    alternativeIds: "Australia/LHI"
   >
 
   timeZoneMappings:<
@@ -432,18 +480,21 @@ countries:<
     id:"Australia/Adelaide"
     # 1.32M
     priority:1320
+    alternativeIds: "Australia/South"
   >
   timeZoneMappings:<
     utcOffset:"9:30"
     id:"Australia/Broken_Hill"
     # 17.8K
     priority:18
+    alternativeIds: "Australia/Yancowinna"
   >
   timeZoneMappings:<
     utcOffset:"9:30"
     id:"Australia/Darwin"
     # 146K
     priority:146
+    alternativeIds: "Australia/North"
   >
 
   timeZoneMappings:<
@@ -451,6 +502,7 @@ countries:<
     id:"Australia/Perth"
     # 2.02M
     priority:2020
+    alternativeIds: "Australia/West"
   >
 
   timeZoneMappings:<
@@ -512,6 +564,7 @@ countries:<
   timeZoneMappings:<
     utcOffset:"6:00"
     id:"Asia/Dhaka"
+    alternativeIds: "Asia/Dacca"
   >
 >
 
@@ -627,6 +680,7 @@ countries:<
     id:"America/Noronha"
     # State: 2.93K
     priority:3
+    alternativeIds: "Brazil/DeNoronha"
   >
 
   timeZoneMappings:<
@@ -634,6 +688,7 @@ countries:<
     id:"America/Sao_Paulo"
     # City: 12.0M, State: 45.3M
     priority:45300
+    alternativeIds: "Brazil/East"
   >
   timeZoneMappings:<
     utcOffset:"-3:00"
@@ -683,6 +738,7 @@ countries:<
     id:"America/Manaus"
     # City: 2.13M, State: 4.00M
     priority:4000
+    alternativeIds: "Brazil/West"
   >
   timeZoneMappings:<
     utcOffset:"-4:00"
@@ -714,6 +770,8 @@ countries:<
     id:"America/Rio_Branco"
     # City: 320K, State: 759K
     priority:759
+    alternativeIds: "America/Porto_Acre"
+    alternativeIds: "Brazil/Acre"
   >
   timeZoneMappings:<
     utcOffset:"-5:00"
@@ -740,6 +798,7 @@ countries:<
   timeZoneMappings:<
     utcOffset:"6:00"
     id:"Asia/Thimphu"
+    alternativeIds: "Asia/Thimbu"
   >
 >
 
@@ -787,36 +846,43 @@ countries:<
     id:"America/Toronto"
     # 5.43M
     priority:5430
+    alternativeIds: "America/Montreal"
+    alternativeIds: "Canada/Eastern"
   >
   timeZoneMappings:<
     utcOffset:"-8:00"
     id:"America/Vancouver"
     # 2.26M
     priority:2260
+    alternativeIds: "Canada/Pacific"
   >
   timeZoneMappings:<
     utcOffset:"-7:00"
     id:"America/Edmonton"
     # 1.06M
     priority:1060
+    alternativeIds: "Canada/Mountain"
   >
   timeZoneMappings:<
     utcOffset:"-6:00"
     id:"America/Winnipeg"
     # 712K
     priority:712
+    alternativeIds: "Canada/Central"
   >
   timeZoneMappings:<
     utcOffset:"-4:00"
     id:"America/Halifax"
     # 316K
     priority:316
+    alternativeIds: "Canada/Atlantic"
   >
   timeZoneMappings:<
     utcOffset:"-3:30"
     id:"America/St_Johns"
     # 109K
     priority:109
+    alternativeIds: "Canada/Newfoundland"
   >
 
   # Other zones are in offset (in July) order.
@@ -875,6 +941,7 @@ countries:<
     id:"America/Atikokan"
     # 2.75K
     priority:3
+    alternativeIds: "America/Coral_Harbour"
   >
 
   timeZoneMappings:<
@@ -882,6 +949,7 @@ countries:<
     id:"America/Regina"
     # 215K
     priority:215
+    alternativeIds: "Canada/Saskatchewan"
   >
   timeZoneMappings:<
     utcOffset:"-6:00"
@@ -955,6 +1023,7 @@ countries:<
     id:"America/Whitehorse"
     # 25.1K
     priority:251
+    alternativeIds: "Canada/Yukon"
   >
 >
 
@@ -1039,11 +1108,13 @@ countries:<
   timeZoneMappings:<
     utcOffset:"-4:00"
     id:"America/Santiago"
+    alternativeIds: "Chile/Continental"
   >
 
   timeZoneMappings:<
     utcOffset:"-6:00"
     id:"Pacific/Easter"
+    alternativeIds: "Chile/EasterIsland"
   >
 >
 
@@ -1068,11 +1139,16 @@ countries:<
   timeZoneMappings:<
     utcOffset:"8:00"
     id:"Asia/Shanghai"
+    alternativeIds: "Asia/Harbin"
+    alternativeIds: "Asia/Chongqing"
+    alternativeIds: "Asia/Chungking"
+    alternativeIds: "PRC"
   >
 
   timeZoneMappings:<
     utcOffset:"6:00"
     id:"Asia/Urumqi"
+    alternativeIds: "Asia/Kashgar"
   >
 >
 
@@ -1100,6 +1176,7 @@ countries:<
   timeZoneMappings:<
     utcOffset:"-5:00"
     id:"America/Havana"
+    alternativeIds: "Cuba"
   >
 >
 
@@ -1253,6 +1330,7 @@ countries:<
   timeZoneMappings:<
     utcOffset:"2:00"
     id:"Africa/Cairo"
+    alternativeIds: "Egypt"
   >
 >
 
@@ -1271,6 +1349,7 @@ countries:<
   timeZoneMappings:<
     utcOffset:"3:00"
     id:"Africa/Asmara"
+    alternativeIds: "Africa/Asmera"
   >
 >
 
@@ -1343,6 +1422,7 @@ countries:<
   timeZoneMappings:<
     utcOffset:"11:00"
     id:"Pacific/Pohnpei"
+    alternativeIds: "Pacific/Ponape"
   >
   timeZoneMappings:<
     utcOffset:"11:00"
@@ -1352,6 +1432,8 @@ countries:<
   timeZoneMappings:<
     utcOffset:"10:00"
     id:"Pacific/Chuuk"
+    alternativeIds: "Pacific/Truk"
+    alternativeIds: "Pacific/Yap"
   >
 >
 
@@ -1361,6 +1443,7 @@ countries:<
   timeZoneMappings:<
     utcOffset:"0:00"
     id:"Atlantic/Faroe"
+    alternativeIds: "Atlantic/Faeroe"
   >
 >
 
@@ -1388,6 +1471,9 @@ countries:<
   timeZoneMappings:<
     utcOffset:"0:00"
     id:"Europe/London"
+    alternativeIds: "Europe/Belfast"
+    alternativeIds: "GB"
+    alternativeIds: "GB-Eire"
   >
 >
 
@@ -1462,6 +1548,7 @@ countries:<
   timeZoneMappings:<
     utcOffset:"-3:00"
     id:"America/Nuuk"
+    alternativeIds: "America/Godthab"
   >
 
   timeZoneMappings:<
@@ -1566,6 +1653,7 @@ countries:<
   timeZoneMappings:<
     utcOffset:"8:00"
     id:"Asia/Hong_Kong"
+    alternativeIds: "Hongkong"
   >
 >
 
@@ -1623,6 +1711,7 @@ countries:<
     utcOffset:"8:00"
     id:"Asia/Makassar"
     priority:1
+    alternativeIds: "Asia/Ujung_Pandang"
   >
 
   timeZoneMappings:<
@@ -1643,6 +1732,7 @@ countries:<
   timeZoneMappings:<
     utcOffset:"0:00"
     id:"Europe/Dublin"
+    alternativeIds: "Eire"
   >
 >
 
@@ -1652,6 +1742,8 @@ countries:<
   timeZoneMappings:<
     utcOffset:"2:00"
     id:"Asia/Jerusalem"
+    alternativeIds: "Asia/Tel_Aviv"
+    alternativeIds: "Israel"
   >
 >
 
@@ -1670,6 +1762,7 @@ countries:<
   timeZoneMappings:<
     utcOffset:"5:30"
     id:"Asia/Kolkata"
+    alternativeIds: "Asia/Calcutta"
   >
 >
 
@@ -1697,6 +1790,7 @@ countries:<
   timeZoneMappings:<
     utcOffset:"3:30"
     id:"Asia/Tehran"
+    alternativeIds: "Iran"
   >
 >
 
@@ -1706,6 +1800,7 @@ countries:<
   timeZoneMappings:<
     utcOffset:"0:00"
     id:"Atlantic/Reykjavik"
+    alternativeIds: "Iceland"
   >
 >
 
@@ -1733,6 +1828,7 @@ countries:<
   timeZoneMappings:<
     utcOffset:"-5:00"
     id:"America/Jamaica"
+    alternativeIds: "Jamaica"
   >
 >
 
@@ -1751,6 +1847,7 @@ countries:<
   timeZoneMappings:<
     utcOffset:"9:00"
     id:"Asia/Tokyo"
+    alternativeIds: "Japan"
   >
 >
 
@@ -1792,7 +1889,10 @@ countries:<
 
   timeZoneMappings:<
     utcOffset:"13:00"
+    # TODO(b/204539416) Switch to Pacific/Kanton when CLDR has exemplar
+    # location translations.
     id:"Pacific/Enderbury"
+    alternativeIds: "Pacific/Kanton"
   >
 
   timeZoneMappings:<
@@ -1834,6 +1934,7 @@ countries:<
   timeZoneMappings:<
     utcOffset:"9:00"
     id:"Asia/Seoul"
+    alternativeIds: "ROK"
   >
 >
 
@@ -1996,6 +2097,7 @@ countries:<
   timeZoneMappings:<
     utcOffset:"2:00"
     id:"Africa/Tripoli"
+    alternativeIds: "Libya"
   >
 >
 
@@ -2023,6 +2125,7 @@ countries:<
   timeZoneMappings:<
     utcOffset:"2:00"
     id:"Europe/Chisinau"
+    alternativeIds: "Europe/Tiraspol"
   >
 >
 
@@ -2069,6 +2172,7 @@ countries:<
     utcOffset:"12:00"
     id:"Pacific/Kwajalein"
     priority:1
+    alternativeIds: "Kwajalein"
   >
 >
 
@@ -2087,6 +2191,7 @@ countries:<
   timeZoneMappings:<
     utcOffset:"0:00"
     id:"Africa/Bamako"
+    alternativeIds: "Africa/Timbuktu"
   >
 >
 
@@ -2096,6 +2201,7 @@ countries:<
   timeZoneMappings:<
     utcOffset:"6:30"
     id:"Asia/Yangon"
+    alternativeIds: "Asia/Rangoon"
   >
 >
 
@@ -2119,6 +2225,7 @@ countries:<
     id:"Asia/Ulaanbaatar"
     # 1.145M
     priority:1145
+    alternativeIds: "Asia/Ulan_Bator"
   >
 
   timeZoneMappings:<
@@ -2135,6 +2242,7 @@ countries:<
   timeZoneMappings:<
     utcOffset:"8:00"
     id:"Asia/Macau"
+    alternativeIds: "Asia/Macao"
   >
 >
 
@@ -2223,6 +2331,7 @@ countries:<
     id:"America/Mexico_City"
     # 8.92M
     priority:8920
+    alternativeIds: "Mexico/General"
   >
   timeZoneMappings:<
     utcOffset:"-6:00"
@@ -2267,6 +2376,7 @@ countries:<
     id:"America/Mazatlan"
     # 658K
     priority:658
+    alternativeIds: "Mexico/BajaSur"
   >
   timeZoneMappings:<
     utcOffset:"-7:00"
@@ -2286,6 +2396,9 @@ countries:<
     id:"America/Tijuana"
     # 1.64M
     priority:1640
+    alternativeIds: "America/Ensenada"
+    alternativeIds: "America/Santa_Isabel"
+    alternativeIds: "Mexico/BajaNorte"
   >
 >
 
@@ -2386,6 +2499,7 @@ countries:<
   timeZoneMappings:<
     utcOffset:"1:00"
     id:"Europe/Oslo"
+    alternativeIds: "Atlantic/Jan_Mayen"
   >
 >
 
@@ -2395,6 +2509,7 @@ countries:<
   timeZoneMappings:<
     utcOffset:"5:45"
     id:"Asia/Kathmandu"
+    alternativeIds: "Asia/Katmandu"
   >
 >
 
@@ -2428,11 +2543,14 @@ countries:<
   timeZoneMappings:<
     utcOffset:"12:00"
     id:"Pacific/Auckland"
+    alternativeIds: "Antarctica/South_Pole"
+    alternativeIds: "NZ"
   >
 
   timeZoneMappings:<
     utcOffset:"12:45"
     id:"Pacific/Chatham"
+    alternativeIds: "NZ-CHAT"
   >
 >
 
@@ -2522,6 +2640,7 @@ countries:<
   timeZoneMappings:<
     utcOffset:"1:00"
     id:"Europe/Warsaw"
+    alternativeIds: "Poland"
   >
 >
 
@@ -2588,6 +2707,7 @@ countries:<
     utcOffset:"0:00"
     id:"Europe/Lisbon"
     priority:2
+    alternativeIds: "Portugal"
   >
   timeZoneMappings:<
     utcOffset:"0:00"
@@ -2811,6 +2931,7 @@ countries:<
     id:"Europe/Moscow"
     # 7.10M
     priority:7100
+    alternativeIds: "W-SU"
   >
   timeZoneMappings:<
     utcOffset:"3:00"
@@ -2892,6 +3013,7 @@ countries:<
   timeZoneMappings:<
     utcOffset:"8:00"
     id:"Asia/Singapore"
+    alternativeIds: "Singapore"
   >
 >
 
@@ -3108,6 +3230,7 @@ countries:<
   timeZoneMappings:<
     utcOffset:"5:00"
     id:"Asia/Ashgabat"
+    alternativeIds: "Asia/Ashkhabad"
   >
 >
 
@@ -3135,6 +3258,7 @@ countries:<
   timeZoneMappings:<
     utcOffset:"3:00"
     id:"Europe/Istanbul"
+    alternativeIds: "Turkey"
   >
 >
 
@@ -3144,6 +3268,7 @@ countries:<
   timeZoneMappings:<
     utcOffset:"-4:00"
     id:"America/Port_of_Spain"
+    alternativeIds: "America/Virgin"
   >
 >
 
@@ -3162,6 +3287,7 @@ countries:<
   timeZoneMappings:<
     utcOffset:"8:00"
     id:"Asia/Taipei"
+    alternativeIds: "ROC"
   >
 >
 
@@ -3246,24 +3372,30 @@ countries:<
     id:"America/New_York"
     # 8.54M
     priority:8540
+    alternativeIds: "US/Eastern"
   >
   timeZoneMappings:<
     utcOffset:"-5:00"
     id:"America/Kentucky/Louisville"
     # 760K
     priority:760
+    alternativeIds: "America/Louisville"
   >
   timeZoneMappings:<
     utcOffset:"-5:00"
     id:"America/Detroit"
     # 673K
     priority:673
+    alternativeIds: "US/Michigan"
   >
   timeZoneMappings:<
     utcOffset:"-5:00"
     id:"America/Indiana/Indianapolis"
     # 820K
     priority:820
+    alternativeIds: "America/Fort_Wayne"
+    alternativeIds: "America/Indianapolis"
+    alternativeIds: "US/East-Indiana"
   >
   timeZoneMappings:<
     utcOffset:"-5:00"
@@ -3307,6 +3439,7 @@ countries:<
     id:"America/Chicago"
     # 2.70M
     priority:2700
+    alternativeIds: "US/Central"
   >
   timeZoneMappings:<
     utcOffset:"-6:00"
@@ -3325,6 +3458,8 @@ countries:<
     id:"America/Indiana/Knox"
     # 3.70K
     priority:4
+    alternativeIds: "America/Knox_IN"
+    alternativeIds: "US/Indiana-Starke"
   >
   timeZoneMappings:<
     utcOffset:"-6:00"
@@ -3350,12 +3485,16 @@ countries:<
     id:"America/Denver"
     # 600K
     priority:600
+    alternativeIds: "America/Shiprock"
+    alternativeIds: "Navajo"
+    alternativeIds: "US/Mountain"
   >
   timeZoneMappings:<
     utcOffset:"-7:00"
     id:"America/Phoenix"
     # 1.45M
     priority:1450
+    alternativeIds: "US/Arizona"
   >
   timeZoneMappings:<
     utcOffset:"-7:00"
@@ -3369,6 +3508,7 @@ countries:<
     id:"America/Los_Angeles"
     # 3.79M
     priority:3790
+    alternativeIds: "US/Pacific"
   >
 
   timeZoneMappings:<
@@ -3376,6 +3516,7 @@ countries:<
     id:"America/Anchorage"
     # 292K
     priority:292
+    alternativeIds: "US/Alaska"
   >
   timeZoneMappings:<
     utcOffset:"-9:00"
@@ -3413,12 +3554,16 @@ countries:<
     id:"Pacific/Honolulu"
     # 337K
     priority:337
+    alternativeIds: "Pacific/Johnston"
+    alternativeIds: "US/Hawaii"
   >
   timeZoneMappings:<
     utcOffset:"-10:00"
     id:"America/Adak"
     # 0.33K
     priority:1
+    alternativeIds: "America/Atka"
+    alternativeIds: "US/Aleutian"
   >
 >
 
@@ -3503,6 +3648,7 @@ countries:<
   timeZoneMappings:<
     utcOffset:"7:00"
     id:"Asia/Ho_Chi_Minh"
+    alternativeIds: "Asia/Saigon"
   >
 >
 

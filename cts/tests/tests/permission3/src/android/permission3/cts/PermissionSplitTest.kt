@@ -16,6 +16,8 @@
 
 package android.permission3.cts
 
+import android.os.Build
+import androidx.test.filters.SdkSuppress
 import org.junit.Assume.assumeFalse
 import org.junit.Before
 import org.junit.Test
@@ -53,6 +55,27 @@ class PermissionSplitTest : BaseUsePermissionTest() {
         testLocationPermissionSplit(false)
     }
 
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU, codeName = "Tiramisu")
+    @Test
+    fun testBodySensorSplit() {
+        installPackage(APP_APK_PATH_31)
+        testBodySensorPermissionSplit(true)
+    }
+
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU, codeName = "Tiramisu")
+    @Test
+    fun testBodySensorSplit32() {
+        installPackage(APP_APK_PATH_32)
+        testBodySensorPermissionSplit(true)
+    }
+
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU, codeName = "Tiramisu")
+    @Test
+    fun testBodySensorNonSplit() {
+        installPackage(APP_APK_PATH_LATEST)
+        testBodySensorPermissionSplit(false)
+    }
+
     private fun testLocationPermissionSplit(expectSplit: Boolean) {
         assertAppHasPermission(android.Manifest.permission.ACCESS_FINE_LOCATION, false)
         assertAppHasPermission(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION, false)
@@ -68,5 +91,22 @@ class PermissionSplitTest : BaseUsePermissionTest() {
         }
 
         assertAppHasPermission(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION, expectSplit)
+    }
+
+    private fun testBodySensorPermissionSplit(expectSplit: Boolean) {
+        assertAppHasPermission(android.Manifest.permission.BODY_SENSORS, false)
+        assertAppHasPermission(android.Manifest.permission.BODY_SENSORS_BACKGROUND, false)
+
+        requestAppPermissionsAndAssertResult(
+                android.Manifest.permission.BODY_SENSORS to true
+        ) {
+            if (expectSplit) {
+                clickPermissionRequestSettingsLinkAndAllowAlways()
+            } else {
+                clickPermissionRequestAllowForegroundButton()
+            }
+        }
+
+        assertAppHasPermission(android.Manifest.permission.BODY_SENSORS_BACKGROUND, expectSplit)
     }
 }

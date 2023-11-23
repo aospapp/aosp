@@ -76,7 +76,7 @@ final class SessionRule extends ExternalResource {
      * in {@link #mTestStateFile}. Assert error if no session found.
      */
     PackageInstaller.SessionInfo retrieveSessionInfo() throws IOException {
-        return Optional.of(getPackageInstaller().getSessionInfo(retrieveSessionId()))
+        return Optional.ofNullable(getPackageInstaller().getSessionInfo(retrieveSessionId()))
                 .orElseThrow(() -> new AssertionError(
                         "Expecting to find session with getSessionInfo()"));
     }

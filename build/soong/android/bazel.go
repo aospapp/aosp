@@ -15,6 +15,8 @@
 package android
 
 import (
+	"bufio"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -22,6 +24,15 @@ import (
 
 	"github.com/google/blueprint"
 	"github.com/google/blueprint/proptools"
+
+	"android/soong/android/allowlists"
+)
+
+const (
+	// A sentinel value to be used as a key in Bp2BuildConfig for modules with
+	// no package path. This is also the module dir for top level Android.bp
+	// modules.
+	Bp2BuildTopLevel = "."
 )
 
 type bazelModuleProperties struct {
@@ -39,6 +50,10 @@ type bazelModuleProperties struct {
 	// To opt-out a module, set bazel_module: { bp2build_available: false }
 	// To defer the default setting for the directory, do not set the value.
 	Bp2build_available *bool
+
+	// CanConvertToBazel is set via InitBazelModule to indicate that a module type can be converted to
+	// Bazel with Bp2build.
+	CanConvertToBazel bool `blueprint:"mutated"`
 }
 
 // Properties contains common module properties for Bazel migration purposes.
@@ -48,10 +63,30 @@ type properties struct {
 	Bazel_module bazelModuleProperties
 }
 
+// namespacedVariableProperties is a map from a string representing a Soong
+// config variable namespace, like "android" or "vendor_name" to a slice of
+// pointer to a struct containing a single field called Soong_config_variables
+// whose value mirrors the structure in the Blueprint file.
+type namespacedVariableProperties map[string][]interface{}
+
 // BazelModuleBase contains the property structs with metadata for modules which can be converted to
 // Bazel.
 type BazelModuleBase struct {
 	bazelProperties properties
+
+	// namespacedVariableProperties is used for soong_config_module_type support
+	// in bp2build. Soong config modules allow users to set module properties
+	// based on custom product variables defined in Android.bp files. These
+	// variables are namespaced to prevent clobbering, especially when set from
+	// Makefiles.
+	namespacedVariableProperties namespacedVariableProperties
+
+	// baseModuleType is set when this module was created from a module type
+	// defined by a soong_config_module_type. Every soong_config_module_type
+	// "wraps" another module type, e.g. a soong_config_module_type can wrap a
+	// cc_defaults to a custom_cc_defaults, or cc_binary to a custom_cc_binary.
+	// This baseModuleType is set to the wrapped module type.
+	baseModuleType string
 }
 
 // Bazelable is specifies the interface for modules that can be converted to Bazel.
@@ -60,9 +95,24 @@ type Bazelable interface {
 	HasHandcraftedLabel() bool
 	HandcraftedLabel() string
 	GetBazelLabel(ctx BazelConversionPathContext, module blueprint.Module) string
-	ConvertWithBp2build(ctx BazelConversionPathContext) bool
+	ShouldConvertWithBp2build(ctx BazelConversionContext) bool
+	shouldConvertWithBp2build(ctx bazelOtherModuleContext, module blueprint.Module) bool
 	GetBazelBuildFileContents(c Config, path, name string) (string, error)
-	ConvertedToBazel(ctx BazelConversionPathContext) bool
+	ConvertWithBp2build(ctx TopDownMutatorContext)
+
+	// namespacedVariableProps is a map from a soong config variable namespace
+	// (e.g. acme, android) to a map of interfaces{}, which are really
+	// reflect.Struct pointers, representing the value of the
+	// soong_config_variables property of a module. The struct pointer is the
+	// one with the single member called Soong_config_variables, which itself is
+	// a struct containing fields for each supported feature in that namespace.
+	//
+	// The reason for using an slice of interface{} is to support defaults
+	// propagation of the struct pointers.
+	namespacedVariableProps() namespacedVariableProperties
+	setNamespacedVariableProps(props namespacedVariableProperties)
+	BaseModuleType() string
+	SetBaseModuleType(baseModuleType string)
 }
 
 // BazelModule is a lightweight wrapper interface around Module for Bazel-convertible modules.
@@ -75,11 +125,28 @@ type BazelModule interface {
 // properties.
 func InitBazelModule(module BazelModule) {
 	module.AddProperties(module.bazelProps())
+	module.bazelProps().Bazel_module.CanConvertToBazel = true
 }
 
 // bazelProps returns the Bazel properties for the given BazelModuleBase.
 func (b *BazelModuleBase) bazelProps() *properties {
 	return &b.bazelProperties
+}
+
+func (b *BazelModuleBase) namespacedVariableProps() namespacedVariableProperties {
+	return b.namespacedVariableProperties
+}
+
+func (b *BazelModuleBase) setNamespacedVariableProps(props namespacedVariableProperties) {
+	b.namespacedVariableProperties = props
+}
+
+func (b *BazelModuleBase) BaseModuleType() string {
+	return b.baseModuleType
+}
+
+func (b *BazelModuleBase) SetBaseModuleType(baseModuleType string) {
+	b.baseModuleType = baseModuleType
 }
 
 // HasHandcraftedLabel returns whether this module has a handcrafted Bazel label.
@@ -97,242 +164,283 @@ func (b *BazelModuleBase) GetBazelLabel(ctx BazelConversionPathContext, module b
 	if b.HasHandcraftedLabel() {
 		return b.HandcraftedLabel()
 	}
-	if b.ConvertWithBp2build(ctx) {
+	if b.ShouldConvertWithBp2build(ctx) {
 		return bp2buildModuleLabel(ctx, module)
 	}
 	return "" // no label for unconverted module
 }
 
-// Configuration to decide if modules in a directory should default to true/false for bp2build_available
-type Bp2BuildConfig map[string]BazelConversionConfigEntry
-type BazelConversionConfigEntry int
-
-const (
-	// A sentinel value to be used as a key in Bp2BuildConfig for modules with
-	// no package path. This is also the module dir for top level Android.bp
-	// modules.
-	BP2BUILD_TOPLEVEL = "."
-
-	// iota + 1 ensures that the int value is not 0 when used in the Bp2buildAllowlist map,
-	// which can also mean that the key doesn't exist in a lookup.
-
-	// all modules in this package and subpackages default to bp2build_available: true.
-	// allows modules to opt-out.
-	Bp2BuildDefaultTrueRecursively BazelConversionConfigEntry = iota + 1
-
-	// all modules in this package (not recursively) default to bp2build_available: false.
-	// allows modules to opt-in.
-	Bp2BuildDefaultFalse
-)
-
-var (
-	// Do not write BUILD files for these directories
-	// NOTE: this is not recursive
-	bp2buildDoNotWriteBuildFileList = []string{
-		// Don't generate these BUILD files - because external BUILD files already exist
-		"external/boringssl",
-		"external/brotli",
-		"external/dagger2",
-		"external/flatbuffers",
-		"external/gflags",
-		"external/google-fruit",
-		"external/grpc-grpc",
-		"external/grpc-grpc/test/core/util",
-		"external/grpc-grpc/test/cpp/common",
-		"external/grpc-grpc/third_party/address_sorting",
-		"external/nanopb-c",
-		"external/nos/host/generic",
-		"external/nos/host/generic/libnos",
-		"external/nos/host/generic/libnos/generator",
-		"external/nos/host/generic/libnos_datagram",
-		"external/nos/host/generic/libnos_transport",
-		"external/nos/host/generic/nugget/proto",
-		"external/perfetto",
-		"external/protobuf",
-		"external/rust/cxx",
-		"external/rust/cxx/demo",
-		"external/ruy",
-		"external/tensorflow",
-		"external/tensorflow/tensorflow/lite",
-		"external/tensorflow/tensorflow/lite/java",
-		"external/tensorflow/tensorflow/lite/kernels",
-		"external/tflite-support",
-		"external/tinyalsa_new",
-		"external/wycheproof",
-		"external/libyuv",
-	}
-
+type bp2BuildConversionAllowlist struct {
 	// Configure modules in these directories to enable bp2build_available: true or false by default.
-	bp2buildDefaultConfig = Bp2BuildConfig{
-		"bionic":                Bp2BuildDefaultTrueRecursively,
-		"external/gwp_asan":     Bp2BuildDefaultTrueRecursively,
-		"system/core/libcutils": Bp2BuildDefaultTrueRecursively,
-		"system/core/property_service/libpropertyinfoparser": Bp2BuildDefaultTrueRecursively,
-		"system/libbase":                  Bp2BuildDefaultTrueRecursively,
-		"system/logging/liblog":           Bp2BuildDefaultTrueRecursively,
-		"external/jemalloc_new":           Bp2BuildDefaultTrueRecursively,
-		"external/fmtlib":                 Bp2BuildDefaultTrueRecursively,
-		"external/arm-optimized-routines": Bp2BuildDefaultTrueRecursively,
-		"external/scudo":                  Bp2BuildDefaultTrueRecursively,
-	}
+	defaultConfig allowlists.Bp2BuildConfig
+
+	// Keep any existing BUILD files (and do not generate new BUILD files) for these directories
+	// in the synthetic Bazel workspace.
+	keepExistingBuildFile map[string]bool
+
+	// Per-module allowlist to always opt modules in of both bp2build and mixed builds.
+	// These modules are usually in directories with many other modules that are not ready for
+	// conversion.
+	//
+	// A module can either be in this list or its directory allowlisted entirely
+	// in bp2buildDefaultConfig, but not both at the same time.
+	moduleAlwaysConvert map[string]bool
+
+	// Per-module-type allowlist to always opt modules in to both bp2build and mixed builds
+	// when they have the same type as one listed.
+	moduleTypeAlwaysConvert map[string]bool
 
 	// Per-module denylist to always opt modules out of both bp2build and mixed builds.
-	bp2buildModuleDoNotConvertList = []string{
-		// Things that transitively depend on unconverted libc_* modules.
-		"libc_nopthread", // http://b/186821550, cc_library_static, depends on //bionic/libc:libc_bionic_ndk (http://b/186822256)
-		//                                                     also depends on //bionic/libc:libc_tzcode (http://b/186822591)
-		//                                                     also depends on //bionic/libc:libstdc++ (http://b/186822597)
-		"libc_common",        // http://b/186821517, cc_library_static, depends on //bionic/libc:libc_nopthread (http://b/186821550)
-		"libc_common_static", // http://b/186824119, cc_library_static, depends on //bionic/libc:libc_common (http://b/186821517)
-		"libc_common_shared", // http://b/186824118, cc_library_static, depends on //bionic/libc:libc_common (http://b/186821517)
-		"libc_nomalloc",      // http://b/186825031, cc_library_static, depends on //bionic/libc:libc_common (http://b/186821517)
-
-		"libbionic_spawn_benchmark", // http://b/186824595, cc_library_static, depends on //external/google-benchmark (http://b/186822740)
-		//                                                                also depends on //system/logging/liblog:liblog (http://b/186822772)
-
-		"libc_malloc_debug",           // http://b/186824339, cc_library_static, depends on //system/libbase:libbase (http://b/186823646)
-		"libc_malloc_debug_backtrace", // http://b/186824112, cc_library_static, depends on //external/libcxxabi:libc++demangle (http://b/186823773)
-
-		"libcutils",         // http://b/186827426, cc_library, depends on //system/core/libprocessgroup:libprocessgroup_headers (http://b/186826841)
-		"libcutils_sockets", // http://b/186826853, cc_library, depends on //system/libbase:libbase (http://b/186826479)
-
-		"liblinker_debuggerd_stub", // http://b/186824327, cc_library_static, depends on //external/zlib:libz (http://b/186823782)
-		//                                                               also depends on //system/libziparchive:libziparchive (http://b/186823656)
-		//                                                               also depends on //system/logging/liblog:liblog (http://b/186822772)
-		"liblinker_main", // http://b/186825989, cc_library_static, depends on //external/zlib:libz (http://b/186823782)
-		//                                                     also depends on //system/libziparchive:libziparchive (http://b/186823656)
-		//                                                     also depends on//system/logging/liblog:liblog (http://b/186822772)
-		"liblinker_malloc", // http://b/186826466, cc_library_static, depends on //external/zlib:libz (http://b/186823782)
-		//                                                       also depends on //system/libziparchive:libziparchive (http://b/186823656)
-		//                                                       also depends on //system/logging/liblog:liblog (http://b/186822772)
-		"libc_jemalloc_wrapper", // http://b/187012490, cc_library_static, depends on //external/jemalloc_new:libjemalloc5 (http://b/186828626)
-		"libc_ndk",              // http://b/187013218, cc_library_static, depends on //bionic/libm:libm (http://b/183064661)
-		"libc",                  // http://b/183064430, cc_library, depends on //external/jemalloc_new:libjemalloc5 (http://b/186828626)
-		"libc_bionic_ndk",       // http://b/186822256, cc_library_static, fatal error: 'generated_android_ids.h' file not found
-		"libc_malloc_hooks",     // http://b/187016307, cc_library, ld.lld: error: undefined symbol: __malloc_hook
-		"libm",                  // http://b/183064661, cc_library, math.h:25:16: error: unexpected token in argument list
-
-		// http://b/186823769: Needs C++ STL support, includes from unconverted standard libraries in //external/libcxx
-		// c++_static
-		"libbase_ndk", // http://b/186826477, cc_library, no such target '//build/bazel/platforms/os:darwin' when --platforms //build/bazel/platforms:android_x86 is added
-		// libcxx
-		"libBionicBenchmarksUtils", // cc_library_static, fatal error: 'map' file not found, from libcxx
-		"fmtlib",                   // cc_library_static, fatal error: 'cassert' file not found, from libcxx
-		"libbase",                  // http://b/186826479, cc_library, fatal error: 'memory' file not found, from libcxx
-
-		// http://b/186024507: Includes errors because of the system_shared_libs default value.
-		// Missing -isystem bionic/libc/include through the libc/libm/libdl
-		// default dependencies if system_shared_libs is unset.
-		"liblog",                 // http://b/186822772: cc_library, 'sys/cdefs.h' file not found
-		"libjemalloc5_jet",       // cc_library, 'sys/cdefs.h' file not found
-		"libseccomp_policy",      // http://b/186476753: cc_library, 'linux/filter.h' not found
-		"note_memtag_heap_async", // http://b/185127353: cc_library_static, error: feature.h not found
-		"note_memtag_heap_sync",  // http://b/185127353: cc_library_static, error: feature.h not found
-
-		// Tests. Handle later.
-		"libbionic_tests_headers_posix", // http://b/186024507, cc_library_static, sched.h, time.h not found
-		"libjemalloc5_integrationtest",
-		"libjemalloc5_stresstestlib",
-		"libjemalloc5_unittest",
-	}
+	moduleDoNotConvert map[string]bool
 
 	// Per-module denylist of cc_library modules to only generate the static
 	// variant if their shared variant isn't ready or buildable by Bazel.
-	bp2buildCcLibraryStaticOnlyList = []string{
-		"libstdc++", // http://b/186822597, cc_library, ld.lld: error: undefined symbol: __errno
-	}
+	ccLibraryStaticOnly map[string]bool
 
 	// Per-module denylist to opt modules out of mixed builds. Such modules will
 	// still be generated via bp2build.
-	mixedBuildsDisabledList = []string{
-		"libc_netbsd",                      // lberki@, cc_library_static, version script assignment of 'LIBC_PRIVATE' to symbol 'SHA1Final' failed: symbol not defined
-		"libc_openbsd",                     // ruperts@, cc_library_static, OK for bp2build but error: duplicate symbol: strcpy for mixed builds
-		"libsystemproperties",              // cparsons@, cc_library_static, wrong include paths
-		"libpropertyinfoparser",            // cparsons@, cc_library_static, wrong include paths
-		"libarm-optimized-routines-string", // jingwen@, cc_library_static, OK for bp2build but b/186615213 (asflags not handled in  bp2build), version script assignment of 'LIBC' to symbol 'memcmp' failed: symbol not defined (also for memrchr, strnlen)
-		"fmtlib_ndk",                       // http://b/187040371, cc_library_static, OK for bp2build but format-inl.h:11:10: fatal error: 'cassert' file not found for mixed builds
-	}
+	mixedBuildsDisabled map[string]bool
+}
 
-	// Used for quicker lookups
-	bp2buildDoNotWriteBuildFile = map[string]bool{}
-	bp2buildModuleDoNotConvert  = map[string]bool{}
-	bp2buildCcLibraryStaticOnly = map[string]bool{}
-	mixedBuildsDisabled         = map[string]bool{}
-)
-
-func init() {
-	for _, moduleName := range bp2buildDoNotWriteBuildFileList {
-		bp2buildDoNotWriteBuildFile[moduleName] = true
-	}
-
-	for _, moduleName := range bp2buildModuleDoNotConvertList {
-		bp2buildModuleDoNotConvert[moduleName] = true
-	}
-
-	for _, moduleName := range bp2buildCcLibraryStaticOnlyList {
-		bp2buildCcLibraryStaticOnly[moduleName] = true
-	}
-
-	for _, moduleName := range mixedBuildsDisabledList {
-		mixedBuildsDisabled[moduleName] = true
+// NewBp2BuildAllowlist creates a new, empty bp2BuildConversionAllowlist
+// which can be populated using builder pattern Set* methods
+func NewBp2BuildAllowlist() bp2BuildConversionAllowlist {
+	return bp2BuildConversionAllowlist{
+		allowlists.Bp2BuildConfig{},
+		map[string]bool{},
+		map[string]bool{},
+		map[string]bool{},
+		map[string]bool{},
+		map[string]bool{},
+		map[string]bool{},
 	}
 }
 
-func GenerateCcLibraryStaticOnly(ctx BazelConversionPathContext) bool {
-	return bp2buildCcLibraryStaticOnly[ctx.Module().Name()]
+// SetDefaultConfig copies the entries from defaultConfig into the allowlist
+func (a bp2BuildConversionAllowlist) SetDefaultConfig(defaultConfig allowlists.Bp2BuildConfig) bp2BuildConversionAllowlist {
+	if a.defaultConfig == nil {
+		a.defaultConfig = allowlists.Bp2BuildConfig{}
+	}
+	for k, v := range defaultConfig {
+		a.defaultConfig[k] = v
+	}
+
+	return a
 }
 
-func ShouldWriteBuildFileForDir(dir string) bool {
-	if _, ok := bp2buildDoNotWriteBuildFile[dir]; ok {
-		return false
-	} else {
+// SetKeepExistingBuildFile copies the entries from keepExistingBuildFile into the allowlist
+func (a bp2BuildConversionAllowlist) SetKeepExistingBuildFile(keepExistingBuildFile map[string]bool) bp2BuildConversionAllowlist {
+	if a.keepExistingBuildFile == nil {
+		a.keepExistingBuildFile = map[string]bool{}
+	}
+	for k, v := range keepExistingBuildFile {
+		a.keepExistingBuildFile[k] = v
+	}
+
+	return a
+}
+
+// SetModuleAlwaysConvertList copies the entries from moduleAlwaysConvert into the allowlist
+func (a bp2BuildConversionAllowlist) SetModuleAlwaysConvertList(moduleAlwaysConvert []string) bp2BuildConversionAllowlist {
+	if a.moduleAlwaysConvert == nil {
+		a.moduleAlwaysConvert = map[string]bool{}
+	}
+	for _, m := range moduleAlwaysConvert {
+		a.moduleAlwaysConvert[m] = true
+	}
+
+	return a
+}
+
+// SetModuleTypeAlwaysConvertList copies the entries from moduleTypeAlwaysConvert into the allowlist
+func (a bp2BuildConversionAllowlist) SetModuleTypeAlwaysConvertList(moduleTypeAlwaysConvert []string) bp2BuildConversionAllowlist {
+	if a.moduleTypeAlwaysConvert == nil {
+		a.moduleTypeAlwaysConvert = map[string]bool{}
+	}
+	for _, m := range moduleTypeAlwaysConvert {
+		a.moduleTypeAlwaysConvert[m] = true
+	}
+
+	return a
+}
+
+// SetModuleDoNotConvertList copies the entries from moduleDoNotConvert into the allowlist
+func (a bp2BuildConversionAllowlist) SetModuleDoNotConvertList(moduleDoNotConvert []string) bp2BuildConversionAllowlist {
+	if a.moduleDoNotConvert == nil {
+		a.moduleDoNotConvert = map[string]bool{}
+	}
+	for _, m := range moduleDoNotConvert {
+		a.moduleDoNotConvert[m] = true
+	}
+
+	return a
+}
+
+// SetCcLibraryStaticOnlyList copies the entries from ccLibraryStaticOnly into the allowlist
+func (a bp2BuildConversionAllowlist) SetCcLibraryStaticOnlyList(ccLibraryStaticOnly []string) bp2BuildConversionAllowlist {
+	if a.ccLibraryStaticOnly == nil {
+		a.ccLibraryStaticOnly = map[string]bool{}
+	}
+	for _, m := range ccLibraryStaticOnly {
+		a.ccLibraryStaticOnly[m] = true
+	}
+
+	return a
+}
+
+// SetMixedBuildsDisabledList copies the entries from mixedBuildsDisabled into the allowlist
+func (a bp2BuildConversionAllowlist) SetMixedBuildsDisabledList(mixedBuildsDisabled []string) bp2BuildConversionAllowlist {
+	if a.mixedBuildsDisabled == nil {
+		a.mixedBuildsDisabled = map[string]bool{}
+	}
+	for _, m := range mixedBuildsDisabled {
+		a.mixedBuildsDisabled[m] = true
+	}
+
+	return a
+}
+
+var bp2buildAllowlist = NewBp2BuildAllowlist().
+	SetDefaultConfig(allowlists.Bp2buildDefaultConfig).
+	SetKeepExistingBuildFile(allowlists.Bp2buildKeepExistingBuildFile).
+	SetModuleAlwaysConvertList(allowlists.Bp2buildModuleAlwaysConvertList).
+	SetModuleTypeAlwaysConvertList(allowlists.Bp2buildModuleTypeAlwaysConvertList).
+	SetModuleDoNotConvertList(allowlists.Bp2buildModuleDoNotConvertList).
+	SetCcLibraryStaticOnlyList(allowlists.Bp2buildCcLibraryStaticOnlyList).
+	SetMixedBuildsDisabledList(allowlists.MixedBuildsDisabledList)
+
+// GenerateCcLibraryStaticOnly returns whether a cc_library module should only
+// generate a static version of itself based on the current global configuration.
+func GenerateCcLibraryStaticOnly(moduleName string) bool {
+	return bp2buildAllowlist.ccLibraryStaticOnly[moduleName]
+}
+
+// ShouldKeepExistingBuildFileForDir returns whether an existing BUILD file should be
+// added to the build symlink forest based on the current global configuration.
+func ShouldKeepExistingBuildFileForDir(dir string) bool {
+	return shouldKeepExistingBuildFileForDir(bp2buildAllowlist, dir)
+}
+
+func shouldKeepExistingBuildFileForDir(allowlist bp2BuildConversionAllowlist, dir string) bool {
+	if _, ok := allowlist.keepExistingBuildFile[dir]; ok {
+		// Exact dir match
 		return true
 	}
+	// Check if subtree match
+	for prefix, recursive := range allowlist.keepExistingBuildFile {
+		if recursive {
+			if strings.HasPrefix(dir, prefix+"/") {
+				return true
+			}
+		}
+	}
+	// Default
+	return false
 }
 
 // MixedBuildsEnabled checks that a module is ready to be replaced by a
 // converted or handcrafted Bazel target.
-func (b *BazelModuleBase) MixedBuildsEnabled(ctx BazelConversionPathContext) bool {
+func (b *BazelModuleBase) MixedBuildsEnabled(ctx ModuleContext) bool {
+	if ctx.Os() == Windows {
+		// Windows toolchains are not currently supported.
+		return false
+	}
+	if !ctx.Module().Enabled() {
+		return false
+	}
 	if !ctx.Config().BazelContext.BazelEnabled() {
 		return false
 	}
-	if len(b.GetBazelLabel(ctx, ctx.Module())) == 0 {
+	if !convertedToBazel(ctx, ctx.Module()) {
 		return false
 	}
-	if GenerateCcLibraryStaticOnly(ctx) {
+
+	if GenerateCcLibraryStaticOnly(ctx.Module().Name()) {
 		// Don't use partially-converted cc_library targets in mixed builds,
 		// since mixed builds would generally rely on both static and shared
 		// variants of a cc_library.
 		return false
 	}
-	return !mixedBuildsDisabled[ctx.Module().Name()]
+	return !bp2buildAllowlist.mixedBuildsDisabled[ctx.Module().Name()]
 }
 
-// ConvertWithBp2build returns whether the given BazelModuleBase should be converted with bp2build.
-func (b *BazelModuleBase) ConvertWithBp2build(ctx BazelConversionPathContext) bool {
-	if bp2buildModuleDoNotConvert[ctx.Module().Name()] {
+// ConvertedToBazel returns whether this module has been converted (with bp2build or manually) to Bazel.
+func convertedToBazel(ctx BazelConversionContext, module blueprint.Module) bool {
+	b, ok := module.(Bazelable)
+	if !ok {
+		return false
+	}
+	return b.shouldConvertWithBp2build(ctx, module) || b.HasHandcraftedLabel()
+}
+
+// ShouldConvertWithBp2build returns whether the given BazelModuleBase should be converted with bp2build
+func (b *BazelModuleBase) ShouldConvertWithBp2build(ctx BazelConversionContext) bool {
+	return b.shouldConvertWithBp2build(ctx, ctx.Module())
+}
+
+type bazelOtherModuleContext interface {
+	ModuleErrorf(format string, args ...interface{})
+	Config() Config
+	OtherModuleType(m blueprint.Module) string
+	OtherModuleName(m blueprint.Module) string
+	OtherModuleDir(m blueprint.Module) string
+}
+
+func (b *BazelModuleBase) shouldConvertWithBp2build(ctx bazelOtherModuleContext, module blueprint.Module) bool {
+	if !b.bazelProps().Bazel_module.CanConvertToBazel {
 		return false
 	}
 
-	// Ensure that the module type of this module has a bp2build converter. This
-	// prevents mixed builds from using auto-converted modules just by matching
-	// the package dir; it also has to have a bp2build mutator as well.
-	if ctx.Config().bp2buildModuleTypeConfig[ctx.ModuleType()] == false {
+	propValue := b.bazelProperties.Bazel_module.Bp2build_available
+	packagePath := ctx.OtherModuleDir(module)
+
+	// Modules in unit tests which are enabled in the allowlist by type or name
+	// trigger this conditional because unit tests run under the "." package path
+	isTestModule := packagePath == Bp2BuildTopLevel && proptools.BoolDefault(propValue, false)
+	if isTestModule {
+		return true
+	}
+
+	moduleName := module.Name()
+	allowlist := ctx.Config().bp2buildPackageConfig
+	moduleNameAllowed := allowlist.moduleAlwaysConvert[moduleName]
+	moduleTypeAllowed := allowlist.moduleTypeAlwaysConvert[ctx.OtherModuleType(module)]
+	allowlistConvert := moduleNameAllowed || moduleTypeAllowed
+	if moduleNameAllowed && moduleTypeAllowed {
+		ctx.ModuleErrorf("A module cannot be in moduleAlwaysConvert and also be in moduleTypeAlwaysConvert")
 		return false
 	}
 
-	packagePath := ctx.ModuleDir()
-	config := ctx.Config().bp2buildPackageConfig
+	if allowlist.moduleDoNotConvert[moduleName] {
+		if moduleNameAllowed {
+			ctx.ModuleErrorf("a module cannot be in moduleDoNotConvert and also be in moduleAlwaysConvert")
+		}
+		return false
+	}
+
+	if allowlistConvert && shouldKeepExistingBuildFileForDir(allowlist, packagePath) {
+		if moduleNameAllowed {
+			ctx.ModuleErrorf("A module cannot be in a directory listed in keepExistingBuildFile"+
+				" and also be in moduleAlwaysConvert. Directory: '%s'", packagePath)
+			return false
+		}
+	}
 
 	// This is a tristate value: true, false, or unset.
-	propValue := b.bazelProperties.Bazel_module.Bp2build_available
-	if bp2buildDefaultTrueRecursively(packagePath, config) {
+	if ok, directoryPath := bp2buildDefaultTrueRecursively(packagePath, allowlist.defaultConfig); ok {
+		if moduleNameAllowed {
+			ctx.ModuleErrorf("A module cannot be in a directory marked Bp2BuildDefaultTrue"+
+				" or Bp2BuildDefaultTrueRecursively and also be in moduleAlwaysConvert. Directory: '%s'",
+				directoryPath)
+			return false
+		}
+
 		// Allow modules to explicitly opt-out.
 		return proptools.BoolDefault(propValue, true)
 	}
 
 	// Allow modules to explicitly opt-in.
-	return proptools.BoolDefault(propValue, false)
+	return proptools.BoolDefault(propValue, allowlistConvert)
 }
 
 // bp2buildDefaultTrueRecursively checks that the package contains a prefix from the
@@ -345,15 +453,16 @@ func (b *BazelModuleBase) ConvertWithBp2build(ctx BazelConversionPathContext) bo
 //
 // This function will also return false if the package doesn't match anything in
 // the config.
-func bp2buildDefaultTrueRecursively(packagePath string, config Bp2BuildConfig) bool {
-	ret := false
-
-	// Return exact matches in the config.
-	if config[packagePath] == Bp2BuildDefaultTrueRecursively {
-		return true
-	}
-	if config[packagePath] == Bp2BuildDefaultFalse {
-		return false
+//
+// This function will also return the allowlist entry which caused a particular
+// package to be enabled. Since packages can be enabled via a recursive declaration,
+// the path returned will not always be the same as the one provided.
+func bp2buildDefaultTrueRecursively(packagePath string, config allowlists.Bp2BuildConfig) (bool, string) {
+	// Check if the package path has an exact match in the config.
+	if config[packagePath] == allowlists.Bp2BuildDefaultTrue || config[packagePath] == allowlists.Bp2BuildDefaultTrueRecursively {
+		return true, packagePath
+	} else if config[packagePath] == allowlists.Bp2BuildDefaultFalse {
+		return false, packagePath
 	}
 
 	// If not, check for the config recursively.
@@ -361,15 +470,15 @@ func bp2buildDefaultTrueRecursively(packagePath string, config Bp2BuildConfig) b
 	// e.g. for x/y/z, iterate over x, x/y, then x/y/z, taking the final value from the allowlist.
 	for _, part := range strings.Split(packagePath, "/") {
 		packagePrefix += part
-		if config[packagePrefix] == Bp2BuildDefaultTrueRecursively {
+		if config[packagePrefix] == allowlists.Bp2BuildDefaultTrueRecursively {
 			// package contains this prefix and this prefix should convert all modules
-			return true
+			return true, packagePrefix
 		}
 		// Continue to the next part of the package dir.
 		packagePrefix += "/"
 	}
 
-	return ret
+	return false, packagePath
 }
 
 // GetBazelBuildFileContents returns the file contents of a hand-crafted BUILD file if available or
@@ -394,8 +503,35 @@ func (b *BazelModuleBase) GetBazelBuildFileContents(c Config, path, name string)
 	return string(data[:]), nil
 }
 
-// ConvertedToBazel returns whether this module has been converted to Bazel, whether automatically
-// or manually
-func (b *BazelModuleBase) ConvertedToBazel(ctx BazelConversionPathContext) bool {
-	return b.ConvertWithBp2build(ctx) || b.HasHandcraftedLabel()
+func registerBp2buildConversionMutator(ctx RegisterMutatorsContext) {
+	ctx.TopDown("bp2build_conversion", convertWithBp2build).Parallel()
+}
+
+func convertWithBp2build(ctx TopDownMutatorContext) {
+	bModule, ok := ctx.Module().(Bazelable)
+	if !ok || !bModule.shouldConvertWithBp2build(ctx, ctx.Module()) {
+		return
+	}
+
+	bModule.ConvertWithBp2build(ctx)
+}
+
+// GetMainClassInManifest scans the manifest file specified in filepath and returns
+// the value of attribute Main-Class in the manifest file if it exists, or returns error.
+// WARNING: this is for bp2build converters of java_* modules only.
+func GetMainClassInManifest(c Config, filepath string) (string, error) {
+	file, err := c.fs.Open(filepath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "Main-Class:") {
+			return strings.TrimSpace(line[len("Main-Class:"):]), nil
+		}
+	}
+
+	return "", errors.New("Main-Class is not found.")
 }

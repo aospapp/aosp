@@ -168,6 +168,12 @@ public class AutoAppGridConfigUtility implements IAutoConfigUtility {
                 AutoConfigConstants.APPLICATION_NAME,
                 new AutoConfigResource(
                         AutoConfigConstants.RESOURCE_ID, "app_name", APP_GRID_PACKAGE));
+        appGridViewConfiguration.addResource(
+                AutoConfigConstants.UP_BUTTON,
+                new AutoConfigResource(AutoConfigConstants.DESCRIPTION, "Scroll up"));
+        appGridViewConfiguration.addResource(
+                AutoConfigConstants.DOWN_BUTTON,
+                new AutoConfigResource(AutoConfigConstants.DESCRIPTION, "Scroll down"));
         mAppGridConfigMap.put(AutoConfigConstants.APP_GRID_VIEW, appGridViewConfiguration);
     }
 }

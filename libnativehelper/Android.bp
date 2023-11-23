@@ -53,6 +53,7 @@ cc_library_headers {
         "//apex_available:platform",
         "//apex_available:anyapex",
     ],
+    ramdisk_available: true,
     // recovery_available currently required for libchrome (https://r.android.com/799940).
     recovery_available: true,
     visibility: ["//visibility:public"],
@@ -196,10 +197,12 @@ cc_library {
         "//cts:__subpackages__",
         "//external/perfetto:__subpackages__",
         "//frameworks/base/packages/Connectivity/tests/integration:__pkg__",
+        "//frameworks/base/packages/ConnectivityT:__subpackages__", // TODO: remove after code move
         "//frameworks/base/packages/Tethering:__subpackages__",
+        "//frameworks/libs/net/common/native/bpfmapjni",
+        "//frameworks/libs/net/common/native/bpfutiljni",
         "//libcore:__subpackages__",
-        "//packages/modules/Connectivity/tests:__subpackages__",
-        "//packages/modules/Connectivity/Tethering:__subpackages__",
+        "//packages/modules/Connectivity:__subpackages__",
         "//packages/modules/ExtServices:__subpackages__",
         "//packages/modules/NetworkStack:__subpackages__",
         ":__subpackages__",

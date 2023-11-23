@@ -12,14 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
 java_defaults {
     name: "CtsWifiLastStableSdkDefaults",
-    target_sdk_version: "31",
+    target_sdk_version: "33",
     min_sdk_version: "30",
 }
 
@@ -37,7 +36,7 @@ android_test {
         "android.test.base",
     ],
 
-    srcs: [ "src/**/*.java" ],
+    srcs: ["src/**/*.java"],
     jarjar_rules: "jarjar-rules.txt",
     static_libs: [
         "androidx.test.rules",

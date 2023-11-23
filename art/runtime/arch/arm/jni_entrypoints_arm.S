@@ -16,6 +16,73 @@
 
 #include "asm_support_arm.S"
 
+#define MANAGED_ARGS_R4_LR_SAVE_SIZE /*s0-s15*/ 16 * 4 + /*r0-r3*/ 4 * 4 + /*r4*/ 4 + /*lr*/ 4
+
+// Note: R4 is saved for stack alignment.
+.macro SAVE_MANAGED_ARGS_R4_LR_INCREASE_FRAME
+    // Save GPR args r0-r3 and return address. Also save r4 for stack alignment.
+    push   {r0-r4, lr}
+    .cfi_adjust_cfa_offset 24
+    .cfi_rel_offset lr, 20
+    // Save FPR args.
+    vpush  {s0-s15}
+    .cfi_adjust_cfa_offset 64
+.endm
+
+.macro RESTORE_MANAGED_ARGS_R4_AND_RETURN restore_cfa
+    // Restore FPR args.
+    vpop   {s0-s15}
+    .cfi_adjust_cfa_offset -64
+    // Restore GPR args and r4 and return.
+    pop    {r0-r4, pc}
+    .if \restore_cfa
+        .cfi_adjust_cfa_offset 64
+    .endif
+.endm
+
+.macro JNI_SAVE_MANAGED_ARGS_TRAMPOLINE name, cxx_name, arg1 = "none"
+    .extern \cxx_name
+ENTRY \name
+    // Note: Managed callee-save registers have been saved by the JNI stub.
+    // Save managed args, r4 (for stack alignment) and LR.
+    SAVE_MANAGED_ARGS_R4_LR_INCREASE_FRAME
+    // Call `cxx_name()`.
+    .ifnc \arg1, none
+        mov r0, \arg1                     @ Pass arg1.
+    .endif
+    bl     \cxx_name                      @ Call cxx_name(...).
+    // Restore args and R4 and return.
+    RESTORE_MANAGED_ARGS_R4_AND_RETURN /*restore_cfa*/ 0
+END \name
+.endm
+
+.macro JNI_SAVE_RETURN_VALUE_TRAMPOLINE name, cxx_name, arg1, arg2 = "none", label = "none"
+    .extern \cxx_name
+ENTRY \name
+    .ifnc \label, none
+        \label:
+    .endif
+    // Save GPR return registers and return address. Also save r4 for stack alignment.
+    push   {r0-r1, r4, lr}
+    .cfi_adjust_cfa_offset 16
+    .cfi_rel_offset lr, 12
+    // Save FPR return registers.
+    vpush  {s0-s1}
+    .cfi_adjust_cfa_offset 8
+    // Call `cxx_name()`.
+    mov r0, \arg1                         @ Pass arg1.
+    .ifnc \arg2, none
+        mov r1, \arg2                     @ Pass arg2.
+    .endif
+    bl     \cxx_name                      @ Call cxx_name(...).
+    // Restore FPR return registers.
+    vpop   {s0-s1}
+    .cfi_adjust_cfa_offset -8
+    // Restore GPR return registers and r4 and return.
+    pop    {r0-r1, r4, pc}
+END \name
+.endm
+
     /*
      * Jni dlsym lookup stub.
      */
@@ -47,14 +114,19 @@ ENTRY art_jni_dlsym_lookup_stub
     add    sp, #12                        @ restore stack pointer
     .cfi_adjust_cfa_offset -12
     cbz    r0, 1f                         @ is method code null?
+    .cfi_remember_state
     pop    {r0, r1, r2, r3, lr}           @ restore regs
     .cfi_adjust_cfa_offset -20
     .cfi_restore lr
     bx     r12                            @ if non-null, tail call to method's code
 1:
+    CFI_RESTORE_STATE_AND_DEF_CFA sp, 20
     pop    {r0, r1, r2, r3, pc}           @ restore regs and return to caller to handle exception
 END art_jni_dlsym_lookup_stub
 
+    /*
+     * Jni dlsym lookup stub for @CriticalNative.
+     */
 ENTRY art_jni_dlsym_lookup_critical_stub
     // The hidden arg holding the tagged method (bit 0 set means GenericJNI) is r4.
     // For Generic JNI we already have a managed frame, so we reuse the art_jni_dlsym_lookup_stub.
@@ -135,7 +207,7 @@ ENTRY art_jni_dlsym_lookup_critical_stub
     str    lr, [r4, #(FRAME_SIZE_SAVE_REFS_AND_ARGS - __SIZEOF_POINTER__)]
 
     // Replace the target method with the SaveRefsAndArgs runtime method.
-    RUNTIME_CURRENT1 r1
+    LOAD_RUNTIME_INSTANCE r1
     ldr    r1, [r1, #RUNTIME_SAVE_REFS_AND_ARGS_METHOD_OFFSET]
 
     mov    r2, r4                 // Prepare untagged managed SP for the runtime method.
@@ -203,8 +275,7 @@ ENTRY art_jni_dlsym_lookup_critical_stub
 
     // Do the tail call.
     bx     ip
-    .cfi_restore_state
-    .cfi_def_cfa sp, FRAME_SIZE_SAVE_REFS_AND_ARGS
+    CFI_RESTORE_STATE_AND_DEF_CFA sp, FRAME_SIZE_SAVE_REFS_AND_ARGS
 
 .Lcritical_deliver_exception:
     // The exception delivery checks that rSELF was saved but the SaveRefsAndArgs
@@ -233,7 +304,7 @@ ENTRY art_jni_dlsym_lookup_critical_stub
     vstmia ip, {s16-s31}
 
     // Store ArtMethod* Runtime::callee_save_methods_[kSaveAllCalleeSaves] to the managed frame.
-    RUNTIME_CURRENT2 ip
+    LOAD_RUNTIME_INSTANCE ip
     ldr   ip, [ip, #RUNTIME_SAVE_ALL_CALLEE_SAVES_METHOD_OFFSET]
     str   ip, [r4]
 
@@ -242,3 +313,108 @@ ENTRY art_jni_dlsym_lookup_critical_stub
 
     DELIVER_PENDING_EXCEPTION_FRAME_READY
 END art_jni_dlsym_lookup_critical_stub
+
+    /*
+     * Read barrier for the method's declaring class needed by JNI stub for static methods.
+     * (We're using a pointer to the declaring class in `ArtMethod` as `jclass`.)
+     */
+// The method argument is already in r0 for call to `artJniReadBarrier(ArtMethod*)`.
+JNI_SAVE_MANAGED_ARGS_TRAMPOLINE art_jni_read_barrier, artJniReadBarrier
+
+    /*
+     * Trampoline to `artJniMethodStart()` that preserves all managed arguments.
+     */
+JNI_SAVE_MANAGED_ARGS_TRAMPOLINE art_jni_method_start, artJniMethodStart, rSELF
+
+    /*
+     * Trampoline to `artJniMonitoredMethodStart()` that preserves all managed arguments.
+     */
+JNI_SAVE_MANAGED_ARGS_TRAMPOLINE art_jni_monitored_method_start, artJniMonitoredMethodStart, rSELF
+
+    /*
+     * Trampoline to `artJniMethodEnd()` that preserves all return registers.
+     */
+JNI_SAVE_RETURN_VALUE_TRAMPOLINE art_jni_method_end, artJniMethodEnd, rSELF
+
+    /*
+     * Trampoline to `artJniMonitoredMethodEnd()` that preserves all return registers.
+     */
+JNI_SAVE_RETURN_VALUE_TRAMPOLINE art_jni_monitored_method_end, artJniMonitoredMethodEnd, rSELF
+
+    /*
+     * Entry from JNI stub that tries to lock the object in a fast path and
+     * calls `artLockObjectFromCode()` (the same as for managed code) for the
+     * difficult cases, may block for GC.
+     * Custom calling convention:
+     *     r4 holds the non-null object to lock.
+     *     Callee-save registers have been saved and can be used as temporaries.
+     *     All argument registers need to be preserved.
+     */
+ENTRY art_jni_lock_object
+    // Note: the slow path is actually the art_jni_lock_object_no_inline (tail call).
+    LOCK_OBJECT_FAST_PATH r4, r5, r6, r7, .Llock_object_jni_slow, /*can_be_null*/ 0
+END art_jni_lock_object
+
+    /*
+     * Entry from JNI stub that calls `artLockObjectFromCode()`
+     * (the same as for managed code), may block for GC.
+     * Custom calling convention:
+     *     r4 holds the non-null object to lock.
+     *     Callee-save registers have been saved and can be used as temporaries.
+     *     All argument registers need to be preserved.
+     */
+    .extern artLockObjectFromCode
+ENTRY art_jni_lock_object_no_inline
+    // This is also the slow path for art_jni_lock_object.
+    // Note that we need a local label as the assembler emits bad instructions
+    // for CBZ/CBNZ if we try to jump to `art_jni_lock_object_no_inline`.
+.Llock_object_jni_slow:
+    // Save managed args, r4 (for stack alignment) and LR.
+    SAVE_MANAGED_ARGS_R4_LR_INCREASE_FRAME
+    // Call `artLockObjectFromCode()`
+    mov    r0, r4                       @ Pass the object to lock.
+    mov    r1, rSELF                    @ Pass Thread::Current().
+    bl     artLockObjectFromCode        @ (Object* obj, Thread*)
+    // Check result.
+    cbnz   r0, 1f
+    // Restore args and r4 and return.
+    RESTORE_MANAGED_ARGS_R4_AND_RETURN /*restore_cfa*/ 1
+1:
+    // All args are irrelevant when throwing an exception and R4 is preserved
+    // by the `artLockObjectFromCode()` call. Load LR and drop saved args and R4.
+    ldr    lr, [sp, #(MANAGED_ARGS_R4_LR_SAVE_SIZE - 4)]
+    .cfi_restore lr
+    DECREASE_FRAME MANAGED_ARGS_R4_LR_SAVE_SIZE
+    // Make a tail call to `artDeliverPendingExceptionFromCode()`.
+    // Rely on the JNI transition frame constructed in the JNI stub.
+    mov    r0, rSELF                           @ Pass Thread::Current().
+    b      artDeliverPendingExceptionFromCode  @ (Thread*)
+END art_jni_lock_object_no_inline
+
+    /*
+     * Entry from JNI stub that tries to unlock the object in a fast path and calls
+     * `artJniUnlockObject()` for the difficult cases. Note that failure to unlock
+     * is fatal, so we do not need to check for exceptions in the slow path.
+     * Custom calling convention:
+     *     r4 holds the non-null object to unlock.
+     *     Callee-save registers have been saved and can be used as temporaries.
+     *     Return registers r0-r1 and s0-s1 need to be preserved.
+     */
+ENTRY art_jni_unlock_object
+    // Note: the slow path is actually the art_jni_unlock_object_no_inline (tail call).
+    UNLOCK_OBJECT_FAST_PATH r4, r5, r6, r7, .Lunlock_object_jni_slow, /*can_be_null*/ 0
+END art_jni_unlock_object
+
+    /*
+     * Entry from JNI stub that calls `artJniUnlockObject()`. Note that failure to
+     * unlock is fatal, so we do not need to check for exceptions.
+     * Custom calling convention:
+     *     r4 holds the non-null object to unlock.
+     *     Callee-save registers have been saved and can be used as temporaries.
+     *     Return registers r0-r1 and s0-s1 need to be preserved.
+     */
+    // This is also the slow path for art_jni_unlock_object.
+JNI_SAVE_RETURN_VALUE_TRAMPOLINE art_jni_unlock_object_no_inline, artJniUnlockObject, r4, rSELF, \
+    /* Note that we need a local label as the assembler emits bad instructions                */ \
+    /* for CBZ/CBNZ if we try to jump to `art_jni_unlock_object_no_inline`.                   */ \
+    .Lunlock_object_jni_slow

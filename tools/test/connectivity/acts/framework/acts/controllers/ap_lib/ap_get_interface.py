@@ -30,13 +30,15 @@ class ApInterfaces(object):
     """Class to get network interface information for the device.
 
     """
-    def __init__(self, ap):
+    def __init__(self, ap, wan_interface_override=None):
         """Initialize the ApInterface class.
 
         Args:
             ap: the ap object within ACTS
+            wan_interface_override: wan interface to use if specified by config
         """
         self.ssh = ap.ssh
+        self.wan_interface_override = wan_interface_override
 
     def get_all_interface(self):
         """Get all network interfaces on the device.
@@ -120,13 +122,17 @@ class ApInterfaces(object):
         raise ApInterfacesError('Missing at least one WLAN interface')
 
     def get_wan_interface(self):
-        """Get the WAN interface which has internet connectivity.
+        """Get the WAN interface which has internet connectivity. If a wan
+        interface is already specified return that instead.
 
         Returns:
             wan: the only one WAN interface
         Raises:
             ApInterfacesError: no running WAN can be found
         """
+        if self.wan_interface_override:
+            return self.wan_interface_override
+
         wan = None
         interfaces_phy = self.get_physical_interface()
         interfaces_wlan = self.get_wlan_interface()

@@ -17,7 +17,6 @@ import subprocess
 import unittest
 
 from unittest import mock
-from six import b
 
 from acloud import errors
 from acloud.internal.lib import adb_tools
@@ -26,20 +25,20 @@ from acloud.internal.lib import driver_test_lib
 
 class AdbToolsTest(driver_test_lib.BaseDriverTest):
     """Test adb functions."""
-    DEVICE_ALIVE = b("List of devices attached\n"
-                     "127.0.0.1:48451 device product:aosp_cf_x86_phone "
-                     "model:Cuttlefish_x86_phone device:vsoc_x86 "
-                     "transport_id:98")
-    DEVICE_OFFLINE = b("List of devices attached\n"
-                       "127.0.0.1:48451 offline")
-    DEVICE_STATE_ONLY = b("List of devices attached\n"
-                          "127.0.0.1:48451\toffline\n"
-                          "emulator-5554\tdevice\n")
-    DEVICE_NONE = b("List of devices attached")
+    DEVICE_ALIVE = ("List of devices attached\n"
+                    "127.0.0.1:48451 device product:aosp_cf_x86_phone "
+                    "model:Cuttlefish_x86_phone device:vsoc_x86 "
+                    "transport_id:98").encode()
+    DEVICE_OFFLINE = ("List of devices attached\n"
+                      "127.0.0.1:48451 offline").encode()
+    DEVICE_STATE_ONLY = ("List of devices attached\n"
+                         "127.0.0.1:48451\toffline\n"
+                         "emulator-5554\tdevice\n").encode()
+    DEVICE_NONE = b"List of devices attached"
 
     def setUp(self):
         """Patch the path to adb."""
-        super(AdbToolsTest, self).setUp()
+        super().setUp()
         self.Patch(adb_tools.AdbTools, "_adb_command", "path/adb")
 
     # pylint: disable=no-member
@@ -97,6 +96,20 @@ class AdbToolsTest(driver_test_lib.BaseDriverTest):
         self.Patch(subprocess, "check_output", return_value=self.DEVICE_NONE)
         adb_cmd = adb_tools.AdbTools(fake_adb_port)
         self.assertEqual(adb_cmd.device_information, dict_none)
+
+    # pylint: disable=protected-access
+    def testSetDeviceSerial(self):
+        """Test SetDeviceSerial."""
+        self.Patch(subprocess, "check_output", return_value=self.DEVICE_ALIVE)
+        adb_port = "6666"
+        adb_tool = adb_tools.AdbTools(adb_port)
+        expected_result = "127.0.0.1:6666"
+        self.assertEqual(adb_tool._device_address, expected_result)
+
+        serial = "0.0.0.0:6520"
+        adb_tool = adb_tools.AdbTools(device_serial=serial)
+        expected_result = "0.0.0.0:6520"
+        self.assertEqual(adb_tool._device_address, expected_result)
 
     def testGetDeviceSerials(self):
         """Test parsing the output of adb devices."""

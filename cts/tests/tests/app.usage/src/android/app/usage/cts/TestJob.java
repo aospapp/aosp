@@ -23,19 +23,14 @@ import android.app.job.JobService;
 import android.content.ComponentName;
 import android.content.Context;
 
-import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 
 public final class TestJob extends JobService {
 
     public static final int TEST_JOB_ID = 1;
     public static final String NOTIFICATION_CHANNEL_ID = TestJob.class.getSimpleName();
     private static boolean sJobStarted;
-    public static BooleanSupplier hasJobStarted = new BooleanSupplier() {
-        @Override
-        public boolean getAsBoolean() {
-            return sJobStarted;
-        }
-    };
+    public static Supplier<Boolean> hasJobStarted = () -> sJobStarted;
 
     @Override
     public boolean onStartJob(JobParameters params) {

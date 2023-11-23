@@ -48,7 +48,7 @@ def create_updater(metadata: metadata_pb2.MetaData, proj_path: Path,
     raise ValueError('No supported URL.')
 
 
-def replace_package(source_dir, target_dir) -> None:
+def replace_package(source_dir, target_dir, temp_file=None) -> None:
     """Invokes a shell script to prepare and update a project.
 
     Args:
@@ -59,7 +59,8 @@ def replace_package(source_dir, target_dir) -> None:
     print('Updating {} using {}.'.format(target_dir, source_dir))
     script_path = os.path.join(os.path.dirname(sys.argv[0]),
                                'update_package.sh')
-    subprocess.check_call(['bash', script_path, source_dir, target_dir])
+    subprocess.check_call(['bash', script_path, source_dir, target_dir,
+                           "" if temp_file is None else temp_file])
 
 
 VERSION_SPLITTER_PATTERN: str = r'[\.\-_]'

@@ -98,6 +98,10 @@ class TestFlag {
 
 class FlagsTests : public CommonRuntimeTest {
  protected:
+  FlagsTests() {
+    this->use_boot_image_ = true;  // Make the Runtime creation cheaper.
+  }
+
   // We need to initialize the flag after the ScratchDir is created
   // but before we configure the runtime options (so that we can get
   // the right name for the config).
@@ -174,7 +178,7 @@ TEST_F(FlagsTestsWithCmdLine, FlagsTestsGetValueServerSetting) {
     return;
   }
 
-  if (android::base::SetProperty(test_flag_->ServerSetting(), "3")) {
+  if (!android::base::SetProperty(test_flag_->ServerSetting(), "3")) {
     LOG(ERROR) << "Release does not support property setting, skipping test: "
         << test_flag_->ServerSetting();
     return;
@@ -228,7 +232,7 @@ TEST_F(FlagsTestsCmdLineOnly, CmdlineOnlyFlags) {
     return;
   }
 
-  if (android::base::SetProperty(test_flag_->ServerSetting(), "3")) {
+  if (!android::base::SetProperty(test_flag_->ServerSetting(), "3")) {
     LOG(ERROR) << "Release does not support property setting, skipping test: "
         << test_flag_->ServerSetting();
     return;

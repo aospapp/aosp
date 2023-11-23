@@ -21,9 +21,10 @@ java_library {
 
     static_libs: [
         "junit",
+        "compatibility-device-util-axt",
     ],
 
     srcs: ["src/**/*.java"],
 
-    sdk_version: "current",
+    sdk_version: "test_current",
 }

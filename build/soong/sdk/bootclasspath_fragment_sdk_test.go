@@ -40,6 +40,7 @@ func fixtureAddPlatformBootclasspathForBootclasspathFragment(apex, fragment stri
 			}
 		`, apex, fragment)),
 		android.FixtureAddFile("frameworks/base/config/boot-profile.txt", nil),
+		android.FixtureAddFile("frameworks/base/config/boot-image-profile.txt", nil),
 		android.FixtureAddFile("build/soong/scripts/check_boot_jars/package_allowed_list.txt", nil),
 	)
 }
@@ -134,11 +135,12 @@ prebuilt_bootclasspath_fragment {
     image_name: "art",
     contents: ["mybootlib"],
     hidden_api: {
-        stub_flags: "hiddenapi/stub-flags.csv",
         annotation_flags: "hiddenapi/annotation-flags.csv",
         metadata: "hiddenapi/metadata.csv",
         index: "hiddenapi/index.csv",
-        all_flags: "hiddenapi/all-flags.csv",
+        signature_patterns: "hiddenapi/signature-patterns.csv",
+        filtered_stub_flags: "hiddenapi/filtered-stub-flags.csv",
+        filtered_flags: "hiddenapi/filtered-flags.csv",
     },
 }
 
@@ -147,7 +149,7 @@ java_import {
     prefer: false,
     visibility: ["//visibility:public"],
     apex_available: ["com.android.art"],
-    jars: ["java/mybootlib.jar"],
+    jars: ["java_boot_libs/snapshot/jars/are/invalid/mybootlib.jar"],
 }
 `),
 		checkVersionedAndroidBpContents(`
@@ -161,11 +163,12 @@ prebuilt_bootclasspath_fragment {
     image_name: "art",
     contents: ["mysdk_mybootlib@current"],
     hidden_api: {
-        stub_flags: "hiddenapi/stub-flags.csv",
         annotation_flags: "hiddenapi/annotation-flags.csv",
         metadata: "hiddenapi/metadata.csv",
         index: "hiddenapi/index.csv",
-        all_flags: "hiddenapi/all-flags.csv",
+        signature_patterns: "hiddenapi/signature-patterns.csv",
+        filtered_stub_flags: "hiddenapi/filtered-stub-flags.csv",
+        filtered_flags: "hiddenapi/filtered-flags.csv",
     },
 }
 
@@ -174,7 +177,7 @@ java_import {
     sdk_member_name: "mybootlib",
     visibility: ["//visibility:public"],
     apex_available: ["com.android.art"],
-    jars: ["java/mybootlib.jar"],
+    jars: ["java_boot_libs/snapshot/jars/are/invalid/mybootlib.jar"],
 }
 
 sdk_snapshot {
@@ -185,12 +188,13 @@ sdk_snapshot {
 }
 `),
 		checkAllCopyRules(`
-.intermediates/mybootclasspathfragment/android_common/modular-hiddenapi/stub-flags.csv -> hiddenapi/stub-flags.csv
 .intermediates/mybootclasspathfragment/android_common/modular-hiddenapi/annotation-flags.csv -> hiddenapi/annotation-flags.csv
 .intermediates/mybootclasspathfragment/android_common/modular-hiddenapi/metadata.csv -> hiddenapi/metadata.csv
 .intermediates/mybootclasspathfragment/android_common/modular-hiddenapi/index.csv -> hiddenapi/index.csv
-.intermediates/mybootclasspathfragment/android_common/modular-hiddenapi/all-flags.csv -> hiddenapi/all-flags.csv
-.intermediates/mybootlib/android_common/javac/mybootlib.jar -> java/mybootlib.jar
+.intermediates/mybootclasspathfragment/android_common/modular-hiddenapi/signature-patterns.csv -> hiddenapi/signature-patterns.csv
+.intermediates/mybootclasspathfragment/android_common/modular-hiddenapi/filtered-stub-flags.csv -> hiddenapi/filtered-stub-flags.csv
+.intermediates/mybootclasspathfragment/android_common/modular-hiddenapi/filtered-flags.csv -> hiddenapi/filtered-flags.csv
+.intermediates/mysdk/common_os/empty -> java_boot_libs/snapshot/jars/are/invalid/mybootlib.jar
 		`),
 		snapshotTestPreparer(checkSnapshotWithoutSource, preparerForSnapshot),
 
@@ -224,7 +228,7 @@ func TestSnapshotWithBootClasspathFragment_Contents(t *testing.T) {
 		java.PrepareForTestWithJavaDefaultModules,
 		java.PrepareForTestWithJavaSdkLibraryFiles,
 		java.FixtureWithLastReleaseApis("mysdklibrary", "myothersdklibrary", "mycoreplatform"),
-		java.FixtureConfigureUpdatableBootJars("myapex:mybootlib", "myapex:myothersdklibrary"),
+		java.FixtureConfigureApexBootJars("myapex:mybootlib", "myapex:myothersdklibrary"),
 		prepareForSdkTestWithApex,
 
 		// Add a platform_bootclasspath that depends on the fragment.
@@ -332,11 +336,12 @@ prebuilt_bootclasspath_fragment {
         stub_libs: ["mycoreplatform"],
     },
     hidden_api: {
-        stub_flags: "hiddenapi/stub-flags.csv",
         annotation_flags: "hiddenapi/annotation-flags.csv",
         metadata: "hiddenapi/metadata.csv",
         index: "hiddenapi/index.csv",
-        all_flags: "hiddenapi/all-flags.csv",
+        signature_patterns: "hiddenapi/signature-patterns.csv",
+        filtered_stub_flags: "hiddenapi/filtered-stub-flags.csv",
+        filtered_flags: "hiddenapi/filtered-flags.csv",
     },
 }
 
@@ -345,7 +350,7 @@ java_import {
     prefer: false,
     visibility: ["//visibility:public"],
     apex_available: ["myapex"],
-    jars: ["java/mybootlib.jar"],
+    jars: ["java_boot_libs/snapshot/jars/are/invalid/mybootlib.jar"],
     permitted_packages: ["mybootlib"],
 }
 
@@ -416,11 +421,12 @@ prebuilt_bootclasspath_fragment {
         stub_libs: ["mysdk_mycoreplatform@current"],
     },
     hidden_api: {
-        stub_flags: "hiddenapi/stub-flags.csv",
         annotation_flags: "hiddenapi/annotation-flags.csv",
         metadata: "hiddenapi/metadata.csv",
         index: "hiddenapi/index.csv",
-        all_flags: "hiddenapi/all-flags.csv",
+        signature_patterns: "hiddenapi/signature-patterns.csv",
+        filtered_stub_flags: "hiddenapi/filtered-stub-flags.csv",
+        filtered_flags: "hiddenapi/filtered-flags.csv",
     },
 }
 
@@ -429,7 +435,7 @@ java_import {
     sdk_member_name: "mybootlib",
     visibility: ["//visibility:public"],
     apex_available: ["myapex"],
-    jars: ["java/mybootlib.jar"],
+    jars: ["java_boot_libs/snapshot/jars/are/invalid/mybootlib.jar"],
     permitted_packages: ["mybootlib"],
 }
 
@@ -494,12 +500,13 @@ sdk_snapshot {
 }
 		`),
 		checkAllCopyRules(`
-.intermediates/mybootclasspathfragment/android_common/modular-hiddenapi/stub-flags.csv -> hiddenapi/stub-flags.csv
 .intermediates/mybootclasspathfragment/android_common/modular-hiddenapi/annotation-flags.csv -> hiddenapi/annotation-flags.csv
 .intermediates/mybootclasspathfragment/android_common/modular-hiddenapi/metadata.csv -> hiddenapi/metadata.csv
 .intermediates/mybootclasspathfragment/android_common/modular-hiddenapi/index.csv -> hiddenapi/index.csv
-.intermediates/mybootclasspathfragment/android_common/modular-hiddenapi/all-flags.csv -> hiddenapi/all-flags.csv
-.intermediates/mybootlib/android_common/javac/mybootlib.jar -> java/mybootlib.jar
+.intermediates/mybootclasspathfragment/android_common/modular-hiddenapi/signature-patterns.csv -> hiddenapi/signature-patterns.csv
+.intermediates/mybootclasspathfragment/android_common/modular-hiddenapi/filtered-stub-flags.csv -> hiddenapi/filtered-stub-flags.csv
+.intermediates/mybootclasspathfragment/android_common/modular-hiddenapi/filtered-flags.csv -> hiddenapi/filtered-flags.csv
+.intermediates/mysdk/common_os/empty -> java_boot_libs/snapshot/jars/are/invalid/mybootlib.jar
 .intermediates/myothersdklibrary.stubs/android_common/javac/myothersdklibrary.stubs.jar -> sdk_library/public/myothersdklibrary-stubs.jar
 .intermediates/myothersdklibrary.stubs.source/android_common/metalava/myothersdklibrary.stubs.source_api.txt -> sdk_library/public/myothersdklibrary.txt
 .intermediates/myothersdklibrary.stubs.source/android_common/metalava/myothersdklibrary.stubs.source_removed.txt -> sdk_library/public/myothersdklibrary-removed.txt
@@ -533,12 +540,137 @@ sdk_snapshot {
         snapshot/hiddenapi/index.csv
 			`, rule)
 
-			// Make sure that the permitted packages from the prebuilts end up in the
-			// updatable-bcp-packages.txt file.
-			rule = module.Output("updatable-bcp-packages.txt")
-			expectedContents := `'mybootlib\nmyothersdklibrary\n'`
-			android.AssertStringEquals(t, "updatable-bcp-packages.txt", expectedContents, rule.Args["content"])
+			rule = module.Output("out/soong/hiddenapi/hiddenapi-flags.csv.valid")
+			android.AssertStringDoesContain(t, "verify-overlaps", rule.RuleParams.Command, " snapshot/hiddenapi/filtered-flags.csv:snapshot/hiddenapi/signature-patterns.csv ")
 		}),
+		snapshotTestPreparer(checkSnapshotWithSourcePreferred, preparerForSnapshot),
+		snapshotTestChecker(checkSnapshotWithSourcePreferred, func(t *testing.T, result *android.TestResult) {
+			module := result.ModuleForTests("platform-bootclasspath", "android_common")
+			rule := module.Output("out/soong/hiddenapi/hiddenapi-flags.csv.valid")
+			android.AssertStringDoesContain(t, "verify-overlaps", rule.RuleParams.Command, " out/soong/.intermediates/mybootclasspathfragment/android_common_myapex/modular-hiddenapi/filtered-flags.csv:out/soong/.intermediates/mybootclasspathfragment/android_common_myapex/modular-hiddenapi/signature-patterns.csv ")
+		}),
+		snapshotTestPreparer(checkSnapshotPreferredWithSource, preparerForSnapshot),
+	)
+}
+
+// TestSnapshotWithBootClasspathFragment_Fragments makes sure that the fragments property of a
+// bootclasspath_fragment is correctly output to the sdk snapshot.
+func TestSnapshotWithBootClasspathFragment_Fragments(t *testing.T) {
+	result := android.GroupFixturePreparers(
+		prepareForSdkTestWithJava,
+		java.PrepareForTestWithJavaDefaultModules,
+		java.PrepareForTestWithJavaSdkLibraryFiles,
+		java.FixtureWithLastReleaseApis("mysdklibrary", "myothersdklibrary"),
+		java.FixtureConfigureApexBootJars("someapex:mysdklibrary", "myotherapex:myotherlib"),
+		prepareForSdkTestWithApex,
+
+		// Some additional files needed for the myotherapex.
+		android.FixtureMergeMockFs(android.MockFS{
+			"system/sepolicy/apex/myotherapex-file_contexts": nil,
+			"myotherapex/apex_manifest.json":                 nil,
+			"myotherapex/Test.java":                          nil,
+		}),
+
+		android.FixtureAddTextFile("myotherapex/Android.bp", `
+			apex {
+				name: "myotherapex",
+				key: "myapex.key",
+				min_sdk_version: "2",
+				bootclasspath_fragments: ["myotherbootclasspathfragment"],
+			}
+
+			bootclasspath_fragment {
+				name: "myotherbootclasspathfragment",
+				apex_available: ["myotherapex"],
+				contents: [
+					"myotherlib",
+				],
+			}
+
+			java_library {
+				name: "myotherlib",
+				apex_available: ["myotherapex"],
+				srcs: ["Test.java"],
+				min_sdk_version: "2",
+				permitted_packages: ["myothersdklibrary"],
+				compile_dex: true,
+			}
+		`),
+
+		android.FixtureWithRootAndroidBp(`
+			sdk {
+				name: "mysdk",
+				bootclasspath_fragments: ["mybootclasspathfragment"],
+			}
+
+			bootclasspath_fragment {
+				name: "mybootclasspathfragment",
+				contents: [
+					"mysdklibrary",
+				],
+				fragments: [
+					{
+						apex: "myotherapex",
+						module: "myotherbootclasspathfragment"
+					},
+				],
+			}
+
+			java_sdk_library {
+				name: "mysdklibrary",
+				srcs: ["Test.java"],
+				shared_library: false,
+				public: {enabled: true},
+				min_sdk_version: "2",
+			}
+		`),
+	).RunTest(t)
+
+	// A preparer to update the test fixture used when processing an unpackage snapshot.
+	preparerForSnapshot := fixtureAddPrebuiltApexForBootclasspathFragment("myapex", "mybootclasspathfragment")
+
+	CheckSnapshot(t, result, "mysdk", "",
+		checkUnversionedAndroidBpContents(`
+// This is auto-generated. DO NOT EDIT.
+
+prebuilt_bootclasspath_fragment {
+    name: "mybootclasspathfragment",
+    prefer: false,
+    visibility: ["//visibility:public"],
+    apex_available: ["//apex_available:platform"],
+    contents: ["mysdklibrary"],
+    fragments: [
+        {
+            apex: "myotherapex",
+            module: "myotherbootclasspathfragment",
+        },
+    ],
+    hidden_api: {
+        annotation_flags: "hiddenapi/annotation-flags.csv",
+        metadata: "hiddenapi/metadata.csv",
+        index: "hiddenapi/index.csv",
+        signature_patterns: "hiddenapi/signature-patterns.csv",
+        filtered_stub_flags: "hiddenapi/filtered-stub-flags.csv",
+        filtered_flags: "hiddenapi/filtered-flags.csv",
+    },
+}
+
+java_sdk_library_import {
+    name: "mysdklibrary",
+    prefer: false,
+    visibility: ["//visibility:public"],
+    apex_available: ["//apex_available:platform"],
+    shared_library: false,
+    public: {
+        jars: ["sdk_library/public/mysdklibrary-stubs.jar"],
+        stub_srcs: ["sdk_library/public/mysdklibrary_stub_sources"],
+        current_api: "sdk_library/public/mysdklibrary.txt",
+        removed_api: "sdk_library/public/mysdklibrary-removed.txt",
+        sdk_version: "current",
+    },
+}
+		`),
+		snapshotTestPreparer(checkSnapshotWithoutSource, preparerForSnapshot),
 		snapshotTestPreparer(checkSnapshotWithSourcePreferred, preparerForSnapshot),
 		snapshotTestPreparer(checkSnapshotPreferredWithSource, preparerForSnapshot),
 	)
@@ -607,7 +739,7 @@ func TestSnapshotWithBootclasspathFragment_HiddenAPI(t *testing.T) {
 		java.PrepareForTestWithJavaDefaultModules,
 		java.PrepareForTestWithJavaSdkLibraryFiles,
 		java.FixtureWithLastReleaseApis("mysdklibrary"),
-		java.FixtureConfigureUpdatableBootJars("myapex:mybootlib"),
+		java.FixtureConfigureApexBootJars("myapex:mybootlib"),
 		prepareForSdkTestWithApex,
 
 		// Add a platform_bootclasspath that depends on the fragment.
@@ -717,11 +849,12 @@ prebuilt_bootclasspath_fragment {
         max_target_o_low_priority: ["hiddenapi/my-max-target-o-low-priority.txt"],
         blocked: ["hiddenapi/my-blocked.txt"],
         unsupported_packages: ["hiddenapi/my-unsupported-packages.txt"],
-        stub_flags: "hiddenapi/stub-flags.csv",
         annotation_flags: "hiddenapi/annotation-flags.csv",
         metadata: "hiddenapi/metadata.csv",
         index: "hiddenapi/index.csv",
-        all_flags: "hiddenapi/all-flags.csv",
+        signature_patterns: "hiddenapi/signature-patterns.csv",
+        filtered_stub_flags: "hiddenapi/filtered-stub-flags.csv",
+        filtered_flags: "hiddenapi/filtered-flags.csv",
     },
 }
 
@@ -730,7 +863,7 @@ java_import {
     prefer: false,
     visibility: ["//visibility:public"],
     apex_available: ["myapex"],
-    jars: ["java/mybootlib.jar"],
+    jars: ["java_boot_libs/snapshot/jars/are/invalid/mybootlib.jar"],
     permitted_packages: ["mybootlib"],
 }
 
@@ -760,12 +893,13 @@ my-max-target-p.txt -> hiddenapi/my-max-target-p.txt
 my-max-target-o-low-priority.txt -> hiddenapi/my-max-target-o-low-priority.txt
 my-blocked.txt -> hiddenapi/my-blocked.txt
 my-unsupported-packages.txt -> hiddenapi/my-unsupported-packages.txt
-.intermediates/mybootclasspathfragment/android_common/modular-hiddenapi/stub-flags.csv -> hiddenapi/stub-flags.csv
 .intermediates/mybootclasspathfragment/android_common/modular-hiddenapi/annotation-flags.csv -> hiddenapi/annotation-flags.csv
 .intermediates/mybootclasspathfragment/android_common/modular-hiddenapi/metadata.csv -> hiddenapi/metadata.csv
 .intermediates/mybootclasspathfragment/android_common/modular-hiddenapi/index.csv -> hiddenapi/index.csv
-.intermediates/mybootclasspathfragment/android_common/modular-hiddenapi/all-flags.csv -> hiddenapi/all-flags.csv
-.intermediates/mybootlib/android_common/javac/mybootlib.jar -> java/mybootlib.jar
+.intermediates/mybootclasspathfragment/android_common/modular-hiddenapi/signature-patterns.csv -> hiddenapi/signature-patterns.csv
+.intermediates/mybootclasspathfragment/android_common/modular-hiddenapi/filtered-stub-flags.csv -> hiddenapi/filtered-stub-flags.csv
+.intermediates/mybootclasspathfragment/android_common/modular-hiddenapi/filtered-flags.csv -> hiddenapi/filtered-flags.csv
+.intermediates/mysdk/common_os/empty -> java_boot_libs/snapshot/jars/are/invalid/mybootlib.jar
 .intermediates/mysdklibrary.stubs/android_common/javac/mysdklibrary.stubs.jar -> sdk_library/public/mysdklibrary-stubs.jar
 .intermediates/mysdklibrary.stubs.source/android_common/metalava/mysdklibrary.stubs.source_api.txt -> sdk_library/public/mysdklibrary.txt
 .intermediates/mysdklibrary.stubs.source/android_common/metalava/mysdklibrary.stubs.source_removed.txt -> sdk_library/public/mysdklibrary-removed.txt

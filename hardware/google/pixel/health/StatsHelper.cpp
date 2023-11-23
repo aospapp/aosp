@@ -69,7 +69,7 @@ void reportBatteryHealthSnapshot(const std::shared_ptr<IStats> &stats_client,
     values[6] = tmp;
 
     // Send vendor atom to IStats HAL
-    VendorAtom event = {.reverseDomainName = PixelAtoms::ReverseDomainNames().pixel(),
+    VendorAtom event = {.reverseDomainName = "",
                         .atomId = PixelAtoms::Atom::kVendorBatteryHealthSnapshot,
                         .values = std::move(values)};
     const ndk::ScopedAStatus ret = stats_client->reportVendorAtom(event);
@@ -86,7 +86,7 @@ void reportBatteryCausedShutdown(const std::shared_ptr<IStats> &stats_client,
     values[0] = tmp;
 
     // Send vendor atom to IStats HAL
-    VendorAtom event = {.reverseDomainName = PixelAtoms::ReverseDomainNames().pixel(),
+    VendorAtom event = {.reverseDomainName = "",
                         .atomId = PixelAtoms::Atom::kVendorBatteryCausedShutdown,
                         .values = std::move(values)};
     const ndk::ScopedAStatus ret = stats_client->reportVendorAtom(event);

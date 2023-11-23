@@ -64,7 +64,7 @@ class SensorRequest {
    * @param latency The maximum amount of time to batch samples before
    *        delivering to a client.
    */
-  SensorRequest(uint32_t instanceId, SensorMode mode, Nanoseconds interval,
+  SensorRequest(uint16_t instanceId, SensorMode mode, Nanoseconds interval,
                 Nanoseconds latency);
 
   /**
@@ -127,7 +127,7 @@ class SensorRequest {
   /**
    * @return The instance ID of the nanoapp that owns this request.
    */
-  uint32_t getInstanceId() const {
+  uint16_t getInstanceId() const {
     return mInstanceId;
   }
 
@@ -157,7 +157,7 @@ class SensorRequest {
 
   //! The nanoapp that made this request or zero when unset. This will be
   //! kInvalidInstanceId when returned by the generateIntersectionOf method.
-  uint32_t mInstanceId = kInvalidInstanceId;
+  uint16_t mInstanceId = kInvalidInstanceId;
 
   //! The mode of this request.
   SensorMode mMode;

@@ -20,7 +20,6 @@
           package="com.android.bedstead.testapp.AccountManagementApp">
 
     <application
-        android:appComponentFactory="com.android.bedstead.testapp.TestAppAppComponentFactory"
         android:testOnly="true">
 
         <service android:name=".TestAppAccountAuthenticatorService" android:exported="true">

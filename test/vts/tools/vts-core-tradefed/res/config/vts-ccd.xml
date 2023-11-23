@@ -19,7 +19,11 @@
     <option name="plan" value="vts-ccd" />
     <option name="test-tag" value="vts-ccd" />
 
-    <option name="compatibility:skip-all-system-status-check" value="true" />
+    <system_checker class="com.android.tradefed.suite.checker.DeviceBaselineChecker">
+        <option name="enable-device-baseline-settings" value="true" />
+        <option name="enable-experimental-device-baseline-setters" value="keep_screen_on" />
+        <option name="enable-experimental-device-baseline-setters" value="disable_os_auto_update" />
+    </system_checker>
 
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.VtsDeviceInfoCollector" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.DeviceInfoCollector">

@@ -106,4 +106,8 @@ interface IWificond {
 
     // @return a device wiphy capabilities for an interface
     @nullable DeviceWiphyCapabilities getDeviceWiphyCapabilities(@utf8InCpp String iface_name);
+
+    // Notify wificond country code changed. It is being used when the driver doesn't support
+    // NL80211_CMD_REG_CHANGE or NL80211_CMD_WIPHY_REG_CHANGE
+    oneway void notifyCountryCodeChanged();
 }

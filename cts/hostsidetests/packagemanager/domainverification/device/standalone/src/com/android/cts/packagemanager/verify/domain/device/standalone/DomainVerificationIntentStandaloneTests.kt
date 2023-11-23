@@ -210,4 +210,49 @@ class DomainVerificationIntentStandaloneTests : DomainVerificationIntentTestBase
 
         assertResolvesTo(browsers)
     }
+
+    @Test
+    fun newVerifyTakesOverSelected() {
+        setAppLinksUserSelection(DECLARING_PKG_NAME_2, userId, true, DOMAIN_1, DOMAIN_2)
+        assertResolvesTo(DECLARING_PKG_2_COMPONENT, DOMAIN_1)
+        assertResolvesTo(DECLARING_PKG_2_COMPONENT, DOMAIN_2)
+
+        setAppLinks(DECLARING_PKG_NAME_1, true, DOMAIN_1)
+        assertResolvesTo(DECLARING_PKG_1_COMPONENT, DOMAIN_1)
+        assertResolvesTo(DECLARING_PKG_2_COMPONENT, DOMAIN_2)
+
+        setAppLinksAllowed(DECLARING_PKG_NAME_1, userId, false)
+        assertResolvesTo(browsers, DOMAIN_1)
+        assertResolvesTo(DECLARING_PKG_2_COMPONENT, DOMAIN_2)
+
+        // Re-select package 2 and re-verify the disabled package 1, should maintain package 2
+        setAppLinksUserSelection(DECLARING_PKG_NAME_2, userId, true, DOMAIN_1)
+        assertResolvesTo(DECLARING_PKG_2_COMPONENT, DOMAIN_1)
+        assertResolvesTo(DECLARING_PKG_2_COMPONENT, DOMAIN_2)
+
+        setAppLinks(DECLARING_PKG_NAME_1, true, DOMAIN_1)
+        assertResolvesTo(DECLARING_PKG_2_COMPONENT, DOMAIN_1)
+        assertResolvesTo(DECLARING_PKG_2_COMPONENT, DOMAIN_2)
+    }
+
+    @Test
+    fun newVerifyDoesNotTakesOverSelectedWhenLinkHandlingDisabled() {
+        setAppLinksUserSelection(DECLARING_PKG_NAME_2, userId, true, DOMAIN_1, DOMAIN_2)
+        assertResolvesTo(DECLARING_PKG_2_COMPONENT, DOMAIN_1)
+        assertResolvesTo(DECLARING_PKG_2_COMPONENT, DOMAIN_2)
+
+        setAppLinksAllowed(DECLARING_PKG_NAME_1, userId, false)
+        setAppLinks(DECLARING_PKG_NAME_1, true, DOMAIN_1)
+        assertResolvesTo(DECLARING_PKG_2_COMPONENT, DOMAIN_1)
+        assertResolvesTo(DECLARING_PKG_2_COMPONENT, DOMAIN_2)
+
+        // Re-select package 2 and re-verify the disabled package 1, should maintain package 2
+        setAppLinksUserSelection(DECLARING_PKG_NAME_2, userId, true, DOMAIN_1)
+        assertResolvesTo(DECLARING_PKG_2_COMPONENT, DOMAIN_1)
+        assertResolvesTo(DECLARING_PKG_2_COMPONENT, DOMAIN_2)
+
+        setAppLinks(DECLARING_PKG_NAME_1, true, DOMAIN_1)
+        assertResolvesTo(DECLARING_PKG_2_COMPONENT, DOMAIN_1)
+        assertResolvesTo(DECLARING_PKG_2_COMPONENT, DOMAIN_2)
+    }
 }

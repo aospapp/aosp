@@ -35,4 +35,14 @@ java_test_host {
         "cts",
         "general-tests",
     ],
+    data: [
+        ":CtsStaticSharedLibProviderApp1",
+        ":CtsStaticSharedLibProviderApp2",
+        ":CtsDeviceOsTestApp",
+        ":CtsHostProcfsTestApp",
+        ":CtsInattentiveSleepTestApp",
+        ":CtsHostEnvironmentTestApp",
+        ":CtsStaticSharedLibTestApp",
+    ],
+    per_testcase_directory: true,
 }

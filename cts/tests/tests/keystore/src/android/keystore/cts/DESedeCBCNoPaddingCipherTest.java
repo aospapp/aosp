@@ -35,4 +35,7 @@ public class DESedeCBCNoPaddingCipherTest extends DESedeCipherTestBase {
     protected byte[] getKatIv() {
         return KAT_IV.clone();
     }
+
+    @Override
+    protected boolean isStrongbox() { return false; }
 }

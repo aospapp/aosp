@@ -190,6 +190,12 @@
 
     <string name="stub_focus_indicator_service_description">com.android.accessibilityservice.cts.StubFocusIndicatorService</string>
 
+    <string name="stub_simple_ime_accessibility_service_description">com.android.accessibilityservice.cts.StubSimpleImeAccessibilityService</string>
+
+    <string name="stub_ime_accessibility_service_description">com.android.accessibilityservice.cts.StubImeAccessibilityService</string>
+
+    <string name="stub_non_ime_accessibility_service_description">com.android.accessibilityservice.cts.StubNonImeAccessibilityService</string>
+
     <!-- AccessibilityWindowQueryTest and AccessibilityReportingTest -->
 
     <!-- String title of embedded display activity -->
@@ -199,4 +205,8 @@
     <string name="accessibility_drag_and_drop_test_activity">Drag and drop</string>
     <string name="drag_and_drop_text">Dragged text</string>
 
+    <!-- String label of the input method -->
+    <string name="ime_name">InputMethod</string>
+
+    <string name="accessibility_cache_activity">Cache activity</string>
 </resources>

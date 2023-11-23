@@ -81,6 +81,7 @@ public class RollbackManagerHostTest extends BaseHostJUnit4Test {
                 + "--only-parent); do pm install-abandon $i; done");
         getDevice().executeShellCommand("pm uninstall com.android.cts.install.lib.testapp.A");
         getDevice().executeShellCommand("pm uninstall com.android.cts.install.lib.testapp.B");
+        getDevice().executeShellCommand("pm uninstall com.android.cts.install.lib.testapp.C");
         run("cleanUp");
         mHostUtils.uninstallShimApexIfNecessary();
     }

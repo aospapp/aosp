@@ -26,7 +26,7 @@ import com.android.nn.benchmark.core.BenchmarkResult;
 import com.android.nn.benchmark.core.Processor;
 import com.android.nn.benchmark.core.TestModels;
 import com.android.nn.benchmark.core.TfLiteBackend;
-import com.android.nn.crashtest.app.AcceleratorSpecificTestSupport;
+import com.android.nn.benchmark.app.AcceleratorSpecificTestSupport;
 import com.android.nn.crashtest.core.CrashTest;
 import com.android.nn.crashtest.core.CrashTestCoordinator;
 

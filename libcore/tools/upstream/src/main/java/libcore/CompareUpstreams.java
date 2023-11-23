@@ -165,6 +165,7 @@ public class CompareUpstreams {
             headers.add(upstream.name());
         }
         headers.add("diff");
+        headers.add("guessed_upstream_path");
         printTsv(out, headers);
 
         Path snapshotRoot = COMPARE_AGAINST_UPSTREAM_SNAPSHOT
@@ -217,6 +218,8 @@ public class CompareUpstreams {
             String changedCommentsSummary = androidChangedCommentsSummary(linesB);
 
             String diffCommand = "";
+            String guessed_upstream_path = guessedUpstream != null ?
+                "" + guessedUpstream.pathFromRepository(relPath) : "";
             if (!comparisons.get(0).equals("identical")) {
                 Path expectedUpstreamPath = expectedUpstream.pathFromRepository(relPath);
                 if (expectedUpstreamPath != null) {
@@ -232,6 +235,7 @@ public class CompareUpstreams {
             values.add(changedCommentsSummary);
             values.addAll(comparisons);
             values.add(diffCommand);
+            values.add(guessed_upstream_path);
             printTsv(out, values);
         }
     }

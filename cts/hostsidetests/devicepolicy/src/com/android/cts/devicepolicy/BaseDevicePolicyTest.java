@@ -76,6 +76,7 @@ import javax.annotation.Nullable;
 @RunWith(DeviceJUnit4ClassRunner.class)
 public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
 
+    private static final String FEATURE_AUTOMOTIVE = "android.hardware.type.automotive";
     private static final String FEATURE_BLUETOOTH = "android.hardware.bluetooth";
     private static final String FEATURE_CAMERA = "android.hardware.camera";
     private static final String FEATURE_CONNECTION_SERVICE = "android.software.connectionservice";
@@ -83,11 +84,11 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
     private static final String FEATURE_LEANBACK = "android.software.leanback";
     private static final String FEATURE_NFC = "android.hardware.nfc";
     private static final String FEATURE_NFC_BEAM = "android.software.nfc.beam";
-
     private static final String FEATURE_PRINT = "android.software.print";
     private static final String FEATURE_TELEPHONY = "android.hardware.telephony";
     private static final String FEATURE_SECURE_LOCK_SCREEN = "android.software.secure_lock_screen";
     private static final String FEATURE_WIFI = "android.hardware.wifi";
+    private static final String FEATURE_WATCH = "android.hardware.type.watch";
 
     //The maximum time to wait for user to be unlocked.
     private static final long USER_UNLOCK_TIMEOUT_SEC = 30;
@@ -177,6 +178,9 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
     protected int mDeviceOwnerUserId;
     protected int mPrimaryUserId;
 
+    /** Is test running on a watch */
+    protected boolean mIsWatch;
+
     /** Record the initial user ID. */
     protected int mInitialUserId;
 
@@ -206,6 +210,7 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
         mSupportsMultiUser = getMaxNumberOfUsersSupported() > 1;
         mFixedPackages = getDevice().getInstalledPackageNames();
         mBuildHelper = new CompatibilityBuildHelper(getBuild());
+        mIsWatch = hasDeviceFeature(FEATURE_WATCH);
 
         String propertyValue = getDevice().getProperty("ro.product.first_api_level");
         if (propertyValue != null && !propertyValue.isEmpty()) {
@@ -379,6 +384,11 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
     protected void forceStopPackageForUser(String packageName, int userId) throws Exception {
         // TODO Move this logic to ITestDevice
         executeShellCommand("am force-stop --user " + userId + " " + packageName);
+    }
+
+    protected void fgsStopPackageForUser(String packageName, int userId) throws Exception {
+        // TODO Move this logic to ITestDevice
+        executeShellCommand("am stop-app --user " + userId + " " + packageName);
     }
 
     protected String executeShellCommand(String commandTemplate, Object...args) throws Exception {
@@ -746,6 +756,10 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
 
     protected final void assumeHasTelephonyFeature() throws DeviceNotAvailableException {
         assumeHasDeviceFeature(FEATURE_TELEPHONY);
+    }
+
+    protected final void assumeSupportsSms() throws Exception {
+        assumeTrue("device doesn't support SMS", isSmsCapable());
     }
 
     protected final void assumeHasNfcFeatures() throws DeviceNotAvailableException {
@@ -1256,9 +1270,15 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
         allowTestApiAccess(deviceAdminPkg);
     }
 
-    protected void allowTestApiAccess(String deviceAdminPkg) throws Exception {
-        CLog.i("Granting ALLOW_TEST_API_ACCESS to package %s", deviceAdminPkg);
-        executeShellCommand("am compat enable ALLOW_TEST_API_ACCESS %s", deviceAdminPkg);
+    /**
+     * Grants access to APIs marked as {@code @TestApi}.
+     *
+     * <p><b>Note:</b> the {@code application} tag of the app's manifest must contain
+     * {@code android:debuggable="true"}, otherwise it won't work on {@code user} builds.
+     */
+    protected void allowTestApiAccess(String pgkName) throws Exception {
+        CLog.i("Granting ALLOW_TEST_API_ACCESS to package %s", pgkName);
+        executeShellCommand("am compat enable ALLOW_TEST_API_ACCESS %s", pgkName);
     }
 
     protected void grantPermission(String pkg, String permission, int userId, String reason)
@@ -1337,6 +1357,10 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
         return hasDeviceFeature(FEATURE_LEANBACK);
     }
 
+    boolean isAutomotive() throws DeviceNotAvailableException {
+        return hasDeviceFeature(FEATURE_AUTOMOTIVE);
+    }
+
     void pushUpdateFileToDevice(String fileName)
             throws IOException, DeviceNotAvailableException {
         File file = File.createTempFile(
@@ -1362,7 +1386,17 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
     }
 
     void sleep(int timeMs) throws InterruptedException {
-        CLog.d("Sleeping %d ms");
+        CLog.d("Sleeping %d ms", timeMs);
         Thread.sleep(timeMs);
+    }
+
+    private boolean isSmsCapable() throws Exception {
+        String output = getDevice().executeShellCommand("dumpsys phone");
+        if (output.contains("isSmsCapable=true")) {
+            CLog.d("Device is SMS capable");
+            return true;
+        }
+        CLog.d("Device is not SMS capable");
+        return false;
     }
 }

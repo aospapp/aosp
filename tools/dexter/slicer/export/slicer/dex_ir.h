@@ -16,14 +16,14 @@
 
 #pragma once
 
-#include "common.h"
-#include "memview.h"
 #include "arrayview.h"
+#include "buffer.h"
+#include "common.h"
 #include "dex_format.h"
 #include "dex_leb128.h"
-#include "buffer.h"
-#include "index_map.h"
 #include "hash_table.h"
+#include "index_map.h"
+#include "memview.h"
 
 #include <stdlib.h>
 #include <map>

@@ -142,8 +142,9 @@ def merge(proj_path: Path, branch: str) -> None:
     """Merges a branch."""
     try:
         _run(['git', 'merge', branch, '--no-commit'], cwd=proj_path)
-    except subprocess.CalledProcessError:
-        # Merge failed. Error is already written to console.
+    except subprocess.CalledProcessError as err:
+        if hasattr(err, "output"):
+            print(err.output)
         _run(['git', 'merge', '--abort'], cwd=proj_path)
         raise
 
@@ -151,6 +152,11 @@ def merge(proj_path: Path, branch: str) -> None:
 def add_file(proj_path: Path, file_name: str) -> None:
     """Stages a file."""
     _run(['git', 'add', file_name], cwd=proj_path)
+
+
+def remove_gitmodules(proj_path: Path) -> None:
+    """Deletes .gitmodules files."""
+    _run(['find', '.', '-name', '.gitmodules', '-delete'], cwd=proj_path)
 
 
 def delete_branch(proj_path: Path, branch_name: str) -> None:

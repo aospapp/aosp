@@ -57,7 +57,10 @@ struct hwc_dpp_ch_restriction {
 
 struct hwc_dpp_restrictions_info {
   uint32_t ver;
+  /* dpp_chs : Normal DPP DMA Channels for window composition */
   std::vector<hwc_dpp_ch_restriction> dpp_chs;
+  /* spp_chs : Special DPP DMA Channels for SPP (Speicial Purpose Plane) */
+  std::vector<hwc_dpp_ch_restriction> spp_chs;
   uint32_t ppc = 0;
   uint32_t max_disp_freq = 0;
 };
@@ -84,6 +87,12 @@ class ExynosDeviceInterface {
         /* Fill mDPUInfo according to interface type */
         virtual void updateRestrictions() = 0;
         virtual bool getUseQuery() { return mUseQuery; };
+
+        uint32_t getNumDPPChs() { return mDPUInfo.dpuInfo.dpp_chs.size(); };
+        uint32_t getNumSPPChs() { return mDPUInfo.dpuInfo.spp_chs.size(); };
+        uint32_t getSPPChId(uint32_t index) { return mDPUInfo.dpuInfo.spp_chs.at(index).id; };
+        uint64_t getSPPChAttr(uint32_t index) { return mDPUInfo.dpuInfo.spp_chs.at(index).attr; };
+
         ExynosDevice* getExynosDevice() {return mExynosDevice;};
     protected:
         /* Make dpu restrictions using mDPUInfo */

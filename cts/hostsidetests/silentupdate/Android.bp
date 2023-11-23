@@ -30,9 +30,11 @@ java_test_host {
         "tradefed",
         "compatibility-host-util",
     ],
+    per_testcase_directory: true,
     data: [
+        ":CtsSilentUpdateTestCases",
         ":SilentInstallCurrent",
+        ":SilentInstallR",
         ":SilentInstallQ",
-        ":SilentInstallP",
     ]
 }

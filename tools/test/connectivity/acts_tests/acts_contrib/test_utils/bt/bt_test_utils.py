@@ -21,9 +21,12 @@ import re
 import string
 import threading
 import time
+try:
+    import pandas as pd
+except ModuleNotFoundError:
+    pass
 from queue import Empty
 from subprocess import call
-
 from acts import asserts
 from acts_contrib.test_utils.bt.bt_constants import adv_fail
 from acts_contrib.test_utils.bt.bt_constants import adv_succ
@@ -105,8 +108,7 @@ def bluetooth_enabled_check(ad, timeout_sec=5):
             ad.ed.pop_event(expected_bluetooth_on_event_name,
                             bt_default_timeout)
         except Empty:
-            ad.log.info(
-                "Failed to toggle Bluetooth on(no broadcast received).")
+            ad.log.info("Failed to toggle Bluetooth on(no broadcast received).")
             # Try one more time to poke at the actual state.
             if ad.droid.bluetoothCheckState():
                 ad.log.info(".. actual state is ON")
@@ -219,7 +221,7 @@ def connect_phone_to_headset(android,
         method. False otherwise.
     """
     headset_mac_address = headset.mac_address
-    connected = is_a2dp_src_device_connected(android, headset_mac_address)
+    connected = android.droid.audioIsBluetoothA2dpOn()
     log.info('Devices connected before pair attempt: %s' % connected)
     if not connected:
         # Turn on headset and initiate pairing mode.
@@ -230,9 +232,7 @@ def connect_phone_to_headset(android,
     while not connected and (time.time() - start_time < timeout):
         bonded_info = android.droid.bluetoothGetBondedDevices()
         connected_info = android.droid.bluetoothGetConnectedDevices()
-        if headset.mac_address not in [
-                info["address"] for info in bonded_info
-        ]:
+        if headset.mac_address not in [info["address"] for info in bonded_info]:
             # Use SL4A to pair and connect with headset.
             headset.enter_pairing_mode()
             android.droid.bluetoothDiscoverAndBond(headset_mac_address)
@@ -247,9 +247,10 @@ def connect_phone_to_headset(android,
         log.info('Waiting for connection...')
         time.sleep(connection_check_period)
         # Check for connection.
-        connected = is_a2dp_src_device_connected(android, headset_mac_address)
+        connected = android.droid.audioIsBluetoothA2dpOn()
     log.info('Devices connected after pair attempt: %s' % connected)
     return connected
+
 
 def connect_pri_to_sec(pri_ad, sec_ad, profiles_set, attempts=2):
     """Connects pri droid to secondary droid.
@@ -312,34 +313,33 @@ def _connect_pri_to_sec(pri_ad, sec_ad, profiles_set):
 
     # Now try to connect them, the following call will try to initiate all
     # connections.
-    pri_ad.droid.bluetoothConnectBonded(
-        sec_ad.droid.bluetoothGetLocalAddress())
+    pri_ad.droid.bluetoothConnectBonded(sec_ad.droid.bluetoothGetLocalAddress())
 
     end_time = time.time() + 10
     profile_connected = set()
     sec_addr = sec_ad.droid.bluetoothGetLocalAddress()
     pri_ad.log.info("Profiles to be connected {}".format(profiles_set))
     # First use APIs to check profile connection state
-    while (time.time() < end_time
-           and not profile_connected.issuperset(profiles_set)):
-        if (bt_profile_constants['headset_client'] not in profile_connected
-                and bt_profile_constants['headset_client'] in profiles_set):
+    while (time.time() < end_time and
+           not profile_connected.issuperset(profiles_set)):
+        if (bt_profile_constants['headset_client'] not in profile_connected and
+                bt_profile_constants['headset_client'] in profiles_set):
             if is_hfp_client_device_connected(pri_ad, sec_addr):
                 profile_connected.add(bt_profile_constants['headset_client'])
-        if (bt_profile_constants['a2dp'] not in profile_connected
-                and bt_profile_constants['a2dp'] in profiles_set):
+        if (bt_profile_constants['a2dp'] not in profile_connected and
+                bt_profile_constants['a2dp'] in profiles_set):
             if is_a2dp_src_device_connected(pri_ad, sec_addr):
                 profile_connected.add(bt_profile_constants['a2dp'])
-        if (bt_profile_constants['a2dp_sink'] not in profile_connected
-                and bt_profile_constants['a2dp_sink'] in profiles_set):
+        if (bt_profile_constants['a2dp_sink'] not in profile_connected and
+                bt_profile_constants['a2dp_sink'] in profiles_set):
             if is_a2dp_snk_device_connected(pri_ad, sec_addr):
                 profile_connected.add(bt_profile_constants['a2dp_sink'])
-        if (bt_profile_constants['map_mce'] not in profile_connected
-                and bt_profile_constants['map_mce'] in profiles_set):
+        if (bt_profile_constants['map_mce'] not in profile_connected and
+                bt_profile_constants['map_mce'] in profiles_set):
             if is_map_mce_device_connected(pri_ad, sec_addr):
                 profile_connected.add(bt_profile_constants['map_mce'])
-        if (bt_profile_constants['map'] not in profile_connected
-                and bt_profile_constants['map'] in profiles_set):
+        if (bt_profile_constants['map'] not in profile_connected and
+                bt_profile_constants['map'] in profiles_set):
             if is_map_mse_device_connected(pri_ad, sec_addr):
                 profile_connected.add(bt_profile_constants['map'])
         time.sleep(0.1)
@@ -600,8 +600,8 @@ def generate_ble_scan_objects(droid):
 
 
 def generate_id_by_size(size,
-                        chars=(string.ascii_lowercase +
-                               string.ascii_uppercase + string.digits)):
+                        chars=(string.ascii_lowercase + string.ascii_uppercase +
+                               string.digits)):
     """Generate random ascii characters of input size and input char types
 
     Args:
@@ -710,7 +710,11 @@ def read_otp(ad):
     return otp_dict
 
 
-def get_bt_metric(ad_list, duration=1, tag="bt_metric", processed=True):
+def get_bt_metric(ad_list,
+                  duration=1,
+                  bqr_tag='Monitoring , Handle:',
+                  tag='',
+                  log_path=False):
     """ Function to get the bt metric from logcat.
 
     Captures logcat for the specified duration and returns the bqr results.
@@ -719,21 +723,36 @@ def get_bt_metric(ad_list, duration=1, tag="bt_metric", processed=True):
 
     Args:
         ad_list: list of android_device objects
-        duration: time duration (seconds) for which the logcat is parsed.
-        tag: tag to be appended to the logcat dump.
-        processed: flag to process bqr output.
+        duration: time duration (seconds) for which the logcat is parsed
+        bqr_tag: tag of bt metrics
+        tag: tag to be appended to the metrics raw data
+        log_path: path of metrics raw data
 
     Returns:
-        metrics_dict: dict of metrics for each android device.
+        process_data: dict of process raw data for each android devices
     """
 
-    # Defining bqr quantitites and their regex to extract
+    # Defining bqr quantites and their regex to extract
     regex_dict = {
-        "vsp_txpl": "VSP_TxPL:\s(\S+)",
         "pwlv": "PwLv:\s(\S+)",
-        "rssi": "RSSI:\s[-](\d+)"
+        "rssi": "RSSI:\s[-](\d+)",
+        "rssi_c0": "RSSI_C0:\s[-](\d+)",
+        "rssi_c1": "RSSI_C1:\s[-](\d+)",
+        "txpw_c0": "\sTxPw_C0:\s(-?\d+)",
+        "txpw_c1": "\sTxPw_C1:\s(-?\d+)",
+        "bftx": "BFTx:\s(\w+)",
+        "divtx": "DivTx:\s(\w+)"
     }
-    metrics_dict = {"rssi": {}, "pwlv": {}, "vsp_txpl": {}}
+    metrics_dict = {
+        "rssi": {},
+        "pwlv": {},
+        "rssi_c0": {},
+        "rssi_c1": {},
+        "txpw_c0": {},
+        "txpw_c1": {},
+        "bftx": {},
+        "divtx": {}
+    }
 
     # Converting a single android device object to list
     if not isinstance(ad_list, list):
@@ -749,8 +768,7 @@ def get_bt_metric(ad_list, duration=1, tag="bt_metric", processed=True):
     end_time = utils.get_current_epoch_time()
 
     for ad in ad_list:
-        bt_rssi_log = ad.cat_adb_log(tag, begin_time, end_time)
-        bqr_tag = "Handle:"
+        bt_rssi_log = ad.cat_adb_log(tag + "_bt_metric", begin_time, end_time)
 
         # Extracting supporting bqr quantities
         for metric, regex in regex_dict.items():
@@ -762,35 +780,97 @@ def get_bt_metric(ad_list, duration=1, tag="bt_metric", processed=True):
                         m = re.findall(regex, line)[0].strip(",")
                         bqr_metric.append(m)
             metrics_dict[metric][ad.serial] = bqr_metric
+            file_bt_log.close()
 
-        # Ensures back-compatibility for vsp_txpl enabled DUTs
-        if metrics_dict["vsp_txpl"][ad.serial]:
-            metrics_dict["pwlv"][ad.serial] = metrics_dict["vsp_txpl"][
-                ad.serial]
+        # Formatting and saving the raw data
+        metrics_to_be_formatted = [{
+            "name": "rssi",
+            "averagble": "y"
+        }, {
+            "name": "rssi_c0",
+            "averagble": "y"
+        }, {
+            "name": "rssi_c1",
+            "averagble": "y"
+        }, {
+            "name": "pwlv",
+            "averagble": "n"
+        }, {
+            "name": "txpw_c0",
+            "averagble": "n"
+        }, {
+            "name": "txpw_c1",
+            "averagble": "n"
+        }, {
+            "name": "bftx",
+            "averagble": "n"
+        }, {
+            "name": "divtx",
+            "averagble": "n"
+        }]
+        for metric in metrics_to_be_formatted:
+            if metric["averagble"] == "y":
+                metrics_dict[metric["name"]][ad.serial] = [
+                    (-1) * int(x)
+                    for x in metrics_dict[metric["name"]][ad.serial]
+                ]
+            else:
+                metrics_dict[metric["name"]][ad.serial] = [
+                    int(x, 16) if '0x' in x else int(x, 10)
+                    for x in metrics_dict[metric["name"]][ad.serial]
+                ]
+        # Saving metrics raw data for each attenuation
+        if log_path:
+            output_file_name = ad.serial + "_metrics_raw_data_" + tag + ".csv"
+            output_file = os.path.join(log_path, output_file_name)
+            os.makedirs(log_path, exist_ok=True)
+            df_save_metrics = {}
+            for item in metrics_dict.items():
+                df_save_metrics[item[0]] = next(iter(item[1].items()))[1]
+            MetricsDict_df = pd.DataFrame({key:pd.Series(value) for key, value in df_save_metrics.items()})
+            MetricsDict_df.to_csv(output_file)
+        # Defining the process_data_dict
+        process_data = {
+            "rssi": {},
+            "pwlv": {},
+            "rssi_c0": {},
+            "rssi_c1": {},
+            "txpw_c0": {},
+            "txpw_c1": {},
+            "bftx": {},
+            "divtx": {}
+        }
 
-        # Formatting the raw data
-        metrics_dict["rssi"][ad.serial] = [
-            (-1) * int(x) for x in metrics_dict["rssi"][ad.serial]
-        ]
-        metrics_dict["pwlv"][ad.serial] = [
-            int(x, 16) for x in metrics_dict["pwlv"][ad.serial]
-        ]
+        # Computing and returning the raw data
+        for metric in metrics_to_be_formatted:
+            if metric["averagble"] == "y":
+                process_data[metric["name"]][ad.serial] = [
+                    x for x in metrics_dict[metric["name"]][ad.serial]
+                    if x != 0 and x != -127
+                ]
 
-        # Processing formatted data if processing is required
-        if processed:
-            # Computes the average RSSI
-            metrics_dict["rssi"][ad.serial] = round(
-                sum(metrics_dict["rssi"][ad.serial]) /
-                len(metrics_dict["rssi"][ad.serial]), 2)
-            # Returns last noted value for power level
-            metrics_dict["pwlv"][ad.serial] = float(
-                sum(metrics_dict["pwlv"][ad.serial]) /
-                len(metrics_dict["pwlv"][ad.serial]))
+                try:
+                    #DOING AVERAGE
+                    process_data[metric["name"]][ad.serial] = round(
+                        sum(metrics_dict[metric["name"]][ad.serial]) /
+                        len(metrics_dict[metric["name"]][ad.serial]), 2)
+                except ZeroDivisionError:
+                    #SETTING VALUE TO 'n/a'
+                    process_data[metric["name"]][ad.serial] = "n/a"
+            else:
+                try:
+                    #GETTING MOST_COMMON_VALUE
+                    process_data[metric["name"]][ad.serial] = max(
+                        metrics_dict[metric["name"]][ad.serial],
+                        key=metrics_dict[metric["name"]][ad.serial].count)
+                except ValueError:
+                    #SETTING VALUE TO 'n/a'
+                    process_data[metric["name"]][ad.serial] = "n/a"
 
-    return metrics_dict
+    return process_data
 
 
-def get_bt_rssi(ad, duration=1, processed=True):
+def get_bt_rssi(ad, duration=1, processed=True, tag='', log_path=False):
     """Function to get average bt rssi from logcat.
 
     This function returns the average RSSI for the given duration. RSSI values are
@@ -803,11 +883,7 @@ def get_bt_rssi(ad, duration=1, processed=True):
     Returns:
         avg_rssi: average RSSI on each android device for the given duration.
     """
-    function_tag = "get_bt_rssi"
-    bqr_results = get_bt_metric(ad,
-                                duration,
-                                tag=function_tag,
-                                processed=processed)
+    bqr_results = get_bt_metric(ad, duration, tag=tag, log_path=log_path)
     return bqr_results["rssi"]
 
 
@@ -1203,8 +1279,7 @@ def orchestrate_bluetooth_socket_connection(
             test_result = False
         time.sleep(1)
     if not test_result:
-        client_ad.log.error(
-            "Failed to establish a Bluetooth socket connection")
+        client_ad.log.error("Failed to establish a Bluetooth socket connection")
         return False
     return True
 
@@ -1255,9 +1330,8 @@ def pair_pri_to_sec(pri_ad, sec_ad, attempts=2, auto_confirm=True):
                     str(curr_attempts)))
             return False
         if not clear_bonded_devices(sec_ad):
-            log.error(
-                "Failed to clear bond for secondary device at attempt {}".
-                format(str(curr_attempts)))
+            log.error("Failed to clear bond for secondary device at attempt {}".
+                      format(str(curr_attempts)))
             return False
         # Wait 2 seconds after unbound
         time.sleep(2)
@@ -1409,11 +1483,10 @@ def set_bluetooth_codec(android_device,
     droid, ed = android_device.droid, android_device.ed
     if not droid.bluetoothA2dpSetCodecConfigPreference(
             codec_types[codec_type], sample_rates[str(sample_rate)],
-            bits_per_samples[str(bits_per_sample)],
-            channel_modes[channel_mode], codec_specific_1):
-        android_device.log.warning(
-            "SL4A command returned False. Codec was not "
-            "changed.")
+            bits_per_samples[str(bits_per_sample)], channel_modes[channel_mode],
+            codec_specific_1):
+        android_device.log.warning("SL4A command returned False. Codec was not "
+                                   "changed.")
     else:
         try:
             ed.pop_event(bluetooth_a2dp_codec_config_changed,
@@ -1625,8 +1698,8 @@ def take_btsnoop_log(ad, testcase, testname):
     out_name = ','.join((testname, device_model, serial))
     snoop_path = os.path.join(ad.device_log_path, 'BluetoothSnoopLogs')
     os.makedirs(snoop_path, exist_ok=True)
-    cmd = ''.join(("adb -s ", serial, " pull ", btsnoop_log_path_on_device,
-                   " ", snoop_path + '/' + out_name, ".btsnoop_hci.log"))
+    cmd = ''.join(("adb -s ", serial, " pull ", btsnoop_log_path_on_device, " ",
+                   snoop_path + '/' + out_name, ".btsnoop_hci.log"))
     exe_cmd(cmd)
     try:
         cmd = ''.join(
@@ -1747,9 +1820,8 @@ def _wait_for_passkey_match(pri_ad, sec_ad):
             timeout=bt_default_timeout)
         sec_variant = sec_pairing_req["data"]["PairingVariant"]
         sec_pin = sec_pairing_req["data"]["Pin"]
-        sec_ad.log.info(
-            "Secondary device received Pin: {}, Variant: {}".format(
-                sec_pin, sec_variant))
+        sec_ad.log.info("Secondary device received Pin: {}, Variant: {}".format(
+            sec_pin, sec_variant))
     except Empty as err:
         log.error("Wait for pin error: {}".format(err))
         log.error("Pairing request state, Primary: {}, Secondary: {}".format(
@@ -1815,6 +1887,7 @@ class MediaControlOverSl4a(object):
     """Media control using sl4a facade for general purpose.
 
     """
+
     def __init__(self, android_device, music_file):
         """Initialize the media_control class.
 

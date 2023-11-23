@@ -17,8 +17,6 @@
 package android.content.pm.cts;
 
 
-import android.content.cts.MockActivity;
-
 import static android.content.pm.PackageManager.MATCH_DIRECT_BOOT_AWARE;
 import static android.content.pm.PackageManager.MATCH_DIRECT_BOOT_UNAWARE;
 import static android.content.pm.PackageManager.MATCH_SYSTEM_ONLY;
@@ -32,7 +30,6 @@ import android.test.AndroidTestCase;
 
 import java.io.File;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Test instant apps.
@@ -57,7 +54,8 @@ public class InstantAppTest extends AndroidTestCase {
                 | MATCH_DIRECT_BOOT_UNAWARE
                 | MATCH_SYSTEM_ONLY;
         final List<ResolveInfo> matches =
-                mPackageManager.queryIntentServices(resolverIntent, resolveFlags);
+                mPackageManager.queryIntentServices(resolverIntent,
+                        PackageManager.ResolveInfoFlags.of(resolveFlags));
         assertTrue(matches == null || matches.size() <= 1);
     }
 
@@ -71,7 +69,8 @@ public class InstantAppTest extends AndroidTestCase {
                 | MATCH_DIRECT_BOOT_UNAWARE
                 | MATCH_SYSTEM_ONLY;
         final List<ResolveInfo> matches =
-                mPackageManager.queryIntentActivities(intent, resolveFlags);
+                mPackageManager.queryIntentActivities(intent,
+                        PackageManager.ResolveInfoFlags.of(resolveFlags));
         assertTrue(matches == null || matches.size() <= 1);
     }
 }

@@ -60,7 +60,7 @@ public final class Poll<E> {
     private static final String LOG_TAG = Poll.class.getName();
 
     private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(30);
-    private static final long SLEEP_MILLIS = 200;
+    private static final long SLEEP_MILLIS = 200; // TODO(b/223768343): Allow configuring
     private final String mValueName;
     private final ValueSupplier<E> mSupplier;
     private ValueChecker<E> mChecker = (v) -> true;

@@ -21,10 +21,16 @@
 #include <string>
 #include <thread>
 
+#include <sys/epoll.h>
+#include <sys/eventfd.h>
 #include <unistd.h>
 
+#include <android-base/properties.h>
+#include <android-base/unique_fd.h>
 #include <android/hardware/tests/lazy/1.1/ILazy.h>
+#include <android/hardware/tests/lazy_cb/1.0/ILazyCb.h>
 #include <android/hidl/manager/1.2/IServiceManager.h>
+#include <cutils/native_handle.h>
 #include <gtest/gtest.h>
 #include <hidl-util/FqInstance.h>
 #include <hidl/HidlSupport.h>
@@ -34,10 +40,14 @@
 
 using ::android::FqInstance;
 using ::android::sp;
+using ::android::base::unique_fd;
+using ::android::hardware::hidl_handle;
 using ::android::hardware::hidl_string;
 using ::android::hardware::hidl_vec;
 using ::android::hardware::IPCThreadState;
+using ::android::hardware::Return;
 using ::android::hardware::tests::lazy::V1_1::ILazy;
+using ::android::hardware::tests::lazy_cb::V1_0::ILazyCb;
 using ::android::hidl::base::V1_0::IBase;
 using ::android::hidl::manager::V1_2::IServiceManager;
 
@@ -49,33 +59,14 @@ sp<IBase> getHal(const FqInstance& instance) {
                                                                true /*retry*/, false /*getStub*/);
 }
 
-class HidlLazyTest : public ::testing::Test {
+class HidlLazyTestBase : public ::testing::Test {
   protected:
+    static constexpr size_t SHUTDOWN_WAIT_TIME = 10;
     sp<IServiceManager> manager;
 
     void SetUp() override {
         manager = IServiceManager::getService();
         ASSERT_NE(manager, nullptr);
-
-        for (const auto& instance : gInstances) {
-            ASSERT_FALSE(isServiceRunning(instance))
-                    << "Service '" << instance.string()
-                    << "' is already running. Please ensure this "
-                    << "service is implemented as a lazy HAL, then kill all "
-                    << "clients of this service and try again.";
-        }
-    }
-
-    static constexpr size_t SHUTDOWN_WAIT_TIME = 10;
-    void TearDown() override {
-        std::cout << "Waiting " << SHUTDOWN_WAIT_TIME << " seconds before checking that the "
-                  << "service has shut down." << std::endl;
-        IPCThreadState::self()->flushCommands();
-        sleep(SHUTDOWN_WAIT_TIME);
-        for (const auto& instance : gInstances) {
-            ASSERT_FALSE(isServiceRunning(instance))
-                    << "Service failed to shutdown " << instance.string();
-        }
     }
 
     bool isServiceRunning(const FqInstance& instance) {
@@ -92,6 +83,37 @@ class HidlLazyTest : public ::testing::Test {
                             .isOk());
         return isRunning;
     }
+};
+
+class HidlLazyTest : public HidlLazyTestBase {
+  protected:
+    void SetUp() override {
+        HidlLazyTestBase::SetUp();
+        for (const auto& instance : gInstances) {
+            ASSERT_FALSE(isServiceRunning(instance))
+                    << "Service '" << instance.string()
+                    << "' is already running. Please ensure this "
+                    << "service is implemented as a lazy HAL, then kill all "
+                    << "clients of this service and try again.";
+        }
+    }
+
+    void TearDown() override {
+        std::cout << "Waiting " << SHUTDOWN_WAIT_TIME << " seconds before checking that the "
+                  << "service has shut down." << std::endl;
+        IPCThreadState::self()->flushCommands();
+        int timeout_multiplier = android::base::GetIntProperty("ro.hw_timeout_multiplier", 1);
+        sleep(SHUTDOWN_WAIT_TIME * timeout_multiplier);
+        for (const auto& instance : gInstances) {
+            ASSERT_FALSE(isServiceRunning(instance))
+                    << "Service failed to shutdown " << instance.string();
+        }
+    }
+};
+
+class HidlLazyCbTest : public HidlLazyTestBase {
+  protected:
+    static constexpr size_t CALLBACK_SHUTDOWN_WAIT_TIME = 5;
 };
 
 static constexpr size_t NUM_IMMEDIATE_GET_UNGETS = 100;
@@ -123,7 +145,8 @@ static void testWithTimes(const std::vector<size_t>& waitTimes, const FqInstance
         IPCThreadState::self()->flushCommands();
         std::cout << "Thread for " << instance.string() << " waiting " << sleepTime
                   << " while not holding HAL." << std::endl;
-        sleep(sleepTime);
+        int timeout_multiplier = android::base::GetIntProperty("ro.hw_timeout_multiplier", 1);
+        sleep(sleepTime * timeout_multiplier);
         sp<IBase> hal = getHal(instance);
         ASSERT_NE(hal.get(), nullptr);
         ASSERT_TRUE(hal->ping().isOk());
@@ -151,18 +174,69 @@ TEST_F(HidlLazyTest, GetWithWaitConcurrent) {
     }
 }
 
-TEST_F(HidlLazyTest, ActiveServicesCallbackTest) {
-    sp<ILazy> lazy;
+TEST_F(HidlLazyCbTest, ActiveServicesCallbackTest) {
+    const std::string fqInstanceName = "android.hardware.tests.lazy_cb@1.0::ILazyCb/default";
+    FqInstance fqInstance;
+    ASSERT_TRUE(fqInstance.setTo(fqInstanceName));
 
-    for (const auto& instance : gInstances) {
-        sp<IBase> hal = getHal(instance);
-        EXPECT_NE(hal, nullptr);
-        lazy = ILazy::castFrom(hal);
-        if (lazy) break;
-    }
-    if (!lazy) GTEST_SKIP() << "Services under test do not include ILazy";
+    ASSERT_FALSE(isServiceRunning(fqInstance)) << "Lazy service already running.";
 
-    ASSERT_TRUE(lazy->setCustomActiveServicesCallback().isOk());
+    sp<IBase> hal = getHal(fqInstance);
+    ASSERT_NE(hal, nullptr);
+
+    sp<ILazyCb> lazyCb = ILazyCb::castFrom(hal);
+    ASSERT_NE(lazyCb, nullptr);
+    hal = nullptr;
+
+    int efd = eventfd(0, 0);
+    ASSERT_GE(efd, 0) << "Failed to create eventfd";
+    unique_fd uniqueEventFd(efd);
+
+    native_handle_t* h = native_handle_create(/* numFds */ 1, /* numInts */ 0);
+    h->data[0] = efd;
+    hidl_handle handle(h);
+    Return<bool> setEventFdRet = lazyCb->setEventFd(handle);
+    native_handle_delete(h);
+    ASSERT_TRUE(setEventFdRet.isOk());
+    ASSERT_TRUE(setEventFdRet);
+
+    lazyCb = nullptr;
+
+    IPCThreadState::self()->flushCommands();
+
+    std::cout << "Waiting " << SHUTDOWN_WAIT_TIME << " seconds for callback completion "
+              << "notification." << std::endl;
+
+    int epollFd = epoll_create1(EPOLL_CLOEXEC);
+    ASSERT_GE(epollFd, 0) << "Failed to create epoll";
+    unique_fd epollUniqueFd(epollFd);
+
+    const int EPOLL_MAX_EVENTS = 1;
+    struct epoll_event event, events[EPOLL_MAX_EVENTS];
+
+    event.events = EPOLLIN;
+    event.data.fd = efd;
+    int rc = epoll_ctl(epollFd, EPOLL_CTL_ADD, efd, &event);
+    ASSERT_GE(rc, 0) << "Failed to add fd to epoll";
+
+    rc = TEMP_FAILURE_RETRY(
+            epoll_wait(epollFd, events, EPOLL_MAX_EVENTS, SHUTDOWN_WAIT_TIME * 1000));
+    ASSERT_NE(rc, 0) << "Service shutdown timeout";
+    ASSERT_GT(rc, 0) << "Error waiting for service shutdown notification";
+
+    eventfd_t counter;
+    rc = TEMP_FAILURE_RETRY(eventfd_read(uniqueEventFd.get(), &counter));
+    ASSERT_GE(rc, 0) << "Failed to get callback completion notification from service";
+    ASSERT_EQ(counter, 1);
+
+    std::cout << "Waiting " << CALLBACK_SHUTDOWN_WAIT_TIME
+              << " seconds before checking whether the "
+              << "service is still running." << std::endl;
+
+    int timeout_multiplier = android::base::GetIntProperty("ro.hw_timeout_multiplier", 1);
+    sleep(CALLBACK_SHUTDOWN_WAIT_TIME * timeout_multiplier);
+
+    ASSERT_FALSE(isServiceRunning(fqInstance)) << "Service failed to shut down.";
 }
 
 int main(int argc, char** argv) {

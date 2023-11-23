@@ -24,12 +24,13 @@ import java.util.concurrent.TimeUnit;
 
 public class CtsTestAttentionService extends AttentionService {
     private static final String TAG = "CtsTestAttentionService";
-    private static AttentionCallback sCurrentCallback;
+    private static AttentionCallback sCurrentAttentionCallback;
+    private static ProximityUpdateCallback sCurrentProximityUpdateCallback;
     private static  CountDownLatch sRespondLatch = new CountDownLatch(1);
 
     @Override
     public void onCheckAttention(AttentionCallback callback) {
-        sCurrentCallback = callback;
+        sCurrentAttentionCallback = callback;
         sRespondLatch.countDown();
     }
 
@@ -40,26 +41,49 @@ public class CtsTestAttentionService extends AttentionService {
         sRespondLatch.countDown();
     }
 
+    @Override
+    public void onStartProximityUpdates(ProximityUpdateCallback callback) {
+        sCurrentProximityUpdateCallback = callback;
+        sRespondLatch.countDown();
+    }
+
+    @Override
+    public void onStopProximityUpdates() {
+        reset();
+        sRespondLatch.countDown();
+    }
+
     public static void reset() {
-        sCurrentCallback = null;
+        sCurrentAttentionCallback = null;
+        sCurrentProximityUpdateCallback = null;
     }
 
     public static void respondSuccess(int code) {
-        if (sCurrentCallback != null) {
-            sCurrentCallback.onSuccess(code, 0);
+        if (sCurrentAttentionCallback != null) {
+            sCurrentAttentionCallback.onSuccess(code, 0);
         }
         reset();
     }
 
     public static void respondFailure(int code) {
-        if (sCurrentCallback != null) {
-            sCurrentCallback.onFailure(code);
+        if (sCurrentAttentionCallback != null) {
+            sCurrentAttentionCallback.onFailure(code);
         }
         reset();
     }
 
+    public static void respondProximity(double distance) {
+        if (sCurrentProximityUpdateCallback != null) {
+            sCurrentProximityUpdateCallback.onProximityUpdate(distance);
+        }
+    }
+
     public static boolean hasPendingChecks() {
-        return sCurrentCallback != null;
+        return sCurrentAttentionCallback != null;
+    }
+
+    public static boolean hasCurrentProximityUpdates() {
+        return sCurrentProximityUpdateCallback != null;
     }
 
     public static void onReceivedResponse() {

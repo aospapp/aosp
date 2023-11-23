@@ -16,20 +16,49 @@
 
 """Module Info class used to hold cached merged_module_info.json."""
 
+import json
 import logging
 import os
+
+from pathlib import Path
+
+from atest import constants
+from atest import module_info
 
 from aidegen import constant
 from aidegen.lib import common_util
 from aidegen.lib import module_info_util
 from aidegen.lib.singleton import Singleton
 
-from atest import constants
-from atest import module_info
-
 
 class AidegenModuleInfo(module_info.ModuleInfo, metaclass=Singleton):
     """Class that offers fast/easy lookup for Module related details."""
+
+
+    def _load_module_info_file(self, module_file):
+        """Loads the module file.
+
+        Args:
+            module_file: String of path to file to load up. Used for testing.
+
+        Returns:
+            Tuple of module_info_target and a json object.
+        """
+        # If module_file is specified, we're testing so we don't care if
+        # module_info_target stays None.
+        module_info_target = None
+        file_path = module_file
+
+        if not file_path:
+            module_info_target, file_path = self._discover_mod_file_and_target(
+                self.force_build)
+            self.mod_info_file_path = Path(file_path)
+
+        logging.debug('Loading %s as module-info.', file_path)
+        with open(file_path, encoding='utf8') as json_file:
+            mod_info = json.load(json_file)
+
+        return module_info_target, mod_info
 
     @staticmethod
     def _discover_mod_file_and_target(force_build):
@@ -99,7 +128,8 @@ class AidegenModuleInfo(module_info.ModuleInfo, metaclass=Singleton):
             True if it's the given project path is relative to the module,
             otherwise False.
         """
-        if constant.KEY_PATH not in mod_info:
+        if (constant.KEY_PATH not in mod_info
+                or not mod_info[constant.KEY_PATH]):
             return False
         path = mod_info[constant.KEY_PATH][0]
         if rel_path == '':

@@ -16,11 +16,20 @@
 
 package android.keystore.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.fail;
+
+import android.content.Context;
+import android.keystore.cts.util.TestUtils;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyInfo;
 import android.security.keystore.KeyProperties;
-import android.test.AndroidTestCase;
 import android.test.MoreAsserts;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.google.common.collect.ObjectArrays;
 
@@ -46,8 +55,11 @@ import java.util.TreeMap;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class KeyGeneratorTest extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class KeyGeneratorTest {
     private static final String EXPECTED_PROVIDER_NAME = TestUtils.EXPECTED_PROVIDER_NAME;
 
     static String[] EXPECTED_ALGORITHMS = {
@@ -86,6 +98,11 @@ public class KeyGeneratorTest extends AndroidTestCase {
     static final int[] AES_STRONGBOX_SUPPORTED_KEY_SIZES = new int[] {128, 256};
     static final int[] DES_SUPPORTED_KEY_SIZES = new int[] {168};
 
+    private Context getContext() {
+        return InstrumentationRegistry.getInstrumentation().getTargetContext();
+    }
+
+    @Test
     public void testAlgorithmList() {
         // Assert that Android Keystore Provider exposes exactly the expected KeyGenerator
         // algorithms. We don't care whether the algorithms are exposed via aliases, as long as
@@ -109,6 +126,7 @@ public class KeyGeneratorTest extends AndroidTestCase {
                 expectedAlgsLowerCase.toArray(new String[0]));
     }
 
+    @Test
     public void testGenerateWithoutInitThrowsIllegalStateException() throws Exception {
         for (String algorithm : EXPECTED_ALGORITHMS) {
             try {
@@ -123,6 +141,7 @@ public class KeyGeneratorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitWithKeySizeThrowsUnsupportedOperationException() throws Exception {
         for (String algorithm : EXPECTED_ALGORITHMS) {
             try {
@@ -138,6 +157,7 @@ public class KeyGeneratorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitWithKeySizeAndSecureRandomThrowsUnsupportedOperationException()
             throws Exception {
         SecureRandom rng = new SecureRandom();
@@ -155,6 +175,7 @@ public class KeyGeneratorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitWithNullAlgParamsThrowsInvalidAlgorithmParameterException()
             throws Exception {
         for (String algorithm : EXPECTED_ALGORITHMS) {
@@ -170,6 +191,7 @@ public class KeyGeneratorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitWithNullAlgParamsAndSecureRandomThrowsInvalidAlgorithmParameterException()
             throws Exception {
         SecureRandom rng = new SecureRandom();
@@ -186,6 +208,7 @@ public class KeyGeneratorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitWithAlgParamsAndNullSecureRandom()
             throws Exception {
         testInitWithAlgParamsAndNullSecureRandomHelper(false /* useStrongbox */);
@@ -213,6 +236,7 @@ public class KeyGeneratorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitWithUnsupportedAlgParamsTypeThrowsInvalidAlgorithmParameterException()
             throws Exception {
         for (String algorithm : EXPECTED_ALGORITHMS) {
@@ -228,6 +252,7 @@ public class KeyGeneratorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testDefaultKeySize() throws Exception {
         testDefaultKeySize(false /* useStrongbox */);
         if (TestUtils.hasStrongBox(getContext())) {
@@ -250,6 +275,7 @@ public class KeyGeneratorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testAesKeySupportedSizes() throws Exception {
         testAesKeySupportedSizesHelper(false /* useStrongbox */);
         if (TestUtils.hasStrongBox(getContext())) {
@@ -301,6 +327,7 @@ public class KeyGeneratorTest extends AndroidTestCase {
     }
 
     // TODO: This test will fail until b/117509689 is resolved.
+    @Test
     public void testDESKeySupportedSizes() throws Exception {
         if (!TestUtils.supports3DES()) {
             return;
@@ -341,6 +368,7 @@ public class KeyGeneratorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testHmacKeySupportedSizes() throws Exception {
         testHmacKeySupportedSizesHelper(false /* useStrongbox */);
         if (TestUtils.hasStrongBox(getContext())) {
@@ -405,6 +433,7 @@ public class KeyGeneratorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testHmacKeyOnlyOneDigestCanBeAuthorized() throws Exception {
         testHmacKeyOnlyOneDigestCanBeAuthorizedHelper(false /* useStrongbox */);
         if (TestUtils.hasStrongBox(getContext())) {
@@ -479,6 +508,7 @@ public class KeyGeneratorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitWithUnknownBlockModeFails() {
         testInitWithUnknownBlockModeFailsHelper(false /* useStrongbox */);
         if (TestUtils.hasStrongBox(getContext())) {
@@ -486,7 +516,7 @@ public class KeyGeneratorTest extends AndroidTestCase {
         }
     }
 
-    public void testInitWithUnknownBlockModeFailsHelper(boolean useStrongbox) {
+    private void testInitWithUnknownBlockModeFailsHelper(boolean useStrongbox) {
         for (String algorithm :
             useStrongbox ? EXPECTED_STRONGBOX_ALGORITHMS : EXPECTED_ALGORITHMS) {
             try {
@@ -505,6 +535,7 @@ public class KeyGeneratorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitWithUnknownEncryptionPaddingFails() {
         testInitWithUnknownEncryptionPaddingFailsHelper(false /* useStrongbox */);
         if (TestUtils.hasStrongBox(getContext())) {
@@ -531,6 +562,7 @@ public class KeyGeneratorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitWithSignaturePaddingFails() {
         testInitWithSignaturePaddingFailsHelper(false /* useStrongbox */);
         if (TestUtils.hasStrongBox(getContext())) {
@@ -556,6 +588,7 @@ public class KeyGeneratorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitWithUnknownDigestFails() {
         testInitWithUnknownDigestFailsHelper(false /* useStrongbox */);
         if (TestUtils.hasStrongBox(getContext())) {
@@ -563,7 +596,7 @@ public class KeyGeneratorTest extends AndroidTestCase {
         }
     }
 
-    public void testInitWithUnknownDigestFailsHelper(boolean useStrongbox) {
+    private void testInitWithUnknownDigestFailsHelper(boolean useStrongbox) {
         for (String algorithm :
             useStrongbox ? EXPECTED_STRONGBOX_ALGORITHMS : EXPECTED_ALGORITHMS) {
             try {
@@ -590,6 +623,7 @@ public class KeyGeneratorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitWithKeyAlgorithmDigestMissingFromAuthorizedDigestFails() {
         testInitWithKeyAlgorithmDigestMissingFromAuthorizedDigestFailsHelper(
             false /* useStrongbox */);
@@ -636,6 +670,7 @@ public class KeyGeneratorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitRandomizedEncryptionRequiredButViolatedFails() throws Exception {
         testInitRandomizedEncryptionRequiredButViolatedFailsHelper(false /* useStrongbox */);
         if (TestUtils.hasStrongBox(getContext())) {
@@ -643,7 +678,7 @@ public class KeyGeneratorTest extends AndroidTestCase {
         }
     }
 
-    public void testInitRandomizedEncryptionRequiredButViolatedFailsHelper(boolean useStrongbox)
+    private void testInitRandomizedEncryptionRequiredButViolatedFailsHelper(boolean useStrongbox)
         throws Exception {
         for (String algorithm :
             useStrongbox ? EXPECTED_STRONGBOX_ALGORITHMS : EXPECTED_ALGORITHMS) {
@@ -663,6 +698,7 @@ public class KeyGeneratorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testGenerateHonorsRequestedAuthorizations() throws Exception {
         testGenerateHonorsRequestedAuthorizationsHelper(false /* useStrongbox */);
         if (TestUtils.hasStrongBox(getContext())) {
@@ -730,6 +766,7 @@ public class KeyGeneratorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testLimitedUseKey() throws Exception {
         testLimitedUseKey(false /* useStrongbox */);
         if (TestUtils.hasStrongBox(getContext())) {

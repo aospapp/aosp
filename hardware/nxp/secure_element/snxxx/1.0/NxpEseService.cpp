@@ -19,13 +19,13 @@
 #include <android-base/stringprintf.h>
 #include <android/hardware/secure_element/1.0/ISecureElement.h>
 #include <base/logging.h>
-#include <vendor/nxp/nxpese/1.0/INxpEse.h>
-#include "VirtualISO.h"
-
 #include <hidl/LegacySupport.h>
 #include <string.h>
+#include <vendor/nxp/nxpese/1.0/INxpEse.h>
+
 #include "NxpEse.h"
 #include "SecureElement.h"
+#include "VirtualISO.h"
 #include "eSEClient.h"
 
 // Generated HIDL files
@@ -84,15 +84,15 @@ int main() {
     nxp_se_service = new NxpEse();
     if (nxp_se_service == nullptr) {
       LOG(ERROR) << StringPrintf(
-          "Can not create an instance of NXP Secure Element Extn "
-          "Iface,exiting.");
+          "Can not create an instance of NXP Secure "
+          "Element Extn Iface,exiting.");
       goto shutdown;
     }
     status = nxp_se_service->registerAsService();
     if (status != OK) {
       LOG(ERROR) << StringPrintf(
-          "Could not register service for Power Secure Element Extn Iface "
-          "(%d).",
+          "Could not register service for Power Secure "
+          "Element Extn Iface (%d).",
           status);
       goto shutdown;
     }

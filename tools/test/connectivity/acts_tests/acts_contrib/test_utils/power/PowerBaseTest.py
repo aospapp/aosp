@@ -21,6 +21,7 @@ import re
 import time
 
 import acts.controllers.power_monitor as power_monitor_lib
+import acts.controllers.monsoon as monsoon_controller
 import acts.controllers.iperf_server as ipf
 from acts import asserts
 from acts import base_test
@@ -28,7 +29,6 @@ from acts import utils
 from acts.metrics.loggers.blackbox import BlackboxMetricLogger
 from acts_contrib.test_utils.power.loggers.power_metric_logger import PowerMetricLogger
 from acts_contrib.test_utils.power import plot_utils
-from acts_contrib.test_utils.wifi import wifi_test_utils as wutils
 
 RESET_BATTERY_STATS = 'dumpsys batterystats --reset'
 IPERF_TIMEOUT = 180
@@ -106,7 +106,14 @@ class PowerBaseTest(base_test.BaseTestClass):
 
         Raises an exception if there are no controllers available.
         """
-        if hasattr(self, 'monsoons'):
+        if hasattr(self, 'bitses'):
+            if hasattr(self, 'monsoons'):
+                self.log.info('Destroying monsoon controller.')
+                monsoon_controller.destroy(self.monsoons)
+                time.sleep(2)
+            self.power_monitor = self.bitses[0]
+            self.power_monitor.setup(registry=self.user_params)
+        elif hasattr(self, 'monsoons'):
             self.power_monitor = power_monitor_lib.PowerMonitorMonsoonFacade(
                 self.monsoons[0])
             self.monsoons[0].set_max_current(8.0)
@@ -142,7 +149,8 @@ class PowerBaseTest(base_test.BaseTestClass):
                                extra_wait=None,
                                iperf_duration=None,
                                pass_fail_tolerance=THRESHOLD_TOLERANCE_DEFAULT,
-                               mon_voltage=PHONE_BATTERY_VOLTAGE_DEFAULT)
+                               mon_voltage=PHONE_BATTERY_VOLTAGE_DEFAULT,
+                               ap_dtim_period=None)
 
         # Setup the must have controllers, phone and monsoon
         self.dut = self.android_devices[0]
@@ -185,7 +193,6 @@ class PowerBaseTest(base_test.BaseTestClass):
         # Sync device time, timezone and country code
         utils.require_sl4a((self.dut, ))
         utils.sync_device_time(self.dut)
-        wutils.set_wifi_country_code(self.dut, 'US')
 
         screen_on_img = self.user_params.get('screen_on_img', [])
         if screen_on_img:
@@ -208,8 +215,6 @@ class PowerBaseTest(base_test.BaseTestClass):
 
         # Set the device into rockbottom state
         self.dut_rockbottom()
-        wutils.reset_wifi(self.dut)
-        wutils.wifi_toggle_state(self.dut, False)
 
         # Wait for extra time if needed for the first test
         if self.extra_wait:
@@ -464,6 +469,7 @@ class PowerBaseTest(base_test.BaseTestClass):
                                 measure_after_seconds=self.mon_info.offset,
                                 hz=self.mon_info.freq)
         self.power_monitor.measure(measurement_args=measurement_args,
+                                   measurement_name=self.test_name,
                                    start_time=device_to_host_offset,
                                    monsoon_output_path=data_path)
         self.power_monitor.release_resources()

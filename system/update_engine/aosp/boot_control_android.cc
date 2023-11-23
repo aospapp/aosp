@@ -20,6 +20,7 @@
 #include <utility>
 #include <vector>
 
+#include <android/hardware/boot/1.2/IBootControl.h>
 #include <base/bind.h>
 #include <base/logging.h>
 #include <bootloader_message/bootloader_message.h>
@@ -175,6 +176,18 @@ bool BootControlAndroid::IsSlotMarkedSuccessful(
     return false;
   }
   return ret == BoolResult::TRUE;
+}
+
+Slot BootControlAndroid::GetActiveBootSlot() {
+  namespace V1_2 = android::hardware::boot::V1_2;
+  using android::sp;
+  sp<V1_2::IBootControl> v1_2_module = V1_2::IBootControl::castFrom(module_);
+  if (v1_2_module != nullptr) {
+    return v1_2_module->getActiveBootSlot();
+  }
+  LOG(WARNING) << "BootControl module version is lower than 1.2, "
+               << __FUNCTION__ << " failed";
+  return kInvalidSlot;
 }
 
 DynamicPartitionControlInterface*

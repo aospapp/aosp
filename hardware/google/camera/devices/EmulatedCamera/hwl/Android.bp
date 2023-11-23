@@ -1,16 +1,10 @@
 package {
     // See: http://go/android-license-faq
-    // A large-scale-change added 'default_applicable_licenses' to import
-    // all of the 'license_kinds' from "//hardware/google/camera:hardware_google_camera_license"
-    // to get the below license kinds:
-    //   SPDX-license-identifier-Apache-2.0
-    default_applicable_licenses: [
-        "//hardware/google/camera:hardware_google_camera_license",
-    ],
+    default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-cc_library_shared {
-    name: "libgooglecamerahwl_impl",
+cc_defaults {
+    name: "libgooglecamerahwl_impl_defaults",
     owner: "google",
     proprietary: true,
     srcs: [
@@ -20,13 +14,8 @@ cc_library_shared {
         "EmulatedLogicalRequestState.cpp",
         "EmulatedRequestProcessor.cpp",
         "EmulatedRequestState.cpp",
-        "EmulatedScene.cpp",
-        "EmulatedSensor.cpp",
         "EmulatedTorchState.cpp",
-        "JpegCompressor.cpp",
-        "utils/ExifUtils.cpp",
-        "utils/HWLUtils.cpp",
-        "utils/StreamConfigurationMap.cpp",
+        "GrallocSensorBuffer.cpp",
     ],
     cflags: [
         "-Werror",
@@ -62,11 +51,75 @@ cc_library_shared {
     ],
     static_libs: [
         "android.hardware.camera.common@1.0-helper",
+        "libgooglecamerahwl_sensor_impl",
     ],
     include_dirs: [
         "system/media/private/camera/include",
     ],
     header_libs: [
         "libgooglecamerahal_headers",
+    ],
+}
+
+cc_library_shared {
+    name: "libgooglecamerahwl_impl",
+    defaults: ["libgooglecamerahwl_impl_defaults"],
+}
+
+cc_library_shared {
+    name: "libgooglecamerahwl_impl_fast_scene_cycle",
+    defaults: ["libgooglecamerahwl_impl_defaults"],
+    stem: "libgooglecamerahwl_impl",
+    cflags: ["-DFAST_SCENE_CYCLE"],
+    // Never installed to /vendor, only used inside an APEX.
+    installable: false,
+}
+
+cc_library_static {
+    name: "libgooglecamerahwl_sensor_impl",
+    owner: "google",
+    proprietary: true,
+    host_supported: true,
+
+    srcs: [
+        "EmulatedScene.cpp",
+        "EmulatedSensor.cpp",
+        "JpegCompressor.cpp",
+        "utils/ExifUtils.cpp",
+        "utils/HWLUtils.cpp",
+        "utils/StreamConfigurationMap.cpp",
+    ],
+
+    header_libs: [
+        "libhardware_headers",
+    ],
+
+    shared_libs: [
+        "libcamera_metadata",
+        "libcutils",
+        "libexif",
+        "libjpeg",
+        "liblog",
+        "libyuv",
+    ],
+
+    static_libs: [
+        "android.hardware.graphics.common@1.1",
+        "android.hardware.graphics.common@1.2",
+    ],
+
+    include_dirs: [
+        "system/media/private/camera/include",
+        "hardware/google/camera/common/hal/common",
+        "hardware/google/camera/common/hal/hwl_interface",
+        "hardware/google/camera/common/hal/utils",
+    ],
+
+    export_include_dirs: ["."],
+
+    cflags: [
+        "-Werror",
+        "-Wextra",
+        "-Wall",
     ],
 }

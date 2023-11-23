@@ -16,6 +16,11 @@
 
 package android.view.textclassifier.cts;
 
+import static com.google.common.truth.Truth.assertThat;
+
+import android.view.textclassifier.SelectionEvent;
+import android.view.textclassifier.TextClassifier;
+
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
@@ -27,7 +32,23 @@ import org.junit.runner.RunWith;
 public class SelectionEventTest {
 
     @Test
-    public void testSelectionEvent_placeholder() {
-        // TODO: add tests for SelectionEvent
+    public void testSelectionEvent() {
+        SelectionEvent event = SelectionEvent.createSelectionActionEvent(0, 1,
+                SelectionEvent.ACTION_COPY);
+        assertThat(event.getEventType()).isEqualTo(SelectionEvent.ACTION_COPY);
+        assertThat(event.getStart()).isEqualTo(0);
+        assertThat(event.getEnd()).isEqualTo(0);
+        assertThat(event.getInvocationMethod()).isEqualTo(SelectionEvent.INVOCATION_UNKNOWN);
+        assertThat(event.getEntityType()).isEqualTo(TextClassifier.TYPE_UNKNOWN);
+        assertThat(event.getEventIndex()).isEqualTo(0);
+        assertThat(event.getPackageName()).isEqualTo("");
+        assertThat(event.getSmartStart()).isEqualTo(0);
+        assertThat(event.getSmartEnd()).isEqualTo(0);
+        assertThat(event.getWidgetType()).isEqualTo(TextClassifier.WIDGET_TYPE_UNKNOWN);
+        assertThat(event.getWidgetVersion()).isNull();
+        assertThat(event.getResultId()).isEqualTo("");
+        assertThat(event.getEventTime()).isEqualTo(0);
+        assertThat(event.getDurationSinceSessionStart()).isEqualTo(0);
+        assertThat(event.getDurationSincePreviousEvent()).isEqualTo(0);
     }
 }

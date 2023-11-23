@@ -33,7 +33,13 @@ java_test_host {
     test_suites: [
         "cts",
         "general-tests"
-    ]
+    ],
+    data: [
+        ":CtsBlobStoreHostTestHelper",
+        ":CtsBlobStoreHostTestHelperDev",
+        ":CtsBlobStoreHostTestHelperAssist",
+    ],
+    per_testcase_directory: true,
 }
 
 android_test_helper_app {

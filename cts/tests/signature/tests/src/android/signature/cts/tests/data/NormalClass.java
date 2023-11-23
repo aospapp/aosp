@@ -41,6 +41,11 @@ public class NormalClass {
     public native void nativeMethod();
     public void notNativeMethod() { }
     public final void finalMethod() { }
+    public void varargs(String...args) { }
+    // Generate a synthetic bridge method.
+    public NormalClass clone() throws CloneNotSupportedException {
+        return (NormalClass) super.clone();
+    }
 
     // Fields to test.
     public final String FINAL_FIELD = "";

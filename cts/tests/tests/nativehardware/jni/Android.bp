@@ -19,6 +19,9 @@ package {
 cc_library_shared {
     name: "libahardwarebuffertest",
     compile_multilib: "both",
+    tidy_timeout_srcs: [
+        "AHardwareBufferGLTest.cpp",
+    ],
     srcs: [
         "AHardwareBufferGLTest.cpp",
         "AHardwareBufferTest.cpp",

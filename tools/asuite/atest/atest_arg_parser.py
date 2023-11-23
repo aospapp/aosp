@@ -23,6 +23,7 @@ Atest Argument Parser class for atest.
 import argparse
 import pydoc
 
+import bazel_mode
 import constants
 
 # Constants used for AtestArgParser and EPILOG_TEMPLATE
@@ -33,13 +34,22 @@ HELP_DESC = ('A command line tool that allows users to build, install, and run '
 
 # Constants used for arg help message(sorted in alphabetic)
 ACLOUD_CREATE = 'Create AVD(s) via acloud command.'
+AGGREGATE_METRIC_FILTER = ('Regular expression that will be used for filtering '
+                           'the aggregated metrics.')
 ALL_ABI = 'Set to run tests for all abis.'
+ANNOTATION_FILTER = ('Accept keyword that will be translated to fully qualified'
+                     'annotation class name.')
 BUILD = 'Run a build.'
-CLEAR_CACHE = 'Wipe out the test_infos cache of the test.'
+BAZEL_MODE = 'Run tests using Bazel.'
+BAZEL_ARG = ('Forward a flag to Bazel for tests executed with Bazel; '
+             'see --bazel-mode.')
+CLEAR_CACHE = 'Wipe out the test_infos cache of the test and start a new search.'
 COLLECT_TESTS_ONLY = ('Collect a list test cases of the instrumentation tests '
                       'without testing them in real.')
 DISABLE_TEARDOWN = 'Disable test teardown and cleanup.'
 DRY_RUN = 'Dry run atest without building, installing and running tests in real.'
+ENABLE_DEVICE_PREPARER = ('Enable template/preparers/device-preparer as the '
+                          'default preparer.')
 ENABLE_FILE_PATTERNS = 'Enable FILE_PATTERNS in TEST_MAPPING.'
 FLAKES_INFO = 'Test result with flakes info.'
 HISTORY = ('Show test results in chronological order(with specified number or '
@@ -54,22 +64,25 @@ INSTALL = 'Install an APK.'
 INSTANT = ('Run the instant_app version of the module if the module supports it. '
            'Note: Nothing\'s going to run if it\'s not an Instant App test and '
            '"--instant" is passed.')
-ITERATION = 'Loop-run tests until the max iteration is reached. (10 by default)'
+ITERATION = 'Loop-run tests until the max iteration is reached. (default: 10)'
 LATEST_RESULT = 'Print latest test result.'
-LIST_MODULES = 'List testable modules for the given suite.'
+LIST_MODULES = 'List testable modules of the given suite.'
+NO_ENABLE_ROOT = ('Do NOT restart adbd with root permission even the test config '
+                  'has RootTargetPreparer.')
 NO_METRICS = 'Do not send metrics.'
-NO_MODULES_IN = ('Do not include MODULES-IN-* as build targets. Warning: This '
-                 'may result in missing dependencies issue.')
 REBUILD_MODULE_INFO = ('Forces a rebuild of the module-info.json file. '
                        'This may be necessary following a repo sync or '
                        'when writing a new test.')
-REQUEST_UPLOAD_RESULT = 'Request permission to upload test result or not.'
+REQUEST_UPLOAD_RESULT = 'Request permission to upload test result.'
 RERUN_UNTIL_FAILURE = ('Rerun all tests until a failure occurs or the max '
-                       'iteration is reached. (10 by default)')
+                       'iteration is reached. (default: forever!)')
+# For Integer.MAX_VALUE == (2**31 - 1) and not possible to give a larger integer
+# to Tradefed, 2147483647 will be plentiful (~68 years).
+RERUN_UNTIL_FAILURE_N = 2147483647
 RETRY_ANY_FAILURE = ('Rerun failed tests until passed or the max iteration '
-                     'is reached. (10 by default)')
+                     'is reached. (default: 10)')
 SERIAL = 'The device to run the test on.'
-SHARDING = 'Option to specify sharding count. The default value is 2'
+SHARDING = 'Option to specify sharding count. (default: 2)'
 START_AVD = 'Automatically create an AVD and run tests on the virtual device.'
 TEST = ('Run the tests. WARNING: Many test configs force cleanup of device '
         'after test run. In this case, "-d" must be used in previous test run '
@@ -78,19 +91,24 @@ TEST = ('Run the tests. WARNING: Many test configs force cleanup of device '
 TEST_MAPPING = 'Run tests defined in TEST_MAPPING files.'
 TEST_CONFIG_SELECTION = ('If multiple test config belong to same test module '
                          'pop out a selection menu on console.')
-TF_DEBUG = ('Enable tradefed debug mode with a specify port. Default value is '
-            '10888.')
-TF_EARLY_DEVICE_RELEASE = ('Tradefed flag to release the device as soon as '
-                           'done with it.')
+TEST_FILTER = 'Run tests which are specified using this option.'
+TEST_TIMEOUT = ('Customize test timeout. E.g. 60000(in milliseconds) '
+                'represents 1 minute timeout. For no timeout, set to 0.')
+TF_DEBUG = 'Enable tradefed debug mode with a specified port. (default: 10888)'
+TF_EARLY_DEVICE_RELEASE = ('Inform Tradefed to release the device as soon as '
+                           'when done with it.')
 TF_TEMPLATE = ('Add extra tradefed template for ATest suite, '
                'e.g. atest <test> --tf-template <template_key>=<template_path>')
 UPDATE_CMD_MAPPING = ('Update the test command of input tests. Warning: result '
                       'will be saved under '
                       'tools/asuite/atest/test_data.')
+USE_MODULES_IN = ('Force include MODULES-IN-* as build targets. '
+                  'Hint: This may solve missing test dependencies issue.')
 USER_TYPE = ('Run test with specific user type, e.g. atest <test> --user-type '
              'secondary_user')
 VERBOSE = 'Display DEBUG level logging.'
 VERIFY_CMD_MAPPING = 'Verify the test command of input tests.'
+VERIFY_ENV_VARIABLE = 'Verify environment variables of input tests'
 VERSION = 'Display version string.'
 WAIT_FOR_DEBUGGER = ('Wait for debugger prior to execution (Instrumentation '
                      'tests only).')
@@ -130,21 +148,31 @@ class AtestArgParser(argparse.ArgumentParser):
         self.add_argument('-a', '--all-abi', action='store_true', help=ALL_ABI)
         self.add_argument('-b', '--build', action='append_const', dest='steps',
                           const=constants.BUILD_STEP, help=BUILD)
+        self.add_argument('--bazel-mode', default=True, action='store_true',
+                            help=BAZEL_MODE)
+        self.add_argument('--no-bazel-mode', dest='bazel_mode',
+                            action='store_false', help=BAZEL_MODE)
+        self.add_argument('--bazel-arg', nargs='*', action='append', help=BAZEL_ARG)
+        bazel_mode.add_parser_arguments(self, dest='bazel_mode_features')
+
         self.add_argument('-d', '--disable-teardown', action='store_true',
                           help=DISABLE_TEARDOWN)
+        self.add_argument('--enable-device-preparer', action='store_true', help=HOST)
         self.add_argument('--host', action='store_true', help=HOST)
         self.add_argument('-i', '--install', action='append_const',
                           dest='steps', const=constants.INSTALL_STEP,
                           help=INSTALL)
         self.add_argument('-m', constants.REBUILD_MODULE_INFO_FLAG,
                           action='store_true', help=REBUILD_MODULE_INFO)
-        self.add_argument('--no-modules-in', help=NO_MODULES_IN,
+        self.add_argument('--no-enable-root', help=NO_ENABLE_ROOT,
                           action='store_true')
         self.add_argument('--sharding', nargs='?', const=2,
                           type=_positive_int, default=0,
                           help=SHARDING)
         self.add_argument('-t', '--test', action='append_const', dest='steps',
                           const=constants.TEST_STEP, help=TEST)
+        self.add_argument('--use-modules-in', help=USE_MODULES_IN,
+                          action='store_true')
         self.add_argument('-w', '--wait-for-debugger', action='store_true',
                           help=WAIT_FOR_DEBUGGER)
         self.add_argument('--request-upload-result', action='store_true',
@@ -180,11 +208,11 @@ class AtestArgParser(argparse.ArgumentParser):
 
         # Options that to do with acloud/AVDs.
         agroup = self.add_mutually_exclusive_group()
-        agroup.add_argument('--acloud-create', nargs=argparse.REMAINDER, type=str,
-                            help=ACLOUD_CREATE)
+        agroup.add_argument('--acloud-create', nargs=argparse.REMAINDER,
+                            type=str, help=ACLOUD_CREATE)
         agroup.add_argument('--start-avd', action='store_true',
                             help=START_AVD)
-        agroup.add_argument('-s', '--serial', help=SERIAL)
+        agroup.add_argument('-s', '--serial', action='append', help=SERIAL)
 
         # Options that to query flakes info in test result
         self.add_argument('--flakes-info', action='store_true',
@@ -194,12 +222,12 @@ class AtestArgParser(argparse.ArgumentParser):
         self.add_argument('--tf-early-device-release', action='store_true',
                           help=TF_EARLY_DEVICE_RELEASE)
 
-        # Options to enable selection menu is multiple test config belong to
+        # Options to enable selection menu when multiple test configs belong to
         # same test module.
         self.add_argument('--test-config-select', action='store_true',
                           help=TEST_CONFIG_SELECTION)
 
-        # Obsolete options that will be removed soon.
+        # Obsolete options that will be removed without warning.
         self.add_argument('--generate-baseline', nargs='?',
                           type=int, const=5, default=0,
                           help='Generate baseline metrics, run 5 iterations by'
@@ -217,6 +245,7 @@ class AtestArgParser(argparse.ArgumentParser):
         # Options related to module parameterization
         self.add_argument('--instant', action='store_true', help=INSTANT)
         self.add_argument('--user-type', help=USER_TYPE)
+        self.add_argument('--annotation-filter', action='append', help=ANNOTATION_FILTER)
 
         # Option for dry-run command mapping result and cleaning cache.
         self.add_argument('-c', '--clear-cache', action='store_true',
@@ -225,6 +254,8 @@ class AtestArgParser(argparse.ArgumentParser):
                           help=UPDATE_CMD_MAPPING)
         self.add_argument('-y', '--verify-cmd-mapping', action='store_true',
                           help=VERIFY_CMD_MAPPING)
+        self.add_argument('-e', '--verify-env-variable', action='store_true',
+                          help=VERIFY_ENV_VARIABLE)
         # Options for Tradefed debug mode.
         self.add_argument('-D', '--tf-debug', nargs='?', const=10888,
                           type=_positive_int, default=0,
@@ -232,6 +263,10 @@ class AtestArgParser(argparse.ArgumentParser):
         # Options for Tradefed customization related.
         self.add_argument('--tf-template', action='append',
                           help=TF_TEMPLATE)
+        self.add_argument('--test-filter', nargs='?',
+                          help=TEST_FILTER)
+        self.add_argument('--test-timeout', nargs='?', type=int,
+                          help=TEST_TIMEOUT)
 
         # A group of options for rerun strategy. They are mutually exclusive
         # in a command line.
@@ -241,7 +276,8 @@ class AtestArgParser(argparse.ArgumentParser):
                            type=_positive_int, const=10, default=0,
                            metavar='MAX_ITERATIONS', help=ITERATION)
         group.add_argument('--rerun-until-failure', nargs='?',
-                           type=_positive_int, const=10, default=0,
+                           type=_positive_int, const=RERUN_UNTIL_FAILURE_N,
+                           default=0,
                            metavar='MAX_ITERATIONS', help=RERUN_UNTIL_FAILURE)
         group.add_argument('--retry-any-failure', nargs='?',
                            type=_positive_int, const=10, default=0,
@@ -259,6 +295,10 @@ class AtestArgParser(argparse.ArgumentParser):
         # Options for disabling collecting data for metrics.
         self.add_argument(constants.NO_METRICS_ARG, action='store_true',
                           help=NO_METRICS)
+
+        # Option to filter the output of aggregate metrics content.
+        self.add_argument('--aggregate-metric-filter', action='append',
+                          help=AGGREGATE_METRIC_FILTER)
 
         # This arg actually doesn't consume anything, it's primarily used for
         # the help description and creating custom_args in the NameSpace object.
@@ -289,12 +329,17 @@ def print_epilog_text():
     """
     epilog_text = EPILOG_TEMPLATE.format(
         ACLOUD_CREATE=ACLOUD_CREATE,
+        AGGREGATE_METRIC_FILTER=AGGREGATE_METRIC_FILTER,
         ALL_ABI=ALL_ABI,
+        ANNOTATION_FILTER=ANNOTATION_FILTER,
         BUILD=BUILD,
+        BAZEL_MODE=BAZEL_MODE,
+        BAZEL_ARG=BAZEL_ARG,
         CLEAR_CACHE=CLEAR_CACHE,
         COLLECT_TESTS_ONLY=COLLECT_TESTS_ONLY,
         DISABLE_TEARDOWN=DISABLE_TEARDOWN,
         DRY_RUN=DRY_RUN,
+        ENABLE_DEVICE_PREPARER=ENABLE_DEVICE_PREPARER,
         ENABLE_FILE_PATTERNS=ENABLE_FILE_PATTERNS,
         FLAKES_INFO=FLAKES_INFO,
         HELP_DESC=HELP_DESC,
@@ -308,8 +353,8 @@ def print_epilog_text():
         ITERATION=ITERATION,
         LATEST_RESULT=LATEST_RESULT,
         LIST_MODULES=LIST_MODULES,
+        NO_ENABLE_ROOT=NO_ENABLE_ROOT,
         NO_METRICS=NO_METRICS,
-        NO_MODULES_IN=NO_MODULES_IN,
         REBUILD_MODULE_INFO=REBUILD_MODULE_INFO,
         REQUEST_UPLOAD_RESULT=REQUEST_UPLOAD_RESULT,
         RERUN_UNTIL_FAILURE=RERUN_UNTIL_FAILURE,
@@ -320,14 +365,18 @@ def print_epilog_text():
         TEST=TEST,
         TEST_CONFIG_SELECTION=TEST_CONFIG_SELECTION,
         TEST_MAPPING=TEST_MAPPING,
+        TEST_TIMEOUT=TEST_TIMEOUT,
         TF_DEBUG=TF_DEBUG,
         TF_EARLY_DEVICE_RELEASE=TF_EARLY_DEVICE_RELEASE,
+        TEST_FILTER=TEST_FILTER,
         TF_TEMPLATE=TF_TEMPLATE,
         USER_TYPE=USER_TYPE,
         UPDATE_CMD_MAPPING=UPDATE_CMD_MAPPING,
+        USE_MODULES_IN=USE_MODULES_IN,
         VERBOSE=VERBOSE,
         VERSION=VERSION,
         VERIFY_CMD_MAPPING=VERIFY_CMD_MAPPING,
+        VERIFY_ENV_VARIABLE=VERIFY_ENV_VARIABLE,
         WAIT_FOR_DEBUGGER=WAIT_FOR_DEBUGGER)
     return pydoc.pager(epilog_text)
 
@@ -343,7 +392,19 @@ SYNOPSIS
 
 
 OPTIONS
-        Below arguments are catagorised by features and purposes. Arguments marked with default will apply even the user does not pass it explicitly.
+        Below arguments are catagorised by features and purposes. Arguments marked with implicit default will apply even the user does not pass it explicitly.
+
+        *NOTE* Atest reads ~/.atest/config that supports all optional arguments to help users reduce repeating options they often use.
+        E.g. Assume "--all-abi" and "--verbose" are frequently used and have been defined line-by-line in ~/.atest/config, issuing
+
+            atest hello_world_test -v -- --test-arg xxx
+
+        is equivalent to
+
+            atest hello_world_test -v --all-abi --verbose -- --test-arg xxx
+
+        Also, to avoid confusing Atest from testing TEST_MAPPING file and implicit test names from ~/.atest/config, any test names defined in the config file
+        will be ignored without any hints.
 
         [ Testing ]
         -a, --all-abi
@@ -353,14 +414,23 @@ OPTIONS
                 atest <test> -- --abi arm64-v8a   # ARM 64-bit
                 atest <test> -- --abi armeabi-v7a # ARM 32-bit
 
-        -b, --build:
-            {BUILD} (default)
+        -b, --build
+            {BUILD} (implicit default)
+
+        --[no-]bazel-mode
+            {BAZEL_MODE}
+
+        --bazel-arg
+            {BAZEL_ARG}
 
         -d, --disable-teardown
             {DISABLE_TEARDOWN}
 
-        -D, --tf-debug
+        -D, --tf-debug [PORT]
             {TF_DEBUG}
+
+        --enable-device-preparer
+            {ENABLE_DEVICE_PREPARER}
 
         --host
             {HOST}
@@ -369,25 +439,30 @@ OPTIONS
             {HOST_UNIT_TEST_ONLY}
 
         -i, --install
-            {INSTALL} (default)
+            {INSTALL} (implicit default)
 
         -m, --rebuild-module-info
-            {REBUILD_MODULE_INFO} (default)
+            {REBUILD_MODULE_INFO}
 
-        --no-modules-in
-            {NO_MODULES_IN}
+        --no-enable-root
+            {NO_ENABLE_ROOT}
 
-        -s, --serial
+        -s, --serial [SERIAL]
             {SERIAL}
 
-        --sharding
+        --sharding [SHARD_NUMBER]
           {SHARDING}
 
-        -t, --test
-            {TEST} (default)
+        -t, --test [TEST1, TEST2, ...]
+            {TEST} (implicit default)
 
         --test-config-select
             {TEST_CONFIG_SELECTION}
+
+        --test-filter [FILTER]
+            {TEST_FILTER} e.g.
+                atest perfetto_integrationtests --test-filter *ConsoleInterceptorVerify*
+                atest HelloWorldTests --test-filter testHalloWelt*
 
         --tf-early-device-release
             {TF_EARLY_DEVICE_RELEASE}
@@ -395,11 +470,17 @@ OPTIONS
         --tf-template
             {TF_TEMPLATE}
 
+        --test-timeout [NUMBER in milliseconds]
+            {TEST_TIMEOUT}
+
         -w, --wait-for-debugger
             {WAIT_FOR_DEBUGGER}
 
         --request-upload-result
             {REQUEST_UPLOAD_RESULT}
+
+        --use-modules-in
+            {USE_MODULES_IN}
 
         [ Test Mapping ]
         -p, --test-mapping
@@ -442,29 +523,30 @@ OPTIONS
         -c, --clear-cache
             {CLEAR_CACHE}
 
-        -u, --update-cmd-mapping
-            {UPDATE_CMD_MAPPING}
-
-        -y, --verify-cmd-mapping
-            {VERIFY_CMD_MAPPING}
-
 
         [ Module Parameterization ]
         --instant
             {INSTANT}
 
-        --user-type
+        --user-type [TYPE]
             {USER_TYPE}
+
+        --annotation-filter [KEYWORD]
+            {ANNOTATION_FILTER} e.g.
+
+                atest TeleServiceTests --annotation-filter smallTest
+
+            where "smalltest" will be translated to "androidx.test.filters.SmallTest" or other class accordingly.
 
 
         [ Iteration Testing ]
-        --iterations
+        --iterations [NUMBER]
             {ITERATION}
 
-        --rerun-until-failure
+        --rerun-until-failure [NUMBER]
             {RERUN_UNTIL_FAILURE}
 
-        --retry-any-failure
+        --retry-any-failure [NUMBER]
             {RETRY_ANY_FAILURE}
 
 
@@ -484,6 +566,10 @@ OPTIONS
         [ Metrics ]
         --no-metrics
             {NO_METRICS}
+
+        [ Performance Testing ]
+        --aggregate-metric-filter
+            {AGGREGATE_METRIC_FILTER}
 
 
 EXAMPLES
@@ -773,6 +859,8 @@ EXAMPLES
               (Run tests from all groups in TEST_MAPPING files)
         atest --test-mapping </path/to/project>:postsubmit
               (run postsubmit tests in TEST_MAPPING files in </path/to/project> and its parent directories)
+        atest --test-mapping </path/to/project>:mainline-presubmit
+              (run mainline tests in TEST_MAPPING files in </path/to/project> and its parent directories)
 
     3) Run tests in TEST_MAPPING files including sub directories
 
@@ -803,5 +891,5 @@ EXAMPLES
         atest CtsVideoTestCases -- --test-arg com.android.tradefed.testtype.JarHosttest:collect-tests-only:true
 
 
-                                                     2021-04-22
+                                                     2022-03-25
 '''

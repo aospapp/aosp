@@ -56,9 +56,6 @@ cc_library_headers {
         "//apex_available:anyapex",
     ],
     target: {
-        linux_glibc: {
-            enabled: true,
-        },
         linux_bionic: {
             enabled: true,
         },
@@ -119,6 +116,19 @@ cc_library {
         "//apex_available:platform",
         "//apex_available:anyapex",
     ],
+    // This library is being deprecated in favor of libunwindstack.
+    // Therefore, only allow the current set of users, and block anyone
+    // else.
+    visibility: [
+        "//art:__subpackages__",
+        "//bionic/libc/malloc_debug",
+        "//frameworks/native/opengl/libs",
+        "//packages/modules/vndk/apex",
+        "//packages/modules/Bluetooth/tools/rootcanal",
+        "//packages/modules/Bluetooth/system/gd",
+        "//system/core/init",
+        "//system/core/libutils",
+    ],
     min_sdk_version: "apex_inherit",
     vndk: {
         enabled: true,
@@ -152,6 +162,7 @@ cc_library {
 // Static library without DEX support to avoid dependencies on the ART APEX.
 cc_library_static {
     name: "libbacktrace_no_dex",
+    ramdisk_available: true,
     visibility: [
         "//system/core/debuggerd",
         "//system/core/init",
@@ -182,7 +193,7 @@ cc_test_library {
     ],
 
     target: {
-        linux_glibc: {
+        host_linux: {
             // This forces the creation of eh_frame with unwind information
             // for host.
             cflags: [
@@ -219,8 +230,6 @@ cc_test {
         "liblog",
         "libunwindstack",
     ],
-
-    group_static_libs: true,
 
     target: {
         android: {

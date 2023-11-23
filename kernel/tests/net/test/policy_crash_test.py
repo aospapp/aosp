@@ -107,7 +107,7 @@ class RemovedFeatureTest(net_test.NetworkTest):
     dst = ip6loopback
 
     # 8 byte IPv6 fragmentation header
-    frag_nexthdr = '00'
+    frag_nexthdr = '3b'
     frag_reserved = '00'
     # 13-bit offset, 2-bit reserved, 1-bit M[ore] flag
     pkt1_frag_offset = '0001'

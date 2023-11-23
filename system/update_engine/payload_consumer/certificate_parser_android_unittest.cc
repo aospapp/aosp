@@ -23,13 +23,13 @@
 
 #include "update_engine/common/hash_calculator.h"
 #include "update_engine/common/test_utils.h"
+#include "update_engine/common/testing_constants.h"
 #include "update_engine/common/utils.h"
 #include "update_engine/payload_consumer/payload_verifier.h"
 #include "update_engine/payload_generator/payload_signer.h"
 
 namespace chromeos_update_engine {
 
-extern const char* kUnittestPrivateKeyPath;
 const char* kUnittestOtacertsPath = "otacerts.zip";
 
 TEST(CertificateParserAndroidTest, ParseZipArchive) {

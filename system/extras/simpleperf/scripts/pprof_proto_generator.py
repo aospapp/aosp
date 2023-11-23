@@ -19,22 +19,33 @@
     used by pprof.
 
   Example:
-    python app_profiler.py
-    python pprof_proto_generator.py
+    ./app_profiler.py
+    ./pprof_proto_generator.py
     pprof -text pprof.profile
 """
 
-import argparse
+import logging
 import os
 import os.path
+import re
+import sys
 
 from simpleperf_report_lib import ReportLib
-from simpleperf_utils import (Addr2Nearestline, BinaryFinder, extant_dir,
-                              flatten_arg_list, log_info, log_exit, ReadElf, ToolFinder)
+from simpleperf_utils import (Addr2Nearestline, BaseArgumentParser, BinaryFinder, extant_dir,
+                              flatten_arg_list, log_exit, ReadElf, ToolFinder)
 try:
     import profile_pb2
 except ImportError:
     log_exit('google.protobuf module is missing. Please install it first.')
+
+
+# Some units of common event names
+EVENT_UNITS = {
+    'cpu-clock': 'nanoseconds',
+    'cpu-cycles': 'cpu-cycles',
+    'instructions': 'instructions',
+    'task-clock': 'nanoseconds',
+}
 
 
 def load_pprof_profile(filename):
@@ -107,7 +118,8 @@ class PprofProfilePrinter(object):
         for i in range(len(sample.value)):
             print('%svalue[%d] = %d' % (space, i, sample.value[i]))
         for i in range(len(sample.label)):
-            print('%slabel[%d] = ', (space, i))
+            print('%slabel[%d] = %s:%s' % (space, i, self.string(sample.label[i].key),
+                                           self.string(sample.label[i].str)))
 
     def show_location_id(self, location_id, space=''):
         location = self.profile.location[location_id - 1]
@@ -162,11 +174,20 @@ class PprofProfilePrinter(object):
         return self.string_table[string_id]
 
 
+class Label(object):
+    def __init__(self, key_id: int, str_id: int):
+        # See profile.Label.key
+        self.key_id = key_id
+        # See profile.Label.str
+        self.str_id = str_id
+
+
 class Sample(object):
 
     def __init__(self):
         self.location_ids = []
         self.values = {}
+        self.labels = []
 
     def add_location_id(self, location_id):
         self.location_ids.append(location_id)
@@ -249,15 +270,6 @@ class PprofProfileGenerator(object):
         config['binary_cache_dir'] = 'binary_cache'
         if not os.path.isdir(config['binary_cache_dir']):
             config['binary_cache_dir'] = None
-        self.comm_filter = set(config['comm_filters']) if config.get('comm_filters') else None
-        if config.get('pid_filters'):
-            self.pid_filter = {int(x) for x in config['pid_filters']}
-        else:
-            self.pid_filter = None
-        if config.get('tid_filters'):
-            self.tid_filter = {int(x) for x in config['tid_filters']}
-        else:
-            self.tid_filter = None
         self.dso_filter = set(config['dso_filters']) if config.get('dso_filters') else None
         self.max_chain_length = config['max_chain_length']
         self.profile = profile_pb2.Profile()
@@ -290,8 +302,17 @@ class PprofProfileGenerator(object):
 
         if self.config.get('show_art_frames'):
             self.lib.ShowArtFrames()
-        for file_path in self.config['proguard_mapping_file'] or []:
-            self.lib.AddProguardMappingFile(file_path)
+        self.lib.SetReportOptions(self.config['report_lib_options'])
+
+        comments = [
+            "Simpleperf Record Command:\n" + self.lib.GetRecordCmd(),
+            "Converted to pprof with:\n" + " ".join(sys.argv),
+            "Architecture:\n" + self.lib.GetArch(),
+        ]
+        for comment in comments:
+            self.profile.comment.append(self.get_string_id(comment))
+
+        numbers_re = re.compile(r"\d+")
 
         # Process all samples in perf.data, aggregate samples.
         while True:
@@ -304,13 +325,26 @@ class PprofProfileGenerator(object):
             symbol = self.lib.GetSymbolOfCurrentSample()
             callchain = self.lib.GetCallChainOfCurrentSample()
 
-            if not self._filter_report_sample(report_sample):
-                continue
-
             sample_type_id = self.get_sample_type_id(event.name)
             sample = Sample()
             sample.add_value(sample_type_id, 1)
             sample.add_value(sample_type_id + 1, report_sample.period)
+            sample.labels.append(Label(
+                self.get_string_id("thread"),
+                self.get_string_id(report_sample.thread_comm)))
+            # Heuristic: threadpools doing similar work are often named as
+            # name-1, name-2, name-3. Combine threadpools into one label
+            # "name-%d" if they only differ by a number.
+            sample.labels.append(Label(
+                self.get_string_id("threadpool"),
+                self.get_string_id(
+                    numbers_re.sub("%d", report_sample.thread_comm))))
+            sample.labels.append(Label(
+                self.get_string_id("pid"),
+                self.get_string_id(str(report_sample.pid))))
+            sample.labels.append(Label(
+                self.get_string_id("tid"),
+                self.get_string_id(str(report_sample.tid))))
             if self._filter_symbol(symbol):
                 location_id = self.get_location_id(report_sample.ip, symbol)
                 sample.add_location_id(location_id)
@@ -322,9 +356,9 @@ class PprofProfileGenerator(object):
             if sample.location_ids:
                 self.add_sample(sample)
 
-    def gen(self):
+    def gen(self, jobs: int):
         # 1. Generate line info for locations and functions.
-        self.gen_source_lines()
+        self.gen_source_lines(jobs)
 
         # 2. Produce samples/locations/functions in profile.
         for sample in self.sample_list:
@@ -337,19 +371,6 @@ class PprofProfileGenerator(object):
             self.gen_profile_function(function)
 
         return self.profile
-
-    def _filter_report_sample(self, sample):
-        """Return true if the sample can be used."""
-        if self.comm_filter:
-            if sample.thread_comm not in self.comm_filter:
-                return False
-        if self.pid_filter:
-            if sample.pid not in self.pid_filter:
-                return False
-        if self.tid_filter:
-            if sample.tid not in self.tid_filter:
-                return False
-        return True
 
     def _filter_symbol(self, symbol):
         if not self.dso_filter or symbol.dso_name in self.dso_filter:
@@ -376,11 +397,12 @@ class PprofProfileGenerator(object):
             return sample_type_id
         sample_type_id = len(self.profile.sample_type)
         sample_type = self.profile.sample_type.add()
-        sample_type.type = self.get_string_id('event_' + name + '_samples')
-        sample_type.unit = self.get_string_id('count')
+        sample_type.type = self.get_string_id(name + '_samples')
+        sample_type.unit = self.get_string_id('samples')
         sample_type = self.profile.sample_type.add()
-        sample_type.type = self.get_string_id('event_' + name + '_count')
-        sample_type.unit = self.get_string_id('count')
+        sample_type.type = self.get_string_id(name)
+        units = EVENT_UNITS.get(name, 'count')
+        sample_type.unit = self.get_string_id(units)
         self.sample_types[name] = sample_type_id
         return sample_type_id
 
@@ -426,26 +448,14 @@ class PprofProfileGenerator(object):
             return value
 
         binary_path = dso_name
-        build_id = ''
-
-        # The build ids in perf.data are padded to 20 bytes, but pprof needs without padding.
-        # So read build id from the binary in binary_cache, and check it with build id in
-        # perf.data.
-        build_id_in_perf_data = self.lib.GetBuildIdForPath(dso_name)
+        build_id = self.lib.GetBuildIdForPath(dso_name)
         # Try elf_path in binary cache.
-        elf_path = self.binary_finder.find_binary(dso_name, build_id_in_perf_data)
+        elf_path = self.binary_finder.find_binary(dso_name, build_id)
         if elf_path:
-            build_id = build_id_in_perf_data
             binary_path = str(elf_path)
 
-        # When there is no matching elf_path, try converting build_id in perf.data.
-        if not build_id and build_id_in_perf_data.startswith('0x'):
-            # Fallback to the way used by TrimZeroesFromBuildIDString() in quipper.
-            build_id = build_id_in_perf_data[2:]  # remove '0x'
-            padding = '0' * 8
-            while build_id.endswith(padding):
-                build_id = build_id[:-len(padding)]
-
+        # The build ids in perf.data are padded to 20 bytes, but pprof needs without padding.
+        build_id = ReadElf.unpad_build_id(build_id)
         self.binary_map[dso_name] = (binary_path, build_id)
         return (binary_path, build_id)
 
@@ -476,13 +486,13 @@ class PprofProfileGenerator(object):
             self.sample_list.append(sample)
             self.sample_map[sample.key] = sample
 
-    def gen_source_lines(self):
+    def gen_source_lines(self, jobs: int):
         # 1. Create Addr2line instance
         if not self.config.get('binary_cache_dir'):
-            log_info("Can't generate line information because binary_cache is missing.")
+            logging.info("Can't generate line information because binary_cache is missing.")
             return
         if not ToolFinder.find_tool_path('llvm-symbolizer', self.config['ndk_path']):
-            log_info("Can't generate line information because can't find llvm-symbolizer.")
+            logging.info("Can't generate line information because can't find llvm-symbolizer.")
             return
         # We have changed dso names to paths in binary_cache in self.get_binary(). So no need to
         # pass binary_cache_dir to BinaryFinder.
@@ -501,7 +511,7 @@ class PprofProfileGenerator(object):
             addr2line.add_addr(dso_name, None, function.vaddr_in_dso, function.vaddr_in_dso)
 
         # 3. Generate source lines.
-        addr2line.convert_addrs_to_lines()
+        addr2line.convert_addrs_to_lines(jobs)
 
         # 4. Annotate locations and functions.
         for location in self.location_list:
@@ -515,14 +525,18 @@ class PprofProfileGenerator(object):
             sources = addr2line.get_addr_source(dso, location.vaddr_in_dso)
             if not sources:
                 continue
-            for (source_id, source) in enumerate(sources):
+            for i, source in enumerate(sources):
                 source_file, source_line, function_name = source
-                function_id = self.get_function_id(function_name, dso_name, 0)
+                if i == 0:
+                    # Don't override original function name from report library, which is more
+                    # accurate when proguard mapping file is given.
+                    function_id = location.lines[0].function_id
+                    # Clear default line info.
+                    location.lines.clear()
+                else:
+                    function_id = self.get_function_id(function_name, dso_name, 0)
                 if function_id == 0:
                     continue
-                if source_id == 0:
-                    # Clear default line info
-                    location.lines = []
                 location.lines.append(self.add_line(source_file, source_line, function_id))
 
         for function in self.function_list:
@@ -553,6 +567,11 @@ class PprofProfileGenerator(object):
         for sample_type_id in sample.values:
             values[sample_type_id] = sample.values[sample_type_id]
         profile_sample.value.extend(values)
+
+        for l in sample.labels:
+            label = profile_sample.label.add()
+            label.key = l.key_id
+            label.str = l.str_id
 
     def gen_profile_mapping(self, mapping):
         profile_mapping = self.profile.mapping.add()
@@ -591,28 +610,22 @@ class PprofProfileGenerator(object):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Generate pprof profile data in pprof.profile.')
+    parser = BaseArgumentParser(description='Generate pprof profile data in pprof.profile.')
     parser.add_argument('--show', nargs='?', action='append', help='print existing pprof.profile.')
     parser.add_argument('-i', '--record_file', nargs='+', default=['perf.data'], help="""
         Set profiling data file to report. Default is perf.data""")
     parser.add_argument('-o', '--output_file', default='pprof.profile', help="""
         The path of generated pprof profile data.""")
-    parser.add_argument('--comm', nargs='+', action='append', help="""
-        Use samples only in threads with selected names.""")
-    parser.add_argument('--pid', nargs='+', action='append', help="""
-        Use samples only in processes with selected process ids.""")
-    parser.add_argument('--tid', nargs='+', action='append', help="""
-        Use samples only in threads with selected thread ids.""")
-    parser.add_argument('--dso', nargs='+', action='append', help="""
-        Use samples only in selected binaries.""")
     parser.add_argument('--max_chain_length', type=int, default=1000000000, help="""
         Maximum depth of samples to be converted.""")  # Large value as infinity standin.
     parser.add_argument('--ndk_path', type=extant_dir, help='Set the path of a ndk release.')
-    parser.add_argument('--show_art_frames', action='store_true',
-                        help='Show frames of internal methods in the ART Java interpreter.')
     parser.add_argument(
-        '--proguard-mapping-file', nargs='+',
-        help='Add proguard mapping file to de-obfuscate symbols')
+        '-j', '--jobs', type=int, default=os.cpu_count(),
+        help='Use multithreading to speed up source code annotation.')
+    sample_filter_group = parser.add_argument_group('Sample filter options')
+    sample_filter_group.add_argument('--dso', nargs='+', action='append', help="""
+        Use samples only in selected binaries.""")
+    parser.add_report_lib_options(sample_filter_group=sample_filter_group)
 
     args = parser.parse_args()
     if args.show:
@@ -624,19 +637,16 @@ def main():
 
     config = {}
     config['output_file'] = args.output_file
-    config['comm_filters'] = flatten_arg_list(args.comm)
-    config['pid_filters'] = flatten_arg_list(args.pid)
-    config['tid_filters'] = flatten_arg_list(args.tid)
     config['dso_filters'] = flatten_arg_list(args.dso)
     config['ndk_path'] = args.ndk_path
-    config['show_art_frames'] = args.show_art_frames
     config['max_chain_length'] = args.max_chain_length
-    config['proguard_mapping_file'] = args.proguard_mapping_file
+    config['report_lib_options'] = args.report_lib_options
     generator = PprofProfileGenerator(config)
     for record_file in args.record_file:
         generator.load_record_file(record_file)
-    profile = generator.gen()
+    profile = generator.gen(args.jobs)
     store_pprof_profile(config['output_file'], profile)
+    logging.info("Report is generated at '%s' successfully." % config['output_file'])
 
 
 if __name__ == '__main__':

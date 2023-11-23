@@ -31,7 +31,7 @@ android_test_helper_app {
     test_suites: [
         "cts",
         "general-tests",
-        "mts",
+        "mts-permission",
     ],
     manifest: "package1/AndroidManifest.xml",
 }
@@ -51,7 +51,7 @@ android_test_helper_app {
     test_suites: [
         "cts",
         "general-tests",
-        "mts",
+        "mts-permission",
     ],
     manifest: "package2/AndroidManifest.xml",
 }
@@ -71,7 +71,7 @@ android_test_helper_app {
     test_suites: [
         "cts",
         "general-tests",
-        "mts",
+        "mts-permission",
     ],
     manifest: "package3/AndroidManifest.xml",
 }
@@ -91,7 +91,7 @@ android_test_helper_app {
     test_suites: [
         "cts",
         "general-tests",
-        "mts",
+        "mts-permission",
     ],
     manifest: "package4/AndroidManifest.xml",
 }
@@ -111,7 +111,7 @@ android_test_helper_app {
     test_suites: [
         "cts",
         "general-tests",
-        "mts",
+        "mts-permission",
     ],
     manifest: "packageb/AndroidManifest.xml",
 }

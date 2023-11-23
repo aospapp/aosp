@@ -19,25 +19,45 @@ package android.hardware.devicestate.cts;
 import android.app.Activity;
 import android.hardware.devicestate.DeviceStateManager;
 import android.hardware.devicestate.DeviceStateRequest;
+import android.os.Bundle;
 
 /**
  * This is an activity that can request device state changes via
- * {@link DeviceStateManager#requestState}.
+ * {@link DeviceStateManager#requestState} as well as cancel the active
+ * override request with {@link DeviceStateManager#cancelStateRequest}.
  *
  * @see {@link DeviceStateManagerTests#testRequestStateFailsAsBackgroundApp}
  * @see {@link DeviceStateManagerTests#testRequestStateSucceedsAsTopApp}
+ * @see {@link DeviceStateManagerTests#testCancelOverrideRequestFromNewActivity}
  */
 public class DeviceStateTestActivity extends Activity {
 
     public boolean requestStateFailed = false;
+    public boolean cancelStateRequestFailed = false;
+    private DeviceStateManager mDeviceStateManager;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        mDeviceStateManager = getSystemService(DeviceStateManager.class);
+    }
 
     public void requestDeviceStateChange(int state) {
-        DeviceStateManager deviceStateManager = getSystemService(DeviceStateManager.class);
         DeviceStateRequest request = DeviceStateRequest.newBuilder(state).build();
         try {
-            deviceStateManager.requestState(request, null, null);
+            requestStateFailed = false;
+            mDeviceStateManager.requestState(request, null, null);
         } catch (SecurityException e) {
             requestStateFailed = true;
+        }
+    }
+
+    public void cancelOverriddenState() {
+        try {
+            cancelStateRequestFailed = false;
+            mDeviceStateManager.cancelStateRequest();
+        } catch (SecurityException e) {
+            cancelStateRequestFailed = true;
         }
     }
 }

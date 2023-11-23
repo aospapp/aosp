@@ -30,7 +30,7 @@ import android.view.WindowManager;
 
 import androidx.test.rule.ActivityTestRule;
 
-import com.android.compatibility.common.util.PollingCheck;
+import com.android.compatibility.common.util.WindowUtil;
 
 import org.hamcrest.Matcher;
 import org.junit.Before;
@@ -66,7 +66,7 @@ class AspectRatioTestsBase extends ActivityManagerTestBase {
     void runAspectRatioTest(final ActivityTestRule activityRule,
             final AssertAspectRatioCallback callback) {
         final Activity activity = launchActivity(activityRule);
-        PollingCheck.waitFor(activity::hasWindowFocus);
+        WindowUtil.waitForFocus(activity);
         try {
             final Point displaySize = new Point();
             getDisplay(activity).getSize(displaySize);
@@ -108,7 +108,8 @@ class AspectRatioTestsBase extends ActivityManagerTestBase {
 
     int getMinimalTaskSize(ComponentName componentName) {
         final int displayId = mWmState.getDisplayByActivity(componentName);
-        return mWmState.defaultMinimalTaskSize(displayId);
+        final WindowManagerState.DisplayContent displayContent = mWmState.getDisplay(displayId);
+        return displayContent.mMinSizeOfResizeableTaskDp;
     }
 
     static float getDefaultDisplayAspectRatio() {

@@ -21,7 +21,10 @@ java_test_host {
     defaults: ["cts_defaults"],
 
     // Only compile source java files in this apk.
-    srcs: ["src/**/*.java", "src/**/*.kt"],
+    srcs: [
+        "src/**/*.java",
+        "src/**/*.kt",
+    ],
 
     libs: [
         "cts-tradefed",
@@ -66,15 +69,21 @@ java_test_host {
     ],
 
     // Prebuilts of all ABIs.
-    data: [":CtsApkVerityTestPrebuiltFiles"],
+    data: [
+        ":CtsApkVerityTestPrebuiltFiles",
+        ":CtsExternalStorageApp",
+        ":CtsReadExternalStorageApp",
+        ":CtsWriteExternalStorageApp",
+        ":CtsWriteExternalStorageApp2",
+        ":CtsMultiUserStorageApp",
+        ":CtsMediaStorageApp",
+        ":CtsMediaStorageApp28",
+        ":CtsMediaStorageApp29",
+    ],
+    per_testcase_directory: true,
 }
 
 filegroup {
     name: "CtsHostsideTestsAppSecurityUtil",
     srcs: ["src/android/appsecurity/cts/Utils.java"],
-}
-
-filegroup {
-    name: "cts-ec-p256-por_1_2-default-caps.lineage",
-    srcs: ["certs/pkgsigverify/ec-p256-por_1_2-default-caps"],
 }

@@ -23,7 +23,6 @@ import (
 
 var (
 	armToolchainCflags = []string{
-		"-mthumb-interwork",
 		"-msoft-float",
 	}
 
@@ -38,7 +37,11 @@ var (
 		"-Wl,-m,armelf",
 	}
 
-	armLldflags = ClangFilterUnknownLldflags(armLdflags)
+	armLldflags = armLdflags
+
+	armFixCortexA8LdFlags = []string{"-Wl,--fix-cortex-a8"}
+
+	armNoFixCortexA8LdFlags = []string{"-Wl,--no-fix-cortex-a8"}
 
 	armArmCflags = []string{
 		"-fstrict-aliasing",
@@ -49,7 +52,7 @@ var (
 		"-Os",
 	}
 
-	armClangArchVariantCflags = map[string][]string{
+	armArchVariantCflags = map[string][]string{
 		"armv7-a": []string{
 			"-march=armv7-a",
 			"-mfloat-abi=softfp",
@@ -72,7 +75,7 @@ var (
 		},
 	}
 
-	armClangCpuVariantCflags = map[string][]string{
+	armCpuVariantCflags = map[string][]string{
 		"cortex-a7": []string{
 			"-mcpu=cortex-a7",
 			"-mfpu=neon-vfpv4",
@@ -163,95 +166,93 @@ var (
 )
 
 const (
+	name          = "arm"
 	armGccVersion = "4.9"
+	gccTriple     = "arm-linux-androideabi"
+	clangTriple   = "armv7a-linux-androideabi"
 )
 
 func init() {
 	pctx.StaticVariable("armGccVersion", armGccVersion)
 
-	pctx.SourcePathVariable("ArmGccRoot",
-		"prebuilts/gcc/${HostPrebuiltTag}/arm/arm-linux-androideabi-${armGccVersion}")
+	pctx.SourcePathVariable("ArmGccRoot", "prebuilts/gcc/${HostPrebuiltTag}/arm/arm-linux-androideabi-${armGccVersion}")
 
-	pctx.StaticVariable("ArmLdflags", strings.Join(armLdflags, " "))
-	pctx.StaticVariable("ArmLldflags", strings.Join(armLldflags, " "))
+	// Just exported. Not created as a Ninja static variable.
+	exportedVars.ExportString("ArmClangTriple", clangTriple)
+
+	exportedVars.ExportStringListStaticVariable("ArmLdflags", armLdflags)
+	exportedVars.ExportStringListStaticVariable("ArmLldflags", armLldflags)
+
+	exportedVars.ExportStringListStaticVariable("ArmFixCortexA8LdFlags", armFixCortexA8LdFlags)
+	exportedVars.ExportStringListStaticVariable("ArmNoFixCortexA8LdFlags", armNoFixCortexA8LdFlags)
 
 	// Clang cflags
-	pctx.StaticVariable("ArmToolchainClangCflags", strings.Join(ClangFilterUnknownCflags(armToolchainCflags), " "))
-	pctx.StaticVariable("ArmClangCflags", strings.Join(ClangFilterUnknownCflags(armCflags), " "))
-	pctx.StaticVariable("ArmClangLdflags", strings.Join(ClangFilterUnknownCflags(armLdflags), " "))
-	pctx.StaticVariable("ArmClangLldflags", strings.Join(ClangFilterUnknownCflags(armLldflags), " "))
-	pctx.StaticVariable("ArmClangCppflags", strings.Join(ClangFilterUnknownCflags(armCppflags), " "))
+	exportedVars.ExportStringListStaticVariable("ArmToolchainCflags", armToolchainCflags)
+	exportedVars.ExportStringListStaticVariable("ArmCflags", armCflags)
+	exportedVars.ExportStringListStaticVariable("ArmCppflags", armCppflags)
 
 	// Clang ARM vs. Thumb instruction set cflags
-	pctx.StaticVariable("ArmClangArmCflags", strings.Join(ClangFilterUnknownCflags(armArmCflags), " "))
-	pctx.StaticVariable("ArmClangThumbCflags", strings.Join(ClangFilterUnknownCflags(armThumbCflags), " "))
+	exportedVars.ExportStringListStaticVariable("ArmArmCflags", armArmCflags)
+	exportedVars.ExportStringListStaticVariable("ArmThumbCflags", armThumbCflags)
+
+	exportedVars.ExportVariableReferenceDict("ArmArchVariantCflags", armArchVariantCflagsVar)
+	exportedVars.ExportVariableReferenceDict("ArmCpuVariantCflags", armCpuVariantCflagsVar)
 
 	// Clang arch variant cflags
-	pctx.StaticVariable("ArmClangArmv7ACflags",
-		strings.Join(armClangArchVariantCflags["armv7-a"], " "))
-	pctx.StaticVariable("ArmClangArmv7ANeonCflags",
-		strings.Join(armClangArchVariantCflags["armv7-a-neon"], " "))
-	pctx.StaticVariable("ArmClangArmv8ACflags",
-		strings.Join(armClangArchVariantCflags["armv8-a"], " "))
-	pctx.StaticVariable("ArmClangArmv82ACflags",
-		strings.Join(armClangArchVariantCflags["armv8-2a"], " "))
+	exportedVars.ExportStringListStaticVariable("ArmArmv7ACflags", armArchVariantCflags["armv7-a"])
+	exportedVars.ExportStringListStaticVariable("ArmArmv7ANeonCflags", armArchVariantCflags["armv7-a-neon"])
+	exportedVars.ExportStringListStaticVariable("ArmArmv8ACflags", armArchVariantCflags["armv8-a"])
+	exportedVars.ExportStringListStaticVariable("ArmArmv82ACflags", armArchVariantCflags["armv8-2a"])
 
 	// Clang cpu variant cflags
-	pctx.StaticVariable("ArmClangGenericCflags",
-		strings.Join(armClangCpuVariantCflags[""], " "))
-	pctx.StaticVariable("ArmClangCortexA7Cflags",
-		strings.Join(armClangCpuVariantCflags["cortex-a7"], " "))
-	pctx.StaticVariable("ArmClangCortexA8Cflags",
-		strings.Join(armClangCpuVariantCflags["cortex-a8"], " "))
-	pctx.StaticVariable("ArmClangCortexA15Cflags",
-		strings.Join(armClangCpuVariantCflags["cortex-a15"], " "))
-	pctx.StaticVariable("ArmClangCortexA53Cflags",
-		strings.Join(armClangCpuVariantCflags["cortex-a53"], " "))
-	pctx.StaticVariable("ArmClangCortexA55Cflags",
-		strings.Join(armClangCpuVariantCflags["cortex-a55"], " "))
-	pctx.StaticVariable("ArmClangKraitCflags",
-		strings.Join(armClangCpuVariantCflags["krait"], " "))
-	pctx.StaticVariable("ArmClangKryoCflags",
-		strings.Join(armClangCpuVariantCflags["kryo"], " "))
+	exportedVars.ExportStringListStaticVariable("ArmGenericCflags", armCpuVariantCflags[""])
+	exportedVars.ExportStringListStaticVariable("ArmCortexA7Cflags", armCpuVariantCflags["cortex-a7"])
+	exportedVars.ExportStringListStaticVariable("ArmCortexA8Cflags", armCpuVariantCflags["cortex-a8"])
+	exportedVars.ExportStringListStaticVariable("ArmCortexA15Cflags", armCpuVariantCflags["cortex-a15"])
+	exportedVars.ExportStringListStaticVariable("ArmCortexA53Cflags", armCpuVariantCflags["cortex-a53"])
+	exportedVars.ExportStringListStaticVariable("ArmCortexA55Cflags", armCpuVariantCflags["cortex-a55"])
+	exportedVars.ExportStringListStaticVariable("ArmKraitCflags", armCpuVariantCflags["krait"])
+	exportedVars.ExportStringListStaticVariable("ArmKryoCflags", armCpuVariantCflags["kryo"])
 }
 
 var (
-	armClangArchVariantCflagsVar = map[string]string{
-		"armv7-a":      "${config.ArmClangArmv7ACflags}",
-		"armv7-a-neon": "${config.ArmClangArmv7ANeonCflags}",
-		"armv8-a":      "${config.ArmClangArmv8ACflags}",
-		"armv8-2a":     "${config.ArmClangArmv82ACflags}",
+	armArchVariantCflagsVar = map[string]string{
+		"armv7-a":      "${config.ArmArmv7ACflags}",
+		"armv7-a-neon": "${config.ArmArmv7ANeonCflags}",
+		"armv8-a":      "${config.ArmArmv8ACflags}",
+		"armv8-2a":     "${config.ArmArmv82ACflags}",
 	}
 
-	armClangCpuVariantCflagsVar = map[string]string{
-		"":               "${config.ArmClangGenericCflags}",
-		"cortex-a7":      "${config.ArmClangCortexA7Cflags}",
-		"cortex-a8":      "${config.ArmClangCortexA8Cflags}",
-		"cortex-a15":     "${config.ArmClangCortexA15Cflags}",
-		"cortex-a53":     "${config.ArmClangCortexA53Cflags}",
-		"cortex-a53.a57": "${config.ArmClangCortexA53Cflags}",
-		"cortex-a55":     "${config.ArmClangCortexA55Cflags}",
-		"cortex-a72":     "${config.ArmClangCortexA53Cflags}",
-		"cortex-a73":     "${config.ArmClangCortexA53Cflags}",
-		"cortex-a75":     "${config.ArmClangCortexA55Cflags}",
-		"cortex-a76":     "${config.ArmClangCortexA55Cflags}",
-		"krait":          "${config.ArmClangKraitCflags}",
-		"kryo":           "${config.ArmClangKryoCflags}",
-		"kryo385":        "${config.ArmClangCortexA53Cflags}",
-		"exynos-m1":      "${config.ArmClangCortexA53Cflags}",
-		"exynos-m2":      "${config.ArmClangCortexA53Cflags}",
+	armCpuVariantCflagsVar = map[string]string{
+		"":               "${config.ArmGenericCflags}",
+		"cortex-a7":      "${config.ArmCortexA7Cflags}",
+		"cortex-a8":      "${config.ArmCortexA8Cflags}",
+		"cortex-a15":     "${config.ArmCortexA15Cflags}",
+		"cortex-a53":     "${config.ArmCortexA53Cflags}",
+		"cortex-a53.a57": "${config.ArmCortexA53Cflags}",
+		"cortex-a55":     "${config.ArmCortexA55Cflags}",
+		"cortex-a72":     "${config.ArmCortexA53Cflags}",
+		"cortex-a73":     "${config.ArmCortexA53Cflags}",
+		"cortex-a75":     "${config.ArmCortexA55Cflags}",
+		"cortex-a76":     "${config.ArmCortexA55Cflags}",
+		"krait":          "${config.ArmKraitCflags}",
+		"kryo":           "${config.ArmKryoCflags}",
+		"kryo385":        "${config.ArmCortexA53Cflags}",
+		"exynos-m1":      "${config.ArmCortexA53Cflags}",
+		"exynos-m2":      "${config.ArmCortexA53Cflags}",
 	}
 )
 
 type toolchainArm struct {
+	toolchainBionic
 	toolchain32Bit
-	ldflags              string
-	lldflags             string
-	toolchainClangCflags string
+	ldflags         string
+	lldflags        string
+	toolchainCflags string
 }
 
 func (t *toolchainArm) Name() string {
-	return "arm"
+	return name
 }
 
 func (t *toolchainArm) GccRoot() string {
@@ -259,7 +260,7 @@ func (t *toolchainArm) GccRoot() string {
 }
 
 func (t *toolchainArm) GccTriple() string {
-	return "arm-linux-androideabi"
+	return gccTriple
 }
 
 func (t *toolchainArm) GccVersion() string {
@@ -272,7 +273,7 @@ func (t *toolchainArm) IncludeFlags() string {
 
 func (t *toolchainArm) ClangTriple() string {
 	// http://b/72619014 work around llvm LTO bug.
-	return "armv7a-linux-androideabi"
+	return clangTriple
 }
 
 func (t *toolchainArm) ndkTriple() string {
@@ -280,62 +281,62 @@ func (t *toolchainArm) ndkTriple() string {
 	return t.GccTriple()
 }
 
-func (t *toolchainArm) ToolchainClangCflags() string {
-	return t.toolchainClangCflags
+func (t *toolchainArm) ToolchainCflags() string {
+	return t.toolchainCflags
 }
 
-func (t *toolchainArm) ClangCflags() string {
-	return "${config.ArmClangCflags}"
+func (t *toolchainArm) Cflags() string {
+	return "${config.ArmCflags}"
 }
 
-func (t *toolchainArm) ClangCppflags() string {
-	return "${config.ArmClangCppflags}"
+func (t *toolchainArm) Cppflags() string {
+	return "${config.ArmCppflags}"
 }
 
-func (t *toolchainArm) ClangLdflags() string {
+func (t *toolchainArm) Ldflags() string {
 	return t.ldflags
 }
 
-func (t *toolchainArm) ClangLldflags() string {
+func (t *toolchainArm) Lldflags() string {
 	return t.lldflags // TODO: handle V8 cases
 }
 
-func (t *toolchainArm) ClangInstructionSetFlags(isa string) (string, error) {
+func (t *toolchainArm) InstructionSetFlags(isa string) (string, error) {
 	switch isa {
 	case "arm":
-		return "${config.ArmClangArmCflags}", nil
+		return "${config.ArmArmCflags}", nil
 	case "thumb", "":
-		return "${config.ArmClangThumbCflags}", nil
+		return "${config.ArmThumbCflags}", nil
 	default:
-		return t.toolchainBase.ClangInstructionSetFlags(isa)
+		return t.toolchainBase.InstructionSetFlags(isa)
 	}
 }
 
 func (toolchainArm) LibclangRuntimeLibraryArch() string {
-	return "arm"
+	return name
 }
 
 func armToolchainFactory(arch android.Arch) Toolchain {
 	var fixCortexA8 string
-	toolchainClangCflags := make([]string, 2, 3)
+	toolchainCflags := make([]string, 2, 3)
 
-	toolchainClangCflags[0] = "${config.ArmToolchainClangCflags}"
-	toolchainClangCflags[1] = armClangArchVariantCflagsVar[arch.ArchVariant]
+	toolchainCflags[0] = "${config.ArmToolchainCflags}"
+	toolchainCflags[1] = armArchVariantCflagsVar[arch.ArchVariant]
 
-	toolchainClangCflags = append(toolchainClangCflags,
-		variantOrDefault(armClangCpuVariantCflagsVar, arch.CpuVariant))
+	toolchainCflags = append(toolchainCflags,
+		variantOrDefault(armCpuVariantCflagsVar, arch.CpuVariant))
 
 	switch arch.ArchVariant {
 	case "armv7-a-neon":
 		switch arch.CpuVariant {
 		case "cortex-a8", "":
 			// Generic ARM might be a Cortex A8 -- better safe than sorry
-			fixCortexA8 = "-Wl,--fix-cortex-a8"
+			fixCortexA8 = "${config.ArmFixCortexA8LdFlags}"
 		default:
-			fixCortexA8 = "-Wl,--no-fix-cortex-a8"
+			fixCortexA8 = "${config.ArmNoFixCortexA8LdFlags}"
 		}
 	case "armv7-a":
-		fixCortexA8 = "-Wl,--fix-cortex-a8"
+		fixCortexA8 = "${config.ArmFixCortexA8LdFlags}"
 	case "armv8-a", "armv8-2a":
 		// Nothing extra for armv8-a/armv8-2a
 	default:
@@ -347,8 +348,8 @@ func armToolchainFactory(arch android.Arch) Toolchain {
 			"${config.ArmLdflags}",
 			fixCortexA8,
 		}, " "),
-		lldflags:             "${config.ArmLldflags}",
-		toolchainClangCflags: strings.Join(toolchainClangCflags, " "),
+		lldflags:        "${config.ArmLldflags}",
+		toolchainCflags: strings.Join(toolchainCflags, " "),
 	}
 }
 

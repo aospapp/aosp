@@ -1,12 +1,6 @@
 # JIT symbols
 
-## Table of contents
-- [Java JIT symbols](#java-jit-symbols)
-- [Generic JIT symbols](#generic-jit-symbols)
-  - [Symbol map file location for application](#symbol-map-file-location-for-application)
-  - [Symbol map file location for standalone program](#symbol-map-file-location-for-standalone-program)
-  - [Symbol map file format](#symbol-map-file-format)
-  - [Known issues](#known-issues)
+[TOC]
 
 ## Java JIT symbols
 

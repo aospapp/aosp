@@ -21,7 +21,7 @@
         <uses-library android:name="android.test.runner" />
         <uses-library android:name="com.android.cts.ctsshim.shared_library"
                       android:required="false" />
-        <activity android:name="android.appenumeration.cts.query.TestActivity"
+        <activity android:name="android.appenumeration.cts.TestActivity"
                   android:exported="true" />
     </application>
 </manifest>

@@ -25,7 +25,6 @@
 #include <thread>
 
 #include "Base.h"
-#include "HandleImporter.h"
 
 extern "C" {
 #include <jpeglib.h>
@@ -35,7 +34,6 @@ extern "C" {
 
 namespace android {
 
-using android::hardware::camera::common::V1_0::helper::HandleImporter;
 using google_camera_hal::BufferStatus;
 using google_camera_hal::HwlPipelineCallback;
 using google_camera_hal::HwlPipelineResult;

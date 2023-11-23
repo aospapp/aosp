@@ -24,6 +24,7 @@ import unittest
 from io import StringIO
 from unittest import mock
 
+import atest_configs
 import result_reporter
 
 from test_runners import test_runner_base
@@ -429,6 +430,9 @@ class ResultReporterUnittests(unittest.TestCase):
 
     def test_print_summary_ret_val(self):
         """Test print_summary method's return value."""
+        atest_configs.GLOBAL_ARGS = mock.Mock()
+        atest_configs.GLOBAL_ARGS.aggregate_metric_filter = None
+
         # PASS Case
         self.rr.process_test_result(RESULT_PASSED_TEST)
         self.assertEqual(0, self.rr.print_summary())
@@ -441,6 +445,9 @@ class ResultReporterUnittests(unittest.TestCase):
 
     def test_print_summary_ret_val_err_stat(self):
         """Test print_summary method's return value."""
+        atest_configs.GLOBAL_ARGS = mock.Mock()
+        atest_configs.GLOBAL_ARGS.aggregate_metric_filter = None
+
         # PASS Case
         self.rr.process_test_result(RESULT_PASSED_TEST)
         self.assertEqual(0, self.rr.print_summary())

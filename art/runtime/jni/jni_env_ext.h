@@ -37,18 +37,14 @@ namespace mirror {
 class Object;
 }  // namespace mirror
 
-// Number of local references in the indirect reference table. The value is arbitrary but
-// low enough that it forces integrity checks.
-static constexpr size_t kLocalsInitial = 512;
-
 class JNIEnvExt : public JNIEnv {
  public:
   // Creates a new JNIEnvExt. Returns null on error, in which case error_msg
   // will contain a description of the error.
   static JNIEnvExt* Create(Thread* self, JavaVMExt* vm, std::string* error_msg);
-  static Offset SegmentStateOffset(size_t pointer_size);
-  static Offset LocalRefCookieOffset(size_t pointer_size);
-  static Offset SelfOffset(size_t pointer_size);
+  static MemberOffset SegmentStateOffset(size_t pointer_size);
+  static MemberOffset LocalRefCookieOffset(size_t pointer_size);
+  static MemberOffset SelfOffset(size_t pointer_size);
   static jint GetEnvHandler(JavaVMExt* vm, /*out*/void** out, jint version);
 
   ~JNIEnvExt();

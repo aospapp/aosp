@@ -29,6 +29,8 @@ java_library_host {
     ],
     static_libs: [
         "compatibility-tradefed",
+        "platformprotos",
+        "libprotobuf-java-lite",
     ]
 }
 

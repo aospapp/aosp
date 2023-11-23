@@ -18,22 +18,26 @@ package android.graphics.cts;
 import static org.junit.Assert.assertEquals;
 
 import android.graphics.Bitmap;
-import android.graphics.Bitmap.Config;
 import android.graphics.BitmapShader;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Shader;
 
 import androidx.test.filters.SmallTest;
-import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.ColorUtils;
 
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
+
 @SmallTest
-@RunWith(AndroidJUnit4.class)
+@RunWith(JUnitParamsRunner.class)
 public class BitmapShaderTest {
     private static final int TILE_WIDTH = 20;
     private static final int TILE_HEIGHT = 20;
@@ -42,9 +46,17 @@ public class BitmapShaderTest {
     private static final int CENTER_COLOR = Color.RED;
     private static final int NUM_TILES = 4;
 
+    private Object[] testConfigs() {
+        return new Object[] {
+            Bitmap.Config.ARGB_8888,
+            Bitmap.Config.RGBA_1010102
+        };
+    }
+
     @Test
-    public void testBitmapShader() {
-        Bitmap tile = Bitmap.createBitmap(TILE_WIDTH, TILE_HEIGHT, Config.ARGB_8888);
+    @Parameters(method = "testConfigs")
+    public void testBitmapShader(Bitmap.Config config) {
+        Bitmap tile = Bitmap.createBitmap(TILE_WIDTH, TILE_HEIGHT, config);
         tile.eraseColor(BORDER_COLOR);
         Canvas c = new Canvas(tile);
         Paint p = new Paint();
@@ -57,7 +69,7 @@ public class BitmapShaderTest {
         paint.setShader(shader);
         // create a bitmap that fits (NUM_TILES - 0.5) tiles in both directions
         Bitmap b = Bitmap.createBitmap(NUM_TILES * TILE_WIDTH - TILE_WIDTH / 2,
-                NUM_TILES * TILE_HEIGHT - TILE_HEIGHT / 2, Config.ARGB_8888);
+                NUM_TILES * TILE_HEIGHT - TILE_HEIGHT / 2, config);
         b.eraseColor(Color.BLACK);
         Canvas canvas = new Canvas(b);
         canvas.drawPaint(paint);
@@ -98,15 +110,16 @@ public class BitmapShaderTest {
     }
 
     @Test
-    public void testClamp() {
-        Bitmap bitmap = Bitmap.createBitmap(2, 1, Config.ARGB_8888);
+    @Parameters(method = "testConfigs")
+    public void testClamp(Bitmap.Config config) {
+        Bitmap bitmap = Bitmap.createBitmap(2, 1, config);
         bitmap.setPixel(0, 0, Color.RED);
         bitmap.setPixel(1, 0, Color.BLUE);
 
         BitmapShader shader = new BitmapShader(bitmap,
                 Shader.TileMode.CLAMP, Shader.TileMode.CLAMP);
 
-        Bitmap dstBitmap = Bitmap.createBitmap(4, 1, Config.ARGB_8888);
+        Bitmap dstBitmap = Bitmap.createBitmap(4, 1, config);
         Canvas canvas = new Canvas(dstBitmap);
         Paint paint = new Paint();
         paint.setShader(shader);
@@ -120,15 +133,16 @@ public class BitmapShaderTest {
     }
 
     @Test
-    public void testRepeat() {
-        Bitmap bitmap = Bitmap.createBitmap(2, 1, Config.ARGB_8888);
+    @Parameters(method = "testConfigs")
+    public void testRepeat(Bitmap.Config config) {
+        Bitmap bitmap = Bitmap.createBitmap(2, 1, config);
         bitmap.setPixel(0, 0, Color.RED);
         bitmap.setPixel(1, 0, Color.BLUE);
 
         BitmapShader shader = new BitmapShader(bitmap,
                 Shader.TileMode.REPEAT, Shader.TileMode.REPEAT);
 
-        Bitmap dstBitmap = Bitmap.createBitmap(4, 1, Config.ARGB_8888);
+        Bitmap dstBitmap = Bitmap.createBitmap(4, 1, config);
         Canvas canvas = new Canvas(dstBitmap);
         Paint paint = new Paint();
         paint.setShader(shader);
@@ -142,15 +156,16 @@ public class BitmapShaderTest {
     }
 
     @Test
-    public void testMirror() {
-        Bitmap bitmap = Bitmap.createBitmap(2, 1, Config.ARGB_8888);
+    @Parameters(method = "testConfigs")
+    public void testMirror(Bitmap.Config config) {
+        Bitmap bitmap = Bitmap.createBitmap(2, 1, config);
         bitmap.setPixel(0, 0, Color.RED);
         bitmap.setPixel(1, 0, Color.BLUE);
 
         BitmapShader shader = new BitmapShader(bitmap,
                 Shader.TileMode.MIRROR, Shader.TileMode.MIRROR);
 
-        Bitmap dstBitmap = Bitmap.createBitmap(4, 1, Config.ARGB_8888);
+        Bitmap dstBitmap = Bitmap.createBitmap(4, 1, config);
         Canvas canvas = new Canvas(dstBitmap);
         Paint paint = new Paint();
         paint.setShader(shader);
@@ -161,5 +176,49 @@ public class BitmapShaderTest {
         dstBitmap.getPixels(pixels, 0, 4, 0, 0, 4, 1);
         Assert.assertArrayEquals(new int[] { Color.RED, Color.BLUE, Color.BLUE, Color.RED },
                 pixels);
+    }
+
+    @Test
+    @Parameters(method = "testConfigs")
+    public void testFiltering(Bitmap.Config config) {
+        Bitmap bitmap = Bitmap.createBitmap(2, 2, config);
+        bitmap.setPixel(0, 0, Color.RED);
+        bitmap.setPixel(1, 0, Color.BLUE);
+        bitmap.setPixel(0, 1, Color.BLUE);
+        bitmap.setPixel(1, 1, Color.RED);
+
+        BitmapShader shader = new BitmapShader(bitmap,
+                Shader.TileMode.CLAMP, Shader.TileMode.CLAMP);
+        Assert.assertEquals(BitmapShader.FILTER_MODE_DEFAULT, shader.getFilterMode());
+
+        // use slightly left than half to avoid any confusion on which pixel
+        // is sampled with FILTER_MODE_NEAREST
+        Matrix matrix = new Matrix();
+        matrix.postScale(0.49f, 0.49f);
+        shader.setLocalMatrix(matrix);
+
+        Bitmap dstBitmap = Bitmap.createBitmap(1, 1, config);
+        Canvas canvas = new Canvas(dstBitmap);
+        Paint paint = new Paint();
+        paint.setShader(shader);
+
+        paint.setFilterBitmap(false);
+        canvas.drawPaint(paint);
+        ColorUtils.verifyColor("expected solid red color", Color.RED, dstBitmap.getPixel(0, 0), 0);
+
+        paint.setFilterBitmap(true);
+        canvas.drawPaint(paint);
+        ColorUtils.verifyColor("color should be a blue/red mix", Color.valueOf(0.5f, 0.0f, 0.5f),
+                dstBitmap.getColor(0, 0), 0.05f);
+
+        shader.setFilterMode(BitmapShader.FILTER_MODE_NEAREST);
+        canvas.drawPaint(paint);
+        ColorUtils.verifyColor("expected solid red color", Color.RED, dstBitmap.getPixel(0, 0), 0);
+
+        shader.setFilterMode(BitmapShader.FILTER_MODE_LINEAR);
+        paint.setFilterBitmap(false);
+        canvas.drawPaint(paint);
+        ColorUtils.verifyColor("color should be a blue/red mix", Color.valueOf(0.5f, 0.0f, 0.5f),
+                dstBitmap.getColor(0, 0), 0.05f);
     }
 }

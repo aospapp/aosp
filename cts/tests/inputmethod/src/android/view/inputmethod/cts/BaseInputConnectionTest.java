@@ -16,6 +16,8 @@
 
 package android.view.inputmethod.cts;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -40,8 +42,10 @@ import android.view.inputmethod.ExtractedTextRequest;
 import android.view.inputmethod.InputContentInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.view.inputmethod.SurroundingText;
+import android.view.inputmethod.TextSnapshot;
 import android.view.inputmethod.cts.util.InputConnectionTestUtils;
 
+import androidx.annotation.NonNull;
 import androidx.test.filters.MediumTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
@@ -52,6 +56,9 @@ import org.junit.runner.RunWith;
 @MediumTest
 @RunWith(AndroidJUnit4.class)
 public class BaseInputConnectionTest {
+
+    private static final int CAPS_MODE_MASK = TextUtils.CAP_MODE_CHARACTERS
+            | TextUtils.CAP_MODE_WORDS | TextUtils.CAP_MODE_SENTENCES;
 
     private static BaseInputConnection createBaseInputConnection() {
         final View view = new View(InstrumentationRegistry.getInstrumentation().getTargetContext());
@@ -189,6 +196,23 @@ public class BaseInputConnectionTest {
     }
 
     /**
+     * An utility method to create an instance of {@link BaseInputConnection} from {@link Editable}.
+     *
+     * @param editable the initial text.
+     * @return {@link BaseInputConnection} instantiated in the full editor mode with
+     *         {@code editable}.
+     */
+    private static BaseInputConnection createConnection(@NonNull Editable editable) {
+        final View view = new View(InstrumentationRegistry.getInstrumentation().getTargetContext());
+        return new BaseInputConnection(view, true) {
+            @Override
+            public Editable getEditable() {
+                return editable;
+            }
+        };
+    }
+
+    /**
      * An utility method to create an instance of {@link BaseInputConnection} in the full editor
      * mode with an initial text and selection range.
      *
@@ -201,13 +225,7 @@ public class BaseInputConnectionTest {
         final int selectionEnd = Selection.getSelectionEnd(source);
         final Editable editable = Editable.Factory.getInstance().newEditable(source);
         Selection.setSelection(editable, selectionStart, selectionEnd);
-        final View view = new View(InstrumentationRegistry.getInstrumentation().getTargetContext());
-        return new BaseInputConnection(view, true) {
-            @Override
-            public Editable getEditable() {
-                return editable;
-            }
-        };
+        return createConnection(editable);
     }
 
     private static void verifyDeleteSurroundingTextMain(final String initialState,
@@ -615,5 +633,45 @@ public class BaseInputConnectionTest {
         assertEquals("", connection.getTextAfterCursor(
                 100, BaseInputConnection.GET_TEXT_WITH_STYLES).toString());
         expectThrows(IllegalArgumentException.class, ()-> connection.getTextAfterCursor(-1, 0));
+    }
+
+    @Test
+    public void testTakeSnapshot() {
+        final BaseInputConnection connection = createConnectionWithSelection(
+                InputConnectionTestUtils.formatString("0123[456]789"));
+
+        verifyTextSnapshot(connection);
+
+        connection.setSelection(10, 10);
+        verifyTextSnapshot(connection);
+
+        connection.setComposingRegion(3, 10);
+        verifyTextSnapshot(connection);
+
+        connection.finishComposingText();
+        verifyTextSnapshot(connection);
+    }
+
+    @Test
+    public void testTakeSnapshotForNoSelection() {
+        final BaseInputConnection connection = createConnection(
+                Editable.Factory.getInstance().newEditable("test"));
+        // null should be returned for text with no selection.
+        assertThat(connection.takeSnapshot()).isNull();
+    }
+
+    private void verifyTextSnapshot(@NonNull BaseInputConnection connection) {
+        final Editable editable = connection.getEditable();
+
+        final TextSnapshot snapshot = connection.takeSnapshot();
+        assertThat(snapshot).isNotNull();
+        assertThat(snapshot.getSelectionStart()).isEqualTo(Selection.getSelectionStart(editable));
+        assertThat(snapshot.getSelectionEnd()).isEqualTo(Selection.getSelectionEnd(editable));
+        assertThat(snapshot.getCompositionStart())
+                .isEqualTo(BaseInputConnection.getComposingSpanStart(editable));
+        assertThat(snapshot.getCompositionEnd())
+                .isEqualTo(BaseInputConnection.getComposingSpanEnd(editable));
+        assertThat(snapshot.getCursorCapsMode()).isEqualTo(
+                connection.getCursorCapsMode(CAPS_MODE_MASK));
     }
 }

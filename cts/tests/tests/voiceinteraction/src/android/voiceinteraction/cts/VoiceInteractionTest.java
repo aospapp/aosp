@@ -30,6 +30,8 @@ import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import android.voiceinteraction.common.Utils;
 
+import androidx.test.rule.ActivityTestRule;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -37,8 +39,6 @@ import org.junit.Test;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-
-import androidx.test.rule.ActivityTestRule;
 
 // TODO: ideally we should split testAll() into multiple tests, and run at least one of them
 // on instant
@@ -59,7 +59,8 @@ public class VoiceInteractionTest extends AbstractVoiceInteractionTestCase {
     @Before
     public void setUp() throws Exception {
         mReceiver = new TestResultsReceiver();
-        mContext.registerReceiver(mReceiver, new IntentFilter(Utils.BROADCAST_INTENT));
+        mContext.registerReceiver(mReceiver, new IntentFilter(Utils.BROADCAST_INTENT),
+                Context.RECEIVER_EXPORTED);
         startTestActivity();
     }
 

@@ -57,6 +57,9 @@ public class BatteryStatsValidationTest extends ProtoDumpTestCase {
     private static final long SCREEN_STATE_CHANGE_TIMEOUT = 4000;
     private static final long SCREEN_STATE_POLLING_INTERVAL = 500;
 
+    // See android.os.UserHandle#PER_USER_RANGE
+    public static final int PER_USER_UID_RANGE = 100000;
+
     // Constants from BatteryStatsBgVsFgActions.java (not directly accessible here).
     public static final String KEY_ACTION = "action";
     public static final String ACTION_BLE_SCAN_OPTIMIZED = "action.ble_scan_optimized";
@@ -257,14 +260,24 @@ public class BatteryStatsValidationTest extends ProtoDumpTestCase {
     }
 
     private int getUid() throws Exception {
+        final int currentUser = getDevice().getCurrentUser();
+        final int firstUidForCurrentUser = currentUser * PER_USER_UID_RANGE;
+        final int lastUidForCurrentUser = firstUidForCurrentUser + PER_USER_UID_RANGE - 1;
+
         String uidLine = getDevice().executeShellCommand("cmd package list packages -U "
                 + DEVICE_SIDE_TEST_PACKAGE);
         String[] uidLineParts = uidLine.split(":");
         // 3rd entry is package uid
         assertTrue(uidLineParts.length > 2);
-        int uid = Integer.parseInt(uidLineParts[2].trim());
-        assertTrue(uid > 10000);
-        return uid;
+        String[] uids = uidLineParts[2].trim().split(",");
+        for (String uidString: uids) {
+            int uid = Integer.parseInt(uidString.trim());
+            if (uid >= firstUidForCurrentUser && uid <= lastUidForCurrentUser) {
+                return uid;
+            }
+        }
+        fail("Cannot determine UID for " + DEVICE_SIDE_TEST_PACKAGE);
+        return 0;
     }
 
     private void assertApproximateTimeInState(int index, long duration) throws Exception {

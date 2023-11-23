@@ -22,13 +22,16 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.speech.RecognitionListener;
+import android.speech.RecognitionSupportCallback;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
-import android.util.Log;
+
+import androidx.annotation.NonNull;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
 
 /**
  * An activity that uses SpeechRecognition APIs. SpeechRecognition will bind the RecognitionService
@@ -84,6 +87,15 @@ public class SpeechRecognitionActivity extends Activity {
 
     public void destroyRecognizer() {
         mHandler.post(mRecognizer::destroy);
+    }
+
+    public void checkRecognitionSupport(Intent intent, RecognitionSupportCallback rsc) {
+        mHandler.post(() -> mRecognizer.checkRecognitionSupport(intent,
+                Executors.newSingleThreadExecutor(), rsc));
+    }
+
+    public void triggerModelDownload(Intent intent) {
+        mHandler.post(() -> mRecognizer.triggerModelDownload(intent));
     }
 
     public void init(boolean onDevice, String customRecognizerComponent) {
@@ -148,6 +160,16 @@ public class SpeechRecognitionActivity extends Activity {
         @Override
         public void onPartialResults(Bundle partialResults) {
             mCallbackMethodsInvoked.add(CallbackMethod.CALLBACK_METHOD_PARTIAL_RESULTS);
+        }
+
+        @Override
+        public void onSegmentResults(@NonNull Bundle segmentResults) {
+            mCallbackMethodsInvoked.add(CallbackMethod.CALLBACK_METHOD_SEGMENTS_RESULTS);
+        }
+
+        @Override
+        public void onEndOfSegmentedSession() {
+            mCallbackMethodsInvoked.add(CallbackMethod.CALLBACK_METHOD_END_SEGMENTED_SESSION);
         }
 
         @Override

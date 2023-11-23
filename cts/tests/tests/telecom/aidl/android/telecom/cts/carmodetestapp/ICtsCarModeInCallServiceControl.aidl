@@ -15,6 +15,8 @@
  */
 
 package android.telecom.cts.carmodetestapp;
+import android.telecom.PhoneAccountHandle;
+import android.telecom.PhoneAccount;
 
 interface ICtsCarModeInCallServiceControl {
     boolean isBound();
@@ -27,4 +29,8 @@ interface ICtsCarModeInCallServiceControl {
     boolean requestAutomotiveProjection();
     void releaseAutomotiveProjection();
     boolean checkBindStatus(boolean bind);
+    List<PhoneAccountHandle> getSelfManagedPhoneAccounts();
+    List<PhoneAccountHandle> getOwnSelfManagedPhoneAccounts();
+    void registerPhoneAccount(in PhoneAccount phoneAccount);
+    void unregisterPhoneAccount(in PhoneAccountHandle phoneAccountHandle);
 }

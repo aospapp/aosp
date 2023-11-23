@@ -2,7 +2,6 @@
 import re
 import os
 import glob
-import sys
 import subprocess
 import argparse
 

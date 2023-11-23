@@ -425,8 +425,29 @@ int Main(int argc, char** argv) {
       disable_vabc,
       false,
       "Whether to disable Virtual AB Compression when installing the OTA");
+  DEFINE_bool(enable_vabc_xor,
+              false,
+              "Whether to use Virtual AB Compression XOR feature");
   DEFINE_string(
       apex_info_file, "", "Path to META/apex_info.pb found in target build");
+  DEFINE_string(compressor_types,
+                "bz2:brotli",
+                "Colon ':' separated list of compressors. Allowed valures are "
+                "bz2 and brotli.");
+  DEFINE_bool(
+      enable_lz4diff,
+      false,
+      "Whether to enable LZ4diff feature when processing EROFS images.");
+
+  DEFINE_bool(
+      enable_zucchini,
+      true,
+      "Whether to enable zucchini feature when processing executable files.");
+
+  DEFINE_string(erofs_compression_param,
+                "",
+                "Compression parameter passed to mkfs.erofs's -z option. "
+                "Example: lz4 lz4hc,9");
 
   brillo::FlagHelper::Init(
       argc,
@@ -543,6 +564,12 @@ int Main(int argc, char** argv) {
     payload_config.apex_info_file = FLAGS_apex_info_file;
   }
 
+  payload_config.enable_vabc_xor = FLAGS_enable_vabc_xor;
+  payload_config.enable_lz4diff = FLAGS_enable_lz4diff;
+  payload_config.enable_zucchini = FLAGS_enable_zucchini;
+
+  payload_config.ParseCompressorTypes(FLAGS_compressor_types);
+
   if (!FLAGS_new_partitions.empty()) {
     LOG_IF(FATAL, !FLAGS_new_image.empty() || !FLAGS_new_kernel.empty())
         << "--new_image and --new_kernel are deprecated, please use "
@@ -572,6 +599,10 @@ int Main(int argc, char** argv) {
     payload_config.target.partitions.back().path = new_partitions[i];
     payload_config.target.partitions.back().disable_fec_computation =
         FLAGS_disable_fec_computation;
+    if (!FLAGS_erofs_compression_param.empty()) {
+      payload_config.target.partitions.back().erofs_compression_param =
+          PartitionConfig::ParseCompressionParam(FLAGS_erofs_compression_param);
+    }
     if (i < new_mapfiles.size())
       payload_config.target.partitions.back().mapfile_path = new_mapfiles[i];
   }

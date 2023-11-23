@@ -709,7 +709,7 @@ func TestTransitiveInputDepsets(t *testing.T) {
 	}
 	expectedBuildStatements := []BuildStatement{
 		BuildStatement{
-			Command:     "/bin/bash -c touch bazel-out/sourceroot/k8-fastbuild/bin/testpkg/test_out",
+			Command:     "/bin/bash -c 'touch bazel-out/sourceroot/k8-fastbuild/bin/testpkg/test_out'",
 			OutputPaths: []string{"bazel-out/sourceroot/k8-fastbuild/bin/testpkg/test_out"},
 			InputPaths:  inputPaths,
 			Mnemonic:    "Action",
@@ -718,19 +718,667 @@ func TestTransitiveInputDepsets(t *testing.T) {
 	assertBuildStatements(t, expectedBuildStatements, actualbuildStatements)
 }
 
+func TestMiddlemenAction(t *testing.T) {
+	const inputString = `
+{
+  "artifacts": [{
+    "id": 1,
+    "pathFragmentId": 1
+  }, {
+    "id": 2,
+    "pathFragmentId": 2
+  }, {
+    "id": 3,
+    "pathFragmentId": 3
+  }, {
+    "id": 4,
+    "pathFragmentId": 4
+  }, {
+    "id": 5,
+    "pathFragmentId": 5
+  }, {
+    "id": 6,
+    "pathFragmentId": 6
+  }],
+  "pathFragments": [{
+    "id": 1,
+    "label": "middleinput_one"
+  }, {
+    "id": 2,
+    "label": "middleinput_two"
+  }, {
+    "id": 3,
+    "label": "middleman_artifact"
+  }, {
+    "id": 4,
+    "label": "maininput_one"
+  }, {
+    "id": 5,
+    "label": "maininput_two"
+  }, {
+    "id": 6,
+    "label": "output"
+  }],
+  "depSetOfFiles": [{
+    "id": 1,
+    "directArtifactIds": [1, 2]
+  }, {
+    "id": 2,
+    "directArtifactIds": [3, 4, 5]
+  }],
+  "actions": [{
+    "targetId": 1,
+    "actionKey": "x",
+    "mnemonic": "Middleman",
+    "arguments": ["touch", "foo"],
+    "inputDepSetIds": [1],
+    "outputIds": [3],
+    "primaryOutputId": 3
+  }, {
+    "targetId": 2,
+    "actionKey": "y",
+    "mnemonic": "Main action",
+    "arguments": ["touch", "foo"],
+    "inputDepSetIds": [2],
+    "outputIds": [6],
+    "primaryOutputId": 6
+  }]
+}`
+
+	actual, err := AqueryBuildStatements([]byte(inputString))
+	if err != nil {
+		t.Errorf("Unexpected error %q", err)
+	}
+	if expected := 1; len(actual) != expected {
+		t.Fatalf("Expected %d build statements, got %d", expected, len(actual))
+	}
+
+	bs := actual[0]
+	expectedInputs := []string{"middleinput_one", "middleinput_two", "maininput_one", "maininput_two"}
+	if !reflect.DeepEqual(bs.InputPaths, expectedInputs) {
+		t.Errorf("Expected main action inputs %q, but got %q", expectedInputs, bs.InputPaths)
+	}
+
+	expectedOutputs := []string{"output"}
+	if !reflect.DeepEqual(bs.OutputPaths, expectedOutputs) {
+		t.Errorf("Expected main action outputs %q, but got %q", expectedOutputs, bs.OutputPaths)
+	}
+}
+
+func TestSimpleSymlink(t *testing.T) {
+	const inputString = `
+{
+  "artifacts": [{
+    "id": 1,
+    "pathFragmentId": 3
+  }, {
+    "id": 2,
+    "pathFragmentId": 5
+  }],
+  "actions": [{
+    "targetId": 1,
+    "actionKey": "x",
+    "mnemonic": "Symlink",
+    "inputDepSetIds": [1],
+    "outputIds": [2],
+    "primaryOutputId": 2
+  }],
+  "depSetOfFiles": [{
+    "id": 1,
+    "directArtifactIds": [1]
+  }],
+  "pathFragments": [{
+    "id": 1,
+    "label": "one"
+  }, {
+    "id": 2,
+    "label": "file_subdir",
+    "parentId": 1
+  }, {
+    "id": 3,
+    "label": "file",
+    "parentId": 2
+  }, {
+    "id": 4,
+    "label": "symlink_subdir",
+    "parentId": 1
+  }, {
+    "id": 5,
+    "label": "symlink",
+    "parentId": 4
+  }]
+}`
+
+	actual, err := AqueryBuildStatements([]byte(inputString))
+
+	if err != nil {
+		t.Errorf("Unexpected error %q", err)
+	}
+
+	expectedBuildStatements := []BuildStatement{
+		BuildStatement{
+			Command: "mkdir -p one/symlink_subdir && " +
+				"rm -f one/symlink_subdir/symlink && " +
+				"ln -sf $PWD/one/file_subdir/file one/symlink_subdir/symlink",
+			InputPaths:   []string{"one/file_subdir/file"},
+			OutputPaths:  []string{"one/symlink_subdir/symlink"},
+			SymlinkPaths: []string{"one/symlink_subdir/symlink"},
+			Mnemonic:     "Symlink",
+		},
+	}
+	assertBuildStatements(t, actual, expectedBuildStatements)
+}
+
+func TestSymlinkQuotesPaths(t *testing.T) {
+	const inputString = `
+{
+  "artifacts": [{
+    "id": 1,
+    "pathFragmentId": 3
+  }, {
+    "id": 2,
+    "pathFragmentId": 5
+  }],
+  "actions": [{
+    "targetId": 1,
+    "actionKey": "x",
+    "mnemonic": "SolibSymlink",
+    "inputDepSetIds": [1],
+    "outputIds": [2],
+    "primaryOutputId": 2
+  }],
+  "depSetOfFiles": [{
+    "id": 1,
+    "directArtifactIds": [1]
+  }],
+  "pathFragments": [{
+    "id": 1,
+    "label": "one"
+  }, {
+    "id": 2,
+    "label": "file subdir",
+    "parentId": 1
+  }, {
+    "id": 3,
+    "label": "file",
+    "parentId": 2
+  }, {
+    "id": 4,
+    "label": "symlink subdir",
+    "parentId": 1
+  }, {
+    "id": 5,
+    "label": "symlink",
+    "parentId": 4
+  }]
+}`
+
+	actual, err := AqueryBuildStatements([]byte(inputString))
+
+	if err != nil {
+		t.Errorf("Unexpected error %q", err)
+	}
+
+	expectedBuildStatements := []BuildStatement{
+		BuildStatement{
+			Command: "mkdir -p 'one/symlink subdir' && " +
+				"rm -f 'one/symlink subdir/symlink' && " +
+				"ln -sf $PWD/'one/file subdir/file' 'one/symlink subdir/symlink'",
+			InputPaths:   []string{"one/file subdir/file"},
+			OutputPaths:  []string{"one/symlink subdir/symlink"},
+			SymlinkPaths: []string{"one/symlink subdir/symlink"},
+			Mnemonic:     "SolibSymlink",
+		},
+	}
+	assertBuildStatements(t, expectedBuildStatements, actual)
+}
+
+func TestSymlinkMultipleInputs(t *testing.T) {
+	const inputString = `
+{
+  "artifacts": [{
+    "id": 1,
+    "pathFragmentId": 1
+  }, {
+    "id": 2,
+    "pathFragmentId": 2
+  }, {
+    "id": 3,
+    "pathFragmentId": 3
+  }],
+  "actions": [{
+    "targetId": 1,
+    "actionKey": "x",
+    "mnemonic": "Symlink",
+    "inputDepSetIds": [1],
+    "outputIds": [3],
+    "primaryOutputId": 3
+  }],
+  "depSetOfFiles": [{
+    "id": 1,
+    "directArtifactIds": [1,2]
+  }],
+  "pathFragments": [{
+    "id": 1,
+    "label": "file"
+  }, {
+    "id": 2,
+    "label": "other_file"
+  }, {
+    "id": 3,
+    "label": "symlink"
+  }]
+}`
+
+	_, err := AqueryBuildStatements([]byte(inputString))
+	assertError(t, err, `Expect 1 input and 1 output to symlink action, got: input ["file" "other_file"], output ["symlink"]`)
+}
+
+func TestSymlinkMultipleOutputs(t *testing.T) {
+	const inputString = `
+{
+  "artifacts": [{
+    "id": 1,
+    "pathFragmentId": 1
+  }, {
+    "id": 2,
+    "pathFragmentId": 2
+  }, {
+    "id": 3,
+    "pathFragmentId": 3
+  }],
+  "actions": [{
+    "targetId": 1,
+    "actionKey": "x",
+    "mnemonic": "Symlink",
+    "inputDepSetIds": [1],
+    "outputIds": [2,3],
+    "primaryOutputId": 2
+  }],
+  "depSetOfFiles": [{
+    "id": 1,
+    "directArtifactIds": [1]
+  }],
+  "pathFragments": [{
+    "id": 1,
+    "label": "file"
+  }, {
+    "id": 2,
+    "label": "symlink"
+  }, {
+    "id": 3,
+    "label": "other_symlink"
+  }]
+}`
+
+	_, err := AqueryBuildStatements([]byte(inputString))
+	assertError(t, err, `Expect 1 input and 1 output to symlink action, got: input ["file"], output ["symlink" "other_symlink"]`)
+}
+
+func TestTemplateExpandActionSubstitutions(t *testing.T) {
+	const inputString = `
+{
+  "artifacts": [{
+    "id": 1,
+    "pathFragmentId": 1
+  }],
+  "actions": [{
+    "targetId": 1,
+    "actionKey": "x",
+    "mnemonic": "TemplateExpand",
+    "configurationId": 1,
+    "outputIds": [1],
+    "primaryOutputId": 1,
+    "executionPlatform": "//build/bazel/platforms:linux_x86_64",
+    "templateContent": "Test template substitutions: %token1%, %python_binary%",
+    "substitutions": [{
+      "key": "%token1%",
+      "value": "abcd"
+    },{
+      "key": "%python_binary%",
+      "value": "python3"
+    }]
+  }],
+  "pathFragments": [{
+    "id": 1,
+    "label": "template_file"
+  }]
+}`
+
+	actual, err := AqueryBuildStatements([]byte(inputString))
+
+	if err != nil {
+		t.Errorf("Unexpected error %q", err)
+	}
+
+	expectedBuildStatements := []BuildStatement{
+		BuildStatement{
+			Command: "/bin/bash -c 'echo \"Test template substitutions: abcd, python3\" | sed \"s/\\\\\\\\n/\\\\n/g\" > template_file && " +
+				"chmod a+x template_file'",
+			OutputPaths: []string{"template_file"},
+			Mnemonic:    "TemplateExpand",
+		},
+	}
+	assertBuildStatements(t, expectedBuildStatements, actual)
+}
+
+func TestTemplateExpandActionNoOutput(t *testing.T) {
+	const inputString = `
+{
+  "artifacts": [{
+    "id": 1,
+    "pathFragmentId": 1
+  }],
+  "actions": [{
+    "targetId": 1,
+    "actionKey": "x",
+    "mnemonic": "TemplateExpand",
+    "configurationId": 1,
+    "primaryOutputId": 1,
+    "executionPlatform": "//build/bazel/platforms:linux_x86_64",
+    "templateContent": "Test template substitutions: %token1%, %python_binary%",
+    "substitutions": [{
+      "key": "%token1%",
+      "value": "abcd"
+    },{
+      "key": "%python_binary%",
+      "value": "python3"
+    }]
+  }],
+  "pathFragments": [{
+    "id": 1,
+    "label": "template_file"
+  }]
+}`
+
+	_, err := AqueryBuildStatements([]byte(inputString))
+	assertError(t, err, `Expect 1 output to template expand action, got: output []`)
+}
+
+func TestPythonZipperActionSuccess(t *testing.T) {
+	const inputString = `
+{
+  "artifacts": [{
+    "id": 1,
+    "pathFragmentId": 1
+  },{
+    "id": 2,
+    "pathFragmentId": 2
+  },{
+    "id": 3,
+    "pathFragmentId": 3
+  },{
+    "id": 4,
+    "pathFragmentId": 4
+  },{
+    "id": 5,
+    "pathFragmentId": 10
+  },{
+    "id": 10,
+    "pathFragmentId": 20
+  }],
+  "actions": [{
+    "targetId": 1,
+    "actionKey": "x",
+    "mnemonic": "TemplateExpand",
+    "configurationId": 1,
+    "outputIds": [1],
+    "primaryOutputId": 1,
+    "executionPlatform": "//build/bazel/platforms:linux_x86_64",
+    "templateContent": "Test template substitutions: %token1%, %python_binary%",
+    "substitutions": [{
+      "key": "%token1%",
+      "value": "abcd"
+    },{
+      "key": "%python_binary%",
+      "value": "python3"
+    }]
+  },{
+    "targetId": 1,
+    "actionKey": "x",
+    "mnemonic": "PythonZipper",
+    "configurationId": 1,
+    "arguments": ["../bazel_tools/tools/zip/zipper/zipper", "cC", "python_binary.zip", "__main__.py\u003dbazel-out/k8-fastbuild/bin/python_binary.temp", "__init__.py\u003d", "runfiles/__main__/__init__.py\u003d", "runfiles/__main__/python_binary.py\u003dpython_binary.py", "runfiles/bazel_tools/tools/python/py3wrapper.sh\u003dbazel-out/bazel_tools/k8-fastbuild/bin/tools/python/py3wrapper.sh"],
+    "outputIds": [2],
+    "inputDepSetIds": [1],
+    "primaryOutputId": 2
+  }],
+  "depSetOfFiles": [{
+    "id": 1,
+    "directArtifactIds": [4, 3, 5]
+  }],
+  "pathFragments": [{
+    "id": 1,
+    "label": "python_binary"
+  },{
+    "id": 2,
+    "label": "python_binary.zip"
+  },{
+    "id": 3,
+    "label": "python_binary.py"
+  },{
+    "id": 9,
+    "label": ".."
+  }, {
+    "id": 8,
+    "label": "bazel_tools",
+    "parentId": 9
+  }, {
+    "id": 7,
+    "label": "tools",
+    "parentId": 8
+  }, {
+    "id": 6,
+    "label": "zip",
+    "parentId": 7
+  }, {
+    "id": 5,
+    "label": "zipper",
+    "parentId": 6
+  }, {
+    "id": 4,
+    "label": "zipper",
+    "parentId": 5
+  },{
+    "id": 16,
+    "label": "bazel-out"
+  },{
+    "id": 15,
+    "label": "bazel_tools",
+    "parentId": 16
+  }, {
+    "id": 14,
+    "label": "k8-fastbuild",
+    "parentId": 15
+  }, {
+    "id": 13,
+    "label": "bin",
+    "parentId": 14
+  }, {
+    "id": 12,
+    "label": "tools",
+    "parentId": 13
+  }, {
+    "id": 11,
+    "label": "python",
+    "parentId": 12
+  }, {
+    "id": 10,
+    "label": "py3wrapper.sh",
+    "parentId": 11
+  },{
+    "id": 20,
+    "label": "python_binary"
+  }]
+}`
+	actual, err := AqueryBuildStatements([]byte(inputString))
+
+	if err != nil {
+		t.Errorf("Unexpected error %q", err)
+	}
+
+	expectedBuildStatements := []BuildStatement{
+		BuildStatement{
+			Command: "/bin/bash -c 'echo \"Test template substitutions: abcd, python3\" | sed \"s/\\\\\\\\n/\\\\n/g\" > python_binary && " +
+				"chmod a+x python_binary'",
+			InputPaths:  []string{"python_binary.zip"},
+			OutputPaths: []string{"python_binary"},
+			Mnemonic:    "TemplateExpand",
+		},
+		BuildStatement{
+			Command: "../bazel_tools/tools/zip/zipper/zipper cC python_binary.zip __main__.py=bazel-out/k8-fastbuild/bin/python_binary.temp " +
+				"__init__.py= runfiles/__main__/__init__.py= runfiles/__main__/python_binary.py=python_binary.py  && " +
+				"../bazel_tools/tools/zip/zipper/zipper x python_binary.zip -d python_binary.runfiles && ln -sf runfiles/__main__ python_binary.runfiles",
+			InputPaths:  []string{"../bazel_tools/tools/zip/zipper/zipper", "python_binary.py"},
+			OutputPaths: []string{"python_binary.zip"},
+			Mnemonic:    "PythonZipper",
+		},
+	}
+	assertBuildStatements(t, expectedBuildStatements, actual)
+}
+
+func TestPythonZipperActionNoInput(t *testing.T) {
+	const inputString = `
+{
+  "artifacts": [{
+    "id": 1,
+    "pathFragmentId": 1
+  },{
+    "id": 2,
+    "pathFragmentId": 2
+  }],
+  "actions": [{
+    "targetId": 1,
+    "actionKey": "x",
+    "mnemonic": "PythonZipper",
+    "configurationId": 1,
+    "arguments": ["../bazel_tools/tools/zip/zipper/zipper", "cC", "python_binary.zip", "__main__.py\u003dbazel-out/k8-fastbuild/bin/python_binary.temp", "__init__.py\u003d", "runfiles/__main__/__init__.py\u003d", "runfiles/__main__/python_binary.py\u003dpython_binary.py", "runfiles/bazel_tools/tools/python/py3wrapper.sh\u003dbazel-out/bazel_tools/k8-fastbuild/bin/tools/python/py3wrapper.sh"],
+    "outputIds": [2],
+    "primaryOutputId": 2
+  }],
+  "pathFragments": [{
+    "id": 1,
+    "label": "python_binary"
+  },{
+    "id": 2,
+    "label": "python_binary.zip"
+  }]
+}`
+	_, err := AqueryBuildStatements([]byte(inputString))
+	assertError(t, err, `Expect 1+ input and 1 output to python zipper action, got: input [], output ["python_binary.zip"]`)
+}
+
+func TestPythonZipperActionNoOutput(t *testing.T) {
+	const inputString = `
+{
+  "artifacts": [{
+    "id": 1,
+    "pathFragmentId": 1
+  },{
+    "id": 2,
+    "pathFragmentId": 2
+  },{
+    "id": 3,
+    "pathFragmentId": 3
+  },{
+    "id": 4,
+    "pathFragmentId": 4
+  },{
+    "id": 5,
+    "pathFragmentId": 10
+  }],
+  "actions": [{
+    "targetId": 1,
+    "actionKey": "x",
+    "mnemonic": "PythonZipper",
+    "configurationId": 1,
+    "arguments": ["../bazel_tools/tools/zip/zipper/zipper", "cC", "python_binary.zip", "__main__.py\u003dbazel-out/k8-fastbuild/bin/python_binary.temp", "__init__.py\u003d", "runfiles/__main__/__init__.py\u003d", "runfiles/__main__/python_binary.py\u003dpython_binary.py", "runfiles/bazel_tools/tools/python/py3wrapper.sh\u003dbazel-out/bazel_tools/k8-fastbuild/bin/tools/python/py3wrapper.sh"],
+    "inputDepSetIds": [1]
+  }],
+  "depSetOfFiles": [{
+    "id": 1,
+    "directArtifactIds": [4, 3, 5]
+  }],
+  "pathFragments": [{
+    "id": 1,
+    "label": "python_binary"
+  },{
+    "id": 2,
+    "label": "python_binary.zip"
+  },{
+    "id": 3,
+    "label": "python_binary.py"
+  },{
+    "id": 9,
+    "label": ".."
+  }, {
+    "id": 8,
+    "label": "bazel_tools",
+    "parentId": 9
+  }, {
+    "id": 7,
+    "label": "tools",
+    "parentId": 8
+  }, {
+    "id": 6,
+    "label": "zip",
+    "parentId": 7
+  }, {
+    "id": 5,
+    "label": "zipper",
+    "parentId": 6
+  }, {
+    "id": 4,
+    "label": "zipper",
+    "parentId": 5
+  },{
+    "id": 16,
+    "label": "bazel-out"
+  },{
+    "id": 15,
+    "label": "bazel_tools",
+    "parentId": 16
+  }, {
+    "id": 14,
+    "label": "k8-fastbuild",
+    "parentId": 15
+  }, {
+    "id": 13,
+    "label": "bin",
+    "parentId": 14
+  }, {
+    "id": 12,
+    "label": "tools",
+    "parentId": 13
+  }, {
+    "id": 11,
+    "label": "python",
+    "parentId": 12
+  }, {
+    "id": 10,
+    "label": "py3wrapper.sh",
+    "parentId": 11
+  }]
+}`
+	_, err := AqueryBuildStatements([]byte(inputString))
+	assertError(t, err, `Expect 1+ input and 1 output to python zipper action, got: input ["../bazel_tools/tools/zip/zipper/zipper" "python_binary.py"], output []`)
+}
+
 func assertError(t *testing.T, err error, expected string) {
+	t.Helper()
 	if err == nil {
 		t.Errorf("expected error '%s', but got no error", expected)
 	} else if err.Error() != expected {
-		t.Errorf("expected error '%s', but got: %s", expected, err.Error())
+		t.Errorf("expected error:\n\t'%s', but got:\n\t'%s'", expected, err.Error())
 	}
 }
 
 // Asserts that the given actual build statements match the given expected build statements.
 // Build statement equivalence is determined using buildStatementEquals.
 func assertBuildStatements(t *testing.T, expected []BuildStatement, actual []BuildStatement) {
+	t.Helper()
 	if len(expected) != len(actual) {
-		t.Errorf("expected %d build statements, but got %d,\n expected: %v,\n actual: %v",
+		t.Errorf("expected %d build statements, but got %d,\n expected: %#v,\n actual: %#v",
 			len(expected), len(actual), expected, actual)
 		return
 	}
@@ -741,7 +1389,7 @@ ACTUAL_LOOP:
 				continue ACTUAL_LOOP
 			}
 		}
-		t.Errorf("unexpected build statement %v.\n expected: %v",
+		t.Errorf("unexpected build statement %#v.\n expected: %#v",
 			actualStatement, expected)
 		return
 	}
@@ -763,6 +1411,12 @@ func buildStatementEquals(first BuildStatement, second BuildStatement) bool {
 		return false
 	}
 	if !reflect.DeepEqual(stringSet(first.OutputPaths), stringSet(second.OutputPaths)) {
+		return false
+	}
+	if !reflect.DeepEqual(stringSet(first.SymlinkPaths), stringSet(second.SymlinkPaths)) {
+		return false
+	}
+	if first.Depfile != second.Depfile {
 		return false
 	}
 	return true

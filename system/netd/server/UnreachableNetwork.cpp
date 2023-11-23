@@ -26,7 +26,7 @@ namespace net {
 // The unreachable network is used to reject traffic. It is used for system purposes only.
 UnreachableNetwork::UnreachableNetwork(unsigned netId) : Network(netId) {}
 
-int UnreachableNetwork::addUsers(const UidRanges& uidRanges, uint32_t subPriority) {
+int UnreachableNetwork::addUsers(const UidRanges& uidRanges, int32_t subPriority) {
     if (!isValidSubPriority(subPriority) || !canAddUidRanges(uidRanges, subPriority)) {
         return -EINVAL;
     }
@@ -40,7 +40,7 @@ int UnreachableNetwork::addUsers(const UidRanges& uidRanges, uint32_t subPriorit
     return 0;
 }
 
-int UnreachableNetwork::removeUsers(const UidRanges& uidRanges, uint32_t subPriority) {
+int UnreachableNetwork::removeUsers(const UidRanges& uidRanges, int32_t subPriority) {
     if (!isValidSubPriority(subPriority)) return -EINVAL;
 
     int ret =
@@ -53,9 +53,9 @@ int UnreachableNetwork::removeUsers(const UidRanges& uidRanges, uint32_t subPrio
     return 0;
 }
 
-bool UnreachableNetwork::isValidSubPriority(uint32_t priority) {
-    return priority >= UidRanges::DEFAULT_SUB_PRIORITY &&
-           priority <= UidRanges::LOWEST_SUB_PRIORITY;
+bool UnreachableNetwork::isValidSubPriority(int32_t priority) {
+    return priority >= UidRanges::SUB_PRIORITY_HIGHEST &&
+           priority <= UidRanges::SUB_PRIORITY_LOWEST;
 }
 
 }  // namespace net

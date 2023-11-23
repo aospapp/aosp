@@ -18,7 +18,9 @@ attenuations."""
 
 import json
 import math
+import random
 import time
+import logging
 import acts.controllers.iperf_client as ipc
 import acts.controllers.iperf_server as ipf
 import acts_contrib.test_utils.bt.bt_test_utils as btutils
@@ -44,7 +46,7 @@ def setup_ap_connection(dut, network, ap, bandwidth=20):
         ap: access point object
         bandwidth: bandwidth of the WiFi network to be setup
     Returns:
-        self.brconfigs: dict for bridge interface configs
+        brconfigs: dict for bridge interface configs
     """
     wutils.wifi_toggle_state(dut, True)
     brconfigs = wputils.ap_setup(ap, network, bandwidth=bandwidth)
@@ -101,6 +103,52 @@ def get_iperf_results(iperf_server_obj):
     except (ValueError, TypeError):
         throughput = 0
     return throughput
+
+
+def locate_interference_pair_by_channel(wifi_int_pairs, interference_channels):
+    """Function to find which attenautor to set based on channel info
+    Args:
+        interference_channels: list of interference channels
+    Return:
+        interference_pair_indices: list of indices for interference pair
+            in wifi_int_pairs
+    """
+    interference_pair_indices = []
+    for chan in interference_channels:
+        for i in range(len(wifi_int_pairs)):
+            if wifi_int_pairs[i].channel == chan:
+                interference_pair_indices.append(i)
+    return interference_pair_indices
+
+
+def inject_static_wifi_interference(wifi_int_pairs, interference_level,
+                                    channels):
+    """Function to inject wifi interference to bt link and read rssi.
+
+    Interference of IPERF traffic is always running, by setting attenuation,
+    the gate is opened to release the interference to the setup.
+    Args:
+        interference_level: the signal strength of wifi interference, use
+            attenuation level to represent this
+        channels: wifi channels where interference will
+            be injected, list
+    """
+    all_pair = range(len(wifi_int_pairs))
+    interference_pair_indices = locate_interference_pair_by_channel(
+        wifi_int_pairs, channels)
+    inactive_interference_pairs_indices = [
+        item for item in all_pair if item not in interference_pair_indices
+    ]
+    logging.info('WiFi interference at {} and inactive channels at {}'.format(
+        interference_pair_indices, inactive_interference_pairs_indices))
+    for i in interference_pair_indices:
+        wifi_int_pairs[i].attenuator.set_atten(interference_level)
+        logging.info('Set attenuation {} dB on attenuator {}'.format(
+            wifi_int_pairs[i].attenuator.get_atten(), i + 1))
+    for i in inactive_interference_pairs_indices:
+        wifi_int_pairs[i].attenuator.set_atten(MAX_ATTENUATION)
+        logging.info('Set attenuation {} dB on attenuator {}'.format(
+            wifi_int_pairs[i].attenuator.get_atten(), i + 1))
 
 
 class BtInterferenceBaseTest(A2dpBaseTest):
@@ -163,7 +211,6 @@ class BtInterferenceBaseTest(A2dpBaseTest):
                 obj.iperf_server.port))
             obj.iperf_server.stop()
             self.log.info('Stop IPERF process on {}'.format(obj.dut.serial))
-            obj.dut.adb.shell('pkill -9 iperf3')
             #only for glinux machine
             #            wputils.bring_down_interface(obj.ether_int.interface)
             obj.attenuator.set_atten(MAX_ATTENUATION)
@@ -172,7 +219,6 @@ class BtInterferenceBaseTest(A2dpBaseTest):
     def teardown_test(self):
 
         super().teardown_test()
-
         for obj in self.wifi_int_pairs:
             obj.attenuator.set_atten(MAX_ATTENUATION)
 

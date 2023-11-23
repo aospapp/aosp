@@ -54,8 +54,9 @@ type ApexInfo struct {
 	// True if this module comes from an updatable apexBundle.
 	Updatable bool
 
-	// The list of SDK modules that the containing apexBundle depends on.
-	RequiredSdks SdkRefs
+	// True if this module can use private platform APIs. Only non-updatable APEX can set this
+	// to true.
+	UsePlatformApis bool
 
 	// List of Apex variant names that this module is associated with. This initially is the
 	// same as the `ApexVariationName` field.  Then when multiple apex variants are merged in
@@ -87,16 +88,25 @@ type ApexInfo struct {
 
 var ApexInfoProvider = blueprint.NewMutatorProvider(ApexInfo{}, "apex")
 
+func (i ApexInfo) AddJSONData(d *map[string]interface{}) {
+	(*d)["Apex"] = map[string]interface{}{
+		"ApexVariationName": i.ApexVariationName,
+		"MinSdkVersion":     i.MinSdkVersion,
+		"InApexModules":     i.InApexModules,
+		"InApexVariants":    i.InApexVariants,
+		"ForPrebuiltApex":   i.ForPrebuiltApex,
+	}
+}
+
 // mergedName gives the name of the alias variation that will be used when multiple apex variations
 // of a module can be deduped into one variation. For example, if libfoo is included in both apex.a
 // and apex.b, and if the two APEXes have the same min_sdk_version (say 29), then libfoo doesn't
 // have to be built twice, but only once. In that case, the two apex variations apex.a and apex.b
-// are configured to have the same alias variation named apex29.
+// are configured to have the same alias variation named apex29. Whether platform APIs is allowed
+// or not also matters; if two APEXes don't have the same allowance, they get different names and
+// thus wouldn't be merged.
 func (i ApexInfo) mergedName(ctx PathContext) string {
 	name := "apex" + strconv.Itoa(i.MinSdkVersion.FinalOrFutureInt())
-	for _, sdk := range i.RequiredSdks {
-		name += "_" + sdk.Name + "_" + sdk.Version
-	}
 	return name
 }
 
@@ -444,6 +454,7 @@ func CheckAvailableForApex(what string, apex_available []string) bool {
 	}
 	return InList(what, apex_available) ||
 		(what != AvailableToPlatform && InList(AvailableToAnyApex, apex_available)) ||
+		(what == "com.android.btservices" && InList("com.android.bluetooth", apex_available)) ||
 		(strings.HasPrefix(what, "com.android.gki.") && InList(AvailableToGkiApex, apex_available))
 }
 
@@ -527,6 +538,9 @@ func mergeApexVariations(ctx PathContext, apexInfos []ApexInfo) (merged []ApexIn
 			merged[index].InApexModules = append(merged[index].InApexModules, apexInfo.InApexModules...)
 			merged[index].ApexContents = append(merged[index].ApexContents, apexInfo.ApexContents...)
 			merged[index].Updatable = merged[index].Updatable || apexInfo.Updatable
+			// Platform APIs is allowed for this module only when all APEXes containing
+			// the module are with `use_platform_apis: true`.
+			merged[index].UsePlatformApis = merged[index].UsePlatformApis && apexInfo.UsePlatformApis
 		} else {
 			seen[mergedName] = len(merged)
 			apexInfo.ApexVariationName = mergedName
@@ -831,7 +845,6 @@ var minSdkVersionAllowlist = func(apiMap map[string]int) map[string]ApiLevel {
 	}
 	return list
 }(map[string]int{
-	"adbd":                                                     30,
 	"android.net.ipsec.ike":                                    30,
 	"androidx.annotation_annotation-nodeps":                    29,
 	"androidx.arch.core_core-common-nodeps":                    29,
@@ -856,24 +869,8 @@ var minSdkVersionAllowlist = func(apiMap map[string]int) map[string]ApiLevel {
 	"kotlinx-coroutines-android-nodeps":                        30,
 	"kotlinx-coroutines-core":                                  28,
 	"kotlinx-coroutines-core-nodeps":                           30,
-	"libadb_crypto":                                            30,
-	"libadb_pairing_auth":                                      30,
-	"libadb_pairing_connection":                                30,
-	"libadb_pairing_server":                                    30,
-	"libadb_protos":                                            30,
-	"libadb_tls_connection":                                    30,
-	"libadbconnection_client":                                  30,
-	"libadbconnection_server":                                  30,
-	"libadbd_core":                                             30,
-	"libadbd_services":                                         30,
-	"libadbd":                                                  30,
-	"libapp_processes_protos_lite":                             30,
-	"libasyncio":                                               30,
 	"libbrotli":                                                30,
-	"libbuildversion":                                          30,
 	"libcrypto_static":                                         30,
-	"libcrypto_utils":                                          30,
-	"libdiagnose_usb":                                          30,
 	"libeigen":                                                 30,
 	"liblz4":                                                   30,
 	"libmdnssd":                                                30,
@@ -883,7 +880,6 @@ var minSdkVersionAllowlist = func(apiMap map[string]int) map[string]ApiLevel {
 	"libprocpartition":                                         30,
 	"libprotobuf-java-lite":                                    30,
 	"libprotoutil":                                             30,
-	"libsync":                                                  30,
 	"libtextclassifier_hash_headers":                           30,
 	"libtextclassifier_hash_static":                            30,
 	"libtflite_kernel_utils":                                   30,
@@ -903,16 +899,18 @@ var minSdkVersionAllowlist = func(apiMap map[string]int) map[string]ApiLevel {
 //
 // Return true if the `to` module should be visited, false otherwise.
 type PayloadDepsCallback func(ctx ModuleContext, from blueprint.Module, to ApexModule, externalDep bool) bool
+type WalkPayloadDepsFunc func(ctx ModuleContext, do PayloadDepsCallback)
 
-// UpdatableModule represents updatable APEX/APK
-type UpdatableModule interface {
+// ModuleWithMinSdkVersionCheck represents a module that implements min_sdk_version checks
+type ModuleWithMinSdkVersionCheck interface {
 	Module
-	WalkPayloadDeps(ctx ModuleContext, do PayloadDepsCallback)
+	MinSdkVersion(ctx EarlyModuleContext) SdkSpec
+	CheckMinSdkVersion(ctx ModuleContext)
 }
 
 // CheckMinSdkVersion checks if every dependency of an updatable module sets min_sdk_version
 // accordingly
-func CheckMinSdkVersion(m UpdatableModule, ctx ModuleContext, minSdkVersion ApiLevel) {
+func CheckMinSdkVersion(ctx ModuleContext, minSdkVersion ApiLevel, walk WalkPayloadDepsFunc) {
 	// do not enforce min_sdk_version for host
 	if ctx.Host() {
 		return
@@ -928,7 +926,7 @@ func CheckMinSdkVersion(m UpdatableModule, ctx ModuleContext, minSdkVersion ApiL
 		return
 	}
 
-	m.WalkPayloadDeps(ctx, func(ctx ModuleContext, from blueprint.Module, to ApexModule, externalDep bool) bool {
+	walk(ctx, func(ctx ModuleContext, from blueprint.Module, to ApexModule, externalDep bool) bool {
 		if externalDep {
 			// external deps are outside the payload boundary, which is "stable"
 			// interface. We don't have to check min_sdk_version for external
@@ -936,6 +934,14 @@ func CheckMinSdkVersion(m UpdatableModule, ctx ModuleContext, minSdkVersion ApiL
 			return false
 		}
 		if am, ok := from.(DepIsInSameApex); ok && !am.DepIsInSameApex(ctx, to) {
+			return false
+		}
+		if m, ok := to.(ModuleWithMinSdkVersionCheck); ok {
+			// This dependency performs its own min_sdk_version check, just make sure it sets min_sdk_version
+			// to trigger the check.
+			if !m.MinSdkVersion(ctx).Specified() {
+				ctx.OtherModuleErrorf(m, "must set min_sdk_version")
+			}
 			return false
 		}
 		if err := to.ShouldSupportSdkVersion(ctx, minSdkVersion); err != nil {

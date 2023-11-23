@@ -14,38 +14,53 @@
  * limitations under the License.
  */
 
+#include <android-base/file.h>
 #include <android-base/macros.h>
 #include <gtest/gtest.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <iostream>
-#include "include/bpf/BpfMap.h"
-#include "include/bpf/BpfUtils.h"
+#include "bpf/BpfMap.h"
+#include "bpf/BpfUtils.h"
 #include "include/libbpf_android.h"
 
-using ::testing::Test;
-
-constexpr const char tp_prog_path[] =
-        "/sys/fs/bpf/prog_bpf_load_tp_prog_tracepoint_sched_sched_switch";
-constexpr const char tp_map_path[] = "/sys/fs/bpf/map_bpf_load_tp_prog_cpu_pid_map";
+using ::testing::TestWithParam;
 
 namespace android {
 namespace bpf {
 
-class BpfLoadTest : public testing::Test {
+class BpfLoadTest : public TestWithParam<std::string> {
   protected:
     BpfLoadTest() {}
     int mProgFd;
+    std::string mTpProgPath;
+    std::string mTpNeverLoadProgPath;
+    std::string mTpMapPath;;
 
     void SetUp() {
-        unlink(tp_prog_path);
-        unlink(tp_map_path);
+        mTpProgPath = "/sys/fs/bpf/prog_" + GetParam() + "_tracepoint_sched_sched_switch";
+        unlink(mTpProgPath.c_str());
 
+        mTpNeverLoadProgPath = "/sys/fs/bpf/prog_" + GetParam() + "_tracepoint_sched_sched_wakeup";
+        unlink(mTpNeverLoadProgPath.c_str());
+
+        mTpMapPath = "/sys/fs/bpf/map_" + GetParam() + "_cpu_pid_map";
+        unlink(mTpMapPath.c_str());
+
+        auto progPath = android::base::GetExecutableDirectory() + "/" + GetParam() + ".o";
         bool critical = true;
-        EXPECT_EQ(android::bpf::loadProg("/system/etc/bpf/bpf_load_tp_prog.o", &critical), 0);
+
+        bpf_prog_type kAllowed[] = {
+                BPF_PROG_TYPE_UNSPEC,
+        };
+        EXPECT_EQ(android::bpf::loadProg(progPath.c_str(), &critical, "", 0, kAllowed,
+                                         arraysize(kAllowed)),
+                  -1);
+
+        EXPECT_EQ(android::bpf::loadProg(progPath.c_str(), &critical), 0);
         EXPECT_EQ(false, critical);
 
-        mProgFd = bpf_obj_get(tp_prog_path);
+        mProgFd = bpf_obj_get(mTpProgPath.c_str());
         EXPECT_GT(mProgFd, 0);
 
         int ret = bpf_attach_tracepoint(mProgFd, "sched", "sched_switch");
@@ -54,14 +69,14 @@ class BpfLoadTest : public testing::Test {
 
     void TearDown() {
         close(mProgFd);
-        unlink(tp_prog_path);
-        unlink(tp_map_path);
+        unlink(mTpProgPath.c_str());
+        unlink(mTpMapPath.c_str());
     }
 
     void checkMapNonZero() {
         // The test program installs a tracepoint on sched:sched_switch
         // and expects the kernel to populate a PID corresponding to CPU
-        android::bpf::BpfMap<uint32_t, uint32_t> m(tp_map_path);
+        android::bpf::BpfMap<uint32_t, uint32_t> m(mTpMapPath.c_str());
 
         // Wait for program to run a little
         sleep(1);
@@ -81,10 +96,38 @@ class BpfLoadTest : public testing::Test {
         EXPECT_RESULT_OK(m.iterateWithValue(iterFunc));
         EXPECT_EQ(non_zero, 1);
     }
+
+    void checkMapBtf() {
+        // Earlier kernels lack BPF_BTF_LOAD support
+        if (!isAtLeastKernelVersion(4, 19, 0)) GTEST_SKIP() << "pre-4.19 kernel does not support BTF";
+
+        const bool haveBtf = GetParam().find("btf") != std::string::npos;
+
+        std::string str;
+        EXPECT_EQ(android::base::ReadFileToString(mTpMapPath, &str), haveBtf);
+        if (haveBtf) EXPECT_FALSE(str.empty());
+    }
+
+    void checkKernelVersionEnforced() {
+        EXPECT_EQ(bpf_obj_get(mTpNeverLoadProgPath.c_str()), -1);
+        EXPECT_EQ(errno, ENOENT);
+    }
 };
 
-TEST_F(BpfLoadTest, bpfCheckMap) {
+INSTANTIATE_TEST_SUITE_P(BpfLoadTests, BpfLoadTest,
+                         ::testing::Values("bpf_load_tp_prog",
+                                           "bpf_load_tp_prog_btf"));
+
+TEST_P(BpfLoadTest, bpfCheckMap) {
     checkMapNonZero();
+}
+
+TEST_P(BpfLoadTest, bpfCheckBtf) {
+    checkMapBtf();
+}
+
+TEST_P(BpfLoadTest, bpfCheckMinKernelVersionEnforced) {
+    checkKernelVersionEnforced();
 }
 
 }  // namespace bpf

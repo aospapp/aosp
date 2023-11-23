@@ -16,6 +16,7 @@
 #include "jni.h"
 
 #include <cstring>
+#include <cassert>
 
 #include <errno.h>
 #include <fcntl.h>
@@ -23,12 +24,16 @@
 #include <poll.h>
 #include <pthread.h>
 #include <stdio.h>
+#include <string.h>
 #include <syscall.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/utsname.h>
+#include <sys/xattr.h>
 #include <unistd.h>
+
+#define SELINUX_CTXT_LEN 255
 
 static void* userfault_handler_thread(void* arg) {
   struct uffd_msg msg;
@@ -95,6 +100,17 @@ out:
   pthread_exit(reinterpret_cast<void*>(ret));
 }
 
+int64_t uffd_api_ioctl(int fd, uint64_t features) {
+  struct uffdio_api api;
+  std::memset(&api, '\0', sizeof api);
+  api.api = UFFD_API;
+  api.features = features;
+  if (ioctl(fd, UFFDIO_API, &api) < 0) {
+    return -1;
+  }
+  return api.features;
+}
+
 extern "C"
 JNIEXPORT bool JNICALL Java_android_os_cts_uffdgc_UserfaultfdTest_confirmKernelVersion(JNIEnv*) {
 #if defined(__linux__)
@@ -103,13 +119,29 @@ JNIEXPORT bool JNICALL Java_android_os_cts_uffdgc_UserfaultfdTest_confirmKernelV
 
   int major, minor;
   struct utsname uts;
-  if (uname(&uts) != 0 ||
-      strcmp(uts.sysname, "Linux") != 0 ||
-      sscanf(uts.release, "%d.%d", &major, &minor) != 2 ||
+  uname(&uts);
+  assert(strcmp(uts.sysname, "Linux") == 0);
+  if (sscanf(uts.release, "%d.%d", &major, &minor) != 2 ||
       (major < kRequiredMajor || (major == kRequiredMajor && minor < kRequiredMinor))) {
     return false;
   }
   return true;
+#else
+  return false;
+#endif
+}
+
+extern "C"
+JNIEXPORT bool JNICALL Java_android_os_cts_uffdgc_UserfaultfdTest_confirmKernelArch64bit(JNIEnv*) {
+#if defined(__linux__)
+  struct utsname uts;
+  uname(&uts);
+  assert(strcmp(uts.sysname, "Linux") == 0);
+  if (strstr(uts.machine, "64") != nullptr ||
+      strstr(uts.machine, "armv8") == uts.machine) {
+    return true;
+  }
+  return false;
 #else
   return false;
 #endif
@@ -150,10 +182,7 @@ JNIEXPORT jint JNICALL Java_android_os_cts_uffdgc_UserfaultfdTest_performKernelS
     goto out_close_both;
   }
 
-  struct uffdio_api api;
-  std::memset(&api, '\0', sizeof api);
-  api.api = UFFD_API;
-  if (ioctl(uffd, UFFDIO_API, &api) < 0) {
+  if (uffd_api_ioctl(uffd, /*features*/ 0) == -1) {
     ret = errno;
     goto out_unmap;
   }
@@ -227,21 +256,51 @@ JNIEXPORT jint JNICALL Java_android_os_cts_uffdgc_UserfaultfdTest_performMremapD
 
 extern "C"
 JNIEXPORT jint JNICALL Java_android_os_cts_uffdgc_UserfaultfdTest_performMinorUffd(JNIEnv*) {
+  uint64_t req_features = UFFD_FEATURE_MINOR_SHMEM;
+  int64_t available_features = 0;
   int ret = 0;
   int uffd = syscall(__NR_userfaultfd, O_CLOEXEC | O_NONBLOCK | UFFD_USER_MODE_ONLY);
   if (uffd < 0) {
     ret = errno;
     goto out;
   }
-  struct uffdio_api api;
-  std::memset(&api, '\0', sizeof api);
-  api.api = UFFD_API;
-  // TODO: Uncomment the following line once the userfaultfd minor patches are
-  // merged in the kernel.
-  //  api.features = UFFD_FEATURE_MINOR_SHMEM;
-  if (ioctl(uffd, UFFDIO_API, &api) < 0) {
+  available_features = uffd_api_ioctl(uffd, req_features);
+  if (available_features == -1) {
     ret = errno;
+  } else if ((available_features & req_features) != req_features) {
+    // Minor feature is not supported by this kernel.
+    ret = EINVAL;
   }
+  close(uffd);
+out:
+  return ret;
+}
+
+extern "C"
+JNIEXPORT jint JNICALL Java_android_os_cts_uffdgc_UserfaultfdTest_checkGetattr(JNIEnv*) {
+  ssize_t attr_ret = 0;
+  char selinux_ctxt[SELINUX_CTXT_LEN + 1];
+  int ret = 0;
+  int uffd = syscall(__NR_userfaultfd, O_CLOEXEC | O_NONBLOCK | UFFD_USER_MODE_ONLY);
+  if (uffd < 0) {
+    ret = errno;
+    goto out;
+  }
+  if (uffd_api_ioctl(uffd, /*features*/ 0) == -1) {
+    ret = errno;
+    goto out_close;
+  }
+  attr_ret = fgetxattr(uffd, XATTR_NAME_SELINUX, selinux_ctxt, SELINUX_CTXT_LEN);
+  if (attr_ret == -1) {
+    ret = errno;
+    goto out_close;
+  }
+  // We should never reach here as the call to fgetxattr must return EACCES.
+  selinux_ctxt[attr_ret] = 0;
+  if (strstr(selinux_ctxt, "userfaultfd") == nullptr) {
+    ret = -1;
+  }
+out_close:
   close(uffd);
 out:
   return ret;

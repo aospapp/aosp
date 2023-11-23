@@ -65,19 +65,22 @@ class DeltaPerformer : public FileWriter {
   static const unsigned kProgressOperationsWeight;
   static const uint64_t kCheckpointFrequencySeconds;
 
-  DeltaPerformer(PrefsInterface* prefs,
-                 BootControlInterface* boot_control,
-                 HardwareInterface* hardware,
-                 DownloadActionDelegate* download_delegate,
-                 InstallPlan* install_plan,
-                 InstallPlan::Payload* payload,
-                 bool interactive)
+  DeltaPerformer(
+      PrefsInterface* prefs,
+      BootControlInterface* boot_control,
+      HardwareInterface* hardware,
+      DownloadActionDelegate* download_delegate,
+      InstallPlan* install_plan,
+      InstallPlan::Payload* payload,
+      bool interactive,
+      std::string update_certificates_path = constants::kUpdateCertificatesPath)
       : prefs_(prefs),
         boot_control_(boot_control),
         hardware_(hardware),
         download_delegate_(download_delegate),
         install_plan_(install_plan),
         payload_(payload),
+        update_certificates_path_(std::move(update_certificates_path)),
         interactive_(interactive) {
     CHECK(install_plan_);
   }
@@ -162,11 +165,6 @@ class DeltaPerformer : public FileWriter {
     public_key_path_ = public_key_path;
   }
 
-  void set_update_certificates_path(
-      const std::string& update_certificates_path) {
-    update_certificates_path_ = update_certificates_path;
-  }
-
   // Return true if header parsing is finished and no errors occurred.
   bool IsHeaderParsed() const;
 
@@ -175,14 +173,6 @@ class DeltaPerformer : public FileWriter {
   // If |force| is false, checkpoint may be throttled.
   // Exposed for testing purposes.
   bool CheckpointUpdateProgress(bool force);
-
-  // Compare |calculated_hash| with source hash in |operation|, return false and
-  // dump hash and set |error| if don't match.
-  // |source_fd| is the file descriptor of the source partition.
-  static bool ValidateSourceHash(const brillo::Blob& calculated_hash,
-                                 const InstallOperation& operation,
-                                 const FileDescriptorPtr source_fd,
-                                 ErrorCode* error);
 
   // Initialize partitions and allocate required space for an update with the
   // given |manifest|. |update_check_response_hash| is used to check if the
@@ -204,7 +194,7 @@ class DeltaPerformer : public FileWriter {
 
  protected:
   // Exposed as virtual for testing purposes.
-  virtual std::unique_ptr<PartitionWriter> CreatePartitionWriter(
+  virtual std::unique_ptr<PartitionWriterInterface> CreatePartitionWriter(
       const PartitionUpdate& partition_update,
       const InstallPlan::Partition& install_part,
       DynamicPartitionControlInterface* dynamic_control,
@@ -275,10 +265,8 @@ class DeltaPerformer : public FileWriter {
   bool PerformZeroOrDiscardOperation(const InstallOperation& operation);
   bool PerformSourceCopyOperation(const InstallOperation& operation,
                                   ErrorCode* error);
-  bool PerformSourceBsdiffOperation(const InstallOperation& operation,
-                                    ErrorCode* error);
-  bool PerformPuffDiffOperation(const InstallOperation& operation,
-                                ErrorCode* error);
+  bool PerformDiffOperation(const InstallOperation& operation,
+                            ErrorCode* error);
 
   // Extracts the payload signature message from the current |buffer_| if the
   // offset matches the one specified by the manifest. Returns whether the
@@ -406,7 +394,7 @@ class DeltaPerformer : public FileWriter {
   std::string public_key_path_{constants::kUpdatePayloadPublicKeyPath};
 
   // The path to the zip file with X509 certificates.
-  std::string update_certificates_path_{constants::kUpdateCertificatesPath};
+  const std::string update_certificates_path_;
 
   // The number of bytes received so far, used for progress tracking.
   size_t total_bytes_received_{0};
@@ -434,7 +422,7 @@ class DeltaPerformer : public FileWriter {
       base::TimeDelta::FromSeconds(kCheckpointFrequencySeconds)};
   base::TimeTicks update_checkpoint_time_;
 
-  std::unique_ptr<PartitionWriter> partition_writer_;
+  std::unique_ptr<PartitionWriterInterface> partition_writer_;
 
   DISALLOW_COPY_AND_ASSIGN(DeltaPerformer);
 };

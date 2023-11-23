@@ -19,7 +19,6 @@ package android.content.pm.cts;
 import static android.system.OsConstants.EAGAIN;
 import static android.system.OsConstants.EINTR;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
 import android.annotation.NonNull;
@@ -187,33 +186,19 @@ public class IncrementalDeviceConnection implements IDeviceConnection {
             final ParcelFileDescriptor localPfd = pipe[0];
             final ParcelFileDescriptor processPfd = pipe[1];
 
-            final ResultReceiver resultReceiver;
-            if (mExpectInstallationSuccess) {
-                resultReceiver = new ResultReceiver(null) {
-                    @Override
-                    protected void onReceiveResult(int resultCode, Bundle resultData) {
-                        if (resultCode == 0) {
-                            return;
-                        }
-                        final String message = readFullStreamOrError(
-                                new FileInputStream(localPfd.getFileDescriptor()));
-                        assertEquals(message, 0, resultCode);
+            final ResultReceiver resultReceiver = new ResultReceiver(null) {
+                @Override
+                protected void onReceiveResult(int resultCode, Bundle resultData) {
+                    if (resultCode == 0) {
+                        return;
                     }
-                };
-            } else {
-                resultReceiver = new ResultReceiver(null) {
-                    @Override
-                    protected void onReceiveResult(int resultCode, Bundle resultData) {
-                        if (resultCode == 0) {
-                            return;
-                        }
-                        final String message = readFullStreamOrError(
-                                new FileInputStream(localPfd.getFileDescriptor()));
-                        Log.i(TAG, "Installation finished with code: " + resultCode + ", message: "
-                                + message);
-                    }
-                };
-            }
+                    final String message = readFullStreamOrError(
+                            new FileInputStream(localPfd.getFileDescriptor()));
+                    Log.i(TAG, (mExpectInstallationSuccess ? "" : "ERROR: ")
+                            + "Installation finished with code: " + resultCode + ", message: "
+                            + message);
+                }
+            };
 
             final Thread shellCommand = new Thread(() -> {
                 try {

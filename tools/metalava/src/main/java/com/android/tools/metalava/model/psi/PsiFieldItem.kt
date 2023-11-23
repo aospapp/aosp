@@ -41,7 +41,10 @@ class PsiFieldItem(
         modifiers = modifiers,
         documentation = documentation,
         element = psiField
-    ), FieldItem {
+    ),
+    FieldItem {
+
+    override var property: PsiPropertyItem? = null
 
     override fun type(): TypeItem = fieldType
     override fun initialValue(requireConstant: Boolean): Any? {

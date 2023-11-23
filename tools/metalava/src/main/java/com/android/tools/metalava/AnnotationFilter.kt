@@ -1,8 +1,10 @@
 package com.android.tools.metalava
 
 import com.android.SdkConstants.ATTR_VALUE
+import com.android.tools.metalava.model.AnnotationArrayAttributeValue
 import com.android.tools.metalava.model.AnnotationAttribute
 import com.android.tools.metalava.model.AnnotationItem
+import com.android.tools.metalava.model.AnnotationSingleAttributeValue
 import com.android.tools.metalava.model.DefaultAnnotationAttribute
 
 interface AnnotationFilter {
@@ -14,6 +16,8 @@ interface AnnotationFilter {
     // Returns a list of fully qualified annotation names that may be included by this filter.
     // Note that this filter might incorporate parameters but this function strips them.
     fun getIncludedAnnotationNames(): List<String>
+    // Returns true if [getIncludedAnnotationNames] includes the given qualified name
+    fun matchesAnnotationName(qualifiedName: String): Boolean
     // Tells whether there exists an annotation that is accepted by this filter and that
     // ends with the given suffix
     fun matchesSuffix(annotationSuffix: String): Boolean
@@ -45,7 +49,7 @@ class MutableAnnotationFilter : AnnotationFilter {
     }
 
     override fun matches(annotation: AnnotationItem): Boolean {
-        if (annotation.qualifiedName() == null) {
+        if (annotation.qualifiedName == null) {
             return false
         }
         val wrapper = AnnotationFilterEntry.fromAnnotationItem(annotation)
@@ -64,6 +68,15 @@ class MutableAnnotationFilter : AnnotationFilter {
             annotationNames.add(expression.qualifiedName)
         }
         return annotationNames
+    }
+
+    /** Cache for [getIncludedAnnotationNames] since we call this method over and over again */
+    private var includedNames: List<String>? = null
+
+    override fun matchesAnnotationName(qualifiedName: String): Boolean {
+        val includedNames = includedNames
+            ?: getIncludedAnnotationNames().also { includedNames = it }
+        return includedNames.contains(qualifiedName)
     }
 
     override fun matchesSuffix(annotationSuffix: String): Boolean {
@@ -93,9 +106,29 @@ class MutableAnnotationFilter : AnnotationFilter {
             return false
         }
         for (attribute in filter.attributes) {
-            val existingValue = existingAnnotation.findAttribute(attribute.name)?.value?.toSource()
-            if (existingValue != attribute.value.toSource()) {
-                return false
+            val existingValue = existingAnnotation.findAttribute(attribute.name)?.value
+            val existingValueSource = existingValue?.toSource()
+            val attributeValueSource = attribute.value.toSource()
+            if (attribute.name == "value") {
+                // Special-case where varargs value annotation attribute can be specified with
+                // either @Foo(BAR) or @Foo({BAR}) and they are equivalent.
+                when {
+                    attribute.value is AnnotationSingleAttributeValue &&
+                        existingValue is AnnotationArrayAttributeValue -> {
+                        if (existingValueSource != "{$attributeValueSource}") return false
+                    }
+                    attribute.value is AnnotationArrayAttributeValue &&
+                        existingValue is AnnotationSingleAttributeValue -> {
+                        if ("{$existingValueSource}" != attributeValueSource) return false
+                    }
+                    else -> {
+                        if (existingValueSource != attributeValueSource) return false
+                    }
+                }
+            } else {
+                if (existingValueSource != attributeValueSource) {
+                    return false
+                }
             }
         }
         return true

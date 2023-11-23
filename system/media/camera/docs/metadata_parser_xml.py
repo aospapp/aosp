@@ -313,7 +313,7 @@ class MetadataParserXml:
 
     return d
 
-  def render(self, template, output_name=None, hal_version="3.2", copyright_year="2021"):
+  def render(self, template, output_name=None, enum=None, copyright_year="2022"):
     """
     Render the metadata model using a Mako template as the view.
 
@@ -325,14 +325,12 @@ class MetadataParserXml:
     Args:
       template: path to a Mako template file
       output_name: path to the output file, or None to use stdout
-      hal_version: target HAL version, used when generating HIDL HAL outputs.
-                   Must be a string of form "X.Y" where X and Y are integers.
+      enum: The name of the enum, if any
       copyright_year: the year in the copyright section of output file
     """
     buf = StringIO()
     metadata_helpers._context_buf = buf
-    metadata_helpers._hal_major_version = int(hal_version.partition('.')[0])
-    metadata_helpers._hal_minor_version = int(hal_version.partition('.')[2])
+    metadata_helpers._enum = enum
     metadata_helpers._copyright_year = copyright_year
 
     helpers = [(i, getattr(metadata_helpers, i))
@@ -360,17 +358,16 @@ class MetadataParserXml:
 if __name__ == "__main__":
   if len(sys.argv) <= 2:
     print("Usage: %s <filename.xml> <template.mako> [<output_file>]"\
-          " [<hal_version>] [<copyright_year>]" \
+          " [<copyright_year>]" \
           % (sys.argv[0]), file=sys.stderr)
     sys.exit(0)
 
   file_name = sys.argv[1]
   template_name = sys.argv[2]
   output_name = sys.argv[3] if len(sys.argv) > 3 else None
-  hal_version = sys.argv[4] if len(sys.argv) > 4 else "3.2"
-  copyright_year = sys.argv[5] if len(sys.argv) > 5 else "2021"
+  copyright_year = sys.argv[4] if len(sys.argv) > 4 else "2022"
 
   parser = MetadataParserXml.create_from_file(file_name)
-  parser.render(template_name, output_name, hal_version, copyright_year)
+  parser.render(template_name, output_name, None, copyright_year)
 
   sys.exit(0)

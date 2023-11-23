@@ -18,10 +18,15 @@ package com.android.bedstead.nene.packages;
 
 import static android.os.Build.VERSION_CODES.S;
 
+import static com.android.bedstead.nene.permissions.CommonPermissions.INTERACT_ACROSS_USERS_FULL;
+import static com.android.queryable.queries.ActivityQuery.activity;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assume.assumeTrue;
 import static org.testng.Assert.assertThrows;
+
+import android.content.Intent;
 
 import com.android.bedstead.harrier.BedsteadJUnit4;
 import com.android.bedstead.harrier.DeviceState;
@@ -31,11 +36,13 @@ import com.android.bedstead.harrier.annotations.RequireRunOnPrimaryUser;
 import com.android.bedstead.harrier.annotations.RequireSdkVersion;
 import com.android.bedstead.nene.TestApis;
 import com.android.bedstead.nene.exceptions.NeneException;
+import com.android.bedstead.nene.permissions.PermissionContext;
 import com.android.bedstead.nene.users.UserReference;
+import com.android.bedstead.nene.utils.Poll;
 import com.android.bedstead.nene.utils.Versions;
 import com.android.bedstead.testapp.TestApp;
+import com.android.bedstead.testapp.TestAppActivityReference;
 import com.android.bedstead.testapp.TestAppInstance;
-import com.android.bedstead.testapp.TestAppProvider;
 import com.android.compatibility.common.util.FileUtils;
 
 import org.junit.ClassRule;
@@ -62,8 +69,10 @@ public class PackagesTest {
     private static final File NON_EXISTING_APK_FILE =
             new File("/data/local/tmp/ThisApkDoesNotExist.apk");
     private static final byte[] TEST_APP_BYTES = loadBytes(TEST_APP_APK_FILE);
-    private static final TestAppProvider sTestAppProvider = new TestAppProvider();
-    private static final TestApp sTestApp = sTestAppProvider.any();
+    private static final TestApp sTestApp = sDeviceState.testApps().query()
+            .whereActivities().contains(
+                    activity().exported().isTrue()
+            ).get();
     private final UserReference mUser = TestApis.users().instrumented();
     private final Package mExistingPackage =
             TestApis.packages().find("com.android.providers.telephony");
@@ -404,6 +413,55 @@ public class PackagesTest {
             assertThat(mTestAppReference.exists()).isFalse();
         } finally {
             TestApis.packages().keepUninstalledPackages().clear();
+        }
+    }
+
+    @Test
+    public void kill_killsProcess() {
+        try (TestAppInstance testApp = sTestApp.install()) {
+            // Start an activity so the process exists
+            TestAppActivityReference activity = testApp.activities().query()
+                    .whereActivity().exported().isTrue()
+                    .get();
+            Intent intent = new Intent();
+            intent.setComponent(activity.component().componentName());
+            TestApis.context().instrumentedContext().startActivity(intent);
+            Poll.forValue("process", () -> sTestApp.pkg().runningProcess())
+                    .toNotBeNull()
+                    .await();
+
+            sTestApp.pkg().runningProcess().kill();
+
+            assertThat(sTestApp.pkg().runningProcess()).isNull();
+        }
+    }
+
+    @Test
+    @RequireRunOnPrimaryUser
+    @EnsureHasWorkProfile
+    public void kill_doesNotKillProcessInOtherUser() {
+        try (TestAppInstance primaryTestApp = sTestApp.install();
+            TestAppInstance workTestApp = sTestApp.install(sDeviceState.workProfile())) {
+            // Start an activity so the process exists
+            TestAppActivityReference activity = primaryTestApp.activities().query()
+                    .whereActivity().exported().isTrue()
+                    .get();
+            Intent intent = new Intent();
+            intent.setComponent(activity.component().componentName());
+            TestApis.context().instrumentedContext().startActivity(intent);
+            try (PermissionContext p =
+                         TestApis.permissions().withPermission(INTERACT_ACROSS_USERS_FULL)) {
+                TestApis.context().instrumentedContext().startActivityAsUser(
+                        intent, sDeviceState.workProfile().userHandle());
+            }
+            Poll.forValue("process",
+                    () -> sTestApp.pkg().runningProcess(sDeviceState.workProfile()))
+                    .toNotBeNull()
+                    .await();
+
+            sTestApp.pkg().runningProcess().kill();
+
+            assertThat(sTestApp.pkg().runningProcess(sDeviceState.workProfile())).isNotNull();
         }
     }
 }

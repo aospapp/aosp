@@ -835,15 +835,18 @@ public class TooltipTest {
         waitOut(halfTimeout);
         assertFalse(hasTooltip(mTooltipView));
 
+        injectShortClick(mTooltipView);
         injectHoverMove(source, mTooltipView, 0, 0);
         waitOut(halfTimeout);
         assertFalse(hasTooltip(mTooltipView));
 
+        injectShortClick(mTooltipView);
         injectHoverMove(source, mTooltipView, 0, jitterHigh);
         waitOut(halfTimeout);
         assertFalse(hasTooltip(mTooltipView));
 
         // Jitter below threshold should be ignored and the tooltip should be shown.
+        injectShortClick(mTooltipView);
         injectHoverMove(source, mTooltipView, 0, 0);
         waitOut(halfTimeout);
         assertFalse(hasTooltip(mTooltipView));
@@ -857,6 +860,7 @@ public class TooltipTest {
         injectShortClick(mTooltipView);
         assertFalse(hasTooltip(mTooltipView));
 
+        injectShortClick(mTooltipView);
         injectHoverMove(source, mTooltipView, 0, 0);
         waitOut(halfTimeout);
         assertFalse(hasTooltip(mTooltipView));

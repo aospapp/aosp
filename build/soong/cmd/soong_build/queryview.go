@@ -15,21 +15,24 @@
 package main
 
 import (
-	"android/soong/android"
-	"android/soong/bp2build"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+
+	"android/soong/android"
+	"android/soong/bp2build"
 )
 
 func createBazelQueryView(ctx *bp2build.CodegenContext, bazelQueryViewDir string) error {
+	os.RemoveAll(bazelQueryViewDir)
 	ruleShims := bp2build.CreateRuleShims(android.ModuleTypeFactories())
 
-	// Ignore metrics reporting for queryview, since queryview is already a full-repo
-	// conversion and can use data from bazel query directly.
-	buildToTargets, _ := bp2build.GenerateBazelTargets(ctx, true)
+	res, err := bp2build.GenerateBazelTargets(ctx, true)
+	if err != nil {
+		panic(err)
+	}
 
-	filesToWrite := bp2build.CreateBazelFiles(ruleShims, buildToTargets, bp2build.QueryView)
+	filesToWrite := bp2build.CreateBazelFiles(ruleShims, res.BuildDirToTargets(), bp2build.QueryView)
 	for _, f := range filesToWrite {
 		if err := writeReadOnlyFile(bazelQueryViewDir, f); err != nil {
 			return err

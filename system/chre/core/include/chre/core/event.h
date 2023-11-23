@@ -27,15 +27,15 @@
 namespace chre {
 
 //! Instance ID used for events sent by the system
-constexpr uint32_t kSystemInstanceId = 0;
+constexpr uint16_t kSystemInstanceId = 0;
 
 //! Target instance ID used to deliver a message to all nanoapps registered for
 //! the event
-constexpr uint32_t kBroadcastInstanceId = UINT32_MAX;
+constexpr uint16_t kBroadcastInstanceId = UINT16_MAX;
 
 //! This value can be used in a nanoapp's own instance ID to indicate that the
 //! ID is invalid/not assigned yet
-constexpr uint32_t kInvalidInstanceId = kBroadcastInstanceId;
+constexpr uint16_t kInvalidInstanceId = kBroadcastInstanceId;
 
 //! Default target group mask that results in the event being sent to any app
 //! registered for it.
@@ -48,8 +48,8 @@ class Event : public NonCopyable {
   // Events targeted at nanoapps
   Event(uint16_t eventType_, void *eventData_,
         chreEventCompleteFunction *freeCallback_,
-        uint32_t senderInstanceId_ = kSystemInstanceId,
-        uint32_t targetInstanceId_ = kBroadcastInstanceId,
+        uint16_t senderInstanceId_ = kSystemInstanceId,
+        uint16_t targetInstanceId_ = kBroadcastInstanceId,
         uint16_t targetAppGroupMask_ = kDefaultTargetGroupMask)
       : eventType(eventType_),
         receivedTimeMillis(getTimeMillis()),
@@ -131,10 +131,10 @@ class Event : public NonCopyable {
     SystemEventCallbackFunction *const systemEventCallback;
   };
   union {
-    const uint32_t senderInstanceId;
+    const uint16_t senderInstanceId;
     void *const extraData;
   };
-  const uint32_t targetInstanceId;
+  const uint16_t targetInstanceId;
 
   // Bitmask that's used to limit the event delivery to some subset of listeners
   // registered for this type of event (useful when waking up listeners that can

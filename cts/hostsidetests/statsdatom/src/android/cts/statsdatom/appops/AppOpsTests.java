@@ -41,26 +41,34 @@ public class AppOpsTests extends DeviceTestCase implements IBuildReceiver {
     private static final int NUM_APP_OPS = AtomsProto.AttributedAppOps.getDefaultInstance().getOp().
             getDescriptorForType().getValues().size() - 1;
 
+    private static final int APP_OP_RECORD_AUDIO = 27;
+    private static final int APP_OP_RECORD_AUDIO_HOTWORD = 102;
+    private static final int APP_OP_ACCESS_RESTRICTED_SETTINGS = 119;
+
+    private static final String FEATURE_AUTOMOTIVE = "android.hardware.type.automotive";
+    private static final String FEATURE_LEANBACK_ONLY = "android.software.leanback_only";
+
     /**
      * Some ops are only available to specific dynamic uids and are otherwise transformed to less
      * privileged ops. For example, RECORD_AUDIO_HOTWORD is downgraded to RECORD_AUDIO. This stores
      * a mapping from an op to the op it can be transformed from.
      */
-    private static final Map<Integer, Integer> TRANSFORMED_FROM_OP = new HashMap<>();
-
-    static {
-        final int APP_OP_RECORD_AUDIO = 27;
-        final int APP_OP_RECORD_AUDIO_HOTWORD = 102;
-
-        // Temporarily commented out until the Trusted Hotword requirement is enforced again.
-//        TRANSFORMED_FROM_OP.put(APP_OP_RECORD_AUDIO, APP_OP_RECORD_AUDIO_HOTWORD);
-    }
+    private final Map<Integer, Integer> mTransformedFromOp = new HashMap<>();
 
     private IBuildInfo mCtsBuild;
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
+
+        // Temporarily commented out until the Trusted Hotword requirement is enforced again.
+        // mTransformedFromOp.clear();
+        // // The hotword op is allowed to all UIDs on TV and Auto devices.
+        // if (!(DeviceUtils.hasFeature(getDevice(), FEATURE_AUTOMOTIVE)
+        //         || DeviceUtils.hasFeature(getDevice(), FEATURE_LEANBACK_ONLY))) {
+        //     mTransformedFromOp.put(APP_OP_RECORD_AUDIO, APP_OP_RECORD_AUDIO_HOTWORD);
+        // }
+
         assertThat(mCtsBuild).isNotNull();
         ConfigUtils.removeConfig(getDevice());
         ReportUtils.clearReports(getDevice());
@@ -94,8 +102,12 @@ public class AppOpsTests extends DeviceTestCase implements IBuildReceiver {
         Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
 
         ArrayList<Integer> expectedOps = new ArrayList<>();
-        Set<Integer> transformedOps = new HashSet<>(TRANSFORMED_FROM_OP.values());
+        Set<Integer> transformedOps = new HashSet<>(mTransformedFromOp.values());
         for (int i = 0; i < NUM_APP_OPS; i++) {
+            // Ignore access restricted setting as it cannot be read by normal app.
+            if (i == APP_OP_ACCESS_RESTRICTED_SETTINGS) {
+                continue;
+            }
             if (!transformedOps.contains(i)) {
                 expectedOps.add(i);
             }
@@ -133,10 +145,10 @@ public class AppOpsTests extends DeviceTestCase implements IBuildReceiver {
         assertWithMessage("Logging app op ids are missing in report.").that(expectedOps).isEmpty();
     }
 
-    private static int computeExpectedTransformedNoted(int op) {
-        if (!TRANSFORMED_FROM_OP.containsKey(op)) {
+    private int computeExpectedTransformedNoted(int op) {
+        if (!mTransformedFromOp.containsKey(op)) {
             return 0;
         }
-        return TRANSFORMED_FROM_OP.get(op) + 1;
+        return mTransformedFromOp.get(op) + 1;
     }
 }

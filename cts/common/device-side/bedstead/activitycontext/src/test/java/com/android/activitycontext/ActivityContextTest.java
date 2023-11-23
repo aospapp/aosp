@@ -20,8 +20,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import static org.testng.Assert.assertThrows;
 
-import android.app.Activity;
-
 import com.android.activitycontext.annotations.RunWhenInstrumentingOtherApp;
 import com.android.compatibility.common.util.BlockingCallback;
 
@@ -138,9 +136,9 @@ public class ActivityContextTest {
     }
 
     private static final class BlockingActivityConsumer extends BlockingCallback<Boolean> implements
-            Consumer<Activity> {
+            Consumer<ActivityContext> {
         @Override
-        public void accept(Activity activity) {
+        public void accept(ActivityContext activity) {
             callbackTriggered(activity != null);
         }
     }
@@ -156,9 +154,9 @@ public class ActivityContextTest {
     }
 
     private static final class BlockingActivityBiConsumerChecksActivity
-            extends BlockingCallback<Boolean> implements BiConsumer<Activity, String> {
+            extends BlockingCallback<Boolean> implements BiConsumer<ActivityContext, String> {
         @Override
-        public void accept(Activity activity, String s) {
+        public void accept(ActivityContext activity, String s) {
             callbackTriggered(activity != null);
         }
     }
@@ -199,9 +197,9 @@ public class ActivityContextTest {
     }
 
     private static final class BlockingActivityBiConsumerReturnsFirstArgument
-            extends BlockingCallback<String> implements BiConsumer<Activity, String> {
+            extends BlockingCallback<String> implements BiConsumer<ActivityContext, String> {
         @Override
-        public void accept(Activity activity, String s) {
+        public void accept(ActivityContext activity, String s) {
             callbackTriggered(s);
         }
     }

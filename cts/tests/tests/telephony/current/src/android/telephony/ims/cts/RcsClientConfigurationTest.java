@@ -33,22 +33,24 @@ public final class RcsClientConfigurationTest {
     private static final String RCS_PROFILE = RcsClientConfiguration.RCS_PROFILE_2_3;
     private static final String CLIENT_VENDOR = "Android";
     private static final String CLIENT_VERSION = "RCSAndrd-1.0";
+    private static final boolean RCS_ENABLED_BY_USER = true;
 
     @Test
     public void testRcsClientConfigurationApi() {
         RcsClientConfiguration rcc = new RcsClientConfiguration(
-                RCS_VERSION, RCS_PROFILE, CLIENT_VENDOR, CLIENT_VERSION);
+                RCS_VERSION, RCS_PROFILE, CLIENT_VENDOR, CLIENT_VERSION, RCS_ENABLED_BY_USER);
 
         assertEquals(RCS_VERSION, rcc.getRcsVersion());
         assertEquals(RCS_PROFILE, rcc.getRcsProfile());
         assertEquals(CLIENT_VENDOR, rcc.getClientVendor());
         assertEquals(CLIENT_VERSION, rcc.getClientVersion());
+        assertEquals(RCS_ENABLED_BY_USER, rcc.isRcsEnabledByUser());
     }
 
     @Test
     public void testRcsClientConfigurationParcel() {
         RcsClientConfiguration rcc = new RcsClientConfiguration(
-                RCS_VERSION, RCS_PROFILE, CLIENT_VENDOR, CLIENT_VERSION);
+                RCS_VERSION, RCS_PROFILE, CLIENT_VENDOR, CLIENT_VERSION, RCS_ENABLED_BY_USER);
         Parcel rccParcel = Parcel.obtain();
         rcc.writeToParcel(rccParcel, 0);
         rccParcel.setDataPosition(0);

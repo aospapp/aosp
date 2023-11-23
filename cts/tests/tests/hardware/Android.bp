@@ -44,6 +44,9 @@ android_test {
         "libctshardware_jni",
         "libnativehelper_compat_libc++",
     ],
-    srcs: ["src/**/*.java"],
+    srcs: [
+        "src/**/*.java",
+        "src/**/*.kt",
+    ],
     sdk_version: "test_current",
 }

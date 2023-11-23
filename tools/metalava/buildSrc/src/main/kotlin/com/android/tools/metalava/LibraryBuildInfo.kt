@@ -26,6 +26,7 @@ import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.TaskAction
 import org.gradle.api.tasks.TaskProvider
+import org.gradle.api.tasks.bundling.Zip
 import java.io.File
 import java.util.concurrent.TimeUnit
 
@@ -40,6 +41,8 @@ abstract class CreateLibraryBuildInfoTask : DefaultTask() {
     abstract val version: Property<String>
     @get:Input
     abstract val sha: Property<String>
+    @get:Input
+    abstract val projectZipPath: Property<String>
 
     @get:OutputFile
     abstract val outputFile: Property<File>
@@ -56,6 +59,7 @@ abstract class CreateLibraryBuildInfoTask : DefaultTask() {
         info.version = version.get()
         info.path = "/"
         info.sha = sha.get()
+        info.projectZipPath = projectZipPath.get()
         info.dependencies = arrayListOf()
         info.checks = arrayListOf()
         val gson = GsonBuilder().setPrettyPrinting().create()
@@ -73,21 +77,23 @@ abstract class CreateLibraryBuildInfoTask : DefaultTask() {
 fun configureBuildInfoTask(
     project: Project,
     inCI: Boolean,
-    distributionDirectory: File
+    distributionDirectory: File,
+    archiveTaskProvider: TaskProvider<Zip>
 ): TaskProvider<CreateLibraryBuildInfoTask> {
     return project.tasks.register(CREATE_BUILD_INFO_TASK, CreateLibraryBuildInfoTask::class.java) {
-        it.artifactId.set(project.provider<String> { project.name })
-        it.groupId.set(project.provider<String> { project.group as String })
-        it.version.set(project.provider<String> { project.version as String })
+        it.artifactId.set(project.provider { project.name })
+        it.groupId.set(project.provider { project.group as String })
+        it.version.set(project.provider { project.version as String })
         // Only set sha when in CI to keep local builds faster
-        it.sha.set(project.provider<String> { if (inCI) getGitSha(project.projectDir) else "" })
-        it.outputFile.set(project.provider<File> {
+        it.sha.set(project.provider { if (inCI) getGitSha(project.projectDir) else "" })
+        it.projectZipPath.set(archiveTaskProvider.flatMap { task -> task.archiveFileName })
+        it.outputFile.set(project.provider {
             File(
                 distributionDirectory,
                 "build-info/${project.group}_${project.name}_build_info.txt"
             )
         })
-        it.aggregateOutputFile.set(project.provider<File> {
+        it.aggregateOutputFile.set(project.provider {
             File(distributionDirectory, "androidx_aggregate_build_info.txt")}
         )
     }
@@ -138,6 +144,7 @@ class LibraryBuildInfoFile {
     var version: String? = null
     var path: String? = null
     var sha: String? = null
+    var projectZipPath: String? = null
     var groupIdRequiresSameVersion: Boolean? = null
     var dependencies: ArrayList<Dependency> = arrayListOf()
     var checks: ArrayList<Check> = arrayListOf()

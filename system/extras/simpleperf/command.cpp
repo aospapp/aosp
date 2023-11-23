@@ -41,10 +41,11 @@ bool Command::NextArgumentOrError(const std::vector<std::string>& args, size_t* 
   return true;
 }
 
-bool Command::PreprocessOptions(const std::vector<std::string>& args,
-                                const OptionFormatMap& option_formats, OptionValueMap* options,
-                                std::vector<std::pair<OptionName, OptionValue>>* ordered_options,
-                                std::vector<std::string>* non_option_args) {
+bool ConvertArgsToOptions(const std::vector<std::string>& args,
+                          const OptionFormatMap& option_formats, const std::string& help_msg,
+                          OptionValueMap* options,
+                          std::vector<std::pair<OptionName, OptionValue>>* ordered_options,
+                          std::vector<std::string>* non_option_args) {
   options->values.clear();
   ordered_options->clear();
   size_t i;
@@ -55,7 +56,7 @@ bool Command::PreprocessOptions(const std::vector<std::string>& args,
         i++;
         break;
       }
-      ReportUnknownOption(args, i);
+      LOG(ERROR) << "Unknown option " << args[i] << "." << help_msg;
       return false;
     }
     const OptionName& name = it->first;
@@ -66,8 +67,7 @@ bool Command::PreprocessOptions(const std::vector<std::string>& args,
     if (i + 1 == args.size()) {
       if (format.value_type != OptionValueType::NONE &&
           format.value_type != OptionValueType::OPT_STRING) {
-        LOG(ERROR) << "No argument following " << name << " option. Try `simpleperf help " << name_
-                   << "`";
+        LOG(ERROR) << "No argument following " << name << " option." << help_msg;
         return false;
       }
     } else {
@@ -85,13 +85,15 @@ bool Command::PreprocessOptions(const std::vector<std::string>& args,
         case OptionValueType::UINT:
           if (!android::base::ParseUint(args[++i], &value.uint_value,
                                         std::numeric_limits<uint64_t>::max(), true)) {
-            LOG(ERROR) << "Invalid argument for option " << name << ": " << args[i];
+            LOG(ERROR) << "Invalid argument for option " << name << ": " << args[i] << "."
+                       << help_msg;
             return false;
           }
           break;
         case OptionValueType::DOUBLE:
           if (!android::base::ParseDouble(args[++i], &value.double_value)) {
-            LOG(ERROR) << "Invalid argument for option " << name << ": " << args[i];
+            LOG(ERROR) << "Invalid argument for option " << name << ": " << args[i] << "."
+                       << help_msg;
             return false;
           }
           break;
@@ -116,12 +118,21 @@ bool Command::PreprocessOptions(const std::vector<std::string>& args,
   }
   if (i < args.size()) {
     if (non_option_args == nullptr) {
-      LOG(ERROR) << "Invalid option " << args[i] << ". Try `simpleperf help " << name_ << "`";
+      LOG(ERROR) << "Invalid option " << args[i] << "." << help_msg;
       return false;
     }
     non_option_args->assign(args.begin() + i, args.end());
   }
   return true;
+}
+
+bool Command::PreprocessOptions(const std::vector<std::string>& args,
+                                const OptionFormatMap& option_formats, OptionValueMap* options,
+                                std::vector<std::pair<OptionName, OptionValue>>* ordered_options,
+                                std::vector<std::string>* non_option_args) {
+  const std::string help_msg = " Try `simpleperf help " + name_ + "`.";
+  return ConvertArgsToOptions(args, option_formats, help_msg, options, ordered_options,
+                              non_option_args);
 }
 
 bool Command::GetDoubleOption(const std::vector<std::string>& args, size_t* pi, double* value,
@@ -172,6 +183,7 @@ const std::vector<std::string> GetAllCommandNames() {
   return names;
 }
 
+extern void RegisterBootRecordCommand();
 extern void RegisterDumpRecordCommand();
 extern void RegisterHelpCommand();
 extern void RegisterInjectCommand();
@@ -206,6 +218,7 @@ class CommandRegister {
     RegisterMonitorCommand();
 #if defined(__ANDROID__)
     RegisterAPICommands();
+    RegisterBootRecordCommand();
 #endif
 #endif
   }
@@ -278,14 +291,15 @@ bool RunSimpleperfCmd(int argc, char** argv) {
   args.erase(args.begin());
 
   LOG(DEBUG) << "command '" << command_name << "' starts running";
-  bool result = command->Run(args);
+  int exit_code;
+  command->Run(args, &exit_code);
   LOG(DEBUG) << "command '" << command_name << "' "
-             << (result ? "finished successfully" : "failed");
+             << (exit_code == 0 ? "finished successfully" : "failed");
   // Quick exit to avoid the cost of freeing memory and closing files.
   fflush(stdout);
   fflush(stderr);
-  _Exit(result ? 0 : 1);
-  return result;
+  _Exit(exit_code);
+  return exit_code == 0;
 }
 
 }  // namespace simpleperf

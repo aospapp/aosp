@@ -35,4 +35,5 @@ bool iptablesRuleExists(const char* binary, const char* chainName, const std::st
 
 std::vector<std::string> listIpRoutes(const char* ipVersion, const char* table);
 
-bool ipRouteExists(const char* ipVersion, const char* table, const std::string& ipRoute);
+bool ipRouteExists(const char* ipVersion, const char* table,
+                   const std::vector<std::string>& ipRouteSubstrings);

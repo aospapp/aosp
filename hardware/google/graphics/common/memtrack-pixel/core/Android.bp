@@ -15,7 +15,7 @@ cc_library_shared {
         "include",
     ],
     shared_libs: [
-        "android.hardware.memtrack-V1-ndk_platform",
+        "android.hardware.memtrack-V1-ndk",
         "libbase",
         "libbinder_ndk",
         "liblog",

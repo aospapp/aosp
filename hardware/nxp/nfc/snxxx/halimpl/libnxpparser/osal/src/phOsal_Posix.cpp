@@ -213,7 +213,7 @@ OSALSTATUS phOsal_SemaphoreWait(void* hSemaphore, uint32_t timeout_ms) {
   } else {
     struct timespec xtms;
     int32_t status = 0;
-    if (clock_gettime(CLOCK_REALTIME, &xtms) == -1) {
+    if (clock_gettime(CLOCK_MONOTONIC, &xtms) == -1) {
       phOsal_LogError(
           (const uint8_t*)"Osal> Error in Getting current CPU time!!");
       return OSALSTATUS_INVALID_PARAMS;
@@ -222,8 +222,12 @@ OSALSTATUS phOsal_SemaphoreWait(void* hSemaphore, uint32_t timeout_ms) {
     /*Extract seconds and nanoseconds information from time in milliseconds*/
     xtms.tv_sec += (time_t)timeout_ms / 1000;
     xtms.tv_nsec += ((long)(timeout_ms % 1000)) * (1000000);
+    if (xtms.tv_nsec >= 1000000000L) {
+      xtms.tv_sec += 1;
+      xtms.tv_nsec -= 1000000000L;
+    }
 
-    while ((status = sem_timedwait((sem_t*)hSemaphore, &xtms)) == -1 &&
+    while ((status = sem_timedwait_monotonic_np((sem_t*)hSemaphore, &xtms)) == -1 &&
            errno == EINTR) {
       phOsal_LogError(
           (const uint8_t*)"Osal>Error in sem_timedwait restart it!!");

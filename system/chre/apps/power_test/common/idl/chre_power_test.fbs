@@ -37,6 +37,12 @@ enum MessageType : uint {
   NANOAPP_RESPONSE,
   /// Should be used with GnssMeasurementMessage
   GNSS_MEASUREMENT_TEST,
+  /// Should be used with WifiNanSubMessage
+  WIFI_NAN_SUB,
+  /// Should be used with WifiNanSubCancelMessage
+  WIFI_NAN_SUB_CANCEL,
+  /// Should be used with WifiNanSubResponseMessage
+  WIFI_NAN_SUB_RESP,
 }
 
 /// Represents a message to ask the nanoapp to create a timer that wakes up at
@@ -156,4 +162,25 @@ table NanoappResponseMessage {
 table GnssMeasurementMessage {
   enable:bool;
   min_interval_millis:uint;
+}
+
+/// Represents a message to ask the nanoapp to start a NAN subscription session.
+/// See chreWifiNanSubscribeConfig for how to fill in this message.
+table WifiNanSubMessage {
+  sub_type:ubyte;
+  service_name:[ubyte];
+  service_specific_info:[ubyte];
+  match_filter:[ubyte];
+}
+
+/// Represents a messages to ask the nanoapp to cancel an ongoing subscription
+table WifiNanSubCancelMessage {
+  subscription_id:uint;
+}
+
+/// Represents a message from the nanoapp indicating whether a subscription
+/// request succeeded
+table WifiNanSubResponseMessage {
+  success:bool;
+  subscription_id:uint;
 }

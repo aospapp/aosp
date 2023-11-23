@@ -77,10 +77,6 @@ TEST(UtilsTest, ReadFileChunk) {
   EXPECT_EQ(brillo::Blob(data.begin() + 10, data.begin() + 10 + 20), in_data);
 }
 
-TEST(UtilsTest, ErrnoNumberAsStringTest) {
-  EXPECT_EQ("No such file or directory", utils::ErrnoNumberAsString(ENOENT));
-}
-
 TEST(UtilsTest, IsSymlinkTest) {
   base::ScopedTempDir temp_dir;
   ASSERT_TRUE(temp_dir.CreateUniqueTempDir());

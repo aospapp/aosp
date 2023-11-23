@@ -39,7 +39,7 @@
     <!-- System Alert Window (SAW) -->
     <option name="compatibility:include-filter" value="CtsSystemIntentTestCases"/>
     <option name="compatibility:include-filter" value="CtsWindowManagerDeviceTestCases android.server.wm.HideOverlayWindowsTest"/>
-    <option name="compatibility:include-filter" value="CtsMediaTestCases android.media.cts.MediaProjectionTest"/>
+    <option name="compatibility:include-filter" value="CtsMediaMiscTestCases android.media.misc.cts.MediaProjectionTest"/>
 
     <!-- Toasts -->
     <option name="compatibility:include-filter" value="CtsWindowManagerDeviceTestCases android.server.wm.ToastWindowTest"/>

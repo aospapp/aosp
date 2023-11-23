@@ -24,6 +24,7 @@ import inspect
 import logging
 
 import atest_enum
+import constants
 
 from test_finders import cache_finder
 from test_finders import test_finder_base
@@ -42,23 +43,25 @@ _TEST_FINDERS = {
 # Explanation of REFERENCE_TYPEs:
 # ----------------------------------
 # 0. MODULE: LOCAL_MODULE or LOCAL_PACKAGE_NAME value in Android.mk/Android.bp.
-# 1. CLASS: Names which the same with a ClassName.java/kt file.
-# 2. QUALIFIED_CLASS: String like "a.b.c.ClassName".
-# 3. MODULE_CLASS: Combo of MODULE and CLASS as "module:class".
-# 4. PACKAGE: Package in java file. Same as file path to java file.
-# 5. MODULE_PACKAGE: Combo of MODULE and PACKAGE as "module:package".
-# 6. MODULE_FILE_PATH: File path to dir of tests or test itself.
-# 7. INTEGRATION_FILE_PATH: File path to config xml in one of the 4 integration
+# 1. MAINLINE_MODULE: module[mod1.apk+mod2.apex] pattern in TEST_MAPPING files.
+# 2. CLASS: Names which the same with a ClassName.java/kt file.
+# 3. QUALIFIED_CLASS: String like "a.b.c.ClassName".
+# 4. MODULE_CLASS: Combo of MODULE and CLASS as "module:class".
+# 5. PACKAGE: Package in java file. Same as file path to java file.
+# 6. MODULE_PACKAGE: Combo of MODULE and PACKAGE as "module:package".
+# 7. MODULE_FILE_PATH: File path to dir of tests or test itself.
+# 8. INTEGRATION_FILE_PATH: File path to config xml in one of the 4 integration
 #                           config directories.
-# 8. INTEGRATION: xml file name in one of the 4 integration config directories.
-# 9. SUITE: Value of the "run-suite-tag" in xml config file in 4 config dirs.
-#           Same as value of "test-suite-tag" in AndroidTest.xml files.
-# 10. CC_CLASS: Test case in cc file.
-# 11. SUITE_PLAN: Suite name such as cts.
-# 12. SUITE_PLAN_FILE_PATH: File path to config xml in the suite config
+# 9. INTEGRATION: xml file name in one of the 4 integration config directories.
+# 10. SUITE: Value of the "run-suite-tag" in xml config file in 4 config dirs.
+#            Same as value of "test-suite-tag" in AndroidTest.xml files.
+# 11. CC_CLASS: Test case in cc file.
+# 12. SUITE_PLAN: Suite name such as cts.
+# 13. SUITE_PLAN_FILE_PATH: File path to config xml in the suite config
 #                           directories.
-# 13. CACHE: A pseudo type that runs cache_finder without finding test in real.
-_REFERENCE_TYPE = atest_enum.AtestEnum(['MODULE', 'CLASS', 'QUALIFIED_CLASS',
+# 14. CACHE: A pseudo type that runs cache_finder without finding test in real.
+_REFERENCE_TYPE = atest_enum.AtestEnum(['MODULE', 'MAINLINE_MODULE',
+                                        'CLASS', 'QUALIFIED_CLASS',
                                         'MODULE_CLASS', 'PACKAGE',
                                         'MODULE_PACKAGE', 'MODULE_FILE_PATH',
                                         'INTEGRATION_FILE_PATH', 'INTEGRATION',
@@ -68,6 +71,7 @@ _REFERENCE_TYPE = atest_enum.AtestEnum(['MODULE', 'CLASS', 'QUALIFIED_CLASS',
 
 _REF_TYPE_TO_FUNC_MAP = {
     _REFERENCE_TYPE.MODULE: module_finder.ModuleFinder.find_test_by_module_name,
+    _REFERENCE_TYPE.MAINLINE_MODULE: module_finder.MainlineModuleFinder.find_test_by_module_name,
     _REFERENCE_TYPE.CLASS: module_finder.ModuleFinder.find_test_by_class_name,
     _REFERENCE_TYPE.MODULE_CLASS: module_finder.ModuleFinder.find_test_by_module_and_class,
     _REFERENCE_TYPE.QUALIFIED_CLASS: module_finder.ModuleFinder.find_test_by_class_name,
@@ -141,31 +145,33 @@ def _get_test_reference_types(ref):
     """
     if ref.startswith('.') or '..' in ref:
         return [_REFERENCE_TYPE.CACHE,
-                _REFERENCE_TYPE.INTEGRATION_FILE_PATH,
                 _REFERENCE_TYPE.MODULE_FILE_PATH,
+                _REFERENCE_TYPE.INTEGRATION_FILE_PATH,
                 _REFERENCE_TYPE.SUITE_PLAN_FILE_PATH]
     if '/' in ref:
         if ref.startswith('/'):
             return [_REFERENCE_TYPE.CACHE,
-                    _REFERENCE_TYPE.INTEGRATION_FILE_PATH,
                     _REFERENCE_TYPE.MODULE_FILE_PATH,
+                    _REFERENCE_TYPE.INTEGRATION_FILE_PATH,
                     _REFERENCE_TYPE.SUITE_PLAN_FILE_PATH]
         if ':' in ref:
             return [_REFERENCE_TYPE.CACHE,
-                    _REFERENCE_TYPE.INTEGRATION_FILE_PATH,
                     _REFERENCE_TYPE.MODULE_FILE_PATH,
+                    _REFERENCE_TYPE.INTEGRATION_FILE_PATH,
                     _REFERENCE_TYPE.INTEGRATION,
                     _REFERENCE_TYPE.SUITE_PLAN_FILE_PATH,
                     _REFERENCE_TYPE.MODULE_CLASS]
         return [_REFERENCE_TYPE.CACHE,
-                _REFERENCE_TYPE.INTEGRATION_FILE_PATH,
                 _REFERENCE_TYPE.MODULE_FILE_PATH,
+                _REFERENCE_TYPE.INTEGRATION_FILE_PATH,
                 _REFERENCE_TYPE.INTEGRATION,
                 _REFERENCE_TYPE.SUITE_PLAN_FILE_PATH,
                 _REFERENCE_TYPE.CC_CLASS,
                 # TODO: Uncomment in SUITE when it's supported
                 # _REFERENCE_TYPE.SUITE
                 ]
+    if constants.TEST_WITH_MAINLINE_MODULES_RE.match(ref):
+        return [_REFERENCE_TYPE.CACHE, _REFERENCE_TYPE.MAINLINE_MODULE]
     if '.' in ref:
         ref_end = ref.rsplit('.', 1)[-1]
         ref_end_is_upper = ref_end[0].isupper()
@@ -174,15 +180,15 @@ def _get_test_reference_types(ref):
             if ref_end_is_upper:
                 # Module:fully.qualified.Class or Integration:fully.q.Class
                 return [_REFERENCE_TYPE.CACHE,
-                        _REFERENCE_TYPE.INTEGRATION,
-                        _REFERENCE_TYPE.MODULE_CLASS]
+                        _REFERENCE_TYPE.MODULE_CLASS,
+                        _REFERENCE_TYPE.INTEGRATION]
             # Module:some.package
             return [_REFERENCE_TYPE.CACHE, _REFERENCE_TYPE.MODULE_PACKAGE,
                     _REFERENCE_TYPE.MODULE_CLASS]
         # Module:Class or IntegrationName:Class
         return [_REFERENCE_TYPE.CACHE,
-                _REFERENCE_TYPE.INTEGRATION,
-                _REFERENCE_TYPE.MODULE_CLASS]
+                _REFERENCE_TYPE.MODULE_CLASS,
+                _REFERENCE_TYPE.INTEGRATION]
     if '.' in ref:
         # The string of ref_end possibly includes specific mathods, e.g.
         # foo.java#method, so let ref_end be the first part of splitting '#'.
@@ -194,19 +200,19 @@ def _get_test_reference_types(ref):
             return [_REFERENCE_TYPE.CACHE,
                     _REFERENCE_TYPE.INTEGRATION_FILE_PATH,
                     _REFERENCE_TYPE.SUITE_PLAN_FILE_PATH]
-        if ref_end_is_upper:
-            return [_REFERENCE_TYPE.CACHE, _REFERENCE_TYPE.QUALIFIED_CLASS]
-        return [_REFERENCE_TYPE.CACHE,
-                _REFERENCE_TYPE.MODULE,
+        # (b/207327349) ref_end_is_upper does not guarantee a classname anymore.
+        return [_REFERENCE_TYPE.MODULE,
+                _REFERENCE_TYPE.CACHE,
+                _REFERENCE_TYPE.QUALIFIED_CLASS,
                 _REFERENCE_TYPE.PACKAGE]
     # Note: We assume that if you're referencing a file in your cwd,
     # that file must have a '.' in its name, i.e. foo.java, foo.xml.
     # If this ever becomes not the case, then we need to include path below.
-    return [_REFERENCE_TYPE.CACHE,
+    return [_REFERENCE_TYPE.MODULE,
+            _REFERENCE_TYPE.CACHE,
             _REFERENCE_TYPE.INTEGRATION,
             # TODO: Uncomment in SUITE when it's supported
             # _REFERENCE_TYPE.SUITE,
-            _REFERENCE_TYPE.MODULE,
             _REFERENCE_TYPE.CONFIG,
             _REFERENCE_TYPE.SUITE_PLAN,
             _REFERENCE_TYPE.CLASS,

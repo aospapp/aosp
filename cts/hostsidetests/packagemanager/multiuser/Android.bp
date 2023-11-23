@@ -33,4 +33,8 @@ java_test_host {
     required: [
         "CtsPackageManagerMultiUserEmptyTestApp",
     ],
+    data: [
+        ":CtsPackageManagerMultiUserTestApp",
+    ],
+    per_testcase_directory: true,
 }

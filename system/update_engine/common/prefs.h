@@ -17,6 +17,7 @@
 #ifndef UPDATE_ENGINE_COMMON_PREFS_H_
 #define UPDATE_ENGINE_COMMON_PREFS_H_
 
+#include <functional>
 #include <map>
 #include <string>
 #include <string_view>
@@ -41,23 +42,23 @@ class PrefsBase : public PrefsInterface {
 
     // Get the key named |key| and store its value in the referenced |value|.
     // Returns whether the operation succeeded.
-    virtual bool GetKey(const std::string& key, std::string* value) const = 0;
+    virtual bool GetKey(std::string_view key, std::string* value) const = 0;
 
     // Get the keys stored within the namespace. If there are no keys in the
     // namespace, |keys| will be empty. Returns whether the operation succeeded.
-    virtual bool GetSubKeys(const std::string& ns,
+    virtual bool GetSubKeys(std::string_view ns,
                             std::vector<std::string>* keys) const = 0;
 
     // Set the value of the key named |key| to |value| regardless of the
     // previous value. Returns whether the operation succeeded.
-    virtual bool SetKey(const std::string& key, std::string_view value) = 0;
+    virtual bool SetKey(std::string_view key, std::string_view value) = 0;
 
     // Returns whether the key named |key| exists.
-    virtual bool KeyExists(const std::string& key) const = 0;
+    virtual bool KeyExists(std::string_view key) const = 0;
 
     // Deletes the value associated with the key name |key|. Returns whether the
     // key was deleted.
-    virtual bool DeleteKey(const std::string& key) = 0;
+    virtual bool DeleteKey(std::string_view key) = 0;
 
    private:
     DISALLOW_COPY_AND_ASSIGN(StorageInterface);
@@ -66,29 +67,29 @@ class PrefsBase : public PrefsInterface {
   explicit PrefsBase(StorageInterface* storage) : storage_(storage) {}
 
   // PrefsInterface methods.
-  bool GetString(const std::string& key, std::string* value) const override;
-  bool SetString(const std::string& key, std::string_view value) override;
-  bool GetInt64(const std::string& key, int64_t* value) const override;
-  bool SetInt64(const std::string& key, const int64_t value) override;
-  bool GetBoolean(const std::string& key, bool* value) const override;
-  bool SetBoolean(const std::string& key, const bool value) override;
+  bool GetString(std::string_view key, std::string* value) const override;
+  bool SetString(std::string_view key, std::string_view value) override;
+  bool GetInt64(std::string_view key, int64_t* value) const override;
+  bool SetInt64(std::string_view key, const int64_t value) override;
+  bool GetBoolean(std::string_view key, bool* value) const override;
+  bool SetBoolean(std::string_view key, const bool value) override;
 
-  bool Exists(const std::string& key) const override;
-  bool Delete(const std::string& key) override;
-  bool Delete(const std::string& pref_key,
+  bool Exists(std::string_view key) const override;
+  bool Delete(std::string_view key) override;
+  bool Delete(std::string_view pref_key,
               const std::vector<std::string>& nss) override;
 
-  bool GetSubKeys(const std::string& ns,
+  bool GetSubKeys(std::string_view ns,
                   std::vector<std::string>* keys) const override;
 
-  void AddObserver(const std::string& key,
-                   ObserverInterface* observer) override;
-  void RemoveObserver(const std::string& key,
+  void AddObserver(std::string_view key, ObserverInterface* observer) override;
+  void RemoveObserver(std::string_view key,
                       ObserverInterface* observer) override;
 
  private:
   // The registered observers watching for changes.
-  std::map<std::string, std::vector<ObserverInterface*>> observers_;
+  std::map<std::string, std::vector<ObserverInterface*>, std::less<>>
+      observers_;
 
   // The concrete implementation of the storage used for the keys.
   StorageInterface* storage_;
@@ -121,12 +122,12 @@ class Prefs : public PrefsBase {
     bool Init(const base::FilePath& prefs_dir);
 
     // PrefsBase::StorageInterface overrides.
-    bool GetKey(const std::string& key, std::string* value) const override;
-    bool GetSubKeys(const std::string& ns,
+    bool GetKey(std::string_view key, std::string* value) const override;
+    bool GetSubKeys(std::string_view ns,
                     std::vector<std::string>* keys) const override;
-    bool SetKey(const std::string& key, std::string_view value) override;
-    bool KeyExists(const std::string& key) const override;
-    bool DeleteKey(const std::string& key) override;
+    bool SetKey(std::string_view key, std::string_view value) override;
+    bool KeyExists(std::string_view key) const override;
+    bool DeleteKey(std::string_view key) override;
 
    private:
     FRIEND_TEST(PrefsTest, GetFileNameForKey);
@@ -135,7 +136,7 @@ class Prefs : public PrefsBase {
 
     // Sets |filename| to the full path to the file containing the data
     // associated with |key|. Returns true on success, false otherwise.
-    bool GetFileNameForKey(const std::string& key,
+    bool GetFileNameForKey(std::string_view key,
                            base::FilePath* filename) const;
 
     // Preference store directory.
@@ -161,16 +162,16 @@ class MemoryPrefs : public PrefsBase {
     MemoryStorage() = default;
 
     // PrefsBase::StorageInterface overrides.
-    bool GetKey(const std::string& key, std::string* value) const override;
-    bool GetSubKeys(const std::string& ns,
+    bool GetKey(std::string_view, std::string* value) const override;
+    bool GetSubKeys(std::string_view ns,
                     std::vector<std::string>* keys) const override;
-    bool SetKey(const std::string& key, std::string_view value) override;
-    bool KeyExists(const std::string& key) const override;
-    bool DeleteKey(const std::string& key) override;
+    bool SetKey(std::string_view key, std::string_view value) override;
+    bool KeyExists(std::string_view key) const override;
+    bool DeleteKey(std::string_view key) override;
 
    private:
     // The std::map holding the values in memory.
-    std::map<std::string, std::string> values_;
+    std::map<std::string, std::string, std::less<>> values_;
   };
 
   // The concrete memory storage implementation.

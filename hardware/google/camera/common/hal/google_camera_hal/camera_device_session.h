@@ -423,6 +423,9 @@ class CameraDeviceSession {
   // Protected by request_record_lock_;
   std::set<uint32_t> ignore_shutters_;
 
+  // Stream use cases supported by this camera device
+  std::set<int64_t> stream_use_cases_;
+
   static constexpr int32_t kInvalidStreamId = -1;
 
   // Whether measure the time of buffer allocation

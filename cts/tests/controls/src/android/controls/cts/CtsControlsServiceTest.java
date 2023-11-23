@@ -371,6 +371,7 @@ public class CtsControlsServiceTest {
         assertEquals(c1.getControlId(), c2.getControlId());
         assertEquals(c1.getCustomIcon(), c2.getCustomIcon());
         assertEquals(c1.getCustomColor(), c2.getCustomColor());
+        assertEquals(c1.isAuthRequired(), c2.isAuthRequired());
 
         assertTemplateEquals(c1.getControlTemplate(), c2.getControlTemplate());
     }

@@ -114,6 +114,19 @@ public class JarEntryTest extends TestCase {
         attrJar.close();
     }
 
+    public void test_getRealName() throws Exception {
+        Support_Resources.copyFile(resources, null, attJarName);
+        File file = new File(resources, attJarName);
+        JarFile attrJar = new JarFile(file);
+
+        jarEntry = attrJar.getJarEntry(attEntryName);
+        assertEquals("HasAttributes.txt", jarEntry.getRealName());
+
+        jarEntry = attrJar.getJarEntry(attEntryName2);
+        assertEquals("NoAttributes.txt", jarEntry.getRealName());
+        attrJar.close();
+    }
+
     // http://b/1864326
     public void testCertificatesAndCodesigners() throws Exception {
         zipEntry = jarFile.getEntry(entryName2);

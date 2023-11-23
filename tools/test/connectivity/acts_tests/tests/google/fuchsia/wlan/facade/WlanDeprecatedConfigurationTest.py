@@ -14,9 +14,10 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-from acts.base_test import BaseTestClass
 from acts import asserts
 from acts import utils
+from acts_contrib.test_utils.abstract_devices.wlan_device_lib.AbstractDeviceWlanDeviceBaseTest import AbstractDeviceWlanDeviceBaseTest
+from acts_contrib.test_utils.abstract_devices.wlan_device import create_wlan_device
 
 AP_ROLE = 'Ap'
 DEFAULT_SSID = 'testssid'
@@ -28,31 +29,17 @@ TEST_MAC_ADDR = '12:34:56:78:9a:bc'
 TEST_MAC_ADDR_SECONDARY = 'bc:9a:78:56:34:12'
 
 
-class WlanDeprecatedConfigurationTest(BaseTestClass):
+class WlanDeprecatedConfigurationTest(AbstractDeviceWlanDeviceBaseTest):
     """Tests for WlanDeprecatedConfigurationFacade"""
     def setup_class(self):
         super().setup_class()
-        self.dut = self.fuchsia_devices[0]
+        self.dut = create_wlan_device(self.fuchsia_devices[0])
 
     def setup_test(self):
         self._stop_soft_aps()
 
     def teardown_test(self):
         self._stop_soft_aps()
-
-    def on_fail(self, test_name, begin_time):
-        for fd in self.fuchsia_devices:
-            try:
-                fd.take_bug_report(test_name, begin_time)
-                fd.get_log(test_name, begin_time)
-            except Exception:
-                pass
-
-            try:
-                if fd.device.hard_reboot_on_fail:
-                    fd.hard_power_cycle(self.pdu_devices)
-            except AttributeError:
-                pass
 
     def _get_ap_interface_mac_address(self):
         """Retrieves mac address from wlan interface with role ap
@@ -64,13 +51,14 @@ class WlanDeprecatedConfigurationTest(BaseTestClass):
             ConnectionError, if SL4F calls fail
             AttributeError, if no interface has role 'Ap'
         """
-        wlan_ifaces = self.dut.wlan_lib.wlanGetIfaceIdList()
+        wlan_ifaces = self.dut.device.wlan_lib.wlanGetIfaceIdList()
         if wlan_ifaces.get('error'):
             raise ConnectionError('Failed to get wlan interface IDs: %s' %
                                   wlan_ifaces['error'])
 
         for wlan_iface in wlan_ifaces['result']:
-            iface_info = self.dut.wlan_lib.wlanQueryInterface(wlan_iface)
+            iface_info = self.dut.device.wlan_lib.wlanQueryInterface(
+                wlan_iface)
             if iface_info.get('error'):
                 raise ConnectionError('Failed to query wlan iface: %s' %
                                       iface_info['error'])
@@ -87,8 +75,9 @@ class WlanDeprecatedConfigurationTest(BaseTestClass):
         Raises:
             ConnectionError, if SL4F call fails.
         """
-        self.log.info('Starting SoftAP on Fuchsia device (%s).' % self.dut.ip)
-        response = self.dut.wlan_ap_policy_lib.wlanStartAccessPoint(
+        self.log.info('Starting SoftAP on Fuchsia device (%s).' %
+                      self.dut.device.ip)
+        response = self.dut.device.wlan_ap_policy_lib.wlanStartAccessPoint(
             DEFAULT_SSID, DEFAULT_SECURITY, DEFAULT_PASSWORD,
             DEFAULT_CONNECTIVITY_MODE, DEFAULT_OPERATING_BAND)
         if response.get('error'):
@@ -102,7 +91,7 @@ class WlanDeprecatedConfigurationTest(BaseTestClass):
             ConnectionError, if SL4F call fails.
         """
         self.log.info('Stopping SoftAP.')
-        response = self.dut.wlan_ap_policy_lib.wlanStopAllAccessPoint()
+        response = self.dut.device.wlan_ap_policy_lib.wlanStopAllAccessPoint()
         if response.get('error'):
             raise ConnectionError('Failed to stop SoftAP: %s' %
                                   response['error'])
@@ -118,8 +107,8 @@ class WlanDeprecatedConfigurationTest(BaseTestClass):
         self.log.info(
             'Suggesting AP mac addr (%s) via wlan_deprecated_configuration_lib.'
             % mac_addr)
-        response = self.dut.wlan_deprecated_configuration_lib.wlanSuggestAccessPointMacAddress(
-            mac_addr)
+        response = (self.dut.device.wlan_deprecated_configuration_lib.
+                    wlanSuggestAccessPointMacAddress(mac_addr))
         if response.get('error'):
             asserts.fail('Failed to suggest AP mac address (%s): %s' %
                          (mac_addr, response['error']))

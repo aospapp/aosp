@@ -28,6 +28,8 @@ package com.android.server.wm.traces.common
 class ConditionList<T>(
     val conditions: List<Condition<T>>
 ) : Condition<T>("", { false }) {
+    constructor(vararg conditions: Condition<T>): this(listOf(*conditions))
+
     override val message: String
         get() = conditions.joinToString(" and ") { it.toString() }
 

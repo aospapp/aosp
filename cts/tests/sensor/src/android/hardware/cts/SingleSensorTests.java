@@ -17,13 +17,13 @@
 package android.hardware.cts;
 
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorManager;
 import android.hardware.cts.helpers.SensorCtsHelper;
 import android.hardware.cts.helpers.SensorStats;
 import android.hardware.cts.helpers.TestSensorEnvironment;
 import android.hardware.cts.helpers.sensoroperations.TestSensorOperation;
-import android.content.pm.PackageManager;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -116,6 +116,12 @@ public class SingleSensorTests extends SensorTestCase {
                 expectedProperties.put(Sensor.TYPE_GYROSCOPE, new Object[]{10000});
         }
         expectedProperties.put(Sensor.TYPE_MAGNETIC_FIELD, new Object[]{100000});
+        expectedProperties.put(Sensor.TYPE_ACCELEROMETER_LIMITED_AXES, new Object[]{10000});
+        expectedProperties.put(Sensor.TYPE_ACCELEROMETER_LIMITED_AXES_UNCALIBRATED,
+                new Object[]{10000});
+        expectedProperties.put(Sensor.TYPE_GYROSCOPE_LIMITED_AXES, new Object[]{10000});
+        expectedProperties.put(Sensor.TYPE_GYROSCOPE_LIMITED_AXES_UNCALIBRATED,
+                new Object[]{10000});
 
         SensorManager sensorManager =
                 (SensorManager) getContext().getSystemService(Context.SENSOR_SERVICE);
@@ -175,7 +181,7 @@ public class SingleSensorTests extends SensorTestCase {
     }
 
     public void testAccelerometer_automotive() throws Throwable {
-        runSensorTest(Sensor.TYPE_ACCELEROMETER, RATE_25HZ, true);
+        runSensorTest(Sensor.TYPE_ACCELEROMETER, RATE_100HZ, true);
     }
 
     public void testAccelUncalibrated_fastest() throws Throwable {
@@ -212,6 +218,10 @@ public class SingleSensorTests extends SensorTestCase {
 
     public void testAccelUncalibrated_1hz() throws Throwable {
         runSensorTest(Sensor.TYPE_ACCELEROMETER_UNCALIBRATED, RATE_1HZ);
+    }
+
+    public void testAccelUncalibrated_automotive() throws Throwable {
+        runSensorTest(Sensor.TYPE_ACCELEROMETER_UNCALIBRATED, RATE_100HZ, true);
     }
 
     public void testMagneticField_fastest() throws Throwable {
@@ -580,6 +590,160 @@ public class SingleSensorTests extends SensorTestCase {
 
     public void testLinearAcceleration_1hz() throws Throwable {
         runSensorTest(Sensor.TYPE_LINEAR_ACCELERATION, RATE_1HZ);
+    }
+
+    public void testAccelerometerLimitedAxes_fastest() throws Throwable {
+        runSensorTest(Sensor.TYPE_ACCELEROMETER_LIMITED_AXES, SensorManager.SENSOR_DELAY_FASTEST);
+    }
+
+    public void testAccelerometerLimitedAxes_200hz() throws Throwable {
+        runSensorTest(Sensor.TYPE_ACCELEROMETER_LIMITED_AXES, RATE_200HZ);
+    }
+
+    public void testAccelerometerLimitedAxes_100hz() throws Throwable {
+        runSensorTest(Sensor.TYPE_ACCELEROMETER_LIMITED_AXES, RATE_100HZ);
+    }
+
+    public void testAccelerometerLimitedAxes_50hz() throws Throwable {
+        runSensorTest(Sensor.TYPE_ACCELEROMETER_LIMITED_AXES, RATE_50HZ);
+    }
+
+    public void testAccelerometerLimitedAxes_25hz() throws Throwable {
+        runSensorTest(Sensor.TYPE_ACCELEROMETER_LIMITED_AXES, RATE_25HZ);
+    }
+
+    public void testAccelerometerLimitedAxes_15hz() throws Throwable {
+        runSensorTest(Sensor.TYPE_ACCELEROMETER_LIMITED_AXES, RATE_15HZ);
+    }
+
+    public void testAccelerometerLimitedAxes_10hz() throws Throwable {
+        runSensorTest(Sensor.TYPE_ACCELEROMETER_LIMITED_AXES, RATE_10HZ);
+    }
+
+    public void testAccelerometerLimitedAxes_5hz() throws Throwable {
+        runSensorTest(Sensor.TYPE_ACCELEROMETER_LIMITED_AXES, RATE_5HZ);
+    }
+
+    public void testAccelerometerLimitedAxes_1hz() throws Throwable {
+        runSensorTest(Sensor.TYPE_ACCELEROMETER_LIMITED_AXES, RATE_1HZ);
+    }
+
+    public void testAccelerometerLimitedAxes_automotive() throws Throwable {
+        runSensorTest(Sensor.TYPE_ACCELEROMETER_LIMITED_AXES, RATE_100HZ, true);
+    }
+
+    public void testAccelerometerLimitedAxesUncalibrated_fastest() throws Throwable {
+        runSensorTest(Sensor.TYPE_ACCELEROMETER_LIMITED_AXES_UNCALIBRATED,
+                SensorManager.SENSOR_DELAY_FASTEST);
+    }
+
+    public void testAccelerometerLimitedAxesUncalibrated_200hz() throws Throwable {
+        runSensorTest(Sensor.TYPE_ACCELEROMETER_LIMITED_AXES_UNCALIBRATED, RATE_200HZ);
+    }
+
+    public void testAccelerometerLimitedAxesUncalibrated_100hz() throws Throwable {
+        runSensorTest(Sensor.TYPE_ACCELEROMETER_LIMITED_AXES_UNCALIBRATED, RATE_100HZ);
+    }
+
+    public void testAccelerometerLimitedAxesUncalibrated_50hz() throws Throwable {
+        runSensorTest(Sensor.TYPE_ACCELEROMETER_LIMITED_AXES_UNCALIBRATED, RATE_50HZ);
+    }
+
+    public void testAccelerometerLimitedAxesUncalibrated_25hz() throws Throwable {
+        runSensorTest(Sensor.TYPE_ACCELEROMETER_LIMITED_AXES_UNCALIBRATED, RATE_25HZ);
+    }
+
+    public void testAccelerometerLimitedAxesUncalibrated_15hz() throws Throwable {
+        runSensorTest(Sensor.TYPE_ACCELEROMETER_LIMITED_AXES_UNCALIBRATED, RATE_15HZ);
+    }
+
+    public void testAccelerometerLimitedAxesUncalibrated_10hz() throws Throwable {
+        runSensorTest(Sensor.TYPE_ACCELEROMETER_LIMITED_AXES_UNCALIBRATED, RATE_10HZ);
+    }
+
+    public void testAccelerometerLimitedAxesUncalibrated_5hz() throws Throwable {
+        runSensorTest(Sensor.TYPE_ACCELEROMETER_LIMITED_AXES_UNCALIBRATED, RATE_5HZ);
+    }
+
+    public void testAccelerometerLimitedAxesUncalibrated_1hz() throws Throwable {
+        runSensorTest(Sensor.TYPE_ACCELEROMETER_LIMITED_AXES_UNCALIBRATED, RATE_1HZ);
+    }
+
+    public void testAccelerometerLimitedAxesUncalibrated_automotive() throws Throwable {
+        runSensorTest(Sensor.TYPE_ACCELEROMETER_LIMITED_AXES_UNCALIBRATED, RATE_100HZ, true);
+    }
+
+    public void testGyroscopeLimitedAxes_fastest() throws Throwable {
+        runSensorTest(Sensor.TYPE_GYROSCOPE_LIMITED_AXES, SensorManager.SENSOR_DELAY_FASTEST);
+    }
+
+    public void testGyroscopeLimitedAxes_200hz() throws Throwable {
+        runSensorTest(Sensor.TYPE_GYROSCOPE_LIMITED_AXES, RATE_200HZ);
+    }
+
+    public void testGyroscopeLimitedAxes_100hz() throws Throwable {
+        runSensorTest(Sensor.TYPE_GYROSCOPE_LIMITED_AXES, RATE_100HZ);
+    }
+
+    public void testGyroscopeLimitedAxes_50hz() throws Throwable {
+        runSensorTest(Sensor.TYPE_GYROSCOPE_LIMITED_AXES, RATE_50HZ);
+    }
+
+    public void testGyroscopeLimitedAxes_25hz() throws Throwable {
+        runSensorTest(Sensor.TYPE_GYROSCOPE_LIMITED_AXES, RATE_25HZ);
+    }
+
+    public void testGyroscopeLimitedAxes_15hz() throws Throwable {
+        runSensorTest(Sensor.TYPE_GYROSCOPE_LIMITED_AXES, RATE_15HZ);
+    }
+
+    public void testGyroscopeLimitedAxes_10hz() throws Throwable {
+        runSensorTest(Sensor.TYPE_GYROSCOPE_LIMITED_AXES, RATE_10HZ);
+    }
+
+    public void testGyroscopeLimitedAxes_5hz() throws Throwable {
+        runSensorTest(Sensor.TYPE_GYROSCOPE_LIMITED_AXES, RATE_5HZ);
+    }
+
+    public void testGyroscopeLimitedAxes_1hz() throws Throwable {
+        runSensorTest(Sensor.TYPE_GYROSCOPE_LIMITED_AXES, RATE_1HZ);
+    }
+
+    public void testGyroscopeLimitedAxesUncalibrated_fastest() throws Throwable {
+        runSensorTest(Sensor.TYPE_GYROSCOPE_LIMITED_AXES_UNCALIBRATED,
+                SensorManager.SENSOR_DELAY_FASTEST);
+    }
+
+    public void testGyroscopeLimitedAxesUncalibrated_200hz() throws Throwable {
+        runSensorTest(Sensor.TYPE_GYROSCOPE_LIMITED_AXES_UNCALIBRATED, RATE_200HZ);
+    }
+
+    public void testGyroscopeLimitedAxesUncalibrated_100hz() throws Throwable {
+        runSensorTest(Sensor.TYPE_GYROSCOPE_LIMITED_AXES_UNCALIBRATED, RATE_100HZ);
+    }
+
+    public void testGyroscopeLimitedAxesUncalibrated_50hz() throws Throwable {
+        runSensorTest(Sensor.TYPE_GYROSCOPE_LIMITED_AXES_UNCALIBRATED, RATE_50HZ);
+    }
+
+    public void testGyroscopeLimitedAxesUncalibrated_25hz() throws Throwable {
+        runSensorTest(Sensor.TYPE_GYROSCOPE_LIMITED_AXES_UNCALIBRATED, RATE_25HZ);
+    }
+
+    public void testGyroscopeLimitedAxesUncalibrated_15hz() throws Throwable {
+        runSensorTest(Sensor.TYPE_GYROSCOPE_LIMITED_AXES_UNCALIBRATED, RATE_15HZ);
+    }
+
+    public void testGyroscopeLimitedAxesUncalibrated_10hz() throws Throwable {
+        runSensorTest(Sensor.TYPE_GYROSCOPE_LIMITED_AXES_UNCALIBRATED, RATE_10HZ);
+    }
+
+    public void testGyroscopeLimitedAxesUncalibrated_5hz() throws Throwable {
+        runSensorTest(Sensor.TYPE_GYROSCOPE_LIMITED_AXES_UNCALIBRATED, RATE_5HZ);
+    }
+
+    public void testGyroscopeLimitedAxesUncalibrated_1hz() throws Throwable {
+        runSensorTest(Sensor.TYPE_GYROSCOPE_LIMITED_AXES_UNCALIBRATED, RATE_1HZ);
     }
 
     private void runSensorTest(int sensorType, int rateUs) throws Throwable {

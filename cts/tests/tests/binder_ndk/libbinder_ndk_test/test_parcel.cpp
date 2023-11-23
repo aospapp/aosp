@@ -422,3 +422,65 @@ TEST_F(NdkBinderTest_AParcel, GetDataSizeTest) {
 
   AParcel_delete(p);
 }
+
+TEST_F(NdkBinderTest_AParcel, MarshalUnmarshalTest) {
+  AParcel* p1 = AParcel_create();
+  AParcel* p2 = AParcel_create();
+
+  AParcel_writeInt32(p1, 42);
+  int dataSize = AParcel_getDataSize(p1);
+  uint8_t* data = new uint8_t[dataSize];
+  EXPECT_OK(AParcel_marshal(p1, data, 0, dataSize));
+
+  EXPECT_OK(AParcel_unmarshal(p2, data, dataSize));
+
+  int32_t actual = 0;
+  AParcel_setDataPosition(p2, 0);
+  AParcel_readInt32(p2, &actual);
+
+  EXPECT_EQ(42, actual);
+
+  AParcel_delete(p1);
+  AParcel_delete(p2);
+  delete[] data;
+}
+
+TEST_F(NdkBinderTest_AParcel, MarshalParcelWithBinderTest) {
+  AParcel* p = AParcel_create();
+
+  AIBinder* binder = SampleData::newBinder();
+  EXPECT_OK(AParcel_writeStrongBinder(p, binder));
+
+  int dataSize = AParcel_getDataSize(p);
+  uint8_t* data = new uint8_t[dataSize];
+  EXPECT_EQ(STATUS_INVALID_OPERATION, AParcel_marshal(p, data, 0, dataSize));
+
+  AIBinder_decStrong(binder);
+  AParcel_delete(p);
+  delete[] data;
+}
+
+TEST_F(NdkBinderTest_AParcel, MarshalParcelWithFdTest) {
+  AParcel* p = AParcel_create();
+
+  EXPECT_OK(AParcel_writeParcelFileDescriptor(p, 1));
+
+  int dataSize = AParcel_getDataSize(p);
+  uint8_t* data = new uint8_t[dataSize];
+  EXPECT_EQ(STATUS_INVALID_OPERATION, AParcel_marshal(p, data, 0, dataSize));
+
+  AParcel_delete(p);
+  delete[] data;
+}
+
+TEST_F(NdkBinderTest_AParcel, MarshalParcelBufferTooSmall) {
+  AParcel* p = AParcel_create();
+
+  AParcel_writeInt32(p, 42);
+  int dataSize = AParcel_getDataSize(p);
+  uint8_t* data = new uint8_t[dataSize];
+  EXPECT_EQ(STATUS_BAD_VALUE, AParcel_marshal(p, data, 1, dataSize));
+
+  AParcel_delete(p);
+  delete[] data;
+}

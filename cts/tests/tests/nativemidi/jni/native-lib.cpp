@@ -544,4 +544,13 @@ JNIEXPORT jint JNICALL Java_android_nativemidi_cts_NativeMidiEchoTest_checkNativ
     return ((TestContext*)ctx)->checkInOutLatency(maxLatencyNanos);
 }
 
+JNIEXPORT jint JNICALL Java_android_nativemidi_cts_NativeMidiEchoTest_getDefaultProtocol(
+        JNIEnv*, jobject, jlong ctx) {
+
+    TestContext* context = (TestContext*)ctx;
+
+    return AMidiDevice_getDefaultProtocol(context->nativeDevice);
+}
+
+
 } // extern "C"

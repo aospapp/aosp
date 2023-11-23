@@ -16,8 +16,15 @@
 
 package android.keystore.cts;
 
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.fail;
+
+import android.keystore.cts.util.TestUtils;
 import android.security.keystore.KeyProperties;
 import android.security.keystore.KeyProtection;
+
+import androidx.test.runner.AndroidJUnit4;
 
 import junit.framework.TestCase;
 
@@ -38,20 +45,52 @@ import javax.crypto.Mac;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 /**
  * Tests for algorithm-agnostic functionality of MAC implementations backed by Android Keystore.
  */
-public class MacTest extends TestCase {
+ @RunWith(AndroidJUnit4.class)
+public class MacTest {
+
+    /**
+     * Override to test Strongbox.
+     * @return false
+     */
+    protected boolean isStrongbox() {
+        return false;
+    }
 
     private static final String EXPECTED_PROVIDER_NAME = TestUtils.EXPECTED_CRYPTO_OP_PROVIDER_NAME;
 
-    private static final String[] EXPECTED_ALGORITHMS = {
+    private static final String[] EXPECTED_ALGORITHMS_TEE = {
         "HmacSHA1",
         "HmacSHA224",
         "HmacSHA256",
         "HmacSHA384",
         "HmacSHA512",
     };
+
+    private static final String[] EXPECTED_ALGORITHMS_STRONGBOX = {
+        "HmacSHA256",
+    };
+
+    private String[] expectedAlgorithms() {
+        if (isStrongbox()) {
+            return EXPECTED_ALGORITHMS_STRONGBOX;
+        } else {
+            return EXPECTED_ALGORITHMS_TEE;
+        }
+    }
+
+    @Before
+    public void setUp() throws Exception {
+        if (isStrongbox()) {
+            TestUtils.assumeStrongBox();
+        }
+    }
 
     private static final byte[] KAT_KEY = HexEncoding.decode(
             "227b212bebd775493929ef626729a587d3f81b8e18a3ed482d403910e184479b448cfa79b62bd90595efdd"
@@ -182,6 +221,7 @@ public class MacTest extends TestCase {
 
     private static final long DAY_IN_MILLIS = TestUtils.DAY_IN_MILLIS;
 
+    @Test
     public void testAlgorithmList() {
         // Assert that Android Keystore Provider exposes exactly the expected MAC algorithms. We
         // don't care whether the algorithms are exposed via aliases, as long as the canonical names
@@ -190,11 +230,16 @@ public class MacTest extends TestCase {
         // expose at least one Service for such an algorithm, and this Service's algorithm will
         // not be in the expected set.
 
+        // Strongbox does not support HASH functions other than SHA256. But AndroidKeyStore
+        // exposes all hash functions that TEE would support. So this test would always fail
+        // on Strongbox.
+        if (isStrongbox()) return;
+
         Provider provider = Security.getProvider(EXPECTED_PROVIDER_NAME);
         Set<Service> services = provider.getServices();
         Set<String> actualAlgsLowerCase = new HashSet<String>();
         Set<String> expectedAlgsLowerCase = new HashSet<String>(
-                Arrays.asList(TestUtils.toLowerCase(EXPECTED_ALGORITHMS)));
+                Arrays.asList(TestUtils.toLowerCase(expectedAlgorithms())));
         for (Service service : services) {
             if ("Mac".equalsIgnoreCase(service.getType())) {
                 String algLowerCase = service.getAlgorithm().toLowerCase(Locale.US);
@@ -206,10 +251,11 @@ public class MacTest extends TestCase {
                 expectedAlgsLowerCase.toArray(new String[0]));
     }
 
+    @Test
     public void testAndroidKeyStoreKeysHandledByAndroidKeyStoreProvider() throws Exception {
         Provider provider = Security.getProvider(EXPECTED_PROVIDER_NAME);
         assertNotNull(provider);
-        for (String algorithm : EXPECTED_ALGORITHMS) {
+        for (String algorithm : expectedAlgorithms()) {
             try {
                 SecretKey key = importDefaultKatKey(algorithm);
 
@@ -223,10 +269,11 @@ public class MacTest extends TestCase {
         }
     }
 
+    @Test
     public void testMacGeneratedForEmptyMessage() throws Exception {
         Provider provider = Security.getProvider(EXPECTED_PROVIDER_NAME);
         assertNotNull(provider);
-        for (String algorithm : EXPECTED_ALGORITHMS) {
+        for (String algorithm : expectedAlgorithms()) {
             try {
                 SecretKey key = importDefaultKatKey(algorithm);
 
@@ -244,10 +291,11 @@ public class MacTest extends TestCase {
         }
     }
 
+    @Test
     public void testMacGeneratedByAndroidKeyStoreVerifiesByAndroidKeyStore() throws Exception {
         Provider provider = Security.getProvider(EXPECTED_PROVIDER_NAME);
         assertNotNull(provider);
-        for (String algorithm : EXPECTED_ALGORITHMS) {
+        for (String algorithm : expectedAlgorithms()) {
             try {
                 SecretKey key = importDefaultKatKey(algorithm);
 
@@ -264,11 +312,12 @@ public class MacTest extends TestCase {
         }
     }
 
+    @Test
     public void testMacGeneratedByAndroidKeyStoreVerifiesByHighestPriorityProvider()
             throws Exception {
         Provider provider = Security.getProvider(EXPECTED_PROVIDER_NAME);
         assertNotNull(provider);
-        for (String algorithm : EXPECTED_ALGORITHMS) {
+        for (String algorithm : expectedAlgorithms()) {
             try {
                 SecretKey key = getDefaultKatKey(algorithm);
                 SecretKey keystoreKey = importDefaultKatKey(algorithm);
@@ -286,11 +335,12 @@ public class MacTest extends TestCase {
         }
     }
 
+    @Test
     public void testMacGeneratedByHighestPriorityProviderVerifiesByAndroidKeyStore()
             throws Exception {
         Provider keystoreProvider = Security.getProvider(EXPECTED_PROVIDER_NAME);
         assertNotNull(keystoreProvider);
-        for (String algorithm : EXPECTED_ALGORITHMS) {
+        for (String algorithm : expectedAlgorithms()) {
             Provider signingProvider = null;
             try {
                 SecretKey key = getDefaultKatKey(algorithm);
@@ -312,10 +362,11 @@ public class MacTest extends TestCase {
         }
     }
 
+    @Test
     public void testSmallMsgKat() throws Exception {
         byte[] message = SHORT_MSG_KAT_MESSAGE;
 
-        for (String algorithm : EXPECTED_ALGORITHMS) {
+        for (String algorithm : expectedAlgorithms()) {
             for (KatVector testVector : SHORT_MSG_KAT_MACS.get(algorithm)) {
                 byte[] keyBytes = testVector.key;
                 try {
@@ -347,10 +398,11 @@ public class MacTest extends TestCase {
         }
     }
 
+    @Test
     public void testLargeMsgKat() throws Exception {
         byte[] message = TestUtils.generateLargeKatMsg(LONG_MSG_KAT_SEED, LONG_MSG_KAT_SIZE_BYTES);
 
-        for (String algorithm : EXPECTED_ALGORITHMS) {
+        for (String algorithm : expectedAlgorithms()) {
             try {
                 SecretKey key = importDefaultKatKey(algorithm);
 
@@ -367,11 +419,12 @@ public class MacTest extends TestCase {
         }
     }
 
+    @Test
     public void testInitFailsWhenNotAuthorizedToSign() throws Exception {
         int badPurposes = KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT
                 | KeyProperties.PURPOSE_VERIFY;
 
-        for (String algorithm : EXPECTED_ALGORITHMS) {
+        for (String algorithm : expectedAlgorithms()) {
             try {
                 KeyProtection good = getWorkingImportParams(algorithm);
                 assertInitSucceeds(algorithm, good);
@@ -383,23 +436,34 @@ public class MacTest extends TestCase {
         }
     }
 
+    @Test
     public void testInitFailsWhenDigestNotAuthorized() throws Exception {
-        for (String algorithm : EXPECTED_ALGORITHMS) {
-            try {
-                KeyProtection good = getWorkingImportParams(algorithm);
-                assertInitSucceeds(algorithm, good);
+        // TEE algorithms are used here even if Strongbox is tested because
+        // the outer loop iterates through algorithms that are not to be supported
+        // by the imported key. This may include algorithms that are not even supported
+        // the implementation itself. Also Strongbox only supports a single algorithm,
+        // so the test below would test an empty set if expectedAlgorithms() was used
+        // for outer loop.
+        for (String badRequestedAlgorithm: EXPECTED_ALGORITHMS_TEE) {
+            for (String algorithm : expectedAlgorithms()) {
+                if (badRequestedAlgorithm.equals(algorithm)) {
+                    continue;
+                }
+                try {
+                    KeyProtection good = getWorkingImportParams(algorithm);
+                    assertInitSucceeds(algorithm, good);
 
-                String badKeyAlgorithm = ("HmacSHA256".equalsIgnoreCase(algorithm))
-                        ? "HmacSHA384" : "HmacSHA256";
-                assertInitThrowsInvalidKeyException(algorithm, badKeyAlgorithm, good);
-            } catch (Throwable e) {
-                throw new RuntimeException("Failed for " + algorithm, e);
+                    assertInitThrowsInvalidKeyException(badRequestedAlgorithm, algorithm, good);
+                } catch (Throwable e) {
+                    throw new RuntimeException("Failed for " + algorithm, e);
+                }
             }
         }
     }
 
+    @Test
     public void testInitFailsWhenKeyNotYetValid() throws Exception {
-        for (String algorithm : EXPECTED_ALGORITHMS) {
+        for (String algorithm : expectedAlgorithms()) {
             try {
                 KeyProtection good = TestUtils.buildUpon(getWorkingImportParams(algorithm))
                         .setKeyValidityStart(new Date(System.currentTimeMillis() - DAY_IN_MILLIS))
@@ -415,8 +479,9 @@ public class MacTest extends TestCase {
         }
     }
 
+    @Test
     public void testInitFailsWhenKeyNoLongerValidForOrigination() throws Exception {
-        for (String algorithm : EXPECTED_ALGORITHMS) {
+        for (String algorithm : expectedAlgorithms()) {
             try {
                 KeyProtection good = TestUtils.buildUpon(getWorkingImportParams(algorithm))
                         .setKeyValidityForOriginationEnd(
@@ -435,12 +500,14 @@ public class MacTest extends TestCase {
         }
     }
 
+    @Test
     public void testInitIgnoresThatKeyNoLongerValidForConsumption() throws Exception {
-        for (String algorithm : EXPECTED_ALGORITHMS) {
+        for (String algorithm : expectedAlgorithms()) {
             try {
                 KeyProtection good = TestUtils.buildUpon(getWorkingImportParams(algorithm))
                         .setKeyValidityForConsumptionEnd(
                                 new Date(System.currentTimeMillis() + DAY_IN_MILLIS))
+                        .setIsStrongBoxBacked(isStrongbox())
                         .build();
                 assertInitSucceeds(algorithm, good);
 
@@ -588,9 +655,9 @@ public class MacTest extends TestCase {
                 keyProtection).getKeystoreBackedSecretKey();
     }
 
-    private static KeyProtection getWorkingImportParams(
+    private KeyProtection getWorkingImportParams(
             @SuppressWarnings("unused") String algorithm) {
-        return new KeyProtection.Builder(KeyProperties.PURPOSE_SIGN).build();
+        return new KeyProtection.Builder(KeyProperties.PURPOSE_SIGN).setIsStrongBoxBacked(isStrongbox()).build();
     }
 
     private static class KatVector {

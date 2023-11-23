@@ -186,6 +186,16 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
                         new Integer(CameraMetadata.CONTROL_CAPTURE_INTENT_PREVIEW));
                 p.recycle();
 
+                // Check consistency between parcel write and read by stacking 2
+                // CaptureRequest objects when writing and reading.
+                p = Parcel.obtain();
+                captureRequestOriginal.writeToParcel(p, 0);
+                captureRequestOriginal.writeToParcel(p, 0);
+                p.setDataPosition(0);
+                captureRequestParcelled = CaptureRequest.CREATOR.createFromParcel(p);
+                captureRequestParcelled = CaptureRequest.CREATOR.createFromParcel(p);
+                p.recycle();
+
                 // Check various invalid cases
                 p = Parcel.obtain();
                 p.writeInt(-1);

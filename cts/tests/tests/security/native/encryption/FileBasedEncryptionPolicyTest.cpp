@@ -14,7 +14,12 @@
  * limitations under the License.
  */
 
+#include <android-base/properties.h>
+#include <android-base/unique_fd.h>
+#include <cutils/properties.h>
 #include <fcntl.h>
+#include <fscrypt/fscrypt.h>
+#include <gtest/gtest.h>
 #include <linux/fscrypt.h>
 #include <setjmp.h>
 #include <signal.h>
@@ -22,20 +27,11 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-#include <android-base/unique_fd.h>
-#include <cutils/properties.h>
-#include <gtest/gtest.h>
-
 #include "utils.h"
 
 // Non-upstream encryption modes that are used on some devices.
 #define FSCRYPT_MODE_AES_256_HEH 126
 #define FSCRYPT_MODE_PRIVATE 127
-
-// The relevant Android API levels
-#define Q_API_LEVEL 29
-#define R_API_LEVEL 30
-#define S_API_LEVEL 31
 
 #ifdef __arm__
 // For ARM32, assemble the 'aese.8' instruction as an .inst, since otherwise
@@ -162,9 +158,15 @@ static void validateEncryptionModes(int contents_mode, int filenames_mode,
 // Ideally we'd check whether /data is on eMMC, but that is hard to do from a
 // CTS test.  To keep things simple we just check whether the system knows about
 // at least one eMMC device.
-static bool usingEmmcStorage() {
+//
+// virtio devices may provide inline encryption support that is backed by eMMC
+// inline encryption on the host, thus inheriting the DUN size limitation.  So
+// virtio devices must be allowed here too.  TODO(b/207390665): check the
+// maximum DUN size directly instead.
+static bool mightBeUsingEmmcStorage() {
     struct stat stbuf;
-    return lstat("/sys/class/block/mmcblk0", &stbuf) == 0;
+    return lstat("/sys/class/block/mmcblk0", &stbuf) == 0 ||
+            lstat("/sys/class/block/vda", &stbuf) == 0;
 }
 
 // CDD 9.9.3/C-1-15: must not reuse IVs for file contents encryption except when
@@ -173,9 +175,10 @@ static bool usingEmmcStorage() {
 // likely case where this requirement wouldn't be met is a misconfiguration
 // where FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32 ("emmc_optimized" in the fstab) is
 // used on a non-eMMC based device.  CTS can test for that, so we do so below.
-static void validateEncryptionFlags(int flags) {
+static void validateEncryptionFlags(int flags, bool is_adoptable_storage) {
     if (flags & FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32) {
-        EXPECT_TRUE(usingEmmcStorage());
+        EXPECT_TRUE(mightBeUsingEmmcStorage());
+        EXPECT_FALSE(is_adoptable_storage);
     }
 }
 
@@ -186,14 +189,53 @@ static void validateEncryptionFlags(int flags) {
 // way to configure different directories to use different algorithms...
 #define DIR_TO_CHECK "/data/local/tmp/"
 
-// Test that the device is using appropriate encryption algorithms for
-// file-based encryption.  If this test fails, you should ensure the device's
-// fstab has the correct fileencryption= option for the userdata partition.  See
+static std::string loggedGetProperty(const std::string &name, const std::string &default_value) {
+    auto value = android::base::GetProperty(name, "");
+    if (value == "" && default_value != "") {
+        GTEST_LOG_(INFO) << name << "=\"\" [defaults to \"" << default_value << "\"]";
+        return default_value;
+    }
+    GTEST_LOG_(INFO) << name << "=\"" << value << "\"";
+    return value;
+}
+
+static void validateAdoptableStorageSettings(int first_api_level) {
+    GTEST_LOG_(INFO) << "Validating FBE settings for adoptable storage";
+
+    // Determine the options string being used.  This matches the logic in vold.
+    auto contents_mode = loggedGetProperty("ro.crypto.volume.contents_mode", "");
+    auto filenames_mode =
+            loggedGetProperty("ro.crypto.volume.filenames_mode",
+                              first_api_level > __ANDROID_API_Q__ ? "" : "aes-256-heh");
+    auto options_string =
+            loggedGetProperty("ro.crypto.volume.options", contents_mode + ":" + filenames_mode);
+
+    // Parse the options string.
+    android::fscrypt::EncryptionOptions options;
+    ASSERT_TRUE(android::fscrypt::ParseOptions(options_string, &options));
+
+    // Log the full options for debugging purposes.
+    std::string options_string_full;
+    ASSERT_TRUE(android::fscrypt::OptionsToString(options, &options_string_full));
+    GTEST_LOG_(INFO) << "options_string_full=\"" << options_string_full << "\"";
+
+    // Validate the encryption options.
+    if (first_api_level > __ANDROID_API_Q__) {
+        // CDD 9.9.3/C-1-13 and 9.9.3/C-1-14, same as internal storage.
+        EXPECT_EQ(2, options.version);
+    }
+    validateEncryptionModes(options.contents_mode, options.filenames_mode, options.version == 1);
+    validateEncryptionFlags(options.flags, true);
+}
+
+// Test that the device is using appropriate settings for file-based encryption.
+// If this test fails, you should ensure that the device's fstab has the correct
+// fileencryption= option for the userdata partition and that the ro.crypto
+// system properties have been set to the correct values.  See
 // https://source.android.com/security/encryption/file-based.html
 TEST(FileBasedEncryptionPolicyTest, allowedPolicy) {
     int first_api_level = getFirstApiLevel();
     int vendor_api_level = getVendorApiLevel();
-    char crypto_type[PROPERTY_VALUE_MAX];
     struct fscrypt_get_policy_ex_arg arg;
     int res;
     int contents_mode;
@@ -201,13 +243,7 @@ TEST(FileBasedEncryptionPolicyTest, allowedPolicy) {
     int flags;
     bool allow_legacy_modes = false;
 
-    android::base::unique_fd fd(open(DIR_TO_CHECK, O_RDONLY | O_CLOEXEC));
-    if (fd < 0) {
-        FAIL() << "Failed to open " DIR_TO_CHECK ": " << strerror(errno);
-    }
-
-    property_get("ro.crypto.type", crypto_type, "");
-    GTEST_LOG_(INFO) << "ro.crypto.type is '" << crypto_type << "'";
+    std::string crypto_type = loggedGetProperty("ro.crypto.type", "");
     GTEST_LOG_(INFO) << "First API level is " << first_api_level;
     GTEST_LOG_(INFO) << "Vendor API level is " << vendor_api_level;
 
@@ -215,11 +251,18 @@ TEST(FileBasedEncryptionPolicyTest, allowedPolicy) {
     // SC or later.
     int min_api_level = (first_api_level < vendor_api_level) ? first_api_level
                                                              : vendor_api_level;
-    if (min_api_level >= S_API_LEVEL &&
-       !deviceSupportsFeature("android.hardware.security.model.compatible")) {
+    if (min_api_level >= __ANDROID_API_S__ &&
+        !deviceSupportsFeature("android.hardware.security.model.compatible")) {
         GTEST_SKIP()
             << "Skipping test: FEATURE_SECURITY_MODEL_COMPATIBLE missing.";
         return;
+    }
+
+    GTEST_LOG_(INFO) << "Validating FBE settings for internal storage";
+
+    android::base::unique_fd fd(open(DIR_TO_CHECK, O_RDONLY | O_CLOEXEC));
+    if (fd < 0) {
+        FAIL() << "Failed to open " DIR_TO_CHECK ": " << strerror(errno);
     }
 
     // Note: SELinux policy allows the shell domain to use these ioctls, but not
@@ -240,12 +283,12 @@ TEST(FileBasedEncryptionPolicyTest, allowedPolicy) {
 
             // Starting with Android 10, file-based encryption is required on
             // new devices [CDD 9.9.2/C-0-3].
-            if (first_api_level < Q_API_LEVEL) {
+            if (first_api_level < __ANDROID_API_Q__) {
                 GTEST_LOG_(INFO)
                         << "Exempt from file-based encryption due to old starting API level";
                 return;
             }
-            if (strcmp(crypto_type, "managed") == 0) {
+            if (crypto_type == "managed") {
                 // Android is running in a virtualized environment and the file system is encrypted
                 // by the host system.
                 GTEST_LOG_(INFO) << "Exempt from file-based encryption because the file system is "
@@ -272,9 +315,9 @@ TEST(FileBasedEncryptionPolicyTest, allowedPolicy) {
             // never be never reused for different cryptographic purposes
             // [CDD 9.9.3/C-1-14].  Effectively, these requirements mean that
             // the fscrypt policy version must not be v1.  If this part of the
-            // test fails, make sure the device's fstab has something like
-            // "fileencryption=aes-256-xts:aes-256-cts:v2".
-            if (first_api_level < R_API_LEVEL) {
+            // test fails, make sure the device's fstab doesn't contain the "v1"
+            // flag in the argument to the fileencryption option.
+            if (first_api_level < __ANDROID_API_R__) {
                 GTEST_LOG_(INFO) << "Exempt from non-reversible FBE key derivation due to old "
                                     "starting API level";
                 // On these old devices we also allow the use of some custom
@@ -299,6 +342,7 @@ TEST(FileBasedEncryptionPolicyTest, allowedPolicy) {
     GTEST_LOG_(INFO) << "Filenames encryption mode: " << filenames_mode;
 
     validateEncryptionModes(contents_mode, filenames_mode, allow_legacy_modes);
+    validateEncryptionFlags(flags, false);
 
-    validateEncryptionFlags(flags);
+    validateAdoptableStorageSettings(first_api_level);
 }

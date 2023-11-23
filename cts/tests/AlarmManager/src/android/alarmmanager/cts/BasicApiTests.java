@@ -24,7 +24,9 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 
+import android.Manifest;
 import android.alarmmanager.util.AlarmManagerDeviceConfigHelper;
+import android.alarmmanager.util.Utils;
 import android.app.AlarmManager;
 import android.app.AlarmManager.AlarmClockInfo;
 import android.app.PendingIntent;
@@ -120,14 +122,19 @@ public class BasicApiTests {
                 .with("min_window", 0L)
                 .with("priority_alarm_delay", PRIORITY_ALARM_DELAY)
                 .commitAndAwaitPropagation();
+        Utils.enableChangeForSelf(AlarmManager.ENABLE_USE_EXACT_ALARM);
     }
 
     @After
     public void tearDown() throws Exception {
+        mAm.cancel(mMockAlarmReceiver);
+        mAm.cancel(mMockAlarmReceiver2);
+
         mDeviceConfigHelper.restoreAll();
         mContext.unregisterReceiver(mMockAlarmReceiver);
         mContext.unregisterReceiver(mMockAlarmReceiver2);
         toggleIdleMode(false);
+        Utils.resetChange(AlarmManager.ENABLE_USE_EXACT_ALARM, mContext.getOpPackageName());
     }
 
     @Test
@@ -241,7 +248,8 @@ public class BasicApiTests {
         SystemUtil.runWithShellPermissionIdentity(
                 () -> mAm.setExact(AlarmManager.ELAPSED_REALTIME_WAKEUP,
                         SystemClock.elapsedRealtime() + futurityMs, "test-tag", r -> r.run(),
-                        new WorkSource(myUid), mMockAlarmReceiver));
+                        new WorkSource(myUid), mMockAlarmReceiver),
+                Manifest.permission.UPDATE_DEVICE_STATS);
 
         Thread.sleep(futurityMs);
         PollingCheck.waitFor(2000, mMockAlarmReceiver::isAlarmed,

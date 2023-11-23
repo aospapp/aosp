@@ -26,12 +26,11 @@ android_test {
         "cts",
         "general-tests",
     ],
-    // Ideally the following should be uncommented but unfortunately due to
-    // limitations in the build that causes build failures due to duplicate copy
-    // rules being generated. In the meantime it is necessary to build
-    // CtsHiddenApiBlocklistCurrentApiTestCases before running this test to
-    // pick up any changes to CtsHiddenApiBlocklistApiDynamicConfig.dynamic.
-    // data: [
-    //     ":CtsHiddenApiBlocklistApiDynamicConfig",
-    // ],
+
+    // Ensure that the default CtsHiddenApiBlocklistApiDynamicConfig provided for
+    // this test does not collide with the copy provided for other tests.
+    per_testcase_directory: true,
+    data: [
+        ":CtsHiddenApiBlocklistApiDynamicConfig",
+    ],
 }

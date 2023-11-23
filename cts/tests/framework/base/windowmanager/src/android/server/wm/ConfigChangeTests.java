@@ -40,7 +40,10 @@ import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
+import android.app.Activity;
 import android.content.ComponentName;
+import android.content.res.Configuration;
+import android.graphics.Rect;
 import android.os.Bundle;
 import android.platform.test.annotations.Presubmit;
 import android.server.wm.CommandSession.ActivityCallback;
@@ -313,5 +316,37 @@ public class ConfigChangeTests extends ActivityManagerTestBase {
                 () -> mAm.scheduleApplicationInfoChanged(packages,
                         android.os.Process.myUserHandle().getIdentifier())
         );
+    }
+
+    /**
+     * Verifies if Activity receives {@link Activity#onConfigurationChanged(Configuration)} even if
+     * the size change is small.
+     */
+    @Test
+    public void testResizeWithoutCrossingSizeBucket() {
+        assumeTrue(supportsSplitScreenMultiWindow());
+
+        launchActivity(NO_RELAUNCH_ACTIVITY);
+
+        waitAndAssertResumedActivity(NO_RELAUNCH_ACTIVITY, "Activity must be resumed");
+        final int taskId = mWmState.getTaskByActivity(NO_RELAUNCH_ACTIVITY).mTaskId;
+
+        separateTestJournal();
+        mTaskOrganizer.putTaskInSplitPrimary(taskId);
+
+        // It is expected a config change callback because the Activity goes to split mode.
+        assertRelaunchOrConfigChanged(NO_RELAUNCH_ACTIVITY, 0 /* numRelaunch */,
+                1 /* numConfigChange */);
+
+        // Resize task a little and verify if the Activity still receive config changes.
+        separateTestJournal();
+        final Rect taskBounds = mTaskOrganizer.getPrimaryTaskBounds();
+        taskBounds.set(taskBounds.left, taskBounds.top, taskBounds.right, taskBounds.bottom + 10);
+        mTaskOrganizer.setRootPrimaryTaskBounds(taskBounds);
+
+        mWmState.waitForValidState(NO_RELAUNCH_ACTIVITY);
+
+        assertRelaunchOrConfigChanged(NO_RELAUNCH_ACTIVITY, 0 /* numRelaunch */,
+                1 /* numConfigChange */);
     }
 }

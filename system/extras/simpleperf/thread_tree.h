@@ -138,14 +138,15 @@ class ThreadTree {
   void Update(const Record& record);
 
   std::vector<Dso*> GetAllDsos() const;
+  Dso* FindUserDsoOrNew(const std::string& filename, uint64_t start_addr = 0,
+                        DsoType dso_type = DSO_ELF_FILE);
 
  private:
   ThreadEntry* CreateThread(int pid, int tid);
   Dso* FindKernelDsoOrNew();
   Dso* FindKernelModuleDsoOrNew(const std::string& filename, uint64_t memory_start,
                                 uint64_t memory_end);
-  Dso* FindUserDsoOrNew(const std::string& filename, uint64_t start_addr = 0,
-                        DsoType dso_type = DSO_ELF_FILE);
+
   const MapEntry* AllocateMap(const MapEntry& entry);
   void InsertMap(MapSet& maps, const MapEntry& entry);
 

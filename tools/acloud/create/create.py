@@ -22,6 +22,7 @@ image artifacts.
 
 from __future__ import print_function
 
+import logging
 import os
 import subprocess
 import sys
@@ -32,6 +33,7 @@ from acloud.create import cheeps_remote_image_remote_instance
 from acloud.create import gce_local_image_remote_instance
 from acloud.create import gce_remote_image_remote_instance
 from acloud.create import goldfish_local_image_local_instance
+from acloud.create import goldfish_remote_image_remote_host
 from acloud.create import goldfish_remote_image_remote_instance
 from acloud.create import local_image_local_instance
 from acloud.create import local_image_remote_instance
@@ -45,6 +47,8 @@ from acloud.setup import setup
 from acloud.setup import gcp_setup_runner
 from acloud.setup import host_setup_runner
 
+
+logger = logging.getLogger(__name__)
 
 _MAKE_CMD = "build/soong/soong_ui.bash"
 _MAKE_ARG = "--make-mode"
@@ -77,6 +81,8 @@ _CREATOR_CLASS_DICT = {
         goldfish_remote_image_remote_instance.GoldfishRemoteImageRemoteInstance,
     (constants.TYPE_GF, constants.IMAGE_SRC_LOCAL, constants.INSTANCE_TYPE_LOCAL):
         goldfish_local_image_local_instance.GoldfishLocalImageLocalInstance,
+    (constants.TYPE_GF, constants.IMAGE_SRC_REMOTE, constants.INSTANCE_TYPE_HOST):
+        goldfish_remote_image_remote_host.GoldfishRemoteImageRemoteHost,
     # FVP types
     (constants.TYPE_FVP, constants.IMAGE_SRC_LOCAL, constants.INSTANCE_TYPE_REMOTE):
         local_image_remote_instance.LocalImageRemoteInstance,
@@ -171,11 +177,13 @@ def _CheckForSetup(args):
     args.host_base = False
     args.force = False
     args.update_config = None
+    args.host_local_ca = False
     # Remote image/instance requires the GCP config setup.
     if args.local_instance is None or args.local_image is None:
         gcp_setup = gcp_setup_runner.GcpTaskRunner(args.config_file)
         if gcp_setup.ShouldRun():
             args.gcp_init = True
+            logger.debug("Auto-detect to setup GCP config.")
 
     # Local instance requires host to be setup. We'll assume that if the
     # packages were installed, then the user was added into the groups. This
@@ -187,13 +195,27 @@ def _CheckForSetup(args):
         host_pkg_setup = host_setup_runner.AvdPkgInstaller()
         if host_pkg_setup.ShouldRun():
             args.host = True
+            logger.debug("Auto-detect to install host packages.")
+
+        user_groups_setup = host_setup_runner.CuttlefishHostSetup()
+        if user_groups_setup.ShouldRun():
+            args.host = True
+            logger.debug("Auto-detect to setup user groups.")
+
+    if args.mkcert and args.autoconnect == constants.INS_KEY_WEBRTC:
+        local_ca_setup = host_setup_runner.LocalCAHostSetup()
+        if local_ca_setup.ShouldRun():
+            args.host_local_ca = True
+            logger.debug("Auto-detect to setup local CA.")
 
     # Install base packages if we haven't already.
     host_base_setup = host_setup_runner.HostBasePkgInstaller()
     if host_base_setup.ShouldRun():
         args.host_base = True
+        logger.debug("Auto-detect to install host_base packages.")
 
-    run_setup = args.force or args.gcp_init or args.host or args.host_base
+    run_setup = any([
+        args.force, args.gcp_init, args.host, args.host_base, args.host_local_ca])
 
     if run_setup:
         answer = utils.InteractWithQuestion("Missing necessary acloud setup, "

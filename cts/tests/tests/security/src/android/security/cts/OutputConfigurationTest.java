@@ -16,20 +16,27 @@
 
 package android.security.cts;
 
+import static org.junit.Assert.*;
+
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.params.OutputConfiguration;
 import android.os.Parcel;
 import android.platform.test.annotations.AsbSecurityTest;
-import android.test.AndroidTestCase;
 import android.util.Size;
 import android.view.Surface;
 import android.view.TextureView;
+import androidx.test.runner.AndroidJUnit4;
+import com.android.sts.common.util.StsExtraBusinessLogicTestCase;
+import org.junit.runner.RunWith;
+import org.junit.Test;
 
 /**
  * Verify that OutputConfiguration's fields propagate through parcel properly.
  */
-public class OutputConfigurationTest extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class OutputConfigurationTest extends StsExtraBusinessLogicTestCase {
     @AsbSecurityTest(cveBugId = 69683251)
+    @Test
     public void testSharedSurfaceOutputConfigurationBasic() throws Exception {
         SurfaceTexture outputTexture = new SurfaceTexture(/* random texture ID */ 5);
         Surface surface = new Surface(outputTexture);

@@ -65,7 +65,7 @@ public class HideOverlayWindowsTest extends ActivityManagerTestBase {
     public void setUp() throws Exception {
         super.setUp();
         mPongReceiver = new PongReceiver();
-        mContext.registerReceiver(mPongReceiver, new IntentFilter(PONG));
+        mContext.registerReceiver(mPongReceiver, new IntentFilter(PONG), Context.RECEIVER_EXPORTED);
     }
 
     @After

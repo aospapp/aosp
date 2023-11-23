@@ -19,6 +19,7 @@ package com.android.cts.packagemanager.verify.domain.device.multiuser
 import android.content.Context
 import android.os.UserManager
 import com.android.bedstead.harrier.DeviceState
+import com.android.bedstead.harrier.UserType
 import com.android.bedstead.nene.TestApis
 import com.android.bedstead.nene.users.UserReference
 import android.app.admin.RemoteDevicePolicyManager
@@ -37,7 +38,7 @@ internal fun RemoteDevicePolicyManager.setAppLinkPolicy(admin: ComponentName, al
 }
 
 internal fun DeviceState.getWorkDevicePolicyManager() =
-    profileOwner(workProfile(DeviceState.UserType.PRIMARY_USER))!!
+    profileOwner(workProfile(UserType.PRIMARY_USER))!!
             .devicePolicyManager()
 
 internal fun <T> withUserContext(user: UserReference, block: (context: Context) -> T) =

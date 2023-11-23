@@ -22,23 +22,24 @@ import static org.junit.Assert.fail;
 import com.android.tradefed.testtype.suite.TestSuiteInfo;
 import com.android.tradefed.util.AaptParser;
 import com.android.tradefed.util.AbiUtils;
+import com.android.tradefed.util.FileUtil;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.io.File;
-import java.io.FilenameFilter;
-import java.util.Arrays;
+import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Tests to validate that the build is containing usable test artifact.
@@ -81,23 +82,31 @@ public class ValidateTestsAbi {
          * and embed native libraries.
          */
         APK_EXCEPTIONS.add("CtsExtractNativeLibsAppFalse64");
+
+        /**
+         * These apks are prebuilts needed for some tests
+         */
+        APK_EXCEPTIONS.add("CtsApkVerityTestAppPrebuilt");
+        APK_EXCEPTIONS.add("CtsApkVerityTestApp2Prebuilt");
+
+        /**
+         * Data apk used by SimpleperfTestCases
+         */
+        APK_EXCEPTIONS.add("base");
     }
 
     private static final Set<String> BINARY_EXCEPTIONS = new HashSet<>();
     static {
         /**
-         * Tests that build for either 32 bit or 64 bit only.
-         */
-        BINARY_EXCEPTIONS.add("CVE-2017-0684" + "32");
-        BINARY_EXCEPTIONS.add("CVE_2019_2135" + "64");
-        BINARY_EXCEPTIONS.add("CVE-2020-0037" + "64");
-        BINARY_EXCEPTIONS.add("CVE-2020-0038" + "64");
-        BINARY_EXCEPTIONS.add("CVE-2020-0039" + "64");
-
-        /**
-         * This binary is a host side helper, so we do not need to check it.
+         * These binaries are host side helpers, so we do not need to check them.
          */
         BINARY_EXCEPTIONS.add("sepolicy-analyze");
+        BINARY_EXCEPTIONS.add("avbtool");
+        BINARY_EXCEPTIONS.add("img2simg");
+        BINARY_EXCEPTIONS.add("lpmake");
+        BINARY_EXCEPTIONS.add("lpunpack");
+        BINARY_EXCEPTIONS.add("sign_virt_apex");
+        BINARY_EXCEPTIONS.add("simg2img");
     }
 
     private static final String BINARY_EXCEPTIONS_REGEX [] = {
@@ -124,26 +133,22 @@ public class ValidateTestsAbi {
      * the two abis required and the second one will fail.
      */
     @Test
-    public void testApksAbis() {
+    public void testApksAbis() throws IOException {
         String ctsRoot = System.getProperty("CTS_ROOT");
         File testcases = new File(ctsRoot, "/android-cts/testcases/");
         if (!testcases.exists()) {
             fail(String.format("%s does not exists", testcases));
             return;
         }
-        File[] listApks = testcases.listFiles(new FilenameFilter() {
-            @Override
-            public boolean accept(File dir, String name) {
-                for (String apk : APK_EXCEPTIONS) {
-                    if (name.startsWith(apk)) {
-                        return false;
+        Set<File> listApks = FileUtil.findFilesObject(testcases, ".*\\.apk");
+        listApks.removeIf(
+                a -> {for (String apk : APK_EXCEPTIONS) {
+                    if (a.getName().startsWith(apk)) {
+                        return true;
                     }
                 }
-
-                return name.endsWith(".apk");
-            }
-        });
-        assertTrue(listApks.length > 0);
+                return false;});
+        assertTrue(listApks.size() > 0);
         int maxAbi = 0;
         Map<String, Integer> apkToAbi = new HashMap<>();
 
@@ -168,15 +173,22 @@ public class ValidateTestsAbi {
                 List<String> supportedAbiApk = result.getNativeCode();
                 Set<String> buildTarget = AbiUtils.getAbisForArch(
                         TestSuiteInfo.getInstance().getTargetArchs().get(0));
-                // first check, all the abis are supported
-                for (String abi : supportedAbiApk) {
-                    if (!buildTarget.contains(abi)) {
+                // first check, all the abis in the buildTarget are supported
+                for (String abiBT : buildTarget) {
+                    Boolean findMatch = false;
+                    for (String abiApk : supportedAbiApk) {
+                        if (abiApk.equals(abiBT)) {
+                            findMatch = true;
+                            break;
+                        }
+                    }
+                    if (!findMatch) {
                         fail(String.format("apk %s %s does not support our abis [%s]",
                                 testApk.getName(), supportedAbiApk, buildTarget));
                     }
                 }
                 apkToAbi.put(testApk.getName(), supportedAbiApk.size());
-                maxAbi = Math.max(maxAbi, supportedAbiApk.size());
+                maxAbi = Math.max(maxAbi, buildTarget.size());
             }
         }
 
@@ -196,45 +208,51 @@ public class ValidateTestsAbi {
      * If there is only one bitness, then we check that it's the right one.
      */
     @Test
-    public void testBinariesAbis() {
+    public void testBinariesAbis() throws IOException {
         String ctsRoot = System.getProperty("CTS_ROOT");
         File testcases = new File(ctsRoot, "/android-cts/testcases/");
         if (!testcases.exists()) {
             fail(String.format("%s does not exist", testcases));
             return;
         }
-        String[] listBinaries = testcases.list(new FilenameFilter() {
-            @Override
-            public boolean accept(File dir, String name) {
+        Set<File> listBinaries = FileUtil.findFilesObject(testcases, ".*");
+        listBinaries.removeIf(f -> {
+                String name = f.getName();
                 if (name.contains(".")) {
-                    return false;
+                    return true;
                 }
                 if (BINARY_EXCEPTIONS.contains(name)) {
-                    return false;
+                    return true;
                 }
                 for (String suffixException : BINARY_SUFFIX_EXCEPTIONS) {
                     if (name.endsWith(suffixException)) {
-                        return false;
+                        return true;
                     }
                 }
-                File file = new File(dir, name);
-                if (file.isDirectory()) {
-                    return false;
+                if (f.isDirectory()) {
+                    return true;
                 }
-                if (!file.canExecute()) {
-                    return false;
+                if (!f.canExecute()) {
+                    return true;
+                }
+                try {
+                    // Ignore python binaries
+                    if (FileUtil.readStringFromFile(f).startsWith("#!/usr/bin/env python")) {
+                        return true;
+                    }
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
                 }
                 for(String pattern: BINARY_EXCEPTIONS_REGEX) {
                     Matcher matcher = Pattern.compile(pattern).matcher(name);
                     if (matcher.matches()) {
-                        return false;
+                        return true;
                     }
                 }
-                return true;
-            }
+                return false;
         });
-        assertTrue(listBinaries.length > 0);
-        List<String> orderedList = Arrays.asList(listBinaries);
+        assertTrue(listBinaries.size() > 0);
+        List<String> orderedList = listBinaries.stream().map(f->f.getName()).collect(Collectors.toList());
         // we sort to have binary starting with same name, next to each other. The last two
         // characters of their name with be the bitness (32 or 64).
         Collections.sort(orderedList);

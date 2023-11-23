@@ -33,5 +33,6 @@ open class WindowMovesOutOfTop(windowName: String) : ComponentBaseTest(windowNam
         wmSubject.isAppWindowOnTop(component)
             .then()
             .isAppWindowNotOnTop(component)
+            .forAllEntries()
     }
 }

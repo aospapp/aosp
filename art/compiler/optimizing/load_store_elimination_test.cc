@@ -48,6 +48,10 @@ namespace art {
 template <typename SuperTest>
 class LoadStoreEliminationTestBase : public SuperTest, public OptimizingUnitTestHelper {
  public:
+  LoadStoreEliminationTestBase() {
+    this->use_boot_image_ = true;  // Make the Runtime creation cheaper.
+  }
+
   void SetUp() override {
     SuperTest::SetUp();
     gLogVerbosity.compiler = true;
@@ -4532,7 +4536,8 @@ TEST_F(LoadStoreEliminationTest, PartialLoadPreserved3) {
 // // DO NOT ELIMINATE
 // return obj.field;
 // EXIT
-TEST_F(LoadStoreEliminationTest, PartialLoadPreserved4) {
+// Disabled due to b/205813546.
+TEST_F(LoadStoreEliminationTest, DISABLED_PartialLoadPreserved4) {
   ScopedObjectAccess soa(Thread::Current());
   VariableSizedHandleScope vshs(soa.Self());
   CreateGraph(&vshs);
@@ -4724,7 +4729,8 @@ TEST_F(LoadStoreEliminationTest, PartialLoadPreserved5) {
 // EXIT
 // ELIMINATE
 // return obj.field
-TEST_F(LoadStoreEliminationTest, PartialLoadPreserved6) {
+// Disabled due to b/205813546.
+TEST_F(LoadStoreEliminationTest, DISABLED_PartialLoadPreserved6) {
   CreateGraph();
   AdjacencyListGraph blks(SetupFromAdjacencyList("entry",
                                                  "exit",

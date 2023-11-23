@@ -29,6 +29,7 @@
 #include <string>
 #include <vector>
 
+#include <android-base/threads.h>
 #include <crypto_utils/android_pubkey.h>
 #include <fec/ecc.h>
 #include <fec/io.h>
@@ -181,8 +182,8 @@ extern int verity_parse_header(fec_handle *f, uint64_t offset);
 /*  warnings, errors, debug output */
 #ifdef FEC_NO_KLOG
     #define __log(func, type, format, args...) \
-        fprintf(stderr, "fec: <%d> " type ": %s: " format "\n", \
-            (int)syscall(SYS_gettid), __FUNCTION__,  ##args)
+        fprintf(stderr, "fec: <%" PRIu64 "> " type ": %s: " format "\n", \
+            android::base::GetThreadId(), __FUNCTION__,  ##args)
 #else
     #include <cutils/klog.h>
 

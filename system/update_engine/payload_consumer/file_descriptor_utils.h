@@ -19,11 +19,19 @@
 
 #include <brillo/secure_blob.h>
 
+#include "update_engine/payload_consumer/extent_writer.h"
 #include "update_engine/payload_consumer/file_descriptor.h"
 #include "update_engine/update_metadata.pb.h"
 
 namespace chromeos_update_engine {
 namespace fd_utils {
+
+bool CommonHashExtents(
+    FileDescriptorPtr source,
+    const google::protobuf::RepeatedPtrField<Extent>& src_extents,
+    ExtentWriter* writer,
+    uint64_t block_size,
+    brillo::Blob* hash_out);
 
 // Copy blocks from the |source| file to the |target| file and hashes the
 // contents. The blocks to copy from the |source| to the |target| files are

@@ -135,12 +135,21 @@ cc_defaults {
     ],
 
     target: {
-        linux_glibc: {
-            cflags: [ // Sigh.
+        musl: {
+            cflags: [
+                // Sigh.
                 "-D_LARGEFILE64_SOURCE",
                 "-D_GNU_SOURCE",
                 "-DLINUX",
+            ],
+        },
+        glibc: {
+            cflags: [
                 "-D__GLIBC__",
+                // Sigh.
+                "-D_LARGEFILE64_SOURCE",
+                "-D_GNU_SOURCE",
+                "-DLINUX",
             ],
         },
         android: {
@@ -198,16 +207,13 @@ cc_library_shared {
         "luni/src/test/native/libcore_java_io_FileTest.cpp",
         "luni/src/test/native/libcore_java_lang_ThreadTest.cpp",
         "luni/src/test/native/libcore_java_nio_BufferTest.cpp",
+        "luni/src/test/native/libcore_java_time_BionicTzdbConsistencyTest.cpp",
         "luni/src/test/native/libcore_libcore_util_NativeAllocationRegistryTest.cpp",
     ],
     shared_libs: [
         "liblog",
         "libnativehelper",
     ],
-
-    strip: {
-        keep_symbols: true,
-    },
 }
 
 // Set of gtest unit tests.

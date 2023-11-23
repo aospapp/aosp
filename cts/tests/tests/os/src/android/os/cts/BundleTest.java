@@ -17,66 +17,109 @@
 package android.os.cts;
 
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertThrows;
 
+import android.content.ContentResolver;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.ParcelFileDescriptor;
 import android.os.Parcelable;
-import android.test.AndroidTestCase;
+
+import androidx.annotation.Nullable;
+import androidx.test.runner.AndroidJUnit4;
+
+
+import androidx.test.InstrumentationRegistry;
+
 import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.style.ForegroundColorSpan;
+import android.util.Log;
 import android.util.SparseArray;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.Callable;
 
-public class BundleTest extends AndroidTestCase {
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import static java.util.Collections.singletonList;
+
+@RunWith(AndroidJUnit4.class)
+public class BundleTest {
     private static final boolean BOOLEANKEYVALUE = false;
-
     private static final int INTKEYVALUE = 20;
-
     private static final String INTKEY = "intkey";
-
     private static final String BOOLEANKEY = "booleankey";
 
-    public static final String KEY = "Bruce Lee";
-
+    /** Keys should be in hash code order */
+    private static final String KEY1 = "key1";
     private static final String KEY2 = "key2";
 
     private Spannable mSpannable;
-
     private Bundle mBundle;
+    private Context mContext;
+    private ContentResolver mResolver;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-
+    @Before
+    public void setUp() throws Exception {
+        mContext = InstrumentationRegistry.getInstrumentation().getContext();
+        mResolver = mContext.getContentResolver();
         mBundle = new Bundle();
+        mBundle.setClassLoader(getClass().getClassLoader());
         mSpannable = new SpannableString("foo bar");
         mSpannable.setSpan(new ForegroundColorSpan(0x123456), 0, 3, 0);
     }
 
+    @After
+    public void tearDown() throws Exception {
+        CustomParcelable.sDeserialized = false;
+        CustomSerializable.sDeserialized = false;
+    }
+
+    @Test
     public void testBundle() {
         final Bundle b1 = new Bundle();
         assertTrue(b1.isEmpty());
-        b1.putBoolean(KEY, true);
+        b1.putBoolean(KEY1, true);
         assertFalse(b1.isEmpty());
 
         final Bundle b2 = new Bundle(b1);
-        assertTrue(b2.getBoolean(KEY));
+        assertTrue(b2.getBoolean(KEY1));
 
         new Bundle(1024);
         new Bundle(getClass().getClassLoader());
     }
 
+    @Test
     public void testEmptyStream() {
         Parcel p = Parcel.obtain();
         p.unmarshall(new byte[] {}, 0, 0);
@@ -89,9 +132,10 @@ public class BundleTest extends AndroidTestCase {
     }
 
     // first put sth into tested Bundle, it shouldn't be empty, then clear it and it should be empty
+    @Test
     public void testClear() {
         mBundle.putBoolean("android", true);
-        mBundle.putBoolean(KEY, true);
+        mBundle.putBoolean(KEY1, true);
         assertFalse(mBundle.isEmpty());
         mBundle.clear();
         assertTrue(mBundle.isEmpty());
@@ -99,6 +143,7 @@ public class BundleTest extends AndroidTestCase {
 
     // first clone the tested Bundle, then compare the original Bundle with the
     // cloned Bundle, they should equal
+    @Test
     public void testClone() {
         mBundle.putBoolean(BOOLEANKEY, BOOLEANKEYVALUE);
         mBundle.putInt(INTKEY, INTKEYVALUE);
@@ -110,53 +155,58 @@ public class BundleTest extends AndroidTestCase {
 
     // containsKey would return false if nothing has been put into the Bundle,
     // else containsKey would return true if any putXXX has been called before
+    @Test
     public void testContainsKey() {
-        assertFalse(mBundle.containsKey(KEY));
-        mBundle.putBoolean(KEY, true);
-        assertTrue(mBundle.containsKey(KEY));
+        assertFalse(mBundle.containsKey(KEY1));
+        mBundle.putBoolean(KEY1, true);
+        assertTrue(mBundle.containsKey(KEY1));
         roundtrip();
-        assertTrue(mBundle.containsKey(KEY));
+        assertTrue(mBundle.containsKey(KEY1));
     }
 
     // get would return null if nothing has been put into the Bundle,else get
     // would return the value set by putXXX
+    @Test
     public void testGet() {
-        assertNull(mBundle.get(KEY));
-        mBundle.putBoolean(KEY, true);
-        assertNotNull(mBundle.get(KEY));
+        assertNull(mBundle.get(KEY1));
+        mBundle.putBoolean(KEY1, true);
+        assertNotNull(mBundle.get(KEY1));
         roundtrip();
-        assertNotNull(mBundle.get(KEY));
+        assertNotNull(mBundle.get(KEY1));
     }
 
+    @Test
     public void testGetBoolean1() {
-        assertFalse(mBundle.getBoolean(KEY));
-        mBundle.putBoolean(KEY, true);
-        assertTrue(mBundle.getBoolean(KEY));
+        assertFalse(mBundle.getBoolean(KEY1));
+        mBundle.putBoolean(KEY1, true);
+        assertTrue(mBundle.getBoolean(KEY1));
         roundtrip();
-        assertTrue(mBundle.getBoolean(KEY));
+        assertTrue(mBundle.getBoolean(KEY1));
     }
 
+    @Test
     public void testGetBoolean2() {
-        assertTrue(mBundle.getBoolean(KEY, true));
-        mBundle.putBoolean(KEY, false);
-        assertFalse(mBundle.getBoolean(KEY, true));
+        assertTrue(mBundle.getBoolean(KEY1, true));
+        mBundle.putBoolean(KEY1, false);
+        assertFalse(mBundle.getBoolean(KEY1, true));
         roundtrip();
-        assertFalse(mBundle.getBoolean(KEY, true));
+        assertFalse(mBundle.getBoolean(KEY1, true));
     }
 
+    @Test
     public void testGetBooleanArray() {
-        assertNull(mBundle.getBooleanArray(KEY));
-        mBundle.putBooleanArray(KEY, new boolean[] {
+        assertNull(mBundle.getBooleanArray(KEY1));
+        mBundle.putBooleanArray(KEY1, new boolean[] {
                 true, false, true
         });
-        boolean[] booleanArray = mBundle.getBooleanArray(KEY);
+        boolean[] booleanArray = mBundle.getBooleanArray(KEY1);
         assertNotNull(booleanArray);
         assertEquals(3, booleanArray.length);
         assertEquals(true, booleanArray[0]);
         assertEquals(false, booleanArray[1]);
         assertEquals(true, booleanArray[2]);
         roundtrip();
-        booleanArray = mBundle.getBooleanArray(KEY);
+        booleanArray = mBundle.getBooleanArray(KEY1);
         assertNotNull(booleanArray);
         assertEquals(3, booleanArray.length);
         assertEquals(true, booleanArray[0]);
@@ -164,49 +214,53 @@ public class BundleTest extends AndroidTestCase {
         assertEquals(true, booleanArray[2]);
     }
 
+    @Test
     public void testGetBundle() {
-        assertNull(mBundle.getBundle(KEY));
+        assertNull(mBundle.getBundle(KEY1));
         final Bundle bundle = new Bundle();
-        mBundle.putBundle(KEY, bundle);
-        assertTrue(bundle.equals(mBundle.getBundle(KEY)));
+        mBundle.putBundle(KEY1, bundle);
+        assertTrue(bundle.equals(mBundle.getBundle(KEY1)));
         roundtrip();
-        assertBundleEquals(bundle, mBundle.getBundle(KEY));
+        assertBundleEquals(bundle, mBundle.getBundle(KEY1));
     }
 
+    @Test
     public void testGetByte1() {
         final byte b = 7;
 
-        assertEquals(0, mBundle.getByte(KEY));
-        mBundle.putByte(KEY, b);
-        assertEquals(b, mBundle.getByte(KEY));
+        assertEquals(0, mBundle.getByte(KEY1));
+        mBundle.putByte(KEY1, b);
+        assertEquals(b, mBundle.getByte(KEY1));
         roundtrip();
-        assertEquals(b, mBundle.getByte(KEY));
+        assertEquals(b, mBundle.getByte(KEY1));
     }
 
+    @Test
     public void testGetByte2() {
         final byte b1 = 6;
         final byte b2 = 7;
 
-        assertEquals((Byte)b1, mBundle.getByte(KEY, b1));
-        mBundle.putByte(KEY, b2);
-        assertEquals((Byte)b2, mBundle.getByte(KEY, b1));
+        assertEquals((Byte)b1, mBundle.getByte(KEY1, b1));
+        mBundle.putByte(KEY1, b2);
+        assertEquals((Byte)b2, mBundle.getByte(KEY1, b1));
         roundtrip();
-        assertEquals((Byte)b2, mBundle.getByte(KEY, b1));
+        assertEquals((Byte)b2, mBundle.getByte(KEY1, b1));
     }
 
+    @Test
     public void testGetByteArray() {
-        assertNull(mBundle.getByteArray(KEY));
-        mBundle.putByteArray(KEY, new byte[] {
+        assertNull(mBundle.getByteArray(KEY1));
+        mBundle.putByteArray(KEY1, new byte[] {
                 1, 2, 3
         });
-        byte[] byteArray = mBundle.getByteArray(KEY);
+        byte[] byteArray = mBundle.getByteArray(KEY1);
         assertNotNull(byteArray);
         assertEquals(3, byteArray.length);
         assertEquals(1, byteArray[0]);
         assertEquals(2, byteArray[1]);
         assertEquals(3, byteArray[2]);
         roundtrip();
-        byteArray = mBundle.getByteArray(KEY);
+        byteArray = mBundle.getByteArray(KEY1);
         assertNotNull(byteArray);
         assertEquals(3, byteArray.length);
         assertEquals(1, byteArray[0]);
@@ -214,68 +268,73 @@ public class BundleTest extends AndroidTestCase {
         assertEquals(3, byteArray[2]);
     }
 
+    @Test
     public void testGetChar1() {
         final char c = 'l';
 
-        assertEquals((char)0, mBundle.getChar(KEY));
-        mBundle.putChar(KEY, c);
-        assertEquals(c, mBundle.getChar(KEY));
+        assertEquals((char)0, mBundle.getChar(KEY1));
+        mBundle.putChar(KEY1, c);
+        assertEquals(c, mBundle.getChar(KEY1));
         roundtrip();
-        assertEquals(c, mBundle.getChar(KEY));
+        assertEquals(c, mBundle.getChar(KEY1));
     }
 
+    @Test
     public void testGetChar2() {
         final char c1 = 'l';
         final char c2 = 'i';
 
-        assertEquals(c1, mBundle.getChar(KEY, c1));
-        mBundle.putChar(KEY, c2);
-        assertEquals(c2, mBundle.getChar(KEY, c1));
+        assertEquals(c1, mBundle.getChar(KEY1, c1));
+        mBundle.putChar(KEY1, c2);
+        assertEquals(c2, mBundle.getChar(KEY1, c1));
         roundtrip();
-        assertEquals(c2, mBundle.getChar(KEY, c1));
+        assertEquals(c2, mBundle.getChar(KEY1, c1));
     }
 
+    @Test
     public void testGetCharArray() {
-        assertNull(mBundle.getCharArray(KEY));
-        mBundle.putCharArray(KEY, new char[] {
+        assertNull(mBundle.getCharArray(KEY1));
+        mBundle.putCharArray(KEY1, new char[] {
                 'h', 'i'
         });
-        char[] charArray = mBundle.getCharArray(KEY);
+        char[] charArray = mBundle.getCharArray(KEY1);
         assertEquals('h', charArray[0]);
         assertEquals('i', charArray[1]);
         roundtrip();
-        charArray = mBundle.getCharArray(KEY);
+        charArray = mBundle.getCharArray(KEY1);
         assertEquals('h', charArray[0]);
         assertEquals('i', charArray[1]);
     }
 
+    @Test
     public void testGetCharSequence() {
         final CharSequence cS = "Bruce Lee";
 
-        assertNull(mBundle.getCharSequence(KEY));
+        assertNull(mBundle.getCharSequence(KEY1));
         assertNull(mBundle.getCharSequence(KEY2));
-        mBundle.putCharSequence(KEY, cS);
+        mBundle.putCharSequence(KEY1, cS);
         mBundle.putCharSequence(KEY2, mSpannable);
-        assertEquals(cS, mBundle.getCharSequence(KEY));
+        assertEquals(cS, mBundle.getCharSequence(KEY1));
         assertSpannableEquals(mSpannable, mBundle.getCharSequence(KEY2));
         roundtrip();
-        assertEquals(cS, mBundle.getCharSequence(KEY));
+        assertEquals(cS, mBundle.getCharSequence(KEY1));
         assertSpannableEquals(mSpannable, mBundle.getCharSequence(KEY2));
     }
 
+    @Test
     public void testGetCharSequenceArray() {
-        assertNull(mBundle.getCharSequenceArray(KEY));
-        mBundle.putCharSequenceArray(KEY, new CharSequence[] {
+        assertNull(mBundle.getCharSequenceArray(KEY1));
+        mBundle.putCharSequenceArray(KEY1, new CharSequence[] {
                 "one", "two", "three", mSpannable
         });
-        CharSequence[] ret = mBundle.getCharSequenceArray(KEY);
+        CharSequence[] ret = mBundle.getCharSequenceArray(KEY1);
         assertEquals(4, ret.length);
         assertEquals("one", ret[0]);
         assertEquals("two", ret[1]);
         assertEquals("three", ret[2]);
         assertSpannableEquals(mSpannable, ret[3]);
         roundtrip();
-        ret = mBundle.getCharSequenceArray(KEY);
+        ret = mBundle.getCharSequenceArray(KEY1);
         assertEquals(4, ret.length);
         assertEquals("one", ret[0]);
         assertEquals("two", ret[1]);
@@ -283,23 +342,24 @@ public class BundleTest extends AndroidTestCase {
         assertSpannableEquals(mSpannable, ret[3]);
     }
 
+    @Test
     public void testGetCharSequenceArrayList() {
-        assertNull(mBundle.getCharSequenceArrayList(KEY));
+        assertNull(mBundle.getCharSequenceArrayList(KEY1));
         final ArrayList<CharSequence> list = new ArrayList<CharSequence>();
         list.add("one");
         list.add("two");
         list.add("three");
         list.add(mSpannable);
-        mBundle.putCharSequenceArrayList(KEY, list);
+        mBundle.putCharSequenceArrayList(KEY1, list);
         roundtrip();
-        ArrayList<CharSequence> ret = mBundle.getCharSequenceArrayList(KEY);
+        ArrayList<CharSequence> ret = mBundle.getCharSequenceArrayList(KEY1);
         assertEquals(4, ret.size());
         assertEquals("one", ret.get(0));
         assertEquals("two", ret.get(1));
         assertEquals("three", ret.get(2));
         assertSpannableEquals(mSpannable, ret.get(3));
         roundtrip();
-        ret = mBundle.getCharSequenceArrayList(KEY);
+        ret = mBundle.getCharSequenceArrayList(KEY1);
         assertEquals(4, ret.size());
         assertEquals("one", ret.get(0));
         assertEquals("two", ret.get(1));
@@ -307,356 +367,581 @@ public class BundleTest extends AndroidTestCase {
         assertSpannableEquals(mSpannable, ret.get(3));
     }
 
+    @Test
     public void testGetDouble1() {
         final double d = 10.07;
 
-        assertEquals(0.0, mBundle.getDouble(KEY));
-        mBundle.putDouble(KEY, d);
-        assertEquals(d, mBundle.getDouble(KEY));
+        assertEquals(0.0, mBundle.getDouble(KEY1), 0.0);
+        mBundle.putDouble(KEY1, d);
+        assertEquals(d, mBundle.getDouble(KEY1), 0.0);
         roundtrip();
-        assertEquals(d, mBundle.getDouble(KEY));
+        assertEquals(d, mBundle.getDouble(KEY1), 0.0);
     }
 
+    @Test
     public void testGetDouble2() {
         final double d1 = 10.06;
         final double d2 = 10.07;
 
-        assertEquals(d1, mBundle.getDouble(KEY, d1));
-        mBundle.putDouble(KEY, d2);
-        assertEquals(d2, mBundle.getDouble(KEY, d1));
+        assertEquals(d1, mBundle.getDouble(KEY1, d1), 0.0);
+        mBundle.putDouble(KEY1, d2);
+        assertEquals(d2, mBundle.getDouble(KEY1, d1), 0.0);
         roundtrip();
-        assertEquals(d2, mBundle.getDouble(KEY, d1));
+        assertEquals(d2, mBundle.getDouble(KEY1, d1), 0.0);
     }
 
+    @Test
     public void testGetDoubleArray() {
-        assertNull(mBundle.getDoubleArray(KEY));
-        mBundle.putDoubleArray(KEY, new double[] {
+        assertNull(mBundle.getDoubleArray(KEY1));
+        mBundle.putDoubleArray(KEY1, new double[] {
                 10.06, 10.07
         });
-        double[] doubleArray = mBundle.getDoubleArray(KEY);
-        assertEquals(10.06, doubleArray[0]);
-        assertEquals(10.07, doubleArray[1]);
+        double[] doubleArray = mBundle.getDoubleArray(KEY1);
+        assertEquals(10.06, doubleArray[0], 0.0);
+        assertEquals(10.07, doubleArray[1], 0.0);
         roundtrip();
-        doubleArray = mBundle.getDoubleArray(KEY);
-        assertEquals(10.06, doubleArray[0]);
-        assertEquals(10.07, doubleArray[1]);
+        doubleArray = mBundle.getDoubleArray(KEY1);
+        assertEquals(10.06, doubleArray[0], 0.0);
+        assertEquals(10.07, doubleArray[1], 0.0);
     }
 
+    @Test
     public void testGetFloat1() {
         final float f = 10.07f;
 
-        assertEquals(0.0f, mBundle.getFloat(KEY));
-        mBundle.putFloat(KEY, f);
-        assertEquals(f, mBundle.getFloat(KEY));
+        assertEquals(0.0f, mBundle.getFloat(KEY1), 0.0f);
+        mBundle.putFloat(KEY1, f);
+        assertEquals(f, mBundle.getFloat(KEY1), 0.0f);
         roundtrip();
-        assertEquals(f, mBundle.getFloat(KEY));
+        assertEquals(f, mBundle.getFloat(KEY1), 0.0f);
     }
 
+    @Test
     public void testGetFloat2() {
         final float f1 = 10.06f;
         final float f2 = 10.07f;
 
-        assertEquals(f1, mBundle.getFloat(KEY, f1));
-        mBundle.putFloat(KEY, f2);
-        assertEquals(f2, mBundle.getFloat(KEY, f1));
+        assertEquals(f1, mBundle.getFloat(KEY1, f1), 0.0f);
+        mBundle.putFloat(KEY1, f2);
+        assertEquals(f2, mBundle.getFloat(KEY1, f1), 0.0f);
         roundtrip();
-        assertEquals(f2, mBundle.getFloat(KEY, f1));
+        assertEquals(f2, mBundle.getFloat(KEY1, f1), 0.0f);
     }
 
+    @Test
     public void testGetFloatArray() {
-        assertNull(mBundle.getFloatArray(KEY));
-        mBundle.putFloatArray(KEY, new float[] {
+        assertNull(mBundle.getFloatArray(KEY1));
+        mBundle.putFloatArray(KEY1, new float[] {
                 10.06f, 10.07f
         });
-        float[] floatArray = mBundle.getFloatArray(KEY);
-        assertEquals(10.06f, floatArray[0]);
-        assertEquals(10.07f, floatArray[1]);
+        float[] floatArray = mBundle.getFloatArray(KEY1);
+        assertEquals(10.06f, floatArray[0], 0.0f);
+        assertEquals(10.07f, floatArray[1], 0.0f);
         roundtrip();
-        floatArray = mBundle.getFloatArray(KEY);
-        assertEquals(10.06f, floatArray[0]);
-        assertEquals(10.07f, floatArray[1]);
+        floatArray = mBundle.getFloatArray(KEY1);
+        assertEquals(10.06f, floatArray[0], 0.0f);
+        assertEquals(10.07f, floatArray[1], 0.0f);
     }
 
+    @Test
     public void testGetInt1() {
         final int i = 1007;
 
-        assertEquals(0, mBundle.getInt(KEY));
-        mBundle.putInt(KEY, i);
-        assertEquals(i, mBundle.getInt(KEY));
+        assertEquals(0, mBundle.getInt(KEY1));
+        mBundle.putInt(KEY1, i);
+        assertEquals(i, mBundle.getInt(KEY1));
         roundtrip();
-        assertEquals(i, mBundle.getInt(KEY));
+        assertEquals(i, mBundle.getInt(KEY1));
     }
 
+    @Test
     public void testGetInt2() {
         final int i1 = 1006;
         final int i2 = 1007;
 
-        assertEquals(i1, mBundle.getInt(KEY, i1));
-        mBundle.putInt(KEY, i2);
-        assertEquals(i2, mBundle.getInt(KEY, i2));
+        assertEquals(i1, mBundle.getInt(KEY1, i1));
+        mBundle.putInt(KEY1, i2);
+        assertEquals(i2, mBundle.getInt(KEY1, i2));
         roundtrip();
-        assertEquals(i2, mBundle.getInt(KEY, i2));
+        assertEquals(i2, mBundle.getInt(KEY1, i2));
     }
 
+    @Test
     public void testGetIntArray() {
-        assertNull(mBundle.getIntArray(KEY));
-        mBundle.putIntArray(KEY, new int[] {
+        assertNull(mBundle.getIntArray(KEY1));
+        mBundle.putIntArray(KEY1, new int[] {
                 1006, 1007
         });
-        int[] intArray = mBundle.getIntArray(KEY);
+        int[] intArray = mBundle.getIntArray(KEY1);
         assertEquals(1006, intArray[0]);
         assertEquals(1007, intArray[1]);
         roundtrip();
-        intArray = mBundle.getIntArray(KEY);
+        intArray = mBundle.getIntArray(KEY1);
         assertEquals(1006, intArray[0]);
         assertEquals(1007, intArray[1]);
     }
 
     // getIntegerArrayList should only return the IntegerArrayList set by putIntegerArrayLis
+    @Test
     public void testGetIntegerArrayList() {
         final int i1 = 1006;
         final int i2 = 1007;
 
-        assertNull(mBundle.getIntegerArrayList(KEY));
+        assertNull(mBundle.getIntegerArrayList(KEY1));
         final ArrayList<Integer> arrayList = new ArrayList<Integer>();
         arrayList.add(i1);
         arrayList.add(i2);
-        mBundle.putIntegerArrayList(KEY, arrayList);
-        ArrayList<Integer> retArrayList = mBundle.getIntegerArrayList(KEY);
+        mBundle.putIntegerArrayList(KEY1, arrayList);
+        ArrayList<Integer> retArrayList = mBundle.getIntegerArrayList(KEY1);
         assertNotNull(retArrayList);
         assertEquals(2, retArrayList.size());
         assertEquals((Integer)i1, retArrayList.get(0));
         assertEquals((Integer)i2, retArrayList.get(1));
         roundtrip();
-        retArrayList = mBundle.getIntegerArrayList(KEY);
+        retArrayList = mBundle.getIntegerArrayList(KEY1);
         assertNotNull(retArrayList);
         assertEquals(2, retArrayList.size());
         assertEquals((Integer)i1, retArrayList.get(0));
         assertEquals((Integer)i2, retArrayList.get(1));
     }
 
+    @Test
     public void testGetLong1() {
         final long l = 1007;
 
-        assertEquals(0, mBundle.getLong(KEY));
-        mBundle.putLong(KEY, l);
-        assertEquals(l, mBundle.getLong(KEY));
+        assertEquals(0, mBundle.getLong(KEY1));
+        mBundle.putLong(KEY1, l);
+        assertEquals(l, mBundle.getLong(KEY1));
         roundtrip();
-        assertEquals(l, mBundle.getLong(KEY));
+        assertEquals(l, mBundle.getLong(KEY1));
     }
 
+    @Test
     public void testGetLong2() {
         final long l1 = 1006;
         final long l2 = 1007;
 
-        assertEquals(l1, mBundle.getLong(KEY, l1));
-        mBundle.putLong(KEY, l2);
-        assertEquals(l2, mBundle.getLong(KEY, l2));
+        assertEquals(l1, mBundle.getLong(KEY1, l1));
+        mBundle.putLong(KEY1, l2);
+        assertEquals(l2, mBundle.getLong(KEY1, l2));
         roundtrip();
-        assertEquals(l2, mBundle.getLong(KEY, l2));
+        assertEquals(l2, mBundle.getLong(KEY1, l2));
     }
 
+    @Test
     public void testGetLongArray() {
-        assertNull(mBundle.getLongArray(KEY));
-        mBundle.putLongArray(KEY, new long[] {
+        assertNull(mBundle.getLongArray(KEY1));
+        mBundle.putLongArray(KEY1, new long[] {
                 1006, 1007
         });
-        long[] longArray = mBundle.getLongArray(KEY);
+        long[] longArray = mBundle.getLongArray(KEY1);
         assertEquals(1006, longArray[0]);
         assertEquals(1007, longArray[1]);
         roundtrip();
-        longArray = mBundle.getLongArray(KEY);
+        longArray = mBundle.getLongArray(KEY1);
         assertEquals(1006, longArray[0]);
         assertEquals(1007, longArray[1]);
     }
 
+    @Test
     public void testGetParcelable() {
-        assertNull(mBundle.getParcelable(KEY));
+        assertNull(mBundle.getParcelable(KEY1));
         final Bundle bundle = new Bundle();
-        mBundle.putParcelable(KEY, bundle);
-        assertTrue(bundle.equals(mBundle.getParcelable(KEY)));
+        mBundle.putParcelable(KEY1, bundle);
+        assertTrue(bundle.equals(mBundle.getParcelable(KEY1)));
         roundtrip();
-        assertBundleEquals(bundle, (Bundle) mBundle.getParcelable(KEY));
+        assertBundleEquals(bundle, (Bundle) mBundle.getParcelable(KEY1));
+    }
+
+    @Test
+    public void testGetParcelableTypeSafe_withMismatchingType_returnsNull() {
+        mBundle.putParcelable(KEY1, new CustomParcelable(42, "don't panic"));
+        roundtrip();
+        assertNull(mBundle.getParcelable(KEY1, Intent.class));
+        assertFalse(CustomParcelable.sDeserialized);
+    }
+
+    @Test
+    public void testGetParcelableTypeSafe_withMatchingType_returnsObject() {
+        final CustomParcelable original = new CustomParcelable(42, "don't panic");
+        mBundle.putParcelable(KEY1, original);
+        roundtrip();
+        assertEquals(original, mBundle.getParcelable(KEY1, CustomParcelable.class));
+    }
+
+    @Test
+    public void testGetParcelableTypeSafe_withBaseType_returnsObject() {
+        final CustomParcelable original = new CustomParcelable(42, "don't panic");
+        mBundle.putParcelable(KEY1, original);
+        roundtrip();
+        assertEquals(original, mBundle.getParcelable(KEY1, Parcelable.class));
     }
 
     // getParcelableArray should only return the ParcelableArray set by putParcelableArray
+    @Test
     public void testGetParcelableArray() {
-        assertNull(mBundle.getParcelableArray(KEY));
+        assertNull(mBundle.getParcelableArray(KEY1));
         final Bundle bundle1 = new Bundle();
         final Bundle bundle2 = new Bundle();
-        mBundle.putParcelableArray(KEY, new Bundle[] {
+        mBundle.putParcelableArray(KEY1, new Bundle[] {
                 bundle1, bundle2
         });
-        Parcelable[] parcelableArray = mBundle.getParcelableArray(KEY);
+        Parcelable[] parcelableArray = mBundle.getParcelableArray(KEY1);
         assertEquals(2, parcelableArray.length);
         assertTrue(bundle1.equals(parcelableArray[0]));
         assertTrue(bundle2.equals(parcelableArray[1]));
         roundtrip();
-        parcelableArray = mBundle.getParcelableArray(KEY);
+        parcelableArray = mBundle.getParcelableArray(KEY1);
         assertEquals(2, parcelableArray.length);
         assertBundleEquals(bundle1, (Bundle) parcelableArray[0]);
         assertBundleEquals(bundle2, (Bundle) parcelableArray[1]);
     }
 
+    @Test
+    public void testGetParcelableArrayTypeSafe_withMismatchingType_returnsNull() {
+        mBundle.putParcelableArray(KEY1, new CustomParcelable[] {
+                new CustomParcelable(42, "don't panic")
+        });
+        roundtrip();
+        assertNull(mBundle.getParcelableArray(KEY1, Intent.class));
+        assertFalse(CustomParcelable.sDeserialized);
+    }
+
+    @Test
+    public void testGetParcelableArrayTypeSafe_withMatchingType_returnsObject() {
+        final CustomParcelable[] original = new CustomParcelable[] {
+                new CustomParcelable(42, "don't panic"),
+                new CustomParcelable(1961, "off we go")
+        };
+        mBundle.putParcelableArray(KEY1, original);
+        roundtrip();
+        assertArrayEquals(original, mBundle.getParcelableArray(KEY1, CustomParcelable.class));
+    }
+
+    @Test
+    public void testGetParcelableArrayTypeSafe_withBaseType_returnsObject() {
+        final CustomParcelable[] original = new CustomParcelable[] {
+                new CustomParcelable(42, "don't panic"),
+                new CustomParcelable(1961, "off we go")
+        };
+        mBundle.putParcelableArray(KEY1, original);
+        roundtrip();
+        assertArrayEquals(original, mBundle.getParcelableArray(KEY1, Parcelable.class));
+    }
+
     // getParcelableArrayList should only return the parcelableArrayList set by putParcelableArrayList
+    @Test
     public void testGetParcelableArrayList() {
-        assertNull(mBundle.getParcelableArrayList(KEY));
+        assertNull(mBundle.getParcelableArrayList(KEY1));
         final ArrayList<Parcelable> parcelableArrayList = new ArrayList<Parcelable>();
         final Bundle bundle1 = new Bundle();
         final Bundle bundle2 = new Bundle();
         parcelableArrayList.add(bundle1);
         parcelableArrayList.add(bundle2);
-        mBundle.putParcelableArrayList(KEY, parcelableArrayList);
-        ArrayList<Parcelable> ret = mBundle.getParcelableArrayList(KEY);
+        mBundle.putParcelableArrayList(KEY1, parcelableArrayList);
+        ArrayList<Parcelable> ret = mBundle.getParcelableArrayList(KEY1);
         assertEquals(2, ret.size());
         assertTrue(bundle1.equals(ret.get(0)));
         assertTrue(bundle2.equals(ret.get(1)));
         roundtrip();
-        ret = mBundle.getParcelableArrayList(KEY);
+        ret = mBundle.getParcelableArrayList(KEY1);
         assertEquals(2, ret.size());
         assertBundleEquals(bundle1, (Bundle) ret.get(0));
         assertBundleEquals(bundle2, (Bundle) ret.get(1));
     }
 
+    @Test
+    public void testGetParcelableArrayListTypeSafe_withMismatchingType_returnsNull() {
+        final ArrayList<CustomParcelable> originalObjects = new ArrayList<>();
+        originalObjects.add(new CustomParcelable(42, "don't panic"));
+        mBundle.putParcelableArrayList(KEY1, originalObjects);
+        roundtrip();
+        assertNull(mBundle.getParcelableArrayList(KEY1, Intent.class));
+        assertFalse(CustomParcelable.sDeserialized);
+    }
+
+    @Test
+    public void testGetParcelableArrayListTypeSafe_withMatchingType_returnsObject() {
+        final ArrayList<CustomParcelable> original = new ArrayList<>();
+        original.add(new CustomParcelable(42, "don't panic"));
+        original.add(new CustomParcelable(1961, "off we go"));
+        mBundle.putParcelableArrayList(KEY1, original);
+        roundtrip();
+        assertEquals(original, mBundle.getParcelableArrayList(KEY1, CustomParcelable.class));
+    }
+
+    @Test
+    public void testGetParcelableArrayListTypeSafe_withMismatchingTypeAndDifferentReturnType_returnsNull() {
+        final ArrayList<CustomParcelable> originalObjects = new ArrayList<>();
+        originalObjects.add(new CustomParcelable(42, "don't panic"));
+        mBundle.putParcelableArrayList(KEY1, originalObjects);
+        roundtrip();
+        ArrayList<Parcelable> result = mBundle.getParcelableArrayList(KEY1, Intent.class);
+        assertNull(result);
+        assertFalse(CustomParcelable.sDeserialized);
+    }
+
+    @Test
+    public void testGetParcelableArrayListTypeSafe_withMatchingTypeAndDifferentReturnType__returnsObject() {
+        final ArrayList<CustomParcelable> original = new ArrayList<>();
+        original.add(new CustomParcelable(42, "don't panic"));
+        original.add(new CustomParcelable(1961, "off we go"));
+        mBundle.putParcelableArrayList(KEY1, original);
+        roundtrip();
+        ArrayList<Parcelable> result = mBundle.getParcelableArrayList(KEY1, CustomParcelable.class);
+        assertEquals(original, result);
+    }
+
+    @Test
+    public void testGetParcelableArrayListTypeSafe_withBaseType_returnsObject() {
+        final ArrayList<CustomParcelable> original = new ArrayList<>();
+        original.add(new CustomParcelable(42, "don't panic"));
+        original.add(new CustomParcelable(1961, "off we go"));
+        mBundle.putParcelableArrayList(KEY1, original);
+        roundtrip();
+        assertEquals(original, mBundle.getParcelableArrayList(KEY1, Parcelable.class));
+    }
+
+    @Test
+    public void testGetSerializableTypeSafe_withMismatchingType_returnsNull() {
+        mBundle.putSerializable(KEY1, new CustomSerializable());
+        roundtrip();
+        assertNull(mBundle.getSerializable(KEY1, AnotherSerializable.class));
+        assertFalse(CustomSerializable.sDeserialized);
+    }
+
+    @Test
+    public void testGetSerializableTypeSafe_withMatchingType_returnsObject() {
+        mBundle.putSerializable(KEY1, new CustomSerializable());
+        roundtrip();
+        assertNotNull(mBundle.getSerializable(KEY1, CustomSerializable.class));
+        assertTrue(CustomSerializable.sDeserialized);
+    }
+
+    @Test
+    public void testGetSerializableTypeSafe_withBaseType_returnsObject() {
+        mBundle.putSerializable(KEY1, new CustomSerializable());
+        roundtrip();
+        assertNotNull(mBundle.getSerializable(KEY1, Serializable.class));
+        assertTrue(CustomSerializable.sDeserialized);
+    }
+
+    @Test
     public void testGetSerializableWithString() {
-        assertNull(mBundle.getSerializable(KEY));
+        assertNull(mBundle.getSerializable(KEY1));
         String s = "android";
-        mBundle.putSerializable(KEY, s);
-        assertEquals(s, mBundle.getSerializable(KEY));
+        mBundle.putSerializable(KEY1, s);
+        assertEquals(s, mBundle.getSerializable(KEY1));
         roundtrip();
-        assertEquals(s, mBundle.getSerializable(KEY));
+        assertEquals(s, mBundle.getSerializable(KEY1));
     }
 
+    @Test
     public void testGetSerializableWithStringArray() {
-        assertNull(mBundle.getSerializable(KEY));
+        assertNull(mBundle.getSerializable(KEY1));
         String[] strings = new String[]{"first", "last"};
-        mBundle.putSerializable(KEY, strings);
+        mBundle.putSerializable(KEY1, strings);
         assertEquals(Arrays.asList(strings),
-                Arrays.asList((String[]) mBundle.getSerializable(KEY)));
+                Arrays.asList((String[]) mBundle.getSerializable(KEY1)));
         roundtrip();
         assertEquals(Arrays.asList(strings),
-                Arrays.asList((String[]) mBundle.getSerializable(KEY)));
+                Arrays.asList((String[]) mBundle.getSerializable(KEY1)));
     }
 
+    @Test
     public void testGetSerializableWithMultiDimensionalObjectArray() {
-        assertNull(mBundle.getSerializable(KEY));
+        assertNull(mBundle.getSerializable(KEY1));
         Object[][] objects = new Object[][] {
                 {"string", 1L}
         };
-        mBundle.putSerializable(KEY, objects);
+        mBundle.putSerializable(KEY1, objects);
         assertEquals(Arrays.asList(objects[0]),
-                Arrays.asList(((Object[][]) mBundle.getSerializable(KEY))[0]));
+                Arrays.asList(((Object[][]) mBundle.getSerializable(KEY1))[0]));
         roundtrip();
         assertEquals(Arrays.asList(objects[0]),
-                Arrays.asList(((Object[][]) mBundle.getSerializable(KEY))[0]));
+                Arrays.asList(((Object[][]) mBundle.getSerializable(KEY1))[0]));
     }
 
+    @Test
     public void testGetShort1() {
         final short s = 1007;
 
-        assertEquals(0, mBundle.getShort(KEY));
-        mBundle.putShort(KEY, s);
-        assertEquals(s, mBundle.getShort(KEY));
+        assertEquals(0, mBundle.getShort(KEY1));
+        mBundle.putShort(KEY1, s);
+        assertEquals(s, mBundle.getShort(KEY1));
         roundtrip();
-        assertEquals(s, mBundle.getShort(KEY));
+        assertEquals(s, mBundle.getShort(KEY1));
     }
 
+    @Test
     public void testGetShort2() {
         final short s1 = 1006;
         final short s2 = 1007;
 
-        assertEquals(s1, mBundle.getShort(KEY, s1));
-        mBundle.putShort(KEY, s2);
-        assertEquals(s2, mBundle.getShort(KEY, s1));
+        assertEquals(s1, mBundle.getShort(KEY1, s1));
+        mBundle.putShort(KEY1, s2);
+        assertEquals(s2, mBundle.getShort(KEY1, s1));
         roundtrip();
-        assertEquals(s2, mBundle.getShort(KEY, s1));
+        assertEquals(s2, mBundle.getShort(KEY1, s1));
     }
 
+    @Test
     public void testGetShortArray() {
         final short s1 = 1006;
         final short s2 = 1007;
 
-        assertNull(mBundle.getShortArray(KEY));
-        mBundle.putShortArray(KEY, new short[] {
+        assertNull(mBundle.getShortArray(KEY1));
+        mBundle.putShortArray(KEY1, new short[] {
                 s1, s2
         });
-        short[] shortArray = mBundle.getShortArray(KEY);
+        short[] shortArray = mBundle.getShortArray(KEY1);
         assertEquals(s1, shortArray[0]);
         assertEquals(s2, shortArray[1]);
         roundtrip();
-        shortArray = mBundle.getShortArray(KEY);
+        shortArray = mBundle.getShortArray(KEY1);
         assertEquals(s1, shortArray[0]);
         assertEquals(s2, shortArray[1]);
     }
 
     // getSparseParcelableArray should only return the SparseArray<Parcelable>
     // set by putSparseParcelableArray
+    @Test
     public void testGetSparseParcelableArray() {
-        assertNull(mBundle.getSparseParcelableArray(KEY));
+        assertNull(mBundle.getSparseParcelableArray(KEY1));
         final SparseArray<Parcelable> sparseArray = new SparseArray<Parcelable>();
         final Bundle bundle = new Bundle();
         final Intent intent = new Intent();
         sparseArray.put(1006, bundle);
         sparseArray.put(1007, intent);
-        mBundle.putSparseParcelableArray(KEY, sparseArray);
-        SparseArray<Parcelable> ret = mBundle.getSparseParcelableArray(KEY);
+        mBundle.putSparseParcelableArray(KEY1, sparseArray);
+        SparseArray<Parcelable> ret = mBundle.getSparseParcelableArray(KEY1);
         assertEquals(2, ret.size());
         assertNull(ret.get(1008));
         assertTrue(bundle.equals(ret.get(1006)));
         assertTrue(intent.equals(ret.get(1007)));
         roundtrip();
-        ret = mBundle.getSparseParcelableArray(KEY);
+        ret = mBundle.getSparseParcelableArray(KEY1);
         assertEquals(2, ret.size());
         assertNull(ret.get(1008));
         assertBundleEquals(bundle, (Bundle) ret.get(1006));
         assertIntentEquals(intent, (Intent) ret.get(1007));
     }
 
-    public void testGetString() {
-        assertNull(mBundle.getString(KEY));
-        mBundle.putString(KEY, "android");
-        assertEquals("android", mBundle.getString(KEY));
+    @Test
+    public void testGetSparseParcelableArrayTypeSafe_withMismatchingType_returnsNull() {
+        final SparseArray<CustomParcelable> originalObjects = new SparseArray<>();
+        originalObjects.put(42, new CustomParcelable(42, "don't panic"));
+        mBundle.putSparseParcelableArray(KEY1, originalObjects);
         roundtrip();
-        assertEquals("android", mBundle.getString(KEY));
+        assertNull(mBundle.getSparseParcelableArray(KEY1, Intent.class));
+        assertFalse(CustomParcelable.sDeserialized);
     }
 
+    @Test
+    public void testGetSparseParcelableArrayTypeSafe_withMatchingType_returnsObject() {
+        final SparseArray<CustomParcelable> original = new SparseArray<>();
+        original.put(42, new CustomParcelable(42, "don't panic"));
+        original.put(1961, new CustomParcelable(1961, "off we go"));
+        mBundle.putSparseParcelableArray(KEY1, original);
+        roundtrip();
+        assertTrue(original.contentEquals(mBundle.getSparseParcelableArray(KEY1, CustomParcelable.class)));
+    }
+
+    @Test
+    public void testGetSparseParcelableArrayTypeSafe_withMismatchingTypeAndDifferentReturnType_returnsNull() {
+        final SparseArray<CustomParcelable> originalObjects = new SparseArray<>();
+        originalObjects.put(42, new CustomParcelable(42, "don't panic"));
+        mBundle.putSparseParcelableArray(KEY1, originalObjects);
+        roundtrip();
+        SparseArray<Parcelable> result = mBundle.getSparseParcelableArray(KEY1, Intent.class);
+        assertNull(result);
+        assertFalse(CustomParcelable.sDeserialized);
+    }
+
+    @Test
+    public void testGetSparseParcelableArrayTypeSafe_withMatchingTypeAndDifferentReturnType_returnsObject() {
+        final SparseArray<CustomParcelable> original = new SparseArray<>();
+        original.put(42, new CustomParcelable(42, "don't panic"));
+        original.put(1961, new CustomParcelable(1961, "off we go"));
+        mBundle.putSparseParcelableArray(KEY1, original);
+        roundtrip();
+        SparseArray<Parcelable> result = mBundle.getSparseParcelableArray(KEY1,
+                CustomParcelable.class);
+        assertTrue(original.contentEquals(result));
+    }
+
+    @Test
+    public void testGetSparseParcelableArrayTypeSafe_withBaseType_returnsObject() {
+        final SparseArray<CustomParcelable> original = new SparseArray<>();
+        original.put(42, new CustomParcelable(42, "don't panic"));
+        original.put(1961, new CustomParcelable(1961, "off we go"));
+        mBundle.putSparseParcelableArray(KEY1, original);
+        roundtrip();
+        assertTrue(original.contentEquals(mBundle.getSparseParcelableArray(KEY1, Parcelable.class)));
+    }
+
+    @Test
+    public void testGetSparseParcelableArrayTypeSafe_withMixedTypes_returnsObject() {
+        final SparseArray<Parcelable> original = new SparseArray<>();
+        original.put(42, new CustomParcelable(42, "don't panic"));
+        original.put(1961, new Intent("action"));
+        mBundle.putSparseParcelableArray(KEY1, original);
+        roundtrip();
+        final SparseArray<Parcelable> received = mBundle.getSparseParcelableArray(KEY1, Parcelable.class);
+        assertEquals(original.size(), received.size());
+        assertEquals(original.get(42), received.get(42));
+        assertIntentEquals((Intent) original.get(1961), (Intent) received.get(1961));
+    }
+
+    @Test
+    public void testGetString() {
+        assertNull(mBundle.getString(KEY1));
+        mBundle.putString(KEY1, "android");
+        assertEquals("android", mBundle.getString(KEY1));
+        roundtrip();
+        assertEquals("android", mBundle.getString(KEY1));
+    }
+
+    @Test
     public void testGetStringArray() {
-        assertNull(mBundle.getStringArray(KEY));
-        mBundle.putStringArray(KEY, new String[] {
+        assertNull(mBundle.getStringArray(KEY1));
+        mBundle.putStringArray(KEY1, new String[] {
                 "one", "two", "three"
         });
-        String[] ret = mBundle.getStringArray(KEY);
+        String[] ret = mBundle.getStringArray(KEY1);
         assertEquals("one", ret[0]);
         assertEquals("two", ret[1]);
         assertEquals("three", ret[2]);
         roundtrip();
-        ret = mBundle.getStringArray(KEY);
+        ret = mBundle.getStringArray(KEY1);
         assertEquals("one", ret[0]);
         assertEquals("two", ret[1]);
         assertEquals("three", ret[2]);
     }
 
     // getStringArrayList should only return the StringArrayList set by putStringArrayList
+    @Test
     public void testGetStringArrayList() {
-        assertNull(mBundle.getStringArrayList(KEY));
+        assertNull(mBundle.getStringArrayList(KEY1));
         final ArrayList<String> stringArrayList = new ArrayList<String>();
         stringArrayList.add("one");
         stringArrayList.add("two");
         stringArrayList.add("three");
-        mBundle.putStringArrayList(KEY, stringArrayList);
-        ArrayList<String> ret = mBundle.getStringArrayList(KEY);
+        mBundle.putStringArrayList(KEY1, stringArrayList);
+        ArrayList<String> ret = mBundle.getStringArrayList(KEY1);
         assertEquals(3, ret.size());
         assertEquals("one", ret.get(0));
         assertEquals("two", ret.get(1));
         assertEquals("three", ret.get(2));
         roundtrip();
-        ret = mBundle.getStringArrayList(KEY);
+        ret = mBundle.getStringArrayList(KEY1);
         assertEquals(3, ret.size());
         assertEquals("one", ret.get(0));
         assertEquals("two", ret.get(1));
         assertEquals("three", ret.get(2));
     }
 
+    @Test
     public void testKeySet() {
         Set<String> setKey = mBundle.keySet();
         assertFalse(setKey.contains("one"));
@@ -679,10 +964,11 @@ public class BundleTest extends AndroidTestCase {
     // same as hasFileDescriptors, the only difference is that describeContents
     // return 0 if no fd and return 1 if has fd for the tested Bundle
 
+    @Test
     public void testDescribeContents() {
         assertTrue((mBundle.describeContents()
                 & Parcelable.CONTENTS_FILE_DESCRIPTOR) == 0);
-        
+
         final Parcel parcel = Parcel.obtain();
         try {
             mBundle.putParcelable("foo", ParcelFileDescriptor.open(
@@ -710,9 +996,10 @@ public class BundleTest extends AndroidTestCase {
     //  if it read data from a Parcel object, which is created with a FileDescriptor.
     // case 3: The tested Bundle should has FileDescriptor
     //  if put a Parcelable object, which is created with a FileDescriptor, into it.
-    public void testHasFileDescriptors() {
+    @Test
+    public void testHasFileDescriptors_withParcelFdItem() {
         assertFalse(mBundle.hasFileDescriptors());
-        
+
         final Parcel parcel = Parcel.obtain();
         assertFalse(parcel.hasFileDescriptors());
         try {
@@ -728,11 +1015,83 @@ public class BundleTest extends AndroidTestCase {
         assertFalse(mBundle.hasFileDescriptors());
         parcel.setDataPosition(0);
         mBundle.readFromParcel(parcel);
-        assertTrue(mBundle.hasFileDescriptors());
-        ParcelFileDescriptor pfd = (ParcelFileDescriptor)mBundle.getParcelable("foo");
-        assertTrue(mBundle.hasFileDescriptors());
+        assertTrue(mBundle.hasFileDescriptors()); // Checks the parcel
+
+        // Remove item to trigger deserialization and remove flag FLAG_HAS_FDS_KNOWN such that next
+        // query triggers flag computation from lazy value
+        mBundle.remove("unexistent");
+        assertTrue(mBundle.hasFileDescriptors()); // Checks the lazy value
+
+        // Trigger flag computation
+        mBundle.remove("unexistent");
+        ParcelFileDescriptor pfd = mBundle.getParcelable("foo"); // Extracts the lazy value
+        assertTrue(mBundle.hasFileDescriptors()); // Checks the object
+
+        // Now, check the lazy value returns false
+        mBundle.clear();
+        mBundle.putParcelable(KEY1, new CustomParcelable(13, "Tiramisu"));
+        roundtrip();
+        // Trigger flag computation
+        mBundle.putParcelable("random", new CustomParcelable(13, "Tiramisu"));
+        assertFalse(mBundle.hasFileDescriptors()); // Checks the lazy value
     }
 
+    @Test
+    public void testHasFileDescriptors_withParcelable() throws Exception {
+        assertTrue(mBundle.isEmpty());
+        assertFalse(mBundle.hasFileDescriptors());
+
+        mBundle.putParcelable("key", ParcelFileDescriptor.dup(FileDescriptor.in));
+        assertTrue(mBundle.hasFileDescriptors());
+
+        mBundle.putParcelable("key", new CustomParcelable(13, "Tiramisu"));
+        assertFalse(mBundle.hasFileDescriptors());
+    }
+
+    @Test
+    public void testHasFileDescriptors_withStringArray() throws Exception {
+        assertTrue(mBundle.isEmpty());
+        assertFalse(mBundle.hasFileDescriptors());
+
+        mBundle.putStringArray("key", new String[] { "string" });
+        assertFalse(mBundle.hasFileDescriptors());
+    }
+
+    @Test
+    public void testHasFileDescriptors_withSparseArray() throws Exception {
+        assertTrue(mBundle.isEmpty());
+        assertFalse(mBundle.hasFileDescriptors());
+
+        SparseArray<Parcelable> fdArray = new SparseArray<>();
+        fdArray.append(0, ParcelFileDescriptor.dup(FileDescriptor.in));
+        mBundle.putSparseParcelableArray("key", fdArray);
+        assertTrue(mBundle.hasFileDescriptors());
+
+        SparseArray<Parcelable> noFdArray = new SparseArray<>();
+        noFdArray.append(0, new CustomParcelable(13, "Tiramisu"));
+        mBundle.putSparseParcelableArray("key", noFdArray);
+        assertFalse(mBundle.hasFileDescriptors());
+
+        SparseArray<Parcelable> emptyArray = new SparseArray<>();
+        mBundle.putSparseParcelableArray("key", emptyArray);
+        assertFalse(mBundle.hasFileDescriptors());
+    }
+
+    @Test
+    public void testHasFileDescriptors_withParcelableArray() throws Exception {
+        assertTrue(mBundle.isEmpty());
+        assertFalse(mBundle.hasFileDescriptors());
+
+        mBundle.putParcelableArray("key",
+                new Parcelable[] { ParcelFileDescriptor.dup(FileDescriptor.in) });
+        assertTrue(mBundle.hasFileDescriptors());
+
+        mBundle.putParcelableArray("key",
+                new Parcelable[] { new CustomParcelable(13, "Tiramisu") });
+        assertFalse(mBundle.hasFileDescriptors());
+    }
+
+    @Test
     public void testHasFileDescriptorsOnNullValuedCollection() {
         assertFalse(mBundle.hasFileDescriptors());
 
@@ -753,24 +1112,74 @@ public class BundleTest extends AndroidTestCase {
         mBundle.clear();
     }
 
+    @SuppressWarnings("unchecked")
+    @Test
+    public void testHasFileDescriptors_withNestedContainers() throws IOException {
+        // Purposely omitting generic types here, this is still "valid" app code after all.
+        ArrayList nested = new ArrayList(
+                Arrays.asList(Arrays.asList(ParcelFileDescriptor.dup(FileDescriptor.in))));
+        mBundle.putParcelableArrayList("list", nested);
+        assertTrue(mBundle.hasFileDescriptors());
+
+        roundtrip(/* parcel */ false);
+        assertTrue(mBundle.hasFileDescriptors());
+
+        mBundle.isEmpty(); // Triggers partial deserialization (leaving lazy values)
+        mBundle.remove("unexistent"); // Removes cached value (removes FLAG_HAS_FDS_KNOWN)
+        assertTrue(mBundle.hasFileDescriptors()); // Checks lazy value
+    }
+
+    @Test
+    public void testHasFileDescriptors_withOriginalParcelContainingFdButNotItems() throws IOException {
+        mBundle.putParcelable("fd", ParcelFileDescriptor.dup(FileDescriptor.in));
+        mBundle.putParcelable("parcelable", new CustomParcelable(13, "Tiramisu"));
+        assertTrue(mBundle.hasFileDescriptors());
+
+        roundtrip(/* parcel */ false);
+        mBundle.isEmpty(); // Triggers partial deserialization (leaving lazy values)
+        assertTrue(mBundle.hasFileDescriptors());
+        mBundle.remove("fd");
+
+        // Will check the item's specific range in the original parcel
+        assertFalse(mBundle.hasFileDescriptors());
+    }
+
+    @Test
+    public void testHasFileDescriptors_withOriginalParcelAndItemsContainingFd() throws IOException {
+        mBundle.putParcelable("fd", ParcelFileDescriptor.dup(FileDescriptor.in));
+        mBundle.putParcelable("parcelable", new CustomParcelable(13, "Tiramisu"));
+        assertTrue(mBundle.hasFileDescriptors());
+
+        roundtrip(/* parcel */ false);
+        mBundle.isEmpty(); // Triggers partial deserialization (leaving lazy values)
+        assertTrue(mBundle.hasFileDescriptors());
+        mBundle.remove("parcelable");
+
+        // Will check the item's specific range in the original parcel
+        assertTrue(mBundle.hasFileDescriptors());
+    }
+
+    @Test
     public void testSetClassLoader() {
         mBundle.setClassLoader(new MockClassLoader());
     }
 
     // Write the bundle(A) to a parcel(B), and then create a bundle(C) from B.
     // C should be same as A.
+    @Test
     public void testWriteToParcel() {
         final String li = "Bruce Li";
 
-        mBundle.putString(KEY, li);
+        mBundle.putString(KEY1, li);
         final Parcel parcel = Parcel.obtain();
         mBundle.writeToParcel(parcel, 0);
         parcel.setDataPosition(0);
         final Bundle bundle = Bundle.CREATOR.createFromParcel(parcel);
-        assertEquals(li, bundle.getString(KEY));
+        assertEquals(li, bundle.getString(KEY1));
     }
 
     // test the size should be right after add/remove key-value pair of the Bundle.
+    @Test
     public void testSize() {
         assertEquals(0, mBundle.size());
         mBundle.putBoolean("one", true);
@@ -803,6 +1212,7 @@ public class BundleTest extends AndroidTestCase {
     }
 
     // The return value of toString() should not be null.
+    @Test
     public void testToString() {
         assertNotNull(mBundle.toString());
         mBundle.putString("foo", "this test is so stupid");
@@ -810,21 +1220,37 @@ public class BundleTest extends AndroidTestCase {
     }
 
     // The tested Bundle should hold mappings from the given after putAll be invoked.
+    @Test
     public void testPutAll() {
         assertEquals(0, mBundle.size());
 
         final Bundle map = new Bundle();
-        map.putBoolean(KEY, true);
+        map.putBoolean(KEY1, true);
         assertEquals(1, map.size());
         mBundle.putAll(map);
         assertEquals(1, mBundle.size());
     }
 
     private void roundtrip() {
-        Parcel out = Parcel.obtain();
-        mBundle.writeToParcel(out, 0);
-        Parcel in = roundtripParcel(out);
-        mBundle = in.readBundle();
+        roundtrip(/* parcel */ true);
+    }
+
+    private void roundtrip(boolean parcel) {
+        mBundle = roundtrip(mBundle, parcel);
+    }
+
+    private Bundle roundtrip(Bundle bundle) {
+        return roundtrip(bundle, /* parcel */ true);
+    }
+
+    private Bundle roundtrip(Bundle bundle, boolean parcel) {
+        Parcel p = Parcel.obtain();
+        bundle.writeToParcel(p, 0);
+        if (parcel) {
+            p = roundtripParcel(p);
+        }
+        p.setDataPosition(0);
+        return p.readBundle(bundle.getClassLoader());
     }
 
     private Parcel roundtripParcel(Parcel out) {
@@ -858,6 +1284,7 @@ public class BundleTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testHasFileDescriptor() throws Exception {
         final ParcelFileDescriptor[] pipe = ParcelFileDescriptor.createPipe();
         try {
@@ -902,8 +1329,9 @@ public class BundleTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testBundleLengthNotAlignedByFour() {
-        mBundle.putBoolean(KEY, true);
+        mBundle.putBoolean(KEY1, true);
         assertEquals(1, mBundle.size());
         Parcel p = Parcel.obtain();
         final int lengthPos = p.dataPosition();
@@ -923,6 +1351,319 @@ public class BundleTest extends AndroidTestCase {
         } catch (IllegalStateException e) {
             // Expect IllegalStateException here.
         }
+    }
+
+    @Test
+    public void testGetCustomParcelable() {
+        Parcelable parcelable = new CustomParcelable(13, "Tiramisu");
+        mBundle.putParcelable(KEY1, parcelable);
+        assertEquals(parcelable, mBundle.getParcelable(KEY1));
+        assertEquals(1, mBundle.size());
+        roundtrip();
+        assertNotSame(parcelable, mBundle.getParcelable(KEY1));
+        assertEquals(parcelable, mBundle.getParcelable(KEY1));
+        assertEquals(1, mBundle.size());
+    }
+
+    @Test
+    public void testGetNestedParcelable() {
+        Parcelable nested = new CustomParcelable(13, "Tiramisu");
+        ComposedParcelable parcelable = new ComposedParcelable(26, nested);
+        mBundle.putParcelable(KEY1, parcelable);
+        assertEquals(parcelable, mBundle.getParcelable(KEY1));
+        assertEquals(1, mBundle.size());
+        roundtrip();
+        ComposedParcelable reconstructed = mBundle.getParcelable(KEY1);
+        assertNotSame(parcelable, reconstructed);
+        assertEquals(parcelable, reconstructed);
+        assertNotSame(nested, reconstructed.parcelable);
+        assertEquals(nested, reconstructed.parcelable);
+        assertEquals(1, mBundle.size());
+    }
+
+    @Test
+    public void testItemDeserializationIndependence() {
+        Parcelable parcelable = new CustomParcelable(13, "Tiramisu");
+        Parcelable bomb = new CustomParcelable(13, "Tiramisu").setThrowsDuringDeserialization(true);
+        mBundle.putParcelable(KEY1, parcelable);
+        mBundle.putParcelable(KEY2, bomb);
+        assertEquals(parcelable, mBundle.getParcelable(KEY1));
+        assertEquals(bomb, mBundle.getParcelable(KEY2));
+        assertEquals(2, mBundle.size());
+        roundtrip();
+        assertEquals(2, mBundle.size());
+        Parcelable reParcelable = mBundle.getParcelable(KEY1);
+        // Passed if it didn't throw
+        assertNotSame(parcelable, reParcelable);
+        assertEquals(parcelable, reParcelable);
+        assertThrows(RuntimeException.class, () -> mBundle.getParcelable(KEY2));
+        assertEquals(2, mBundle.size());
+    }
+
+    @Test
+    public void testLazyValueReserialization() {
+        Parcelable parcelable = new CustomParcelable(13, "Tiramisu");
+        mBundle.putParcelable(KEY1, parcelable);
+        mBundle.putString(KEY2, "value");
+        roundtrip();
+        assertEquals("value", mBundle.getString(KEY2));
+        // Since we haven't retrieved KEY1, its value is still a lazy value inside bundle
+        roundtrip();
+        assertEquals(parcelable, mBundle.getParcelable(KEY1));
+        assertEquals("value", mBundle.getString(KEY2));
+    }
+
+    @Test
+    public void testPutAll_withLazyValues() {
+        Parcelable parcelable = new CustomParcelable(13, "Tiramisu");
+        mBundle.putParcelable(KEY1, parcelable);
+        roundtrip();
+        mBundle.isEmpty(); // Triggers partial deserialization (leaving lazy values)
+        Bundle copy = new Bundle();
+        copy.putAll(mBundle);
+        assertEquals(parcelable, copy.getParcelable(KEY1));
+        // Here we're verifying that LazyValue caches the deserialized object, hence they are the
+        // same instance
+        assertSame(copy.getParcelable(KEY1), mBundle.getParcelable(KEY1));
+        assertEquals(1, copy.size());
+    }
+
+    @Test
+    public void testDeepCopy_withLazyValues() {
+        Parcelable parcelable = new CustomParcelable(13, "Tiramisu");
+        mBundle.putParcelable(KEY1, parcelable);
+        roundtrip();
+        mBundle.isEmpty(); // Triggers partial deserialization (leaving lazy values)
+        Bundle copy = mBundle.deepCopy();
+        assertEquals(parcelable, copy.getParcelable(KEY1));
+        // Here we're verifying that LazyValue caches the deserialized object, hence they are the
+        // same instance
+        assertSame(copy.getParcelable(KEY1), mBundle.getParcelable(KEY1));
+        assertEquals(1, copy.size());
+    }
+
+    @Test
+    public void testDeepCopy_withNestedParcelable() {
+        Parcelable nested = new CustomParcelable(13, "Tiramisu");
+        ComposedParcelable parcelable = new ComposedParcelable(26, nested);
+        mBundle.putParcelable(KEY1, parcelable);
+        roundtrip();
+        mBundle.isEmpty(); // Triggers partial deserialization (leaving lazy values)
+        Bundle copy = mBundle.deepCopy();
+        ComposedParcelable reconstructed = copy.getParcelable(KEY1);
+        assertEquals(parcelable, reconstructed);
+        assertSame(copy.getParcelable(KEY1), mBundle.getParcelable(KEY1));
+        assertEquals(nested, reconstructed.parcelable);
+        assertEquals(1, copy.size());
+    }
+
+    @Test
+    public void testDeepCopy_withNestedBundleAndLazyValues() {
+        Parcelable parcelable = new CustomParcelable(13, "Tiramisu");
+        Bundle inner = new Bundle();
+        inner.putParcelable(KEY1, parcelable);
+        inner = roundtrip(inner);
+        inner.setClassLoader(getClass().getClassLoader());
+        inner.isEmpty(); // Triggers partial deserialization (leaving lazy values)
+        mBundle.putParcelable(KEY1, inner);
+        Bundle copy = mBundle.deepCopy();
+        assertEquals(parcelable, copy.getBundle(KEY1).getParcelable(KEY1));
+        assertNotSame(mBundle.getBundle(KEY1), copy.getBundle(KEY1));
+        assertSame(mBundle.getBundle(KEY1).getParcelable(KEY1),
+                copy.getBundle(KEY1).getParcelable(KEY1));
+        assertEquals(1, copy.getBundle(KEY1).size());
+        assertEquals(1, copy.size());
+    }
+
+    @Test
+    public void testGetParcelable_isLazy() {
+        mBundle.putParcelable(KEY1, new CustomParcelable(13, "Tiramisu"));
+        roundtrip();
+        mBundle.isEmpty(); // Triggers partial deserialization (leaving lazy values)
+        assertThat(CustomParcelable.sDeserialized).isFalse();
+        mBundle.getParcelable(KEY1);
+        assertThat(CustomParcelable.sDeserialized).isTrue();
+    }
+
+    @Test
+    public void testGetParcelableArray_isLazy() {
+        mBundle.putParcelableArray(KEY1, new Parcelable[] {new CustomParcelable(13, "Tiramisu")});
+        roundtrip();
+        mBundle.isEmpty(); // Triggers partial deserialization (leaving lazy values)
+        assertThat(CustomParcelable.sDeserialized).isFalse();
+        mBundle.getParcelableArray(KEY1);
+        assertThat(CustomParcelable.sDeserialized).isTrue();
+    }
+
+    @Test
+    public void testGetParcelableArrayList_isLazy() {
+        mBundle.putParcelableArrayList(KEY1,
+                new ArrayList<>(singletonList(new CustomParcelable(13, "Tiramisu"))));
+        roundtrip();
+        mBundle.isEmpty(); // Triggers partial deserialization (leaving lazy values)
+        assertThat(CustomParcelable.sDeserialized).isFalse();
+        mBundle.getParcelableArrayList(KEY1);
+        assertThat(CustomParcelable.sDeserialized).isTrue();
+    }
+
+    @Test
+    public void testGetSparseParcelableArray_isLazy() {
+        SparseArray<Parcelable> container = new SparseArray<>();
+        container.put(0, new CustomParcelable(13, "Tiramisu"));
+        mBundle.putSparseParcelableArray(KEY1, container);
+        roundtrip();
+        mBundle.isEmpty(); // Triggers partial deserialization (leaving lazy values)
+        assertThat(CustomParcelable.sDeserialized).isFalse();
+        mBundle.getSparseParcelableArray(KEY1);
+        assertThat(CustomParcelable.sDeserialized).isTrue();
+    }
+
+    @Test
+    public void testGetSerializable_isLazy() {
+        mBundle.putSerializable(KEY1, new CustomSerializable());
+        roundtrip();
+        mBundle.isEmpty(); // Triggers partial deserialization (leaving lazy values)
+        assertThat(CustomSerializable.sDeserialized).isFalse();
+        mBundle.getSerializable(KEY1);
+        assertThat(CustomSerializable.sDeserialized).isTrue();
+    }
+
+    private static class CustomSerializable implements Serializable {
+        public static boolean sDeserialized = false;
+
+        private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+            in.defaultReadObject();
+            sDeserialized = true;
+        }
+    }
+
+    private static class AnotherSerializable implements Serializable {
+    }
+
+    private static class CustomParcelable implements Parcelable {
+        public static boolean sDeserialized = false;
+
+        public final int integer;
+        public final String string;
+        public boolean throwsDuringDeserialization;
+
+        public CustomParcelable(int integer, String string) {
+            this.integer = integer;
+            this.string = string;
+        }
+
+        protected CustomParcelable(Parcel in) {
+            integer = in.readInt();
+            string = in.readString();
+            throwsDuringDeserialization = in.readBoolean();
+            if (throwsDuringDeserialization) {
+                throw new RuntimeException();
+            }
+            sDeserialized = true;
+        }
+
+        public CustomParcelable setThrowsDuringDeserialization(
+                boolean throwsDuringDeserialization) {
+            this.throwsDuringDeserialization = throwsDuringDeserialization;
+            return this;
+        }
+
+        @Override
+        public int describeContents() {
+            return 0;
+        }
+
+        @Override
+        public void writeToParcel(Parcel out, int flags) {
+            out.writeInt(integer);
+            out.writeString(string);
+            out.writeBoolean(throwsDuringDeserialization);
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+            if (!(other instanceof CustomParcelable)) {
+                return false;
+            }
+            CustomParcelable that = (CustomParcelable) other;
+            return integer == that.integer
+                    && throwsDuringDeserialization == that.throwsDuringDeserialization
+                    && string.equals(that.string);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(integer, string, throwsDuringDeserialization);
+        }
+
+        public static final Creator<CustomParcelable> CREATOR = new Creator<CustomParcelable>() {
+            @Override
+            public CustomParcelable createFromParcel(Parcel in) {
+                return new CustomParcelable(in);
+            }
+            @Override
+            public CustomParcelable[] newArray(int size) {
+                return new CustomParcelable[size];
+            }
+        };
+    }
+
+    private static class ComposedParcelable implements Parcelable {
+        public final int integer;
+        public final Parcelable parcelable;
+
+        public ComposedParcelable(int integer, Parcelable parcelable) {
+            this.integer = integer;
+            this.parcelable = parcelable;
+        }
+
+        protected ComposedParcelable(Parcel in) {
+            integer = in.readInt();
+            parcelable = in.readParcelable(getClass().getClassLoader());
+        }
+
+        @Override
+        public int describeContents() {
+            return 0;
+        }
+
+        @Override
+        public void writeToParcel(Parcel out, int flags) {
+            out.writeInt(integer);
+            out.writeParcelable(parcelable, flags);
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+            if (!(other instanceof ComposedParcelable)) {
+                return false;
+            }
+            ComposedParcelable that = (ComposedParcelable) other;
+            return integer == that.integer && Objects.equals(parcelable, that.parcelable);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(integer, parcelable);
+        }
+
+        public static final Creator<ComposedParcelable> CREATOR =
+                new Creator<ComposedParcelable>() {
+                    @Override
+                    public ComposedParcelable createFromParcel(Parcel in) {
+                        return new ComposedParcelable(in);
+                    }
+                    @Override
+                    public ComposedParcelable[] newArray(int size) {
+                        return new ComposedParcelable[size];
+                    }
+                };
     }
 
     /** Create a Bundle with values, with autogenerated keys. */
@@ -991,6 +1732,14 @@ public class BundleTest extends AndroidTestCase {
     class MockClassLoader extends ClassLoader {
         MockClassLoader() {
             super();
+        }
+    }
+
+    private static <T> T uncheck(Callable<T> runnable) {
+        try {
+            return runnable.call();
+        } catch (Exception e) {
+            throw new AssertionError(e);
         }
     }
 }

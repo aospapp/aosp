@@ -26,13 +26,14 @@ import android.platform.test.annotations.AsbSecurityTest;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
+import com.android.sts.common.util.StsExtraBusinessLogicTestCase;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(AndroidJUnit4.class)
-public class CVE_2021_0922 {
+public class CVE_2021_0922 extends StsExtraBusinessLogicTestCase {
 
     private Instrumentation mInstrumentation;
 

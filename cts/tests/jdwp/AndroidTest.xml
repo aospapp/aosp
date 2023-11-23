@@ -38,8 +38,8 @@
         <option name="dalvik-arg" value="--debuggable" />
         <option name="dalvik-arg" value="-Xusejit:true" />
         <option name="dalvik-arg" value="-Djpda.settings.verbose=false" />
-        <option name="dalvik-arg" value="-Djpda.settings.timeout=10000" />
-        <option name="dalvik-arg" value="-Djpda.settings.waitingTime=10000" />
+        <option name="dalvik-arg" value="-Djpda.settings.timeout=20000" />
+        <option name="dalvik-arg" value="-Djpda.settings.waitingTime=20000" />
         <option name="dalvik-arg" value="-Djpda.settings.dumpProcess='/system/xbin/su root /system/bin/logwrapper /system/bin/debuggerd'" />
         <option name="dalvik-arg-adbconnection" value="-Djpda.settings.debuggeeAgentArgument=-agentpath:" />
         <option name="dalvik-arg-adbconnection" value="-Djpda.settings.debuggeeAgentName=libjdwp.so" />

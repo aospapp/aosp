@@ -27,6 +27,7 @@ import android.app.Activity;
 import android.app.assist.AssistStructure;
 import android.autofillservice.cts.testcore.CtsAugmentedAutofillService.AugmentedFillRequest;
 import android.content.ComponentName;
+import android.content.Context;
 import android.service.autofill.augmented.FillRequest;
 import android.util.Log;
 import android.util.Pair;
@@ -36,6 +37,8 @@ import android.view.inputmethod.InlineSuggestionsRequest;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+
+import com.android.cts.mockime.MockImeSession;
 
 import java.util.List;
 import java.util.Objects;
@@ -76,10 +79,19 @@ public final class AugmentedHelper {
         runShellCommand("cmd autofill set temporary-augmented-service 0");
     }
 
+    /**
+     * Returns whether MockIme is available.
+     */
+    public static boolean mockImeIsAvailable(Context context) {
+        return MockImeSession.getUnavailabilityReason(context) == null;
+    }
+
     public static void assertBasicRequestInfo(@NonNull AugmentedFillRequest request,
             @NonNull Activity activity, @NonNull AutofillId expectedFocusedId,
             @Nullable AutofillValue expectedFocusedValue) {
-        assertBasicRequestInfo(request, activity, expectedFocusedId, expectedFocusedValue, true);
+        final boolean hasDefaultInlineRequest = mockImeIsAvailable(activity.getBaseContext());
+        assertBasicRequestInfo(request, activity, expectedFocusedId, expectedFocusedValue,
+                hasDefaultInlineRequest);
     }
 
     public static void assertBasicRequestInfo(@NonNull AugmentedFillRequest request,

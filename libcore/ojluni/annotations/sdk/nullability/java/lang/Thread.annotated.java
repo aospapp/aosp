@@ -53,6 +53,8 @@ public Thread(@libcore.util.Nullable java.lang.ThreadGroup group, @libcore.util.
 
 public Thread(@libcore.util.Nullable java.lang.ThreadGroup group, @libcore.util.Nullable java.lang.Runnable target, @libcore.util.NonNull java.lang.String name, long stackSize) { throw new RuntimeException("Stub!"); }
 
+public Thread(@libcore.util.Nullable java.lang.ThreadGroup group, @libcore.util.Nullable java.lang.Runnable target, @libcore.util.NonNull java.lang.String name, long stackSize, boolean inheritThreadLocals) { throw new RuntimeException("Stub!"); }
+
 @libcore.util.NonNull public static native java.lang.Thread currentThread();
 
 public static native void yield();

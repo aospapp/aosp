@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2016, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -38,6 +38,7 @@ import java.time.chrono.Chronology;
 import java.time.temporal.ChronoField;
 import java.time.temporal.TemporalQueries;
 import java.time.temporal.TemporalAccessor;
+import java.time.temporal.UnsupportedTemporalTypeException;
 
 import java.util.*;
 
@@ -46,7 +47,7 @@ import org.testng.annotations.Test;
 
 /* @test
  * @summary Unit test for j.u.Formatter threeten date/time support
- * @bug 8003680 8012638
+ * @bug 8003680 8043387 8012638
  */
 @Test
 public class TestFormatter {
@@ -161,6 +162,47 @@ public class TestFormatter {
         if (verbose) {
             System.out.printf("%-24s  : %s%n", getClassName(dt), out);
         }
+
+        // expected usually comes from Calendar which only has milliseconds
+        // precision. So we're going to replace it's N:[nanos] stamp with
+        // the correct value for nanos.
+        if ((dt instanceof TemporalAccessor) && expected != null) {
+            try {
+                // Get millis & nanos from the dt
+                final TemporalAccessor ta = (TemporalAccessor) dt;
+                // Android-changed: Formatter doesn't support nanosecond yet.
+                // TODO: Revert this patch when Formatter is upgraded from 8 to 11 version.
+                // final int nanos = ta.get(ChronoField.NANO_OF_SECOND);
+                final int millis = ta.get(ChronoField.MILLI_OF_SECOND);
+                final int nanos = millis * 1000000;
+                final String nanstr = String.valueOf(nanos);
+                final String mistr = String.valueOf(millis);
+
+                // Compute the value of the N:[nanos] field that we expect
+                // to find in 'out'
+                final StringBuilder sb = new StringBuilder();
+                sb.append("N:[");
+                for (int i=nanstr.length(); i<9; i++) {
+                    sb.append('0');
+                }
+                sb.append(nanos).append("]");
+
+                // Compute the truncated value of N:[nanos] field that might
+                // be in 'expected' when expected was built from Calendar.
+                final StringBuilder sbm = new StringBuilder();
+                sbm.append("N:[");
+                for (int i=mistr.length(); i<3; i++) {
+                    sbm.append('0');
+                }
+                sbm.append(mistr).append("000000]");
+
+                // if expected contains the truncated value, replace it with
+                // the complete value.
+                expected = expected.replace(sbm.toString(), sb.toString());
+            } catch (UnsupportedTemporalTypeException e) {
+                // nano seconds unsupported - nothing to do...
+            }
+        }
         if (expected != null && !out.equals(expected)) {
             System.out.printf("%-24s  actual: %s%n                FAILED; expected: %s%n",
                               getClassName(dt), out, expected);
@@ -204,11 +246,6 @@ public class TestFormatter {
         }
     }
 
-    private String toZoneIdStr(String expected) {
-        // Android-changed: java.util.Calendar and java.time types are formatted identically.
-        return expected;
-    }
-
     private String toZoneOffsetStr(String expected) {
         // Android-changed: Android Matcher doesn't support named groups. Also GMT/Z is formatted as
         // "GMT+00:00" or "GMT".
@@ -219,8 +256,7 @@ public class TestFormatter {
     private void testZoneId(Locale locale, ChronoZonedDateTime<?> zdt, Calendar cal) {
         String fmtStr = "z:[%tz] z:[%1$Tz] Z:[%1$tZ] Z:[%1$TZ]";
         printFmtStr(locale, fmtStr);
-        String calOutput = test(fmtStr, locale, null, cal);
-        String expected = toZoneIdStr(calOutput);
+        String expected = test(fmtStr, locale, null, cal);
         test(fmtStr, locale, expected, zdt);
         // get a new cal with fixed tz
         Calendar cal0 = Calendar.getInstance();
@@ -236,7 +272,7 @@ public class TestFormatter {
         // datetime + zid
         fmtStr = "c:[%tc] c:[%1$Tc]";
         printFmtStr(locale, fmtStr);
-        expected = toZoneIdStr(test(fmtStr, locale, null, cal));
+        expected = test(fmtStr, locale, null, cal);
         test(fmtStr, locale, expected, zdt);
     }
 

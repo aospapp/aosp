@@ -457,7 +457,7 @@ public class WifiBackupRestoreTest extends WifiJUnit4TestBase {
                     .collect(Collectors.toSet());
 
             restoreMethod.run();
-
+            Thread.sleep(500);
             restoredSavedNetworks = mWifiManager.getPrivilegedConfiguredNetworks().stream()
                     .filter(n -> !origSavedSsids.contains(n.SSID))
                     .collect(Collectors.toList());

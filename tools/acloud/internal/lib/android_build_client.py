@@ -65,7 +65,7 @@ class AndroidBuildClient(base_cloud_client.BaseCloudApiClient):
     LATEST = "latest"
     # FETCH_CVD variables.
     FETCHER_NAME = "fetch_cvd"
-    FETCHER_BUILD_TARGET = "aosp_cf_x86_phone-userdebug"
+    FETCHER_BUILD_TARGET = "aosp_cf_x86_64_phone-userdebug"
     MAX_RETRY = 3
     RETRY_SLEEP_SECS = 3
 
@@ -83,7 +83,7 @@ class AndroidBuildClient(base_cloud_client.BaseCloudApiClient):
         """Get Android build attempt information.
 
         Args:
-            build_target: Target name, e.g. "aosp_cf_x86_phone-userdebug"
+            build_target: Target name, e.g. "aosp_cf_x86_64_phone-userdebug"
             build_id: Build id, a string, e.g. "2263051", "P2804227"
             resource_id: Id of the resource, e.g "avd-system.tar.gz".
             local_dest: A local path where the artifact should be stored.
@@ -156,14 +156,15 @@ class AndroidBuildClient(base_cloud_client.BaseCloudApiClient):
     def GetFetchBuildArgs(self, build_id, branch, build_target, system_build_id,
                           system_branch, system_build_target, kernel_build_id,
                           kernel_branch, kernel_build_target, bootloader_build_id,
-                          bootloader_branch, bootloader_build_target):
+                          bootloader_branch, bootloader_build_target,
+                          ota_build_id, ota_branch, ota_build_target):
         """Get args from build information for fetch_cvd.
 
         Args:
             build_id: String of build id, e.g. "2263051", "P2804227"
             branch: String of branch name, e.g. "aosp-master"
             build_target: String of target name.
-                          e.g. "aosp_cf_x86_phone-userdebug"
+                          e.g. "aosp_cf_x86_64_phone-userdebug"
             system_build_id: String of the system image build id.
             system_branch: String of the system image branch name.
             system_build_target: String of the system image target name,
@@ -174,6 +175,9 @@ class AndroidBuildClient(base_cloud_client.BaseCloudApiClient):
             bootloader_build_id: String of the bootloader build id.
             bootloader_branch: String of the bootloader branch name.
             bootloader_build_target: String of the bootloader target name.
+            ota_build_id: String of the bootloader build id.
+            ota_branch: String of the bootloader branch name.
+            ota_build_target: String of the bootloader target name.
 
         Returns:
             List of string args for fetch_cvd.
@@ -182,11 +186,11 @@ class AndroidBuildClient(base_cloud_client.BaseCloudApiClient):
 
         default_build = self.ProcessBuild(build_id, branch, build_target)
         if default_build:
-            fetch_cvd_args.append("-default_build=" + default_build)
+            fetch_cvd_args.append("-default_build=%s" % default_build)
         system_build = self.ProcessBuild(
             system_build_id, system_branch, system_build_target)
         if system_build:
-            fetch_cvd_args.append("-system_build=" + system_build)
+            fetch_cvd_args.append("-system_build=%s" % system_build)
         bootloader_build = self.ProcessBuild(bootloader_build_id,
                                              bootloader_branch,
                                              bootloader_build_target)
@@ -196,7 +200,11 @@ class AndroidBuildClient(base_cloud_client.BaseCloudApiClient):
                                            kernel_branch,
                                            kernel_build_target)
         if kernel_build:
-            fetch_cvd_args.append("-kernel_build=" + kernel_build)
+            fetch_cvd_args.append("-kernel_build=%s" % kernel_build)
+        ota_build = self.ProcessBuild(
+            ota_build_id, ota_branch, ota_build_target)
+        if ota_build:
+            fetch_cvd_args.append("-otatools_build=%s" % ota_build)
 
         return fetch_cvd_args
 
@@ -270,7 +278,7 @@ class AndroidBuildClient(base_cloud_client.BaseCloudApiClient):
         """Copy an Android Build artifact to a storage bucket.
 
         Args:
-            build_target: Target name, e.g. "aosp_cf_x86_phone-userdebug"
+            build_target: Target name, e.g. "aosp_cf_x86_64_phone-userdebug"
             build_id: Build id, a string, e.g. "2263051", "P2804227"
             artifact_name: Name of the artifact, e.g "avd-system.tar.gz".
             destination_bucket: String, a google storage bucket name.
@@ -306,7 +314,7 @@ class AndroidBuildClient(base_cloud_client.BaseCloudApiClient):
         """Derives branch name.
 
         Args:
-            build_target: Target name, e.g. "aosp_cf_x86_phone-userdebug"
+            build_target: Target name, e.g. "aosp_cf_x86_64_phone-userdebug"
             build_id: Build ID, a string, e.g. "2263051", "P2804227"
 
         Returns:
@@ -324,7 +332,7 @@ class AndroidBuildClient(base_cloud_client.BaseCloudApiClient):
         ... u'buildId': u'4949805', u'machineName'...}]}
 
         Args:
-            build_target: String, target name, e.g. "aosp_cf_x86_phone-userdebug"
+            build_target: String, target name, e.g. "aosp_cf_x86_64_phone-userdebug"
             build_branch: String, git branch name, e.g. "aosp-master"
 
         Returns:

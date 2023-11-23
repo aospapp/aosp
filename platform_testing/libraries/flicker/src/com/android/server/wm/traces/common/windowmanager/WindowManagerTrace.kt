@@ -29,13 +29,12 @@ import com.android.server.wm.traces.common.ITrace
  *
  */
 data class WindowManagerTrace(
-    override val entries: Array<WindowManagerState>,
-    override val source: String
+    override val entries: Array<WindowManagerState>
 ) : ITrace<WindowManagerState>,
     List<WindowManagerState> by entries.toList() {
     override fun toString(): String {
-        return "WindowManagerTrace(Start: ${entries.first()}, " +
-            "End: ${entries.last()})"
+        return "WindowManagerTrace(Start: ${entries.firstOrNull()}, " +
+            "End: ${entries.lastOrNull()})"
     }
 
     override fun equals(other: Any?): Boolean {
@@ -43,15 +42,12 @@ data class WindowManagerTrace(
         if (other !is WindowManagerTrace) return false
 
         if (!entries.contentEquals(other.entries)) return false
-        if (source != other.source) return false
 
         return true
     }
 
     override fun hashCode(): Int {
-        var result = entries.contentHashCode()
-        result = 31 * result + source.hashCode()
-        return result
+        return entries.contentHashCode()
     }
 
     /**
@@ -66,7 +62,6 @@ data class WindowManagerTrace(
             this.entries
                 .dropWhile { it.timestamp < from }
                 .dropLastWhile { it.timestamp > to }
-                .toTypedArray(),
-            source = "")
+                .toTypedArray())
     }
 }

@@ -57,4 +57,16 @@ public interface AudioSystemService {
     default AudioCapturer createDefaultCapturer() throws IOException {
         return createCapturerFor(Defaults.AUDIO_DEVICE, Defaults.AUDIO_FORMAT);
     }
+
+    /**
+     * Creates a new {@link AudioCapturer} for the provided {@link AudioDevice} with the default
+     * {@link AudioFormat}.
+     *
+     * @throws IOException if unable to communcate with the underlying audio system, any errors
+     *     occur while attempting to allocate resources for the {@link AudioCapturer}, or the
+     *     provided {@link AudioDevice} cannot be allocated properly.
+     */
+    default AudioCapturer createWithDefaultAudioFormat(AudioDevice device) throws IOException {
+        return createCapturerFor(device, Defaults.AUDIO_FORMAT);
+    }
 }

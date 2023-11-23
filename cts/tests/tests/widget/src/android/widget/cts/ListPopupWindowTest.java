@@ -111,6 +111,7 @@ public class ListPopupWindowTest {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
         mActivity = mActivityRule.getActivity();
         mItemClickListener = new PopupItemClickListener();
+        mActivity.getApplicationInfo().setEnableOnBackInvokedCallback(false);
     }
 
     @After
@@ -687,6 +688,21 @@ public class ListPopupWindowTest {
         verify(mPopupWindowBuilder.mOnDismissListener, never()).onDismiss();
         assertTrue(mPopupWindow.isShowing());
     }
+
+    @Test
+    public void testNoDefaultDismissalWithEscapeButton() {
+        mPopupWindowBuilder = new Builder().withDismissListener();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mActivity.getWindow().getDecorView(),
+                mPopupWindowBuilder::show);
+
+        // Send ESCAPE key event. As we don't have any custom code that dismisses ListPopupWindow,
+        // and ListPopupWindow doesn't track that system-level key event on its own, ListPopupWindow
+        // should stay visible
+        mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_ESCAPE);
+        verify(mPopupWindowBuilder.mOnDismissListener, never()).onDismiss();
+        assertTrue(mPopupWindow.isShowing());
+    }
+
 
     @Test
     public void testCustomDismissalWithBackButton() {

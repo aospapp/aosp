@@ -61,8 +61,8 @@ func globalFlags(ctx android.LoadHookContext) ([]string, []string) {
 	}
 
 	if !ctx.Config().IsEnvFalse("ART_USE_READ_BARRIER") && ctx.Config().ArtUseReadBarrier() {
-		// Used to change the read barrier type. Valid values are BAKER, BROOKS,
-		// TABLELOOKUP. The default is BAKER.
+		// Used to change the read barrier type. Valid values are BAKER, TABLELOOKUP.
+		// The default is BAKER.
 		barrierType := ctx.Config().GetenvWithDefault("ART_READ_BARRIER_TYPE", "BAKER")
 		cflags = append(cflags,
 			"-DART_USE_READ_BARRIER=1",
@@ -288,7 +288,7 @@ func testInstall(ctx android.InstallHookContext) {
 	defer artTestMutex.Unlock()
 
 	tests := testMap[name]
-	tests = append(tests, ctx.Path().ToMakePath().String())
+	tests = append(tests, ctx.Path().String())
 	testMap[name] = tests
 }
 
@@ -305,7 +305,7 @@ func testcasesContent(config android.Config) map[string]string {
 // The 'key' is the file in testcases and 'value' is the path to copy it from.
 // The actual copy will be done in make since soong does not do installations.
 func addTestcasesFile(ctx android.InstallHookContext) {
-	if ctx.Os() != android.BuildOs || ctx.Module().IsSkipInstall() {
+	if ctx.Os() != ctx.Config().BuildOS || ctx.Module().IsSkipInstall() {
 		return
 	}
 
@@ -315,7 +315,7 @@ func addTestcasesFile(ctx android.InstallHookContext) {
 	defer artTestMutex.Unlock()
 
 	src := ctx.SrcPath().String()
-	path := strings.Split(ctx.Path().ToMakePath().String(), "/")
+	path := strings.Split(ctx.Path().String(), "/")
 	// Keep last two parts of the install path (e.g. bin/dex2oat).
 	dst := strings.Join(path[len(path)-2:], "/")
 	if oldSrc, ok := testcasesContent[dst]; ok {
@@ -356,10 +356,6 @@ func init() {
 	android.RegisterModuleType("art_global_defaults", artGlobalDefaultsFactory)
 	android.RegisterModuleType("art_debug_defaults", artDebugDefaultsFactory)
 
-	// ART apex is special because it must include dexpreopt files for bootclasspath jars.
-	android.RegisterModuleType("art_apex", artApexBundleFactory)
-	android.RegisterModuleType("art_apex_test", artTestApexBundleFactory)
-
 	// TODO: This makes the module disable itself for host if HOST_PREFER_32_BIT is
 	// set. We need this because the multilib types of binaries listed in the apex
 	// rule must match the declared type. This is normally not difficult but HOST_PREFER_32_BIT
@@ -369,16 +365,8 @@ func init() {
 	android.RegisterModuleType("art_apex_test_host", artHostTestApexBundleFactory)
 }
 
-func artApexBundleFactory() android.Module {
-	return apex.ApexBundleFactory(false /*testApex*/, true /*artApex*/)
-}
-
-func artTestApexBundleFactory() android.Module {
-	return apex.ApexBundleFactory(true /*testApex*/, true /*artApex*/)
-}
-
 func artHostTestApexBundleFactory() android.Module {
-	module := apex.ApexBundleFactory(true /*testApex*/, true /*artApex*/)
+	module := apex.ApexBundleFactory(true)
 	android.AddLoadHook(module, func(ctx android.LoadHookContext) {
 		if ctx.Config().IsEnvTrue("HOST_PREFER_32_BIT") {
 			type props struct {

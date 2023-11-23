@@ -19,6 +19,7 @@ package android.server.wm;
 import static android.app.WindowConfiguration.ACTIVITY_TYPE_ASSISTANT;
 import static android.app.WindowConfiguration.ACTIVITY_TYPE_RECENTS;
 import static android.app.WindowConfiguration.ACTIVITY_TYPE_STANDARD;
+import static android.app.WindowConfiguration.WINDOWING_MODE_FULLSCREEN;
 import static android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK;
 import static android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP;
 import static android.content.Intent.FLAG_ACTIVITY_MULTIPLE_TASK;
@@ -250,7 +251,7 @@ public class MultiDisplayActivityLaunchTests extends MultiDisplayTestBase {
                 .setSimulateDisplay(true).createDisplay();
 
         // Launch activity on new secondary display.
-        launchActivityOnDisplay(NON_RESIZEABLE_ACTIVITY, newDisplay.mId);
+        launchActivityOnDisplay(NON_RESIZEABLE_ACTIVITY, WINDOWING_MODE_FULLSCREEN, newDisplay.mId);
 
         waitAndAssertTopResumedActivity(NON_RESIZEABLE_ACTIVITY, newDisplay.mId,
                 "Activity requested to launch on secondary display must be focused");

@@ -14,21 +14,20 @@
 """Verify jpeg capture latency for both front and back primary cameras.
 """
 
-import logging
-
 from mobly import test_runner
 
-import camera_properties_utils
 import its_base_test
+import camera_properties_utils
 import its_session_utils
 
+# This must match MPC12_JPEG_CAPTURE_THRESHOLD in ItsTestActivity.java
 JPEG_CAPTURE_S_PERFORMANCE_CLASS_THRESHOLD = 1000  # ms
 
 
 class JpegCaptureSPerfClassTest(its_base_test.ItsBaseTest):
   """Test jpeg capture latency for S performance class as specified in CDD.
 
-  [7.5/H-1-6] MUST have camera2 JPEG capture latency < 1000ms for 1080p
+  [7.5/H-1-5] MUST have camera2 JPEG capture latency < 1000ms for 1080p
   resolution as measured by the CTS camera PerformanceTest under ITS lighting
   conditions (3000K) for both primary cameras.
   """
@@ -41,7 +40,7 @@ class JpegCaptureSPerfClassTest(its_base_test.ItsBaseTest):
         camera_id=self.camera_id) as cam:
 
       camera_properties_utils.skip_unless(
-          cam.is_performance_class_primary_camera())
+          cam.is_primary_camera())
 
       # Load chart for scene.
       props = cam.get_camera_properties()
@@ -55,12 +54,18 @@ class JpegCaptureSPerfClassTest(its_base_test.ItsBaseTest):
         camera_id=self.camera_id)
 
     jpeg_capture_ms = cam.measure_camera_1080p_jpeg_capture_ms()
-    if jpeg_capture_ms >= JPEG_CAPTURE_S_PERFORMANCE_CLASS_THRESHOLD:
-      raise AssertionError(f'1080p jpeg capture time: {jpeg_capture_ms} ms, '
+
+    # Assert jpeg capture time if device claims performance class
+    if (cam.is_performance_class() and
+        jpeg_capture_ms >= JPEG_CAPTURE_S_PERFORMANCE_CLASS_THRESHOLD):
+      raise AssertionError(f'1080p_jpeg_capture_time_ms: {jpeg_capture_ms}, '
                            f'THRESH: '
-                           f'{JPEG_CAPTURE_S_PERFORMANCE_CLASS_THRESHOLD} ms')
-    else:
-      logging.debug('1080p jpeg capture time: %.1f ms', jpeg_capture_ms)
+                           f'{JPEG_CAPTURE_S_PERFORMANCE_CLASS_THRESHOLD}')
+
+    # Log jpeg capture time so that the corresponding MPC level can be written
+    # to report log. Text must match MPC12_JPEG_CAPTURE_PATTERN in
+    # ItsTestActivity.java.
+    print(f'1080p_jpeg_capture_time_ms:{jpeg_capture_ms}')
 
 if __name__ == '__main__':
   test_runner.main()

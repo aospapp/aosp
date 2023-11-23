@@ -9,7 +9,7 @@ compatibility within the scope of CHRE, there are two main categories:
 * **Code compatibility**, which means that a nanoapp can be recompiled to run on
   a new platform without needing any code changes. CHRE provides this
   cross-device compatibility for all nanoapps which are written in a supported
-  programming language (C99 or C++11), and reference only the standard CHRE APIs
+  programming language (C11 or C++17), and reference only the standard CHRE APIs
   and mandatory standard library elements (or have these standard library
   functions statically linked into their binary).
 

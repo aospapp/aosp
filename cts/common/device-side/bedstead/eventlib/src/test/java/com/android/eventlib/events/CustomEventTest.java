@@ -116,7 +116,7 @@ public final class CustomEventTest {
                 .whereTag().isEqualTo("TAG");
 
         assertThat(customEvent.describeQuery(FIELD_NAME))
-                .isEqualTo("{type=CustomEvent, packageName=PACKAGE, tag=TAG}");
+                .isEqualTo("{type=CustomEvent, packageName=PACKAGE, tag=\"TAG\"}");
     }
 
     @Test
@@ -135,6 +135,6 @@ public final class CustomEventTest {
                 .whereData().isEqualTo("DATA");
 
         assertThat(customEvent.describeQuery(FIELD_NAME))
-                .isEqualTo("{type=CustomEvent, packageName=PACKAGE, tag=TAG, data=DATA}");
+                .isEqualTo("{type=CustomEvent, packageName=PACKAGE, tag=\"TAG\", data=DATA}");
     }
 }

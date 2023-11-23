@@ -34,7 +34,10 @@ from acloud.public import report
 
 logger = logging.getLogger(__name__)
 
-_FIND_LOG_FILE_CMD = "find -L %s -type f" % constants.REMOTE_LOG_FOLDER
+# REMOTE_LOG_FOLDER and the log files can be symbolic links. The -H flag makes
+# the command skip the links except REMOTE_LOG_FOLDER. The returned logs are
+# unique.
+_FIND_LOG_FILE_CMD = "find -H %s -type f" % constants.REMOTE_LOG_FOLDER
 # Black list for log files.
 _KERNEL = "kernel"
 _IMG_FILE_EXTENSION = ".img"
@@ -61,25 +64,30 @@ def PullFileFromInstance(cfg, instance, file_name=None, no_prompts=False):
               ssh_private_key_path=cfg.ssh_private_key_path,
               extra_args_ssh_tunnel=cfg.extra_args_ssh_tunnel)
     log_files = SelectLogFileToPull(ssh, file_name)
-    download_folder = GetDownloadLogFolder(instance.name)
-    PullLogs(ssh, log_files, download_folder)
+    PullLogs(ssh, log_files, instance.name)
     if len(log_files) == 1:
         DisplayLog(ssh, log_files[0], no_prompts)
     return report.Report(command="pull")
 
 
-def PullLogs(ssh, log_files, download_folder):
+def PullLogs(ssh, log_files, instance_name):
     """Pull log files from remote instance.
 
     Args:
         ssh: Ssh object.
         log_files: List of file path in the remote instance.
-        download_folder: String of download folder path.
+        instance_name: The instance name that is used to create the download
+                       folder.
+
+    Returns:
+        The download folder path.
     """
+    download_folder = _GetDownloadLogFolder(instance_name)
     for log_file in log_files:
         target_file = os.path.join(download_folder, os.path.basename(log_file))
         ssh.ScpPullFile(log_file, target_file)
     _DisplayPullResult(download_folder)
+    return download_folder
 
 
 def DisplayLog(ssh, log_file, no_prompts=False):
@@ -108,7 +116,7 @@ def _DisplayPullResult(download_folder):
         "AVD issues." % download_folder)
 
 
-def GetDownloadLogFolder(instance):
+def _GetDownloadLogFolder(instance):
     """Get the download log folder accroding to instance name.
 
     Args:

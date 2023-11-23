@@ -34,7 +34,6 @@ license {
     name: "system_timezone_output_data_iana_license",
     visibility: [":__subpackages__"],
     license_kinds: [
-        "SPDX-license-identifier-BSD",
         "legacy_unencumbered",
     ],
     license_text: [

@@ -74,7 +74,7 @@ class TextTypeItem(
             when (nullable) {
                 null -> return "$typeString!"
                 true -> return "$typeString?"
-                // else: non-null: nothing to add
+                else -> { /* non-null: nothing to add */ }
             }
         }
         return typeString
@@ -141,10 +141,10 @@ class TextTypeItem(
         return dimensions
     }
 
-    private fun findTypeVariableBounds(typeParameterList: TypeParameterList, name: String): List<ClassItem> {
+    private fun findTypeVariableBounds(typeParameterList: TypeParameterList, name: String): List<TypeItem> {
         for (p in typeParameterList.typeParameters()) {
             if (p.simpleName() == name) {
-                val bounds = p.bounds()
+                val bounds = p.typeBounds()
                 if (bounds.isNotEmpty()) {
                     return bounds
                 }
@@ -154,7 +154,7 @@ class TextTypeItem(
         return emptyList()
     }
 
-    private fun findTypeVariableBounds(context: Item?, name: String): List<ClassItem> {
+    private fun findTypeVariableBounds(context: Item?, name: String): List<TypeItem> {
         if (context is MethodItem) {
             val bounds = findTypeVariableBounds(context.typeParameterList(), name)
             if (bounds.isNotEmpty()) {
@@ -173,7 +173,7 @@ class TextTypeItem(
             val typeParameter =
                 TextTypeParameterItem.create(codebase, context as? TypeParameterListOwner, toTypeString())
 
-            if (context != null && typeParameter.bounds().isEmpty()) {
+            if (context != null && typeParameter.typeBounds().isEmpty()) {
                 val bounds = findTypeVariableBounds(context, typeParameter.simpleName())
                 if (bounds.isNotEmpty()) {
                     val filtered = bounds.filter { !it.isJavaLangObject() }
@@ -239,7 +239,7 @@ class TextTypeItem(
         ): String {
             return if (erased) {
                 val raw = eraseTypeArguments(type)
-                val concrete = substituteTypeParameters(raw, context)
+                val concrete = eraseTypeArguments(substituteTypeParameters(raw, context))
                 if (outerAnnotations && innerAnnotations) {
                     concrete
                 } else {
@@ -264,9 +264,9 @@ class TextTypeItem(
                     val v = s.substring(0, end)
                     val parameter = context.resolveParameter(v)
                     if (parameter != null) {
-                        val bounds = parameter.bounds()
+                        val bounds = parameter.typeBounds()
                         if (bounds.isNotEmpty()) {
-                            return bounds.first().qualifiedName() + s.substring(end)
+                            return bounds.first().toTypeString() + s.substring(end)
                         }
                         @Suppress("ConstantConditionIf")
                         if (ASSUME_TYPE_VARS_EXTEND_OBJECT) {

@@ -17,10 +17,9 @@
 package android.signature.cts.api.test;
 
 import android.signature.cts.DexMember;
-import android.signature.cts.api.dynamic.DynamicConfigHiddenApiTest;
 import java.util.Set;
 
-public class HiddenApiTest extends DynamicConfigHiddenApiTest {
+public class HiddenApiTest extends android.signature.cts.api.HiddenApiTest {
 
     /**
      * Override to match only those members that specify both test-api and blocked.
@@ -30,5 +29,4 @@ public class HiddenApiTest extends DynamicConfigHiddenApiTest {
         Set<String> flags = member.getHiddenapiFlags();
         return flags.contains("test-api") && flags.contains("blocked");
     }
-
 }

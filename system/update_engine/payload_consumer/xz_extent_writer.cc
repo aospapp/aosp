@@ -53,13 +53,13 @@ const char* XzErrorString(enum xz_ret error) {
 }  // namespace
 
 XzExtentWriter::~XzExtentWriter() {
-  xz_dec_end(stream_);
+  stream_.reset();
   TEST_AND_RETURN(input_buffer_.empty());
 }
 
 bool XzExtentWriter::Init(const RepeatedPtrField<Extent>& extents,
                           uint32_t block_size) {
-  stream_ = xz_dec_init(XZ_DYNALLOC, kXzMaxDictSize);
+  stream_.reset(xz_dec_init(XZ_DYNALLOC, kXzMaxDictSize));
   TEST_AND_RETURN_FALSE(stream_ != nullptr);
   return underlying_writer_->Init(extents, block_size);
 }
@@ -86,7 +86,7 @@ bool XzExtentWriter::Write(const void* bytes, size_t count) {
   for (;;) {
     request.out_pos = 0;
 
-    xz_ret ret = xz_dec_run(stream_, &request);
+    xz_ret ret = xz_dec_run(stream_.get(), &request);
     if (ret != XZ_OK && ret != XZ_STREAM_END) {
       LOG(ERROR) << "xz_dec_run returned " << XzErrorString(ret);
       return false;

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <vintf/Level.h>
 #include <vintf/Version.h>
 #include <vintf/VersionRange.h>
 #include <vintf/constants.h>
@@ -70,6 +71,9 @@ constexpr const char* kOdmLegacyManifest = ODM_LEGACY_VINTF_DIR "manifest.xml";
 #undef PRODUCT_VINTF_DIR
 #undef SYSTEM_EXT_VINTF_DIR
 #undef ODM_LEGACY_VINTF_DIR
+
+// Device manifest with level T must not set kernel level.
+constexpr Level kEnforceDeviceManifestNoKernelLevel = Level::T;
 
 }  // namespace details
 }  // namespace vintf

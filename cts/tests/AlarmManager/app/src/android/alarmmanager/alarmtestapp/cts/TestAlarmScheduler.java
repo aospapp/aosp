@@ -40,6 +40,7 @@ public class TestAlarmScheduler extends BroadcastReceiver {
     public static final String EXTRA_TYPE = PACKAGE_NAME + ".extra.TYPE";
     public static final String ACTION_SET_ALARM_CLOCK = PACKAGE_NAME + ".action.SET_ALARM_CLOCK";
     public static final String EXTRA_ALARM_CLOCK_INFO = PACKAGE_NAME + ".extra.ALARM_CLOCK_INFO";
+    public static final String EXTRA_TEST_FGS = PACKAGE_NAME + ".extra.TEST_FGS";
     public static final String ACTION_CANCEL_ALL_ALARMS = PACKAGE_NAME + ".action.CANCEL_ALARMS";
 
     @Override
@@ -49,6 +50,7 @@ public class TestAlarmScheduler extends BroadcastReceiver {
         receiverIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         final long id = SystemClock.elapsedRealtime();
         receiverIntent.putExtra(TestAlarmReceiver.EXTRA_ID, id);
+        receiverIntent.putExtra(EXTRA_TEST_FGS, intent.getBooleanExtra(EXTRA_TEST_FGS, false));
         final PendingIntent alarmClockSender = PendingIntent.getBroadcast(context, 0,
                 receiverIntent, PendingIntent.FLAG_MUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         final PendingIntent alarmSender = PendingIntent.getBroadcast(context, 1, receiverIntent,

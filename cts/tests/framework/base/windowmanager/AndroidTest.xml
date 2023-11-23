@@ -21,6 +21,7 @@
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true"/>
+        <option name="install-arg" value="-t" />
         <option name="test-file-name" value="CtsWindowManagerDeviceTestCases.apk"/>
         <option name="test-file-name" value="CtsDragAndDropSourceApp.apk"/>
         <option name="test-file-name" value="CtsDragAndDropTargetApp.apk"/>
@@ -40,6 +41,9 @@
         <option name="test-file-name" value="CtsMockInputMethod.apk" />
         <option name="test-file-name" value="CtsDeviceServicesTestShareUidAppA.apk" />
         <option name="test-file-name" value="CtsDeviceServicesTestShareUidAppB.apk" />
+        <option name="test-file-name" value="CtsCrossProcessSurfaceControlViewHostTestService.apk" />
+        <option name="test-file-name" value="CtsWindowManagerJetpackSecondUidApp.apk" />
+        <option name="test-file-name" value="CtsBackLegacyApp.apk" />
     </target_preparer>
     <!-- Some older apk cannot be installed as instant, so we force them full mode -->
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">

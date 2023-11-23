@@ -44,15 +44,17 @@ type GlobalConfig struct {
 	DisableGenerateProfile bool   // don't generate profiles
 	ProfileDir             string // directory to find profiles in
 
-	BootJars          android.ConfiguredJarList // modules for jars that form the boot class path
-	UpdatableBootJars android.ConfiguredJarList // jars within apex that form the boot class path
+	BootJars     android.ConfiguredJarList // modules for jars that form the boot class path
+	ApexBootJars android.ConfiguredJarList // jars within apex that form the boot class path
 
 	ArtApexJars android.ConfiguredJarList // modules for jars that are in the ART APEX
 
-	SystemServerJars          android.ConfiguredJarList // jars that form the system server
-	SystemServerApps          []string                  // apps that are loaded into system server
-	UpdatableSystemServerJars android.ConfiguredJarList // jars within apex that are loaded into system server
-	SpeedApps                 []string                  // apps that should be speed optimized
+	SystemServerJars               android.ConfiguredJarList // system_server classpath jars on the platform
+	SystemServerApps               []string                  // apps that are loaded into system server
+	ApexSystemServerJars           android.ConfiguredJarList // system_server classpath jars delivered via apex
+	StandaloneSystemServerJars     android.ConfiguredJarList // jars on the platform that system_server loads dynamically using separate classloaders
+	ApexStandaloneSystemServerJars android.ConfiguredJarList // jars delivered via apex that system_server loads dynamically using separate classloaders
+	SpeedApps                      []string                  // apps that should be speed optimized
 
 	BrokenSuboptimalOrderOfSystemServerJars bool // if true, sub-optimal order does not cause a build error
 
@@ -96,6 +98,48 @@ type GlobalConfig struct {
 	// quickly silence build errors. This flag should be used with caution and only as a temporary
 	// measure, as it masks real errors and affects performance.
 	RelaxUsesLibraryCheck bool
+}
+
+var allPlatformSystemServerJarsKey = android.NewOnceKey("allPlatformSystemServerJars")
+
+// Returns all jars on the platform that system_server loads, including those on classpath and those
+// loaded dynamically.
+func (g *GlobalConfig) AllPlatformSystemServerJars(ctx android.PathContext) *android.ConfiguredJarList {
+	return ctx.Config().Once(allPlatformSystemServerJarsKey, func() interface{} {
+		res := g.SystemServerJars.AppendList(&g.StandaloneSystemServerJars)
+		return &res
+	}).(*android.ConfiguredJarList)
+}
+
+var allApexSystemServerJarsKey = android.NewOnceKey("allApexSystemServerJars")
+
+// Returns all jars delivered via apex that system_server loads, including those on classpath and
+// those loaded dynamically.
+func (g *GlobalConfig) AllApexSystemServerJars(ctx android.PathContext) *android.ConfiguredJarList {
+	return ctx.Config().Once(allApexSystemServerJarsKey, func() interface{} {
+		res := g.ApexSystemServerJars.AppendList(&g.ApexStandaloneSystemServerJars)
+		return &res
+	}).(*android.ConfiguredJarList)
+}
+
+var allSystemServerClasspathJarsKey = android.NewOnceKey("allSystemServerClasspathJars")
+
+// Returns all system_server classpath jars.
+func (g *GlobalConfig) AllSystemServerClasspathJars(ctx android.PathContext) *android.ConfiguredJarList {
+	return ctx.Config().Once(allSystemServerClasspathJarsKey, func() interface{} {
+		res := g.SystemServerJars.AppendList(&g.ApexSystemServerJars)
+		return &res
+	}).(*android.ConfiguredJarList)
+}
+
+var allSystemServerJarsKey = android.NewOnceKey("allSystemServerJars")
+
+// Returns all jars that system_server loads.
+func (g *GlobalConfig) AllSystemServerJars(ctx android.PathContext) *android.ConfiguredJarList {
+	return ctx.Config().Once(allSystemServerJarsKey, func() interface{} {
+		res := g.AllPlatformSystemServerJars(ctx).AppendList(g.AllApexSystemServerJars(ctx))
+		return &res
+	}).(*android.ConfiguredJarList)
 }
 
 // GlobalSoongConfig contains the global config that is generated from Soong,
@@ -159,7 +203,7 @@ func init() {
 }
 
 func constructPath(ctx android.PathContext, path string) android.Path {
-	buildDirPrefix := ctx.Config().BuildDir() + "/"
+	buildDirPrefix := ctx.Config().SoongOutDir() + "/"
 	if path == "" {
 		return nil
 	} else if strings.HasPrefix(path, buildDirPrefix) {
@@ -364,6 +408,7 @@ func dex2oatModuleName(config android.Config) string {
 
 type dex2oatDependencyTag struct {
 	blueprint.BaseDependencyTag
+	android.LicenseAnnotationToolchainDependencyTag
 }
 
 func (d dex2oatDependencyTag) ExcludeFromVisibilityEnforcement() {
@@ -531,7 +576,7 @@ func ParseGlobalSoongConfig(ctx android.PathContext, data []byte) (*GlobalSoongC
 	return config, nil
 }
 
-// checkBootJarsConfigConsistency checks the consistency of BootJars and UpdatableBootJars fields in
+// checkBootJarsConfigConsistency checks the consistency of BootJars and ApexBootJars fields in
 // DexpreoptGlobalConfig and Config.productVariables.
 func checkBootJarsConfigConsistency(ctx android.SingletonContext, dexpreoptConfig *GlobalConfig, config android.Config) {
 	compareBootJars := func(property string, dexpreoptJars, variableJars android.ConfiguredJarList) {
@@ -545,8 +590,8 @@ func checkBootJarsConfigConsistency(ctx android.SingletonContext, dexpreoptConfi
 		}
 	}
 
-	compareBootJars("BootJars", dexpreoptConfig.BootJars, config.NonUpdatableBootJars())
-	compareBootJars("UpdatableBootJars", dexpreoptConfig.UpdatableBootJars, config.UpdatableBootJars())
+	compareBootJars("BootJars", dexpreoptConfig.BootJars, config.NonApexBootJars())
+	compareBootJars("ApexBootJars", dexpreoptConfig.ApexBootJars, config.ApexBootJars())
 }
 
 func (s *globalSoongConfigSingleton) GenerateBuildActions(ctx android.SingletonContext) {
@@ -614,11 +659,13 @@ func GlobalConfigForTests(ctx android.PathContext) *GlobalConfig {
 		DisableGenerateProfile:             false,
 		ProfileDir:                         "",
 		BootJars:                           android.EmptyConfiguredJarList(),
-		UpdatableBootJars:                  android.EmptyConfiguredJarList(),
+		ApexBootJars:                       android.EmptyConfiguredJarList(),
 		ArtApexJars:                        android.EmptyConfiguredJarList(),
 		SystemServerJars:                   android.EmptyConfiguredJarList(),
 		SystemServerApps:                   nil,
-		UpdatableSystemServerJars:          android.EmptyConfiguredJarList(),
+		ApexSystemServerJars:               android.EmptyConfiguredJarList(),
+		StandaloneSystemServerJars:         android.EmptyConfiguredJarList(),
+		ApexStandaloneSystemServerJars:     android.EmptyConfiguredJarList(),
 		SpeedApps:                          nil,
 		PreoptFlags:                        nil,
 		DefaultCompilerFilter:              "",

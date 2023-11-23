@@ -449,6 +449,13 @@ class Switch(Enum):
     DISABLE = "DISABLE"
 
 
+class ModulationType(Enum):
+    """Supported Modulation Types."""
+    Q16 = '16QAM'
+    Q64 = '64QAM'
+    Q256 = '256QAM'
+
+
 class MD8475A(object):
     """Class to communicate with Anritsu MD8475A Signalling Tester.
        This uses GPIB command to interface with Anritsu MD8475A """
@@ -3350,6 +3357,8 @@ class _BaseTransceiverStation(object):
         Returns:
             None
         """
+        if isinstance(order, ModulationType):
+            order = order.value
         cmd = "DLRMC_MOD {},{}".format(order, self._bts_number)
         self._anritsu.send_command(cmd)
 
@@ -3376,6 +3385,8 @@ class _BaseTransceiverStation(object):
         Returns:
             None
         """
+        if isinstance(order, ModulationType):
+            order = order.value
         cmd = "ULRMC_MOD {},{}".format(order, self._bts_number)
         self._anritsu.send_command(cmd)
 

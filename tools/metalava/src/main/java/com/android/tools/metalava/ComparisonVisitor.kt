@@ -22,15 +22,14 @@ import com.android.tools.metalava.model.Codebase
 import com.android.tools.metalava.model.ConstructorItem
 import com.android.tools.metalava.model.FieldItem
 import com.android.tools.metalava.model.Item
-import com.android.tools.metalava.model.MethodItem
 import com.android.tools.metalava.model.MergedCodebase
+import com.android.tools.metalava.model.MethodItem
 import com.android.tools.metalava.model.PackageItem
 import com.android.tools.metalava.model.ParameterItem
 import com.android.tools.metalava.model.PropertyItem
 import com.android.tools.metalava.model.VisitCandidate
 import com.android.tools.metalava.model.visitors.ApiVisitor
 import com.intellij.util.containers.Stack
-import java.util.Comparator
 import java.util.function.Predicate
 
 /**
@@ -306,7 +305,8 @@ class CodebaseComparator {
                 val superField = newParent.findField(
                     fieldName = old.name(),
                     includeSuperClasses = true,
-                    includeInterfaces = true)
+                    includeInterfaces = true
+                )
 
                 if (superField != null && (filter == null || filter.test(superField))) {
                     superField.duplicate(newParent)
@@ -402,14 +402,20 @@ class CodebaseComparator {
                         item1.qualifiedName().compareTo((item2 as ClassItem).qualifiedName())
                     }
                     is MethodItem -> {
+                        // Try to incrementally match aspects of the method until you can conclude
+                        // whether they are the same or different.
+                        // delta is 0 when the methods are the same, else not 0
+                        // Start by comparing the names
                         var delta = item1.name().compareTo((item2 as MethodItem).name())
                         if (delta == 0) {
+                            // If the names are the same then compare the number of parameters
                             val parameters1 = item1.parameters()
                             val parameters2 = item2.parameters()
                             val parameterCount1 = parameters1.size
                             val parameterCount2 = parameters2.size
                             delta = parameterCount1 - parameterCount2
                             if (delta == 0) {
+                                // If the parameter count is the same, compare the parameter types
                                 for (i in 0 until parameterCount1) {
                                     val parameter1 = parameters1[i]
                                     val parameter2 = parameters2[i]
@@ -417,7 +423,7 @@ class CodebaseComparator {
                                     val type2 = parameter2.type().toTypeString(context = parameter2)
                                     delta = type1.compareTo(type2)
                                     if (delta != 0) {
-                                        // Try a little harder:
+                                        // If the parameter types aren't the same, try a little harder:
                                         //  (1) treat varargs and arrays the same, and
                                         //  (2) drop java.lang. prefixes from comparisons in wildcard
                                         //      signatures since older signature files may have removed
@@ -426,15 +432,21 @@ class CodebaseComparator {
                                         val simpleType2 = parameter2.type().toCanonicalType(parameter2)
                                         delta = simpleType1.compareTo(simpleType2)
                                         if (delta != 0) {
-                                            // Special case: Kotlin coroutines
+                                            // If still not the same, check the special case for
+                                            // Kotlin coroutines: It's possible one has "experimental"
+                                            // when fully qualified while the other does not.
+                                            // We treat these the same, so strip the prefix and strip
+                                            // "experimental", then compare.
                                             if (simpleType1.startsWith("kotlin.coroutines.") && simpleType2.startsWith("kotlin.coroutines.")) {
                                                 val t1 = simpleType1.removePrefix("kotlin.coroutines.").removePrefix("experimental.")
                                                 val t2 = simpleType2.removePrefix("kotlin.coroutines.").removePrefix("experimental.")
                                                 delta = t1.compareTo(t2)
                                                 if (delta != 0) {
+                                                    // They're not the same
                                                     break
                                                 }
                                             } else {
+                                                // They're not the same
                                                 break
                                             }
                                         }
@@ -442,6 +454,7 @@ class CodebaseComparator {
                                 }
                             }
                         }
+                        // The method names are different, return the result of the compareTo
                         delta
                     }
                     is FieldItem -> {
@@ -451,7 +464,7 @@ class CodebaseComparator {
                         item1.parameterIndex.compareTo((item2 as ParameterItem).parameterIndex)
                     }
                     is AnnotationItem -> {
-                        (item1.qualifiedName() ?: "").compareTo((item2 as AnnotationItem).qualifiedName() ?: "")
+                        (item1.qualifiedName ?: "").compareTo((item2 as AnnotationItem).qualifiedName ?: "")
                     }
                     is PropertyItem -> {
                         item1.name().compareTo((item2 as PropertyItem).name())
@@ -535,23 +548,23 @@ class CodebaseComparator {
                 // So, when doing compatibility checking we want to consider public APIs even if the caller didn't explicitly pass --show-unannotated
                 showUnannotated = true
             ) {
-                override fun visitItem(item: Item) {
-                    val node = ItemTree(item)
-                    val parent = stack.peek()
-                    parent.children += node
+                    override fun visitItem(item: Item) {
+                        val node = ItemTree(item)
+                        val parent = stack.peek()
+                        parent.children += node
 
-                    stack.push(node)
-                }
+                        stack.push(node)
+                    }
 
-                override fun include(cls: ClassItem): Boolean = if (acceptAll) true else super.include(cls)
+                    override fun include(cls: ClassItem): Boolean = if (acceptAll) true else super.include(cls)
 
-                /** Include all classes in the tree, even implicitly defined classes (such as containing classes) */
-                override fun shouldEmitClass(vc: VisitCandidate): Boolean = true
+                    /** Include all classes in the tree, even implicitly defined classes (such as containing classes) */
+                    override fun shouldEmitClass(vc: VisitCandidate): Boolean = true
 
-                override fun afterVisitItem(item: Item) {
-                    stack.pop()
-                }
-            })
+                    override fun afterVisitItem(item: Item) {
+                        stack.pop()
+                    }
+                })
         }
 
         if (codebases.count() >= 2) {

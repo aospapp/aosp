@@ -21,6 +21,7 @@ import static android.voicerecognition.cts.TestObjects.PARTIAL_RESULTS_BUNDLE;
 import static android.voicerecognition.cts.TestObjects.READY_FOR_SPEECH_BUNDLE;
 import static android.voicerecognition.cts.TestObjects.RESULTS_BUNDLE;
 import static android.voicerecognition.cts.TestObjects.RMS_CHANGED_VALUE;
+import static android.voicerecognition.cts.TestObjects.SEGMENT_RESULTS_BUNDLE;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -29,7 +30,10 @@ import static org.junit.Assert.fail;
 import android.content.Intent;
 import android.os.RemoteException;
 import android.speech.RecognitionService;
+import android.speech.SpeechRecognizer;
 import android.util.Log;
+
+import androidx.annotation.NonNull;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -37,6 +41,7 @@ import java.util.List;
 import java.util.Queue;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 public class CtsRecognitionService extends RecognitionService {
     private static final String TAG = CtsRecognitionService.class.getSimpleName();
@@ -44,6 +49,8 @@ public class CtsRecognitionService extends RecognitionService {
     public static List<RecognizerMethod> sInvokedRecognizerMethods = new ArrayList<>();
     public static Queue<CallbackMethod> sInstructedCallbackMethods = new ArrayDeque<>();
     public static AtomicBoolean sIsActive = new AtomicBoolean(false);
+    public static Queue<Consumer<SupportCallback>> sConsumerQueue = new ArrayDeque<>();
+    public static List<Intent> sDownloadTriggers = new ArrayList<>();
 
     private final Random mRandom = new Random();
 
@@ -67,6 +74,23 @@ public class CtsRecognitionService extends RecognitionService {
 
         maybeRespond(listener);
         sIsActive.set(false);
+    }
+
+    @Override
+    public void onCheckRecognitionSupport(
+            @NonNull Intent recognizerIntent,
+            @NonNull SupportCallback supportCallback) {
+        Consumer<SupportCallback> consumer = sConsumerQueue.poll();
+        if (consumer == null) {
+            supportCallback.onError(SpeechRecognizer.ERROR_CANNOT_CHECK_SUPPORT);
+        } else {
+            consumer.accept(supportCallback);
+        }
+    }
+
+    @Override
+    public void onTriggerModelDownload(@NonNull Intent recognizerIntent) {
+        sDownloadTriggers.add(recognizerIntent);
     }
 
     @Override
@@ -119,6 +143,12 @@ public class CtsRecognitionService extends RecognitionService {
                     break;
                 case CALLBACK_METHOD_RMS_CHANGED:
                     listener.rmsChanged(RMS_CHANGED_VALUE);
+                    break;
+                case CALLBACK_METHOD_SEGMENTS_RESULTS:
+                    listener.segmentResults(SEGMENT_RESULTS_BUNDLE);
+                    break;
+                case CALLBACK_METHOD_END_SEGMENTED_SESSION:
+                    listener.endOfSegmentedSession();
                     break;
                 default:
                     fail();

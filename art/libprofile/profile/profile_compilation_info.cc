@@ -218,8 +218,12 @@ enum class ProfileCompilationInfo::FileSectionType : uint32_t {
   // Methods included in the profile, their hotness flags and inline caches.
   kMethods = 3,
 
+  // The aggregation counts of the profile, classes and methods. This section is
+  // an optional reserved section not implemented on client yet.
+  kAggregationCounts = 4,
+
   // The number of known sections.
-  kNumberOfSections = 4
+  kNumberOfSections = 5
 };
 
 class ProfileCompilationInfo::FileSectionInfo {
@@ -874,6 +878,7 @@ static bool WriteBuffer(int fd, const void* buffer, size_t byte_count) {
  *   ExtraDescriptors - optional, zipped
  *   Classes - optional, zipped
  *   Methods - optional, zipped
+ *   AggregationCounts - optional, zipped, server-side
  *
  * DexFiles:
  *    number_of_dex_files
@@ -963,10 +968,10 @@ bool ProfileCompilationInfo::Save(int fd) {
       methods_section_size;
   VLOG(profiler) << "Required capacity: " << total_uncompressed_size << " bytes.";
   if (total_uncompressed_size > GetSizeErrorThresholdBytes()) {
-    LOG(ERROR) << "Profile data size exceeds "
-               << GetSizeErrorThresholdBytes()
-               << " bytes. Profile will not be written to disk."
-               << " It requires " << total_uncompressed_size << " bytes.";
+    LOG(WARNING) << "Profile data size exceeds "
+                 << GetSizeErrorThresholdBytes()
+                 << " bytes. Profile will not be written to disk."
+                 << " It requires " << total_uncompressed_size << " bytes.";
     return false;
   }
 
@@ -1792,6 +1797,9 @@ ProfileCompilationInfo::ProfileLoadStatus ProfileCompilationInfo::LoadInternal(
               *source, section_info, dex_profile_index_remap, extra_descriptors_remap, error);
         }
         break;
+      case FileSectionType::kAggregationCounts:
+        // This section is only used on server side.
+        break;
       default:
         // Unknown section. Skip it. New versions of ART are allowed
         // to add sections that shall be ignored by old versions.
@@ -2012,9 +2020,11 @@ std::string ProfileCompilationInfo::DumpInfo(const std::vector<const DexFile*>& 
     os << " [num_method_ids=" << dex_data->num_method_ids << "]";
     const DexFile* dex_file = nullptr;
     for (const DexFile* current : dex_files) {
-      if (GetBaseKeyViewFromAugmentedKey(dex_data->profile_key) == current->GetLocation() &&
-          dex_data->checksum == current->GetLocationChecksum()) {
+      if (GetBaseKeyViewFromAugmentedKey(dex_data->profile_key) ==
+          GetProfileDexFileBaseKeyView(current->GetLocation()) &&
+          ChecksumMatch(dex_data->checksum, current->GetLocationChecksum())) {
         dex_file = current;
+        break;
       }
     }
     os << "\n\thot methods: ";
@@ -2263,21 +2273,6 @@ bool ProfileCompilationInfo::DexFileData::AddMethod(MethodHotness::Flag flags, s
   return true;
 }
 
-template <typename Fn>
-ALWAYS_INLINE void ProfileCompilationInfo::DexFileData::ForMethodBitmapHotnessFlags(Fn fn) const {
-  uint32_t lastFlag = is_for_boot_image
-      ? MethodHotness::kFlagLastBoot
-      : MethodHotness::kFlagLastRegular;
-  for (uint32_t flag = MethodHotness::kFlagFirst; flag <= lastFlag; flag = flag << 1) {
-    if (flag == MethodHotness::kFlagHot) {
-      // There's no bit for hotness in the bitmap.
-      // We store the hotness by recording the method in the method list.
-      continue;
-    }
-    fn(enum_cast<MethodHotness::Flag>(flag));
-  }
-}
-
 void ProfileCompilationInfo::DexFileData::SetMethodHotness(size_t index,
                                                            MethodHotness::Flag flags) {
   DCHECK_LT(index, num_method_ids);
@@ -2286,6 +2281,7 @@ void ProfileCompilationInfo::DexFileData::SetMethodHotness(size_t index,
       method_bitmap.StoreBit(MethodFlagBitmapIndex(
           static_cast<MethodHotness::Flag>(flag), index), /*value=*/ true);
     }
+    return true;
   });
 }
 
@@ -2294,9 +2290,10 @@ ProfileCompilationInfo::MethodHotness ProfileCompilationInfo::DexFileData::GetHo
   MethodHotness ret;
   ForMethodBitmapHotnessFlags([&](MethodHotness::Flag flag) {
     if (method_bitmap.LoadBit(MethodFlagBitmapIndex(
-          static_cast<MethodHotness::Flag>(flag), dex_method_index))) {
+            static_cast<MethodHotness::Flag>(flag), dex_method_index))) {
       ret.AddFlag(static_cast<MethodHotness::Flag>(flag));
     }
+    return true;
   });
   auto it = method_map.find(dex_method_index);
   if (it != method_map.end()) {
@@ -2325,24 +2322,6 @@ static_assert(ProfileCompilationInfo::MethodHotness::kFlagStartupBin == 1 << 10)
 static_assert(ProfileCompilationInfo::MethodHotness::kFlagStartupMaxBin == 1 << 15);
 static_assert(ProfileCompilationInfo::MethodHotness::kFlagLastBoot == 1 << 15);
 
-size_t ProfileCompilationInfo::DexFileData::MethodFlagBitmapIndex(
-      MethodHotness::Flag flag, size_t method_index) const {
-  DCHECK_LT(method_index, num_method_ids);
-  // The format is [startup bitmap][post startup bitmap][AmStartup][...]
-  // This compresses better than ([startup bit][post startup bit])*
-  return method_index + FlagBitmapIndex(flag) * num_method_ids;
-}
-
-size_t ProfileCompilationInfo::DexFileData::FlagBitmapIndex(MethodHotness::Flag flag) {
-  DCHECK(flag != MethodHotness::kFlagHot);
-  DCHECK(IsPowerOfTwo(static_cast<uint32_t>(flag)));
-  // We arrange the method flags in order, starting with the startup flag.
-  // The kFlagHot is not encoded in the bitmap and thus not expected as an
-  // argument here. Since all the other flags start at 1 we have to subtract
-  // one for the power of 2.
-  return WhichPowerOf2(static_cast<uint32_t>(flag)) - 1;
-}
-
 uint16_t ProfileCompilationInfo::DexFileData::GetUsedBitmapFlags() const {
   uint32_t used_flags = 0u;
   ForMethodBitmapHotnessFlags([&](MethodHotness::Flag flag) {
@@ -2350,6 +2329,7 @@ uint16_t ProfileCompilationInfo::DexFileData::GetUsedBitmapFlags() const {
     if (method_bitmap.HasSomeBitSet(index * num_method_ids, num_method_ids)) {
       used_flags |= flag;
     }
+    return true;
   });
   return dchecked_integral_cast<uint16_t>(used_flags);
 }
@@ -2516,9 +2496,10 @@ ProfileCompilationInfo::ProfileLoadStatus ProfileCompilationInfo::DexFileData::R
         *error = "Remapped type index out of range.";
         return ProfileLoadStatus::kMergeError;
       }
-      type_index = num_type_ids + new_extra_descriptor_index;
+      class_set.insert(dex::TypeIndex(num_type_ids + new_extra_descriptor_index));
+    } else {
+      class_set.insert(dex::TypeIndex(type_index));
     }
-    class_set.insert(dex::TypeIndex(type_index));
   }
   return ProfileLoadStatus::kSuccess;
 }
@@ -2617,11 +2598,16 @@ void ProfileCompilationInfo::DexFileData::WriteMethods(SafeBuffer& buffer) const
     if ((method_flags & flag) != 0u) {
       size_t index = FlagBitmapIndex(static_cast<MethodHotness::Flag>(flag));
       BitMemoryRegion src = method_bitmap.Subregion(index * num_method_ids, num_method_ids);
-      saved_bitmap.StoreBits(saved_bitmap_index * num_method_ids, src, num_method_ids);
+      saved_bitmap.Subregion(saved_bitmap_index * num_method_ids, num_method_ids).CopyBits(src);
       ++saved_bitmap_index;
     }
+    return true;
   });
   DCHECK_EQ(saved_bitmap_index * num_method_ids, saved_bitmap_bit_size);
+  // Clear the padding bits.
+  size_t padding_bit_size = saved_bitmap_byte_size * kBitsPerByte - saved_bitmap_bit_size;
+  BitMemoryRegion padding_region(buffer.GetCurrentPtr(), saved_bitmap_bit_size, padding_bit_size);
+  padding_region.StoreBits(/*bit_offset=*/ 0u, /*value=*/ 0u, /*bit_length=*/ padding_bit_size);
   buffer.Advance(saved_bitmap_byte_size);
 
   uint16_t last_method_index = 0;
@@ -2720,9 +2706,10 @@ ProfileCompilationInfo::ProfileLoadStatus ProfileCompilationInfo::DexFileData::R
       size_t index = FlagBitmapIndex(static_cast<MethodHotness::Flag>(flag));
       BitMemoryRegion src =
           saved_bitmap.Subregion(saved_bitmap_index * num_method_ids, num_method_ids);
-      method_bitmap.OrBits(index * num_method_ids, src, num_method_ids);
+      method_bitmap.Subregion(index * num_method_ids, num_method_ids).OrBits(src);
       ++saved_bitmap_index;
     }
+    return true;
   });
   buffer.Advance(saved_bitmap_byte_size);
 
@@ -2806,9 +2793,10 @@ ProfileCompilationInfo::ProfileLoadStatus ProfileCompilationInfo::DexFileData::R
                 *error = "Remapped inline cache type index out of range.";
                 return ProfileLoadStatus::kMergeError;
               }
-              type_index = num_type_ids + new_extra_descriptor_index;
+              dex_pc_data->AddClass(dex::TypeIndex(num_type_ids + new_extra_descriptor_index));
+            } else {
+              dex_pc_data->AddClass(dex::TypeIndex(type_index));
             }
-            dex_pc_data->AddClass(dex::TypeIndex(type_index));
           }
         }
       }

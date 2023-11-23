@@ -56,8 +56,9 @@ public class MediaExtractorDeviceSideTest {
                 InstrumentationRegistry.getInstrumentation().getContext().getAssets();
         try (AssetFileDescriptor fileDescriptor = assetManager.openFd(SAMPLE_PATH)) {
             mediaExtractor.setDataSource(fileDescriptor);
+        } finally {
+            mediaExtractor.release();
         }
-        mediaExtractor.release();
     }
 
     @Test

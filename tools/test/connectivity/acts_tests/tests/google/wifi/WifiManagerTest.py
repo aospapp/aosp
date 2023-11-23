@@ -205,8 +205,8 @@ class WifiManagerTest(WifiBaseTest):
                 " match. \nBefore reboot = %s \n After reboot = %s" %
                 (networks, network_info))
             raise signals.TestFailure(msg)
-        current_count = 0
         # For each network, check if it exists in configured list after reboot
+        current_ssids = set()
         for network in networks:
             exists = wutils.match_networks({
                 WifiEnums.SSID_KEY: network[WifiEnums.SSID_KEY]
@@ -218,10 +218,10 @@ class WifiManagerTest(WifiBaseTest):
             # Get the new network id for each network after reboot.
             network[WifiEnums.NETID_KEY] = exists[0]['networkId']
             if exists[0]['status'] == 'CURRENT':
-                current_count += 1
+                current_ssids.add(network[WifiEnums.SSID_KEY])
                 # At any given point, there can only be one currently active
                 # network, defined with 'status':'CURRENT'
-                if current_count > 1:
+                if len(current_ssids) > 1:
                     raise signals.TestFailure("More than one network showing"
                                               "as 'CURRENT' after reboot")
 

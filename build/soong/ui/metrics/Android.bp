@@ -21,9 +21,12 @@ bootstrap_go_package {
     pkgPath: "android/soong/ui/metrics",
     deps: [
         "golang-protobuf-proto",
+        "soong-ui-bp2build_metrics_proto",
         "soong-ui-metrics_upload_proto",
         "soong-ui-metrics_proto",
+        "soong-ui-mk_metrics_proto",
         "soong-ui-tracer",
+        "soong-shared",
     ],
     srcs: [
         "metrics.go",
@@ -37,7 +40,10 @@ bootstrap_go_package {
 bootstrap_go_package {
     name: "soong-ui-metrics_proto",
     pkgPath: "android/soong/ui/metrics/metrics_proto",
-    deps: ["golang-protobuf-proto"],
+    deps: [
+        "golang-protobuf-reflect-protoreflect",
+        "golang-protobuf-runtime-protoimpl",
+    ],
     srcs: [
         "metrics_proto/metrics.pb.go",
     ],
@@ -46,8 +52,35 @@ bootstrap_go_package {
 bootstrap_go_package {
     name: "soong-ui-metrics_upload_proto",
     pkgPath: "android/soong/ui/metrics/upload_proto",
-    deps: ["golang-protobuf-proto"],
+    deps: [
+        "golang-protobuf-reflect-protoreflect",
+        "golang-protobuf-runtime-protoimpl",
+    ],
     srcs: [
         "upload_proto/upload.pb.go",
+    ],
+}
+
+bootstrap_go_package {
+    name: "soong-ui-bp2build_metrics_proto",
+    pkgPath: "android/soong/ui/metrics/bp2build_metrics_proto",
+    deps: [
+        "golang-protobuf-reflect-protoreflect",
+        "golang-protobuf-runtime-protoimpl",
+    ],
+    srcs: [
+        "bp2build_metrics_proto/bp2build_metrics.pb.go",
+    ],
+}
+
+bootstrap_go_package {
+    name: "soong-ui-mk_metrics_proto",
+    pkgPath: "android/soong/ui/metrics/mk_metrics_proto",
+    deps: [
+        "golang-protobuf-reflect-protoreflect",
+        "golang-protobuf-runtime-protoimpl",
+    ],
+    srcs: [
+        "mk_metrics_proto/mk_metrics.pb.go",
     ],
 }

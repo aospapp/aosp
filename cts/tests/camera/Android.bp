@@ -48,3 +48,68 @@ android_library {
         "android.test.base.stubs",
     ],
 }
+
+// CtsCameraTestCases package
+android_test {
+    name: "CtsCameraTestCases",
+    defaults: ["cts_defaults"],
+    // Include both the 32 and 64 bit versions
+    compile_multilib: "both",
+    static_libs: [
+        "compatibility-device-util-axt",
+        "ctstestrunner-axt",
+        "cts-hardware-lib",
+        "mockito-target-minus-junit4",
+        "android-ex-camera2",
+        "CtsCameraUtils",
+        "truth-prebuilt",
+        "androidx.heifwriter_heifwriter",
+        "androidx.test.rules",
+    ],
+    jni_libs: [
+        "libctscamera2_jni",
+        "libnativehelper_compat_libc++",
+    ],
+    stl: "c++_shared",
+    srcs: [
+        "src/**/*.java",
+        ":CtsCameraTestCases-rscript{CtsCameraTestCases.srcjar}",
+    ],
+    resource_zips: [
+        ":CtsCameraTestCases-rscript{CtsCameraTestCases.res.zip}",
+    ],
+    test_suites: [
+        "cts",
+        "general-tests",
+    ],
+    sdk_version: "test_current",
+    libs: [
+        "android.test.runner.stubs",
+        "android.test.base.stubs",
+    ],
+    per_testcase_directory: true,
+}
+
+genrule {
+    name: "CtsCameraTestCases-rscript",
+    srcs: [
+        "src/**/*.rscript",
+        ":rs_script_api",
+        ":rs_clang_headers",
+    ],
+    tools: [
+        "llvm-rs-cc",
+        "soong_zip",
+    ],
+    out: [
+        "CtsCameraTestCases.srcjar",
+        "CtsCameraTestCases.res.zip",
+    ],
+    cmd: "for f in $(locations src/**/*.rscript); do " +
+        "  $(location llvm-rs-cc) -o $(genDir)/res/raw -p $(genDir)/src " +
+        "  -I $$(dirname $$(echo $(locations :rs_script_api) | awk '{ print $$1 }')) " +
+        "  -I $$(dirname $$(echo $(locations :rs_clang_headers) | awk '{ print $$1 }')) $${f}; " +
+        "done && " +
+        "$(location soong_zip) -srcjar -o $(location CtsCameraTestCases.srcjar) -C $(genDir)/src -D $(genDir)/src &&" +
+        "$(location soong_zip) -o $(location CtsCameraTestCases.res.zip) -C $(genDir)/res -D $(genDir)/res",
+}

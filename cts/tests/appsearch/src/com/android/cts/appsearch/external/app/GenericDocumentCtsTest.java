@@ -332,9 +332,19 @@ public class GenericDocumentCtsTest {
     public void testDocument_setEmptyValues() {
         GenericDocument document =
                 new GenericDocument.Builder<>("namespace", "id1", "schemaType1")
-                        .setPropertyBoolean("testKey")
+                        .setPropertyBoolean("booleanKey")
+                        .setPropertyString("stringKey")
+                        .setPropertyBytes("byteKey")
+                        .setPropertyDouble("doubleKey")
+                        .setPropertyDocument("documentKey")
+                        .setPropertyLong("longKey")
                         .build();
-        assertThat(document.getPropertyBooleanArray("testKey")).isEmpty();
+        assertThat(document.getPropertyBooleanArray("booleanKey")).isEmpty();
+        assertThat(document.getPropertyStringArray("stringKey")).isEmpty();
+        assertThat(document.getPropertyBytesArray("byteKey")).isEmpty();
+        assertThat(document.getPropertyDoubleArray("doubleKey")).isEmpty();
+        assertThat(document.getPropertyDocumentArray("documentKey")).isEmpty();
+        assertThat(document.getPropertyLongArray("longKey")).isEmpty();
     }
 
     @Test
@@ -566,55 +576,6 @@ public class GenericDocumentCtsTest {
     }
 
     @Test
-    public void testNestedProperties_unusualPaths() {
-        GenericDocument doc =
-                new GenericDocument.Builder<>("namespace", "id1", "schema1")
-                        .setPropertyString("propString", "Hello", "Goodbye")
-                        .setPropertyDocument(
-                                "propDocs1",
-                                new GenericDocument.Builder<>("", "", "schema1")
-                                        .setPropertyString("", "Cat", "Dog")
-                                        .build())
-                        .setPropertyDocument(
-                                "propDocs2",
-                                new GenericDocument.Builder<>("", "", "schema1")
-                                        .setPropertyDocument(
-                                                "",
-                                                new GenericDocument.Builder<>("", "", "schema1")
-                                                        .setPropertyString("", "Red", "Blue")
-                                                        .setPropertyString(
-                                                                "propString", "Bat", "Hawk")
-                                                        .build())
-                                        .build())
-                        .setPropertyDocument(
-                                "",
-                                new GenericDocument.Builder<>("", "", "schema1")
-                                        .setPropertyDocument(
-                                                "",
-                                                new GenericDocument.Builder<>("", "", "schema1")
-                                                        .setPropertyString("", "Orange", "Green")
-                                                        .setPropertyString(
-                                                                "propString", "Toad", "Bird")
-                                                        .build())
-                                        .build())
-                        .build();
-        assertThat(doc.getPropertyString("propString")).isEqualTo("Hello");
-        assertThat(doc.getPropertyString("propString[1]")).isEqualTo("Goodbye");
-        assertThat(doc.getPropertyString("propDocs1.")).isEqualTo("Cat");
-        assertThat(doc.getPropertyString("propDocs1.[1]")).isEqualTo("Dog");
-        assertThat(doc.getPropertyStringArray("propDocs1[0]."))
-                .asList()
-                .containsExactly("Cat", "Dog")
-                .inOrder();
-        assertThat(doc.getPropertyString("propDocs2..propString")).isEqualTo("Bat");
-        assertThat(doc.getPropertyString("propDocs2..propString[1]")).isEqualTo("Hawk");
-        assertThat(doc.getPropertyString("propDocs2..")).isEqualTo("Red");
-        assertThat(doc.getPropertyString("propDocs2..[1]")).isEqualTo("Blue");
-        assertThat(doc.getPropertyString("[0]..propString[1]")).isEqualTo("Bird");
-        assertThat(doc.getPropertyString("[0]..[1]")).isEqualTo("Green");
-    }
-
-    @Test
     public void testNestedProperties_invalidPaths() {
         GenericDocument doc =
                 new GenericDocument.Builder<>("namespace", "id1", "schema1")
@@ -626,8 +587,8 @@ public class GenericDocumentCtsTest {
                         .setPropertyBytes("propBytes", new byte[][] {{3, 4}})
                         .setPropertyDocument(
                                 "propDocs",
-                                new GenericDocument.Builder<>("", "", "schema1")
-                                        .setPropertyString("", "Cat")
+                                new GenericDocument.Builder<>("namespace", "id2", "schema1")
+                                        .setPropertyString("propString", "Cat")
                                         .build())
                         .build();
 
@@ -639,9 +600,6 @@ public class GenericDocumentCtsTest {
 
         // Some paths are invalid because they are malformed. These throw an exception --- the
         // querier shouldn't provide such paths.
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> doc.getPropertyStringArray("propDocs.[0]propInts"));
         assertThrows(
                 IllegalArgumentException.class, () -> doc.getPropertyStringArray("propString[0"));
         assertThrows(

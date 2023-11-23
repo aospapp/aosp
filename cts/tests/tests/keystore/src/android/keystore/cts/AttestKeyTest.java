@@ -24,11 +24,12 @@ import static android.security.keystore.KeyProperties.PURPOSE_SIGN;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 
+import android.content.Context;
 import android.content.pm.PackageManager;
+import android.keystore.cts.util.TestUtils;
 import android.security.keystore.KeyGenParameterSpec;
 import android.util.Log;
 
@@ -50,8 +51,6 @@ import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.stream.Stream;
-
-import javax.security.auth.x500.X500Principal;
 
 public class AttestKeyTest {
     private static final String TAG = AttestKeyTest.class.getSimpleName();
@@ -144,8 +143,10 @@ public class AttestKeyTest {
     }
 
     @Test
-    public void testAttestKeySecurityLevelMismatch() throws Exception {
-        assumeStrongBox();
+    public void testStrongBoxCannotAttestToTeeKey() throws Exception {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        assumeTrue("Can only test with strongbox keymint",
+                TestUtils.getFeatureVersionKeystoreStrongBox(context) >= Attestation.KM_VERSION_KEYMINT_1);
 
         final String strongBoxAttestKeyAlias = "nonAttestKey";
         final String attestedKeyAlias = "attestedKey";
@@ -167,13 +168,28 @@ public class AttestKeyTest {
         }
     }
 
-    private void assumeStrongBox() {
-        PackageManager packageManager =
-                InstrumentationRegistry.getInstrumentation().getTargetContext().getPackageManager();
-        assumeTrue("Can only test if we have StrongBox",
-                packageManager.hasSystemFeature(PackageManager.FEATURE_STRONGBOX_KEYSTORE));
-    }
+    @Test
+    public void testTeeCannotAttestToStrongBoxKey() throws Exception {
+        TestUtils.assumeStrongBox();
 
+        final String teeAttestKeyAlias = "nonAttestKey";
+        generateKeyPair(KEY_ALGORITHM_EC,
+                new KeyGenParameterSpec.Builder(teeAttestKeyAlias, PURPOSE_ATTEST_KEY).build());
+
+        try {
+            generateKeyPair(KEY_ALGORITHM_EC,
+                    new KeyGenParameterSpec.Builder("attestedKey", PURPOSE_SIGN)
+                            .setAttestationChallenge("challenge".getBytes())
+                            .setAttestKeyAlias(teeAttestKeyAlias)
+                            .setIsStrongBoxBacked(true)
+                            .build());
+            fail("Expected exception.");
+        } catch (InvalidAlgorithmParameterException e) {
+            assertThat(e.getMessage(),
+                    is("Invalid security level: Cannot sign StrongBox key with non-StrongBox "
+                            + "attestKey"));
+        }
+    }
     private void assumeAttestKey() {
         PackageManager packageManager =
                 InstrumentationRegistry.getInstrumentation().getTargetContext().getPackageManager();

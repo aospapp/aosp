@@ -50,9 +50,9 @@ class Manager {
     uint16_t hostEndpointId;
     TestStep step;
 
-    TestSession(uint16_t id, TestStep step) {
+    TestSession(uint16_t id, TestStep currentStep) {
       this->hostEndpointId = id;
-      this->step = step;
+      this->step = currentStep;
     }
   };
 

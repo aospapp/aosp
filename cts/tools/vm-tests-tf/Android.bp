@@ -101,3 +101,80 @@ java_library_host {
     ],
     installable: false,
 }
+
+java_library_host {
+    name: "cts-tf-dalvik-buildutil",
+    srcs: [
+        "build/src/**/*.java",
+        "src/**/*.java",
+    ],
+    libs: [
+        "junit",
+        "jsr305",
+        "d8",
+        "smali",
+    ],
+}
+
+java_genrule_host {
+    name: "vm-tests-tf-lib",
+    tools: [
+        "soong_zip",
+        "d8"
+    ],
+    srcs: [
+        ":cts-tf-dalvik-buildutil",
+        ":vmtests-generated-resources",
+        ":vmtests-mains",
+        ":cts-vmtests-dot",
+        ":junit",
+        ":d8",
+        ":smali",
+    ],
+    cmd: "echo Generating BuildDalvikSuite tests" +
+         " && mkdir -p $(genDir)/classes" +
+         " && unzip -bq $(location :cts-tf-dalvik-buildutil) -d $(genDir)/classes" +
+         " && mkdir -p $(genDir)/tests" +
+         " && java" +
+         "     -cp $(location :cts-tf-dalvik-buildutil):$(location :junit):$(location :d8):$(location :smali):$(location :cts-vmtests-dot)" +
+         "     util.build.BuildDalvikSuite" +
+         "     cts/tools/vm-tests-tf/src" +
+         "     $(genDir)/tests" +
+         "     $(genDir)/classes" +
+         " && echo Generating dexcore tests" +
+         " && $(location soong_zip) -jar -o $(genDir)/tests/dot/junit/dexcore.jar-class.jar" +
+         "     -C $(genDir)/classes" +
+         "         -f $(genDir)/classes/dot/junit/DxUtil.class" +
+         "         -f $(genDir)/classes/dot/junit/DxAbstractMain.class" +
+         "         -f $(genDir)/classes/dot/junit/AssertionFailedException.class" +
+         " && mkdir -p $(genDir)/dexcore" +
+         " && $(location d8) -JXms16M -JXmx2048M" +
+         "     --output $(genDir)/dexcore" +
+         "     $(genDir)/tests/dot/junit/dexcore.jar-class.jar" +
+         " && $(location soong_zip) -jar -o $(genDir)/tests/dot/junit/dexcore.jar" +
+         "     -C $(genDir)/dexcore" +
+         "         -D $(genDir)/dexcore" +
+         " && echo Combining tests" +
+         " && mkdir -p $(genDir)/out" +
+         " && unzip -bq $(location :vmtests-generated-resources) -d $(genDir)/generated-resources" +
+         " && cp $(location :vmtests-mains) $(genDir)/mains.jar" +
+         " && $(location soong_zip) -o $(out)" +
+         "     -C $(genDir)/generated-resources" +
+         "         -D $(genDir)/generated-resources" +
+         "     -C $(genDir)" +
+         "         -D $(genDir)/tests" +
+         "     -j -P tests -f $(genDir)/mains.jar",
+    out: ["vm-tests-tf-lib.jar"],
+}
+
+java_test_host {
+    name: "vm-tests-tf",
+    static_libs: [
+        "vm-tests-tf-lib"
+    ],
+    test_config: "AndroidTest.xml",
+    test_suites: [
+        "cts",
+        "general-tests",
+    ],
+}

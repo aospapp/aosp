@@ -24,7 +24,6 @@ import com.android.tools.metalava.JAVA_LANG_ANNOTATION
 import com.android.tools.metalava.JAVA_LANG_ENUM
 import com.android.tools.metalava.JAVA_LANG_OBJECT
 import com.android.tools.metalava.JAVA_LANG_THROWABLE
-import com.android.tools.metalava.compatibility
 import com.android.tools.metalava.model.AnnotationItem
 import com.android.tools.metalava.model.ClassItem
 import com.android.tools.metalava.model.Codebase
@@ -332,87 +331,86 @@ class TextCodebase(location: File) : DefaultCodebase(location) {
         fun computeDelta(
             baseFile: File,
             baseApi: Codebase,
-            signatureApi: Codebase,
-            includeFieldsInApiDiff: Boolean = compatibility.includeFieldsInApiDiff
+            signatureApi: Codebase
         ): TextCodebase {
             // Compute just the delta
             val delta =
                 TextCodebase(baseFile)
             delta.description = "Delta between $baseApi and $signatureApi"
 
-            CodebaseComparator().compare(object : ComparisonVisitor() {
-                override fun added(new: PackageItem) {
-                    delta.addPackage(new as TextPackageItem)
-                }
-
-                override fun added(new: ClassItem) {
-                    val pkg = getOrAddPackage(new.containingPackage().qualifiedName())
-                    pkg.addClass(new as TextClassItem)
-                }
-
-                override fun added(new: ConstructorItem) {
-                    val cls = getOrAddClass(new.containingClass())
-                    cls.addConstructor(new as TextConstructorItem)
-                }
-
-                override fun added(new: MethodItem) {
-                    val cls = getOrAddClass(new.containingClass())
-                    cls.addMethod(new as TextMethodItem)
-                }
-
-                override fun added(new: FieldItem) {
-                    if (!includeFieldsInApiDiff) {
-                        return
+            CodebaseComparator().compare(
+                object : ComparisonVisitor() {
+                    override fun added(new: PackageItem) {
+                        delta.addPackage(new as TextPackageItem)
                     }
-                    val cls = getOrAddClass(new.containingClass())
-                    cls.addField(new as TextFieldItem)
-                }
 
-                override fun added(new: PropertyItem) {
-                    val cls = getOrAddClass(new.containingClass())
-                    cls.addProperty(new as TextPropertyItem)
-                }
-
-                private fun getOrAddClass(fullClass: ClassItem): TextClassItem {
-                    val cls = delta.findClass(fullClass.qualifiedName())
-                    if (cls != null) {
-                        return cls
+                    override fun added(new: ClassItem) {
+                        val pkg = getOrAddPackage(new.containingPackage().qualifiedName())
+                        pkg.addClass(new as TextClassItem)
                     }
-                    val textClass = fullClass as TextClassItem
-                    val newClass = TextClassItem(
-                        delta,
-                        SourcePositionInfo.UNKNOWN,
-                        textClass.modifiers,
-                        textClass.isInterface(),
-                        textClass.isEnum(),
-                        textClass.isAnnotationType(),
-                        textClass.qualifiedName,
-                        textClass.qualifiedName,
-                        textClass.name,
-                        textClass.annotations
-                    )
-                    val pkg = getOrAddPackage(fullClass.containingPackage().qualifiedName())
-                    pkg.addClass(newClass)
-                    newClass.setContainingPackage(pkg)
-                    delta.registerClass(newClass)
-                    return newClass
-                }
 
-                private fun getOrAddPackage(pkgName: String): TextPackageItem {
-                    val pkg = delta.findPackage(pkgName)
-                    if (pkg != null) {
-                        return pkg
+                    override fun added(new: ConstructorItem) {
+                        val cls = getOrAddClass(new.containingClass())
+                        cls.addConstructor(new as TextConstructorItem)
                     }
-                    val newPkg = TextPackageItem(
-                        delta,
-                        pkgName,
-                        TextModifiers(delta, DefaultModifierList.PUBLIC),
-                        SourcePositionInfo.UNKNOWN
-                    )
-                    delta.addPackage(newPkg)
-                    return newPkg
-                }
-            }, baseApi, signatureApi, ApiType.ALL.getReferenceFilter())
+
+                    override fun added(new: MethodItem) {
+                        val cls = getOrAddClass(new.containingClass())
+                        cls.addMethod(new as TextMethodItem)
+                    }
+
+                    override fun added(new: FieldItem) {
+                        val cls = getOrAddClass(new.containingClass())
+                        cls.addField(new as TextFieldItem)
+                    }
+
+                    override fun added(new: PropertyItem) {
+                        val cls = getOrAddClass(new.containingClass())
+                        cls.addProperty(new as TextPropertyItem)
+                    }
+
+                    private fun getOrAddClass(fullClass: ClassItem): TextClassItem {
+                        val cls = delta.findClass(fullClass.qualifiedName())
+                        if (cls != null) {
+                            return cls
+                        }
+                        val textClass = fullClass as TextClassItem
+                        val newClass = TextClassItem(
+                            delta,
+                            SourcePositionInfo.UNKNOWN,
+                            textClass.modifiers,
+                            textClass.isInterface(),
+                            textClass.isEnum(),
+                            textClass.isAnnotationType(),
+                            textClass.qualifiedName,
+                            textClass.qualifiedName,
+                            textClass.name,
+                            textClass.annotations
+                        )
+                        val pkg = getOrAddPackage(fullClass.containingPackage().qualifiedName())
+                        pkg.addClass(newClass)
+                        newClass.setContainingPackage(pkg)
+                        delta.registerClass(newClass)
+                        return newClass
+                    }
+
+                    private fun getOrAddPackage(pkgName: String): TextPackageItem {
+                        val pkg = delta.findPackage(pkgName)
+                        if (pkg != null) {
+                            return pkg
+                        }
+                        val newPkg = TextPackageItem(
+                            delta,
+                            pkgName,
+                            TextModifiers(delta, DefaultModifierList.PUBLIC),
+                            SourcePositionInfo.UNKNOWN
+                        )
+                        delta.addPackage(newPkg)
+                        return newPkg
+                    }
+                },
+                baseApi, signatureApi, ApiType.ALL.getReferenceFilter()
+            )
 
             delta.postProcess()
             return delta

@@ -8,11 +8,8 @@
 #include <android/binder_to_string.h>
 
 namespace android {
-
 namespace aidl {
-
 namespace loggable {
-
 class BpLoggableInterface : public ::android::BpInterface<ILoggableInterface> {
 public:
   explicit BpLoggableInterface(const ::android::sp<::android::IBinder>& _aidl_impl);
@@ -34,9 +31,6 @@ public:
   };
   static std::function<void(const TransactionLog&)> logFunc;
 };  // class BpLoggableInterface
-
 }  // namespace loggable
-
 }  // namespace aidl
-
 }  // namespace android

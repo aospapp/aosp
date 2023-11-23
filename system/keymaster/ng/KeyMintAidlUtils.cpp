@@ -98,7 +98,7 @@ vector<KeyParameter> kmParamSet2Aidl(const keymaster_key_param_set_t& set) {
 keymaster_key_param_set_t aidlKeyParams2Km(const vector<KeyParameter>& keyParams) {
     keymaster_key_param_set_t set;
 
-    set.params = new keymaster_key_param_t[keyParams.size()];
+    set.params = new (std::nothrow) keymaster_key_param_t[keyParams.size()];
     set.length = keyParams.size();
 
     for (size_t i = 0; i < keyParams.size(); ++i) {

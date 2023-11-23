@@ -21,5 +21,7 @@
         <!-- This app will not be a system app and should be installed as a normal app (not
              forceQueryable) to ensure it's not visible by default -->
         <uses-library android:name="android.test.runner" />
+        <activity android:name="android.appenumeration.cts.TestActivity"
+                  android:exported="true" />
     </application>
 </manifest>

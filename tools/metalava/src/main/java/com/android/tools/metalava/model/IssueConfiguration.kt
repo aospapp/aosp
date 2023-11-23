@@ -16,9 +16,9 @@
 
 package com.android.tools.metalava.model
 
+import com.android.tools.metalava.Issues
 import com.android.tools.metalava.Options
 import com.android.tools.metalava.Severity
-import com.android.tools.metalava.Issues
 
 /** An issue configuration is a set of overrides for severities for various [Issues.Issue] */
 class IssueConfiguration {

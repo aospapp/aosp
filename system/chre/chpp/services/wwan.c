@@ -208,15 +208,13 @@ static enum ChppAppErrorCode chppWwanServiceOpen(
   enum ChppAppErrorCode error = CHPP_APP_ERROR_NONE;
 
   if (wwanServiceContext->service.openState == CHPP_OPEN_STATE_OPENED) {
-    CHPP_LOGE("WWAN service already open");
-    CHPP_DEBUG_ASSERT(false);
+    CHPP_DEBUG_ASSERT_LOG(false, "WWAN service already open");
     error = CHPP_APP_ERROR_INVALID_COMMAND;
 
   } else if (!wwanServiceContext->api->open(
                  wwanServiceContext->service.appContext->systemApi,
                  &palCallbacks)) {
-    CHPP_LOGE("WWAN PAL open failed");
-    CHPP_DEBUG_ASSERT(false);
+    CHPP_DEBUG_ASSERT_LOG(false, "WWAN PAL open failed");
     error = CHPP_APP_ERROR_BEYOND_CHPP;
 
   } else {
@@ -412,13 +410,12 @@ void chppRegisterWwanService(struct ChppAppState *appContext) {
   gWwanServiceContext.api = chrePalWwanGetApi(CHPP_PAL_WWAN_API_VERSION);
 
   if (gWwanServiceContext.api == NULL) {
-    CHPP_LOGE(
-        "WWAN PAL API version not compatible with CHPP. Cannot register WWAN "
-        "service");
-    CHPP_DEBUG_ASSERT(false);
+    CHPP_DEBUG_ASSERT_LOG(false,
+                          "WWAN PAL API incompatible. Cannot register service");
 
   } else {
     gWwanServiceContext.service.appContext = appContext;
+    gWwanServiceContext.service.openState = CHPP_OPEN_STATE_CLOSED;
     gWwanServiceContext.service.handle = chppRegisterService(
         appContext, (void *)&gWwanServiceContext, &kWwanServiceConfig);
     CHPP_DEBUG_ASSERT(gWwanServiceContext.service.handle);

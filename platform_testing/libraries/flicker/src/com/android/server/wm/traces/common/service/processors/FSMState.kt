@@ -17,7 +17,7 @@
 package com.android.server.wm.traces.common.service.processors
 
 import com.android.server.wm.traces.common.DeviceStateDump
-import com.android.server.wm.traces.common.layers.LayerTraceEntry
+import com.android.server.wm.traces.common.layers.BaseLayerTraceEntry
 import com.android.server.wm.traces.common.tags.Tag
 import com.android.server.wm.traces.common.tags.Transition
 import com.android.server.wm.traces.common.windowmanager.WindowManagerState
@@ -31,13 +31,13 @@ import kotlin.math.min
  */
 abstract class FSMState(protected val tags: MutableMap<Long, MutableList<Tag>>) {
     abstract fun process(
-        previous: DeviceStateDump<WindowManagerState, LayerTraceEntry>?,
-        current: DeviceStateDump<WindowManagerState, LayerTraceEntry>,
-        next: DeviceStateDump<WindowManagerState, LayerTraceEntry>?
+        previous: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>?,
+        current: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>,
+        next: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>?
     ): FSMState?
 
     protected fun addStartTransitionTag(
-        state: DeviceStateDump<WindowManagerState, LayerTraceEntry>,
+        state: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>,
         transition: Transition,
         layerId: Int = 0,
         windowToken: String = "",
@@ -54,7 +54,7 @@ abstract class FSMState(protected val tags: MutableMap<Long, MutableList<Tag>>) 
     }
 
     protected fun addEndTransitionTag(
-        state: DeviceStateDump<WindowManagerState, LayerTraceEntry>,
+        state: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>,
         transition: Transition,
         layerId: Int = 0,
         windowToken: String = "",

@@ -20,6 +20,7 @@
 #endif
 
 #include <aidl/android/fmq/test/FixedParcelable.h>
+#include <aidl/android/fmq/test/FixedUnion.h>
 #include <aidl/android/fmq/test/ITestAidlMsgQ.h>
 #include <android-base/logging.h>
 #include <android/binder_manager.h>
@@ -38,6 +39,7 @@ using android::status_t;
 // generated
 using ::aidl::android::fmq::test::EventFlagBits;
 using ::aidl::android::fmq::test::FixedParcelable;
+using ::aidl::android::fmq::test::FixedUnion;
 using ::aidl::android::fmq::test::ITestAidlMsgQ;
 using android::hardware::tests::msgq::V1_0::ITestMsgQ;
 
@@ -1169,8 +1171,8 @@ TYPED_TEST(UnsynchronizedWriteClient, OverflowNotificationTest) {
  * annotated with @FixedSize is supported. A parcelable without it, will cause
  * a compilation error.
  */
-typedef ::testing::Types<FixedParcelable, EventFlagBits, bool, int8_t, char, char16_t, int32_t,
-                         int64_t, float, double>
+typedef ::testing::Types<FixedParcelable, FixedUnion, EventFlagBits, bool, int8_t, char, char16_t,
+                         int32_t, int64_t, float, double>
         AidlTypeCheckTypes;
 
 template <typename T>

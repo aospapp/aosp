@@ -66,6 +66,15 @@ esac
 
 CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
 
+# --------------------- start of metalava changes ------------------------
+if [ $darwin == "true" ]; then
+    plat="darwin"
+else
+    plat="linux"
+fi
+export JAVA_HOME="$APP_HOME/../../prebuilts/jdk/jdk11/$plat-x86"
+# --------------------- end of metalava changes ------------------------
+
 # Determine the Java command to use to start the JVM.
 if [ -n "$JAVA_HOME" ] ; then
     if [ -x "$JAVA_HOME/jre/sh/java" ] ; then

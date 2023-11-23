@@ -29,4 +29,10 @@ java_test_host {
         "cts",
         "general-tests",
     ],
+    data: [
+        ":CtsCppToolsApp",
+        ":CtsDomainSocket",
+    ],
+    data_device_bins_both: ["connector"],
+    per_testcase_directory: true,
 }

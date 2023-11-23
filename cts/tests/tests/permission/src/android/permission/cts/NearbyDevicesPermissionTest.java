@@ -51,7 +51,6 @@ import com.android.compatibility.common.util.CddTest;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -108,6 +107,7 @@ public class NearbyDevicesPermissionTest {
     @After
     public void uninstallTestApp() {
         uninstallApp(TEST_APP_PKG);
+        uninstallApp(DISAVOWAL_APP_PKG);
     }
 
     @Test
@@ -291,11 +291,11 @@ public class NearbyDevicesPermissionTest {
 
     private void enableTestMode() {
         runShellCommandOrThrow("dumpsys activity service"
-                + " com.android.bluetooth/.btservice.AdapterService set-test-mode enabled");
+                + " com.android.bluetooth.btservice.AdapterService set-test-mode enabled");
     }
 
     private void disableTestMode() {
         runShellCommandOrThrow("dumpsys activity service"
-                + " com.android.bluetooth/.btservice.AdapterService set-test-mode disabled");
+                + " com.android.bluetooth.btservice.AdapterService set-test-mode disabled");
     }
 }

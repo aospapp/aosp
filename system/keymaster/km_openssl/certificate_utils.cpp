@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <iostream>
+
 #include <openssl/asn1.h>
 #include <openssl/evp.h>
 #include <openssl/x509v3.h>
@@ -42,18 +44,16 @@ template <typename T> T&& min(T&& a, T&& b) {
 }
 
 keymaster_error_t fake_sign_cert(X509* cert) {
-    // Set algorithm in TBSCertificate
-    X509_ALGOR_set0(cert->cert_info->signature, OBJ_nid2obj(NID_sha256WithRSAEncryption),
-                    V_ASN1_NULL, nullptr);
-
-    // Set algorithm in Certificate
-    X509_ALGOR_set0(cert->sig_alg, OBJ_nid2obj(NID_sha256WithRSAEncryption), V_ASN1_NULL, nullptr);
+    X509_ALGOR_Ptr algor(X509_ALGOR_new());
+    if (!algor.get()) {
+        return TranslateLastOpenSslError();
+    }
+    X509_ALGOR_set0(algor.get(), OBJ_nid2obj(NID_sha256WithRSAEncryption), V_ASN1_NULL, nullptr);
 
     // Set signature to a bit string containing a single byte, value 0.
     uint8_t fake_sig = 0;
-    if (!cert->signature) cert->signature = ASN1_BIT_STRING_new();
-    if (!cert->signature) return KM_ERROR_MEMORY_ALLOCATION_FAILED;
-    if (!ASN1_STRING_set(cert->signature, &fake_sig, sizeof(fake_sig))) {
+    if (!X509_set1_signature_algo(cert, algor.get()) ||
+        !X509_set1_signature_value(cert, &fake_sig, sizeof(fake_sig))) {
         return TranslateLastOpenSslError();
     }
 
@@ -130,13 +130,7 @@ keymaster_error_t get_certificate_params(const AuthorizationSet& caller_params,
     cert_params->expire_date_time = kUndefinedExpirationDateTime;
 
     uint64_t tmp;
-    switch (kmVersion) {
-    case KmVersion::KEYMASTER_1:
-    case KmVersion::KEYMASTER_1_1:
-    case KmVersion::KEYMASTER_2:
-    case KmVersion::KEYMASTER_3:
-    case KmVersion::KEYMASTER_4:
-    case KmVersion::KEYMASTER_4_1:
+    if (kmVersion < KmVersion::KEYMINT_1) {
         if (caller_params.GetTagValue(TAG_ACTIVE_DATETIME, &tmp)) {
             LOG_D("Using TAG_ACTIVE_DATETIME: %lu", tmp);
             cert_params->active_date_time = static_cast<int64_t>(tmp);
@@ -145,9 +139,7 @@ keymaster_error_t get_certificate_params(const AuthorizationSet& caller_params,
             LOG_D("Using TAG_ORIGINATION_EXPIRE_DATETIME: %lu", tmp);
             cert_params->expire_date_time = static_cast<int64_t>(tmp);
         }
-        break;
-
-    case KmVersion::KEYMINT_1:
+    } else {
         if (!caller_params.GetTagValue(TAG_CERTIFICATE_NOT_BEFORE, &tmp)) {
             return KM_ERROR_MISSING_NOT_BEFORE;
         }
@@ -334,7 +326,10 @@ keymaster_error_t sign_cert(X509* certificate, const EVP_PKEY* signing_key) {
     // mistake that hasn't yet been corrected.
     auto sk = const_cast<EVP_PKEY*>(signing_key);
 
-    if (!X509_sign(certificate, sk, EVP_sha256())) {
+    // Ed25519 has an internal digest so needs to have no digest fed into X509_sign.
+    const EVP_MD* digest = (EVP_PKEY_id(signing_key) == EVP_PKEY_ED25519) ? nullptr : EVP_sha256();
+
+    if (!X509_sign(certificate, sk, digest)) {
         return TranslateLastOpenSslError();
     }
     return KM_ERROR_OK;
@@ -345,8 +340,8 @@ CertificateChain generate_self_signed_cert(const AsymmetricKey& key, const Autho
     keymaster_error_t err;
     if (!error) error = &err;
 
-    EVP_PKEY_Ptr pkey(EVP_PKEY_new());
-    if (!key.InternalToEvp(pkey.get())) {
+    EVP_PKEY_Ptr pkey(key.InternalToEvp());
+    if (pkey.get() == nullptr) {
         *error = TranslateLastOpenSslError();
         return {};
     }

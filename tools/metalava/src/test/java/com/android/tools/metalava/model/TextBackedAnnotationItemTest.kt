@@ -42,8 +42,8 @@ class TextBackedAnnotationItemTest {
             "@androidx.annotation.Nullable"
         )
         assertEquals("@androidx.annotation.Nullable", annotation.toSource())
-        assertEquals("androidx.annotation.Nullable", annotation.qualifiedName())
-        assertTrue(annotation.attributes().isEmpty())
+        assertEquals("androidx.annotation.Nullable", annotation.qualifiedName)
+        assertTrue(annotation.attributes.isEmpty())
     }
 
     @Test
@@ -53,8 +53,8 @@ class TextBackedAnnotationItemTest {
             "@androidx.annotation.IntRange(from = 20, to = 40)"
         )
         assertEquals("@androidx.annotation.IntRange(from = 20, to = 40)", annotation.toSource())
-        assertEquals("androidx.annotation.IntRange", annotation.qualifiedName())
-        assertEquals(2, annotation.attributes().size)
+        assertEquals("androidx.annotation.IntRange", annotation.qualifiedName)
+        assertEquals(2, annotation.attributes.size)
         assertEquals("from", annotation.findAttribute("from")?.name)
         assertEquals("20", annotation.findAttribute("from")?.value.toString())
         assertEquals("to", annotation.findAttribute("to")?.name)
@@ -71,8 +71,8 @@ class TextBackedAnnotationItemTest {
             "@androidx.annotation.IntDef({STYLE_NORMAL, STYLE_NO_TITLE, STYLE_NO_FRAME, STYLE_NO_INPUT})",
             annotation.toSource()
         )
-        assertEquals("androidx.annotation.IntDef", annotation.qualifiedName())
-        assertEquals(1, annotation.attributes().size)
+        assertEquals("androidx.annotation.IntDef", annotation.qualifiedName)
+        assertEquals(1, annotation.attributes.size)
         val attribute = annotation.findAttribute("value")
         assertNotNull(attribute)
         assertEquals("value", attribute?.name)

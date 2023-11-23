@@ -315,12 +315,25 @@ class CaptureResultListener {
         std::unique_lock<std::mutex> l(mMutex);
         clearSavedRequestsLocked();
         mCompletedFrameNumbers.clear();
+        mStartedFrameNumbers.clear();
         clearFailedLostFrameNumbersLocked();
     }
 
     static void onCaptureStart(void* /*obj*/, ACameraCaptureSession* /*session*/,
             const ACaptureRequest* /*request*/, int64_t /*timestamp*/) {
         //Not used for now
+    }
+
+    static void onCaptureStartV2(void* obj, ACameraCaptureSession* /*session*/,
+            const ACaptureRequest* /*request*/, int64_t /*timestamp*/, int64_t frameNumber) {
+        if ((obj == nullptr) || (frameNumber < 0)) {
+            return;
+        }
+        CaptureResultListener* thiz = reinterpret_cast<CaptureResultListener*>(obj);
+        std::lock_guard<std::mutex> lock(thiz->mMutex);
+
+        thiz->mStartedFrameNumbers.insert(frameNumber);
+        thiz->mStartCondition.notify_one();
     }
 
     static void onCaptureProgressed(void* /*obj*/, ACameraCaptureSession* /*session*/,
@@ -541,6 +554,25 @@ class CaptureResultListener {
         return ret;
     }
 
+    bool waitForFrameNumberStarted(int64_t frameNumber, uint32_t timeoutSec) {
+        bool ret = false;
+        std::unique_lock<std::mutex> l(mMutex);
+
+        while ((mStartedFrameNumbers.find(frameNumber) == mStartedFrameNumbers.end())) {
+            auto timeout = std::chrono::system_clock::now() +
+                           std::chrono::seconds(timeoutSec);
+            if (std::cv_status::timeout == mStartCondition.wait_until(l, timeout)) {
+                break;
+            }
+        }
+
+        if ((mStartedFrameNumbers.find(frameNumber) != mStartedFrameNumbers.end())) {
+            ret = true;
+        }
+
+        return ret;
+    }
+
     void setRequestSave(bool enable) {
         std::unique_lock<std::mutex> l(mMutex);
         if (!enable) {
@@ -581,9 +613,11 @@ class CaptureResultListener {
   private:
     std::mutex mMutex;
     std::condition_variable mResultCondition;
+    std::condition_variable mStartCondition;
     int mLastSequenceIdCompleted = -1;
     int64_t mLastSequenceFrameNumber = -1;
     std::set<int64_t> mCompletedFrameNumbers;
+    std::set<int64_t> mStartedFrameNumbers;
     std::set<int64_t> mFailedFrameNumbers, mBufferLostFrameNumbers;
     bool    mSaveCompletedRequests = false;
     std::vector<ACaptureRequest*> mCompletedRequests;
@@ -1059,6 +1093,7 @@ class PreviewTestCase {
 
     int getNumCameras() {
         if (!mMgrInited || !mCameraIdList) {
+            ALOGE("%s CameraManager not inited yet.", __FUNCTION__);
             return -1;
         }
         if (mOverrideCameraId != nullptr) {
@@ -1510,7 +1545,7 @@ class PreviewTestCase {
     }
 
     camera_status_t startPreview(int *sequenceId = nullptr, size_t physicalIdCnt = 0,
-            const char*const* extraPhysicalOutputs = nullptr) {
+            const char*const* extraPhysicalOutputs = nullptr, bool v2Callbacks = false) {
         if (mSession == nullptr || mPreviewRequest == nullptr) {
             ALOGE("Testcase cannot start preview: session %p, preview request %p",
                     mSession, mPreviewRequest);
@@ -1522,8 +1557,13 @@ class PreviewTestCase {
             ret = ACameraCaptureSession_setRepeatingRequest(
                    mSession, nullptr, 1, &mPreviewRequest, &previewSeqId);
         } else if (physicalIdCnt == 0) {
-            ret = ACameraCaptureSession_setRepeatingRequest(
-                   mSession, &mResultCb, 1, &mPreviewRequest, sequenceId);
+            if (v2Callbacks) {
+                ret = ACameraCaptureSession_setRepeatingRequestV2(
+                      mSession, &mResultCb2, 1, &mPreviewRequest, sequenceId);
+            } else {
+                ret = ACameraCaptureSession_setRepeatingRequest(
+                      mSession, &mResultCb, 1, &mPreviewRequest, sequenceId);
+            }
         } else {
             if (extraPhysicalOutputs == nullptr) {
                 ALOGE("Testcase missing valid physical camera Ids for logical camera");
@@ -1532,8 +1572,13 @@ class PreviewTestCase {
             CaptureResultListener* resultListener =
                     static_cast<CaptureResultListener*>(mLogicalCameraResultCb.context);
             resultListener->registerPhysicalResults(physicalIdCnt, extraPhysicalOutputs);
-            ret = ACameraCaptureSession_logicalCamera_setRepeatingRequest(
-                    mSession, &mLogicalCameraResultCb, 1, &mPreviewRequest, sequenceId);
+            if (v2Callbacks) {
+                ret = ACameraCaptureSession_logicalCamera_setRepeatingRequestV2(
+                        mSession, &mLogicalCameraResultCb2, 1, &mPreviewRequest, sequenceId);
+            } else {
+                ret = ACameraCaptureSession_logicalCamera_setRepeatingRequest(
+                        mSession, &mLogicalCameraResultCb, 1, &mPreviewRequest, sequenceId);
+            }
         }
         return ret;
     }
@@ -1592,6 +1637,10 @@ class PreviewTestCase {
 
     bool waitForFrameNumber(int64_t frameNumber, uint32_t timeoutSec) {
         return mResultListener.waitForFrameNumber(frameNumber, timeoutSec);
+    }
+
+    bool waitForFrameNumberStarted(int64_t frameNumber, uint32_t timeoutSec) {
+        return mResultListener.waitForFrameNumberStarted(frameNumber, timeoutSec);
     }
 
     camera_status_t takePicture() {
@@ -1696,6 +1745,28 @@ class PreviewTestCase {
         CaptureResultListener::onCaptureProgressed,
         CaptureResultListener::onCaptureCompleted,
         CaptureResultListener::onCaptureFailed,
+        CaptureResultListener::onCaptureSequenceCompleted,
+        CaptureResultListener::onCaptureSequenceAborted,
+        CaptureResultListener::onCaptureBufferLost
+    };
+
+    ACameraCaptureSession_captureCallbacksV2 mResultCb2 {
+        &mResultListener,
+        CaptureResultListener::onCaptureStartV2,
+        CaptureResultListener::onCaptureProgressed,
+        CaptureResultListener::onCaptureCompleted,
+        CaptureResultListener::onCaptureFailed,
+        CaptureResultListener::onCaptureSequenceCompleted,
+        CaptureResultListener::onCaptureSequenceAborted,
+        CaptureResultListener::onCaptureBufferLost
+    };
+
+    ACameraCaptureSession_logicalCamera_captureCallbacksV2 mLogicalCameraResultCb2 {
+        &mResultListener,
+        CaptureResultListener::onCaptureStartV2,
+        CaptureResultListener::onCaptureProgressed,
+        CaptureResultListener::onLogicalCameraCaptureCompleted,
+        CaptureResultListener::onLogicalCameraCaptureFailed,
         CaptureResultListener::onCaptureSequenceCompleted,
         CaptureResultListener::onCaptureSequenceAborted,
         CaptureResultListener::onCaptureBufferLost
@@ -2849,14 +2920,13 @@ cleanup:
     return pass;
 }
 
-extern "C" jboolean
-Java_android_hardware_camera2_cts_NativeCameraDeviceTest_\
-testCameraDeviceSimplePreviewNative(
+bool testCameraDeviceSimplePreviewNativeInternal(
         JNIEnv* env, jclass /*clazz*/, jobject jPreviewSurface,
-        jstring jOverrideCameraId) {
+        jstring jOverrideCameraId, bool v2Callbacks) {
     ALOGV("%s", __FUNCTION__);
     int numCameras = 0;
     bool pass = false;
+    const int timeoutSec = 1;
     PreviewTestCase testCase;
 
     camera_status_t ret = testCase.initWithErrorLog(env, jOverrideCameraId);
@@ -2920,14 +2990,39 @@ testCameraDeviceSimplePreviewNative(
             // Don't log error here. testcase did it
             goto cleanup;
         }
-
-        ret = testCase.startPreview();
+        int sequenceId = 0;
+        ret = testCase.startPreview(&sequenceId, 0, nullptr, v2Callbacks);
         if (ret != ACAMERA_OK) {
             LOG_ERROR(errorString, "Start preview failed!");
             goto cleanup;
         }
 
         sleep(3);
+
+        ret = testCase.stopPreview();
+        if (ret != ACAMERA_OK) {
+            ALOGE("%s: stopPreview failed", __FUNCTION__);
+            LOG_ERROR(errorString, "stopPreview failed!");
+            goto cleanup;
+        }
+
+        //Then wait for all old requests to flush
+        int64_t lastFrameNumber =
+                testCase.getCaptureSequenceLastFrameNumber(sequenceId, timeoutSec);
+        if (lastFrameNumber < 0) {
+            LOG_ERROR(errorString, "Camera %s failed to acquire last frame number!",
+                    cameraId);
+            goto cleanup;
+        }
+        if (v2Callbacks) {
+              bool frameStarted = testCase.waitForFrameNumberStarted(lastFrameNumber, timeoutSec);
+            if (!frameStarted) {
+                LOG_ERROR(errorString, "Camera %s timed out waiting on onCaptureStart for last"
+                        "frame number!", cameraId);
+                goto cleanup;
+            }
+
+        }
 
         ret = testCase.resetWithErrorLog();
         if (ret != ACAMERA_OK) {
@@ -2956,6 +3051,24 @@ cleanup:
         throwAssertionError(env, errorString);
     }
     return pass;
+}
+
+extern "C" jboolean
+Java_android_hardware_camera2_cts_NativeCameraDeviceTest_\
+testCameraDeviceSimplePreviewNative(
+        JNIEnv* env, jclass clazz, jobject jPreviewSurface,
+        jstring jOverrideCameraId) {
+    return testCameraDeviceSimplePreviewNativeInternal(env, clazz, jPreviewSurface,
+            jOverrideCameraId, /*v2Callbacks*/false);
+}
+
+extern "C" jboolean
+Java_android_hardware_camera2_cts_NativeCameraDeviceTest_\
+testCameraDeviceSimplePreviewNative2(
+        JNIEnv* env, jclass clazz, jobject jPreviewSurface,
+        jstring jOverrideCameraId) {
+    return testCameraDeviceSimplePreviewNativeInternal(env, clazz, jPreviewSurface,
+            jOverrideCameraId, /*v2Callbacks*/true);
 }
 
 extern "C" jboolean
@@ -3091,7 +3204,7 @@ cleanup:
 
 bool nativeCameraDeviceLogicalPhysicalStreaming(
         JNIEnv* env, jobject jPreviewSurface, bool usePhysicalSettings,
-        jstring jOverrideCameraId) {
+        jstring jOverrideCameraId, bool v2Callbacks) {
     const int NUM_TEST_IMAGES = 10;
     const int TEST_WIDTH  = 640;
     const int TEST_HEIGHT = 480;
@@ -3103,6 +3216,7 @@ bool nativeCameraDeviceLogicalPhysicalStreaming(
     media_status_t mediaRet = AMEDIA_ERROR_UNKNOWN;
     PreviewTestCase testCase;
     int64_t lastFrameNumber = 0;
+    bool frameStarted = false;
     bool frameArrived = false;
     uint32_t timeoutSec = 1;
     uint32_t runPreviewSec = 2;
@@ -3176,6 +3290,8 @@ bool nativeCameraDeviceLogicalPhysicalStreaming(
                     chars, ACAMERA_REQUEST_AVAILABLE_PHYSICAL_CAMERA_REQUEST_KEYS, &entry);
             if (status == ACAMERA_ERROR_METADATA_NOT_FOUND) {
                 // No supported PHYSICAL_CAMERA_REQUEST_KEYS, skip test
+                ALOGI("%s camera id %s physical request keys not reported, skipping",
+                        __FUNCTION__, cameraId);
                 continue;
             } else if (status != ACAMERA_OK) {
                 // Do not log error here. testcase did it.
@@ -3304,7 +3420,7 @@ bool nativeCameraDeviceLogicalPhysicalStreaming(
         }
 
         int sequenceId = 0;
-        ret = testCase.startPreview(&sequenceId, 2, candidateIds.data());
+        ret = testCase.startPreview(&sequenceId, 2, candidateIds.data(), v2Callbacks);
         if (ret != ACAMERA_OK) {
             LOG_ERROR(errorString, "Start preview failed!");
             goto cleanup;
@@ -3325,6 +3441,15 @@ bool nativeCameraDeviceLogicalPhysicalStreaming(
             LOG_ERROR(errorString, "Camera %s failed to acquire last frame number!",
                     cameraId);
             goto cleanup;
+        }
+        if (v2Callbacks) {
+              frameStarted = testCase.waitForFrameNumberStarted(lastFrameNumber, timeoutSec);
+            if (!frameStarted) {
+                LOG_ERROR(errorString, "Camera %s timed out waiting on onCaptureStart for last"
+                        "frame number!", cameraId);
+                goto cleanup;
+            }
+
         }
 
         frameArrived = testCase.waitForFrameNumber(lastFrameNumber, timeoutSec);
@@ -3374,7 +3499,17 @@ testCameraDeviceLogicalPhysicalStreamingNative(
         jstring jOverrideCameraId) {
     return nativeCameraDeviceLogicalPhysicalStreaming(env,
             jPreviewSurface, false /*usePhysicalSettings*/,
-            jOverrideCameraId);
+            jOverrideCameraId, /*v2Callbacks*/false);
+}
+
+extern "C" jboolean
+Java_android_hardware_camera2_cts_NativeCameraDeviceTest_\
+testCameraDeviceLogicalPhysicalStreamingNative2(
+        JNIEnv* env, jclass /*clazz*/, jobject jPreviewSurface,
+        jstring jOverrideCameraId) {
+    return nativeCameraDeviceLogicalPhysicalStreaming(env,
+            jPreviewSurface, false /*usePhysicalSettings*/,
+            jOverrideCameraId, /*v2Callbacks*/true);
 }
 
 extern "C" jboolean
@@ -3384,7 +3519,17 @@ testCameraDeviceLogicalPhysicalSettingsNative(
         jstring jOverrideCameraId) {
     return nativeCameraDeviceLogicalPhysicalStreaming(env,
             jPreviewSurface, true /*usePhysicalSettings*/,
-            jOverrideCameraId);
+            jOverrideCameraId, /*v2Callbacks*/false);
+}
+
+extern "C" jboolean
+Java_android_hardware_camera2_cts_NativeCameraDeviceTest_\
+testCameraDeviceLogicalPhysicalSettingsNative2(
+        JNIEnv* env, jclass /*clazz*/, jobject jPreviewSurface,
+        jstring jOverrideCameraId) {
+    return nativeCameraDeviceLogicalPhysicalStreaming(env,
+            jPreviewSurface, true /*usePhysicalSettings*/,
+            jOverrideCameraId, /*v2Callbacks*/ true);
 }
 
 bool nativeImageReaderTestBase(

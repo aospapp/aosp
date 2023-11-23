@@ -33,6 +33,7 @@
 #include "update_engine/common/mock_http_fetcher.h"
 #include "update_engine/common/mock_prefs.h"
 #include "update_engine/common/test_utils.h"
+#include "update_engine/common/testing_constants.h"
 #include "update_engine/common/utils.h"
 #include "update_engine/payload_consumer/install_plan.h"
 #include "update_engine/payload_consumer/payload_constants.h"
@@ -45,9 +46,6 @@ using testing::_;
 using testing::DoAll;
 using testing::Return;
 using testing::SetArgPointee;
-
-extern const char* kUnittestPrivateKeyPath;
-extern const char* kUnittestPublicKeyPath;
 
 class DownloadActionTest : public ::testing::Test {
  public:

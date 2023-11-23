@@ -33,6 +33,14 @@ CowWriterFileDescriptor::CowWriterFileDescriptor(
   CHECK_NE(cow_reader_, nullptr);
 }
 
+CowWriterFileDescriptor::CowWriterFileDescriptor(
+    std::unique_ptr<android::snapshot::ISnapshotWriter> cow_writer,
+    std::unique_ptr<FileDescriptor> cow_reader)
+    : cow_writer_(std::move(cow_writer)), cow_reader_(std::move(cow_reader)) {
+  CHECK_NE(cow_writer_, nullptr);
+  CHECK_NE(cow_reader_, nullptr);
+}
+
 bool CowWriterFileDescriptor::Open(const char* path, int flags, mode_t mode) {
   LOG(ERROR) << "CowWriterFileDescriptor doesn't support Open()";
   return false;

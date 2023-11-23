@@ -36,7 +36,7 @@ class AwareBaseTest(BaseTestClass):
     device_startup_offset = 2
 
     def setup_class(self):
-        opt_param = ["pixel_models", "cnss_diag_file"]
+        opt_param = ["pixel_models", "cnss_diag_file", "ranging_role_concurrency_flexible_models"]
         self.unpack_userparams(opt_param_names=opt_param)
         if hasattr(self, "cnss_diag_file"):
             if isinstance(self.cnss_diag_file, list):

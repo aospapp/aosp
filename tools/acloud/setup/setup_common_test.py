@@ -17,6 +17,7 @@ import unittest
 
 from acloud import errors
 from acloud.internal.lib import driver_test_lib
+from acloud.internal.lib import utils
 from acloud.setup import setup_common
 
 
@@ -38,6 +39,30 @@ class SetupCommonTest(driver_test_lib.BaseDriverTest):
   Version table:
 """
 
+    def setUp(self):
+        """Create mock objects."""
+        super().setUp()
+        self._mock_checkoutput = self.Patch(utils, "CheckOutput")
+
+    def testCheckCmdOutput(self):
+        """Test CheckCmdOutput."""
+        cmd = "fake_command"
+        setup_common.CheckCmdOutput(cmd)
+        self._mock_checkoutput.assert_called_once_with(cmd)
+
+    def testInstallPackage(self):
+        """Test InstallPackage."""
+        package = "fake_pkg"
+        self.Patch(setup_common, "PackageInstalled", return_value=True)
+        setup_common.InstallPackage(package)
+        self._mock_checkoutput.assert_called_once_with(
+            "sudo apt-get --assume-yes install fake_pkg",
+            shell=True, stderr=subprocess.STDOUT)
+
+        self.Patch(setup_common, "PackageInstalled", return_value=False)
+        with self.assertRaises(errors.PackageInstallError):
+            setup_common.InstallPackage(package)
+
     # pylint: disable=invalid-name
     def testPackageNotInstalled(self):
         """"Test PackageInstalled return False when Installed status is (None). """
@@ -46,6 +71,14 @@ class SetupCommonTest(driver_test_lib.BaseDriverTest):
             "CheckCmdOutput",
             return_value=self.PKG_INFO_NONE_INSTALL)
 
+        self.assertFalse(
+            setup_common.PackageInstalled("fake_package"))
+
+        # Test with the package didn't install in host.
+        self.Patch(
+            setup_common,
+            "CheckCmdOutput",
+            return_value="")
         self.assertFalse(
             setup_common.PackageInstalled("fake_package"))
 

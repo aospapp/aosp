@@ -30,11 +30,6 @@ class FocusEventSubject(
     override val timestamp: Long get() = 0
     override val selfFacts by lazy { listOf(Fact.simpleFact(event.toString())) }
 
-    /** {@inheritDoc} */
-    override fun clone(): FlickerSubject {
-        return FocusEventSubject(fm, event, parent)
-    }
-
     fun hasFocus() {
         check("Does not have focus")
             .that(event.hasFocus())

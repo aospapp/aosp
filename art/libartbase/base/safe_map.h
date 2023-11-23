@@ -31,21 +31,24 @@ template <typename K, typename V, typename Comparator = std::less<K>,
           typename Allocator = std::allocator<std::pair<const K, V>>>
 class SafeMap {
  private:
-  typedef SafeMap<K, V, Comparator, Allocator> Self;
+  using Self = SafeMap<K, V, Comparator, Allocator>;
+  using Impl = std::map<K, V, Comparator, Allocator>;
 
  public:
-  typedef typename ::std::map<K, V, Comparator, Allocator>::key_compare key_compare;
-  typedef typename ::std::map<K, V, Comparator, Allocator>::value_compare value_compare;
-  typedef typename ::std::map<K, V, Comparator, Allocator>::allocator_type allocator_type;
-  typedef typename ::std::map<K, V, Comparator, Allocator>::iterator iterator;
-  typedef typename ::std::map<K, V, Comparator, Allocator>::const_iterator const_iterator;
-  typedef typename ::std::map<K, V, Comparator, Allocator>::size_type size_type;
-  typedef typename ::std::map<K, V, Comparator, Allocator>::key_type key_type;
-  typedef typename ::std::map<K, V, Comparator, Allocator>::value_type value_type;
+  using key_compare        = typename Impl::key_compare;
+  using value_compare      = typename Impl::value_compare;
+  using allocator_type     = typename Impl::allocator_type;
+  using iterator           = typename Impl::iterator;
+  using const_iterator     = typename Impl::const_iterator;
+  using size_type          = typename Impl::size_type;
+  using key_type           = typename Impl::key_type;
+  using value_type         = typename Impl::value_type;
+  using node_type          = typename Impl::node_type;
+  using insert_return_type = typename Impl::insert_return_type;
 
   SafeMap() = default;
   SafeMap(const SafeMap&) = default;
-  SafeMap(SafeMap&&) = default;
+  SafeMap(SafeMap&&) noexcept = default;
   explicit SafeMap(const key_compare& cmp, const allocator_type& allocator = allocator_type())
     : map_(cmp, allocator) {
   }
@@ -69,8 +72,20 @@ class SafeMap {
 
   void swap(Self& other) { map_.swap(other.map_); }
   void clear() { map_.clear(); }
-  iterator erase(iterator it) { return map_.erase(it); }
-  template<typename Kv> size_type erase(const Kv& k) { return map_.erase(k); }
+
+  iterator erase(const_iterator pos) { return map_.erase(pos); }
+  iterator erase(iterator pos) { return map_.erase(pos); }
+  iterator erase(iterator first, iterator last) { return map_.erase(first, last); }
+  size_type erase(const key_type& k) { return map_.erase(k); }
+
+  node_type extract(const_iterator pos) { return map_.extract(pos); }
+  node_type extract(const key_type& k) { return map_.extract(k); }
+
+  std::pair<iterator, bool> insert(value_type&& value) { return map_.insert(std::move(value)); }
+  insert_return_type insert(node_type&& node) { return map_.insert(std::move(node)); }
+  insert_return_type insert(const_iterator hint, node_type&& node) {
+    return map_.insert(hint, std::move(node));
+  }
 
   template<typename Kv> iterator find(const Kv& k) { return map_.find(k); }
   template<typename Kv> const_iterator find(const Kv& k) const { return map_.find(k); }
@@ -134,7 +149,7 @@ class SafeMap {
 
   template <typename CreateFn>
   V& GetOrCreate(const K& k, CreateFn create) {
-    static_assert(std::is_same<V, typename std::result_of<CreateFn()>::type>::value,
+    static_assert(std::is_same_v<V, std::result_of_t<CreateFn()>>,
                   "Argument `create` should return a value of type V.");
     auto lb = lower_bound(k);
     if (lb != end() && !key_comp()(k, lb->first)) {
@@ -164,7 +179,7 @@ class SafeMap {
   }
 
  private:
-  ::std::map<K, V, Comparator, Allocator> map_;
+  Impl map_;
 };
 
 template <typename K, typename V, typename Comparator, typename Allocator>

@@ -46,7 +46,7 @@ android_test_helper_app {
     test_suites: [
         "cts",
         "general-tests",
-        "mts",
+        "mts-permission",
     ],
 }
 
@@ -75,7 +75,7 @@ android_test_helper_app {
     test_suites: [
         "cts",
         "general-tests",
-        "mts",
+        "mts-permission",
     ],
     aaptflags: [
         "--rename-manifest-package",

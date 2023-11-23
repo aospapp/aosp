@@ -5,6 +5,20 @@
     },
     {
       "name": "CtsLogdTestCases"
+    },
+    {
+      "name": "MicrodroidHostTestCases"
+    }
+  ],
+  "hwasan-postsubmit": [
+    {
+      "name": "CtsLiblogTestCases"
+    },
+    {
+      "name": "CtsLogdTestCases"
+    },
+    {
+      "name": "MicrodroidHostTestCases"
     }
   ]
 }

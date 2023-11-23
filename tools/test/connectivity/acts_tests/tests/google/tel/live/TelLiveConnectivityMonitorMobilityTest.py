@@ -28,15 +28,14 @@ from acts_contrib.test_utils.tel.tel_defines import MIN_RSSI_RESERVED_VALUE
 from acts_contrib.test_utils.tel.tel_defines import WAIT_TIME_WIFI_RSSI_CALIBRATION_SCREEN_ON
 from acts_contrib.test_utils.tel.tel_defines import WAIT_TIME_WIFI_RSSI_CALIBRATION_WIFI_CONNECTED
 from acts_contrib.test_utils.tel.tel_defines import WFC_MODE_CELLULAR_PREFERRED
-from acts_contrib.test_utils.tel.tel_defines import WFC_MODE_WIFI_PREFERRED
 from acts_contrib.test_utils.tel.tel_defines import WIFI_WEAK_RSSI_VALUE
 from acts_contrib.test_utils.tel.tel_defines import SignalStrengthContainer
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_phones_default_state
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_phone_subscription
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_wifi_connected
-from acts_contrib.test_utils.tel.tel_test_utils import set_wfc_mode
-from acts_contrib.test_utils.tel.tel_test_utils import wait_for_wifi_data_connection
+from acts_contrib.test_utils.tel.tel_data_utils import wait_for_wifi_data_connection
+from acts_contrib.test_utils.tel.tel_ims_utils import set_wfc_mode
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_phones_default_state
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_phone_subscription
 from acts_contrib.test_utils.tel.tel_test_utils import verify_internet_connection
+from acts_contrib.test_utils.tel.tel_wifi_utils import ensure_wifi_connected
 from TelLiveConnectivityMonitorBaseTest import TelLiveConnectivityMonitorBaseTest
 
 # Attenuator name

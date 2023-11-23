@@ -232,6 +232,7 @@ class omx_video: public qc_omx_component
         ColorConvertFormat  mC2dDestFmt;
         OMX_U32 mC2DFrameHeight;
         OMX_U32 mC2DFrameWidth;
+        bool is_stop_in_progress;
 
         omx_video();  // constructor
         virtual ~omx_video();  // destructor

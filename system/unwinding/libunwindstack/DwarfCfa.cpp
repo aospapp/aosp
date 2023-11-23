@@ -93,7 +93,7 @@ bool DwarfCfa<AddressType>::GetLocationInfo(uint64_t pc, uint64_t start_offset, 
       }
       case 3: {
         if (cie_loc_regs_ == nullptr) {
-          log(0, "restore while processing cie");
+          Log::Error("Invalid: restore while processing cie.");
           last_error_.code = DWARF_ERROR_ILLEGAL_STATE;
           return false;
         }
@@ -197,8 +197,8 @@ bool DwarfCfa<AddressType>::LogOffsetRegisterString(uint32_t indent, uint64_t cf
     }
     raw_data += android::base::StringPrintf(" 0x%02x", value);
   }
-  log(indent, "DW_CFA_offset register(%d) %" PRId64, reg, offset);
-  log(indent, "%s", raw_data.c_str());
+  Log::Info(indent, "DW_CFA_offset register(%d) %" PRId64, reg, offset);
+  Log::Info(indent, "%s", raw_data.c_str());
   return true;
 }
 
@@ -208,11 +208,11 @@ bool DwarfCfa<AddressType>::LogInstruction(uint32_t indent, uint64_t cfa_offset,
   const auto* cfa = &DwarfCfaInfo::kTable[op];
   if (cfa->name[0] == '\0' || (arch_ != ARCH_ARM64 && op == 0x2d)) {
     if (op == 0x2d) {
-      log(indent, "Illegal (Only valid on aarch64)");
+      Log::Info(indent, "Illegal (Only valid on aarch64)");
     } else {
-      log(indent, "Illegal");
+      Log::Info(indent, "Illegal");
     }
-    log(indent, "Raw Data: 0x%02x", op);
+    Log::Info(indent, "Raw Data: 0x%02x", op);
     return true;
   }
 
@@ -239,7 +239,7 @@ bool DwarfCfa<AddressType>::LogInstruction(uint32_t indent, uint64_t cfa_offset,
       log_string += GetOperandString(cfa->display_operands[i], value, cur_pc);
     }
   }
-  log(indent, "%s", log_string.c_str());
+  Log::Info(indent, "%s", log_string.c_str());
 
   // Get the raw bytes of the data.
   uint64_t end_offset = memory_->cur_offset();
@@ -253,7 +253,7 @@ bool DwarfCfa<AddressType>::LogInstruction(uint32_t indent, uint64_t cfa_offset,
 
     // Only show 10 raw bytes per line.
     if ((i % 10) == 0 && i != 0) {
-      log(indent, "%s", raw_data.c_str());
+      Log::Info(indent, "%s", raw_data.c_str());
       raw_data.clear();
     }
     if (raw_data.empty()) {
@@ -262,12 +262,12 @@ bool DwarfCfa<AddressType>::LogInstruction(uint32_t indent, uint64_t cfa_offset,
     raw_data += android::base::StringPrintf(" 0x%02x", value);
   }
   if (!raw_data.empty()) {
-    log(indent, "%s", raw_data.c_str());
+    Log::Info(indent, "%s", raw_data.c_str());
   }
 
   // Log any of the expression data.
   for (const auto& line : expression_lines) {
-    log(indent + 1, "%s", line.c_str());
+    Log::Info(indent + 1, "%s", line.c_str());
   }
   return true;
 }
@@ -295,8 +295,8 @@ bool DwarfCfa<AddressType>::Log(uint32_t indent, uint64_t pc, uint64_t start_off
         }
         break;
       case 1:
-        log(indent, "DW_CFA_advance_loc %d", cfa_low);
-        log(indent, "Raw Data: 0x%02x", cfa_value);
+        Log::Info(indent, "DW_CFA_advance_loc %d", cfa_low);
+        Log::Info(indent, "Raw Data: 0x%02x", cfa_value);
         cur_pc += cfa_low * fde_->cie->code_alignment_factor;
         break;
       case 2:
@@ -305,13 +305,14 @@ bool DwarfCfa<AddressType>::Log(uint32_t indent, uint64_t pc, uint64_t start_off
         }
         break;
       case 3:
-        log(indent, "DW_CFA_restore register(%d)", cfa_low);
-        log(indent, "Raw Data: 0x%02x", cfa_value);
+        Log::Info(indent, "DW_CFA_restore register(%d)", cfa_low);
+        Log::Info(indent, "Raw Data: 0x%02x", cfa_value);
         break;
     }
     if (cur_pc != old_pc) {
-      log(0, "");
-      log(indent, "PC 0x%" PRIx64, cur_pc);
+      // This forces a newline or empty log line.
+      Log::Info("");
+      Log::Info(indent, "PC 0x%" PRIx64, cur_pc);
     }
     old_pc = cur_pc;
   }
@@ -324,16 +325,23 @@ bool DwarfCfa<AddressType>::cfa_nop(DwarfLocations*) {
   return true;
 }
 
-template <typename AddressType>
-bool DwarfCfa<AddressType>::cfa_set_loc(DwarfLocations*) {
-  AddressType cur_pc = cur_pc_;
-  AddressType new_pc = operands_[0];
+template <>
+bool DwarfCfa<uint32_t>::cfa_set_loc(DwarfLocations*) {
+  uint32_t cur_pc = cur_pc_;
+  uint32_t new_pc = operands_[0];
   if (new_pc < cur_pc) {
-    if (std::is_same<AddressType, uint32_t>::value) {
-      log(0, "Warning: PC is moving backwards: old 0x%" PRIx32 " new 0x%" PRIx32, cur_pc, new_pc);
-    } else {
-      log(0, "Warning: PC is moving backwards: old 0x%" PRIx64 " new 0x%" PRIx64, cur_pc, new_pc);
-    }
+    Log::Info("Warning: PC is moving backwards: old 0x%" PRIx32 " new 0x%" PRIx32, cur_pc, new_pc);
+  }
+  cur_pc_ = new_pc;
+  return true;
+}
+
+template <>
+bool DwarfCfa<uint64_t>::cfa_set_loc(DwarfLocations*) {
+  uint64_t cur_pc = cur_pc_;
+  uint64_t new_pc = operands_[0];
+  if (new_pc < cur_pc) {
+    Log::Info("Warning: PC is moving backwards: old 0x%" PRIx64 " new 0x%" PRIx64, cur_pc, new_pc);
   }
   cur_pc_ = new_pc;
   return true;
@@ -356,7 +364,7 @@ template <typename AddressType>
 bool DwarfCfa<AddressType>::cfa_restore(DwarfLocations* loc_regs) {
   AddressType reg = operands_[0];
   if (cie_loc_regs_ == nullptr) {
-    log(0, "restore while processing cie");
+    Log::Error("Invalid: restore while processing cie.");
     last_error_.code = DWARF_ERROR_ILLEGAL_STATE;
     return false;
   }
@@ -400,7 +408,7 @@ bool DwarfCfa<AddressType>::cfa_remember_state(DwarfLocations* loc_regs) {
 template <typename AddressType>
 bool DwarfCfa<AddressType>::cfa_restore_state(DwarfLocations* loc_regs) {
   if (loc_reg_state_.size() == 0) {
-    log(0, "Warning: Attempt to restore without remember.");
+    Log::Info("Warning: Attempt to restore without remember.");
     return true;
   }
   *loc_regs = loc_reg_state_.top();
@@ -418,7 +426,7 @@ template <typename AddressType>
 bool DwarfCfa<AddressType>::cfa_def_cfa_register(DwarfLocations* loc_regs) {
   auto cfa_location = loc_regs->find(CFA_REG);
   if (cfa_location == loc_regs->end() || cfa_location->second.type != DWARF_LOCATION_REGISTER) {
-    log(0, "Attempt to set new register, but cfa is not already set to a register.");
+    Log::Error("Attempt to set new register, but cfa is not already set to a register.");
     last_error_.code = DWARF_ERROR_ILLEGAL_STATE;
     return false;
   }
@@ -432,7 +440,7 @@ bool DwarfCfa<AddressType>::cfa_def_cfa_offset(DwarfLocations* loc_regs) {
   // Changing the offset if this is not a register is illegal.
   auto cfa_location = loc_regs->find(CFA_REG);
   if (cfa_location == loc_regs->end() || cfa_location->second.type != DWARF_LOCATION_REGISTER) {
-    log(0, "Attempt to set offset, but cfa is not set to a register.");
+    Log::Error("Attempt to set offset, but cfa is not set to a register.");
     last_error_.code = DWARF_ERROR_ILLEGAL_STATE;
     return false;
   }
@@ -479,7 +487,7 @@ bool DwarfCfa<AddressType>::cfa_def_cfa_offset_sf(DwarfLocations* loc_regs) {
   // Changing the offset if this is not a register is illegal.
   auto cfa_location = loc_regs->find(CFA_REG);
   if (cfa_location == loc_regs->end() || cfa_location->second.type != DWARF_LOCATION_REGISTER) {
-    log(0, "Attempt to set offset, but cfa is not set to a register.");
+    Log::Error("Attempt to set offset, but cfa is not set to a register.");
     last_error_.code = DWARF_ERROR_ILLEGAL_STATE;
     return false;
   }

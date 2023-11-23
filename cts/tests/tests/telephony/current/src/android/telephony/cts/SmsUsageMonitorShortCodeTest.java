@@ -17,24 +17,22 @@
 package android.telephony.cts;
 
 import static android.telephony.SmsManager.SMS_CATEGORY_FREE_SHORT_CODE;
-import static android.telephony.SmsManager.SMS_CATEGORY_STANDARD_SHORT_CODE;
 import static android.telephony.SmsManager.SMS_CATEGORY_NOT_SHORT_CODE;
 import static android.telephony.SmsManager.SMS_CATEGORY_POSSIBLE_PREMIUM_SHORT_CODE;
 import static android.telephony.SmsManager.SMS_CATEGORY_PREMIUM_SHORT_CODE;
+import static android.telephony.SmsManager.SMS_CATEGORY_STANDARD_SHORT_CODE;
 
 import static androidx.test.InstrumentationRegistry.getInstrumentation;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.telephony.SmsManager;
-import android.test.InstrumentationTestCase;
 import android.telephony.PhoneNumberUtils;
+import android.telephony.SmsManager;
 
 import androidx.test.annotation.UiThreadTest;
-
-import com.android.internal.telephony.SmsUsageMonitor;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -44,7 +42,6 @@ import org.junit.Test;
  */
 public class SmsUsageMonitorShortCodeTest {
 
-    private PackageManager mPackageManager;
     private Context mContext;
 
     private static final class ShortCodeTest {
@@ -167,7 +164,7 @@ public class SmsUsageMonitorShortCodeTest {
             new ShortCodeTest("cz", "112", SMS_CATEGORY_NOT_SHORT_CODE),
             new ShortCodeTest("cz", "116117", SMS_CATEGORY_FREE_SHORT_CODE),
             new ShortCodeTest("cz", "9090150", SMS_CATEGORY_PREMIUM_SHORT_CODE),
-            new ShortCodeTest("cz", "90901599", SMS_CATEGORY_PREMIUM_SHORT_CODE),
+            new ShortCodeTest("cz", "90902", SMS_CATEGORY_PREMIUM_SHORT_CODE),
             new ShortCodeTest("cz", "987654321", SMS_CATEGORY_NOT_SHORT_CODE),
 
             new ShortCodeTest("de", "112", SMS_CATEGORY_NOT_SHORT_CODE),
@@ -291,8 +288,19 @@ public class SmsUsageMonitorShortCodeTest {
             new ShortCodeTest("it", "116117", SMS_CATEGORY_FREE_SHORT_CODE),
             new ShortCodeTest("it", "4567", SMS_CATEGORY_NOT_SHORT_CODE),
             new ShortCodeTest("it", "48000", SMS_CATEGORY_PREMIUM_SHORT_CODE),
-            new ShortCodeTest("it", "45678", SMS_CATEGORY_PREMIUM_SHORT_CODE),
+            new ShortCodeTest("it", "45678", SMS_CATEGORY_POSSIBLE_PREMIUM_SHORT_CODE),
             new ShortCodeTest("it", "56789", SMS_CATEGORY_POSSIBLE_PREMIUM_SHORT_CODE),
+            new ShortCodeTest("it", "44000", SMS_CATEGORY_PREMIUM_SHORT_CODE),
+            new ShortCodeTest("it", "47000", SMS_CATEGORY_PREMIUM_SHORT_CODE),
+            new ShortCodeTest("it", "48000", SMS_CATEGORY_PREMIUM_SHORT_CODE),
+            new ShortCodeTest("it", "4450000", SMS_CATEGORY_PREMIUM_SHORT_CODE),
+            new ShortCodeTest("it", "4750000", SMS_CATEGORY_PREMIUM_SHORT_CODE),
+            new ShortCodeTest("it", "4850000", SMS_CATEGORY_PREMIUM_SHORT_CODE),
+            new ShortCodeTest("it", "44500", SMS_CATEGORY_POSSIBLE_PREMIUM_SHORT_CODE),
+            new ShortCodeTest("it", "47500", SMS_CATEGORY_POSSIBLE_PREMIUM_SHORT_CODE),
+            new ShortCodeTest("it", "48500", SMS_CATEGORY_POSSIBLE_PREMIUM_SHORT_CODE),
+            new ShortCodeTest("it", "45500", SMS_CATEGORY_PREMIUM_SHORT_CODE),
+            new ShortCodeTest("it", "49900", SMS_CATEGORY_PREMIUM_SHORT_CODE),
             new ShortCodeTest("it", "456789", SMS_CATEGORY_NOT_SHORT_CODE),
 
             new ShortCodeTest("kg", "112", SMS_CATEGORY_NOT_SHORT_CODE),
@@ -475,7 +483,8 @@ public class SmsUsageMonitorShortCodeTest {
     @Before
     public void setUp() throws Exception {
         mContext = getInstrumentation().getTargetContext();
-        mPackageManager = mContext.getPackageManager();
+        assumeTrue(mContext.getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_TELEPHONY_MESSAGING));
     }
 
     private static int expectedReturnCode(String address) {
@@ -486,11 +495,6 @@ public class SmsUsageMonitorShortCodeTest {
     @UiThreadTest
     @Test
     public void testSmsShortCodeDestination() {
-        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
-            // do not test if device does not support telephony (voice or sms)
-            return;
-        }
-
         for (ShortCodeTest test : sShortCodeTests) {
             // It is intended that a short code number in country A may be an emergency number
             // in country B. It is intended that the destination will be changed because of this

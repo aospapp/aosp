@@ -32,6 +32,7 @@ filegroup {
         "test_package/Foo.aidl",
         "test_package/ByteEnum.aidl",
         "test_package/FixedSize.aidl",
+        "test_package/FixedSizeUnion.aidl",
         "test_package/IEmpty.aidl",
         "test_package/ITest.aidl",
         "test_package/IntEnum.aidl",
@@ -57,7 +58,7 @@ aidl_interface {
             enabled: false,
         },
     },
-    versions: ["1"],
+    unstable: true,
 }
 
 aidl_interface {
@@ -120,7 +121,10 @@ cc_defaults {
 cc_test_library {
     name: "libbinder_ndk_test_utilities",
     defaults: ["libbinder_ndk_test_defaults"],
-    srcs: ["utilities.cpp"],
+    srcs: [
+        "legacy_binder.cpp",
+        "utilities.cpp",
+    ],
 }
 
 cc_test_library {
@@ -131,7 +135,7 @@ cc_test_library {
     ],
     // Using the up-to-date version of the interface
     shared_libs: [
-        "libbinder_ndk_test_interface-V1-ndk",
+        "libbinder_ndk_test_interface-ndk",
         "libbinder_ndk_compat_test_interface-V3-ndk",
         "libbinder_ndk_test_utilities",
     ],
@@ -150,7 +154,7 @@ cc_test_library {
         "libbinder_ndk_compat_test_interface_dup-V1-ndk",
     ],
     shared_libs: [
-        "libbinder_ndk_test_interface-V1-ndk",
+        "libbinder_ndk_test_interface-ndk",
         "libbinder_ndk_test_utilities",
     ],
 }
@@ -158,6 +162,9 @@ cc_test_library {
 cc_test_library {
     name: "libbinder_ndk_test",
     defaults: ["libbinder_ndk_test_defaults"],
+    tidy_timeout_srcs: [
+        "test_native_aidl_client.cpp",
+    ],
     srcs: [
         "test_ibinder.cpp",
         "test_ibinder_jni.cpp",
@@ -167,7 +174,7 @@ cc_test_library {
         "test_status.cpp",
     ],
     shared_libs: [
-        "libbinder_ndk_test_interface-V1-ndk",
+        "libbinder_ndk_test_interface-ndk",
         "libbinder_ndk_compat_test_interface-V3-ndk",
         "libbinder_ndk_test_utilities",
     ],

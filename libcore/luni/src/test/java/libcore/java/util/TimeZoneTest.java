@@ -16,8 +16,7 @@
 
 package libcore.java.util;
 
-import junit.framework.TestCase;
-
+import dalvik.system.RuntimeHooks;
 import java.text.SimpleDateFormat;
 import java.time.ZoneId;
 import java.util.Calendar;
@@ -25,8 +24,18 @@ import java.util.Date;
 import java.util.Locale;
 import java.util.SimpleTimeZone;
 import java.util.TimeZone;
+import java.util.function.Supplier;
+import libcore.junit.junit3.TestCaseWithRules;
+import libcore.junit.util.SwitchTargetSdkVersionRule;
+import libcore.junit.util.SwitchTargetSdkVersionRule.TargetSdkVersion;
+import org.junit.Rule;
+import org.junit.rules.TestRule;
 
-public class TimeZoneTest extends TestCase {
+public class TimeZoneTest extends TestCaseWithRules {
+
+    @Rule
+    public TestRule switchTargetSdkVersionRule = SwitchTargetSdkVersionRule.getInstance();
+
     // http://code.google.com/p/android/issues/detail?id=877
     public void test_useDaylightTime_Taiwan() {
         TimeZone asiaTaipei = TimeZone.getTimeZone("Asia/Taipei");
@@ -401,4 +410,42 @@ public class TimeZoneTest extends TestCase {
         assertEquals(canonical.getDisplayName(true, TimeZone.LONG, Locale.ENGLISH),
                 nonCanonical.getDisplayName(true, TimeZone.LONG, Locale.ENGLISH));
     }
+
+    // Regression test for http://b/205618822
+    public void testGetTimeZone_forNonOlsonId() throws Exception {
+        Supplier<String> originalTimeZoneSupplier = RuntimeHooks.getTimeZoneIdSupplier();
+
+        try {
+            // Must clear the supplier before setting a new supplier.
+            RuntimeHooks.clearTimeZoneIdSupplier();
+            RuntimeHooks.setTimeZoneIdSupplier(() -> "GMT-12:00");
+            TimeZone.getTimeZone("GMT+08:00");
+        } finally {
+            RuntimeHooks.clearTimeZoneIdSupplier();
+            // If the process was forked from Zygote, originalTimeZoneSupplier shouldn't be null.
+            if (originalTimeZoneSupplier != null) {
+                RuntimeHooks.setTimeZoneIdSupplier(originalTimeZoneSupplier);
+            }
+        }
+    }
+
+    // Regression test for http://b/205618822
+    @TargetSdkVersion(29)
+    public void testGetTimeZone_forNonOlsonId_targetSdkVersion29() {
+        Supplier<String> originalTimeZoneSupplier = RuntimeHooks.getTimeZoneIdSupplier();
+
+        try {
+            // Must clear the supplier before setting a new supplier.
+            RuntimeHooks.clearTimeZoneIdSupplier();
+            RuntimeHooks.setTimeZoneIdSupplier(() -> "GMT-12:00");
+            TimeZone.getTimeZone("GMT+08:00");
+        } finally {
+            RuntimeHooks.clearTimeZoneIdSupplier();
+            // If the process was forked from Zygote, originalTimeZoneSupplier shouldn't be null.
+            if (originalTimeZoneSupplier != null) {
+                RuntimeHooks.setTimeZoneIdSupplier(originalTimeZoneSupplier);
+            }
+        }
+    }
+
 }

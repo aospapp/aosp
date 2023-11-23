@@ -14,6 +14,14 @@
 // limitations under the License.
 //
 
+#include <linux/fs.h>
+#include <sys/stat.h>
+#include <sys/sysmacros.h>
+#include <sys/types.h>
+#include <sys/vfs.h>
+#include <unistd.h>
+
+#include <android-base/properties.h>
 #include <android-base/unique_fd.h>
 #include <android/hardware/weaver/1.0/IWeaver.h>
 #include <ext4_utils/ext4_utils.h>
@@ -40,6 +48,10 @@ TEST(MetadataPartition, FirstStageMount) {
     }
 }
 
+static int GetVsrLevel() {
+    return android::base::GetIntProperty("ro.vendor.api_level", -1);
+}
+
 TEST(MetadataPartition, MinimumSize) {
     Fstab fstab;
     ASSERT_TRUE(ReadDefaultFstab(&fstab));
@@ -51,7 +63,11 @@ TEST(MetadataPartition, MinimumSize) {
     ASSERT_GE(fd, 0);
 
     uint64_t size = get_block_device_size(fd);
-    EXPECT_GE(size, 16777216);
+    if (GetVsrLevel() >= __ANDROID_API_T__) {
+        ASSERT_GE(size, 67108864);
+    } else {
+        ASSERT_GE(size, 16777216);
+    }
 }
 
 TEST(Weaver, MinimumSlots) {
@@ -70,4 +86,31 @@ TEST(Weaver, MinimumSlots) {
     ASSERT_TRUE(res.isOk());
     ASSERT_EQ(hw_status, WeaverStatus::OK);
     EXPECT_GE(hw_config.slots, 16);
+}
+
+TEST(MetadataPartition, FsType) {
+    if (GetVsrLevel() < __ANDROID_API_T__) {
+        GTEST_SKIP();
+    }
+
+    Fstab fstab;
+    ASSERT_TRUE(ReadDefaultFstab(&fstab));
+
+    std::vector<std::string> mount_points = {"/data", "/metadata"};
+    for (const auto& mount_point : mount_points) {
+        auto path = mount_point + "/gsi";
+
+        // These paths should not be symlinks.
+        struct stat s;
+        ASSERT_GE(lstat(path.c_str(), &s), 0) << path;
+        ASSERT_FALSE(S_ISLNK(s.st_mode));
+
+        struct statfs64 fs;
+        ASSERT_GE(statfs64(path.c_str(), &fs), 0) << path;
+        ASSERT_EQ(fs.f_type, F2FS_SUPER_MAGIC);
+
+        auto entry = GetEntryForMountPoint(&fstab, mount_point);
+        ASSERT_NE(entry, nullptr);
+        ASSERT_EQ(entry->fs_type, "f2fs");
+    }
 }

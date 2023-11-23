@@ -14,6 +14,7 @@
 // limitations under the License.
 //
 
+#include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -21,7 +22,6 @@
 #include <cstdio>
 #include <memory>
 
-#include <sys/fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 
@@ -60,11 +60,14 @@ bool ProcessPartition(const chromeos_update_engine::PartitionUpdate& partition,
   android::snapshot::CowWriter cow_writer{
       {.block_size = static_cast<uint32_t>(block_size), .compression = "gz"}};
   TEST_AND_RETURN_FALSE(cow_writer.Initialize(output_fd));
-  TEST_AND_RETURN_FALSE(CowDryRun(target_img_fd,
+  TEST_AND_RETURN_FALSE(CowDryRun(nullptr,
+                                  target_img_fd,
                                   partition.operations(),
                                   partition.merge_operations(),
                                   block_size,
-                                  &cow_writer));
+                                  &cow_writer,
+                                  partition.new_partition_info().size(),
+                                  false));
   TEST_AND_RETURN_FALSE(cow_writer.Finalize());
   return true;
 }
@@ -121,11 +124,38 @@ int main(int argc, const char* argv[]) {
     return 5;
   }
 
+  size_t estimated_total_cow_size = 0;
+  size_t actual_total_cow_size = 0;
+
   for (const auto& partition : manifest.partitions()) {
+    if (partition.estimate_cow_size() == 0) {
+      continue;
+    }
     LOG(INFO) << partition.partition_name();
     if (!ProcessPartition(partition, images_dir, manifest.block_size())) {
       return 6;
     }
+    base::FilePath img_dir{images_dir};
+    const auto output_cow =
+        img_dir.Append(partition.partition_name() + ".cow").value();
+    const auto actual_cow_size =
+        chromeos_update_engine::utils::FileSize(output_cow);
+    LOG(INFO) << partition.partition_name()
+              << ": estimated COW size is: " << partition.estimate_cow_size()
+              << ", actual COW size is: " << actual_cow_size
+              << ", estimated COW size is "
+              << (actual_cow_size - partition.estimate_cow_size()) * 100.0f /
+                     actual_cow_size
+              << "% smaller";
+    estimated_total_cow_size += partition.estimate_cow_size();
+    actual_total_cow_size += actual_cow_size;
   }
+
+  LOG(INFO) << "Total estimated COW size is: " << estimated_total_cow_size
+            << ", Total actual COW size is: " << actual_total_cow_size
+            << ", estimated COW size is "
+            << (actual_total_cow_size - estimated_total_cow_size) * 100.0f /
+                   actual_total_cow_size
+            << "% smaller";
   return 0;
 }

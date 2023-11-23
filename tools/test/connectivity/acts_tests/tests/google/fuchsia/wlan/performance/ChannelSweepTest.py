@@ -35,6 +35,7 @@ from acts.controllers.ap_lib import hostapd_constants
 from acts.controllers.ap_lib.hostapd_security import Security
 from acts.controllers.iperf_server import IPerfResult
 from acts_contrib.test_utils.abstract_devices.wlan_device import create_wlan_device
+from acts_contrib.test_utils.abstract_devices.wlan_device_lib.AbstractDeviceWlanDeviceBaseTest import AbstractDeviceWlanDeviceBaseTest
 from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
 
 N_CAPABILITIES_DEFAULT = [
@@ -75,7 +76,7 @@ def get_test_name(settings):
     return settings.get('test_name')
 
 
-class ChannelSweepTest(WifiBaseTest):
+class ChannelSweepTest(AbstractDeviceWlanDeviceBaseTest):
     """Tests channel performance and regulatory compliance..
 
     Testbed Requirement:
@@ -124,11 +125,16 @@ class ChannelSweepTest(WifiBaseTest):
             try:
                 self.iperf_server = self.iperf_servers[0]
                 self.iperf_server.start()
-                self.iperf_client = self.iperf_clients[0]
             except AttributeError:
                 self.log.warn(
                     'Missing iperf config. Throughput cannot be measured, so only '
                     'association will be tested.')
+
+            if hasattr(self, "iperf_clients") and self.iperf_clients:
+                self.iperf_client = self.iperf_clients[0]
+            else:
+                self.iperf_client = self.dut.create_iperf_client()
+
         self.regulatory_results = "====CountryCode,Channel,Frequency,ChannelBandwith,Connected/Not-Connected====\n"
 
     def teardown_class(self):
@@ -169,11 +175,8 @@ class ChannelSweepTest(WifiBaseTest):
             ad.droid.goToSleepNow()
         self.dut.turn_location_off_and_scan_toggle_off()
         self.dut.disconnect()
+        self.download_ap_logs()
         self.access_point.stop_all_aps()
-
-    def on_fail(self, test_name, begin_time):
-        self.dut.take_bug_report(test_name, begin_time)
-        self.dut.get_log(test_name, begin_time)
 
     def set_dut_country_code(self, country_code):
         """Set the country code on the DUT. Then verify that the country

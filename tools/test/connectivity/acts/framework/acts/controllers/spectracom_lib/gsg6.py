@@ -1,18 +1,3 @@
-#!/usr/bin/env python3
-#
-#   Copyright 2019 - The Android Open Source Project
-#
-#   Licensed under the Apache License, Version 2.0 (the "License");
-#   you may not use this file except in compliance with the License.
-#   You may obtain a copy of the License at
-#
-#           http://www.apache.org/licenses/LICENSE-2.0
-#
-#   Unless required by applicable law or agreed to in writing, software
-#   distributed under the License is distributed on an "AS IS" BASIS,
-#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#   See the License for the specific language governing permissions and
-#   limitations under the License.
 """Python module for Spectracom/Orolia GSG-6 GNSS simulator."""
 
 from acts.controllers import abstract_inst
@@ -115,8 +100,8 @@ class GSG6(abstract_inst.SocketInstrument):
 
         self._send(':SOUR:POW ' + str(round(power_level, 1)))
 
-        infmsg = 'Set GSG-6 transmit power to "{}"'.format(
-            round(power_level, 1))
+        infmsg = 'Set GSG-6 transmit power to "{}"'.format(round(
+            power_level, 1))
         self._logger.debug(infmsg)
 
     def get_nmealog(self):
@@ -128,3 +113,107 @@ class GSG6(abstract_inst.SocketInstrument):
         nmea_data = self._query('SOUR:SCEN:LOG?')
 
         return nmea_data
+
+    def toggle_scenario_power(self,
+                              toggle_onoff='ON',
+                              sat_id='',
+                              sat_system=''):
+        """Toggle ON OFF scenario.
+
+        Args:
+            toggle_onoff: turn on or off the satellites
+                Type, str. Option ON/OFF
+                Default, 'ON'
+            sat_id: satellite identifiers
+                Type, str.
+                Option 'Gxx/Rxx/Exx/Cxx/Jxx/Ixx/Sxxx'
+                where xx is satellite identifiers no.
+                e.g.: G10
+            sat_system: to toggle On/OFF for all Satellites
+                Type, str
+                Option [GPS, GLO, GAL, BDS, QZSS, IRNSS, SBAS]
+        Raises:
+            GSG6Error: raise when toggle is not set.
+        """
+        if not sat_id and not sat_system:
+            self._send(':SOUR:SCEN:POW ' + str(toggle_onoff))
+            infmsg = 'Set GSG-6 Power to "{}"'.format(toggle_onoff)
+            self._logger.debug(infmsg)
+
+        elif sat_id and not sat_system:
+            self._send(':SOUR:SCEN:POW ' + str(sat_id) + ',' +
+                       str(toggle_onoff))
+            infmsg = ('Set GSG-6 Power to "{}" for "{}" satellite '
+                      'identifiers').format(toggle_onoff, sat_id)
+            self._logger.debug(infmsg)
+
+        elif not sat_id and sat_system:
+            self._send(':SOUR:SCEN:POW ' + str(sat_system) + ',' +
+                       str(toggle_onoff))
+            infmsg = 'Set GSG-6 Power to "{}" for "{}" satellite system'.format(
+                toggle_onoff, sat_system)
+            self._logger.debug(infmsg)
+
+        else:
+            errmsg = ('"toggle power" must have either of these value [ON/OFF],'
+                      ' current input is {}').format(str(toggle_onoff))
+            raise GSG6Error(error=errmsg, command='toggle_scenario_power')
+
+    def set_scenario_power(self,
+                           power_level,
+                           sat_id='',
+                           sat_system='',
+                           freq_band=''):
+        """Set dynamic power for the running scenario.
+
+        Args:
+            power_level: transmit power level
+                Type, float.
+                Decimal, unit [dBm]
+            sat_id: set power level for specific satellite identifiers
+                Type, str. Option
+                'Gxx/Rxx/Exx/Cxx/Jxx/Ixx/Sxxx'
+                where xx is satellite identifiers number
+                e.g.: G10
+            sat_system: to set power level for all Satellites
+                Type, str
+                Option [GPS, GLO, GAL, BDS, QZSS, IRNSS, SBAS]
+            freq_band: Frequency band to set the power level
+                Type, str
+                Option  [L1, L2, L5, ALL]
+                Default, '', assumed to be L1.
+        Raises:
+            GSG6Error: raise when power level is not in [-160, -65] range.
+        """
+        if freq_band == 'ALL':
+            if not -100 <= power_level <= 100:
+                errmsg = ('"power_level" must be within [-100, 100], for '
+                          '"freq_band"="ALL", current input is {}').format(
+                              str(power_level))
+                raise GSG6Error(error=errmsg, command='set_scenario_power')
+        else:
+            if not -160 <= power_level <= -65:
+                errmsg = ('"power_level" must be within [-160, -65], for '
+                          '"freq_band" != "ALL", current input is {}').format(
+                              str(power_level))
+                raise GSG6Error(error=errmsg, command='set_scenario_power')
+
+        if sat_id and not sat_system:
+            self._send(':SOUR:SCEN:POW ' + str(sat_id) + ',' +
+                       str(round(power_level, 1)) + ',' + str(freq_band))
+            infmsg = ('Set GSG-6 transmit power to "{}" for "{}" '
+                      'satellite id').format(round(power_level, 1), sat_id)
+            self._logger.debug(infmsg)
+
+        elif not sat_id and sat_system:
+            self._send(':SOUR:SCEN:POW ' + str(sat_system) + ',' +
+                       str(round(power_level, 1)) + ',' + str(freq_band))
+            infmsg = ('Set GSG-6 transmit power to "{}" for "{}" '
+                      'satellite system').format(round(power_level, 1),
+                                                 sat_system)
+            self._logger.debug(infmsg)
+
+        else:
+            errmsg = ('sat_id or sat_system must have value, current input of '
+                      'sat_id {} and sat_system {}').format(sat_id, sat_system)
+            raise GSG6Error(error=errmsg, command='set_scenario_power')

@@ -60,7 +60,6 @@ public class NotificationChannelTest extends AndroidTestCase {
         assertEquals(null, channel.getGroup());
         assertTrue(channel.getLightColor() == 0);
         assertFalse(channel.canBubble());
-        assertFalse(channel.isImportanceLockedByOEM());
         assertEquals(IMPORTANCE_UNSPECIFIED, channel.getOriginalImportance());
         assertNull(channel.getConversationId());
         assertNull(channel.getParentChannelId());
@@ -195,13 +194,6 @@ public class NotificationChannelTest extends AndroidTestCase {
                 new NotificationChannel("1", "one", IMPORTANCE_DEFAULT);
         channel.setBlockable(true);
         assertTrue(channel.isBlockable());
-    }
-
-    public void testIsImportanceLockedByOEM() {
-        NotificationChannel channel =
-                new NotificationChannel("1", "one", IMPORTANCE_DEFAULT);
-        channel.setImportanceLockedByOEM(true);
-        assertTrue(channel.isImportanceLockedByOEM());
     }
 
     public void testSystemBlockable() {

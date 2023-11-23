@@ -21,6 +21,7 @@ import static com.android.cts.devicepolicy.metrics.DevicePolicyEventLogVerifier.
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import android.platform.test.annotations.FlakyTest;
@@ -30,7 +31,6 @@ import android.stats.devicepolicy.EventId;
 
 import com.android.cts.devicepolicy.DeviceAdminFeaturesCheckerRule.TemporarilyIgnoreOnHeadlessSystemUserMode;
 import com.android.cts.devicepolicy.annotations.LockSettingsTest;
-import com.android.cts.devicepolicy.metrics.DevicePolicyEventLogVerifier;
 import com.android.cts.devicepolicy.metrics.DevicePolicyEventWrapper;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
@@ -44,7 +44,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -82,21 +81,12 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
     private static final String SIMPLE_PRE_M_APP_PKG = "com.android.cts.launcherapps.simplepremapp";
     private static final String SIMPLE_PRE_M_APP_APK = "CtsSimplePreMApp.apk";
 
-    private static final String APP_RESTRICTIONS_TARGET_APP_PKG
-            = "com.android.cts.apprestrictions.targetapp";
-    private static final String APP_RESTRICTIONS_TARGET_APP_APK = "CtsAppRestrictionsTargetApp.apk";
-
     public static final String CERT_INSTALLER_PKG = "com.android.cts.certinstaller";
     public static final String CERT_INSTALLER_APK = "CtsCertInstallerApp.apk";
 
     protected static final String DELEGATE_APP_PKG = "com.android.cts.delegate";
     protected static final String DELEGATE_APP_APK = "CtsDelegateApp.apk";
     private static final String DELEGATION_CERT_INSTALL = "delegation-cert-install";
-    private static final String DELEGATION_APP_RESTRICTIONS = "delegation-app-restrictions";
-    private static final String DELEGATION_BLOCK_UNINSTALL = "delegation-block-uninstall";
-    private static final String DELEGATION_PERMISSION_GRANT = "delegation-permission-grant";
-    private static final String DELEGATION_PACKAGE_ACCESS = "delegation-package-access";
-    private static final String DELEGATION_ENABLE_SYSTEM_APP = "delegation-enable-system-app";
     private static final String DELEGATION_CERT_SELECTION = "delegation-cert-selection";
 
     protected static final String TEST_APP_APK = "CtsSimpleApp.apk";
@@ -106,23 +96,13 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
     protected static final String PACKAGE_INSTALLER_PKG = "com.android.cts.packageinstaller";
     protected static final String PACKAGE_INSTALLER_APK = "CtsPackageInstallerApp.apk";
 
-    private static final String ACCOUNT_MANAGEMENT_PKG
-            = "com.android.cts.devicepolicy.accountmanagement";
-    private static final String ACCOUNT_MANAGEMENT_APK = "CtsAccountManagementDevicePolicyApp.apk";
-
     private static final String VPN_APP_PKG = "com.android.cts.vpnfirewall";
     private static final String VPN_APP_APK = "CtsVpnFirewallApp.apk";
     private static final String VPN_APP_API23_APK = "CtsVpnFirewallAppApi23.apk";
     private static final String VPN_APP_API24_APK = "CtsVpnFirewallAppApi24.apk";
     private static final String VPN_APP_NOT_ALWAYS_ON_APK = "CtsVpnFirewallAppNotAlwaysOn.apk";
 
-    private static final String COMMAND_BLOCK_ACCOUNT_TYPE = "block-accounttype";
-    private static final String COMMAND_UNBLOCK_ACCOUNT_TYPE = "unblock-accounttype";
-
-    private static final String DISALLOW_MODIFY_ACCOUNTS = "no_modify_accounts";
     private static final String DISALLOW_REMOVE_USER = "no_remove_user";
-    private static final String ACCOUNT_TYPE
-            = "com.android.cts.devicepolicy.accountmanagement.account.type";
 
     private static final String CUSTOMIZATION_APP_PKG = "com.android.cts.customizationapp";
     private static final String CUSTOMIZATION_APP_APK = "CtsCustomizationApp.apk";
@@ -157,9 +137,6 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
 
     protected static final String ASSIST_INTERACTION_SERVICE =
             ASSIST_APP_PKG + "/.MyInteractionService";
-
-    private static final String ARG_ALLOW_FAILURE = "allowFailure";
-    private static final String ARG_LOGGING_TEST = "loggingTest";
 
     private static final String RESTRICT_BACKGROUND_GET_CMD =
         "cmd netpolicy get restrict-background";
@@ -199,10 +176,8 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
         getDevice().uninstallPackage(DEVICE_ADMIN_PKG);
         getDevice().uninstallPackage(PERMISSIONS_APP_PKG);
         getDevice().uninstallPackage(SIMPLE_PRE_M_APP_PKG);
-        getDevice().uninstallPackage(APP_RESTRICTIONS_TARGET_APP_PKG);
         getDevice().uninstallPackage(CERT_INSTALLER_PKG);
         getDevice().uninstallPackage(DELEGATE_APP_PKG);
-        getDevice().uninstallPackage(ACCOUNT_MANAGEMENT_PKG);
         getDevice().uninstallPackage(VPN_APP_PKG);
         getDevice().uninstallPackage(VPN_APP_API23_APK);
         getDevice().uninstallPackage(VPN_APP_API24_APK);
@@ -232,100 +207,6 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
             "testSetApplicationRestrictionsManagingPackageToDelegate", mUserId);
         runDeviceTestsAsUser(DELEGATE_APP_PKG, ".AppRestrictionsIsCallerDelegateHelper",
             "testAssertCallerIsApplicationRestrictionsManagingPackage", mUserId);
-    }
-
-    /**
-     * Returns a list of delegation tests that should run. Add delegations tests applicable to both
-     * device owner and profile owners to this method directly. DO or PO specific tests should be
-     * added to {@link #getAdditionalDelegationTests} in the subclass.
-     */
-    private Map<String, DevicePolicyEventWrapper[]> getDelegationTests() {
-        final Map<String, DevicePolicyEventWrapper[]> result = new HashMap<>();
-        result.put(".CertInstallDelegateTest", null);
-        result.put(".BlockUninstallDelegateTest", null);
-        result.put(".PermissionGrantDelegateTest", null);
-        result.put(".PackageAccessDelegateTest", null);
-        result.put(".EnableSystemAppDelegateTest", null);
-        result.putAll(getAdditionalDelegationTests());
-        return result;
-    }
-
-    Map<String, DevicePolicyEventWrapper[]> getAdditionalDelegationTests() {
-        return Collections.<String, DevicePolicyEventWrapper[]>emptyMap();
-    }
-
-    /**
-     * Returns a list of delegation scopes that are needed to run delegation tests. Add scopes
-     * which are applicable to both device owner and profile owners to this method directly.
-     * DO or PO specific scopes should be added to {@link #getAdditionalDelegationScopes}
-     * in the subclass.
-     */
-    private List<String> getDelegationScopes() {
-        final List<String> result = new ArrayList<>(Arrays.asList(
-                DELEGATION_APP_RESTRICTIONS,
-                DELEGATION_CERT_INSTALL,
-                DELEGATION_BLOCK_UNINSTALL,
-                DELEGATION_PERMISSION_GRANT,
-                DELEGATION_PACKAGE_ACCESS,
-                DELEGATION_ENABLE_SYSTEM_APP,
-                // CERT_SELECTION scope is in the list so it still participates GeneralDelegateTest.
-                // But its main functionality test is driven by testDelegationCertSelection() and
-                // hence missing from getDelegationTests() on purpose.
-                DELEGATION_CERT_SELECTION
-                ));
-        result.addAll(getAdditionalDelegationScopes());
-        return result;
-    }
-
-    List<String> getAdditionalDelegationScopes() {
-        return Collections.<String>emptyList();
-    }
-
-    /**
-     * General instructions to add a new delegation test:
-     *
-     * <p>Implement the delegate's positive/negate functionaility tests in a new test class
-     * in CtsDelegateApp.apk. Main entry point are {@code testCanAccessApis} and
-     * {@code testCannotAccessApis}. Once implemented, add the delegation scope and the test
-     * class name to {@link #getDelegationScopes}, {@link #getDelegationTests} to make the test
-     * run on DO/PO/PO on primary user.  If the test should only run on a subset of these
-     * combinations, add them to the subclass's {@link #getAdditionalDelegationScopes} and
-     * {@link #getDelegationScopes} instead.
-     * <p>Alternatively, create a separate hostside method to drive the test, similar to
-     * {@link #testDelegationCertSelection}. This is preferred if the delegated functionalities
-     * already exist in another app.
-     */
-    @Test
-    public void testDelegation() throws Exception {
-        // Install relevant apps.
-        installDelegateApp();
-        installAppAsUser(TEST_APP_APK, mUserId);
-        installAppAsUser(APP_RESTRICTIONS_TARGET_APP_APK, mUserId);
-        if (isHeadlessSystemUserMode()) {
-            installAppAsUser(TEST_APP_APK, mDeviceOwnerUserId);
-            installAppAsUser(APP_RESTRICTIONS_TARGET_APP_APK, mDeviceOwnerUserId);
-        }
-
-        try {
-            final Map<String, DevicePolicyEventWrapper[]> delegationTests = getDelegationTests();
-            // APIs are not accessible by default.
-            executeDelegationTests(delegationTests, false /* negative result */);
-
-            // Granting the appropriate delegation scopes makes APIs accessible.
-            final List<String> scopes = getDelegationScopes();
-            setDelegatedScopes(DELEGATE_APP_PKG, scopes);
-            runDeviceTestsAsUser(DELEGATE_APP_PKG, ".GeneralDelegateTest", null, mUserId,
-                    ImmutableMap.of("scopes", String.join(",", scopes)));
-            executeDelegationTests(delegationTests, true /* positive result */);
-
-            // APIs are not accessible after revoking delegations.
-            setDelegatedScopes(DELEGATE_APP_PKG, null);
-            executeDelegationTests(delegationTests, false /* negative result */);
-
-        } finally {
-            // Remove any remaining delegations.
-            setDelegatedScopes(DELEGATE_APP_PKG, null);
-        }
     }
 
     protected void installDelegateApp() throws Exception {
@@ -474,10 +355,12 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
     @RequiresDevice
     @Test
     public void testAlwaysOnVpnPackageLogged() throws Exception {
+        int userId = getUserIdForAlwaysOnVpnTests();
         // Will be uninstalled in tearDown().
-        installAppAsUser(VPN_APP_APK, mUserId);
+        installAppAsUser(VPN_APP_APK, userId);
         assertMetricsLogged(getDevice(), () -> {
-            executeDeviceTestMethod(".AlwaysOnVpnUnsupportedTest", "testSetSupportedVpnAlwaysOn");
+            executeDeviceTestMethod(".AlwaysOnVpnUnsupportedTest", "testSetSupportedVpnAlwaysOn",
+                    userId);
         }, new DevicePolicyEventWrapper.Builder(EventId.SET_ALWAYS_ON_VPN_PACKAGE_VALUE)
                     .setAdminPackageName(DEVICE_ADMIN_PKG)
                     .setStrings(VPN_APP_PKG)
@@ -555,6 +438,10 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
     @Test
     public void testPermissionGrantPreMApp() throws Exception {
         installAppAsUser(SIMPLE_PRE_M_APP_APK, mUserId);
+
+        if (isHeadlessSystemUserMode()) {
+            installAppAsUser(SIMPLE_PRE_M_APP_APK, mDeviceOwnerUserId);
+        }
         executeDeviceTestMethod(".PermissionsTest", "testPermissionGrantState_preMApp");
     }
 
@@ -606,65 +493,13 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
 
     @Test
     public void testApplicationHidden_cannotHidePolicyExemptApps() throws Exception {
+        // Needed to access dpm.getPolicyExemptApps()
+        allowTestApiAccess(DEVICE_ADMIN_PKG);
         executeDeviceTestMethod(".ApplicationHiddenTest", "testCannotHidePolicyExemptApps");
     }
 
-    // TODO(b/197491427): AccountManager support in TestApp
-    @Test
-    public void testAccountManagement_userRestrictionAddAccount() throws Exception {
-        installAppAsUser(ACCOUNT_MANAGEMENT_APK, mUserId);
-        try {
-            changeUserRestrictionOrFail(DISALLOW_MODIFY_ACCOUNTS, true, mUserId);
-            executeAccountTest("testAddAccount_blocked");
-        } finally {
-            // Ensure we clear the user restriction
-            changeUserRestrictionOrFail(DISALLOW_MODIFY_ACCOUNTS, false, mUserId);
-        }
-        executeAccountTest("testAddAccount_allowed");
-    }
-
-    // TODO(b/197491427): AccountManager support in TestApp
-    @Test
-    public void testAccountManagement_userRestrictionRemoveAccount() throws Exception {
-        installAppAsUser(ACCOUNT_MANAGEMENT_APK, mUserId);
-        try {
-            changeUserRestrictionOrFail(DISALLOW_MODIFY_ACCOUNTS, true, mUserId);
-            executeAccountTest("testRemoveAccount_blocked");
-        } finally {
-            // Ensure we clear the user restriction
-            changeUserRestrictionOrFail(DISALLOW_MODIFY_ACCOUNTS, false, mUserId);
-        }
-        executeAccountTest("testRemoveAccount_allowed");
-    }
-
-    // TODO(b/197491427): AccountManager support in TestApp
-    @Test
-    public void testAccountManagement_disabledAddAccount() throws Exception {
-        installAppAsUser(ACCOUNT_MANAGEMENT_APK, mUserId);
-        try {
-            changeAccountManagement(COMMAND_BLOCK_ACCOUNT_TYPE, ACCOUNT_TYPE, mUserId);
-            executeAccountTest("testAddAccount_blocked");
-        } finally {
-            // Ensure we remove account management policies
-            changeAccountManagement(COMMAND_UNBLOCK_ACCOUNT_TYPE, ACCOUNT_TYPE, mUserId);
-        }
-        executeAccountTest("testAddAccount_allowed");
-    }
-
-    // TODO(b/197491427): AccountManager support in TestApp
-    @Test
-    public void testAccountManagement_disabledRemoveAccount() throws Exception {
-        installAppAsUser(ACCOUNT_MANAGEMENT_APK, mUserId);
-        try {
-            changeAccountManagement(COMMAND_BLOCK_ACCOUNT_TYPE, ACCOUNT_TYPE, mUserId);
-            executeAccountTest("testRemoveAccount_blocked");
-        } finally {
-            // Ensure we remove account management policies
-            changeAccountManagement(COMMAND_UNBLOCK_ACCOUNT_TYPE, ACCOUNT_TYPE, mUserId);
-        }
-        executeAccountTest("testRemoveAccount_allowed");
-    }
-
+    @TemporarilyIgnoreOnHeadlessSystemUserMode(bugId = "197859595",
+            reason = "Will be migrated to new test infra")
     @Test
     public void testDelegatedCertInstaller() throws Exception {
         installAppAsUser(CERT_INSTALLER_APK, mUserId);
@@ -840,6 +675,7 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
     @Test
     public void testSetMeteredDataDisabledPackages() throws Exception {
         assumeHasWifiFeature();
+        assumeFalse("is watch", hasDeviceFeature("android.hardware.type.watch"));
 
         installAppAsUser(METERED_DATA_APP_APK, mUserId);
 
@@ -863,6 +699,10 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
         final String SECURE_SETTING_CATEGORY = "secure";
         final String GLOBAL_SETTING_CATEGORY = "global";
         final File apk = mBuildHelper.getTestFile(TEST_APP_APK);
+
+        // Needed to access dpm.getPolicyExemptApps()
+        allowTestApiAccess(DEVICE_ADMIN_PKG);
+
         try {
             // Install the test and prepare the test apk.
             installAppAsUser(PACKAGE_INSTALLER_APK, mUserId);
@@ -1093,14 +933,6 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
                     .build());
     }
 
-    /** Test for resetPassword for all devices. */
-    @Test
-    public void testResetPasswordDeprecated() throws Exception {
-        assumeHasSecureLockScreenFeature();
-
-        executeDeviceTestMethod(".ResetPasswordTest", "testResetPasswordDeprecated");
-    }
-
     @Test
     public void testPasswordSufficientInitially() throws Exception {
         executeDeviceTestClass(".PasswordSufficientInitiallyTest");
@@ -1227,6 +1059,8 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
         executeDeviceTestClass(".KeyManagementTest");
     }
 
+    @TemporarilyIgnoreOnHeadlessSystemUserMode(bugId = "218408549",
+            reason = "Will be migrated to new test infra")
     @Test
     public void testInstallKeyPairLogged() throws Exception {
         assertMetricsLogged(getDevice(), () -> {
@@ -1268,8 +1102,6 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
 
     }
 
-    @TemporarilyIgnoreOnHeadlessSystemUserMode(bugId = "197859595",
-            reason = "Will be migrated to new test infra")
     @Test
     public void testSetKeyPairCertificateLogged() throws Exception {
         assertMetricsLogged(getDevice(), () -> {
@@ -1333,6 +1165,16 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
 
     @Test
     public void testPasswordMethodsLogged() throws Exception {
+        if (isAutomotive()) {
+            assertMetricsLogged(getDevice(), () -> {
+                executeDeviceTestMethod(".DevicePolicyLoggingTest", "testPasswordMethodsLogged");
+            }, new DevicePolicyEventWrapper.Builder(EventId.SET_PASSWORD_COMPLEXITY_VALUE)
+                    .setAdminPackageName(DEVICE_ADMIN_PKG)
+                    .setInt(0x50000)
+                    .setBoolean(false)
+                    .build());
+            return;
+        }
         assertMetricsLogged(getDevice(), () -> {
             executeDeviceTestMethod(".DevicePolicyLoggingTest", "testPasswordMethodsLogged");
         }, new DevicePolicyEventWrapper.Builder(EventId.SET_PASSWORD_QUALITY_VALUE)
@@ -1373,16 +1215,6 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
                         .setInt(0x50000)
                         .setBoolean(false)
                         .build());
-    }
-
-    @Test
-    public void testLockNowLogged() throws Exception {
-        assertMetricsLogged(getDevice(), () -> {
-            executeDeviceTestMethod(".DevicePolicyLoggingTest", "testLockNowLogged");
-        }, new DevicePolicyEventWrapper.Builder(EventId.LOCK_NOW_VALUE)
-                .setAdminPackageName(DEVICE_ADMIN_PKG)
-                .setInt(0)
-                .build());
     }
 
     @Test
@@ -1612,19 +1444,6 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
     }
 
     @Test
-    public void testSetUninstallBlockedLogged() throws Exception {
-        installAppAsUser(PERMISSIONS_APP_APK, mUserId);
-        assertMetricsLogged(getDevice(), () -> {
-            executeDeviceTestMethod(".DevicePolicyLoggingTest",
-                    "testSetUninstallBlockedLogged");
-        }, new DevicePolicyEventWrapper.Builder(EventId.SET_UNINSTALL_BLOCKED_VALUE)
-                .setAdminPackageName(DEVICE_ADMIN_PKG)
-                .setBoolean(false)
-                .setStrings(PERMISSIONS_APP_PKG)
-                .build());
-    }
-
-    @Test
     public void testIsDeviceOrganizationOwnedWithManagedProfile() throws Exception {
         executeDeviceTestMethod(".DeviceOwnershipTest",
                 "testCallingIsOrganizationOwnedWithManagedProfileExpectingFalse");
@@ -1693,39 +1512,6 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
         executeDeviceTestMethod(".WifiTest", "testAddNetworkWithKeychainKey_notGranted");
     }
 
-    // TODO(b/184175078): Migrate test to Bedstead when the infra is ready.
-    @Test
-    public void testGetNearbyNotificationStreamingPolicy_getsNearbyStreamingDisabledAsDefault()
-            throws Exception {
-        executeDeviceTestMethod(
-                ".NearbyNotificationStreamingPolicyTest",
-                "testGetNearbyNotificationStreamingPolicy_getsNearbyStreamingDisabledAsDefault");
-    }
-
-    // TODO(b/184175078): Migrate test to Bedstead when the infra is ready.
-    @Test
-    public void testSetNearbyNotificationStreamingPolicy_changesPolicy() throws Exception {
-        executeDeviceTestMethod(
-                ".NearbyNotificationStreamingPolicyTest",
-                "testSetNearbyNotificationStreamingPolicy_changesPolicy");
-    }
-
-    // TODO(b/184175078): Migrate test to Bedstead when the infra is ready.
-    @Test
-    public void testGetNearbyAppStreamingPolicy_getsNearbyStreamingDisabledAsDefault()
-            throws Exception {
-        executeDeviceTestMethod(
-                ".NearbyAppStreamingPolicyTest",
-                "testGetNearbyAppStreamingPolicy_getsNearbyStreamingDisabledAsDefault");
-    }
-
-    // TODO(b/184175078): Migrate test to Bedstead when the infra is ready.
-    @Test
-    public void testSetNearbyAppStreamingPolicy_changesPolicy() throws Exception {
-        executeDeviceTestMethod(
-                ".NearbyAppStreamingPolicyTest", "testSetNearbyAppStreamingPolicy_changesPolicy");
-    }
-
     /**
      * Executes a test class on device. Prior to running, turn off background data usage
      * restrictions, and restore the original restrictions after the test.
@@ -1770,62 +1556,21 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
 
     protected void installAppPermissionAppAsUser()
             throws FileNotFoundException, DeviceNotAvailableException {
-        installAppAsUser(PERMISSIONS_APP_APK, false, mUserId);
+        installAppPermissionAppAsUser(mUserId);
+    }
+
+    protected final void installAppPermissionAppAsUser(int userId)
+            throws FileNotFoundException, DeviceNotAvailableException {
+        installAppAsUser(PERMISSIONS_APP_APK, false, userId);
     }
 
     private void executeSuspendPackageTestMethod(String testName) throws Exception {
         runDeviceTestsAsUser(INTENT_SENDER_PKG, ".SuspendPackageTest", testName, mUserId);
     }
 
-    private void executeAccountTest(String testName) throws DeviceNotAvailableException {
-        runDeviceTestsAsUser(ACCOUNT_MANAGEMENT_PKG, ".AccountManagementTest",
-                testName, mUserId);
-        // Send a home intent to dismiss an error dialog.
-        String command = "am start -a android.intent.action.MAIN"
-                + " -c android.intent.category.HOME";
-        CLog.i("Output for command " + command + ": " + getDevice().executeShellCommand(command));
-    }
-
-    private void executeAppRestrictionsManagingPackageTest(String testName) throws Exception {
-        runDeviceTestsAsUser(DELEGATE_APP_PKG,
-                ".AppRestrictionsDelegateTest", testName, mUserId);
-    }
-
-    private void executeDelegationTests(Map<String, DevicePolicyEventWrapper[]> delegationTests,
-            boolean positive)
-            throws Exception {
-        for (Map.Entry<String, DevicePolicyEventWrapper[]> entry : delegationTests.entrySet()) {
-            final String delegationTestClass = entry.getKey();
-            CLog.i("executeDelegationTests(): executing %s (%s)", delegationTestClass,
-                    positive ? "positive" : "negative");
-            final DevicePolicyEventWrapper[] expectedMetrics = entry.getValue();
-            final DevicePolicyEventLogVerifier.Action testRun = () -> {
-                runDeviceTestsAsUser(DELEGATE_APP_PKG, delegationTestClass,
-                        positive ? "testCanAccessApis" : "testCannotAccessApis", mUserId);
-            };
-            if (expectedMetrics != null && positive) {
-                assertMetricsLogged(getDevice(), testRun, expectedMetrics);
-            } else {
-                testRun.apply();
-            }
-        }
-    }
-
     private void changeUserRestrictionOrFail(String key, boolean value, int userId)
             throws DeviceNotAvailableException {
         changeUserRestrictionOrFail(key, value, userId, DEVICE_ADMIN_PKG);
-    }
-
-    private void changeAccountManagement(String command, String accountType, int userId)
-            throws DeviceNotAvailableException {
-        changePolicyOrFail(command, "--es extra-account-type " + accountType, userId);
-    }
-
-    private void changeApplicationRestrictionsManagingPackage(String packageName)
-            throws DeviceNotAvailableException {
-        String packageNameExtra = (packageName != null)
-                ? "--es extra-package-name " + packageName : "";
-        changePolicyOrFail("set-app-restrictions-manager", packageNameExtra, mUserId);
     }
 
     protected void setDelegatedScopes(String packageName, List<String> scopes)

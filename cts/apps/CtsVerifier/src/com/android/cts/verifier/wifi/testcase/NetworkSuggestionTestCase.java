@@ -68,7 +68,7 @@ public class NetworkSuggestionTestCase extends BaseTestCase {
     private static final int CAPABILITIES_CHANGED_FOR_METERED_TIMEOUT_MS = 80_000;
 
     private final Object mLock = new Object();
-    private final ScheduledExecutorService mExecutorService;
+    private static ScheduledExecutorService sExecutorService;
     private final WifiNetworkSuggestion.Builder mNetworkSuggestionBuilder =
             new WifiNetworkSuggestion.Builder();
 
@@ -101,7 +101,6 @@ public class NetworkSuggestionTestCase extends BaseTestCase {
             boolean setRequiresAppInteraction, boolean simulateConnectionFailure,
             boolean setMeteredPostConnection) {
         super(context);
-        mExecutorService = Executors.newSingleThreadScheduledExecutor();
         mSetBssid = setBssid;
         mSetRequiresAppInteraction = setRequiresAppInteraction;
         mSimulateConnectionFailure = simulateConnectionFailure;
@@ -299,7 +298,7 @@ public class NetworkSuggestionTestCase extends BaseTestCase {
 
         // Step: Trigger scans periodically to trigger network selection quicker.
         if (DBG) Log.v(TAG, "Triggering scan periodically");
-        mExecutorService.scheduleAtFixedRate(() -> {
+        sExecutorService.scheduleAtFixedRate(() -> {
             if (!mWifiManager.startScan()) {
                 Log.w(TAG, "Failed to trigger scan");
             }
@@ -459,12 +458,13 @@ public class NetworkSuggestionTestCase extends BaseTestCase {
     @Override
     protected void setUp() {
         super.setUp();
+        sExecutorService = Executors.newSingleThreadScheduledExecutor();
         mConnectivityManager = mContext.getSystemService(ConnectivityManager.class);
     }
 
     @Override
     protected void tearDown() {
-        mExecutorService.shutdownNow();
+        sExecutorService.shutdownNow();
         if (mBroadcastReceiver != null) {
             mContext.unregisterReceiver(mBroadcastReceiver);
         }

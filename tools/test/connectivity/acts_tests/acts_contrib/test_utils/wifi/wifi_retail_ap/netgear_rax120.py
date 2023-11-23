@@ -108,6 +108,12 @@ class NetgearRAX120AP(NetgearR7500AP):
             '19': 'Russia',
             '20': 'Singapore',
             '21': 'Taiwan',
+            'Australia': 'Australia',
+            'Europe': 'Europe',
+            'Korea': 'Korea',
+            'Singapore': 'Singapore',
+            'Hong Kong': 'Hong Kong',
+            'United States': 'United States',
         }
         self.bw_mode_text = {
             '2G': {
@@ -120,12 +126,12 @@ class NetgearRAX120AP(NetgearR7500AP):
             '5G_1': {
                 'HE20': 'Up to 1147 Mbps (11ax, HT20, 1024-QAM)',
                 'HE40': 'Up to 2294 Mbps (11ax, HT40, 1024-QAM)',
-                'HE80': 'Up to 4803 Mbps (11ax, HT80, 1024-QAM)',
-                'HE160': 'Up to 4803 Mbps (11ax, HT160, 1024-QAM)',
+                'HE80': 'Up to 4803 Mbps (80MHz) (11ax, HT80, 1024-QAM)',
+                'HE160': 'Up to 4803 Mbps (160MHz) (11ax, HT160, 1024-QAM)',
                 'VHT20': 'Up to 962 Mbps (11ac, HT20, 1024-QAM)',
                 'VHT40': 'Up to 2000 Mbps (11ac, HT40, 1024-QAM)',
-                'VHT80': 'Up to 4333 Mbps (11ac, HT80, 1024-QAM)',
-                'VHT160': 'Up to 4333 Mbps (11ac, HT160, 1024-QAM)'
+                'VHT80': 'Up to 4333 Mbps (80MHz) (11ac, HT80, 1024-QAM)',
+                'VHT160': 'Up to 4333 Mbps (160MHz) (11ac, HT160, 1024-QAM)'
             }
         }
         self.bw_mode_values = {
@@ -146,7 +152,14 @@ class NetgearRAX120AP(NetgearR7500AP):
                 '7': 'HE20',
                 '8': 'HE40',
                 '9': 'HE80',
-                '10': 'HE160'
+                '10': 'HE160',
+                '54': '11g',
+                '573.5': 'HE20',
+                '1146': 'HE40',
+                '1147': 'HE20',
+                '2294': 'HE40',
+                '4803-HT80': 'HE80',
+                '4803-HT160': 'HE160'
             }
         }
         self.security_mode_values = {
@@ -160,6 +173,55 @@ class NetgearRAX120AP(NetgearR7500AP):
             }
         }
 
+    def _set_channel_and_bandwidth(self,
+                                   network,
+                                   channel=None,
+                                   bandwidth=None):
+        """Helper function that sets network bandwidth and channel.
+
+        Args:
+            network: string containing network identifier (2G, 5G_1, 5G_2)
+            channel: desired channel
+            bandwidth: string containing mode, e.g. 11g, VHT20, VHT40, VHT80.
+        """
+        setting_to_update = {network: {}}
+        if channel:
+            if channel not in self.capabilities['channels'][network]:
+                self.log.error('Ch{} is not supported on {} interface.'.format(
+                    channel, network))
+            setting_to_update[network]['channel'] = channel
+
+        if bandwidth is None:
+            return setting_to_update
+
+        if 'bw' in bandwidth:
+            bandwidth = bandwidth.replace('bw',
+                                          self.capabilities['default_mode'])
+        if bandwidth not in self.capabilities['modes'][network]:
+            self.log.error('{} mode is not supported on {} interface.'.format(
+                bandwidth, network))
+        setting_to_update[network]['bandwidth'] = str(bandwidth)
+        setting_to_update['enable_ax'] = int('HE' in bandwidth)
+        # Check if other interfaces need to be changed too
+        requested_mode = 'HE' if 'HE' in bandwidth else 'VHT'
+        for other_network in self.capabilities['interfaces']:
+            if other_network == network:
+                continue
+            other_mode = 'HE' if 'HE' in self.ap_settings[other_network][
+                'bandwidth'] else 'VHT'
+            other_bw = ''.join([
+                x for x in self.ap_settings[other_network]['bandwidth']
+                if x.isdigit()
+            ])
+            if other_mode != requested_mode:
+                updated_mode = '{}{}'.format(requested_mode, other_bw)
+                self.log.warning('All networks must be VHT or HE. '
+                                 'Updating {} to {}'.format(
+                                     other_network, updated_mode))
+                setting_to_update.setdefault(other_network, {})
+                setting_to_update[other_network]['bandwidth'] = updated_mode
+        return setting_to_update
+
     def set_bandwidth(self, network, bandwidth):
         """Function that sets network bandwidth/mode.
 
@@ -167,31 +229,31 @@ class NetgearRAX120AP(NetgearR7500AP):
             network: string containing network identifier (2G, 5G_1, 5G_2)
             bandwidth: string containing mode, e.g. 11g, VHT20, VHT40, VHT80.
         """
-        if 'bw' in bandwidth:
-            bandwidth = bandwidth.replace('bw',
-                                          self.capabilities['default_mode'])
-        if bandwidth not in self.capabilities['modes'][network]:
-            self.log.error('{} mode is not supported on {} interface.'.format(
-                bandwidth, network))
-        setting_to_update = {network: {'bandwidth': str(bandwidth)}}
-        setting_to_update['enable_ax'] = int('HE' in bandwidth)
-        # Check if other interfaces need to be changed too
-        requested_mode = 'HE' if 'HE' in bandwidth else 'VHT'
-        other_network = '2G' if '5G_1' in network else '5G_1'
-        other_mode = 'HE' if 'HE' in self.ap_settings[other_network][
-            'bandwidth'] else 'VHT'
-        other_bw = ''.join([
-            x for x in self.ap_settings[other_network]['bandwidth']
-            if x.isdigit()
-        ])
-        if other_mode != requested_mode:
-            updated_mode = '{}{}'.format(requested_mode, other_bw)
-            self.log.warning('All networks must be VHT or HE. '
-                             'Updating {} to {}'.format(
-                                 other_network, updated_mode))
-            setting_to_update.setdefault(other_network, {})
-            setting_to_update[other_network]['bandwidth'] = updated_mode
+        setting_to_update = self._set_channel_and_bandwidth(
+            network, bandwidth=bandwidth)
+        self.update_ap_settings(setting_to_update)
 
+    def set_channel(self, network, channel):
+        """Function that sets network channel.
+
+        Args:
+            network: string containing network identifier (2G, 5G_1, 5G_2)
+            channel: string or int containing channel
+        """
+        setting_to_update = self._set_channel_and_bandwidth(network,
+                                                            channel=channel)
+        self.update_ap_settings(setting_to_update)
+
+    def set_channel_and_bandwidth(self, network, channel, bandwidth):
+        """Function that sets network bandwidth/mode.
+
+        Args:
+            network: string containing network identifier (2G, 5G_1, 5G_2)
+            channel: desired channel
+            bandwidth: string containing mode, e.g. 11g, VHT20, VHT40, VHT80.
+        """
+        setting_to_update = self._set_channel_and_bandwidth(
+            network, channel=channel, bandwidth=bandwidth)
         self.update_ap_settings(setting_to_update)
 
     def read_ap_settings(self):
@@ -236,9 +298,13 @@ class NetgearRAX120AP(NetgearR7500AP):
                                 key[1]] = 'defaultpassword'
                             self.ap_settings[
                                 key[0]]['security_type'] = 'Disable'
-                    elif ('channel' in key) or ('ssid' in key):
+                    elif ('ssid' in key):
                         config_item = iframe.find_by_name(value).first
                         self.ap_settings[key[0]][key[1]] = config_item.value
+                    elif ('channel' in key):
+                        config_item = iframe.find_by_name(value).first
+                        self.ap_settings[key[0]][key[1]] = int(
+                            config_item.value)
         return self.ap_settings.copy()
 
     def configure_ap(self, **config_flags):
@@ -269,9 +335,13 @@ class NetgearRAX120AP(NetgearR7500AP):
                         'enable_ax_chec')
                     action.move_to_element(ax_checkbox).click().perform()
                 # Update AP region. Must be done before channel setting
-                config_item = iframe.find_by_name(
-                    self.config_page_fields['region']).first
-                config_item.select_by_text(self.ap_settings['region'])
+                try:
+                    config_item = iframe.find_by_name(
+                        self.config_page_fields['region']).first
+                    config_item.select_by_text(self.ap_settings['region'])
+                except:
+                    self.log.warning('Could not set AP region to {}.'.format(
+                        self.ap_settings['region']))
                 # Update wireless settings for each network
                 for key, value in self.config_page_fields.items():
                     if 'ssid' in key:

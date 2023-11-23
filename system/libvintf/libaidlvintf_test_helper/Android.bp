@@ -15,7 +15,6 @@ cc_defaults {
         "libselinux",
         "libtinyxml2",
         "libvintf",
-        "libutils",
     ],
 }
 

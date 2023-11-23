@@ -49,6 +49,7 @@ import javax.annotation.concurrent.GuardedBy;
 public class MainHotwordDetectionService extends HotwordDetectionService {
     static final String TAG = "MainHotwordDetectionService";
 
+    public static final int DEFAULT_PHRASE_ID = 5;
     public static final HotwordDetectedResult DETECTED_RESULT =
             new HotwordDetectedResult.Builder()
                     .setAudioChannel(CHANNEL_IN_FRONT)
@@ -56,27 +57,27 @@ public class MainHotwordDetectionService extends HotwordDetectionService {
                     .setHotwordDetectionPersonalized(true)
                     .setHotwordDurationMillis(1000)
                     .setHotwordOffsetMillis(500)
-                    .setHotwordPhraseId(5)
+                    .setHotwordPhraseId(DEFAULT_PHRASE_ID)
                     .setPersonalizedScore(10)
                     .setScore(15)
                     .build();
     public static final HotwordDetectedResult DETECTED_RESULT_AFTER_STOP_DETECTION =
             new HotwordDetectedResult.Builder()
+                    .setHotwordPhraseId(DEFAULT_PHRASE_ID)
                     .setScore(57)
                     .build();
     public static final HotwordDetectedResult DETECTED_RESULT_FOR_MIC_FAILURE =
             new HotwordDetectedResult.Builder()
+                    .setHotwordPhraseId(DEFAULT_PHRASE_ID)
                     .setScore(58)
                     .build();
     public static final HotwordRejectedResult REJECTED_RESULT =
             new HotwordRejectedResult.Builder()
                     .setConfidenceLevel(HotwordRejectedResult.CONFIDENCE_LEVEL_MEDIUM)
                     .build();
-
-    private Handler mHandler;
     @NonNull
     private final Object mLock = new Object();
-
+    private Handler mHandler;
     @GuardedBy("mLock")
     private boolean mStopDetectionCalled;
 
@@ -111,6 +112,8 @@ public class MainHotwordDetectionService extends HotwordDetectionService {
             PersistableBundle persistableBundle = new PersistableBundle();
             HotwordDetectedResult hotwordDetectedResult =
                     new HotwordDetectedResult.Builder()
+                            .setHotwordPhraseId(eventPayload.getKeyphraseRecognitionExtras().get(
+                                    0).getKeyphraseId())
                             .setExtras(persistableBundle)
                             .build();
             int key = 0;
@@ -168,7 +171,7 @@ public class MainHotwordDetectionService extends HotwordDetectionService {
             Log.d(TAG, "fis.available() = " + fis.available());
             byte[] buffer = new byte[8];
             fis.read(buffer, 0, 8);
-            if(isSame(buffer, BasicVoiceInteractionService.FAKE_HOTWORD_AUDIO_DATA,
+            if (isSame(buffer, BasicVoiceInteractionService.FAKE_HOTWORD_AUDIO_DATA,
                     buffer.length)) {
                 Log.d(TAG, "call callback.onDetected");
                 callback.onDetected(DETECTED_RESULT);
@@ -200,8 +203,8 @@ public class MainHotwordDetectionService extends HotwordDetectionService {
                 mHandler.postDelayed(mDetectionJob, 1500);
             } else {
                 Log.d(TAG, "Sending detected result after stop detection");
-                // We can't store and use this callback in onStopDetection (not valid anymore there), so
-                // instead we trigger detection again to report the event.
+                // We can't store and use this callback in onStopDetection (not valid anymore
+                // there), so instead we trigger detection again to report the event.
                 callback.onDetected(DETECTED_RESULT_AFTER_STOP_DETECTION);
             }
         }

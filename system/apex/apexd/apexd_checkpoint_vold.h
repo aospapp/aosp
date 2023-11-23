@@ -51,7 +51,7 @@ class VoldCheckpointInterface : public CheckpointInterface {
   VoldCheckpointInterface(VoldCheckpointInterface&& other) noexcept;
 
  private:
-  VoldCheckpointInterface(sp<os::IVold>&& vold_service);
+  explicit VoldCheckpointInterface(sp<os::IVold>&& vold_service);
 
   sp<os::IVold> vold_service_;
   bool supports_fs_checkpoints_;

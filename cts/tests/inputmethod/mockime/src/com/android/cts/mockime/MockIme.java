@@ -47,6 +47,7 @@ import android.view.Display;
 import android.view.GestureDetector;
 import android.view.Gravity;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.Window;
@@ -64,6 +65,7 @@ import android.view.inputmethod.InputBinding;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputContentInfo;
 import android.view.inputmethod.InputMethod;
+import android.view.inputmethod.TextAttribute;
 import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
@@ -99,6 +101,9 @@ public final class MockIme extends InputMethodService {
     private static final String TAG = "MockIme";
 
     private static final String PACKAGE_NAME = "com.android.cts.mockime";
+    private ArrayList<MotionEvent> mEvents;
+
+    private View mExtractView;
 
     static ComponentName getComponentName() {
         return new ComponentName(PACKAGE_NAME, MockIme.class.getName());
@@ -178,6 +183,26 @@ public final class MockIme extends InputMethodService {
                 // UI component accesses on a display context must throw strict mode violations.
                 final Context displayContext = createDisplayContext(getDisplay());
                 switch (command.getName()) {
+                    case "suspendCreateSession": {
+                        if (!Looper.getMainLooper().isCurrentThread()) {
+                            return new UnsupportedOperationException("suspendCreateSession can be"
+                                    + " requested only for the main thread.");
+                        }
+                        mSuspendCreateSession = true;
+                        return ImeEvent.RETURN_VALUE_UNAVAILABLE;
+                    }
+                    case "resumeCreateSession": {
+                        if (!Looper.getMainLooper().isCurrentThread()) {
+                            return new UnsupportedOperationException("resumeCreateSession can be"
+                                    + " requested only for the main thread.");
+                        }
+                        if (mSuspendedCreateSession != null) {
+                            mSuspendedCreateSession.run();
+                            mSuspendedCreateSession = null;
+                        }
+                        mSuspendCreateSession = false;
+                        return ImeEvent.RETURN_VALUE_UNAVAILABLE;
+                    }
                     case "memorizeCurrentInputConnection": {
                         if (!Looper.getMainLooper().isCurrentThread()) {
                             return new UnsupportedOperationException(
@@ -210,6 +235,13 @@ public final class MockIme extends InputMethodService {
                         final int flag = command.getExtras().getInt("flag");
                         return getMemorizedOrCurrentInputConnection().getSelectedText(flag);
                     }
+                    case "getSurroundingText": {
+                        final int beforeLength = command.getExtras().getInt("beforeLength");
+                        final int afterLength = command.getExtras().getInt("afterLength");
+                        final int flags = command.getExtras().getInt("flags");
+                        return getMemorizedOrCurrentInputConnection().getSurroundingText(
+                                beforeLength, afterLength, flags);
+                    }
                     case "getCursorCapsMode": {
                         final int reqModes = command.getExtras().getInt("reqModes");
                         return getMemorizedOrCurrentInputConnection().getCursorCapsMode(reqModes);
@@ -233,27 +265,53 @@ public final class MockIme extends InputMethodService {
                         return getMemorizedOrCurrentInputConnection()
                                 .deleteSurroundingTextInCodePoints(beforeLength, afterLength);
                     }
-                    case "setComposingText": {
+                    case "setComposingText(CharSequence,int)": {
                         final CharSequence text = command.getExtras().getCharSequence("text");
                         final int newCursorPosition =
                                 command.getExtras().getInt("newCursorPosition");
                         return getMemorizedOrCurrentInputConnection().setComposingText(
                                 text, newCursorPosition);
                     }
-                    case "setComposingRegion": {
+                    case "setComposingText(CharSequence,int,TextAttribute)": {
+                        final CharSequence text = command.getExtras().getCharSequence("text");
+                        final int newCursorPosition =
+                                command.getExtras().getInt("newCursorPosition");
+                        final TextAttribute textAttribute =
+                                command.getExtras().getParcelable("textAttribute");
+                        return getMemorizedOrCurrentInputConnection()
+                                .setComposingText(text, newCursorPosition, textAttribute);
+                    }
+                    case "setComposingRegion(int,int)": {
                         final int start = command.getExtras().getInt("start");
                         final int end = command.getExtras().getInt("end");
                         return getMemorizedOrCurrentInputConnection().setComposingRegion(start,
                                 end);
                     }
+                    case "setComposingRegion(int,int,TextAttribute)": {
+                        final int start = command.getExtras().getInt("start");
+                        final int end = command.getExtras().getInt("end");
+                        final TextAttribute textAttribute =
+                                command.getExtras().getParcelable("textAttribute");
+                        return getMemorizedOrCurrentInputConnection()
+                                .setComposingRegion(start, end, textAttribute);
+                    }
                     case "finishComposingText":
                         return getMemorizedOrCurrentInputConnection().finishComposingText();
-                    case "commitText": {
+                    case "commitText(CharSequence,int)": {
                         final CharSequence text = command.getExtras().getCharSequence("text");
                         final int newCursorPosition =
                                 command.getExtras().getInt("newCursorPosition");
                         return getMemorizedOrCurrentInputConnection().commitText(text,
                                 newCursorPosition);
+                    }
+                    case "commitText(CharSequence,int,TextAttribute)": {
+                        final CharSequence text = command.getExtras().getCharSequence("text");
+                        final int newCursorPosition =
+                                command.getExtras().getInt("newCursorPosition");
+                        final TextAttribute textAttribute =
+                                command.getExtras().getParcelable("textAttribute");
+                        return getMemorizedOrCurrentInputConnection()
+                                .commitText(text, newCursorPosition, textAttribute);
                     }
                     case "commitCompletion": {
                         final CompletionInfo text = command.getExtras().getParcelable("text");
@@ -298,6 +356,9 @@ public final class MockIme extends InputMethodService {
                     case "performSpellCheck": {
                         return getMemorizedOrCurrentInputConnection().performSpellCheck();
                     }
+                    case "takeSnapshot": {
+                        return getMemorizedOrCurrentInputConnection().takeSnapshot();
+                    }
                     case "performPrivateCommand": {
                         final String action = command.getExtras().getString("action");
                         final Bundle data = command.getExtras().getBundle("data");
@@ -306,8 +367,15 @@ public final class MockIme extends InputMethodService {
                     }
                     case "requestCursorUpdates": {
                         final int cursorUpdateMode = command.getExtras().getInt("cursorUpdateMode");
-                        return getMemorizedOrCurrentInputConnection().requestCursorUpdates(
-                                cursorUpdateMode);
+                        final int cursorUpdateFilter =
+                                command.getExtras().getInt("cursorUpdateFilter", -1);
+                        if (cursorUpdateFilter == -1) {
+                            return getMemorizedOrCurrentInputConnection().requestCursorUpdates(
+                                    cursorUpdateMode);
+                        } else {
+                            return getMemorizedOrCurrentInputConnection().requestCursorUpdates(
+                                    cursorUpdateMode, cursorUpdateFilter);
+                        }
                     }
                     case "getHandler":
                         return getMemorizedOrCurrentInputConnection().getHandler();
@@ -321,6 +389,12 @@ public final class MockIme extends InputMethodService {
                         final Bundle opts = command.getExtras().getBundle("opts");
                         return getMemorizedOrCurrentInputConnection().commitContent(
                                 inputContentInfo, flags, opts);
+                    }
+                    case "setImeConsumesInput": {
+                        final boolean imeConsumesInput =
+                                command.getExtras().getBoolean("imeConsumesInput");
+                        return getMemorizedOrCurrentInputConnection().setImeConsumesInput(
+                                imeConsumesInput);
                     }
                     case "setBackDisposition": {
                         final int backDisposition =
@@ -363,6 +437,17 @@ public final class MockIme extends InputMethodService {
                     case "setInlineSuggestionsExtras":
                         mInlineSuggestionsExtras = command.getExtras();
                         return ImeEvent.RETURN_VALUE_UNAVAILABLE;
+                    case "verifyExtractViewNotNull":
+                        if (mExtractView == null) {
+                            return false;
+                        } else {
+                            return mExtractView.findViewById(android.R.id.inputExtractAction)
+                                    != null
+                                    && mExtractView.findViewById(
+                                            android.R.id.inputExtractAccessories) != null
+                                    && mExtractView.findViewById(
+                                            android.R.id.inputExtractEditText) != null;
+                        }
                     case "verifyGetDisplay":
                         try {
                             return verifyGetDisplay();
@@ -424,6 +509,26 @@ public final class MockIme extends InputMethodService {
 
                         return ImeEvent.RETURN_VALUE_UNAVAILABLE;
                     }
+                    case "getStylusHandwritingWindowVisibility": {
+                        View decorView = getStylusHandwritingWindow().getDecorView();
+                        return decorView != null && decorView.isAttachedToWindow()
+                                && decorView.getVisibility() == View.VISIBLE;
+                    }
+                    case "setStylusHandwritingInkView": {
+                        View inkView = new View(attrContext);
+                        getStylusHandwritingWindow().setContentView(inkView);
+                        mEvents = new ArrayList<>();
+                        inkView.setOnTouchListener((view, event) ->
+                                mEvents.add(MotionEvent.obtain(event)));
+                        return true;
+                    }
+                    case "getStylusHandwritingEvents": {
+                        return mEvents;
+                    }
+                    case "finishStylusHandwriting": {
+                        finishStylusHandwriting();
+                        return ImeEvent.RETURN_VALUE_UNAVAILABLE;
+                    }
                     case "getCurrentWindowMetricsBounds": {
                         return getSystemService(WindowManager.class)
                                 .getCurrentWindowMetrics().getBounds();
@@ -481,6 +586,25 @@ public final class MockIme extends InputMethodService {
         return mClientPackageName.get();
     }
 
+    private boolean mDestroying;
+
+    /**
+     * {@code true} if {@link MockInputMethodImpl#createSession(InputMethod.SessionCallback)}
+     * needs to be suspended.
+     *
+     * <p>Must be touched from the main thread.</p>
+     */
+    private boolean mSuspendCreateSession = false;
+
+    /**
+     * The suspended {@link MockInputMethodImpl#createSession(InputMethod.SessionCallback)} callback
+     * operation.
+     *
+     * <p>Must be touched from the main thread.</p>
+     */
+    @Nullable
+    Runnable mSuspendedCreateSession;
+
     private class MockInputMethodImpl extends InputMethodImpl {
         @Override
         public void showSoftInput(int flags, ResultReceiver resultReceiver) {
@@ -492,6 +616,25 @@ public final class MockIme extends InputMethodService {
         public void hideSoftInput(int flags, ResultReceiver resultReceiver) {
             getTracer().hideSoftInput(flags, resultReceiver,
                     () -> super.hideSoftInput(flags, resultReceiver));
+        }
+
+        @Override
+        public void createSession(SessionCallback callback) {
+            getTracer().createSession(() -> {
+                if (mSuspendCreateSession) {
+                    if (mSuspendedCreateSession != null) {
+                        throw new IllegalStateException("suspendCreateSession() must be "
+                                + "called before receiving another createSession()");
+                    }
+                    mSuspendedCreateSession = () -> {
+                        if (!mDestroying) {
+                            super.createSession(callback);
+                        }
+                    };
+                } else {
+                    super.createSession(callback);
+                }
+            });
         }
 
         @Override
@@ -532,6 +675,10 @@ public final class MockIme extends InputMethodService {
                             .build());
         }
 
+        if (mSettings.isOnBackCallbackEnabled()) {
+            getApplicationInfo().setEnableOnBackInvokedCallback(true);
+        }
+
         getTracer().onCreate(() -> {
             super.onCreate();
             mHandlerThread.start();
@@ -541,7 +688,7 @@ public final class MockIme extends InputMethodService {
             final Handler handler = new Handler(mHandlerThread.getLooper());
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 registerReceiver(mCommandReceiver, filter, null /* broadcastPermission */, handler,
-                        Context.RECEIVER_VISIBLE_TO_INSTANT_APPS);
+                        Context.RECEIVER_VISIBLE_TO_INSTANT_APPS | Context.RECEIVER_EXPORTED);
             } else {
                 registerReceiver(mCommandReceiver, filter, null /* broadcastPermission */, handler);
             }
@@ -589,8 +736,26 @@ public final class MockIme extends InputMethodService {
 
     @Override
     public boolean onEvaluateFullscreenMode() {
-        return getTracer().onEvaluateFullscreenMode(() ->
-                mSettings.fullscreenModeAllowed(false) && super.onEvaluateFullscreenMode());
+        return getTracer().onEvaluateFullscreenMode(() -> {
+            final int policy = mSettings.fullscreenModePolicy();
+            switch (policy) {
+                case ImeSettings.FullscreenModePolicy.NO_FULLSCREEN:
+                    return false;
+                case ImeSettings.FullscreenModePolicy.FORCE_FULLSCREEN:
+                    return true;
+                case ImeSettings.FullscreenModePolicy.OS_DEFAULT:
+                    return super.onEvaluateFullscreenMode();
+                default:
+                    Log.e(TAG, "unknown FullscreenModePolicy=" + policy);
+                    return false;
+            }
+        });
+    }
+
+    @Override
+    public View onCreateExtractTextView() {
+        mExtractView =  super.onCreateExtractTextView();
+        return mExtractView;
     }
 
     private static final class KeyboardLayoutView extends LinearLayout {
@@ -663,7 +828,7 @@ public final class MockIme extends InputMethodService {
                     imageView.setImageBitmap(bitmap);
                     secondaryLayout.addView(imageView,
                             new FrameLayout.LayoutParams(bitmap.getWidth(), bitmap.getHeight(),
-                                    Gravity.CENTER));
+                                    mSettings.getWatermarkGravity(Gravity.CENTER)));
                 }
 
                 mLayout.addView(secondaryLayout);
@@ -793,6 +958,37 @@ public final class MockIme extends InputMethodService {
                 () -> super.onStartInputView(editorInfo, restarting));
     }
 
+
+    @Override
+    public void onPrepareStylusHandwriting() {
+        getTracer().onPrepareStylusHandwriting(() -> super.onPrepareStylusHandwriting());
+    }
+
+    @Override
+    public boolean onStartStylusHandwriting() {
+        if (mEvents != null) {
+            mEvents.clear();
+        }
+        getTracer().onStartStylusHandwriting(() -> super.onStartStylusHandwriting());
+        return true;
+    }
+
+    @Override
+    public void onStylusHandwritingMotionEvent(@NonNull MotionEvent motionEvent) {
+        if (mEvents == null) {
+            mEvents = new ArrayList<>();
+        }
+        mEvents.add(MotionEvent.obtain(motionEvent));
+        getTracer().onStylusHandwritingMotionEvent(()
+                -> super.onStylusHandwritingMotionEvent(motionEvent));
+    }
+
+    @Override
+    public void onFinishStylusHandwriting() {
+        getTracer().onFinishStylusHandwriting(() -> super.onFinishStylusHandwriting());
+    }
+
+
     @Override
     public void onFinishInputView(boolean finishingInput) {
         getTracer().onFinishInputView(finishingInput,
@@ -862,6 +1058,7 @@ public final class MockIme extends InputMethodService {
     @Override
     public void onDestroy() {
         getTracer().onDestroy(() -> {
+            mDestroying = true;
             super.onDestroy();
             unregisterReceiver(mCommandReceiver);
             mHandlerThread.quitSafely();
@@ -917,8 +1114,18 @@ public final class MockIme extends InputMethodService {
         stylesBuilder.addStyle(InlineSuggestionUi.newStyleBuilder().build());
         Bundle styles = stylesBuilder.build();
 
+
+        final boolean supportedInlineSuggestions;
         if (mInlineSuggestionsExtras != null) {
             styles.putAll(mInlineSuggestionsExtras);
+            supportedInlineSuggestions =
+                    mInlineSuggestionsExtras.getBoolean("InlineSuggestions", true);
+        } else {
+            supportedInlineSuggestions = true;
+        }
+
+        if (!supportedInlineSuggestions) {
+            return null;
         }
 
         return getTracer().onCreateInlineSuggestionsRequest(() -> {
@@ -1094,6 +1301,10 @@ public final class MockIme extends InputMethodService {
             recordEventInternal("onCreate", runnable);
         }
 
+        void createSession(@NonNull Runnable runnable) {
+            recordEventInternal("createSession", runnable);
+        }
+
         void onVerify(String name, @NonNull BooleanSupplier supplier) {
             final Bundle arguments = new Bundle();
             arguments.putString("name", name);
@@ -1139,6 +1350,28 @@ public final class MockIme extends InputMethodService {
             arguments.putParcelable("editorInfo", editorInfo);
             arguments.putBoolean("restarting", restarting);
             recordEventInternal("onStartInputView", runnable, arguments);
+        }
+
+        void onPrepareStylusHandwriting(@NonNull Runnable runnable) {
+            final Bundle arguments = new Bundle();
+            arguments.putParcelable("editorInfo", mIme.getCurrentInputEditorInfo());
+            recordEventInternal("onPrepareStylusHandwriting", runnable, arguments);
+        }
+
+        void onStartStylusHandwriting(@NonNull Runnable runnable) {
+            final Bundle arguments = new Bundle();
+            arguments.putParcelable("editorInfo", mIme.getCurrentInputEditorInfo());
+            recordEventInternal("onStartStylusHandwriting", runnable, arguments);
+        }
+
+        void onStylusHandwritingMotionEvent(@NonNull Runnable runnable) {
+            recordEventInternal("onStylusMotionEvent", runnable);
+        }
+
+        void onFinishStylusHandwriting(@NonNull Runnable runnable) {
+            final Bundle arguments = new Bundle();
+            arguments.putParcelable("editorInfo", mIme.getCurrentInputEditorInfo());
+            recordEventInternal("onFinishStylusHandwriting", runnable, arguments);
         }
 
         void onFinishInputView(boolean finishingInput, @NonNull Runnable runnable) {

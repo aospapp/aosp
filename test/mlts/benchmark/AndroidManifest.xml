@@ -24,7 +24,8 @@
     <application android:label="NeuralNetworksBenchmark"
                  android:name=".BenchmarkApplication"
                  android:hardwareAccelerated="true"
-                 android:largeHeap="true">
+                 android:largeHeap="true"
+                 android:debuggable="true">
         <uses-library android:name="android.test.runner" android:required="false"/>
         <uses-library android:name="android.test.base" android:required="false"/>
         <activity android:name=".NNBenchmark">

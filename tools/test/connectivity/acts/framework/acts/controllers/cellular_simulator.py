@@ -14,7 +14,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 from acts import logger
-from acts.controllers import cellular_lib as sims
+from acts.controllers import cellular_lib
 
 
 class AbstractCellularSimulator:
@@ -25,15 +25,6 @@ class AbstractCellularSimulator:
     This class defines the interface that every cellular simulator controller
     needs to implement and shouldn't be instantiated by itself. """
 
-    # Indicates if it is able to use 256 QAM as the downlink modulation for LTE
-    LTE_SUPPORTS_DL_256QAM = None
-
-    # Indicates if it is able to use 64 QAM as the uplink modulation for LTE
-    LTE_SUPPORTS_UL_64QAM = None
-
-    # Indicates if 4x4 MIMO is supported for LTE
-    LTE_SUPPORTS_4X4_MIMO = None
-
     # The maximum number of carriers that this simulator can support for LTE
     LTE_MAX_CARRIERS = None
 
@@ -43,6 +34,7 @@ class AbstractCellularSimulator:
     def __init__(self):
         """ Initializes the cellular simulator. """
         self.log = logger.create_tagged_trace_logger('CellularSimulator')
+        self.num_carriers = None
 
     def destroy(self):
         """ Sends finalization commands to the cellular equipment and closes
@@ -53,24 +45,11 @@ class AbstractCellularSimulator:
         """ Configures the equipment for an LTE simulation. """
         raise NotImplementedError()
 
-    def setup_lte_ca_scenario(self):
-        """ Configures the equipment for an LTE with CA simulation. """
-        raise NotImplementedError()
-
-    def set_ca_combination(self, combination):
+    def set_band_combination(self, bands):
         """ Prepares the test equipment for the indicated CA combination.
 
-        The reason why this is implemented in a separate method and not calling
-        LteSimulation.BtsConfig for each separate band is that configuring each
-        ssc cannot be done separately, as it is necessary to know which
-        carriers are on the same band in order to decide which RF outputs can
-        be shared in the test equipment.
-
         Args:
-            combination: carrier aggregation configurations are indicated
-                with a list of strings consisting of the band number followed
-                by the CA class. For example, for 5 CA using 3C 7C and 28A
-                the parameter value should be [3c, 7c, 28a].
+            bands: a list of bands represented as ints or strings
         """
         raise NotImplementedError()
 
@@ -90,7 +69,7 @@ class AbstractCellularSimulator:
         if config.input_power:
             self.set_input_power(bts_index, config.input_power)
 
-        if isinstance(config, sims.LteSimulation.LteSimulation.BtsConfig):
+        if isinstance(config, cellular_lib.LteCellConfig.LteCellConfig):
             self.configure_lte_bts(config, bts_index)
 
     def configure_lte_bts(self, config, bts_index=0):
@@ -124,16 +103,16 @@ class AbstractCellularSimulator:
 
         # Modulation order should be set before set_scheduling_mode being
         # called.
-        if config.dl_modulation_order:
-            self.set_dl_modulation(bts_index, config.dl_modulation_order)
+        if config.dl_256_qam_enabled is not None:
+            self.set_dl_256_qam_enabled(bts_index, config.dl_256_qam_enabled)
 
-        if config.ul_modulation_order:
-            self.set_ul_modulation(bts_index, config.ul_modulation_order)
+        if config.ul_64_qam_enabled is not None:
+            self.set_ul_64_qam_enabled(bts_index, config.ul_64_qam_enabled)
 
         if config.scheduling_mode:
 
             if (config.scheduling_mode ==
-                    sims.LteSimulation.SchedulingMode.STATIC
+                    cellular_lib.LteSimulation.SchedulingMode.STATIC
                     and not (config.dl_rbs and config.ul_rbs and config.dl_mcs
                              and config.ul_mcs)):
                 raise ValueError('When the scheduling mode is set to manual, '
@@ -147,8 +126,8 @@ class AbstractCellularSimulator:
 
         # This variable stores a boolean value so the following is needed to
         # differentiate False from None
-        if config.tbs_pattern_on is not None:
-            self.set_tbs_pattern_on(bts_index, config.tbs_pattern_on)
+        if config.mac_padding is not None:
+            self.set_mac_padding(bts_index, config.mac_padding)
 
         if config.cfi:
             self.set_cfi(bts_index, config.cfi)
@@ -286,30 +265,30 @@ class AbstractCellularSimulator:
         """
         raise NotImplementedError()
 
-    def set_dl_modulation(self, bts_index, modulation):
-        """ Sets the DL modulation for the indicated base station.
+    def set_dl_256_qam_enabled(self, bts_index, enabled):
+        """ Determines what MCS table should be used for the downlink.
 
         Args:
             bts_index: the base station number
-            modulation: the new DL modulation
+            enabled: whether 256 QAM should be used
         """
         raise NotImplementedError()
 
-    def set_ul_modulation(self, bts_index, modulation):
-        """ Sets the UL modulation for the indicated base station.
+    def set_ul_64_qam_enabled(self, bts_index, enabled):
+        """ Determines what MCS table should be used for the uplink.
 
         Args:
             bts_index: the base station number
-            modulation: the new UL modulation
+            enabled: whether 64 QAM should be used
         """
         raise NotImplementedError()
 
-    def set_tbs_pattern_on(self, bts_index, tbs_pattern_on):
-        """ Enables or disables TBS pattern in the indicated base station.
+    def set_mac_padding(self, bts_index, mac_padding):
+        """ Enables or disables MAC padding in the indicated base station.
 
         Args:
             bts_index: the base station number
-            tbs_pattern_on: the new TBS pattern setting
+            mac_padding: the new MAC padding setting
         """
         raise NotImplementedError()
 

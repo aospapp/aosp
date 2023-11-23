@@ -34,7 +34,9 @@
 
 #ifdef __linux__
   #include <pthread.h>
-  #include <sys/signal.h>
+  // Android-changed: Use correct include for signal.h
+  // #include <sys/signal.h>
+  #include <signal.h>
   // Android-changed: Bionic (and AsynchronousCloseMonitor) expects libcore to use
   // __SIGRTMIN + 2, not __SIGRTMAX - 2
   /* Also defined in net/linux_close.c */

@@ -25,6 +25,7 @@
 #include <linux/oom.h>
 #include <meminfo/procmeminfo.h>
 #include <meminfo/sysmeminfo.h>
+#include <procinfo/process.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
@@ -32,7 +33,9 @@
 
 #include <iostream>
 #include <memory>
+#include <set>
 #include <sstream>
+#include <unordered_map>
 #include <vector>
 
 using ::android::meminfo::MemUsage;
@@ -142,7 +145,7 @@ uint64_t total_uswap = 0;
 uint64_t total_zswap = 0;
 
 [[noreturn]] static void usage(int exit_status) {
-    std::cerr << "Usage: " << getprogname() << " [ -W ] [ -v | -r | -p | -u | -s | -h ]"
+    std::cerr << "Usage: " << getprogname() << " [ -W ] [ -v | -r | -p | -u | -s | -h ] [-d PID]"
               << std::endl
               << "    -v  Sort by VSS." << std::endl
               << "    -r  Sort by RSS." << std::endl
@@ -155,14 +158,15 @@ uint64_t total_zswap = 0;
               << "    -C  Only show non-cached (ram/swap backed) pages" << std::endl
               << "    -k  Only show pages collapsed by KSM" << std::endl
               << "    -w  Display statistics for working set only." << std::endl
-              << "    -W  Reset working set of all processes." << std::endl
+              << "    -W  Reset working set of processes." << std::endl
               << "    -o  Show and sort by oom score against lowmemorykiller thresholds."
               << std::endl
+              << "    -d  Filter to descendants of specified process (can be repeated)" << std::endl
               << "    -h  Display this help screen." << std::endl;
     exit(exit_status);
 }
 
-static bool read_all_pids(std::vector<pid_t>* pids, std::function<bool(pid_t pid)> for_each_pid) {
+static bool read_all_pids(std::set<pid_t>* pids) {
     pids->clear();
     std::unique_ptr<DIR, int (*)(DIR*)> procdir(opendir("/proc"), closedir);
     if (!procdir) return false;
@@ -171,8 +175,7 @@ static bool read_all_pids(std::vector<pid_t>* pids, std::function<bool(pid_t pid
     pid_t pid;
     while ((dir = readdir(procdir.get()))) {
         if (!::android::base::ParseInt(dir->d_name, &pid)) continue;
-        if (!for_each_pid(pid)) return false;
-        pids->emplace_back(pid);
+        pids->insert(pid);
     }
 
     return true;
@@ -375,8 +378,9 @@ int main(int argc, char* argv[]) {
     uint64_t pgflags = 0;
     uint64_t pgflags_mask = 0;
 
+    std::vector<pid_t> descendant_filter;
     int opt;
-    while ((opt = getopt(argc, argv, "cChkoprRsuvwW")) != -1) {
+    while ((opt = getopt(argc, argv, "cCd:hkoprRsuvwW")) != -1) {
         switch (opt) {
             case 'c':
                 pgflags = 0;
@@ -386,6 +390,15 @@ int main(int argc, char* argv[]) {
                 pgflags = (1 << KPF_SWAPBACKED);
                 pgflags_mask = (1 << KPF_SWAPBACKED);
                 break;
+            case 'd': {
+                pid_t p;
+                if (!android::base::ParseInt(optarg, &p)) {
+                    std::cerr << "Failed to parse pid '" << optarg << "'" << std::endl;
+                    usage(EXIT_FAILURE);
+                }
+                descendant_filter.push_back(p);
+                break;
+            }
             case 'h':
                 usage(EXIT_SUCCESS);
             case 'k':
@@ -425,13 +438,58 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    std::vector<pid_t> pids;
+    std::set<pid_t> pids;
     std::vector<ProcessRecord> procs;
+    if (!read_all_pids(&pids)) {
+        std::cerr << "Failed to read pids" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+    if (descendant_filter.size()) {
+        // Map from parent pid to all of its children.
+        std::unordered_map<pid_t, std::vector<pid_t>> pid_tree;
+
+        for (pid_t pid : pids) {
+            android::procinfo::ProcessInfo info;
+            std::string error;
+            if (!android::procinfo::GetProcessInfo(pid, &info, &error)) {
+                std::cerr << "warning: failed to get process info for: " << pid << ": " << error
+                          << std::endl;
+                continue;
+            }
+
+            pid_tree[info.ppid].push_back(pid);
+        }
+
+        std::set<pid_t> final_pids;
+        std::vector<pid_t>& frontier = descendant_filter;
+
+        // Do a breadth-first walk of the process tree, starting from the pids we were given.
+        while (!frontier.empty()) {
+            pid_t pid = frontier.back();
+            frontier.pop_back();
+
+            // It's possible for the pid we're looking at to already be in our list if one of the
+            // passed in processes descends from another, or if the same pid is passed twice.
+            auto [it, inserted] = final_pids.insert(pid);
+            if (inserted) {
+                auto it = pid_tree.find(pid);
+                if (it != pid_tree.end()) {
+                    // Add all of the children of |pid| to the list of nodes to visit.
+                    frontier.insert(frontier.end(), it->second.begin(), it->second.end());
+                }
+            }
+        }
+
+        pids = std::move(final_pids);
+    }
+
     if (reset_wss) {
-        if (!read_all_pids(&pids,
-                           [&](pid_t pid) -> bool { return ProcMemInfo::ResetWorkingSet(pid); })) {
-            std::cerr << "Failed to reset working set of all processes" << std::endl;
-            exit(EXIT_FAILURE);
+        for (pid_t pid : pids) {
+            if (!ProcMemInfo::ResetWorkingSet(pid)) {
+                std::cerr << "Failed to reset working set of all processes" << std::endl;
+                exit(EXIT_FAILURE);
+            }
         }
         // we are done, all other options passed to procrank are ignored in the presence of '-W'
         return 0;
@@ -456,42 +514,35 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    auto mark_swap_usage = [&](pid_t pid) -> bool {
+    // Mark each swap offset used by the process as we find them for calculating proportional
+    // swap usage later.
+    for (pid_t pid : pids) {
         ProcessRecord proc(pid, show_wss, pgflags, pgflags_mask);
         if (!proc.valid()) {
             // Check to see if the process is still around, skip the process if the proc
             // directory is inaccessible. It was most likely killed while creating the process
             // record
             std::string procdir = ::android::base::StringPrintf("/proc/%d", pid);
-            if (access(procdir.c_str(), F_OK | R_OK)) return true;
+            if (access(procdir.c_str(), F_OK | R_OK)) continue;
 
             // Warn if we failed to gather process stats even while it is still alive.
             // Return success here, so we continue to print stats for other processes.
             std::cerr << "warning: failed to create process record for: " << pid << std::endl;
-            return true;
+            continue;
         }
 
         // Skip processes with no memory mappings
         uint64_t vss = show_wss ? proc.Wss().vss : proc.Usage().vss;
-        if (vss == 0) return true;
+        if (vss == 0) continue;
 
         // collect swap_offset counts from all processes in 1st pass
-        if (!show_wss && has_swap &&
-            !count_swap_offsets(proc, swap_offset_array)) {
+        if (!show_wss && has_swap && !count_swap_offsets(proc, swap_offset_array)) {
             std::cerr << "Failed to count swap offsets for process: " << pid << std::endl;
-            return false;
+            std::cerr << "Failed to read all pids from the system" << std::endl;
+            exit(EXIT_FAILURE);
         }
 
         procs.emplace_back(std::move(proc));
-        return true;
-    };
-
-    // Get a list of all pids currently running in the system in 1st pass through all processes.
-    // Mark each swap offset used by the process as we find them for calculating proportional
-    // swap usage later.
-    if (!read_all_pids(&pids, mark_swap_usage)) {
-        std::cerr << "Failed to read all pids from the system" << std::endl;
-        exit(EXIT_FAILURE);
     }
 
     std::stringstream ss;

@@ -328,7 +328,7 @@ class WifiStressTest(WifiBaseTest):
         sec = self.stress_hours * 60 * 60
         start_time = time.time()
 
-        dl_args = "-p {} -t {} -R".format(self.iperf_server_port, sec)
+        dl_args = "-p {} -t {} -b1M -R".format(self.iperf_server_port, sec)
         dl = threading.Thread(target=self.run_long_traffic, args=(sec, dl_args, q))
         dl.start()
         dl.join()
@@ -516,16 +516,20 @@ class WifiStressTest(WifiBaseTest):
         """Test PNO triggered autoconnect to a network for N times
 
         Steps:
-        1. Save 2Ghz valid network configuration in the device.
-        2. Screen off DUT
-        3. Attenuate 5Ghz network and wait for a few seconds to trigger PNO.
-        4. Check the device connected to 2Ghz network automatically.
-        5. Repeat step 3-4
+        1. Connect 2g network first, and then disconnect it
+        2. Save 2Ghz valid network configuration in the device.
+        3. Screen off DUT
+        4. Attenuate 5Ghz network and wait for a few seconds to trigger PNO.
+        5. Check the device connected to 2Ghz network automatically.
+        6. Repeat step 4-5
         """
+        self.scan_and_connect_by_ssid(self.dut, self.wpa_2g)
+        wutils.wifi_forget_network(
+                self.dut, self.wpa_2g[WifiEnums.SSID_KEY])
+        networks = [self.reference_networks[0]['2g']]
         for attenuator in self.attenuators:
             attenuator.set_atten(95)
         # add a saved network to DUT
-        networks = [self.reference_networks[0]['2g']]
         self.add_networks(self.dut, networks)
         self.dut.droid.wakeLockRelease()
         self.dut.droid.goToSleepNow()

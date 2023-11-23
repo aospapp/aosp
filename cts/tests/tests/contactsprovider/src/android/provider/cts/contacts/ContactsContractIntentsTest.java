@@ -17,6 +17,7 @@
 package android.provider.cts.contacts;
 
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.provider.ContactsContract;
 import android.test.AndroidTestCase;
@@ -52,5 +53,22 @@ public class ContactsContractIntentsTest extends AndroidTestCase {
         Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
         intent.setType(ContactsContract.Contacts.CONTENT_ITEM_TYPE);
         assertCanBeHandled(intent);
+    }
+
+    public void testSetDefaultAccount() {
+        Intent intent = new Intent(ContactsContract.Settings.ACTION_SET_DEFAULT_ACCOUNT);
+        PackageManager packageManager = getContext().getPackageManager();
+        List<ResolveInfo> resolveInfoList = packageManager.queryIntentActivities(intent, 0);
+        assertNotNull("Missing ResolveInfo", resolveInfoList);
+        int handlerCount = 0;
+        for (ResolveInfo resolveInfo : resolveInfoList) {
+            String packageName = resolveInfo.activityInfo.packageName;
+            if (packageManager.checkPermission(
+                    android.Manifest.permission.SET_DEFAULT_ACCOUNT_FOR_CONTACTS, packageName)
+                    == PackageManager.PERMISSION_GRANTED) {
+                handlerCount++;
+            }
+        }
+        assertEquals(1, handlerCount);
     }
 }

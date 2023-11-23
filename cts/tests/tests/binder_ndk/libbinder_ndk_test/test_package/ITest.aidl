@@ -95,6 +95,8 @@ interface ITest {
     String[] RepeatStringArray(in String[] input, out String[] repeated);
     RegularPolygon[] RepeatRegularPolygonArray(in RegularPolygon[] input, out RegularPolygon[] repeated);
     ParcelFileDescriptor[] RepeatFdArray(in ParcelFileDescriptor[] input, out ParcelFileDescriptor[] repeated);
+    IBinder[] RepeatBinderArray(in IBinder[] input, out IBinder[] repeated);
+    IEmpty[] RepeatInterfaceArray(in IEmpty[] input, out IEmpty[] repeated);
 
     // Lists
     List<String> Repeat2StringList(in List<String> input, out List<String> repeated);
@@ -112,6 +114,8 @@ interface ITest {
     @nullable IntEnum[] RepeatNullableIntEnumArray(in @nullable IntEnum[] input);
     @nullable LongEnum[] RepeatNullableLongEnumArray(in @nullable LongEnum[] input);
     @nullable String[] RepeatNullableStringArray(in @nullable String[] input);
+    @nullable IBinder[] RepeatNullableBinderArray(in @nullable IBinder[] input);
+    @nullable IEmpty[] RepeatNullableInterfaceArray(in @nullable IEmpty[] input);
 
     // Nullable Arrays where each individual element can be nullable
     // (specifically for testing out parameters)
@@ -132,4 +136,6 @@ interface ITest {
     IBinder getICompatTest();
 
     void RepeatExtendableParcelableWithoutExtension(in ExtendableParcelable input, out ExtendableParcelable output);
+
+    IBinder getLegacyBinderTest();
 }

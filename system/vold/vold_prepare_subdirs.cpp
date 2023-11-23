@@ -172,8 +172,13 @@ static bool prepare_subdirs(const std::string& volume_uuid, int user_id, int fla
             return false;
         }
 
+        auto misc_de_path = android::vold::BuildDataMiscDePath(volume_uuid, user_id);
+        if (!prepare_dir_for_user(sehandle, 0771, AID_SYSTEM, AID_SYSTEM,
+                                  misc_de_path + "/sdksandbox", user_id)) {
+            return false;
+        }
+
         if (volume_uuid.empty()) {
-            auto misc_de_path = android::vold::BuildDataMiscDePath(user_id);
             if (!prepare_dir(sehandle, 0700, 0, 0, misc_de_path + "/vold")) return false;
             if (!prepare_dir(sehandle, 0700, 0, 0, misc_de_path + "/storaged")) return false;
             if (!prepare_dir(sehandle, 0700, 0, 0, misc_de_path + "/rollback")) return false;
@@ -203,15 +208,33 @@ static bool prepare_subdirs(const std::string& volume_uuid, int user_id, int fla
             return false;
         }
 
+        auto misc_ce_path = android::vold::BuildDataMiscCePath(volume_uuid, user_id);
+        if (!prepare_dir_for_user(sehandle, 0771, AID_SYSTEM, AID_SYSTEM,
+                                  misc_ce_path + "/sdksandbox", user_id)) {
+            return false;
+        }
+
         if (volume_uuid.empty()) {
-            auto misc_ce_path = android::vold::BuildDataMiscCePath(user_id);
             if (!prepare_dir(sehandle, 0700, 0, 0, misc_ce_path + "/vold")) return false;
             if (!prepare_dir(sehandle, 0700, 0, 0, misc_ce_path + "/storaged")) return false;
             if (!prepare_dir(sehandle, 0700, 0, 0, misc_ce_path + "/rollback")) return false;
-
             // TODO: Return false if this returns false once sure this should succeed.
             prepare_dir(sehandle, 0700, 0, 0, misc_ce_path + "/apexrollback");
             prepare_apex_subdirs(sehandle, misc_ce_path);
+            // Give gmscore (who runs in cache group) access to the checkin directory. Also provide
+            // the user id to set the correct selinux mls_level.
+            if (!prepare_dir_for_user(sehandle, 0770, AID_SYSTEM, AID_CACHE,
+                                      misc_ce_path + "/checkin", user_id)) {
+                // TODO(b/203742483) the checkin directory was created with the wrong permission &
+                // context. Delete the directory to get these devices out of the bad state. Revert
+                // the change once the droidfood population is on newer build.
+                LOG(INFO) << "Failed to prepare the checkin directory, deleting for recreation";
+                android::vold::DeleteDirContentsAndDir(misc_ce_path + "/checkin");
+                if (!prepare_dir_for_user(sehandle, 0770, AID_SYSTEM, AID_CACHE,
+                                          misc_ce_path + "/checkin", user_id)) {
+                    return false;
+                }
+            }
 
             auto system_ce_path = android::vold::BuildDataSystemCePath(user_id);
             if (!prepare_dir(sehandle, 0700, AID_SYSTEM, AID_SYSTEM, system_ce_path + "/backup")) {
@@ -233,18 +256,20 @@ static bool prepare_subdirs(const std::string& volume_uuid, int user_id, int fla
 
 static bool destroy_subdirs(const std::string& volume_uuid, int user_id, int flags) {
     bool res = true;
-    if (volume_uuid.empty()) {
-        if (flags & android::os::IVold::STORAGE_FLAG_CE) {
-            auto misc_ce_path = android::vold::BuildDataMiscCePath(user_id);
-            res &= rmrf_contents(misc_ce_path);
+    if (flags & android::os::IVold::STORAGE_FLAG_CE) {
+        auto misc_ce_path = android::vold::BuildDataMiscCePath(volume_uuid, user_id);
+        res &= rmrf_contents(misc_ce_path);
 
+        if (volume_uuid.empty()) {
             auto vendor_ce_path = android::vold::BuildDataVendorCePath(user_id);
             res &= rmrf_contents(vendor_ce_path);
         }
-        if (flags & android::os::IVold::STORAGE_FLAG_DE) {
-            auto misc_de_path = android::vold::BuildDataMiscDePath(user_id);
-            res &= rmrf_contents(misc_de_path);
+    }
+    if (flags & android::os::IVold::STORAGE_FLAG_DE) {
+        auto misc_de_path = android::vold::BuildDataMiscDePath(volume_uuid, user_id);
+        res &= rmrf_contents(misc_de_path);
 
+        if (volume_uuid.empty()) {
             auto vendor_de_path = android::vold::BuildDataVendorDePath(user_id);
             res &= rmrf_contents(vendor_de_path);
         }

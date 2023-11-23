@@ -15,6 +15,7 @@
  */
 #include "ExynosHWCHelper.h"
 
+#include <android-base/properties.h>
 #include <linux/videodev2.h>
 #include <linux/videodev2_exynos_media.h>
 #include <png.h>
@@ -612,8 +613,7 @@ uint32_t getBytePerPixelOfPrimaryPlane(int format) {
         return 0;
 }
 
-void setFenceName(int fenceFd, hwc_fence_type fenceType)
-{
+void setFenceName(int fenceFd, HwcFenceType fenceType) {
     if (fenceFd >= 3)
         ioctl(fenceFd, SYNC_IOC_FENCE_NAME, fence_names[fenceType]);
     else if (fenceFd == -1) {
@@ -752,10 +752,8 @@ int getBufLength(buffer_handle_t handle, uint32_t planerNum, size_t *length, int
     return NO_ERROR;
 }
 
-int fence_close(int fence, ExynosDisplay* display,
-        hwc_fdebug_fence_type type, hwc_fdebug_ip_type ip) {
-    if (display != NULL)
-        setFenceInfo(fence, display, type, ip, FENCE_CLOSE);
+int fence_close(int fence, ExynosDisplay* display, HwcFdebugFenceType type, HwcFdebugIpType ip) {
+    if (display != NULL) setFenceInfo(fence, display, type, ip, HwcFenceDirection::CLOSE);
     return hwcFdClose(fence);
 }
 
@@ -766,10 +764,6 @@ bool fence_valid(int fence) {
     } else if (fence < 3) {
         ALOGW("%s : fence (fd:%d) is less than 3", __func__, fence);
         hwc_print_stack();
-        return true;
-    } else if (fence >= MAX_FD_NUM) {
-        ALOGW("%s : fence (fd:%d) over MAX fd number", __func__, fence);
-        /* valid but fence will not be traced */
         return true;
     }
     return true;
@@ -787,7 +781,7 @@ int hwcFdClose(int fd) {
     return -1;
 }
 
-int hwc_dup(int fd, ExynosDisplay* display, hwc_fdebug_fence_type type, hwc_fdebug_ip_type ip,
+int hwc_dup(int fd, ExynosDisplay* display, HwcFdebugFenceType type, HwcFdebugIpType ip,
             bool pendingAllowed) {
     int dup_fd = -1;
 
@@ -805,7 +799,7 @@ int hwc_dup(int fd, ExynosDisplay* display, hwc_fdebug_fence_type type, hwc_fdeb
         hwc_print_stack();
     }
 
-    setFenceInfo(dup_fd, display, type, ip, FENCE_FROM, pendingAllowed);
+    setFenceInfo(dup_fd, display, type, ip, HwcFenceDirection::DUP, pendingAllowed, fd);
     FT_LOGD("duplicated %d from %d", dup_fd, fd);
 
     return dup_fd;
@@ -818,213 +812,136 @@ int hwc_print_stack() {
     return 0;
 }
 
-struct tm* getLocalTime(struct timeval tv) {
-    return (struct tm*)localtime((time_t*)&tv.tv_sec);
+String8 getLocalTimeStr(struct timeval tv) {
+    struct tm* localTime = (struct tm*)localtime((time_t*)&tv.tv_sec);
+    return String8::format("%02d-%02d %02d:%02d:%02d.%03lu(%lu)", localTime->tm_mon + 1,
+                           localTime->tm_mday, localTime->tm_hour, localTime->tm_min,
+                           localTime->tm_sec, tv.tv_usec / 1000,
+                           ((tv.tv_sec * 1000) + (tv.tv_usec / 1000)));
 }
 
-void setFenceInfo(uint32_t fd, ExynosDisplay* display,
-        hwc_fdebug_fence_type type, hwc_fdebug_ip_type ip,
-        uint32_t direction, bool pendingAllowed) {
-
+void setFenceInfo(uint32_t fd, ExynosDisplay* display, HwcFdebugFenceType type, HwcFdebugIpType ip,
+                  HwcFenceDirection direction, bool pendingAllowed, int32_t dupFrom) {
     if (!fence_valid(fd) || display == NULL) return;
-    /* valid but fence will not be traced */
-    if (fd >= MAX_FD_NUM) return;
 
     ExynosDevice* device = display->mDevice;
-    hwc_fence_info_t* info = &device->mFenceInfo[fd];
-    info->displayId = display->mDisplayId;
-    struct timeval tv;
+    HwcFenceInfo& info = device->mFenceInfos[fd];
+    info.displayId = display->mDisplayId;
 
-    // FIXME: sync_fence_info, sync_pt_info are deprecated
-    //        HWC guys should fix this.
-#if 0
-    if (exynosHWCControl.sysFenceLogging) {
-        struct sync_pt_info* pt_info = NULL;
-        info->sync_data = NULL;
-        if (info->sync_data != NULL) {
-            pt_info = sync_pt_info(info->sync_data, pt_info);
-            if (pt_info !=NULL) {
-                FT_LOGD("real name : %s status : %s pt_obj : %s pt_drv : %s",
-                        info->sync_data->name, info->sync_data->status==1 ? "Active":"Signaled",
-                        pt_info->obj_name, pt_info->driver_name);
-            } else {
-                FT_LOGD("real name : %s status : %d pt_info : %p",
-                        info->sync_data->name, info->sync_data->status, pt_info);
-            }
-            sync_fence_info_free(info->sync_data);
-        }
-    }
-#endif
-
-    fenceTrace_t *trace = NULL;
-
-    switch(direction) {
-    case FENCE_FROM:
-        trace = &info->from;
-        info->to.type = FENCE_TYPE_UNDEFINED;
-        info->to.ip = FENCE_IP_UNDEFINED;
-        info->usage++;
-        break;
-    case FENCE_TO:
-        trace = &info->to;
-        info->usage--;
-        break;
-    case FENCE_DUP:
-        trace = &info->dup;
-        info->usage++;
-        break;
-    case FENCE_CLOSE:
-        trace = &info->close;
-        info->usage--;
-        if (info->usage < 0) info->usage = 0;
-        break;
-    default:
-        ALOGE("Fence trace : Undefined direction!");
-        break;
+    if (info.leaking) {
+        return;
     }
 
-    if (trace != NULL) {
-        trace->type = type;
-        trace->ip = ip;
-        gettimeofday(&trace->time, NULL);
-        tv = trace->time;
-        trace->curFlag = 1;
-        FT_LOGW("FD : %d, direction : %d, type : %d, ip : %d", fd, direction, trace->type, trace->ip);
-    //  device->fenceTracing.appendFormat("FD : %d, From : %s\n", fd, info->trace.fromName);
+    switch (direction) {
+        case HwcFenceDirection::FROM:
+            info.usage++;
+            break;
+        case HwcFenceDirection::TO:
+            info.usage--;
+            break;
+        case HwcFenceDirection::DUP:
+            info.usage++;
+            info.dupFrom = dupFrom;
+            break;
+        case HwcFenceDirection::CLOSE:
+            info.usage--;
+            if (info.usage < 0) info.usage = 0;
+            break;
+        case HwcFenceDirection::UPDATE:
+            break;
+        default:
+            ALOGE("Fence trace : Undefined direction!");
+            break;
     }
 
-#if 0 // To be used ?
-    struct tm* localTime = getLocalTime(tv);
-    device->fenceTracing.appendFormat("usage : %d, time:%02d-%02d %02d:%02d:%02d.%03lu(%lu)\n", info->usage,
-            localTime->tm_mon+1, localTime->tm_mday,
-            localTime->tm_hour, localTime->tm_min,
-            localTime->tm_sec, tv.tv_usec/1000,
-            ((tv.tv_sec * 1000) + (tv.tv_usec / 1000)));
-#endif
+    if (info.usage == 0) {
+        device->mFenceInfos.erase(fd);
+        return;
+    } else if (info.usage < 0) {
+        ALOGE("%s : Invalid negative usage (%d) for Fence FD:%d", __func__, info.usage, fd);
+        printLastFenceInfo(fd, display);
+    }
+
+    HwcFenceTrace trace = {.direction = direction, .type = type, .ip = ip, .time = {0, 0}};
+
+    gettimeofday(&trace.time, NULL);
+
+    info.traces.push_back(trace);
+
+    FT_LOGW("FD : %d, direction : %d, type : %d, ip : %d", fd, direction, type, ip);
 
     // Fence's usage count shuld be zero at end of frame(present done).
     // This flag means usage count of the fence can be pended over frame.
-    info->pendingAllowed = pendingAllowed;
-
-    if (info->usage == 0)
-        info->pendingAllowed = false;
-
-    info->last_dir = direction;
+    info.pendingAllowed = pendingAllowed;
 }
 
 void printLastFenceInfo(uint32_t fd, ExynosDisplay* display) {
-
-    struct timeval tv;
-
     if (!fence_valid(fd)) return;
-    /* valid but fence will not be traced */
-    if (fd >= MAX_FD_NUM) return;
 
     ExynosDevice* device = display->mDevice;
 
-    hwc_fence_info_t* info = &device->mFenceInfo[fd];
-    FT_LOGD("---- Fence FD : %d, Display(%d) ----", fd, info->displayId);
+    auto it = device->mFenceInfos.find(fd);
+    if (it == device->mFenceInfos.end()) return;
+    HwcFenceInfo& info = it->second;
+    FT_LOGD("---- Fence FD : %d, Display(%d) ----", fd, info.displayId);
+    FT_LOGD("usage: %d, dupFrom: %d, pendingAllowed: %d, leaking: %d", info.usage, info.dupFrom,
+            info.pendingAllowed, info.leaking);
 
-    fenceTrace_t *trace = NULL;
-
-    switch(info->last_dir) {
-    case FENCE_FROM:
-        trace = &info->from;
-        break;
-    case FENCE_TO:
-        trace = &info->to;
-        break;
-    case FENCE_DUP:
-        trace = &info->dup;
-        break;
-    case FENCE_CLOSE:
-        trace = &info->close;
-        break;
-    default:
-        ALOGE("Fence trace : Undefined direction!");
-        break;
+    for (const auto& trace : info.traces) {
+        FT_LOGD("> dir: %d, type: %d, ip: %d, time:%s", trace.direction, trace.type, trace.ip,
+                getLocalTimeStr(trace.time).string());
     }
-
-    if (trace != NULL) {
-        FT_LOGD("Last state : %d, type(%d), ip(%d)",
-                info->last_dir, trace->type, trace->ip);
-        tv = info->from.time;
-    }
-
-    FT_LOGD("from : %d, %d (cur : %d), to : %d, %d (cur : %d), hwc_dup : %d, %d (cur : %d),hwc_close : %d, %d (cur : %d)",
-            info->from.type, info->from.ip, info->from.curFlag,
-            info->to.type, info->to.ip, info->to.curFlag,
-            info->dup.type, info->dup.ip, info->dup.curFlag,
-            info->close.type, info->close.ip, info->close.curFlag);
-
-    struct tm* localTime = getLocalTime(tv);
-
-    FT_LOGD("usage : %d, time:%02d-%02d %02d:%02d:%02d.%03lu(%lu)", info->usage,
-            localTime->tm_mon+1, localTime->tm_mday,
-            localTime->tm_hour, localTime->tm_min,
-            localTime->tm_sec, tv.tv_usec/1000,
-            ((tv.tv_sec * 1000) + (tv.tv_usec / 1000)));
 }
 
-void dumpFenceInfo(ExynosDisplay *display, int32_t __unused depth) {
-
+void dumpFenceInfo(ExynosDisplay* display, int32_t count) {
     ExynosDevice* device = display->mDevice;
-    hwc_fence_info_t* info = device->mFenceInfo;
 
-    FT_LOGD("Dump fence ++");
-    for (int i=0; i < MAX_FD_NUM; i++){
-        if ((info[i].usage >= 1 || info[i].usage <= -1) && (!info[i].pendingAllowed))
-            printLastFenceInfo(i, display);
+    FT_LOGD("Dump fence (up to %d fences) ++", count);
+    for (const auto& [fd, info] : device->mFenceInfos) {
+        if (info.pendingAllowed) continue;
+        if (count-- <= 0) break;
+        printLastFenceInfo(fd, display);
     }
     FT_LOGD("Dump fence --");
 }
 
-void printLeakFds(ExynosDisplay *display){
-
+void printLeakFds(ExynosDisplay* display) {
     ExynosDevice* device = display->mDevice;
-    hwc_fence_info_t* info = device->mFenceInfo;
 
-    int cnt = 1, i = 0;
-    String8 errStringOne;
-    String8 errStringMinus;
+    auto reportLeakFds = [&fenceInfos = device->mFenceInfos](int sign) {
+        String8 errString;
+        errString.appendFormat("Leak Fds (%d) :\n", sign);
 
-    errStringOne.appendFormat("Leak Fds (1) :\n");
-
-    for (i=0; i < MAX_FD_NUM; i++){
-        if(info[i].usage == 1) {
-            errStringOne.appendFormat("%d,", i);
-            if(cnt++%10 == 0)
-                errStringOne.appendFormat("\n");
+        int cnt = 0;
+        for (const auto& [fd, info] : fenceInfos) {
+            if (!info.leaking) continue;
+            if (info.usage * sign > 0) {
+                errString.appendFormat("%d,", fd);
+                if ((++cnt % 10) == 0) {
+                    errString.append("\n");
+                }
+            }
         }
-    }
-    FT_LOGW("%s", errStringOne.string());
 
-    errStringMinus.appendFormat("Leak Fds (-1) :\n");
+        FT_LOGW("%s", errString.string());
+    };
 
-    cnt = 1;
-    for (i=0; i < MAX_FD_NUM; i++){
-        if(info[i].usage < 0) {
-            errStringMinus.appendFormat("%d,", i);
-            if(cnt++%10 == 0)
-                errStringMinus.appendFormat("\n");
-        }
-    }
-    FT_LOGW("%s", errStringMinus.string());
+    reportLeakFds(+1);
+    reportLeakFds(-1);
 }
 
-void dumpNCheckLeak(ExynosDisplay *display, int32_t __unused depth) {
-
+void dumpNCheckLeak(ExynosDisplay* display, int32_t __unused depth) {
     ExynosDevice* device = display->mDevice;
-    hwc_fence_info_t* info = device->mFenceInfo;
 
     FT_LOGD("Dump leaking fence ++");
-    for (int i=0; i < MAX_FD_NUM; i++){
-        if ((info[i].usage >= 1 || info[i].usage <= -1) && (!info[i].pendingAllowed))
+    for (auto& [fd, info] : device->mFenceInfos) {
+        if (!info.pendingAllowed) {
             // leak is occured in this frame first
-            if (!info[i].leaking) {
-                info[i].leaking = true;
-                printLastFenceInfo(i, display);
+            if (!info.leaking) {
+                info.leaking = true;
+                printLastFenceInfo(fd, display);
             }
+        }
     }
 
     int priv = exynosHWCControl.fenceTracer;
@@ -1035,73 +952,30 @@ void dumpNCheckLeak(ExynosDisplay *display, int32_t __unused depth) {
     FT_LOGD("Dump leaking fence --");
 }
 
-bool fenceWarn(ExynosDisplay *display, uint32_t threshold) {
-
-    uint32_t cnt = 0, r_cnt = 0;
+bool fenceWarn(ExynosDisplay* display, uint32_t threshold) {
     ExynosDevice* device = display->mDevice;
-    hwc_fence_info_t* info = device->mFenceInfo;
+    uint32_t cnt = device->mFenceInfos.size();
 
-    // FIXME: sync_fence_info() is deprecated
-    //        HWC guys should fix this.
-#if 0
-    if (exynosHWCControl.sysFenceLogging) {
-        for (int i=3; i < MAX_FD_NUM; i++){
-            struct sync_fence_info_data* data = nullptr;
-            data = NULL; //sync_fence_info(i);
-            if (data != NULL) {
-                r_cnt++;
-                sync_fence_info_free(data);
-            }
-        }
-    }
-#endif
-
-    for (int i=0; i < MAX_FD_NUM; i++){
-        if(info[i].usage >= 1 || info[i].usage <= -1)
-        cnt++;
+    if (cnt > threshold) {
+        ALOGE("Fence leak! -- the number of fences(%d) exceeds threshold(%d)", cnt, threshold);
+        int priv = exynosHWCControl.fenceTracer;
+        exynosHWCControl.fenceTracer = 3;
+        dumpFenceInfo(display, 10);
+        exynosHWCControl.fenceTracer = priv;
     }
 
-    if ((cnt>threshold) || (exynosHWCControl.fenceTracer > 0))
-        dumpFenceInfo(display, 0);
-
-    if (r_cnt>threshold)
-        ALOGE("Fence leak somewhare!!");
-
-    FT_LOGD("fence hwc : %d, real : %d", cnt, r_cnt);
-
-    return (cnt>threshold) ? true : false;
+    return (cnt > threshold);
 }
 
-void resetFenceCurFlag(ExynosDisplay *display) {
+bool validateFencePerFrame(ExynosDisplay* display) {
     ExynosDevice* device = display->mDevice;
-    hwc_fence_info_t* info = device->mFenceInfo;
-    for (int i=0; i < MAX_FD_NUM; i++){
-        if (info[i].usage == 0) {
-            info[i].displayId = HWC_DISPLAY_PRIMARY;
-            info[i].leaking = false;
-            info[i].from.curFlag = 0;
-            info[i].to.curFlag = 0;
-            info[i].dup.curFlag = 0;
-            info[i].close.curFlag = 0;
-            info[i].curFlag = 0;
-        } else {
-            info[i].curFlag = 0;
-        }
-    }
-}
-
-bool validateFencePerFrame(ExynosDisplay *display) {
-
-    ExynosDevice* device = display->mDevice;
-    hwc_fence_info_t* info = device->mFenceInfo;
     bool ret = true;
 
-    for (int i=0; i < MAX_FD_NUM; i++){
-        if (info[i].displayId != display->mDisplayId)
-            continue;
-        if ((info[i].usage >= 1 || info[i].usage <= -1) &&
-                (!info[i].pendingAllowed) && (!info[i].leaking)) {
+    for (const auto& [fd, info] : device->mFenceInfos) {
+        if (info.displayId != display->mDisplayId) continue;
+        if ((!info.pendingAllowed) && (!info.leaking)) {
             ret = false;
+            break;
         }
     }
 
@@ -1113,49 +987,6 @@ bool validateFencePerFrame(ExynosDisplay *display) {
     }
 
     return ret;
-}
-
-void setFenceName(uint32_t fd, ExynosDisplay *display,
-        hwc_fdebug_fence_type type, hwc_fdebug_ip_type ip,
-        uint32_t direction, bool pendingAllowed) {
-
-    ExynosDevice* device = display->mDevice;
-    if (!fence_valid(fd) || device == NULL) return;
-    /* valid but fence will not be traced */
-    if (fd >= MAX_FD_NUM) return;
-
-    hwc_fence_info_t* info = &device->mFenceInfo[fd];
-    info->displayId = display->mDisplayId;
-    fenceTrace_t *trace = NULL;
-
-    switch(direction) {
-    case FENCE_FROM:
-        trace = &info->from;
-        break;
-    case FENCE_TO:
-        trace = &info->to;
-        break;
-    case FENCE_DUP:
-        trace = &info->dup;
-        break;
-    case FENCE_CLOSE:
-        trace = &info->close;
-        break;
-    default:
-        ALOGE("Fence trace : Undefined direction!");
-        break;
-    }
-
-    if (trace != NULL) {
-        trace->type = type;
-        trace->ip = ip;
-        FT_LOGD("FD : %d, direction : %d, type(%d), ip(%d) (changed)", fd, direction, type, ip);
-    }
-
-    info->pendingAllowed = pendingAllowed;
-
-    if (info->usage == 0)
-        info->pendingAllowed = false;
 }
 
 String8 getMPPStr(int typeId) {
@@ -1351,4 +1182,46 @@ int32_t load_png_image(const char* filepath, buffer_handle_t buffer) {
     png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
 
     return 0;
+}
+
+int readLineFromFile(const std::string &filename, std::string &out, char delim) {
+    std::ifstream in(filename);
+
+    if (!in) {
+        return -ENOENT;
+    }
+    std::getline(in, out, delim);
+    if (!in) {
+        return -EIO;
+    }
+
+    return android::OK;
+}
+
+std::optional<std::string> waitForPropertyValue(const std::string& property, int64_t timeoutMs) {
+    if (!android::base::WaitForPropertyCreation(property, std::chrono::milliseconds(timeoutMs))) {
+        return std::nullopt;
+    }
+    std::string out = android::base::GetProperty(property, "unknown");
+    if (out == "unknown") {
+        return std::nullopt;
+    }
+    return std::make_optional(out);
+}
+
+uint32_t rectSize(const hwc_rect_t& rect) {
+    auto width = rect.right - rect.left;
+    auto height = rect.bottom - rect.top;
+
+    if (width <= 0 || height <= 0) return 0;
+
+    return width * height;
+}
+
+void assign(decon_win_rect& win_rect, uint32_t left, uint32_t right, uint32_t width,
+            uint32_t height) {
+    win_rect.x = left;
+    win_rect.y = right;
+    win_rect.w = std::max(0U, width);
+    win_rect.h = std::max(0U, height);
 }

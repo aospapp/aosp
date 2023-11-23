@@ -42,3 +42,10 @@ prop {
     scope: Public
     prop_name: "media.c2.dmabuf.padding"
 }
+prop {
+    api_name: "resolution_limit_32bit"
+    type: Integer
+    access: Readonly
+    scope: Public
+    prop_name: "media.resolution.limit.32bit"
+}

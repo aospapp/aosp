@@ -726,6 +726,16 @@ package android.system {
     field public final String version;
   }
 
+  public final class SystemCleaner {
+    method @NonNull public static java.lang.ref.Cleaner cleaner();
+  }
+
+  public final class VmSocketAddress extends java.net.SocketAddress {
+    ctor public VmSocketAddress(int, int);
+    method public int getSvmCid();
+    method public int getSvmPort();
+  }
+
 }
 
 package dalvik.annotation {
@@ -1307,6 +1317,8 @@ package java.io {
     method public int available();
     method public int read();
     method public int read(byte[], int, int);
+    method public byte[] readAllBytes();
+    method public int readNBytes(byte[], int, int);
     method public void reset();
     method public long skip(long);
     field protected byte[] buf;
@@ -1322,9 +1334,11 @@ package java.io {
     method public int size();
     method @NonNull public byte[] toByteArray();
     method @NonNull public String toString(@NonNull String) throws java.io.UnsupportedEncodingException;
+    method @NonNull public String toString(@NonNull java.nio.charset.Charset);
     method @Deprecated @NonNull public String toString(int);
     method public void write(int);
     method public void write(@NonNull byte[], int, int);
+    method public void writeBytes(byte[]);
     method public void writeTo(@NonNull java.io.OutputStream) throws java.io.IOException;
     field @NonNull protected byte[] buf;
     field protected int count;
@@ -1573,6 +1587,8 @@ package java.io {
     ctor public FileReader(String) throws java.io.FileNotFoundException;
     ctor public FileReader(java.io.File) throws java.io.FileNotFoundException;
     ctor public FileReader(java.io.FileDescriptor);
+    ctor public FileReader(String, java.nio.charset.Charset) throws java.io.IOException;
+    ctor public FileReader(java.io.File, java.nio.charset.Charset) throws java.io.IOException;
   }
 
   public class FileWriter extends java.io.OutputStreamWriter {
@@ -1581,6 +1597,10 @@ package java.io {
     ctor public FileWriter(java.io.File) throws java.io.IOException;
     ctor public FileWriter(java.io.File, boolean) throws java.io.IOException;
     ctor public FileWriter(java.io.FileDescriptor);
+    ctor public FileWriter(String, java.nio.charset.Charset) throws java.io.IOException;
+    ctor public FileWriter(String, java.nio.charset.Charset, boolean) throws java.io.IOException;
+    ctor public FileWriter(java.io.File, java.nio.charset.Charset) throws java.io.IOException;
+    ctor public FileWriter(java.io.File, java.nio.charset.Charset, boolean) throws java.io.IOException;
   }
 
   @java.lang.FunctionalInterface public interface FilenameFilter {
@@ -1635,11 +1655,16 @@ package java.io {
     method public void close() throws java.io.IOException;
     method public void mark(int);
     method public boolean markSupported();
+    method public static java.io.InputStream nullInputStream();
     method public abstract int read() throws java.io.IOException;
     method public int read(byte[]) throws java.io.IOException;
     method public int read(byte[], int, int) throws java.io.IOException;
+    method public byte[] readAllBytes() throws java.io.IOException;
+    method public byte[] readNBytes(int) throws java.io.IOException;
+    method public int readNBytes(byte[], int, int) throws java.io.IOException;
     method public void reset() throws java.io.IOException;
     method public long skip(long) throws java.io.IOException;
+    method public long transferTo(java.io.OutputStream) throws java.io.IOException;
   }
 
   public class InputStreamReader extends java.io.Reader {
@@ -1876,6 +1901,7 @@ package java.io {
     ctor public OutputStream();
     method public void close() throws java.io.IOException;
     method public void flush() throws java.io.IOException;
+    method public static java.io.OutputStream nullOutputStream();
     method public abstract void write(int) throws java.io.IOException;
     method public void write(byte[]) throws java.io.IOException;
     method public void write(byte[], int, int) throws java.io.IOException;
@@ -1936,10 +1962,13 @@ package java.io {
     ctor public PrintStream(java.io.OutputStream);
     ctor public PrintStream(java.io.OutputStream, boolean);
     ctor public PrintStream(java.io.OutputStream, boolean, String) throws java.io.UnsupportedEncodingException;
+    ctor public PrintStream(java.io.OutputStream, boolean, java.nio.charset.Charset);
     ctor public PrintStream(String) throws java.io.FileNotFoundException;
     ctor public PrintStream(String, String) throws java.io.FileNotFoundException, java.io.UnsupportedEncodingException;
+    ctor public PrintStream(String, java.nio.charset.Charset) throws java.io.IOException;
     ctor public PrintStream(java.io.File) throws java.io.FileNotFoundException;
     ctor public PrintStream(java.io.File, String) throws java.io.FileNotFoundException, java.io.UnsupportedEncodingException;
+    ctor public PrintStream(java.io.File, java.nio.charset.Charset) throws java.io.IOException;
     method public java.io.PrintStream append(CharSequence);
     method public java.io.PrintStream append(CharSequence, int, int);
     method public java.io.PrintStream append(char);
@@ -1980,10 +2009,13 @@ package java.io {
     ctor public PrintWriter(@NonNull java.io.Writer, boolean);
     ctor public PrintWriter(@NonNull java.io.OutputStream);
     ctor public PrintWriter(@NonNull java.io.OutputStream, boolean);
+    ctor public PrintWriter(@NonNull java.io.OutputStream, boolean, @NonNull java.nio.charset.Charset);
     ctor public PrintWriter(@NonNull String) throws java.io.FileNotFoundException;
     ctor public PrintWriter(@NonNull String, @NonNull String) throws java.io.FileNotFoundException, java.io.UnsupportedEncodingException;
+    ctor public PrintWriter(@NonNull String, @NonNull java.nio.charset.Charset) throws java.io.IOException;
     ctor public PrintWriter(@NonNull java.io.File) throws java.io.FileNotFoundException;
     ctor public PrintWriter(@NonNull java.io.File, @NonNull String) throws java.io.FileNotFoundException, java.io.UnsupportedEncodingException;
+    ctor public PrintWriter(@NonNull java.io.File, @NonNull java.nio.charset.Charset) throws java.io.IOException;
     method @NonNull public java.io.PrintWriter append(@Nullable CharSequence);
     method @NonNull public java.io.PrintWriter append(@Nullable CharSequence, int, int);
     method @NonNull public java.io.PrintWriter append(char);
@@ -2090,6 +2122,7 @@ package java.io {
     ctor protected Reader(Object);
     method public void mark(int) throws java.io.IOException;
     method public boolean markSupported();
+    method public static java.io.Reader nullReader();
     method public int read(java.nio.CharBuffer) throws java.io.IOException;
     method public int read() throws java.io.IOException;
     method public int read(char[]) throws java.io.IOException;
@@ -2097,6 +2130,7 @@ package java.io {
     method public boolean ready() throws java.io.IOException;
     method public void reset() throws java.io.IOException;
     method public long skip(long) throws java.io.IOException;
+    method public long transferTo(java.io.Writer) throws java.io.IOException;
     field protected Object lock;
   }
 
@@ -2210,6 +2244,7 @@ package java.io {
     method public java.io.Writer append(CharSequence) throws java.io.IOException;
     method public java.io.Writer append(CharSequence, int, int) throws java.io.IOException;
     method public java.io.Writer append(char) throws java.io.IOException;
+    method public static java.io.Writer nullWriter();
     method public void write(int) throws java.io.IOException;
     method public void write(char[]) throws java.io.IOException;
     method public abstract void write(char[], int, int) throws java.io.IOException;
@@ -2240,8 +2275,8 @@ package java.lang {
 
   public class ArrayIndexOutOfBoundsException extends java.lang.IndexOutOfBoundsException {
     ctor public ArrayIndexOutOfBoundsException();
-    ctor public ArrayIndexOutOfBoundsException(int);
     ctor public ArrayIndexOutOfBoundsException(String);
+    ctor public ArrayIndexOutOfBoundsException(int);
   }
 
   public class ArrayStoreException extends java.lang.RuntimeException {
@@ -2266,8 +2301,8 @@ package java.lang {
   }
 
   public final class Boolean implements java.lang.Comparable<java.lang.Boolean> java.io.Serializable {
-    ctor public Boolean(boolean);
-    ctor public Boolean(@Nullable String);
+    ctor @Deprecated public Boolean(boolean);
+    ctor @Deprecated public Boolean(@Nullable String);
     method public boolean booleanValue();
     method public static int compare(boolean, boolean);
     method public int compareTo(@NonNull Boolean);
@@ -2968,8 +3003,8 @@ package java.lang {
   }
 
   public final class Double extends java.lang.Number implements java.lang.Comparable<java.lang.Double> {
-    ctor public Double(double);
-    ctor public Double(@NonNull String) throws java.lang.NumberFormatException;
+    ctor @Deprecated public Double(double);
+    ctor @Deprecated public Double(@NonNull String) throws java.lang.NumberFormatException;
     method public static int compare(double, double);
     method public int compareTo(@NonNull Double);
     method public static long doubleToLongBits(double);
@@ -3049,9 +3084,9 @@ package java.lang {
   }
 
   public final class Float extends java.lang.Number implements java.lang.Comparable<java.lang.Float> {
-    ctor public Float(float);
-    ctor public Float(double);
-    ctor public Float(@NonNull String) throws java.lang.NumberFormatException;
+    ctor @Deprecated public Float(float);
+    ctor @Deprecated public Float(double);
+    ctor @Deprecated public Float(@NonNull String) throws java.lang.NumberFormatException;
     method public static int compare(float, float);
     method public int compareTo(@NonNull Float);
     method public double doubleValue();
@@ -3133,6 +3168,7 @@ package java.lang {
   public class IndexOutOfBoundsException extends java.lang.RuntimeException {
     ctor public IndexOutOfBoundsException();
     ctor public IndexOutOfBoundsException(String);
+    ctor public IndexOutOfBoundsException(int);
   }
 
   public class InheritableThreadLocal<T> extends java.lang.ThreadLocal<T> {
@@ -3151,8 +3187,8 @@ package java.lang {
   }
 
   public final class Integer extends java.lang.Number implements java.lang.Comparable<java.lang.Integer> {
-    ctor public Integer(int);
-    ctor public Integer(@NonNull String) throws java.lang.NumberFormatException;
+    ctor @Deprecated public Integer(int);
+    ctor @Deprecated public Integer(@NonNull String) throws java.lang.NumberFormatException;
     method public static int bitCount(int);
     method public static int compare(int, int);
     method public int compareTo(@NonNull Integer);
@@ -3174,8 +3210,10 @@ package java.lang {
     method public static int numberOfLeadingZeros(int);
     method public static int numberOfTrailingZeros(int);
     method public static int parseInt(@NonNull String, int) throws java.lang.NumberFormatException;
+    method public static int parseInt(@NonNull CharSequence, int, int, int) throws java.lang.NumberFormatException;
     method public static int parseInt(@NonNull String) throws java.lang.NumberFormatException;
     method public static int parseUnsignedInt(@NonNull String, int) throws java.lang.NumberFormatException;
+    method public static int parseUnsignedInt(@NonNull CharSequence, int, int, int) throws java.lang.NumberFormatException;
     method public static int parseUnsignedInt(@NonNull String) throws java.lang.NumberFormatException;
     method public static int remainderUnsigned(int, int);
     method public static int reverse(int);
@@ -3227,8 +3265,8 @@ package java.lang {
   }
 
   public final class Long extends java.lang.Number implements java.lang.Comparable<java.lang.Long> {
-    ctor public Long(long);
-    ctor public Long(@NonNull String) throws java.lang.NumberFormatException;
+    ctor @Deprecated public Long(long);
+    ctor @Deprecated public Long(@NonNull String) throws java.lang.NumberFormatException;
     method public static int bitCount(long);
     method public static int compare(long, long);
     method public int compareTo(@NonNull Long);
@@ -3250,8 +3288,10 @@ package java.lang {
     method public static int numberOfLeadingZeros(long);
     method public static int numberOfTrailingZeros(long);
     method public static long parseLong(@NonNull String, int) throws java.lang.NumberFormatException;
+    method public static long parseLong(@NonNull CharSequence, int, int, int) throws java.lang.NumberFormatException;
     method public static long parseLong(@NonNull String) throws java.lang.NumberFormatException;
     method public static long parseUnsignedLong(@NonNull String, int) throws java.lang.NumberFormatException;
+    method public static long parseUnsignedLong(@NonNull CharSequence, int, int, int) throws java.lang.NumberFormatException;
     method public static long parseUnsignedLong(@NonNull String) throws java.lang.NumberFormatException;
     method public static long remainderUnsigned(long, long);
     method public static long reverse(long);
@@ -3306,6 +3346,8 @@ package java.lang {
     method public static int floorMod(int, int);
     method public static int floorMod(long, int);
     method public static long floorMod(long, long);
+    method public static double fma(double, double, double);
+    method public static float fma(float, float, float);
     method public static int getExponent(float);
     method public static int getExponent(double);
     method public static double hypot(double, double);
@@ -3588,7 +3630,7 @@ package java.lang {
     method public void checkExit(int);
     method public void checkLink(String);
     method public void checkListen(int);
-    method public void checkMemberAccess(Class<?>, int);
+    method @Deprecated public void checkMemberAccess(Class<?>, int);
     method public void checkMulticast(java.net.InetAddress);
     method @Deprecated public void checkMulticast(java.net.InetAddress, byte);
     method public void checkPackageAccess(String);
@@ -3604,7 +3646,7 @@ package java.lang {
     method public void checkSecurityAccess(String);
     method public void checkSetFactory();
     method public void checkSystemClipboardAccess();
-    method public boolean checkTopLevelWindow(Object);
+    method @Deprecated public boolean checkTopLevelWindow(Object);
     method public void checkWrite(java.io.FileDescriptor);
     method public void checkWrite(String);
     method @Deprecated protected int classDepth(String);
@@ -3689,6 +3731,8 @@ package java.lang {
     method public static int floorMod(int, int);
     method public static int floorMod(long, int);
     method public static long floorMod(long, long);
+    method public static double fma(double, double, double);
+    method public static float fma(float, float, float);
     method public static int getExponent(float);
     method public static int getExponent(double);
     method public static double hypot(double, double);
@@ -3781,6 +3825,7 @@ package java.lang {
     method public int indexOf(@NonNull String);
     method public int indexOf(@NonNull String, int);
     method @NonNull public String intern();
+    method public boolean isBlank();
     method public boolean isEmpty();
     method @NonNull public static String join(@NonNull CharSequence, @Nullable java.lang.CharSequence...);
     method @NonNull public static String join(@NonNull CharSequence, @NonNull Iterable<? extends java.lang.CharSequence>);
@@ -3789,10 +3834,12 @@ package java.lang {
     method public int lastIndexOf(@NonNull String);
     method public int lastIndexOf(@NonNull String, int);
     method public int length();
+    method @NonNull public java.util.stream.Stream<java.lang.String> lines();
     method public boolean matches(@NonNull String);
     method public int offsetByCodePoints(int, int);
     method public boolean regionMatches(int, @NonNull String, int, int);
     method public boolean regionMatches(boolean, int, @NonNull String, int, int);
+    method @NonNull public String repeat(int);
     method @NonNull public String replace(char, char);
     method @NonNull public String replace(@NonNull CharSequence, @NonNull CharSequence);
     method @NonNull public String replaceAll(@NonNull String, @NonNull String);
@@ -3801,6 +3848,9 @@ package java.lang {
     method @NonNull public String[] split(@NonNull String);
     method public boolean startsWith(@NonNull String, int);
     method public boolean startsWith(@NonNull String);
+    method @NonNull public String strip();
+    method @NonNull public String stripLeading();
+    method @NonNull public String stripTrailing();
     method @NonNull public CharSequence subSequence(int, int);
     method @NonNull public String substring(int);
     method @NonNull public String substring(int, int);
@@ -3986,6 +4036,7 @@ package java.lang {
     ctor public Thread(@Nullable Runnable, @NonNull String);
     ctor public Thread(@Nullable ThreadGroup, @Nullable Runnable, @NonNull String);
     ctor public Thread(@Nullable ThreadGroup, @Nullable Runnable, @NonNull String, long);
+    ctor public Thread(@Nullable ThreadGroup, @Nullable Runnable, @NonNull String, long, boolean);
     method public static int activeCount();
     method public final void checkAccess();
     method @Deprecated public int countStackFrames();
@@ -4012,6 +4063,7 @@ package java.lang {
     method public final void join(long) throws java.lang.InterruptedException;
     method public final void join(long, int) throws java.lang.InterruptedException;
     method public final void join() throws java.lang.InterruptedException;
+    method public static void onSpinWait();
     method @Deprecated public final void resume();
     method public void run();
     method public void setContextClassLoader(@Nullable ClassLoader);
@@ -4248,8 +4300,10 @@ package java.lang.invoke {
 
   public abstract class MethodHandle {
     method public java.lang.invoke.MethodHandle asCollector(Class<?>, int);
+    method public java.lang.invoke.MethodHandle asCollector(int, Class<?>, int);
     method public java.lang.invoke.MethodHandle asFixedArity();
     method public java.lang.invoke.MethodHandle asSpreader(Class<?>, int);
+    method public java.lang.invoke.MethodHandle asSpreader(int, Class<?>, int);
     method public java.lang.invoke.MethodHandle asType(java.lang.invoke.MethodType);
     method public java.lang.invoke.MethodHandle asVarargsCollector(Class<?>);
     method public java.lang.invoke.MethodHandle bindTo(Object);
@@ -4259,6 +4313,7 @@ package java.lang.invoke {
     method public Object invokeWithArguments(java.util.List<?>) throws java.lang.Throwable;
     method public boolean isVarargsCollector();
     method public java.lang.invoke.MethodType type();
+    method public java.lang.invoke.MethodHandle withVarargs(boolean);
   }
 
   public interface MethodHandleInfo {
@@ -4286,28 +4341,47 @@ package java.lang.invoke {
   }
 
   public class MethodHandles {
+    method public static java.lang.invoke.MethodHandle arrayConstructor(Class<?>) throws java.lang.IllegalArgumentException;
     method public static java.lang.invoke.MethodHandle arrayElementGetter(Class<?>) throws java.lang.IllegalArgumentException;
     method public static java.lang.invoke.MethodHandle arrayElementSetter(Class<?>) throws java.lang.IllegalArgumentException;
+    method public static java.lang.invoke.VarHandle arrayElementVarHandle(Class<?>) throws java.lang.IllegalArgumentException;
+    method public static java.lang.invoke.MethodHandle arrayLength(Class<?>) throws java.lang.IllegalArgumentException;
+    method public static java.lang.invoke.VarHandle byteArrayViewVarHandle(Class<?>, java.nio.ByteOrder) throws java.lang.IllegalArgumentException;
+    method public static java.lang.invoke.VarHandle byteBufferViewVarHandle(Class<?>, java.nio.ByteOrder) throws java.lang.IllegalArgumentException;
     method public static java.lang.invoke.MethodHandle catchException(java.lang.invoke.MethodHandle, Class<? extends java.lang.Throwable>, java.lang.invoke.MethodHandle);
     method public static java.lang.invoke.MethodHandle collectArguments(java.lang.invoke.MethodHandle, int, java.lang.invoke.MethodHandle);
     method public static java.lang.invoke.MethodHandle constant(Class<?>, Object);
+    method public static java.lang.invoke.MethodHandle countedLoop(java.lang.invoke.MethodHandle, java.lang.invoke.MethodHandle, java.lang.invoke.MethodHandle);
+    method public static java.lang.invoke.MethodHandle countedLoop(java.lang.invoke.MethodHandle, java.lang.invoke.MethodHandle, java.lang.invoke.MethodHandle, java.lang.invoke.MethodHandle);
+    method public static java.lang.invoke.MethodHandle doWhileLoop(java.lang.invoke.MethodHandle, java.lang.invoke.MethodHandle, java.lang.invoke.MethodHandle);
     method public static java.lang.invoke.MethodHandle dropArguments(java.lang.invoke.MethodHandle, int, java.util.List<java.lang.Class<?>>);
     method public static java.lang.invoke.MethodHandle dropArguments(java.lang.invoke.MethodHandle, int, Class<?>...);
+    method public static java.lang.invoke.MethodHandle dropArgumentsToMatch(java.lang.invoke.MethodHandle, int, java.util.List<java.lang.Class<?>>, int);
+    method public static java.lang.invoke.MethodHandle empty(java.lang.invoke.MethodType);
     method public static java.lang.invoke.MethodHandle exactInvoker(java.lang.invoke.MethodType);
     method public static java.lang.invoke.MethodHandle explicitCastArguments(java.lang.invoke.MethodHandle, java.lang.invoke.MethodType);
     method public static java.lang.invoke.MethodHandle filterArguments(java.lang.invoke.MethodHandle, int, java.lang.invoke.MethodHandle...);
     method public static java.lang.invoke.MethodHandle filterReturnValue(java.lang.invoke.MethodHandle, java.lang.invoke.MethodHandle);
     method public static java.lang.invoke.MethodHandle foldArguments(java.lang.invoke.MethodHandle, java.lang.invoke.MethodHandle);
+    method public static java.lang.invoke.MethodHandle foldArguments(java.lang.invoke.MethodHandle, int, java.lang.invoke.MethodHandle);
     method public static java.lang.invoke.MethodHandle guardWithTest(java.lang.invoke.MethodHandle, java.lang.invoke.MethodHandle, java.lang.invoke.MethodHandle);
     method public static java.lang.invoke.MethodHandle identity(Class<?>);
     method public static java.lang.invoke.MethodHandle insertArguments(java.lang.invoke.MethodHandle, int, java.lang.Object...);
     method public static java.lang.invoke.MethodHandle invoker(java.lang.invoke.MethodType);
+    method public static java.lang.invoke.MethodHandle iteratedLoop(java.lang.invoke.MethodHandle, java.lang.invoke.MethodHandle, java.lang.invoke.MethodHandle);
     method public static java.lang.invoke.MethodHandles.Lookup lookup();
+    method public static java.lang.invoke.MethodHandle loop(java.lang.invoke.MethodHandle[]...);
     method public static java.lang.invoke.MethodHandle permuteArguments(java.lang.invoke.MethodHandle, java.lang.invoke.MethodType, int...);
+    method public static java.lang.invoke.MethodHandles.Lookup privateLookupIn(Class<?>, java.lang.invoke.MethodHandles.Lookup) throws java.lang.IllegalAccessException;
     method public static java.lang.invoke.MethodHandles.Lookup publicLookup();
     method public static <T extends java.lang.reflect.Member> T reflectAs(Class<T>, java.lang.invoke.MethodHandle);
     method public static java.lang.invoke.MethodHandle spreadInvoker(java.lang.invoke.MethodType, int);
     method public static java.lang.invoke.MethodHandle throwException(Class<?>, Class<? extends java.lang.Throwable>);
+    method public static java.lang.invoke.MethodHandle tryFinally(java.lang.invoke.MethodHandle, java.lang.invoke.MethodHandle);
+    method public static java.lang.invoke.MethodHandle varHandleExactInvoker(java.lang.invoke.VarHandle.AccessMode, java.lang.invoke.MethodType);
+    method public static java.lang.invoke.MethodHandle varHandleInvoker(java.lang.invoke.VarHandle.AccessMode, java.lang.invoke.MethodType);
+    method public static java.lang.invoke.MethodHandle whileLoop(java.lang.invoke.MethodHandle, java.lang.invoke.MethodHandle, java.lang.invoke.MethodHandle);
+    method public static java.lang.invoke.MethodHandle zero(Class<?>);
   }
 
   public static final class MethodHandles.Lookup {
@@ -4319,6 +4393,8 @@ package java.lang.invoke {
     method public java.lang.invoke.MethodHandle findStatic(Class<?>, String, java.lang.invoke.MethodType) throws java.lang.IllegalAccessException, java.lang.NoSuchMethodException;
     method public java.lang.invoke.MethodHandle findStaticGetter(Class<?>, String, Class<?>) throws java.lang.IllegalAccessException, java.lang.NoSuchFieldException;
     method public java.lang.invoke.MethodHandle findStaticSetter(Class<?>, String, Class<?>) throws java.lang.IllegalAccessException, java.lang.NoSuchFieldException;
+    method public java.lang.invoke.VarHandle findStaticVarHandle(Class<?>, String, Class<?>) throws java.lang.IllegalAccessException, java.lang.NoSuchFieldException;
+    method public java.lang.invoke.VarHandle findVarHandle(Class<?>, String, Class<?>) throws java.lang.IllegalAccessException, java.lang.NoSuchFieldException;
     method public java.lang.invoke.MethodHandle findVirtual(Class<?>, String, java.lang.invoke.MethodType) throws java.lang.IllegalAccessException, java.lang.NoSuchMethodException;
     method public java.lang.invoke.MethodHandles.Lookup in(Class<?>);
     method public Class<?> lookupClass();
@@ -4329,6 +4405,7 @@ package java.lang.invoke {
     method public java.lang.invoke.MethodHandle unreflectGetter(java.lang.reflect.Field) throws java.lang.IllegalAccessException;
     method public java.lang.invoke.MethodHandle unreflectSetter(java.lang.reflect.Field) throws java.lang.IllegalAccessException;
     method public java.lang.invoke.MethodHandle unreflectSpecial(java.lang.reflect.Method, Class<?>) throws java.lang.IllegalAccessException;
+    method public java.lang.invoke.VarHandle unreflectVarHandle(java.lang.reflect.Field) throws java.lang.IllegalAccessException;
     field public static final int PACKAGE = 8; // 0x8
     field public static final int PRIVATE = 2; // 0x2
     field public static final int PROTECTED = 4; // 0x4
@@ -4350,6 +4427,7 @@ package java.lang.invoke {
     method public boolean hasWrappers();
     method public java.lang.invoke.MethodType insertParameterTypes(int, Class<?>...);
     method public java.lang.invoke.MethodType insertParameterTypes(int, java.util.List<java.lang.Class<?>>);
+    method public Class<?> lastParameterType();
     method public static java.lang.invoke.MethodType methodType(Class<?>, Class<?>[]);
     method public static java.lang.invoke.MethodType methodType(Class<?>, java.util.List<java.lang.Class<?>>);
     method public static java.lang.invoke.MethodType methodType(Class<?>, Class<?>, Class<?>...);
@@ -4374,6 +4452,86 @@ package java.lang.invoke {
     method public void setTarget(java.lang.invoke.MethodHandle);
   }
 
+  public abstract class VarHandle {
+    method public final java.lang.invoke.MethodType accessModeType(java.lang.invoke.VarHandle.AccessMode);
+    method public static void acquireFence();
+    method public final Object compareAndExchange(java.lang.Object...);
+    method public final Object compareAndExchangeAcquire(java.lang.Object...);
+    method public final Object compareAndExchangeRelease(java.lang.Object...);
+    method public final boolean compareAndSet(java.lang.Object...);
+    method public final java.util.List<java.lang.Class<?>> coordinateTypes();
+    method public static void fullFence();
+    method public final Object get(java.lang.Object...);
+    method public final Object getAcquire(java.lang.Object...);
+    method public final Object getAndAdd(java.lang.Object...);
+    method public final Object getAndAddAcquire(java.lang.Object...);
+    method public final Object getAndAddRelease(java.lang.Object...);
+    method public final Object getAndBitwiseAnd(java.lang.Object...);
+    method public final Object getAndBitwiseAndAcquire(java.lang.Object...);
+    method public final Object getAndBitwiseAndRelease(java.lang.Object...);
+    method public final Object getAndBitwiseOr(java.lang.Object...);
+    method public final Object getAndBitwiseOrAcquire(java.lang.Object...);
+    method public final Object getAndBitwiseOrRelease(java.lang.Object...);
+    method public final Object getAndBitwiseXor(java.lang.Object...);
+    method public final Object getAndBitwiseXorAcquire(java.lang.Object...);
+    method public final Object getAndBitwiseXorRelease(java.lang.Object...);
+    method public final Object getAndSet(java.lang.Object...);
+    method public final Object getAndSetAcquire(java.lang.Object...);
+    method public final Object getAndSetRelease(java.lang.Object...);
+    method public final Object getOpaque(java.lang.Object...);
+    method public final Object getVolatile(java.lang.Object...);
+    method public final boolean isAccessModeSupported(java.lang.invoke.VarHandle.AccessMode);
+    method public static void loadLoadFence();
+    method public static void releaseFence();
+    method public final void set(java.lang.Object...);
+    method public final void setOpaque(java.lang.Object...);
+    method public final void setRelease(java.lang.Object...);
+    method public final void setVolatile(java.lang.Object...);
+    method public static void storeStoreFence();
+    method public final java.lang.invoke.MethodHandle toMethodHandle(java.lang.invoke.VarHandle.AccessMode);
+    method public final Class<?> varType();
+    method public final boolean weakCompareAndSet(java.lang.Object...);
+    method public final boolean weakCompareAndSetAcquire(java.lang.Object...);
+    method public final boolean weakCompareAndSetPlain(java.lang.Object...);
+    method public final boolean weakCompareAndSetRelease(java.lang.Object...);
+  }
+
+  public enum VarHandle.AccessMode {
+    method public String methodName();
+    method public static java.lang.invoke.VarHandle.AccessMode valueFromMethodName(String);
+    enum_constant public static final java.lang.invoke.VarHandle.AccessMode COMPARE_AND_EXCHANGE;
+    enum_constant public static final java.lang.invoke.VarHandle.AccessMode COMPARE_AND_EXCHANGE_ACQUIRE;
+    enum_constant public static final java.lang.invoke.VarHandle.AccessMode COMPARE_AND_EXCHANGE_RELEASE;
+    enum_constant public static final java.lang.invoke.VarHandle.AccessMode COMPARE_AND_SET;
+    enum_constant public static final java.lang.invoke.VarHandle.AccessMode GET;
+    enum_constant public static final java.lang.invoke.VarHandle.AccessMode GET_ACQUIRE;
+    enum_constant public static final java.lang.invoke.VarHandle.AccessMode GET_AND_ADD;
+    enum_constant public static final java.lang.invoke.VarHandle.AccessMode GET_AND_ADD_ACQUIRE;
+    enum_constant public static final java.lang.invoke.VarHandle.AccessMode GET_AND_ADD_RELEASE;
+    enum_constant public static final java.lang.invoke.VarHandle.AccessMode GET_AND_BITWISE_AND;
+    enum_constant public static final java.lang.invoke.VarHandle.AccessMode GET_AND_BITWISE_AND_ACQUIRE;
+    enum_constant public static final java.lang.invoke.VarHandle.AccessMode GET_AND_BITWISE_AND_RELEASE;
+    enum_constant public static final java.lang.invoke.VarHandle.AccessMode GET_AND_BITWISE_OR;
+    enum_constant public static final java.lang.invoke.VarHandle.AccessMode GET_AND_BITWISE_OR_ACQUIRE;
+    enum_constant public static final java.lang.invoke.VarHandle.AccessMode GET_AND_BITWISE_OR_RELEASE;
+    enum_constant public static final java.lang.invoke.VarHandle.AccessMode GET_AND_BITWISE_XOR;
+    enum_constant public static final java.lang.invoke.VarHandle.AccessMode GET_AND_BITWISE_XOR_ACQUIRE;
+    enum_constant public static final java.lang.invoke.VarHandle.AccessMode GET_AND_BITWISE_XOR_RELEASE;
+    enum_constant public static final java.lang.invoke.VarHandle.AccessMode GET_AND_SET;
+    enum_constant public static final java.lang.invoke.VarHandle.AccessMode GET_AND_SET_ACQUIRE;
+    enum_constant public static final java.lang.invoke.VarHandle.AccessMode GET_AND_SET_RELEASE;
+    enum_constant public static final java.lang.invoke.VarHandle.AccessMode GET_OPAQUE;
+    enum_constant public static final java.lang.invoke.VarHandle.AccessMode GET_VOLATILE;
+    enum_constant public static final java.lang.invoke.VarHandle.AccessMode SET;
+    enum_constant public static final java.lang.invoke.VarHandle.AccessMode SET_OPAQUE;
+    enum_constant public static final java.lang.invoke.VarHandle.AccessMode SET_RELEASE;
+    enum_constant public static final java.lang.invoke.VarHandle.AccessMode SET_VOLATILE;
+    enum_constant public static final java.lang.invoke.VarHandle.AccessMode WEAK_COMPARE_AND_SET;
+    enum_constant public static final java.lang.invoke.VarHandle.AccessMode WEAK_COMPARE_AND_SET_ACQUIRE;
+    enum_constant public static final java.lang.invoke.VarHandle.AccessMode WEAK_COMPARE_AND_SET_PLAIN;
+    enum_constant public static final java.lang.invoke.VarHandle.AccessMode WEAK_COMPARE_AND_SET_RELEASE;
+  }
+
   public class VolatileCallSite extends java.lang.invoke.CallSite {
     ctor public VolatileCallSite(java.lang.invoke.MethodType);
     ctor public VolatileCallSite(java.lang.invoke.MethodHandle);
@@ -4391,6 +4549,16 @@ package java.lang.invoke {
 
 package java.lang.ref {
 
+  public final class Cleaner {
+    method public static java.lang.ref.Cleaner create();
+    method public static java.lang.ref.Cleaner create(java.util.concurrent.ThreadFactory);
+    method public java.lang.ref.Cleaner.Cleanable register(Object, Runnable);
+  }
+
+  public static interface Cleaner.Cleanable {
+    method public void clean();
+  }
+
   public class PhantomReference<T> extends java.lang.ref.Reference<T> {
     ctor public PhantomReference(T, java.lang.ref.ReferenceQueue<? super T>);
   }
@@ -4401,6 +4569,7 @@ package java.lang.ref {
     method public T get();
     method @Deprecated public boolean isEnqueued();
     method public static void reachabilityFence(Object);
+    method public final boolean refersTo(T);
   }
 
   public class ReferenceQueue<T> {
@@ -4549,6 +4718,7 @@ package java.lang.reflect {
 
   public class MalformedParameterizedTypeException extends java.lang.RuntimeException {
     ctor public MalformedParameterizedTypeException();
+    ctor public MalformedParameterizedTypeException(String);
   }
 
   public class MalformedParametersException extends java.lang.RuntimeException {
@@ -4700,9 +4870,9 @@ package java.math {
     method public java.math.BigDecimal add(java.math.BigDecimal, java.math.MathContext);
     method public byte byteValueExact();
     method public int compareTo(java.math.BigDecimal);
-    method public java.math.BigDecimal divide(java.math.BigDecimal, int, int);
+    method @Deprecated public java.math.BigDecimal divide(java.math.BigDecimal, int, int);
     method public java.math.BigDecimal divide(java.math.BigDecimal, int, java.math.RoundingMode);
-    method public java.math.BigDecimal divide(java.math.BigDecimal, int);
+    method @Deprecated public java.math.BigDecimal divide(java.math.BigDecimal, int);
     method public java.math.BigDecimal divide(java.math.BigDecimal, java.math.RoundingMode);
     method public java.math.BigDecimal divide(java.math.BigDecimal);
     method public java.math.BigDecimal divide(java.math.BigDecimal, java.math.MathContext);
@@ -4735,10 +4905,11 @@ package java.math {
     method public int scale();
     method public java.math.BigDecimal scaleByPowerOfTen(int);
     method public java.math.BigDecimal setScale(int, java.math.RoundingMode);
-    method public java.math.BigDecimal setScale(int, int);
+    method @Deprecated public java.math.BigDecimal setScale(int, int);
     method public java.math.BigDecimal setScale(int);
     method public short shortValueExact();
     method public int signum();
+    method public java.math.BigDecimal sqrt(java.math.MathContext);
     method public java.math.BigDecimal stripTrailingZeros();
     method public java.math.BigDecimal subtract(java.math.BigDecimal);
     method public java.math.BigDecimal subtract(java.math.BigDecimal, java.math.MathContext);
@@ -4752,20 +4923,22 @@ package java.math {
     method public static java.math.BigDecimal valueOf(long);
     method public static java.math.BigDecimal valueOf(double);
     field public static final java.math.BigDecimal ONE;
-    field public static final int ROUND_CEILING = 2; // 0x2
-    field public static final int ROUND_DOWN = 1; // 0x1
-    field public static final int ROUND_FLOOR = 3; // 0x3
-    field public static final int ROUND_HALF_DOWN = 5; // 0x5
-    field public static final int ROUND_HALF_EVEN = 6; // 0x6
-    field public static final int ROUND_HALF_UP = 4; // 0x4
-    field public static final int ROUND_UNNECESSARY = 7; // 0x7
-    field public static final int ROUND_UP = 0; // 0x0
+    field @Deprecated public static final int ROUND_CEILING = 2; // 0x2
+    field @Deprecated public static final int ROUND_DOWN = 1; // 0x1
+    field @Deprecated public static final int ROUND_FLOOR = 3; // 0x3
+    field @Deprecated public static final int ROUND_HALF_DOWN = 5; // 0x5
+    field @Deprecated public static final int ROUND_HALF_EVEN = 6; // 0x6
+    field @Deprecated public static final int ROUND_HALF_UP = 4; // 0x4
+    field @Deprecated public static final int ROUND_UNNECESSARY = 7; // 0x7
+    field @Deprecated public static final int ROUND_UP = 0; // 0x0
     field public static final java.math.BigDecimal TEN;
     field public static final java.math.BigDecimal ZERO;
   }
 
   public class BigInteger extends java.lang.Number implements java.lang.Comparable<java.math.BigInteger> {
+    ctor public BigInteger(byte[], int, int);
     ctor public BigInteger(byte[]);
+    ctor public BigInteger(int, byte[], int, int);
     ctor public BigInteger(int, byte[]);
     ctor public BigInteger(@NonNull String, int);
     ctor public BigInteger(@NonNull String);
@@ -4810,6 +4983,8 @@ package java.math {
     method @NonNull public java.math.BigInteger shiftRight(int);
     method public short shortValueExact();
     method public int signum();
+    method @NonNull public java.math.BigInteger sqrt();
+    method @NonNull public java.math.BigInteger[] sqrtAndRemainder();
     method @NonNull public java.math.BigInteger subtract(@NonNull java.math.BigInteger);
     method public boolean testBit(int);
     method public byte[] toByteArray();
@@ -4818,6 +4993,7 @@ package java.math {
     method @NonNull public java.math.BigInteger xor(@NonNull java.math.BigInteger);
     field @NonNull public static final java.math.BigInteger ONE;
     field @NonNull public static final java.math.BigInteger TEN;
+    field @NonNull public static final java.math.BigInteger TWO;
     field @NonNull public static final java.math.BigInteger ZERO;
   }
 
@@ -4974,6 +5150,7 @@ package java.net {
     method public java.net.InetAddress getLocalAddress();
     method public int getLocalPort();
     method public java.net.SocketAddress getLocalSocketAddress();
+    method public <T> T getOption(java.net.SocketOption<T>) throws java.io.IOException;
     method public int getPort();
     method public int getReceiveBufferSize() throws java.net.SocketException;
     method public java.net.SocketAddress getRemoteSocketAddress();
@@ -4988,11 +5165,13 @@ package java.net {
     method public void send(java.net.DatagramPacket) throws java.io.IOException;
     method public void setBroadcast(boolean) throws java.net.SocketException;
     method public static void setDatagramSocketImplFactory(java.net.DatagramSocketImplFactory) throws java.io.IOException;
+    method public <T> java.net.DatagramSocket setOption(java.net.SocketOption<T>, T) throws java.io.IOException;
     method public void setReceiveBufferSize(int) throws java.net.SocketException;
     method public void setReuseAddress(boolean) throws java.net.SocketException;
     method public void setSendBufferSize(int) throws java.net.SocketException;
     method public void setSoTimeout(int) throws java.net.SocketException;
     method public void setTrafficClass(int) throws java.net.SocketException;
+    method public java.util.Set<java.net.SocketOption<?>> supportedOptions();
   }
 
   public abstract class DatagramSocketImpl implements java.net.SocketOptions {
@@ -5004,6 +5183,7 @@ package java.net {
     method protected void disconnect();
     method protected java.io.FileDescriptor getFileDescriptor();
     method protected int getLocalPort();
+    method protected <T> T getOption(java.net.SocketOption<T>) throws java.io.IOException;
     method @Deprecated protected abstract byte getTTL() throws java.io.IOException;
     method protected abstract int getTimeToLive() throws java.io.IOException;
     method protected abstract void join(java.net.InetAddress) throws java.io.IOException;
@@ -5014,8 +5194,10 @@ package java.net {
     method protected abstract int peekData(java.net.DatagramPacket) throws java.io.IOException;
     method protected abstract void receive(java.net.DatagramPacket) throws java.io.IOException;
     method protected abstract void send(java.net.DatagramPacket) throws java.io.IOException;
+    method protected <T> void setOption(java.net.SocketOption<T>, T) throws java.io.IOException;
     method @Deprecated protected abstract void setTTL(byte) throws java.io.IOException;
     method protected abstract void setTimeToLive(int) throws java.io.IOException;
+    method protected java.util.Set<java.net.SocketOption<?>> supportedOptions();
     field protected java.io.FileDescriptor fd;
     field protected int localPort;
   }
@@ -5336,17 +5518,20 @@ package java.net {
     method public java.net.InetAddress getInetAddress();
     method public int getLocalPort();
     method public java.net.SocketAddress getLocalSocketAddress();
+    method public <T> T getOption(java.net.SocketOption<T>) throws java.io.IOException;
     method public int getReceiveBufferSize() throws java.net.SocketException;
     method public boolean getReuseAddress() throws java.net.SocketException;
     method public int getSoTimeout() throws java.io.IOException;
     method protected final void implAccept(java.net.Socket) throws java.io.IOException;
     method public boolean isBound();
     method public boolean isClosed();
+    method public <T> java.net.ServerSocket setOption(java.net.SocketOption<T>, T) throws java.io.IOException;
     method public void setPerformancePreferences(int, int, int);
     method public void setReceiveBufferSize(int) throws java.net.SocketException;
     method public void setReuseAddress(boolean) throws java.net.SocketException;
     method public void setSoTimeout(int) throws java.net.SocketException;
     method public static void setSocketFactory(java.net.SocketImplFactory) throws java.io.IOException;
+    method public java.util.Set<java.net.SocketOption<?>> supportedOptions();
   }
 
   public class Socket implements java.io.Closeable {
@@ -5371,6 +5556,7 @@ package java.net {
     method public int getLocalPort();
     method public java.net.SocketAddress getLocalSocketAddress();
     method public boolean getOOBInline() throws java.net.SocketException;
+    method public <T> T getOption(java.net.SocketOption<T>) throws java.io.IOException;
     method public java.io.OutputStream getOutputStream() throws java.io.IOException;
     method public int getPort();
     method public int getReceiveBufferSize() throws java.net.SocketException;
@@ -5389,6 +5575,7 @@ package java.net {
     method public void sendUrgentData(int) throws java.io.IOException;
     method public void setKeepAlive(boolean) throws java.net.SocketException;
     method public void setOOBInline(boolean) throws java.net.SocketException;
+    method public <T> java.net.Socket setOption(java.net.SocketOption<T>, T) throws java.io.IOException;
     method public void setPerformancePreferences(int, int, int);
     method public void setReceiveBufferSize(int) throws java.net.SocketException;
     method public void setReuseAddress(boolean) throws java.net.SocketException;
@@ -5400,6 +5587,7 @@ package java.net {
     method public void setTrafficClass(int) throws java.net.SocketException;
     method public void shutdownInput() throws java.io.IOException;
     method public void shutdownOutput() throws java.io.IOException;
+    method public java.util.Set<java.net.SocketOption<?>> supportedOptions();
   }
 
   public abstract class SocketAddress implements java.io.Serializable {
@@ -5425,13 +5613,16 @@ package java.net {
     method protected java.net.InetAddress getInetAddress();
     method protected abstract java.io.InputStream getInputStream() throws java.io.IOException;
     method protected int getLocalPort();
+    method protected <T> T getOption(java.net.SocketOption<T>) throws java.io.IOException;
     method protected abstract java.io.OutputStream getOutputStream() throws java.io.IOException;
     method protected int getPort();
     method protected abstract void listen(int) throws java.io.IOException;
     method protected abstract void sendUrgentData(int) throws java.io.IOException;
+    method protected <T> void setOption(java.net.SocketOption<T>, T) throws java.io.IOException;
     method protected void setPerformancePreferences(int, int, int);
     method protected void shutdownInput() throws java.io.IOException;
     method protected void shutdownOutput() throws java.io.IOException;
+    method protected java.util.Set<java.net.SocketOption<?>> supportedOptions();
     method protected boolean supportsUrgentData();
     field protected java.net.InetAddress address;
     field protected java.io.FileDescriptor fd;
@@ -5462,6 +5653,7 @@ package java.net {
     field public static final int SO_OOBINLINE = 4099; // 0x1003
     field public static final int SO_RCVBUF = 4098; // 0x1002
     field public static final int SO_REUSEADDR = 4; // 0x4
+    field public static final int SO_REUSEPORT = 14; // 0xe
     field public static final int SO_SNDBUF = 4097; // 0x1001
     field public static final int SO_TIMEOUT = 4102; // 0x1006
     field public static final int TCP_NODELAY = 1; // 0x1
@@ -5493,6 +5685,7 @@ package java.net {
     field public static final java.net.SocketOption<java.lang.Integer> SO_LINGER;
     field public static final java.net.SocketOption<java.lang.Integer> SO_RCVBUF;
     field public static final java.net.SocketOption<java.lang.Boolean> SO_REUSEADDR;
+    field public static final java.net.SocketOption<java.lang.Boolean> SO_REUSEPORT;
     field public static final java.net.SocketOption<java.lang.Integer> SO_SNDBUF;
     field public static final java.net.SocketOption<java.lang.Boolean> TCP_NODELAY;
   }
@@ -5646,11 +5839,13 @@ package java.net {
     ctor public URLDecoder();
     method @Deprecated public static String decode(String);
     method public static String decode(String, String) throws java.io.UnsupportedEncodingException;
+    method public static String decode(String, java.nio.charset.Charset);
   }
 
   public class URLEncoder {
     method @Deprecated public static String encode(String);
     method public static String encode(String, String) throws java.io.UnsupportedEncodingException;
+    method public static String encode(String, java.nio.charset.Charset);
   }
 
   public abstract class URLStreamHandler {
@@ -5716,6 +5911,8 @@ package java.nio {
   }
 
   public abstract class ByteBuffer extends java.nio.Buffer implements java.lang.Comparable<java.nio.ByteBuffer> {
+    method @NonNull public final java.nio.ByteBuffer alignedSlice(int);
+    method public final int alignmentOffset(int, int);
     method @NonNull public static java.nio.ByteBuffer allocate(int);
     method @NonNull public static java.nio.ByteBuffer allocateDirect(int);
     method @NonNull public final byte[] array();
@@ -6060,8 +6257,10 @@ package java.nio.channels {
     method public static java.io.OutputStream newOutputStream(java.nio.channels.AsynchronousByteChannel);
     method public static java.io.Reader newReader(java.nio.channels.ReadableByteChannel, java.nio.charset.CharsetDecoder, int);
     method public static java.io.Reader newReader(java.nio.channels.ReadableByteChannel, String);
+    method public static java.io.Reader newReader(java.nio.channels.ReadableByteChannel, java.nio.charset.Charset);
     method public static java.io.Writer newWriter(java.nio.channels.WritableByteChannel, java.nio.charset.CharsetEncoder, int);
     method public static java.io.Writer newWriter(java.nio.channels.WritableByteChannel, String);
+    method public static java.io.Writer newWriter(java.nio.channels.WritableByteChannel, java.nio.charset.Charset);
   }
 
   public class ClosedByInterruptException extends java.nio.channels.AsynchronousCloseException {
@@ -6279,6 +6478,8 @@ package java.nio.channels {
     method public abstract java.nio.channels.SelectableChannel channel();
     method public abstract int interestOps();
     method public abstract java.nio.channels.SelectionKey interestOps(int);
+    method public int interestOpsAnd(int);
+    method public int interestOpsOr(int);
     method public final boolean isAcceptable();
     method public final boolean isConnectable();
     method public final boolean isReadable();
@@ -6300,7 +6501,10 @@ package java.nio.channels {
     method public abstract java.nio.channels.spi.SelectorProvider provider();
     method public abstract int select(long) throws java.io.IOException;
     method public abstract int select() throws java.io.IOException;
+    method public int select(java.util.function.Consumer<java.nio.channels.SelectionKey>, long) throws java.io.IOException;
+    method public int select(java.util.function.Consumer<java.nio.channels.SelectionKey>) throws java.io.IOException;
     method public abstract int selectNow() throws java.io.IOException;
+    method public int selectNow(java.util.function.Consumer<java.nio.channels.SelectionKey>) throws java.io.IOException;
     method public abstract java.util.Set<java.nio.channels.SelectionKey> selectedKeys();
     method public abstract java.nio.channels.Selector wakeup();
   }
@@ -6628,6 +6832,7 @@ package java.nio.file {
   public abstract class FileStore {
     ctor protected FileStore();
     method public abstract Object getAttribute(String) throws java.io.IOException;
+    method public long getBlockSize() throws java.io.IOException;
     method public abstract <V extends java.nio.file.attribute.FileStoreAttributeView> V getFileStoreAttributeView(Class<V>);
     method public abstract long getTotalSpace() throws java.io.IOException;
     method public abstract long getUnallocatedSpace() throws java.io.IOException;
@@ -7493,6 +7698,8 @@ package java.security {
     method public static java.security.KeyStore getInstance(String) throws java.security.KeyStoreException;
     method public static java.security.KeyStore getInstance(String, String) throws java.security.KeyStoreException, java.security.NoSuchProviderException;
     method public static java.security.KeyStore getInstance(String, java.security.Provider) throws java.security.KeyStoreException;
+    method public static final java.security.KeyStore getInstance(java.io.File, char[]) throws java.security.cert.CertificateException, java.io.IOException, java.security.KeyStoreException, java.security.NoSuchAlgorithmException;
+    method public static final java.security.KeyStore getInstance(java.io.File, java.security.KeyStore.LoadStoreParameter) throws java.security.cert.CertificateException, java.io.IOException, java.security.KeyStoreException, java.security.NoSuchAlgorithmException;
     method public final java.security.Key getKey(String, char[]) throws java.security.KeyStoreException, java.security.NoSuchAlgorithmException, java.security.UnrecoverableKeyException;
     method public final java.security.Provider getProvider();
     method public final String getType();
@@ -7515,6 +7722,7 @@ package java.security {
     method public abstract java.security.KeyStore.ProtectionParameter getProtectionParameter(String) throws java.security.KeyStoreException;
     method public static java.security.KeyStore.Builder newInstance(java.security.KeyStore, java.security.KeyStore.ProtectionParameter);
     method public static java.security.KeyStore.Builder newInstance(String, java.security.Provider, java.io.File, java.security.KeyStore.ProtectionParameter);
+    method public static java.security.KeyStore.Builder newInstance(java.io.File, java.security.KeyStore.ProtectionParameter);
     method public static java.security.KeyStore.Builder newInstance(String, java.security.Provider, java.security.KeyStore.ProtectionParameter);
   }
 
@@ -7590,6 +7798,7 @@ package java.security {
     method public abstract boolean engineIsKeyEntry(String);
     method public abstract void engineLoad(java.io.InputStream, char[]) throws java.security.cert.CertificateException, java.io.IOException, java.security.NoSuchAlgorithmException;
     method public void engineLoad(java.security.KeyStore.LoadStoreParameter) throws java.security.cert.CertificateException, java.io.IOException, java.security.NoSuchAlgorithmException;
+    method public boolean engineProbe(java.io.InputStream) throws java.io.IOException;
     method public abstract void engineSetCertificateEntry(String, java.security.cert.Certificate) throws java.security.KeyStoreException;
     method public void engineSetEntry(String, java.security.KeyStore.Entry, java.security.KeyStore.ProtectionParameter) throws java.security.KeyStoreException;
     method public abstract void engineSetKeyEntry(String, java.security.Key, char[], java.security.cert.Certificate[]) throws java.security.KeyStoreException;
@@ -7942,56 +8151,56 @@ package java.security {
 
 package java.security.acl {
 
-  public interface Acl extends java.security.acl.Owner {
-    method public boolean addEntry(java.security.Principal, java.security.acl.AclEntry) throws java.security.acl.NotOwnerException;
-    method public boolean checkPermission(java.security.Principal, java.security.acl.Permission);
-    method public java.util.Enumeration<java.security.acl.AclEntry> entries();
-    method public String getName();
-    method public java.util.Enumeration<java.security.acl.Permission> getPermissions(java.security.Principal);
-    method public boolean removeEntry(java.security.Principal, java.security.acl.AclEntry) throws java.security.acl.NotOwnerException;
-    method public void setName(java.security.Principal, String) throws java.security.acl.NotOwnerException;
-    method public String toString();
+  @Deprecated public interface Acl extends java.security.acl.Owner {
+    method @Deprecated public boolean addEntry(java.security.Principal, java.security.acl.AclEntry) throws java.security.acl.NotOwnerException;
+    method @Deprecated public boolean checkPermission(java.security.Principal, java.security.acl.Permission);
+    method @Deprecated public java.util.Enumeration<java.security.acl.AclEntry> entries();
+    method @Deprecated public String getName();
+    method @Deprecated public java.util.Enumeration<java.security.acl.Permission> getPermissions(java.security.Principal);
+    method @Deprecated public boolean removeEntry(java.security.Principal, java.security.acl.AclEntry) throws java.security.acl.NotOwnerException;
+    method @Deprecated public void setName(java.security.Principal, String) throws java.security.acl.NotOwnerException;
+    method @Deprecated public String toString();
   }
 
-  public interface AclEntry extends java.lang.Cloneable {
-    method public boolean addPermission(java.security.acl.Permission);
-    method public boolean checkPermission(java.security.acl.Permission);
-    method public Object clone();
-    method public java.security.Principal getPrincipal();
-    method public boolean isNegative();
-    method public java.util.Enumeration<java.security.acl.Permission> permissions();
-    method public boolean removePermission(java.security.acl.Permission);
-    method public void setNegativePermissions();
-    method public boolean setPrincipal(java.security.Principal);
-    method public String toString();
+  @Deprecated public interface AclEntry extends java.lang.Cloneable {
+    method @Deprecated public boolean addPermission(java.security.acl.Permission);
+    method @Deprecated public boolean checkPermission(java.security.acl.Permission);
+    method @Deprecated public Object clone();
+    method @Deprecated public java.security.Principal getPrincipal();
+    method @Deprecated public boolean isNegative();
+    method @Deprecated public java.util.Enumeration<java.security.acl.Permission> permissions();
+    method @Deprecated public boolean removePermission(java.security.acl.Permission);
+    method @Deprecated public void setNegativePermissions();
+    method @Deprecated public boolean setPrincipal(java.security.Principal);
+    method @Deprecated public String toString();
   }
 
-  public class AclNotFoundException extends java.lang.Exception {
-    ctor public AclNotFoundException();
+  @Deprecated public class AclNotFoundException extends java.lang.Exception {
+    ctor @Deprecated public AclNotFoundException();
   }
 
-  public interface Group extends java.security.Principal {
-    method public boolean addMember(java.security.Principal);
-    method public boolean isMember(java.security.Principal);
-    method public java.util.Enumeration<? extends java.security.Principal> members();
-    method public boolean removeMember(java.security.Principal);
+  @Deprecated public interface Group extends java.security.Principal {
+    method @Deprecated public boolean addMember(java.security.Principal);
+    method @Deprecated public boolean isMember(java.security.Principal);
+    method @Deprecated public java.util.Enumeration<? extends java.security.Principal> members();
+    method @Deprecated public boolean removeMember(java.security.Principal);
   }
 
-  public class LastOwnerException extends java.lang.Exception {
-    ctor public LastOwnerException();
+  @Deprecated public class LastOwnerException extends java.lang.Exception {
+    ctor @Deprecated public LastOwnerException();
   }
 
-  public class NotOwnerException extends java.lang.Exception {
-    ctor public NotOwnerException();
+  @Deprecated public class NotOwnerException extends java.lang.Exception {
+    ctor @Deprecated public NotOwnerException();
   }
 
-  public interface Owner {
-    method public boolean addOwner(java.security.Principal, java.security.Principal) throws java.security.acl.NotOwnerException;
-    method public boolean deleteOwner(java.security.Principal, java.security.Principal) throws java.security.acl.LastOwnerException, java.security.acl.NotOwnerException;
-    method public boolean isOwner(java.security.Principal);
+  @Deprecated public interface Owner {
+    method @Deprecated public boolean addOwner(java.security.Principal, java.security.Principal) throws java.security.acl.NotOwnerException;
+    method @Deprecated public boolean deleteOwner(java.security.Principal, java.security.Principal) throws java.security.acl.LastOwnerException, java.security.acl.NotOwnerException;
+    method @Deprecated public boolean isOwner(java.security.Principal);
   }
 
-  public interface Permission {
+  @Deprecated public interface Permission {
   }
 
 }
@@ -8399,6 +8608,12 @@ package java.security.cert {
     method public final java.security.cert.X509Certificate getTrustedCert();
   }
 
+  public final class URICertStoreParameters implements java.security.cert.CertStoreParameters {
+    ctor public URICertStoreParameters(java.net.URI);
+    method public java.security.cert.URICertStoreParameters clone();
+    method public java.net.URI getURI();
+  }
+
   public abstract class X509CRL extends java.security.cert.CRL implements java.security.cert.X509Extension {
     ctor protected X509CRL();
     method public abstract byte[] getEncoded() throws java.security.cert.CRLException;
@@ -8583,6 +8798,18 @@ package java.security.interfaces {
     field public static final long serialVersionUID = -3314988629879632826L; // 0xd1fecb679990cc46L
   }
 
+  public interface EdECKey {
+    method public java.security.spec.NamedParameterSpec getParams();
+  }
+
+  public interface EdECPrivateKey extends java.security.interfaces.EdECKey java.security.PrivateKey {
+    method public java.util.Optional<byte[]> getBytes();
+  }
+
+  public interface EdECPublicKey extends java.security.interfaces.EdECKey java.security.PublicKey {
+    method public java.security.spec.EdECPoint getPoint();
+  }
+
   public interface RSAKey {
     method public java.math.BigInteger getModulus();
   }
@@ -8616,6 +8843,18 @@ package java.security.interfaces {
   public interface RSAPublicKey extends java.security.PublicKey java.security.interfaces.RSAKey {
     method public java.math.BigInteger getPublicExponent();
     field public static final long serialVersionUID = -8727434096241101194L; // 0x86e1ecedeceab676L
+  }
+
+  public interface XECKey {
+    method public java.security.spec.AlgorithmParameterSpec getParams();
+  }
+
+  public interface XECPrivateKey extends java.security.interfaces.XECKey java.security.PrivateKey {
+    method public java.util.Optional<byte[]> getScalar();
+  }
+
+  public interface XECPublicKey extends java.security.interfaces.XECKey java.security.PublicKey {
+    method public java.math.BigInteger getU();
   }
 
 }
@@ -8668,9 +8907,8 @@ package java.security.spec {
     method public java.math.BigInteger getP();
   }
 
-  public class ECGenParameterSpec implements java.security.spec.AlgorithmParameterSpec {
+  public class ECGenParameterSpec extends java.security.spec.NamedParameterSpec implements java.security.spec.AlgorithmParameterSpec {
     ctor public ECGenParameterSpec(String);
-    method public String getName();
   }
 
   public class ECParameterSpec implements java.security.spec.AlgorithmParameterSpec {
@@ -8698,6 +8936,24 @@ package java.security.spec {
     ctor public ECPublicKeySpec(java.security.spec.ECPoint, java.security.spec.ECParameterSpec);
     method public java.security.spec.ECParameterSpec getParams();
     method public java.security.spec.ECPoint getW();
+  }
+
+  public final class EdECPoint {
+    ctor public EdECPoint(boolean, @NonNull java.math.BigInteger);
+    method @NonNull public java.math.BigInteger getY();
+    method public boolean isXOdd();
+  }
+
+  public final class EdECPrivateKeySpec implements java.security.spec.KeySpec {
+    ctor public EdECPrivateKeySpec(@NonNull java.security.spec.NamedParameterSpec, @NonNull byte[]);
+    method @NonNull public byte[] getBytes();
+    method @NonNull public java.security.spec.NamedParameterSpec getParams();
+  }
+
+  public final class EdECPublicKeySpec implements java.security.spec.KeySpec {
+    ctor public EdECPublicKeySpec(@NonNull java.security.spec.NamedParameterSpec, @NonNull java.security.spec.EdECPoint);
+    method @NonNull public java.security.spec.NamedParameterSpec getParams();
+    method @NonNull public java.security.spec.EdECPoint getPoint();
   }
 
   public class EllipticCurve {
@@ -8738,6 +8994,15 @@ package java.security.spec {
     field public static final java.security.spec.MGF1ParameterSpec SHA256;
     field public static final java.security.spec.MGF1ParameterSpec SHA384;
     field public static final java.security.spec.MGF1ParameterSpec SHA512;
+  }
+
+  public class NamedParameterSpec implements java.security.spec.AlgorithmParameterSpec {
+    ctor public NamedParameterSpec(@NonNull String);
+    method @NonNull public String getName();
+    field public static final java.security.spec.NamedParameterSpec ED25519;
+    field public static final java.security.spec.NamedParameterSpec ED448;
+    field public static final java.security.spec.NamedParameterSpec X25519;
+    field public static final java.security.spec.NamedParameterSpec X448;
   }
 
   public class PKCS8EncodedKeySpec extends java.security.spec.EncodedKeySpec {
@@ -8807,6 +9072,18 @@ package java.security.spec {
   public class X509EncodedKeySpec extends java.security.spec.EncodedKeySpec {
     ctor public X509EncodedKeySpec(byte[]);
     method public final String getFormat();
+  }
+
+  public class XECPrivateKeySpec implements java.security.spec.KeySpec {
+    ctor public XECPrivateKeySpec(java.security.spec.AlgorithmParameterSpec, byte[]);
+    method public java.security.spec.AlgorithmParameterSpec getParams();
+    method public byte[] getScalar();
+  }
+
+  public class XECPublicKeySpec implements java.security.spec.KeySpec {
+    ctor public XECPublicKeySpec(java.security.spec.AlgorithmParameterSpec, java.math.BigInteger);
+    method public java.security.spec.AlgorithmParameterSpec getParams();
+    method public java.math.BigInteger getU();
   }
 
 }
@@ -12256,6 +12533,34 @@ package java.util {
     method public static int binarySearch(@NonNull Object[], int, int, @NonNull Object);
     method public static <T> int binarySearch(@NonNull T[], T, @Nullable java.util.Comparator<? super T>);
     method public static <T> int binarySearch(@NonNull T[], int, int, T, @Nullable java.util.Comparator<? super T>);
+    method public static int compare(@Nullable boolean[], @Nullable boolean[]);
+    method public static int compare(@NonNull boolean[], int, int, @NonNull boolean[], int, int);
+    method public static int compare(@Nullable byte[], @Nullable byte[]);
+    method public static int compare(@NonNull byte[], int, int, @NonNull byte[], int, int);
+    method public static int compare(@Nullable short[], @Nullable short[]);
+    method public static int compare(@NonNull short[], int, int, @NonNull short[], int, int);
+    method public static int compare(@Nullable char[], @Nullable char[]);
+    method public static int compare(@NonNull char[], int, int, @NonNull char[], int, int);
+    method public static int compare(@Nullable int[], @Nullable int[]);
+    method public static int compare(@NonNull int[], int, int, @NonNull int[], int, int);
+    method public static int compare(@Nullable long[], @Nullable long[]);
+    method public static int compare(@NonNull long[], int, int, @NonNull long[], int, int);
+    method public static int compare(@Nullable float[], @Nullable float[]);
+    method public static int compare(@NonNull float[], int, int, @NonNull float[], int, int);
+    method public static int compare(@Nullable double[], @Nullable double[]);
+    method public static int compare(@NonNull double[], int, int, @NonNull double[], int, int);
+    method public static <T extends java.lang.Comparable<? super T>> int compare(@Nullable T[], @Nullable T[]);
+    method public static <T extends java.lang.Comparable<? super T>> int compare(@NonNull T[], int, int, @NonNull T[], int, int);
+    method public static <T> int compare(@Nullable T[], @Nullable T[], @NonNull java.util.Comparator<? super T>);
+    method public static <T> int compare(@NonNull T[], int, int, @NonNull T[], int, int, @NonNull java.util.Comparator<? super T>);
+    method public static int compareUnsigned(@Nullable byte[], @Nullable byte[]);
+    method public static int compareUnsigned(@NonNull byte[], int, int, @NonNull byte[], int, int);
+    method public static int compareUnsigned(@Nullable short[], @Nullable short[]);
+    method public static int compareUnsigned(@NonNull short[], int, int, @NonNull short[], int, int);
+    method public static int compareUnsigned(@Nullable int[], @Nullable int[]);
+    method public static int compareUnsigned(@NonNull int[], int, int, @NonNull int[], int, int);
+    method public static int compareUnsigned(@Nullable long[], @Nullable long[]);
+    method public static int compareUnsigned(@NonNull long[], int, int, @NonNull long[], int, int);
     method @NonNull public static <T> T[] copyOf(@NonNull T[], int);
     method @NonNull public static <T, U> T[] copyOf(@NonNull U[], int, @NonNull Class<? extends T[]>);
     method @NonNull public static byte[] copyOf(@NonNull byte[], int);
@@ -12280,14 +12585,25 @@ package java.util {
     method public static int deepHashCode(@Nullable Object[]);
     method @NonNull public static String deepToString(@Nullable Object[]);
     method public static boolean equals(@Nullable long[], @Nullable long[]);
+    method public static boolean equals(@NonNull long[], int, int, @NonNull long[], int, int);
     method public static boolean equals(@Nullable int[], @Nullable int[]);
+    method public static boolean equals(@NonNull int[], int, int, @NonNull int[], int, int);
     method public static boolean equals(@Nullable short[], @Nullable short[]);
+    method public static boolean equals(@NonNull short[], int, int, @NonNull short[], int, int);
     method public static boolean equals(@Nullable char[], @Nullable char[]);
+    method public static boolean equals(@NonNull char[], int, int, @NonNull char[], int, int);
     method public static boolean equals(@Nullable byte[], @Nullable byte[]);
+    method public static boolean equals(@NonNull byte[], int, int, @NonNull byte[], int, int);
     method public static boolean equals(@Nullable boolean[], @Nullable boolean[]);
+    method public static boolean equals(@NonNull boolean[], int, int, @NonNull boolean[], int, int);
     method public static boolean equals(@Nullable double[], @Nullable double[]);
+    method public static boolean equals(@NonNull double[], int, int, @NonNull double[], int, int);
     method public static boolean equals(@Nullable float[], @Nullable float[]);
+    method public static boolean equals(@NonNull float[], int, int, @NonNull float[], int, int);
     method public static boolean equals(@Nullable Object[], @Nullable Object[]);
+    method public static boolean equals(@NonNull Object[], int, int, @NonNull Object[], int, int);
+    method public static <T> boolean equals(@Nullable T[], @Nullable T[], @NonNull java.util.Comparator<? super T>);
+    method public static <T> boolean equals(@NonNull T[], int, int, @NonNull T[], int, int, @NonNull java.util.Comparator<? super T>);
     method public static void fill(@NonNull long[], long);
     method public static void fill(@NonNull long[], int, int, long);
     method public static void fill(@NonNull int[], int);
@@ -12315,6 +12631,26 @@ package java.util {
     method public static int hashCode(@Nullable float[]);
     method public static int hashCode(@Nullable double[]);
     method public static int hashCode(@Nullable Object[]);
+    method public static int mismatch(@NonNull boolean[], @NonNull boolean[]);
+    method public static int mismatch(@NonNull boolean[], int, int, @NonNull boolean[], int, int);
+    method public static int mismatch(@NonNull byte[], @NonNull byte[]);
+    method public static int mismatch(byte[], int, int, byte[], int, int);
+    method public static int mismatch(@NonNull char[], @NonNull char[]);
+    method public static int mismatch(@NonNull char[], int, int, @NonNull char[], int, int);
+    method public static int mismatch(@NonNull short[], @NonNull short[]);
+    method public static int mismatch(@NonNull short[], int, int, @NonNull short[], int, int);
+    method public static int mismatch(@NonNull int[], @NonNull int[]);
+    method public static int mismatch(@NonNull int[], int, int, @NonNull int[], int, int);
+    method public static int mismatch(@NonNull long[], @NonNull long[]);
+    method public static int mismatch(@NonNull long[], int, int, @NonNull long[], int, int);
+    method public static int mismatch(@NonNull float[], @NonNull float[]);
+    method public static int mismatch(@NonNull float[], int, int, @NonNull float[], int, int);
+    method public static int mismatch(@NonNull double[], @NonNull double[]);
+    method public static int mismatch(@NonNull double[], int, int, @NonNull double[], int, int);
+    method public static int mismatch(@NonNull Object[], @NonNull Object[]);
+    method public static int mismatch(@NonNull Object[], int, int, @NonNull Object[], int, int);
+    method public static <T> int mismatch(@NonNull T[], @NonNull T[], @NonNull java.util.Comparator<? super T>);
+    method public static <T> int mismatch(@NonNull T[], int, int, @NonNull T[], int, int, @NonNull java.util.Comparator<? super T>);
     method public static <T> void parallelPrefix(@NonNull T[], @NonNull java.util.function.BinaryOperator<T>);
     method public static <T> void parallelPrefix(@NonNull T[], int, int, @NonNull java.util.function.BinaryOperator<T>);
     method public static void parallelPrefix(@NonNull long[], @NonNull java.util.function.LongBinaryOperator);
@@ -12607,6 +12943,7 @@ package java.util {
     method @NonNull public default java.util.stream.Stream<E> stream();
     method @NonNull public Object[] toArray();
     method @NonNull public <T> T[] toArray(@NonNull T[]);
+    method @NonNull public default <T> T[] toArray(@NonNull java.util.function.IntFunction<T[]>);
   }
 
   public class Collections {
@@ -12833,6 +13170,7 @@ package java.util {
   }
 
   public interface Enumeration<E> {
+    method public default java.util.Iterator<E> asIterator();
     method public boolean hasMoreElements();
     method public E nextElement();
   }
@@ -13020,6 +13358,7 @@ package java.util {
 
   public class IntSummaryStatistics implements java.util.function.IntConsumer {
     ctor public IntSummaryStatistics();
+    ctor public IntSummaryStatistics(long, int, int, long) throws java.lang.IllegalArgumentException;
     method public void accept(int);
     method public void combine(java.util.IntSummaryStatistics);
     method public final double getAverage();
@@ -13244,6 +13583,7 @@ package java.util {
 
   public class LongSummaryStatistics implements java.util.function.IntConsumer java.util.function.LongConsumer {
     ctor public LongSummaryStatistics();
+    ctor public LongSummaryStatistics(long, long, long, long) throws java.lang.IllegalArgumentException;
     method public void accept(int);
     method public void accept(long);
     method public void combine(java.util.LongSummaryStatistics);
@@ -13384,69 +13724,86 @@ package java.util {
     method @NonNull public static String toString(@Nullable Object, @NonNull String);
   }
 
-  public class Observable {
-    ctor public Observable();
-    method public void addObserver(java.util.Observer);
-    method protected void clearChanged();
-    method public int countObservers();
-    method public void deleteObserver(java.util.Observer);
-    method public void deleteObservers();
-    method public boolean hasChanged();
-    method public void notifyObservers();
-    method public void notifyObservers(Object);
-    method protected void setChanged();
+  @Deprecated public class Observable {
+    ctor @Deprecated public Observable();
+    method @Deprecated public void addObserver(java.util.Observer);
+    method @Deprecated protected void clearChanged();
+    method @Deprecated public int countObservers();
+    method @Deprecated public void deleteObserver(java.util.Observer);
+    method @Deprecated public void deleteObservers();
+    method @Deprecated public boolean hasChanged();
+    method @Deprecated public void notifyObservers();
+    method @Deprecated public void notifyObservers(Object);
+    method @Deprecated protected void setChanged();
   }
 
-  public interface Observer {
-    method public void update(java.util.Observable, Object);
+  @Deprecated public interface Observer {
+    method @Deprecated public void update(java.util.Observable, Object);
   }
 
   public final class Optional<T> {
     method public static <T> java.util.Optional<T> empty();
     method public java.util.Optional<T> filter(java.util.function.Predicate<? super T>);
-    method public <U> java.util.Optional<U> flatMap(java.util.function.Function<? super T,java.util.Optional<U>>);
+    method public <U> java.util.Optional<U> flatMap(java.util.function.Function<? super T,? extends java.util.Optional<? extends U>>);
     method public T get();
     method public void ifPresent(java.util.function.Consumer<? super T>);
+    method public void ifPresentOrElse(java.util.function.Consumer<? super T>, Runnable);
+    method public boolean isEmpty();
     method public boolean isPresent();
     method public <U> java.util.Optional<U> map(java.util.function.Function<? super T,? extends U>);
     method public static <T> java.util.Optional<T> of(T);
     method public static <T> java.util.Optional<T> ofNullable(T);
+    method public java.util.Optional<T> or(java.util.function.Supplier<? extends java.util.Optional<? extends T>>);
     method public T orElse(T);
     method public T orElseGet(java.util.function.Supplier<? extends T>);
+    method public T orElseThrow();
     method public <X extends java.lang.Throwable> T orElseThrow(java.util.function.Supplier<? extends X>) throws X;
+    method public java.util.stream.Stream<T> stream();
   }
 
   public final class OptionalDouble {
     method public static java.util.OptionalDouble empty();
     method public double getAsDouble();
     method public void ifPresent(java.util.function.DoubleConsumer);
+    method public void ifPresentOrElse(java.util.function.DoubleConsumer, Runnable);
+    method public boolean isEmpty();
     method public boolean isPresent();
     method public static java.util.OptionalDouble of(double);
     method public double orElse(double);
     method public double orElseGet(java.util.function.DoubleSupplier);
-    method public <X extends java.lang.Throwable> double orElseThrow(java.util.function.Supplier<X>) throws X;
+    method public double orElseThrow();
+    method public <X extends java.lang.Throwable> double orElseThrow(java.util.function.Supplier<? extends X>) throws X;
+    method public java.util.stream.DoubleStream stream();
   }
 
   public final class OptionalInt {
     method public static java.util.OptionalInt empty();
     method public int getAsInt();
     method public void ifPresent(java.util.function.IntConsumer);
+    method public void ifPresentOrElse(java.util.function.IntConsumer, Runnable);
+    method public boolean isEmpty();
     method public boolean isPresent();
     method public static java.util.OptionalInt of(int);
     method public int orElse(int);
     method public int orElseGet(java.util.function.IntSupplier);
-    method public <X extends java.lang.Throwable> int orElseThrow(java.util.function.Supplier<X>) throws X;
+    method public int orElseThrow();
+    method public <X extends java.lang.Throwable> int orElseThrow(java.util.function.Supplier<? extends X>) throws X;
+    method public java.util.stream.IntStream stream();
   }
 
   public final class OptionalLong {
     method public static java.util.OptionalLong empty();
     method public long getAsLong();
     method public void ifPresent(java.util.function.LongConsumer);
+    method public void ifPresentOrElse(java.util.function.LongConsumer, Runnable);
+    method public boolean isEmpty();
     method public boolean isPresent();
     method public static java.util.OptionalLong of(long);
     method public long orElse(long);
     method public long orElseGet(java.util.function.LongSupplier);
-    method public <X extends java.lang.Throwable> long orElseThrow(java.util.function.Supplier<X>) throws X;
+    method public long orElseThrow();
+    method public <X extends java.lang.Throwable> long orElseThrow(java.util.function.Supplier<? extends X>) throws X;
+    method public java.util.stream.LongStream stream();
   }
 
   public interface PrimitiveIterator<T, T_CONS> extends java.util.Iterator<T> {
@@ -13861,6 +14218,7 @@ package java.util {
     method public java.util.stream.LongStream longs(long, long, long);
     method public java.util.stream.LongStream longs(long, long);
     method public boolean nextBoolean();
+    method public void nextBytes(byte[]);
     method public double nextDouble();
     method public double nextDouble(double);
     method public double nextDouble(double, double);
@@ -14105,6 +14463,7 @@ package java.util.concurrent {
     ctor public ArrayBlockingQueue(int, boolean, java.util.Collection<? extends E>);
     method public int drainTo(java.util.Collection<? super E>);
     method public int drainTo(java.util.Collection<? super E>, int);
+    method public void forEach(java.util.function.Consumer<? super E>);
     method public java.util.Iterator<E> iterator();
     method public boolean offer(E);
     method public boolean offer(E, long, java.util.concurrent.TimeUnit) throws java.lang.InterruptedException;
@@ -14345,7 +14704,7 @@ package java.util.concurrent {
     method public final boolean isEmpty();
     method @NonNull public java.util.Iterator<K> iterator();
     method public boolean remove(@NonNull Object);
-    method public final boolean removeAll(@NonNull java.util.Collection<?>);
+    method public boolean removeAll(@NonNull java.util.Collection<?>);
     method public final boolean retainAll(@NonNull java.util.Collection<?>);
     method public final int size();
     method @NonNull public java.util.Spliterator<K> spliterator();
@@ -14361,6 +14720,7 @@ package java.util.concurrent {
     method public void addLast(E);
     method public java.util.Iterator<E> descendingIterator();
     method public E element();
+    method public void forEach(java.util.function.Consumer<? super E>);
     method public E getFirst();
     method public E getLast();
     method public java.util.Iterator<E> iterator();
@@ -14386,6 +14746,7 @@ package java.util.concurrent {
   public class ConcurrentLinkedQueue<E> extends java.util.AbstractQueue<E> implements java.util.Queue<E> java.io.Serializable {
     ctor public ConcurrentLinkedQueue();
     ctor public ConcurrentLinkedQueue(java.util.Collection<? extends E>);
+    method public void forEach(java.util.function.Consumer<? super E>);
     method public java.util.Iterator<E> iterator();
     method public boolean offer(E);
     method public E peek();
@@ -14675,6 +15036,7 @@ package java.util.concurrent {
     ctor public ForkJoinPool();
     ctor public ForkJoinPool(int);
     ctor public ForkJoinPool(int, java.util.concurrent.ForkJoinPool.ForkJoinWorkerThreadFactory, java.lang.Thread.UncaughtExceptionHandler, boolean);
+    ctor public ForkJoinPool(int, java.util.concurrent.ForkJoinPool.ForkJoinWorkerThreadFactory, java.lang.Thread.UncaughtExceptionHandler, boolean, int, int, int, java.util.function.Predicate<? super java.util.concurrent.ForkJoinPool>, long, java.util.concurrent.TimeUnit);
     method public boolean awaitQuiescence(long, java.util.concurrent.TimeUnit);
     method public boolean awaitTermination(long, java.util.concurrent.TimeUnit) throws java.lang.InterruptedException;
     method public static java.util.concurrent.ForkJoinPool commonPool();
@@ -14801,6 +15163,7 @@ package java.util.concurrent {
     method public java.util.Iterator<E> descendingIterator();
     method public int drainTo(java.util.Collection<? super E>);
     method public int drainTo(java.util.Collection<? super E>, int);
+    method public void forEach(java.util.function.Consumer<? super E>);
     method public E getFirst();
     method public E getLast();
     method public java.util.Iterator<E> iterator();
@@ -14841,6 +15204,7 @@ package java.util.concurrent {
     ctor public LinkedBlockingQueue(java.util.Collection<? extends E>);
     method public int drainTo(java.util.Collection<? super E>);
     method public int drainTo(java.util.Collection<? super E>, int);
+    method public void forEach(java.util.function.Consumer<? super E>);
     method public java.util.Iterator<E> iterator();
     method public boolean offer(E, long, java.util.concurrent.TimeUnit) throws java.lang.InterruptedException;
     method public boolean offer(E);
@@ -14858,6 +15222,7 @@ package java.util.concurrent {
     ctor public LinkedTransferQueue(java.util.Collection<? extends E>);
     method public int drainTo(java.util.Collection<? super E>);
     method public int drainTo(java.util.Collection<? super E>, int);
+    method public void forEach(java.util.function.Consumer<? super E>);
     method public int getWaitingConsumerCount();
     method public boolean hasWaitingConsumer();
     method public java.util.Iterator<E> iterator();
@@ -14907,6 +15272,7 @@ package java.util.concurrent {
     method public java.util.Comparator<? super E> comparator();
     method public int drainTo(java.util.Collection<? super E>);
     method public int drainTo(java.util.Collection<? super E>, int);
+    method public void forEach(java.util.function.Consumer<? super E>);
     method public java.util.Iterator<E> iterator();
     method public boolean offer(E);
     method public boolean offer(E, long, java.util.concurrent.TimeUnit);
@@ -15004,6 +15370,29 @@ package java.util.concurrent {
     method public boolean tryAcquire(int, long, java.util.concurrent.TimeUnit) throws java.lang.InterruptedException;
   }
 
+  public class SubmissionPublisher<T> implements java.lang.AutoCloseable java.util.concurrent.Flow.Publisher<T> {
+    ctor public SubmissionPublisher(java.util.concurrent.Executor, int, java.util.function.BiConsumer<? super java.util.concurrent.Flow.Subscriber<? super T>,? super java.lang.Throwable>);
+    ctor public SubmissionPublisher(java.util.concurrent.Executor, int);
+    ctor public SubmissionPublisher();
+    method public void close();
+    method public void closeExceptionally(Throwable);
+    method public java.util.concurrent.CompletableFuture<java.lang.Void> consume(java.util.function.Consumer<? super T>);
+    method public int estimateMaximumLag();
+    method public long estimateMinimumDemand();
+    method public Throwable getClosedException();
+    method public java.util.concurrent.Executor getExecutor();
+    method public int getMaxBufferCapacity();
+    method public int getNumberOfSubscribers();
+    method public java.util.List<java.util.concurrent.Flow.Subscriber<? super T>> getSubscribers();
+    method public boolean hasSubscribers();
+    method public boolean isClosed();
+    method public boolean isSubscribed(java.util.concurrent.Flow.Subscriber<? super T>);
+    method public int offer(T, java.util.function.BiPredicate<java.util.concurrent.Flow.Subscriber<? super T>,? super T>);
+    method public int offer(T, long, java.util.concurrent.TimeUnit, java.util.function.BiPredicate<java.util.concurrent.Flow.Subscriber<? super T>,? super T>);
+    method public int submit(T);
+    method public void subscribe(java.util.concurrent.Flow.Subscriber<? super T>);
+  }
+
   public class SynchronousQueue<E> extends java.util.AbstractQueue<E> implements java.util.concurrent.BlockingQueue<E> java.io.Serializable {
     ctor public SynchronousQueue();
     ctor public SynchronousQueue(boolean);
@@ -15045,7 +15434,7 @@ package java.util.concurrent {
     method public boolean awaitTermination(long, java.util.concurrent.TimeUnit) throws java.lang.InterruptedException;
     method protected void beforeExecute(Thread, Runnable);
     method public void execute(Runnable);
-    method protected void finalize();
+    method @Deprecated protected void finalize();
     method public int getActiveCount();
     method public long getCompletedTaskCount();
     method public int getCorePoolSize();
@@ -15096,9 +15485,12 @@ package java.util.concurrent {
 
   public enum TimeUnit {
     method public long convert(long, java.util.concurrent.TimeUnit);
+    method public long convert(java.time.Duration);
+    method public static java.util.concurrent.TimeUnit of(java.time.temporal.ChronoUnit);
     method public void sleep(long) throws java.lang.InterruptedException;
     method public void timedJoin(Thread, long) throws java.lang.InterruptedException;
     method public void timedWait(Object, long) throws java.lang.InterruptedException;
+    method public java.time.temporal.ChronoUnit toChronoUnit();
     method public long toDays(long);
     method public long toHours(long);
     method public long toMicros(long);
@@ -15135,12 +15527,25 @@ package java.util.concurrent.atomic {
   public class AtomicBoolean implements java.io.Serializable {
     ctor public AtomicBoolean(boolean);
     ctor public AtomicBoolean();
+    method public final boolean compareAndExchange(boolean, boolean);
+    method public final boolean compareAndExchangeAcquire(boolean, boolean);
+    method public final boolean compareAndExchangeRelease(boolean, boolean);
     method public final boolean compareAndSet(boolean, boolean);
     method public final boolean get();
+    method public final boolean getAcquire();
     method public final boolean getAndSet(boolean);
+    method public final boolean getOpaque();
+    method public final boolean getPlain();
     method public final void lazySet(boolean);
     method public final void set(boolean);
-    method public boolean weakCompareAndSet(boolean, boolean);
+    method public final void setOpaque(boolean);
+    method public final void setPlain(boolean);
+    method public final void setRelease(boolean);
+    method @Deprecated public boolean weakCompareAndSet(boolean, boolean);
+    method public final boolean weakCompareAndSetAcquire(boolean, boolean);
+    method public boolean weakCompareAndSetPlain(boolean, boolean);
+    method public final boolean weakCompareAndSetRelease(boolean, boolean);
+    method public final boolean weakCompareAndSetVolatile(boolean, boolean);
   }
 
   public class AtomicInteger extends java.lang.Number implements java.io.Serializable {
@@ -15148,24 +15553,37 @@ package java.util.concurrent.atomic {
     ctor public AtomicInteger();
     method public final int accumulateAndGet(int, java.util.function.IntBinaryOperator);
     method public final int addAndGet(int);
+    method public final int compareAndExchange(int, int);
+    method public final int compareAndExchangeAcquire(int, int);
+    method public final int compareAndExchangeRelease(int, int);
     method public final boolean compareAndSet(int, int);
     method public final int decrementAndGet();
     method public double doubleValue();
     method public float floatValue();
     method public final int get();
+    method public final int getAcquire();
     method public final int getAndAccumulate(int, java.util.function.IntBinaryOperator);
     method public final int getAndAdd(int);
     method public final int getAndDecrement();
     method public final int getAndIncrement();
     method public final int getAndSet(int);
     method public final int getAndUpdate(java.util.function.IntUnaryOperator);
+    method public final int getOpaque();
+    method public final int getPlain();
     method public final int incrementAndGet();
     method public int intValue();
     method public final void lazySet(int);
     method public long longValue();
     method public final void set(int);
+    method public final void setOpaque(int);
+    method public final void setPlain(int);
+    method public final void setRelease(int);
     method public final int updateAndGet(java.util.function.IntUnaryOperator);
-    method public final boolean weakCompareAndSet(int, int);
+    method @Deprecated public final boolean weakCompareAndSet(int, int);
+    method public final boolean weakCompareAndSetAcquire(int, int);
+    method public final boolean weakCompareAndSetPlain(int, int);
+    method public final boolean weakCompareAndSetRelease(int, int);
+    method public final boolean weakCompareAndSetVolatile(int, int);
   }
 
   public class AtomicIntegerArray implements java.io.Serializable {
@@ -15173,21 +15591,34 @@ package java.util.concurrent.atomic {
     ctor public AtomicIntegerArray(int[]);
     method public final int accumulateAndGet(int, int, java.util.function.IntBinaryOperator);
     method public final int addAndGet(int, int);
+    method public final int compareAndExchange(int, int, int);
+    method public final int compareAndExchangeAcquire(int, int, int);
+    method public final int compareAndExchangeRelease(int, int, int);
     method public final boolean compareAndSet(int, int, int);
     method public final int decrementAndGet(int);
     method public final int get(int);
+    method public final int getAcquire(int);
     method public final int getAndAccumulate(int, int, java.util.function.IntBinaryOperator);
     method public final int getAndAdd(int, int);
     method public final int getAndDecrement(int);
     method public final int getAndIncrement(int);
     method public final int getAndSet(int, int);
     method public final int getAndUpdate(int, java.util.function.IntUnaryOperator);
+    method public final int getOpaque(int);
+    method public final int getPlain(int);
     method public final int incrementAndGet(int);
     method public final void lazySet(int, int);
     method public final int length();
     method public final void set(int, int);
+    method public final void setOpaque(int, int);
+    method public final void setPlain(int, int);
+    method public final void setRelease(int, int);
     method public final int updateAndGet(int, java.util.function.IntUnaryOperator);
-    method public final boolean weakCompareAndSet(int, int, int);
+    method @Deprecated public final boolean weakCompareAndSet(int, int, int);
+    method public final boolean weakCompareAndSetAcquire(int, int, int);
+    method public final boolean weakCompareAndSetPlain(int, int, int);
+    method public final boolean weakCompareAndSetRelease(int, int, int);
+    method public final boolean weakCompareAndSetVolatile(int, int, int);
   }
 
   public abstract class AtomicIntegerFieldUpdater<T> {
@@ -15216,24 +15647,37 @@ package java.util.concurrent.atomic {
     ctor public AtomicLong();
     method public final long accumulateAndGet(long, java.util.function.LongBinaryOperator);
     method public final long addAndGet(long);
+    method public final long compareAndExchange(long, long);
+    method public final long compareAndExchangeAcquire(long, long);
+    method public final long compareAndExchangeRelease(long, long);
     method public final boolean compareAndSet(long, long);
     method public final long decrementAndGet();
     method public double doubleValue();
     method public float floatValue();
     method public final long get();
+    method public final long getAcquire();
     method public final long getAndAccumulate(long, java.util.function.LongBinaryOperator);
     method public final long getAndAdd(long);
     method public final long getAndDecrement();
     method public final long getAndIncrement();
     method public final long getAndSet(long);
     method public final long getAndUpdate(java.util.function.LongUnaryOperator);
+    method public final long getOpaque();
+    method public final long getPlain();
     method public final long incrementAndGet();
     method public int intValue();
     method public final void lazySet(long);
     method public long longValue();
     method public final void set(long);
+    method public final void setOpaque(long);
+    method public final void setPlain(long);
+    method public final void setRelease(long);
     method public final long updateAndGet(java.util.function.LongUnaryOperator);
-    method public final boolean weakCompareAndSet(long, long);
+    method @Deprecated public final boolean weakCompareAndSet(long, long);
+    method public final boolean weakCompareAndSetAcquire(long, long);
+    method public final boolean weakCompareAndSetPlain(long, long);
+    method public final boolean weakCompareAndSetRelease(long, long);
+    method public final boolean weakCompareAndSetVolatile(long, long);
   }
 
   public class AtomicLongArray implements java.io.Serializable {
@@ -15241,21 +15685,34 @@ package java.util.concurrent.atomic {
     ctor public AtomicLongArray(long[]);
     method public final long accumulateAndGet(int, long, java.util.function.LongBinaryOperator);
     method public long addAndGet(int, long);
+    method public final long compareAndExchange(int, long, long);
+    method public final long compareAndExchangeAcquire(int, long, long);
+    method public final long compareAndExchangeRelease(int, long, long);
     method public final boolean compareAndSet(int, long, long);
     method public final long decrementAndGet(int);
     method public final long get(int);
+    method public final long getAcquire(int);
     method public final long getAndAccumulate(int, long, java.util.function.LongBinaryOperator);
     method public final long getAndAdd(int, long);
     method public final long getAndDecrement(int);
     method public final long getAndIncrement(int);
     method public final long getAndSet(int, long);
     method public final long getAndUpdate(int, java.util.function.LongUnaryOperator);
+    method public final long getOpaque(int);
+    method public final long getPlain(int);
     method public final long incrementAndGet(int);
     method public final void lazySet(int, long);
     method public final int length();
     method public final void set(int, long);
+    method public final void setOpaque(int, long);
+    method public final void setPlain(int, long);
+    method public final void setRelease(int, long);
     method public final long updateAndGet(int, java.util.function.LongUnaryOperator);
-    method public final boolean weakCompareAndSet(int, long, long);
+    method @Deprecated public final boolean weakCompareAndSet(int, long, long);
+    method public final boolean weakCompareAndSetAcquire(int, long, long);
+    method public final boolean weakCompareAndSetPlain(int, long, long);
+    method public final boolean weakCompareAndSetRelease(int, long, long);
+    method public final boolean weakCompareAndSetVolatile(int, long, long);
   }
 
   public abstract class AtomicLongFieldUpdater<T> {
@@ -15294,31 +15751,57 @@ package java.util.concurrent.atomic {
     ctor public AtomicReference(V);
     ctor public AtomicReference();
     method public final V accumulateAndGet(V, java.util.function.BinaryOperator<V>);
+    method public final V compareAndExchange(V, V);
+    method public final V compareAndExchangeAcquire(V, V);
+    method public final V compareAndExchangeRelease(V, V);
     method public final boolean compareAndSet(V, V);
     method public final V get();
+    method public final V getAcquire();
     method public final V getAndAccumulate(V, java.util.function.BinaryOperator<V>);
     method public final V getAndSet(V);
     method public final V getAndUpdate(java.util.function.UnaryOperator<V>);
+    method public final V getOpaque();
+    method public final V getPlain();
     method public final void lazySet(V);
     method public final void set(V);
+    method public final void setOpaque(V);
+    method public final void setPlain(V);
+    method public final void setRelease(V);
     method public final V updateAndGet(java.util.function.UnaryOperator<V>);
-    method public final boolean weakCompareAndSet(V, V);
+    method @Deprecated public final boolean weakCompareAndSet(V, V);
+    method public final boolean weakCompareAndSetAcquire(V, V);
+    method public final boolean weakCompareAndSetPlain(V, V);
+    method public final boolean weakCompareAndSetRelease(V, V);
+    method public final boolean weakCompareAndSetVolatile(V, V);
   }
 
   public class AtomicReferenceArray<E> implements java.io.Serializable {
     ctor public AtomicReferenceArray(int);
     ctor public AtomicReferenceArray(E[]);
     method public final E accumulateAndGet(int, E, java.util.function.BinaryOperator<E>);
+    method public final E compareAndExchange(int, E, E);
+    method public final E compareAndExchangeAcquire(int, E, E);
+    method public final E compareAndExchangeRelease(int, E, E);
     method public final boolean compareAndSet(int, E, E);
     method public final E get(int);
+    method public final E getAcquire(int);
     method public final E getAndAccumulate(int, E, java.util.function.BinaryOperator<E>);
     method public final E getAndSet(int, E);
     method public final E getAndUpdate(int, java.util.function.UnaryOperator<E>);
+    method public final E getOpaque(int);
+    method public final E getPlain(int);
     method public final void lazySet(int, E);
     method public final int length();
     method public final void set(int, E);
+    method public final void setOpaque(int, E);
+    method public final void setPlain(int, E);
+    method public final void setRelease(int, E);
     method public final E updateAndGet(int, java.util.function.UnaryOperator<E>);
-    method public final boolean weakCompareAndSet(int, E, E);
+    method @Deprecated public final boolean weakCompareAndSet(int, E, E);
+    method public final boolean weakCompareAndSetAcquire(int, E, E);
+    method public final boolean weakCompareAndSetPlain(int, E, E);
+    method public final boolean weakCompareAndSetRelease(int, E, E);
+    method public final boolean weakCompareAndSetVolatile(int, E, E);
   }
 
   public abstract class AtomicReferenceFieldUpdater<T, V> {
@@ -15610,7 +16093,11 @@ package java.util.concurrent.locks {
     method public java.util.concurrent.locks.ReadWriteLock asReadWriteLock();
     method public java.util.concurrent.locks.Lock asWriteLock();
     method public int getReadLockCount();
+    method public static boolean isLockStamp(long);
+    method public static boolean isOptimisticReadStamp(long);
+    method public static boolean isReadLockStamp(long);
     method public boolean isReadLocked();
+    method public static boolean isWriteLockStamp(long);
     method public boolean isWriteLocked();
     method public long readLock();
     method public long readLockInterruptibly() throws java.lang.InterruptedException;
@@ -15807,6 +16294,7 @@ package java.util.function {
     method public default java.util.function.Predicate<T> and(java.util.function.Predicate<? super T>);
     method public static <T> java.util.function.Predicate<T> isEqual(Object);
     method public default java.util.function.Predicate<T> negate();
+    method public static <T> java.util.function.Predicate<T> not(java.util.function.Predicate<? super T>);
     method public default java.util.function.Predicate<T> or(java.util.function.Predicate<? super T>);
     method public boolean test(T);
   }
@@ -15898,6 +16386,7 @@ package java.util.jar {
     method public java.util.jar.Attributes getAttributes() throws java.io.IOException;
     method public java.security.cert.Certificate[] getCertificates();
     method public java.security.CodeSigner[] getCodeSigners();
+    method public String getRealName();
     field public static final int CENATT = 36; // 0x24
     field public static final int CENATX = 38; // 0x26
     field public static final int CENCOM = 32; // 0x20
@@ -16640,6 +17129,8 @@ package java.util.stream {
     method public static <T> java.util.stream.Collector<T,?,java.lang.Double> averagingLong(java.util.function.ToLongFunction<? super T>);
     method public static <T, A, R, RR> java.util.stream.Collector<T,A,RR> collectingAndThen(java.util.stream.Collector<T,A,R>, java.util.function.Function<R,RR>);
     method public static <T> java.util.stream.Collector<T,?,java.lang.Long> counting();
+    method public static <T, A, R> java.util.stream.Collector<T,?,R> filtering(java.util.function.Predicate<? super T>, java.util.stream.Collector<? super T,A,R>);
+    method public static <T, U, A, R> java.util.stream.Collector<T,?,R> flatMapping(java.util.function.Function<? super T,? extends java.util.stream.Stream<? extends U>>, java.util.stream.Collector<? super U,A,R>);
     method public static <T, K> java.util.stream.Collector<T,?,java.util.Map<K,java.util.List<T>>> groupingBy(java.util.function.Function<? super T,? extends K>);
     method public static <T, K, A, D> java.util.stream.Collector<T,?,java.util.Map<K,D>> groupingBy(java.util.function.Function<? super T,? extends K>, java.util.stream.Collector<? super T,A,D>);
     method public static <T, K, D, A, M extends java.util.Map<K, D>> java.util.stream.Collector<T,?,M> groupingBy(java.util.function.Function<? super T,? extends K>, java.util.function.Supplier<M>, java.util.stream.Collector<? super T,A,D>);
@@ -16672,6 +17163,10 @@ package java.util.stream {
     method public static <T, K, U> java.util.stream.Collector<T,?,java.util.Map<K,U>> toMap(java.util.function.Function<? super T,? extends K>, java.util.function.Function<? super T,? extends U>, java.util.function.BinaryOperator<U>);
     method public static <T, K, U, M extends java.util.Map<K, U>> java.util.stream.Collector<T,?,M> toMap(java.util.function.Function<? super T,? extends K>, java.util.function.Function<? super T,? extends U>, java.util.function.BinaryOperator<U>, java.util.function.Supplier<M>);
     method public static <T> java.util.stream.Collector<T,?,java.util.Set<T>> toSet();
+    method public static <T> java.util.stream.Collector<T,?,java.util.List<T>> toUnmodifiableList();
+    method public static <T, K, U> java.util.stream.Collector<T,?,java.util.Map<K,U>> toUnmodifiableMap(java.util.function.Function<? super T,? extends K>, java.util.function.Function<? super T,? extends U>);
+    method public static <T, K, U> java.util.stream.Collector<T,?,java.util.Map<K,U>> toUnmodifiableMap(java.util.function.Function<? super T,? extends K>, java.util.function.Function<? super T,? extends U>, java.util.function.BinaryOperator<U>);
+    method public static <T> java.util.stream.Collector<T,?,java.util.Set<T>> toUnmodifiableSet();
   }
 
   public interface DoubleStream extends java.util.stream.BaseStream<java.lang.Double,java.util.stream.DoubleStream> {
@@ -19297,6 +19792,7 @@ package org.json {
     ctor public JSONObject(@NonNull String) throws org.json.JSONException;
     ctor public JSONObject(@NonNull org.json.JSONObject, @NonNull String[]) throws org.json.JSONException;
     method @NonNull public org.json.JSONObject accumulate(@NonNull String, @Nullable Object) throws org.json.JSONException;
+    method @NonNull public org.json.JSONObject append(@NonNull String, @Nullable Object) throws org.json.JSONException;
     method @NonNull public Object get(@NonNull String) throws org.json.JSONException;
     method public boolean getBoolean(@NonNull String) throws org.json.JSONException;
     method public double getDouble(@NonNull String) throws org.json.JSONException;

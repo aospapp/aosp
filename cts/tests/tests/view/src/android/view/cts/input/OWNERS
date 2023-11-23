@@ -1,4 +1,1 @@
-# Bug component: 136048
-lzye@google.com
-michaelwr@google.com
-svv@google.com
+include platform/frameworks/base:/INPUT_OWNERS

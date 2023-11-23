@@ -28,7 +28,6 @@ class ExternalUpdaterReviewersTest(unittest.TestCase):
         self.saved_proj_reviewers = reviewers.PROJ_REVIEWERS
         self.saved_rust_reviewers = reviewers.RUST_REVIEWERS
         self.saved_rust_reviewer_list = reviewers.RUST_REVIEWER_LIST
-        self.saved_num_rust_projects = reviewers.NUM_RUST_PROJECTS
         self.saved_rust_crate_owners = reviewers.RUST_CRATE_OWNERS
 
     def tearDown(self):
@@ -37,7 +36,6 @@ class ExternalUpdaterReviewersTest(unittest.TestCase):
         reviewers.PROJ_REVIEWERS = self.saved_proj_reviewers
         reviewers.RUST_REVIEWERS = self.saved_rust_reviewers
         reviewers.RUST_REVIEWER_LIST = self.saved_rust_reviewer_list
-        reviewers.NUM_RUST_PROJECTS = self.saved_num_rust_projects
         reviewers.RUST_CRATE_OWNERS = self.saved_rust_crate_owners
 
     # pylint: disable=no-self-use
@@ -74,16 +72,11 @@ class ExternalUpdaterReviewersTest(unittest.TestCase):
         """Check the constants associated to the reviewers."""
         # There should be enough people in the reviewers pool.
         self.assertGreaterEqual(len(reviewers.RUST_REVIEWERS), 3)
-        # The NUM_RUST_PROJECTS should not be too small.
-        self.assertGreaterEqual(reviewers.NUM_RUST_PROJECTS, 50)
-        self.assertGreaterEqual(reviewers.NUM_RUST_PROJECTS,
-                                len(reviewers.RUST_CRATE_OWNERS))
         # Assume no project reviewers and recreate RUST_REVIEWER_LIST
         reviewers.PROJ_REVIEWERS = {}
         reviewers.RUST_REVIEWER_LIST = reviewers.create_rust_reviewer_list()
         sum_projects = sum(reviewers.RUST_REVIEWERS.values())
         self.assertEqual(sum_projects, len(reviewers.RUST_REVIEWER_LIST))
-        self.assertGreaterEqual(sum_projects, reviewers.NUM_RUST_PROJECTS)
 
     def test_reviewers_randomness(self):
         """Check random selection of reviewers."""

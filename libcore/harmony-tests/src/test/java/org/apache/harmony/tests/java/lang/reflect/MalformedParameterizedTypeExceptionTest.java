@@ -31,4 +31,9 @@ public class MalformedParameterizedTypeExceptionTest extends TestCase {
         assertNull(e.getMessage());
     }
 
+    public void testMalformedParameterizedTypeExceptionWithMessage() {
+        MalformedParameterizedTypeException e = new MalformedParameterizedTypeException("message");
+        assertNotNull(e);
+        assertEquals(e.getMessage(), "message");
+    }
 }

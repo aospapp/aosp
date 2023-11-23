@@ -16,6 +16,7 @@
 
 #include <keymaster/km_openssl/ecdsa_operation.h>
 
+#include <openssl/curve25519.h>
 #include <openssl/ecdsa.h>
 
 #include <keymaster/km_openssl/ec_key.h>
@@ -24,16 +25,19 @@
 
 namespace keymaster {
 
+// Message size limit for Ed25519 messages, which are not pre-digested.
+static const size_t MAX_ED25519_MSG_SIZE = 16 * 1024;
+
 static const keymaster_digest_t supported_digests[] = {KM_DIGEST_NONE,      KM_DIGEST_SHA1,
                                                        KM_DIGEST_SHA_2_224, KM_DIGEST_SHA_2_256,
                                                        KM_DIGEST_SHA_2_384, KM_DIGEST_SHA_2_512};
 
 OperationPtr EcdsaOperationFactory::CreateOperation(Key&& key, const AuthorizationSet& begin_params,
                                                     keymaster_error_t* error) {
-    const EcKey& ecdsa_key = static_cast<EcKey&>(key);
+    const AsymmetricKey& ecdsa_key = static_cast<AsymmetricKey&>(key);
 
-    UniquePtr<EVP_PKEY, EVP_PKEY_Delete> pkey(EVP_PKEY_new());
-    if (!ecdsa_key.InternalToEvp(pkey.get())) {
+    EVP_PKEY_Ptr pkey(ecdsa_key.InternalToEvp());
+    if (pkey.get() == nullptr) {
         *error = KM_ERROR_UNKNOWN_ERROR;
         return nullptr;
     }
@@ -159,6 +163,69 @@ keymaster_error_t EcdsaSignOperation::Finish(const AuthorizationSet& additional_
             return TranslateLastOpenSslError();
     }
     if (!output->advance_write(siglen)) return KM_ERROR_UNKNOWN_ERROR;
+    return KM_ERROR_OK;
+}
+
+keymaster_error_t Ed25519SignOperation::Begin(const AuthorizationSet& /* input_params */,
+                                              AuthorizationSet* /* output_params */) {
+    if (digest_ != KM_DIGEST_NONE) {
+        // Ed25519 includes an internal digest, so no pre-digesting is supported.
+        return KM_ERROR_UNSUPPORTED_DIGEST;
+    }
+    return GenerateRandom(reinterpret_cast<uint8_t*>(&operation_handle_),
+                          (size_t)sizeof(operation_handle_));
+}
+
+keymaster_error_t Ed25519SignOperation::Update(const AuthorizationSet& /* additional_params */,
+                                               const Buffer& input,
+                                               AuthorizationSet* /* output_params */,
+                                               Buffer* /* output */, size_t* input_consumed) {
+    return StoreAllData(input, input_consumed);
+}
+
+keymaster_error_t Ed25519SignOperation::Finish(const AuthorizationSet& additional_params,
+                                               const Buffer& input, const Buffer& /* signature */,
+                                               AuthorizationSet* /* output_params */,
+                                               Buffer* output) {
+    if (!output) return KM_ERROR_OUTPUT_PARAMETER_NULL;
+
+    keymaster_error_t error = UpdateForFinish(additional_params, input);
+    if (error != KM_ERROR_OK) return error;
+
+    if (!output->Reinitialize(ED25519_SIGNATURE_LEN)) {
+        return KM_ERROR_MEMORY_ALLOCATION_FAILED;
+    }
+
+    EVP_MD_CTX ctx;
+    EVP_MD_CTX_init(&ctx);
+    if (!EVP_DigestSignInit(&ctx, /* pctx */ nullptr, /* digest */ nullptr, /* engine */ nullptr,
+                            ecdsa_key_)) {
+        EVP_MD_CTX_cleanup(&ctx);
+        return TranslateLastOpenSslError();
+    }
+    size_t out_len = ED25519_SIGNATURE_LEN;
+    if (!EVP_DigestSign(&ctx, output->peek_write(), &out_len, data_.peek_read(),
+                        data_.available_read())) {
+        EVP_MD_CTX_cleanup(&ctx);
+        return TranslateLastOpenSslError();
+    }
+    EVP_MD_CTX_cleanup(&ctx);
+    output->advance_write(out_len);
+    return KM_ERROR_OK;
+}
+
+keymaster_error_t Ed25519SignOperation::StoreAllData(const Buffer& input, size_t* input_consumed) {
+    if ((data_.available_read() + input.available_read()) > MAX_ED25519_MSG_SIZE) {
+        return KM_ERROR_INVALID_INPUT_LENGTH;
+    }
+    if (!data_.reserve(input.available_read())) {
+        return KM_ERROR_MEMORY_ALLOCATION_FAILED;
+    }
+    if (!data_.write(input.peek_read(), input.available_read())) {
+        return KM_ERROR_UNKNOWN_ERROR;
+    }
+
+    *input_consumed = input.available_read();
     return KM_ERROR_OK;
 }
 

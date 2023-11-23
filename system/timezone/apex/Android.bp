@@ -14,17 +14,14 @@
 
 package {
     // http://go/android-license-faq
-    // A large-scale-change added 'default_applicable_licenses' to import
-    // the below license kinds from "system_timezone_license":
-    //   SPDX-license-identifier-Apache-2.0
-    default_applicable_licenses: ["system_timezone_license"],
+    default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
 // Defaults shared between real and test versions of the APEX.
 apex_defaults {
     name: "com.android.tzdata-defaults",
     updatable: true,
-    min_sdk_version: "31",
+    min_sdk_version: "33",
 
     // Use a custom AndroidManifest.xml used for API targeting.
     androidManifest: ":com.android.tzdata-androidManifest",

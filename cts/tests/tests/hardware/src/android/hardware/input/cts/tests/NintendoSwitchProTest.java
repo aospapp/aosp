@@ -17,6 +17,7 @@
 package android.hardware.input.cts.tests;
 
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
+
 import static org.junit.Assume.assumeFalse;
 
 import android.content.pm.PackageManager;
@@ -27,6 +28,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.MediumTest;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -52,12 +54,14 @@ public class NintendoSwitchProTest extends InputHidTestCase {
     }
 
     @Test
+    @Ignore("TODO(b/227669886) - update the test to match upstream driver")
     public void testAllKeys() {
         assumeFalse("Skipping test for wear devices", isWatch());
         testInputEvents(R.raw.nintendo_switchpro_keyeventtests);
     }
 
     @Test
+    @Ignore("TODO(b/227669886) - update the test to match upstream driver")
     public void testAllMotions() {
         assumeFalse("Skipping test for wear devices", isWatch());
         testInputEvents(R.raw.nintendo_switchpro_motioneventtests);

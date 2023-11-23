@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"android/soong/android"
+	"android/soong/bazel/cquery"
 )
 
 func TestLibraryReuse(t *testing.T) {
@@ -239,4 +240,216 @@ func TestStubsVersions_ParseError(t *testing.T) {
 	`
 
 	testCcError(t, `"libfoo" .*: versions: "X" could not be parsed as an integer and is not a recognized codename`, bp)
+}
+
+func TestCcLibraryWithBazel(t *testing.T) {
+	bp := `
+cc_library {
+	name: "foo",
+	srcs: ["foo.cc"],
+	bazel_module: { label: "//foo/bar:bar" },
+}`
+	config := TestConfig(t.TempDir(), android.Android, nil, bp, nil)
+	config.BazelContext = android.MockBazelContext{
+		OutputBaseDir: "outputbase",
+		LabelToCcInfo: map[string]cquery.CcInfo{
+			"//foo/bar:bar": cquery.CcInfo{
+				CcObjectFiles:        []string{"foo.o"},
+				Includes:             []string{"include"},
+				SystemIncludes:       []string{"system_include"},
+				Headers:              []string{"foo.h"},
+				RootDynamicLibraries: []string{"foo.so"},
+			},
+			"//foo/bar:bar_bp2build_cc_library_static": cquery.CcInfo{
+				CcObjectFiles:      []string{"foo.o"},
+				Includes:           []string{"include"},
+				SystemIncludes:     []string{"system_include"},
+				Headers:            []string{"foo.h"},
+				RootStaticArchives: []string{"foo.a"},
+			},
+		},
+	}
+	ctx := testCcWithConfig(t, config)
+
+	staticFoo := ctx.ModuleForTests("foo", "android_arm_armv7-a-neon_static").Module()
+	outputFiles, err := staticFoo.(android.OutputFileProducer).OutputFiles("")
+	if err != nil {
+		t.Errorf("Unexpected error getting cc_object outputfiles %s", err)
+	}
+
+	expectedOutputFiles := []string{"outputbase/execroot/__main__/foo.a"}
+	android.AssertDeepEquals(t, "output files", expectedOutputFiles, outputFiles.Strings())
+
+	flagExporter := ctx.ModuleProvider(staticFoo, FlagExporterInfoProvider).(FlagExporterInfo)
+	android.AssertPathsRelativeToTopEquals(t, "exported include dirs", []string{"outputbase/execroot/__main__/include"}, flagExporter.IncludeDirs)
+	android.AssertPathsRelativeToTopEquals(t, "exported system include dirs", []string{"outputbase/execroot/__main__/system_include"}, flagExporter.SystemIncludeDirs)
+	android.AssertPathsRelativeToTopEquals(t, "exported headers", []string{"outputbase/execroot/__main__/foo.h"}, flagExporter.GeneratedHeaders)
+	android.AssertPathsRelativeToTopEquals(t, "deps", []string{"outputbase/execroot/__main__/foo.h"}, flagExporter.Deps)
+
+	sharedFoo := ctx.ModuleForTests("foo", "android_arm_armv7-a-neon_shared").Module()
+	outputFiles, err = sharedFoo.(android.OutputFileProducer).OutputFiles("")
+	if err != nil {
+		t.Errorf("Unexpected error getting cc_library outputfiles %s", err)
+	}
+	expectedOutputFiles = []string{"outputbase/execroot/__main__/foo.so"}
+	android.AssertDeepEquals(t, "output files", expectedOutputFiles, outputFiles.Strings())
+
+	flagExporter = ctx.ModuleProvider(sharedFoo, FlagExporterInfoProvider).(FlagExporterInfo)
+	android.AssertPathsRelativeToTopEquals(t, "exported include dirs", []string{"outputbase/execroot/__main__/include"}, flagExporter.IncludeDirs)
+	android.AssertPathsRelativeToTopEquals(t, "exported system include dirs", []string{"outputbase/execroot/__main__/system_include"}, flagExporter.SystemIncludeDirs)
+	android.AssertPathsRelativeToTopEquals(t, "exported headers", []string{"outputbase/execroot/__main__/foo.h"}, flagExporter.GeneratedHeaders)
+	android.AssertPathsRelativeToTopEquals(t, "deps", []string{"outputbase/execroot/__main__/foo.h"}, flagExporter.Deps)
+}
+
+func TestLibraryVersionScript(t *testing.T) {
+	result := PrepareForIntegrationTestWithCc.RunTestWithBp(t, `
+		cc_library {
+			name: "libfoo",
+			srcs: ["foo.c"],
+			version_script: "foo.map.txt",
+		}`)
+
+	libfoo := result.ModuleForTests("libfoo", "android_arm64_armv8-a_shared").Rule("ld")
+
+	android.AssertStringListContains(t, "missing dependency on version_script",
+		libfoo.Implicits.Strings(), "foo.map.txt")
+	android.AssertStringDoesContain(t, "missing flag for version_script",
+		libfoo.Args["ldFlags"], "-Wl,--version-script,foo.map.txt")
+
+}
+
+func TestLibraryDynamicList(t *testing.T) {
+	result := PrepareForIntegrationTestWithCc.RunTestWithBp(t, `
+		cc_library {
+			name: "libfoo",
+			srcs: ["foo.c"],
+			dynamic_list: "foo.dynamic.txt",
+		}`)
+
+	libfoo := result.ModuleForTests("libfoo", "android_arm64_armv8-a_shared").Rule("ld")
+
+	android.AssertStringListContains(t, "missing dependency on dynamic_list",
+		libfoo.Implicits.Strings(), "foo.dynamic.txt")
+	android.AssertStringDoesContain(t, "missing flag for dynamic_list",
+		libfoo.Args["ldFlags"], "-Wl,--dynamic-list,foo.dynamic.txt")
+
+}
+
+func TestCcLibrarySharedWithBazel(t *testing.T) {
+	bp := `
+cc_library_shared {
+	name: "foo",
+	srcs: ["foo.cc"],
+	bazel_module: { label: "//foo/bar:bar" },
+}`
+	config := TestConfig(t.TempDir(), android.Android, nil, bp, nil)
+	config.BazelContext = android.MockBazelContext{
+		OutputBaseDir: "outputbase",
+		LabelToCcInfo: map[string]cquery.CcInfo{
+			"//foo/bar:bar": cquery.CcInfo{
+				CcObjectFiles:        []string{"foo.o"},
+				Includes:             []string{"include"},
+				SystemIncludes:       []string{"system_include"},
+				RootDynamicLibraries: []string{"foo.so"},
+				TocFile:              "foo.so.toc",
+			},
+		},
+	}
+	ctx := testCcWithConfig(t, config)
+
+	sharedFoo := ctx.ModuleForTests("foo", "android_arm_armv7-a-neon_shared").Module()
+	producer := sharedFoo.(android.OutputFileProducer)
+	outputFiles, err := producer.OutputFiles("")
+	if err != nil {
+		t.Errorf("Unexpected error getting cc_object outputfiles %s", err)
+	}
+	expectedOutputFiles := []string{"outputbase/execroot/__main__/foo.so"}
+	android.AssertDeepEquals(t, "output files", expectedOutputFiles, outputFiles.Strings())
+
+	tocFilePath := sharedFoo.(*Module).Toc()
+	if !tocFilePath.Valid() {
+		t.Errorf("Invalid tocFilePath: %s", tocFilePath)
+	}
+	tocFile := tocFilePath.Path()
+	expectedToc := "outputbase/execroot/__main__/foo.so.toc"
+	android.AssertStringEquals(t, "toc file", expectedToc, tocFile.String())
+
+	entries := android.AndroidMkEntriesForTest(t, ctx, sharedFoo)[0]
+	expectedFlags := []string{"-Ioutputbase/execroot/__main__/include", "-isystem outputbase/execroot/__main__/system_include"}
+	gotFlags := entries.EntryMap["LOCAL_EXPORT_CFLAGS"]
+	android.AssertDeepEquals(t, "androidmk exported cflags", expectedFlags, gotFlags)
+}
+
+func TestWholeStaticLibPrebuilts(t *testing.T) {
+	result := PrepareForIntegrationTestWithCc.RunTestWithBp(t, `
+		cc_prebuilt_library_static {
+			name: "libprebuilt",
+			srcs: ["foo.a"],
+		}
+
+		cc_library_static {
+			name: "libdirect",
+			whole_static_libs: ["libprebuilt"],
+		}
+
+		cc_library_static {
+			name: "libtransitive",
+			whole_static_libs: ["libdirect"],
+		}
+
+		cc_library_static {
+			name: "libdirect_with_srcs",
+			srcs: ["bar.c"],
+			whole_static_libs: ["libprebuilt"],
+		}
+
+		cc_library_static {
+			name: "libtransitive_with_srcs",
+			srcs: ["baz.c"],
+			whole_static_libs: ["libdirect_with_srcs"],
+		}
+	`)
+
+	libdirect := result.ModuleForTests("libdirect", "android_arm64_armv8-a_static").Rule("arWithLibs")
+	libtransitive := result.ModuleForTests("libtransitive", "android_arm64_armv8-a_static").Rule("arWithLibs")
+
+	libdirectWithSrcs := result.ModuleForTests("libdirect_with_srcs", "android_arm64_armv8-a_static").Rule("arWithLibs")
+	libtransitiveWithSrcs := result.ModuleForTests("libtransitive_with_srcs", "android_arm64_armv8-a_static").Rule("arWithLibs")
+
+	barObj := result.ModuleForTests("libdirect_with_srcs", "android_arm64_armv8-a_static").Rule("cc")
+	bazObj := result.ModuleForTests("libtransitive_with_srcs", "android_arm64_armv8-a_static").Rule("cc")
+
+	android.AssertStringListContains(t, "missing dependency on foo.a",
+		libdirect.Inputs.Strings(), "foo.a")
+	android.AssertStringDoesContain(t, "missing flag for foo.a",
+		libdirect.Args["arLibs"], "foo.a")
+
+	android.AssertStringListContains(t, "missing dependency on foo.a",
+		libtransitive.Inputs.Strings(), "foo.a")
+	android.AssertStringDoesContain(t, "missing flag for foo.a",
+		libtransitive.Args["arLibs"], "foo.a")
+
+	android.AssertStringListContains(t, "missing dependency on foo.a",
+		libdirectWithSrcs.Inputs.Strings(), "foo.a")
+	android.AssertStringDoesContain(t, "missing flag for foo.a",
+		libdirectWithSrcs.Args["arLibs"], "foo.a")
+	android.AssertStringListContains(t, "missing dependency on bar.o",
+		libdirectWithSrcs.Inputs.Strings(), barObj.Output.String())
+	android.AssertStringDoesContain(t, "missing flag for bar.o",
+		libdirectWithSrcs.Args["arObjs"], barObj.Output.String())
+
+	android.AssertStringListContains(t, "missing dependency on foo.a",
+		libtransitiveWithSrcs.Inputs.Strings(), "foo.a")
+	android.AssertStringDoesContain(t, "missing flag for foo.a",
+		libtransitiveWithSrcs.Args["arLibs"], "foo.a")
+
+	android.AssertStringListContains(t, "missing dependency on bar.o",
+		libtransitiveWithSrcs.Inputs.Strings(), barObj.Output.String())
+	android.AssertStringDoesContain(t, "missing flag for bar.o",
+		libtransitiveWithSrcs.Args["arObjs"], barObj.Output.String())
+
+	android.AssertStringListContains(t, "missing dependency on baz.o",
+		libtransitiveWithSrcs.Inputs.Strings(), bazObj.Output.String())
+	android.AssertStringDoesContain(t, "missing flag for baz.o",
+		libtransitiveWithSrcs.Args["arObjs"], bazObj.Output.String())
 }

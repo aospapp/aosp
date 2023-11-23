@@ -158,10 +158,7 @@ cc_library {
         "com.android.runtime",
         // DO NOT add more apex names here
     ],
-    pgo: {
-        sampling: true,
-        profile_file: "logging/liblog.profdata",
-    },
+    afdo: true,
 }
 
 ndk_headers {
@@ -195,4 +192,14 @@ rust_bindgen {
         "--allowlist-function=__android_log_security",
         "--allowlist-type=log_id",
     ],
+}
+
+rust_test {
+    name: "liblog_event_list_bindgen_test",
+    srcs: [":liblog_event_list_bindgen"],
+    crate_name: "log_event_list_bindgen_test",
+    test_suites: ["general-tests"],
+    auto_gen_config: true,
+    clippy_lints: "none",
+    lints: "none",
 }

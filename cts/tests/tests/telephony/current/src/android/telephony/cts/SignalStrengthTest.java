@@ -30,6 +30,7 @@ import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.os.SystemClock;
+import android.telephony.AccessNetworkConstants;
 import android.telephony.CellSignalStrength;
 import android.telephony.CellSignalStrengthCdma;
 import android.telephony.CellSignalStrengthGsm;
@@ -37,6 +38,7 @@ import android.telephony.CellSignalStrengthLte;
 import android.telephony.CellSignalStrengthNr;
 import android.telephony.CellSignalStrengthTdscdma;
 import android.telephony.CellSignalStrengthWcdma;
+import android.telephony.NetworkRegistrationInfo;
 import android.telephony.ServiceState;
 import android.telephony.SignalStrength;
 import android.telephony.TelephonyManager;
@@ -63,8 +65,13 @@ public class SignalStrengthTest {
     private boolean isCamped() {
         ServiceState ss = mTm.getServiceState();
         if (ss == null) return false;
-        return (ss.getState() == ServiceState.STATE_IN_SERVICE
-                || ss.getState() == ServiceState.STATE_EMERGENCY_ONLY);
+        if (ss.getState() == ServiceState.STATE_EMERGENCY_ONLY) return true;
+        List<NetworkRegistrationInfo> nris = ss.getNetworkRegistrationInfoList();
+        for (NetworkRegistrationInfo nri : nris) {
+            if (nri.getTransportType() != AccessNetworkConstants.TRANSPORT_TYPE_WWAN) continue;
+            if (nri.isRegistered()) return true;
+        }
+        return false;
     }
 
     @Before

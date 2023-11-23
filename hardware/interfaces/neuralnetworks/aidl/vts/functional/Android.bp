@@ -26,8 +26,14 @@ package {
 cc_test {
     name: "VtsHalNeuralnetworksTargetTest",
     defaults: [
+        "neuralnetworks_use_latest_utils_hal_aidl",
         "neuralnetworks_vts_functional_defaults",
         "use_libaidlvintf_gtest_helper_static",
+    ],
+    host_supported: true,
+    tidy_timeout_srcs: [
+        "CompilationCachingTests.cpp",
+        "MemoryDomainTests.cpp",
     ],
     srcs: [
         "BasicTests.cpp",
@@ -45,24 +51,15 @@ cc_test {
     ],
     shared_libs: [
         "libbinder_ndk",
-        "libnativewindow",
-        "libvndksupport",
     ],
     static_libs: [
-        "android.hardware.common-V2-ndk_platform",
-        "android.hardware.graphics.common-V2-ndk_platform",
-        "android.hardware.neuralnetworks-V1-ndk_platform",
-        "android.hidl.allocator@1.0",
-        "android.hidl.memory@1.0",
         "libaidlcommonsupport",
-        "libgmock",
-        "libhidlmemory",
+        "libneuralnetworks_common",
         "libneuralnetworks_generated_test_harness",
-        "libneuralnetworks_utils",
-        "libsync",
-        "neuralnetworks_utils_hal_aidl",
     ],
     whole_static_libs: [
+        "neuralnetworks_generated_AIDL_V3_example",
+        "neuralnetworks_generated_AIDL_V2_example",
         "neuralnetworks_generated_V1_0_example",
         "neuralnetworks_generated_V1_1_example",
         "neuralnetworks_generated_V1_2_example",
@@ -74,6 +71,34 @@ cc_test {
     ],
     test_suites: [
         "general-tests",
-        "vts",
     ],
+    target: {
+        android: {
+            shared_libs: [
+                "libnativewindow",
+                "libvndksupport",
+            ],
+            static_libs: [
+                "libsync",
+            ],
+            test_suites: [
+                "vts",
+            ],
+            test_config: "AndroidTestDevice.xml",
+        },
+        host: {
+            shared_libs: [
+                "libtextclassifier_hash",
+            ],
+            static_libs: [
+                "neuralnetworks_canonical_sample_driver",
+                "neuralnetworks_utils_hal_adapter_aidl",
+            ],
+            exclude_static_libs: [
+                "VtsHalHidlTestUtils",
+                "libaidlvintf_gtest_helper",
+            ],
+            test_config: "AndroidTestHost.xml",
+        },
+    },
 }

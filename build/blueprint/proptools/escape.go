@@ -53,7 +53,15 @@ func ShellEscapeList(slice []string) []string {
 		slice[i] = ShellEscape(s)
 	}
 	return slice
+}
 
+func ShellEscapeListIncludingSpaces(slice []string) []string {
+	slice = append([]string(nil), slice...)
+
+	for i, s := range slice {
+		slice[i] = ShellEscapeIncludingSpaces(s)
+	}
+	return slice
 }
 
 func shellUnsafeChar(r rune) bool {
@@ -104,6 +112,10 @@ func ShellEscapeIncludingSpaces(s string) string {
 
 func NinjaAndShellEscapeList(slice []string) []string {
 	return ShellEscapeList(NinjaEscapeList(slice))
+}
+
+func NinjaAndShellEscapeListIncludingSpaces(slice []string) []string {
+	return ShellEscapeListIncludingSpaces(NinjaEscapeList(slice))
 }
 
 func NinjaAndShellEscape(s string) string {

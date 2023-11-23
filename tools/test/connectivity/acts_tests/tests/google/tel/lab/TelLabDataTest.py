@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-#   Copyright 2016 - The Android Open Source Project
+#   Copyright 2022 - The Android Open Source Project
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ Sanity tests for connectivity tests in telephony
 """
 
 import time
-import json
 import logging
 import os
 
@@ -26,23 +25,13 @@ from acts.test_decorators import test_tracker_info
 from acts.controllers.anritsu_lib._anritsu_utils import AnritsuError
 from acts.controllers.anritsu_lib.md8475a import MD8475A
 from acts.controllers.anritsu_lib.md8475a import BtsBandwidth
-from acts.controllers.anritsu_lib.md8475a import VirtualPhoneStatus
 from acts_contrib.test_utils.tel.anritsu_utils import cb_serial_number
-from acts_contrib.test_utils.tel.anritsu_utils import set_system_model_1x
-from acts_contrib.test_utils.tel.anritsu_utils import set_system_model_gsm
 from acts_contrib.test_utils.tel.anritsu_utils import set_system_model_lte
-from acts_contrib.test_utils.tel.anritsu_utils import set_system_model_lte_wcdma
-from acts_contrib.test_utils.tel.anritsu_utils import set_system_model_wcdma
-from acts_contrib.test_utils.tel.anritsu_utils import sms_mo_send
-from acts_contrib.test_utils.tel.anritsu_utils import sms_mt_receive_verify
 from acts_contrib.test_utils.tel.anritsu_utils import set_usim_parameters
 from acts_contrib.test_utils.tel.anritsu_utils import set_post_sim_params
-from acts_contrib.test_utils.tel.tel_defines import DIRECTION_MOBILE_ORIGINATED
-from acts_contrib.test_utils.tel.tel_defines import DIRECTION_MOBILE_TERMINATED
 from acts_contrib.test_utils.tel.tel_defines import NETWORK_MODE_CDMA
 from acts_contrib.test_utils.tel.tel_defines import NETWORK_MODE_GSM_ONLY
 from acts_contrib.test_utils.tel.tel_defines import NETWORK_MODE_GSM_UMTS
-from acts_contrib.test_utils.tel.tel_defines import NETWORK_MODE_LTE_GSM_WCDMA
 from acts_contrib.test_utils.tel.tel_defines import NETWORK_MODE_LTE_CDMA_EVDO
 from acts_contrib.test_utils.tel.tel_defines import RAT_1XRTT
 from acts_contrib.test_utils.tel.tel_defines import RAT_GSM
@@ -52,33 +41,24 @@ from acts_contrib.test_utils.tel.tel_defines import RAT_FAMILY_CDMA2000
 from acts_contrib.test_utils.tel.tel_defines import RAT_FAMILY_GSM
 from acts_contrib.test_utils.tel.tel_defines import RAT_FAMILY_LTE
 from acts_contrib.test_utils.tel.tel_defines import RAT_FAMILY_UMTS
-from acts_contrib.test_utils.tel.tel_defines import NETWORK_SERVICE_DATA
-from acts_contrib.test_utils.tel.tel_defines import GEN_4G
 from acts_contrib.test_utils.tel.tel_defines import POWER_LEVEL_OUT_OF_SERVICE
 from acts_contrib.test_utils.tel.tel_defines import POWER_LEVEL_FULL_SERVICE
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_network_rat
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_phones_idle
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_network_generation
+from acts_contrib.test_utils.tel.tel_data_utils import check_data_stall_detection
+from acts_contrib.test_utils.tel.tel_data_utils import check_network_validation_fail
+from acts_contrib.test_utils.tel.tel_data_utils import check_data_stall_recovery
+from acts_contrib.test_utils.tel.tel_logging_utils import start_qxdm_loggers
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_network_rat
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_phones_idle
 from acts_contrib.test_utils.tel.tel_test_utils import get_host_ip_address
 from acts_contrib.test_utils.tel.tel_test_utils import toggle_airplane_mode
 from acts_contrib.test_utils.tel.tel_test_utils import iperf_test_by_adb
-from acts_contrib.test_utils.tel.tel_test_utils import start_qxdm_loggers
-from acts_contrib.test_utils.tel.tel_test_utils import verify_http_connection
-from acts_contrib.test_utils.tel.tel_test_utils import check_data_stall_detection
-from acts_contrib.test_utils.tel.tel_test_utils import check_network_validation_fail
-from acts_contrib.test_utils.tel.tel_test_utils import check_data_stall_recovery
 from acts_contrib.test_utils.tel.tel_test_utils import get_device_epoch_time
 from acts_contrib.test_utils.tel.tel_test_utils import break_internet_except_sl4a_port
 from acts_contrib.test_utils.tel.tel_test_utils import resume_internet_with_sl4a_port
-from acts_contrib.test_utils.tel.tel_test_utils import \
-    test_data_browsing_success_using_sl4a
-from acts_contrib.test_utils.tel.tel_test_utils import \
-    test_data_browsing_failure_using_sl4a
+from acts_contrib.test_utils.tel.tel_test_utils import test_data_browsing_success_using_sl4a
+from acts_contrib.test_utils.tel.tel_test_utils import test_data_browsing_failure_using_sl4a
 from acts_contrib.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
 from acts.utils import adb_shell_ping
-from acts.utils import rand_ascii_str
-from acts.controllers import iperf_server
-from acts.utils import exe_cmd
 
 DEFAULT_PING_DURATION = 30
 

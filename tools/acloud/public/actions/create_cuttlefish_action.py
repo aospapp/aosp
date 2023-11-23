@@ -68,7 +68,7 @@ class CuttlefishDeviceFactory(base_device_factory.BaseDeviceFactory):
         else:
             compute_client = cvd_compute_client.CvdComputeClient(
                 cfg, self.credentials)
-        super(CuttlefishDeviceFactory, self).__init__(compute_client)
+        super().__init__(compute_client)
 
         # Private creation parameters
         self._cfg = cfg

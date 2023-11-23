@@ -28,16 +28,23 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.telephony.TelephonyManager;
+import android.telephony.UiccCardInfo;
+import android.telephony.UiccPortInfo;
+import android.telephony.cts.TelephonyUtils;
 import android.telephony.euicc.DownloadableSubscription;
 import android.telephony.euicc.EuiccCardManager;
 import android.telephony.euicc.EuiccInfo;
 import android.telephony.euicc.EuiccManager;
+import android.text.TextUtils;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.compatibility.common.util.ShellIdentityUtils;
+
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -70,6 +77,8 @@ public class EuiccManagerTest {
                     ACTION_ERASE_SUBSCRIPTIONS,
                     ACTION_START_TEST_RESOLUTION_ACTIVITY,
             };
+    private static final String SWITCH_WITHOUT_PORT_INDEX_EXCEPTION_ON_DISABLE_STRING =
+            "SWITCH_WITHOUT_PORT_INDEX_EXCEPTION_ON_DISABLE";
 
     private EuiccManager mEuiccManager;
     private CallbackReceiver mCallbackReceiver;
@@ -182,6 +191,65 @@ public class EuiccManagerTest {
                 EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_ERROR, mCallbackReceiver.getResultCode());
     }
 
+    @Ignore("the compatibility framework does not currently support changing compatibility flags"
+            + " on user builds for device side CTS tests. Ignore this test until support is added")
+    @Test
+    public void testSwitchToSubscritionDisableWithNoPortAndChangesCompatDisabled()
+            throws Exception {
+        // Only test it when EuiccManager is enabled.
+        if (!mEuiccManager.isEnabled()) {
+            return;
+        }
+        // disable compact change
+        TelephonyUtils.disableCompatCommand(InstrumentationRegistry.getInstrumentation(),
+                TelephonyUtils.CTS_APP_PACKAGE,
+                SWITCH_WITHOUT_PORT_INDEX_EXCEPTION_ON_DISABLE_STRING);
+
+        // set up CountDownLatch and receiver
+        CountDownLatch countDownLatch = new CountDownLatch(1);
+        mCallbackReceiver = new CallbackReceiver(countDownLatch);
+        getContext()
+                .registerReceiver(
+                        mCallbackReceiver, new IntentFilter(ACTION_SWITCH_TO_SUBSCRIPTION));
+
+        // call switchToSubscription()
+        PendingIntent callbackIntent = createCallbackIntent(ACTION_SWITCH_TO_SUBSCRIPTION);
+        mEuiccManager.switchToSubscription(-1, callbackIntent);
+
+        // wait for callback
+        try {
+            countDownLatch.await(CALLBACK_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            fail(e.toString());
+        }
+
+        // verify correct result code is received
+        assertEquals(
+                EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_ERROR, mCallbackReceiver.getResultCode());
+
+        // reset compat change
+        TelephonyUtils.resetCompatCommand(InstrumentationRegistry.getInstrumentation(),
+                TelephonyUtils.CTS_APP_PACKAGE,
+                SWITCH_WITHOUT_PORT_INDEX_EXCEPTION_ON_DISABLE_STRING);
+    }
+
+    @Test
+    public void testSwitchToSubscriptionDisableWithNoPort() throws Exception {
+        // Only test it when EuiccManager is enabled.
+        if (!mEuiccManager.isEnabled()) {
+            return;
+        }
+
+        PendingIntent callbackIntent = createCallbackIntent(ACTION_SWITCH_TO_SUBSCRIPTION);
+
+        try {
+            mEuiccManager.switchToSubscription(-1, callbackIntent);
+            fail("IllegalArgumentException expected");
+        } catch (IllegalArgumentException e) {
+            // expected for android T and beyond
+        }
+    }
+
     @Test
     public void testSwitchToSubscription() {
         // test disabled state only for now
@@ -196,9 +264,39 @@ public class EuiccManagerTest {
                 .registerReceiver(
                         mCallbackReceiver, new IntentFilter(ACTION_SWITCH_TO_SUBSCRIPTION));
 
-        // call deleteSubscription()
+        // call switchToSubscription()
         PendingIntent callbackIntent = createCallbackIntent(ACTION_SWITCH_TO_SUBSCRIPTION);
         mEuiccManager.switchToSubscription(4, callbackIntent);
+
+        // wait for callback
+        try {
+            countDownLatch.await(CALLBACK_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            fail(e.toString());
+        }
+
+        // verify correct result code is received
+        assertEquals(
+                EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_ERROR, mCallbackReceiver.getResultCode());
+    }
+
+    @Test
+    public void testSwitchToSubscriptionWithCallback() {
+        // test disabled state only for now
+        if (mEuiccManager.isEnabled()) {
+            return;
+        }
+
+        // set up CountDownLatch and receiver
+        CountDownLatch countDownLatch = new CountDownLatch(1);
+        mCallbackReceiver = new CallbackReceiver(countDownLatch);
+        getContext()
+                .registerReceiver(
+                        mCallbackReceiver, new IntentFilter(ACTION_SWITCH_TO_SUBSCRIPTION));
+
+        // call switchToSubscription()
+        PendingIntent callbackIntent = createCallbackIntent(ACTION_SWITCH_TO_SUBSCRIPTION);
+        mEuiccManager.switchToSubscription(4, TelephonyManager.DEFAULT_PORT_INDEX, callbackIntent);
 
         // wait for callback
         try {
@@ -468,6 +566,43 @@ public class EuiccManagerTest {
         // Restore the original country list
         mEuiccManager.setSupportedCountries(originalSupportedCountry);
         mEuiccManager.setUnsupportedCountries(originalUnsupportedCountry);
+    }
+
+    @Test
+    public void testIsSimPortAvailableWithInvalidPortIndex() throws Exception {
+        // Only test it when EuiccManager is enabled.
+        if (!mEuiccManager.isEnabled()) {
+            return;
+        }
+
+        boolean result = mEuiccManager.isSimPortAvailable(/* portIndex= */ -1);
+
+        assertFalse(result);
+    }
+
+    @Test
+    public void testIsSimPortAvailableWithValidPorts() throws Exception {
+        // Only test it when EuiccManager is enabled.
+        if (!mEuiccManager.isEnabled()) {
+            return;
+        }
+        // Get all the available UiccCardInfos.
+        TelephonyManager telephonyManager = getContext().getSystemService(TelephonyManager.class);
+        List<UiccCardInfo> uiccCardInfos =
+                ShellIdentityUtils.invokeMethodWithShellPermissions(telephonyManager,
+                        (tm) -> tm.getUiccCardsInfo());
+        for (UiccCardInfo cardInfo : uiccCardInfos) {
+            List<UiccPortInfo> portInfoList = (List<UiccPortInfo>) cardInfo.getPorts();
+            if (cardInfo.isEuicc()) {
+                for (UiccPortInfo portInfo : portInfoList) {
+                    // Check if port is active and no profile install on it.
+                    if (portInfo.isActive() && TextUtils.isEmpty(portInfo.getIccId())) {
+                        boolean result = mEuiccManager.isSimPortAvailable(portInfo.getPortIndex());
+                        assertTrue(result);
+                    }
+                }
+            }
+        }
     }
 
     private Context getContext() {

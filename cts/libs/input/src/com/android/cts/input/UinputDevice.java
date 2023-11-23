@@ -75,6 +75,19 @@ public final class UinputDevice extends VirtualInputDevice {
     }
 
     /**
+     * Create Uinput device using the provided resourceId.
+     */
+    public static UinputDevice create(Instrumentation instrumentation, int resourceId,
+            int sources) {
+        final InputJsonParser parser = new InputJsonParser(instrumentation.getTargetContext());
+        final int resourceDeviceId = parser.readDeviceId(resourceId);
+        final String registerCommand = parser.readRegisterCommand(resourceId);
+        return new UinputDevice(instrumentation, resourceDeviceId,
+                parser.readVendorId(resourceId), parser.readProductId(resourceId),
+                sources, registerCommand);
+    }
+
+    /**
      * Get uinput command return results as list of UinputResultData
      *
      * @return List of UinputResultData results

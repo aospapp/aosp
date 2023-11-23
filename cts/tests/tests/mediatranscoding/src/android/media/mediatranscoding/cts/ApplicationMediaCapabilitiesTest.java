@@ -27,6 +27,8 @@ import android.platform.test.annotations.RequiresDevice;
 import android.test.AndroidTestCase;
 import android.util.Xml;
 
+import androidx.test.filters.SdkSuppress;
+
 import org.junit.Test;
 import org.xmlpull.v1.XmlPullParser;
 
@@ -36,6 +38,7 @@ import java.util.List;
 
 @Presubmit
 @AppModeFull(reason = "Instant apps cannot access the SD card")
+@SdkSuppress(minSdkVersion = 31, codeName = "S")
 public class ApplicationMediaCapabilitiesTest extends AndroidTestCase {
     private static final String TAG = "ApplicationMediaCapabilitiesTest";
 

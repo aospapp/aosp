@@ -29,11 +29,11 @@ import android.os.AsyncTask;
 import android.os.Handler;
 import android.os.Message;
 import android.os.PersistableBundle;
+import android.provider.Settings;
 import android.util.Log;
 import android.util.SparseArray;
 
 import java.lang.ref.WeakReference;
-import java.util.List;
 
 public final class GarageModeChecker extends JobService {
     private static final String TAG = GarageModeChecker.class.getSimpleName();
@@ -45,6 +45,7 @@ public final class GarageModeChecker extends JobService {
     static final String PREFS_TERMINATION = "termination-time";
     static final String PREFS_JOB_UPDATE = "job-update-time";
     static final String PREFS_HAD_CONNECTIVITY = "had-connectivity";
+    static final String PREFS_START_BOOT_COUNT = "start-boot-count";
 
     static final int SECONDS_PER_ITERATION = 10;
     static final int MS_PER_ITERATION = SECONDS_PER_ITERATION * 1000;
@@ -170,6 +171,17 @@ public final class GarageModeChecker extends JobService {
         Message msg = mHandler.obtainMessage(MSG_RUN_JOB, 0, 0, jobParameters);
         mHandler.sendMessage(msg);
         return true;
+    }
+
+    static int getBootCount(Context context) {
+        int bootCount = 0;
+        try {
+            bootCount = Settings.Global.getInt(context.getContentResolver(),
+                    Settings.Global.BOOT_COUNT);
+        } catch (Settings.SettingNotFoundException e) {
+            Log.e(TAG, "Could not get Settings.Global.BOOT_COUNT: ", e);
+        }
+        return bootCount;
     }
 
     private final class GarageModeCheckerTask extends AsyncTask<Void, Void, Boolean> {

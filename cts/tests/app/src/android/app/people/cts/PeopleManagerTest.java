@@ -16,6 +16,9 @@
 
 package android.app.people.cts;
 
+import static android.Manifest.permission.POST_NOTIFICATIONS;
+import static android.Manifest.permission.REVOKE_POST_NOTIFICATIONS_WITHOUT_KILL;
+import static android.Manifest.permission.REVOKE_RUNTIME_PERMISSIONS;
 import static android.app.NotificationManager.IMPORTANCE_DEFAULT;
 import static android.app.people.ConversationStatus.ACTIVITY_ANNIVERSARY;
 import static android.app.people.ConversationStatus.ACTIVITY_GAME;
@@ -38,11 +41,16 @@ import android.content.Intent;
 import android.content.pm.ShortcutInfo;
 import android.content.pm.ShortcutManager;
 import android.graphics.drawable.Icon;
+import android.os.Process;
 import android.os.SystemClock;
+import android.permission.PermissionManager;
+import android.permission.cts.PermissionUtils;
 import android.test.AndroidTestCase;
 import android.util.ArraySet;
 
 import androidx.test.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.SystemUtil;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -72,6 +80,7 @@ public class PeopleManagerTest extends AndroidTestCase {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
+        PermissionUtils.grantPermission(mContext.getPackageName(), POST_NOTIFICATIONS);
         // This will leave a set of channels on the device with each test run.
         mId = UUID.randomUUID().toString();
         mNotificationManager = mContext.getSystemService(NotificationManager.class);
@@ -105,6 +114,15 @@ public class PeopleManagerTest extends AndroidTestCase {
             mNotificationManager.deleteNotificationChannel(nc.getId());
         }
         deleteShortcuts();
+        // Use test API to prevent PermissionManager from killing the test process when revoking
+        // permission.
+        SystemUtil.runWithShellPermissionIdentity(
+                () -> mContext.getSystemService(PermissionManager.class)
+                        .revokePostNotificationPermissionWithoutKillForTest(
+                                mContext.getPackageName(),
+                                Process.myUserHandle().getIdentifier()),
+                REVOKE_POST_NOTIFICATIONS_WITHOUT_KILL,
+                REVOKE_RUNTIME_PERMISSIONS);
     }
 
     /** Creates a dynamic, longlived, sharing shortcut. Call {@link #deleteShortcuts()} after. */

@@ -19,9 +19,17 @@ import acts_contrib.test_utils.bt.bt_test_utils as btutils
 import acts_contrib.test_utils.power.PowerBTBaseTest as PBtBT
 from acts import asserts
 from acts_contrib.test_utils.bt import BtEnum
+from acts.libs.proc import job
 
+DEFAULT_ADB_TIMEOUT = 60
 EXTRA_PLAY_TIME = 10
-
+GET_PROPERTY_HARDWARE_PLATFORM = 'getprop ro.boot.hardware.platform'
+PL_MAP = {
+    '10': 'EPA_BF',
+    '9': 'EPA_DIV',
+    '8': 'IPA_BF',
+    '7': 'IPA_DIV',
+}
 
 class PowerBTa2dpTest(PBtBT.PowerBTBaseTest):
     def __init__(self, configs):
@@ -45,9 +53,31 @@ class PowerBTa2dpTest(PBtBT.PowerBTBaseTest):
         def test_case_fn():
             self.measure_a2dp_power(codec_config, tpl)
 
-        test_case_name = ('test_BTa2dp_{}_codec_at_PL{}'.format(
-            codec_config['codec_type'], tpl))
+        power_level = 'PL{}'.format(tpl)
+
+        # If the device is P21 and later, generate tests with different name.
+        platform = self._get_hardware_platform_at_init_stage()
+        self.log.info('Hardware Platform is: {}'.format(platform))
+        if platform.startswith('gs'):
+            power_level = PL_MAP[str(tpl)]
+            self.log.info('The device is P21 or later, use name {}'.format(
+                power_level))
+
+        test_case_name = ('test_BTa2dp_{}_codec_at_{}'.format(
+            codec_config['codec_type'], power_level))
         setattr(self, test_case_name, test_case_fn)
+
+    def _get_hardware_platform_at_init_stage(self):
+
+        # At __init__ stage the android devices are not registered. Thus, run
+        # adb command with device sn directly.
+        sn = self.controller_configs['AndroidDevice'][0]
+        cmd = 'adb -s {} shell {}'.format(sn, GET_PROPERTY_HARDWARE_PLATFORM)
+        result = job.run(cmd, ignore_status=True, timeout=DEFAULT_ADB_TIMEOUT)
+        ret, out, err = result.exit_status, result.stdout, result.stderr
+        self.log.info('get platform ret: {}, out: {}, err: {}'.format(
+            ret, out, err))
+        return out
 
     def measure_a2dp_power(self, codec_config, tpl):
 

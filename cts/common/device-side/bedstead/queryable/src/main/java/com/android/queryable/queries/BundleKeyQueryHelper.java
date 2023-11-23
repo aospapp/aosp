@@ -16,13 +16,19 @@
 
 package com.android.queryable.queries;
 
+import static com.android.queryable.util.ParcelableUtils.readNullableBoolean;
+import static com.android.queryable.util.ParcelableUtils.writeNullableBoolean;
+
 import android.os.Bundle;
+import android.os.Parcel;
+import android.os.Parcelable;
 
 import com.android.queryable.Queryable;
 
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /** Implementation of {@link BundleKeyQuery}. */
 public final class BundleKeyQueryHelper<E extends Queryable> implements BundleKeyQuery<E>,
@@ -30,7 +36,7 @@ public final class BundleKeyQueryHelper<E extends Queryable> implements BundleKe
 
     private static final long serialVersionUID = 1;
 
-    private final E mQuery;
+    private final transient E mQuery;
     private Boolean mExpectsToExist = null;
     private StringQueryHelper<E> mStringQuery = null;
     private IntegerQueryHelper<E> mIntegerQuery = null;
@@ -43,6 +49,19 @@ public final class BundleKeyQueryHelper<E extends Queryable> implements BundleKe
 
     public BundleKeyQueryHelper(E query) {
         mQuery = query;
+    }
+
+    private BundleKeyQueryHelper(Parcel in) {
+        mQuery = null;
+        mExpectsToExist = readNullableBoolean(in);
+        mStringQuery = in.readParcelable(BundleKeyQueryHelper.class.getClassLoader());
+        mIntegerQuery = in.readParcelable(BundleKeyQueryHelper.class.getClassLoader());
+        mLongQuery = in.readParcelable(BundleKeyQueryHelper.class.getClassLoader());
+        mBooleanQuery = in.readParcelable(BundleKeyQueryHelper.class.getClassLoader());
+        mSerializableQuery = in.readParcelable(BundleKeyQueryHelper.class.getClassLoader());
+        mBundleQuery = in.readParcelable(BundleKeyQueryHelper.class.getClassLoader());
+        mStringListQuery = in.readParcelable(BundleKeyQueryHelper.class.getClassLoader());
+        mIntegerListQuery = in.readParcelable(BundleKeyQueryHelper.class.getClassLoader());
     }
 
     @Override
@@ -210,5 +229,55 @@ public final class BundleKeyQueryHelper<E extends Queryable> implements BundleKe
         }
 
         return Queryable.joinQueryStrings(queryStrings);
+    }
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel out, int flags) {
+        writeNullableBoolean(out, mExpectsToExist);
+        out.writeParcelable(mStringQuery, flags);
+        out.writeParcelable(mIntegerQuery, flags);
+        out.writeParcelable(mLongQuery, flags);
+        out.writeParcelable(mBooleanQuery, flags);
+        out.writeParcelable(mSerializableQuery, flags);
+        out.writeParcelable(mBundleQuery, flags);
+        out.writeParcelable(mStringListQuery, flags);
+        out.writeParcelable(mIntegerListQuery, flags);
+    }
+
+    public static final Parcelable.Creator<BundleKeyQueryHelper> CREATOR =
+            new Parcelable.Creator<BundleKeyQueryHelper>() {
+                public BundleKeyQueryHelper createFromParcel(Parcel in) {
+                    return new BundleKeyQueryHelper(in);
+                }
+
+                public BundleKeyQueryHelper[] newArray(int size) {
+                    return new BundleKeyQueryHelper[size];
+                }
+    };
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof BundleKeyQueryHelper)) return false;
+        BundleKeyQueryHelper<?> that = (BundleKeyQueryHelper<?>) o;
+        return Objects.equals(mExpectsToExist, that.mExpectsToExist)
+                && Objects.equals(mStringQuery, that.mStringQuery)
+                && Objects.equals(mIntegerQuery, that.mIntegerQuery)
+                && Objects.equals(mLongQuery, that.mLongQuery) && Objects.equals(
+                mBooleanQuery, that.mBooleanQuery) && Objects.equals(mSerializableQuery,
+                that.mSerializableQuery) && Objects.equals(mBundleQuery, that.mBundleQuery)
+                && Objects.equals(mStringListQuery, that.mStringListQuery)
+                && Objects.equals(mIntegerListQuery, that.mIntegerListQuery);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(mExpectsToExist, mStringQuery, mIntegerQuery, mLongQuery, mBooleanQuery,
+                mSerializableQuery, mBundleQuery, mStringListQuery, mIntegerListQuery);
     }
 }

@@ -134,6 +134,10 @@ IPACM_Wan::IPACM_Wan(int iface_index,
 	is_ipv6_frag_firewall_flt_rule_installed = false;
 	ipv6_frag_firewall_flt_rule_hdl = 0;
 
+	icmpv6_exception_hdl = 0;
+	tcp_fin_hdl = 0;
+	tcp_rst_hdl = 0;
+
 	mtu_v4 = DEFAULT_MTU_SIZE;
 	mtu_v4_set = false;
 	mtu_v6 = DEFAULT_MTU_SIZE;
@@ -7580,6 +7584,13 @@ int IPACM_Wan::add_offload_frag_rule()
 	uint8_t mux_id;
 	ipa_ioc_add_flt_rule *pFilteringTable = NULL;
 
+	/* Return if rules are there */
+	if (mhi_dl_v4_frag_hdl)
+	{
+		IPACMERR("frag rule have not been deleted. Don't install again\n");
+		return IPACM_FAILURE;
+	}
+
 	mux_id = ext_prop->ext[0].mux_id;
 	/* contruct filter rules to pcie modem */
 	struct ipa_flt_rule_add flt_rule_entry;
@@ -7721,6 +7732,13 @@ int IPACM_Wan::add_icmpv6_exception_rule()
 	uint8_t mux_id;
 	ipa_ioc_add_flt_rule *pFilteringTable = NULL;
 
+	/* Return if rules are there */
+	if (icmpv6_exception_hdl)
+	{
+		IPACMERR("icmpv6 rule have not been deleted. Don't install again\n");
+		return IPACM_FAILURE;
+	}
+
 	mux_id = ext_prop->ext[0].mux_id;
 	/* contruct filter rules to pcie modem */
 	struct ipa_flt_rule_add flt_rule_entry;
@@ -7857,6 +7875,13 @@ int IPACM_Wan::add_tcp_fin_rst_exception_rule()
 	int len, res = IPACM_SUCCESS;
 	uint8_t mux_id;
 	ipa_ioc_add_flt_rule *pFilteringTable = NULL;
+
+	/* Return if rules are there */
+	if (tcp_fin_hdl || tcp_rst_hdl)
+	{
+		IPACMERR("tcp RST/FIN rules have not been deleted. Don't install again\n");
+		return IPACM_FAILURE;
+	}
 
 	mux_id = ext_prop->ext[0].mux_id;
 	/* contruct filter rules to pcie modem */

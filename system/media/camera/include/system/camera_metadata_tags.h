@@ -65,6 +65,8 @@ typedef enum camera_metadata_section {
     ANDROID_DISTORTION_CORRECTION,
     ANDROID_HEIC,
     ANDROID_HEIC_INFO,
+    ANDROID_AUTOMOTIVE,
+    ANDROID_AUTOMOTIVE_LENS,
     ANDROID_SECTION_COUNT,
 
     VENDOR_SECTION = 0x8000
@@ -109,6 +111,8 @@ typedef enum camera_metadata_section_start {
                                                                 << 16,
     ANDROID_HEIC_START             = ANDROID_HEIC              << 16,
     ANDROID_HEIC_INFO_START        = ANDROID_HEIC_INFO         << 16,
+    ANDROID_AUTOMOTIVE_START       = ANDROID_AUTOMOTIVE        << 16,
+    ANDROID_AUTOMOTIVE_LENS_START  = ANDROID_AUTOMOTIVE_LENS   << 16,
     VENDOR_SECTION_START           = VENDOR_SECTION            << 16
 } camera_metadata_section_start_t;
 
@@ -210,6 +214,8 @@ typedef enum camera_metadata_tag {
     ANDROID_FLASH_INFO_AVAILABLE =                    // enum         | public       | HIDL v3.2
             ANDROID_FLASH_INFO_START,
     ANDROID_FLASH_INFO_CHARGE_DURATION,               // int64        | system       | HIDL v3.2
+    ANDROID_FLASH_INFO_STRENGTH_MAXIMUM_LEVEL,        // int32        | public       | HIDL v3.8
+    ANDROID_FLASH_INFO_STRENGTH_DEFAULT_LEVEL,        // int32        | public       | HIDL v3.8
     ANDROID_FLASH_INFO_END,
 
     ANDROID_HOT_PIXEL_MODE =                          // enum         | public       | HIDL v3.2
@@ -298,6 +304,10 @@ typedef enum camera_metadata_tag {
                                                       // int32[]      | ndk_public   | HIDL v3.3
     ANDROID_REQUEST_CHARACTERISTIC_KEYS_NEEDING_PERMISSION,
                                                       // int32[]      | hidden       | HIDL v3.4
+    ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP,
+                                                      // enum[]       | ndk_public   | HIDL v3.8
+    ANDROID_REQUEST_RECOMMENDED_TEN_BIT_DYNAMIC_RANGE_PROFILE,
+                                                      // int64        | java_public  | HIDL v3.8
     ANDROID_REQUEST_END,
 
     ANDROID_SCALER_CROP_REGION =                      // int32[]      | public       | HIDL v3.2
@@ -334,6 +344,7 @@ typedef enum camera_metadata_tag {
                                                       // int32        | hidden       | HIDL v3.6
     ANDROID_SCALER_MULTI_RESOLUTION_STREAM_SUPPORTED, // enum         | ndk_public   | HIDL v3.6
     ANDROID_SCALER_CROP_REGION_SET,                   // enum         | fwk_only
+    ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES,        // enum[]       | public       | HIDL v3.8
     ANDROID_SCALER_END,
 
     ANDROID_SENSOR_EXPOSURE_TIME =                    // int64        | public       | HIDL v3.2
@@ -535,6 +546,14 @@ typedef enum camera_metadata_tag {
     ANDROID_HEIC_INFO_MAX_JPEG_APP_SEGMENTS_COUNT,    // byte         | system       | HIDL v3.4
     ANDROID_HEIC_INFO_END,
 
+    ANDROID_AUTOMOTIVE_LOCATION =                     // enum         | public       | HIDL v3.8
+            ANDROID_AUTOMOTIVE_START,
+    ANDROID_AUTOMOTIVE_END,
+
+    ANDROID_AUTOMOTIVE_LENS_FACING =                  // enum[]       | public       | HIDL v3.8
+            ANDROID_AUTOMOTIVE_LENS_START,
+    ANDROID_AUTOMOTIVE_LENS_END,
+
 } camera_metadata_tag_t;
 
 /**
@@ -687,6 +706,7 @@ typedef enum camera_metadata_enum_android_control_scene_mode {
 typedef enum camera_metadata_enum_android_control_video_stabilization_mode {
     ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_OFF                    , // HIDL v3.2
     ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON                     , // HIDL v3.2
+    ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_PREVIEW_STABILIZATION  , // HIDL v3.8
 } camera_metadata_enum_android_control_video_stabilization_mode_t;
 
 // ANDROID_CONTROL_AE_STATE
@@ -842,6 +862,7 @@ typedef enum camera_metadata_enum_android_lens_pose_reference {
     ANDROID_LENS_POSE_REFERENCE_PRIMARY_CAMERA                      , // HIDL v3.3
     ANDROID_LENS_POSE_REFERENCE_GYROSCOPE                           , // HIDL v3.3
     ANDROID_LENS_POSE_REFERENCE_UNDEFINED                           , // HIDL v3.5
+    ANDROID_LENS_POSE_REFERENCE_AUTOMOTIVE                          , // HIDL v3.8
 } camera_metadata_enum_android_lens_pose_reference_t;
 
 
@@ -904,7 +925,34 @@ typedef enum camera_metadata_enum_android_request_available_capabilities {
     ANDROID_REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR
                                                                      , // HIDL v3.6
     ANDROID_REQUEST_AVAILABLE_CAPABILITIES_REMOSAIC_REPROCESSING    , // HIDL v3.6
+    ANDROID_REQUEST_AVAILABLE_CAPABILITIES_DYNAMIC_RANGE_TEN_BIT    , // HIDL v3.8
+    ANDROID_REQUEST_AVAILABLE_CAPABILITIES_STREAM_USE_CASE          , // HIDL v3.8
 } camera_metadata_enum_android_request_available_capabilities_t;
+
+// ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP
+typedef enum camera_metadata_enum_android_request_available_dynamic_range_profiles_map {
+    ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_STANDARD    = 0x1, // HIDL v3.8
+    ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_HLG10       = 0x2, // HIDL v3.8
+    ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_HDR10       = 0x4, // HIDL v3.8
+    ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_HDR10_PLUS  = 0x8, // HIDL v3.8
+    ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_DOLBY_VISION_10B_HDR_REF
+                                                                      = 0x10, // HIDL v3.8
+    ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_DOLBY_VISION_10B_HDR_REF_PO
+                                                                      = 0x20, // HIDL v3.8
+    ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_DOLBY_VISION_10B_HDR_OEM
+                                                                      = 0x40, // HIDL v3.8
+    ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_DOLBY_VISION_10B_HDR_OEM_PO
+                                                                      = 0x80, // HIDL v3.8
+    ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_DOLBY_VISION_8B_HDR_REF
+                                                                      = 0x100, // HIDL v3.8
+    ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_DOLBY_VISION_8B_HDR_REF_PO
+                                                                      = 0x200, // HIDL v3.8
+    ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_DOLBY_VISION_8B_HDR_OEM
+                                                                      = 0x400, // HIDL v3.8
+    ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_DOLBY_VISION_8B_HDR_OEM_PO
+                                                                      = 0x800, // HIDL v3.8
+    ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_MAX         = 0x1000, // HIDL v3.8
+} camera_metadata_enum_android_request_available_dynamic_range_profiles_map_t;
 
 
 // ANDROID_SCALER_AVAILABLE_FORMATS
@@ -949,6 +997,10 @@ typedef enum camera_metadata_enum_android_scaler_available_recommended_stream_co
                                                                       = 0x6, // HIDL v3.4
     ANDROID_SCALER_AVAILABLE_RECOMMENDED_STREAM_CONFIGURATIONS_PUBLIC_END
                                                                       = 0x7, // HIDL v3.4
+    ANDROID_SCALER_AVAILABLE_RECOMMENDED_STREAM_CONFIGURATIONS_10BIT_OUTPUT
+                                                                      = 0x8, // HIDL v3.8
+    ANDROID_SCALER_AVAILABLE_RECOMMENDED_STREAM_CONFIGURATIONS_PUBLIC_END_3_8
+                                                                      = 0x9, // HIDL v3.8
     ANDROID_SCALER_AVAILABLE_RECOMMENDED_STREAM_CONFIGURATIONS_VENDOR_START
                                                                       = 0x18, // HIDL v3.4
 } camera_metadata_enum_android_scaler_available_recommended_stream_configurations_t;
@@ -989,6 +1041,17 @@ typedef enum camera_metadata_enum_android_scaler_crop_region_set {
     ANDROID_SCALER_CROP_REGION_SET_FALSE                            ,
     ANDROID_SCALER_CROP_REGION_SET_TRUE                             ,
 } camera_metadata_enum_android_scaler_crop_region_set_t;
+
+// ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES
+typedef enum camera_metadata_enum_android_scaler_available_stream_use_cases {
+    ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_DEFAULT                = 0x0, // HIDL v3.8
+    ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_PREVIEW                = 0x1, // HIDL v3.8
+    ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_STILL_CAPTURE          = 0x2, // HIDL v3.8
+    ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_VIDEO_RECORD           = 0x3, // HIDL v3.8
+    ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_PREVIEW_VIDEO_STILL    = 0x4, // HIDL v3.8
+    ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_VIDEO_CALL             = 0x5, // HIDL v3.8
+    ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_VENDOR_START           = 0x10000, // HIDL v3.8
+} camera_metadata_enum_android_scaler_available_stream_use_cases_t;
 
 
 // ANDROID_SENSOR_REFERENCE_ILLUMINANT1
@@ -1252,5 +1315,41 @@ typedef enum camera_metadata_enum_android_heic_info_supported {
     ANDROID_HEIC_INFO_SUPPORTED_FALSE                               , // HIDL v3.4
     ANDROID_HEIC_INFO_SUPPORTED_TRUE                                , // HIDL v3.4
 } camera_metadata_enum_android_heic_info_supported_t;
+
+
+// ANDROID_AUTOMOTIVE_LOCATION
+typedef enum camera_metadata_enum_android_automotive_location {
+    ANDROID_AUTOMOTIVE_LOCATION_INTERIOR                            , // HIDL v3.8
+    ANDROID_AUTOMOTIVE_LOCATION_EXTERIOR_OTHER                      , // HIDL v3.8
+    ANDROID_AUTOMOTIVE_LOCATION_EXTERIOR_FRONT                      , // HIDL v3.8
+    ANDROID_AUTOMOTIVE_LOCATION_EXTERIOR_REAR                       , // HIDL v3.8
+    ANDROID_AUTOMOTIVE_LOCATION_EXTERIOR_LEFT                       , // HIDL v3.8
+    ANDROID_AUTOMOTIVE_LOCATION_EXTERIOR_RIGHT                      , // HIDL v3.8
+    ANDROID_AUTOMOTIVE_LOCATION_EXTRA_OTHER                         , // HIDL v3.8
+    ANDROID_AUTOMOTIVE_LOCATION_EXTRA_FRONT                         , // HIDL v3.8
+    ANDROID_AUTOMOTIVE_LOCATION_EXTRA_REAR                          , // HIDL v3.8
+    ANDROID_AUTOMOTIVE_LOCATION_EXTRA_LEFT                          , // HIDL v3.8
+    ANDROID_AUTOMOTIVE_LOCATION_EXTRA_RIGHT                         , // HIDL v3.8
+} camera_metadata_enum_android_automotive_location_t;
+
+
+// ANDROID_AUTOMOTIVE_LENS_FACING
+typedef enum camera_metadata_enum_android_automotive_lens_facing {
+    ANDROID_AUTOMOTIVE_LENS_FACING_EXTERIOR_OTHER                   , // HIDL v3.8
+    ANDROID_AUTOMOTIVE_LENS_FACING_EXTERIOR_FRONT                   , // HIDL v3.8
+    ANDROID_AUTOMOTIVE_LENS_FACING_EXTERIOR_REAR                    , // HIDL v3.8
+    ANDROID_AUTOMOTIVE_LENS_FACING_EXTERIOR_LEFT                    , // HIDL v3.8
+    ANDROID_AUTOMOTIVE_LENS_FACING_EXTERIOR_RIGHT                   , // HIDL v3.8
+    ANDROID_AUTOMOTIVE_LENS_FACING_INTERIOR_OTHER                   , // HIDL v3.8
+    ANDROID_AUTOMOTIVE_LENS_FACING_INTERIOR_SEAT_ROW_1_LEFT         , // HIDL v3.8
+    ANDROID_AUTOMOTIVE_LENS_FACING_INTERIOR_SEAT_ROW_1_CENTER       , // HIDL v3.8
+    ANDROID_AUTOMOTIVE_LENS_FACING_INTERIOR_SEAT_ROW_1_RIGHT        , // HIDL v3.8
+    ANDROID_AUTOMOTIVE_LENS_FACING_INTERIOR_SEAT_ROW_2_LEFT         , // HIDL v3.8
+    ANDROID_AUTOMOTIVE_LENS_FACING_INTERIOR_SEAT_ROW_2_CENTER       , // HIDL v3.8
+    ANDROID_AUTOMOTIVE_LENS_FACING_INTERIOR_SEAT_ROW_2_RIGHT        , // HIDL v3.8
+    ANDROID_AUTOMOTIVE_LENS_FACING_INTERIOR_SEAT_ROW_3_LEFT         , // HIDL v3.8
+    ANDROID_AUTOMOTIVE_LENS_FACING_INTERIOR_SEAT_ROW_3_CENTER       , // HIDL v3.8
+    ANDROID_AUTOMOTIVE_LENS_FACING_INTERIOR_SEAT_ROW_3_RIGHT        , // HIDL v3.8
+} camera_metadata_enum_android_automotive_lens_facing_t;
 
 

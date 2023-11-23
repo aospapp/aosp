@@ -9,3 +9,8 @@ add_hwservice(hal_wifi_ext, hal_wifi_ext_hwservice);
 
 # Allow to set up bridged interface
 allowxperm hal_wifi_ext self:udp_socket ioctl { SIOCBRADDBR SIOCBRDELBR SIOCBRADDIF SIOCBRDELIF};
+
+userdebug_or_eng(`
+  allow hal_wifi_ext wifi_logging_data_file:dir rw_dir_perms;
+  allow hal_wifi_ext wifi_logging_data_file:file create_file_perms;
+')

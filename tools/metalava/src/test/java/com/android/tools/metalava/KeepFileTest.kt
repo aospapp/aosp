@@ -31,14 +31,16 @@ class KeepFileTest : DriverTest() {
                             extends MyBaseInterface {
                     }
                     """
-                ), java(
+                ),
+                java(
                     """
                     package a.b.c;
                     @SuppressWarnings("ALL")
                     public interface MyStream<T, S extends MyStream<T, S>> extends java.lang.AutoCloseable {
                     }
                     """
-                ), java(
+                ),
+                java(
                     """
                     package test.pkg;
                     @SuppressWarnings("ALL")

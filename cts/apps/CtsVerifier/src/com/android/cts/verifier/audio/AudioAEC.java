@@ -17,8 +17,11 @@
 package com.android.cts.verifier.audio;
 
 import android.content.Context;
-import android.media.*;
 import android.media.audiofx.AcousticEchoCanceler;
+import android.media.AudioManager;
+import android.media.AudioTrack;
+import android.media.AudioRecord;
+import android.media.MediaRecorder;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -26,130 +29,74 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+
 import com.android.compatibility.common.util.ResultType;
 import com.android.compatibility.common.util.ResultUnit;
-import com.android.cts.verifier.CtsVerifierReportLog;
-import com.android.cts.verifier.R;
+import com.android.cts.verifier.audio.soundio.SoundPlayerObject;
+import com.android.cts.verifier.audio.soundio.SoundRecorderObject;
 import com.android.cts.verifier.audio.wavelib.*;
+import com.android.cts.verifier.CtsVerifierReportLog;
+import com.android.cts.verifier.PassFailButtons;
+import com.android.cts.verifier.R;
+
+import static com.android.cts.verifier.TestListActivity.sCurrentDisplayMode;
+import static com.android.cts.verifier.TestListAdapter.setTestNameSuffix;
 
 public class AudioAEC extends AudioFrequencyActivity implements View.OnClickListener {
     private static final String TAG = "AudioAEC";
 
-    private static final int TEST_NONE = -1;
+    // Test State
     private static final int TEST_AEC = 0;
-    private static final int TEST_COUNT = 1;
-    private static final float MAX_VAL = (float)(1 << 15);
 
-    private int mCurrentTest = TEST_NONE;
+    // UI
     private LinearLayout mLinearLayout;
     private Button mButtonTest;
     private Button mButtonMandatoryYes;
     private Button mButtonMandatoryNo;
     private ProgressBar mProgress;
     private TextView mResultTest;
-    private boolean mTestAECPassed;
-    private SoundPlayerObject mSPlayer;
-    private SoundRecorderObject mSRecorder;
-    private AcousticEchoCanceler mAec;
 
-    private boolean mMandatory = true;
-
+    // Sound IO
     private final int mBlockSizeSamples = 4096;
     private final int mSamplingRate = 48000;
     private final int mSelectedRecordSource = MediaRecorder.AudioSource.VOICE_COMMUNICATION;
+
+    private SoundPlayerObject mSPlayer;
+    private SoundRecorderObject mSRecorder;
+
+    // Test Results
+    private boolean mMandatory = true;
+    private boolean mTestAECPassed;
 
     private final int TEST_DURATION_MS = 8000;
     private final int SHOT_FREQUENCY_MS = 200;
     private final int CORRELATION_DURATION_MS = TEST_DURATION_MS - 3000;
     private final int SHOT_COUNT_CORRELATION = CORRELATION_DURATION_MS/SHOT_FREQUENCY_MS;
     private final int SHOT_COUNT = TEST_DURATION_MS/SHOT_FREQUENCY_MS;
+
     private final float MIN_RMS_DB = -60.0f; //dB
     private final float MIN_RMS_VAL = (float)Math.pow(10,(MIN_RMS_DB/20));
 
     private final double TEST_THRESHOLD_AEC_ON = 0.5;
     private final double TEST_THRESHOLD_AEC_OFF = 0.6;
-    private RmsHelper mRMSRecorder1 = new RmsHelper(mBlockSizeSamples, SHOT_COUNT);
-    private RmsHelper mRMSRecorder2 = new RmsHelper(mBlockSizeSamples, SHOT_COUNT);
+    private RmsHelper mRMSRecorder1 =
+            new RmsHelper(mBlockSizeSamples, SHOT_COUNT, MIN_RMS_DB, MIN_RMS_VAL);
+    private RmsHelper mRMSRecorder2 =
+            new RmsHelper(mBlockSizeSamples, SHOT_COUNT, MIN_RMS_DB, MIN_RMS_VAL);
 
-    private RmsHelper mRMSPlayer1 = new RmsHelper(mBlockSizeSamples, SHOT_COUNT);
-    private RmsHelper mRMSPlayer2 = new RmsHelper(mBlockSizeSamples, SHOT_COUNT);
+    private RmsHelper mRMSPlayer1 =
+            new RmsHelper(mBlockSizeSamples, SHOT_COUNT, MIN_RMS_DB, MIN_RMS_VAL);
+    private RmsHelper mRMSPlayer2 =
+            new RmsHelper(mBlockSizeSamples, SHOT_COUNT, MIN_RMS_DB, MIN_RMS_VAL);
 
     private Thread mTestThread;
 
-    //RMS helpers
-    public class RmsHelper {
-        private double mRmsCurrent;
-        public int mBlockSize;
-        private int mShoutCount;
-        public boolean mRunning = false;
-
-        private short[] mAudioShortArray;
-
-        private DspBufferDouble mRmsSnapshots;
-        private int mShotIndex;
-
-        public RmsHelper(int blockSize, int shotCount) {
-            mBlockSize = blockSize;
-            mShoutCount = shotCount;
-            reset();
-        }
-
-        public void reset() {
-            mAudioShortArray = new short[mBlockSize];
-            mRmsSnapshots = new DspBufferDouble(mShoutCount);
-            mShotIndex = 0;
-            mRmsCurrent = 0;
-            mRunning = false;
-        }
-
-        public void captureShot() {
-            if (mShotIndex >= 0 && mShotIndex < mRmsSnapshots.getSize()) {
-                mRmsSnapshots.setValue(mShotIndex++, mRmsCurrent);
-            }
-        }
-
-        public void setRunning(boolean running) {
-            mRunning = running;
-        }
-
-        public double getRmsCurrent() {
-            return mRmsCurrent;
-        }
-
-        public DspBufferDouble getRmsSnapshots() {
-            return mRmsSnapshots;
-        }
-
-        public boolean updateRms(PipeShort pipe, int channelCount, int channel) {
-            if (mRunning) {
-                int samplesAvailable = pipe.availableToRead();
-                while (samplesAvailable >= mBlockSize) {
-                    pipe.read(mAudioShortArray, 0, mBlockSize);
-
-                    double rmsTempSum = 0;
-                    int count = 0;
-                    for (int i = channel; i < mBlockSize; i += channelCount) {
-                        float value = mAudioShortArray[i] / MAX_VAL;
-
-                        rmsTempSum += value * value;
-                        count++;
-                    }
-                    float rms = count > 0 ? (float)Math.sqrt(rmsTempSum / count) : 0f;
-                    if (rms < MIN_RMS_VAL) {
-                        rms = MIN_RMS_VAL;
-                    }
-
-                    double alpha = 0.9;
-                    double total_rms = rms * alpha + mRmsCurrent * (1.0f - alpha);
-                    mRmsCurrent = total_rms;
-
-                    samplesAvailable = pipe.availableToRead();
-                }
-                return true;
-            }
-            return false;
-        }
-    }
+    // ReportLog schema
+    private static final String SECTION_AEC = "aec_activity";
+    private static final String KEY_AEC_MANDATORY = "aec_mandatory";
+    private static final String KEY_AEC_MAX_WITH = "max_with_aec";
+    private static final String KEY_AEC_MAX_WITHOUT = "max_without_aec";
+    private static final String KEY_AEC_RESULT = "result_string";
 
     //compute Acoustic Coupling Factor
     private double computeAcousticCouplingFactor(DspBufferDouble buffRmsPlayer,
@@ -196,7 +143,7 @@ public class AudioAEC extends AudioFrequencyActivity implements View.OnClickList
         super.onCreate(savedInstanceState);
         setContentView(R.layout.audio_aec_activity);
 
-        //
+        // "AEC Mandatory" Buttons
         mLinearLayout = (LinearLayout)findViewById(R.id.audio_aec_test_layout);
         mButtonMandatoryYes = (Button) findViewById(R.id.audio_aec_mandatory_yes);
         mButtonMandatoryYes.setOnClickListener(this);
@@ -204,16 +151,15 @@ public class AudioAEC extends AudioFrequencyActivity implements View.OnClickList
         mButtonMandatoryNo.setOnClickListener(this);
         enableUILayout(mLinearLayout, false);
 
-        // Test
+        // Test Button
         mButtonTest = (Button) findViewById(R.id.audio_aec_button_test);
         mButtonTest.setOnClickListener(this);
         mProgress = (ProgressBar) findViewById(R.id.audio_aec_test_progress_bar);
         mResultTest = (TextView) findViewById(R.id.audio_aec_test_result);
 
-        showView(mProgress, false);
+        showProgressIndicator(false);
 
         mSPlayer = new SoundPlayerObject(false, mBlockSizeSamples) {
-
             @Override
             public void periodicNotification(AudioTrack track) {
                 int channelCount = getChannelCount();
@@ -233,37 +179,31 @@ public class AudioAEC extends AudioFrequencyActivity implements View.OnClickList
 
         setPassFailButtonClickListeners();
         getPassButton().setEnabled(false);
-        setInfoResources(R.string.audio_aec_test,
-                R.string.audio_aec_info, -1);
+        setInfoResources(R.string.audio_aec_test, R.string.audio_aec_info, -1);
     }
 
-    private void showView(View v, boolean show) {
-        v.setVisibility(show ? View.VISIBLE : View.INVISIBLE);
+    private void showProgressIndicator(boolean show) {
+        mProgress.setVisibility(show ? View.VISIBLE : View.INVISIBLE);
     }
 
     @Override
     public void onClick(View v) {
         int id = v.getId();
-        switch (id) {
-            case R.id.audio_aec_button_test:
-                startTest();
-                break;
-            case R.id.audio_aec_mandatory_no:
-                enableUILayout(mLinearLayout,false);
-                getPassButton().setEnabled(true);
-                mButtonMandatoryNo.setEnabled(false);
-                mButtonMandatoryYes.setEnabled(false);
-                mMandatory = false;
-                Log.v(TAG,"AEC marked as NOT mandatory");
-                break;
-            case R.id.audio_aec_mandatory_yes:
-                enableUILayout(mLinearLayout,true);
-                mButtonMandatoryNo.setEnabled(false);
-                mButtonMandatoryYes.setEnabled(false);
-                mMandatory = true;
-                Log.v(TAG,"AEC marked as mandatory");
-                break;
-
+        if (id == R.id.audio_aec_button_test) {
+            startTest();
+        } else if (id == R.id.audio_aec_mandatory_no) {
+            enableUILayout(mLinearLayout, false);
+            getPassButton().setEnabled(true);
+            mButtonMandatoryNo.setEnabled(false);
+            mButtonMandatoryYes.setEnabled(false);
+            mMandatory = false;
+            Log.v(TAG, "AEC marked as NOT mandatory");
+        } else if (id == R.id.audio_aec_mandatory_yes) {
+            enableUILayout(mLinearLayout, true);
+            mButtonMandatoryNo.setEnabled(false);
+            mButtonMandatoryYes.setEnabled(false);
+            mMandatory = true;
+            Log.v(TAG, "AEC marked as mandatory");
         }
     }
 
@@ -273,7 +213,11 @@ public class AudioAEC extends AudioFrequencyActivity implements View.OnClickList
             Log.v(TAG,"test Thread already running.");
             return;
         }
+
         mTestThread = new Thread(new AudioTestRunner(TAG, TEST_AEC, mMessageHandler) {
+            // AcousticEchoCanceler
+            private AcousticEchoCanceler mAec;
+
             public void run() {
                 super.run();
 
@@ -489,28 +433,39 @@ public class AudioAEC extends AudioFrequencyActivity implements View.OnClickList
                                   String msg) {
 
         CtsVerifierReportLog reportLog = getReportLog();
-        reportLog.addValue("AEC_mandatory",
+        reportLog.addValue(KEY_AEC_MANDATORY,
                 aecMandatory,
                 ResultType.NEUTRAL,
                 ResultUnit.NONE);
 
-        reportLog.addValue("max_with_AEC",
+        reportLog.addValue(KEY_AEC_MAX_WITH,
                 maxAEC,
                 ResultType.LOWER_BETTER,
                 ResultUnit.SCORE);
 
-        reportLog.addValue("max_without_AEC",
+        reportLog.addValue(KEY_AEC_MAX_WITHOUT,
                 maxNoAEC,
                 ResultType.HIGHER_BETTER,
                 ResultUnit.SCORE);
 
-        reportLog.addValue("result_string",
+        reportLog.addValue(KEY_AEC_RESULT,
                 msg,
                 ResultType.NEUTRAL,
                 ResultUnit.NONE);
     }
 
-    @Override // PassFailButtons
+    //
+    // PassFailButtons Overrides
+    //
+    @Override
+    public String getReportFileName() { return PassFailButtons.AUDIO_TESTS_REPORT_LOG_NAME; }
+
+    @Override
+    public final String getReportSectionName() {
+        return setTestNameSuffix(sCurrentDisplayMode, SECTION_AEC);
+    }
+
+    @Override
     public void recordTestResults() {
         getReportLog().submit();
     }
@@ -522,7 +477,7 @@ public class AudioAEC extends AudioFrequencyActivity implements View.OnClickList
         public void testStarted(int testId, String str) {
             super.testStarted(testId, str);
             Log.v(TAG, "Test Started! " + testId + " str:"+str);
-            showView(mProgress, true);
+            showProgressIndicator(true);
             mTestAECPassed = false;
             getPassButton().setEnabled(false);
             mResultTest.setText("test in progress..");
@@ -539,7 +494,7 @@ public class AudioAEC extends AudioFrequencyActivity implements View.OnClickList
         public void testEndedOk(int testId, String str) {
             super.testEndedOk(testId, str);
             Log.v(TAG, "Test EndedOk. " + testId + " str:"+str);
-            showView(mProgress, false);
+            showProgressIndicator(false);
             mResultTest.setText("test completed. " + str);
             if (mTestAECPassed) {
                 getPassButton().setEnabled(true);;
@@ -550,7 +505,7 @@ public class AudioAEC extends AudioFrequencyActivity implements View.OnClickList
         public void testEndedError(int testId, String str) {
             super.testEndedError(testId, str);
             Log.v(TAG, "Test EndedError. " + testId + " str:"+str);
-            showView(mProgress, false);
+            showProgressIndicator(false);
             mResultTest.setText("test failed. " + str);
         }
     };

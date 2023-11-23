@@ -483,6 +483,9 @@ public class UiDumpUtils {
     }
 
     private static String fromLast(String substr, CharSequence whole) {
+        if (whole == null) {
+            return null;
+        }
         String wholeStr = whole.toString();
         int idx = wholeStr.lastIndexOf(substr);
         if (idx < 0) return wholeStr;

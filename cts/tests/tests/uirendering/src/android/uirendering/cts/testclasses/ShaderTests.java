@@ -176,4 +176,24 @@ public class ShaderTests extends ActivityTestBase {
                 })
                 .runWithVerifier(new ColorVerifier(Color.WHITE));
     }
+
+    @Test
+    public void testSinglePixelBitmapShaderWith1010102Config() {
+        createTest()
+                .addCanvasClient(new CanvasClient() {
+                    Paint mPaint = new Paint();
+                    @Override
+                    public void draw(Canvas canvas, int width, int height) {
+                        if (mPaint.getShader() == null) {
+                            Bitmap shaderBitmap = Bitmap.createBitmap(
+                                    1, 1, Bitmap.Config.RGBA_1010102);
+                            shaderBitmap.eraseColor(Color.BLUE);
+                            mPaint.setShader(new BitmapShader(shaderBitmap,
+                                    Shader.TileMode.REPEAT, Shader.TileMode.REPEAT));
+                        }
+                        canvas.drawRect(0, 0, width, height, mPaint);
+                    }
+                })
+                .runWithVerifier(new ColorVerifier(Color.BLUE));
+    }
 }

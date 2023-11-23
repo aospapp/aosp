@@ -44,6 +44,8 @@ import android.support.test.uiautomator.Until;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.compatibility.common.util.SystemUtil;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -70,6 +72,7 @@ public class ClipboardManagerTest {
 
     @After
     public void cleanUp() {
+        mClipboardManager.clearPrimaryClip();
         InstrumentationRegistry.getInstrumentation().getUiAutomation()
                 .dropShellPermissionIdentity();
     }
@@ -290,6 +293,32 @@ public class ClipboardManagerTest {
                 "TextLabel",
                 new String[] {ClipDescription.MIMETYPE_TEXT_PLAIN},
                 new ExpectedClipItem("Text2", null, null));
+    }
+
+    @Test
+    public void testReadInBackgroundRequiresPermission() throws Exception {
+        ClipData clip = ClipData.newPlainText("TextLabel", "Text1");
+        mClipboardManager.setPrimaryClip(clip);
+
+        // Press the home button to unfocus the app.
+        mUiDevice.pressHome();
+        mUiDevice.wait(Until.gone(By.pkg(MockActivity.class.getPackageName())), 5000);
+
+        // Without the READ_CLIPBOARD_IN_BACKGROUND permission, we should see an empty clipboard.
+        assertThat(mClipboardManager.hasPrimaryClip()).isFalse();
+        assertThat(mClipboardManager.hasText()).isFalse();
+        assertThat(mClipboardManager.getPrimaryClip()).isNull();
+        assertThat(mClipboardManager.getPrimaryClipDescription()).isNull();
+
+        // Having the READ_CLIPBOARD_IN_BACKGROUND permission should allow us to read the clipboard
+        // even when we are not in the foreground. We use the shell identity to simulate holding
+        // this permission; in practice, only privileged system apps can hold this permission (e.g.
+        // an app that has the SYSTEM_TEXT_INTELLIGENCE role).
+        ClipData actual = SystemUtil.callWithShellPermissionIdentity(
+                () -> mClipboardManager.getPrimaryClip(),
+                android.Manifest.permission.READ_CLIPBOARD_IN_BACKGROUND);
+        assertThat(actual).isNotNull();
+        assertThat(actual.getItemAt(0).getText()).isEqualTo("Text1");
     }
 
     @Test

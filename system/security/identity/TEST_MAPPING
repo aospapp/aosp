@@ -2,6 +2,9 @@
   "presubmit": [
     {
       "name": "CtsIdentityTestCases"
+    },
+    {
+      "name": "identity-credential-util-tests"
     }
   ]
 }

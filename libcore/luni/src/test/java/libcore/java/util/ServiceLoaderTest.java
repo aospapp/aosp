@@ -38,6 +38,17 @@ public class ServiceLoaderTest extends junit.framework.TestCase {
     assertFalse(it.hasNext());
   }
 
+  public void testLoadInstalled() {
+    // We need to register a service in the System or Boot class loader in order to test this
+    // properly. We only test the negative case here.
+    ServiceLoader<ServiceLoaderTestInterface> loader = ServiceLoader.loadInstalled(
+            ServiceLoaderTestInterface.class);
+    Iterator<ServiceLoaderTestInterface> it = loader.iterator();
+    // Impl1 and Impl2 are not in the System or Boot class loader.
+    // Thus, ServiceLoader.loadInstalled shouldn't load any of them.
+    assertFalse(it.hasNext());
+  }
+
   // Something like "does.not.Exist", that is a well-formed class name, but just doesn't exist.
   public void test_missingRegisteredClass() throws Exception {
     try {

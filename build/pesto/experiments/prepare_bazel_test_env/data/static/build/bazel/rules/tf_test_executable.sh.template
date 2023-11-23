@@ -26,7 +26,7 @@ then
 fi
 
 # Set the required variables for the environment.
-export PATH={adb_path}:$PATH
+export PATH={path_additions}:$PATH
 export LD_LIBRARY_PATH="$TESTCASE_RELPATH/lib:$TESTCASE_RELPATH/lib64:"
 export TF_PATH="{tradefed_deps_module_path}/*"
 export TF_JAR_DIR="{tradefed_deps_module_path}/"

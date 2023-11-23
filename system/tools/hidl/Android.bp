@@ -129,7 +129,6 @@ cc_library_host_static {
         "AST.cpp",
         "Coordinator.cpp",
         "generateCpp.cpp",
-        "generateCppAdapter.cpp",
         "generateCppImpl.cpp",
         "generateDependencies.cpp",
         "generateFormattedHidl.cpp",

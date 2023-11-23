@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2016, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -123,7 +123,6 @@ public class TestChronoField {
     public void test_IsoFields_week_based_year() {
         Locale locale = Locale.US;
         String name = IsoFields.WEEK_OF_WEEK_BASED_YEAR.getDisplayName(locale);
-        // Android-changed: week is lower-case in CLDR.
         assertEquals(name, "week");
     }
 
@@ -137,7 +136,6 @@ public class TestChronoField {
         Locale locale = Locale.US;
         TemporalField weekOfYearField = WeekFields.SUNDAY_START.weekOfYear();
         String name = weekOfYearField.getDisplayName(locale);
-        // Android-changed: week is lower-case in CLDR.
         assertEquals(name, "week");
     }
 

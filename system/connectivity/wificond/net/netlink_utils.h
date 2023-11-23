@@ -58,8 +58,10 @@ struct BandInfo {
       is_80211n_supported(false),
       is_80211ac_supported(false),
       is_80211ax_supported(false),
+      is_80211be_supported(false),
       is_160_mhz_supported(false),
       is_80p80_mhz_supported(false),
+      is_320_mhz_supported(false),
       max_tx_streams(1),
       max_rx_streams(1) {};
   // Frequencies for 2.4 GHz band.
@@ -78,10 +80,14 @@ struct BandInfo {
   bool is_80211ac_supported;
   // support for 802.11ax
   bool is_80211ax_supported;
+  // support for 802.11be
+  bool is_80211be_supported;
   // support for 160Mhz channel width
   bool is_160_mhz_supported;
   // support for 80+80Mhz channel width
   bool is_80p80_mhz_supported;
+  // support for 320Mhz channel width
+  bool is_320_mhz_supported;
   // Max number of transmit spatial streams
   uint32_t max_tx_streams;
   // Max number of receive spatial streams
@@ -319,6 +325,8 @@ class NetlinkUtils {
   void ParseVhtCapAttribute(const NL80211NestedAttr& band,
                             BandInfo* out_band_info);
   void ParseHeCapPhyAttribute(const NL80211NestedAttr& attribute,
+                              BandInfo* out_band_info);
+  void ParseEhtCapPhyAttribute(const NL80211NestedAttr& attribute,
                               BandInfo* out_band_info);
 
   bool ParseScanCapabilities(const NL80211Packet* const packet,

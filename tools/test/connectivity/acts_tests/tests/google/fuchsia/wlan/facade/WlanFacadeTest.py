@@ -17,34 +17,24 @@
 Script for verifying that we can invoke methods of the WlanFacade.
 
 """
-from acts.base_test import BaseTestClass
+import array
+
 from acts import asserts, signals
+from acts_contrib.test_utils.abstract_devices.wlan_device_lib.AbstractDeviceWlanDeviceBaseTest import AbstractDeviceWlanDeviceBaseTest
+from acts_contrib.test_utils.abstract_devices.wlan_device import create_wlan_device
 
 
-class WlanFacadeTest(BaseTestClass):
+class WlanFacadeTest(AbstractDeviceWlanDeviceBaseTest):
     def setup_class(self):
         super().setup_class()
         if len(self.fuchsia_devices) < 1:
             raise signals.TestAbortClass(
                 "Sorry, please try verifying FuchsiaDevice is in your "
                 "config file and try again.")
-
-    def on_fail(self, test_name, begin_time):
-        for fd in self.fuchsia_devices:
-            try:
-                fd.take_bug_report(test_name, begin_time)
-                fd.get_log(test_name, begin_time)
-            except Exception:
-                pass
-
-            try:
-                if fd.device.hard_reboot_on_fail:
-                    fd.hard_power_cycle(self.pdu_devices)
-            except AttributeError:
-                pass
+        self.dut = create_wlan_device(self.fuchsia_devices[0])
 
     def test_get_phy_id_list(self):
-        result = self.fuchsia_devices[0].wlan_lib.wlanPhyIdList()
+        result = self.dut.device.wlan_lib.wlanPhyIdList()
         error = result['error']
         asserts.assert_true(error is None, error)
 
@@ -52,7 +42,7 @@ class WlanFacadeTest(BaseTestClass):
         return True
 
     def test_get_country(self):
-        wlan_lib = self.fuchsia_devices[0].wlan_lib
+        wlan_lib = self.dut.device.wlan_lib
 
         result = wlan_lib.wlanPhyIdList()
         error = result['error']
@@ -67,4 +57,20 @@ class WlanFacadeTest(BaseTestClass):
         country_string = str(array.array('b', country_bytes),
                              encoding='us-ascii')
         self.log.info('Got country %s (%s)', country_string, country_bytes)
+        return True
+
+    def test_get_dev_path(self):
+        wlan_lib = self.dut.device.wlan_lib
+
+        result = wlan_lib.wlanPhyIdList()
+        error = result['error']
+        asserts.assert_true(error is None, error)
+        phy_id = result['result'][0]
+
+        result = wlan_lib.wlanGetDevPath(phy_id)
+        error = result['error']
+        asserts.assert_true(error is None, error)
+
+        dev_path = result['result']
+        self.log.info('Got device path: %s', dev_path)
         return True

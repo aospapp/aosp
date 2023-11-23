@@ -37,7 +37,7 @@ void SimpleLogBuffer::Init() {
 
     // Release any sleeping reader threads to dump their current content.
     auto lock = std::lock_guard{logd_lock};
-    for (const auto& reader_thread : reader_list_->reader_threads()) {
+    for (const auto& reader_thread : reader_list_->running_reader_threads()) {
         reader_thread->TriggerReader();
     }
 }
@@ -234,7 +234,7 @@ bool SimpleLogBuffer::Clear(log_id_t id, uid_t uid) {
     // It is still busy, disconnect all readers.
     if (busy) {
         auto lock = std::lock_guard{logd_lock};
-        for (const auto& reader_thread : reader_list_->reader_threads()) {
+        for (const auto& reader_thread : reader_list_->running_reader_threads()) {
             if (reader_thread->IsWatching(id)) {
                 LOG(WARNING) << "Kicking blocked reader, " << reader_thread->name()
                              << ", from LogBuffer::clear()";
@@ -275,7 +275,7 @@ void SimpleLogBuffer::MaybePrune(log_id_t id) {
 bool SimpleLogBuffer::Prune(log_id_t id, unsigned long prune_rows, uid_t caller_uid) {
     // Don't prune logs that are newer than the point at which any reader threads are reading from.
     LogReaderThread* oldest = nullptr;
-    for (const auto& reader_thread : reader_list_->reader_threads()) {
+    for (const auto& reader_thread : reader_list_->running_reader_threads()) {
         if (!reader_thread->IsWatching(id)) {
             continue;
         }

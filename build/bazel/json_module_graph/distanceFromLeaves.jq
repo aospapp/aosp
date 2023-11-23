@@ -1,3 +1,5 @@
+# CMD: Returns the maximum distance from a leaf for each module
+
 include "library";
 
 def onlyDeps:

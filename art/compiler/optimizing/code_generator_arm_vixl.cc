@@ -34,6 +34,7 @@
 #include "interpreter/mterp/nterp.h"
 #include "intrinsics.h"
 #include "intrinsics_arm_vixl.h"
+#include "intrinsics_utils.h"
 #include "linker/linker_patch.h"
 #include "mirror/array-inl.h"
 #include "mirror/class-inl.h"
@@ -529,7 +530,10 @@ class LoadClassSlowPathARMVIXL : public SlowPathCodeARMVIXL {
 
     InvokeRuntimeCallingConventionARMVIXL calling_convention;
     if (must_resolve_type) {
-      DCHECK(IsSameDexFile(cls_->GetDexFile(), arm_codegen->GetGraph()->GetDexFile()));
+      DCHECK(IsSameDexFile(cls_->GetDexFile(), arm_codegen->GetGraph()->GetDexFile()) ||
+             arm_codegen->GetCompilerOptions().WithinOatFile(&cls_->GetDexFile()) ||
+             ContainsElement(Runtime::Current()->GetClassLinker()->GetBootClassPath(),
+                             &cls_->GetDexFile()));
       dex::TypeIndex type_index = cls_->GetTypeIndex();
       __ Mov(calling_convention.GetRegisterAt(0), type_index.index_);
       if (cls_->NeedsAccessCheck()) {
@@ -831,24 +835,14 @@ class ReadBarrierForHeapReferenceSlowPathARMVIXL : public SlowPathCodeARMVIXL {
             "art::mirror::HeapReference<art::mirror::Object> and int32_t have different sizes.");
         __ Add(index_reg, index_reg, offset_);
       } else {
-        // In the case of the UnsafeGetObject/UnsafeGetObjectVolatile
-        // intrinsics, `index_` is not shifted by a scale factor of 2
-        // (as in the case of ArrayGet), as it is actually an offset
-        // to an object field within an object.
+        // In the case of the following intrinsics `index_` is not shifted by a scale factor of 2
+        // (as in the case of ArrayGet), as it is actually an offset to an object field within an
+        // object.
         DCHECK(instruction_->IsInvoke()) << instruction_->DebugName();
         DCHECK(instruction_->GetLocations()->Intrinsified());
-        Intrinsics intrinsic = instruction_->AsInvoke()->GetIntrinsic();
-        DCHECK(intrinsic == Intrinsics::kUnsafeGetObject ||
-               intrinsic == Intrinsics::kUnsafeGetObjectVolatile ||
-               mirror::VarHandle::GetAccessModeTemplateByIntrinsic(intrinsic) ==
-                   mirror::VarHandle::AccessModeTemplate::kGet ||
-               mirror::VarHandle::GetAccessModeTemplateByIntrinsic(intrinsic) ==
-                   mirror::VarHandle::AccessModeTemplate::kCompareAndSet ||
-               mirror::VarHandle::GetAccessModeTemplateByIntrinsic(intrinsic) ==
-                   mirror::VarHandle::AccessModeTemplate::kCompareAndExchange ||
-               mirror::VarHandle::GetAccessModeTemplateByIntrinsic(intrinsic) ==
-                   mirror::VarHandle::AccessModeTemplate::kGetAndUpdate)
-            << instruction_->AsInvoke()->GetIntrinsic();
+        HInvoke* invoke = instruction_->AsInvoke();
+        DCHECK(IsUnsafeGetObject(invoke) || IsVarHandleGet(invoke) || IsVarHandleCASFamily(invoke))
+            << invoke->GetIntrinsic();
         DCHECK_EQ(offset_, 0U);
         // Though UnsafeGet's offset location is a register pair, we only pass the low
         // part (high part is irrelevant for 32-bit addresses) to the slow path.
@@ -966,6 +960,54 @@ class ReadBarrierForRootSlowPathARMVIXL : public SlowPathCodeARMVIXL {
   const Location root_;
 
   DISALLOW_COPY_AND_ASSIGN(ReadBarrierForRootSlowPathARMVIXL);
+};
+
+class MethodEntryExitHooksSlowPathARMVIXL : public SlowPathCodeARMVIXL {
+ public:
+  explicit MethodEntryExitHooksSlowPathARMVIXL(HInstruction* instruction)
+      : SlowPathCodeARMVIXL(instruction) {}
+
+  void EmitNativeCode(CodeGenerator* codegen) override {
+    LocationSummary* locations = instruction_->GetLocations();
+    CodeGeneratorARMVIXL* arm_codegen = down_cast<CodeGeneratorARMVIXL*>(codegen);
+    QuickEntrypointEnum entry_point =
+        (instruction_->IsMethodEntryHook()) ? kQuickMethodEntryHook : kQuickMethodExitHook;
+    __ Bind(GetEntryLabel());
+    SaveLiveRegisters(codegen, locations);
+    arm_codegen->InvokeRuntime(entry_point, instruction_, instruction_->GetDexPc(), this);
+    RestoreLiveRegisters(codegen, locations);
+    __ B(GetExitLabel());
+  }
+
+  const char* GetDescription() const override {
+    return "MethodEntryExitHooksSlowPath";
+  }
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(MethodEntryExitHooksSlowPathARMVIXL);
+};
+
+class CompileOptimizedSlowPathARMVIXL : public SlowPathCodeARMVIXL {
+ public:
+  CompileOptimizedSlowPathARMVIXL() : SlowPathCodeARMVIXL(/* instruction= */ nullptr) {}
+
+  void EmitNativeCode(CodeGenerator* codegen) override {
+    uint32_t entry_point_offset =
+        GetThreadOffset<kArmPointerSize>(kQuickCompileOptimized).Int32Value();
+    __ Bind(GetEntryLabel());
+    __ Ldr(lr, MemOperand(tr, entry_point_offset));
+    // Note: we don't record the call here (and therefore don't generate a stack
+    // map), as the entrypoint should never be suspended.
+    __ Blx(lr);
+    __ B(GetExitLabel());
+  }
+
+  const char* GetDescription() const override {
+    return "CompileOptimizedSlowPath";
+  }
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(CompileOptimizedSlowPathARMVIXL);
 };
 
 inline vixl32::Condition ARMCondition(IfCondition cond) {
@@ -1846,7 +1888,7 @@ static bool CanGenerateConditionalMove(const Location& out, const Location& src)
 vixl32::Label* CodeGeneratorARMVIXL::GetFinalLabel(HInstruction* instruction,
                                                    vixl32::Label* final_label) {
   DCHECK(!instruction->IsControlFlow() && !instruction->IsSuspendCheck());
-  DCHECK(!instruction->IsInvoke() || !instruction->GetLocations()->CanCall());
+  DCHECK_IMPLIES(instruction->IsInvoke(), !instruction->GetLocations()->CanCall());
 
   const HBasicBlock* const block = instruction->GetBlock();
   const HLoopInformation* const info = block->GetLoopInformation();
@@ -2108,6 +2150,44 @@ void CodeGeneratorARMVIXL::ComputeSpillMask() {
   }
 }
 
+void LocationsBuilderARMVIXL::VisitMethodExitHook(HMethodExitHook* method_hook) {
+  LocationSummary* locations = new (GetGraph()->GetAllocator())
+      LocationSummary(method_hook, LocationSummary::kCallOnSlowPath);
+  locations->SetInAt(0, parameter_visitor_.GetReturnLocation(method_hook->InputAt(0)->GetType()));
+}
+
+void InstructionCodeGeneratorARMVIXL::GenerateMethodEntryExitHook(HInstruction* instruction) {
+  UseScratchRegisterScope temps(GetVIXLAssembler());
+  vixl32::Register temp = temps.Acquire();
+
+  SlowPathCodeARMVIXL* slow_path =
+      new (codegen_->GetScopedAllocator()) MethodEntryExitHooksSlowPathARMVIXL(instruction);
+  codegen_->AddSlowPath(slow_path);
+
+  int offset = instrumentation::Instrumentation::NeedsEntryExitHooksOffset().Int32Value();
+  uint32_t address = reinterpret_cast32<uint32_t>(Runtime::Current()->GetInstrumentation());
+  __ Mov(temp, address + offset);
+  __ Ldrb(temp, MemOperand(temp, 0));
+  __ CompareAndBranchIfNonZero(temp, slow_path->GetEntryLabel());
+  __ Bind(slow_path->GetExitLabel());
+}
+
+void InstructionCodeGeneratorARMVIXL::VisitMethodExitHook(HMethodExitHook* instruction) {
+  DCHECK(codegen_->GetCompilerOptions().IsJitCompiler() && GetGraph()->IsDebuggable());
+  DCHECK(codegen_->RequiresCurrentMethod());
+  GenerateMethodEntryExitHook(instruction);
+}
+
+void LocationsBuilderARMVIXL::VisitMethodEntryHook(HMethodEntryHook* method_hook) {
+  new (GetGraph()->GetAllocator()) LocationSummary(method_hook, LocationSummary::kCallOnSlowPath);
+}
+
+void InstructionCodeGeneratorARMVIXL::VisitMethodEntryHook(HMethodEntryHook* instruction) {
+  DCHECK(codegen_->GetCompilerOptions().IsJitCompiler() && GetGraph()->IsDebuggable());
+  DCHECK(codegen_->RequiresCurrentMethod());
+  GenerateMethodEntryExitHook(instruction);
+}
+
 void CodeGeneratorARMVIXL::MaybeIncrementHotness(bool is_frame_entry) {
   if (GetCompilerOptions().CountHotnessInCompiledCode()) {
     UseScratchRegisterScope temps(GetVIXLAssembler());
@@ -2120,10 +2200,12 @@ void CodeGeneratorARMVIXL::MaybeIncrementHotness(bool is_frame_entry) {
     }
     // Load with zero extend to clear the high bits for integer overflow check.
     __ Ldrh(temp, MemOperand(kMethodRegister, ArtMethod::HotnessCountOffset().Int32Value()));
-    __ Add(temp, temp, 1);
-    // Subtract one if the counter would overflow.
-    __ Sub(temp, temp, Operand(temp, ShiftType::LSR, 16));
+    vixl::aarch32::Label done;
+    DCHECK_EQ(0u, interpreter::kNterpHotnessValue);
+    __ CompareAndBranchIfZero(temp, &done, /* is_far_target= */ false);
+    __ Add(temp, temp, -1);
     __ Strh(temp, MemOperand(kMethodRegister, ArtMethod::HotnessCountOffset().Int32Value()));
+    __ Bind(&done);
     if (!is_frame_entry) {
       __ Pop(vixl32::Register(kMethodRegister));
       GetAssembler()->cfi().AdjustCFAOffset(-static_cast<int>(kArmWordSize));
@@ -2131,54 +2213,20 @@ void CodeGeneratorARMVIXL::MaybeIncrementHotness(bool is_frame_entry) {
   }
 
   if (GetGraph()->IsCompilingBaseline() && !Runtime::Current()->IsAotCompiler()) {
-    ScopedProfilingInfoUse spiu(
-        Runtime::Current()->GetJit(), GetGraph()->GetArtMethod(), Thread::Current());
-    ProfilingInfo* info = spiu.GetProfilingInfo();
-    if (info != nullptr) {
-      uint32_t address = reinterpret_cast32<uint32_t>(info);
-      vixl::aarch32::Label done;
-      UseScratchRegisterScope temps(GetVIXLAssembler());
-      temps.Exclude(ip);
-      if (!is_frame_entry) {
-        __ Push(r4);  // Will be used as temporary. For frame entry, r4 is always available.
-        GetAssembler()->cfi().AdjustCFAOffset(kArmWordSize);
-      }
-      __ Mov(r4, address);
-      __ Ldrh(ip, MemOperand(r4, ProfilingInfo::BaselineHotnessCountOffset().Int32Value()));
-      __ Add(ip, ip, 1);
-      instruction_visitor_.GenerateAndConst(ip, ip, interpreter::kTieredHotnessMask);
-      __ Strh(ip, MemOperand(r4, ProfilingInfo::BaselineHotnessCountOffset().Int32Value()));
-      if (!is_frame_entry) {
-        __ Pop(r4);
-        GetAssembler()->cfi().AdjustCFAOffset(-static_cast<int>(kArmWordSize));
-      }
-      __ Lsls(ip, ip, 16);
-      __ B(ne, &done);
-      uint32_t entry_point_offset =
-          GetThreadOffset<kArmPointerSize>(kQuickCompileOptimized).Int32Value();
-      if (HasEmptyFrame()) {
-        CHECK(is_frame_entry);
-        // For leaf methods, we need to spill lr and r0. Also spill r1 and r2 for
-        // alignment.
-        uint32_t core_spill_mask =
-            (1 << lr.GetCode()) | (1 << r0.GetCode()) | (1 << r1.GetCode()) | (1 << r2.GetCode());
-        __ Push(RegisterList(core_spill_mask));
-        GetAssembler()->cfi().AdjustCFAOffset(kArmWordSize * POPCOUNT(core_spill_mask));
-        __ Ldr(lr, MemOperand(tr, entry_point_offset));
-        __ Blx(lr);
-        __ Pop(RegisterList(core_spill_mask));
-        GetAssembler()->cfi().AdjustCFAOffset(
-            -static_cast<int>(kArmWordSize) * POPCOUNT(core_spill_mask));
-      } else {
-        if (!RequiresCurrentMethod()) {
-          CHECK(is_frame_entry);
-          GetAssembler()->StoreToOffset(kStoreWord, kMethodRegister, sp, 0);
-        }
-      __ Ldr(lr, MemOperand(tr, entry_point_offset));
-      __ Blx(lr);
-      }
-      __ Bind(&done);
-    }
+    SlowPathCodeARMVIXL* slow_path = new (GetScopedAllocator()) CompileOptimizedSlowPathARMVIXL();
+    AddSlowPath(slow_path);
+    ProfilingInfo* info = GetGraph()->GetProfilingInfo();
+    DCHECK(info != nullptr);
+    DCHECK(!HasEmptyFrame());
+    uint32_t address = reinterpret_cast32<uint32_t>(info);
+    UseScratchRegisterScope temps(GetVIXLAssembler());
+    vixl32::Register tmp = temps.Acquire();
+    __ Mov(lr, address);
+    __ Ldrh(tmp, MemOperand(lr, ProfilingInfo::BaselineHotnessCountOffset().Int32Value()));
+    __ Adds(tmp, tmp, -1);
+    __ B(cc, slow_path->GetEntryLabel());
+    __ Strh(tmp, MemOperand(lr, ProfilingInfo::BaselineHotnessCountOffset().Int32Value()));
+    __ Bind(slow_path->GetExitLabel());
   }
 }
 
@@ -2903,7 +2951,7 @@ void InstructionCodeGeneratorARMVIXL::VisitSelect(HSelect* select) {
       !out.Equals(second) &&
       (condition->GetLocations()->InAt(0).Equals(out) ||
        condition->GetLocations()->InAt(1).Equals(out));
-  DCHECK(!output_overlaps_with_condition_inputs || condition->IsCondition());
+  DCHECK_IMPLIES(output_overlaps_with_condition_inputs, condition->IsCondition());
   Location src;
 
   if (condition->IsIntConstant()) {
@@ -3466,23 +3514,20 @@ void CodeGeneratorARMVIXL::MaybeGenerateInlineCacheCheck(HInstruction* instructi
       GetGraph()->IsCompilingBaseline() &&
       !Runtime::Current()->IsAotCompiler()) {
     DCHECK(!instruction->GetEnvironment()->IsFromInlinedInvoke());
-    ScopedProfilingInfoUse spiu(
-        Runtime::Current()->GetJit(), GetGraph()->GetArtMethod(), Thread::Current());
-    ProfilingInfo* info = spiu.GetProfilingInfo();
-    if (info != nullptr) {
-      InlineCache* cache = info->GetInlineCache(instruction->GetDexPc());
-      uint32_t address = reinterpret_cast32<uint32_t>(cache);
-      vixl32::Label done;
-      UseScratchRegisterScope temps(GetVIXLAssembler());
-      temps.Exclude(ip);
-      __ Mov(r4, address);
-      __ Ldr(ip, MemOperand(r4, InlineCache::ClassesOffset().Int32Value()));
-      // Fast path for a monomorphic cache.
-      __ Cmp(klass, ip);
-      __ B(eq, &done, /* is_far_target= */ false);
-      InvokeRuntime(kQuickUpdateInlineCache, instruction, instruction->GetDexPc());
-      __ Bind(&done);
-    }
+    ProfilingInfo* info = GetGraph()->GetProfilingInfo();
+    DCHECK(info != nullptr);
+    InlineCache* cache = info->GetInlineCache(instruction->GetDexPc());
+    uint32_t address = reinterpret_cast32<uint32_t>(cache);
+    vixl32::Label done;
+    UseScratchRegisterScope temps(GetVIXLAssembler());
+    temps.Exclude(ip);
+    __ Mov(r4, address);
+    __ Ldr(ip, MemOperand(r4, InlineCache::ClassesOffset().Int32Value()));
+    // Fast path for a monomorphic cache.
+    __ Cmp(klass, ip);
+    __ B(eq, &done, /* is_far_target= */ false);
+    InvokeRuntime(kQuickUpdateInlineCache, instruction, instruction->GetDexPc());
+    __ Bind(&done);
   }
 }
 
@@ -7112,12 +7157,13 @@ void InstructionCodeGeneratorARMVIXL::GenerateSuspendCheck(HSuspendCheck* instru
   UseScratchRegisterScope temps(GetVIXLAssembler());
   vixl32::Register temp = temps.Acquire();
   GetAssembler()->LoadFromOffset(
-      kLoadUnsignedHalfword, temp, tr, Thread::ThreadFlagsOffset<kArmPointerSize>().Int32Value());
+      kLoadWord, temp, tr, Thread::ThreadFlagsOffset<kArmPointerSize>().Int32Value());
+  __ Tst(temp, Thread::SuspendOrCheckpointRequestFlags());
   if (successor == nullptr) {
-    __ CompareAndBranchIfNonZero(temp, slow_path->GetEntryLabel());
+    __ B(ne, slow_path->GetEntryLabel());
     __ Bind(slow_path->GetReturnLabel());
   } else {
-    __ CompareAndBranchIfZero(temp, codegen_->GetLabelOf(successor));
+    __ B(eq, codegen_->GetLabelOf(successor));
     __ B(slow_path->GetEntryLabel());
   }
 }
@@ -7481,10 +7527,8 @@ void InstructionCodeGeneratorARMVIXL::VisitLoadClass(HLoadClass* cls) NO_THREAD_
     }
     case HLoadClass::LoadKind::kBootImageRelRo: {
       DCHECK(!codegen_->GetCompilerOptions().IsBootImage());
-      CodeGeneratorARMVIXL::PcRelativePatchInfo* labels =
-          codegen_->NewBootImageRelRoPatch(CodeGenerator::GetBootImageOffset(cls));
-      codegen_->EmitMovwMovtPlaceholder(labels, out);
-      __ Ldr(out, MemOperand(out, /* offset= */ 0));
+      uint32_t boot_image_offset = CodeGenerator::GetBootImageOffset(cls);
+      codegen_->LoadBootImageRelRoEntry(out, boot_image_offset);
       break;
     }
     case HLoadClass::LoadKind::kBssEntry:
@@ -7493,7 +7537,7 @@ void InstructionCodeGeneratorARMVIXL::VisitLoadClass(HLoadClass* cls) NO_THREAD_
       CodeGeneratorARMVIXL::PcRelativePatchInfo* labels = codegen_->NewTypeBssEntryPatch(cls);
       codegen_->EmitMovwMovtPlaceholder(labels, out);
       // All aligned loads are implicitly atomic consume operations on ARM.
-      codegen_->GenerateGcRootFieldLoad(cls, out_loc, out, /* offset= */ 0, read_barrier_option);
+      codegen_->GenerateGcRootFieldLoad(cls, out_loc, out, /*offset=*/ 0, read_barrier_option);
       generate_null_check = true;
       break;
     }
@@ -7509,7 +7553,7 @@ void InstructionCodeGeneratorARMVIXL::VisitLoadClass(HLoadClass* cls) NO_THREAD_
                                                        cls->GetTypeIndex(),
                                                        cls->GetClass()));
       // /* GcRoot<mirror::Class> */ out = *out
-      codegen_->GenerateGcRootFieldLoad(cls, out_loc, out, /* offset= */ 0, read_barrier_option);
+      codegen_->GenerateGcRootFieldLoad(cls, out_loc, out, /*offset=*/ 0, read_barrier_option);
       break;
     }
     case HLoadClass::LoadKind::kRuntimeCall:
@@ -7706,10 +7750,8 @@ void InstructionCodeGeneratorARMVIXL::VisitLoadString(HLoadString* load) NO_THRE
     }
     case HLoadString::LoadKind::kBootImageRelRo: {
       DCHECK(!codegen_->GetCompilerOptions().IsBootImage());
-      CodeGeneratorARMVIXL::PcRelativePatchInfo* labels =
-          codegen_->NewBootImageRelRoPatch(CodeGenerator::GetBootImageOffset(load));
-      codegen_->EmitMovwMovtPlaceholder(labels, out);
-      __ Ldr(out, MemOperand(out, /* offset= */ 0));
+      uint32_t boot_image_offset = CodeGenerator::GetBootImageOffset(load);
+      codegen_->LoadBootImageRelRoEntry(out, boot_image_offset);
       return;
     }
     case HLoadString::LoadKind::kBssEntry: {
@@ -7718,7 +7760,7 @@ void InstructionCodeGeneratorARMVIXL::VisitLoadString(HLoadString* load) NO_THRE
       codegen_->EmitMovwMovtPlaceholder(labels, out);
       // All aligned loads are implicitly atomic consume operations on ARM.
       codegen_->GenerateGcRootFieldLoad(
-          load, out_loc, out, /* offset= */ 0, kCompilerReadBarrierOption);
+          load, out_loc, out, /*offset=*/ 0, kCompilerReadBarrierOption);
       LoadStringSlowPathARMVIXL* slow_path =
           new (codegen_->GetScopedAllocator()) LoadStringSlowPathARMVIXL(load);
       codegen_->AddSlowPath(slow_path);
@@ -7739,7 +7781,7 @@ void InstructionCodeGeneratorARMVIXL::VisitLoadString(HLoadString* load) NO_THRE
                                                         load->GetString()));
       // /* GcRoot<mirror::String> */ out = *out
       codegen_->GenerateGcRootFieldLoad(
-          load, out_loc, out, /* offset= */ 0, kCompilerReadBarrierOption);
+          load, out_loc, out, /*offset=*/ 0, kCompilerReadBarrierOption);
       return;
     }
     default:
@@ -9176,10 +9218,7 @@ void CodeGeneratorARMVIXL::LoadMethod(MethodLoadKind load_kind, Location temp, H
     }
     case MethodLoadKind::kBootImageRelRo: {
       uint32_t boot_image_offset = GetBootImageOffset(invoke);
-      PcRelativePatchInfo* labels = NewBootImageRelRoPatch(boot_image_offset);
-      vixl32::Register temp_reg = RegisterFrom(temp);
-      EmitMovwMovtPlaceholder(labels, temp_reg);
-      GetAssembler()->LoadFromOffset(kLoadWord, temp_reg, temp_reg, /* offset*/ 0);
+      LoadBootImageRelRoEntry(RegisterFrom(temp), boot_image_offset);
       break;
     }
     case MethodLoadKind::kBssEntry: {
@@ -9253,6 +9292,7 @@ void CodeGeneratorARMVIXL::GenerateStaticOrDirectCall(
   switch (invoke->GetCodePtrLocation()) {
     case CodePtrLocation::kCallSelf:
       {
+        DCHECK(!GetGraph()->HasShouldDeoptimizeFlag());
         // Use a scope to help guarantee that `RecordPcInfo()` records the correct pc.
         ExactAssemblyScope aas(GetVIXLAssembler(),
                                vixl32::k32BitT32InstructionSizeInBytes,
@@ -9473,6 +9513,13 @@ VIXLUInt32Literal* CodeGeneratorARMVIXL::DeduplicateJitClassLiteral(const DexFil
       });
 }
 
+void CodeGeneratorARMVIXL::LoadBootImageRelRoEntry(vixl32::Register reg,
+                                                   uint32_t boot_image_offset) {
+  CodeGeneratorARMVIXL::PcRelativePatchInfo* labels = NewBootImageRelRoPatch(boot_image_offset);
+  EmitMovwMovtPlaceholder(labels, reg);
+  __ Ldr(reg, MemOperand(reg, /*offset=*/ 0));
+}
+
 void CodeGeneratorARMVIXL::LoadBootImageAddress(vixl32::Register reg,
                                                 uint32_t boot_image_reference) {
   if (GetCompilerOptions().IsBootImage()) {
@@ -9480,10 +9527,7 @@ void CodeGeneratorARMVIXL::LoadBootImageAddress(vixl32::Register reg,
         NewBootImageIntrinsicPatch(boot_image_reference);
     EmitMovwMovtPlaceholder(labels, reg);
   } else if (GetCompilerOptions().GetCompilePic()) {
-    CodeGeneratorARMVIXL::PcRelativePatchInfo* labels =
-        NewBootImageRelRoPatch(boot_image_reference);
-    EmitMovwMovtPlaceholder(labels, reg);
-    __ Ldr(reg, MemOperand(reg, /* offset= */ 0));
+    LoadBootImageRelRoEntry(reg, boot_image_reference);
   } else {
     DCHECK(GetCompilerOptions().IsJitCompiler());
     gc::Heap* heap = Runtime::Current()->GetHeap();
@@ -9497,7 +9541,7 @@ void CodeGeneratorARMVIXL::LoadBootImageAddress(vixl32::Register reg,
 void CodeGeneratorARMVIXL::LoadTypeForBootImageIntrinsic(vixl::aarch32::Register reg,
                                                          TypeReference target_type) {
   // Load the class the same way as for HLoadClass::LoadKind::kBootImageLinkTimePcRelative.
-  DCHECK(GetCompilerOptions().IsBootImage());
+  DCHECK(GetCompilerOptions().IsBootImage() || GetCompilerOptions().IsBootImageExtension());
   PcRelativePatchInfo* labels =
       NewBootImageTypePatch(*target_type.dex_file, target_type.TypeIndex());
   EmitMovwMovtPlaceholder(labels, reg);
@@ -10079,7 +10123,7 @@ void CodeGeneratorARMVIXL::CompileBakerReadBarrierThunk(ArmVIXLAssembler& assemb
 
   // For JIT, the slow path is considered part of the compiled method,
   // so JIT should pass null as `debug_name`.
-  DCHECK(!GetCompilerOptions().IsJitCompiler() || debug_name == nullptr);
+  DCHECK_IMPLIES(GetCompilerOptions().IsJitCompiler(), debug_name == nullptr);
   if (debug_name != nullptr && GetCompilerOptions().GenerateAnyDebugInfo()) {
     std::ostringstream oss;
     oss << "BakerReadBarrierThunk";

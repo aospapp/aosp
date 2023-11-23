@@ -47,6 +47,8 @@ public class ShortcutThrottlingResetActivity extends InteractiveVerifierActivity
 
     private static final String ACTION_RESET_SETUP_NOTIFICATION =
             "com.android.cts.robot.ACTION_RESET_SETUP_NOTIFICATION";
+    private static final String ACTION_OPEN_NOTIFICATION_BOT =
+            "com.android.cts.robot.OPEN_NOTIFICATION_BOT";
 
     private static final String EXTRA_NOTIFICATION_TITLE = "EXTRA_NOTIFICATION_TITLE";
     private static final String EXTRA_RESET_REPLY_PACKAGE = "EXTRA_RESET_REPLY_PACKAGE";
@@ -54,6 +56,8 @@ public class ShortcutThrottlingResetActivity extends InteractiveVerifierActivity
     private static final String EXTRA_RESET_REPLY_ERROR = "EXTRA_RESET_REPLY_ERROR";
 
     private static final String SUCCESS = "**SUCCESS**";
+
+    private static final int REQUEST_CODE_OPEN_NOTIFICATION_BOT = 1;
 
     private String mReplyAction;
 
@@ -118,10 +122,20 @@ public class ShortcutThrottlingResetActivity extends InteractiveVerifierActivity
             try {
                 pm.getPackageInfo(NOTIFICATION_BOT_PACKAGE, 0);
                 status = PASS;
+                startActivityForResult(new Intent(ACTION_OPEN_NOTIFICATION_BOT),
+                        REQUEST_CODE_OPEN_NOTIFICATION_BOT);
             } catch (PackageManager.NameNotFoundException e) {
                 status = FAIL;
                 logFail("You must install the CTS Robot helper, aka " + NOTIFICATION_BOT_PACKAGE);
+                next();
             }
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_CODE_OPEN_NOTIFICATION_BOT) {
             next();
         }
     }

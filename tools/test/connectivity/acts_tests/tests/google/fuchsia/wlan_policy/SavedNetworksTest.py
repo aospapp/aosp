@@ -55,6 +55,7 @@ class SavedNetworksTest(WifiBaseTest):
     * One or more Fuchsia devices
     * One Access Point
     """
+
     def setup_class(self):
         super().setup_class()
         # Keep track of whether we have started an access point in a test
@@ -86,8 +87,9 @@ class SavedNetworksTest(WifiBaseTest):
             password: The password to save for the network. Empty string represents
                     no password, and PSK should be provided as 64 character hex string.
         """
-        if not fd.wlan_policy_controller.save_network(
-                ssid, security_type, password=password):
+        if fd.wlan_policy_controller.save_network(ssid,
+                                                  security_type,
+                                                  password=password):
             self.log.info(
                 "Attempting to save bad network config %s did not give an error"
                 % ssid)

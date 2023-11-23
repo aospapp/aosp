@@ -17,6 +17,7 @@
 package com.android.server.wm.flicker.windowmanager
 
 import com.android.server.wm.flicker.IMAGINARY_COMPONENT
+import com.android.server.wm.flicker.assertThatErrorContainsDebugInfo
 import com.android.server.wm.flicker.assertThrows
 import com.android.server.wm.flicker.readWmTraceFromFile
 import com.android.server.wm.flicker.traces.windowmanager.WindowManagerTraceSubject
@@ -35,13 +36,8 @@ class WindowStateSubjectTest {
                     .windowState(IMAGINARY_COMPONENT.className)
                     .exists()
         }
+        assertThatErrorContainsDebugInfo(error)
         Truth.assertThat(error).hasMessageThat().contains(IMAGINARY_COMPONENT.className)
-        Truth.assertThat(error).hasMessageThat().contains("What?")
-        Truth.assertThat(error).hasMessageThat().contains("Where?")
-        Truth.assertThat(error).hasMessageThat().contains("Entry")
-        Truth.assertThat(error).hasMessageThat().contains("Trace start")
-        Truth.assertThat(error).hasMessageThat().contains("Trace start")
-        Truth.assertThat(error).hasMessageThat().contains("Trace file")
         Truth.assertThat(error).hasMessageThat().contains("Window title")
     }
 
@@ -54,12 +50,6 @@ class WindowStateSubjectTest {
                     .first()
                     .doesNotExist()
         }
-        Truth.assertThat(error).hasMessageThat().contains("What?")
-        Truth.assertThat(error).hasMessageThat().contains("Where?")
-        Truth.assertThat(error).hasMessageThat().contains("Entry")
-        Truth.assertThat(error).hasMessageThat().contains("Trace start")
-        Truth.assertThat(error).hasMessageThat().contains("Trace start")
-        Truth.assertThat(error).hasMessageThat().contains("Trace file")
-        Truth.assertThat(error).hasMessageThat().contains("Entry")
+        assertThatErrorContainsDebugInfo(error)
     }
 }

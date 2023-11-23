@@ -78,6 +78,45 @@ struct internal_array_t {
   using alternative_15_t = struct { struct { float32x4x2_t a; struct { float v[7]; } b; } s; };
 */
 
+// add a + b
+template<typename T>
+static inline T vadd(T a, T b) {
+    if constexpr (std::is_same_v<T, float> || std::is_same_v<T, double>) {
+        return a + b;
+
+#ifdef USE_NEON
+    } else if constexpr (std::is_same_v<T, float32x2_t>) {
+        return vadd_f32(a, b);
+    } else if constexpr (std::is_same_v<T, float32x4_t>) {
+        return vaddq_f32(a, b);
+#if defined(__aarch64__)
+    } else if constexpr (std::is_same_v<T, float64x2_t>) {
+        return vaddq_f64(a, b);
+#endif
+#endif // USE_NEON
+
+    } else /* constexpr */ {
+        T ret;
+        auto &[retval] = ret;  // single-member struct
+        const auto &[aval] = a;
+        const auto &[bval] = b;
+        if constexpr (std::is_array_v<decltype(retval)>) {
+#pragma unroll
+            for (size_t i = 0; i < std::size(aval); ++i) {
+                retval[i] = vadd(aval[i], bval[i]);
+            }
+            return ret;
+        } else /* constexpr */ {
+             auto &[r1, r2] = retval;
+             const auto &[a1, a2] = aval;
+             const auto &[b1, b2] = bval;
+             r1 = vadd(a1, b1);
+             r2 = vadd(a2, b2);
+             return ret;
+        }
+    }
+}
+
 // duplicate float into all elements.
 template<typename T, typename F>
 static inline T vdupn(F f) {
@@ -156,6 +195,73 @@ static inline T vld1(const F *f) {
     }
 }
 
+/**
+ * Returns c as follows:
+ * c_i = a_i * b_i if a and b are the same vector type or
+ * c_i = a_i * b if a is a vector and b is scalar or
+ * c_i = a * b_i if a is scalar and b is a vector.
+ */
+template<typename T, typename S, typename F>
+static inline T vmla(T a, S b, F c) {
+    // Both types T and S are non-primitive and they are not equal.  T == S handled below.
+    (void) a;
+    (void) b;
+    (void) c;
+    static_assert(dependent_false_v<T>);
+}
+
+template<typename T, typename F>
+static inline T vmla(T a, T b, F c) {
+    if constexpr (std::is_same_v<T, float> || std::is_same_v<T, double>) {
+        if constexpr (std::is_same_v<F, float> || std::is_same_v<F, double>) {
+            return a + b * c;
+        } else {
+            static_assert(dependent_false_v<T>);
+        }
+    } else if constexpr (std::is_same_v<F, float> || std::is_same_v<F, double>) {
+        // handle the lane variant
+#ifdef USE_NEON
+        if constexpr (std::is_same_v<T, float32x2_t>) {
+            return vmla_n_f32(a, b, c);
+        } else if constexpr (std::is_same_v<T, float32x4_t>) {
+            return vmlaq_n_f32(a, b,c);
+#if defined(__aarch64__)
+        } else if constexpr (std::is_same_v<T, float64x2_t>) {
+            return vmlaq_n_f64(a, b);
+#endif
+        } else
+#endif // USE_NEON
+        {
+        T ret;
+        auto &[retval] = ret;  // single-member struct
+        const auto &[aval] = a;
+        const auto &[bval] = b;
+        if constexpr (std::is_array_v<decltype(retval)>) {
+#pragma unroll
+            for (size_t i = 0; i < std::size(aval); ++i) {
+                retval[i] = vmla(aval[i], bval[i], c);
+            }
+            return ret;
+        } else /* constexpr */ {
+             auto &[r1, r2] = retval;
+             const auto &[a1, a2] = aval;
+             const auto &[b1, b2] = bval;
+             r1 = vmla(a1, b1, c);
+             r2 = vmla(a2, b2, c);
+             return ret;
+        }
+        }
+    } else {
+        // Both types T and F are non-primitive and they are not equal.
+        static_assert(dependent_false_v<T>);
+    }
+}
+
+template<typename T, typename F>
+static inline T vmla(T a, F b, T c) {
+    return vmla(a, c, b);
+}
+
 // fused multiply-add a + b * c
 template<typename T>
 static inline T vmla(T a, T b, T c) {
@@ -197,7 +303,57 @@ static inline T vmla(T a, T b, T c) {
     }
 }
 
-// multiply a * b
+/**
+ * Returns c as follows:
+ * c_i = a_i * b_i if a and b are the same vector type or
+ * c_i = a_i * b if a is a vector and b is scalar or
+ * c_i = a * b_i if a is scalar and b is a vector.
+ */
+template<typename T, typename F>
+static inline auto vmul(T a, F b) {
+    if constexpr (std::is_same_v<T, float> || std::is_same_v<T, double>) {
+        if constexpr (std::is_same_v<F, float> || std::is_same_v<F, double>) {
+            return a * b;
+        } else /* constexpr */ {
+            return vmul(b, a); // we prefer T to be the vector/struct form.
+        }
+    } else if constexpr (std::is_same_v<F, float> || std::is_same_v<F, double>) {
+        // handle the lane variant
+#ifdef USE_NEON
+        if constexpr (std::is_same_v<T, float32x2_t>) {
+            return vmul_n_f32(a, b);
+        } else if constexpr (std::is_same_v<T, float32x4_t>) {
+            return vmulq_n_f32(a, b);
+#if defined(__aarch64__)
+        } else if constexpr (std::is_same_v<T, float64x2_t>) {
+            return vmulq_n_f64(a, b);
+#endif
+        } else
+#endif // USE_NEON
+        {
+        T ret;
+        auto &[retval] = ret;  // single-member struct
+        const auto &[aval] = a;
+        if constexpr (std::is_array_v<decltype(retval)>) {
+#pragma unroll
+            for (size_t i = 0; i < std::size(aval); ++i) {
+                retval[i] = vmul(aval[i], b);
+            }
+            return ret;
+        } else /* constexpr */ {
+             auto &[r1, r2] = retval;
+             const auto &[a1, a2] = aval;
+             r1 = vmul(a1, b);
+             r2 = vmul(a2, b);
+             return ret;
+        }
+        }
+    } else {
+        // Both types T and F are non-primitive and they are not equal.
+        static_assert(dependent_false_v<T>);
+    }
+}
+
 template<typename T>
 static inline T vmul(T a, T b) {
     if constexpr (std::is_same_v<T, float> || std::is_same_v<T, double>) {
@@ -304,6 +460,45 @@ static inline void vst1(F *f, T a) {
              vst1(f, a1);
              f += sizeof(std::decay_t<decltype(a1)>) / sizeof(F);
              vst1(f, a2);
+        }
+    }
+}
+
+// subtract a - b
+template<typename T>
+static inline T vsub(T a, T b) {
+    if constexpr (std::is_same_v<T, float> || std::is_same_v<T, double>) {
+        return a - b;
+
+#ifdef USE_NEON
+    } else if constexpr (std::is_same_v<T, float32x2_t>) {
+        return vsub_f32(a, b);
+    } else if constexpr (std::is_same_v<T, float32x4_t>) {
+        return vsubq_f32(a, b);
+#if defined(__aarch64__)
+    } else if constexpr (std::is_same_v<T, float64x2_t>) {
+        return vsubq_f64(a, b);
+#endif
+#endif // USE_NEON
+
+    } else /* constexpr */ {
+        T ret;
+        auto &[retval] = ret;  // single-member struct
+        const auto &[aval] = a;
+        const auto &[bval] = b;
+        if constexpr (std::is_array_v<decltype(retval)>) {
+#pragma unroll
+            for (size_t i = 0; i < std::size(aval); ++i) {
+                retval[i] = vsub(aval[i], bval[i]);
+            }
+            return ret;
+        } else /* constexpr */ {
+             auto &[r1, r2] = retval;
+             const auto &[a1, a2] = aval;
+             const auto &[b1, b2] = bval;
+             r1 = vsub(a1, b1);
+             r2 = vsub(a2, b2);
+             return ret;
         }
     }
 }

@@ -13,7 +13,10 @@
       "name": "CtsCurrentApiSignatureTestCases"
     },
     {
-      "name": "CtsAndroidTestBase28ApiSignatureTestCases"
+      "name": "CtsAndroidTestBase29ApiSignatureTestCases"
+    },
+    {
+      "name": "CtsAndroidTestBaseUsesLibraryApiSignatureTestCases"
     },
     {
       "name": "CtsAndroidTestBaseCurrentApiSignatureTestCases"

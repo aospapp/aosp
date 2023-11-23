@@ -30,6 +30,11 @@ class CowWriterFileDescriptor final : public FileDescriptor {
  public:
   explicit CowWriterFileDescriptor(
       std::unique_ptr<android::snapshot::ISnapshotWriter> cow_writer);
+
+  // |cow_reader| should be obtained by calling |cow_writer->OpenReader()|
+  CowWriterFileDescriptor(
+      std::unique_ptr<android::snapshot::ISnapshotWriter> cow_writer,
+      std::unique_ptr<FileDescriptor> cow_reader);
   ~CowWriterFileDescriptor();
 
   bool Open(const char* path, int flags, mode_t mode) override;

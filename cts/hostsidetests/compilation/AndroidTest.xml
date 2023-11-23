@@ -22,6 +22,6 @@
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <test class="com.android.compatibility.common.tradefed.testtype.JarHostTest" >
         <option name="jar" value="CtsCompilationTestCases.jar" />
-        <option name="runtime-hint" value="9m45s" />
+        <option name="runtime-hint" value="14m" />
     </test>
 </configuration>

@@ -41,7 +41,6 @@ TEST_X509_KEY = os.path.join("testdata", "com.android.example.apex.x509.pem")
 TEST_PK8_KEY = os.path.join("testdata", "com.android.example.apex.pk8")
 TEST_AVB_PUBLIC_KEY = os.path.join("testdata", "com.android.example.apex.avbpubkey")
 
-
 def run(args, verbose=None, **kwargs):
     """Creates and returns a subprocess.Popen object.
 
@@ -74,7 +73,7 @@ def run(args, verbose=None, **kwargs):
 def run_host_command(args, verbose=None, **kwargs):
     host_build_top = os.environ.get("ANDROID_BUILD_TOP")
     if host_build_top:
-        host_command_dir = os.path.join(host_build_top, "out/soong/host/linux-x86/bin")
+        host_command_dir = os.path.join(host_build_top, "out/host/linux-x86/bin")
         args[0] = os.path.join(host_command_dir, args[0])
     return run_and_check_output(args, verbose, **kwargs)
 
@@ -270,7 +269,7 @@ class ApexerRebuildTest(unittest.TestCase):
             payload_only = True
 
         os.environ["APEXER_TOOL_PATH"] = (self.host_tools_path +
-            ":out/soong/host/linux-x86/bin:prebuilts/sdk/tools/linux/bin")
+            ":out/host/linux-x86/bin:prebuilts/sdk/tools/linux/bin")
         cmd = ["apexer", "--force", "--include_build_info", "--do_not_check_keyname"]
         if DEBUG_TEST:
             cmd.append('-v')
@@ -281,7 +280,7 @@ class ApexerRebuildTest(unittest.TestCase):
             cmd.extend(["--manifest_json", container_files["apex_manifest.json"]])
         cmd.extend(["--build_info", container_files["apex_build_info.pb"]])
         if not payload_only and "assets" in container_files:
-            cmd.extend(["--assets_dir", "assets"])
+            cmd.extend(["--assets_dir", container_files["assets"]])
         if not unsigned_payload_only:
             cmd.extend(["--key", os.path.join(get_current_dir(), TEST_PRIVATE_KEY)])
             cmd.extend(["--pubkey", os.path.join(get_current_dir(), TEST_AVB_PUBLIC_KEY)])
@@ -315,7 +314,7 @@ class ApexerRebuildTest(unittest.TestCase):
             java_dep_lib += ":" + os.path.join(os.environ["ANDROID_HOST_OUT"], "lib64")
         if "ANDROID_BUILD_TOP" in os.environ:
             java_dep_lib += ":" + os.path.join(os.environ["ANDROID_BUILD_TOP"],
-                "out/soong/host/linux-x86/lib64")
+                "out/host/linux-x86/lib64")
 
         return [java_toolchain, java_dep_lib]
 
@@ -328,7 +327,7 @@ class ApexerRebuildTest(unittest.TestCase):
             java_toolchain,
             "-Djava.library.path=" + java_dep_lib,
             "-jar", self.host_tools['signapk.jar'],
-            "-a", "4096",
+            "-a", "4096", "--align-file-size",
             os.path.join(get_current_dir(), TEST_X509_KEY),
             os.path.join(get_current_dir(), TEST_PK8_KEY),
             unsigned_apex, fn]
@@ -425,7 +424,6 @@ class ApexerRebuildTest(unittest.TestCase):
 
     def test_apex_with_overridden_package_name(self):
       self._run_build_test(TEST_APEX_WITH_OVERRIDDEN_PACKAGE_NAME)
-
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

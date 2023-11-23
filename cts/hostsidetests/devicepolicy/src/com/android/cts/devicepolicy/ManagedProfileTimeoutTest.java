@@ -107,7 +107,7 @@ public class ManagedProfileTimeoutTest extends BaseManagedProfileTest {
         final long endTime = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeMs);
         final UserActivityEmulator helper = new UserActivityEmulator(getDevice());
         while (System.nanoTime() < endTime) {
-            helper.tapScreenCenter();
+            helper.tapScreen();
             // Just in case to prevent busy loop.
             Thread.sleep(100);
         }

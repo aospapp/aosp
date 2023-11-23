@@ -53,7 +53,7 @@ vector<KeyCharacteristics> convertKeyCharacteristics(SecurityLevel keyMintSecuri
     if (keyMintSecurityLevel != SecurityLevel::SOFTWARE) {
         // We're pretending to be TRUSTED_ENVIRONMENT or STRONGBOX.
         keyMintEnforced.authorizations = kmParamSet2Aidl(hw_enforced);
-        if (include_keystore_enforced) {
+        if (include_keystore_enforced && !sw_enforced.empty()) {
             // Put all the software authorizations in the keystore list.
             KeyCharacteristics keystoreEnforced{SecurityLevel::KEYSTORE,
                                                 kmParamSet2Aidl(sw_enforced)};
@@ -213,12 +213,26 @@ void addClientAndAppData(const std::vector<uint8_t>& appId, const std::vector<ui
 constexpr size_t kOperationTableSize = 16;
 
 AndroidKeyMintDevice::AndroidKeyMintDevice(SecurityLevel securityLevel)
-    : impl_(new ::keymaster::AndroidKeymaster(
-          [&]() -> auto {
-              auto context = new PureSoftKeymasterContext(
-                  KmVersion::KEYMINT_1, static_cast<keymaster_security_level_t>(securityLevel));
+    : impl_(new (std::nothrow)::keymaster::AndroidKeymaster(
+          [&]() -> auto{
+              auto context = new (std::nothrow) PureSoftKeymasterContext(
+                  KmVersion::KEYMINT_2, static_cast<keymaster_security_level_t>(securityLevel));
               context->SetSystemVersion(::keymaster::GetOsVersion(),
                                         ::keymaster::GetOsPatchlevel());
+              context->SetVendorPatchlevel(::keymaster::GetVendorPatchlevel());
+              // Software devices cannot be configured by the boot loader but they have
+              // to return a boot patch level. So lets just return the OS patch level.
+              // The OS patch level only has a year and a month so we just add the 1st
+              // of the month as day field.
+              context->SetBootPatchlevel(GetOsPatchlevel() * 100 + 1);
+              auto digest = ::keymaster::GetVbmetaDigest();
+              if (digest) {
+                  std::string bootState = ::keymaster::GetVerifiedBootState();
+                  std::string bootloaderState = ::keymaster::GetBootloaderState();
+                  context->SetVerifiedBootInfo(bootState, bootloaderState, *digest);
+              } else {
+                  LOG(ERROR) << "Unable to read vb_meta digest";
+              }
               return context;
           }(),
           kOperationTableSize)),
@@ -227,7 +241,7 @@ AndroidKeyMintDevice::AndroidKeyMintDevice(SecurityLevel securityLevel)
 AndroidKeyMintDevice::~AndroidKeyMintDevice() {}
 
 ScopedAStatus AndroidKeyMintDevice::getHardwareInfo(KeyMintHardwareInfo* info) {
-    info->versionNumber = 1;
+    info->versionNumber = 2;
     info->securityLevel = securityLevel_;
     info->keyMintName = "FakeKeyMintDevice";
     info->keyMintAuthorName = "Google";
@@ -465,8 +479,21 @@ ScopedAStatus AndroidKeyMintDevice::getKeyCharacteristics(
     return ScopedAStatus::ok();
 }
 
-IKeyMintDevice* CreateKeyMintDevice(SecurityLevel securityLevel) {
-    return ::new AndroidKeyMintDevice(securityLevel);
+ScopedAStatus AndroidKeyMintDevice::getRootOfTrustChallenge(array<uint8_t, 16>* /* challenge */) {
+    return kmError2ScopedAStatus(KM_ERROR_UNIMPLEMENTED);
+}
+
+ScopedAStatus AndroidKeyMintDevice::getRootOfTrust(const array<uint8_t, 16>& /* challenge */,
+                                                   vector<uint8_t>* /* rootOfTrust */) {
+    return kmError2ScopedAStatus(KM_ERROR_UNIMPLEMENTED);
+}
+
+ScopedAStatus AndroidKeyMintDevice::sendRootOfTrust(const vector<uint8_t>& /* rootOfTrust */) {
+    return kmError2ScopedAStatus(KM_ERROR_UNIMPLEMENTED);
+}
+
+std::shared_ptr<IKeyMintDevice> CreateKeyMintDevice(SecurityLevel securityLevel) {
+    return ndk::SharedRefBase::make<AndroidKeyMintDevice>(securityLevel);
 }
 
 }  // namespace aidl::android::hardware::security::keymint

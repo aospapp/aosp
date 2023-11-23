@@ -27,7 +27,7 @@ def _cc_test_impl(ctx):
             "{{module_path}}": ctx.label.package,
             "{{tradefed_launcher_module_path}}": ctx.attr._tradefed_launcher.label.package,
             "{{tradefed_jars_module_path}}": ctx.attr._tradefed_jars.label.package,
-            "{{adb_path}}": ctx.attr._adb.label.package,
+            "{{path_additions}}": ctx.attr._adb.label.package,
             "{{launcher_path}}": "{{}}/{{}}".format(
                 ctx.attr._launcher.label.package,
                 ctx.attr._launcher.label.name,
@@ -65,7 +65,7 @@ cc_test = rule(
             allow_single_file = True,
         ),
         "_tradefed_script_help": attr.label(
-            default = Label("//tools/tradefederation/core:script_help"),
+            default = Label("//tools/tradefederation/core:atest_script_help"),
         ),
         "_tradefed_jars": attr.label(
             default = Label("//tools/tradefederation/core:tradefed_lib"),

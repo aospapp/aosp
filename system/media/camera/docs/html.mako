@@ -134,6 +134,10 @@
     else:
       target = target + '.html'
 
+    # Work around html links with inner classes.
+    target = target.replace('CaptureRequest/Builder', 'CaptureRequest.Builder')
+    target = target.replace('Build/VERSION', 'Build.VERSION')
+
     return '<a href="https://developer.android.com/reference/%s">%s</a>' % (target, shortname)
 
   # Render as markdown, and do HTML-doc-specific rewrites

@@ -42,12 +42,14 @@ class Device final : public nn::IDevice {
     struct PrivateConstructorTag {};
 
   public:
+    // featureLevel is for testing purposes.
     static nn::GeneralResult<std::shared_ptr<const Device>> create(
-            std::string name, std::shared_ptr<aidl_hal::IDevice> device);
+            std::string name, std::shared_ptr<aidl_hal::IDevice> device, nn::Version featureLevel);
 
     Device(PrivateConstructorTag tag, std::string name, std::string versionString,
-           nn::DeviceType deviceType, std::vector<nn::Extension> extensions,
-           nn::Capabilities capabilities, std::pair<uint32_t, uint32_t> numberOfCacheFilesNeeded,
+           nn::Version featureLevel, nn::DeviceType deviceType,
+           std::vector<nn::Extension> extensions, nn::Capabilities capabilities,
+           std::pair<uint32_t, uint32_t> numberOfCacheFilesNeeded,
            std::shared_ptr<aidl_hal::IDevice> device, DeathHandler deathHandler);
 
     const std::string& getName() const override;
@@ -66,8 +68,9 @@ class Device final : public nn::IDevice {
     nn::GeneralResult<nn::SharedPreparedModel> prepareModel(
             const nn::Model& model, nn::ExecutionPreference preference, nn::Priority priority,
             nn::OptionalTimePoint deadline, const std::vector<nn::SharedHandle>& modelCache,
-            const std::vector<nn::SharedHandle>& dataCache,
-            const nn::CacheToken& token) const override;
+            const std::vector<nn::SharedHandle>& dataCache, const nn::CacheToken& token,
+            const std::vector<nn::TokenValuePair>& hints,
+            const std::vector<nn::ExtensionNameAndPrefix>& extensionNameToPrefix) const override;
 
     nn::GeneralResult<nn::SharedPreparedModel> prepareModelFromCache(
             nn::OptionalTimePoint deadline, const std::vector<nn::SharedHandle>& modelCache,
@@ -84,6 +87,7 @@ class Device final : public nn::IDevice {
   private:
     const std::string kName;
     const std::string kVersionString;
+    const nn::Version kFeatureLevel;
     const nn::DeviceType kDeviceType;
     const std::vector<nn::Extension> kExtensions;
     const nn::Capabilities kCapabilities;

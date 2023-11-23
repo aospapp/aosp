@@ -103,6 +103,7 @@ public class CompatScaleTests extends ActivityManagerTestBase {
         // Now launch the same activity with downscaling *enabled* and get the sizes it reports and
         // its Window state.
         enableDownscaling(mCompatChangeName);
+        mWmState.waitForActivityRemoved(ACTIVITY_UNDER_TEST);
         launchActivity();
         mAppSizesDownscaled = getActivityReportedSizes();
         mWindowStateDownscaled = getPackageWindowState();

@@ -83,6 +83,7 @@ import com.android.compatibility.common.util.CtsKeyEventUtil;
 import com.android.compatibility.common.util.CtsTouchUtils;
 import com.android.compatibility.common.util.PollingCheck;
 import com.android.compatibility.common.util.WidgetTestUtils;
+import com.android.compatibility.common.util.WindowUtil;
 
 import org.hamcrest.MatcherAssert;
 import org.junit.Before;
@@ -137,7 +138,7 @@ public class AbsListViewTest {
         // Always use the activity context
         mContext = activity;
 
-        PollingCheck.waitFor(activity::hasWindowFocus);
+        WindowUtil.waitForFocus(activity);
 
         XmlPullParser parser = mContext.getResources().getXml(R.layout.listview_layout);
         WidgetTestUtils.beginDocument(parser, "FrameLayout");
@@ -427,6 +428,8 @@ public class AbsListViewTest {
         assertEquals(v.getLeft(), r.left);
         assertEquals(v.getTop(), r.top);
         assertEquals(v.getBottom(), r.bottom);
+
+
     }
 
     @Test
@@ -472,6 +475,54 @@ public class AbsListViewTest {
         mActivityRule.runOnUiThread(() -> mListView.scrollListBy(-(selViewHeight * 4) / 3));
         assertEquals(1, mListView.getSelectedItemPosition());
         assertTrue(mListView.shouldDrawSelector());
+    }
+
+    @Test
+    public void testSelectedChildViewEnabled() throws Throwable {
+        // leave touch-mode
+        mInstrumentation.setInTouchMode(false);
+        setAdapter();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mListView, () -> {
+            mListView.requestFocus();
+            mListView.setSelectionFromTop(1, 0);
+        });
+        mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_TAB);
+
+        final int enabledState = (new MyListView(mContext)).getEnabledStateConstant();
+        final Drawable d = mListView.getSelector();
+        assertTrue(d.isStateful());
+        int[] state;
+        boolean enabledFound;
+
+        assertTrue(mListView.isSelectedChildViewEnabled());
+
+        // If selectedChildViewEnabled is false, then the selector shouldn't contain ENABLED state.
+        mListView.setSelectedChildViewEnabled(false);
+        assertFalse(mListView.isSelectedChildViewEnabled());
+        mActivityRule.runOnUiThread(() -> mListView.refreshDrawableState());
+        state = d.getState();
+        enabledFound = false;
+        for (int i = state.length - 1; i >= 0; i--) {
+            if (state[i] == enabledState) {
+                enabledFound = true;
+                break;
+            }
+        }
+        assertFalse(enabledFound);
+
+        // If selectedChildViewEnabled is true, then the selector should contain ENABLED state.
+        mListView.setSelectedChildViewEnabled(true);
+        assertTrue(mListView.isSelectedChildViewEnabled());
+        mActivityRule.runOnUiThread(() -> mListView.refreshDrawableState());
+        state = d.getState();
+        enabledFound = false;
+        for (int i = state.length - 1; i >= 0; i--) {
+            if (state[i] == enabledState) {
+                enabledFound = true;
+                break;
+            }
+        }
+        assertTrue(enabledFound);
     }
 
     @Test
@@ -683,7 +734,9 @@ public class AbsListViewTest {
 
         final AbsListView.OnItemLongClickListener mockOnItemLongClickListener =
                 mock(AbsListView.OnItemLongClickListener.class);
-        listView.setOnItemLongClickListener(mockOnItemLongClickListener);
+        mActivityRule.runOnUiThread(
+                () -> listView.setOnItemLongClickListener(mockOnItemLongClickListener)
+        );
 
         verifyZeroInteractions(mockOnItemLongClickListener);
 
@@ -1220,15 +1273,20 @@ public class AbsListViewTest {
             mActivityRule.getActivity().setContentView(listView);
             listView.setAdapter(mCountriesAdapter);
         });
-
         View row = listView.getChildAt(0);
-        Rect r = new Rect();
-        r.set(0, listView.getHeight() - (row.getHeight() >> 1),
-                row.getWidth(), listView.getHeight() + (row.getHeight() >> 1));
 
+        // Initialize the test scrolled down by half the height of the first child.
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, listView, () -> {
+            listView.scrollListBy(row.getHeight() / 2);
+        });
         listView.resetIsOnScrollChangedCalled();
         assertFalse(listView.isOnScrollChangedCalled());
-        listView.requestChildRectangleOnScreen(row, r, true);
+
+        // Scroll the first child back completely into view (back to the top of the AbsListView).
+        Rect r = new Rect();
+        r.set(0, 0, row.getWidth(), row.getHeight());
+        mActivityRule.runOnUiThread(() -> listView.requestChildRectangleOnScreen(row, r, true));
+
         assertTrue(listView.isOnScrollChangedCalled());
     }
 
@@ -1400,6 +1458,10 @@ public class AbsListViewTest {
 
         public void resetIsOnScrollChangedCalled() {
             mIsOnScrollChangedCalled = false;
+        }
+
+        public int getEnabledStateConstant() {
+            return ENABLED_STATE_SET[0];
         }
     }
 }

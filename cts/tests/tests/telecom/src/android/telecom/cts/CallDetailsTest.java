@@ -593,8 +593,8 @@ public class CallDetailsTest extends BaseTelecomTestWithMockServices {
         testBundle.putInt(TEST_EXTRA_KEY2, TEST_EXTRA_VALUE);
         testBundle.putBoolean(Connection.EXTRA_DISABLE_ADD_CALL, true);
         mConnection.putExtras(testBundle);
-        // Wait for the 2nd invocation; setExtras is called in the setup method.
-        mOnExtrasChangedCounter.waitForCount(2, WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
+        // Wait for the 3rd invocation; setExtras is called in the setup method.
+        mOnExtrasChangedCounter.waitForCount(3, WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
 
         Bundle extras = mCall.getDetails().getExtras();
         assertTrue(extras.containsKey(TEST_EXTRA_KEY));
@@ -644,13 +644,13 @@ public class CallDetailsTest extends BaseTelecomTestWithMockServices {
         testConnectionPutExtras();
 
         mConnection.removeExtras(TEST_EXTRA_KEY);
-        // testConnectionPutExtra will have waited for the 2nd invocation, so wait for the 3rd here.
+        // testConnectionPutExtra will have waited for the 3rd invocation, so wait for the 4th here.
         verifyRemoveConnectionExtras();
     }
 
     private void verifyRemoveConnectionExtras() {
-        // testConnectionPutExtra will have waited for the 2nd invocation, so wait for the 3rd here.
-        mOnExtrasChangedCounter.waitForCount(3, WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
+        // testConnectionPutExtra will have waited for the 3rd invocation, so wait for the 4th here.
+        mOnExtrasChangedCounter.waitForCount(4, WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
 
         Bundle extras = mCall.getDetails().getExtras();
         assertFalse(extras.containsKey(TEST_EXTRA_KEY));

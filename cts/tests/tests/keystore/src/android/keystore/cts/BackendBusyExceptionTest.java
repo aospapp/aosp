@@ -16,18 +16,28 @@
 
 package android.keystore.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import android.security.keystore.BackendBusyException;
-import android.test.AndroidTestCase;
+
+import androidx.test.runner.AndroidJUnit4;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Tests basic functionality of the BackendBusyException.
  */
-public class BackendBusyExceptionTest extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class BackendBusyExceptionTest {
     /**
      * Tests if a BackendBusyException constructed with a given backoff hint returns
      * that value through getBackOffHintMillis().
      * Also the constructor must throw IllegalArgumentException if the backoff hint is negative.
      */
+    @Test
     public void testBackOffHint () {
         BackendBusyException backendBusyException = new BackendBusyException(1);
         assertEquals(backendBusyException.getBackOffHintMillis(), 1);
@@ -61,6 +71,7 @@ public class BackendBusyExceptionTest extends AndroidTestCase {
     /**
      * Test that getMessage returns the message passed to the constructor.
      */
+    @Test
     public void testMessage() {
         BackendBusyException backendBusyException = new BackendBusyException(1, "My test Message.");
         assertTrue(backendBusyException.getMessage().equals("My test Message."));
@@ -71,6 +82,7 @@ public class BackendBusyExceptionTest extends AndroidTestCase {
     /**
      * Test that getCause returns the cause passed to the constructor.
      */
+    @Test
     public void testCause() {
         Exception cause = new Exception("My Cause");
 

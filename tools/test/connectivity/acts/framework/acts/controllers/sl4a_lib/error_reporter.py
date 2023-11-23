@@ -75,6 +75,7 @@ class ErrorReporter(object):
                 return False
 
             report = ErrorLogger('%s|%s' % (self.name, ticket))
+            report.info('Creating error report.')
 
             (self.report_on_adb(sl4a_manager.adb, report)
              and self.report_device_processes(sl4a_manager.adb, report) and
@@ -212,6 +213,7 @@ class ErrorReporter(object):
 
     def _get_report_ticket(self):
         """Returns the next ticket, or none if all tickets have been used."""
+        logging.debug('Getting ticket for SL4A error report.')
         with self._ticket_lock:
             self._ticket_number += 1
             ticket_number = self._ticket_number

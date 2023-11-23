@@ -29,3 +29,20 @@ license {
         "LICENSE",
     ],
 }
+
+java_library {
+    name: "NeuralNetworksApiBenchmark_Lib",
+    installable: true,
+    sdk_version: "28",
+    srcs: [
+        "src/com/android/nn/benchmark/core/**/*.java",
+        "src/com/android/nn/benchmark/evaluators/**/*.java",
+        "src/com/android/nn/benchmark/imageprocessors/**/*.java",
+        "src/com/android/nn/benchmark/util/**/*.java",
+    ],
+    static_libs: [
+      "androidx.test.rules",
+      "android.test.runner.stubs",
+      "android.test.base.stubs",
+    ]
+}

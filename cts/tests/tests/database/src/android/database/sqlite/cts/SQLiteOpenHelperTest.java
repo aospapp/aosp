@@ -28,6 +28,7 @@ import android.database.sqlite.SQLiteCursorDriver;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteDatabase.CursorFactory;
 import android.database.sqlite.SQLiteDebug;
+import android.database.sqlite.SQLiteException;
 import android.database.sqlite.SQLiteGlobal;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.database.sqlite.SQLiteQuery;
@@ -286,6 +287,59 @@ public class SQLiteOpenHelperTest extends AndroidTestCase {
         try (Cursor cursor = mOpenHelper.getReadableDatabase()
                 .rawQuery("select * from test_table2", null)) {
             assertEquals(1, cursor.getColumnCount());
+        }
+    }
+
+    /**
+     * Tests a scenario in WAL mode with multiple connections, when a connection should see schema
+     * changes made from another connection.
+     */
+    public void testWalSchemaChangeVisibilityOnDowngrade() {
+        File dbPath = mContext.getDatabasePath(TEST_DATABASE_NAME);
+        SQLiteDatabase.deleteDatabase(dbPath);
+        SQLiteDatabase db = SQLiteDatabase.openOrCreateDatabase(dbPath, null);
+        db.execSQL("CREATE TABLE test_table (_id INTEGER PRIMARY KEY AUTOINCREMENT"
+                + ", _key INTEGER DEFAULT 1234)");
+        db.execSQL("CREATE TABLE test_table2 (_id INTEGER PRIMARY KEY AUTOINCREMENT)");
+        db.setVersion(2);
+        try (Cursor cursor = db.rawQuery("select * from test_table", null)) {
+            assertEquals(2, cursor.getColumnCount());
+        }
+        try (Cursor cursor = db.rawQuery("select * from test_table2", null)) {
+            assertEquals(1, cursor.getColumnCount());
+        }
+        db.close();
+        mOpenHelper = new MockOpenHelper(mContext, TEST_DATABASE_NAME, null, 1) {
+            {
+                setWriteAheadLoggingEnabled(true);
+            }
+
+            @Override
+            public void onCreate(SQLiteDatabase db) {
+            }
+
+            @Override
+            public void onDowngrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+                if (newVersion == 1) {
+                    // Drop all tables
+                    db.execSQL("DROP TABLE IF EXISTS test_table");
+                    db.execSQL("DROP TABLE IF EXISTS test_table2");
+
+                    // Recreate test_table with one column _id
+                    db.execSQL("CREATE TABLE test_table"
+                            + " (_id INTEGER PRIMARY KEY AUTOINCREMENT)");
+                }
+            }
+        };
+        // Check if the test_table has only one column.
+        try (Cursor cursor = mOpenHelper.getReadableDatabase()
+                .rawQuery("select * from test_table", null)) {
+            assertEquals(1, cursor.getColumnCount());
+        }
+        // Check if the test_table2 has been dropped.
+        try (Cursor cursor = mOpenHelper.getReadableDatabase().rawQuery(
+                "select name from sqlite_master where type='table' and name='test_table2'", null)) {
+            assertEquals(0, cursor.getCount());
         }
     }
 

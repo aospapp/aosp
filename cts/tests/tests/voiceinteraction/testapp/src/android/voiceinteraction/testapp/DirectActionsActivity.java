@@ -73,6 +73,11 @@ public final class DirectActionsActivity extends Activity {
                             Utils.VOICE_INTERACTION_KEY_CALLBACK);
                     invalidateDirectActions(commandCallback);
                 } break;
+                case Utils.DIRECT_ACTIONS_ACTIVITY_CMD_GET_PACKAGE_NAME: {
+                    final RemoteCallback commandCallback = cmdArgs.getParcelable(
+                            Utils.VOICE_INTERACTION_KEY_CALLBACK);
+                    getPackageName(commandCallback);
+                } break;
             }
         });
 
@@ -154,6 +159,14 @@ public final class DirectActionsActivity extends Activity {
         final Bundle result = new Bundle();
         result.putBoolean(Utils.DIRECT_ACTIONS_KEY_RESULT, true);
         Log.v(TAG, "invalidateDirectActions(): " + Utils.toBundleString(result));
+        callback.sendResult(result);
+    }
+
+    private void getPackageName(@NonNull RemoteCallback callback) {
+        String packageName = getVoiceInteractor().getPackageName();
+        final Bundle result = new Bundle();
+        result.putString(Utils.DIRECT_ACTIONS_KEY_RESULT, packageName);
+        Log.v(TAG, "getPackageName(): " + Utils.toBundleString(result));
         callback.sendResult(result);
     }
 

@@ -40,7 +40,7 @@ public class MotionEvent_PointerCoordsTest {
     @Before
     public void setup() {
         mBuilder = withCoords(10.0f, 20.0f).withPressure(1.2f).withSize(2.0f).withTool(1.2f, 1.4f).
-                withTouch(3.0f, 2.4f);
+                withTouch(3.0f, 2.4f).withGenericAxis1(4.4f);
         mPointerCoords = mBuilder.build();
     }
 
@@ -54,42 +54,56 @@ public class MotionEvent_PointerCoordsTest {
         // Change value of X
         mPointerCoords.setAxisValue(MotionEvent.AXIS_X, 15.0f);
         withCoords(15.0f, 20.0f).withPressure(1.2f).withSize(2.0f).withTool(1.2f, 1.4f).
-                withTouch(3.0f, 2.4f).verifyMatchesPointerCoords(mPointerCoords);
+                withTouch(3.0f, 2.4f).withGenericAxis1(4.4f).verifyMatchesPointerCoords(
+                mPointerCoords);
 
         // Change value of Y
         mPointerCoords.setAxisValue(MotionEvent.AXIS_Y, 25.0f);
         withCoords(15.0f, 25.0f).withPressure(1.2f).withSize(2.0f).withTool(1.2f, 1.4f).
-                withTouch(3.0f, 2.4f).verifyMatchesPointerCoords(mPointerCoords);
+                withTouch(3.0f, 2.4f).withGenericAxis1(4.4f).verifyMatchesPointerCoords(
+                mPointerCoords);
 
         // Change value of pressure
         mPointerCoords.setAxisValue(MotionEvent.AXIS_PRESSURE, 2.2f);
         withCoords(15.0f, 25.0f).withPressure(2.2f).withSize(2.0f).withTool(1.2f, 1.4f).
-                withTouch(3.0f, 2.4f).verifyMatchesPointerCoords(mPointerCoords);
+                withTouch(3.0f, 2.4f).withGenericAxis1(4.4f).verifyMatchesPointerCoords(
+                mPointerCoords);
 
         // Change value of size
         mPointerCoords.setAxisValue(MotionEvent.AXIS_SIZE, 10.0f);
         withCoords(15.0f, 25.0f).withPressure(2.2f).withSize(10.0f).withTool(1.2f, 1.4f).
-                withTouch(3.0f, 2.4f).verifyMatchesPointerCoords(mPointerCoords);
+                withTouch(3.0f, 2.4f).withGenericAxis1(4.4f).verifyMatchesPointerCoords(
+                mPointerCoords);
 
         // Change value of tool major
         mPointerCoords.setAxisValue(MotionEvent.AXIS_TOOL_MAJOR, 7.0f);
         withCoords(15.0f, 25.0f).withPressure(2.2f).withSize(10.0f).withTool(7.0f, 1.4f).
-                withTouch(3.0f, 2.4f).verifyMatchesPointerCoords(mPointerCoords);
+                withTouch(3.0f, 2.4f).withGenericAxis1(4.4f).verifyMatchesPointerCoords(
+                mPointerCoords);
 
         // Change value of tool minor
         mPointerCoords.setAxisValue(MotionEvent.AXIS_TOOL_MINOR, 2.0f);
         withCoords(15.0f, 25.0f).withPressure(2.2f).withSize(10.0f).withTool(7.0f, 2.0f).
-                withTouch(3.0f, 2.4f).verifyMatchesPointerCoords(mPointerCoords);
+                withTouch(3.0f, 2.4f).withGenericAxis1(4.4f).verifyMatchesPointerCoords(
+                mPointerCoords);
 
         // Change value of tool major
         mPointerCoords.setAxisValue(MotionEvent.AXIS_TOUCH_MAJOR, 5.0f);
         withCoords(15.0f, 25.0f).withPressure(2.2f).withSize(10.0f).withTool(7.0f, 2.0f).
-                withTouch(5.0f, 2.4f).verifyMatchesPointerCoords(mPointerCoords);
+                withTouch(5.0f, 2.4f).withGenericAxis1(4.4f).verifyMatchesPointerCoords(
+                mPointerCoords);
 
         // Change value of tool minor
         mPointerCoords.setAxisValue(MotionEvent.AXIS_TOUCH_MINOR, 2.1f);
         withCoords(15.0f, 25.0f).withPressure(2.2f).withSize(10.0f).withTool(7.0f, 2.0f).
-                withTouch(5.0f, 2.1f).verifyMatchesPointerCoords(mPointerCoords);
+                withTouch(5.0f, 2.1f).withGenericAxis1(4.4f).verifyMatchesPointerCoords(
+                mPointerCoords);
+
+        // Change value of axis generic 1
+        mPointerCoords.setAxisValue(MotionEvent.AXIS_GENERIC_1, 4.6f);
+        withCoords(15.0f, 25.0f).withPressure(2.2f).withSize(10.0f).withTool(7.0f, 2.0f)
+                .withTouch(5.0f, 2.1f).withGenericAxis1(4.6f).verifyMatchesPointerCoords(
+                mPointerCoords);
     }
 
     @Test
@@ -103,6 +117,7 @@ public class MotionEvent_PointerCoordsTest {
     public void testClear() {
         mPointerCoords.clear();
         withCoords(0.0f, 0.0f).withPressure(0.0f).withSize(0.0f).withTool(0.0f, 0.0f).
-                withTouch(0.0f, 0.0f).verifyMatchesPointerCoords(mPointerCoords);
+                withTouch(0.0f, 0.0f).withGenericAxis1(0.0f).verifyMatchesPointerCoords(
+                mPointerCoords);
     }
 }

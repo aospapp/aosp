@@ -24,6 +24,7 @@ import android.content.LocusId;
 import android.os.IBinder;
 import android.os.ParcelFileDescriptor;
 import android.os.Process;
+import android.text.TextUtils;
 import android.view.contentcapture.ContentCaptureManager;
 import android.view.contentcapture.DataShareRequest;
 import android.view.contentcapture.DataShareWriteAdapter;
@@ -47,6 +48,7 @@ public class OutOfProcessDataSharingService extends Service {
     byte[] mDataWritten = new byte[10_000];
     String mLocusId = "DataShare_CTSTest";
     String mMimeType = "application/octet-stream";
+    DataSharingServiceTest.KillingStage mKillingStage = DataSharingServiceTest.KillingStage.NONE;
 
     private final IBinder mBinder = new IOutOfProcessDataSharingService.Stub() {
         @Override
@@ -55,10 +57,16 @@ public class OutOfProcessDataSharingService extends Service {
                     getApplicationContext().getSystemService(ContentCaptureManager.class);
             return manager != null && manager.isContentCaptureEnabled();
         }
+
+        @Override
+        public boolean isApplicationContentCaptureManagerAvailable() {
+            return getApplicationContext().getSystemService(ContentCaptureManager.class) != null;
+        }
     };
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        setupKillingStage(intent);
         shareData();
         return START_NOT_STICKY;
     }
@@ -67,6 +75,14 @@ public class OutOfProcessDataSharingService extends Service {
     @Override
     public IBinder onBind(Intent intent) {
         return mBinder;
+    }
+
+    private void setupKillingStage(Intent intent) {
+        String killingStage = intent.getStringExtra("KillingStage");
+        if (TextUtils.isEmpty(killingStage)) {
+            return;
+        }
+        mKillingStage = DataSharingServiceTest.KillingStage.valueOf(killingStage);
     }
 
     private void shareData() {
@@ -83,14 +99,14 @@ public class OutOfProcessDataSharingService extends Service {
                     public void onWrite(ParcelFileDescriptor destination) {
                         try (OutputStream outputStream =
                                      new ParcelFileDescriptor.AutoCloseOutputStream(destination)) {
-                            if (DataSharingServiceTest.sKillingStage
+                            if (mKillingStage
                                     == DataSharingServiceTest.KillingStage.BEFORE_WRITE) {
                                 Process.killProcess(Process.myPid());
                                 return;
                             }
                             sRandom.nextBytes(mDataWritten);
                             outputStream.write(mDataWritten);
-                            if (DataSharingServiceTest.sKillingStage
+                            if (mKillingStage
                                     == DataSharingServiceTest.KillingStage.DURING_WRITE) {
                                 Process.killProcess(Process.myPid());
                                 return;

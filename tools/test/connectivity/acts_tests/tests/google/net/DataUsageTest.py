@@ -1,5 +1,5 @@
 #
-#   Copyright 2018 - The Android Open Source Project
+#   Copyright 2022 - The Android Open Source Project
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ from acts_contrib.test_utils.net.net_test_utils import start_tcpdump
 from acts_contrib.test_utils.net.net_test_utils import stop_tcpdump
 from acts_contrib.test_utils.tel import tel_test_utils as ttutils
 from acts_contrib.test_utils.tel.tel_test_utils import get_operator_name
-from acts_contrib.test_utils.tel.tel_test_utils import http_file_download_by_chrome
+from acts_contrib.test_utils.tel.tel_data_utils import http_file_download_by_chrome
 from acts_contrib.test_utils.wifi import wifi_test_utils as wutils
 import queue
 from queue import Empty
@@ -143,7 +143,7 @@ class DataUsageTest(base_test.BaseTestClass):
         download_status = False
         end_time = time.time() + TIMEOUT
         while time.time() < end_time:
-            download_status = ttutils._check_file_existance(
+            download_status = ttutils._check_file_existence(
                 ad, self.file_path, self.file_size * BYTE_TO_MB)
             if download_status:
                 self.log.info("Delete file: %s", self.file_path)

@@ -69,6 +69,10 @@ std::string GetAndroidDataSafe(/*out*/ std::string* error_msg);
 // Find $ART_APEX_DATA, /data/misc/apexdata/com.android.art, or abort.
 std::string GetArtApexData();
 
+// Returns the directory that contains the prebuilt version of the primary boot image (i.e., the one
+// generated at build time).
+std::string GetPrebuiltPrimaryBootImageDir();
+
 // Returns the default boot image location (ANDROID_ROOT/framework/boot.art).
 // Returns an empty string if ANDROID_ROOT is not set.
 std::string GetDefaultBootImageLocation(std::string* error_msg);
@@ -76,6 +80,10 @@ std::string GetDefaultBootImageLocation(std::string* error_msg);
 // Returns the default boot image location, based on the passed `android_root`.
 std::string GetDefaultBootImageLocation(const std::string& android_root,
                                         bool deny_art_apex_data_files);
+
+// Allows the name to be used for the dalvik cache directory (normally "dalvik-cache") to be
+// overridden with a new value.
+void OverrideDalvikCacheSubDirectory(std::string sub_dir);
 
 // Return true if we found the dalvik cache and stored it in the dalvik_cache argument.
 // `have_android_data` will be set to true if we have an ANDROID_DATA that exists,
@@ -89,24 +97,28 @@ void GetDalvikCache(const char* subdir, bool create_if_absent, std::string* dalv
 bool GetDalvikCacheFilename(const char* location, const char* cache_location,
                             std::string* filename, std::string* error_msg);
 
+// Returns the absolute dalvik-cache path. The path may include the instruction set sub-directory
+// if specified.
+std::string GetApexDataDalvikCacheDirectory(InstructionSet isa);
+
 // Gets the oat location in the ART APEX data directory for a DEX file installed anywhere other
 // than in an APEX. Returns the oat filename if `location` is valid, empty string otherwise.
 std::string GetApexDataOatFilename(std::string_view location, InstructionSet isa);
 
-// Gets the odex location in the ART APEX data directory for a DEX file installed anywhere other
-// than in an APEX. Returns the odex filename if `location` is valid, empty string otherwise.
+// Gets the odex location in the ART APEX data directory for a DEX file. Returns the odex filename
+// if `location` is valid, empty string otherwise.
 std::string GetApexDataOdexFilename(std::string_view location, InstructionSet isa);
 
 // Gets the boot image in the ART APEX data directory for a DEX file installed anywhere other
 // than in an APEX. Returns the image location if `dex_location` is valid, empty string otherwise.
 std::string GetApexDataBootImage(std::string_view dex_location);
 
-// Gets the image in the ART APEX data directory for a DEX file installed installed anywhere other
-// than in an APEX. Returns the image location if `dex_location` is valid, empty string otherwise.
+// Gets the image in the ART APEX data directory for a DEX file. Returns the image location if
+// `dex_location` is valid, empty string otherwise.
 std::string GetApexDataImage(std::string_view dex_location);
 
 // Gets the name of a file in the ART APEX directory dalvik-cache. This method assumes the
-// `dex_location` is for an application and that the `dex_location` is not within an APEX.
+// `dex_location` is for an application.
 // Returns the location of the file in the dalvik-cache
 std::string GetApexDataDalvikCacheFilename(std::string_view dex_location,
                                            InstructionSet isa,
@@ -118,6 +130,13 @@ std::string GetSystemImageFilename(const char* location, InstructionSet isa);
 
 // Returns the vdex filename for the given oat filename.
 std::string GetVdexFilename(const std::string& oat_filename);
+
+// Returns the dm filename for the given dex location.
+std::string GetDmFilename(const std::string& dex_location);
+
+// Returns the odex location on /system for a DEX file on /apex. The caller must make sure that
+// `location` is on /apex.
+std::string GetSystemOdexFilenameForApex(std::string_view location, InstructionSet isa);
 
 // Returns `filename` with the text after the last occurrence of '.' replaced with
 // `extension`. If `filename` does not contain a period, returns a string containing `filename`,
@@ -149,6 +168,10 @@ bool LocationIsOnSystemExtFramework(std::string_view location);
 
 // Return whether the location is on /apex/.
 bool LocationIsOnApex(std::string_view location);
+
+// If the given location is /apex/<apexname>/..., return <apexname>, otherwise return an empty
+// string. Note that the result is a view into full_path and is valid only as long as it is.
+std::string_view ApexNameFromLocation(std::string_view full_path);
 
 // Returns whether the location is trusted for loading oat files. Trusted locations are protected
 // by dm-verity or fs-verity. The recognized locations are on /system or

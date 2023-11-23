@@ -24,8 +24,10 @@ import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.cts.CameraTestUtils;
+import android.hardware.camera2.params.DynamicRangeProfiles;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.hardware.camera2.params.Capability;
+import android.util.ArraySet;
 import android.util.Range;
 import android.util.Size;
 import android.util.Log;
@@ -77,7 +79,7 @@ public class StaticMetadata {
 
     // Last defined capability enum, for iterating over all of them
     public static final int LAST_CAPABILITY_ENUM =
-            CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_REMOSAIC_REPROCESSING;
+            CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_STREAM_USE_CASE;
 
     // Access via getAeModeName() to account for vendor extensions
     public static final String[] AE_MODE_NAMES = new String[] {
@@ -789,6 +791,22 @@ public class StaticMetadata {
         }
 
         return count;
+    }
+
+    /**
+     * Get and check the available dynamic range profiles.
+     *
+     * @return the available dynamic range profiles
+     */
+    public Set<Long> getAvailableDynamicRangeProfilesChecked() {
+        DynamicRangeProfiles profiles = mCharacteristics.get(
+                CameraCharacteristics.REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES);
+
+        if (profiles == null) {
+            return new ArraySet<Long>();
+        }
+
+        return profiles.getSupportedProfiles();
     }
 
     /**
@@ -1828,7 +1846,7 @@ public class StaticMetadata {
                 modeList.contains(CameraMetadata.CONTROL_VIDEO_STABILIZATION_MODE_OFF));
         checkArrayValuesInRange(key, modes,
                 CameraMetadata.CONTROL_VIDEO_STABILIZATION_MODE_OFF,
-                CameraMetadata.CONTROL_VIDEO_STABILIZATION_MODE_ON);
+                CameraMetadata.CONTROL_VIDEO_STABILIZATION_MODE_PREVIEW_STABILIZATION);
 
         return modes;
     }
@@ -2713,6 +2731,24 @@ public class StaticMetadata {
      */
     public boolean isActivePhysicalCameraIdSupported() {
         return areKeysAvailable(CaptureResult.LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID);
+    }
+
+    /**
+     * Check if preview stabilization is supported.
+     */
+    public boolean isPreviewStabilizationSupported() {
+        int[] videoStabilizationModes = getAvailableVideoStabilizationModesChecked();
+        return CameraTestUtils.contains(videoStabilizationModes,
+                CameraMetadata.CONTROL_VIDEO_STABILIZATION_MODE_PREVIEW_STABILIZATION);
+    }
+
+    /**
+     * Check if stream use case is supported
+     */
+    public boolean isStreamUseCaseSupported() {
+        List<Integer> availableCapabilities = getAvailableCapabilitiesChecked();
+        return (availableCapabilities.contains(
+                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_STREAM_USE_CASE));
     }
 
     /**

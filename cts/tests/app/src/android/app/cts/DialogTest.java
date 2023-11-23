@@ -63,6 +63,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.PollingCheck;
+import com.android.compatibility.common.util.WindowUtil;
 
 import org.junit.After;
 import org.junit.Before;
@@ -112,7 +113,7 @@ public class DialogTest {
         mScenario.onActivity(activity -> {
             mActivity = activity;
         });
-        PollingCheck.waitFor(mActivity.getDialog().getWindow().getDecorView()::hasWindowFocus);
+        WindowUtil.waitForFocus(mActivity.getDialog().getWindow());
     }
 
     @UiThreadTest

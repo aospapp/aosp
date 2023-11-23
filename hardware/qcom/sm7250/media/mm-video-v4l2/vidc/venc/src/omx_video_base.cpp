@@ -287,6 +287,7 @@ omx_video::omx_video():
     async_thread_created = false;
     msg_thread_created = false;
     msg_thread_stop = false;
+    is_stop_in_progress = false;
 
     OMX_INIT_STRUCT(&m_blurInfo, OMX_QTI_VIDEO_CONFIG_BLURINFO);
     m_blurInfo.nPortIndex == (OMX_U32)PORT_INDEX_IN;
@@ -663,6 +664,7 @@ void omx_video::process_event_cb(void *ctxt)
                         }
                     }
 
+                    is_stop_in_progress = false;
                     break;
 
                 case OMX_COMPONENT_GENERATE_HARDWARE_ERROR:
@@ -4064,6 +4066,14 @@ OMX_ERRORTYPE  omx_video::empty_this_buffer_proxy(OMX_IN OMX_HANDLETYPE  hComp,
         DEBUG_PRINT_ERROR("ERROR: ETBProxy: Input flush in progress");
         return OMX_ErrorNone;
     }
+
+    if (is_stop_in_progress == true) {
+        post_event ((unsigned long)buffer,0,
+                OMX_COMPONENT_GENERATE_EBD);
+        DEBUG_PRINT_ERROR("ERROR: ETBProxy: stop in progress");
+        return OMX_ErrorNone;
+    }
+
     if (!meta_mode_enable) {
         fd = m_pInput_pmem[nBufIndex].fd;
     }
@@ -4890,6 +4900,11 @@ bool omx_video::alloc_map_ion_memory(int size, venc_ion *ion_info, int flag)
 
     if (size <=0 || !ion_info) {
         DEBUG_PRINT_ERROR("Invalid input to alloc_map_ion_memory");
+        return false;
+    }
+
+    if (is_stop_in_progress) {
+        DEBUG_PRINT_ERROR("Stop in progress: do not allocate any memory");
         return false;
     }
 

@@ -41,6 +41,9 @@ import org.junit.runner.RunWith;
  *      KEYCODE_ASSIST
  *      KEYCODE_VOICE_ASSIST
  *      KEYCODE_HOME
+ *      KEYCODE_VIDEO_APP_X
+ *      KEYCODE_FEATURED_APP_X
+ *      KEYCODE_DEMO_APP_X
  * This test launches an Activity and injects KeyEvents with the corresponding key codes.
  * The test will fail if any of these keys are received by the activity.
  * Note: The ASSIST tests were removed because they caused a side-effect of launching the
@@ -73,6 +76,26 @@ public class KeyEventInterceptTest {
     @Test
     public void testKeyCodeHome() {
         testKey(KeyEvent.KEYCODE_HOME);
+    }
+
+    @Test
+    public void testKeyCodesForLaunchingApplications() {
+        testKey(KeyEvent.KEYCODE_VIDEO_APP_1);
+        testKey(KeyEvent.KEYCODE_VIDEO_APP_2);
+        testKey(KeyEvent.KEYCODE_VIDEO_APP_3);
+        testKey(KeyEvent.KEYCODE_VIDEO_APP_4);
+        testKey(KeyEvent.KEYCODE_VIDEO_APP_5);
+        testKey(KeyEvent.KEYCODE_VIDEO_APP_6);
+        testKey(KeyEvent.KEYCODE_VIDEO_APP_7);
+        testKey(KeyEvent.KEYCODE_VIDEO_APP_8);
+        testKey(KeyEvent.KEYCODE_FEATURED_APP_1);
+        testKey(KeyEvent.KEYCODE_FEATURED_APP_2);
+        testKey(KeyEvent.KEYCODE_FEATURED_APP_3);
+        testKey(KeyEvent.KEYCODE_FEATURED_APP_4);
+        testKey(KeyEvent.KEYCODE_DEMO_APP_1);
+        testKey(KeyEvent.KEYCODE_DEMO_APP_2);
+        testKey(KeyEvent.KEYCODE_DEMO_APP_3);
+        testKey(KeyEvent.KEYCODE_DEMO_APP_4);
     }
 
     @Test

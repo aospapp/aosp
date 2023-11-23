@@ -17,9 +17,7 @@
 #ifndef CHRE_POWER_TEST_COMMON_H_
 #define CHRE_POWER_TEST_COMMON_H_
 
-#ifndef CHRE_NANOAPP_INTERNAL
 #include "chre/util/nanoapp/log.h"
-#endif  // CHRE_NANOAPP_INTERNAL
 
 #ifdef CHRE_TCM_BUILD
 #define LOG_TAG "[PowerTest_TCM]"

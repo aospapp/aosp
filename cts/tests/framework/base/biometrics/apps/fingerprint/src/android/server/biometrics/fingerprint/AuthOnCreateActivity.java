@@ -28,7 +28,6 @@ import androidx.annotation.Nullable;
  */
 @SuppressWarnings("deprecation")
 public class AuthOnCreateActivity extends Activity {
-    private static final String TAG = "AuthOnCreateActivity";
 
     @Override
     protected void onCreate(@Nullable Bundle bundle) {

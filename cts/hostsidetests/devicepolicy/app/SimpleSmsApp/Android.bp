@@ -28,6 +28,6 @@ android_test {
         "arcts",
         "cts",
         "general-tests",
-        "mts",
+        "mts-permission",
     ],
 }

@@ -24,11 +24,12 @@
         <package android:name="android.appenumeration.syncadapter" />
         <package android:name="android.appenumeration.appwidgetprovider" />
         <package android:name="android.appenumeration.preferred.activity" />
+        <package android:name="com.android.cts.install.lib.testapp.A" />
     </queries>
 
     <application android:debuggable="true">
         <uses-library android:name="android.test.runner" />
-        <activity android:name="android.appenumeration.cts.query.TestActivity"
+        <activity android:name="android.appenumeration.cts.TestActivity"
                   android:exported="true" />
     </application>
 </manifest>

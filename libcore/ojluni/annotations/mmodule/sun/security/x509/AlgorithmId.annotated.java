@@ -28,7 +28,6 @@
 package sun.security.x509;
 
 @android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
-@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 @libcore.api.IntraCoreApi
 @libcore.api.Hide
 @SuppressWarnings({"unchecked", "deprecation", "all"})
@@ -39,7 +38,6 @@ public class AlgorithmId implements java.io.Serializable {
 public AlgorithmId() { throw new RuntimeException("Stub!"); }
 
 @android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
-@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 @libcore.api.Hide
 public AlgorithmId(sun.security.util.ObjectIdentifier oid) { throw new RuntimeException("Stub!"); }
 
@@ -63,7 +61,6 @@ public final byte[] encode() throws java.io.IOException { throw new RuntimeExcep
 public final sun.security.util.ObjectIdentifier getOID() { throw new RuntimeException("Stub!"); }
 
 @android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
-@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 @libcore.api.IntraCoreApi
 @libcore.api.Hide
 public java.lang.String getName() { throw new RuntimeException("Stub!"); }

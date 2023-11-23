@@ -21,6 +21,7 @@ import android.app.PendingIntent
 import android.app.Person
 import android.app.cts.CtsAppTestUtils.platformNull
 import android.content.Intent
+import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -247,8 +248,8 @@ class NotificationTemplateTest : NotificationTemplateTestBase() {
 
         style.bigPicture(bitmap)
         builder.build().let {
-            assertThat(it.extras.getParcelable<Bitmap>(Notification.EXTRA_PICTURE))
-                    .isSameInstanceAs(bitmap)
+            assertThat(it.extras.getParcelable<Bitmap>(Notification.EXTRA_PICTURE)
+                    !!.sameAs(bitmap)).isTrue()
             assertThat(it.extras.get(Notification.EXTRA_PICTURE_ICON)).isNull()
         }
 
@@ -261,8 +262,8 @@ class NotificationTemplateTest : NotificationTemplateTestBase() {
 
         style.bigPicture(iconWithBitmap)
         builder.build().let {
-            assertThat(it.extras.getParcelable<Bitmap>(Notification.EXTRA_PICTURE))
-                    .isSameInstanceAs(bitmap)
+            assertThat(it.extras.getParcelable<Bitmap>(Notification.EXTRA_PICTURE)
+                    !!.sameAs(bitmap)).isTrue()
             assertThat(it.extras.get(Notification.EXTRA_PICTURE_ICON)).isNull()
         }
     }
@@ -297,8 +298,8 @@ class NotificationTemplateTest : NotificationTemplateTestBase() {
             assertThat(iconView.width.toFloat())
                     .isWithin(1f)
                     .of((iconView.height * 4 / 3).toFloat())
-            assertThat(iconView.drawable.intrinsicWidth).isEqualTo(400)
-            assertThat(iconView.drawable.intrinsicHeight).isEqualTo(300)
+            assertThat(iconView.drawable.intrinsicWidth).isEqualTo(rightIconSize())
+            assertThat(iconView.drawable.intrinsicHeight).isEqualTo(rightIconSize() * 3 / 4)
         }
     }
 
@@ -380,8 +381,8 @@ class NotificationTemplateTest : NotificationTemplateTestBase() {
             assertThat(iconView.drawable.intrinsicWidth).isEqualTo(80)
             assertThat(iconView.drawable.intrinsicHeight).isEqualTo(75)
         }
-        assertThat(builder.build().extras.getParcelable<Bitmap>(Notification.EXTRA_PICTURE))
-                .isSameInstanceAs(picture)
+        assertThat(builder.build().extras.getParcelable<Bitmap>(Notification.EXTRA_PICTURE)
+                !!.sameAs(picture)).isTrue()
     }
 
     fun testBigPicture_withBigLargeIcon_withContentUri() {
@@ -396,8 +397,9 @@ class NotificationTemplateTest : NotificationTemplateTestBase() {
             assertThat(iconView.width.toFloat())
                     .isWithin(1f)
                     .of((iconView.height * 4 / 3).toFloat())
-            assertThat(iconView.drawable.intrinsicWidth).isEqualTo(400)
-            assertThat(iconView.drawable.intrinsicHeight).isEqualTo(300)
+
+            assertThat(iconView.drawable.intrinsicWidth).isEqualTo(rightIconSize())
+            assertThat(iconView.drawable.intrinsicHeight).isEqualTo(rightIconSize() * 3 / 4)
         }
     }
 
@@ -777,6 +779,11 @@ class NotificationTemplateTest : NotificationTemplateTestBase() {
 
     private val pendingIntent by lazy {
         PendingIntent.getBroadcast(mContext, 0, Intent("test"), PendingIntent.FLAG_IMMUTABLE)
+    }
+
+    private fun rightIconSize(): Int {
+        return mContext.resources.getDimensionPixelSize(
+            getAndroidRDimen("notification_right_icon_size"))
     }
 
     companion object {

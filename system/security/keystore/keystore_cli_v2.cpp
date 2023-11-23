@@ -19,6 +19,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include <base/command_line.h>
@@ -616,9 +617,9 @@ keymint::AuthorizationSet GetRSAEncryptParameters(uint32_t key_size) {
     return std::move(parameters);
 }
 
-keymint::AuthorizationSet GetECDSAParameters(uint32_t key_size, bool sha256_only) {
+keymint::AuthorizationSet GetECDSAParameters(keymint::EcCurve curve, bool sha256_only) {
     keymint::AuthorizationSetBuilder parameters;
-    parameters.EcdsaSigningKey(key_size)
+    parameters.EcdsaSigningKey(curve)
         .Digest(keymint::Digest::SHA_2_256)
         .Authorization(keymint::TAG_NO_AUTH_REQUIRED);
     if (!sha256_only) {
@@ -662,11 +663,12 @@ std::vector<TestCase> GetTestCases() {
         {"RSA-2048 Encrypt", true, GetRSAEncryptParameters(2048)},
         {"RSA-3072 Encrypt", false, GetRSAEncryptParameters(3072)},
         {"RSA-4096 Encrypt", false, GetRSAEncryptParameters(4096)},
-        {"ECDSA-P256 Sign", true, GetECDSAParameters(256, true)},
-        {"ECDSA-P256 Sign (more digests)", false, GetECDSAParameters(256, false)},
-        {"ECDSA-P224 Sign", false, GetECDSAParameters(224, false)},
-        {"ECDSA-P384 Sign", false, GetECDSAParameters(384, false)},
-        {"ECDSA-P521 Sign", false, GetECDSAParameters(521, false)},
+        {"ECDSA-P256 Sign", true, GetECDSAParameters(keymint::EcCurve::P_256, true)},
+        {"ECDSA-P256 Sign (more digests)", false,
+         GetECDSAParameters(keymint::EcCurve::P_256, false)},
+        {"ECDSA-P224 Sign", false, GetECDSAParameters(keymint::EcCurve::P_224, false)},
+        {"ECDSA-P384 Sign", false, GetECDSAParameters(keymint::EcCurve::P_384, false)},
+        {"ECDSA-P521 Sign", false, GetECDSAParameters(keymint::EcCurve::P_521, false)},
         {"AES-128", true, GetAESParameters(128, false)},
         {"AES-256", true, GetAESParameters(256, false)},
         {"AES-128-GCM", false, GetAESParameters(128, true)},
@@ -1023,7 +1025,7 @@ int Confirmation(const std::string& promptText, const std::string& extraDataHex,
         return 1;
     }
 
-    auto listener = std::make_shared<ConfirmationListener>();
+    auto listener = ndk::SharedRefBase::make<ConfirmationListener>();
 
     auto future = listener->get_future();
     auto rc = apcService->presentPrompt(listener, promptText, extraData, locale, uiOptionsAsFlags);

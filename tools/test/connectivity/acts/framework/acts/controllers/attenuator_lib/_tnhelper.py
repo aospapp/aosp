@@ -35,8 +35,9 @@ class _TNHelper(object):
     It should only be used by those implementation control libraries and not by
     any user code directly.
     """
-
-    def __init__(self, tx_cmd_separator='\n', rx_cmd_separator='\n',
+    def __init__(self,
+                 tx_cmd_separator='\n',
+                 rx_cmd_separator='\n',
                  prompt=''):
         self._tn = None
         self._ip_address = None
@@ -78,7 +79,8 @@ class _TNHelper(object):
         """
         logging.debug('Diagnosing telnet connection')
         try:
-            job_result = job.run('ping {} -c 5'.format(self._ip_address))
+            job_result = job.run('ping {} -c 5 -i 0.2'.format(
+                self._ip_address))
         except:
             logging.error("Unable to ping telnet server.")
             return False
@@ -99,7 +101,7 @@ class _TNHelper(object):
         logging.debug('Telnet connection likely recovered')
         return True
 
-    def cmd(self, cmd_str, wait_ret=True):
+    def cmd(self, cmd_str, wait_ret=True, retry=False):
         if not isinstance(cmd_str, str):
             raise TypeError('Invalid command string', cmd_str)
 
@@ -117,16 +119,21 @@ class _TNHelper(object):
         match_idx, match_val, ret_text = self._tn.expect(
             [_ascii_string('\S+' + self.rx_cmd_separator)], 1)
 
+        logging.debug('Telnet Command: {}'.format(cmd_str))
+        logging.debug('Telnet Reply: ({},{},{})'.format(
+            match_idx, match_val, ret_text))
+
         if match_idx == -1:
-            logging.debug('Telnet Command: {}'.format(cmd_str))
-            logging.debug('Telnet Reply: ({},{},{})'.format(
-                match_idx, match_val, ret_text))
-            self.diagnose_telnet()
-            raise attenuator.InvalidDataError(
-                'Telnet command failed to return valid data')
+            telnet_recovered = self.diagnose_telnet()
+            if telnet_recovered and retry:
+                logging.debug('Retrying telnet command once.')
+                return self.cmd(cmd_str, wait_ret, retry=False)
+            else:
+                raise attenuator.InvalidDataError(
+                    'Telnet command failed to return valid data')
 
         ret_text = ret_text.decode()
-        ret_text = ret_text.strip(
-            self.tx_cmd_separator + self.rx_cmd_separator + self.prompt)
+        ret_text = ret_text.strip(self.tx_cmd_separator +
+                                  self.rx_cmd_separator + self.prompt)
 
         return ret_text

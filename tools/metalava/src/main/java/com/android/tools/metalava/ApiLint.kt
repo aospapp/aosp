@@ -52,6 +52,7 @@ import com.android.tools.metalava.Issues.ACTION_VALUE
 import com.android.tools.metalava.Issues.ALL_UPPER
 import com.android.tools.metalava.Issues.ANDROID_URI
 import com.android.tools.metalava.Issues.ARRAY_RETURN
+import com.android.tools.metalava.Issues.ASYNC_SUFFIX_FUTURE
 import com.android.tools.metalava.Issues.AUTO_BOXING
 import com.android.tools.metalava.Issues.BAD_FUTURE
 import com.android.tools.metalava.Issues.BANNED_THROW
@@ -74,16 +75,17 @@ import com.android.tools.metalava.Issues.EXECUTOR_REGISTRATION
 import com.android.tools.metalava.Issues.EXTENDS_ERROR
 import com.android.tools.metalava.Issues.FORBIDDEN_SUPER_CLASS
 import com.android.tools.metalava.Issues.FRACTION_FLOAT
+import com.android.tools.metalava.Issues.GENERIC_CALLBACKS
 import com.android.tools.metalava.Issues.GENERIC_EXCEPTION
 import com.android.tools.metalava.Issues.GETTER_ON_BUILDER
 import com.android.tools.metalava.Issues.GETTER_SETTER_NAMES
 import com.android.tools.metalava.Issues.HEAVY_BIT_SET
-import com.android.tools.metalava.Issues.ILLEGAL_STATE_EXCEPTION
 import com.android.tools.metalava.Issues.INTENT_BUILDER_NAME
 import com.android.tools.metalava.Issues.INTENT_NAME
 import com.android.tools.metalava.Issues.INTERFACE_CONSTANT
 import com.android.tools.metalava.Issues.INTERNAL_CLASSES
 import com.android.tools.metalava.Issues.INTERNAL_FIELD
+import com.android.tools.metalava.Issues.INVALID_NULLABILITY_OVERRIDE
 import com.android.tools.metalava.Issues.Issue
 import com.android.tools.metalava.Issues.KOTLIN_OPERATOR
 import com.android.tools.metalava.Issues.LISTENER_INTERFACE
@@ -152,6 +154,7 @@ import com.android.tools.metalava.model.ParameterItem
 import com.android.tools.metalava.model.SetMinSdkVersion
 import com.android.tools.metalava.model.TypeItem
 import com.android.tools.metalava.model.psi.PsiMethodItem
+import com.android.tools.metalava.model.psi.PsiTypeItem
 import com.android.tools.metalava.model.visitors.ApiVisitor
 import com.intellij.psi.JavaRecursiveElementVisitor
 import com.intellij.psi.PsiClassObjectAccessExpression
@@ -202,11 +205,14 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     private fun check() {
         if (oldCodebase != null) {
             // Only check the new APIs
-            CodebaseComparator().compare(object : ComparisonVisitor() {
-                override fun added(new: Item) {
-                    new.accept(this@ApiLint)
-                }
-            }, oldCodebase, codebase, filterReference)
+            CodebaseComparator().compare(
+                object : ComparisonVisitor() {
+                    override fun added(new: Item) {
+                        new.accept(this@ApiLint)
+                    }
+                },
+                oldCodebase, codebase, filterReference
+            )
         } else {
             // No previous codebase to compare with: visit the whole thing
             codebase.accept(this)
@@ -229,10 +235,7 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
         val superClass = cls.filteredSuperclass(filterReference)
         val interfaces = cls.filteredInterfaceTypes(filterReference).asSequence()
         val allMethods = methods.asSequence() + constructors.asSequence()
-        checkClass(
-            cls, methods, constructors, allMethods, fields, superClass, interfaces,
-            filterReference
-        )
+        checkClass(cls, methods, constructors, allMethods, fields, superClass, interfaces)
     }
 
     override fun visitMethod(method: MethodItem) {
@@ -241,6 +244,7 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
         if (returnType != null) {
             checkType(returnType, method)
             checkNullableCollections(returnType, method)
+            checkMethodSuffixListenableFutureReturn(returnType, method)
         }
         for (parameter in method.parameters()) {
             checkType(parameter.type(), parameter)
@@ -275,8 +279,7 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
         methodsAndConstructors: Sequence<MethodItem>,
         fields: Sequence<FieldItem>,
         superClass: ClassItem?,
-        interfaces: Sequence<TypeItem>,
-        filterReference: Predicate<Item>
+        interfaces: Sequence<TypeItem>
     ) {
         checkEquals(methods)
         checkEnums(cls)
@@ -296,11 +299,11 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
         checkManager(cls, methods, constructors)
         checkStaticUtils(cls, methods, constructors, fields)
         checkCallbackHandlers(cls, methodsAndConstructors, superClass)
+        checkGenericCallbacks(cls, methods, constructors, fields)
         checkResourceNames(cls, fields)
         checkFiles(methodsAndConstructors)
         checkManagerList(cls, methods)
         checkAbstractInner(cls)
-        checkRuntimeExceptions(methodsAndConstructors, filterReference)
         checkError(cls, superClass)
         checkCloseable(cls, methods)
         checkNotKotlinOperator(methods)
@@ -350,32 +353,12 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkEnums(cls: ClassItem) {
-        /*
-            def verify_enums(clazz):
-                """Enums are bad, mmkay?"""
-                if "extends java.lang.Enum" in clazz.raw:
-                    error(clazz, None, "F5", "Enums are not allowed")
-         */
         if (cls.isEnum()) {
             report(ENUM, cls, "Enums are discouraged in Android APIs")
         }
     }
 
     private fun checkMethodNames(method: MethodItem) {
-        /*
-            def verify_method_names(clazz):
-                """Try catching malformed method names, like Foo() or getMTU()."""
-                if clazz.fullname.startswith("android.opengl"): return
-                if clazz.fullname.startswith("android.renderscript"): return
-                if clazz.fullname == "android.system.OsConstants": return
-
-                for m in clazz.methods:
-                    if re.search("[A-Z]{2,}", m.name) is not None:
-                        warn(clazz, m, "S1", "Method names with acronyms should be getMtu() instead of getMTU()")
-                    if re.match("[^a-z]", m.name):
-                        error(clazz, m, "S1", "Method name must start with lowercase char")
-         */
-
         // Existing violations
         val containing = method.containingClass().qualifiedName()
         if (containing.startsWith("android.opengl") ||
@@ -410,21 +393,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkClassNames(cls: ClassItem) {
-        /*
-            def verify_class_names(clazz):
-                """Try catching malformed class names like myMtp or MTPUser."""
-                if clazz.fullname.startswith("android.opengl"): return
-                if clazz.fullname.startswith("android.renderscript"): return
-                if re.match("android\.R\.[a-z]+", clazz.fullname): return
-
-                if re.search("[A-Z]{2,}", clazz.name) is not None:
-                    warn(clazz, None, "S1", "Class names with acronyms should be Mtp not MTP")
-                if re.match("[^A-Z]", clazz.name):
-                    error(clazz, None, "S1", "Class must start with uppercase char")
-                if clazz.name.endswith("Impl"):
-                    error(clazz, None, None, "Don't expose your implementation details")
-         */
-
         // Existing violations
         val qualifiedName = cls.qualifiedName()
         if (qualifiedName.startsWith("android.opengl") ||
@@ -462,25 +430,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkConstantNames(field: FieldItem) {
-        /*
-            def verify_constants(clazz):
-                """All static final constants must be FOO_NAME style."""
-                if re.match("android\.R\.[a-z]+", clazz.fullname): return
-                if clazz.fullname.startswith("android.os.Build"): return
-                if clazz.fullname == "android.system.OsConstants": return
-
-                req = ["java.lang.String","byte","short","int","long","float","double","boolean","char"]
-                for f in clazz.fields:
-                    if "static" in f.split and "final" in f.split:
-                        if re.match("[A-Z0-9_]+", f.name) is None:
-                            error(clazz, f, "C2", "Constant field names must be FOO_NAME")
-                        if f.typ != "java.lang.String":
-                            if f.name.startswith("MIN_") or f.name.startswith("MAX_"):
-                                warn(clazz, f, "C8", "If min/max could change in future, make them dynamic methods")
-                        if f.typ in req and f.value is None:
-                            error(clazz, f, None, "All constants must be defined at compile time")
-         */
-
         // Skip this check on Kotlin
         if (field.isKotlin()) {
             return
@@ -499,7 +448,7 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
 
         val name = field.name()
         if (!constantNamePattern.matches(name)) {
-            val suggested = SdkVersionInfo.camelCaseToUnderlines(name).toUpperCase(Locale.US)
+            val suggested = SdkVersionInfo.camelCaseToUnderlines(name).uppercase(Locale.US)
             report(
                 ALL_UPPER, field,
                 "Constant field names must be named with only upper case characters: `$qualified#$name`, should be `$suggested`?"
@@ -518,29 +467,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkCallbacks(cls: ClassItem) {
-        /*
-            def verify_callbacks(clazz):
-                """Verify Callback classes.
-                All callback classes must be abstract.
-                All methods must follow onFoo() naming style."""
-                if clazz.fullname == "android.speech.tts.SynthesisCallback": return
-
-                if clazz.name.endswith("Callbacks"):
-                    error(clazz, None, "L1", "Callback class names should be singular")
-                if clazz.name.endswith("Observer"):
-                    warn(clazz, None, "L1", "Class should be named FooCallback")
-
-                if clazz.name.endswith("Callback"):
-                    if "interface" in clazz.split:
-                        error(clazz, None, "CL3", "Callbacks must be abstract class to enable extension in future API levels")
-
-                    for m in clazz.methods:
-                        if not re.match("on[A-Z][a-z]*", m.name):
-                            error(clazz, m, "L1", "Callback method names must be onFoo() style")
-
-            )
-         */
-
         // Existing violations
         val qualified = cls.qualifiedName()
         if (qualified == "android.speech.tts.SynthesisCallback") {
@@ -607,28 +533,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkListeners(cls: ClassItem, methods: Sequence<MethodItem>) {
-        /*
-            def verify_listeners(clazz):
-                """Verify Listener classes.
-                All Listener classes must be interface.
-                All methods must follow onFoo() naming style.
-                If only a single method, it must match class name:
-                    interface OnFooListener { void onFoo() }"""
-
-                if clazz.name.endswith("Listener"):
-                    if " abstract class " in clazz.raw:
-                        error(clazz, None, "L1", "Listeners should be an interface, or otherwise renamed Callback")
-
-                    for m in clazz.methods:
-                        if not re.match("on[A-Z][a-z]*", m.name):
-                            error(clazz, m, "L1", "Listener method names must be onFoo() style")
-
-                    if len(clazz.methods) == 1 and clazz.name.startswith("On"):
-                        m = clazz.methods[0]
-                        if (m.name + "Listener").lower() != clazz.name.lower():
-                            error(clazz, m, "L1", "Single listener method name must match class name")
-         */
-
         val name = cls.simpleName()
         if (name.endsWith("Listener")) {
             if (cls.isClass()) {
@@ -653,39 +557,46 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
         }
     }
 
+    private fun checkGenericCallbacks(
+        cls: ClassItem,
+        methods: Sequence<MethodItem>,
+        constructors: Sequence<ConstructorItem>,
+        fields: Sequence<FieldItem>
+    ) {
+        val simpleName = cls.simpleName()
+        if (!simpleName.endsWith("Callback") && !simpleName.endsWith("Listener")) return
+
+        // The following checks for an interface or abstract class of the same shape as
+        // OutcomeReceiver, i.e. two methods, both with the "on" prefix for callbacks, one of
+        // them taking a Throwable or subclass.
+        if (constructors.any { !it.isImplicitConstructor() }) return
+        if (fields.any()) return
+        if (methods.count() != 2) return
+
+        fun isSingleParamCallbackMethod(method: MethodItem) =
+            method.parameters().size == 1 &&
+                method.name().startsWith("on") &&
+                !method.parameters().first().type().primitive &&
+                method.returnType()?.toTypeString() == Void.TYPE.name
+
+        if (!methods.all(::isSingleParamCallbackMethod)) return
+
+        fun TypeItem.extendsThrowable() = asClass()?.extends(JAVA_LANG_THROWABLE) ?: false
+        fun isErrorMethod(method: MethodItem) =
+            method.name().run { startsWith("onError") || startsWith("onFail") } &&
+                method.parameters().first().type().extendsThrowable()
+
+        if (methods.count(::isErrorMethod) == 1) {
+            report(
+                GENERIC_CALLBACKS,
+                cls,
+                "${cls.fullName()} can be replaced with OutcomeReceiver<R,E> (platform)" +
+                    " or suspend fun / ListenableFuture (AndroidX)."
+            )
+        }
+    }
+
     private fun checkActions(field: FieldItem) {
-        /*
-            def verify_actions(clazz):
-                """Verify intent actions.
-                All action names must be named ACTION_FOO.
-                All action values must be scoped by package and match name:
-                    package android.foo {
-                        String ACTION_BAR = "android.foo.action.BAR";
-                    }"""
-                for f in clazz.fields:
-                    if f.value is None: continue
-                    if f.name.startswith("EXTRA_"): continue
-                    if f.name == "SERVICE_INTERFACE" or f.name == "PROVIDER_INTERFACE": continue
-                    if "INTERACTION" in f.name: continue
-
-                    if "static" in f.split and "final" in f.split and f.typ == "java.lang.String":
-                        if "_ACTION" in f.name or "ACTION_" in f.name or ".action." in f.value.lower():
-                            if not f.name.startswith("ACTION_"):
-                                error(clazz, f, "C3", "Intent action constant name must be ACTION_FOO")
-                            else:
-                                if clazz.fullname == "android.content.Intent":
-                                    prefix = "android.intent.action"
-                                elif clazz.fullname == "android.provider.Settings":
-                                    prefix = "android.settings"
-                                elif clazz.fullname == "android.app.admin.DevicePolicyManager" or clazz.fullname == "android.app.admin.DeviceAdminReceiver":
-                                    prefix = "android.app.action"
-                                else:
-                                    prefix = clazz.pkg.name + ".action"
-                                expected = prefix + "." + f.name[7:]
-                                if f.value != expected:
-                                    error(clazz, f, "C4", "Inconsistent action value; expected '%s'" % (expected))
-         */
-
         val name = field.name()
         if (name.startsWith("EXTRA_") || name == "SERVICE_INTERFACE" || name == "PROVIDER_INTERFACE") {
             return
@@ -724,38 +635,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkIntentExtras(field: FieldItem) {
-        /*
-            def verify_extras(clazz):
-                """Verify intent extras.
-                All extra names must be named EXTRA_FOO.
-                All extra values must be scoped by package and match name:
-                    package android.foo {
-                        String EXTRA_BAR = "android.foo.extra.BAR";
-                    }"""
-                if clazz.fullname == "android.app.Notification": return
-                if clazz.fullname == "android.appwidget.AppWidgetManager": return
-
-                for f in clazz.fields:
-                    if f.value is None: continue
-                    if f.name.startswith("ACTION_"): continue
-
-                    if "static" in f.split and "final" in f.split and f.typ == "java.lang.String":
-                        if "_EXTRA" in f.name or "EXTRA_" in f.name or ".extra" in f.value.lower():
-                            if not f.name.startswith("EXTRA_"):
-                                error(clazz, f, "C3", "Intent extra must be EXTRA_FOO")
-                            else:
-                                if clazz.pkg.name == "android.content" and clazz.name == "Intent":
-                                    prefix = "android.intent.extra"
-                                elif clazz.pkg.name == "android.app.admin":
-                                    prefix = "android.app.extra"
-                                else:
-                                    prefix = clazz.pkg.name + ".extra"
-                                expected = prefix + "." + f.name[6:]
-                                if f.value != expected:
-                                    error(clazz, f, "C4", "Inconsistent extra value; expected '%s'" % (expected))
-
-
-         */
         val className = field.containingClass().qualifiedName()
         if (className == "android.app.Notification" || className == "android.appwidget.AppWidgetManager") {
             return
@@ -793,18 +672,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkEquals(methods: Sequence<MethodItem>) {
-        /*
-            def verify_equals(clazz):
-                """Verify that equals() and hashCode() must be overridden together."""
-                eq = False
-                hc = False
-                for m in clazz.methods:
-                    if " static " in m.raw: continue
-                    if "boolean equals(java.lang.Object)" in m.raw: eq = True
-                    if "int hashCode()" in m.raw: hc = True
-                if eq != hc:
-                    error(clazz, None, "M8", "Must override both equals and hashCode; missing one")
-         */
         var equalsMethod: MethodItem? = null
         var hashCodeMethod: MethodItem? = null
 
@@ -841,26 +708,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
         constructors: Sequence<MethodItem>,
         fields: Sequence<FieldItem>
     ) {
-        /*
-            def verify_parcelable(clazz):
-                """Verify that Parcelable objects aren't hiding required bits."""
-                if "implements android.os.Parcelable" in clazz.raw:
-                    creator = [ i for i in clazz.fields if i.name == "CREATOR" ]
-                    write = [ i for i in clazz.methods if i.name == "writeToParcel" ]
-                    describe = [ i for i in clazz.methods if i.name == "describeContents" ]
-
-                    if len(creator) == 0 or len(write) == 0 or len(describe) == 0:
-                        error(clazz, None, "FW3", "Parcelable requires CREATOR, writeToParcel, and describeContents; missing one")
-
-                    if ((" final class " not in clazz.raw) and
-                        (" final deprecated class " not in clazz.raw)):
-                        error(clazz, None, "FW8", "Parcelable classes must be final")
-
-                    for c in clazz.ctors:
-                        if c.args == ["android.os.Parcel"]:
-                            error(clazz, c, "FW3", "Parcelable inflation is exposed through CREATOR, not raw constructors")
-         */
-
         if (!cls.implements("android.os.Parcelable")) {
             return
         }
@@ -905,17 +752,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkProtected(member: MemberItem) {
-        /*
-        def verify_protected(clazz):
-            """Verify that no protected methods or fields are allowed."""
-            for m in clazz.methods:
-                if m.name == "finalize": continue
-                if "protected" in m.split:
-                    error(clazz, m, "M7", "Protected methods not allowed; must be public")
-            for f in clazz.fields:
-                if "protected" in f.split:
-                    error(clazz, f, "M7", "Protected fields not allowed; must be public")
-         */
         val modifiers = member.modifiers
         if (modifiers.isProtected()) {
             if (member.name() == "finalize" && member is MethodItem && member.parameters().isEmpty()) {
@@ -930,75 +766,39 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkFieldName(field: FieldItem) {
-        /*
-        def verify_fields(clazz):
-            """Verify that all exposed fields are final.
-            Exposed fields must follow myName style.
-            Catch internal mFoo objects being exposed."""
-
-            IGNORE_BARE_FIELDS = [
-                "android.app.ActivityManager.RecentTaskInfo",
-                "android.app.Notification",
-                "android.content.pm.ActivityInfo",
-                "android.content.pm.ApplicationInfo",
-                "android.content.pm.ComponentInfo",
-                "android.content.pm.ResolveInfo",
-                "android.content.pm.FeatureGroupInfo",
-                "android.content.pm.InstrumentationInfo",
-                "android.content.pm.PackageInfo",
-                "android.content.pm.PackageItemInfo",
-                "android.content.res.Configuration",
-                "android.graphics.BitmapFactory.Options",
-                "android.os.Message",
-                "android.system.StructPollfd",
-            ]
-
-            for f in clazz.fields:
-                if not "final" in f.split:
-                    if clazz.fullname in IGNORE_BARE_FIELDS:
-                        pass
-                    elif clazz.fullname.endswith("LayoutParams"):
-                        pass
-                    elif clazz.fullname.startswith("android.util.Mutable"):
-                        pass
-                    else:
-                        error(clazz, f, "F2", "Bare fields must be marked final, or add accessors if mutable")
-
-                if "static" not in f.split and "property" not in f.split:
-                    if not re.match("[a-z]([a-zA-Z]+)?", f.name):
-                        error(clazz, f, "S1", "Non-static fields must be named using myField style")
-
-                if re.match("[ms][A-Z]", f.name):
-                    error(clazz, f, "F1", "Internal objects must not be exposed")
-
-                if re.match("[A-Z_]+", f.name):
-                    if "static" not in f.split or "final" not in f.split:
-                        error(clazz, f, "C2", "Constants must be marked static final")
-         */
         val className = field.containingClass().qualifiedName()
         val modifiers = field.modifiers
         if (!modifiers.isFinal()) {
             if (className !in classesWithBareFields &&
-                    !className.endsWith("LayoutParams") &&
-                    !className.startsWith("android.util.Mutable")) {
-                report(MUTABLE_BARE_FIELD, field,
-                        "Bare field ${field.name()} must be marked final, or moved behind accessors if mutable")
+                !className.endsWith("LayoutParams") &&
+                !className.startsWith("android.util.Mutable")
+            ) {
+                report(
+                    MUTABLE_BARE_FIELD, field,
+                    "Bare field ${field.name()} must be marked final, or moved behind accessors if mutable"
+                )
             }
         }
         if (!modifiers.isStatic()) {
             if (!fieldNamePattern.matches(field.name())) {
-                report(START_WITH_LOWER, field,
-                        "Non-static field ${field.name()} must be named using fooBar style")
+                report(
+                    START_WITH_LOWER, field,
+                    "Non-static field ${field.name()} must be named using fooBar style"
+                )
             }
         }
         if (internalNamePattern.matches(field.name())) {
-            report(INTERNAL_FIELD, field,
-                    "Internal field ${field.name()} must not be exposed")
+            report(
+                INTERNAL_FIELD, field,
+                "Internal field ${field.name()} must not be exposed"
+            )
         }
         if (constantNamePattern.matches(field.name()) && field.isJava()) {
             if (!modifiers.isStatic() || !modifiers.isFinal()) {
-                report(ALL_UPPER, field,
-                        "Constant ${field.name()} must be marked static final")
+                report(
+                    ALL_UPPER, field,
+                    "Constant ${field.name()} must be marked static final"
+                )
             }
         }
     }
@@ -1009,46 +809,14 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
         val type = field.type()
 
         if (modifiers.isFinal() && modifiers.isStatic() && type.isString() && className in settingsKeyClasses) {
-            report(NO_SETTINGS_PROVIDER, field,
-                "New setting keys are not allowed (Field: ${field.name()}); use getters/setters in relevant manager class")
+            report(
+                NO_SETTINGS_PROVIDER, field,
+                "New setting keys are not allowed (Field: ${field.name()}); use getters/setters in relevant manager class"
+            )
         }
     }
 
     private fun checkRegistrationMethods(cls: ClassItem, methods: Sequence<MethodItem>) {
-        /*
-            def verify_register(clazz):
-                """Verify parity of registration methods.
-                Callback objects use register/unregister methods.
-                Listener objects use add/remove methods."""
-                methods = [ m.name for m in clazz.methods ]
-                for m in clazz.methods:
-                    if "Callback" in m.raw:
-                        if m.name.startswith("register"):
-                            other = "unregister" + m.name[8:]
-                            if other not in methods:
-                                error(clazz, m, "L2", "Missing unregister method")
-                        if m.name.startswith("unregister"):
-                            other = "register" + m.name[10:]
-                            if other not in methods:
-                                error(clazz, m, "L2", "Missing register method")
-
-                        if m.name.startswith("add") or m.name.startswith("remove"):
-                            error(clazz, m, "L3", "Callback methods should be named register/unregister")
-
-                    if "Listener" in m.raw:
-                        if m.name.startswith("add"):
-                            other = "remove" + m.name[3:]
-                            if other not in methods:
-                                error(clazz, m, "L2", "Missing remove method")
-                        if m.name.startswith("remove") and not m.name.startswith("removeAll"):
-                            other = "add" + m.name[6:]
-                            if other not in methods:
-                                error(clazz, m, "L2", "Missing add method")
-
-                        if m.name.startswith("register") or m.name.startswith("unregister"):
-                            error(clazz, m, "L3", "Listener methods should be named add/remove")
-         */
-
         /** Make sure that there is a corresponding method */
         fun ensureMatched(cls: ClassItem, methods: Sequence<MethodItem>, method: MethodItem, name: String) {
             if (method.superMethods().isNotEmpty()) return // Do not report for override methods
@@ -1100,14 +868,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkSynchronized(method: MethodItem) {
-        /*
-            def verify_sync(clazz):
-                """Verify synchronized methods aren't exposed."""
-                for m in clazz.methods:
-                    if "synchronized" in m.split:
-                        error(clazz, m, "M5", "Internal locks must not be exposed")
-         */
-
         fun reportError(method: MethodItem, psi: PsiElement? = null) {
             val message = StringBuilder("Internal locks must not be exposed")
             if (psi != null) {
@@ -1157,18 +917,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkIntentBuilder(method: MethodItem) {
-        /*
-            def verify_intent_builder(clazz):
-                """Verify that Intent builders are createFooIntent() style."""
-                if clazz.name == "Intent": return
-
-                for m in clazz.methods:
-                    if m.typ == "android.content.Intent":
-                        if m.name.startswith("create") and m.name.endswith("Intent"):
-                            pass
-                        else:
-                            warn(clazz, m, "FW1", "Methods creating an Intent should be named createFooIntent()")
-         */
         if (method.returnType()?.toTypeString() == "android.content.Intent") {
             val name = method.name()
             if (name.startsWith("create") && name.endsWith("Intent")) {
@@ -1186,57 +934,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkHelperClasses(cls: ClassItem, methods: Sequence<MethodItem>, fields: Sequence<FieldItem>) {
-        /*
-            def verify_helper_classes(clazz):
-                """Verify that helper classes are named consistently with what they extend.
-                All developer extendable methods should be named onFoo()."""
-                test_methods = False
-                if "extends android.app.Service" in clazz.raw:
-                    test_methods = True
-                    if not clazz.name.endswith("Service"):
-                        error(clazz, None, "CL4", "Inconsistent class name; should be FooService")
-
-                    found = False
-                    for f in clazz.fields:
-                        if f.name == "SERVICE_INTERFACE":
-                            found = True
-                            if f.value != clazz.fullname:
-                                error(clazz, f, "C4", "Inconsistent interface constant; expected '%s'" % (clazz.fullname))
-
-                if "extends android.content.ContentProvider" in clazz.raw:
-                    test_methods = True
-                    if not clazz.name.endswith("Provider"):
-                        error(clazz, None, "CL4", "Inconsistent class name; should be FooProvider")
-
-                    found = False
-                    for f in clazz.fields:
-                        if f.name == "PROVIDER_INTERFACE":
-                            found = True
-                            if f.value != clazz.fullname:
-                                error(clazz, f, "C4", "Inconsistent interface constant; expected '%s'" % (clazz.fullname))
-
-                if "extends android.content.BroadcastReceiver" in clazz.raw:
-                    test_methods = True
-                    if not clazz.name.endswith("Receiver"):
-                        error(clazz, None, "CL4", "Inconsistent class name; should be FooReceiver")
-
-                if "extends android.app.Activity" in clazz.raw:
-                    test_methods = True
-                    if not clazz.name.endswith("Activity"):
-                        error(clazz, None, "CL4", "Inconsistent class name; should be FooActivity")
-
-                if test_methods:
-                    for m in clazz.methods:
-                        if "final" in m.split: continue
-// Note: This regex seems wrong:
-                        if not re.match("on[A-Z]", m.name):
-                            if "abstract" in m.split:
-                                warn(clazz, m, None, "Methods implemented by developers should be named onFoo()")
-                            else:
-                                warn(clazz, m, None, "If implemented by developer, should be named onFoo(); otherwise consider marking final")
-
-         */
-
         fun ensureFieldValue(fields: Sequence<FieldItem>, fieldName: String, fieldValue: String) {
             fields.firstOrNull { it.name() == fieldName }?.let { field ->
                 if (field.initialValue(true) != fieldValue) {
@@ -1306,35 +1003,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
         constructors: Sequence<ConstructorItem>,
         superClass: ClassItem?
     ) {
-        /*
-            def verify_builder(clazz):
-                """Verify builder classes.
-                Methods should return the builder to enable chaining."""
-                if " extends " in clazz.raw: return
-                if not clazz.name.endswith("Builder"): return
-
-                if clazz.name != "Builder":
-                    warn(clazz, None, None, "Builder should be defined as inner class")
-
-                has_build = False
-                for m in clazz.methods:
-                    if m.name == "build":
-                        has_build = True
-                        continue
-
-                    if m.name.startswith("get"): continue
-                    if m.name.startswith("clear"): continue
-
-                    if m.name.startswith("with"):
-                        warn(clazz, m, None, "Builder methods names should use setFoo() style")
-
-                    if m.name.startswith("set"):
-                        if not m.typ.endswith(clazz.fullname):
-                            warn(clazz, m, "M4", "Methods must return the builder object")
-
-                if not has_build:
-                    warn(clazz, None, None, "Missing build() method")
-         */
         if (!cls.simpleName().endsWith("Builder")) {
             return
         }
@@ -1372,7 +1040,7 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
         // Maps each setter to a list of potential getters that would satisfy it.
         val expectedGetters = mutableListOf<Pair<Item, Set<String>>>()
         var builtType: TypeItem? = null
-        val clsType = cls.toType().toTypeString()
+        val clsType = cls.toType()
 
         for (method in methods) {
             val name = method.name()
@@ -1385,17 +1053,30 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
                     "Getter should be on the built object, not the builder: ${method.describe()}"
                 )
             } else if (name.startsWith("set") || name.startsWith("add") || name.startsWith("clear")) {
-                val returnType = method.returnType()?.toTypeString() ?: ""
-                val returnTypeBounds = method.returnType()?.asTypeParameter(context = method)?.bounds()?.map {
-                    it.toType().toTypeString()
-                } ?: listOf()
-
-                if (returnType != clsType && !returnTypeBounds.contains(clsType)) {
-                    report(
-                        SETTER_RETURNS_THIS, method,
-                        "Methods must return the builder object (return type $clsType instead of $returnType): ${method.describe()}"
-                    )
+                val returnType = method.returnType()
+                if (returnType != null) {
+                    val returnsClassType = if (
+                        returnType is PsiTypeItem && clsType is PsiTypeItem
+                    ) {
+                        clsType.isAssignableFromWithoutUnboxing(returnType)
+                    } else {
+                        // fallback to a limited text based check
+                        val returnTypeBounds = returnType
+                            .asTypeParameter(context = method)
+                            ?.typeBounds()?.map {
+                                it.toTypeString()
+                            } ?: emptyList()
+                        returnTypeBounds.contains(clsType.toTypeString()) || returnType == clsType
+                    }
+                    if (!returnsClassType) {
+                        report(
+                            SETTER_RETURNS_THIS, method,
+                            "Methods must return the builder object (return type " +
+                                "$clsType instead of $returnType): ${method.describe()}"
+                        )
+                    }
                 }
+
                 if (method.modifiers.isNullable()) {
                     report(
                         SETTER_RETURNS_THIS, method,
@@ -1408,7 +1089,8 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
                 }
                 val allowedGetters: Set<String>? = if (isBool && name.startsWith("set")) {
                     val pattern = goodBooleanGetterSetterPrefixes.match(
-                            name, GetterSetterPattern::setter)!!
+                        name, GetterSetterPattern::setter
+                    )!!
                     setOf("${pattern.getter}${name.removePrefix(pattern.setter)}")
                 } else {
                     when {
@@ -1424,9 +1106,9 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
                                     listOf(nameWithoutPrefix, "${nameWithoutPrefix}es")
                                 }
                                 name.endsWith("sh") || name.endsWith("ch") || name.endsWith("x") ||
-                                        name.endsWith("z") -> listOf("${nameWithoutPrefix}es")
+                                    name.endsWith("z") -> listOf("${nameWithoutPrefix}es")
                                 name.endsWith("y") &&
-                                        name[name.length - 2] !in listOf('a', 'e', 'i', 'o', 'u')
+                                    name[name.length - 2] !in listOf('a', 'e', 'i', 'o', 'u')
                                 -> {
                                     listOf("${nameWithoutPrefix.removeSuffix("y")}ies")
                                 }
@@ -1457,12 +1139,12 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
                     val expectedGetterCalls = expectedGetterNames.map { "$it()" }
                     val errorString = if (expectedGetterCalls.size == 1) {
                         "${builtClass.qualifiedName()} does not declare a " +
-                                "`${expectedGetterCalls.first()}` method matching " +
-                                "${setter.describe()}"
+                            "`${expectedGetterCalls.first()}` method matching " +
+                            setter.describe()
                     } else {
                         "${builtClass.qualifiedName()} does not declare a getter method " +
-                                "matching ${setter.describe()} (expected one of: " +
-                                "$expectedGetterCalls)"
+                            "matching ${setter.describe()} (expected one of: " +
+                            "$expectedGetterCalls)"
                     }
                     report(MISSING_GETTER_MATCHING_BUILDER, setter, errorString)
                 }
@@ -1471,13 +1153,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkAidl(cls: ClassItem, superClass: ClassItem?, interfaces: Sequence<TypeItem>) {
-        /*
-            def verify_aidl(clazz):
-                """Catch people exposing raw AIDL."""
-                if "extends android.os.Binder" in clazz.raw or "implements android.os.IInterface" in clazz.raw:
-                    error(clazz, None, None, "Raw AIDL interfaces must not be exposed")
-        */
-
         // Instead of ClassItem.implements() and .extends() which performs hierarchy
         // searches, here we only want to flag directly extending or implementing:
         val extendsBinder = superClass?.qualifiedName() == "android.os.Binder"
@@ -1496,13 +1171,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkInternal(cls: ClassItem) {
-        /*
-            def verify_internal(clazz):
-                """Catch people exposing internal classes."""
-                if clazz.pkg.name.startswith("com.android"):
-                    error(clazz, None, None, "Internal classes must not be exposed")
-        */
-
         if (cls.qualifiedName().startsWith("com.android.")) {
             report(
                 INTERNAL_CLASSES, cls,
@@ -1516,52 +1184,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
         methodsAndConstructors: Sequence<MethodItem>,
         fields: Sequence<FieldItem>
     ) {
-        /*
-            def verify_layering(clazz):
-                """Catch package layering violations.
-                For example, something in android.os depending on android.app."""
-                ranking = [
-                    ["android.service","android.accessibilityservice","android.inputmethodservice","android.printservice","android.appwidget","android.webkit","android.preference","android.gesture","android.print"],
-                    "android.app",
-                    "android.widget",
-                    "android.view",
-                    "android.animation",
-                    "android.provider",
-                    ["android.content","android.graphics.drawable"],
-                    "android.database",
-                    "android.text",
-                    "android.graphics",
-                    "android.os",
-                    "android.util"
-                ]
-
-                def rank(p):
-                    for i in range(len(ranking)):
-                        if isinstance(ranking[i], list):
-                            for j in ranking[i]:
-                                if p.startswith(j): return i
-                        else:
-                            if p.startswith(ranking[i]): return i
-
-                cr = rank(clazz.pkg.name)
-                if cr is None: return
-
-                for f in clazz.fields:
-                    ir = rank(f.typ)
-                    if ir and ir < cr:
-                        warn(clazz, f, "FW6", "Field type violates package layering")
-
-                for m in clazz.methods:
-                    ir = rank(m.typ)
-                    if ir and ir < cr:
-                        warn(clazz, m, "FW6", "Method return type violates package layering")
-                    for arg in m.args:
-                        ir = rank(arg)
-                        if ir and ir < cr:
-                            warn(clazz, m, "FW6", "Method argument type violates package layering")
-
-        */
-
         fun packageRank(pkg: PackageItem): Int {
             return when (pkg.qualifiedName()) {
                 "android.service",
@@ -1723,21 +1345,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
         type: TypeItem,
         item: Item
     ) {
-        /*
-            def verify_collections(clazz):
-                """Verifies that collection types are interfaces."""
-                if clazz.fullname == "android.os.Bundle": return
-
-                bad = ["java.util.Vector", "java.util.LinkedList", "java.util.ArrayList", "java.util.Stack",
-                       "java.util.HashMap", "java.util.HashSet", "android.util.ArraySet", "android.util.ArrayMap"]
-                for m in clazz.methods:
-                    if m.typ in bad:
-                        error(clazz, m, "CL2", "Return type is concrete collection; must be higher-level interface")
-                    for arg in m.args:
-                        if arg in bad:
-                            error(clazz, m, "CL2", "Argument is concrete collection; must be higher-level interface")
-        */
-
         if (type.primitive) {
             return
         }
@@ -1785,7 +1392,7 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
         val superItem: Item? = when (item) {
             is MethodItem -> item.findPredicateSuperMethod(filterReference)
             is ParameterItem -> item.containingMethod().findPredicateSuperMethod(filterReference)
-                    ?.parameters()?.find { it.parameterIndex == item.parameterIndex }
+                ?.parameters()?.find { it.parameterIndex == item.parameterIndex }
             else -> null
         }
 
@@ -1794,12 +1401,13 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
         }
 
         if (type.isArray() ||
-                typeAsClass.extendsOrImplements("java.util.Collection") ||
-                typeAsClass.extendsOrImplements("kotlin.collections.Collection") ||
-                typeAsClass.extendsOrImplements("java.util.Map") ||
-                typeAsClass.extendsOrImplements("kotlin.collections.Map") ||
-                typeAsClass.qualifiedName() == "android.os.Bundle" ||
-                typeAsClass.qualifiedName() == "android.os.PersistableBundle") {
+            typeAsClass.extendsOrImplements("java.util.Collection") ||
+            typeAsClass.extendsOrImplements("kotlin.collections.Collection") ||
+            typeAsClass.extendsOrImplements("java.util.Map") ||
+            typeAsClass.extendsOrImplements("kotlin.collections.Map") ||
+            typeAsClass.qualifiedName() == "android.os.Bundle" ||
+            typeAsClass.qualifiedName() == "android.os.PersistableBundle"
+        ) {
             val where = when (item) {
                 is MethodItem -> "Return type of ${item.describe()}"
                 else -> "Type of ${item.describe()}"
@@ -1807,30 +1415,13 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
 
             val erased = type.toErasedTypeString(item)
             report(
-                    NULLABLE_COLLECTION, item,
-                    "$where is a nullable collection (`$erased`); must be non-null"
+                NULLABLE_COLLECTION, item,
+                "$where is a nullable collection (`$erased`); must be non-null"
             )
         }
     }
 
     private fun checkFlags(fields: Sequence<FieldItem>) {
-        /*
-            def verify_flags(clazz):
-                """Verifies that flags are non-overlapping."""
-                known = collections.defaultdict(int)
-                for f in clazz.fields:
-                    if "FLAG_" in f.name:
-                        try:
-                            val = int(f.value)
-                        except:
-                            continue
-
-                        scope = f.name[0:f.name.index("FLAG_")]
-                        if val & known[scope]:
-                            warn(clazz, f, "C1", "Found overlapping flag constant value")
-                        known[scope] |= val
-
-        */
         var known: MutableMap<String, Int>? = null
         var valueToFlag: MutableMap<Int?, String>? = null
         for (field in fields) {
@@ -1862,80 +1453,57 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkExceptions(method: MethodItem, filterReference: Predicate<Item>) {
-        /*
-            def verify_exception(clazz):
-                """Verifies that methods don't throw generic exceptions."""
-                for m in clazz.methods:
-                    for t in m.throws:
-                        if t in ["java.lang.Exception", "java.lang.Throwable", "java.lang.Error"]:
-                            error(clazz, m, "S1", "Methods must not throw generic exceptions")
-
-                        if t in ["android.os.RemoteException"]:
-                            if clazz.name == "android.content.ContentProviderClient": continue
-                            if clazz.name == "android.os.Binder": continue
-                            if clazz.name == "android.os.IBinder": continue
-
-                            error(clazz, m, "FW9", "Methods calling into system server should rethrow RemoteException as RuntimeException")
-
-                        if len(m.args) == 0 and t in ["java.lang.IllegalArgumentException", "java.lang.NullPointerException"]:
-                            warn(clazz, m, "S1", "Methods taking no arguments should throw IllegalStateException")
-        */
         for (exception in method.filteredThrowsTypes(filterReference)) {
-            when (val qualifiedName = exception.qualifiedName()) {
-                "java.lang.Exception",
-                "java.lang.Throwable",
-                "java.lang.Error" -> {
-                    report(
-                        GENERIC_EXCEPTION, method,
-                        "Methods must not throw generic exceptions (`$qualifiedName`)"
-                    )
-                }
-                "android.os.RemoteException" -> {
-                    when (method.containingClass().qualifiedName()) {
-                        "android.content.ContentProviderClient",
-                        "android.os.Binder",
-                        "android.os.IBinder" -> {
-                            // exceptions
-                        }
-                        else -> {
-                            report(
-                                RETHROW_REMOTE_EXCEPTION, method,
-                                "Methods calling system APIs should rethrow `RemoteException` as `RuntimeException` (but do not list it in the throws clause)"
-                            )
-                        }
-                    }
-                }
-                "java.lang.IllegalArgumentException",
-                "java.lang.NullPointerException" -> {
-                    if (method.parameters().isEmpty()) {
+            if (isUncheckedException(exception)) {
+                report(
+                    BANNED_THROW, method,
+                    "Methods must not throw unchecked exceptions"
+                )
+            } else {
+                when (val qualifiedName = exception.qualifiedName()) {
+                    "java.lang.Exception",
+                    "java.lang.Throwable",
+                    "java.lang.Error" -> {
                         report(
-                            ILLEGAL_STATE_EXCEPTION, method,
-                            "Methods taking no arguments should throw `IllegalStateException` instead of `$qualifiedName`"
+                            GENERIC_EXCEPTION, method,
+                            "Methods must not throw generic exceptions (`$qualifiedName`)"
                         )
+                    }
+                    "android.os.RemoteException" -> {
+                        when (method.containingClass().qualifiedName()) {
+                            "android.content.ContentProviderClient",
+                            "android.os.Binder",
+                            "android.os.IBinder" -> {
+                                // exceptions
+                            }
+                            else -> {
+                                report(
+                                    RETHROW_REMOTE_EXCEPTION, method,
+                                    "Methods calling system APIs should rethrow `RemoteException` as `RuntimeException` (but do not list it in the throws clause)"
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
     }
 
+    /**
+     * Unchecked exceptions are subclasses of RuntimeException or Error. These are not
+     * checked by the compiler, and it is against API guidelines to put them in the 'throws'.
+     * See https://docs.oracle.com/javase/tutorial/essential/exceptions/runtime.html
+     */
+    private fun isUncheckedException(exception: ClassItem): Boolean {
+        val superNames = exception.allSuperClasses().map {
+            it.qualifiedName()
+        }
+        return superNames.any {
+            it == "java.lang.RuntimeException" || it == "java.lang.Error"
+        }
+    }
+
     private fun checkGoogle(cls: ClassItem, methods: Sequence<MethodItem>, fields: Sequence<FieldItem>) {
-        /*
-            def verify_google(clazz):
-                """Verifies that APIs never reference Google."""
-
-                if re.search("google", clazz.raw, re.IGNORECASE):
-                    error(clazz, None, None, "Must never reference Google")
-
-                test = []
-                test.extend(clazz.ctors)
-                test.extend(clazz.fields)
-                test.extend(clazz.methods)
-
-                for t in test:
-                    if re.search("google", t.raw, re.IGNORECASE):
-                        error(clazz, t, None, "Must never reference Google")
-        */
-
         fun checkName(name: String, item: Item) {
             if (name.contains("Google", ignoreCase = true)) {
                 report(
@@ -1966,20 +1534,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkManager(cls: ClassItem, methods: Sequence<MethodItem>, constructors: Sequence<ConstructorItem>) {
-        /*
-            def verify_manager(clazz):
-                """Verifies that FooManager is only obtained from Context."""
-
-                if not clazz.name.endswith("Manager"): return
-
-                for c in clazz.ctors:
-                    error(clazz, c, None, "Managers must always be obtained from Context; no direct constructors")
-
-                for m in clazz.methods:
-                    if m.typ == clazz.fullname:
-                        error(clazz, m, None, "Managers must always be obtained from Context")
-
-        */
         if (!cls.simpleName().endsWith("Manager")) {
             return
         }
@@ -2002,8 +1556,8 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkHasNullability(item: Item) {
-        if (item.requiresNullnessInfo() && !item.hasNullnessInfo() &&
-                getImplicitNullness(item) == null) {
+        if (!item.requiresNullnessInfo()) return
+        if (!item.hasNullnessInfo() && getImplicitNullness(item) == null) {
             val type = item.type()
             val inherited = when (item) {
                 is ParameterItem -> item.containingMethod().inheritedMethod
@@ -2052,33 +1606,81 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
                 else -> throw IllegalStateException("Unexpected item type: $item")
             }
             report(MISSING_NULLABILITY, item, "Missing nullability on $where")
+        } else {
+            when (item) {
+                is ParameterItem -> {
+                    // We don't enforce this check on constructor params
+                    if (item.containingMethod().isConstructor()) return
+                    if (item.modifiers.isNonNull()) {
+                        if (anySuperParameterLacksNullnessInfo(item)) {
+                            report(INVALID_NULLABILITY_OVERRIDE, item, "Invalid nullability on parameter `${item.name()}` in method `${item.parent()?.name()}`. Parameters of overrides cannot be NonNull if the super parameter is unannotated.")
+                        } else if (anySuperParameterIsNullable(item)) {
+                            report(INVALID_NULLABILITY_OVERRIDE, item, "Invalid nullability on parameter `${item.name()}` in method `${item.parent()?.name()}`. Parameters of overrides cannot be NonNull if super parameter is Nullable.")
+                        }
+                    }
+                }
+                is MethodItem -> {
+                    // We don't enforce this check on constructors
+                    if (item.isConstructor()) return
+                    if (item.modifiers.isNullable()) {
+                        if (anySuperMethodLacksNullnessInfo(item)) {
+                            report(INVALID_NULLABILITY_OVERRIDE, item, "Invalid nullability on method `${item.name()}` return. Overrides of unannotated super method cannot be Nullable.")
+                        } else if (anySuperMethodIsNonNull(item)) {
+                            report(INVALID_NULLABILITY_OVERRIDE, item, "Invalid nullability on method `${item.name()}` return. Overrides of NonNull methods cannot be Nullable.")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun anySuperMethodIsNonNull(method: MethodItem): Boolean {
+        return method.superMethods().any { superMethod ->
+            superMethod.modifiers.isNonNull() &&
+                // Disable check for generics
+                superMethod.returnType()?.isTypeParameter() != true
+        }
+    }
+
+    private fun anySuperParameterIsNullable(parameter: ParameterItem): Boolean {
+        val supers = parameter.containingMethod().superMethods()
+        return supers.all { superMethod ->
+            // Disable check for generics
+            superMethod.parameters().none {
+                it.type().isTypeParameter()
+            }
+        } && supers.any { superMethod ->
+            superMethod.parameters().firstOrNull { param ->
+                parameter.parameterIndex == param.parameterIndex
+            }?.modifiers?.isNullable() ?: false
+        }
+    }
+
+    private fun anySuperMethodLacksNullnessInfo(method: MethodItem): Boolean {
+        return method.superMethods().any { superMethod ->
+            !superMethod.hasNullnessInfo() &&
+                // Disable check for generics
+                superMethod.returnType()?.isTypeParameter() != true
+        }
+    }
+
+    private fun anySuperParameterLacksNullnessInfo(parameter: ParameterItem): Boolean {
+        val supers = parameter.containingMethod().superMethods()
+        return supers.all { superMethod ->
+            // Disable check for generics
+            superMethod.parameters().none {
+                it.type().isTypeParameter()
+            }
+        } && supers.any { superMethod ->
+            !(
+                superMethod.parameters().firstOrNull { param ->
+                    parameter.parameterIndex == param.parameterIndex
+                }?.hasNullnessInfo() ?: true
+                )
         }
     }
 
     private fun checkBoxed(type: TypeItem, item: Item) {
-        /*
-            def verify_boxed(clazz):
-                """Verifies that methods avoid boxed primitives."""
-
-                boxed = ["java.lang.Number","java.lang.Byte","java.lang.Double","java.lang.Float","java.lang.Integer","java.lang.Long","java.lang.Short"]
-
-                for c in clazz.ctors:
-                    for arg in c.args:
-                        if arg in boxed:
-                            error(clazz, c, "M11", "Must avoid boxed primitives")
-
-                for f in clazz.fields:
-                    if f.typ in boxed:
-                        error(clazz, f, "M11", "Must avoid boxed primitives")
-
-                for m in clazz.methods:
-                    if m.typ in boxed:
-                        error(clazz, m, "M11", "Must avoid boxed primitives")
-                    for arg in m.args:
-                        if arg in boxed:
-                            error(clazz, m, "M11", "Must avoid boxed primitives")
-        */
-
         fun isBoxType(qualifiedName: String): Boolean {
             return when (qualifiedName) {
                 "java.lang.Number",
@@ -2110,25 +1712,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
         constructors: Sequence<ConstructorItem>,
         fields: Sequence<FieldItem>
     ) {
-        /*
-            def verify_static_utils(clazz):
-                """Verifies that helper classes can't be constructed."""
-                if clazz.fullname.startswith("android.opengl"): return
-                if clazz.fullname.startswith("android.R"): return
-
-                # Only care about classes with default constructors
-                if len(clazz.ctors) == 1 and len(clazz.ctors[0].args) == 0:
-                    test = []
-                    test.extend(clazz.fields)
-                    test.extend(clazz.methods)
-
-                    if len(test) == 0: return
-                    for t in test:
-                        if "static" not in t.split:
-                            return
-
-                    error(clazz, None, None, "Fully-static utility classes must not have constructor")
-        */
         if (!cls.isClass()) {
             return
         }
@@ -2156,7 +1739,8 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
             }
 
             if (methods.none { !it.modifiers.isStatic() } &&
-                fields.none { !it.modifiers.isStatic() }) {
+                fields.none { !it.modifiers.isStatic() }
+            ) {
                 report(
                     STATIC_UTILS, cls,
                     "Fully-static utility classes must not have constructor"
@@ -2166,47 +1750,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkOverloadArgs(cls: ClassItem, methods: Sequence<MethodItem>) {
-        /*
-            def verify_overload_args(clazz):
-                """Verifies that method overloads add new arguments at the end."""
-                if clazz.fullname.startswith("android.opengl"): return
-
-                overloads = collections.defaultdict(list)
-                for m in clazz.methods:
-                    if "deprecated" in m.split: continue
-                    overloads[m.name].append(m)
-
-                for name, methods in overloads.items():
-                    if len(methods) <= 1: continue
-
-                    # Look for arguments common across all overloads
-                    def cluster(args):
-                        count = collections.defaultdict(int)
-                        res = set()
-                        for i in range(len(args)):
-                            a = args[i]
-                            res.add("%s#%d" % (a, count[a]))
-                            count[a] += 1
-                        return res
-
-                    common_args = cluster(methods[0].args)
-                    for m in methods:
-                        common_args = common_args & cluster(m.args)
-
-                    if len(common_args) == 0: continue
-
-                    # Require that all common arguments are present at start of signature
-                    locked_sig = None
-                    for m in methods:
-                        sig = m.args[0:len(common_args)]
-                        if not common_args.issubset(cluster(sig)):
-                            warn(clazz, m, "M2", "Expected common arguments [%s] at beginning of overloaded method" % (", ".join(common_args)))
-                        elif not locked_sig:
-                            locked_sig = sig
-                        elif locked_sig != sig:
-                            error(clazz, m, "M2", "Expected consistent argument ordering between overloads: %s..." % (", ".join(locked_sig)))
-        */
-
         if (cls.qualifiedName().startsWith("android.opengl")) {
             return
         }
@@ -2279,66 +1822,12 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
         methodsAndConstructors: Sequence<MethodItem>,
         superClass: ClassItem?
     ) {
-        /*
-            def verify_callback_handlers(clazz):
-                """Verifies that methods adding listener/callback have overload
-                for specifying delivery thread."""
-
-                # Ignore UI packages which assume main thread
-                skip = [
-                    "animation",
-                    "view",
-                    "graphics",
-                    "transition",
-                    "widget",
-                    "webkit",
-                ]
-                for s in skip:
-                    if s in clazz.pkg.name_path: return
-                    if s in clazz.extends_path: return
-
-                # Ignore UI classes which assume main thread
-                if "app" in clazz.pkg.name_path or "app" in clazz.extends_path:
-                    for s in ["ActionBar","Dialog","Application","Activity","Fragment","Loader"]:
-                        if s in clazz.fullname: return
-                if "content" in clazz.pkg.name_path or "content" in clazz.extends_path:
-                    for s in ["Loader"]:
-                        if s in clazz.fullname: return
-
-                found = {}
-                by_name = collections.defaultdict(list)
-                examine = clazz.ctors + clazz.methods
-                for m in examine:
-                    if m.name.startswith("unregister"): continue
-                    if m.name.startswith("remove"): continue
-                    if re.match("on[A-Z]+", m.name): continue
-
-                    by_name[m.name].append(m)
-
-                    for a in m.args:
-                        if a.endswith("Listener") or a.endswith("Callback") or a.endswith("Callbacks"):
-                            found[m.name] = m
-
-                for f in found.values():
-                    takes_handler = False
-                    takes_exec = False
-                    for m in by_name[f.name]:
-                        if "android.os.Handler" in m.args:
-                            takes_handler = True
-                        if "java.util.concurrent.Executor" in m.args:
-                            takes_exec = True
-                    if not takes_exec:
-                        warn(clazz, f, "L1", "Registration methods should have overload that accepts delivery Executor")
-
-        */
-
-        // Note: In the above we compute takes_handler but it's not used; is this an incomplete
-        // check?
-
         fun packageContainsSegment(packageName: String?, segment: String): Boolean {
             packageName ?: return false
-            return (packageName.contains(segment) &&
-                (packageName.contains(".$segment.") || packageName.endsWith(".$segment")))
+            return (
+                packageName.contains(segment) &&
+                    (packageName.contains(".$segment.") || packageName.endsWith(".$segment"))
+                )
         }
 
         fun skipPackage(packageName: String?): Boolean {
@@ -2441,18 +1930,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkContextFirst(method: MethodItem) {
-        /*
-            def verify_context_first(clazz):
-                """Verifies that methods accepting a Context keep it the first argument."""
-                examine = clazz.ctors + clazz.methods
-                for m in examine:
-                    if len(m.args) > 1 and m.args[0] != "android.content.Context":
-                        if "android.content.Context" in m.args[1:]:
-                            error(clazz, m, "M3", "Context is distinct, so it must be the first argument")
-                    if len(m.args) > 1 and m.args[0] != "android.content.ContentResolver":
-                        if "android.content.ContentResolver" in m.args[1:]:
-                            error(clazz, m, "M3", "ContentResolver is distinct, so it must be the first argument")
-        */
         val parameters = method.parameters()
         if (parameters.size > 1 && parameters[0].type().toTypeString() != "android.content.Context") {
             for (i in 1 until parameters.size) {
@@ -2479,20 +1956,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkListenerLast(method: MethodItem) {
-        /*
-            def verify_listener_last(clazz):
-                """Verifies that methods accepting a Listener or Callback keep them as last arguments."""
-                examine = clazz.ctors + clazz.methods
-                for m in examine:
-                    if "Listener" in m.name or "Callback" in m.name: continue
-                    found = False
-                    for a in m.args:
-                        if a.endswith("Callback") or a.endswith("Callbacks") or a.endswith("Listener"):
-                            found = True
-                        elif found:
-                            warn(clazz, m, "M3", "Listeners should always be at end of argument list")
-                    */
-
         val name = method.name()
         if (name.contains("Listener") || name.contains("Callback")) {
             return
@@ -2516,37 +1979,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkResourceNames(cls: ClassItem, fields: Sequence<FieldItem>) {
-        /*
-            def verify_resource_names(clazz):
-                """Verifies that resource names have consistent case."""
-                if not re.match("android\.R\.[a-z]+", clazz.fullname): return
-
-                # Resources defined by files are foo_bar_baz
-                if clazz.name in ["anim","animator","color","dimen","drawable","interpolator","layout","transition","menu","mipmap","string","plurals","raw","xml"]:
-                    for f in clazz.fields:
-                        if re.match("config_[a-z][a-zA-Z1-9]*$", f.name): continue
-                        if f.name.startswith("config_"):
-                            error(clazz, f, None, "Expected config name to be config_fooBarBaz style")
-
-                        if re.match("[a-z1-9_]+$", f.name): continue
-                        error(clazz, f, None, "Expected resource name in this class to be foo_bar_baz style")
-
-                # Resources defined inside files are fooBarBaz
-                if clazz.name in ["array","attr","id","bool","fraction","integer"]:
-                    for f in clazz.fields:
-                        if re.match("config_[a-z][a-zA-Z1-9]*$", f.name): continue
-                        if re.match("layout_[a-z][a-zA-Z1-9]*$", f.name): continue
-                        if re.match("state_[a-z_]*$", f.name): continue
-
-                        if re.match("[a-z][a-zA-Z1-9]*$", f.name): continue
-                        error(clazz, f, "C7", "Expected resource name in this class to be fooBarBaz style")
-
-                # Styles are FooBar_Baz
-                if clazz.name in ["style"]:
-                    for f in clazz.fields:
-                        if re.match("[A-Z][A-Za-z1-9]+(_[A-Z][A-Za-z1-9]+?)*$", f.name): continue
-                        error(clazz, f, "C7", "Expected resource name in this class to be FooBar_Baz style")
-        */
         if (!cls.qualifiedName().startsWith("android.R.")) {
             return
         }
@@ -2635,7 +2067,7 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
             }
 
             STYLEABLE, // appears as R class but name check is implicitly done as part of style class check
-                // DECLARE_STYLEABLE,
+            // DECLARE_STYLEABLE,
             STYLE_ITEM,
             PUBLIC,
             SAMPLE_DATA,
@@ -2648,28 +2080,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkFiles(methodsAndConstructors: Sequence<MethodItem>) {
-        /*
-            def verify_files(clazz):
-                """Verifies that methods accepting File also accept streams."""
-
-                has_file = set()
-                has_stream = set()
-
-                test = []
-                test.extend(clazz.ctors)
-                test.extend(clazz.methods)
-
-                for m in test:
-                    if "java.io.File" in m.args:
-                        has_file.add(m)
-                    if "java.io.FileDescriptor" in m.args or "android.os.ParcelFileDescriptor" in m.args or "java.io.InputStream" in m.args or "java.io.OutputStream" in m.args:
-                        has_stream.add(m.name)
-
-                for m in has_file:
-                    if m.name not in has_stream:
-                        warn(clazz, m, "M10", "Methods accepting File should also accept FileDescriptor or streams")
-        */
-
         var hasFile: MutableSet<MethodItem>? = null
         var hasStream: MutableSet<String>? = null
         for (method in methodsAndConstructors) {
@@ -2712,16 +2122,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkManagerList(cls: ClassItem, methods: Sequence<MethodItem>) {
-        /*
-            def verify_manager_list(clazz):
-                """Verifies that managers return List<? extends Parcelable> instead of arrays."""
-
-                if not clazz.name.endswith("Manager"): return
-
-                for m in clazz.methods:
-                    if m.typ.startswith("android.") and m.typ.endswith("[]"):
-                        warn(clazz, m, None, "Methods should return List<? extends Parcelable> instead of Parcelable[] to support ParceledListSlice under the hood")
-        */
         if (!cls.simpleName().endsWith("Manager")) {
             return
         }
@@ -2741,14 +2141,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkAbstractInner(cls: ClassItem) {
-        /*
-            def verify_abstract_inner(clazz):
-                """Verifies that abstract inner classes are static."""
-
-                if re.match(".+?\.[A-Z][^\.]+\.[A-Z]", clazz.fullname):
-                    if " abstract " in clazz.raw and " static " not in clazz.raw:
-                        warn(clazz, None, None, "Abstract inner classes should be static to improve testability")
-        */
         if (!cls.isTopLevelClass() && cls.isClass() && cls.modifiers.isAbstract() && !cls.modifiers.isStatic()) {
             report(
                 ABSTRACT_INNER, cls,
@@ -2757,112 +2149,7 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
         }
     }
 
-    private fun checkRuntimeExceptions(
-        methodsAndConstructors: Sequence<MethodItem>,
-        filterReference: Predicate<Item>
-    ) {
-        /*
-            def verify_runtime_exceptions(clazz):
-                """Verifies that runtime exceptions aren't listed in throws."""
-
-                banned = [
-                    "java.lang.NullPointerException",
-                    "java.lang.ClassCastException",
-                    "java.lang.IndexOutOfBoundsException",
-                    "java.lang.reflect.UndeclaredThrowableException",
-                    "java.lang.reflect.MalformedParametersException",
-                    "java.lang.reflect.MalformedParameterizedTypeException",
-                    "java.lang.invoke.WrongMethodTypeException",
-                    "java.lang.EnumConstantNotPresentException",
-                    "java.lang.IllegalMonitorStateException",
-                    "java.lang.SecurityException",
-                    "java.lang.UnsupportedOperationException",
-                    "java.lang.annotation.AnnotationTypeMismatchException",
-                    "java.lang.annotation.IncompleteAnnotationException",
-                    "java.lang.TypeNotPresentException",
-                    "java.lang.IllegalStateException",
-                    "java.lang.ArithmeticException",
-                    "java.lang.IllegalArgumentException",
-                    "java.lang.ArrayStoreException",
-                    "java.lang.NegativeArraySizeException",
-                    "java.util.MissingResourceException",
-                    "java.util.EmptyStackException",
-                    "java.util.concurrent.CompletionException",
-                    "java.util.concurrent.RejectedExecutionException",
-                    "java.util.IllformedLocaleException",
-                    "java.util.ConcurrentModificationException",
-                    "java.util.NoSuchElementException",
-                    "java.io.UncheckedIOException",
-                    "java.time.DateTimeException",
-                    "java.security.ProviderException",
-                    "java.nio.BufferUnderflowException",
-                    "java.nio.BufferOverflowException",
-                ]
-
-                examine = clazz.ctors + clazz.methods
-                for m in examine:
-                    for t in m.throws:
-                        if t in banned:
-                            error(clazz, m, None, "Methods must not mention RuntimeException subclasses in throws clauses")
-
-        */
-        for (method in methodsAndConstructors) {
-            if (method.synthetic) {
-                continue
-            }
-            for (throws in method.filteredThrowsTypes(filterReference)) {
-                when (throws.qualifiedName()) {
-                    "java.lang.NullPointerException",
-                    "java.lang.ClassCastException",
-                    "java.lang.IndexOutOfBoundsException",
-                    "java.lang.reflect.UndeclaredThrowableException",
-                    "java.lang.reflect.MalformedParametersException",
-                    "java.lang.reflect.MalformedParameterizedTypeException",
-                    "java.lang.invoke.WrongMethodTypeException",
-                    "java.lang.EnumConstantNotPresentException",
-                    "java.lang.IllegalMonitorStateException",
-                    "java.lang.SecurityException",
-                    "java.lang.UnsupportedOperationException",
-                    "java.lang.annotation.AnnotationTypeMismatchException",
-                    "java.lang.annotation.IncompleteAnnotationException",
-                    "java.lang.TypeNotPresentException",
-                    "java.lang.IllegalStateException",
-                    "java.lang.ArithmeticException",
-                    "java.lang.IllegalArgumentException",
-                    "java.lang.ArrayStoreException",
-                    "java.lang.NegativeArraySizeException",
-                    "java.util.MissingResourceException",
-                    "java.util.EmptyStackException",
-                    "java.util.concurrent.CompletionException",
-                    "java.util.concurrent.RejectedExecutionException",
-                    "java.util.IllformedLocaleException",
-                    "java.util.ConcurrentModificationException",
-                    "java.util.NoSuchElementException",
-                    "java.io.UncheckedIOException",
-                    "java.time.DateTimeException",
-                    "java.security.ProviderException",
-                    "java.nio.BufferUnderflowException",
-                    "java.nio.BufferOverflowException" -> {
-                        report(
-                            BANNED_THROW, method,
-                            "Methods must not mention RuntimeException subclasses in throws clauses (was `${throws.qualifiedName()}`)"
-                        )
-                    }
-                }
-            }
-        }
-    }
-
     private fun checkError(cls: ClassItem, superClass: ClassItem?) {
-        /*
-            def verify_error(clazz):
-                """Verifies that we always use Exception instead of Error."""
-                if not clazz.extends: return
-                if clazz.extends.endswith("Error"):
-                    error(clazz, None, None, "Trouble must be reported through an Exception, not Error")
-                if clazz.extends.endswith("Exception") and not clazz.name.endswith("Exception"):
-                    error(clazz, None, None, "Exceptions must be named FooException")
-        */
         superClass ?: return
         if (superClass.simpleName().endsWith("Error")) {
             report(
@@ -2911,18 +2198,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkCloseable(cls: ClassItem, methods: Sequence<MethodItem>) {
-        /*
-            def verify_closable(clazz):
-                """Verifies that classes are AutoClosable."""
-                if "implements java.lang.AutoCloseable" in clazz.raw: return
-                if "implements java.io.Closeable" in clazz.raw: return
-
-                for m in clazz.methods:
-                    if len(m.args) > 0: continue
-                    if m.name in ["close","release","destroy","finish","finalize","disconnect","shutdown","stop","free","quit"]:
-                        warn(clazz, m, None, "Classes that release resources should implement AutoClosable and CloseGuard")
-                        return
-         */
         // AutoClosable has been added in API 19, so libraries with minSdkVersion <19 cannot use it. If the version
         // is not set, then keep the check enabled.
         val minSdkVersion = codebase.getMinSdkVersion()
@@ -2946,62 +2221,12 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkNotKotlinOperator(methods: Sequence<MethodItem>) {
-        /*
-            def verify_method_name_not_kotlin_operator(clazz):
-                """Warn about method names which become operators in Kotlin."""
-
-                binary = set()
-
-                def unique_binary_op(m, op):
-                    if op in binary:
-                        error(clazz, m, None, "Only one of '{0}' and '{0}Assign' methods should be present for Kotlin".format(op))
-                    binary.add(op)
-
-                for m in clazz.methods:
-                    if 'static' in m.split:
-                        continue
-
-                    # https://kotlinlang.org/docs/reference/operator-overloading.html#unary-prefix-operators
-                    if m.name in ["unaryPlus", "unaryMinus", "not"] and len(m.args) == 0:
-                        warn(clazz, m, None, "Method can be invoked as a unary operator from Kotlin")
-
-                    # https://kotlinlang.org/docs/reference/operator-overloading.html#increments-and-decrements
-                    if m.name in ["inc", "dec"] and len(m.args) == 0 and m.typ != "void":
-                        # This only applies if the return type is the same or a subtype of the enclosing class, but we have no
-                        # practical way of checking that relationship here.
-                        warn(clazz, m, None, "Method can be invoked as a pre/postfix inc/decrement operator from Kotlin")
-
-                    # https://kotlinlang.org/docs/reference/operator-overloading.html#arithmetic
-                    if m.name in ["plus", "minus", "times", "div", "rem", "mod", "rangeTo"] and len(m.args) == 1:
-                        warn(clazz, m, None, "Method can be invoked as a binary operator from Kotlin")
-                        unique_binary_op(m, m.name)
-
-                    # https://kotlinlang.org/docs/reference/operator-overloading.html#in
-                    if m.name == "contains" and len(m.args) == 1 and m.typ == "boolean":
-                        warn(clazz, m, None, "Method can be invoked as a "in" operator from Kotlin")
-
-                    # https://kotlinlang.org/docs/reference/operator-overloading.html#indexed
-                    if (m.name == "get" and len(m.args) > 0) or (m.name == "set" and len(m.args) > 1):
-                        warn(clazz, m, None, "Method can be invoked with an indexing operator from Kotlin")
-
-                    # https://kotlinlang.org/docs/reference/operator-overloading.html#invoke
-                    if m.name == "invoke":
-                        warn(clazz, m, None, "Method can be invoked with function call syntax from Kotlin")
-
-                    # https://kotlinlang.org/docs/reference/operator-overloading.html#assignments
-                    if m.name in ["plusAssign", "minusAssign", "timesAssign", "divAssign", "remAssign", "modAssign"] \
-                            and len(m.args) == 1 \
-                            and m.typ == "void":
-                        warn(clazz, m, None, "Method can be invoked as a compound assignment operator from Kotlin")
-                        unique_binary_op(m, m.name[:-6])  # Remove "Assign" suffix
-
-         */
-
         fun flagKotlinOperator(method: MethodItem, message: String) {
             if (method.isKotlin()) {
                 report(
                     KOTLIN_OPERATOR, method,
-                    "Note that adding the `operator` keyword would allow calling this method using operator syntax")
+                    "Note that adding the `operator` keyword would allow calling this method using operator syntax"
+                )
             } else {
                 report(
                     KOTLIN_OPERATOR, method,
@@ -3041,10 +2266,11 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
                     val assignName = name + "Assign"
 
                     if (methods.any {
-                            it.name() == assignName &&
-                                it.parameters().size == 1 &&
-                                it.returnType()?.toTypeString() == "void"
-                        }) {
+                        it.name() == assignName &&
+                            it.parameters().size == 1 &&
+                            it.returnType()?.toTypeString() == "void"
+                    }
+                    ) {
                         report(
                             UNIQUE_KOTLIN_OPERATOR, method,
                             "Only one of `$name` and `${name}Assign` methods should be present for Kotlin"
@@ -3096,20 +2322,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkCollectionsOverArrays(type: TypeItem, typeString: String, item: Item) {
-        /*
-            def verify_collections_over_arrays(clazz):
-                """Warn that [] should be Collections."""
-
-                safe = ["java.lang.String[]","byte[]","short[]","int[]","long[]","float[]","double[]","boolean[]","char[]"]
-                for m in clazz.methods:
-                    if m.typ.endswith("[]") and m.typ not in safe:
-                        warn(clazz, m, None, "Method should return Collection<> (or subclass) instead of raw array")
-                    for arg in m.args:
-                        if arg.endswith("[]") and arg not in safe:
-                            warn(clazz, m, None, "Method argument should be Collection<> (or subclass) instead of raw array")
-
-         */
-
         if (!type.isArray() || (item is ParameterItem && item.isVarArgs())) {
             return
         }
@@ -3151,31 +2363,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkUserHandle(cls: ClassItem, methods: Sequence<MethodItem>) {
-        /*
-            def verify_user_handle(clazz):
-                """Methods taking UserHandle should be ForUser or AsUser."""
-                if clazz.name.endswith("Listener") or clazz.name.endswith("Callback") or clazz.name.endswith("Callbacks"): return
-                if clazz.fullname == "android.app.admin.DeviceAdminReceiver": return
-                if clazz.fullname == "android.content.pm.LauncherApps": return
-                if clazz.fullname == "android.os.UserHandle": return
-                if clazz.fullname == "android.os.UserManager": return
-
-                for m in clazz.methods:
-                    if re.match("on[A-Z]+", m.name): continue
-
-                    has_arg = "android.os.UserHandle" in m.args
-                    has_name = m.name.endswith("AsUser") or m.name.endswith("ForUser")
-
-                    if clazz.fullname.endswith("Manager") and has_arg:
-                        warn(clazz, m, None, "When a method overload is needed to target a specific "
-                             "UserHandle, callers should be directed to use "
-                             "Context.createPackageContextAsUser() and re-obtain the relevant "
-                             "Manager, and no new API should be added")
-                    elif has_arg and not has_name:
-                        warn(clazz, m, None, "Method taking UserHandle should be named 'doFooAsUser' "
-                             "or 'queryFooForUser'")
-
-         */
         val qualifiedName = cls.qualifiedName()
         if (qualifiedName == "android.app.admin.DeviceAdminReceiver" ||
             qualifiedName == "android.content.pm.LauncherApps" ||
@@ -3216,30 +2403,18 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkParams(cls: ClassItem) {
-        /*
-            def verify_params(clazz):
-                """Parameter classes should be 'Params'."""
-                if clazz.name.endswith("Params"): return
-                if clazz.fullname == "android.app.ActivityOptions": return
-                if clazz.fullname == "android.app.BroadcastOptions": return
-                if clazz.fullname == "android.os.Bundle": return
-                if clazz.fullname == "android.os.BaseBundle": return
-                if clazz.fullname == "android.os.PersistableBundle": return
-
-                bad = ["Param","Parameter","Parameters","Args","Arg","Argument","Arguments","Options","Bundle"]
-                for b in bad:
-                    if clazz.name.endswith(b):
-                        error(clazz, None, None, "Classes holding a set of parameters should be called 'FooParams'")
-         */
-
         val qualifiedName = cls.qualifiedName()
         for (suffix in badParameterClassNames) {
-            if (qualifiedName.endsWith(suffix) && !((qualifiedName.endsWith("Params") ||
-                    qualifiedName == "android.app.ActivityOptions" ||
-                    qualifiedName == "android.app.BroadcastOptions" ||
-                    qualifiedName == "android.os.Bundle" ||
-                    qualifiedName == "android.os.BaseBundle" ||
-                    qualifiedName == "android.os.PersistableBundle"))
+            if (qualifiedName.endsWith(suffix) && !(
+                (
+                    qualifiedName.endsWith("Params") ||
+                        qualifiedName == "android.app.ActivityOptions" ||
+                        qualifiedName == "android.app.BroadcastOptions" ||
+                        qualifiedName == "android.os.Bundle" ||
+                        qualifiedName == "android.os.BaseBundle" ||
+                        qualifiedName == "android.os.PersistableBundle"
+                    )
+                )
             ) {
                 report(
                     USER_HANDLE_NAME, cls,
@@ -3250,22 +2425,10 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkServices(field: FieldItem) {
-        /*
-            def verify_services(clazz):
-                """Service name should be FOO_BAR_SERVICE = 'foo_bar'."""
-                if clazz.fullname != "android.content.Context": return
-
-                for f in clazz.fields:
-                    if f.typ != "java.lang.String": continue
-                    found = re.match(r"([A-Z_]+)_SERVICE", f.name)
-                    if found:
-                        expected = found.group(1).lower()
-                        if f.value != expected:
-                            error(clazz, f, "C4", "Inconsistent service value; expected '%s'" % (expected))
-         */
         val type = field.type()
         if (!type.isString() || !field.modifiers.isFinal() || !field.modifiers.isStatic() ||
-            field.containingClass().qualifiedName() != "android.content.Context") {
+            field.containingClass().qualifiedName() != "android.content.Context"
+        ) {
             return
         }
         val name = field.name()
@@ -3277,7 +2440,8 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
                 if (!endsWithService) " and its name must end with `_SERVICE`" else ""
 
             report(
-                SERVICE_NAME, field, "Non-constant service constant `$name`. Must be static," +
+                SERVICE_NAME, field,
+                "Non-constant service constant `$name`. Must be static," +
                     " final and initialized with a String literal$mustEndInService."
             )
             return
@@ -3290,7 +2454,7 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
                     "`${name.removeSuffix("_MANAGER_SERVICE")}_SERVICE`, was `$name`"
             )
         } else if (endsWithService) {
-            val service = name.substring(0, name.length - "_SERVICE".length).toLowerCase(Locale.US)
+            val service = name.substring(0, name.length - "_SERVICE".length).lowercase(Locale.US)
             if (service != value) {
                 report(
                     SERVICE_NAME, field,
@@ -3301,24 +2465,16 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
                 )
             }
         } else {
-            val valueUpper = value.toUpperCase(Locale.US)
+            val valueUpper = value.uppercase(Locale.US)
             report(
-                SERVICE_NAME, field, "Inconsistent service constant name;" +
+                SERVICE_NAME, field,
+                "Inconsistent service constant name;" +
                     " expected `${valueUpper}_SERVICE`, was `$name`"
             )
         }
     }
 
     private fun checkTense(method: MethodItem) {
-        /*
-            def verify_tense(clazz):
-                """Verify tenses of method names."""
-                if clazz.fullname.startswith("android.opengl"): return
-
-                for m in clazz.methods:
-                    if m.name.endswith("Enable"):
-                        warn(clazz, m, None, "Unexpected tense; probably meant 'enabled'")
-         */
         val name = method.name()
         if (name.endsWith("Enable")) {
             if (method.containingClass().qualifiedName().startsWith("android.opengl")) {
@@ -3332,37 +2488,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkIcu(type: TypeItem, typeString: String, item: Item) {
-        /*
-            def verify_icu(clazz):
-                """Verifies that richer ICU replacements are used."""
-                better = {
-                    "java.util.TimeZone": "android.icu.util.TimeZone",
-                    "java.util.Calendar": "android.icu.util.Calendar",
-                    "java.util.Locale": "android.icu.util.ULocale",
-                    "java.util.ResourceBundle": "android.icu.util.UResourceBundle",
-                    "java.util.SimpleTimeZone": "android.icu.util.SimpleTimeZone",
-                    "java.util.StringTokenizer": "android.icu.util.StringTokenizer",
-                    "java.util.GregorianCalendar": "android.icu.util.GregorianCalendar",
-                    "java.lang.Character": "android.icu.lang.UCharacter",
-                    "java.text.BreakIterator": "android.icu.text.BreakIterator",
-                    "java.text.Collator": "android.icu.text.Collator",
-                    "java.text.DecimalFormatSymbols": "android.icu.text.DecimalFormatSymbols",
-                    "java.text.NumberFormat": "android.icu.text.NumberFormat",
-                    "java.text.DateFormatSymbols": "android.icu.text.DateFormatSymbols",
-                    "java.text.DateFormat": "android.icu.text.DateFormat",
-                    "java.text.SimpleDateFormat": "android.icu.text.SimpleDateFormat",
-                    "java.text.MessageFormat": "android.icu.text.MessageFormat",
-                    "java.text.DecimalFormat": "android.icu.text.DecimalFormat",
-                }
-
-                for m in clazz.ctors + clazz.methods:
-                    types = []
-                    types.extend(m.typ)
-                    types.extend(m.args)
-                    for arg in types:
-                        if arg in better:
-                            warn(clazz, m, None, "Type %s should be replaced with richer ICU type %s" % (arg, better[arg]))
-         */
         if (type.primitive) {
             return
         }
@@ -3399,13 +2524,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkClone(method: MethodItem) {
-        /*
-            def verify_clone(clazz):
-                """Verify that clone() isn't implemented; see EJ page 61."""
-                for m in clazz.methods:
-                    if m.name == "clone":
-                        error(clazz, m, None, "Provide an explicit copy constructor instead of implementing clone()")
-         */
         if (method.name() == "clone" && method.parameters().isEmpty()) {
             report(
                 NO_CLONE, method,
@@ -3415,27 +2533,9 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkPfd(type: String, item: Item) {
-        /*
-            def verify_pfd(clazz):
-                """Verify that android APIs use PFD over FD."""
-                examine = clazz.ctors + clazz.methods
-                for m in examine:
-                    if m.typ == "java.io.FileDescriptor":
-                        error(clazz, m, "FW11", "Must use ParcelFileDescriptor")
-                    if m.typ == "int":
-                        if "Fd" in m.name or "FD" in m.name or "FileDescriptor" in m.name:
-                            error(clazz, m, "FW11", "Must use ParcelFileDescriptor")
-                    for arg in m.args:
-                        if arg == "java.io.FileDescriptor":
-                            error(clazz, m, "FW11", "Must use ParcelFileDescriptor")
-
-                for f in clazz.fields:
-                    if f.typ == "java.io.FileDescriptor":
-                        error(clazz, f, "FW11", "Must use ParcelFileDescriptor")
-
-         */
         if (item.containingClass()?.qualifiedName() in lowLevelFileClassNames ||
-            isServiceDumpMethod(item)) {
+            isServiceDumpMethod(item)
+        ) {
             return
         }
 
@@ -3456,28 +2556,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkNumbers(type: String, item: Item) {
-        /*
-            def verify_numbers(clazz):
-                """Discourage small numbers types like short and byte."""
-
-                discouraged = ["short","byte"]
-
-                for c in clazz.ctors:
-                    for arg in c.args:
-                        if arg in discouraged:
-                            warn(clazz, c, "FW12", "Should avoid odd sized primitives; use int instead")
-
-                for f in clazz.fields:
-                    if f.typ in discouraged:
-                        warn(clazz, f, "FW12", "Should avoid odd sized primitives; use int instead")
-
-                for m in clazz.methods:
-                    if m.typ in discouraged:
-                        warn(clazz, m, "FW12", "Should avoid odd sized primitives; use int instead")
-                    for arg in m.args:
-                        if arg in discouraged:
-                            warn(clazz, m, "FW12", "Should avoid odd sized primitives; use int instead")
-         */
         if (type == "short" || type == "byte") {
             report(
                 NO_BYTE_OR_SHORT, item,
@@ -3491,19 +2569,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
         methods: Sequence<MethodItem>,
         constructors: Sequence<ConstructorItem>
     ) {
-        /*
-            def verify_singleton(clazz):
-                """Catch singleton objects with constructors."""
-
-                singleton = False
-                for m in clazz.methods:
-                    if m.name.startswith("get") and m.name.endswith("Instance") and " static " in m.raw:
-                        singleton = True
-
-                if singleton:
-                    for c in clazz.ctors:
-                        error(clazz, c, None, "Singleton classes should use getInstance() methods")
-         */
         if (constructors.none()) {
             return
         }
@@ -3535,22 +2600,14 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
         badFutureTypes.firstOrNull { cls.extendsOrImplements(it) }?.let {
             val extendOrImplement = if (cls.extends(it)) "extend" else "implement"
             report(
-                BAD_FUTURE, cls, "${cls.simpleName()} should not $extendOrImplement `$it`." +
-                    " In AndroidX, use (but do not extend) ListenableFuture. In platform, use a combination of Consumer<T>, Executor, and CancellationSignal`."
+                BAD_FUTURE, cls,
+                "${cls.simpleName()} should not $extendOrImplement `$it`." +
+                    " In AndroidX, use (but do not extend) ListenableFuture. In platform, use a combination of OutcomeReceiver<R,E>, Executor, and CancellationSignal`."
             )
         }
     }
 
     private fun checkTypedef(cls: ClassItem) {
-        /*
-        def verify_intdef(clazz):
-            """intdefs must be @hide, because the constant names cannot be stored in
-               the stubs (only the values are, which is not useful)"""
-            if "@interface" not in clazz.split:
-                return
-            if "@IntDef" in clazz.annotations or "@LongDef" in clazz.annotations:
-                error(clazz, None, None, "@IntDef and @LongDef annotations must be @hide")
-         */
         if (cls.isAnnotationType()) {
             cls.modifiers.annotations().firstOrNull { it.isTypeDefAnnotation() }?.let {
                 report(PUBLIC_TYPEDEF, cls, "Don't expose ${AnnotationItem.simpleName(it)}: ${cls.simpleName()} must be hidden.")
@@ -3559,21 +2616,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkUri(typeString: String, item: Item) {
-        /*
-        def verify_uris(clazz):
-            bad = ["java.net.URL", "java.net.URI", "android.net.URL"]
-
-            for f in clazz.fields:
-                if f.typ in bad:
-                    error(clazz, f, None, "Field must be android.net.Uri instead of " + f.typ)
-
-            for m in clazz.methods + clazz.ctors:
-                if m.typ in bad:
-                    error(clazz, m, None, "Must return android.net.Uri instead of " + m.typ)
-                for arg in m.args:
-                    if arg in bad:
-                        error(clazz, m, None, "Argument must take android.net.Uri instead of " + arg)
-         */
         badUriTypes.firstOrNull { typeString.contains(it) }?.let {
             report(
                 ANDROID_URI, item, "Use android.net.Uri instead of $it (${item.describe()})"
@@ -3584,8 +2626,23 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     private fun checkFutures(typeString: String, item: Item) {
         badFutureTypes.firstOrNull { typeString.contains(it) }?.let {
             report(
-                BAD_FUTURE, item, "Use ListenableFuture (library), " +
-                    "or a combination of Consumer<T>, Executor, and CancellationSignal (platform) instead of $it (${item.describe()})"
+                BAD_FUTURE, item,
+                "Use ListenableFuture (library), " +
+                    "or a combination of OutcomeReceiver<R,E>, Executor, and CancellationSignal (platform) instead of $it (${item.describe()})"
+            )
+        }
+    }
+
+    private fun checkMethodSuffixListenableFutureReturn(type: TypeItem, method: MethodItem) {
+        if (type.toTypeString().contains(listenableFuture) &&
+            !method.isConstructor() &&
+            !method.name().endsWith("Async")
+        ) {
+            report(
+                ASYNC_SUFFIX_FUTURE,
+                method,
+                "Methods returning $listenableFuture should have a suffix *Async to " +
+                    "reserve unmodified name for a suspend function"
             )
         }
     }
@@ -3613,7 +2670,9 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
             name: String,
             prop: (GetterSetterPattern) -> String
         ) = firstOrNull {
-            name.startsWith(prop(it)) && name.getOrNull(prop(it).length)?.isUpperCase() ?: false
+            name.startsWith(prop(it)) && name.getOrNull(prop(it).length)?.let { charAfterPrefix ->
+                charAfterPrefix.isUpperCase() || charAfterPrefix.isDigit()
+            } ?: false
         }
 
         private val badBooleanGetterPrefixes = listOf("isHas", "isCan", "isShould", "get", "is")
@@ -3629,6 +2688,8 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
             "java.util.concurrent.CompletableFuture",
             "java.util.concurrent.Future"
         )
+
+        private val listenableFuture = "com.google.common.util.concurrent.ListenableFuture"
 
         /**
          * Classes for manipulating file descriptors directly, where using ParcelFileDescriptor
@@ -3749,7 +2810,14 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
             if (s.none { it.isLowerCase() }) {
                 // The entire thing is capitalized. If so, just perform
                 // normal capitalization, but try dropping _'s.
-                return SdkVersionInfo.underlinesToCamelCase(s.toLowerCase(Locale.US)).capitalize()
+                return SdkVersionInfo.underlinesToCamelCase(s.lowercase(Locale.US))
+                    .replaceFirstChar {
+                        if (it.isLowerCase()) {
+                            it.titlecase(Locale.getDefault())
+                        } else {
+                            it.toString()
+                        }
+                    }
             }
 
             while (true) {
@@ -3762,13 +2830,13 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
                 // next word so capitalize it
                 s = if (index == s.length - acronym.length) {
                     // acronym at the end of the word word
-                    val decapitalized = acronym[0] + acronym.substring(1).toLowerCase(Locale.US)
+                    val decapitalized = acronym[0] + acronym.substring(1).lowercase(Locale.US)
                     s.replace(acronym, decapitalized)
                 } else {
                     val replacement = acronym[0] + acronym.substring(
                         1,
                         acronym.length - 1
-                    ).toLowerCase(Locale.US) + acronym[acronym.length - 1]
+                    ).lowercase(Locale.US) + acronym[acronym.length - 1]
                     s.replace(acronym, replacement)
                 }
             }

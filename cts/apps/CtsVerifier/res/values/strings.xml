@@ -51,6 +51,7 @@
     <string name="test_category_tunnel">Tunnel Mode</string>
     <string name="test_category_tv">TV</string>
     <string name="test_category_instant_apps">Instant Apps</string>
+    <string name="test_category_logcat">Read Logs</string>
     <string name="test_category_display_cutout">DisplayCutout</string>
     <string name="test_category_other">Other</string>
     <string name="clear">Clear</string>
@@ -180,6 +181,24 @@
         framework correctly tries to open the CAR_DOCK app again.</string>
     <string name="car_mode_enable">Enable Car Mode</string>
     <string name="car_dock_activity_text">Press the Home button</string>
+    <string name="car_launcher_test">Car Launcher Test</string>
+    <string name="car_launcher_test_desc">This test ensures that the car launcher lists apps
+        disabled by car service due to system resource overuse.\n\n
+        <b>
+            Before proceeding, check if \'com.android.cts.car.watchdog_companionapp\'
+            (aka CtsCarWatchdogCompanionApp) is installed by going to Settings &gt; Apps. If not,
+            please install the app before proceeding.\n\n
+        </b>
+        1. Check if the CtsCarWatchdogCompanionApp is visible in car launcher\'s app grid view. If
+        it is not listed, pass the test.\n
+        2. Run the
+        \'adb shell cmd car_service watchdog-resource-overuse-kill com.android.cts.car.watchdog_companionapp\'
+        shell command to disable the app because of system resource overuse.\n
+        3. Click on \"Open Launcher\". Make sure the CtsCarWatchdogCompanionApp is displayed. If it
+        is not listed, fail the test.\n
+        4. Open CtsCarWatchdogCompanionApp from the launcher.\n\n
+        Pass the test only if the companion app opened successfully.</string>
+    <string name="car_launcher_test_button_label">Open Launcher</string>
     <string name="gear_selection_test">Gear Selection Test</string>
     <string name="gear_selection_test_desc">This test ensures that the
       GEAR_SELECTION property is implemented correctly.\n\nShift the car\'s
@@ -275,6 +294,19 @@
     </string>
     <string name="fs_force_stop_verification_pending">Verifying... Please wait.</string>
 
+    <!-- Strings for ClipboardPreviewText -->
+    <string name="clipboard_preview_test">Clipboard Preview Test</string>
+    <string name="clipboard_preview_test_info">
+        This test verifies that clipboard contents are visible to the user when copied.
+    </string>
+    <string name="clipboard_preview_test_instructions">
+        Press the \'Copy\' button to copy the secret code to the clipboard.
+        \n\nUse the clipboard preview UI, or the clipboard editor component to view the secret code.
+        \n\nEnter the secret code using the buttons below.
+    </string>
+    <string name="clipboard_preview_test_copy_button">Copy</string>
+
+
     <!-- Strings for BiometricTest -->
     <string name="biometric_test">Biometric Tests</string>
 
@@ -345,6 +377,13 @@
     <string name="biometric_test_set_user_authentication_credential_per_use_auth_with_biometric_strongbox">auth-per-use key with biometric (strongbox)</string>
     <string name="biometric_test_set_user_authentication_credential_duration_auth_with_biometric_strongbox">time-based key with biometric (strongbox)</string>
 
+    <!-- Strings for user consent for logs test -->
+    <string name="read_logs_text">User Consent for Device Logs Test</string>
+    <string name="read_logs_fg_allow_text">User Consent for Device Logs Allow in Foreground Test</string>
+    <string name="read_logs_fg_deny_text">User Consent for Device Logs Deny in Foreground Test</string>
+    <string name="read_logs_bg_text">User Consent for Device Logs in Instrumentation Test</string>
+    <string name="read_logs_test_info">"This test verifies that user consent for per-use prompt is working properly.\nThe test assumes READ_LOGS permission is granted to the app.\nStart this test by clicking User Consent for Device Logs Allow(Deny) in Foreground Test button.\nWhen the process is running in foreground, a user will see a prompt. Once a user clicks the prompt, users have an option to choose \"Allow one-time access\" or \"Don\'t Allow\". Please proceed with one option. "When the process is running in background, logd access will be denied.</string>
+
     <!-- Strings for lock bound keys test -->
     <string name="sec_lock_bound_key_test">Lock Bound Keys Test</string>
     <string name="sec_lock_bound_key_test_info">
@@ -386,6 +425,12 @@
     <string name="sec_identity_credential_authentication_test_info">
         This test ensures that data elements in Identity Credential documents protected by user
         authentication with timeout 0 can only be accessed once per reader session.
+    </string>
+
+    <!-- Strings for IdentityAuthPerPresenationMultiDocument -->
+    <string name="sec_identity_credential_authentication_multi_document_test">Identity Credential Authentication Multi-Document</string>
+    <string name="sec_identity_credential_authentication_multi_document_test_info">
+        This test is for Identity Credential presentations with multiple documents.
     </string>
 
     <string name="sec_unlocked_device_required_test">Unlocked Device Required</string>
@@ -598,6 +643,7 @@
     <string name="ble_read_descriptor_name">Bluetooth LE Read Descriptor</string>
     <string name="ble_write_descriptor_name">Bluetooth LE Write Descriptor</string>
     <string name="ble_read_rssi_name">Bluetooth LE Read RSSI</string>
+    <string name="ble_read_phy_name">Bluetooth LE Read PHY</string>
     <string name="ble_on_service_changed">Bluetooth LE On Service Changed</string>
     <string name="ble_client_disconnect_name">Bluetooth LE Client Disconnect</string>
     <string name="ble_insecure_client_test_info">
@@ -729,6 +775,23 @@
     <string name="ble_scan_start">Start scan</string>
     <string name="ble_scan_stop">Stop scan</string>
 
+    <!-- BLE Advertising Set test strings -->
+    <string name="ble_advertising_set_test_name">Bluetooth LE Advertising Set Test</string>
+    <string name="ble_advertising_set_test_info">Bluetooth LE Advertising Set tests AdvertisingSet and AdvertisingSetCallback APIs.</string>
+    <string name="ble_advertising_set_test_instruction">Press the \"Set Up\" button first, then start the test by pressing the \"Start Test\" button. UI thread may freeze for a few seconds while enabling/disabling bluetooth adapter.</string>
+    <string name="ble_advertising_set_start_test">Start Test</string>
+    <string name="ble_advertising_set_running_test">Running Test...</string>
+    <string name="ble_advertising_set_finished_test">Finished Test</string>
+    <string name="ble_advertising_set_start">Starting advertising set.</string>
+    <string name="ble_advertising_set_enable_disable">Enabling/Disabling advertising set.</string>
+    <string name="ble_advertising_set_advertising_data">Setting advertising data.</string>
+    <string name="ble_advertising_set_advertising_params">Setting advertising parameters.</string>
+    <string name="ble_advertising_set_periodic_advertising_data">Setting periodic advertising data.</string>
+    <string name="ble_advertising_set_periodic_advertising_enabled_disabled">Enabling/Disabling periodic advertising.</string>
+    <string name="ble_advertising_set_periodic_advertising_params">Setting periodic advertising parameters.</string>
+    <string name="ble_advertising_set_scan_response_data">Setting scan response data.</string>
+    <string name="ble_advertising_set_stop">Stopping advertising set.</string>
+
     <!-- BLE connection priority test strings -->
     <string name="ble_client_connection_priority">Testing connection priority switching </string>
     <string name="ble_server_connection_priority_result_passed">All test passed</string>
@@ -803,41 +866,54 @@
     <string name="ble_mtu_mismatch_message">MTU is not correct.(Request:%1$d, Actual:%2$d)</string>
     <string name="ble_mtu_fail_message">MTU test: failed to receive data</string>
 
+    <!-- Strings for CompanionDeviceTestActivity -->
     <string name="companion_test">Companion Device Test</string>
     <string name="companion_test_info">
         This test checks that APIs to manage companion devices are working correctly,
         including showing the dialog to the user to verify a device, as well as updating an internal
         record once the user made the choice and then removing it.\n\n
         Before proceeding, make sure you have a bluetooth device nearby and discoverable.
-        Also, make sure that bluetooth is turned on on this device.
+        Also, make sure that bluetooth is turned on for this device.
         Once you press the button, wait for a dialog to pop up and select your device from the list.
     </string>
 
+    <!-- Strings for CompanionDeviceServiceTestActivity -->
+    <string name="companion_service_associate_button">Associate</string>
+    <string name="companion_service_associate_title">Device Association</string>
+    <string name="companion_service_associate_text">
+        Press the "Associate" button. Wait for a dialog to pop up and select your device from the
+        list.
+    </string>
+    <string name="companion_service_bluetooth_feature_title">Bluetooth Feature Supported</string>
+    <string name="companion_service_bluetooth_feature_text">
+        PackageManager.FEATURE_BLUETOOTH not supported. This test is not applicable.
+    </string>
+    <string name="companion_service_disassociate_button">Disassociate</string>
+    <string name="companion_service_disassociate_title">Device Disassociation</string>
+    <string name="companion_service_disassociate_text">
+        Press the "Disassociate" button. Wait for the device to disassociate.
+    </string>
+    <string name="companion_service_present_title">Device Present</string>
+    <string name="companion_service_present_text">
+        Make your Bluetooth device reachable (this should already be the case from the previous step).
+        Wait until your Bluetooth device is detected by CDM. This may take up to 2 minutes.
+    </string>
+    <string name="companion_service_gone_title">Device Gone</string>
+    <string name="companion_service_gone_text">
+        Make your Bluetooth device unreachable by placing your bluetooth device inside an RF Bag or
+        powering it off.
+        Wait until your Bluetooth device disappears. This may take up to 2 minutes.
+    </string>
     <string name="companion_service_test">Companion Device Service Test</string>
     <string name="companion_service_test_info">
         This test checks that APIs to notify the companion app of its associated device going in and
-        out of Bluetooth range are working correctly.
-        Before proceeding, make sure you have a Bluetooth LE device nearby and
-        discoverable. Also, make sure that bluetooth is turned on. Note that, the nearby device can
-        not be a phone since it considers advertising as classic device scan.
-        First, you press the go button, wait for a dialog to pop up and select your device from the
-        list. Second, make sure your bluetooth device is unreachable(you can power off/reboot your
-        Bluetooth device or put it into a Faraday bag) and press the Device Gone button.
-        Lastly, make your bluetooth device reachable by waiting for the device to power on or
-        removing it from the Faraday bag and press the Device Present button.
+        out of Bluetooth range are working correctly.\n\n
+        Before proceeding, make sure that you have a Bluetooth LE device nearby and
+        discoverable. Also, make sure that bluetooth is turned on. (Note: the nearby device cannot
+        be a phone)
     </string>
-
-    <string name="companion_service_test_gone_text">
-        Now, please make your Bluetooth device unreachable.
-        Put your bluetooth device into a RF Bag or power off/reboot your device,
-        then press the Device Gone button.
-    </string>
-
-    <string name="companion_service_test_present_text">
-        Now, please make your Bluetooth device reachable.
-        Remove your Bluetooth device from a RF Bag or power on your device,
-        then press the Device Present button.
-    </string>
+    <string name="companion_service_test_summary_title">Test Complete</string>
+    <string name="companion_service_test_summary">Every test passed successfully.</string>
 
     <!-- Strings for FeatureSummaryActivity -->
     <string name="feature_summary">Hardware/Software Feature Summary</string>
@@ -1065,6 +1141,9 @@
     <string name="nfc_not_enabled_message">These tests require NFC to be enabled. Click the
         button below to goto Settings and enable it.</string>
     <string name="nfc_settings">NFC Settings</string>
+    <string name="secure_nfc_enabled">\"Require device unlock for NFC\" is enabled!</string>
+    <string name="secure_nfc_enabled_message">These tests require \"Require device unlock for NFC\"
+        to be disabled. Click the button below to goto Settings and disable it.</string>
 
     <string name="ndef_push_not_enabled">NDEF Push is not enabled!</string>
     <string name="ndef_push_not_enabled_message">These tests require Android Beam to be enabled.
@@ -2046,6 +2125,10 @@
         device was p2p device. Check the test case on the other device.</string>
     <string name="p2p_connection_error">
         Test failed.\n\nFailed to establish a p2p connection.</string>
+    <string name="p2p_connection_latency_error">
+        Test failed. \n\nConnection was expected to be established within %1$dms. But took=%2$dms.
+        \n\nPlease ensure that the Group Owner is ready on the other device before running
+        this test</string>
     <string name="p2p_detect_disconnection_error">
         Test failed.\n\nFailed to detect client disconnection.</string>
     <string name="p2p_disconnect_error">
@@ -2096,6 +2179,7 @@
     <string name="aware_dp_ib_open_solicited_accept_any">Data Path: Open: Solicited/Active: accept any peer</string>
     <string name="aware_dp_ib_passphrase_solicited_accept_any">Data Path: Passphrase: Solicited/Active: accept any peer</string>
     <string name="aware_dp_ib_pmk_solicited_accept_any">Data Path: PMK: Solicited/Active: accept any peer</string>
+    <string name="aware_dp_ib_force_channel_setup">Data Path: force channel setup</string>
     <string name="aware_discovery_ranging">Discovery with Ranging</string>
     <string name="aware_publish">Publish</string>
     <string name="aware_subscribe">Subscribe</string>
@@ -2186,6 +2270,10 @@
     <string name="aware_discovery_ranging_publish_info">The publisher is now ready.\n\nOn the other device: start the \'Discovery with Ranging\' / \'Subscribe\' test.</string>
     <string name="aware_discovery_ranging_subscribe">Discovery with Ranging: Subscribe</string>
 
+    <string name="aware_data_path_force_channel_setup_publish">Data Path: force channel setup Publish</string>
+    <string name="aware_data_path_force_channel_setup_publish_info">The publisher is now ready.\n\nOn the other device: start the \'Data Path: force channel setup\' / \'Subscribe\' test.</string>
+    <string name="aware_data_path_force_channel_setup_subscribe">Data Path: force channel setup Subscribe</string>
+
     <string name="camera_fov_calibration">Camera FOV Calibration</string>
     <string name="camera_fov_calibration_done">Done</string>
     <string name="camera_fov_general_settings">General settings</string>
@@ -2233,7 +2321,7 @@
 
     <string name="shortcut_reset_test">Shortcut Reset Rate-limiting Test</string>
     <string name="shortcut_reset_info">This test checks that when an inline-reply happens, ShortcutManager\'s rate-limiting
-        is reset.</string>
+        is reset. Please grant access to show notification when prompted.</string>
     <string name="shortcut_reset_bot">Verifying that the CTS Robot helper package is installed.</string>
     <string name="shortcut_reset_start">Showing the notification.</string>
     <string name="shortcut_reset_prompt_inline_reply">Open the notification shade,
@@ -2357,6 +2445,11 @@
         notifications, fully expand the notification display and verify that the \"Person A\"
         notification appears before the "\Non-Person Notification\".
         If this device does not support conversation notifications or does not group them together, press Pass.</string>
+    <string name="hun_display">If this device supports heads-up notifications,
+        verify that a notification just peeked on screen, displaying all of the following: small
+        icon, large icon, notification title, notification text, and two action buttons.
+        If this device does not support heads-up notifications, press Pass.</string>
+    <string name="action">Action %1$d</string>
     <string name="tile_service_name">Tile Service for CTS Verifier</string>
     <string name="tiles_test">Tile Service Test</string>
     <string name="tiles_info">This test checks that a Tile Service added by a third party
@@ -2369,6 +2462,46 @@
     <string name="tiles_in_customizer">Open Quick Settings and click the button to customize Quick
         Settings. Check that the Tile Service for CTS Verifier is available to be added</string>
     <string name="tiles_removing_tile">Check that Tile Service is disabled</string>
+    <string name="tile_request_service_name">Request Tile Service</string>
+    <string name="tile_request_helper_app_name">CtsTileServiceApp</string>
+    <string name="tiles_request_test">Tile Service Request Test</string>
+    <string name="tiles_request_info">This test checks that a request to add a TileService is
+    shown correctly to the user and the correct answer is relayed to the app.</string>
+    <string name="tiles_request_uninstall">This will verify that the helper app is not installed.
+    If that is correct, the test will pass automatically. If the app is installed, press the button
+    and you will be prompted for confirmation to uninstall the app.</string>
+    <string name="tiles_request_install">You should have received a helper app apk with this CTS
+    Verifier package. Its name is \"CtsTileServiceApp\". Install the test app, by running\n
+    \"adb install /path/to/CtsTileServiceApp.apk\".\n
+    Pass the test if the install was successful. Fail it otherwise.
+    </string>
+    <string name="tiles_request_install_verify">This will automatically verify that the helper app
+    is correctly installed.</string>
+    <string name="tiles_request_tile_not_present">Open Quick Settings and pass this test
+    if there are no tiles named %1$s in any page.</string>
+    <string name="tiles_request_dismissed">After pressing \"Start request\", a dialog will appear
+        requesting to add a quick settings tile. When it appears, dismiss it by tapping outside of
+        it, or going back.</string>
+    <string name="tiles_request_answer_no">After pressing \"Start request\", a dialog will appear
+        requesting to add a quick settings tile. When it appears, tap the option in the dialog to
+        not add the tile.</string>
+    <string name="tiles_request_correct_info">After pressing \"Start request\", a dialog will appear
+        requesting to add a quick settings tile. When it appears, verify the following information
+        in the dialog:\n
+  1. The name of the app requesting to add the tile is %1$s.\n
+  2. The label in the tile is %2$s.\n
+After verifying, tap the option in the dialog to not add the tile.\n
+When the buttons are enabled, pass this test if the information in the dialog was correct.
+    </string>
+    <string name="tiles_request_answer_yes">After pressing \"Start request\", a dialog will appear
+        requesting to add a quick settings tile. When it appears, tap the option in the dialog to
+        add the tile.
+    </string>
+    <string name="tiles_request_tile_present">Open Quick Settings and pass this test if a tile named
+        %1$s is visible in some page.
+    </string>
+    <string name="tiles_request_check_tile_already_added">Checking tile already added response
+    </string>
     <string name="vr_tests">VR Tests</string>
     <string name="test_category_vr">VR</string>
     <string name="vr_test_title">VR Listener Test</string>
@@ -2978,13 +3111,6 @@ You should be prompted to select credentials; choose the ones you just installed
 
     <string name="provisioning_tests_byod">BYOD Provisioning tests</string>
 
-    <string name="provisioning_tests_byod_custom_image"> Custom provisioning image </string>
-    <string name="provisioning_tests_byod_custom_image_info">
-        1. Please press the Go button to start the provisioning.\n
-        2. Press \"Accept and continue\" button to start work profile provisioning\n
-        3. Check that the CtsVerifier logo is displayed during provisioning\n
-        4. After successful provisioning, come back to this page. You might need to press a button on the final provisioning screen.
-    </string>
     <string name="provisioning_tests_byod_custom_terms">Custom terms</string>
     <string name="provisioning_tests_byod_custom_terms_instructions">
         1. Please press the Go button to start the provisioning.\n
@@ -3165,6 +3291,8 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="provisioning_byod_work_notification">Work notification is badged</string>
     <string name="provisioning_byod_work_notification_instruction">
         Please press the Go button to trigger a notification.\n
+        \n
+        If a permission is requested, grant it and press the Go button again.\n
         \n
         Verify that the notification is badged (see sample badge below). Then mark this test accordingly.
     </string>
@@ -3448,6 +3576,14 @@ You should be prompted to select credentials; choose the ones you just installed
     </string>
     <string name="provisioning_byod_uninstall_work_app_install_work_app">Install work app</string>
 
+    <string name="provisioning_byod_launch_work_tab">Launch work tab in launcher</string>
+    <string name="provisioning_byod_launch_work_tab_instruction">
+        This test verifies that the work tab (if tabs are supported) can be launched.\n
+        1. Press \"Go\".\n
+        2. If this device supports tabs, verify that you have landed on the work tab.\n
+        3. If this device doesn\'t support tabs, verify that you have landing on the all apps page .\n
+    </string>
+
     <string name="provisioning_byod_turn_off_work">Turn off work profile</string>
     <string name="provisioning_byod_turn_off_work_info">This test verifies device behaviors when turning off work profile.</string>
     <string name="provisioning_byod_turn_off_work_instructions">
@@ -3461,7 +3597,7 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="provisioning_byod_turn_off_work_prepare_notifications">Prepare a work notification</string>
     <string name="provisioning_byod_turn_off_work_prepare_notifications_instruction">
         This is a test setup step.\n
-        1. Press the go button to send a work notification.\n
+        1. Press the go button to send a work notification. (if a permission is requested, grant it and press the go button again). \n
         2. Verify that the notification is displayed and mark this test as passed.\n
         (Note: in the following test, you will be asked to verify the notification disappears after work profile is turned off.)
     </string>
@@ -3606,6 +3742,11 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="device_owner_remove_device_owner_test">Remove device owner</string>
     <string name="device_owner_remove_device_owner_test_info">
             Please check in Settings &gt; Security &gt; Device Administrators if CTSVerifier is
+            Device Owner. Then press the button below, and check that CTSVerifier is NOT Device
+            Owner anymore.
+    </string>
+    <string name="device_owner_remove_device_owner_test_info_on_tv">
+            Please check in Settings &gt; Privacy &gt; Security &amp; Restrictions &gt; Device Administrators if CTSVerifier is
             Device Owner. Then press the button below, and check that CTSVerifier is NOT Device
             Owner anymore.
     </string>
@@ -3913,11 +4054,12 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="device_owner_disallow_config_bt">Disallow configuring Bluetooth</string>
     <string name="device_owner_disallow_config_bt_info">
         Please press the Set restriction button to set the user restriction.
-        Then press Go to open the Bluetooth page in Settings.
-        Confirm that:\n
-        \n
+        Then press Go, you should either see (a) the Bluetooth settings page or (b) trigger a support message directly.\n
+        In the case of (a), confirm that:\n
         - You cannot view Bluetooth devices in range.\n
         - Trying to edit, add or remove any already paired devices triggers a support message.\n
+        \n
+        In the case of (b) this step is successful.\n
         \n
         Use the Back button to return to this page.
     </string>
@@ -3931,6 +4073,66 @@ You should be prompted to select credentials; choose the ones you just installed
         \n
         Use the Back button to return to this page.
     </string>
+    <string name="device_owner_disallow_add_wifi_config">Disallow adding WiFi config</string>
+    <string name="device_owner_disallow_add_wifi_config_info">
+        Please press the Set restriction button to set the user restriction.
+        Then press Go to open the WiFi page in Settings.
+        Confirm that:\n\n
+        - You cannot add a new WiFi configuration.\n
+        - The UI indicates that this is disabled due to admin policy.\n
+        \n
+        Use the Back button to return to this page.
+    </string>
+    <string name="device_owner_disallow_sharing_admin_configure_wifi">Disallow sharing admin configured WiFi config</string>
+    <string name="device_owner_disallow_sharing_admin_configure_wifi_info">
+        Please press the Set restriction button to set the user restriction.
+        Then press Go to open the WiFi page in Settings.
+        Confirm that:\n\n
+        - You cannot share an admin configured WiFi config.\n
+        - Sharing option is disabled in Settings.\n
+        \n
+        Use the Back button to return to this page.
+    </string>
+    <string name="device_owner_wifi_security_level_restriction">Set WiFi security level restriction</string>
+    <string name="device_owner_wifi_security_level_restriction_info">
+        This test verifies that minimum WiFi security level restriction can be set by the device owner.
+        The levels below are listed in an increasing order of security.\n
+        1. Connect to any network.\n
+        2. Pick a security level greater than the currently connected network (if unsure pick Enterprise 192).\n
+        3. Verify that current network gets disconnected.\n
+        4. Press Go to open the WiFi page in Settings.\n
+        5. Confirm that you cannot connect to any network that does not meet the security level restriction.\n
+        6. Use the Back button to return to this page.\n
+        7. Set the security level to Open to remove the restriction.\n
+        8. Press Go to open the WiFi page in Settings.\n
+        9. Confirm that you can connect to any network.
+    </string>
+    <string name="set_wifi_security_level_open">Set WiFi security level to Open</string>
+    <string name="set_wifi_security_level_personal">Set WiFi security level to Personal</string>
+    <string name="set_wifi_security_level_enterprise_eap">Set WiFi security level to Enterprise EAP</string>
+    <string name="set_wifi_security_level_enterprise_192">Set WiFi security level to Enterprise 192</string>
+    <string name="device_owner_ssid_restriction">Set WiFi SSID restriction</string>
+    <string name="device_owner_ssid_restriction_info">
+        This test verifies that WiFi SSID restriction can be set by the device owner.\n
+        1. Connect to any network.\n
+        2. Enter the SSID of the network you are currently connected to.\n
+        3. Set the SSID denylist.\n
+        4. Verify that current network gets disconnected.\n
+        5. Press Go to open the WiFi page in Settings.\n
+        6. Confirm that only the SSID from the denylist is restricted from connection.\n
+        7. Use the Back button to return to this page.\n
+        8. Enter the same SSID and set the SSID allowlist.\n
+        9. Press Go to open the WiFi page in Settings.\n
+        10. Confirm that you can only connect to the SSID from the allowlist.\n
+        11. Use the Back button to return to this page.\n
+        12. Leave the SSID field blank and set the allowlist to remove restriction.\n
+        13. Press Go to open the WiFi page in Settings.\n
+        14. Confirm that you can connect to any network.
+    </string>
+    <string name="device_owner_ssid_restriction_hint">Enter SSID</string>
+    <string name="device_owner_set_ssid_allowlist_button">Set SSID allowlist</string>
+    <string name="device_owner_set_ssid_denylist_button">Set SSID denylist</string>
+    <string name="device_owner_ssid_restriction_removing_toast">Removing SSID restriction</string>
     <string name="device_owner_disallow_ambient_display">Disallow ambient display</string>
     <string name="device_owner_disallow_ambient_display_info">
         Please press the Set restriction button to set the user restriction.
@@ -4144,7 +4346,7 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="disallow_config_date_time">Disallow config date time</string>
     <string name="disallow_config_date_time_action">Configuring auto time, time, auto date or date</string>
     <string name="disallow_config_location">Disallow config location</string>
-    <string name="disallow_config_location_action">Enabling or disabling location in settings or quick settings</string>
+    <string name="disallow_config_location_action">Enabling or disabling location, \'Bluetooth Scanning\' or \'WiFi Scanning\' in settings or quick settings</string>
     <string name="disallow_airplane_mode">Disallow airplane mode</string>
     <string name="disallow_airplane_mode_action">Toggling airplane mode switch bar or changing airplane mode state in quick settings</string>
     <string name="disallow_config_screen_timeout">Disallow config screen timeout</string>
@@ -4184,6 +4386,34 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="disallow_outgoing_beam">Disallow outgoing beam</string>
     <string name="disallow_outgoing_beam_action">Switching on android beam</string>
     <string name="disallow_remove_user">Disallow remove user</string>
+    <string name="check_new_user_disclaimer">Check new user disclaimer</string>
+    <string name="check_new_user_disclaimer_info">
+        Please do the following: \n\n
+        1. Check persistent notification for managed device \n\n
+        a). Open the notification UI, verify that there is a notification saying the device is managed.\n
+        b). Tap the notification\n
+        c). It should show a dialog explaining the device is managed and asking the user to accept \n
+        d). Don\'t accept initially and tap outside the dialog \n
+        e). Open the notification UI again, verify that the managed device notification is still shown \n
+        \n
+        f). Click \"Set Org\", and open the notification UI again, verify that the organization name
+        \"Foo, Inc\" is shown on the dialog \n
+        \n\n
+        2. Check adding account is restricted\n\n
+        a) Click \"Go\" to launch the \"Profiles &amp; accounts\" setting \n
+        b) navigate to \"Add account\" \n
+        \n
+        Expected: \n
+        - \"Add account\" is disabled \n
+        - Click the button will launch the new user disclaimer dialog\n
+        \n
+        c) Click accept button\n
+        \n
+        Expected: \n
+        - the screen will be dismissed \n
+        - \"Add account\" will be enabled\n
+        - Click the button will take user to the screen to add account \n
+    </string>
     <string name="device_owner_disallow_remove_user_info">
         Please press \'Create uninitialized user\' to create a user that is not set up. Then press the
         \'Set restriction\' button to set the user restriction.
@@ -4743,15 +4973,15 @@ You should be prompted to select credentials; choose the ones you just installed
     Setup activity must have been started.
     </string>
     <string name="tv_input_discover_test_tune_to_channel">
-    Select the \"Launch TV app\" button and tune to the \"Dummy\" channel from \"CTS Verifier\"
+    Select the \"Launch TV app\" button and tune to the \"Placeholder\" channel from \"CTS Verifier\"
     input. If necessary, configure the channel to be visible.
     </string>
     <string name="tv_input_discover_test_verify_tune">
     Tune command must be called.
     </string>
     <string name="tv_input_discover_test_verify_overlay_view">
-    Verify that the overlay appears and displays the text \"Overlay View Dummy Text\" when you tune
-    to the \"Dummy\" channel.
+    Verify that the overlay appears and displays the text \"Overlay View Placeholder Text\" when you tune
+    to the \"Placeholder\" channel.
     </string>
     <string name="tv_input_discover_test_verify_size_changed">
     Verify that video layout changes correctly according to the provided video track information,
@@ -4762,11 +4992,11 @@ You should be prompted to select credentials; choose the ones you just installed
     global search results.
     </string>
     <string name="tv_input_discover_test_go_to_epg">
-    Select the \"Launch EPG\" button and locate the \"Dummy\" channel.
+    Select the \"Launch EPG\" button and locate the \"Placeholder\" channel.
     </string>
     <string name="tv_input_discover_test_verify_epg">
-    Do you see the programs named \"Dummy Program\" and their descriptions
-    "Dummy Program Description" in the EPG?
+    Do you see the programs named \"Placeholder Program\" and their descriptions
+    "Placeholder Program Description" in the EPG?
     </string>
     <string name="tv_input_discover_test_trigger_setup">
     Select the \"Launch setup\" button and verify if the bundled TV app shows the list of installed
@@ -4932,6 +5162,9 @@ You should be prompted to select credentials; choose the ones you just installed
     soundbar which can play Dolby Atmos. </string>
     <string name="tv_audio_capabilities_atmos_supported">Does your Android TV device support Dolby
     Atmos (either passthrough or decode)?  </string>
+    <string name="tv_audio_capabilities_skip_test"> This test is only applicable to OTT and STB
+        devices. Is your device a soundbar or panel TV?
+    </string>
 
     <!-- Hotplug Test -->
     <string name="tv_hotplug_test">Hotplug Test</string>
@@ -4960,12 +5193,14 @@ You should be prompted to select credentials; choose the ones you just installed
     </string>
     <string name="tv_mode_switching_test_mode_switch_step">Mode switch step</string>
 
-    <string name="overlay_view_text">Overlay View Dummy Text</string>
+    <string name="overlay_view_text">Overlay View Placeholder Text</string>
     <string name="custom_rating">Example of input app specific custom rating.</string>
 
     <!-- A list of fully-qualified test classes that should not be run. -->
     <string-array name="disabled_tests">
         <item>com.android.cts.verifier.telecom.CtsVerifierInCallUi</item>
+        <item>com.android.cts.verifier.car.CarDockActivity</item>
+        <item>com.android.cts.verifier.car.CarDockTestActivity</item>
     </string-array>
 
     <!-- Strings for screen pinning test -->
@@ -4982,38 +5217,80 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="error_screen_pinning_couldnt_exit">Could not exit screen pinning through API.</string>
 
     <!--  Audio Devices Notifications Tests -->
-    <string name="audio_out_devices_notifications_test">Audio Output Devices Notifications Test</string>
-    <string name="audio_out_devices_notification_instructions">
-          Click the "Clear Messages" button then connect and disconnect a wired headset.
+    <string name="audio_devices_notification_instructions">
+          Connect and disconnect a wired headset.
           Note if the appropriate notification messages appear below.
-    </string>
-    <string name="audio_in_devices_notifications_test">Audio Input Devices Notifications Test</string>
-    <string name="audio_in_devices_notification_instructions">
-          Click the "Clear Messages" button then connect and disconnect a microphone or wired headset.
-          Note if the appropriate notification messages appear below.
+          The \"Pass\" button will be enabled if device connect and disconnect messages are received.
     </string>
     <string name="audio_dev_notification_clearmsgs">Clear Messages</string>
     <string name="audio_dev_notification_connectMsg">CONNECT DETECTED</string>
     <string name="audio_dev_notification_disconnectMsg">DISCONNECT DETECTED</string>
 
+    <string name="audio_out_devices_notifications_test">Audio Output Devices Notifications Test</string>
+    <string name="audio_out_devices_infotext">Tests whether wired output peripheral
+        connect/disconnect notifications are correctly sent when output peripherals are
+        connected or disconnected. A \"wired output peripheral\" can be a headset or headphones
+        connected to an analog 3.5mm jack or the USB port or a USB audio interface connected to
+        the USB port.
+        \n\nTest Setup:
+        \nDisconnect any wired audio peripherals.
+        \n\nTest Process:
+        \n1. Verify that the DUT supports USB or Analog audio peripherals.
+        \n2. Press the \"Clear Messages\" button to clear any previously sent \"sticky\" notifications.
+        \n3. Connect a wired output peripheral. A connect message should appear. Disconnect the
+        audio peripheral. A disconnect message should appear.
+        \n\nTest Criteria:
+        \nThe test passes if either the device DOES NOT support wired output peripherals, or both
+        the connect and disconnect notifications are received.
+    </string>
+
+    <string name="audio_in_devices_notifications_test">Audio Input Devices Notifications Test</string>
+    <string name="audio_in_devices_infotext">Tests whether wired input peripheral
+        connect/disconnect notifications are correctly sent when input peripherals are
+        connected or disconnected. A \"wired input peripheral\" can be a headset connected to an
+        analog 3.5mm jack or the USB port or a USB audio interface connected to the USB port.
+        \n\nTest Setup:
+        \nDisconnect any wired audio peripherals.
+        \n\nTest Process:
+        \n1. Verify that the DUT supports USB or Analog audio peripherals.
+        \n2. Press the \"Clear Messages\" button to clear any previously sent \"sticky\" notifications.
+        \n3. Connect a wired output peripheral. A connect message should appear. Disconnect the
+        audio peripheral. A disconnect message should appear.
+        \n\nTest Criteria:
+        \nThe test passes if either the device DOES NOT support wired output peripherals, or both
+        the connect and disconnect notifications are received.
+    </string>
+
     <string name="audio_input_routingnotifications_test">Audio Input Routing Notifications Test</string>
     <string name="audio_input_routingnotification_instructions">
-          Click on the "Record" button in the AudioRecord Routing Notifications section below to
-          start recording. Insert a wired headset or microphone. Observe a message acknowledging the
-          rerouting event below. Remove the wired headset and observe the new routing message.
-          Click on the "Stop" button to stop recording.\n
+        Test whether appropriate routing notifications are sent when audio input peripherals are
+        connected to the device.
+        \n\nTest Setup:
+        \nDisconnect any wired audio peripherals.
+        \n\nTest Process:
+        \n1. Verify that the DUT supports USB or Analog audio peripherals.
+        \n2. Press the \"Record\" button.
+        \n3. Connect a wired input peripheral. A connect routing message should appear.
+        \n4. Press the \"Stop\" button.
+        \n\nTest Criteria:
+        \nThe test passes if either the device DOES NOT support wired input peripherals, or
+        the routing notifications are received.
     </string>
     <string name="audio_output_routingnotifications_test">Audio Output Routing Notifications Test</string>
     <string name="audio_output_routingnotification_instructions">
-          Click on the "Play" button in the AudioTrack Routing Notifications section below to
-          start (silent) playback. Insert a wired headset. Observe a message acknowledging the
-          rerouting event below. Remove the wired headset and observe the new routing message.
-          Click on the "Stop" button to stop playback.\n
+        Test whether appropriate output routing notifications are sent when audio output peripherals are
+        connected to the device.
+        \n\nTest Setup:
+        \nDisconnect any wired audio peripherals.
+        \n\nTest Process:
+        \n1. Verify that the DUT supports USB or Analog audio peripherals.
+        \n2. Press the \"Play\" button.
+        \n3. Connect a wired output peripheral. A connect routing message should appear.
+        \n4. Press the \"Stop\" button.
+        \n\nTest Criteria:
+        \nThe test passes if either the device DOES NOT support wired output peripherals, or
+        the routing notifications are received.
     </string>
-    <string name="audio_routingnotification_playBtn">Play</string>
-    <string name="audio_routingnotification_playStopBtn">Stop</string>
-    <string name="audio_routingnotification_recBtn">Record</string>
-    <string name="audio_routingnotification_recStopBtn">Stop</string>
     <string name="audio_routingnotification_playHeader">AudioTrack Routing Notifications</string>
     <string name="audio_routingnotification_recHeader">AudioRecord Routing Notifications</string>
     <string name="audio_routingnotification_trackRoutingMsg">AudioTrack rerouting</string>
@@ -5024,7 +5301,7 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="connectedPeripheral">Connected Peripheral</string>
     <string name="audio_uap_attribs_test">USB Audio Peripheral Attributes Test</string>
     <string name="audio_uap_notifications_test">USB Audio Peripheral Notifications Test</string>
-    <string name="uapPeripheralProfileStatus">Peripheral Profile Status</string>
+    <string name="uapPeripheralProfileAttributes">USB Audio Peripheral Attributes</string>
     <string name="audio_uap_play_test">USB Audio Peripheral Play Test</string>
     <string name="uapPlayTestInstructions">Connect the USB Audio Interface Peripheral and press the
         PLAY button below. Verify that a tone is correctly played.</string>
@@ -5095,26 +5372,25 @@ You should be prompted to select credentials; choose the ones you just installed
     <!--  Pro Audio Tests -->
     <string name="pro_audio_latency_test">Pro Audio Test</string>
 
-    <string name="proAudioHasProAudiolbl">Has Pro Audio</string>
-    <string name="proAudioHasLLAlbl">Has Low-Latency Audio</string>
+    <string name="proAudioHasProAudiolbl">Has Pro Audio:</string>
+    <string name="proAudioHasLLAlbl">Has Low-Latency Audio:</string>
     <string name="audioLoopbackInputLbl">Audio Input:</string>
     <string name="audioLoopbackOutputLbl">Audio Output:</string>
-
-    <string name="proAudioMidiHasMIDILbl">Has MIDI Support</string>
-    <string name="proAudioMIDIInputLbl">MIDI Input:</string>
-    <string name="proAudioMIDIOutputLbl">MIDI Output:</string>
+    <string name="proAudioMidiHasMIDILbl">Has MIDI Support:</string>
     <string name="proAudioMidiHasUSBHostLbl">USB Host Mode:</string>
     <string name="proAudioMidiHasUSBPeripheralLbl">USB Peripheral Mode:</string>
     <string name="proAudioHDMISupportLbl">HDMI Support:</string>
     <string name="proAudioHasHDMICheckBox">Has HDMI Support</string>
-    <string name="proAudioLoopbackMoved">The latency measurement for Pro Audio has been moved to the Audio Loopback Latency Test</string>
 
     <string name="audio_proaudio_NA">N/A</string>
-    <string name="audio_proaudio_pending">pending...</string>
+    <string name="audio_proaudio_hdmiPending">pending...</string>
+    <string name="audio_proaudio_hdmiNotFound">No HDMI detected.</string>
 
     <string name="audio_proaudio_nopa_title">Pro Audio Test</string>
     <string name="audio_proaudio_nopa_message">This device does not set the FEATURE_AUDIO_PRO
         flag and therefore does not need to run this test.</string>
+
+    <string name="hdmi_insufficient">The Connected HDMI device does not meet CDD requirements</string>
 
     <!-- Various test status strings -->
     <string name="audio_proaudio_pass">Pass</string>
@@ -5123,7 +5399,6 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="audio_proaudio_midinotreported">"No MIDI support reported"</string>
     <string name="audio_proaudio_usbhostnotreported">"No USB Host Mode support reported"</string>
     <string name="audio_proaudio_usbperipheralnotreported">"No USB Peripheral Mode support reported"</string>
-    <string name="audio_proaudio_hdminotvalid">HDMI support is reported by not valid.</string>
 
     <!--  MIDI Test -->
     <string name="midi_test">MIDI Test</string>
@@ -5186,26 +5461,47 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="audio_general_ok">Ok</string>
     <string name="audio_general_start">Start</string>
     <string name="audio_general_stop">Stop</string>
+    <string name="audio_general_status">Status</string>
+    <string name="audio_general_pass">PASS</string>
+    <string name="audio_general_fail">FAIL</string>
+    <string name="audio_general_not_tested">Not Tested</string>
+
+    <string name="audio_general_Input">Input</string>
+    <string name="audio_general_Output">Output</string>
+
+    <string name="audio_general_record">Record</string>
+    <string name="audio_general_play">Play</string>
 
     <string name="audio_general_JavaApi">Java API</string>
     <string name="audio_general_NativeApi">Native API</string>
 
     <string name="audio_general_clear_results">Clear Results</string>
 
+    <string name="audio_general_test_not_run">Test Not Run</string>
+    <string name="audio_general_testnotcompleted">Test not completed.</string>
+
+
     <!-- Audio Loopback Latency Test -->
     <string name="audio_loopback_latency_test">Audio Loopback Latency Test</string>
-    <string name="audio_loopback_info">
-        This test verifies that the device can achieve the required or recommended loopback latency.
-        To pass the test, the device need only achieve this on one of the following audio paths:\n
-          - a <a href="https://source.android.com/devices/audio/latency/loopback">Loopback Plug</a>  connected to a 3.5mm headset jack.\n
-          - a <a href="https://source.android.com/devices/audio/latency/loopback">Loopback Plug</a>  connected to a USB audio adapter.\n
-          - a USB interface with patch cords connecting the input and output jacks.
-          \nPlease connect one of these Loopback mechanisms, and proceed with the instructions
-          on the screen. The required &amp; recommended latencies will be displayed.
-          The system will measure the input-output audio latency by injecting an audio signal to
+    <string name="audio_loopback_info">This test verifies that the DUT can achieve the required or
+        recommended loopback latency as defined by CDD § 5.6 (Audio Latency) and
+        § 5.10 (Professional Audio).
+        \nTo pass the test, the DUT needs to meet the latency requirement on ALL 3 of the
+        following audio paths (if present):
+          \n- the internal speaker and microphone.
+          \n- a <a href="https://source.android.com/devices/audio/latency/loopback">Loopback Plug</a>  connected to a 3.5mm headset jack.
+          \n- a <a href="https://source.android.com/devices/audio/latency/loopback">Loopback Plug</a>  connected to a USB audio adapter.
+          (or alternatively USB interface with patch cords connecting the input and output jacks).
+          \nPlease connect these Loopback mechanisms (the same Loopback Plug can be used at different times
+          for the headset jack and USB audio adapter) and proceed with the instructions
+          on the screen. The volume may need to be adjusted for each audio path.
+          \nNote that for the Speaker/Microphone path, it may be necessary to remove any phone case on the device.
+          \nThe system will measure the input-output audio latency by injecting an audio signal into
           the output and compute the time between generating the signal and recording it back.
           You can vary the Audio Level slider to ensure the pulse will feed back at adequate levels.
-          Repeat until a confidence level >= 0.6 is achieved.
+          Repeat until a sufficient confidence is achieved. When each route test is completed, the
+          measured and required latencies will be displayed.
+          \nWhen all test routes have passed, the test as a whole can be passed.
     </string>
     <string name="audio_loopback_instructions">
           Please connect a "Loopback Plug" and press "Loopback Plug Ready".
@@ -5213,11 +5509,22 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="audio_loopback_plug_ready_btn">Loopback Plug Ready</string>
     <string name="audio_loopback_instructions2">
           Set the audio level to a suitable value, then press Test button.
-          It might require multiple tries until a confidence >= 0.6 is achieved.
+          It might require multiple tries until a sufficient confidence is achieved.
     </string>
     <string name="audio_loopback_level_text">Audio Level</string>
     <string name="audio_loopback_test_btn">Test</string>
     <string name="audio_loopback_results_text">Results...</string>
+    <string name="audio_loopback_test_all_paths">Please test all supported paths.</string>
+
+    <string name="audio_loopback_speakermicpath_instructions">Place the DUT flat on a table
+    in a quiet room. Press the Start button and allow the test to proceed.</string>
+
+    <string name="audio_loopback_headsetpath_instructions">Insert the loopback plug in the
+    headset jack.  Press the Start button and allow the test to proceed.</string>
+
+    <string name="audio_loopback_usbpath_instructions">Connect the USB port to an appropriate
+        USB audio test peripheral with loopback set up. Press the Start button and
+        allow the test to proceed.</string>
 
     <string name="audio_loopback_failure">FAILURE - Could not allocate analyzer thread.</string>
 
@@ -5436,16 +5743,19 @@ Follow the instructions on the screen to measure the frequency response for the 
     <string name="audio_tap2tone">Audio Tap To Tone Test</string>
     <string name="audio_tap2tone_info">This tests the latency from a screen interaction to a
         resulting tone. This time is a combination of touch screen latency and audio latency.\nThis
-        test is best conducted in a quiet room with the device laying on a table. Select
-        the Audio API to test (\"Native\" has the lowest latency) and press the \"Start\" button.
-        Use your fingernail to tap ONCE on the field below to trigger the test tone. DO NOT leave
+        test is best conducted in a quiet room with the device laying on a table.
+        \n\nTo execute test:
+        \n1. Select the Audio API to test (\"Native\" has the lowest latency) and press the \"Start\" button.
+        The test needs to pass for ONLY ONE API.
+        \n2. Use your fingernail to tap ONCE on the field below to trigger the test tone. DO NOT leave
         the finger resting on the test field. A strong "tick" sound from the fingernail striking
-        the display is necessary to register the start of the test process. After tapping ONCE,
-        wait until the results are displayed in the field above the waveform display before
-        tapping for the next test run.\nFive successful tests runs are required to determine
-        if the test as a whole succeeds.
+        the display is necessary to register the start of the test process.
+        \n3. After tapping ONCE, wait until the results are displayed in the field above the
+        waveform display before tapping for the next test run.
+        \nFive successful tests runs are required to determine if the test as a whole succeeds.
+        \n4. Press the \"Stop"\ button to conclude the test. The results will be displayed along with the passing/failing measurement and requirement.
+        \n\n(see <a href="https://source.android.com/compatibility/12/android-12-cdd#56_audio_latency">Android CDD § 5.6. Audio Latency</a>)
     </string>
-    <string name="audio_tap2tone_spec">80ms or less average latency is STRONGLY RECOMMENDED to pass.</string>
     <string name="audio_tap2tone_too_few">Not enough edges. Use fingernail.</string>
     <string name="audio_tap2tone_too_many">Too many edges. Use fingernail. Ensure there is
     no background noise.</string>
@@ -5678,11 +5988,24 @@ Follow the instructions on the screen to measure the frequency response for the 
 
     <!-- USB Audio Peripheral Attributes Test -->
     <string name="usbaudio_attribs_test"> USB Audio Peripheral Attributes Test</string>
-    <string name="usbaudio_attribs_info">
-        This test requires that you have connected a mandated USB Audio Interface peripheral.
-        If the discovered attributes of the peripheral matches the known attributes of the
-        peripheral the test passes and the \"pass\" button will be enabled.
-       </string>
+
+    <string name="usbaudio_attribs_info">This test tests that the USB Audio HAL returns the
+        expected set of attributes for a well-known USB audio peripheral. See the
+        <a href="https://source.android.com/compatibility/cts/usb-audio#recommended-peripherals">
+            Mandated Peripherals
+        </a>
+        section of the <a href="https://source.android.com/compatibility/cts/usb-audio">
+            USB Audio CTS Verifier Tests
+        </a>.
+        for a list of supported USB audio peripherals.  The attributes of the supported
+        peripherals are stored in the app in a set of \"Peripheral Profiles\".\n\n
+        To execute the test:\n
+        1. Specify whether or not the DUT supports USB host mode (CDD 5.10 C-1-3). If not the test
+        simply passes.
+        2. Plug in a supported USB Audio Peripheral.\nThe peripheral\'s attributes will be
+        displayed along with the name of the associated profile. If the peripheral matches the
+        profile, the test passes. If not, the mismatches are displayed.
+    </string>
 
     <!-- USB Audio Peripheral Play Test -->
     <string name="usbaudio_play_test"> USB Audio Peripheral Play Test</string>
@@ -5711,9 +6034,18 @@ Follow the instructions on the screen to measure the frequency response for the 
 
     <!-- Pro Audio Test -->
     <string name="proaudio_test">Pro Audio Test</string>
-    <string name="proaudio_info">
-        This test will check for validity of the \"Pro Audio\" and subsidiary flags. Note
-        that this test no longer requires a loopback audio device.
+    <string name="proaudio_info">This tests that any device claiming \"Pro Audio\" meets the
+        requirements specified in the
+        <a href="https://source.android.com/compatibility/12/android-12-cdd#510_professional_audio">
+            CDD section 5.10. Professional Audio</a>
+        \n\nTo execute the test:
+        \n1. Note that all required flags report \"true\"
+        \n2. If the DUT supports HDMI:
+        \n  a. Click the \"Has HDMI Support\" checkbox
+        \n  b. Connect an HDMI device to the DUT
+        \n  c. Verify that the reported HDMI attributes meet the specification.
+        \n\nNote that the latency measurement for Pro Audio has been moved to the
+        Audio Loopback Latency Test
     </string>
     <string name="proaudio_hdmi_infotitle">HDMI Support</string>
     <string name="proaudio_hdmi_message">Please connect an HDMI peripheral to validate
@@ -6049,6 +6381,12 @@ Follow the instructions on the screen to measure the frequency response for the 
         bubble does NOT appear on screen. Verify that there is a notification in the notification
         shade.</string>
     <string name="bubbles_test_lowram_button">Add bubble</string>
+    <!-- Disable bubbles by config_supportsBubble -->
+    <string name="bubbles_test_disable_config_title">No bubbles on bubbles disabled device</string>
+    <string name="bubbles_test_disable_config_verify">Click the button below and verify that a
+        bubble does NOT appear on screen. Verify that there is a notification in the notification
+        shade.</string>
+    <string name="bubbles_test_disable_config_button">Add bubble</string>
     <!-- Bubbles end of test summary -->
     <string name="bubbles_test_summary_title">Test Complete</string>
     <string name="bubbles_test_summary">%1$d out of %2$d tests passed</string>
@@ -6149,13 +6487,15 @@ Follow the instructions on the screen to measure the frequency response for the 
     <string name="uap_test_info">Info</string>
     <string name="uap_test_question">Does this device allow for the connection of a USB audio peripheral?\nNote: phones and tablets generally do, watches and automobiles generally do not.</string>
     <string name="uap_refmic_question">Does this device allow for the connection of a USB reference microphone?</string>
-    <string name="uap_mic_dlg_caption">USB Host Mode Audio Required</string>
-    <string name="uap_mic_dlg_text">This test requires a USB audio peripheral to be connected to the device.
-    If the device under test does not support USB Host Mode Audio (either because it does not have a
-    USB port, or USB Host Mode Audio has been removed from the OS) you can be granted a provisional
-    pass on this test by pressing the \"No\" button and indicating \"Test Pass\" at the bottom.\n
-    Note: Handheld devices supporting USB host mode MUST support USB audio class (CDD 7.7 .2/H-1-1)\n
-    Note: Devices declaring feature android.hardware.audio.pro MUST implement USB host mode (CDD 5.10 C-1-3) and if they omit a 4 conductor 3.5mm audio jack MUST support USB audio class (CDD 5.10 C-3-1)
+    <string name="uap_test_hostmode_info_caption">USB Host Mode Audio Required</string>
+    <string name="uap_test_hostmode_info_text">This test requires a USB audio peripheral be
+        connected to the device.
+    The DUT may not support USB Host Mode Audio, either because it does not have a
+    USB port, or USB Host Mode Audio has been removed from the OS. In this case, the test can be
+    passed by pressing the \"No\" button and indicating \"Test Pass\" at the bottom.
+    \n\nNote: Handheld devices supporting USB host mode MUST support USB audio class (CDD 7.7 .2/H-1-1)
+    \n\nNote: Devices declaring feature android.hardware.audio.pro MUST implement USB host mode (CDD 5.10 C-1-3).
+    Devices that omit a 4 conductor 3.5mm audio jack MUST support USB audio class (CDD 5.10 C-3-1).
     </string>
 
     <string name="refmic_test_no">No</string>
@@ -6205,4 +6545,156 @@ Follow the instructions on the screen to measure the frequency response for the 
     <string name="handheld_or_tablet_text_before_test">Is this a handheld or tablet device?</string>
     <string name="handheld_or_tablet_yes">Yes</string>
     <string name="handheld_or_tablet_not_applicable">Not applicable</string>
+
+    <!-- AudioDescriptor Test -->
+    <string name="audio_descriptor_test">Audio Descriptor Test</string>
+    <string name="audio_descriptor_test_info">
+        This test tests if the reported AudioDescriptor is valid and necessary.\n
+        AudioDescriptor must only be used to report audio device capabilities that are not able to
+        describe by Android defined enums.\n
+        \nTo execute test:\n
+        1. Plug in HDMI cable if HDMI is supported on the device.\n
+        2. The test will execute automatically and verify the reported AudioDescriptor when the
+        activity is created and when audio device connection is changed.
+    </string>
+    <string name="audio_descriptor_HDMI_support_label">HDMI support:</string>
+    <string name="audio_descriptor_has_hdmi_support">Has HDMI support</string>
+    <string name="audio_descriptor_NA">N/A</string>
+    <string name="audio_descriptor_hdmi_pending">No HDMI detected. Pending&#8230;</string>
+    <string name="audio_descriptor_pass">Pass</string>
+    <string name="audio_descriptor_hdmi_not_reported">No HDMI device connected</string>
+    <string name="audio_descriptor_standard_none">Standard is none.</string>
+    <string name="audio_descriptor_is_null">Audio descriptor is null.</string>
+    <string name="audio_descriptor_unrecognized_standard">Standard %1$d is unrecognized.</string>
+    <string name="audio_descriptor_length_error">
+        The length of short audio descriptor is %1$d, but it is expected to be 3.
+    </string>
+    <string name="audio_descriptor_cannot_get_hal_version">Cannot get audio HAL version</string>
+    <string name="audio_descriptor_invalid_hal_version">Invalid audio HAL version %1$s</string>
+    <string name="audio_descriptor_format_code_should_not_be_reported">
+        Format with format code as %1$d(%2$s) should not be reported by AudioDescriptor.
+        Instead, it should be reported by Android defined enums.
+    </string>
+    <string name="audio_descriptor_format_extended_code_should_not_be_reported">
+        Format with format extended code as %1$d(%2$s) should not be reported by AudioDescriptor.
+        Instead, it should be reported by Android defined enums.
+    </string>
+    <string name="audio_descriptor_format_extended_code_is_not_used">
+        Format extended code as %1$d is not used.
+    </string>
+    <string name="audio_descriptor_hdmi_info_title">HDMI Support</string>
+    <string name="audio_descriptor_hdmi_message">
+        Please connect an HDMI peripheral to validate AudioDescriptor.
+    </string>
+    <string name="uwb">Uwb</string>
+    <string name="presence_test">Presence Test</string>
+    <string name="presence_test_info">
+        The Presence tests check whether or not a device is properly calibrated for BLE, NAN and UWB based on Presence requirements.
+        \nAll tests are required to pass on every device, if the radio technology is supported
+    </string>
+    <string name="presence_test_tv_info">
+        The Presence tests check whether or not a device is properly calibrated for BLE, NAN and UWB based on Presence requirements.
+        \nAll tests are required to pass on all Android T+ launched TV devices, if the radio technology is supported.
+        \nIf the TV device is launched on older Android letters, all tests will be disabled. Press Pass to pass this case.
+    </string>
+    <string name="uwb_precision">Uwb Precision Test</string>
+    <string name="uwb_short_range">Uwb Short Range Test</string>
+    <string name="uwb_precision_instruction">
+        1. Take 1000 measurements with DUT at 1m distance from the reference device in a non-reflective chamber.
+        \n2. Sort the 1000 measurements and compute the range as 975th measurement - 25th measurement
+        \n3. Report the range below - Must be within 30cm (distance) for tests to pass.
+    </string>
+    <string name="report_distance_range_cm">Report Range (cm)</string>
+    <string name="uwb_short_range_instruction">
+        1. Take 1000 measurements with DUT being 1m apart from the reference device, where ground truth distance is measured from the top edge of the DUT, held face up and tilted 45 degrees
+        \n2. Sort the values.
+        \n3. Report the median (500th value) (must be within 0.75m and 1.25m to pass).
+        \n4. Report the reference device used.
+    </string>
+    <string name="report_distance_median_meters">Report Median (meters)</string>
+    <string name="report_reference_device">Report Reference Device</string>
+    <string name="uwb_not_supported">Uwb is not supported on device. Finishing activity. </string>
+    <string name="ble">BLE</string>
+
+    <!-- Strings for BLE RSSI Precision Test -->
+    <string name="ble_rssi_precision_name">BLE RSSI Precision Test</string>
+    <string name="ble_rssi_precision_test_instructions">
+        1. Take 1000 scan measurements with the DUT at 1m distance from the reference device transmitting at ADVERTISE_TX_POWER_HIGH in line of sight environment
+        \n2. Sort the measurements and compute the range as 975th measurement - 25th measurement
+        \n3. Report the range below. Must be within 18dBm for tests to pass
+        \n4. Report the reference device used
+    </string>
+    <string name="report_ble_rssi_range">Report RSSI Range (dBm)</string>
+
+    <!-- Strings for BLE Rx/Tx Calibration Test -->
+    <string name="ble_rx_tx_calibration_name">BLE Rx/Tx Calibration Test</string>
+    <string name="ble_rx_tx_calibration_test_instructions">
+        To verify this requirement, work with your chip vendor. The chip vendor can measure the
+        channel flatness and identify the differences between cores and channels.
+        \n1. Must include Rx/Tx corrections to reduce per-channel deviations so that the measurements on each of the 3 channels, on each of the antennas (if multiple are used), are within +/-3dBm of one another for 95% of the measurements.
+        \n2. For 1000 sorted measurements, report the range as 975th measurement - 25th measurement. Must be within 6dBm to pass.
+    </string>
+    <string name="report_channels_ble_rssi_range">Report RSSI Range Across Channels (dBm)</string>
+    <string name="report_cores_ble_rssi_range">[Optional] Report RSSI Range Across Cores (dBm)</string>
+
+    <string name="nan_precision_instruction">
+        1. Take 1000 ranging measurements at each of the ground truth points of 10cm, 1m, 3m, and 5m. The WifiNanScan app in Play Store is recommended for data collection.
+        \n2. Report the bandwidth at which the data was collected. Must be either 160, 80, 40, 20 MHz.
+        \n3. For each ground truth point:
+        \n\t\ta. Sort the measurements, and report the range at the 68th percentile (840th measurement - 160th measurement), accurately to within:
+        \n\t\t\ti. 2 meters at 160 MHz bandwidth
+        \n\t\t\tii. 4 meters at 80 MHz bandwidth
+        \n\t\t\tiii. 8 meters at 40 MHz bandwidth
+        \n\t\t\tiv. 16 meters at 20 MHz bandwidth
+        \n4. Following the same instructions above, it is strongly recommended (but not required), to report the range at the 90th percentile (950th measurement - 50th measurement) as calculated with the Cumulative Distribution Function. If the range at 90th percentile is inputted, it must be within the expected range, and inputted for all distance ranges.
+        \n5. Report reference device used. All required fields must be filled before test can be passed.
+    </string>
+    <string name="report_nan_bandwidth_mhz">Bandwidth (MHz)</string>
+    <string name="report_distance_range_10cm_gt_68p">Measurement Range at 10cm (68th percentile)</string>
+    <string name="report_distance_range_1m_gt_68p">Measurement Range at 1m (68th percentile)</string>
+    <string name="report_distance_range_3m_gt_68p">Measurement Range at 3m (68th percentile)</string>
+    <string name="report_distance_range_5m_gt_68p">Measurement Range at 5m (68th percentile)</string>
+    <string name="report_distance_range_10cm_gt_90p">Measurement Range at 10cm (90th percentile)</string>
+    <string name="report_distance_range_1m_gt_90p">Measurement Range at 1m (90th percentile)</string>
+    <string name="report_distance_range_3m_gt_90p">Measurement Range at 3m (90th percentile)</string>
+    <string name="report_distance_range_5m_gt_90p">Measurement Range at 5m (90th percentile)</string>
+    <string name="nan_precision">Nan Precision Test</string>
+    <string name="wifi_nan">WiFi NAN</string>
+
+    <!-- Strings for AudioMicrophoneMuteToggleActivity -->
+    <string name="audio_mic_toggle_test">Audio Microphone Hardware Toggle Mute Test</string>
+    <string name="audio_mic_toggle_test_info">
+        This test verifies that devices which implement microphone hardware privacy toggles enforce sensor privacy when toggles are enabled.
+        \nTo pass the test:
+        \n  - <a href="https://source.android.com/compatibility/android-cdd#9813_sensorprivacymanager">The audio stream should be muted</a>.
+        \n  - A dialog or notification should be shown that informs the user that the sensor privacy is enabled.
+    </string>
+    <string name="audio_mic_toggle_test_instruction1">
+        Mute the microphone using the hardware privacy toggle.
+        \nPress the RECORD button.
+        \nObserve a dialog with information regarding the microphone being blocked
+        \nIgnore/cancel the dialog and wait for the recording to complete.
+        \nThe pass button will be enabled if the test succeeded.</string>
+    <string name="audio_mic_toggle_test_analyzing">Analyzing, please wait...\n</string>
+
+    <!-- Strings for CameraMuteToggleActivity -->
+    <string name="camera_hw_toggle_test">Camera Hardware Toggle Mute Test</string>
+    <string name="camera_hw_toggle_test_info">
+        This test verifies that devices which implement camera hardware privacy toggles enforce sensor privacy when toggles are enabled.
+        \nTo pass the test:
+        \n  - <a href="https://source.android.com/compatibility/android-cdd#9813_sensorprivacymanager">The video stream should be muted</a>.
+        \n  - A dialog or notification should be shown that informs the user that the sensor privacy is enabled.
+    </string>
+    <string name="camera_hw_toggle_test_instruction">
+        Mute the camera using the hardware privacy toggle.
+        \nObserve a dialog with information regarding the camera being blocked.
+        \nCamera preview should show a blank feed.
+        \nPress the Take Photo button.
+        \nCaptured image should be black.
+        \nMark the test as passing if the above conditions are met.</string>
+    <string name="camera_hw_toggle_test_no_camera">
+        No available camera found.
+        \nAdd or enable a camera and re-run this test.
+    </string>
+
 </resources>

@@ -150,7 +150,7 @@ class GattServerSetupTest(BaseTestClass):
 
         TAGS: GATT
         Priority: 1
-        """       
+        """
         self.setup_database(database.ALERT_NOTIFICATION_SERVICE)
 
     @test_tracker_info(uuid='c42e8bc9-1ba7-4d4e-b67e-9c19cc11472c')

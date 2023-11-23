@@ -25,7 +25,7 @@ class StorageClientTest(driver_test_lib.BaseDriverTest):
 
     def setUp(self):
         """Set up test."""
-        super(StorageClientTest, self).setUp()
+        super().setUp()
         self.Patch(gstorage_client.StorageClient, "InitResourceHandle")
         self.client = gstorage_client.StorageClient(mock.MagicMock())
         self.client._service = mock.MagicMock()

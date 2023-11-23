@@ -48,6 +48,8 @@ public class ShowmapSnapshotHelperTest {
     private static final String INVALID_OUTPUT_DIR = "/data/local/tmp";
     // Valid metric index string.
     private static final String METRIC_INDEX_STR = "rss:1,pss:2";
+    // Valid summation metric index string.
+    private static final String METRIC_SUM_INDEX_STR = "privatedirty:6:7";
     // Invalid metric index string. Reverse order.
     private static final String METRIC_INVALID_INDEX_STR = "1:pss";
     // Empty metric index string.
@@ -191,6 +193,17 @@ public class ShowmapSnapshotHelperTest {
     }
 
     @Test
+    public void testGetMetrics_Summation_Metric_Pattern() {
+        mShowmapSnapshotHelper.setUp(VALID_OUTPUT_DIR, NO_PROCESS_LIST);
+        mShowmapSnapshotHelper.setMetricNameIndex(METRIC_SUM_INDEX_STR);
+        mShowmapSnapshotHelper.setAllProcesses();
+        assertTrue(mShowmapSnapshotHelper.startCollecting());
+        Map<String, String> metrics = mShowmapSnapshotHelper.getMetrics();
+        assertTrue(metrics.size() > 2);
+        assertTrue(metrics.containsKey(ShowmapSnapshotHelper.OUTPUT_FILE_PATH_KEY));
+    }
+
+    @Test
     public void testGetMetrics_verify_child_processes_metrics() {
         mShowmapSnapshotHelper.setUp(VALID_OUTPUT_DIR, NO_PROCESS_LIST);
         mShowmapSnapshotHelper.setMetricNameIndex(METRIC_EMPTY_INDEX_STR);
@@ -215,6 +228,26 @@ public class ShowmapSnapshotHelperTest {
         assertTrue(metrics.containsKey(ShowmapSnapshotHelper.CHILD_PROCESS_COUNT_PREFIX + "_init"));
     }
 
+    @Test
+    public void testGetMetrics_parent_process_child_processes_metrics() {
+        mShowmapSnapshotHelper.setUp(VALID_OUTPUT_DIR, NO_PROCESS_LIST);
+        mShowmapSnapshotHelper.setMetricNameIndex(METRIC_EMPTY_INDEX_STR);
+
+        mShowmapSnapshotHelper.setAllProcesses();
+        assertTrue(mShowmapSnapshotHelper.startCollecting());
+        Map<String, String> metrics = mShowmapSnapshotHelper.getMetrics();
+
+        assertTrue(metrics.size() != 0);
+
+        Set<String> parentWithChildProcessSet =
+                metrics.keySet().stream()
+                        .filter(s -> s.startsWith(ShowmapSnapshotHelper.PARENT_PROCESS_STRING))
+                        .collect(Collectors.toSet());
+
+        // At least one process (i.e init) will have child process
+        assertTrue(parentWithChildProcessSet.size() > 0);
+    }
+
     private boolean verifyDefaultMetrics(Map<String, String> metrics) {
         if(metrics.size() == 0) {
             return false;
@@ -223,7 +256,8 @@ public class ShowmapSnapshotHelperTest {
             if (!(key.equals(ShowmapSnapshotHelper.PROCESS_COUNT)
                     || key.equals(ShowmapSnapshotHelper.OUTPUT_FILE_PATH_KEY)
                     || key.equals(ShowmapSnapshotHelper.PROCESS_WITH_CHILD_PROCESS_COUNT)
-                    || key.startsWith(ShowmapSnapshotHelper.CHILD_PROCESS_COUNT_PREFIX))) {
+                    || key.startsWith(ShowmapSnapshotHelper.CHILD_PROCESS_COUNT_PREFIX)
+                    || key.startsWith(ShowmapSnapshotHelper.PARENT_PROCESS_STRING))) {
                 return false;
             }
         }

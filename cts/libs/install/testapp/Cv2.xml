@@ -23,8 +23,7 @@
 
     <uses-sdk android:minSdkVersion="28"/>
 
-    <application android:label="Test App C2"
-         android:rollbackDataPolicy="wipe">
+    <application android:label="Test App C2">
         <receiver android:name="com.android.cts.install.lib.testapp.ProcessUserData"
              android:exported="true"/>
         <activity android:name="com.android.cts.install.lib.testapp.MainActivity"

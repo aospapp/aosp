@@ -19,6 +19,9 @@
 #include "common.h"
 #include "roamcommand.h"
 
+#define WLAN_ROAM_MAX_NUM_WHITE_LIST 8
+#define WLAN_ROAM_MAX_NUM_BLACK_LIST 16
+
 RoamCommand::RoamCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd)
         : WifiVendorCommand(handle, id, vendor_id, subcmd)
 {
@@ -65,8 +68,8 @@ wifi_error wifi_set_bssid_blacklist(wifi_request_id id,
     wifi_handle wifiHandle = getWifiHandle(iface);
     hal_info *info = getHalInfo(wifiHandle);
 
-    if (!(info->supported_feature_set & WIFI_FEATURE_GSCAN)) {
-        ALOGE("%s: GSCAN is not supported by driver",
+    if (!(info->supported_feature_set & WIFI_FEATURE_CONTROL_ROAMING)) {
+        ALOGE("%s: Roaming is not supported by driver",
             __FUNCTION__);
         return WIFI_ERROR_NOT_SUPPORTED;
     }
@@ -246,6 +249,17 @@ wifi_error wifi_get_roaming_capabilities(wifi_interface_handle iface,
         return WIFI_ERROR_INVALID_ARGS;
     }
 
+    // Per WiFi HAL design, roaming feature should have nothing to do with Gscan
+    // But for current driver impl, roaming_capa is provided as part of
+    // GSCAN_GET_CAPABILITY query, so if Gscan is not supported, roaming_capa
+    // is not set (uses initial value 0).
+    // To de-couple roaming with Gscan, set default values for roaming_capa
+    // if Gscan is not supported.
+    // TODO: removes below if driver has new API to get roaming_capa.
+    if (!(info->supported_feature_set & WIFI_FEATURE_GSCAN)) {
+        info->capa.roaming_capa.max_whitelist_size = WLAN_ROAM_MAX_NUM_WHITE_LIST;
+        info->capa.roaming_capa.max_blacklist_size = WLAN_ROAM_MAX_NUM_BLACK_LIST;
+    }
     memcpy(caps, &info->capa.roaming_capa, sizeof(wifi_roaming_capabilities));
 
     return WIFI_SUCCESS;

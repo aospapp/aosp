@@ -33,7 +33,7 @@ namespace google_camera_hal {
 // process chains (realtime and HDR+)
 //
 // 1. RealtimeZslRequestProcessor -> RealtimeProcessBlock ->
-//    RealtimeZslResultProcessor
+//    RealtimeZslResultRequestProcessor
 // 2. HdrplusRequestProcessor -> HdrplusProcessBlock -> HdrplusResultProcessor
 //
 // It only supports a single physical camera device session.

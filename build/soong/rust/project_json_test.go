@@ -36,7 +36,7 @@ func testProjectJson(t *testing.T, bp string) []byte {
 	// The JSON file is generated via WriteFileToOutputDir. Therefore, it
 	// won't appear in the Output of the TestingSingleton. Manually verify
 	// it exists.
-	content, err := ioutil.ReadFile(filepath.Join(result.Config.BuildDir(), rustProjectJsonFileName))
+	content, err := ioutil.ReadFile(filepath.Join(result.Config.SoongOutDir(), rustProjectJsonFileName))
 	if err != nil {
 		t.Errorf("rust-project.json has not been generated")
 	}
@@ -117,6 +117,58 @@ func TestProjectJsonDep(t *testing.T) {
 	validateJsonCrates(t, jsonContent)
 }
 
+func TestProjectJsonProcMacroDep(t *testing.T) {
+	bp := `
+	rust_proc_macro {
+		name: "libproc_macro",
+		srcs: ["a/src/lib.rs"],
+		crate_name: "proc_macro"
+	}
+	rust_library {
+		name: "librust",
+		srcs: ["b/src/lib.rs"],
+		crate_name: "rust",
+		proc_macros: ["libproc_macro"],
+	}
+	`
+	jsonContent := testProjectJson(t, bp)
+	crates := validateJsonCrates(t, jsonContent)
+	libproc_macro_count := 0
+	librust_count := 0
+	for _, c := range crates {
+		crate := validateCrate(t, c)
+		procMacro, ok := crate["is_proc_macro"].(bool)
+		if !ok {
+			t.Fatalf("Unexpected type for is_proc_macro: %v", crate["is_proc_macro"])
+		}
+
+		name, ok := crate["display_name"].(string)
+		if !ok {
+			t.Fatalf("Unexpected type for display_name: %v", crate["display_name"])
+		}
+
+		switch name {
+		case "libproc_macro":
+			libproc_macro_count += 1
+			if !procMacro {
+				t.Fatalf("'libproc_macro' is marked with is_proc_macro=false")
+			}
+		case "librust":
+			librust_count += 1
+			if procMacro {
+				t.Fatalf("'librust' is not a proc macro crate, but is marked with is_proc_macro=true")
+			}
+		default:
+			break
+		}
+	}
+
+	if libproc_macro_count != 1 || librust_count != 1 {
+		t.Fatalf("Unexpected crate counts: libproc_macro_count: %v, librust_count: %v",
+			libproc_macro_count, librust_count)
+	}
+}
+
 func TestProjectJsonFeature(t *testing.T) {
 	bp := `
 	rust_library {
@@ -176,6 +228,8 @@ func TestProjectJsonBinary(t *testing.T) {
 }
 
 func TestProjectJsonBindGen(t *testing.T) {
+	buildOS := android.TestConfig(t.TempDir(), nil, "", nil).BuildOS
+
 	bp := `
 	rust_library {
 		name: "libd",
@@ -214,9 +268,9 @@ func TestProjectJsonBindGen(t *testing.T) {
 		if strings.Contains(rootModule, "libbindings1") && !strings.Contains(rootModule, "android_arm64") {
 			t.Errorf("The source path for libbindings1 does not contain android_arm64, got %v", rootModule)
 		}
-		if strings.Contains(rootModule, "libbindings2") && !strings.Contains(rootModule, android.BuildOs.String()) {
+		if strings.Contains(rootModule, "libbindings2") && !strings.Contains(rootModule, buildOS.String()) {
 			t.Errorf("The source path for libbindings2 does not contain the BuildOs, got %v; want %v",
-				rootModule, android.BuildOs.String())
+				rootModule, buildOS.String())
 		}
 		// Check that libbindings1 does not depend on itself.
 		if strings.Contains(rootModule, "libbindings1") {

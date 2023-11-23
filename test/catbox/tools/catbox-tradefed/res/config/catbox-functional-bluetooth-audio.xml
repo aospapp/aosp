@@ -29,5 +29,5 @@
   <option name="compatibility:test-arg" value="com.android.tradefed.testtype.AndroidJUnitTest:no-rerun:true" />
 
   <!-- Tests -->
-  <option name="compatibility:include-filter" value="AndroidAutomotiveMediaCenterTests" />
+  <option name="compatibility:include-filter" value="AndroidAutomotiveMediaCenterTests android.platform.tests.BluetoothAudioTest" />
 </configuration>

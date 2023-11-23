@@ -1,9 +1,0 @@
-{
- "record_types":[],
- "elf_functions":[
-  {
-   "name":"_Z22createSoftOMXComponentPKcPK16OMX_CALLBACKTYPEPvPP17OMX_COMPONENTTYPE"
-  }
- ],
- "elf_objects":[]
-}

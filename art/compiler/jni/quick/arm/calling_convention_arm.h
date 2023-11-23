@@ -35,7 +35,7 @@ class ArmManagedRuntimeCallingConvention final : public ManagedRuntimeCallingCon
         double_index_(0u) {}
   ~ArmManagedRuntimeCallingConvention() override {}
   // Calling convention
-  ManagedRegister ReturnRegister() override;
+  ManagedRegister ReturnRegister() const override;
   void ResetIterator(FrameOffset displacement) override;
   // Managed runtime calling convention
   ManagedRegister MethodRegister() override;
@@ -56,19 +56,20 @@ class ArmJniCallingConvention final : public JniCallingConvention {
  public:
   ArmJniCallingConvention(bool is_static,
                           bool is_synchronized,
+                          bool is_fast_native,
                           bool is_critical_native,
                           const char* shorty);
   ~ArmJniCallingConvention() override {}
   // Calling convention
-  ManagedRegister ReturnRegister() override;
-  ManagedRegister IntReturnRegister() override;
+  ManagedRegister ReturnRegister() const override;
+  ManagedRegister IntReturnRegister() const override;
   // JNI calling convention
   void Next() override;  // Override default behavior for AAPCS
   size_t FrameSize() const override;
   size_t OutFrameSize() const override;
   ArrayRef<const ManagedRegister> CalleeSaveRegisters() const override;
-  ManagedRegister SavedLocalReferenceCookieRegister() const override;
-  ManagedRegister ReturnScratchRegister() const override;
+  ArrayRef<const ManagedRegister> CalleeSaveScratchRegisters() const override;
+  ArrayRef<const ManagedRegister> ArgumentScratchRegisters() const override;
   uint32_t CoreSpillMask() const override;
   uint32_t FpSpillMask() const override;
   bool IsCurrentParamInRegister() override;
@@ -80,6 +81,10 @@ class ArmJniCallingConvention final : public JniCallingConvention {
   bool RequiresSmallResultTypeExtension() const override {
     return false;
   }
+
+  // Locking argument register, used to pass the synchronization object for calls
+  // to `JniLockObject()` and `JniUnlockObject()`.
+  ManagedRegister LockingArgumentRegister() const override;
 
   // Hidden argument register, used to pass the method pointer for @CriticalNative call.
   ManagedRegister HiddenArgumentRegister() const override;

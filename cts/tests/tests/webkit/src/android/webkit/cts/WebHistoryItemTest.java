@@ -30,7 +30,6 @@ import com.android.compatibility.common.util.PollingCheck;
 
 @AppModeFull
 public class WebHistoryItemTest extends ActivityInstrumentationTestCase2<WebViewCtsActivity> {
-    private final static long TEST_TIMEOUT = 10000;
     private CtsTestServer mWebServer;
     private WebViewOnUiThread mOnUiThread;
     private WebIconDatabase mIconDb;
@@ -95,7 +94,7 @@ public class WebHistoryItemTest extends ActivityInstrumentationTestCase2<WebView
 
         String url = mWebServer.getAssetUrl(TestHtmlConstants.HELLO_WORLD_URL);
         mOnUiThread.loadUrlAndWaitForCompletion(url);
-        new PollingCheck() {
+        new PollingCheck(WebkitUtils.TEST_TIMEOUT_MS) {
             @Override
             protected boolean check() {
                 return waitForIconClient.receivedIcon();

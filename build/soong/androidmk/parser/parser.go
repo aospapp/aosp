@@ -216,13 +216,14 @@ func (p *parser) parseDirective() bool {
 		// Nothing
 	case "else":
 		p.ignoreSpaces()
-		if p.tok != '\n' {
+		if p.tok != '\n' && p.tok != '#' {
 			d = p.scanner.TokenText()
 			p.accept(scanner.Ident)
 			if d == "ifdef" || d == "ifndef" || d == "ifeq" || d == "ifneq" {
 				d = "el" + d
 				p.ignoreSpaces()
-				expression = p.parseExpression()
+				expression = p.parseExpression('#')
+				expression.TrimRightSpaces()
 			} else {
 				p.errorf("expected ifdef/ifndef/ifeq/ifneq, found %s", d)
 			}
@@ -231,7 +232,7 @@ func (p *parser) parseDirective() bool {
 		expression, endPos = p.parseDefine()
 	default:
 		p.ignoreSpaces()
-		expression = p.parseExpression()
+		expression = p.parseExpression('#')
 	}
 
 	p.nodes = append(p.nodes, &Directive{
@@ -337,9 +338,6 @@ loop:
 				value.appendString(`\` + string(p.tok))
 			}
 			p.accept(p.tok)
-		case '#':
-			p.parseComment()
-			break loop
 		case '$':
 			var variable Variable
 			variable = p.parseVariable()
@@ -521,7 +519,7 @@ func (p *parser) parseAssignment(t string, target *MakeString, ident *MakeString
 	// non-whitespace character after the = until the end of the logical line,
 	// which may included escaped newlines
 	p.accept('=')
-	value := p.parseExpression()
+	value := p.parseExpression('#')
 	value.TrimLeftSpaces()
 	if ident.EndsWith('+') && t == "=" {
 		ident.TrimRightOne()

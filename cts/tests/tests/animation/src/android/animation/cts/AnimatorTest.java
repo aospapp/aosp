@@ -26,6 +26,7 @@ import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.app.Instrumentation;
 import android.os.SystemClock;
+import android.platform.test.annotations.FlakyTest;
 import android.view.animation.AccelerateInterpolator;
 
 import androidx.test.InstrumentationRegistry;
@@ -102,6 +103,7 @@ public class AnimatorTest {
         assertTrue(mAnimator.isRunning());
     }
 
+    @FlakyTest
     @Test
     public void testIsStarted() throws Throwable {
         assertFalse(mAnimator.isRunning());
@@ -147,6 +149,7 @@ public class AnimatorTest {
         assertEquals(y, endY, 0.0f);
     }
 
+    @FlakyTest
     @Test
     public void testSetListener() throws Throwable {
         Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();

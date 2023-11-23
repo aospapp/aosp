@@ -1,6 +1,6 @@
 #!/usr/bin/env python3.4
 #
-#   Copyright 2016 - Google
+#   Copyright 2022 - Google
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -23,13 +23,8 @@ import time
 import os
 
 from acts import signals
-from acts.utils import disable_doze
-from acts.utils import enable_doze
 from acts.utils import rand_ascii_str
 from acts.test_decorators import test_tracker_info
-from acts_contrib.test_utils.tel.tel_subscription_utils import \
-    get_subid_from_slot_index
-from acts_contrib.test_utils.tel.tel_subscription_utils import set_subid_for_data
 from acts_contrib.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
 from acts_contrib.test_utils.tel.tel_defines import DIRECTION_MOBILE_ORIGINATED
 from acts_contrib.test_utils.tel.tel_defines import DIRECTION_MOBILE_TERMINATED
@@ -48,25 +43,30 @@ from acts_contrib.test_utils.tel.tel_defines import SIM2_SLOT_INDEX
 from acts_contrib.test_utils.tel.tel_defines import MAX_WAIT_TIME_NW_SELECTION
 from acts_contrib.test_utils.tel.tel_defines import MAX_WAIT_TIME_TETHERING_ENTITLEMENT_CHECK
 from acts_contrib.test_utils.tel.tel_defines import TETHERING_MODE_WIFI
-from acts_contrib.test_utils.tel.tel_defines import WAIT_TIME_AFTER_REBOOT
 from acts_contrib.test_utils.tel.tel_defines import WAIT_TIME_ANDROID_STATE_SETTLING
-from acts_contrib.test_utils.tel.tel_defines import \
-    WAIT_TIME_DATA_STATUS_CHANGE_DURING_WIFI_TETHERING
-from acts_contrib.test_utils.tel.tel_defines import WAIT_TIME_TETHERING_AFTER_REBOOT
+from acts_contrib.test_utils.tel.tel_defines import WAIT_TIME_DATA_STATUS_CHANGE_DURING_WIFI_TETHERING
 from acts_contrib.test_utils.tel.tel_defines import TETHERING_PASSWORD_HAS_ESCAPE
 from acts_contrib.test_utils.tel.tel_defines import TETHERING_SPECIAL_SSID_LIST
 from acts_contrib.test_utils.tel.tel_defines import TETHERING_SPECIAL_PASSWORD_LIST
+from acts_contrib.test_utils.tel.tel_bt_utils import verify_bluetooth_tethering_connection
+from acts_contrib.test_utils.tel.tel_data_utils import active_file_download_test
 from acts_contrib.test_utils.tel.tel_data_utils import airplane_mode_test
 from acts_contrib.test_utils.tel.tel_data_utils import browsing_test
+from acts_contrib.test_utils.tel.tel_data_utils import get_mobile_data_usage
 from acts_contrib.test_utils.tel.tel_data_utils import reboot_test
 from acts_contrib.test_utils.tel.tel_data_utils import change_data_sim_and_verify_data
+from acts_contrib.test_utils.tel.tel_data_utils import check_data_stall_detection
+from acts_contrib.test_utils.tel.tel_data_utils import check_data_stall_recovery
+from acts_contrib.test_utils.tel.tel_data_utils import check_network_validation_fail
 from acts_contrib.test_utils.tel.tel_data_utils import data_connectivity_single_bearer
+from acts_contrib.test_utils.tel.tel_data_utils import remove_mobile_data_usage_limit
+from acts_contrib.test_utils.tel.tel_data_utils import set_mobile_data_usage_limit
 from acts_contrib.test_utils.tel.tel_data_utils import tethering_check_internet_connection
 from acts_contrib.test_utils.tel.tel_data_utils import test_data_connectivity_multi_bearer
 from acts_contrib.test_utils.tel.tel_data_utils import test_setup_tethering
 from acts_contrib.test_utils.tel.tel_data_utils import test_tethering_wifi_and_voice_call
 from acts_contrib.test_utils.tel.tel_data_utils import test_wifi_connect_disconnect
-from acts_contrib.test_utils.tel.tel_data_utils import verify_bluetooth_tethering_connection
+from acts_contrib.test_utils.tel.tel_data_utils import wait_for_wifi_data_connection
 from acts_contrib.test_utils.tel.tel_data_utils import wifi_cell_switching
 from acts_contrib.test_utils.tel.tel_data_utils import wifi_tethering_cleanup
 from acts_contrib.test_utils.tel.tel_data_utils import verify_toggle_apm_tethering_internet_connection
@@ -81,53 +81,38 @@ from acts_contrib.test_utils.tel.tel_data_utils import setup_device_internet_con
 from acts_contrib.test_utils.tel.tel_data_utils import setup_device_internet_connection_then_reboot
 from acts_contrib.test_utils.tel.tel_data_utils import verify_internet_connection_in_doze_mode
 from acts_contrib.test_utils.tel.tel_data_utils import verify_toggle_data_during_wifi_tethering
-from acts_contrib.test_utils.tel.tel_test_utils import active_file_download_test
-from acts_contrib.test_utils.tel.tel_test_utils import call_setup_teardown
-from acts_contrib.test_utils.tel.tel_test_utils import check_is_wifi_connected
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_phones_default_state
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_network_generation
-from acts_contrib.test_utils.tel.tel_test_utils import \
-    ensure_network_generation_for_subscription
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_wifi_connected
-from acts_contrib.test_utils.tel.tel_test_utils import get_mobile_data_usage
-from acts_contrib.test_utils.tel.tel_test_utils import get_slot_index_from_subid
-from acts_contrib.test_utils.tel.tel_test_utils import hangup_call
-from acts_contrib.test_utils.tel.tel_test_utils import remove_mobile_data_usage_limit
-from acts_contrib.test_utils.tel.tel_test_utils import set_mobile_data_usage_limit
-from acts_contrib.test_utils.tel.tel_test_utils import stop_wifi_tethering
-from acts_contrib.test_utils.tel.tel_test_utils import start_wifi_tethering
-from acts_contrib.test_utils.tel.tel_test_utils import toggle_airplane_mode
+from acts_contrib.test_utils.tel.tel_subscription_utils import get_slot_index_from_subid
+from acts_contrib.test_utils.tel.tel_subscription_utils import get_subid_from_slot_index
+from acts_contrib.test_utils.tel.tel_subscription_utils import set_subid_for_data
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_3g
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_voice_3g
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_csfb
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_volte
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_4g
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_phones_default_state
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_network_generation
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_network_generation_for_subscription
 from acts_contrib.test_utils.tel.tel_test_utils import toggle_airplane_mode_by_adb
 from acts_contrib.test_utils.tel.tel_test_utils import verify_internet_connection
-from acts_contrib.test_utils.tel.tel_test_utils import wait_for_cell_data_connection
-from acts_contrib.test_utils.tel.tel_test_utils import \
-    wait_for_data_attach_for_subscription
-from acts_contrib.test_utils.tel.tel_test_utils import wait_for_wifi_data_connection
-from acts_contrib.test_utils.tel.tel_test_utils import wifi_reset
-from acts_contrib.test_utils.tel.tel_test_utils import wifi_toggle_state
-from acts_contrib.test_utils.tel.tel_test_utils import WIFI_CONFIG_APBAND_2G
-from acts_contrib.test_utils.tel.tel_test_utils import WIFI_CONFIG_APBAND_5G
-from acts_contrib.test_utils.tel.tel_test_utils import WIFI_SSID_KEY
-from acts_contrib.test_utils.tel.tel_test_utils import check_data_stall_detection
-from acts_contrib.test_utils.tel.tel_test_utils import check_network_validation_fail
+from acts_contrib.test_utils.tel.tel_test_utils import wait_for_data_attach_for_subscription
 from acts_contrib.test_utils.tel.tel_test_utils import break_internet_except_sl4a_port
 from acts_contrib.test_utils.tel.tel_test_utils import resume_internet_with_sl4a_port
 from acts_contrib.test_utils.tel.tel_test_utils import get_device_epoch_time
-from acts_contrib.test_utils.tel.tel_test_utils import check_data_stall_recovery
-from acts_contrib.test_utils.tel.tel_test_utils import \
-    test_data_browsing_success_using_sl4a
-from acts_contrib.test_utils.tel.tel_test_utils import \
-    test_data_browsing_failure_using_sl4a
+from acts_contrib.test_utils.tel.tel_test_utils import test_data_browsing_success_using_sl4a
+from acts_contrib.test_utils.tel.tel_test_utils import test_data_browsing_failure_using_sl4a
 from acts_contrib.test_utils.tel.tel_test_utils import set_time_sync_from_network
 from acts_contrib.test_utils.tel.tel_test_utils import datetime_handle
+from acts_contrib.test_utils.tel.tel_voice_utils import call_setup_teardown
+from acts_contrib.test_utils.tel.tel_voice_utils import hangup_call
 from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_3g
 from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_csfb
 from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_volte
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_3g
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_voice_3g
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_csfb
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_volte
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_4g
+from acts_contrib.test_utils.tel.tel_wifi_utils import WIFI_CONFIG_APBAND_2G
+from acts_contrib.test_utils.tel.tel_wifi_utils import WIFI_CONFIG_APBAND_5G
+from acts_contrib.test_utils.tel.tel_wifi_utils import ensure_wifi_connected
+from acts_contrib.test_utils.tel.tel_wifi_utils import stop_wifi_tethering
+from acts_contrib.test_utils.tel.tel_wifi_utils import wifi_reset
+from acts_contrib.test_utils.tel.tel_wifi_utils import wifi_toggle_state
 
 
 class TelLiveDataTest(TelephonyBaseTest):
@@ -140,7 +125,7 @@ class TelLiveDataTest(TelephonyBaseTest):
 
     def setup_test(self):
         TelephonyBaseTest.setup_test(self)
-        self.number_of_devices = 1
+        self.number_of_devices = 2
 
     def teardown_class(self):
         TelephonyBaseTest.teardown_class(self)
@@ -162,10 +147,13 @@ class TelLiveDataTest(TelephonyBaseTest):
         """
         ad = self.android_devices[0]
         wifi_toggle_state(ad.log, ad, False)
+        self.number_of_devices = 1
+
         for iteration in range(3):
             ad.log.info("Attempt %d", iteration + 1)
             if test_data_browsing_success_using_sl4a(ad.log, ad):
-                ad.log.info("Call test PASS in iteration %d", iteration + 1)
+                ad.log.info("Data Browsing test PASS in iteration %d",
+                            iteration + 1)
                 return True
             time.sleep(WAIT_TIME_ANDROID_STATE_SETTLING)
         ad.log.info("Data Browsing test FAIL for all 3 iterations")
@@ -185,6 +173,8 @@ class TelLiveDataTest(TelephonyBaseTest):
         """
         ad = self.android_devices[0]
         wifi_toggle_state(ad.log, ad, True)
+        self.number_of_devices = 1
+
         if not ensure_wifi_connected(ad.log, ad, self.wifi_network_ssid,
                                      self.wifi_network_pass):
             ad.log.error("WiFi connect fail.")
@@ -192,7 +182,8 @@ class TelLiveDataTest(TelephonyBaseTest):
         for iteration in range(3):
             ad.log.info("Attempt %d", iteration + 1)
             if test_data_browsing_success_using_sl4a(ad.log, ad):
-                ad.log.info("Call test PASS in iteration %d", iteration + 1)
+                ad.log.info("Data Browsing test PASS in iteration %d",
+                            iteration + 1)
                 wifi_toggle_state(ad.log, ad, False)
                 return True
             time.sleep(WAIT_TIME_ANDROID_STATE_SETTLING)
@@ -214,6 +205,8 @@ class TelLiveDataTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail.
         """
+        self.number_of_devices = 1
+
         return airplane_mode_test(self.log, self.android_devices[0])
 
     @test_tracker_info(uuid="47430f01-583f-4efb-923a-285a51b75d50")
@@ -231,6 +224,8 @@ class TelLiveDataTest(TelephonyBaseTest):
         Returns:
             True if pass.
         """
+        self.number_of_devices = 1
+
         return wifi_cell_switching(self.log, self.android_devices[0], GEN_4G,
                                    self.wifi_network_ssid,
                                    self.wifi_network_pass)
@@ -249,6 +244,7 @@ class TelLiveDataTest(TelephonyBaseTest):
         success_count = 0
         fail_count = 0
         self.stress_test_number = 10
+        self.number_of_devices = 1
 
         for i in range(1, self.stress_test_number + 1):
             ensure_phones_default_state(
@@ -289,6 +285,8 @@ class TelLiveDataTest(TelephonyBaseTest):
         Returns:
             True if pass.
         """
+        self.number_of_devices = 1
+
         return wifi_cell_switching(self.log, self.android_devices[0], GEN_3G,
                                    self.wifi_network_ssid,
                                    self.wifi_network_pass)
@@ -308,6 +306,8 @@ class TelLiveDataTest(TelephonyBaseTest):
         Returns:
             True if pass.
         """
+        self.number_of_devices = 1
+
         return wifi_cell_switching(self.log, self.android_devices[0], GEN_2G,
                                    self.wifi_network_ssid,
                                    self.wifi_network_pass)
@@ -329,11 +329,10 @@ class TelLiveDataTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
-        ads = self.android_devices
-        if not phone_setup_volte(self.log, self.android_devices[0]):
-            self.log.error("Failed to setup VoLTE")
-            return False
-        return test_data_connectivity_multi_bearer(self.log, ads, GEN_4G)
+        self.number_of_devices = 1
+
+        return test_data_connectivity_multi_bearer(
+            self.log, self.android_devices, 'volte')
 
     @test_tracker_info(uuid="5c9cb076-0c26-4517-95dc-2ec4974e8ce3")
     @TelephonyBaseTest.tel_test_wrap
@@ -352,7 +351,8 @@ class TelLiveDataTest(TelephonyBaseTest):
             False if failed.
         """
 
-        return test_data_connectivity_multi_bearer(self.log, self.android_devices, GEN_3G)
+        return test_data_connectivity_multi_bearer(
+            self.log, self.android_devices, '3g')
 
     @test_tracker_info(uuid="314bbf1c-073f-4d48-9817-a6e14f96f3c0")
     @TelephonyBaseTest.tel_test_wrap
@@ -369,8 +369,8 @@ class TelLiveDataTest(TelephonyBaseTest):
             False if failed.
         """
 
-        return test_data_connectivity_multi_bearer(self.log, self.android_devices,
-            GEN_2G, False, DIRECTION_MOBILE_ORIGINATED)
+        return test_data_connectivity_multi_bearer(self.log,
+            self.android_devices, '2g', False, DIRECTION_MOBILE_ORIGINATED)
 
     @test_tracker_info(uuid="549271ff-1034-4d02-8d92-b9d1b2bb912e")
     @TelephonyBaseTest.tel_test_wrap
@@ -387,8 +387,8 @@ class TelLiveDataTest(TelephonyBaseTest):
             False if failed.
         """
 
-        return test_data_connectivity_multi_bearer(self.log, self.android_devices,
-            GEN_2G, False, DIRECTION_MOBILE_TERMINATED)
+        return test_data_connectivity_multi_bearer(self.log,
+            self.android_devices, '2g', False, DIRECTION_MOBILE_TERMINATED)
 
     @test_tracker_info(uuid="111de471-559a-4bc3-9d3e-de18f098c162")
     @TelephonyBaseTest.tel_test_wrap
@@ -405,7 +405,6 @@ class TelLiveDataTest(TelephonyBaseTest):
         MINIMUM_SUCCESS_RATE = .95
         success_count = 0
         fail_count = 0
-        self.number_of_devices = 2
 
         for i in range(1, self.stress_test_number + 1):
 
@@ -486,6 +485,8 @@ class TelLiveDataTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
+        self.number_of_devices = 1
+
         wifi_reset(self.log, self.android_devices[0])
         wifi_toggle_state(self.log, self.android_devices[0], False)
         return data_connectivity_single_bearer(self.log,
@@ -506,6 +507,8 @@ class TelLiveDataTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
+        self.number_of_devices = 1
+
         wifi_reset(self.log, self.android_devices[0])
         wifi_toggle_state(self.log, self.android_devices[0], False)
         wifi_toggle_state(self.log, self.android_devices[0], True)
@@ -527,6 +530,8 @@ class TelLiveDataTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
+        self.number_of_devices = 1
+
         wifi_reset(self.log, self.android_devices[0])
         wifi_toggle_state(self.log, self.android_devices[0], False)
         return data_connectivity_single_bearer(self.log,
@@ -547,6 +552,8 @@ class TelLiveDataTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
+        self.number_of_devices = 1
+
         wifi_reset(self.log, self.android_devices[0])
         wifi_toggle_state(self.log, self.android_devices[0], False)
         wifi_toggle_state(self.log, self.android_devices[0], True)
@@ -568,6 +575,8 @@ class TelLiveDataTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
+        self.number_of_devices = 1
+
         wifi_reset(self.log, self.android_devices[0])
         wifi_toggle_state(self.log, self.android_devices[0], False)
         return data_connectivity_single_bearer(self.log,
@@ -588,6 +597,8 @@ class TelLiveDataTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
+        self.number_of_devices = 1
+
         wifi_reset(self.log, self.android_devices[0])
         wifi_toggle_state(self.log, self.android_devices[0], False)
         wifi_toggle_state(self.log, self.android_devices[0], True)
@@ -609,6 +620,7 @@ class TelLiveDataTest(TelephonyBaseTest):
         MINIMUM_SUCCESS_RATE = .95
         success_count = 0
         fail_count = 0
+        self.number_of_devices = 1
 
         for i in range(1, self.stress_test_number + 1):
 
@@ -1463,6 +1475,8 @@ class TelLiveDataTest(TelephonyBaseTest):
         Returns:
             True if entitlement check returns True.
         """
+        self.number_of_devices = 1
+
         return verify_tethering_entitlement_check(self.log,
                                                   self.provider)
 
@@ -1565,7 +1579,7 @@ class TelLiveDataTest(TelephonyBaseTest):
             return False
         ssid_list = TETHERING_SPECIAL_SSID_LIST
         fail_list = {}
-        self.number_of_devices = 2
+
         for ssid in ssid_list:
             password = rand_ascii_str(8)
             self.log.info("SSID: <{}>, Password: <{}>".format(ssid, password))
@@ -1599,7 +1613,7 @@ class TelLiveDataTest(TelephonyBaseTest):
             return False
         password_list = TETHERING_SPECIAL_PASSWORD_LIST
         fail_list = {}
-        self.number_of_devices = 2
+
         for password in password_list:
             ssid = rand_ascii_str(8)
             self.log.info("SSID: <{}>, Password: <{}>".format(ssid, password))
@@ -1887,9 +1901,10 @@ class TelLiveDataTest(TelephonyBaseTest):
             False if failed.
         """
         ad = self.android_devices[0]
+        self.number_of_devices = 1
         current_data_sub_id = ad.droid.subscriptionGetDefaultDataSubId()
         current_sim_slot_index = get_slot_index_from_subid(
-            self.log, ad, current_data_sub_id)
+            ad, current_data_sub_id)
         if current_sim_slot_index == SIM1_SLOT_INDEX:
             next_sim_slot_index = SIM2_SLOT_INDEX
         else:
@@ -1950,6 +1965,8 @@ class TelLiveDataTest(TelephonyBaseTest):
         """
 
         ad = self.android_devices[0]
+        self.number_of_devices = 1
+
         if not ensure_network_generation_for_subscription(
                 self.log, ad, ad.droid.subscriptionGetDefaultDataSubId(),
                 GEN_4G, MAX_WAIT_TIME_NW_SELECTION, NETWORK_SERVICE_DATA):
@@ -1979,6 +1996,8 @@ class TelLiveDataTest(TelephonyBaseTest):
         """
 
         ad = self.android_devices[0]
+        self.number_of_devices = 1
+
         if not ensure_network_generation_for_subscription(
                 self.log, ad, ad.droid.subscriptionGetDefaultDataSubId(),
                 GEN_3G, MAX_WAIT_TIME_NW_SELECTION, NETWORK_SERVICE_DATA):
@@ -2007,6 +2026,8 @@ class TelLiveDataTest(TelephonyBaseTest):
             False if failed.
         """
         ad = self.android_devices[0]
+        self.number_of_devices = 1
+
         if not ensure_network_generation_for_subscription(
                 self.log, ad, ad.droid.subscriptionGetDefaultDataSubId(),
                 GEN_2G, MAX_WAIT_TIME_NW_SELECTION, NETWORK_SERVICE_DATA):
@@ -2181,7 +2202,7 @@ class TelLiveDataTest(TelephonyBaseTest):
         current_data_sub_id = self.provider.droid.subscriptionGetDefaultDataSubId(
         )
         current_sim_slot_index = get_slot_index_from_subid(
-            self.log, self.provider, current_data_sub_id)
+            self.provider, current_data_sub_id)
         self.provider.log.info("Current Data is on subId: %s, SIM slot: %s",
                                current_data_sub_id, current_sim_slot_index)
         if not test_setup_tethering(self.log, self.provider, self.clients, None):
@@ -2240,9 +2261,11 @@ class TelLiveDataTest(TelephonyBaseTest):
             False if failed.
         """
         ad = self.android_devices[0]
+        self.number_of_devices = 1
+
         current_data_sub_id = ad.droid.subscriptionGetDefaultDataSubId()
         current_sim_slot_index = get_slot_index_from_subid(
-            self.log, ad, current_data_sub_id)
+            ad, current_data_sub_id)
         if current_sim_slot_index == SIM1_SLOT_INDEX:
             next_sim_slot_index = SIM2_SLOT_INDEX
         else:
@@ -2298,6 +2321,8 @@ class TelLiveDataTest(TelephonyBaseTest):
     @TelephonyBaseTest.tel_test_wrap
     def test_vzw_embms_services(self):
         ad = self.android_devices[0]
+        self.number_of_devices = 1
+
         # Install App and Push config
         self.log.info("Pushing embms config and apk to the Android device.")
         android_embms_path = "/sdcard/mobitv"
@@ -2391,9 +2416,10 @@ class TelLiveDataTest(TelephonyBaseTest):
             False if failed.
         """
         ad = self.android_devices[0]
+        self.number_of_devices = 1
         current_data_sub_id = ad.droid.subscriptionGetDefaultDataSubId()
         current_sim_slot_index = get_slot_index_from_subid(
-            self.log, ad, current_data_sub_id)
+            ad, current_data_sub_id)
         if current_sim_slot_index == SIM1_SLOT_INDEX:
             non_active_sim_slot_index = SIM2_SLOT_INDEX
         else:
@@ -2440,6 +2466,7 @@ class TelLiveDataTest(TelephonyBaseTest):
         total_count = 0
         self.result_info = collections.defaultdict(int)
         dut = self.android_devices[0]
+        self.number_of_devices = 1
         self.max_sleep_time = int(self.user_params.get("max_sleep_time", 1200))
         #file_names = ["5MB", "10MB", "20MB", "50MB", "200MB", "512MB", "1GB"]
         file_names = ["5MB", "10MB", "20MB", "50MB", "200MB", "512MB"]
@@ -2499,6 +2526,7 @@ class TelLiveDataTest(TelephonyBaseTest):
 
         """
         dut = self.android_devices[0]
+        self.number_of_devices = 1
         ensure_phones_default_state(self.log, [dut])
         subscriber_id = dut.droid.telephonyGetSubscriberId()
         old_data_usage = get_mobile_data_usage(dut, subscriber_id)
@@ -2538,6 +2566,8 @@ class TelLiveDataTest(TelephonyBaseTest):
     def _test_data_stall_detection_recovery(self, nw_type="cellular",
                                             validation_type="detection"):
         dut = self.android_devices[0]
+        self.number_of_devices = 1
+
         try:
             cmd = ('ss -l -p -n | grep "tcp.*droid_script" | tr -s " " '
                    '| cut -d " " -f 5 | sed s/.*://g')
@@ -2585,6 +2615,7 @@ class TelLiveDataTest(TelephonyBaseTest):
 
     def _test_airplane_mode_stress(self):
         ad = self.android_devices[0]
+        self.number_of_devices = 1
         total_iteration = self.stress_test_number
         fail_count = collections.defaultdict(int)
         current_iteration = 1
@@ -2668,6 +2699,8 @@ class TelLiveDataTest(TelephonyBaseTest):
     @TelephonyBaseTest.tel_test_wrap
     def test_browsing_4g(self):
         ad = self.android_devices[0]
+        self.number_of_devices = 1
+
         self.log.info("Connect to LTE and verify internet connection.")
         if not phone_setup_4g(self.log, ad):
             return False
@@ -2680,6 +2713,8 @@ class TelLiveDataTest(TelephonyBaseTest):
     @TelephonyBaseTest.tel_test_wrap
     def test_browsing_wifi(self):
         ad = self.android_devices[0]
+        self.number_of_devices = 1
+
         self.log.info("Connect to Wi-Fi and verify internet connection.")
         if not ensure_wifi_connected(self.log, ad, self.wifi_network_ssid,
                                      self.wifi_network_pass):
@@ -2754,6 +2789,8 @@ class TelLiveDataTest(TelephonyBaseTest):
 
         """
         ad = self.android_devices[0]
+        self.number_of_devices = 1
+
         wifi_toggle_state(ad.log, ad, False)
         return self._test_sync_time_from_network(ad)
 
@@ -2770,6 +2807,8 @@ class TelLiveDataTest(TelephonyBaseTest):
 
         """
         ad = self.android_devices[0]
+        self.number_of_devices = 1
+
         wifi_toggle_state(ad.log, ad, False)
         return self._test_sync_time_from_network(ad, data_on=False)
 
@@ -2777,6 +2816,8 @@ class TelLiveDataTest(TelephonyBaseTest):
     @TelephonyBaseTest.tel_test_wrap
     def test_reboot_4g(self):
         ad = self.android_devices[0]
+        self.number_of_devices = 1
+
         self.log.info("Connect to LTE and verify internet connection.")
         if not phone_setup_4g(self.log, ad):
             return False
@@ -2789,6 +2830,8 @@ class TelLiveDataTest(TelephonyBaseTest):
     @TelephonyBaseTest.tel_test_wrap
     def test_reboot_3g(self):
         ad = self.android_devices[0]
+        self.number_of_devices = 1
+
         self.log.info("Connect to 3G and verify internet connection.")
         if not phone_setup_3g(self.log, ad):
             return False
@@ -2801,6 +2844,8 @@ class TelLiveDataTest(TelephonyBaseTest):
     @TelephonyBaseTest.tel_test_wrap
     def test_reboot_wifi(self):
         ad = self.android_devices[0]
+        self.number_of_devices = 1
+
         self.log.info("Connect to Wi-Fi and verify internet connection.")
         if not ensure_wifi_connected(self.log, ad, self.wifi_network_ssid,
                                      self.wifi_network_pass):

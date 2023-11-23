@@ -81,7 +81,6 @@ func AllPackages(pkgFiles map[string][]string, moduleTypeNameFactories map[strin
 		removeEmptyPropertyStructs(mtInfo)
 		collapseDuplicatePropertyStructs(mtInfo)
 		collapseNestedPropertyStructs(mtInfo)
-		combineDuplicateProperties(mtInfo)
 
 		// Add the ModuleInfo to the corresponding Package map/slice entries.
 		pkg := pkgMap[mtInfo.PkgPath]
@@ -121,16 +120,12 @@ func assembleModuleTypeInfo(r *Reader, name string, factory reflect.Value,
 		v := reflect.ValueOf(s).Elem()
 		t := v.Type()
 
-		// Ignore property structs with unexported or unnamed types
-		if t.PkgPath() == "" {
-			continue
-		}
 		ps, err := r.PropertyStruct(t.PkgPath(), t.Name(), v)
+
 		if err != nil {
 			return nil, err
 		}
 		ps.ExcludeByTag("blueprint", "mutated")
-
 		for _, nestedProperty := range nestedPropertyStructs(v) {
 			nestedName := nestedProperty.nestPoint
 			nestedValue := nestedProperty.value
@@ -337,32 +332,6 @@ func collapseNestedProperties(p *[]Property) {
 				n = append(n, child)
 			}
 		}
-	}
-	*p = n
-}
-
-func combineDuplicateProperties(mt *ModuleType) {
-	for _, ps := range mt.PropertyStructs {
-		combineDuplicateSubProperties(&ps.Properties)
-	}
-}
-
-func combineDuplicateSubProperties(p *[]Property) {
-	var n []Property
-propertyLoop:
-	for _, child := range *p {
-		if len(child.Properties) > 0 {
-			combineDuplicateSubProperties(&child.Properties)
-			for i := range n {
-				s := &n[i]
-				if s.SameSubProperties(child) {
-					s.OtherNames = append(s.OtherNames, child.Name)
-					s.OtherTexts = append(s.OtherTexts, child.Text)
-					continue propertyLoop
-				}
-			}
-		}
-		n = append(n, child)
 	}
 	*p = n
 }

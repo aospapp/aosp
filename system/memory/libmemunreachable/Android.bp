@@ -48,6 +48,9 @@ cc_library {
         "libc_malloc_debug_backtrace",
         "libprocinfo",
     ],
+    header_libs: [
+        "libgtest_prod_headers",
+    ],
     export_include_dirs: ["include"],
     local_include_dirs: ["include"],
     version_script: "libmemunreachable.map",
@@ -61,7 +64,9 @@ cc_test {
         "tests/MemUnreachable_test.cpp",
     ],
     shared_libs: ["libmemunreachable"],
-
+    header_libs: [
+        "libbase_headers",
+    ],
     test_suites: ["device-tests"],
 }
 
@@ -71,6 +76,7 @@ cc_test {
     host_supported: true,
     srcs: [
         "tests/Allocator_test.cpp",
+        "tests/AtomicState_test.cpp",
         "tests/HeapWalker_test.cpp",
         "tests/LeakFolding_test.cpp",
     ],
@@ -99,7 +105,9 @@ cc_test {
             enabled: false,
         },
     },
-
+    header_libs: [
+        "libbase_headers",
+    ],
     test_suites: ["device-tests"],
 }
 

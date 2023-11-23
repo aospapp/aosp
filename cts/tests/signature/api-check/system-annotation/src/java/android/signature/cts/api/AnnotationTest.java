@@ -32,6 +32,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.function.Predicate;
+import org.junit.Test;
 
 /**
  * Checks that parts of the device's API that are annotated (e.g. with android.annotation.SystemApi)
@@ -40,7 +41,6 @@ import java.util.function.Predicate;
 public class AnnotationTest extends AbstractApiTest {
 
     private static final String TAG = AnnotationTest.class.getSimpleName();
-    private static final String MODULE_NAME = "CtsSystemApiAnnotationTestCases";
 
     private String[] mExpectedApiFiles;
     private String mAnnotationForExactMatch;
@@ -49,15 +49,6 @@ public class AnnotationTest extends AbstractApiTest {
     protected void initializeFromArgs(Bundle instrumentationArgs) throws Exception {
         mExpectedApiFiles = getCommaSeparatedListRequired(instrumentationArgs, "expected-api-files");
         mAnnotationForExactMatch = instrumentationArgs.getString("annotation-for-exact-match");
-
-        // Make sure that the Instrumentation provided to this test is registered so it can be
-        // retrieved by the DynamicConfigDeviceSide below.
-        InstrumentationRegistry.registerInstance(getInstrumentation(), new Bundle());
-
-        // Get the DynamicConfig.xml contents and extract the expected failures list.
-        DynamicConfigDeviceSide dcds = new DynamicConfigDeviceSide(MODULE_NAME);
-        List<String> expectedFailures = dcds.getValues("expected_failures");
-        initExpectedFailures(expectedFailures);
     }
 
     private Predicate<? super JDiffClassDescription> androidAutoClassesFilter() {
@@ -73,6 +64,7 @@ public class AnnotationTest extends AbstractApiTest {
      * Tests that the parts of the device's API that are annotated (e.g. with
      * android.annotation.SystemApi) match the API definition.
      */
+    @Test
     public void testAnnotation() {
        AnnotationChecker.ResultFilter filter = new AnnotationChecker.ResultFilter() {
             @Override

@@ -33,8 +33,6 @@ import logging
 import os
 import re
 
-import six
-
 from acloud import errors
 from acloud.internal import constants
 from acloud.internal.lib import base_cloud_client
@@ -72,14 +70,14 @@ BASE_DISK_ARGS = {
 }
 
 
-class OperationScope(object):
+class OperationScope():
     """Represents operation scope enum."""
     ZONE = "zone"
     REGION = "region"
     GLOBAL = "global"
 
 
-class PersistentDiskType(object):
+class PersistentDiskType():
     """Represents different persistent disk types.
 
     pd-standard for regular hard disk.
@@ -89,7 +87,7 @@ class PersistentDiskType(object):
     SSD = "pd-ssd"
 
 
-class ImageStatus(object):
+class ImageStatus():
     """Represents the status of an image."""
     PENDING = "PENDING"
     READY = "READY"
@@ -137,7 +135,7 @@ class ComputeClient(base_cloud_client.BaseCloudApiClient):
             acloud_config: An AcloudConfig object.
             oauth2_credentials: An oauth2client.OAuth2Credentials instance.
         """
-        super(ComputeClient, self).__init__(oauth2_credentials)
+        super().__init__(oauth2_credentials)
         self._project = acloud_config.project
 
     def _GetOperationStatus(self, operation, operation_scope, scope_name=None):
@@ -451,7 +449,7 @@ class ComputeClient(base_cloud_client.BaseCloudApiClient):
                 "Creating image %s requires either source_uri %s or "
                 "source_disk %s but not both" % (image_name, source_uri,
                                                  source_disk))
-        elif source_uri:
+        if source_uri:
             logger.info("Creating image %s, source_uri %s", image_name,
                         source_uri)
             body = {
@@ -1050,14 +1048,14 @@ class ComputeClient(base_cloud_client.BaseCloudApiClient):
         # Initialize return values
         failed = []
         error_msgs = []
-        for resource_name, (_, error) in six.iteritems(results):
+        for resource_name, (_, error) in results.items():
             if error is not None:
                 failed.append(resource_name)
                 error_msgs.append(str(error))
         done = []
         # Wait for the executing operations to finish.
         logger.info("Waiting for executing operations")
-        for resource_name in six.iterkeys(requests):
+        for resource_name in requests.keys():
             operation, _ = results[resource_name]
             if operation:
                 try:
@@ -1144,19 +1142,24 @@ class ComputeClient(base_cloud_client.BaseCloudApiClient):
         api = self.service.regions().list(project=self._project)
         return self.Execute(api)
 
-    def _GetNetworkArgs(self, network, zone):
+    def _GetNetworkArgs(self, network, zone, disable_external_ip):
         """Helper to generate network args that is used to create an instance.
+
+        See: https://cloud.google.com/compute/docs/reference/rest/v1/instances
+        for more information on the specific fields.
 
         Args:
             network: A string, e.g. "default".
             zone: String, representing zone name, e.g. "us-central1-f"
+            disable_external_ip: Boolean, true if the external ip should be
+                                 disabled.
 
         Returns:
             A dictionary representing network args.
         """
         network_args = {
             "network": self.GetNetworkUrl(network),
-            "accessConfigs": [{
+            "accessConfigs": [] if disable_external_ip else [{
                 "name": "External NAT",
                 "type": "ONE_TO_ONE_NAT"
             }]
@@ -1227,9 +1230,11 @@ class ComputeClient(base_cloud_client.BaseCloudApiClient):
                        disk_args=None,
                        image_project=None,
                        gpu=None,
+                       disk_type=None,
                        extra_disk_name=None,
                        extra_scopes=None,
-                       tags=None):
+                       tags=None,
+                       disable_external_ip=False):
         """Create a gce instance with a gce image.
 
         Args:
@@ -1248,15 +1253,26 @@ class ComputeClient(base_cloud_client.BaseCloudApiClient):
             gpu: String, type of gpu to attach. e.g. "nvidia-tesla-k80", if
                  None no gpus will be attached. For more details see:
                  https://cloud.google.com/compute/docs/gpus/add-gpus
+            disk_type: String, type of GCE instance disk type.
             extra_disk_name: String,the name of the extra disk to attach.
             extra_scopes: A list of extra scopes to be provided to the instance.
             tags: A list of tags to associate with the instance. e.g.
                   ["http-server", "https-server"]
+            disable_external_ip: Boolean, true if instance external ip should be
+                                 disabled.
         """
         disk_args = (disk_args
                      or self._GetDiskArgs(instance, image_name, image_project))
         if extra_disk_name:
             disk_args.extend(self._GetExtraDiskArgs(extra_disk_name, zone))
+
+        if disk_type:
+            for disk_arg in disk_args:
+                if "initializeParams" not in disk_arg:
+                    disk_arg["initializeParams"] = {}
+                disk_arg["initializeParams"][
+                    "diskType"] = "projects/%s/zones/%s/diskTypes/%s" % (
+                        self._project, zone, disk_type)
 
         scopes = []
         scopes.extend(self.DEFAULT_INSTANCE_SCOPE)
@@ -1268,7 +1284,9 @@ class ComputeClient(base_cloud_client.BaseCloudApiClient):
         body = {
             "machineType": self.GetMachineType(machine_type, zone)["selfLink"],
             "name": instance,
-            "networkInterfaces": [self._GetNetworkArgs(network, zone)],
+            "networkInterfaces": [
+                self._GetNetworkArgs(network, zone, disable_external_ip)
+            ],
             "disks": disk_args,
             "labels": {constants.LABEL_CREATE_BY: getpass.getuser()},
             "serviceAccounts": [{
@@ -1292,7 +1310,7 @@ class ComputeClient(base_cloud_client.BaseCloudApiClient):
             metadata_list = [{
                 _METADATA_KEY: key,
                 _METADATA_KEY_VALUE: val
-            } for key, val in six.iteritems(metadata)]
+            } for key, val in metadata.items()]
             body[_METADATA] = {_ITEMS: metadata_list}
         logger.info("Creating instance: project %s, zone %s, body:%s",
                     self._project, zone, body)
@@ -1503,8 +1521,8 @@ class ComputeClient(base_cloud_client.BaseCloudApiClient):
         ip_name_map = dict.fromkeys(ips)
         for instance in self.ListInstances():
             try:
-                ip = instance["networkInterfaces"][0]["accessConfigs"][0][
-                    "natIP"]
+                instance_ip = GetInstanceIP(instance)
+                ip = instance_ip.external or instance_ip.internal
                 if ip in ips:
                     ip_name_map[ip] = instance["name"]
             except (IndexError, KeyError) as e:
@@ -1522,9 +1540,7 @@ class ComputeClient(base_cloud_client.BaseCloudApiClient):
             ssh.IP object, that stores internal and external ip of the instance.
         """
         instance = self.GetInstance(instance, zone)
-        internal_ip = instance["networkInterfaces"][0]["networkIP"]
-        external_ip = instance["networkInterfaces"][0]["accessConfigs"][0]["natIP"]
-        return IP(internal=internal_ip, external=external_ip)
+        return GetInstanceIP(instance)
 
     @utils.TimeExecute(function_description="Updating instance metadata: ")
     def SetInstanceMetadata(self, zone, instance, body):
@@ -1755,3 +1771,18 @@ def GetRsaKey(ssh_rsa_path):
         rsa = rsa.strip() if rsa else rsa
         utils.VerifyRsaPubKey(rsa)
     return rsa
+
+def GetInstanceIP(instance):
+    """Get the internal and external IP for a given instance
+
+    Args:
+        instance: A dict, representing a gce instance
+
+    Returns:
+        A populated IP object
+    """
+    network_interface = instance["networkInterfaces"][0]
+    access_configs = network_interface.get("accessConfigs", [{}])[0]
+    external_ip = access_configs.get("natIP", "")
+    internal_ip = network_interface.get("networkIP", "")
+    return IP(internal=internal_ip, external=external_ip)

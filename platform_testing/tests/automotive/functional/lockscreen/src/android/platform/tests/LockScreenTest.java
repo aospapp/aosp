@@ -68,6 +68,8 @@ public class LockScreenTest {
     public void testLockUnlockScreenByPassword() {
         mLockScreenHelper.get().lockScreenBy(LockType.PASSWORD, PASSWORD);
         mLockScreenHelper.get().unlockScreenBy(LockType.PASSWORD, PASSWORD);
+        assertTrue("Device is not locked", mSecuritySettingsHelper.get().isDeviceLocked());
+        mSecuritySettingsHelper.get().unlockByPassword(PASSWORD);
         mSecuritySettingsHelper.get().removeLock();
         assertTrue(
                 "Password has not been removed", !mSecuritySettingsHelper.get().isDeviceLocked());

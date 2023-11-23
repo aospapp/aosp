@@ -25,12 +25,14 @@ public class TestConstants {
     public static final int EVENT_CAMERA_EVICTED = 2;
     public static final int EVENT_CAMERA_AVAILABLE = 3;
     public static final int EVENT_CAMERA_UNAVAILABLE = 4;
+    public static final int EVENT_ACTIVITY_RESUMED = 5;
 
     public static final String EVENT_CAMERA_ERROR_STR = "error";
     public static final String EVENT_CAMERA_CONNECT_STR = "connect";
     public static final String EVENT_CAMERA_EVICTED_STR = "evicted";
     public static final String EVENT_CAMERA_AVAILABLE_STR = "available";
     public static final String EVENT_CAMERA_UNAVAILABLE_STR = "unavailable";
+    public static final String EVENT_ACTIVITY_RESUMED_STR = "resumed";
 
     public static final String EVENT_CAMERA_UNKNOWN_STR = "unknown";
 
@@ -52,6 +54,8 @@ public class TestConstants {
                 return EVENT_CAMERA_AVAILABLE_STR;
             case EVENT_CAMERA_UNAVAILABLE:
                 return EVENT_CAMERA_UNAVAILABLE_STR;
+            case EVENT_ACTIVITY_RESUMED:
+                return EVENT_ACTIVITY_RESUMED_STR;
             default:
                 return EVENT_CAMERA_UNKNOWN_STR + " " + err;
         }

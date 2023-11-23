@@ -120,7 +120,7 @@ public final class TestAppSystemServiceFactory {
     }
 
     private static void assertHasRequiredReceiver(Context context) {
-        if (!UserManager.isHeadlessSystemUserMode()) return;
+        if (!Utils.isHeadlessSystemUserMode()) return;
 
         String packageName = context.getPackageName();
         Boolean hasIt = sHasRequiredReceiver.get(packageName);
@@ -226,7 +226,7 @@ public final class TestAppSystemServiceFactory {
         assertHasRequiredReceiver(context);
 
         int userId = context.getUserId();
-        if (userId == UserHandle.USER_SYSTEM || !UserManager.isHeadlessSystemUserMode()) {
+        if (userId == UserHandle.USER_SYSTEM || !Utils.isHeadlessSystemUserMode()) {
             Log.i(TAG, "get(): returning 'pure' DevicePolicyManager for user " + userId);
             return manager;
         }
@@ -317,7 +317,8 @@ public final class TestAppSystemServiceFactory {
                 case RESULT_NOT_SENT_TO_ANY_RECEIVER:
                     fail("Didn't receive result from ordered broadcast - did you override "
                             + receiverClassName + ".onReceive() to call "
-                            + "DeviceOwnerHelper.runManagerMethod()?");
+                            + "DeviceOwnerHelper.runManagerMethod()? Did you add "
+                            + ACTION_WRAPPED_MANAGER_CALL + " to its intent filter / manifest?");
                     return null;
                 default:
                     fail("Received invalid result for method %s: %s", methodName, result);

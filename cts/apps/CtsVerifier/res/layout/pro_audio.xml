@@ -24,7 +24,7 @@
             android:paddingLeft="10dp"
             android:paddingRight="10dp"
             android:id="@+id/proAudioHasProAudioLbl"
-            android:textSize="18sp"/>
+            android:textSize="20sp"/>
     </LinearLayout>
 
     <LinearLayout android:orientation="horizontal"
@@ -42,7 +42,7 @@
             android:paddingLeft="10dp"
             android:paddingRight="10dp"
             android:id="@+id/proAudioHasLLALbl"
-            android:textSize="18sp"/>
+            android:textSize="20sp"/>
     </LinearLayout>
 
     <LinearLayout android:orientation="horizontal"
@@ -60,7 +60,7 @@
             android:paddingLeft="10dp"
             android:paddingRight="10dp"
             android:id="@+id/proAudioHasMIDILbl"
-            android:textSize="18sp"/>
+            android:textSize="20sp"/>
     </LinearLayout>
 
     <LinearLayout android:orientation="horizontal"
@@ -78,7 +78,7 @@
             android:paddingLeft="10dp"
             android:paddingRight="10dp"
             android:id="@+id/proAudioMidiHasUSBHostLbl"
-            android:textSize="18sp"/>
+            android:textSize="20sp"/>
     </LinearLayout>
 
     <LinearLayout android:orientation="horizontal"
@@ -96,14 +96,18 @@
             android:paddingLeft="10dp"
             android:paddingRight="10dp"
             android:id="@+id/proAudioMidiHasUSBPeripheralLbl"
-            android:textSize="18sp"/>
+            android:textSize="20sp"/>
     </LinearLayout>
 
-    <CheckBox android:id="@+id/proAudioHasHDMICheckBox"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/proAudioHasHDMICheckBox"
-        android:onClick="onCheckboxClicked"/>
+    <LinearLayout android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <CheckBox android:id="@+id/proAudioHasHDMICheckBox"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/proAudioHasHDMICheckBox"
+            android:onClick="onCheckboxClicked"/>
+    </LinearLayout>
 
     <LinearLayout android:orientation="horizontal"
         android:layout_width="match_parent"
@@ -120,7 +124,7 @@
             android:paddingLeft="10dp"
             android:paddingRight="10dp"
             android:id="@+id/proAudioHDMISupportLbl"
-            android:textSize="18sp"/>
+            android:textSize="20sp"/>
     </LinearLayout>
 
     <LinearLayout android:orientation="vertical"
@@ -130,13 +134,7 @@
             android:id="@+id/proAudioTestStatusLbl"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textSize="18sp"/>
-
-        <TextView
-            android:text="@string/proAudioLoopbackMoved"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textSize="18sp"/>
+            android:textSize="20sp"/>
     </LinearLayout>
 
     <include layout="@layout/pass_fail_buttons"/>

@@ -113,6 +113,8 @@ message CameraDeviceInfo {
     optional RangeFloat android_control_zoomRatioRange = 131090;
     repeated int32 android_edge_availableEdgeModes = 262144;
     optional bool android_flash_info_available = 393216;
+    optional int32 android_flash_info_strengthMaximumLevel = 393217;
+    optional int32 android_flash_info_strengthDefaultLevel = 393218;
     repeated int32 android_hotPixel_availableHotPixelModes = 458752;
     repeated Size android_jpeg_availableThumbnailSizes = 524288;
     optional int32 android_lens_facing = 589824;
@@ -134,6 +136,8 @@ message CameraDeviceInfo {
     optional int32 android_request_pipelineMaxDepth = 851972;
     optional int32 android_request_partialResultCount = 851973;
     repeated int32 android_request_availableCapabilities = 851974;
+    optional DynamicRangeProfiles android_request_availableDynamicRangeProfiles = 851975;
+    optional int64 android_request_recommendedTenBitDynamicRangeProfile = 851976;
     optional float android_scaler_availableMaxDigitalZoom = 917504;
     optional StreamConfigurations android_scaler_streamConfigurationMap = 917505;
     optional int32 android_scaler_croppingType = 917506;
@@ -144,6 +148,10 @@ message CameraDeviceInfo {
     optional MultiResolutionStreamConfigurations android_scaler_multiResolutionStreamConfigurationMap = 917511;
     optional StreamConfigurations android_scaler_streamConfigurationMapMaximumResolution = 917512;
     repeated MandatoryStreamCombination android_scaler_mandatoryMaximumResolutionStreamCombinations = 917513;
+    repeated MandatoryStreamCombination android_scaler_mandatoryTenBitOutputStreamCombinations = 917514;
+    repeated MandatoryStreamCombination android_scaler_mandatoryPreviewStabilizationOutputStreamCombinations = 917515;
+    repeated int64 android_scaler_availableStreamUseCases = 917516;
+    repeated MandatoryStreamCombination android_scaler_mandatoryUseCaseStreamCombinations = 917517;
     optional int32 android_sensor_referenceIlluminant1 = 983040;
     optional int32 android_sensor_referenceIlluminant2 = 983041;
     optional ColorSpaceTransform android_sensor_calibrationTransform1 = 983042;
@@ -188,6 +196,8 @@ message CameraDeviceInfo {
     optional bool android_depth_depthIsExclusive = 1703936;
     optional int32 android_logicalMultiCamera_sensorSyncType = 1769472;
     repeated int32 android_distortionCorrection_availableModes = 1835008;
+    optional int32 android_automotive_location = 2031616;
+    repeated int32 android_automotive_lens_facing = 2097152;
     // End of codegen fields
   }
 

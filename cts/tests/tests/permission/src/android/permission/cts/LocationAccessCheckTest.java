@@ -34,6 +34,7 @@ import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
 import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
 import static com.android.server.job.nano.JobPackageHistoryProto.START_PERIODIC_JOB;
 import static com.android.server.job.nano.JobPackageHistoryProto.STOP_JOB;
+import static com.android.server.job.nano.JobPackageHistoryProto.STOP_PERIODIC_JOB;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
@@ -83,6 +84,7 @@ import com.android.compatibility.common.util.DeviceConfigStateHelper;
 import com.android.compatibility.common.util.ProtoUtils;
 import com.android.compatibility.common.util.mainline.MainlineModule;
 import com.android.compatibility.common.util.mainline.ModuleDetector;
+import com.android.modules.utils.build.SdkLevel;
 import com.android.server.job.nano.JobPackageHistoryProto;
 import com.android.server.job.nano.JobSchedulerServiceDumpProto;
 import com.android.server.job.nano.JobSchedulerServiceDumpProto.RegisteredJob;
@@ -315,7 +317,12 @@ public class LocationAccessCheckTest {
         // We can't simply require startTime <= endTime because the time being reported isn't
         // accurate, and sometimes the end time may come before the start time by around 100 ms.
         eventually(() -> {
-            long stopTime = getLastJobTime(STOP_JOB);
+            long stopTime;
+            if (SdkLevel.isAtLeastT()) {
+                stopTime = getLastJobTime(STOP_PERIODIC_JOB);
+            } else {
+                stopTime = getLastJobTime(STOP_JOB);
+            }
             assertTrue(stopTime + " !> " + beforeJob, stopTime > beforeJob);
         }, EXPECTED_TIMEOUT_MILLIS);
     }

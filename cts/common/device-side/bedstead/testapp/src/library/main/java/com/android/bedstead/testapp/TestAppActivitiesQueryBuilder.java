@@ -31,6 +31,7 @@ import java.util.Iterator;
 public final class TestAppActivitiesQueryBuilder implements Queryable {
 
     private final TestAppActivities mTestAppActivities;
+
     private ActivityQueryHelper<TestAppActivitiesQueryBuilder> mActivity =
             new ActivityQueryHelper<>(this);
 
@@ -60,7 +61,9 @@ public final class TestAppActivitiesQueryBuilder implements Queryable {
             }
         }
 
-        throw new IllegalStateException("No matching unused activity for query");
+        throw new IllegalStateException(
+                "No matching unused activity for query. Found activities: "
+                        + mTestAppActivities.activities());
     }
 
     @Override

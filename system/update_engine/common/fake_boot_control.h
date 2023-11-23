@@ -83,6 +83,7 @@ class FakeBootControl : public BootControlInterface {
   }
 
   bool SetActiveBootSlot(Slot slot) override { return true; }
+  Slot GetActiveBootSlot() override { return kInvalidSlot; }
 
   bool MarkBootSuccessfulAsync(base::Callback<void(bool)> callback) override {
     // We run the callback directly from here to avoid having to setup a message

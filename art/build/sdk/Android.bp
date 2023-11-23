@@ -43,7 +43,7 @@ art_module_sdk {
     name: "art-module-sdk",
     host_supported: true,
 
-    // Enable if SOONG_CONFIG_art_module_source_build is true.
+    // Enable if ART_MODULE_BUILD_FROM_SOURCE is true
     enabled: false,
     soong_config_variables: {
         source_build: {
@@ -53,6 +53,18 @@ art_module_sdk {
 
     prebuilt_visibility: prebuilt_visibility,
 
+    traits: {
+        native_bridge_support: [
+            "jni_headers",
+        ],
+        ramdisk_image_required: [
+            "jni_headers",
+        ],
+        recovery_image_required: [
+            "jni_headers",
+        ],
+    },
+
     target: {
         // Both android and host linux but not windows or darwin.
         linux: {
@@ -61,6 +73,7 @@ art_module_sdk {
                 "libartpalette-headers",
                 "libnativehelper_header_only",
                 "libopenjdkjvmti_headers",
+                "odrefresh_headers",
             ],
 
             native_shared_libs: [
@@ -85,6 +98,10 @@ art_module_sdk {
                 "art-bootclasspath-fragment",
             ],
 
+            systemserverclasspath_fragments: [
+                "art-systemserverclasspath-fragment",
+            ],
+
             compat_configs: [
                 "libcore-platform-compat-config",
             ],
@@ -98,22 +115,13 @@ art_module_sdk {
                 // internally.
                 "core-lambda-stubs",
 
-                // Needed by any module that builds against any non-numeric
-                // sdk_version other than "none" or "core_platform".
-                //
-                // This is actually only used for compiling Java 8 and kotlin.
-                // Java 9 uses system modules which encapsulates this
-                // internally.
-                "core.current.stubs",
+                // A special form or "core-lambda-stubs" for use in
+                // java_system_modules.
+                "core-lambda-stubs-for-system-modules",
 
-                // Needed by any module that builds against an sdk_version of
-                // "core_platform".
-                //
-                // This is actually only used for compiling Java 8 and kotlin.
-                // Java 9 uses system modules which encapsulates this
-                // internally.
-                "legacy.core.platform.api.stubs",
-                "stable.core.platform.api.stubs",
+                // Needed when javac compiles code containing @Generated
+                // annotations produced by some code generation tools.
+                "core-generated-annotation-stubs",
             ],
 
             java_sdk_libs: [
@@ -124,10 +132,6 @@ art_module_sdk {
                 "art-module-public-api-stubs-system-modules",
                 "art-module-lib-api-stubs-system-modules",
                 "art-module-intra-core-api-stubs-system-modules",
-                "core-current-stubs-system-modules",
-                "core-module-lib-stubs-system-modules",
-                "legacy-core-platform-api-stubs-system-modules",
-                "stable-core-platform-api-stubs-system-modules",
             ],
             native_header_libs: [
                 "libnativeloader-headers",
@@ -153,7 +157,7 @@ art_module_exports {
     name: "art-module-host-exports",
     host_supported: true,
 
-    // Enable if SOONG_CONFIG_art_module_source_build is true.
+    // Enable if ART_MODULE_BUILD_FROM_SOURCE is true
     enabled: false,
     soong_config_variables: {
         source_build: {
@@ -162,6 +166,11 @@ art_module_exports {
     },
 
     prebuilt_visibility: prebuilt_visibility,
+
+    java_libs: [
+        // Needed for grpc-grpc-java
+        "okhttp-norepackage",
+    ],
 
     target: {
         host: {
@@ -172,9 +181,6 @@ art_module_exports {
 
             java_libs: [
                 "art.module.api.annotations",
-
-                // Needed for grpc-grpc-java
-                "okhttp-norepackage",
             ],
             native_binaries: [
                 "dex2oat",
@@ -186,8 +192,11 @@ art_module_exports {
                 "veridex",
             ],
             native_libs: [
-                "libartpalette", // libdexfile dependency
-                "libartbase", // libdexfile dependency
+                // libdexfile dependencies for host tests.
+                // TODO(b/178691801): Support transitive internal library
+                // dependencies in module_export snapshots and clean this up.
+                "libartpalette",
+                "libartbase",
             ],
         },
 
@@ -207,7 +216,7 @@ art_module_exports {
 art_module_exports {
     name: "art-module-test-exports",
 
-    // Enable if SOONG_CONFIG_art_module_source_build is true.
+    // Enable if ART_MODULE_BUILD_FROM_SOURCE is true
     enabled: false,
     soong_config_variables: {
         source_build: {

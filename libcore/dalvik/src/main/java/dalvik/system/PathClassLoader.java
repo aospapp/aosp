@@ -100,10 +100,49 @@ public class PathClassLoader extends BaseDexClassLoader {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public PathClassLoader(
             @NonNull String dexPath, @Nullable String librarySearchPath, @Nullable ClassLoader parent,
             @Nullable ClassLoader[] sharedLibraryLoaders) {
-        super(dexPath, librarySearchPath, parent, sharedLibraryLoaders);
+        this(dexPath, librarySearchPath, parent, sharedLibraryLoaders, null);
+    }
+
+    /**
+     * Creates a {@code PathClassLoader} that operates on two given
+     * lists of files and directories. The entries of the first list
+     * should be one of the following:
+     *
+     * <ul>
+     * <li>JAR/ZIP/APK files, possibly containing a "classes.dex" file as
+     * well as arbitrary resources.
+     * <li>Raw ".dex" files (not inside a zip file).
+     * </ul>
+     *
+     * The entries of the second list should be directories containing
+     * native library files.
+     *
+     * @param dexPath the list of jar/apk files containing classes and
+     * resources, delimited by {@code File.pathSeparator}, which
+     * defaults to {@code ":"} on Android
+     * @param librarySearchPath the list of directories containing native
+     * libraries, delimited by {@code File.pathSeparator}; may be
+     * {@code null}
+     * @param parent the parent class loader
+     * @param sharedLibraryLoaders class loaders of Java shared libraries
+     * used by this new class loader. The shared library loaders are always
+     * checked before the {@code dexPath} when looking
+     * up classes and resources.
+     * @param sharedLibraryLoadersAfter class loaders of Java shared libraries
+     * used by this new class loader. These shared library loaders are always
+     * checked <b>after</b> the {@code dexPath} when looking
+     * up classes and resources.
+     *
+     * @hide
+     */
+    @SystemApi(client = MODULE_LIBRARIES)
+    public PathClassLoader(
+            @NonNull String dexPath, @Nullable String librarySearchPath,
+            @Nullable ClassLoader parent, @Nullable ClassLoader[] sharedLibraryLoaders,
+            @Nullable ClassLoader[] sharedLibraryLoadersAfter) {
+        super(dexPath, librarySearchPath, parent, sharedLibraryLoaders, sharedLibraryLoadersAfter);
     }
 }

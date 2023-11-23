@@ -49,6 +49,7 @@ EmulatedVolume::EmulatedVolume(const std::string& rawPath, int userId)
     mRawPath = rawPath;
     mLabel = "emulated";
     mFuseMounted = false;
+    mFuseBpfEnabled = IsFuseBpfEnabled();
     mUseSdcardFs = IsSdcardfsUsed();
     mAppDataIsolationEnabled = base::GetBoolProperty(kVoldAppDataIsolationEnabled, false);
 }
@@ -60,6 +61,7 @@ EmulatedVolume::EmulatedVolume(const std::string& rawPath, dev_t device, const s
     mRawPath = rawPath;
     mLabel = fsUuid;
     mFuseMounted = false;
+    mFuseBpfEnabled = IsFuseBpfEnabled();
     mUseSdcardFs = IsSdcardfsUsed();
     mAppDataIsolationEnabled = base::GetBoolProperty(kVoldAppDataIsolationEnabled, false);
 }
@@ -246,7 +248,7 @@ status_t EmulatedVolume::unmountSdcardFs() {
 
 status_t EmulatedVolume::doMount() {
     std::string label = getLabel();
-    bool isVisible = getMountFlags() & MountFlags::kVisible;
+    bool isVisible = isVisibleForWrite();
 
     mSdcardFsDefault = StringPrintf("/mnt/runtime/default/%s", label.c_str());
     mSdcardFsRead = StringPrintf("/mnt/runtime/read/%s", label.c_str());
@@ -359,10 +361,12 @@ status_t EmulatedVolume::doMount() {
             }
         }
 
-        // Only do the bind-mounts when we know for sure the FUSE daemon can resolve the path.
-        res = mountFuseBindMounts();
-        if (res != OK) {
-            return res;
+        if (!mFuseBpfEnabled) {
+            // Only do the bind-mounts when we know for sure the FUSE daemon can resolve the path.
+            res = mountFuseBindMounts();
+            if (res != OK) {
+                return res;
+            }
         }
 
         ConfigureReadAheadForFuse(GetFuseMountPathForUser(user_id, label), 256u);
@@ -416,9 +420,11 @@ status_t EmulatedVolume::doUnmount() {
     if (mFuseMounted) {
         std::string label = getLabel();
 
-        // Ignoring unmount return status because we do want to try to unmount
-        // the rest cleanly.
-        unmountFuseBindMounts();
+        if (!mFuseBpfEnabled) {
+            // Ignoring unmount return status because we do want to try to
+            // unmount the rest cleanly.
+            unmountFuseBindMounts();
+        }
 
         if (UnmountUserFuse(userId, getInternalPath(), label) != OK) {
             PLOG(INFO) << "UnmountUserFuse failed on emulated fuse volume";

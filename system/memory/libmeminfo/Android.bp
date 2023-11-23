@@ -34,21 +34,6 @@ cc_defaults {
         "libdmabufinfo",
     ],
     target: {
-        android: {
-            static_libs: [
-                "libbpf_android",
-            ],
-        },
-        apex: {
-            exclude_static_libs: [
-                "libbpf_android",
-            ],
-        },
-	vendor: {
-	    exclude_static_libs: [
-	        "libbpf_android",
-	    ],
-	},
         darwin: {
             enabled: false,
         },
@@ -67,6 +52,7 @@ cc_library {
         "libdmabufinfo/include",
     ],
     export_shared_lib_headers: ["libbase"],
+    header_libs: ["bpf_headers"],
     srcs: [
         "pageacct.cpp",
         "procmeminfo.cpp",

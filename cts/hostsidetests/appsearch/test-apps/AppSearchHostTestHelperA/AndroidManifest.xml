@@ -15,12 +15,12 @@
  * limitations under the License.
  -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.appsearch.app.a">
+    package="android.appsearch.app.helper_a">
     <application>
         <uses-library android:name="android.test.runner" />
     </application>
 
     <instrumentation
         android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:targetPackage="android.appsearch.app.a"  />
+        android:targetPackage="android.appsearch.app.helper_a"  />
 </manifest>

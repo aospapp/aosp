@@ -22,6 +22,7 @@
     android:canRequestFilterKeyEvents="true"
     android:canRequestEnhancedWebAccessibility="true"
     android:settingsActivity="foo.bar.Activity"
+    android:tileService="foo.bar.TileService"
     android:animatedImageDrawable="@drawable/vector_drawable_6kdp_6kdp"
     android:description="@string/some_description"
     android:htmlDescription="@string/html_description_speaking_and_vibrating_accessibility_service"

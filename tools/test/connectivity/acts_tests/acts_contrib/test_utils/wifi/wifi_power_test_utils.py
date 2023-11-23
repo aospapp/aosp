@@ -20,6 +20,7 @@ from acts import utils
 from acts.libs.proc import job
 from acts.controllers.ap_lib import bridge_interface as bi
 from acts_contrib.test_utils.wifi import wifi_test_utils as wutils
+from acts.controllers.adb_lib.error import AdbCommandError
 from acts.controllers.ap_lib import hostapd_security
 from acts.controllers.ap_lib import hostapd_ap_preset
 
@@ -41,8 +42,23 @@ def change_dtim(ad, gEnableModulatedDTIM, gMaxLIModulatedDTIM=10):
         gEnableModulatedDTIM: Modulated DTIM, int
         gMaxLIModulatedDTIM: Maximum modulated DTIM, int
     """
-    # First trying to find the ini file with DTIM settings
-    ini_file_phone = ad.adb.shell('ls /vendor/firmware/wlan/*/*.ini')
+    ad.log.info('Sets dtim to {}'.format(gEnableModulatedDTIM))
+
+    # In P21 the dtim setting method changed and an AdbCommandError will take
+    # place to get ini_file_phone. Thus add try/except block for the old method.
+    # If error occurs, use change_dtim_adb method later. Otherwise, first trying
+    # to find the ini file with DTIM settings
+    try:
+        ini_file_phone = ad.adb.shell('ls /vendor/firmware/wlan/*/*.ini')
+
+    except AdbCommandError as e:
+
+        # Gets AdbCommandError, change dtim later with change_dtim_adb merthod.
+        # change_dtim_adb requires that wifi connection is on.
+        ad.log.info('Gets AdbCommandError, change dtim with change_dtim_adb.')
+        change_dtim_adb(ad, gEnableModulatedDTIM)
+        return 0
+
     ini_file_local = ini_file_phone.split('/')[-1]
 
     # Pull the file and change the DTIM to desired value
@@ -81,6 +97,59 @@ def change_dtim(ad, gEnableModulatedDTIM, gMaxLIModulatedDTIM=10):
     ad.log.info('DTIM updated and device back from reboot')
     return 1
 
+def change_dtim_adb(ad, gEnableModulatedDTIM):
+    """Function to change the DTIM setting in the P21 phone.
+
+        This method should be run after connecting wifi.
+
+    Args:
+        ad: the target android device, AndroidDevice object
+        gEnableModulatedDTIM: Modulated DTIM, int
+    """
+    ad.log.info('Changes DTIM to {} with adb'.format(gEnableModulatedDTIM))
+    ad.adb.root()
+    screen_status = ad.adb.shell('dumpsys nfc | grep Screen')
+    screen_is_on = 'ON_UNLOCKED' in screen_status
+
+    # To read the dtim with 'adb shell wl bcn_li_dtim', the screen should be off
+    if screen_is_on:
+        ad.log.info('The screen is on. Set it to off before change dtim')
+        ad.droid.goToSleepNow()
+        time_limit_seconds = 60
+        _wait_screen_off(ad, time_limit_seconds)
+
+    old_dtim = ad.adb.shell('wl bcn_li_dtim')
+    ad.log.info('The dtim before change is {}'.format(old_dtim))
+    if int(old_dtim) == gEnableModulatedDTIM:
+        ad.log.info('Current DTIM is already the desired value,'
+                    'no need to reset it')
+        if screen_is_on:
+            ad.log.info('Changes the screen to the original on status')
+            ad.droid.wakeUpNow()
+        return
+    current_dtim = _set_dtim(ad, gEnableModulatedDTIM)
+    ad.log.info(
+        'Old DTIM is {}, current DTIM is {}'.format(old_dtim, current_dtim))
+    if screen_is_on:
+        ad.log.info('Changes the screen to the original on status')
+        ad.droid.wakeUpNow()
+
+def _set_dtim(ad, gEnableModulatedDTIM):
+    ad.adb.shell("halutil -dtim_config {}".format(gEnableModulatedDTIM))
+    return ad.adb.shell('wl bcn_li_dtim')
+
+
+def _wait_screen_off(ad, time_limit_seconds):
+    while time_limit_seconds > 0:
+        screen_status = ad.adb.shell('dumpsys nfc | grep Screen')
+        if 'OFF_UNLOCKED' in screen_status:
+            ad.log.info('The screen status is {}'.format(screen_status))
+            return
+        time.sleep(1)
+        time_limit_seconds -= 1
+    raise TimeoutError('Timed out while waiting the screen off after {} '
+                       'seconds.'.format(time_limit_seconds))
+
 
 def push_file_to_phone(ad, file_local, file_phone):
     """Function to push local file to android phone.
@@ -104,7 +173,7 @@ def push_file_to_phone(ad, file_local, file_phone):
     ad.adb.push('{} {}'.format(file_local, file_phone))
 
 
-def ap_setup(ap, network, bandwidth=80):
+def ap_setup(ap, network, bandwidth=80, dtim_period=None):
     """Set up the whirlwind AP with provided network info.
 
     Args:
@@ -112,6 +181,7 @@ def ap_setup(ap, network, bandwidth=80):
         network: dict with information of the network, including ssid, password
                  bssid, channel etc.
         bandwidth: the operation bandwidth for the AP, default 80MHz
+        dtim_period: the dtim period of access point
     Returns:
         brconfigs: the bridge interface configs
     """
@@ -128,6 +198,7 @@ def ap_setup(ap, network, bandwidth=80):
     config = hostapd_ap_preset.create_ap_preset(
         channel=channel,
         ssid=ssid,
+        dtim_period=dtim_period,
         security=security,
         bss_settings=bss_settings,
         vht_bandwidth=bandwidth,

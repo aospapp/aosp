@@ -45,7 +45,7 @@ SensorRequest::SensorRequest(SensorMode mode, Nanoseconds interval,
                              Nanoseconds latency)
     : SensorRequest(kInvalidInstanceId, mode, interval, latency) {}
 
-SensorRequest::SensorRequest(uint32_t instanceId, SensorMode mode,
+SensorRequest::SensorRequest(uint16_t instanceId, SensorMode mode,
                              Nanoseconds interval, Nanoseconds latency)
     : mInterval(interval),
       mLatency(latency),

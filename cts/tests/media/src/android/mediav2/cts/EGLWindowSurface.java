@@ -47,7 +47,7 @@ class EGLWindowSurface {
     /**
      * Prepares EGL.  We want a GLES 2.0 context and a surface that supports recording.
      */
-    private void eglSetup() {
+    private void eglSetup(boolean useHighBitDepth) {
         mEGLDisplay = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY);
         if (mEGLDisplay == EGL14.EGL_NO_DISPLAY) {
             throw new RuntimeException("unable to get EGL14 display");
@@ -60,12 +60,16 @@ class EGLWindowSurface {
 
         // Configure EGL for recordable and OpenGL ES 2.0.  We want enough RGB bits
         // to minimize artifacts from possible YUV conversion.
+        int eglColorSize = useHighBitDepth ? 10: 8;
+        int eglAlphaSize = useHighBitDepth ? 2: 0;
+        int recordable = useHighBitDepth ? 0: 1;
         int[] attribList = {
-                EGL14.EGL_RED_SIZE, 8,
-                EGL14.EGL_GREEN_SIZE, 8,
-                EGL14.EGL_BLUE_SIZE, 8,
+                EGL14.EGL_RED_SIZE, eglColorSize,
+                EGL14.EGL_GREEN_SIZE, eglColorSize,
+                EGL14.EGL_BLUE_SIZE, eglColorSize,
+                EGL14.EGL_ALPHA_SIZE, eglAlphaSize,
                 EGL14.EGL_RENDERABLE_TYPE, EGL14.EGL_OPENGL_ES2_BIT,
-                EGLExt.EGL_RECORDABLE_ANDROID, 1,
+                EGLExt.EGL_RECORDABLE_ANDROID, recordable,
                 EGL14.EGL_NONE
         };
         int[] numConfigs = new int[1];
@@ -124,13 +128,13 @@ class EGLWindowSurface {
     /**
      * Creates an InputSurface from a Surface.
      */
-    public EGLWindowSurface(Surface surface) {
+    public EGLWindowSurface(Surface surface, boolean useHighBitDepth) {
         if (surface == null) {
             throw new NullPointerException();
         }
         mSurface = surface;
 
-        eglSetup();
+        eglSetup(useHighBitDepth);
     }
 
     /**

@@ -30,7 +30,7 @@ public class DataPathPmkUnsolicitedPublishTestActivity extends BaseTestActivity 
     protected BaseTestCase getTestCase(Context context) {
         return new DataPathInBandTestCase(context, /* isSecurityOpen */ false,
                 /* isPublish */ true, /* isUnsolicited */ true, /* usePmk */ true,
-                /* acceptAny */ false);
+                /* acceptAny */ false, /* forceChannel */false);
     }
 
     @Override

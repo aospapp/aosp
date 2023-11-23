@@ -48,8 +48,8 @@ enum LockLevel : uint8_t {
   kJniIdLock,
   kNativeDebugInterfaceLock,
   kSignalHandlingLock,
-  // A generic lock level for mutexs that should not allow any additional mutexes to be gained after
-  // acquiring it.
+  // A generic lock level for mutexes that should not allow any additional mutexes to be gained
+  // after acquiring it.
   kGenericBottomLock,
   // Tracks the second acquisition at the same lock level for kThreadWaitLock. This is an exception
   // to the normal lock ordering, used to implement Monitor::Wait - while holding one kThreadWait
@@ -95,8 +95,10 @@ enum LockLevel : uint8_t {
   kOatFileManagerLock,
   kTracingUniqueMethodsLock,
   kTracingStreamingLock,
+  kJniLoadLibraryLock,
   kClassLoaderClassesLock,
   kDefaultMutexLevel,
+  kDexCacheLock,
   kDexLock,
   kMarkSweepLargeObjectLock,
   kJdwpObjectRegistryLock,
@@ -104,7 +106,6 @@ enum LockLevel : uint8_t {
   kAllocatedThreadIdsLock,
   kMonitorPoolLock,
   kClassLinkerClassesLock,  // TODO rename.
-  kDexToDexCompilerLock,
   kSubtypeCheckLock,
   kBreakpointLock,
   // This is a generic lock level for a lock meant to be gained after having a
@@ -112,7 +113,6 @@ enum LockLevel : uint8_t {
   kPostMonitorLock,
   kMonitorLock,
   kMonitorListLock,
-  kJniLoadLibraryLock,
   kThreadListLock,
   kAllocTrackerLock,
   kDeoptimizationLock,
@@ -289,6 +289,8 @@ class Locks {
   static Mutex* modify_ldt_lock_ ACQUIRED_AFTER(allocated_thread_ids_lock_);
 
   static ReaderWriterMutex* dex_lock_ ACQUIRED_AFTER(modify_ldt_lock_);
+
+  static Mutex* dex_cache_lock_ ACQUIRED_AFTER(dex_lock_);
 
   // Guards opened oat files in OatFileManager.
   static ReaderWriterMutex* oat_file_manager_lock_ ACQUIRED_AFTER(dex_lock_);

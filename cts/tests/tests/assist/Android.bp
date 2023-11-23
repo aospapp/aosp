@@ -33,4 +33,9 @@ android_test {
 
     srcs: ["src/**/*.java"],
     sdk_version: "test_current",
+    data: [
+        ":CtsAssistService",
+        ":CtsAssistApp",
+    ],
+    per_testcase_directory: true,
 }

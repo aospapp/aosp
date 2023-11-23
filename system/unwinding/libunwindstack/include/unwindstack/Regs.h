@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef _LIBUNWINDSTACK_REGS_H
-#define _LIBUNWINDSTACK_REGS_H
+#pragma once
 
 #include <stdint.h>
 #include <unistd.h>
@@ -82,6 +81,7 @@ class Regs {
   virtual Regs* Clone() = 0;
 
   static ArchEnum CurrentArch();
+  static ArchEnum RemoteGetArch(pid_t pid);
   static Regs* RemoteGet(pid_t pid);
   static Regs* CreateFromUcontext(ArchEnum arch, void* ucontext);
   static Regs* CreateFromLocal();
@@ -116,5 +116,3 @@ class RegsImpl : public Regs {
 uint64_t GetPcAdjustment(uint64_t rel_pc, Elf* elf, ArchEnum arch);
 
 }  // namespace unwindstack
-
-#endif  // _LIBUNWINDSTACK_REGS_H

@@ -17,22 +17,4 @@
 # Stop if something fails.
 set -e
 
-export ORIGINAL_JAVAC="$JAVAC"
-
-# Wrapper function for javac which invokes the compiler and applies
-# additional setup steps for the test.
-function javac_wrapper {
-  set -e # Stop on error - the caller script may not have this set.
-
-  $ORIGINAL_JAVAC "$@"
-
-  # Remove one A.class from classes-ex
-  rm -f classes-ex/A.class
-}
-
-export -f javac_wrapper
-export JAVAC=javac_wrapper
-
-######################################################################
-
 ./default-build "$@"

@@ -77,7 +77,7 @@ class ExtractAnnotationsTest : DriverTest() {
             includeSourceRetentionAnnotations = false,
             format = FileFormat.V2,
             sourceFiles = sourceFiles1,
-            expectedIssues = "src/test/pkg/IntDefTest.java:11: error: This typedef annotation class should have @Retention(RetentionPolicy.SOURCE) [AnnotationExtraction]",
+            expectedIssues = "src/test/pkg/IntDefTest.java:13: error: This typedef annotation class should have @Retention(RetentionPolicy.SOURCE) [AnnotationExtraction]",
             extractAnnotations = mapOf(
                 "test.pkg" to """
                 <?xml version="1.0" encoding="UTF-8"?>
@@ -334,10 +334,8 @@ class ExtractAnnotationsTest : DriverTest() {
     fun `Include merged annotations in exported source annotations`() {
         check(
             includeSourceRetentionAnnotations = true,
-            compatibilityMode = false,
             outputKotlinStyleNulls = false,
             includeSystemApiAnnotations = false,
-            omitCommonPackages = false,
             expectedIssues = "error: Unexpected reference to Nonexistent.Field [InternalError]",
             sourceFiles = arrayOf(
                 java(
@@ -345,7 +343,7 @@ class ExtractAnnotationsTest : DriverTest() {
                     package test.pkg;
 
                     public class MyTest {
-                        public void test(int arg) { }
+                        public int test(int arg) { }
                     }"""
                 ),
                 java(
@@ -362,9 +360,15 @@ class ExtractAnnotationsTest : DriverTest() {
             ),
             mergeXmlAnnotations = """<?xml version="1.0" encoding="UTF-8"?>
                 <root>
-                  <item name="test.pkg.MyTest void test(int) 0">
+                  <item name="test.pkg.MyTest int test(int) 0">
                     <annotation name="org.intellij.lang.annotations.MagicConstant">
                       <val name="intValues" val="{java.util.Calendar.ERA, java.util.Calendar.YEAR, java.util.Calendar.MONTH, java.util.Calendar.WEEK_OF_YEAR, Nonexistent.Field}" />
+                    </annotation>
+                  </item>
+                  <item name="test.pkg.MyTest int test(int)">
+                    <annotation name="androidx.annotation.IntDef">
+                      <val name="flag" val="true" />
+                      <val name="value" val="{java.util.Calendar.ERA, java.util.Calendar.YEAR}" />
                     </annotation>
                   </item>
                 </root>
@@ -373,7 +377,13 @@ class ExtractAnnotationsTest : DriverTest() {
                 "test.pkg" to """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <root>
-                  <item name="test.pkg.MyTest void test(int) 0">
+                  <item name="test.pkg.MyTest int test(int)">
+                    <annotation name="androidx.annotation.IntDef">
+                      <val name="value" val="{java.util.Calendar.ERA, java.util.Calendar.YEAR}" />
+                      <val name="flag" val="true" />
+                    </annotation>
+                  </item>
+                  <item name="test.pkg.MyTest int test(int) 0">
                     <annotation name="androidx.annotation.IntDef">
                       <val name="value" val="{java.util.Calendar.ERA, java.util.Calendar.YEAR, java.util.Calendar.MONTH, java.util.Calendar.WEEK_OF_YEAR}" />
                     </annotation>
@@ -388,10 +398,8 @@ class ExtractAnnotationsTest : DriverTest() {
     fun `Only including class retention annotations in stubs`() {
         check(
             includeSourceRetentionAnnotations = false,
-            compatibilityMode = false,
             outputKotlinStyleNulls = false,
             includeSystemApiAnnotations = false,
-            omitCommonPackages = false,
             sourceFiles = arrayOf(
                 java(
                     """
@@ -617,6 +625,40 @@ class ExtractAnnotationsTest : DriverTest() {
                   }
                 }
             """
+        )
+    }
+
+    @Test
+    fun `Test generics in XML attributes are encoded`() {
+        check(
+            includeSourceRetentionAnnotations = false,
+            outputKotlinStyleNulls = false,
+            includeSystemApiAnnotations = false,
+            sourceFiles = arrayOf(
+                java(
+                    """
+                    package test.pkg;
+
+                    import android.annotation.IntRange;
+
+                    public class MyTest {
+                        public void test(List<Integer> genericArgument, @IntRange(from = 10) int foo) { }
+                    }"""
+                ),
+                intRangeAnnotationSource
+            ),
+            extractAnnotations = mapOf(
+                "test.pkg" to """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <root>
+                  <item name="test.pkg.MyTest void test(List&lt;Integer&gt;, int) 1">
+                    <annotation name="androidx.annotation.IntRange">
+                      <val name="from" val="10" />
+                    </annotation>
+                  </item>
+                </root>
+                """
+            )
         )
     }
 }

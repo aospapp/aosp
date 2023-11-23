@@ -95,8 +95,11 @@ class ProfilerImpl : public Profiler {
   void SetFpsPrintInterval(int32_t interval_seconds) override final;
 
   // Get the latency associated with the name
-  int64_t GetLatencyInNanoseconds(const std::string& name,
-                                  int request_id) override final;
+  std::list<std::pair<std::string, float>> GetLatencyData() override final;
+
+  std::string GetUseCase() const override final {
+    return use_case_;
+  }
 
  protected:
   // A structure to hold start time, end time, and count of profiling code
@@ -496,19 +499,26 @@ void ProfilerImpl::DumpPb(std::string_view filepath) {
 }
 
 // Get the latency associated with the name
-int64_t ProfilerImpl::GetLatencyInNanoseconds(const std::string& name,
-                                              int request_id) {
-  // Will use name to add various TraceInt64 here
-  int valid_request_id = (request_id == kInvalidRequestId) ? 0 : request_id + 1;
-  int64_t latency_ns = 0;
-  {
-    std::lock_guard<std::mutex> lk(lock_);
-    if (static_cast<std::size_t>(valid_request_id) < timing_map_[name].size()) {
-      TimeSlot& slot = timing_map_[name][valid_request_id];
-      latency_ns = slot.end - slot.start;
+std::list<std::pair<std::string, float>> ProfilerImpl::GetLatencyData() {
+  std::list<std::pair<std::string, TimeSlot>> time_results;
+  std::list<std::pair<std::string, float>> latency_data;
+  for (const auto& [node_name, time_series] : timing_map_) {
+    for (const auto& slot : time_series) {
+      if (slot.count > 0 && time_results.size() < time_results.max_size()) {
+        time_results.push_back({node_name, slot});
+      }
     }
   }
-  return latency_ns;
+  time_results.sort(
+      [](const auto& a, const auto& b) { return a.second.end < b.second.end; });
+
+  for (const auto& [node_name, slot] : time_results) {
+    if (slot.count > 0) {
+      float elapsed = (slot.end - slot.start) * kNanoToMilli;
+      latency_data.push_back({node_name, elapsed});
+    }
+  }
+  return latency_data;
 }
 
 class ProfilerStopwatchImpl : public ProfilerImpl {
@@ -588,8 +598,11 @@ class ProfilerDummy : public Profiler {
   void PrintResult() override final{};
   void ProfileFrameRate(const std::string&) override final{};
   void SetFpsPrintInterval(int32_t) override final{};
-  int64_t GetLatencyInNanoseconds(const std::string&, int) override final {
-    return 0;
+  std::list<std::pair<std::string, float>> GetLatencyData() override final {
+    return {};
+  }
+  std::string GetUseCase() const override final {
+    return "";
   }
 };
 

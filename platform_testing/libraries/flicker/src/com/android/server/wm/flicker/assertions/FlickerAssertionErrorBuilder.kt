@@ -16,24 +16,24 @@
 
 package com.android.server.wm.flicker.assertions
 
+import com.android.server.wm.flicker.TraceFile
 import com.android.server.wm.flicker.dsl.AssertionTag
 import com.android.server.wm.flicker.traces.FlickerSubjectException
 import com.google.common.truth.Fact
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
-import java.nio.file.Path
 
 class FlickerAssertionErrorBuilder {
     private var error: Throwable? = null
-    private var traceFiles: List<Path> = emptyList()
+    private var traceFile: TraceFile? = null
     private var tag = ""
 
     fun fromError(error: Throwable): FlickerAssertionErrorBuilder = apply {
         this.error = error
     }
 
-    fun withTrace(traceFiles: List<Path>): FlickerAssertionErrorBuilder = apply {
-        this.traceFiles = traceFiles
+    fun withTrace(traceFile: TraceFile?): FlickerAssertionErrorBuilder = apply {
+        this.traceFile = traceFile
     }
 
     fun atTag(tag: String): FlickerAssertionErrorBuilder = apply {
@@ -46,37 +46,36 @@ class FlickerAssertionErrorBuilder {
     }
 
     fun build(): FlickerAssertionError {
-        return FlickerAssertionError(errorMessage, rootCause, traceFiles)
+        return FlickerAssertionError(errorMessage, rootCause, traceFile)
     }
 
     private val errorMessage get() = buildString {
         val error = error
         requireNotNull(error)
         if (error is FlickerSubjectException) {
-            appendln(error.errorType)
-            appendln()
+            appendLine(error.errorType)
+            appendLine()
             append(error.errorDescription)
-            appendln()
+            appendLine()
             append(error.subjectInformation)
-            append("\t").appendln(Fact.fact("Location", tag))
-            appendln()
+            append("\t").appendLine(Fact.fact("Location", tag))
+            appendLine()
         } else {
-            appendln(error.message)
+            appendLine(error.message)
         }
-        appendln("Trace files:")
-        append(traceFileMessage)
-        appendln()
-        appendln("Cause:")
+        append("Trace file:").append(traceFileMessage)
+        appendLine()
+        appendLine("Cause:")
         append(rootCauseStackTrace)
-        appendln()
-        appendln("Full stacktrace:")
-        appendln()
+        appendLine()
+        appendLine("Full stacktrace:")
+        appendLine()
     }
 
     private val traceFileMessage get() = buildString {
-        traceFiles.forEach {
+        traceFile?.traceFile?.let {
             append("\t")
-            appendln(it)
+            append(it)
         }
     }
 

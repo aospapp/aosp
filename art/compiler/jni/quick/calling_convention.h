@@ -46,7 +46,7 @@ class CallingConvention : public DeletableArenaObject<kArenaAllocCallingConventi
   }
 
   // Register that holds result of this method invocation.
-  virtual ManagedRegister ReturnRegister() = 0;
+  virtual ManagedRegister ReturnRegister() const = 0;
 
   // Iterator interface
 
@@ -291,6 +291,7 @@ class JniCallingConvention : public CallingConvention {
   static std::unique_ptr<JniCallingConvention> Create(ArenaAllocator* allocator,
                                                       bool is_static,
                                                       bool is_synchronized,
+                                                      bool is_fast_native,
                                                       bool is_critical_native,
                                                       const char* shorty,
                                                       InstructionSet instruction_set);
@@ -304,23 +305,23 @@ class JniCallingConvention : public CallingConvention {
   virtual size_t OutFrameSize() const = 0;
   // Number of references in stack indirect reference table
   size_t ReferenceCount() const;
-  // Location where the return value of a call can be squirreled if another
-  // call is made following the native call
-  FrameOffset ReturnValueSaveLocation() const;
   // Register that holds result if it is integer.
-  virtual ManagedRegister IntReturnRegister() = 0;
+  virtual ManagedRegister IntReturnRegister() const = 0;
   // Whether the compiler needs to ensure zero-/sign-extension of a small result type
   virtual bool RequiresSmallResultTypeExtension() const = 0;
 
   // Callee save registers to spill prior to native code (which may clobber)
   virtual ArrayRef<const ManagedRegister> CalleeSaveRegisters() const = 0;
 
-  // Register where the segment state of the local indirect reference table is saved.
-  // This must be a native callee-save register without another special purpose.
-  virtual ManagedRegister SavedLocalReferenceCookieRegister() const = 0;
+  // Subset of core callee save registers that can be used for arbitrary purposes after
+  // constructing the JNI transition frame. These should be managed callee-saves as well.
+  // These should not include special purpose registers such as thread register.
+  // JNI compiler currently requires at least 3 callee save scratch registers.
+  virtual ArrayRef<const ManagedRegister> CalleeSaveScratchRegisters() const = 0;
 
-  // An extra scratch register live after the call
-  virtual ManagedRegister ReturnScratchRegister() const = 0;
+  // Subset of core argument registers that can be used for arbitrary purposes after
+  // calling the native function. These should exclude the return register(s).
+  virtual ArrayRef<const ManagedRegister> ArgumentScratchRegisters() const = 0;
 
   // Spill mask values
   virtual uint32_t CoreSpillMask() const = 0;
@@ -349,6 +350,10 @@ class JniCallingConvention : public CallingConvention {
     return 4u;
   }
 
+  bool IsFastNative() const {
+    return is_fast_native_;
+  }
+
   bool IsCriticalNative() const {
     return is_critical_native_;
   }
@@ -358,6 +363,10 @@ class JniCallingConvention : public CallingConvention {
     // Exclude method pointer for @CriticalNative methods for optimization speed.
     return !IsCriticalNative();
   }
+
+  // Locking argument register, used to pass the synchronization object for calls
+  // to `JniLockObject()` and `JniUnlockObject()`.
+  virtual ManagedRegister LockingArgumentRegister() const = 0;
 
   // Hidden argument register, used to pass the method pointer for @CriticalNative call.
   virtual ManagedRegister HiddenArgumentRegister() const = 0;
@@ -375,13 +384,6 @@ class JniCallingConvention : public CallingConvention {
            return_type == Primitive::kPrimChar;
   }
 
-  // Does the transition back spill the return value in the stack frame?
-  bool SpillsReturnValue() const {
-    // Exclude return value for @CriticalNative methods for optimization speed.
-    // References are passed directly to the "end method" and there is nothing to save for `void`.
-    return !IsCriticalNative() && !IsReturnAReference() && SizeOfReturnValue() != 0u;
-  }
-
  protected:
   // Named iterator positions
   enum IteratorPos {
@@ -391,10 +393,12 @@ class JniCallingConvention : public CallingConvention {
 
   JniCallingConvention(bool is_static,
                        bool is_synchronized,
+                       bool is_fast_native,
                        bool is_critical_native,
                        const char* shorty,
                        PointerSize frame_pointer_size)
       : CallingConvention(is_static, is_synchronized, shorty, frame_pointer_size),
+        is_fast_native_(is_fast_native),
         is_critical_native_(is_critical_native) {}
 
  protected:
@@ -427,6 +431,7 @@ class JniCallingConvention : public CallingConvention {
   // Is the current argument (at the iterator) an extra argument for JNI?
   bool IsCurrentArgExtraForJni() const;
 
+  const bool is_fast_native_;
   const bool is_critical_native_;
 
  private:

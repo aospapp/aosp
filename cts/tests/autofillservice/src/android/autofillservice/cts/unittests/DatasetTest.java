@@ -33,7 +33,9 @@ import android.net.Uri;
 import android.os.Parcel;
 import android.platform.test.annotations.AppModeFull;
 import android.service.autofill.Dataset;
+import android.service.autofill.Field;
 import android.service.autofill.InlinePresentation;
+import android.service.autofill.Presentations;
 import android.util.Size;
 import android.view.autofill.AutofillId;
 import android.view.autofill.AutofillValue;
@@ -65,7 +67,12 @@ public class DatasetTest {
     private final IntentSender mAuth = mock(IntentSender.class);
 
     private final RemoteViews mPresentation = mock(RemoteViews.class);
-
+    private final RemoteViews mDialogPresentation = mock(RemoteViews.class);
+    private final InlinePresentation mTooltipPresentation = new InlinePresentation(
+            new Slice.Builder(new Uri.Builder().appendPath("DatasetTest").build(),
+                    new SliceSpec("DatasetTest", 1)).build(),
+            new InlinePresentationSpec.Builder(new Size(10, 10),
+                    new Size(50, 50)).build(), /* pinned= */ false);
     @Test
     public void testBuilder_nullPresentation() {
         assertThrows(NullPointerException.class, () -> new Dataset.Builder((RemoteViews) null));
@@ -222,6 +229,69 @@ public class DatasetTest {
         assertThat(dataset.getFieldIds()).isEqualTo(singletonList(mId));
         assertThat(dataset.getFieldValues()).isEqualTo(singletonList(mValue));
         assertThat(dataset.getAuthentication()).isEqualTo(mAuth);
+    }
+
+    @Test
+    public void testField() {
+        final Field.Builder builder = new Field.Builder();
+        final Presentations presentations =
+                new Presentations.Builder().setMenuPresentation(mPresentation).build();
+        final Field field = builder.setValue(mValue)
+                .setFilter(mFilter)
+                .setPresentations(presentations)
+                .build();
+
+        assertThat(field.getValue()).isEqualTo(mValue);
+        assertThat(field.getFilter()).isEqualTo(mFilter);
+        assertThat(field.getPresentations()).isEqualTo(presentations);
+    }
+
+    @Test
+    public void testField_empty() {
+        final Field field = new Field.Builder().build();
+
+        assertThat(field.getValue()).isNull();
+        assertThat(field.getFilter()).isNull();
+        assertThat(field.getPresentations()).isNull();
+    }
+
+    @Test
+    public void testPresentations() {
+        final Presentations presentations = new Presentations.Builder()
+                .setMenuPresentation(mPresentation)
+                .setInlinePresentation(mInlinePresentation)
+                .setInlineTooltipPresentation(mTooltipPresentation)
+                .setDialogPresentation(mDialogPresentation)
+                .build();
+
+        assertThat(presentations.getMenuPresentation()).isEqualTo(mPresentation);
+        assertThat(presentations.getInlinePresentation()).isEqualTo(mInlinePresentation);
+        assertThat(presentations.getInlineTooltipPresentation()).isEqualTo(mTooltipPresentation);
+        assertThat(presentations.getDialogPresentation()).isEqualTo(mDialogPresentation);
+    }
+
+    @Test
+    public void testPresentations_noPresentation() {
+        assertThrows(IllegalStateException.class, () -> new Presentations.Builder().build());
+    }
+
+    @Test
+    public void testBuilder_setFieldNullId() {
+        final Dataset.Builder builder = new Dataset.Builder(mPresentation);
+        assertThrows(NullPointerException.class,
+                () -> builder.setField(null, new Field.Builder().build()));
+    }
+
+    @Test
+    public void testBuilder_setFieldNullField() {
+        // Just assert that it builds without throwing an exception.
+        assertThat(new Dataset.Builder().setField(mId, null)).isNotNull();
+    }
+
+    @Test
+    public void testBuilder_setFieldWithEmptyField() {
+        // Just assert that it builds without throwing an exception.
+        assertThat(new Dataset.Builder().setField(mId, new Field.Builder().build())).isNotNull();
     }
 
     @Test

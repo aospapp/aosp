@@ -562,7 +562,23 @@ class TcpRcvWindowTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
       self.assertRaisesErrno(ENOENT, open, self.TCP_DEFAULT_INIT_RWND, "w")
       return
 
-    f = open(self.TCP_DEFAULT_INIT_RWND, "w")
+    try:
+      f = open(self.TCP_DEFAULT_INIT_RWND, "w")
+    except IOError as e:
+      # sysctl was namespace-ified on May 25, 2020 in android-4.14-stable [R]
+      # just after 4.14.181 by:
+      #   https://android-review.googlesource.com/c/kernel/common/+/1312623
+      #   ANDROID: namespace'ify tcp_default_init_rwnd implementation
+      # But that commit might be missing in Q era kernels even when > 4.14.181
+      # when running T vts.
+      if net_test.LINUX_VERSION >= (4, 15, 0):
+        raise
+      if e.errno != ENOENT:
+        raise
+      # we rely on the network namespace creation code
+      # modifying the root netns sysctl before the namespace is even created
+      return
+
     f.write("60")
 
   def checkInitRwndSize(self, version, netid):

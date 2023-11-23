@@ -38,7 +38,7 @@
     <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
 
-    <application android:testOnly="true"
+    <application android:testOnly="true" android:debuggable="true"
          android:usesCleartextTraffic="true">&gt;
 
         <uses-library android:name="android.test.runner"/>
@@ -49,6 +49,8 @@
                  android:resource="@xml/device_admin"/>
             <intent-filter>
                 <action android:name="android.app.action.DEVICE_ADMIN_ENABLED"/>
+                <!--  TODO(b/176993670): remove WRAPPED_MANAGER_CALL if DpmWrapper goes away -->
+                <action android:name="com.android.bedstead.dpmwrapper.action.WRAPPED_MANAGER_CALL"/>
             </intent-filter>
         </receiver>
         <receiver android:name="com.android.cts.deviceowner.CreateAndManageUserTest$SecondaryUserAdminReceiver"

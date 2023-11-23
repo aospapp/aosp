@@ -16,6 +16,10 @@
 
 package android.net.wifi.cts;
 
+import static android.net.wifi.WifiConfiguration.RANDOMIZATION_AUTO;
+import static android.net.wifi.WifiConfiguration.RANDOMIZATION_NONE;
+import static android.net.wifi.WifiConfiguration.RANDOMIZATION_NON_PERSISTENT;
+import static android.net.wifi.WifiConfiguration.RANDOMIZATION_PERSISTENT;
 import static android.net.wifi.WifiConfiguration.SECURITY_TYPE_EAP;
 import static android.net.wifi.WifiConfiguration.SECURITY_TYPE_EAP_SUITE_B;
 import static android.net.wifi.WifiConfiguration.SECURITY_TYPE_EAP_WPA3_ENTERPRISE;
@@ -26,6 +30,8 @@ import static android.net.wifi.WifiConfiguration.SECURITY_TYPE_PSK;
 import static android.net.wifi.WifiConfiguration.SECURITY_TYPE_SAE;
 import static android.net.wifi.WifiConfiguration.SECURITY_TYPE_WAPI_CERT;
 import static android.net.wifi.WifiConfiguration.SECURITY_TYPE_WAPI_PSK;
+
+import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 import android.net.wifi.WifiConfiguration;
@@ -139,5 +145,43 @@ public class WifiConfigurationTest extends WifiJUnit3TestBase {
         }
         configuration.setDeletionPriority(1);
         assertEquals(1, configuration.getDeletionPriority());
+    }
+
+    public void testSetGetMacRandomizationSetting() throws Exception {
+        WifiConfiguration configuration = new WifiConfiguration();
+
+        configuration.setMacRandomizationSetting(RANDOMIZATION_NONE);
+        assertEquals(RANDOMIZATION_NONE, configuration.getMacRandomizationSetting());
+
+        configuration.setMacRandomizationSetting(RANDOMIZATION_PERSISTENT);
+        assertEquals(RANDOMIZATION_PERSISTENT, configuration.getMacRandomizationSetting());
+
+        configuration.setMacRandomizationSetting(RANDOMIZATION_NON_PERSISTENT);
+        assertEquals(RANDOMIZATION_NON_PERSISTENT, configuration.getMacRandomizationSetting());
+
+        configuration.setMacRandomizationSetting(RANDOMIZATION_AUTO);
+        assertEquals(RANDOMIZATION_AUTO, configuration.getMacRandomizationSetting());
+    }
+
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
+    public void testGetDefaultDppAkmConfigurations() throws Exception {
+        WifiConfiguration configuration = new WifiConfiguration();
+
+        assertFalse(configuration.isDppConfigurator());
+        assertThat(configuration.getDppCSignKey()).isNotNull();
+        assertThat(configuration.getDppConnector()).isNotNull();
+        assertThat(configuration.getDppNetAccessKey()).isNotNull();
+        assertThat(configuration.getDppPrivateEcKey()).isNotNull();
+    }
+
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
+    public void testSetGetIsRepeaterEnabled() throws Exception {
+        WifiConfiguration configuration = new WifiConfiguration();
+
+        assertFalse(configuration.isRepeaterEnabled());
+        configuration.setRepeaterEnabled(true);
+        assertTrue(configuration.isRepeaterEnabled());
+        configuration.setRepeaterEnabled(false);
+        assertFalse(configuration.isRepeaterEnabled());
     }
 }

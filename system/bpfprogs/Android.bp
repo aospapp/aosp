@@ -18,35 +18,74 @@ package {
     default_applicable_licenses: ["system_bpfprogs_license"],
 }
 
-// Added automatically by a large-scale-change that took the approach of
-// 'apply every license found to every target'. While this makes sure we respect
-// every license restriction, it may not be entirely correct.
-//
-// e.g. GPL in an MIT project might only apply to the contrib/ directory.
-//
-// Please consider splitting the single license below into multiple licenses,
-// taking care not to lose any license_kind information, and overriding the
-// default license using the 'licenses: [...]' property on targets as needed.
-//
-// For unused files, consider creating a 'fileGroup' with "//visibility:private"
-// to attach the license to, and including a comment whether the files may be
-// used in the current project.
-// See: http://go/android-license-faq
 license {
     name: "system_bpfprogs_license",
-    visibility: [":__subpackages__"],
     license_kinds: [
-        "SPDX-license-identifier-Apache-2.0",
         "SPDX-license-identifier-GPL-2.0",
     ],
-    // large-scale-change unable to identify any license_text files
+    license_text: ["LICENSE"],
 }
 
 bpf {
     name: "time_in_state.o",
     srcs: ["time_in_state.c"],
+    btf: true,
     cflags: [
         "-Wall",
         "-Werror",
+    ],
+    include_dirs: [
+        "system/bpf/progs/include",
+    ],
+}
+
+cc_library {
+    name: "lib_mock_bpf_time_in_state",
+    srcs: ["time_in_state.c"],
+    header_libs: ["bpf_prog_headers"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-DMOCK_BPF",
+    ],
+    static_libs: [
+        "lib_mock_bpf",
+    ],
+}
+
+cc_test {
+    name: "bpf-time-in-state-tests",
+    test_suites: ["general-tests"],
+    gtest: true,
+    host_supported: false,
+    srcs: [
+        "time_in_state_test.cpp",
+    ],
+    header_libs: ["bpf_prog_headers"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
+    whole_static_libs: [
+        "lib_mock_bpf_time_in_state",
+    ],
+    static_libs: [
+        "libgtest_isolated",
+        "lib_mock_bpf",
+    ],
+    static_executable: true,
+    stl: "libc++_static",
+    licenses: ["Android-Apache-2.0"],
+}
+
+bpf {
+    name: "fuse_media.o",
+    srcs: ["fuse_media.c"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
+    include_dirs: [
+        "external/libfuse/include",
     ],
 }

@@ -68,6 +68,8 @@ class ActsImportUnitTest(unittest.TestCase):
         acts = import_acts()
         self.assertIsNotNone(acts)
 
+    # TODO(b/190659975): Re-enable once permission issue is resolved.
+    @unittest.skip("Permission error: b/190659975")
     def test_import_framework_successful(self):
         """Dynamically test all imports from the framework."""
         acts = import_acts()

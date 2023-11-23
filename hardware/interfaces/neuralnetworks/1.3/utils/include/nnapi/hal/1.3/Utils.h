@@ -30,7 +30,6 @@
 #include <nnapi/hal/1.1/Utils.h>
 #include <nnapi/hal/1.2/Conversions.h>
 #include <nnapi/hal/1.2/Utils.h>
-#include <nnapi/hal/HandleError.h>
 
 namespace android::hardware::neuralnetworks::V1_3::utils {
 
@@ -40,7 +39,7 @@ using V1_2::utils::kDefaultMesaureTiming;
 using V1_2::utils::kNoTiming;
 
 constexpr auto kDefaultPriority = Priority::MEDIUM;
-constexpr auto kVersion = nn::Version::ANDROID_R;
+constexpr auto kVersion = nn::kVersionFeatureLevel4;
 
 template <typename Type>
 nn::Result<void> validate(const Type& halObject) {
@@ -61,9 +60,9 @@ bool valid(const Type& halObject) {
 }
 
 template <typename Type>
-nn::GeneralResult<void> compliantVersion(const Type& canonical) {
-    const auto version = NN_TRY(hal::utils::makeGeneralFailure(nn::validate(canonical)));
-    if (version > kVersion) {
+nn::Result<void> compliantVersion(const Type& canonical) {
+    const auto version = NN_TRY(nn::validate(canonical));
+    if (!nn::isCompliantVersion(version, kVersion)) {
         return NN_ERROR() << "Insufficient version: " << version << " vs required " << kVersion;
     }
     return {};

@@ -17,8 +17,8 @@
 @file:JvmName("Extensions")
 package com.android.server.wm.flicker.monitor
 
-import com.android.server.wm.traces.common.windowmanager.WindowManagerTrace
 import com.android.server.wm.flicker.getDefaultFlickerOutputDir
+import com.android.server.wm.traces.common.windowmanager.WindowManagerTrace
 import com.android.server.wm.traces.common.DeviceTraceDump
 import com.android.server.wm.traces.common.layers.LayersTrace
 import com.android.server.wm.traces.parser.DeviceDumpParser
@@ -59,7 +59,7 @@ fun withSFTracing(
     predicate: () -> Unit
 ): LayersTrace {
     return LayersTraceParser.parseFromTrace(
-        LayersTraceMonitor(outputDir, traceFlags).withTracing(predicate))
+        LayersTraceMonitor(outputDir, traceFlags = traceFlags).withTracing(predicate))
 }
 
 /**

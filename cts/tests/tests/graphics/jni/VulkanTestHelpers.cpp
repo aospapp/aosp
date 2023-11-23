@@ -121,6 +121,18 @@ bool VkInit::init() {
   ASSERT(status == VK_SUCCESS || status == VK_INCOMPLETE);
   ASSERT(gpuCount > 0);
 
+  VkPhysicalDeviceSamplerYcbcrConversionFeaturesKHR ycbcrFeatures = {
+      .sType =
+          VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_YCBCR_CONVERSION_FEATURES_KHR,
+      .pNext = nullptr,
+  };
+  VkPhysicalDeviceFeatures2KHR physicalDeviceFeatures = {
+      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2_KHR,
+      .pNext = &ycbcrFeatures,
+  };
+  vkGetPhysicalDeviceFeatures2(mGpu, &physicalDeviceFeatures);
+  ASSERT(ycbcrFeatures.samplerYcbcrConversion == VK_TRUE);
+
   VkPhysicalDeviceProperties physicalDeviceProperties;
   vkGetPhysicalDeviceProperties(mGpu, &physicalDeviceProperties);
   std::vector<const char *> deviceExt;
@@ -182,7 +194,7 @@ bool VkInit::init() {
 
   VkDeviceCreateInfo deviceCreateInfo{
       .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-      .pNext = nullptr,
+      .pNext = &ycbcrFeatures,
       .queueCreateInfoCount = 1,
       .pQueueCreateInfos = &queueCreateInfo,
       .enabledLayerCount = 0,
@@ -226,18 +238,6 @@ bool VkInit::init() {
           (PFN_vkImportSemaphoreFdKHR)vkGetDeviceProcAddr(mDevice, "vkImportSemaphoreFdKHR");
   ASSERT(mPfnImportSemaphoreFd);
 
-  VkPhysicalDeviceSamplerYcbcrConversionFeaturesKHR ycbcrFeatures{
-      .sType =
-          VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_YCBCR_CONVERSION_FEATURES_KHR,
-      .pNext = nullptr,
-  };
-  VkPhysicalDeviceFeatures2KHR physicalDeviceFeatures{
-      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2_KHR,
-      .pNext = &ycbcrFeatures,
-  };
-  vkGetPhysicalDeviceFeatures2(mGpu, &physicalDeviceFeatures);
-  ASSERT(ycbcrFeatures.samplerYcbcrConversion == VK_TRUE);
-
   vkGetDeviceQueue(mDevice, 0, 0, &mQueue);
   vkGetPhysicalDeviceMemoryProperties(mGpu, &mMemoryProperties);
 
@@ -280,7 +280,7 @@ uint32_t VkInit::findMemoryType(uint32_t memoryTypeBitsRequirement,
 
 VkAHardwareBufferImage::VkAHardwareBufferImage(VkInit *init) : mInit(init) {}
 
-bool VkAHardwareBufferImage::init(AHardwareBuffer *buffer, bool useExternalFormat, int syncFd) {
+bool VkAHardwareBufferImage::init(AHardwareBuffer *buffer, bool useExternalFormat, int syncFd, VkImageUsageFlags usage) {
   AHardwareBuffer_Desc bufferDesc;
   AHardwareBuffer_describe(buffer, &bufferDesc);
   ASSERT(bufferDesc.layers == 1);
@@ -322,7 +322,7 @@ bool VkAHardwareBufferImage::init(AHardwareBuffer *buffer, bool useExternalForma
       .arrayLayers = 1u,
       .samples = VK_SAMPLE_COUNT_1_BIT,
       .tiling = VK_IMAGE_TILING_OPTIMAL,
-      .usage = VK_IMAGE_USAGE_SAMPLED_BIT,
+      .usage = usage,
       .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
       .queueFamilyIndexCount = 0,
       .pQueueFamilyIndices = nullptr,
@@ -690,51 +690,6 @@ bool VkImageRenderer::init(JNIEnv *env, jobject assetMgr) {
                                mResultBufferMemory, 0));
   }
 
-  // Create shaders.
-  {
-    AAsset *vertFile =
-        AAssetManager_open(AAssetManager_fromJava(env, assetMgr),
-                           "shaders/passthrough_vsh.spv", AASSET_MODE_BUFFER);
-    ASSERT(vertFile);
-    size_t vertShaderLength = AAsset_getLength(vertFile);
-    std::vector<uint8_t> vertShader;
-    vertShader.resize(vertShaderLength);
-    AAsset_read(vertFile, static_cast<void *>(vertShader.data()),
-                vertShaderLength);
-    AAsset_close(vertFile);
-
-    AAsset *pixelFile =
-        AAssetManager_open(AAssetManager_fromJava(env, assetMgr),
-                           "shaders/passthrough_fsh.spv", AASSET_MODE_BUFFER);
-    ASSERT(pixelFile);
-    size_t pixelShaderLength = AAsset_getLength(pixelFile);
-    std::vector<uint8_t> pixelShader;
-    pixelShader.resize(pixelShaderLength);
-    AAsset_read(pixelFile, static_cast<void *>(pixelShader.data()),
-                pixelShaderLength);
-    AAsset_close(pixelFile);
-
-    VkShaderModuleCreateInfo vertexShaderInfo{
-        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-        .pNext = nullptr,
-        .flags = 0u,
-        .codeSize = vertShaderLength,
-        .pCode = reinterpret_cast<const uint32_t *>(vertShader.data()),
-    };
-    VK_CALL(vkCreateShaderModule(mInit->device(), &vertexShaderInfo, nullptr,
-                                 &mVertModule));
-
-    VkShaderModuleCreateInfo pixelShaderInfo{
-        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-        .pNext = nullptr,
-        .flags = 0u,
-        .codeSize = pixelShaderLength,
-        .pCode = reinterpret_cast<const uint32_t *>(pixelShader.data()),
-    };
-    VK_CALL(vkCreateShaderModule(mInit->device(), &pixelShaderInfo, nullptr,
-                                 &mPixelModule));
-  }
-
   VkPipelineCacheCreateInfo pipelineCacheInfo{
       .sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,
       .pNext = nullptr,
@@ -783,6 +738,10 @@ bool VkImageRenderer::init(JNIEnv *env, jobject assetMgr) {
     };
     VK_CALL(vkCreateFence(mInit->device(), &fenceInfo, nullptr, &mFence));
   }
+
+  // Create shaders
+  ASSERT(mVertexShaderModule.init(mInit, env, assetMgr, "shaders/passthrough_vsh.spv"));
+  ASSERT(mFragmentShaderModule.init(mInit, env, assetMgr, "shaders/passthrough_fsh.spv"));
 
   return true;
 }
@@ -837,14 +796,6 @@ VkImageRenderer::~VkImageRenderer() {
   if (mCache != VK_NULL_HANDLE) {
     vkDestroyPipelineCache(mInit->device(), mCache, nullptr);
     mCache = VK_NULL_HANDLE;
-  }
-  if (mVertModule != VK_NULL_HANDLE) {
-    vkDestroyShaderModule(mInit->device(), mVertModule, nullptr);
-    mVertModule = VK_NULL_HANDLE;
-  }
-  if (mPixelModule != VK_NULL_HANDLE) {
-    vkDestroyShaderModule(mInit->device(), mPixelModule, nullptr);
-    mPixelModule = VK_NULL_HANDLE;
   }
   if (mFence != VK_NULL_HANDLE) {
     vkDestroyFence(mInit->device(), mFence, nullptr);
@@ -914,7 +865,7 @@ bool VkImageRenderer::renderImageAndReadback(VkImage image, VkSampler sampler,
             .pNext = nullptr,
             .flags = 0,
             .stage = VK_SHADER_STAGE_VERTEX_BIT,
-            .module = mVertModule,
+            .module = mVertexShaderModule.module(),
             .pName = "main",
             .pSpecializationInfo = nullptr,
         },
@@ -923,7 +874,7 @@ bool VkImageRenderer::renderImageAndReadback(VkImage image, VkSampler sampler,
             .pNext = nullptr,
             .flags = 0,
             .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-            .module = mPixelModule,
+            .module = mFragmentShaderModule.module(),
             .pName = "main",
             .pSpecializationInfo = nullptr,
         }};
@@ -1236,5 +1187,38 @@ void VkImageRenderer::cleanUpTemporaries() {
   if (mLayout != VK_NULL_HANDLE) {
     vkDestroyPipelineLayout(mInit->device(), mLayout, nullptr);
     mLayout = VK_NULL_HANDLE;
+  }
+}
+
+bool ShaderModule::init(VkInit* init, JNIEnv* env, jobject assetMgr, char const *spirvFilename) {
+  mInit = init;
+  AAsset *file =
+      AAssetManager_open(AAssetManager_fromJava(env, assetMgr),
+                         spirvFilename, AASSET_MODE_BUFFER);
+  ASSERT(file);
+  size_t fileLength = AAsset_getLength(file);
+  std::vector<uint8_t> shaderData;
+  shaderData.resize(fileLength);
+  AAsset_read(file, static_cast<void *>(shaderData.data()),
+              fileLength);
+  AAsset_close(file);
+
+  VkShaderModuleCreateInfo smci{
+      .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+      .pNext = nullptr,
+      .flags = 0u,
+      .codeSize = fileLength,
+      .pCode = reinterpret_cast<const uint32_t *>(shaderData.data()),
+  };
+  VK_CALL(vkCreateShaderModule(mInit->device(), &smci, nullptr,
+                               &mModule));
+
+  return true;
+}
+
+ShaderModule::~ShaderModule() {
+  if (mModule != VK_NULL_HANDLE) {
+    vkDestroyShaderModule(mInit->device(), mModule, nullptr);
+    mModule = VK_NULL_HANDLE;
   }
 }

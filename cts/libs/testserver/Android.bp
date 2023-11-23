@@ -14,12 +14,17 @@
 
 package {
     // See: http://go/android-license-faq
-    // A large-scale-change added 'default_applicable_licenses' to import
-    // all of the 'license_kinds' from "cts_license"
-    // to get the below license kinds:
-    //   SPDX-license-identifier-Apache-2.0
-    //   SPDX-license-identifier-BSD
-    default_applicable_licenses: ["cts_license"],
+    default_applicable_licenses: [
+        "cts_libs_testserver_license", // BSD
+        "Android-Apache-2.0",
+    ],
+}
+
+license {
+    name: "cts_libs_testserver_license",
+    package_name: "Android Testserver CTS",
+    license_kinds: ["SPDX-license-identifier-BSD"],
+    license_text: ["LICENSE_BSD"],
 }
 
 java_library {

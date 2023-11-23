@@ -20,8 +20,18 @@
           android:sharedUserId="android.appenumeration.shareduid">
     <application>
         <uses-library android:name="android.test.runner" />
+        <activity android:name="android.appenumeration.cts.TestActivity"
+                  android:exported="true" />
 
-        <service android:name="android.appenumeration.MockSyncAdapterService"
+        <service android:name="android.appenumeration.testapp.MockAuthenticatorService"
+                 android:exported="false">
+            <intent-filter>
+                <action android:name="android.accounts.AccountAuthenticator" />
+            </intent-filter>
+            <meta-data android:name="android.accounts.AccountAuthenticator"
+                       android:resource="@xml/authenticator_shareduser" />
+        </service>
+        <service android:name="android.appenumeration.testapp.MockSyncAdapterService"
                  android:exported="true">
             <intent-filter>
                 <action android:name="android.content.SyncAdapter"/>
@@ -29,5 +39,9 @@
             <meta-data android:name="android.content.SyncAdapter"
                        android:resource="@xml/syncadapter_shareduser"/>
         </service>
+
+        <provider android:name="android.appenumeration.testapp.DummyProvider"
+                  android:authorities="android.appenumeration.syncadapter.shareduid.authority"
+                  android:exported="false" />
     </application>
 </manifest>

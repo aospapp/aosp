@@ -18,6 +18,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+
+	"android/soong/bazel"
+	"android/soong/starlark_fmt"
 )
 
 func init() {
@@ -177,6 +180,10 @@ var FirstPackedRelocationsVersion = uncheckedFinalApiLevel(23)
 // libandroid_support.
 var FirstNonLibAndroidSupportVersion = uncheckedFinalApiLevel(21)
 
+// LastWithoutModuleLibCoreSystemModules is the last API level where prebuilts/sdk does not contain
+// a core-for-system-modules.jar for the module-lib API scope.
+var LastWithoutModuleLibCoreSystemModules = uncheckedFinalApiLevel(31)
+
 // If the `raw` input is the codename of an API level has been finalized, this
 // function returns the API level number associated with that API level. If the
 // input is *not* a finalized codename, the input is returned unmodified.
@@ -188,8 +195,8 @@ var FirstNonLibAndroidSupportVersion = uncheckedFinalApiLevel(21)
 // * "30" -> "30"
 // * "R" -> "30"
 // * "S" -> "S"
-func ReplaceFinalizedCodenames(ctx PathContext, raw string) string {
-	num, ok := getFinalCodenamesMap(ctx.Config())[raw]
+func ReplaceFinalizedCodenames(config Config, raw string) string {
+	num, ok := getFinalCodenamesMap(config)[raw]
 	if !ok {
 		return raw
 	}
@@ -197,7 +204,7 @@ func ReplaceFinalizedCodenames(ctx PathContext, raw string) string {
 	return strconv.Itoa(num)
 }
 
-// Converts the given string `raw` to an ApiLevel, possibly returning an error.
+// ApiLevelFromUser converts the given string `raw` to an ApiLevel, possibly returning an error.
 //
 // `raw` must be non-empty. Passing an empty string results in a panic.
 //
@@ -212,6 +219,12 @@ func ReplaceFinalizedCodenames(ctx PathContext, raw string) string {
 // Inputs that are not "current", known previews, or convertible to an integer
 // will return an error.
 func ApiLevelFromUser(ctx PathContext, raw string) (ApiLevel, error) {
+	return ApiLevelFromUserWithConfig(ctx.Config(), raw)
+}
+
+// ApiLevelFromUserWithConfig implements ApiLevelFromUser, see comments for
+// ApiLevelFromUser for more details.
+func ApiLevelFromUserWithConfig(config Config, raw string) (ApiLevel, error) {
 	if raw == "" {
 		panic("API level string must be non-empty")
 	}
@@ -220,13 +233,13 @@ func ApiLevelFromUser(ctx PathContext, raw string) (ApiLevel, error) {
 		return FutureApiLevel, nil
 	}
 
-	for _, preview := range ctx.Config().PreviewApiLevels() {
+	for _, preview := range config.PreviewApiLevels() {
 		if raw == preview.String() {
 			return preview, nil
 		}
 	}
 
-	canonical := ReplaceFinalizedCodenames(ctx, raw)
+	canonical := ReplaceFinalizedCodenames(config, raw)
 	asInt, err := strconv.Atoi(canonical)
 	if err != nil {
 		return NoneApiLevel, fmt.Errorf("%q could not be parsed as an integer and is not a recognized codename", canonical)
@@ -234,6 +247,27 @@ func ApiLevelFromUser(ctx PathContext, raw string) (ApiLevel, error) {
 
 	apiLevel := uncheckedFinalApiLevel(asInt)
 	return apiLevel, nil
+}
+
+// ApiLevelForTest returns an ApiLevel constructed from the supplied raw string.
+//
+// This only supports "current" and numeric levels, code names are not supported.
+func ApiLevelForTest(raw string) ApiLevel {
+	if raw == "" {
+		panic("API level string must be non-empty")
+	}
+
+	if raw == "current" {
+		return FutureApiLevel
+	}
+
+	asInt, err := strconv.Atoi(raw)
+	if err != nil {
+		panic(fmt.Errorf("%q could not be parsed as an integer and is not a recognized codename", raw))
+	}
+
+	apiLevel := uncheckedFinalApiLevel(asInt)
+	return apiLevel
 }
 
 // Converts an API level string `raw` into an ApiLevel in the same method as
@@ -273,24 +307,25 @@ var finalCodenamesMapKey = NewOnceKey("FinalCodenamesMap")
 func getFinalCodenamesMap(config Config) map[string]int {
 	return config.Once(finalCodenamesMapKey, func() interface{} {
 		apiLevelsMap := map[string]int{
-			"G":     9,
-			"I":     14,
-			"J":     16,
-			"J-MR1": 17,
-			"J-MR2": 18,
-			"K":     19,
-			"L":     21,
-			"L-MR1": 22,
-			"M":     23,
-			"N":     24,
-			"N-MR1": 25,
-			"O":     26,
-			"O-MR1": 27,
-			"P":     28,
-			"Q":     29,
-			"R":     30,
-			"S":     31,
-			"S-V2":  32,
+			"G":        9,
+			"I":        14,
+			"J":        16,
+			"J-MR1":    17,
+			"J-MR2":    18,
+			"K":        19,
+			"L":        21,
+			"L-MR1":    22,
+			"M":        23,
+			"N":        24,
+			"N-MR1":    25,
+			"O":        26,
+			"O-MR1":    27,
+			"P":        28,
+			"Q":        29,
+			"R":        30,
+			"S":        31,
+			"S-V2":     32,
+			"Tiramisu": 33,
 		}
 
 		// TODO: Differentiate "current" and "future".
@@ -314,27 +349,28 @@ func getFinalCodenamesMap(config Config) map[string]int {
 
 var apiLevelsMapKey = NewOnceKey("ApiLevelsMap")
 
-func getApiLevelsMap(config Config) map[string]int {
+func GetApiLevelsMap(config Config) map[string]int {
 	return config.Once(apiLevelsMapKey, func() interface{} {
 		apiLevelsMap := map[string]int{
-			"G":     9,
-			"I":     14,
-			"J":     16,
-			"J-MR1": 17,
-			"J-MR2": 18,
-			"K":     19,
-			"L":     21,
-			"L-MR1": 22,
-			"M":     23,
-			"N":     24,
-			"N-MR1": 25,
-			"O":     26,
-			"O-MR1": 27,
-			"P":     28,
-			"Q":     29,
-			"R":     30,
-			"S":     31,
-			"S-V2":  32,
+			"G":        9,
+			"I":        14,
+			"J":        16,
+			"J-MR1":    17,
+			"J-MR2":    18,
+			"K":        19,
+			"L":        21,
+			"L-MR1":    22,
+			"M":        23,
+			"N":        24,
+			"N-MR1":    25,
+			"O":        26,
+			"O-MR1":    27,
+			"P":        28,
+			"Q":        29,
+			"R":        30,
+			"S":        31,
+			"S-V2":     32,
+			"Tiramisu": 33,
 		}
 		for i, codename := range config.PlatformVersionActiveCodenames() {
 			apiLevelsMap[codename] = previewAPILevelBase + i
@@ -345,7 +381,25 @@ func getApiLevelsMap(config Config) map[string]int {
 }
 
 func (a *apiLevelsSingleton) GenerateBuildActions(ctx SingletonContext) {
-	apiLevelsMap := getApiLevelsMap(ctx.Config())
+	apiLevelsMap := GetApiLevelsMap(ctx.Config())
 	apiLevelsJson := GetApiLevelsJson(ctx)
 	createApiLevelsJson(ctx, apiLevelsJson, apiLevelsMap)
+}
+
+func printApiLevelsStarlarkDict(config Config) string {
+	apiLevelsMap := GetApiLevelsMap(config)
+	valDict := make(map[string]string, len(apiLevelsMap))
+	for k, v := range apiLevelsMap {
+		valDict[k] = strconv.Itoa(v)
+	}
+	return starlark_fmt.PrintDict(valDict, 0)
+}
+
+func StarlarkApiLevelConfigs(config Config) string {
+	return fmt.Sprintf(bazel.GeneratedBazelFileWarning+`
+_api_levels = %s
+
+api_levels = _api_levels
+`, printApiLevelsStarlarkDict(config),
+	)
 }

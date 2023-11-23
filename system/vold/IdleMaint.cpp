@@ -85,6 +85,13 @@ static const int DIRTY_SEGMENTS_THRESHOLD = 100;
  */
 static const int GC_TIMEOUT_SEC = 420;
 static const int DEVGC_TIMEOUT_SEC = 120;
+static const int KBYTES_IN_SEGMENT = 2048;
+static const int MIN_GC_URGENT_SLEEP_TIME = 500;
+static const int ONE_MINUTE_IN_MS = 60000;
+static const int GC_NORMAL_MODE = 0;
+static const int GC_URGENT_MID_MODE = 3;
+
+static int32_t previousSegmentWrite = 0;
 
 static IdleMaintStats idle_maint_stat(IdleMaintStats::kStopped);
 static std::condition_variable cv_abort, cv_stop;
@@ -111,7 +118,7 @@ static void addFromVolumeManager(std::list<std::string>* paths, PathTypes path_t
     }
 }
 
-static void addFromFstab(std::list<std::string>* paths, PathTypes path_type) {
+static void addFromFstab(std::list<std::string>* paths, PathTypes path_type, bool only_data_part) {
     std::string previous_mount_point;
     for (const auto& entry : fstab_default) {
         // Skip raw partitions and swap space.
@@ -133,6 +140,10 @@ static void addFromFstab(std::list<std::string>* paths, PathTypes path_type) {
             continue;
         }
 
+        if (only_data_part && entry.mount_point != "/data") {
+            continue;
+        }
+
         // Skip the multi-type partitions, which are required to be following each other.
         // See fs_mgr.c's mount_with_alternatives().
         if (entry.mount_point == previous_mount_point) {
@@ -142,10 +153,10 @@ static void addFromFstab(std::list<std::string>* paths, PathTypes path_type) {
         if (path_type == PathTypes::kMountPoint) {
             paths->push_back(entry.mount_point);
         } else if (path_type == PathTypes::kBlkDevice) {
-            std::string gc_path;
+            std::string path;
             if (entry.fs_type == "f2fs" &&
-                Realpath(android::vold::BlockDeviceForPath(entry.mount_point + "/"), &gc_path)) {
-                paths->push_back("/sys/fs/" + entry.fs_type + "/" + Basename(gc_path));
+                Realpath(android::vold::BlockDeviceForPath(entry.mount_point + "/"), &path)) {
+                paths->push_back("/sys/fs/" + entry.fs_type + "/" + Basename(path));
             }
         }
 
@@ -161,7 +172,7 @@ void Trim(const android::sp<android::os::IVoldTaskListener>& listener) {
 
     // Collect both fstab and vold volumes
     std::list<std::string> paths;
-    addFromFstab(&paths, PathTypes::kMountPoint);
+    addFromFstab(&paths, PathTypes::kMountPoint, false);
     addFromVolumeManager(&paths, PathTypes::kMountPoint);
 
     for (const auto& path : paths) {
@@ -264,15 +275,18 @@ static int stopGc(const std::list<std::string>& paths) {
     return android::OK;
 }
 
-static void runDevGcFstab(void) {
-    std::string path;
+static std::string getDevSysfsPath() {
     for (const auto& entry : fstab_default) {
         if (!entry.sysfs_path.empty()) {
-            path = entry.sysfs_path;
-            break;
+            return entry.sysfs_path;
         }
     }
+    LOG(WARNING) << "Cannot find dev sysfs path";
+    return "";
+}
 
+static void runDevGcFstab(void) {
+    std::string path = getDevSysfsPath();
     if (path.empty()) {
         return;
     }
@@ -377,33 +391,13 @@ static void runDevGcOnHal(Service service, GcCallbackImpl cb, GetDescription get
 }
 
 static void runDevGc(void) {
-    auto aidl_service_name = AStorage::descriptor + "/default"s;
-    if (AServiceManager_isDeclared(aidl_service_name.c_str())) {
-        ndk::SpAIBinder binder(AServiceManager_waitForService(aidl_service_name.c_str()));
-        if (binder.get() != nullptr) {
-            std::shared_ptr<AStorage> aidl_service = AStorage::fromBinder(binder);
-            if (aidl_service != nullptr) {
-                runDevGcOnHal<IDL::AIDL>(aidl_service, ndk::SharedRefBase::make<AGcCallbackImpl>(),
-                                         &ndk::ScopedAStatus::getDescription);
-                return;
-            }
-        }
-        LOG(WARNING) << "Device declares " << aidl_service_name
-                     << " but it is not running, skip dev GC on AIDL HAL";
-        return;
-    }
-    auto hidl_service = HStorage::getService();
-    if (hidl_service != nullptr) {
-        runDevGcOnHal<IDL::HIDL>(hidl_service, sp<HGcCallbackImpl>(new HGcCallbackImpl()),
-                                 &Return<void>::description);
-        return;
-    }
-    // fallback to legacy code path
     runDevGcFstab();
 }
 
-int RunIdleMaint(const android::sp<android::os::IVoldTaskListener>& listener) {
+int RunIdleMaint(bool needGC, const android::sp<android::os::IVoldTaskListener>& listener) {
     std::unique_lock<std::mutex> lk(cv_m);
+    bool gc_aborted = false;
+
     if (idle_maint_stat != IdleMaintStats::kStopped) {
         LOG(DEBUG) << "idle maintenance is already running";
         if (listener) {
@@ -422,26 +416,28 @@ int RunIdleMaint(const android::sp<android::os::IVoldTaskListener>& listener) {
         return android::UNEXPECTED_NULL;
     }
 
-    std::list<std::string> paths;
-    addFromFstab(&paths, PathTypes::kBlkDevice);
-    addFromVolumeManager(&paths, PathTypes::kBlkDevice);
+    if (needGC) {
+        std::list<std::string> paths;
+        addFromFstab(&paths, PathTypes::kBlkDevice, false);
+        addFromVolumeManager(&paths, PathTypes::kBlkDevice);
 
-    startGc(paths);
+        startGc(paths);
 
-    bool gc_aborted = waitForGc(paths);
+        gc_aborted = waitForGc(paths);
 
-    stopGc(paths);
+        stopGc(paths);
+    }
+
+    if (!gc_aborted) {
+        Trim(nullptr);
+        runDevGc();
+    }
 
     lk.lock();
     idle_maint_stat = IdleMaintStats::kStopped;
     lk.unlock();
 
     cv_stop.notify_one();
-
-    if (!gc_aborted) {
-        Trim(nullptr);
-        runDevGc();
-    }
 
     if (listener) {
         android::os::PersistableBundle extras;
@@ -478,6 +474,166 @@ int AbortIdleMaint(const android::sp<android::os::IVoldTaskListener>& listener) 
     LOG(DEBUG) << "idle maintenance stopped";
 
     return android::OK;
+}
+
+int getLifeTime(const std::string& path) {
+    std::string result;
+
+    if (!ReadFileToString(path, &result)) {
+        PLOG(WARNING) << "Reading lifetime estimation failed for " << path;
+        return -1;
+    }
+    return std::stoi(result, 0, 16);
+}
+
+int32_t GetStorageLifeTime() {
+    std::string path = getDevSysfsPath();
+    if (path.empty()) {
+        return -1;
+    }
+
+    std::string lifeTimeBasePath = path + "/health_descriptor/life_time_estimation_";
+
+    int32_t lifeTime = getLifeTime(lifeTimeBasePath + "c");
+    if (lifeTime != -1) {
+        return lifeTime;
+    }
+
+    int32_t lifeTimeA = getLifeTime(lifeTimeBasePath + "a");
+    int32_t lifeTimeB = getLifeTime(lifeTimeBasePath + "b");
+    lifeTime = std::max(lifeTimeA, lifeTimeB);
+    if (lifeTime != -1) {
+        return lifeTime == 0 ? -1 : lifeTime * 10;
+    }
+    return -1;
+}
+
+void SetGCUrgentPace(int32_t neededSegments, int32_t minSegmentThreshold, float dirtyReclaimRate,
+                     float reclaimWeight, int32_t gcPeriod) {
+    std::list<std::string> paths;
+    bool needGC = true;
+    int32_t sleepTime;
+
+    addFromFstab(&paths, PathTypes::kBlkDevice, true);
+    if (paths.empty()) {
+        LOG(WARNING) << "There is no valid blk device path for data partition";
+        return;
+    }
+
+    std::string f2fsSysfsPath = paths.front();
+    std::string freeSegmentsPath = f2fsSysfsPath + "/free_segments";
+    std::string dirtySegmentsPath = f2fsSysfsPath + "/dirty_segments";
+    std::string gcSleepTimePath = f2fsSysfsPath + "/gc_urgent_sleep_time";
+    std::string gcUrgentModePath = f2fsSysfsPath + "/gc_urgent";
+    std::string ovpSegmentsPath = f2fsSysfsPath + "/ovp_segments";
+    std::string reservedBlocksPath = f2fsSysfsPath + "/reserved_blocks";
+    std::string freeSegmentsStr, dirtySegmentsStr, ovpSegmentsStr, reservedBlocksStr;
+
+    if (!ReadFileToString(freeSegmentsPath, &freeSegmentsStr)) {
+        PLOG(WARNING) << "Reading failed in " << freeSegmentsPath;
+        return;
+    }
+
+    if (!ReadFileToString(dirtySegmentsPath, &dirtySegmentsStr)) {
+        PLOG(WARNING) << "Reading failed in " << dirtySegmentsPath;
+        return;
+    }
+
+    if (!ReadFileToString(ovpSegmentsPath, &ovpSegmentsStr)) {
+            PLOG(WARNING) << "Reading failed in " << ovpSegmentsPath;
+            return;
+        }
+
+    if (!ReadFileToString(reservedBlocksPath, &reservedBlocksStr)) {
+            PLOG(WARNING) << "Reading failed in " << reservedBlocksPath;
+            return;
+        }
+
+    int32_t freeSegments = std::stoi(freeSegmentsStr);
+    int32_t dirtySegments = std::stoi(dirtySegmentsStr);
+    int32_t reservedBlocks = std::stoi(ovpSegmentsStr) + std::stoi(reservedBlocksStr);
+
+    freeSegments = freeSegments > reservedBlocks ? freeSegments - reservedBlocks : 0;
+    neededSegments *= reclaimWeight;
+    if (freeSegments >= neededSegments) {
+        LOG(INFO) << "Enough free segments: " << freeSegments
+                   << ", needed segments: " << neededSegments;
+        needGC = false;
+    } else if (freeSegments + dirtySegments < minSegmentThreshold) {
+        LOG(INFO) << "The sum of free segments: " << freeSegments
+                   << ", dirty segments: " << dirtySegments << " is under " << minSegmentThreshold;
+        needGC = false;
+    } else {
+        neededSegments -= freeSegments;
+        neededSegments = std::min(neededSegments, (int32_t)(dirtySegments * dirtyReclaimRate));
+        if (neededSegments == 0) {
+            LOG(INFO) << "Low dirty segments: " << dirtySegments;
+            needGC = false;
+        } else {
+            sleepTime = gcPeriod * ONE_MINUTE_IN_MS / neededSegments;
+            if (sleepTime < MIN_GC_URGENT_SLEEP_TIME) {
+                sleepTime = MIN_GC_URGENT_SLEEP_TIME;
+            }
+        }
+    }
+
+    if (!needGC) {
+        if (!WriteStringToFile(std::to_string(GC_NORMAL_MODE), gcUrgentModePath)) {
+            PLOG(WARNING) << "Writing failed in " << gcUrgentModePath;
+        }
+        return;
+    }
+
+    if (!WriteStringToFile(std::to_string(sleepTime), gcSleepTimePath)) {
+        PLOG(WARNING) << "Writing failed in " << gcSleepTimePath;
+        return;
+    }
+
+    if (!WriteStringToFile(std::to_string(GC_URGENT_MID_MODE), gcUrgentModePath)) {
+        PLOG(WARNING) << "Writing failed in " << gcUrgentModePath;
+        return;
+    }
+
+    LOG(INFO) << "Successfully set gc urgent mode: "
+               << "free segments: " << freeSegments << ", reclaim target: " << neededSegments
+               << ", sleep time: " << sleepTime;
+}
+
+static int32_t getLifeTimeWrite() {
+    std::list<std::string> paths;
+    addFromFstab(&paths, PathTypes::kBlkDevice, true);
+    if (paths.empty()) {
+        LOG(WARNING) << "There is no valid blk device path for data partition";
+        return -1;
+    }
+
+    std::string writeKbytesPath = paths.front() + "/lifetime_write_kbytes";
+    std::string writeKbytesStr;
+    if (!ReadFileToString(writeKbytesPath, &writeKbytesStr)) {
+        PLOG(WARNING) << "Reading failed in " << writeKbytesPath;
+        return -1;
+    }
+
+    long long writeBytes = std::stoll(writeKbytesStr);
+    return writeBytes / KBYTES_IN_SEGMENT;
+}
+
+void RefreshLatestWrite() {
+    int32_t segmentWrite = getLifeTimeWrite();
+    if (segmentWrite != -1) {
+        previousSegmentWrite = segmentWrite;
+    }
+}
+
+int32_t GetWriteAmount() {
+    int32_t currentSegmentWrite = getLifeTimeWrite();
+    if (currentSegmentWrite == -1) {
+        return -1;
+    }
+
+    int32_t writeAmount = currentSegmentWrite - previousSegmentWrite;
+    previousSegmentWrite = currentSegmentWrite;
+    return writeAmount;
 }
 
 }  // namespace vold

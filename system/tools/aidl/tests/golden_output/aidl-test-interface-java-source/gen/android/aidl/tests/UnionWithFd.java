@@ -2,7 +2,6 @@
  * This file is auto-generated.  DO NOT MODIFY.
  */
 package android.aidl.tests;
-
 public final class UnionWithFd implements android.os.Parcelable {
   // tags for union fields
   public final static int num = 0;  // int num;
@@ -79,13 +78,7 @@ public final class UnionWithFd implements android.os.Parcelable {
       _aidl_parcel.writeInt(getNum());
       break;
     case pfd:
-      if ((getPfd()!=null)) {
-        _aidl_parcel.writeInt(1);
-        getPfd().writeToParcel(_aidl_parcel, 0);
-      }
-      else {
-        _aidl_parcel.writeInt(0);
-      }
+      _aidl_parcel.writeTypedObject(getPfd(), _aidl_flag);
       break;
     }
   }
@@ -101,12 +94,7 @@ public final class UnionWithFd implements android.os.Parcelable {
       return; }
     case pfd: {
       android.os.ParcelFileDescriptor _aidl_value;
-      if ((0!=_aidl_parcel.readInt())) {
-        _aidl_value = android.os.ParcelFileDescriptor.CREATOR.createFromParcel(_aidl_parcel);
-      }
-      else {
-        _aidl_value = null;
-      }
+      _aidl_value = _aidl_parcel.readTypedObject(android.os.ParcelFileDescriptor.CREATOR);
       _set(_aidl_tag, _aidl_value);
       return; }
     }
@@ -148,5 +136,9 @@ public final class UnionWithFd implements android.os.Parcelable {
   private void _set(int _tag, Object _value) {
     this._tag = _tag;
     this._value = _value;
+  }
+  public static @interface Tag {
+    public static final int num = 0;
+    public static final int pfd = 1;
   }
 }

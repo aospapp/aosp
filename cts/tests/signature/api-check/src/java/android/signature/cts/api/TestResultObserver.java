@@ -19,8 +19,10 @@ package android.signature.cts.api;
 import android.signature.cts.FailureType;
 import android.signature.cts.ResultObserver;
 
-import repackaged.junit.framework.Assert;
-import repackaged.junit.framework.TestCase;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import junit.framework.Assert;
+import junit.framework.TestCase;
 
 /**
  * Keeps track of any reported failures.
@@ -30,10 +32,11 @@ class TestResultObserver implements ResultObserver {
     private boolean mDidFail = false;
     private int failures = 0;
 
-    private StringBuilder mErrorString = new StringBuilder();
+    private StringWriter mErrorString = new StringWriter();
 
     @Override
-    public void notifyFailure(FailureType type, String name, String errorMessage) {
+    public void notifyFailure(FailureType type, String name, String errorMessage,
+            Throwable throwable) {
         mDidFail = true;
         failures++;
         if (failures <= 100) {
@@ -43,6 +46,10 @@ class TestResultObserver implements ResultObserver {
             mErrorString.append(name);
             mErrorString.append("\tError: ");
             mErrorString.append(errorMessage);
+            if (throwable != null) {
+                mErrorString.append("\n");
+                throwable.printStackTrace(new PrintWriter(mErrorString));
+            }
         } else if (failures == 101) {
             mErrorString.append("\nMore than 100 failures, aborting test.");
             finalizeErrorString();
@@ -54,7 +61,7 @@ class TestResultObserver implements ResultObserver {
         ClassLoader classLoader = getClass().getClassLoader();
         mErrorString.append("\nClassLoader hierarchy\n");
         while (classLoader != null) {
-            mErrorString.append("    ").append(classLoader).append("\n");
+            mErrorString.append("    ").append(classLoader.toString()).append("\n");
             classLoader = classLoader.getParent();
         }
     }
@@ -64,6 +71,5 @@ class TestResultObserver implements ResultObserver {
             finalizeErrorString();
             Assert.fail(mErrorString.toString());
         }
-
     }
 }

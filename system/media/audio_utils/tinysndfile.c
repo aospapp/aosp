@@ -299,7 +299,7 @@ static SNDFILE *sf_open_write(const char *path, SF_INFO *info)
     int sub = info->format & SF_FORMAT_SUBMASK;
     if (!(
             (info->samplerate > 0) &&
-            (info->channels > 0 && info->channels <= FCC_8) &&
+            (info->channels > 0 && info->channels <= FCC_LIMIT) &&
             ((info->format & SF_FORMAT_TYPEMASK) == SF_FORMAT_WAV) &&
             (sub == SF_FORMAT_PCM_16 || sub == SF_FORMAT_PCM_U8 || sub == SF_FORMAT_FLOAT ||
                 sub == SF_FORMAT_PCM_24 || sub == SF_FORMAT_PCM_32)

@@ -19,79 +19,121 @@ from acts_contrib.test_utils.tel.tel_defines import OverrideNetworkContainer
 from acts_contrib.test_utils.tel.tel_defines import DisplayInfoContainer
 from acts_contrib.test_utils.tel.tel_defines import EventDisplayInfoChanged
 
-def is_current_network_5g_nsa(ad, nsa_mmwave=False, timeout=30):
+def is_current_network_5g_nsa(ad, sub_id = None, mmwave = None, timeout=30):
     """Verifies 5G NSA override network type
     Args:
         ad: android device object.
-        nsa_mmwave: If true, check the band of NSA network is mmWave. Default is to check sub-6.
+        sub_id: The target SIM for querying.
+        mmwave: True to detect 5G millimeter wave, False to detect sub-6,
+            None to detect both.
         timeout: max time to wait for event.
+
     Returns:
         True: if data is on nsa5g NSA
         False: if data is not on nsa5g NSA
     """
-    ad.ed.clear_events(EventDisplayInfoChanged)
-    ad.droid.telephonyStartTrackingDisplayInfoChange()
-    nsa_band = OverrideNetworkContainer.OVERRIDE_NETWORK_TYPE_NR_NSA
-    if nsa_mmwave:
-        nsa_band = OverrideNetworkContainer.OVERRIDE_NETWORK_TYPE_NR_MMWAVE
-    try:
-        event = ad.ed.wait_for_event(
-                EventDisplayInfoChanged,
-                ad.ed.is_event_match,
-                timeout=timeout,
-                field=DisplayInfoContainer.OVERRIDE,
-                value=nsa_band)
-        ad.log.info("Got expected event %s", event)
-        return True
-    except Empty:
-        ad.log.info("No event for display info change")
-        return False
-    finally:
-        ad.droid.telephonyStopTrackingDisplayInfoChange()
-    return None
+    sub_id = sub_id if sub_id else ad.droid.subscriptionGetDefaultDataSubId()
+
+    def _nsa_display_monitor(ad, sub_id, mmwave, timeout):
+        ad.ed.clear_events(EventDisplayInfoChanged)
+        ad.droid.telephonyStartTrackingDisplayInfoChangeForSubscription(sub_id)
+        if mmwave:
+            nsa_band = OverrideNetworkContainer.OVERRIDE_NETWORK_TYPE_NR_MMWAVE
+        else:
+            nsa_band = OverrideNetworkContainer.OVERRIDE_NETWORK_TYPE_NR_NSA
+        try:
+            event = ad.ed.wait_for_event(
+                    EventDisplayInfoChanged,
+                    ad.ed.is_event_match,
+                    timeout=timeout,
+                    field=DisplayInfoContainer.OVERRIDE,
+                    value=nsa_band)
+            ad.log.info("Got expected event %s", event)
+            return True
+        except Empty:
+            ad.log.info("No event for display info change with <%s>", nsa_band)
+            ad.screenshot("5g_nsa_icon_checking")
+            return False
+        finally:
+            ad.droid.telephonyStopTrackingServiceStateChangeForSubscription(
+                sub_id)
+
+    if mmwave is None:
+        return _nsa_display_monitor(
+            ad, sub_id, mmwave=False, timeout=timeout) or _nsa_display_monitor(
+            ad, sub_id, mmwave=True, timeout=timeout)
+    else:
+        return _nsa_display_monitor(ad, sub_id, mmwave, timeout)
 
 
-def is_current_network_5g_nsa_for_subscription(ad, nsa_mmwave=False, timeout=30, sub_id=None):
-    """Verifies 5G NSA override network type for subscription id.
-    Args:
-        ad: android device object.
-        nsa_mmwave: If true, check the band of NSA network is mmWave. Default is to check sub-6.
-        timeout: max time to wait for event.
-        sub_id: subscription id.
-    Returns:
-        True: if data is on nsa5g NSA
-        False: if data is not on nsa5g NSA
-    """
-    if not sub_id:
-        return is_current_network_5g_nsa(ad, nsa_mmwave=nsa_mmwave)
-
-    voice_sub_id_changed = False
-    current_sub_id = ad.droid.subscriptionGetDefaultVoiceSubId()
-    if current_sub_id != sub_id:
-        ad.droid.subscriptionSetDefaultVoiceSubId(sub_id)
-        voice_sub_id_changed = True
-
-    result = is_current_network_5g_nsa(ad, nsa_mmwave=nsa_mmwave)
-
-    if voice_sub_id_changed:
-        ad.droid.subscriptionSetDefaultVoiceSubId(current_sub_id)
-
-    return result
-
-def is_current_network_5g_sa(ad):
+def is_current_network_5g_sa(ad, sub_id = None, mmwave = None):
     """Verifies 5G SA override network type
 
     Args:
         ad: android device object.
+        sub_id: The target SIM for querying.
+        mmwave: True to detect 5G millimeter wave, False to detect sub-6,
+            None to detect both.
 
     Returns:
         True: if data is on 5g SA
         False: if data is not on 5g SA
     """
-    network_connected = ad.droid.telephonyGetCurrentDataNetworkType()
-    if network_connected == 'NR':
-        ad.log.debug("Network is currently connected to %s", network_connected)
-        return True
-    else:
-        ad.log.error("Network is currently connected to %s, Expected on NR", network_connected)
+    sub_id = sub_id if sub_id else ad.droid.subscriptionGetDefaultDataSubId()
+    current_rat = ad.droid.telephonyGetCurrentDataNetworkTypeForSubscription(
+        sub_id)
+    # TODO(richardwychang): check SA MMWAVE when function ready.
+    sa_type = ['NR',]
+    if mmwave is None:
+        if current_rat in sa_type:
+            ad.log.debug("Network is currently connected to %s", current_rat)
+            return True
+        else:
+            ad.log.error(
+                "Network is currently connected to %s, Expected on %s",
+                current_rat, sa_type)
+            ad.screenshot("5g_sa_icon_checking")
+            return False
+    elif mmwave:
+        ad.log.error("SA MMWAVE currently not support.")
         return False
+    else:
+        if current_rat == 'NR':
+            ad.log.debug("Network is currently connected to %s", current_rat)
+            return True
+        else:
+            ad.log.error(
+                "Network is currently connected to %s, Expected on NR",
+                current_rat)
+            ad.screenshot("5g_sa_icon_checking")
+            return False
+
+
+def is_current_network_5g(ad, sub_id = None, nr_type = None, mmwave = None,
+                          timeout = 30):
+    """Verifies 5G override network type
+
+    Args:
+        ad: android device object
+        sub_id: The target SIM for querying.
+        nr_type: 'sa' for 5G standalone, 'nsa' for 5G non-standalone.
+        mmwave: True to detect 5G millimeter wave, False to detect sub-6,
+            None to detect both.
+        timeout: max time to wait for event.
+
+    Returns:
+        True: if data is on 5G regardless of SA or NSA
+        False: if data is not on 5G refardless of SA or NSA
+    """
+    sub_id = sub_id if sub_id else ad.droid.subscriptionGetDefaultDataSubId()
+
+    if nr_type == 'nsa':
+        return is_current_network_5g_nsa(
+            ad, sub_id=sub_id, mmwave=mmwave, timeout=timeout)
+    elif nr_type == 'sa':
+        return is_current_network_5g_sa(ad, sub_id=sub_id, mmwave=mmwave)
+    else:
+        return is_current_network_5g_nsa(
+            ad, sub_id=sub_id, mmwave=mmwave,
+            timeout=timeout) or is_current_network_5g_sa(
+                ad, sub_id=sub_id, mmwave=mmwave)

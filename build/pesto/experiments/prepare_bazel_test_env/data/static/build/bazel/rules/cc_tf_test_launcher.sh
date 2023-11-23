@@ -17,7 +17,7 @@ shift
 TEST_PATH=$1
 shift
 
-if [ $1 != "" ] && [ $1 == "--host" ]; then
+if [ "$1" == "--host" ]; then
   HOST_ARGS=(-n --prioritize-host-config --skip-host-arch-check)
   shift
 fi

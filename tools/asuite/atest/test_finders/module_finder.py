@@ -20,12 +20,15 @@ Module Finder class.
 
 import logging
 import os
+import time
 
 import atest_configs
 import atest_error
 import atest_utils
 import constants
 
+from atest_enum import DetectType
+from metrics import metrics
 from test_finders import test_info
 from test_finders import test_finder_base
 from test_finders import test_finder_utils
@@ -143,14 +146,21 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         test.build_targets.add(test.test_name)
         return test
 
-    def _update_to_robolectric_test_info(self, test):
-        """Update the fields for a robolectric test.
+    def _update_legacy_robolectric_test_info(self, test):
+        """Update the fields for a legacy robolectric test.
+
+        This method is updating test_name when the given is a legacy robolectric
+        test, and assigning Robolectric Runner for it.
+
+        e.g. WallPaperPicker2RoboTests is a legacy robotest, and the test_name
+        will become RunWallPaperPicker2RoboTests and run it with Robolectric
+        Runner.
 
         Args:
-          test: TestInfo to be updated with robolectric fields.
+            test: TestInfo to be updated with robolectric fields.
 
         Returns:
-          TestInfo with robolectric fields.
+            TestInfo with updated robolectric fields.
         """
         test.test_runner = self._ROBOLECTRIC_RUNNER
         test.test_name = self.module_info.get_robolectric_test_name(test.test_name)
@@ -179,8 +189,14 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         # Check if this is only a vts10 module.
         if self._is_vts_module(test.test_name):
             return self._update_to_vts_test_info(test)
-        if self.module_info.is_robolectric_test(test.test_name):
-            return self._update_to_robolectric_test_info(test)
+        test.robo_type = self.module_info.get_robolectric_type(test.test_name)
+        if test.robo_type:
+            test.install_locations = {constants.DEVICELESS_TEST}
+            if test.robo_type == constants.ROBOTYPE_MODERN:
+                test.build_targets.add(test.test_name)
+                return test
+            if test.robo_type == constants.ROBOTYPE_LEGACY:
+                return self._update_legacy_robolectric_test_info(test)
         rel_config = test.data[constants.TI_REL_CONFIG]
         test.build_targets = self._get_build_targets(module_name, rel_config)
         # For device side java test, it will use
@@ -188,7 +204,9 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         # cts-dalvik-device-test-runner.jar
         if self.module_info.is_auto_gen_test_config(module_name):
             if constants.MODULE_CLASS_JAVA_LIBRARIES in test.module_class:
-                test.build_targets.update(test_finder_utils.DALVIK_TEST_DEPS)
+                for dalvik_dep in test_finder_utils.DALVIK_TEST_DEPS:
+                    if self.module_info.is_module(dalvik_dep):
+                        test.build_targets.add(dalvik_dep)
         # Update test name if the test belong to extra config which means it's
         # test config name is not the same as module name. For extra config, it
         # index will be greater or equal to 1.
@@ -237,6 +255,11 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         # allow excluding MODULES-IN-* and prevent from missing build targets.
         if module_name and self.module_info.is_module(module_name):
             targets.add(module_name)
+        # If it's a MTS test, add cts-tradefed as test dependency.
+        if constants.MTS_SUITE in self.module_info.get_module_info(
+            module_name).get(constants.MODULE_COMPATIBILITY_SUITES, []):
+            if self.module_info.is_module(constants.CTS_JAR):
+                targets.add(constants.CTS_JAR)
         return targets
 
     def _get_module_test_config(self, module_name, rel_config=None):
@@ -294,10 +317,12 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         """
         _, file_name = test_finder_utils.get_dir_path_and_filename(path)
         ti_filter = frozenset()
-        if kwargs.get('is_native_test', None):
+        if os.path.isfile(path) and kwargs.get('is_native_test', None):
+            class_info = test_finder_utils.get_cc_class_info(path)
             ti_filter = frozenset([test_info.TestFilter(
                 test_finder_utils.get_cc_filter(
-                    kwargs.get('class_name', '*'), methods), frozenset())])
+                    class_info, kwargs.get('class_name', '*'), methods),
+                frozenset())])
         # Path to java file.
         elif file_name and constants.JAVA_EXT_RE.match(file_name):
             full_class_name = test_finder_utils.get_fully_qualified_class_name(
@@ -318,19 +343,12 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             if not test_finder_utils.has_cc_class(path):
                 raise atest_error.MissingCCTestCaseError(
                     "Can't find CC class in %s" % path)
-            # Extract class_name, method_name and parameterized_class from
-            # the given cc path.
-            file_classes, _, file_para_classes = (
-                test_finder_utils.get_cc_test_classes_methods(path))
+            class_info = test_finder_utils.get_cc_class_info(path)
             cc_filters = []
-            # When instantiate tests found, recompose the class name in
-            # $(InstantiationName)/$(ClassName)
-            for file_class in file_classes:
-                if file_class in file_para_classes:
-                    file_class = '*/%s' % file_class
+            for classname, _ in class_info.items():
                 cc_filters.append(
                     test_info.TestFilter(
-                        test_finder_utils.get_cc_filter(file_class, methods),
+                        test_finder_utils.get_cc_filter(class_info, classname, methods),
                         frozenset()))
             ti_filter = frozenset(cc_filters)
         # If input path is a folder and have class_name information.
@@ -783,6 +801,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         # Check if class_name is prepended with file name. If so, trim the
         # prefix and keep only the class_name.
         if '.' in class_name:
+            # (b/202764540) Strip prefixes of a cc class.
             # Assume the class name has a format of file_name.class_name
             class_name = class_name[class_name.rindex('.')+1:]
             logging.info('Search with updated class name: %s', class_name)
@@ -822,6 +841,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         """
         atest_utils.colorful_print('\nSearching for similar module names using '
                                    'fuzzy search...', constants.CYAN)
+        search_start = time.time()
         testable_modules = sorted(self.module_info.get_testable_modules(),
                                   key=len)
         lower_bound = len(user_input) - ld_range
@@ -837,6 +857,11 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             testable_modules_with_ld.append(
                 [test_finder_utils.get_levenshtein_distance(
                     user_input, module_name), module_name])
+        search_duration = time.time() - search_start
+        logging.debug('Fuzzy search took %ss', search_duration)
+        metrics.LocalDetectEvent(
+            detect_type=DetectType.FUZZY_SEARCH_TIME,
+            result=round(search_duration))
         return testable_modules_with_ld
 
     def get_fuzzy_searching_results(self, user_input):
@@ -881,6 +906,9 @@ class ModuleFinder(test_finder_base.TestFinderBase):
                               constants.TI_FILTER: frozenset()},
                         compatibility_suites=mod_info.get(
                             constants.MODULE_COMPATIBILITY_SUITES, []))
+                    test_config_path = os.path.join(self.root_dir, test_config)
+                    if test_finder_utils.need_aggregate_metrics_result(test_config_path):
+                        tinfo.aggregate_metrics_result = True
                     if tinfo:
                         # There should have only one test_config with the same
                         # name in source tree.
@@ -904,3 +932,10 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         if atest_utils.is_build_file(path):
             return False
         return True
+
+class MainlineModuleFinder(ModuleFinder):
+    """Mainline Module finder class."""
+    NAME = 'MAINLINE_MODULE'
+
+    def __init__(self, module_info=None):
+        super().__init__()

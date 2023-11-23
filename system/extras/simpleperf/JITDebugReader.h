@@ -162,13 +162,10 @@ class JITDebugReader {
     bool initialized = false;
     bool died = false;
     bool is_64bit = false;
-    // The jit descriptor and dex descriptor can be read in one process_vm_readv() call.
-    uint64_t descriptors_addr = 0;
-    uint64_t descriptors_size = 0;
-    // offset relative to descriptors_addr
-    uint64_t jit_descriptor_offset = 0;
-    // offset relative to descriptors_addr
-    uint64_t dex_descriptor_offset = 0;
+    // remote addr of jit descriptor
+    uint64_t jit_descriptor_addr = 0;
+    // remote addr of dex descriptor
+    uint64_t dex_descriptor_addr = 0;
 
     // The state we know about the remote jit debug descriptor.
     Descriptor last_jit_descriptor;
@@ -181,10 +178,9 @@ class JITDebugReader {
 
   // The location of descriptors in libart.so.
   struct DescriptorsLocation {
-    uint64_t relative_addr = 0;
-    uint64_t size = 0;
-    uint64_t jit_descriptor_offset = 0;
-    uint64_t dex_descriptor_offset = 0;
+    bool is_64bit = false;
+    uint64_t jit_descriptor_addr = 0;
+    uint64_t dex_descriptor_addr = 0;
   };
 
   bool ReadProcess(Process& process, std::vector<JITDebugInfo>* debug_info);
@@ -192,12 +188,14 @@ class JITDebugReader {
                      std::vector<JITDebugInfo>* debug_info);
   bool IsDescriptorChanged(Process& process, Descriptor& old_descriptor);
   bool InitializeProcess(Process& process);
-  const DescriptorsLocation* GetDescriptorsLocation(const std::string& art_lib_path, bool is_64bit);
+  const DescriptorsLocation* GetDescriptorsLocation(const std::string& art_lib_path);
   bool ReadRemoteMem(Process& process, uint64_t remote_addr, uint64_t size, void* data);
   bool ReadDescriptors(Process& process, Descriptor* jit_descriptor, Descriptor* dex_descriptor);
-  bool LoadDescriptor(bool is_64bit, const char* data, Descriptor* descriptor);
   template <typename DescriptorT>
-  bool LoadDescriptorImpl(const char* data, Descriptor* descriptor);
+  bool ReadDescriptorsImpl(Process& process, Descriptor* jit_descriptor,
+                           Descriptor* dex_descriptor);
+  template <typename DescriptorT>
+  bool ParseDescriptor(const DescriptorT& raw_descriptor, Descriptor* descriptor);
 
   bool ReadNewCodeEntries(Process& process, const Descriptor& descriptor,
                           uint64_t last_action_timestamp, uint32_t read_entry_limit,
@@ -226,7 +224,6 @@ class JITDebugReader {
   // All monitored processes
   std::unordered_map<pid_t, Process> processes_;
   std::unordered_map<std::string, DescriptorsLocation> descriptors_location_cache_;
-  std::vector<char> descriptors_buf_;
 
   std::priority_queue<JITDebugInfo, std::vector<JITDebugInfo>, std::greater<JITDebugInfo>>
       debug_info_q_;

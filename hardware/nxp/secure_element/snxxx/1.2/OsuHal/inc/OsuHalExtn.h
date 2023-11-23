@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright 2020 NXP
+ *  Copyright 2020-2021 NXP
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -56,9 +56,9 @@ class OsuHalExtn {
     INIT,
     OPENBASIC,
     OPENLOGICAL,
+    GETATR,
     TRANSMIT,
     CLOSE,
-    RESET,
   } SecureElementAPI;
 
   static OsuHalExtn& getInstance();
@@ -75,6 +75,7 @@ class OsuHalExtn {
   bool isAppOSUMode;
   bool isJcopOSUMode;
   static const hidl_vec<uint8_t> osu_aid[10];
-  OsuApduMode checkTransmit(uint8_t* input, size_t length, uint32_t* outLength);
+  OsuApduMode checkTransmit(uint8_t* input, uint32_t* outLength,
+                            const hidl_vec<uint8_t>& data);
   bool isOsuMode();
 };

@@ -19,7 +19,7 @@
     package="android.appenumeration.queries.nothing.receives.uri">
     <application>
         <uses-library android:name="android.test.runner" />
-        <activity android:name="android.appenumeration.cts.query.TestActivity"
+        <activity android:name="android.appenumeration.cts.TestActivity"
                   android:exported="true" />
     </application>
 </manifest>

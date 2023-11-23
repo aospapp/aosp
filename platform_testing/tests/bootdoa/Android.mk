@@ -15,3 +15,4 @@
 
 LOCAL_PATH:= $(call my-dir)
 $(call dist-for-goals, droidcore, $(LOCAL_PATH)/fatal_allowlist)
+$(call declare-1p-target,$(LOCAL_PATH)/fatal_allowlist,platform_testing)

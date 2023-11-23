@@ -19,12 +19,13 @@ package com.android.server.wm.flicker.traces.windowmanager
 import com.android.server.wm.flicker.assertions.Assertion
 import com.android.server.wm.flicker.assertions.FlickerSubject
 import com.android.server.wm.flicker.traces.FlickerFailureStrategy
-import com.android.server.wm.flicker.traces.RegionSubject
+import com.android.server.wm.flicker.traces.region.RegionSubject
 import com.android.server.wm.traces.common.windowmanager.windows.WindowState
 import com.google.common.truth.Fact
 import com.google.common.truth.FailureMetadata
 import com.google.common.truth.FailureStrategy
 import com.google.common.truth.StandardSubjectBuilder
+import com.google.common.truth.Subject.Factory
 
 /**
  * Truth subject for [WindowState] objects, used to make assertions over behaviors that occur on a
@@ -56,7 +57,7 @@ class WindowStateSubject private constructor(
     val isVisible: Boolean get() = windowState?.isVisible == true
     val isInvisible: Boolean get() = windowState?.isVisible == false
     val name: String get() = windowState?.name ?: windowTitle ?: ""
-    val frame: RegionSubject get() = RegionSubject.assertThat(windowState?.frame, this)
+    val frame: RegionSubject get() = RegionSubject.assertThat(windowState?.frame, this, timestamp)
 
     override val selfFacts = listOf(
         Fact.fact("Window title", "${windowState?.title ?: windowTitle}"))
@@ -67,11 +68,6 @@ class WindowStateSubject private constructor(
     operator fun invoke(assertion: Assertion<WindowState>): WindowStateSubject = apply {
         windowState ?: return exists()
         assertion(this.windowState)
-    }
-
-    /** {@inheritDoc} */
-    override fun clone(): FlickerSubject {
-        return WindowStateSubject(fm, parent, timestamp, windowState, windowTitle)
     }
 
     /**

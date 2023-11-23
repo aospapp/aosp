@@ -148,6 +148,17 @@
             </intent-filter>
         </activity>
 
+        <activity android:name="android.view.cts.SDRTestActivity"
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar"
+            android:screenOrientation="locked"
+            android:label="SDRTestActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST"/>
+            </intent-filter>
+        </activity>
+
         <activity android:name="android.view.cts.TextureViewCameraActivity"
              android:screenOrientation="locked"
              android:exported="true">
@@ -411,7 +422,7 @@
             </intent-filter>
         </activity>
 
-        <activity android:name="android.view.cts.InputDeviceKeyLayoutMapTestActivity"
+        <activity android:name="android.view.cts.input.InputDeviceKeyLayoutMapTestActivity"
              android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
@@ -461,12 +472,34 @@
             </intent-filter>
         </activity>
 
+        <activity android:name="android.view.cts.InputQueueCtsActivity"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+            </intent-filter>
+        </activity>
+
         <!-- Overrides the activity declaration in AndroidX test library to remove the starting
              animation. -->
         <activity
             android:name="androidx.test.core.app.InstrumentationActivityInvoker$BootstrapActivity"
             tools:replace="android:theme"
             android:theme="@style/WhiteBackgroundTheme" />
+
+        <activity android:name="android.view.cts.OnBackInvokedDispatcherTestActivity"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST"/>
+            </intent-filter>
+        </activity>
+
+        <activity android:name="android.view.cts.AutoHandwritingActivity"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+            </intent-filter>
+        </activity>
 
         <service android:name="android.view.textclassifier.cts.CtsTextClassifierService"
              android:exported="true"

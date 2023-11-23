@@ -50,17 +50,17 @@ from acts_contrib.test_utils.car.car_telecom_utils import wait_for_dialing
 from acts_contrib.test_utils.car.car_telecom_utils import wait_for_not_in_call
 from acts_contrib.test_utils.car.car_telecom_utils import wait_for_ringing
 from acts_contrib.test_utils.tel.tel_test_utils import get_phone_number
-from acts_contrib.test_utils.tel.tel_test_utils import hangup_call
-from acts_contrib.test_utils.tel.tel_test_utils import initiate_call
-from acts_contrib.test_utils.tel.tel_test_utils import run_multithread_func
+from acts_contrib.test_utils.tel.tel_voice_utils import hangup_call
+from acts_contrib.test_utils.tel.tel_voice_utils import initiate_call
 from acts_contrib.test_utils.tel.tel_test_utils import setup_droid_properties
-from acts_contrib.test_utils.tel.tel_test_utils import wait_and_answer_call
+from acts_contrib.test_utils.tel.tel_voice_utils import wait_and_answer_call
 from acts_contrib.test_utils.wifi.wifi_power_test_utils import get_phone_ip
 from acts_contrib.test_utils.wifi.wifi_test_utils import reset_wifi
 from acts_contrib.test_utils.wifi.wifi_test_utils import wifi_connect
 from acts_contrib.test_utils.wifi.wifi_test_utils import wifi_test_device_init
 from acts_contrib.test_utils.wifi.wifi_test_utils import wifi_toggle_state
 from acts.utils import exe_cmd
+from acts.libs.utils.multithread import run_multithread_func
 from bokeh.layouts import column
 from bokeh.models import tools as bokeh_tools
 from bokeh.plotting import figure, output_file, save

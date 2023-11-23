@@ -16,15 +16,33 @@
 
 package android.keystore.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import android.content.Context;
+import android.keystore.cts.util.TestUtils;
 import android.security.KeyPairGeneratorSpec;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyInfo;
 import android.security.keystore.KeyProperties;
-import android.test.AndroidTestCase;
 import android.test.MoreAsserts;
 import android.util.Log;
 
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
+
 import com.android.internal.util.HexDump;
+
+import libcore.java.security.TestKeyStore;
+import libcore.javax.net.ssl.TestKeyManager;
+import libcore.javax.net.ssl.TestSSLContext;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.math.BigInteger;
 import java.net.InetAddress;
@@ -38,10 +56,10 @@ import java.security.NoSuchProviderException;
 import java.security.Principal;
 import java.security.PrivateKey;
 import java.security.Provider;
+import java.security.Provider.Service;
 import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.Security;
-import java.security.Provider.Service;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.ECKey;
@@ -51,6 +69,7 @@ import java.security.spec.AlgorithmParameterSpec;
 import java.security.spec.ECGenParameterSpec;
 import java.security.spec.ECParameterSpec;
 import java.security.spec.RSAKeyGenParameterSpec;
+import java.text.DecimalFormatSymbols;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -65,7 +84,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.text.DecimalFormatSymbols;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.SSLContext;
@@ -75,11 +93,11 @@ import javax.net.ssl.SSLSocket;
 import javax.net.ssl.X509ExtendedKeyManager;
 import javax.security.auth.x500.X500Principal;
 
-import libcore.java.security.TestKeyStore;
-import libcore.javax.net.ssl.TestKeyManager;
-import libcore.javax.net.ssl.TestSSLContext;
+@RunWith(AndroidJUnit4.class)
+public class KeyPairGeneratorTest {
 
-public class KeyPairGeneratorTest extends AndroidTestCase {
+    private static final String TAG = "KeyPairGeneratorTest";
+
     private KeyStore mKeyStore;
 
     private CountingSecureRandom mRng;
@@ -127,14 +145,18 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
         DEFAULT_KEY_SIZES.put("RSA", 2048);
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    private Context getContext() {
+        return InstrumentationRegistry.getInstrumentation().getTargetContext();
+    }
+
+    @Before
+    public void setUp() throws Exception {
         mRng = new CountingSecureRandom();
         mKeyStore = KeyStore.getInstance("AndroidKeyStore");
         mKeyStore.load(null, null);
     }
 
+    @Test
     public void testAlgorithmList() {
         // Assert that Android Keystore Provider exposes exactly the expected KeyPairGenerator
         // algorithms. We don't care whether the algorithms are exposed via aliases, as long as
@@ -147,6 +169,11 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
         Set<String> actualAlgsLowerCase = new HashSet<String>();
         Set<String> expectedAlgsLowerCase = new HashSet<String>(
                 Arrays.asList(TestUtils.toLowerCase(EXPECTED_ALGORITHMS)));
+
+        // XDH is also a supported algorithm, but not available for other tests as the keys
+        // generated with it have more limited set of uses.
+        expectedAlgsLowerCase.add("xdh");
+
         for (Service service : services) {
             if ("KeyPairGenerator".equalsIgnoreCase(service.getType())) {
                 String algLowerCase = service.getAlgorithm().toLowerCase(Locale.US);
@@ -158,6 +185,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
                 expectedAlgsLowerCase.toArray(new String[0]));
     }
 
+    @Test
     public void testInitialize_LegacySpec() throws Exception {
         @SuppressWarnings("deprecation")
         KeyPairGeneratorSpec spec = new KeyPairGeneratorSpec.Builder(getContext())
@@ -174,6 +202,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
         getEcGenerator().initialize(spec, new SecureRandom());
     }
 
+    @Test
     public void testInitialize_ModernSpec() throws Exception {
         KeyGenParameterSpec spec = new KeyGenParameterSpec.Builder(
                 TEST_ALIAS_1,
@@ -186,6 +215,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
         getEcGenerator().initialize(spec, new SecureRandom());
     }
 
+    @Test
     public void testInitialize_KeySizeOnly() throws Exception {
         try {
             getRsaGenerator().initialize(1024);
@@ -200,6 +230,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitialize_KeySizeAndSecureRandomOnly()
             throws Exception {
         try {
@@ -215,6 +246,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testDefaultKeySize() throws Exception {
         for (String algorithm : EXPECTED_ALGORITHMS) {
             try {
@@ -230,6 +262,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitWithUnknownBlockModeFails() {
         for (String algorithm : EXPECTED_ALGORITHMS) {
             try {
@@ -244,6 +277,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitWithUnknownEncryptionPaddingFails() {
         for (String algorithm : EXPECTED_ALGORITHMS) {
             try {
@@ -258,6 +292,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitWithUnknownSignaturePaddingFails() {
         for (String algorithm : EXPECTED_ALGORITHMS) {
             try {
@@ -272,6 +307,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitWithUnknownDigestFails() {
         for (String algorithm : EXPECTED_ALGORITHMS) {
             try {
@@ -286,6 +322,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitRandomizedEncryptionRequiredButViolatedFails() throws Exception {
         for (String algorithm : EXPECTED_ALGORITHMS) {
             try {
@@ -303,6 +340,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testGenerateHonorsRequestedAuthorizations() throws Exception {
         testGenerateHonorsRequestedAuthorizationsHelper(false /* useStrongbox */);
         if (TestUtils.hasStrongBox(getContext())) {
@@ -373,6 +411,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
     }
 
     @SuppressWarnings("deprecation")
+    @Test
     public void testGenerate_EC_LegacySpec() throws Exception {
         // There are three legacy ways to generate an EC key pair using Android Keystore
         // KeyPairGenerator:
@@ -522,6 +561,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
         MoreAsserts.assertEmpty(Arrays.asList(keyInfo.getEncryptionPaddings()));
     }
 
+    @Test
     public void testGenerate_RSA_LegacySpec() throws Exception {
         KeyPairGenerator generator = getRsaGenerator();
         generator.initialize(new KeyPairGeneratorSpec.Builder(getContext())
@@ -576,6 +616,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
                 KeyProperties.SIGNATURE_PADDING_RSA_PKCS1);
     }
 
+    @Test
     public void testGenerate_ReplacesOldEntryWithSameAlias() throws Exception {
         replacesOldEntryWithSameAliasHelper(false /* useStrongbox */);
         if (TestUtils.hasStrongBox(getContext())) {
@@ -641,6 +682,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testGenerate_DoesNotReplaceOtherEntries() throws Exception {
         doesNotReplaceOtherEntriesHelper(false /* useStrongbox */);
         if (TestUtils.hasStrongBox(getContext())) {
@@ -714,6 +756,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
                 NOW_PLUS_10_YEARS);
     }
 
+    @Test
     public void testGenerate_EC_Different_Keys() throws Exception {
         testGenerate_EC_Different_KeysHelper(false /* useStrongbox */);
         if (TestUtils.hasStrongBox(getContext())) {
@@ -743,6 +786,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testGenerate_RSA_Different_Keys() throws Exception {
         testGenerate_RSA_Different_KeysHelper(false /* useStrongbox */);
         if (TestUtils.hasStrongBox(getContext())) {
@@ -772,6 +816,131 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
         }
     }
 
+    @Test
+    public void testRSA_Key_Quality() throws NoSuchAlgorithmException, NoSuchProviderException,
+            InvalidAlgorithmParameterException {
+        final int numKeysToGenerate = 10;
+        testRSA_Key_QualityHelper(numKeysToGenerate, false /* useStrongbox */);
+        if (TestUtils.hasStrongBox(getContext())) {
+            testRSA_Key_QualityHelper(numKeysToGenerate, true /* useStrongbox */);
+        }
+    }
+
+    private void testRSA_Key_QualityHelper(int numKeysToGenerate, boolean useStrongbox)
+            throws NoSuchAlgorithmException, NoSuchProviderException,
+                    InvalidAlgorithmParameterException {
+        Log.w(TAG, "Starting key quality testing");
+        List<PublicKey> publicKeys = getPublicKeys(numKeysToGenerate, useStrongbox);
+
+        testRSA_Key_Quality_All_DifferentHelper(publicKeys);
+        testRSA_Key_Quality_Not_Too_Many_ZerosHelper(publicKeys);
+        // Run the GCD test after verifying all keys are distinct. (Identical keys have a trivial
+        // common divisor greater than one.)
+        testRSA_Key_Quality_Not_Perfect_SquareHelper(publicKeys);
+        testRSA_Key_Quality_Public_Modulus_GCD_Is_One_Helper(publicKeys);
+    }
+
+    private void testRSA_Key_Quality_Not_Perfect_SquareHelper(Iterable<PublicKey> publicKeys) {
+        for (PublicKey publicKey : publicKeys) {
+            RSAPublicKey rsaPublicKey = (RSAPublicKey) publicKey;
+            BigInteger publicModulus = rsaPublicKey.getModulus();
+            BigInteger[] sqrtAndRemainder = publicModulus.sqrtAndRemainder();
+            BigInteger sqrt = sqrtAndRemainder[0];
+            BigInteger remainder = sqrtAndRemainder[1];
+            if (remainder.equals(BigInteger.ZERO)) {
+                fail(
+                        "RSA key public modulus is perfect square. "
+                                + HexDump.dumpHexString(publicKey.getEncoded()));
+            }
+        }
+    }
+
+    private void testRSA_Key_Quality_Public_Modulus_GCD_Is_One_Helper(
+            Iterable<PublicKey> publicKeys) {
+        // Inspired by Heninger et al 2012 ( https://factorable.net/paper.html ).
+
+        // First, compute the product of all public moduli.
+        BigInteger allProduct = BigInteger.ONE;
+        for (PublicKey publicKey : publicKeys) {
+            RSAPublicKey rsaPublicKey = (RSAPublicKey) publicKey;
+            BigInteger publicModulus = rsaPublicKey.getModulus();
+            allProduct = allProduct.multiply(publicModulus);
+        }
+        // There are better batch GCD algorithms (eg Bernstein 2004
+        // (https://cr.yp.to/factorization/smoothparts-20040510.pdf)).
+        // Since we are dealing with a small set of keys, we just use BigInteger.gcd().
+        for (PublicKey publicKey : publicKeys) {
+            RSAPublicKey rsaPublicKey = (RSAPublicKey) publicKey;
+            BigInteger publicModulus = rsaPublicKey.getModulus();
+            BigInteger gcd = allProduct.divide(publicModulus).gcd(publicModulus);
+
+            if (!gcd.equals(BigInteger.ONE)) {
+                Log.i(TAG, "Common factor found");
+                Log.i(TAG, "Key: " + HexDump.dumpHexString(publicKey.getEncoded()));
+                Log.i(TAG, "GCD : " + gcd.toString(16));
+                fail(
+                        "RSA keys have shared prime factor. Key: "
+                                + HexDump.dumpHexString(publicKey.getEncoded())
+                                + " GCD: "
+                                + gcd.toString());
+            }
+        }
+    }
+
+    private List<PublicKey> getPublicKeys(int numKeysToGenerate, boolean useStrongbox)
+            throws NoSuchAlgorithmException, NoSuchProviderException,
+                    InvalidAlgorithmParameterException {
+        List<PublicKey> publicKeys = new ArrayList<PublicKey>();
+        KeyPairGenerator generator = getRsaGenerator();
+        for (int i = 0; i < numKeysToGenerate; i++) {
+            generator.initialize(
+                    new KeyGenParameterSpec.Builder(
+                                    "test" + Integer.toString(i), KeyProperties.PURPOSE_SIGN)
+                            .setIsStrongBoxBacked(useStrongbox)
+                            .build());
+            KeyPair kp = generator.generateKeyPair();
+            PublicKey pk = kp.getPublic();
+            publicKeys.add(pk);
+            Log.v(TAG, "Key generation round " + Integer.toString(i));
+        }
+        return publicKeys;
+    }
+
+    public void testRSA_Key_Quality_All_DifferentHelper(Iterable<PublicKey> publicKeys) {
+        Log.d(TAG, "Testing all keys different.");
+        Set<Integer> keyHashSet = new HashSet<Integer>();
+        for (PublicKey pk : publicKeys) {
+            int keyHash = java.util.Arrays.hashCode(pk.getEncoded());
+            if (keyHashSet.contains(keyHash)) {
+                fail(
+                        "The same RSA key was generated twice. Key: "
+                                + HexDump.dumpHexString(pk.getEncoded()));
+            }
+            keyHashSet.add(keyHash);
+        }
+    }
+
+    public void testRSA_Key_Quality_Not_Too_Many_ZerosHelper(Iterable<PublicKey> publicKeys) {
+        // For 256 random bytes, there is less than a 1 in 10^16 chance of there being 17
+        // or more zero bytes.
+        int maxZerosAllowed = 17;
+
+        for (PublicKey pk : publicKeys) {
+            byte[] keyBytes = pk.getEncoded();
+            int zeroCount = 0;
+            for (int i = 0; i < keyBytes.length; i++) {
+                if (keyBytes[i] == 0x00) {
+                    zeroCount++;
+                }
+            }
+            if (zeroCount >= maxZerosAllowed) {
+                fail("RSA public key has " + Integer.toString(zeroCount)
+                        + " zeros. Key: " + HexDump.dumpHexString(keyBytes));
+            }
+        }
+    }
+
+    @Test
     public void testGenerate_EC_ModernSpec_Defaults() throws Exception {
         testGenerate_EC_ModernSpec_DefaultsHelper(false /* useStrongbox */);
         if (TestUtils.hasStrongBox(getContext())) {
@@ -815,6 +984,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
         MoreAsserts.assertEmpty(Arrays.asList(keyInfo.getEncryptionPaddings()));
     }
 
+    @Test
     public void testGenerate_RSA_ModernSpec_Defaults() throws Exception {
         testGenerate_RSA_ModernSpec_DefaultsHelper(false /* useStrongbox */);
         if (TestUtils.hasStrongBox(getContext())) {
@@ -859,6 +1029,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
         MoreAsserts.assertEmpty(Arrays.asList(keyInfo.getEncryptionPaddings()));
     }
 
+    @Test
     public void testGenerate_EC_ModernSpec_AsCustomAsPossible() throws Exception {
         KeyPairGenerator generator = getEcGenerator();
         Date keyValidityStart = new Date(System.currentTimeMillis());
@@ -925,6 +1096,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
     // This is a reworking of the generic test to still be as custom as possible while
     // respecting the spec constraints.
     // Test fails until the resolution of b/113276806
+    @Test
     public void testGenerate_EC_ModernSpec_AsCustomAsPossibleStrongbox() throws Exception {
         if (!TestUtils.hasStrongBox(getContext())) {
             return;
@@ -991,6 +1163,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
         assertEquals(0, keyInfo.getUserAuthenticationValidityDurationSeconds());
     }
 
+    @Test
     public void testGenerate_RSA_ModernSpec_AsCustomAsPossible() throws Exception {
         KeyPairGenerator generator = getRsaGenerator();
         Date keyValidityStart = new Date(System.currentTimeMillis());
@@ -1076,6 +1249,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
     // This is a reworking of the generic test to still be as custom as possible while
     // respecting the spec constraints.
     // Test fails until the resolution of b/113276806
+    @Test
     public void testGenerate_RSA_ModernSpec_AsCustomAsPossibleStrongbox() throws Exception {
         if (!TestUtils.hasStrongBox(getContext())) {
             return;
@@ -1161,6 +1335,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
         assertEquals(0, keyInfo.getUserAuthenticationValidityDurationSeconds());
     }
 
+    @Test
     public void testGenerate_EC_ModernSpec_UsableForTLSPeerAuth() throws Exception {
         testGenerate_EC_ModernSpec_UsableForTLSPeerAuthHelper(false /* useStrongbox */);
         if (TestUtils.hasStrongBox(getContext())) {
@@ -1196,6 +1371,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
         assertKeyPairAndCertificateUsableForTLSPeerAuthentication(TEST_ALIAS_1);
     }
 
+    @Test
     public void testGenerate_RSA_ModernSpec_UsableForTLSPeerAuth() throws Exception {
         KeyPairGenerator generator = getRsaGenerator();
         generator.initialize(new KeyGenParameterSpec.Builder(
@@ -1240,6 +1416,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
     // currently be tested here because CTS does not require that secure lock screen is set up and
     // that at least one fingerprint is enrolled.
 
+    @Test
     public void testGenerate_EC_ModernSpec_KeyNotYetValid() throws Exception {
         testGenerate_EC_ModernSpec_KeyNotYetValidHelper(false /* useStrongbox */);
         if (TestUtils.hasStrongBox(getContext())) {
@@ -1272,6 +1449,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
         assertEquals(validityStart, keyInfo.getKeyValidityStart());
     }
 
+    @Test
     public void testGenerate_RSA_ModernSpec_KeyExpiredForOrigination() throws Exception {
         KeyPairGenerator generator = getRsaGenerator();
         Date originationEnd = new Date(System.currentTimeMillis() - DAY_IN_MILLIS);
@@ -1297,6 +1475,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
         assertEquals(originationEnd, keyInfo.getKeyValidityForOriginationEnd());
     }
 
+    @Test
     public void testGenerate_EC_ModernSpec_SupportedSizes() throws Exception {
         assertKeyGenUsingECSizeOnlyUsesCorrectCurve(224, ECCurves.NIST_P_224_SPEC);
         assertKeyGenUsingECSizeOnlyUsesCorrectCurve(256, ECCurves.NIST_P_256_SPEC);
@@ -1308,6 +1487,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
     }
 
     //TODO: Fix b/113108008 so this test will pass for strongbox.
+    @Test
     public void testGenerate_EC_ModernSpec_UnsupportedSizesRejected() throws Exception {
         for (int keySizeBits = 0; keySizeBits <= 1024; keySizeBits++) {
             testGenerate_EC_ModernSpec_UnsupportedSizesRejectedHelper(false, keySizeBits);
@@ -1346,6 +1526,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testGenerate_EC_ModernSpec_SupportedNamedCurves() throws Exception {
         assertKeyGenUsingECNamedCurveSupported("P-224", ECCurves.NIST_P_224_SPEC);
         assertKeyGenUsingECNamedCurveSupported("p-224", ECCurves.NIST_P_224_SPEC);
@@ -1379,6 +1560,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
         assertKeyGenUsingECNamedCurveSupported("SECP521R1", ECCurves.NIST_P_521_SPEC);
     }
 
+    @Test
     public void testGenerate_RSA_ModernSpec_SupportedSizes() throws Exception {
         assertKeyGenUsingRSASizeOnlySupported(512);
         assertKeyGenUsingRSASizeOnlySupported(768);
@@ -1396,6 +1578,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
                 2048, RSAKeyGenParameterSpec.F0));
     }
 
+    @Test
     public void testGenerate_RSA_IndCpaEnforced() throws Exception {
         testGenerate_RSA_IndCpaEnforcedHelper(false /* useStrongbox */);
         if (TestUtils.hasStrongBox(getContext())) {
@@ -1435,6 +1618,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
                         .build());
     }
 
+    @Test
     public void testGenerate_EC_IndCpaEnforced() throws Exception {
         testGenerate_EC_IndCpaEnforcedHelper(false /* useStrongbox */);
         if (TestUtils.hasStrongBox(getContext())) {
@@ -1467,6 +1651,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
     }
 
     // http://b/28384942
+    @Test
     public void testGenerateWithFarsiLocale() throws Exception {
         testGenerateWithFarsiLocaleHelper(false /* useStrongbox */);
         if (TestUtils.hasStrongBox(getContext())) {
@@ -1646,7 +1831,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
 
     private static void assertSelfSignedCertificateSignatureVerifies(Certificate certificate) {
         try {
-            Log.i("KeyPairGeneratorTest", HexDump.dumpHexString(certificate.getEncoded()));
+            Log.i(TAG, HexDump.dumpHexString(certificate.getEncoded()));
             certificate.verify(certificate.getPublicKey());
         } catch (Exception e) {
             throw new RuntimeException("Failed to verify self-signed certificate signature", e);

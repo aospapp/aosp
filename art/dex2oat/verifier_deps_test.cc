@@ -27,7 +27,6 @@
 #include "dex/dex_file-inl.h"
 #include "dex/dex_file_types.h"
 #include "dex/verification_results.h"
-#include "dex/verified_method.h"
 #include "driver/compiler_driver-inl.h"
 #include "driver/compiler_options.h"
 #include "handle_scope-inl.h"
@@ -47,7 +46,7 @@ class VerifierDepsCompilerCallbacks : public CompilerCallbacks {
       : CompilerCallbacks(CompilerCallbacks::CallbackMode::kCompileApp),
         deps_(nullptr) {}
 
-  void MethodVerified(verifier::MethodVerifier* verifier ATTRIBUTE_UNUSED) override {}
+  void AddUncompilableMethod(MethodReference ref ATTRIBUTE_UNUSED) override {}
   void ClassRejected(ClassReference ref ATTRIBUTE_UNUSED) override {}
 
   verifier::VerifierDeps* GetVerifierDeps() const override { return deps_; }
@@ -59,6 +58,10 @@ class VerifierDepsCompilerCallbacks : public CompilerCallbacks {
 
 class VerifierDepsTest : public CommonCompilerDriverTest {
  public:
+  VerifierDepsTest() {
+    this->use_boot_image_ = true;  // Make the Runtime creation cheaper.
+  }
+
   void SetUpRuntimeOptions(RuntimeOptions* options) override {
     CommonCompilerTest::SetUpRuntimeOptions(options);
     callbacks_.reset(new VerifierDepsCompilerCallbacks());
@@ -93,16 +96,8 @@ class VerifierDepsTest : public CommonCompilerDriverTest {
       verifier_deps_.reset(verifier_deps);
     }
     callbacks_->SetVerifierDeps(verifier_deps);
-    compiler_driver_->Verify(class_loader_, dex_files_, &timings, verification_results_.get());
+    compiler_driver_->Verify(class_loader_, dex_files_, &timings);
     callbacks_->SetVerifierDeps(nullptr);
-    // Clear entries in the verification results to avoid hitting a DCHECK that
-    // we always succeed inserting a new entry after verifying.
-    AtomicDexRefMap<MethodReference, const VerifiedMethod*>* map =
-        &verification_results_->atomic_verified_methods_;
-    map->Visit([](const DexFileReference& ref ATTRIBUTE_UNUSED, const VerifiedMethod* method) {
-      delete method;
-    });
-    map->ClearEntries();
   }
 
   void SetVerifierDeps(const std::vector<const DexFile*>& dex_files) {
@@ -124,9 +119,6 @@ class VerifierDepsTest : public CommonCompilerDriverTest {
         hs.NewHandle(soa.Decode<mirror::ClassLoader>(class_loader_));
     for (const DexFile* dex_file : dex_files_) {
       class_linker_->RegisterDexFile(*dex_file, loader.Get());
-    }
-    for (const DexFile* dex_file : dex_files_) {
-      verification_results_->AddDexFile(dex_file);
     }
     SetDexFilesForOatFile(dex_files_);
   }
@@ -172,11 +164,8 @@ class VerifierDepsTest : public CommonCompilerDriverTest {
                                            *class_def,
                                            method.GetCodeItem(),
                                            method.GetIndex(),
-                                           resolved_method,
                                            method.GetAccessFlags(),
                                            /* can_load_classes= */ true,
-                                           /* allow_soft_failures= */ true,
-                                           /* need_precise_constants= */ true,
                                            /* verify to dump */ false,
                                            /* allow_thread_suspension= */ true,
                                            /* api_level= */ 0));
@@ -341,6 +330,7 @@ class VerifierDepsTest : public CommonCompilerDriverTest {
 
     return decoded_deps.ValidateDependencies(soa.Self(),
                                              new_class_loader,
+                                             second_dex_files,
                                              error_msg);
   }
 

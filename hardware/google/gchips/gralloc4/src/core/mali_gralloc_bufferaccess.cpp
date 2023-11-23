@@ -113,8 +113,6 @@ int validate_lock_input_parameters(const buffer_handle_t buffer, const int l,
                                    const int t, const int w, const int h,
                                    uint64_t usage)
 {
-	bool is_registered_process = false;
-	const int lock_pid = getpid();
 	const private_handle_t * const hnd = (private_handle_t *)buffer;
 
 	/* TODO: do not check access region for blob formats.
@@ -126,8 +124,7 @@ int validate_lock_input_parameters(const buffer_handle_t buffer, const int l,
 		if ((l < 0) || (t < 0) || (w < 0) || (h < 0))
 		{
 			MALI_GRALLOC_LOGW("Negative values for access region (l = %d t = %d w = %d and "
-			     "h = %d) in buffer lock request are invalid. Locking PID:%d",
-			      l, t, w, h, lock_pid);
+			     "h = %d) in buffer lock request are invalid.", l, t, w, h);
 			return -EINVAL;
 		}
 
@@ -135,8 +132,7 @@ int validate_lock_input_parameters(const buffer_handle_t buffer, const int l,
 		if (((l + w) < 0) || ((t + h) < 0))
 		{
 			MALI_GRALLOC_LOGW("Encountered overflow with access region (l = %d t = %d w = %d and"
-			     " h = %d) in buffer lock request. Locking PID:%d",
-			       l, t, w, h, lock_pid);
+			     " h = %d) in buffer lock request.", l, t, w, h);
 			return -EINVAL;
 		}
 
@@ -144,26 +140,10 @@ int validate_lock_input_parameters(const buffer_handle_t buffer, const int l,
 		if (((t + h) > hnd->height)  || ((l + w) > hnd->width))
 		{
 			MALI_GRALLOC_LOGW("Buffer lock access region (l = %d t = %d w = %d "
-			     "and h = %d) is outside allocated buffer (width = %d and height = %d)"
-			     " Locking PID:%d", l, t, w, h, hnd->width, hnd->height, lock_pid);
+			     "and h = %d) is outside allocated buffer (width = %d and height = %d)",
+			     l, t, w, h, hnd->width, hnd->height);
 			return -EINVAL;
 		}
-	}
-
-	/* Locking process should have a valid buffer virtual address. A process
-	 * will have a valid buffer virtual address if it is the allocating
-	 * process or it retained / registered a cloned buffer handle
-	 */
-	if ((hnd->allocating_pid == lock_pid) || (hnd->remote_pid == lock_pid))
-	{
-		is_registered_process = true;
-	}
-
-	/* TODO: differentiate between mappable and unmappable(secure, hfr etc) buffers */
-	if (is_registered_process == false)
-	{
-		MALI_GRALLOC_LOGE("The buffer must be retained before lock request");
-		return -EINVAL;
 	}
 
 	/* Reject lock requests for AFBC (compressed format) enabled buffers */
@@ -210,7 +190,7 @@ int mali_gralloc_lock(buffer_handle_t buffer,
 {
 	int status;
 
-	if (private_handle_t::validate(buffer) < 0)
+	if (mali_gralloc_reference_validate(buffer))
 	{
 		MALI_GRALLOC_LOGE("Locking invalid buffer %p, returning error", buffer);
 		return -EINVAL;

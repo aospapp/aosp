@@ -60,6 +60,13 @@ class FakeCowWriter : public android::snapshot::ICowWriter {
     operations_[new_block_start] = {.type = CowOp::COW_ZERO};
     return true;
   }
+  bool EmitXorBlocks(uint32_t new_block_start,
+                     const void* data,
+                     size_t size,
+                     uint32_t old_block,
+                     uint16_t offset) override {
+    return false;
+  }
   bool Finalize() override {
     finalize_called_ = true;
     return true;
@@ -68,6 +75,10 @@ class FakeCowWriter : public android::snapshot::ICowWriter {
   bool EmitLabel(uint64_t label) {
     label_count_++;
     return true;
+  }
+
+  bool EmitSequenceData(size_t num_ops, const uint32_t* data) override {
+    return false;
   }
 
   // Return number of bytes the cow image occupies on disk.

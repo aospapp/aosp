@@ -24,7 +24,7 @@
          ! an ExpectedFailuresFilter which discards them.
          !
          ! e.g. If the test fails with the following error message:
-         ! repackaged.junit.framework.AssertionFailedError:
+         ! junit.framework.AssertionFailedError:
          ! extra_class:	android.media.MediaParceledListSlice	Error: Class annotated with android.annotation.SystemApi does not exist in the documented API
          ! extra_class:	android.media.MediaFrameworkInitializer	Error: Class annotated with android.annotation.SystemApi does not exist in the documented API
          ! extra_interface:	android.media.MediaCommunicationManager$SessionCallback	Error: Class annotated with android.annotation.SystemApi does not exist in the documented API
@@ -58,10 +58,6 @@
         <value>extra_method:void android.net.wifi.hotspot2.pps.HomeSp.setMatchAnyOis(long[])</value>
         <!--
          ! Add any new entries before this.
-         !
-         ! Note: Due to limitations within the build changes to this file it is
-         ! necessary to build CtsHiddenApiBlocklistCurrentApiTestCases in order
-         ! for changes to this file to take effect.
          !-->
     </entry>
 </dynamicConfig>

@@ -49,7 +49,7 @@ cc_defaults {
         "libutils",
     ],
     header_libs: ["display_headers"],
-    clang: true,
+
 }
 
 cc_library_headers {
@@ -76,8 +76,16 @@ cc_library_headers {
         "gralloc",
         "libhistogram",
     ],
-    header_libs: ["libhardware_headers", "//vendor/qcom/sm7250:display_intf_headers", "debug_headers"],
-    export_header_lib_headers: ["libhardware_headers", "//vendor/qcom/sm7250:display_intf_headers", "debug_headers"],
+    header_libs: [
+        "libhardware_headers",
+        "//vendor/qcom/sm7250:display_intf_headers",
+        "debug_headers",
+    ],
+    export_header_lib_headers: [
+        "libhardware_headers",
+        "//vendor/qcom/sm7250:display_intf_headers",
+        "debug_headers",
+    ],
 }
 
 subdirs = [

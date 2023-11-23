@@ -24,6 +24,14 @@
        type += '[]'
 
     return type
+
+  def annotated_enum_type(entry):
+    if entry.type == 'int64' and entry.container == 'array':
+       type = ' int64_t'
+    else:
+       type = ' uint32_t'
+
+    return type
 %>\
 
 /*
@@ -143,7 +151,7 @@ ${entry.description | hidldoc(metadata)}\
               % endif
  * @see ${entry.name | csym}
  */
-enum CameraMetadataEnum${entry.name | pascal_case} :${' uint32_t' if prevValue is None else '\n        @%d.%d::CameraMetadataEnum%s' % (prevValue.hal_major_version, prevValue.hal_minor_version, pascal_case(entry.name))} {
+enum CameraMetadataEnum${entry.name | pascal_case} :${annotated_enum_type(entry) if prevValue is None else '\n        @%d.%d::CameraMetadataEnum%s' % (prevValue.hal_major_version, prevValue.hal_minor_version, pascal_case(entry.name))} {
           % endif
           % if val.id is None:
     ${entry.name | csym}_${val.name},

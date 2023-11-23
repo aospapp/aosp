@@ -16,8 +16,6 @@
 
 #include "run_tflite.h"
 
-#include "tensorflow/lite/nnapi/nnapi_implementation.h"
-
 #include <jni.h>
 #include <string>
 #include <iomanip>
@@ -28,7 +26,6 @@
 #include <android/log.h>
 #include <android/sharedmem.h>
 #include <sys/mman.h>
-#include "tensorflow/lite/nnapi/nnapi_implementation.h"
 
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_android_nn_benchmark_core_NNTestBase_hasNnApiDevice(
@@ -69,7 +66,8 @@ Java_com_android_nn_benchmark_core_NNTestBase_initModel(
         jboolean _enableIntermediateTensorsDump,
         jstring _nnApiDeviceName,
         jboolean _mmapModel,
-        jstring _nnApiCacheDir) {
+        jstring _nnApiCacheDir,
+        jlong _nnApiSlHandle) {
     const char *modelFileName = env->GetStringUTFChars(_modelFileName, NULL);
     const char *nnApiDeviceName =
         _nnApiDeviceName == NULL
@@ -79,10 +77,12 @@ Java_com_android_nn_benchmark_core_NNTestBase_initModel(
         _nnApiCacheDir == NULL
             ? NULL
             : env->GetStringUTFChars(_nnApiCacheDir, NULL);
+     const tflite::nnapi::NnApiSupportLibrary *nnApiSlHandle =
+          (const tflite::nnapi::NnApiSupportLibrary *)_nnApiSlHandle;
     int nnapiErrno = 0;
     void *handle = BenchmarkModel::create(
         modelFileName, _tfliteBackend, _enableIntermediateTensorsDump, &nnapiErrno,
-        nnApiDeviceName, _mmapModel, nnApiCacheDir);
+        nnApiDeviceName, _mmapModel, nnApiCacheDir, nnApiSlHandle);
     env->ReleaseStringUTFChars(_modelFileName, modelFileName);
     if (_nnApiDeviceName != NULL) {
         env->ReleaseStringUTFChars(_nnApiDeviceName, nnApiDeviceName);
@@ -100,6 +100,8 @@ Java_com_android_nn_benchmark_core_NNTestBase_initModel(
 
     return (jlong)(uintptr_t)handle;
 }
+
+
 
 extern "C"
 JNIEXPORT void
@@ -499,7 +501,8 @@ Java_com_android_nn_benchmark_core_NNTestBase_runCompilationBenchmark(
     jlong _modelHandle,
     jint maxNumIterations,
     jfloat warmupTimeoutSec,
-    jfloat runTimeoutSec) {
+    jfloat runTimeoutSec,
+    jboolean useNnapiSl) {
   BenchmarkModel* model = reinterpret_cast<BenchmarkModel*>(_modelHandle);
 
   jclass result_class = env->FindClass("com/android/nn/benchmark/core/CompilationBenchmarkResult");
@@ -509,7 +512,8 @@ Java_com_android_nn_benchmark_core_NNTestBase_runCompilationBenchmark(
 
   CompilationBenchmarkResult result;
   bool success =
-          model->benchmarkCompilation(maxNumIterations, warmupTimeoutSec, runTimeoutSec, &result);
+          model->benchmarkCompilation(maxNumIterations, warmupTimeoutSec,
+                                      runTimeoutSec, useNnapiSl, &result);
   if (!success) return nullptr;
 
   // Convert cpp CompilationBenchmarkResult struct to java.

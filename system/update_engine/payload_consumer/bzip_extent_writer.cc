@@ -78,8 +78,7 @@ bool BzipExtentWriter::Write(const void* bytes, size_t count) {
 
   // Store unconsumed data (if any) in |input_buffer_|.
   if (stream_.avail_in || !input_buffer_.empty()) {
-    brillo::Blob new_input_buffer(input_end - stream_.avail_in, input_end);
-    new_input_buffer.swap(input_buffer_);
+    input_buffer_.assign(input_end - stream_.avail_in, input_end);
   }
 
   return true;

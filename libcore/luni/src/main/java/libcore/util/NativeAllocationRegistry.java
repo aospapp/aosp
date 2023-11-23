@@ -47,7 +47,6 @@ import libcore.util.NonNull;
  * @hide
  */
 @SystemApi(client = MODULE_LIBRARIES)
-@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 @libcore.api.IntraCoreApi
 public class NativeAllocationRegistry {
 
@@ -86,7 +85,6 @@ public class NativeAllocationRegistry {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static NativeAllocationRegistry createNonmalloced(
             @NonNull ClassLoader classLoader, long freeFunction, long size) {
         return new NativeAllocationRegistry(classLoader, freeFunction, size, false);
@@ -117,7 +115,6 @@ public class NativeAllocationRegistry {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static NativeAllocationRegistry createMalloced(
             @NonNull ClassLoader classLoader, long freeFunction, long size) {
         return new NativeAllocationRegistry(classLoader, freeFunction, size, true);
@@ -137,7 +134,6 @@ public class NativeAllocationRegistry {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     @libcore.api.IntraCoreApi
     public static NativeAllocationRegistry createMalloced(
             @NonNull ClassLoader classLoader, long freeFunction) {
@@ -211,7 +207,6 @@ public class NativeAllocationRegistry {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public NativeAllocationRegistry(@NonNull ClassLoader classLoader, long freeFunction, long size) {
         this(classLoader, freeFunction, size, size == 0);
     }
@@ -251,7 +246,6 @@ public class NativeAllocationRegistry {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     @libcore.api.IntraCoreApi
     public @NonNull Runnable registerNativeAllocation(@NonNull Object referent, long nativePtr) {
         if (referent == null) {
@@ -346,7 +340,6 @@ public class NativeAllocationRegistry {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static native void applyFreeFunction(long freeFunction, long nativePtr);
 }
 

@@ -15,10 +15,22 @@
  */
 package android.app.cts;
 
+import static android.app.UiModeManager.MODE_NIGHT_AUTO;
+import static android.app.UiModeManager.MODE_NIGHT_CUSTOM;
+import static android.app.UiModeManager.MODE_NIGHT_CUSTOM_TYPE_BEDTIME;
+import static android.app.UiModeManager.MODE_NIGHT_CUSTOM_TYPE_SCHEDULE;
+import static android.app.UiModeManager.MODE_NIGHT_CUSTOM_TYPE_UNKNOWN;
+import static android.app.UiModeManager.MODE_NIGHT_NO;
+import static android.app.UiModeManager.MODE_NIGHT_YES;
+
 import static androidx.test.InstrumentationRegistry.getInstrumentation;
 
 import static com.android.compatibility.common.util.SystemUtil.callWithShellPermissionIdentity;
 import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
+
+import static com.google.common.truth.Truth.assertThat;
+
+import static org.testng.Assert.assertThrows;
 
 import android.Manifest;
 import android.app.UiAutomation;
@@ -29,6 +41,7 @@ import android.content.res.Configuration;
 import android.os.ParcelFileDescriptor;
 import android.os.UserHandle;
 import android.test.AndroidTestCase;
+import android.text.TextUtils;
 import android.util.ArraySet;
 import android.util.Log;
 
@@ -56,17 +69,35 @@ public class UiModeManagerTest extends AndroidTestCase {
     private static final long WAIT_TIME_INCR_MS = 100;
 
     private UiModeManager mUiModeManager;
+    private boolean mHasModifiedNightModePermissionAcquired = false;
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
         mUiModeManager = (UiModeManager) getContext().getSystemService(Context.UI_MODE_SERVICE);
         assertNotNull(mUiModeManager);
-        // reset nightMode
-        setNightMode(UiModeManager.MODE_NIGHT_YES);
-        setNightMode(UiModeManager.MODE_NIGHT_NO);
+        resetNightMode();
         // Make sure automotive projection is not set by this package at the beginning of the test.
         releaseAutomotiveProjection();
+    }
+
+    @Override
+    protected void tearDown() throws Exception {
+        resetNightMode();
+    }
+
+    private void resetNightMode() {
+        try {
+            if (!mHasModifiedNightModePermissionAcquired) {
+                acquireModifyNightModePermission();
+            }
+            mUiModeManager.setNightMode(UiModeManager.MODE_NIGHT_NO);
+            mUiModeManager.setNightModeActivatedForCustomMode(MODE_NIGHT_CUSTOM_TYPE_BEDTIME,
+                    false /* active */);
+        } finally {
+            getInstrumentation().getUiAutomation().dropShellPermissionIdentity();
+            mHasModifiedNightModePermissionAcquired = false;
+        }
     }
 
     public void testUiMode() throws Exception {
@@ -148,6 +179,191 @@ public class UiModeManagerTest extends AndroidTestCase {
         assertStoredNightModeSetting(UiModeManager.MODE_NIGHT_AUTO);
     }
 
+    public void testSetNightModeCustomType_noPermission_bedtime_shouldThrow() {
+        assertThrows(SecurityException.class,
+                () -> mUiModeManager.setNightModeCustomType(MODE_NIGHT_CUSTOM_TYPE_BEDTIME));
+    }
+
+    public void testSetNightModeCustomType_customTypeUnknown_bedtime_shouldThrow() {
+        acquireModifyNightModePermission();
+
+        assertThrows(IllegalArgumentException.class,
+                () -> mUiModeManager.setNightModeCustomType(MODE_NIGHT_CUSTOM_TYPE_UNKNOWN));
+    }
+
+    public void testSetNightModeCustomType_bedtime_shouldPersist() {
+        acquireModifyNightModePermission();
+        mUiModeManager.setNightModeCustomType(MODE_NIGHT_CUSTOM_TYPE_BEDTIME);
+
+        assertThat(mUiModeManager.getNightMode()).isEqualTo(MODE_NIGHT_CUSTOM);
+        assertThat(mUiModeManager.getNightModeCustomType())
+                .isEqualTo(MODE_NIGHT_CUSTOM_TYPE_BEDTIME);
+    }
+
+    public void testSetNightModeCustomType_schedule_shouldPersist() {
+        acquireModifyNightModePermission();
+        mUiModeManager.setNightModeCustomType(MODE_NIGHT_CUSTOM_TYPE_SCHEDULE);
+
+        assertThat(mUiModeManager.getNightMode()).isEqualTo(MODE_NIGHT_CUSTOM);
+        assertThat(mUiModeManager.getNightModeCustomType())
+                .isEqualTo(MODE_NIGHT_CUSTOM_TYPE_SCHEDULE);
+    }
+
+    public void testGetNightModeCustomType_nightModeNo_shouldReturnUnknown() {
+        acquireModifyNightModePermission();
+        mUiModeManager.setNightMode(MODE_NIGHT_NO);
+
+        assertThat(mUiModeManager.getNightModeCustomType())
+                .isEqualTo(MODE_NIGHT_CUSTOM_TYPE_UNKNOWN);
+    }
+
+    public void testGetNightModeCustomType_nightModeYes_shouldReturnUnknown() {
+        acquireModifyNightModePermission();
+        mUiModeManager.setNightMode(MODE_NIGHT_YES);
+
+        assertThat(mUiModeManager.getNightModeCustomType())
+                .isEqualTo(MODE_NIGHT_CUSTOM_TYPE_UNKNOWN);
+    }
+
+    public void testGetNightModeCustomType_nightModeAuto_shouldReturnUnknown() {
+        acquireModifyNightModePermission();
+        mUiModeManager.setNightMode(MODE_NIGHT_AUTO);
+
+        assertThat(mUiModeManager.getNightModeCustomType())
+                .isEqualTo(MODE_NIGHT_CUSTOM_TYPE_UNKNOWN);
+    }
+
+    public void testGetNightModeCustomType_nightModeCustom_shouldReturnScheduleAsDefault() {
+        acquireModifyNightModePermission();
+        mUiModeManager.setNightMode(MODE_NIGHT_CUSTOM);
+
+        assertThat(mUiModeManager.getNightModeCustomType())
+                .isEqualTo(MODE_NIGHT_CUSTOM_TYPE_SCHEDULE);
+    }
+
+    public void testSetNightModeCustomType_hasPermission_bedtime_shouldNotActivateNightMode() {
+        acquireModifyNightModePermission();
+        mUiModeManager.setNightModeCustomType(MODE_NIGHT_CUSTOM_TYPE_BEDTIME);
+
+        assertVisibleNightModeInConfiguration(Configuration.UI_MODE_NIGHT_NO);
+    }
+
+    public void testSetNightModeActivatedForCustomMode_noPermission_customTypeBedtime_activateAtBedtime_shouldNotActivateNightMode() {
+        acquireModifyNightModePermission();
+        mUiModeManager.setNightModeCustomType(MODE_NIGHT_CUSTOM_TYPE_BEDTIME);
+        getInstrumentation().getUiAutomation().dropShellPermissionIdentity();
+        mHasModifiedNightModePermissionAcquired = false;
+
+        assertThat(mUiModeManager.setNightModeActivatedForCustomMode(
+                MODE_NIGHT_CUSTOM_TYPE_BEDTIME, true /* active */)).isFalse();
+
+        assertVisibleNightModeInConfiguration(Configuration.UI_MODE_NIGHT_NO);
+    }
+
+    public void testSetNightModeActivatedForCustomMode_customTypeBedtime_activateAtBedtime_shouldActivateNightMode() {
+        acquireModifyNightModePermission();
+        mUiModeManager.setNightModeCustomType(MODE_NIGHT_CUSTOM_TYPE_BEDTIME);
+
+        assertThat(mUiModeManager.setNightModeActivatedForCustomMode(
+                MODE_NIGHT_CUSTOM_TYPE_BEDTIME, true /* active */)).isTrue();
+
+        assertVisibleNightModeInConfiguration(Configuration.UI_MODE_NIGHT_YES);
+    }
+
+    public void testSetNightModeActivatedForCustomMode_customTypeBedtime_deactivateAtBedtime_shouldDeactivateNightMode() {
+        acquireModifyNightModePermission();
+        mUiModeManager.setNightModeCustomType(MODE_NIGHT_CUSTOM_TYPE_BEDTIME);
+
+        assertThat(mUiModeManager.setNightModeActivatedForCustomMode(
+                MODE_NIGHT_CUSTOM_TYPE_BEDTIME, false /* active */)).isTrue();
+
+        assertVisibleNightModeInConfiguration(Configuration.UI_MODE_NIGHT_NO);
+    }
+
+    public void testSetNightModeActivatedForCustomMode_modeNo_activateAtBedtime_shouldNotActivateNightMode() {
+        acquireModifyNightModePermission();
+        mUiModeManager.setNightMode(MODE_NIGHT_NO);
+
+        assertThat(mUiModeManager.setNightModeActivatedForCustomMode(
+                MODE_NIGHT_CUSTOM_TYPE_BEDTIME, true /* active */)).isFalse();
+
+        assertVisibleNightModeInConfiguration(Configuration.UI_MODE_NIGHT_NO);
+    }
+
+    public void testSetNightModeActivatedForCustomMode_modeYes_activateAtBedtime_shouldKeepNightModeActivated() {
+        acquireModifyNightModePermission();
+        mUiModeManager.setNightMode(MODE_NIGHT_YES);
+
+        assertThat(mUiModeManager.setNightModeActivatedForCustomMode(
+                MODE_NIGHT_CUSTOM_TYPE_BEDTIME, true /* active */)).isFalse();
+
+        assertVisibleNightModeInConfiguration(Configuration.UI_MODE_NIGHT_YES);
+    }
+
+    public void testSetNightModeActivatedForCustomMode_modeAuto_activateAtBedtime_shouldNotActivateNightMode() {
+        acquireModifyNightModePermission();
+        mUiModeManager.setNightMode(MODE_NIGHT_AUTO);
+
+        assertThat(mUiModeManager.setNightModeActivatedForCustomMode(
+                MODE_NIGHT_CUSTOM_TYPE_BEDTIME, true /* active */)).isFalse();
+
+        assertVisibleNightModeInConfiguration(Configuration.UI_MODE_NIGHT_NO);
+    }
+
+    public void testSetNightModeActivatedForCustomMode_customTypeSchedule_activateAtBedtime_shouldNotActivateNightMode() {
+        acquireModifyNightModePermission();
+        mUiModeManager.setNightModeCustomType(MODE_NIGHT_CUSTOM_TYPE_SCHEDULE);
+
+        assertThat(mUiModeManager.setNightModeActivatedForCustomMode(
+                MODE_NIGHT_CUSTOM_TYPE_BEDTIME, true /* active */)).isFalse();
+
+        assertVisibleNightModeInConfiguration(Configuration.UI_MODE_NIGHT_NO);
+    }
+
+    public void testSetNightModeActivatedForCustomMode_modeNo_activateAtBedtime_thenCustomTypeBedtime_shouldActivateNightMode() {
+        acquireModifyNightModePermission();
+        mUiModeManager.setNightMode(MODE_NIGHT_NO);
+        mUiModeManager.setNightModeActivatedForCustomMode(MODE_NIGHT_CUSTOM_TYPE_BEDTIME,
+                true /* active */);
+
+        mUiModeManager.setNightModeCustomType(MODE_NIGHT_CUSTOM_TYPE_BEDTIME);
+
+        assertVisibleNightModeInConfiguration(Configuration.UI_MODE_NIGHT_YES);
+    }
+
+    public void testSetNightModeActivatedForCustomMode_modeYes_activateAtBedtime_thenCustomTypeBedtime_shouldActiveNightMode() {
+        acquireModifyNightModePermission();
+        mUiModeManager.setNightMode(MODE_NIGHT_YES);
+        mUiModeManager.setNightModeActivatedForCustomMode(MODE_NIGHT_CUSTOM_TYPE_BEDTIME,
+                true /* active */);
+
+        mUiModeManager.setNightModeCustomType(MODE_NIGHT_CUSTOM_TYPE_BEDTIME);
+
+        assertVisibleNightModeInConfiguration(Configuration.UI_MODE_NIGHT_YES);
+    }
+
+    public void testSetNightModeActivatedForCustomMode_modeAuto_activateAtBedtime_thenCustomTypeBedtime_shouldActivateNightMode() {
+        acquireModifyNightModePermission();
+        mUiModeManager.setNightMode(MODE_NIGHT_AUTO);
+        mUiModeManager.setNightModeActivatedForCustomMode(MODE_NIGHT_CUSTOM_TYPE_BEDTIME,
+                true /* active */);
+
+        mUiModeManager.setNightModeCustomType(MODE_NIGHT_CUSTOM_TYPE_BEDTIME);
+
+        assertVisibleNightModeInConfiguration(Configuration.UI_MODE_NIGHT_YES);
+    }
+
+    public void testSetNightModeActivatedForCustomMode_customTypeSchedule_activateAtBedtime_thenCustomTypeBedtime_shouldActivateNightMode() {
+        acquireModifyNightModePermission();
+        mUiModeManager.setNightModeCustomType(MODE_NIGHT_CUSTOM_TYPE_SCHEDULE);
+        mUiModeManager.setNightModeActivatedForCustomMode(MODE_NIGHT_CUSTOM_TYPE_BEDTIME,
+                true /* active */);
+
+        mUiModeManager.setNightModeCustomType(MODE_NIGHT_CUSTOM_TYPE_BEDTIME);
+
+        assertVisibleNightModeInConfiguration(Configuration.UI_MODE_NIGHT_YES);
+    }
+
     public void testNightModeAutoNotPersistedCarMode() {
         if (mUiModeManager.isNightModeLocked()) {
             Log.i(TAG, "testNightModeAutoNotPersistedCarMode skipped: night mode is locked");
@@ -159,6 +375,24 @@ public class UiModeManagerTest extends AndroidTestCase {
         mUiModeManager.enableCarMode(0);
 
         setNightMode(UiModeManager.MODE_NIGHT_AUTO);
+        assertStoredNightModeSetting(UiModeManager.MODE_NIGHT_NO);
+        mUiModeManager.disableCarMode(0);
+    }
+
+    public void testNightModeCustomTypeBedtimeNotPersistedInCarMode() throws InterruptedException {
+        if (mUiModeManager.isNightModeLocked()) {
+            Log.i(TAG, "testNightModeCustomTypeBedtimeNotPersistedInCarMode skipped: night mode is "
+                    + "locked");
+            return;
+        }
+
+        acquireModifyNightModePermission();
+        mUiModeManager.setNightMode(UiModeManager.MODE_NIGHT_NO);
+        mUiModeManager.enableCarMode(0);
+
+        // We don't expect users modifing bedtime features when driving.
+        mUiModeManager.setNightModeCustomType(MODE_NIGHT_CUSTOM_TYPE_BEDTIME);
+
         assertStoredNightModeSetting(UiModeManager.MODE_NIGHT_NO);
         mUiModeManager.disableCarMode(0);
     }
@@ -622,7 +856,9 @@ public class UiModeManagerTest extends AndroidTestCase {
         // Settings.Secure.UI_NIGHT_MODE
         for (int i = 0; i < MAX_WAIT_TIME_MS; i += WAIT_TIME_INCR_MS) {
             String storedMode = getUiNightModeFromSetting();
-            storedModeInt = Integer.parseInt(storedMode);
+            if (!TextUtils.isEmpty(storedMode)) {
+                storedModeInt = Integer.parseInt(storedMode);
+            }
             if (mode == storedModeInt) break;
             try {
                 Thread.sleep(WAIT_TIME_INCR_MS);
@@ -684,5 +920,11 @@ public class UiModeManagerTest extends AndroidTestCase {
         return UserUtils.isHeadlessSystemUserMode()
                 ? SettingsUtils.getSecureSettingAsUser(UserHandle.USER_SYSTEM, key)
                 : SettingsUtils.getSecureSetting(key);
+    }
+
+    private void acquireModifyNightModePermission() {
+        getInstrumentation().getUiAutomation()
+                .adoptShellPermissionIdentity(Manifest.permission.MODIFY_DAY_NIGHT_MODE);
+        mHasModifiedNightModePermissionAcquired = true;
     }
 }

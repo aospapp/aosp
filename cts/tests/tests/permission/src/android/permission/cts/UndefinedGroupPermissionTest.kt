@@ -51,6 +51,7 @@ class UndefinedGroupPermissionTest {
 
     @Before
     fun install() {
+        SystemUtil.runShellCommand("pm uninstall $APP_PKG_NAME")
         SystemUtil.runShellCommand("pm install -r " +
                 TEST_APP_DEFINES_UNDEFINED_PERMISSION_GROUP_ELEMENT_APK)
     }
@@ -103,24 +104,25 @@ class UndefinedGroupPermissionTest {
      */
     @Test
     fun testCustomPermissionGrantedAlone() {
-        Assert.assertEquals(mPm!!.checkPermission(CAMERA, APP_PKG_NAME),
-                PackageManager.PERMISSION_DENIED)
-        Assert.assertEquals(mPm!!.checkPermission(RECORD_AUDIO, APP_PKG_NAME),
-                PackageManager.PERMISSION_DENIED)
-        Assert.assertEquals(mPm!!.checkPermission(TEST, APP_PKG_NAME),
-                PackageManager.PERMISSION_DENIED)
+        Assert.assertEquals(PackageManager.PERMISSION_DENIED,
+            mPm!!.checkPermission(CAMERA, APP_PKG_NAME))
+        Assert.assertEquals(PackageManager.PERMISSION_DENIED,
+            mPm!!.checkPermission(RECORD_AUDIO, APP_PKG_NAME))
+        Assert.assertEquals(PackageManager.PERMISSION_DENIED,
+            mPm!!.checkPermission(TEST, APP_PKG_NAME))
         eventually {
             startRequestActivity(arrayOf(TEST))
             mUiDevice!!.waitForIdle()
+            Thread.sleep(2000)
             findAllowButton().click()
         }
         eventually {
-            Assert.assertEquals(mPm!!.checkPermission(CAMERA, APP_PKG_NAME),
-                    PackageManager.PERMISSION_DENIED)
-            Assert.assertEquals(mPm!!.checkPermission(RECORD_AUDIO, APP_PKG_NAME),
-                    PackageManager.PERMISSION_DENIED)
-            Assert.assertEquals(mPm!!.checkPermission(TEST, APP_PKG_NAME),
-                    PackageManager.PERMISSION_GRANTED)
+            Assert.assertEquals(PackageManager.PERMISSION_DENIED,
+                mPm!!.checkPermission(CAMERA, APP_PKG_NAME))
+            Assert.assertEquals(PackageManager.PERMISSION_DENIED,
+                mPm!!.checkPermission(RECORD_AUDIO, APP_PKG_NAME))
+            Assert.assertEquals(PackageManager.PERMISSION_GRANTED,
+                mPm!!.checkPermission(TEST, APP_PKG_NAME))
         }
     }
 
@@ -132,11 +134,11 @@ class UndefinedGroupPermissionTest {
     fun findAllowButton(): UiObject2 {
         return if (mContext?.packageManager
                         ?.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE) == true) {
-            waitFindObject(By.text(mAllowButtonText), 100)
+            waitFindObject(By.text(mAllowButtonText), 2000)
         } else {
             waitFindObject(By.res(
                     "com.android.permissioncontroller:id/permission_allow_button"),
-                    100)
+                    2000)
         }
     }
 
@@ -149,8 +151,8 @@ class UndefinedGroupPermissionTest {
             mPm!!.grantRuntimePermission(
                     APP_PKG_NAME, grantedPerm, Process.myUserHandle())
         }
-        Assert.assertEquals("$grantedPerm not granted.", mPm!!.checkPermission(grantedPerm,
-                APP_PKG_NAME), PackageManager.PERMISSION_GRANTED)
+        Assert.assertEquals("$grantedPerm not granted.", PackageManager.PERMISSION_GRANTED,
+            mPm!!.checkPermission(grantedPerm, APP_PKG_NAME))
 
         // If the dialog shows, success. If not then either the UI is broken or the permission was
         // granted in the background.
@@ -160,18 +162,18 @@ class UndefinedGroupPermissionTest {
             try {
                 if (mContext?.packageManager
                                 ?.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE) == true) {
-                    waitFindObject(By.text(mDenyButtonText), 100)
+                    waitFindObject(By.text(mDenyButtonText), 2000)
                 } else {
-                    waitFindObject(By.res("com.android.permissioncontroller:id/grant_dialog"), 100)
+                    waitFindObject(By.res("com.android.permissioncontroller:id/grant_dialog"), 2000)
                 }
             } catch (e: UiObjectNotFoundException) {
                 Assert.assertEquals("grant dialog never showed.",
-                        mPm!!.checkPermission(targetPermission,
-                                APP_PKG_NAME), PackageManager.PERMISSION_GRANTED)
+                    PackageManager.PERMISSION_GRANTED,
+                    mPm!!.checkPermission(targetPermission, APP_PKG_NAME))
             }
         }
-        Assert.assertEquals(mPm!!.checkPermission(targetPermission, APP_PKG_NAME),
-                PackageManager.PERMISSION_DENIED)
+        Assert.assertEquals(PackageManager.PERMISSION_DENIED,
+            mPm!!.checkPermission(targetPermission, APP_PKG_NAME))
     }
 
     private fun startRequestActivity(permissions: Array<String>) {

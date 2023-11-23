@@ -46,6 +46,9 @@ public interface ILoggableInterface extends android.os.IInterface
     @Override public boolean onTransact(int code, android.os.Parcel data, android.os.Parcel reply, int flags) throws android.os.RemoteException
     {
       java.lang.String descriptor = DESCRIPTOR;
+      if (code >= android.os.IBinder.FIRST_CALL_TRANSACTION && code <= android.os.IBinder.LAST_CALL_TRANSACTION) {
+        data.enforceInterface(descriptor);
+      }
       switch (code)
       {
         case INTERFACE_TRANSACTION:
@@ -60,9 +63,8 @@ public interface ILoggableInterface extends android.os.IInterface
         {
           try {
             android.os.Trace.traceBegin(android.os.Trace.TRACE_TAG_AIDL, "AIDL::java::ILoggableInterface::LogThis::server");
-            data.enforceInterface(descriptor);
             boolean _arg0;
-            _arg0 = (0!=data.readInt());
+            _arg0 = data.readBoolean();
             boolean[] _arg1;
             _arg1 = data.createBooleanArray();
             byte _arg2;
@@ -96,23 +98,14 @@ public interface ILoggableInterface extends android.os.IInterface
             java.util.List<java.lang.String> _arg16;
             _arg16 = data.createStringArrayList();
             android.aidl.loggable.Data _arg17;
-            if ((0!=data.readInt())) {
-              _arg17 = android.aidl.loggable.Data.CREATOR.createFromParcel(data);
-            }
-            else {
-              _arg17 = null;
-            }
+            _arg17 = data.readTypedObject(android.aidl.loggable.Data.CREATOR);
             android.os.IBinder _arg18;
             _arg18 = data.readStrongBinder();
             android.os.ParcelFileDescriptor _arg19;
-            if ((0!=data.readInt())) {
-              _arg19 = android.os.ParcelFileDescriptor.CREATOR.createFromParcel(data);
-            }
-            else {
-              _arg19 = null;
-            }
+            _arg19 = data.readTypedObject(android.os.ParcelFileDescriptor.CREATOR);
             android.os.ParcelFileDescriptor[] _arg20;
             _arg20 = data.createTypedArray(android.os.ParcelFileDescriptor.CREATOR);
+            data.enforceNoDataAvail();
             java.lang.String[] _result = this.LogThis(_arg0, _arg1, _arg2, _arg3, _arg4, _arg5, _arg6, _arg7, _arg8, _arg9, _arg10, _arg11, _arg12, _arg13, _arg14, _arg15, _arg16, _arg17, _arg18, _arg19, _arg20);
             reply.writeNoException();
             reply.writeStringArray(_result);
@@ -125,25 +118,20 @@ public interface ILoggableInterface extends android.os.IInterface
             reply.writeDoubleArray(_arg13);
             reply.writeStringArray(_arg15);
             reply.writeStringList(_arg16);
-            if ((_arg19!=null)) {
-              reply.writeInt(1);
-              _arg19.writeToParcel(reply, android.os.Parcelable.PARCELABLE_WRITE_RETURN_VALUE);
-            }
-            else {
-              reply.writeInt(0);
-            }
+            reply.writeTypedObject(_arg19, android.os.Parcelable.PARCELABLE_WRITE_RETURN_VALUE);
             reply.writeTypedArray(_arg20, android.os.Parcelable.PARCELABLE_WRITE_RETURN_VALUE);
-            return true;
           }
           finally {
             android.os.Trace.traceEnd(android.os.Trace.TRACE_TAG_AIDL);
           }
+          break;
         }
         default:
         {
           return super.onTransact(code, data, reply, flags);
         }
       }
+      return true;
     }
     private static class Proxy implements android.aidl.loggable.ILoggableInterface
     {
@@ -168,7 +156,7 @@ public interface ILoggableInterface extends android.os.IInterface
         try {
           android.os.Trace.traceBegin(android.os.Trace.TRACE_TAG_AIDL, "AIDL::java::ILoggableInterface::LogThis::client");
           _data.writeInterfaceToken(DESCRIPTOR);
-          _data.writeInt(((boolValue)?(1):(0)));
+          _data.writeBoolean(boolValue);
           _data.writeBooleanArray(boolArray);
           _data.writeByte(byteValue);
           _data.writeByteArray(byteArray);
@@ -185,28 +173,11 @@ public interface ILoggableInterface extends android.os.IInterface
           _data.writeString(stringValue);
           _data.writeStringArray(stringArray);
           _data.writeStringList(listValue);
-          if ((dataValue!=null)) {
-            _data.writeInt(1);
-            dataValue.writeToParcel(_data, 0);
-          }
-          else {
-            _data.writeInt(0);
-          }
+          _data.writeTypedObject(dataValue, 0);
           _data.writeStrongBinder(binderValue);
-          if ((pfdValue!=null)) {
-            _data.writeInt(1);
-            pfdValue.writeToParcel(_data, 0);
-          }
-          else {
-            _data.writeInt(0);
-          }
+          _data.writeTypedObject(pfdValue, 0);
           _data.writeTypedArray(pfdArray, 0);
           boolean _status = mRemote.transact(Stub.TRANSACTION_LogThis, _data, _reply, 0);
-          if (!_status) {
-            if (getDefaultImpl() != null) {
-              return getDefaultImpl().LogThis(boolValue, boolArray, byteValue, byteArray, charValue, charArray, intValue, intArray, longValue, longArray, floatValue, floatArray, doubleValue, doubleArray, stringValue, stringArray, listValue, dataValue, binderValue, pfdValue, pfdArray);
-            }
-          }
           _reply.readException();
           _result = _reply.createStringArray();
           _reply.readBooleanArray(boolArray);
@@ -230,26 +201,125 @@ public interface ILoggableInterface extends android.os.IInterface
         }
         return _result;
       }
-      public static android.aidl.loggable.ILoggableInterface sDefaultImpl;
     }
     static final int TRANSACTION_LogThis = (android.os.IBinder.FIRST_CALL_TRANSACTION + 0);
-    public static boolean setDefaultImpl(android.aidl.loggable.ILoggableInterface impl) {
-      // Only one user of this interface can use this function
-      // at a time. This is a heuristic to detect if two different
-      // users in the same process use this function.
-      if (Stub.Proxy.sDefaultImpl != null) {
-        throw new IllegalStateException("setDefaultImpl() called twice");
-      }
-      if (impl != null) {
-        Stub.Proxy.sDefaultImpl = impl;
-        return true;
-      }
-      return false;
-    }
-    public static android.aidl.loggable.ILoggableInterface getDefaultImpl() {
-      return Stub.Proxy.sDefaultImpl;
-    }
   }
   public static final java.lang.String DESCRIPTOR = "android$aidl$loggable$ILoggableInterface".replace('$', '.');
   public java.lang.String[] LogThis(boolean boolValue, boolean[] boolArray, byte byteValue, byte[] byteArray, char charValue, char[] charArray, int intValue, int[] intArray, long longValue, long[] longArray, float floatValue, float[] floatArray, double doubleValue, double[] doubleArray, java.lang.String stringValue, java.lang.String[] stringArray, java.util.List<java.lang.String> listValue, android.aidl.loggable.Data dataValue, android.os.IBinder binderValue, android.os.ParcelFileDescriptor pfdValue, android.os.ParcelFileDescriptor[] pfdArray) throws android.os.RemoteException;
+  public interface ISub extends android.os.IInterface
+  {
+    /** Default implementation for ISub. */
+    public static class Default implements android.aidl.loggable.ILoggableInterface.ISub
+    {
+      @Override public void Log(int value) throws android.os.RemoteException
+      {
+      }
+      @Override
+      public android.os.IBinder asBinder() {
+        return null;
+      }
+    }
+    /** Local-side IPC implementation stub class. */
+    public static abstract class Stub extends android.os.Binder implements android.aidl.loggable.ILoggableInterface.ISub
+    {
+      /** Construct the stub at attach it to the interface. */
+      public Stub()
+      {
+        this.attachInterface(this, DESCRIPTOR);
+      }
+      /**
+       * Cast an IBinder object into an android.aidl.loggable.ILoggableInterface.ISub interface,
+       * generating a proxy if needed.
+       */
+      public static android.aidl.loggable.ILoggableInterface.ISub asInterface(android.os.IBinder obj)
+      {
+        if ((obj==null)) {
+          return null;
+        }
+        android.os.IInterface iin = obj.queryLocalInterface(DESCRIPTOR);
+        if (((iin!=null)&&(iin instanceof android.aidl.loggable.ILoggableInterface.ISub))) {
+          return ((android.aidl.loggable.ILoggableInterface.ISub)iin);
+        }
+        return new android.aidl.loggable.ILoggableInterface.ISub.Stub.Proxy(obj);
+      }
+      @Override public android.os.IBinder asBinder()
+      {
+        return this;
+      }
+      @Override public boolean onTransact(int code, android.os.Parcel data, android.os.Parcel reply, int flags) throws android.os.RemoteException
+      {
+        java.lang.String descriptor = DESCRIPTOR;
+        if (code >= android.os.IBinder.FIRST_CALL_TRANSACTION && code <= android.os.IBinder.LAST_CALL_TRANSACTION) {
+          data.enforceInterface(descriptor);
+        }
+        switch (code)
+        {
+          case INTERFACE_TRANSACTION:
+          {
+            reply.writeString(descriptor);
+            return true;
+          }
+        }
+        switch (code)
+        {
+          case TRANSACTION_Log:
+          {
+            try {
+              android.os.Trace.traceBegin(android.os.Trace.TRACE_TAG_AIDL, "AIDL::java::ISub::Log::server");
+              int _arg0;
+              _arg0 = data.readInt();
+              data.enforceNoDataAvail();
+              this.Log(_arg0);
+              reply.writeNoException();
+            }
+            finally {
+              android.os.Trace.traceEnd(android.os.Trace.TRACE_TAG_AIDL);
+            }
+            break;
+          }
+          default:
+          {
+            return super.onTransact(code, data, reply, flags);
+          }
+        }
+        return true;
+      }
+      private static class Proxy implements android.aidl.loggable.ILoggableInterface.ISub
+      {
+        private android.os.IBinder mRemote;
+        Proxy(android.os.IBinder remote)
+        {
+          mRemote = remote;
+        }
+        @Override public android.os.IBinder asBinder()
+        {
+          return mRemote;
+        }
+        public java.lang.String getInterfaceDescriptor()
+        {
+          return DESCRIPTOR;
+        }
+        @Override public void Log(int value) throws android.os.RemoteException
+        {
+          android.os.Parcel _data = android.os.Parcel.obtain();
+          android.os.Parcel _reply = android.os.Parcel.obtain();
+          try {
+            android.os.Trace.traceBegin(android.os.Trace.TRACE_TAG_AIDL, "AIDL::java::ISub::Log::client");
+            _data.writeInterfaceToken(DESCRIPTOR);
+            _data.writeInt(value);
+            boolean _status = mRemote.transact(Stub.TRANSACTION_Log, _data, _reply, 0);
+            _reply.readException();
+          }
+          finally {
+            _reply.recycle();
+            _data.recycle();
+            android.os.Trace.traceEnd(android.os.Trace.TRACE_TAG_AIDL);
+          }
+        }
+      }
+      static final int TRANSACTION_Log = (android.os.IBinder.FIRST_CALL_TRANSACTION + 0);
+    }
+    public static final java.lang.String DESCRIPTOR = "android$aidl$loggable$ILoggableInterface$ISub".replace('$', '.');
+    public void Log(int value) throws android.os.RemoteException;
+  }
 }

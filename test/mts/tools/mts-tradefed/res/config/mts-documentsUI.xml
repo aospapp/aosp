@@ -19,5 +19,7 @@
 
     <include name="mts-documentsUI-tests-list" />
 
+    <include name="mts-documentsUI-usedapi-tests-list" />
+
     <option name="plan" value="mts-documentsUI" />
 </configuration>

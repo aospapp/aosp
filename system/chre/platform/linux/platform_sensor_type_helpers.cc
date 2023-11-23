@@ -15,6 +15,7 @@
  */
 
 #include "chre/platform/platform_sensor_type_helpers.h"
+#include "chre/util/macros.h"
 
 #ifdef CHREX_SENSOR_SUPPORT
 #include "chre/extensions/platform/vendor_sensor_types.h"
@@ -24,32 +25,41 @@ namespace chre {
 
 ReportingMode PlatformSensorTypeHelpers::getVendorSensorReportingMode(
     uint8_t sensorType) {
+  UNUSED_VAR(sensorType);
   return ReportingMode::Continuous;
 }
 
 bool PlatformSensorTypeHelpers::getVendorSensorIsCalibrated(
     uint8_t sensorType) {
+  UNUSED_VAR(sensorType);
   return false;
 }
 
 bool PlatformSensorTypeHelpers::getVendorSensorBiasEventType(
     uint8_t sensorType, uint16_t *eventType) {
+  UNUSED_VAR(sensorType);
+  UNUSED_VAR(eventType);
   return false;
 }
 
 const char *PlatformSensorTypeHelpers::getVendorSensorTypeName(
     uint8_t sensorType) {
+  UNUSED_VAR(sensorType);
   return "";
 }
 
 size_t PlatformSensorTypeHelpers::getVendorSensorLastEventSize(
     uint8_t sensorType) {
+  UNUSED_VAR(sensorType);
   return 0;
 }
 
 void PlatformSensorTypeHelpers::getVendorLastSample(uint8_t sensorType,
                                                     const ChreSensorData *event,
                                                     ChreSensorData *lastEvent) {
+  UNUSED_VAR(sensorType);
+  UNUSED_VAR(event);
+  UNUSED_VAR(lastEvent);
 }
 
 }  // namespace chre

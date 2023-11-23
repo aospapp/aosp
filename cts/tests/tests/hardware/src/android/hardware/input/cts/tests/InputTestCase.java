@@ -24,6 +24,7 @@ import static org.junit.Assert.fail;
 import android.app.Instrumentation;
 import android.hardware.input.cts.InputCallback;
 import android.hardware.input.cts.InputCtsActivity;
+import android.os.Bundle;
 import android.util.Log;
 import android.view.InputDevice;
 import android.view.InputEvent;
@@ -32,18 +33,21 @@ import android.view.MotionEvent;
 import android.view.View;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.platform.app.InstrumentationRegistry;
-import androidx.test.rule.ActivityTestRule;
 
 import com.android.compatibility.common.util.PollingCheck;
-import com.android.cts.input.InputJsonParser;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -53,59 +57,74 @@ public abstract class InputTestCase {
     private static final String TAG = "InputTestCase";
     private static final float TOLERANCE = 0.005f;
 
+    // Ignore comparing input values for these axes. This is used to prevent breakages caused by
+    // OEMs using custom key layouts to remap GAS/BRAKE to RTRIGGER/LTRIGGER (for example,
+    // b/197062720).
+    private static final Set<Integer> IGNORE_AXES = new HashSet<>(Arrays.asList(
+            MotionEvent.AXIS_LTRIGGER, MotionEvent.AXIS_RTRIGGER,
+            MotionEvent.AXIS_GAS, MotionEvent.AXIS_BRAKE));
+
     private final BlockingQueue<InputEvent> mEvents;
     protected final Instrumentation mInstrumentation = InstrumentationRegistry.getInstrumentation();
 
     private InputListener mInputListener;
     private View mDecorView;
 
-    protected InputJsonParser mParser;
     // Stores the name of the currently running test
     protected String mCurrentTestCase;
-    private int mRegisterResourceId; // raw resource that contains json for registering a hid device
-    protected int mVid;
-    protected int mPid;
 
     // State used for motion events
     private int mLastButtonState;
 
-    InputTestCase(int registerResourceId) {
+    protected InputCtsActivity mTestActivity;
+
+    InputTestCase() {
         mEvents = new LinkedBlockingQueue<>();
         mInputListener = new InputListener();
-        mRegisterResourceId = registerResourceId;
     }
 
     @Rule
-    public ActivityTestRule<InputCtsActivity> mActivityRule =
-        new ActivityTestRule<>(InputCtsActivity.class);
+    public ActivityScenarioRule<InputCtsActivity> mActivityRule =
+            new ActivityScenarioRule<>(InputCtsActivity.class);
 
     @Before
     public void setUp() throws Exception {
-        mActivityRule.getActivity().clearUnhandleKeyCode();
-        mDecorView = mActivityRule.getActivity().getWindow().getDecorView();
-        mParser = new InputJsonParser(mInstrumentation.getTargetContext());
-        mVid = mParser.readVendorId(mRegisterResourceId);
-        mPid = mParser.readProductId(mRegisterResourceId);
-        int deviceId = mParser.readDeviceId(mRegisterResourceId);
-        String registerCommand = mParser.readRegisterCommand(mRegisterResourceId);
-        setUpDevice(deviceId, mParser.readVendorId(mRegisterResourceId),
-                mParser.readProductId(mRegisterResourceId),
-                mParser.readSources(mRegisterResourceId), registerCommand);
+        onBeforeLaunchActivity();
+
+        mActivityRule.getScenario().launch(InputCtsActivity.class, getActivityOptions())
+                .onActivity(activity -> mTestActivity = activity);
+        mTestActivity.clearUnhandleKeyCode();
+        mTestActivity.setInputCallback(mInputListener);
+        mDecorView = mTestActivity.getWindow().getDecorView();
+
+        onSetUp();
+
+        PollingCheck.waitFor(mTestActivity::hasWindowFocus);
+        assertTrue(mCurrentTestCase + ": Activity window must have focus",
+                mTestActivity.hasWindowFocus());
+
         mEvents.clear();
     }
 
     @After
     public void tearDown() throws Exception {
-        tearDownDevice();
+        onTearDown();
     }
 
-    // To be implemented by device specific test case.
-    protected abstract void setUpDevice(int id, int vendorId, int productId, int sources,
-            String registerCommand);
+    /** Optional setup logic performed before the test activity is launched. */
+    void onBeforeLaunchActivity() {}
 
-    protected abstract void tearDownDevice();
+    abstract void onSetUp();
 
-    protected abstract void testInputDeviceEvents(int resourceId);
+    abstract void onTearDown();
+
+    /**
+     * Get the activity options to launch the activity with.
+     * @return the activity options or null.
+     */
+    @Nullable Bundle getActivityOptions() {
+        return null;
+    }
 
     /**
      * Asserts that the application received a {@link android.view.KeyEvent} with the given
@@ -125,7 +144,9 @@ public abstract class InputTestCase {
         assertEquals(mCurrentTestCase + " (action)",
                 expectedKeyEvent.getAction(), receivedKeyEvent.getAction());
         assertSource(mCurrentTestCase, expectedKeyEvent, receivedKeyEvent);
-        assertEquals(mCurrentTestCase + " (keycode)",
+        assertEquals(mCurrentTestCase + " (keycode) expected: "
+                + KeyEvent.keyCodeToString(expectedKeyEvent.getKeyCode()) + " received: "
+                + KeyEvent.keyCodeToString(receivedKeyEvent.getKeyCode()),
                 expectedKeyEvent.getKeyCode(), receivedKeyEvent.getKeyCode());
         assertMetaState(mCurrentTestCase, expectedKeyEvent.getMetaState(),
                 receivedKeyEvent.getMetaState());
@@ -169,12 +190,13 @@ public abstract class InputTestCase {
      * Asserts motion event axis values. Separate this into a different method to allow individual
      * test case to specify it.
      *
-     * @param expectedSource expected source flag specified in JSON files.
-     * @param actualSource actual source flag received in the test app.
+     * @param expectedEvent expected event flag specified in JSON files.
+     * @param actualEvent actual event flag received in the test app.
      */
     void assertAxis(String testCase, MotionEvent expectedEvent, MotionEvent actualEvent) {
         for (int i = 0; i < actualEvent.getPointerCount(); i++) {
             for (int axis = MotionEvent.AXIS_X; axis <= MotionEvent.AXIS_GENERIC_16; axis++) {
+                if (IGNORE_AXES.contains(axis)) continue;
                 assertEquals(testCase + " pointer " + i
                         + " (" + MotionEvent.axisToString(axis) + ")",
                         expectedEvent.getAxisValue(axis, i), actualEvent.getAxisValue(axis, i),
@@ -218,7 +240,7 @@ public abstract class InputTestCase {
      *
      * If any more events have been received by the application, this will cause failure.
      */
-    private void assertNoMoreEvents() {
+    protected void assertNoMoreEvents() {
         mInstrumentation.waitForIdleSync();
         InputEvent event = mEvents.poll();
         if (event == null) {
@@ -228,7 +250,6 @@ public abstract class InputTestCase {
     }
 
     protected void verifyEvents(List<InputEvent> events) {
-        mActivityRule.getActivity().setInputCallback(mInputListener);
         // Make sure we received the expected input events
         if (events.size() == 0) {
             // If no event is expected we need to wait for event until timeout and fail on
@@ -255,11 +276,6 @@ public abstract class InputTestCase {
             }
             fail("Entry " + i + " is neither a KeyEvent nor a MotionEvent: " + event);
         }
-        assertNoMoreEvents();
-    }
-
-    protected void testInputEvents(int resourceId) {
-        testInputDeviceEvents(resourceId);
         assertNoMoreEvents();
     }
 
@@ -392,18 +408,8 @@ public abstract class InputTestCase {
         }
     }
 
-    protected void requestFocusSync() {
-        mActivityRule.getActivity().runOnUiThread(() -> {
-            mDecorView.setFocusable(true);
-            mDecorView.setFocusableInTouchMode(true);
-            mDecorView.requestFocus();
-        });
-        PollingCheck.waitFor(mDecorView::hasFocus);
-    }
-
     protected class PointerCaptureSession implements AutoCloseable {
         protected PointerCaptureSession() {
-            requestFocusSync();
             ensurePointerCaptureState(true);
         }
 
@@ -414,12 +420,12 @@ public abstract class InputTestCase {
 
         private void ensurePointerCaptureState(boolean enable) {
             final CountDownLatch latch = new CountDownLatch(1);
-            mActivityRule.getActivity().setPointerCaptureCallback(hasCapture -> {
+            mTestActivity.setPointerCaptureCallback(hasCapture -> {
                 if (enable == hasCapture) {
                     latch.countDown();
                 }
             });
-            mActivityRule.getActivity().runOnUiThread(enable ? mDecorView::requestPointerCapture
+            mTestActivity.runOnUiThread(enable ? mDecorView::requestPointerCapture
                     : mDecorView::releasePointerCapture);
             try {
                 if (!latch.await(60, TimeUnit.SECONDS)) {
@@ -432,7 +438,7 @@ public abstract class InputTestCase {
                 throw new IllegalStateException(
                         "Interrupted while waiting for Pointer Capture state.");
             } finally {
-                mActivityRule.getActivity().setPointerCaptureCallback(null);
+                mTestActivity.setPointerCaptureCallback(null);
             }
             assertEquals("The view's Pointer Capture state did not match.", enable,
                     mDecorView.hasPointerCapture());

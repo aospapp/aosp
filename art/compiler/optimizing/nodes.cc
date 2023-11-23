@@ -719,7 +719,8 @@ void HGraph::ComputeTryBlockInformation() {
     // the first predecessor can never be a back edge and therefore it must have
     // been visited already and had its try membership set.
     HBasicBlock* first_predecessor = block->GetPredecessors()[0];
-    DCHECK(!block->IsLoopHeader() || !block->GetLoopInformation()->IsBackEdge(*first_predecessor));
+    DCHECK_IMPLIES(block->IsLoopHeader(),
+                   !block->GetLoopInformation()->IsBackEdge(*first_predecessor));
     const HTryBoundary* try_entry = first_predecessor->ComputeTryEntryOfSuccessors();
     if (try_entry != nullptr &&
         (block->GetTryCatchInformation() == nullptr ||
@@ -1109,10 +1110,10 @@ bool HLoopInformation::HasExitEdge() const {
   return false;
 }
 
-bool HBasicBlock::Dominates(HBasicBlock* other) const {
+bool HBasicBlock::Dominates(const HBasicBlock* other) const {
   // Walk up the dominator tree from `other`, to find out if `this`
   // is an ancestor.
-  HBasicBlock* current = other;
+  const HBasicBlock* current = other;
   while (current != nullptr) {
     if (current == this) {
       return true;
@@ -2014,8 +2015,9 @@ std::ostream& operator<<(std::ostream& os, const HUseList<HEnvironment*>& lst) {
 }
 
 std::ostream& HGraph::Dump(std::ostream& os,
+                           CodeGenerator* codegen,
                            std::optional<std::reference_wrapper<const BlockNamer>> namer) {
-  HGraphVisualizer vis(&os, this, nullptr, namer);
+  HGraphVisualizer vis(&os, this, codegen, namer);
   vis.DumpGraphDebug();
   return os;
 }
@@ -2467,7 +2469,7 @@ void HBasicBlock::DisconnectAndDelete() {
   //     control-flow instructions.
   for (HBasicBlock* predecessor : predecessors_) {
     // We should not see any back edges as they would have been removed by step (3).
-    DCHECK(!IsInLoop() || !GetLoopInformation()->IsBackEdge(*predecessor));
+    DCHECK_IMPLIES(IsInLoop(), !GetLoopInformation()->IsBackEdge(*predecessor));
 
     HInstruction* last_instruction = predecessor->GetLastInstruction();
     if (last_instruction->IsTryBoundary() && !IsCatchBlock()) {
@@ -2913,7 +2915,10 @@ HInstruction* HGraph::InlineInto(HGraph* outer_graph, HInvoke* invoke) {
     } else if (current->IsCurrentMethod()) {
       replacement = outer_graph->GetCurrentMethod();
     } else {
-      DCHECK(current->IsGoto() || current->IsSuspendCheck());
+      // It is OK to ignore MethodEntryHook for inlined functions.
+      // In debug mode we don't inline and in release mode method
+      // tracing is best effort so OK to ignore them.
+      DCHECK(current->IsGoto() || current->IsSuspendCheck() || current->IsMethodEntryHook());
       entry_block_->RemoveInstruction(current);
     }
     if (replacement != nullptr) {
@@ -3065,7 +3070,7 @@ static void CheckAgainstUpperBound(ReferenceTypeInfo rti, ReferenceTypeInfo uppe
     DCHECK(upper_bound_rti.IsSupertypeOf(rti))
         << " upper_bound_rti: " << upper_bound_rti
         << " rti: " << rti;
-    DCHECK(!upper_bound_rti.GetTypeHandle()->CannotBeAssignedFromOtherTypes() || rti.IsExact())
+    DCHECK_IMPLIES(upper_bound_rti.GetTypeHandle()->CannotBeAssignedFromOtherTypes(), rti.IsExact())
         << " upper_bound_rti: " << upper_bound_rti
         << " rti: " << rti;
   }

@@ -30,9 +30,20 @@ LOCAL_FRAMEWORK_DIR = '../acts/framework'
 
 acts_tests_dir = os.path.abspath(os.path.dirname(__file__))
 
-install_requires = []
+install_requires = ['soundfile']
 
-
+if sys.version_info < (3, 6):
+    # Python <= 3.5 uses bokeh up to 1.4.x
+    install_requires.append('bokeh<1.5')
+elif sys.version_info < (3, 7):
+    # Python 3.6 uses bokeh up to 2.3.x
+    install_requires.append('bokeh<2.4')
+elif sys.version_info < (3, 8):
+    # Python 3.7+ uses bokeh up to 2.4.x
+    install_requires.append('bokeh<2.5')
+else:
+    # Python 3.8+ is support by latest bokeh
+    install_requires.append('bokeh')
 
 def _setup_acts_framework(option, *args):
     """Locates and runs setup.py for the ACTS framework.
@@ -68,9 +79,13 @@ class ActsContribInstall(install):
     Otherwise, it will attempt to locate the ACTS framework from the local
     repository.
     """
+
     def run(self):
-        super().run()
         _setup_acts_framework('install')
+        # Calling install.run() directly fails to install the dependencies as
+        # listed in install_requires. Use install.do_egg_install() instead.
+        # Ref: https://stackoverflow.com/questions/21915469
+        self.do_egg_install()
 
 
 class ActsContribDevelop(develop):
@@ -78,6 +93,7 @@ class ActsContribDevelop(develop):
 
     See ActsContribInstall for more details.
     """
+
     def run(self):
         super().run()
         if self.uninstall:
@@ -142,8 +158,9 @@ class ActsContribUninstall(cmd.Command):
             acts_contrib_module: The acts_contrib module to uninstall.
         """
         for acts_contrib_install_dir in acts_contrib_module.__path__:
-            self.announce('Deleting acts_contrib from: %s'
-                          % acts_contrib_install_dir, log.INFO)
+            self.announce(
+                'Deleting acts_contrib from: %s' % acts_contrib_install_dir,
+                log.INFO)
             shutil.rmtree(acts_contrib_install_dir)
 
     def run(self):
@@ -160,8 +177,9 @@ class ActsContribUninstall(cmd.Command):
         try:
             import acts_contrib as acts_contrib_module
         except ImportError:
-            self.announce('acts_contrib is not installed, nothing to uninstall.',
-                          level=log.ERROR)
+            self.announce(
+                'acts_contrib is not installed, nothing to uninstall.',
+                level=log.ERROR)
             return
 
         while acts_contrib_module:
@@ -180,7 +198,7 @@ class ActsContribUninstall(cmd.Command):
 
 def main():
     os.chdir(acts_tests_dir)
-    packages = setuptools.find_packages(include=('acts_contrib*',))
+    packages = setuptools.find_packages(include=('acts_contrib*', ))
     setuptools.setup(name='acts_contrib',
                      version='0.9',
                      description='Android Comms Test Suite',

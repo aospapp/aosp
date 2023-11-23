@@ -34,4 +34,8 @@ android_test {
         "vts10",
         "general-tests",
     ],
+    data: [
+        ":CtsAppToBlame1",
+    ],
+    per_testcase_directory: true,
 }

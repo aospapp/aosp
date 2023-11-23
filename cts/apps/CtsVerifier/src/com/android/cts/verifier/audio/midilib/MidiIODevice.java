@@ -19,10 +19,9 @@ package com.android.cts.verifier.audio.midilib;
 import android.media.midi.MidiDevice;
 import android.media.midi.MidiDeviceInfo;
 import android.media.midi.MidiInputPort;
-import android.media.midi.MidiManager;
 import android.media.midi.MidiOutputPort;
 import android.media.midi.MidiReceiver;
-
+import android.os.Bundle;
 import android.util.Log;
 
 import java.io.IOException;
@@ -56,11 +55,32 @@ public class MidiIODevice {
         mReceivePort = null;
 
         for(MidiDeviceInfo devInfo : devInfos) {
+            Bundle devBundle = devInfo.getProperties();
+            if (DEBUG) {
+                Log.i(TAG, "  mfg:" + devBundle.getString(MidiDeviceInfo.PROPERTY_MANUFACTURER)
+                        + " prod:" + devBundle.getString(MidiDeviceInfo.PROPERTY_PRODUCT));
+            }
+
             // Inputs?
             int numInPorts = devInfo.getInputPortCount();
             if (numInPorts <= 0) {
                 continue; // none?
             }
+
+            // For virtual MIDI devices, we need to find
+            // manufacturer=AndroidCTSVerifier and product=VerifierMidiEcho or else
+            // it might be some other MIDI app providing virtual MIDI services
+            if (mDeviceType == MidiDeviceInfo.TYPE_VIRTUAL) {
+                if (!"AndroidCTSVerifier".equals(
+                        devBundle.getString(MidiDeviceInfo.PROPERTY_MANUFACTURER))
+                        || !"VerifierMidiEcho".equals(
+                                devBundle.getString(MidiDeviceInfo.PROPERTY_PRODUCT))) {
+                    // Virtual [but not ours]
+                    Log.d(TAG, "Virtual Midi Device:" + devInfo);
+                    continue;
+                }
+            }
+
             if (devInfo.getType() == mDeviceType && mSendDevInfo == null) {
                 mSendDevInfo = devInfo;
             }
@@ -80,12 +100,10 @@ public class MidiIODevice {
         }
 
         if (DEBUG) {
-            if (mSendDevInfo != null) {
-                Log.i(TAG, "---- mSendDevInfo: " + mSendDevInfo);
-            }
-            if (mReceiveDevInfo != null) {
-                Log.i(TAG, "---- mReceiveDevInfo: " + mReceiveDevInfo);
-            }
+            Log.i(TAG, "---- mSendDevInfo: "
+                    + (mSendDevInfo != null ? mSendDevInfo.toString() : "NONE"));
+            Log.i(TAG, "---- mReceiveDevInfo: "
+                    + (mReceiveDevInfo != null ? mReceiveDevInfo.toString() : "NONE"));
         }
     }
 

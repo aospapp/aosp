@@ -17,6 +17,7 @@ package android.content.pm.cts.shortcutmanager;
 
 import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils.getIconSize;
 
+import android.content.pm.ShortcutInfo;
 import android.content.pm.ShortcutManager;
 import android.test.suitebuilder.annotation.SmallTest;
 
@@ -42,5 +43,14 @@ public class ShortcutManagerMiscTest extends ShortcutManagerCtsTestsBase {
         final int iconDimension = getIconSize(getInstrumentation());
         assertEquals(iconDimension, manager.getIconMaxWidth());
         assertEquals(iconDimension, manager.getIconMaxHeight());
+    }
+
+    public void testExcludedFromFields() throws Exception {
+        final ShortcutInfo s1 = makeShortcut("s1");
+        final ShortcutInfo s2 = makeShortcutExcludedFromLauncher("s2");
+        assertFalse(s1.isExcludedFromSurfaces(ShortcutInfo.SURFACE_LAUNCHER));
+        assertTrue(s2.isExcludedFromSurfaces(ShortcutInfo.SURFACE_LAUNCHER));
+        assertEquals(0, s1.getExcludedFromSurfaces());
+        assertEquals(ShortcutInfo.SURFACE_LAUNCHER, s2.getExcludedFromSurfaces());
     }
 }

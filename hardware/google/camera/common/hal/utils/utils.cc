@@ -486,6 +486,40 @@ std::vector<std::string> FindLibraryPaths(const char* dir_path) {
   return libs;
 }
 
+bool IsStreamUseCaseSupported(const StreamConfiguration& stream_config,
+                              const std::set<int64_t>& stream_use_cases,
+                              bool log_if_not_supported) {
+  for (const auto& stream : stream_config.streams) {
+    if (stream_use_cases.find(stream.use_case) == stream_use_cases.end()) {
+      if (log_if_not_supported) {
+        ALOGE("Stream use case %d not in set of supported use cases",
+              stream.use_case);
+      }
+      return false;
+    }
+  }
+  return true;
+}
+
+status_t GetStreamUseCases(const HalCameraMetadata* static_metadata,
+                           std::set<int64_t>* stream_use_cases) {
+  if (static_metadata == nullptr || stream_use_cases == nullptr) {
+    return BAD_VALUE;
+  }
+
+  camera_metadata_ro_entry entry;
+  status_t ret =
+      static_metadata->Get(ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES, &entry);
+  if (ret != OK) {
+    ALOGV("%s: No available stream use cases!", __FUNCTION__);
+    stream_use_cases->insert(ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_DEFAULT);
+    return OK;
+  }
+  stream_use_cases->insert(entry.data.i64, entry.data.i64 + entry.count);
+
+  return OK;
+}
+
 }  // namespace utils
 }  // namespace google_camera_hal
 }  // namespace android

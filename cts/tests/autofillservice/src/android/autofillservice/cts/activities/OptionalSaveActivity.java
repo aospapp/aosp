@@ -105,11 +105,7 @@ public class OptionalSaveActivity extends AbstractAutoFillActivity {
         finish();
     }
 
-    /**
-     * Sets the expectation for an auto-fill request, so it can be asserted through
-     * {@link #assertAutoFilled()} later.
-     */
-    public void expectAutoFill(@Nullable String address1, @Nullable String address2,
+    public void expectTextChange(@Nullable String address1, @Nullable String address2,
             @Nullable String city,
             @Nullable String favColor) {
         mExpectation = new FillExpectation(address1, address2, city, favColor);
@@ -128,11 +124,16 @@ public class OptionalSaveActivity extends AbstractAutoFillActivity {
     }
 
     /**
-     * Asserts the activity was auto-filled with the values passed to
-     * {@link #expectAutoFill(String, String, String, String)}.
+     * Sets the expectation for an auto-fill request, so it can be asserted through
+     * {@link #assertAutoFilled()} later.
      */
-    public void assertAutoFilled() throws Exception {
-        assertWithMessage("expectAutoFill() not called").that(mExpectation).isNotNull();
+    public void expectAutoFill(@Nullable String address1, @Nullable String address2,
+            @Nullable String city,
+            @Nullable String favColor) {
+        expectTextChange(address1, address2, city, favColor);
+    }
+
+    public void assertTextChange() throws Exception {
         if (mExpectation.address1Watcher != null) {
             mExpectation.address1Watcher.assertAutoFilled();
         }
@@ -145,6 +146,15 @@ public class OptionalSaveActivity extends AbstractAutoFillActivity {
         if (mExpectation.favoriteColorWatcher != null) {
             mExpectation.favoriteColorWatcher.assertAutoFilled();
         }
+    }
+
+    /**
+     * Asserts the activity was auto-filled with the values passed to
+     * {@link #expectAutoFill(String, String, String, String)}.
+     */
+    public void assertAutoFilled() throws Exception {
+        assertWithMessage("expectAutoFill() not called").that(mExpectation).isNotNull();
+        assertTextChange();
     }
 
     /**

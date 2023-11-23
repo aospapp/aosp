@@ -26,7 +26,6 @@ class ApiLintBaselineTest : DriverTest() {
     fun `Test with global baseline`() {
         check(
             apiLint = "", // enabled
-            compatibilityMode = false,
             baseline = """
                 // Baseline format: 1.0
                 Enum: android.pkg.MyEnum:
@@ -50,7 +49,6 @@ class ApiLintBaselineTest : DriverTest() {
     fun `Test with api-lint specific baseline`() {
         check(
             apiLint = "", // enabled
-            compatibilityMode = false,
             baselineApiLint = """
                 // Baseline format: 1.0
                 Enum: android.pkg.MyEnum:
@@ -74,7 +72,6 @@ class ApiLintBaselineTest : DriverTest() {
     fun `Test with api-lint specific baseline with update`() {
         check(
             apiLint = "", // enabled
-            compatibilityMode = false,
             baselineApiLint = """
                 """,
             updateBaselineApiLint = """
@@ -100,7 +97,6 @@ class ApiLintBaselineTest : DriverTest() {
     fun `Test with non-api-lint specific baseline`() {
         check(
             apiLint = "", // enabled
-            compatibilityMode = false,
             baselineCheckCompatibilityReleased = """
                 // Baseline format: 1.0
                 Enum: android.pkg.MyEnum:
@@ -128,7 +124,6 @@ class ApiLintBaselineTest : DriverTest() {
     fun `Test api-lint error message`() {
         check(
             apiLint = "", // enabled
-            compatibilityMode = false,
             baselineApiLint = "",
             errorMessageApiLint = "*** api-lint failed ***",
             expectedIssues = """
@@ -157,7 +152,6 @@ class ApiLintBaselineTest : DriverTest() {
     fun `Test no api-lint error message`() {
         check(
             apiLint = "", // enabled
-            compatibilityMode = false,
             baselineApiLint = "",
             expectedIssues = """
                 src/android/pkg/MyClassImpl.java:3: error: Don't expose your implementation details: `MyClassImpl` ends with `Impl` [EndsWithImpl] [See https://s.android.com/api-guidelines#dont-end-with-impl]

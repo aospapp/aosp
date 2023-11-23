@@ -22,7 +22,6 @@ import os
 from aidegen import constant
 from aidegen.lib import common_util
 from aidegen.lib import native_module_info
-from atest import constants
 
 _C_CPP_PROPERTIES_CONFIG_FILE_NAME = 'c_cpp_properties.json'
 _ENV = 'env'
@@ -114,9 +113,9 @@ class VSCodeNativeProjectFileGenerator:
             logging.warning(_COMPILER_EMPTY)
         configs[_C_STANDARD] = _C_11
         configs[_CPP_STANDARD] = _CPP_17
-        root_var = _make_var(constants.ANDROID_BUILD_TOP)
+        root_dir = common_util.get_android_root_dir()
         configs[_COMPILE_CMD] = os.path.join(
-            root_var, _COMPILE_COMMANDS_FILE_DIR, _COMPILE_COMMANDS_FILE_NAME)
+            root_dir, _COMPILE_COMMANDS_FILE_DIR, _COMPILE_COMMANDS_FILE_NAME)
         configs[_BROWSE] = browse
         configs[_INTELL_SENSE] = _GCC_X64
         data = {}
@@ -124,20 +123,8 @@ class VSCodeNativeProjectFileGenerator:
         return data
 
 
-def _make_var(text):
-    """Adds '${}' to make the text become a variable.
-
-    Args:
-        text: A string of text to be added '${}'.
-
-    Returns:
-        A string after adding '${}'.
-    """
-    return ''.join(['${', text, '}'])
-
-
 def _make_header_file_paths(paths):
-    """Adds prefix '${ANDROID_BUILD_TOP}' and suffix '**/*.h' to a path.
+    """Adds the Android root directory and suffix '**/*.h' to a path.
 
     Args:
         paths: An iterative set of relative paths' strings.
@@ -145,8 +132,8 @@ def _make_header_file_paths(paths):
     Returns:
         A list of new paths after adding prefix and suffix.
     """
+    root_dir = common_util.get_android_root_dir()
     header_list = []
     for path in paths:
-        header_list.append(os.path.join(
-            _make_var(constants.ANDROID_BUILD_TOP), path))
+        header_list.append(os.path.join(root_dir, path))
     return header_list

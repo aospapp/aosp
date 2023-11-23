@@ -94,6 +94,8 @@ static wifi_error wifi_get_packet_filter_capabilities(wifi_interface_handle hand
 static wifi_error wifi_configure_nd_offload(wifi_interface_handle iface, u8 enable);
 static wifi_error wifi_get_usable_channels(wifi_handle handle, u32 band_mask, u32 iface_mode_mask,
 		u32 filter_mask, u32 max_size, u32* size, wifi_usable_channel* channels);
+static wifi_error wifi_get_supported_radio_combinations_matrix(wifi_handle handle,
+		u32 max_size, u32* size, wifi_radio_combination_matrix *radio_combination_matrix);
 
 static void wifi_cleanup_dynamic_ifaces(wifi_handle handle);
 typedef enum wifi_attr {
@@ -115,6 +117,13 @@ typedef enum wifi_attr {
      // Add more attribute here
     ANDR_WIFI_ATTRIBUTE_MAX
 } wifi_attr_t;
+
+enum wifi_radio_combo_attributes {
+    ANDR_WIFI_ATTRIBUTE_RADIO_COMBO_INVALID    = 0,
+    ANDR_WIFI_ATTRIBUTE_RADIO_COMBO_MATRIX     = 1,
+    // Add more attribute here
+    ANDR_WIFI_ATTRIBUTE_RADIO_COMBO_MAX
+};
 
 enum wifi_rssi_monitor_attr {
     RSSI_MONITOR_ATTRIBUTE_INVALID	= 0,
@@ -331,6 +340,10 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn)
     fn->wifi_set_dtim_config = wifi_set_dtim_config;
     fn->wifi_get_usable_channels = wifi_get_usable_channels;
     fn->wifi_trigger_subsystem_restart = wifi_trigger_subsystem_restart;
+    fn->wifi_get_supported_radio_combinations_matrix = wifi_get_supported_radio_combinations_matrix;
+    fn->wifi_nan_rtt_chre_enable_request = nan_chre_enable_request;
+    fn->wifi_nan_rtt_chre_disable_request = nan_chre_disable_request;
+    fn->wifi_chre_register_handler = nan_chre_register_handler;
 
     return WIFI_SUCCESS;
 }
@@ -530,6 +543,7 @@ wifi_error wifi_initialize(wifi_handle *handle)
         }
     } else {
         ALOGI("Not Calling set alert handler as global_iface is NULL");
+        return WIFI_ERROR_UNKNOWN;
     }
     return WIFI_SUCCESS;
 }
@@ -617,7 +631,6 @@ void wifi_cleanup(wifi_handle handle, wifi_cleaned_up_handler handler)
     }
 
     hal_info *info = getHalInfo(handle);
-    char buf[64];
     wifi_error result;
 
     int numIfaceHandles = 0;
@@ -1479,6 +1492,93 @@ protected:
     }
 
 };
+/////////////////////////////////////////////////////////////////////
+class GetRadioComboCommand : public WifiCommand {
+private:
+    wifi_radio_combination_matrix *rcmatrix;
+    u32* rc_size;
+    u32 set_size_max;
+    int ret = 0;
+
+public:
+    GetRadioComboCommand(wifi_interface_handle handle, u32 max_size, u32* size,
+        wifi_radio_combination_matrix *radio_combination_matrix)
+        : WifiCommand("GetRadioComboCommand", handle, 0), rcmatrix(radio_combination_matrix),
+        rc_size(size), set_size_max(max_size)
+    {
+    }
+
+    virtual int createRequest(WifiRequest& mMsg) {
+        ret = mMsg.create(GOOGLE_OUI, WIFI_SUBCMD_GET_RADIO_COMBO_MATRIX);
+        if (ret < 0) {
+            ALOGE("Can't create message to send to driver - %d", ret);
+        }
+        nlattr *data = mMsg.attr_start(NL80211_ATTR_VENDOR_DATA);
+        mMsg.attr_end(data);
+
+        return ret;
+    }
+
+    int start() {
+        WifiRequest request(familyId(), ifaceId());
+        ret = createRequest(request);
+        if (ret < 0) {
+            ALOGE("Request failed for radio_combo_matrix, result = %d", ret);
+            return ret;
+        }
+        ret = requestResponse(request);
+        if (ret < 0) {
+            ALOGE("Request Response failed for radio_combo_matrix, result = %d", ret);
+            return ret;
+        }
+        ALOGD("Done! %s", __FUNCTION__);
+        return ret;
+    }
+
+protected:
+   virtual int handleResponse(WifiEvent& reply) {
+        ALOGD("In GetRadioComboCommand::handleResponse");
+        if (reply.get_cmd() != NL80211_CMD_VENDOR) {
+            ALOGD("Ignoring reply with cmd = %d", reply.get_cmd());
+            return NL_SKIP;
+        }
+
+        int id = reply.get_vendor_id();
+        int subcmd = reply.get_vendor_subcmd();
+
+        nlattr *vendor_data = reply.get_attribute(NL80211_ATTR_VENDOR_DATA);
+        int len = reply.get_vendor_data_len();
+
+        ALOGV("Id = %0x, subcmd = %d, len = %d", id, subcmd, len);
+        if (vendor_data == NULL || len == 0) {
+            ALOGE("no vendor data in GetRadioComboCommand response; ignoring it");
+            return NL_SKIP;
+        }
+
+        for (nl_iterator it(vendor_data); it.has_next(); it.next()) {
+            if (it.get_type() == ANDR_WIFI_ATTRIBUTE_RADIO_COMBO_MATRIX) {
+                void *data = it.get_data();
+                *rc_size = it.get_len();
+                if (!data || !*rc_size) {
+                    ALOGE("Buffers pointers not set");
+                    return NL_SKIP;
+                }
+                if (set_size_max < *rc_size) {
+                    ALOGE("Unexpected buffers size");
+                    return NL_SKIP;
+                }
+                memcpy(rcmatrix, data, min(len, *rc_size));
+            } else {
+                ALOGW("Ignoring invalid attribute type = %d, size = %d",
+                        it.get_type(), it.get_len());
+            }
+        }
+
+        ALOGD("GetRadioComboCommand::Success");
+        return NL_OK;
+    }
+};
+/////////////////////////////////////////////////////////////////////
 
 class SetLatencyModeCommand : public WifiCommand {
 private:
@@ -1758,6 +1858,27 @@ wifi_error wifi_get_concurrency_matrix(wifi_interface_handle handle, int set_siz
     GetFeatureSetCommand command(handle, ANDR_WIFI_ATTRIBUTE_FEATURE_SET, NULL,
             set, set_size, set_size_max);
     return (wifi_error) command.requestResponse();
+}
+
+wifi_error wifi_get_supported_radio_combinations_matrix(wifi_handle handle,
+    u32 max_size, u32* size, wifi_radio_combination_matrix *radio_combination_matrix)
+{
+    int numIfaceHandles = 0;
+    wifi_interface_handle *ifaceHandles = NULL;
+    wifi_interface_handle wlan0Handle;
+
+    wlan0Handle = wifi_get_wlan_interface((wifi_handle)handle, ifaceHandles, numIfaceHandles);
+    GetRadioComboCommand *cmd = new GetRadioComboCommand(wlan0Handle, max_size,
+        size, radio_combination_matrix);
+    NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
+    wifi_error result = (wifi_error)cmd->start();
+    if (result == WIFI_SUCCESS) {
+        ALOGD("Get radio combo matrix success");
+    } else {
+        ALOGE("Get radio combo matrix failed\n");
+    }
+    cmd->releaseRef();
+    return result;
 }
 
 wifi_error wifi_set_scanning_mac_oui(wifi_interface_handle handle, oui scan_oui)

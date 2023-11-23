@@ -23,6 +23,7 @@
 
 #include <base/macros.h>
 
+#include "update_engine/common/utils.h"
 #include "update_engine/update_metadata.pb.h"
 
 // An ExtentRanges object represents an unordered collection of extents (and
@@ -36,6 +37,9 @@ namespace chromeos_update_engine {
 
 struct ExtentLess {
   bool operator()(const Extent& x, const Extent& y) const {
+    if (x.start_block() == y.start_block()) {
+      return x.num_blocks() < y.num_blocks();
+    }
     return x.start_block() < y.start_block();
   }
 };
@@ -49,7 +53,14 @@ class ExtentRanges {
  public:
   typedef std::set<Extent, ExtentLess> ExtentSet;
 
-  ExtentRanges() : blocks_(0) {}
+  ExtentRanges() = default;
+  // When |merge_touching_extents| is set to false, extents that are only
+  // touching but not overlapping won't be merged. This slightly decreases
+  // space/time efficiency, but should not impact correctness.
+  // Only intended usecase is for VABC XOR.
+  // E.g. [5-9] and [10-14] will be merged iff |merge_touching_extents| is true
+  explicit ExtentRanges(bool merge_touching_extents)
+      : merge_touching_extents_(merge_touching_extents) {}
   void AddBlock(uint64_t block);
   void SubtractBlock(uint64_t block);
   void AddExtent(Extent extent);
@@ -84,9 +95,22 @@ class ExtentRanges {
   // the number of blocks in this extent set.
   std::vector<Extent> GetExtentsForBlockCount(uint64_t count) const;
 
+  // Compute the intersection between this ExtentRange and the |extent|
+  // parameter. Return results in a vector. If there's no intersection, an empty
+  // vector is returned.
+  std::vector<Extent> GetIntersectingExtents(const Extent& extent) const;
+
+  // Get a range of extents that possibly intersect with |extent|. (Returned
+  // extents do not necessarily intersect!). It is perfectly acceptable to just
+  // return all extents in this set, though more efficient solution using binary
+  // search is preferred.
+  Range<ExtentSet::const_iterator> GetCandidateRange(
+      const Extent& extent) const;
+
  private:
   ExtentSet extent_set_;
-  uint64_t blocks_;
+  uint64_t blocks_ = 0;
+  bool merge_touching_extents_ = true;
 };
 
 // Filters out from the passed list of extents |extents| all the blocks in the
@@ -94,6 +118,8 @@ class ExtentRanges {
 // omitting blocks present in the ExtentRanges |ranges|.
 std::vector<Extent> FilterExtentRanges(const std::vector<Extent>& extents,
                                        const ExtentRanges& ranges);
+
+Extent GetOverlapExtent(const Extent& extent1, const Extent& extent2);
 
 }  // namespace chromeos_update_engine
 

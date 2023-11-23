@@ -17,7 +17,11 @@
 package com.android.bedstead.nene.packages;
 
 import com.android.bedstead.nene.annotations.Experimental;
+import com.android.bedstead.nene.exceptions.NeneException;
 import com.android.bedstead.nene.users.UserReference;
+import com.android.bedstead.nene.utils.Poll;
+
+import java.util.Set;
 
 @Experimental
 public final class ProcessReference {
@@ -65,7 +69,39 @@ public final class ProcessReference {
         return mUser;
     }
 
-    // TODO(b/203758521): Add support for killing processes
+    /**
+     * Kill this process.
+     */
+    public void kill() {
+        // Removing a permission kills the process, so we can grant then remove an arbitrary
+        // permission
+        String permission = getGrantablePermission();
+
+        if (mPackage.hasPermission(mUser, permission)) {
+            mPackage.denyPermission(mUser, permission);
+            mPackage.grantPermission(mUser, permission);
+        } else {
+            mPackage.grantPermission(mUser, permission);
+            mPackage.denyPermission(mUser, permission);
+        }
+
+        Poll.forValue("process", () -> mPackage.runningProcess(mUser))
+                .toBeNull()
+                .await();
+    }
+
+    private String getGrantablePermission() {
+        Set<String> permissions = mPackage.requestedPermissions();
+        for (String permission : permissions) {
+            try {
+                mPackage.checkCanGrantOrRevokePermission(mUser, permission);
+                return permission;
+            } catch (NeneException e) {
+                // If we can't grant it we'll check the next one
+            }
+        }
+        throw new NeneException("No grantable permission for package " + mPackage);
+    }
 
     @Override
     public int hashCode() {

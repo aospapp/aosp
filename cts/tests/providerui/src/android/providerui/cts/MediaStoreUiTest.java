@@ -16,6 +16,8 @@
 
 package android.providerui.cts;
 
+import static android.provider.cts.ProviderTestUtils.resolveVolumeName;
+
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -26,12 +28,12 @@ import android.app.Activity;
 import android.app.Instrumentation;
 import android.app.UiAutomation;
 import android.content.ContentResolver;
+import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
 import android.content.UriPermission;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
-import android.content.res.AssetFileDescriptor;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Environment;
@@ -39,7 +41,6 @@ import android.os.FileUtils;
 import android.os.ParcelFileDescriptor;
 import android.os.storage.StorageManager;
 import android.os.storage.StorageVolume;
-import android.os.UserManager;
 import android.provider.DocumentsContract;
 import android.provider.MediaStore;
 import android.provider.cts.ProviderTestUtils;
@@ -50,12 +51,12 @@ import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.UiObjectNotFoundException;
-import android.support.test.uiautomator.UiScrollable;
 import android.support.test.uiautomator.UiSelector;
 import android.support.test.uiautomator.Until;
 import android.system.Os;
 import android.text.format.DateUtils;
 import android.util.Log;
+import android.util.Pair;
 
 import androidx.test.InstrumentationRegistry;
 
@@ -68,6 +69,7 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -122,6 +124,7 @@ public class MediaStoreUiTest {
         mActivity = (GetResultActivity) mInstrumentation.startActivitySync(intent);
         mInstrumentation.waitForIdleSync();
         mActivity.clearResult();
+        mDevice.wakeUp();
     }
 
     @After
@@ -147,6 +150,7 @@ public class MediaStoreUiTest {
         if (!supportsHardware()) return;
 
         prepareFile();
+        clearDocumentsUi();
 
         final Uri treeUri = acquireAccess(mFile, Environment.DIRECTORY_DOCUMENTS);
         assertNotNull(treeUri);
@@ -171,10 +175,11 @@ public class MediaStoreUiTest {
     }
 
     @Test
-    public void testGetDocumentUri_ThrowsWithoutPermission() throws Exception {
+    public void testGetDocumentUri_throwsWithoutPermission() throws Exception {
         if (!supportsHardware()) return;
 
         prepareFile();
+        clearDocumentsUi();
 
         try {
             MediaStore.getDocumentUri(mActivity, mMediaStoreUri);
@@ -185,10 +190,11 @@ public class MediaStoreUiTest {
     }
 
     @Test
-    public void testGetDocumentUri_Symmetry_ExternalStorageProvider() throws Exception {
+    public void testGetDocumentUri_symmetry_externalStorageProvider() throws Exception {
         if (!supportsHardware()) return;
 
         prepareFile();
+        clearDocumentsUi();
 
         final Uri treeUri = acquireAccess(mFile, Environment.DIRECTORY_DOCUMENTS);
         Log.v(TAG, "Tree " + treeUri);
@@ -207,10 +213,10 @@ public class MediaStoreUiTest {
     }
 
     @Test
-    public void testGetMediaUriAccess_MediaDocumentsProvider() throws Exception {
+    public void testGetMediaUriAccess_mediaDocumentsProvider() throws Exception {
         if (!supportsHardware()) return;
 
-        prepareFile();
+        prepareFile("TEST");
         clearDocumentsUi();
         final Intent intent = new Intent();
         intent.setAction(Intent.ACTION_OPEN_DOCUMENT);
@@ -226,6 +232,104 @@ public class MediaStoreUiTest {
         final Uri mediaUri = MediaStore.getMediaUri(mActivity, uri);
 
         assertAccessToMediaUri(mediaUri, mFile);
+    }
+
+    @Test
+    public void testOpenFile_onMediaDocumentsProvider_success() throws Exception {
+        if (!supportsHardware()) return;
+
+        final String rawText = "TEST";
+        // Stage a text file which contains raw text "TEST"
+        prepareFile(rawText);
+        clearDocumentsUi();
+        final Intent intent = new Intent();
+        intent.setAction(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        mActivity.startActivityForResult(intent, REQUEST_CODE);
+        mDevice.waitForIdle();
+
+        findDocument(mFile.getName()).click();
+        final Result result = mActivity.getResult();
+        final Uri uri = result.data.getData();
+        assertEquals(MEDIA_DOCUMENTS_PROVIDER_AUTHORITY, uri.getAuthority());
+
+        // Test reading
+        final byte[] expected = rawText.getBytes();
+        final byte[] actual = new byte[4];
+        try (ParcelFileDescriptor fd = mContext.getContentResolver()
+                .openFileDescriptor(uri, "r")) {
+            Os.read(fd.getFileDescriptor(), actual, 0, actual.length);
+            assertArrayEquals(expected, actual);
+        }
+
+        // Test write and read after it
+        final byte[] writtenText = "Hello World".getBytes();
+        final byte[] readText = new byte[11];
+        try (ParcelFileDescriptor fd = mContext.getContentResolver()
+                .openFileDescriptor(uri, "wt")) {
+            Os.write(fd.getFileDescriptor(), writtenText, 0, writtenText.length);
+        }
+        try (ParcelFileDescriptor fd = mContext.getContentResolver()
+                .openFileDescriptor(uri, "r")) {
+            Os.read(fd.getFileDescriptor(), readText, 0, readText.length);
+            assertArrayEquals(writtenText, readText);
+        }
+    }
+
+    @Test
+    public void testOpenFile_onMediaDocumentsProvider_failsWithoutAccess() throws Exception {
+        if (!supportsHardware()) return;
+
+        clearDocumentsUi();
+        final Intent intent = new Intent();
+        intent.setAction(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        mActivity.startActivityForResult(intent, REQUEST_CODE);
+        mDevice.waitForIdle();
+
+        String rawText = "TEST";
+        // Read and write grants will be provided to the file associated with this pair.
+        // Stages a text file which contains raw text "TEST"
+        Pair<Uri, File> uriFilePairWithGrants =  prepareFileAndFetchDetails(rawText);
+        // Read and write grants will not be provided to the file associated with this pair
+        // Stages a text file which contains raw text "TEST"
+        Pair<Uri, File> uriFilePairWithoutGrants =  prepareFileAndFetchDetails(rawText);
+        // Get access grants
+        findDocument(uriFilePairWithGrants.second.getName()).click();
+        final Result result = mActivity.getResult();
+        final Uri docUriOfFileWithAccess = result.data.getData();
+        // Creating doc URI for file by string replacement
+        Uri docUriOfFileWithoutAccess = Uri.parse(docUriOfFileWithAccess.toSafeString().replaceAll(
+                String.valueOf(ContentUris.parseId(uriFilePairWithGrants.first)),
+                String.valueOf(ContentUris.parseId(uriFilePairWithoutGrants.first))));
+
+        try {
+            assertEquals(MEDIA_DOCUMENTS_PROVIDER_AUTHORITY, docUriOfFileWithAccess.getAuthority());
+            assertEquals(MEDIA_DOCUMENTS_PROVIDER_AUTHORITY,
+                    docUriOfFileWithoutAccess.getAuthority());
+            // Test reading
+            try (ParcelFileDescriptor fd = mContext.getContentResolver().openFileDescriptor(
+                    docUriOfFileWithoutAccess, "r")) {
+                fail("Expecting security exception as file does not have read grants which "
+                        + "are provided through ACTION_OPEN_DOCUMENT intent.");
+            } catch (SecurityException expected) {
+                // Expected security exception as file does not have read grants
+            }
+            // Test writing
+            try (ParcelFileDescriptor fd = mContext.getContentResolver().openFileDescriptor(
+                    docUriOfFileWithoutAccess, "wt")) {
+                fail("Expecting security exception as file does not have write grants which "
+                        + "are provided through ACTION_OPEN_DOCUMENT intent.");
+            } catch (SecurityException expected) {
+                // Expected security exception as file does not have write grants
+            }
+        } finally {
+            // Deleting files
+            uriFilePairWithGrants.second.delete();
+            uriFilePairWithoutGrants.second.delete();
+        }
     }
 
     private void assertAccessToMediaUri(Uri mediaUri, File file) {
@@ -301,7 +405,8 @@ public class MediaStoreUiTest {
     private boolean supportsHardware() {
         final PackageManager pm = mContext.getPackageManager();
         return !pm.hasSystemFeature("android.hardware.type.television")
-                && !pm.hasSystemFeature("android.hardware.type.watch");
+                && !pm.hasSystemFeature("android.hardware.type.watch")
+                && !pm.hasSystemFeature("android.hardware.type.automotive");
     }
 
     public File getVolumePath(String volumeName) {
@@ -310,7 +415,7 @@ public class MediaStoreUiTest {
     }
 
     private void prepareFile() throws Exception {
-        final File dir = new File(getVolumePath(mVolumeName),
+        final File dir = new File(getVolumePath(resolveVolumeName(mVolumeName)),
                 Environment.DIRECTORY_DOCUMENTS);
         final File file = new File(dir, "cts" + System.nanoTime() + ".txt");
 
@@ -318,6 +423,29 @@ public class MediaStoreUiTest {
         mMediaStoreUri = MediaStore.scanFile(mContext.getContentResolver(), mFile);
 
         Log.v(TAG, "Staged " + mFile + " as " + mMediaStoreUri);
+    }
+
+    private void prepareFile(String rawText) throws Exception {
+        final File dir = new File(getVolumePath(resolveVolumeName(mVolumeName)),
+                Environment.DIRECTORY_DOCUMENTS);
+        final File file = new File(dir, "cts" + System.nanoTime() + ".txt");
+
+        mFile = stageFileWithRawText(rawText, file);
+        mMediaStoreUri = MediaStore.scanFile(mContext.getContentResolver(), mFile);
+
+        Log.v(TAG, "Staged " + mFile + " as " + mMediaStoreUri);
+    }
+
+    private Pair<Uri, File> prepareFileAndFetchDetails(String rawText) throws Exception {
+        final File dir = new File(getVolumePath(resolveVolumeName(mVolumeName)),
+                Environment.DIRECTORY_DOCUMENTS);
+        final File file = new File(dir, "cts" + System.nanoTime() + ".txt");
+
+        File stagedFile = stageFileWithRawText(rawText, file);
+
+        Uri uri = MediaStore.scanFile(mContext.getContentResolver(), stagedFile);
+        Log.v(TAG, "Staged " + stagedFile + " as " + uri);
+        return Pair.create(uri, stagedFile);
     }
 
     private void assertToolbarTitleEquals(String targetPackageName, String label)
@@ -427,32 +555,28 @@ public class MediaStoreUiTest {
         // The caller may be trying to stage into a location only available to
         // the shell user, so we need to perform the entire copy as the shell
         final Context context = InstrumentationRegistry.getTargetContext();
-        UserManager userManager = context.getSystemService(UserManager.class);
-        if (userManager.isSystemUser() &&
-                 FileUtils.contains(Environment.getStorageDirectory(), file)) {
-            executeShellCommand("mkdir -p " + file.getParent());
+        final File dir = file.getParentFile();
+        dir.mkdirs();
+        if (!dir.exists()) {
+            throw new FileNotFoundException("Failed to create parent for " + file);
+        }
+        try (InputStream source = context.getResources().openRawResource(resId);
+             OutputStream target = new FileOutputStream(file)) {
+            FileUtils.copy(source, target);
+        }
+        return file;
+    }
 
-            try (AssetFileDescriptor afd = context.getResources().openRawResourceFd(resId)) {
-                final File source = ParcelFileDescriptor.getFile(afd.getFileDescriptor());
-                final long skip = afd.getStartOffset();
-                final long count = afd.getLength();
-
-                executeShellCommand(String.format("dd bs=1 if=%s skip=%d count=%d of=%s",
-                        source.getAbsolutePath(), skip, count, file.getAbsolutePath()));
-
-                // Force sync to try updating other views
-                executeShellCommand("sync");
-            }
-        } else {
-            final File dir = file.getParentFile();
-            dir.mkdirs();
-            if (!dir.exists()) {
-                throw new FileNotFoundException("Failed to create parent for " + file);
-            }
-            try (InputStream source = context.getResources().openRawResource(resId);
-                    OutputStream target = new FileOutputStream(file)) {
-                FileUtils.copy(source, target);
-            }
+    static File stageFileWithRawText(String rawText, File file) throws IOException {
+        final File dir = file.getParentFile();
+        dir.mkdirs();
+        if (!dir.exists()) {
+            throw new FileNotFoundException("Failed to create parent for " + file);
+        }
+        try (InputStream source = new ByteArrayInputStream(
+                rawText.getBytes(StandardCharsets.UTF_8));
+             OutputStream target = new FileOutputStream(file)) {
+            FileUtils.copy(source, target);
         }
         return file;
     }

@@ -35,6 +35,7 @@ java_library {
         "power-helper",
         "simpleperf-helper",
         "system-metric-helper",
+        "platform-test-annotations",
     ],
 
     sdk_version: "test_current",

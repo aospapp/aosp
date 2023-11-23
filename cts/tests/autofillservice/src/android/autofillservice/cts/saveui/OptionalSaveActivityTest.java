@@ -752,10 +752,13 @@ public class OptionalSaveActivityTest
         mActivity.assertAutoFilled();
 
         // Change required and optional field.
+        mActivity.expectTextChange(/* address1= */ null, /* address2= */
+                "Simpsons House", /* city= */ "Shelbyville", /* favColor= */ null);
         mActivity.syncRunOnUiThread(() -> {
             mActivity.mAddress2.setText("Simpsons House");
             mActivity.mCity.setText("Shelbyville");
         });
+        mActivity.assertTextChange();
         // Trigger save...
         mActivity.save();
 

@@ -62,11 +62,9 @@ namespace android {
 namespace base {
 
 // BSD-based systems like Android/macOS have getprogname(). Others need us to provide one.
-#if defined(__GLIBC__) || defined(_WIN32)
+#if !defined(__APPLE__) && !defined(__BIONIC__)
 static const char* getprogname() {
-#if defined(__GLIBC__)
-  return program_invocation_short_name;
-#elif defined(_WIN32)
+#ifdef _WIN32
   static bool first = true;
   static char progname[MAX_PATH] = {};
 
@@ -77,6 +75,8 @@ static const char* getprogname() {
   }
 
   return progname;
+#else
+  return program_invocation_short_name;
 #endif
 }
 #endif
@@ -100,7 +100,7 @@ static const char* GetFileBasename(const char* file) {
 #if defined(__linux__)
 static int OpenKmsg() {
 #if defined(__ANDROID__)
-  // pick up 'file w /dev/kmsg' environment from daemon's init rc file
+  // pick up 'file /dev/kmsg w' environment from daemon's init rc file
   const auto val = getenv("ANDROID_FILE__dev_kmsg");
   if (val != nullptr) {
     int fd;

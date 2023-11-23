@@ -41,6 +41,8 @@
                     <xs:simpleContent>
                         <xs:extension base="xs:string">
                             <xs:attribute name="arch" type="xs:string"/>
+                            <xs:attribute name="ip" type="xs:string" />
+                            <xs:attribute name="port" type="xs:string" />
                         </xs:extension>
                     </xs:simpleContent>
                 </xs:complexType>

@@ -43,6 +43,7 @@ INVALID_STATUS_DICT = {'1': False, '2': False}
 
 class _TNHelperNP02BTest(unittest.TestCase):
     """Unit tests for _TNHelperNP02B."""
+
     @patch('acts.controllers.pdu_lib.synaccess.np02b.time.sleep')
     @patch('acts.controllers.pdu_lib.synaccess.np02b.telnetlib')
     def test_cmd_is_properly_written(self, telnetlib_mock, sleep_mock):
@@ -92,6 +93,7 @@ class _TNHelperNP02BTest(unittest.TestCase):
 
 class NP02BPduDeviceTest(unittest.TestCase):
     """Unit tests for NP02B PduDevice implementation."""
+
     @patch('acts.controllers.pdu_lib.synaccess.np02b._TNHelperNP02B.cmd')
     def test_status_parses_output_to_valid_dictionary(self, tnhelper_cmd_mock):
         """status should parse helper response correctly into dict."""
@@ -117,3 +119,7 @@ class NP02BPduDeviceTest(unittest.TestCase):
         tnhelper_cmd_mock.return_value = STATUS_RESPONSE_STR
         with self.assertRaises(PduError):
             self.assertTrue(np02b._verify_state(INVALID_STATUS_DICT))
+
+
+if __name__ == '__main__':
+    unittest.main()

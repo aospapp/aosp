@@ -82,6 +82,13 @@ public class Main {
                 .hasArgs(0)
                 .withDescription("Generate isX() for boolean element or attribute.")
                 .create("b"));
+        options.addOption(OptionBuilder
+                .withLongOpt("tinyxml")
+                .hasArgs(0)
+                .withDescription("Generate code that uses libtinyxml2 instead of libxml2."
+                    + " Smaller binaries, but does not support XInclude substitution, "
+                    + " or ENTITY_REFs.")
+                .create("t"));
         Option genEnumsOnly = OptionBuilder
                 .withLongOpt("genEnumsOnly")
                 .hasArgs(0)
@@ -121,6 +128,7 @@ public class Main {
         boolean enumsOnly = cmd.hasOption('e');
         boolean parserOnly = cmd.hasOption('x');
         boolean booleanGetter = cmd.hasOption('b');
+        boolean useTinyXml = cmd.hasOption('t');
 
         if (xsdFile.length != 1 || packageName == null) {
             System.err.println("Error: no xsd files or package name");
@@ -149,7 +157,8 @@ public class Main {
                     (parserOnly ? CppCodeGenerator.GENERATE_PARSER :
                             CppCodeGenerator.GENERATE_ENUMS | CppCodeGenerator.GENERATE_PARSER);
             CppCodeGenerator cppCodeGenerator =
-                    new CppCodeGenerator(xmlSchema, packageName, writer, generators, booleanGetter);
+                    new CppCodeGenerator(xmlSchema, packageName, writer, generators,
+                            booleanGetter, useTinyXml);
             cppCodeGenerator.print(fs);
         }
     }

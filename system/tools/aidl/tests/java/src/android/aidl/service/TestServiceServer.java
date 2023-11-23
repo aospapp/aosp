@@ -16,7 +16,10 @@
 
 package android.aidl.service;
 
+import android.aidl.fixedsizearray.FixedSizeArrayExample.IRepeatFixedSizeArray;
+import android.aidl.fixedsizearray.FixedSizeArrayExample.IntParcelable;
 import android.aidl.tests.BackendType;
+import android.aidl.tests.BadParcelable;
 import android.aidl.tests.ByteEnum;
 import android.aidl.tests.ConstantExpressionEnum;
 import android.aidl.tests.GenericStructuredParcelable;
@@ -27,11 +30,14 @@ import android.aidl.tests.IOldName;
 import android.aidl.tests.ITestService;
 import android.aidl.tests.IntEnum;
 import android.aidl.tests.LongEnum;
+import android.aidl.tests.RecursiveList;
 import android.aidl.tests.SimpleParcelable;
 import android.aidl.tests.StructuredParcelable;
 import android.aidl.tests.Union;
 import android.aidl.tests.extension.ExtendableParcelable;
 import android.aidl.tests.extension.MyExt;
+import android.aidl.tests.nested.INestedService;
+import android.aidl.tests.nested.ParcelableWithNested;
 import android.aidl.versioned.tests.BazUnion;
 import android.aidl.versioned.tests.Foo;
 import android.aidl.versioned.tests.IFooInterface;
@@ -47,6 +53,7 @@ import android.util.Log;
 import java.io.FileDescriptor;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 
@@ -57,6 +64,12 @@ public class TestServiceServer extends ITestService.Stub {
 
     FooInterface foo = new FooInterface();
     ServiceManager.addService(IFooInterface.class.getName(), foo);
+
+    NestedService nested = new NestedService();
+    ServiceManager.addService(INestedService.class.getName(), nested);
+
+    FixedSizeArrayService fixedSize = new FixedSizeArrayService();
+    ServiceManager.addService(IRepeatFixedSizeArray.DESCRIPTOR, fixedSize);
 
     Binder.joinThreadPool();
   }
@@ -86,6 +99,27 @@ public class TestServiceServer extends ITestService.Stub {
     @Override
     public final String getInterfaceHash() {
       return IFooInterface.HASH;
+    }
+  }
+
+  private static class NestedService extends INestedService.Stub {
+    @Override
+    public final Result flipStatus(ParcelableWithNested p) {
+      Result result = new Result();
+      if (p.status == ParcelableWithNested.Status.OK) {
+        result.status = ParcelableWithNested.Status.NOT_OK;
+      } else {
+        result.status = ParcelableWithNested.Status.OK;
+      }
+      return result;
+    }
+    @Override
+    public final void flipStatusWithCallback(byte st, ICallback cb) throws RemoteException {
+      if (st == ParcelableWithNested.Status.OK) {
+        cb.done(ParcelableWithNested.Status.NOT_OK);
+      } else {
+        cb.done(ParcelableWithNested.Status.OK);
+      }
     }
   }
 
@@ -274,6 +308,60 @@ public class TestServiceServer extends ITestService.Stub {
     return name.equals(service.GetName());
   }
   @Override
+  public INamedCallback[] GetInterfaceArray(String[] names) throws RemoteException {
+    return GetNullableInterfaceArray(names);
+  }
+  @Override
+  public boolean VerifyNamesWithInterfaceArray(INamedCallback[] services, String[] names)
+      throws RemoteException {
+    return VerifyNamesWithNullableInterfaceArray(services, names);
+  }
+  @Override
+  public INamedCallback[] GetNullableInterfaceArray(String[] names) throws RemoteException {
+    if (names == null)
+      return null;
+    INamedCallback[] services = new INamedCallback[names.length];
+    for (int i = 0; i < names.length; i++) {
+      if (names[i] == null) {
+        services[i] = null;
+      } else {
+        services[i] = GetOtherTestService(names[i]);
+      }
+    }
+    return services;
+  }
+  @Override
+  public boolean VerifyNamesWithNullableInterfaceArray(INamedCallback[] services, String[] names)
+      throws RemoteException {
+    if (services != null && names != null) {
+      for (int i = 0; i < names.length; i++) {
+        if (services[i] != null && names[i] != null) {
+          if (!VerifyName(services[i], names[i])) {
+            return false;
+          }
+        } else if (services[i] != null || names[i] != null) {
+          return false;
+        }
+      }
+      return true;
+    } else if (services != null || names != null) {
+      return false;
+    } else {
+      return true;
+    }
+  }
+  @Override
+  public List<INamedCallback> GetInterfaceList(String[] names) throws RemoteException {
+    INamedCallback[] services = GetNullableInterfaceArray(names);
+    return services == null ? null : Arrays.asList(services);
+  }
+  @Override
+  public boolean VerifyNamesWithInterfaceList(List<INamedCallback> services, String[] names)
+      throws RemoteException {
+    return VerifyNamesWithNullableInterfaceArray(
+        services == null ? null : services.toArray(new INamedCallback[0]), names);
+  }
+  @Override
   public List<String> ReverseStringList(List<String> input, List<String> repeated)
       throws RemoteException {
     ArrayList<String> reversed = new ArrayList<String>();
@@ -333,7 +421,17 @@ public class TestServiceServer extends ITestService.Stub {
     return input;
   }
   @Override
-  public StructuredParcelable RepeatNullableParcelable(StructuredParcelable input)
+  public ITestService.Empty RepeatNullableParcelable(ITestService.Empty input)
+      throws RemoteException {
+    return input;
+  }
+  @Override
+  public List<ITestService.Empty> RepeatNullableParcelableList(List<ITestService.Empty> input)
+      throws RemoteException {
+    return input;
+  }
+  @Override
+  public ITestService.Empty[] RepeatNullableParcelableArray(ITestService.Empty[] input)
       throws RemoteException {
     return input;
   }
@@ -345,6 +443,15 @@ public class TestServiceServer extends ITestService.Stub {
   public void TakesANullableIBinder(IBinder input) throws RemoteException {
     // do nothing
   }
+  @Override
+  public void TakesAnIBinderList(List<IBinder> input) throws RemoteException {
+    // do nothing
+  }
+  @Override
+  public void TakesANullableIBinderList(List<IBinder> input) throws RemoteException {
+    // do nothing
+  }
+
   @Override
   public String RepeatUtf8CppString(String token) throws RemoteException {
     return token;
@@ -422,7 +529,45 @@ public class TestServiceServer extends ITestService.Stub {
     parcelable.u = Union.ns(new int[] {1, 2, 3});
     parcelable.shouldBeConstS1 = Union.s(Union.S1);
   }
-
+  @Override
+  public void RepeatExtendableParcelable(ExtendableParcelable ep, ExtendableParcelable ep2)
+      throws RemoteException {
+    ep2.a = ep.a;
+    ep2.b = ep.b;
+    // no way to copy currently w/o unparceling
+    ep2.ext.setParcelable(ep.ext.getParcelable(MyExt.class));
+    ep2.c = ep.c;
+    ep2.ext2.setParcelable(null);
+  }
+  @Override
+  public RecursiveList ReverseList(RecursiveList list) throws RemoteException {
+    RecursiveList reversed = null;
+    while (list != null) {
+      RecursiveList next = list.next;
+      list.next = reversed;
+      reversed = list;
+      list = next;
+    }
+    return reversed;
+  }
+  @Override
+  public IBinder[] ReverseIBinderArray(IBinder[] input, IBinder[] repeated) {
+    IBinder[] reversed = new IBinder[input.length];
+    for (int i = 0; i < input.length; i++) {
+      repeated[i] = input[i];
+      reversed[i] = input[input.length - i - 1];
+    }
+    return reversed;
+  }
+  @Override
+  public IBinder[] ReverseNullableIBinderArray(IBinder[] input, IBinder[] repeated) {
+    IBinder[] reversed = new IBinder[input.length];
+    for (int i = 0; i < input.length; i++) {
+      repeated[i] = input[i];
+      reversed[i] = input[input.length - i - 1];
+    }
+    return reversed;
+  }
   private static class MyOldName extends IOldName.Stub {
     @Override
     public String RealName() {
@@ -447,7 +592,20 @@ public class TestServiceServer extends ITestService.Stub {
     return new MyNewName();
   }
 
+  @Override
+  public int[] GetUnionTags(Union[] input) throws RemoteException {
+    int[] tags = new int[input.length];
+    for (int i = 0; i < input.length; i++) {
+      tags[i] = input[i].getTag();
+    }
+    return tags;
+  }
+
   class MyCppJavaTests extends ICppJavaTests.Stub {
+    @Override
+    public BadParcelable RepeatBadParcelable(BadParcelable input) throws RemoteException {
+      return input;
+    }
     @Override
     public SimpleParcelable RepeatSimpleParcelable(SimpleParcelable input, SimpleParcelable repeat)
         throws RemoteException {
@@ -520,19 +678,75 @@ public class TestServiceServer extends ITestService.Stub {
       }
       return reversed;
     }
+  }
+
+  public static class FixedSizeArrayService extends IRepeatFixedSizeArray.Stub {
     @Override
-    public void TakesAnIBinderList(List<IBinder> input) throws RemoteException {}
+    public byte[] RepeatBytes(byte[] input, byte[] repeated) throws RemoteException {
+      for (int i = 0; i < input.length; i++) {
+        repeated[i] = input[i];
+      }
+      return input;
+    }
     @Override
-    public void TakesANullableIBinderList(List<IBinder> input) throws RemoteException {}
+    public int[] RepeatInts(int[] input, int[] repeated) throws RemoteException {
+      for (int i = 0; i < input.length; i++) {
+        repeated[i] = input[i];
+      }
+      return input;
+    }
     @Override
-    public void RepeatExtendableParcelable(ExtendableParcelable ep, ExtendableParcelable ep2)
+    public IBinder[] RepeatBinders(IBinder[] input, IBinder[] repeated) throws RemoteException {
+      for (int i = 0; i < input.length; i++) {
+        repeated[i] = input[i];
+      }
+      return input;
+    }
+    @Override
+    public IntParcelable[] RepeatParcelables(IntParcelable[] input, IntParcelable[] repeated)
         throws RemoteException {
-      ep2.a = ep.a;
-      ep2.b = ep.b;
-      // no way to copy currently w/o unparceling
-      ep2.ext.setParcelable(ep.ext.getParcelable(MyExt.class));
-      ep2.c = ep.c;
-      ep2.ext2.setParcelable(null);
+      for (int i = 0; i < input.length; i++) {
+        repeated[i] = input[i];
+      }
+      return input;
+    }
+    @Override
+    public byte[][] Repeat2dBytes(byte[][] input, byte[][] repeated) throws RemoteException {
+      for (int i = 0; i < input.length; i++) {
+        for (int j = 0; j < input[i].length; j++) {
+          repeated[i][j] = input[i][j];
+        }
+      }
+      return input;
+    }
+    @Override
+    public int[][] Repeat2dInts(int[][] input, int[][] repeated) throws RemoteException {
+      for (int i = 0; i < input.length; i++) {
+        for (int j = 0; j < input[i].length; j++) {
+          repeated[i][j] = input[i][j];
+        }
+      }
+      return input;
+    }
+    @Override
+    public IBinder[][] Repeat2dBinders(IBinder[][] input, IBinder[][] repeated)
+        throws RemoteException {
+      for (int i = 0; i < input.length; i++) {
+        for (int j = 0; j < input[i].length; j++) {
+          repeated[i][j] = input[i][j];
+        }
+      }
+      return input;
+    }
+    @Override
+    public IntParcelable[][] Repeat2dParcelables(
+        IntParcelable[][] input, IntParcelable[][] repeated) throws RemoteException {
+      for (int i = 0; i < input.length; i++) {
+        for (int j = 0; j < input[i].length; j++) {
+          repeated[i][j] = input[i][j];
+        }
+      }
+      return input;
     }
   }
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3.4
 #
-#   Copyright 2021 - Google
+#   Copyright 2022 - Google
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -25,10 +25,17 @@ from acts_contrib.test_utils.tel.tel_defines import GEN_5G
 from acts_contrib.test_utils.tel.tel_defines import MAX_WAIT_TIME_USER_PLANE_DATA
 from acts_contrib.test_utils.tel.tel_defines import NETWORK_MODE_NR_ONLY
 from acts_contrib.test_utils.tel.tel_defines import WAIT_TIME_ANDROID_STATE_SETTLING
+from acts_contrib.test_utils.tel.tel_5g_test_utils import provision_device_for_5g
+from acts_contrib.test_utils.tel.tel_5g_utils import is_current_network_5g
+from acts_contrib.test_utils.tel.tel_data_utils import browsing_test
+from acts_contrib.test_utils.tel.tel_data_utils import check_data_stall_detection
+from acts_contrib.test_utils.tel.tel_data_utils import check_data_stall_recovery
+from acts_contrib.test_utils.tel.tel_data_utils import check_network_validation_fail
+from acts_contrib.test_utils.tel.tel_data_utils import data_connectivity_single_bearer
+from acts_contrib.test_utils.tel.tel_data_utils import reboot_test
+from acts_contrib.test_utils.tel.tel_data_utils import test_wifi_connect_disconnect
+from acts_contrib.test_utils.tel.tel_data_utils import wifi_cell_switching
 from acts_contrib.test_utils.tel.tel_test_utils import break_internet_except_sl4a_port
-from acts_contrib.test_utils.tel.tel_test_utils import check_data_stall_detection
-from acts_contrib.test_utils.tel.tel_test_utils import check_data_stall_recovery
-from acts_contrib.test_utils.tel.tel_test_utils import check_network_validation_fail
 from acts_contrib.test_utils.tel.tel_test_utils import get_current_override_network_type
 from acts_contrib.test_utils.tel.tel_test_utils import get_device_epoch_time
 from acts_contrib.test_utils.tel.tel_test_utils import resume_internet_with_sl4a_port
@@ -37,14 +44,8 @@ from acts_contrib.test_utils.tel.tel_test_utils import test_data_browsing_failur
 from acts_contrib.test_utils.tel.tel_test_utils import test_data_browsing_success_using_sl4a
 from acts_contrib.test_utils.tel.tel_test_utils import toggle_airplane_mode
 from acts_contrib.test_utils.tel.tel_test_utils import verify_internet_connection
-from acts_contrib.test_utils.tel.tel_test_utils import wifi_reset
-from acts_contrib.test_utils.tel.tel_test_utils import wifi_toggle_state
-from acts_contrib.test_utils.tel.tel_data_utils import browsing_test
-from acts_contrib.test_utils.tel.tel_data_utils import data_connectivity_single_bearer
-from acts_contrib.test_utils.tel.tel_data_utils import test_wifi_connect_disconnect
-from acts_contrib.test_utils.tel.tel_data_utils import wifi_cell_switching
-from acts_contrib.test_utils.tel.tel_5g_utils import is_current_network_5g_sa
-from acts_contrib.test_utils.tel.tel_5g_test_utils import provision_device_for_5g
+from acts_contrib.test_utils.tel.tel_wifi_utils import wifi_reset
+from acts_contrib.test_utils.tel.tel_wifi_utils import wifi_toggle_state
 
 
 class Sa5gDataTest(TelephonyBaseTest):
@@ -83,7 +84,7 @@ class Sa5gDataTest(TelephonyBaseTest):
             return False
         ad.log.info("Set network mode to SA successfully")
         ad.log.info("Waiting for 5g SA attach for 60 secs")
-        if is_current_network_5g_sa(ad):
+        if is_current_network_5g(ad, nr_type = 'sa'):
             ad.log.info("Success! attached on 5g SA")
         else:
             ad.log.error("Failure - expected NR, current %s",
@@ -129,7 +130,7 @@ class Sa5gDataTest(TelephonyBaseTest):
         wifi_toggle_state(ad.log, ad, False)
         toggle_airplane_mode(ad.log, ad, False)
 
-        if not provision_device_for_5g(ad.log, ad, sa_5g=True):
+        if not provision_device_for_5g(ad.log, ad, nr_type= 'sa'):
             return False
 
         cmd = ('ss -l -p -n | grep "tcp.*droid_script" | tr -s " " '
@@ -188,7 +189,7 @@ class Sa5gDataTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
-        if not provision_device_for_5g(self.log, self.provider, sa_5g=True):
+        if not provision_device_for_5g(self.log, self.provider, nr_type= 'sa'):
             return False
 
         return test_wifi_connect_disconnect(self.log, self.provider, self.wifi_network_ssid, self.wifi_network_pass)
@@ -211,7 +212,7 @@ class Sa5gDataTest(TelephonyBaseTest):
         """
         ad = self.android_devices[0]
         return wifi_cell_switching(ad.log, ad, GEN_5G, self.wifi_network_ssid,
-                                   self.wifi_network_pass, sa_5g=True)
+                                   self.wifi_network_pass, nr_type= 'sa')
 
 
     @test_tracker_info(uuid="8df1b65c-197e-40b3-83a4-6da1f0a51b97")
@@ -233,6 +234,26 @@ class Sa5gDataTest(TelephonyBaseTest):
         wifi_reset(ad.log, ad)
         wifi_toggle_state(ad.log, ad, False)
         wifi_toggle_state(ad.log, ad, True)
-        return data_connectivity_single_bearer(ad.log, ad, GEN_5G, sa_5g=True)
+        return data_connectivity_single_bearer(ad.log, ad, GEN_5G, nr_type= 'sa')
+
+
+    @test_tracker_info(uuid="6c1ec0a6-223e-4bcd-b958-b85f5eb03943")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_5g_sa_reboot(self):
+        """Test 5G SA service availability after reboot.
+
+        Ensure phone is on 5G SA.
+        Ensure phone attach, data on, WiFi off and verify Internet.
+        Reboot Device.
+        Verify Network Connection.
+
+        Returns:
+            True if pass; False if fail.
+        """
+        if not provision_device_for_5g(self.log, self.android_devices[0], nr_type='sa'):
+            return False
+        if not verify_internet_connection(self.log, self.android_devices[0]):
+            return False
+        return reboot_test(self.log, self.android_devices[0])
 
     """ Tests End """

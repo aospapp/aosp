@@ -23,7 +23,7 @@ import com.android.server.wm.traces.common.WindowManagerConditionsFactory.isImeS
 import com.android.server.wm.traces.common.WindowManagerConditionsFactory.isLayerColorAlphaOne
 import com.android.server.wm.traces.common.WindowManagerConditionsFactory.isLayerTransformFlagSet
 import com.android.server.wm.traces.common.WindowManagerConditionsFactory.isLayerVisible
-import com.android.server.wm.traces.common.layers.LayerTraceEntry
+import com.android.server.wm.traces.common.layers.BaseLayerTraceEntry
 import com.android.server.wm.traces.common.layers.Transform
 import com.android.server.wm.traces.common.service.PlatformConsts
 import com.android.server.wm.traces.common.tags.Tag
@@ -49,9 +49,9 @@ class ImeAppearProcessor(logger: (String) -> Unit) : TransitionProcessor(logger)
         private val prevImeInvisible = newImeVisible.negate()
 
         override fun doProcessState(
-            previous: DeviceStateDump<WindowManagerState, LayerTraceEntry>?,
-            current: DeviceStateDump<WindowManagerState, LayerTraceEntry>,
-            next: DeviceStateDump<WindowManagerState, LayerTraceEntry>
+            previous: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>?,
+            current: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>,
+            next: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>
         ): FSMState {
             if (previous == null) return this
 
@@ -64,7 +64,7 @@ class ImeAppearProcessor(logger: (String) -> Unit) : TransitionProcessor(logger)
         }
 
         private fun processInputMethodVisible(
-            current: DeviceStateDump<WindowManagerState, LayerTraceEntry>
+            current: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>
         ): FSMState {
             logger.invoke("(${current.layerState.timestamp}) IME appear started.")
             // add factory method as well
@@ -85,9 +85,9 @@ class ImeAppearProcessor(logger: (String) -> Unit) : TransitionProcessor(logger)
         private val layerId: Int
     ) : BaseState(tags) {
         override fun doProcessState(
-            previous: DeviceStateDump<WindowManagerState, LayerTraceEntry>?,
-            current: DeviceStateDump<WindowManagerState, LayerTraceEntry>,
-            next: DeviceStateDump<WindowManagerState, LayerTraceEntry>
+            previous: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>?,
+            current: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>,
+            next: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>
         ): FSMState {
             val isImeAppearFinished = isImeAppearFinished.isSatisfied(current)
 

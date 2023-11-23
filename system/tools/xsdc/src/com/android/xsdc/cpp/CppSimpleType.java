@@ -63,15 +63,12 @@ class CppSimpleType implements CppType {
         if (list) {
             expression.append(
                     String.format("%s value;\n", getName()));
-            expression.append(String.format("{\nint base = 0;\n"
-                    + "int found;\n"
-                    + "while(true) {\n"
-                    + "found = raw.find_first_of(\" \", base);\n"
-                    + "value.push_back(%s);\n"
-                    + "if (found == raw.npos) break;\n"
-                    + "base = found + 1;\n"
+            expression.append(String.format("{\n"
+                    + "std::istringstream stream(raw);\n"
+                    + "for(std::string str; stream >> str; ) {\n"
+                    + "    value.push_back(%s);\n"
                     + "}\n",
-                    String.format(rawParsingExpression, "raw.substr(base, found - base)")));
+                    String.format(rawParsingExpression, "str")));
             expression.append("}\n");
         } else {
             expression.append(

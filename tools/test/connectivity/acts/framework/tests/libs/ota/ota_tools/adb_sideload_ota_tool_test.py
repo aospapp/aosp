@@ -31,8 +31,8 @@ def get_mock_android_device(serial='', ssh_connection=None):
             mock.patch('acts.controllers.fastboot.FastbootProxy')) as fb_proxy:
         fb_proxy.return_value.devices.return_value = ""
         ret = mock.Mock(
-            android_device.AndroidDevice(
-                serial=serial, ssh_connection=ssh_connection))
+            android_device.AndroidDevice(serial=serial,
+                                         ssh_connection=ssh_connection))
         fb_proxy.reset_mock()
         return ret
 
@@ -65,3 +65,7 @@ class AdbSideloadOtaToolTest(unittest.TestCase):
                                                '')
         runner.android_device.adb.getprop = mock.Mock(side_effect=['a', 'b'])
         runner.update()
+
+
+if __name__ == '__main__':
+    unittest.main()

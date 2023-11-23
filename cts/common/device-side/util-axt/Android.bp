@@ -49,6 +49,5 @@ filegroup {
     name: "compatibility-device-util-nodeps",
     srcs: [
          "src/com/android/compatibility/common/util/IBinderParcelable.java",
-         "src/com/android/compatibility/common/util/ImeAwareEditText.java",
     ],
 }

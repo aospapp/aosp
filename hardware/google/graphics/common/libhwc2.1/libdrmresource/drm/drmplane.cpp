@@ -17,14 +17,15 @@
 #define LOG_TAG "hwc-drm-plane"
 
 #include "drmplane.h"
-#include "drmdevice.h"
 
 #include <errno.h>
+#include <log/log.h>
 #include <stdint.h>
+#include <xf86drmMode.h>
+
 #include <cinttypes>
 
-#include <log/log.h>
-#include <xf86drmMode.h>
+#include "drmdevice.h"
 
 namespace android {
 
@@ -166,16 +167,17 @@ int DrmPlane::Init() {
     ALOGI("Could not get hw restrictions property");
 
   if (drm_->GetPlaneProperty(*this, "eotf_lut", &eotf_lut_))
-      ALOGI("Could not get eotf_lut property");
+    ALOGI("Could not get eotf_lut property");
   if (drm_->GetPlaneProperty(*this, "oetf_lut", &oetf_lut_))
-      ALOGI("Could not get oetf_lut property");
+    ALOGI("Could not get oetf_lut property");
   if (drm_->GetPlaneProperty(*this, "gammut_matrix", &gammut_matrix_))
-      ALOGI("Could not get gammut_matrix property");
+    ALOGI("Could not get gammut_matrix property");
   if (drm_->GetPlaneProperty(*this, "tone_mapping", &tone_mapping_))
-      ALOGI("Could not get tone_mapping property");
-
+    ALOGI("Could not get tone_mapping property");
   if (drm_->GetPlaneProperty(*this, "colormap", &colormap_))
-      ALOGI("Could not get colormap property");
+    ALOGI("Could not get colormap property");
+  if (drm_->GetPlaneProperty(*this, "block", &block_))
+    ALOGI("Could not get block property");
 
   properties_.push_back(&crtc_property_);
   properties_.push_back(&fb_property_);
@@ -203,6 +205,7 @@ int DrmPlane::Init() {
   properties_.push_back(&gammut_matrix_);
   properties_.push_back(&tone_mapping_);
   properties_.push_back(&colormap_);
+  properties_.push_back(&block_);
 
   return 0;
 }
@@ -213,6 +216,14 @@ uint32_t DrmPlane::id() const {
 
 bool DrmPlane::GetCrtcSupported(const DrmCrtc &crtc) const {
   return !!((1 << crtc.pipe()) & possible_crtc_mask_);
+}
+
+bool DrmPlane::isFormatSupported(const uint32_t format) const {
+  return std::find(formats_.begin(), formats_.end(), format) != formats_.end();
+}
+
+uint32_t DrmPlane::getNumFormatSupported() const {
+  return formats_.size();
 }
 
 uint32_t DrmPlane::type() const {
@@ -323,4 +334,8 @@ const DrmProperty &DrmPlane::colormap_property() const {
   return colormap_;
 }
 
-}  // namespace android
+const DrmProperty &DrmPlane::block_property() const {
+  return block_;
+}
+
+} // namespace android

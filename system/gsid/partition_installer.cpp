@@ -22,9 +22,11 @@
 #include <android-base/logging.h>
 #include <android-base/unique_fd.h>
 #include <ext4_utils/ext4_utils.h>
+#include <fs_mgr.h>
 #include <fs_mgr_dm_linear.h>
 #include <libdm/dm.h>
 #include <libgsi/libgsi.h>
+#include <liblp/partition_opener.h>
 
 #include "file_paths.h"
 #include "gsi_service.h"
@@ -127,17 +129,18 @@ int PartitionInstaller::PerformSanityChecks() {
     // This is the same as android::vold::GetFreebytes() but we also
     // need the total file system size so we open code it here.
     uint64_t free_space = static_cast<uint64_t>(sb.f_bavail) * sb.f_frsize;
-    uint64_t fs_size = static_cast<uint64_t>(sb.f_blocks) * sb.f_frsize;
     if (free_space <= (size_)) {
         LOG(ERROR) << "not enough free space (only " << free_space << " bytes available)";
         return IGsiService::INSTALL_ERROR_NO_SPACE;
     }
-    // We are asking for 40% of the /data to be empty.
-    // TODO: may be not hard code it like this
-    double free_space_percent = ((1.0 * free_space) / fs_size) * 100;
-    if (free_space_percent < kMinimumFreeSpaceThreshold) {
-        LOG(ERROR) << "free space " << static_cast<uint64_t>(free_space_percent)
-                   << "% is below the minimum threshold of " << kMinimumFreeSpaceThreshold << "%";
+
+    const auto free_space_threshold = GetMinimumFreeSpaceThreshold(install_dir_);
+    if (!free_space_threshold.has_value()) {
+        return IGsiService::INSTALL_ERROR_GENERIC;
+    }
+    if (free_space < size_ + *free_space_threshold) {
+        LOG(ERROR) << "post-installation free space (" << free_space << " - " << size_
+                   << ") would be below the minimum threshold of " << *free_space_threshold;
         return IGsiService::INSTALL_ERROR_FILE_SYSTEM_CLUTTERED;
     }
     return IGsiService::INSTALL_OK;
@@ -343,6 +346,24 @@ int PartitionInstaller::WipeWritable(const std::string& active_dsu, const std::s
         }
     }
     return IGsiService::INSTALL_OK;
+}
+
+std::optional<uint64_t> PartitionInstaller::GetMinimumFreeSpaceThreshold(
+        const std::string& install_dir) {
+    // No need to retain any space if we were not installing to the internal storage.
+    if (!android::base::StartsWith(install_dir, "/data"s)) {
+        return 0;
+    }
+    // Dynamic Partitions device must have a "super" block device.
+    BlockDeviceInfo info;
+    PartitionOpener opener;
+    if (!opener.GetInfo(fs_mgr_get_super_partition_name(), &info)) {
+        // We shouldn't reach here, but handle it just in case.
+        LOG(ERROR) << "could not get block device info of super";
+        return std::nullopt;
+    }
+    // Reserve |super partition| of storage space so we don't disable VAB.
+    return info.size;
 }
 
 }  // namespace gsi

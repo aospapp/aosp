@@ -20,12 +20,22 @@
     <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
+
     <test class="com.android.tradefed.testtype.HostTest" >
         <option name="jar" value="CtsAppSearchHostTestCases.jar" />
     </test>
+
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="test-file-name" value="CtsAppSearchHostTestHelperA.apk" />
         <option name="test-file-name" value="CtsAppSearchHostTestHelperB.apk" />
         <option name="cleanup-apks" value="true" />
     </target_preparer>
+
+    <object type="module_controller"
+            class="com.android.tradefed.testtype.suite.module.MainlineTestModuleController">
+        <option name="mainline-module-package-name" value="com.google.android.appsearch" />
+    </object>
+
+    <object type="module_controller"
+            class="com.android.tradefed.testtype.suite.module.Sdk33ModuleController" />
 </configuration>

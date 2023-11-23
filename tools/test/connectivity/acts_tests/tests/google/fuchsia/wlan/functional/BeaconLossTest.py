@@ -29,7 +29,6 @@ import time
 from acts import asserts
 from acts import signals
 from acts import utils
-from acts.base_test import BaseTestClass
 from acts.controllers.access_point import setup_ap
 from acts.controllers.ap_lib import hostapd_constants
 
@@ -71,7 +70,7 @@ class BeaconLossTest(AbstractDeviceWlanDeviceBaseTest):
         else:
             # Default is an android device, just like the other tests
             self.dut = create_wlan_device(self.android_devices[0])
-        self.ap = self.access_points[0]
+        self.access_point = self.access_points[0]
         self.num_of_iterations = int(
             self.user_params.get("beacon_loss_test_iterations",
                                  self.num_of_iterations))
@@ -81,23 +80,25 @@ class BeaconLossTest(AbstractDeviceWlanDeviceBaseTest):
         self.dut.disconnect()
         self.dut.reset_wifi()
         # ensure radio is on, in case the test failed while the radio was off
-        self.ap.iwconfig.ap_iwconfig(self.in_use_interface, "txpower on")
-        self.ap.stop_all_aps()
+        self.access_point.iwconfig.ap_iwconfig(self.in_use_interface,
+                                               "txpower on")
+        self.download_ap_logs()
+        self.access_point.stop_all_aps()
 
     def on_fail(self, test_name, begin_time):
         super().on_fail(test_name, begin_time)
-        self.ap.stop_all_aps()
+        self.access_point.stop_all_aps()
 
     def beacon_loss(self, channel):
-        setup_ap(access_point=self.ap,
+        setup_ap(access_point=self.access_point,
                  profile_name='whirlwind',
                  channel=channel,
                  ssid=self.ssid)
         time.sleep(self.wait_ap_startup_s)
         if channel > 14:
-            self.in_use_interface = self.ap.wlan_5g
+            self.in_use_interface = self.access_point.wlan_5g
         else:
-            self.in_use_interface = self.ap.wlan_2g
+            self.in_use_interface = self.access_point.wlan_2g
 
         # TODO(b/144505723): [ACTS] update BeaconLossTest.py to handle client
         # roaming, saved networks, etc.
@@ -111,7 +112,8 @@ class BeaconLossTest(AbstractDeviceWlanDeviceBaseTest):
         for _ in range(0, self.num_of_iterations):
             # Turn off AP radio
             self.log.info("turning off radio")
-            self.ap.iwconfig.ap_iwconfig(self.in_use_interface, "txpower off")
+            self.access_point.iwconfig.ap_iwconfig(self.in_use_interface,
+                                                   "txpower off")
             time.sleep(self.wait_after_ap_txoff_s)
 
             # Did we disconnect from AP?
@@ -120,7 +122,8 @@ class BeaconLossTest(AbstractDeviceWlanDeviceBaseTest):
 
             # Turn on AP radio
             self.log.info("turning on radio")
-            self.ap.iwconfig.ap_iwconfig(self.in_use_interface, "txpower on")
+            self.access_point.iwconfig.ap_iwconfig(self.in_use_interface,
+                                                   "txpower on")
             time.sleep(self.wait_to_connect_after_ap_txon_s)
 
             # Tell the client to connect

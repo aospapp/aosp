@@ -75,3 +75,23 @@ TFLite models
 
 * performance-degradation-stress: verifies that accelerator inference speed is not degrading over
 a certain threshold when running concurrent workload
+
+# Testing a NNAPI Support Library implementation
+
+All tests documented above can be run using a NNAPI Support Library implementation.
+To do so you need to:
+
+- copy all the shared objects part of the libraries under the `sl_prebuilt`
+  folder
+- Use the `-s` or `--use-nnapi-sl` option when running `build_and_run_benchmark.sh`.
+
+By default the system will use the sl_prebuilt/Android.bp.template to map
+every library under sl_prebuilt to a native library to include in the APK.
+The file is already configured for the Qualcomm NNAPI SL binaries.
+If you have different libraries that the ones defined under sl_prebuilt/Android.bp.template
+you should
+
+- configure a sl_prebuilt/Android.bp with the list of binaries you added.
+  You can use the sl_prebuilt/Android.bp.template file as an example template.
+
+- Set in in Android.mk the SL_LIBS variable with the list of drivers

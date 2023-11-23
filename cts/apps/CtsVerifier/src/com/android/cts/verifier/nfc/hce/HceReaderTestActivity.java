@@ -25,7 +25,9 @@ import com.android.cts.verifier.TestListAdapter.TestListItem;
 
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.SystemProperties;
 
 /** Activity that lists all the NFC HCE reader tests. */
 public class HceReaderTestActivity extends PassFailButtons.TestListActivity {
@@ -121,14 +123,17 @@ public class HceReaderTestActivity extends PassFailButtons.TestListActivity {
                         ConflictingNonPaymentPrefixEmulatorActivity.buildReaderIntent(this), null));
             }
 
-            adapter.add(TestListItem.newTest(this, R.string.nfc_screen_on_only_offhost_reader,
-                    getString(R.string.nfc_screen_on_only_offhost_reader),
-                    ScreenOnOnlyOffHostEmulatorActivity.buildReaderIntent(this), null));
+            int firstSdk =
+                    SystemProperties.getInt("ro.product.first_api_level", Build.VERSION_CODES.S);
+            if (firstSdk >= Build.VERSION_CODES.S) {
+                adapter.add(TestListItem.newTest(this, R.string.nfc_screen_on_only_offhost_reader,
+                        getString(R.string.nfc_screen_on_only_offhost_reader),
+                        ScreenOnOnlyOffHostEmulatorActivity.buildReaderIntent(this), null));
 
-            adapter.add(TestListItem.newTest(this, R.string.nfc_screen_off_hce_payment_reader,
-                    getString(R.string.nfc_screen_off_hce_payment_reader),
-                    ScreenOffPaymentEmulatorActivity.buildReaderIntent(this), null));
-
+                adapter.add(TestListItem.newTest(this, R.string.nfc_screen_off_hce_payment_reader,
+                        getString(R.string.nfc_screen_off_hce_payment_reader),
+                        ScreenOffPaymentEmulatorActivity.buildReaderIntent(this), null));
+            }
         }
 
         setTestListAdapter(adapter);

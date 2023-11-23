@@ -22,6 +22,8 @@ public class Constants {
 
     /** A package that queries for {@link #TARGET_NO_API} package */
     public static final String QUERIES_PACKAGE = PKG_BASE + "queries.pkg";
+    /** A package has a provider that queries for {@link #TARGET_NO_API} package */
+    public static final String QUERIES_PACKAGE_PROVIDER = PKG_BASE + "queries.pkg.hasprovider";
     /** Queries for the unexported authority in {@link #TARGET_FILTERS} provider */
     public static final String QUERIES_UNEXPORTED_PROVIDER_AUTH =
             PKG_BASE + "queries.provider.authority.unexported";
@@ -55,6 +57,10 @@ public class Constants {
             PKG_BASE + "queries.nothing.receives.uri";
     public static final String QUERIES_NOTHING_RECEIVES_PERM_URI =
             PKG_BASE + "queries.nothing.receives.perm.uri";
+    public static final String QUERIES_NOTHING_RECEIVES_PERSISTABLE_URI =
+            PKG_BASE + "queries.nothing.receives.persistable.uri";
+    public static final String QUERIES_NOTHING_RECEIVES_NON_PERSISTABLE_URI =
+            PKG_BASE + "queries.nothing.receives.nonpersistable.uri";
     /** Another package that has no queries tag or permission to query any specific packages */
     public static final String QUERIES_NOTHING_SEES_INSTALLER =
             PKG_BASE + "queries.nothing.sees.installer";
@@ -104,6 +110,9 @@ public class Constants {
     public static final String TARGET_SHARE = PKG_BASE + "share.activity";
     /** A package that offers an activity that handles browsable web intents for a specific host */
     public static final String TARGET_WEB = PKG_BASE + "web.activity";
+    /** A package that offers an activity acts as a browser, but use a prefix wildcard for host */
+    public static final String TARGET_PREFIX_WILDCARD_WEB =
+            PKG_BASE + "prefix.wildcard.web.activity";
     /** A package that offers an activity acts as a browser with host undefined */
     public static final String TARGET_BROWSER = PKG_BASE + "browser.activity";
     /** A package that offers an activity acts as a browser, but uses a wildcard for host */
@@ -129,6 +138,10 @@ public class Constants {
     public static final String TARGET_FILTERS_APK = BASE_PATH + "CtsAppEnumerationFilters.apk";
     public static final String QUERIES_NOTHING_SEES_INSTALLER_APK =
             BASE_PATH + "CtsAppEnumerationQueriesNothingSeesInstaller.apk";
+    public static final String QUERIES_NOTHING_RECEIVES_PERSISTABLE_URI_APK =
+            BASE_PATH + "CtsAppEnumerationQueriesNothingReceivesPersistableUri.apk";
+    public static final String QUERIES_NOTHING_RECEIVES_NON_PERSISTABLE_URI_APK =
+            BASE_PATH + "CtsAppEnumerationQueriesNothingReceivesNonPersistableUri.apk";
 
     public static final String[] ALL_QUERIES_TARGETING_R_PACKAGES = {
             QUERIES_NOTHING,
@@ -149,7 +162,7 @@ public class Constants {
             QUERIES_WILDCARD_WEB,
     };
 
-    public static final String ACTIVITY_CLASS_TEST = PKG_BASE + "cts.query.TestActivity";
+    public static final String ACTIVITY_CLASS_TEST = PKG_BASE + "cts.TestActivity";
     public static final String ACTIVITY_CLASS_DUMMY_ACTIVITY = PKG_BASE + "testapp.DummyActivity";
 
     public static final String ACTION_MANIFEST_ACTIVITY = PKG_BASE + "action.ACTIVITY";
@@ -173,7 +186,10 @@ public class Constants {
             PKG_BASE + "cts.action.AWAIT_PACKAGE_REMOVED";
     public static final String ACTION_AWAIT_PACKAGE_ADDED =
             PKG_BASE + "cts.action.AWAIT_PACKAGE_ADDED";
-
+    public static final String ACTION_AWAIT_PACKAGE_FULLY_REMOVED =
+            PKG_BASE + "cts.action.AWAIT_PACKAGE_FULLY_REMOVED";
+    public static final String ACTION_AWAIT_PACKAGE_DATA_CLEARED =
+            PKG_BASE + "cts.action.AWAIT_PACKAGE_DATA_CLEARED";
     public static final String ACTION_QUERY_ACTIVITIES =
             PKG_BASE + "cts.action.QUERY_INTENT_ACTIVITIES";
     public static final String ACTION_QUERY_SERVICES =
@@ -193,10 +209,14 @@ public class Constants {
             PKG_BASE + "cts.action.GET_SYNCADAPTER_PACKAGES_FOR_AUTHORITY";
     public static final String ACTION_GET_INSTALLED_APPWIDGET_PROVIDERS =
             PKG_BASE + "cts.action.GET_INSTALLED_APPWIDGET_PROVIDERS";
+    public static final String ACTION_REQUEST_SYNC_AND_AWAIT_STATUS =
+            PKG_BASE + "cts.action.REQUEST_SYNC_AND_AWAIT_STATUS";
     public static final String ACTION_AWAIT_PACKAGES_SUSPENDED =
             PKG_BASE + "cts.action.AWAIT_PACKAGES_SUSPENDED";
     public static final String ACTION_LAUNCHER_APPS_IS_ACTIVITY_ENABLED =
             PKG_BASE + "cts.action.LAUNCHER_APPS_IS_ACTIVITY_ENABLED";
+    public static final String ACTION_LAUNCHER_APPS_GET_SUSPENDED_PACKAGE_LAUNCHER_EXTRAS =
+            PKG_BASE + "cts.action.LAUNCHER_APPS_GET_SUSPENDED_PACKAGE_LAUNCHER_EXTRAS";
     public static final String ACTION_AWAIT_LAUNCHER_APPS_CALLBACK =
             PKG_BASE + "cts.action.AWAIT_LAUNCHER_APPS_CALLBACK";
     public static final String ACTION_GET_SHAREDLIBRARY_DEPENDENT_PACKAGES =
@@ -207,6 +227,35 @@ public class Constants {
             PKG_BASE + "cts.action.SET_INSTALLER_PACKAGE_NAME";
     public static final String ACTION_GET_INSTALLED_ACCESSIBILITYSERVICES_PACKAGES =
             PKG_BASE + "cts.action.GET_INSTALLED_ACCESSIBILITYSERVICES_PACKAGES";
+    public static final String ACTION_LAUNCHER_APPS_SHOULD_HIDE_FROM_SUGGESTIONS =
+            PKG_BASE + "cts.action.LAUNCHER_APPS_SHOULD_HIDE_FROM_SUGGESTIONS";
+    public static final String ACTION_CHECK_URI_PERMISSION =
+            PKG_BASE + "cts.action.CHECK_URI_PERMISSION";
+    public static final String ACTION_TAKE_PERSISTABLE_URI_PERMISSION =
+            PKG_BASE + "cts.action.TAKE_PERSISTABLE_URI_PERMISSION";
+    public static final String ACTION_CAN_PACKAGE_QUERY =
+            PKG_BASE + "cts.action.CAN_PACKAGE_QUERY";
+    public static final String ACTION_GET_ALL_PACKAGE_INSTALLER_SESSIONS =
+            PKG_BASE + "cts.action.GET_ALL_PACKAGE_INSTALLER_SESSIONS";
+    public static final String ACTION_AWAIT_LAUNCHER_APPS_SESSION_CALLBACK =
+            PKG_BASE + "cts.action.AWAIT_LAUNCHER_APPS_SESSION_CALLBACK";
+    public static final String ACTION_GET_SESSION_INFO =
+            PKG_BASE + "cts.action.GET_SESSION_INFO";
+    public static final String ACTION_GET_STAGED_SESSIONS =
+            PKG_BASE + "cts.action.GET_STAGED_SESSIONS";
+    public static final String ACTION_GET_ALL_SESSIONS =
+            PKG_BASE + "cts.action.GET_ALL_SESSIONS";
+    public static final String ACTION_PENDING_INTENT_GET_ACTIVITY =
+            PKG_BASE + "cts.action.PENDING_INTENT_GET_ACTIVITY";
+    public static final String ACTION_PENDING_INTENT_GET_CREATOR_PACKAGE =
+            PKG_BASE + "cts.action.PENDING_INTENT_GET_CREATOR_PACKAGE";
+    public static final String ACTION_CHECK_PACKAGE =
+            PKG_BASE + "cts.action.CHECK_PACKAGE";
+    public static final String ACTION_GRANT_URI_PERMISSION =
+            PKG_BASE + "cts.action.GRANT_URI_PERMISSION";
+    public static final String ACTION_REVOKE_URI_PERMISSION =
+            PKG_BASE + "cts.action.REVOKE_URI_PERMISSION";
+
     public static final String EXTRA_REMOTE_CALLBACK = "remoteCallback";
     public static final String EXTRA_REMOTE_READY_CALLBACK = "remoteReadyCallback";
     public static final String EXTRA_ERROR = "error";
@@ -214,6 +263,9 @@ public class Constants {
     public static final String EXTRA_DATA = "data";
     public static final String EXTRA_CERT = "cert";
     public static final String EXTRA_AUTHORITY = "authority";
+    public static final String EXTRA_ACCOUNT = "account";
+    public static final String EXTRA_ID = "id";
+    public static final String EXTRA_PENDING_INTENT = "pendingIntent";
 
     public static final int CALLBACK_EVENT_INVALID = -1;
     public static final int CALLBACK_EVENT_PACKAGE_ADDED = 0;

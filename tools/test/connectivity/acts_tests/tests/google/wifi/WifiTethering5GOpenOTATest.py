@@ -20,7 +20,7 @@ from acts import asserts
 from acts.base_test import BaseTestClass
 from acts.libs.ota import ota_updater
 from acts.test_decorators import test_tracker_info
-from acts_contrib.test_utils.tel.tel_test_utils import WIFI_CONFIG_APBAND_5G
+from acts_contrib.test_utils.tel.tel_wifi_utils import WIFI_CONFIG_APBAND_5G
 
 import acts_contrib.test_utils.net.net_test_utils as nutils
 import acts_contrib.test_utils.wifi.wifi_test_utils as wutils

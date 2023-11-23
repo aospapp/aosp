@@ -425,6 +425,12 @@ public class SpinnerTest {
         TestUtils.assertAllPixelsOfColor("Drop down should be yellow", dropDownBackground,
                 dropDownBackground.getBounds().width(), dropDownBackground.getBounds().height(),
                 false, Color.YELLOW, 1, true);
+
+        waitForHasFocusMS(SPINNER_HAS_FOCUS_DELAY_MS);
+        // Dismiss the popup with the emulated escape key
+        mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_ESCAPE);
+        // Verify that we're not showing the popup
+        PollingCheck.waitFor(() -> !mSpinnerDropdownMode.isPopupShowing());
     }
 
     @Test
@@ -448,7 +454,7 @@ public class SpinnerTest {
         // Dismiss the popup with the emulated back key
         mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK);
         // Verify that we're not showing the popup
-        PollingCheck.waitFor(() -> !mSpinnerDropdownMode.isPopupShowing());
+        PollingCheck.waitFor(() -> !mSpinnerDialogMode.isPopupShowing());
 
         // Set yellow background on the popup
         mActivityRule.runOnUiThread(() ->
@@ -456,11 +462,18 @@ public class SpinnerTest {
                         mActivity.getDrawable(R.drawable.yellow_fill)));
 
         // Use instrumentation to emulate a tap on the spinner to bring down its popup
-        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, null, mSpinnerDialogMode);
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mSpinnerDialogMode, () -> {
+            mSpinnerDialogMode.performClick();
+        });
         // Verify that we're showing the popup
         PollingCheck.waitFor(() -> mSpinnerDialogMode.isPopupShowing());
         // And test that getPopupBackground returns null
         assertNull(mSpinnerDialogMode.getPopupBackground());
+
+        // Use emulated escape key to close popup
+        mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_ESCAPE);
+        // Verify that we're not showing the popup
+        PollingCheck.waitFor(() -> !mSpinnerDropdownMode.isPopupShowing());
     }
 
     private void waitForHasFocusMS(int milliseconds) {

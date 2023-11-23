@@ -37,6 +37,7 @@ import com.intellij.psi.PsiReference
 import com.intellij.psi.PsiTypeCastExpression
 import com.intellij.psi.PsiVariable
 import org.jetbrains.kotlin.name.ClassId
+import org.jetbrains.kotlin.name.Name
 import org.jetbrains.uast.UAnnotation
 import org.jetbrains.uast.UBinaryExpression
 import org.jetbrains.uast.UBinaryExpressionWithType
@@ -439,8 +440,15 @@ open class CodePrinter(
 
                 is Pair<*, *> -> {
                     val first = value.first
+                    val second = value.second
                     if (first is ClassId) {
-                        return first.packageFqName.asString() + "." + first.relativeClassName.asString()
+                        val qualifiedName = first.packageFqName.asString() + "." +
+                            first.relativeClassName.asString()
+                        return if (second is Name) {
+                            qualifiedName + "." + second.asString()
+                        } else {
+                            qualifiedName
+                        }
                     }
                 }
             }

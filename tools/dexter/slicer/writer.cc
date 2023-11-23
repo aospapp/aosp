@@ -15,6 +15,7 @@
  */
 
 #include "slicer/writer.h"
+
 #include "slicer/common.h"
 #include "slicer/scopeguard.h"
 #include "slicer/dex_bytecode.h"
@@ -25,7 +26,6 @@
 #include <assert.h>
 #include <type_traits>
 #include <vector>
-#include <cstdlib>
 #include <string.h>
 #include <algorithm>
 
@@ -189,8 +189,8 @@ static void WriteEncodedValue(const ir::EncodedValue* ir_value, Section& data) {
       case dex::kEncodedBoolean:
         auto ptr = data.ptr<const dex::u1>(offset);
         auto size = data.size() - offset;
-        SLICER_CHECK(size == ir_value->original.size());
-        SLICER_CHECK(memcmp(ptr, ir_value->original.ptr(), size) == 0);
+        SLICER_CHECK_EQ(size, ir_value->original.size());
+        SLICER_CHECK_EQ(memcmp(ptr, ir_value->original.ptr(), size), 0);
         break;
     }
   });
@@ -219,15 +219,15 @@ static void WriteEncodedArray(const ir::EncodedArray* ir_array, Section& data) {
 template <class T>
 static void CopySection(const T& section, dex::u1* image, dex::u4 image_size) {
   if (section.size() == 0) {
-    SLICER_CHECK(section.ItemsCount() == 0);
+    SLICER_CHECK_EQ(section.ItemsCount(), 0);
     return;
   }
 
-  SLICER_CHECK(section.ItemsCount() > 0);
+  SLICER_CHECK_GT(section.ItemsCount(), 0);
   dex::u4 offset = section.SectionOffset();
   dex::u4 size = section.size();
-  SLICER_CHECK(offset >= sizeof(dex::Header));
-  SLICER_CHECK(offset + size <= image_size);
+  SLICER_CHECK_GE(offset, sizeof(dex::Header));
+  SLICER_CHECK_LE(offset + size, image_size);
 
   ::memcpy(image + offset, section.data(), size);
 }
@@ -267,7 +267,7 @@ dex::u1* Writer::CreateImage(Allocator* allocator, size_t* new_image_size) {
   offset += dex_->class_defs.Init(offset, dex_ir_->classes.size());
 
   // the base offset for the "data" meta-section
-  SLICER_CHECK(offset % 4 == 0);
+  SLICER_CHECK_EQ(offset % 4, 0);
   const dex::u4 data_offset = offset;
 
   // we must create the sections in a very specific
@@ -292,7 +292,7 @@ dex::u1* Writer::CreateImage(Allocator* allocator, size_t* new_image_size) {
   FillClassDefs();
 
   // allocate the final buffer for the .dex image
-  SLICER_CHECK(offset % 4 == 0);
+  SLICER_CHECK_EQ(offset % 4, 0);
   const dex::u4 image_size = offset;
   dex::u1* image = static_cast<dex::u1*>(allocator->Allocate(image_size));
   if (image == nullptr) {
@@ -302,7 +302,7 @@ dex::u1* Writer::CreateImage(Allocator* allocator, size_t* new_image_size) {
   memset(image, 0, image_size);
 
   // finally, back-fill the header
-  SLICER_CHECK(image_size > sizeof(dex::Header));
+  SLICER_CHECK_GT(image_size, sizeof(dex::Header));
 
   dex::Header* header = reinterpret_cast<dex::Header*>(image + 0);
 
@@ -381,7 +381,7 @@ dex::u4 Writer::CreateStringDataSection(dex::u4 section_offset) {
 template <class T>
 static void AddMapItem(const T& section, std::vector<dex::MapItem>& items) {
   if (section.ItemsCount() > 0) {
-    SLICER_CHECK(section.SectionOffset() >= sizeof(dex::Header));
+    SLICER_CHECK_GE(section.SectionOffset(), sizeof(dex::Header));
     dex::MapItem map_item = {};
     map_item.type = section.MapEntryType();
     map_item.size = section.ItemsCount();
@@ -424,7 +424,7 @@ dex::u4 Writer::CreateMapSection(dex::u4 section_offset) {
 
   std::sort(map_items.begin(), map_items.end(),
             [](const dex::MapItem& a, const dex::MapItem& b) {
-              SLICER_CHECK(a.offset != b.offset);
+              SLICER_CHECK_NE(a.offset, b.offset);
               return a.offset < b.offset;
             });
 
@@ -441,7 +441,7 @@ dex::u4 Writer::CreateAnnItemSection(dex::u4 section_offset) {
     if (ir_node->visibility != dex::kVisibilityEncoded) {
       // TODO: factor out the node_offset_ updating
       dex::u4& offset = node_offset_[ir_node.get()];
-      SLICER_CHECK(offset == 0);
+      SLICER_CHECK_EQ(offset, 0);
       offset = WriteAnnotationItem(ir_node.get());
     }
   }
@@ -455,7 +455,7 @@ dex::u4 Writer::CreateAnnSetsSection(dex::u4 section_offset) {
 
   for (const auto& ir_node : dex_ir_->annotation_sets) {
     dex::u4& offset = node_offset_[ir_node.get()];
-    SLICER_CHECK(offset == 0);
+    SLICER_CHECK_EQ(offset, 0);
     offset = WriteAnnotationSet(ir_node.get());
   }
 
@@ -468,7 +468,7 @@ dex::u4 Writer::CreateAnnSetRefListsSection(dex::u4 section_offset) {
 
   for (const auto& ir_node : dex_ir_->annotation_set_ref_lists) {
     dex::u4& offset = node_offset_[ir_node.get()];
-    SLICER_CHECK(offset == 0);
+    SLICER_CHECK_EQ(offset, 0);
     offset = WriteAnnotationSetRefList(ir_node.get());
   }
 
@@ -481,7 +481,7 @@ dex::u4 Writer::CreateTypeListsSection(dex::u4 section_offset) {
 
   for (const auto& ir_type_list : dex_ir_->type_lists) {
     dex::u4& offset = node_offset_[ir_type_list.get()];
-    SLICER_CHECK(offset == 0);
+    SLICER_CHECK_EQ(offset, 0);
     offset = WriteTypeList(ir_type_list->types);
   }
 
@@ -494,7 +494,7 @@ dex::u4 Writer::CreateCodeItemSection(dex::u4 section_offset) {
 
   for (const auto& ir_node : dex_ir_->code) {
     dex::u4& offset = node_offset_[ir_node.get()];
-    SLICER_CHECK(offset == 0);
+    SLICER_CHECK_EQ(offset, 0);
     offset = WriteCode(ir_node.get());
   }
 
@@ -508,7 +508,7 @@ dex::u4 Writer::CreateDebugInfoSection(dex::u4 section_offset) {
 
   for (const auto& ir_node : dex_ir_->debug_info) {
     dex::u4& offset = node_offset_[ir_node.get()];
-    SLICER_CHECK(offset == 0);
+    SLICER_CHECK_EQ(offset, 0);
     offset = WriteDebugInfo(ir_node.get());
   }
 
@@ -644,7 +644,7 @@ dex::u4 Writer::WriteTypeList(const std::vector<ir::Type*>& types) {
 
 // "annotation_item"
 dex::u4 Writer::WriteAnnotationItem(const ir::Annotation* ir_annotation) {
-  SLICER_CHECK(ir_annotation->visibility != dex::kVisibilityEncoded);
+  SLICER_CHECK_NE(ir_annotation->visibility, dex::kVisibilityEncoded);
 
   auto& data = dex_->ann_items;
   dex::u4 offset = data.AddItem();
@@ -655,7 +655,7 @@ dex::u4 Writer::WriteAnnotationItem(const ir::Annotation* ir_annotation) {
 
 // "annotation_set_item"
 dex::u4 Writer::WriteAnnotationSet(const ir::AnnotationSet* ir_annotation_set) {
-  SLICER_CHECK(ir_annotation_set != nullptr);
+  SLICER_CHECK_NE(ir_annotation_set, nullptr);
 
   const auto& annotations = ir_annotation_set->annotations;
 
@@ -671,7 +671,7 @@ dex::u4 Writer::WriteAnnotationSet(const ir::AnnotationSet* ir_annotation_set) {
 // "annotation_set_ref_list"
 dex::u4 Writer::WriteAnnotationSetRefList(
     const ir::AnnotationSetRefList* ir_annotation_set_ref_list) {
-  SLICER_CHECK(ir_annotation_set_ref_list != nullptr);
+  SLICER_CHECK_NE(ir_annotation_set_ref_list, nullptr);
 
   const auto& annotations = ir_annotation_set_ref_list->annotations;
 
@@ -747,7 +747,7 @@ dex::u4 Writer::WriteClassAnnotations(const ir::Class* ir_class) {
 
 // "debug_info_item"
 dex::u4 Writer::WriteDebugInfo(const ir::DebugInfo* ir_debug_info) {
-  SLICER_CHECK(ir_debug_info != nullptr);
+  SLICER_CHECK_NE(ir_debug_info, nullptr);
 
   auto& data = dex_->debug_info;
   dex::u4 offset = data.AddItem();
@@ -830,6 +830,7 @@ void Writer::WriteInstructions(slicer::ArrayView<const dex::u2> instructions) {
   while (ptr < end) {
     auto opcode = dex::OpcodeFromBytecode(*ptr);
     dex::u2* idx = &ptr[1];
+    dex::u2* idx2 = nullptr;
 
     size_t idx_size = 0;
     switch (dex::GetFormatFromOpcode(opcode)) {
@@ -845,6 +846,12 @@ void Writer::WriteInstructions(slicer::ArrayView<const dex::u2> instructions) {
         idx_size = 4;
         break;
 
+      case dex::k45cc:
+      case dex::k4rcc:
+        idx_size = 2;
+        idx2 = &ptr[3];
+      break;
+
       default:
         break;
     }
@@ -853,39 +860,51 @@ void Writer::WriteInstructions(slicer::ArrayView<const dex::u2> instructions) {
       case dex::kIndexStringRef:
         if (idx_size == 4) {
           dex::u4 new_index = MapStringIndex(ReadU4(idx));
-          SLICER_CHECK(new_index != dex::kNoIndex);
+          SLICER_CHECK_NE(new_index, dex::kNoIndex);
           WriteU4(idx, new_index);
         } else {
-          SLICER_CHECK(idx_size == 2);
+          SLICER_CHECK_EQ(idx_size, 2);
           dex::u4 new_index = MapStringIndex(*idx);
-          SLICER_CHECK(new_index != dex::kNoIndex);
-          SLICER_CHECK(dex::u2(new_index) == new_index);
+          SLICER_CHECK_NE(new_index, dex::kNoIndex);
+          SLICER_CHECK_EQ(dex::u2(new_index), new_index);
           *idx = dex::u2(new_index);
         }
         break;
 
       case dex::kIndexTypeRef: {
-        SLICER_CHECK(idx_size == 2);
+        SLICER_CHECK_EQ(idx_size, 2);
         dex::u4 new_index = MapTypeIndex(*idx);
-        SLICER_CHECK(new_index != dex::kNoIndex);
-        SLICER_CHECK(dex::u2(new_index) == new_index);
+        SLICER_CHECK_NE(new_index, dex::kNoIndex);
+        SLICER_CHECK_EQ(dex::u2(new_index), new_index);
         *idx = dex::u2(new_index);
       } break;
 
       case dex::kIndexFieldRef: {
-        SLICER_CHECK(idx_size == 2);
+        SLICER_CHECK_EQ(idx_size, 2);
         dex::u4 new_index = MapFieldIndex(*idx);
-        SLICER_CHECK(new_index != dex::kNoIndex);
-        SLICER_CHECK(dex::u2(new_index) == new_index);
+        SLICER_CHECK_NE(new_index, dex::kNoIndex);
+        SLICER_CHECK_EQ(dex::u2(new_index), new_index);
         *idx = dex::u2(new_index);
       } break;
 
       case dex::kIndexMethodRef: {
-        SLICER_CHECK(idx_size == 2);
+        SLICER_CHECK_EQ(idx_size, 2);
         dex::u4 new_index = MapMethodIndex(*idx);
-        SLICER_CHECK(new_index != dex::kNoIndex);
-        SLICER_CHECK(dex::u2(new_index) == new_index);
+        SLICER_CHECK_NE(new_index, dex::kNoIndex);
+        SLICER_CHECK_EQ(dex::u2(new_index), new_index);
         *idx = dex::u2(new_index);
+      } break;
+
+      case dex::kIndexMethodAndProtoRef: {
+        SLICER_CHECK_EQ(idx_size, 2);
+        dex::u4 new_index = MapMethodIndex(*idx);
+        SLICER_CHECK_NE(new_index, dex::kNoIndex);
+        SLICER_CHECK_EQ(dex::u2(new_index), new_index);
+        *idx = dex::u2(new_index);
+        dex::u4 new_index2 = MapProtoIndex(*idx2);
+        SLICER_CHECK_NE(new_index2, dex::kNoIndex);
+        SLICER_CHECK_EQ(dex::u2(new_index2), new_index2);
+        *idx2 = dex::u2(new_index2);
       } break;
 
       default:
@@ -893,10 +912,10 @@ void Writer::WriteInstructions(slicer::ArrayView<const dex::u2> instructions) {
     }
 
     auto isize = dex::GetWidthFromBytecode(ptr);
-    SLICER_CHECK(isize > 0);
+    SLICER_CHECK_GT(isize, 0);
     ptr += isize;
   }
-  SLICER_CHECK(ptr == end);
+  SLICER_CHECK_EQ(ptr, end);
 }
 
 // "try_item[] + encoded_catch_handler_list"
@@ -947,14 +966,14 @@ void Writer::WriteTryBlocks(const ir::Code* irCode) {
   for (dex::TryBlock& dex_try : slicer::ArrayView<dex::TryBlock>(
            data.ptr<dex::TryBlock>(tries_offset), irCode->try_blocks.size())) {
     dex::u2 new_Handler_offset = handlers_offset_map[dex_try.handler_off];
-    SLICER_CHECK(new_Handler_offset != 0);
+    SLICER_CHECK_NE(new_Handler_offset, 0);
     dex_try.handler_off = new_Handler_offset;
   }
 }
 
 // "code_item"
 dex::u4 Writer::WriteCode(const ir::Code* irCode) {
-  SLICER_CHECK(irCode != nullptr);
+  SLICER_CHECK_NE(irCode, nullptr);
 
   dex::Code dex_code = {};
   dex_code.registers_size = irCode->registers;
@@ -979,9 +998,9 @@ dex::u4 Writer::WriteCode(const ir::Code* irCode) {
 void Writer::WriteEncodedField(const ir::EncodedField* ir_encoded_field,
                        dex::u4* base_index) {
   dex::u4 index_delta = ir_encoded_field->decl->index;
-  SLICER_CHECK(index_delta != dex::kNoIndex);
+  SLICER_CHECK_NE(index_delta, dex::kNoIndex);
   if (*base_index != dex::kNoIndex) {
-    SLICER_CHECK(index_delta > *base_index);
+    SLICER_CHECK_GT(index_delta, *base_index);
     index_delta = index_delta - *base_index;
   }
   *base_index = ir_encoded_field->decl->index;
@@ -995,9 +1014,9 @@ void Writer::WriteEncodedField(const ir::EncodedField* ir_encoded_field,
 void Writer::WriteEncodedMethod(const ir::EncodedMethod* ir_encoded_method,
                         dex::u4* base_index) {
   dex::u4 index_delta = ir_encoded_method->decl->index;
-  SLICER_CHECK(index_delta != dex::kNoIndex);
+  SLICER_CHECK_NE(index_delta, dex::kNoIndex);
   if (*base_index != dex::kNoIndex) {
-    SLICER_CHECK(index_delta > *base_index);
+    SLICER_CHECK_GT(index_delta, *base_index);
     index_delta = index_delta - *base_index;
   }
   *base_index = ir_encoded_method->decl->index;
@@ -1068,7 +1087,7 @@ dex::u4 Writer::WriteClassStaticValues(const ir::Class* ir_class) {
 dex::u4 Writer::MapStringIndex(dex::u4 index) const {
   if (index != dex::kNoIndex) {
     index = dex_ir_->strings_map.at(index)->index;
-    SLICER_CHECK(index != dex::kNoIndex);
+    SLICER_CHECK_NE(index, dex::kNoIndex);
   }
   return index;
 }
@@ -1077,7 +1096,7 @@ dex::u4 Writer::MapStringIndex(dex::u4 index) const {
 dex::u4 Writer::MapTypeIndex(dex::u4 index) const {
   if (index != dex::kNoIndex) {
     index = dex_ir_->types_map.at(index)->index;
-    SLICER_CHECK(index != dex::kNoIndex);
+    SLICER_CHECK_NE(index, dex::kNoIndex);
   }
   return index;
 }
@@ -1086,7 +1105,7 @@ dex::u4 Writer::MapTypeIndex(dex::u4 index) const {
 dex::u4 Writer::MapFieldIndex(dex::u4 index) const {
   if (index != dex::kNoIndex) {
     index = dex_ir_->fields_map.at(index)->index;
-    SLICER_CHECK(index != dex::kNoIndex);
+    SLICER_CHECK_NE(index, dex::kNoIndex);
   }
   return index;
 }
@@ -1095,7 +1114,16 @@ dex::u4 Writer::MapFieldIndex(dex::u4 index) const {
 dex::u4 Writer::MapMethodIndex(dex::u4 index) const {
   if (index != dex::kNoIndex) {
     index = dex_ir_->methods_map.at(index)->index;
-    SLICER_CHECK(index != dex::kNoIndex);
+    SLICER_CHECK_NE(index, dex::kNoIndex);
+  }
+  return index;
+}
+
+// Map an index from the original .dex to the new index
+dex::u4 Writer::MapProtoIndex(dex::u4 index) const {
+  if (index != dex::kNoIndex) {
+    index = dex_ir_->protos_map.at(index)->index;
+    SLICER_CHECK_NE(index, dex::kNoIndex);
   }
   return index;
 }
@@ -1108,7 +1136,7 @@ dex::u4 Writer::FilePointer(const ir::Node* ir_node) const {
   auto it = node_offset_.find(ir_node);
   SLICER_CHECK(it != node_offset_.end());
   dex::u4 offset = it->second;
-  SLICER_CHECK(offset > 0);
+  SLICER_CHECK_GT(offset, 0);
   return offset;
 }
 

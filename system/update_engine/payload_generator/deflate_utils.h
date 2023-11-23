@@ -17,8 +17,10 @@
 #ifndef UPDATE_ENGINE_PAYLOAD_GENERATOR_DEFLATE_UTILS_H_
 #define UPDATE_ENGINE_PAYLOAD_GENERATOR_DEFLATE_UTILS_H_
 
-#include <puffin/puffdiff.h>
+#include <string>
 #include <vector>
+
+#include <puffin/puffdiff.h>
 
 #include "update_engine/payload_generator/filesystem_interface.h"
 #include "update_engine/payload_generator/payload_generation_config.h"
@@ -92,6 +94,14 @@ bool FindAndCompactDeflates(const std::vector<Extent>& extents,
 
 // Expands a BitExtents to a ByteExtent.
 puffin::ByteExtent ExpandToByteExtent(const puffin::BitExtent& extent);
+
+bool IsFileExtensions(
+    const std::string_view name,
+    const std::initializer_list<std::string_view>& extensions);
+
+bool DeflatePreprocessFileData(const std::string_view filename,
+                               const brillo::Blob& data,
+                               std::vector<puffin::BitExtent>* deflates);
 
 }  // namespace deflate_utils
 }  // namespace chromeos_update_engine

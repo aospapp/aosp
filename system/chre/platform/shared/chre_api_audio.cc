@@ -41,6 +41,8 @@ DLL_EXPORT bool chreAudioGetSource(uint32_t handle,
 
   return success;
 #else
+  UNUSED_VAR(handle);
+  UNUSED_VAR(audioSource);
   return false;
 #endif  // CHRE_AUDIO_SUPPORT_ENABLED
 }
@@ -56,6 +58,10 @@ DLL_EXPORT bool chreAudioConfigureSource(uint32_t handle, bool enable,
              .configureSource(nanoapp, handle, enable, bufferDuration,
                               deliveryInterval);
 #else
+  UNUSED_VAR(handle);
+  UNUSED_VAR(enable);
+  UNUSED_VAR(bufferDuration);
+  UNUSED_VAR(deliveryInterval);
   return false;
 #endif  // CHRE_AUDIO_SUPPORT_ENABLED
 }

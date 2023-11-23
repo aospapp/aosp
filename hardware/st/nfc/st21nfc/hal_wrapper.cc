@@ -23,22 +23,17 @@
 #include <log/log.h>
 #include <string.h>
 #include <unistd.h>
+
 #include "android_logmsg.h"
 #include "hal_fd.h"
 #include "halcore.h"
+#include "st21nfc_dev.h"
 
 extern void HalCoreCallback(void* context, uint32_t event, const void* d,
                             size_t length);
 extern bool I2cOpenLayer(void* dev, HAL_CALLBACK callb, HALHANDLE* pHandle);
 extern void I2cCloseLayer();
-
-typedef struct {
-  struct nfc_nci_device nci_device;  // nci_device must be first struct member
-  // below declarations are private variables within HAL
-  nfc_stack_callback_t* p_cback;
-  nfc_stack_data_callback_t* p_data_cback;
-  HALHANDLE hHAL;
-} st21nfc_dev_t;
+extern void I2cRecovery();
 
 static void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data);
 static void halWrapperCallback(uint8_t event, uint8_t event_status);
@@ -122,6 +117,8 @@ bool hal_wrapper_open(st21nfc_dev_t* dev, nfc_stack_callback_t* p_cback,
   isDebuggable = property_get_int32("ro.debuggable", 0);
   mHalHandle = *pHandle;
 
+  HalSendDownstreamTimer(mHalHandle, 10000);
+
   return 1;
 }
 
@@ -203,6 +200,8 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
   uint8_t coreInitCmd[] = {0x20, 0x01, 0x02, 0x00, 0x00};
   uint8_t coreResetCmd[] = {0x20, 0x00, 0x01, 0x01};
   unsigned long num = 0;
+  unsigned long swp_log = 0;
+  unsigned long rf_log = 0;
   int nciPropEnableFwDbgTraces_size = sizeof(nciPropEnableFwDbgTraces);
 
   switch (mHalWrapperState) {
@@ -392,6 +391,30 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
             if (GetNumValue(NAME_STNFC_FW_DEBUG_ENABLED, &num, sizeof(num)) ||
                 isDebuggable) {
               if (firmware_debug_enabled) num = 1;
+
+              if (num == 1) {
+                GetNumValue(NAME_STNFC_FW_SWP_LOG_SIZE, &swp_log,
+                            sizeof(swp_log));
+                GetNumValue(NAME_STNFC_FW_RF_LOG_SIZE, &rf_log, sizeof(rf_log));
+              }
+              // limit swp and rf payload length between 4 and 30.
+              if (swp_log > 30)
+                swp_log = 30;
+              else if (swp_log < 4)
+                swp_log = 4;
+
+              if (rf_log > 30)
+                rf_log = 30;
+              else if (rf_log < 4)
+                rf_log = 4;
+
+              if ((rf_log || swp_log) &&
+                  ((p_data[15] != rf_log) || (p_data[17] != swp_log))) {
+                STLOG_HAL_D("%s - FW DBG payload traces changes needed",
+                            __func__);
+                confNeeded = true;
+              }
+
               // If conf file indicate set needed and not yet enabled
               if ((num == 1) && (p_data[7] == 0x00)) {
                 STLOG_HAL_D("%s - FW DBG traces enabling needed", __func__);
@@ -402,8 +425,9 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
                 nciPropEnableFwDbgTraces[9] = 0x00;
                 confNeeded = true;
               } else {
-                STLOG_HAL_D("%s - No changes in FW DBG traces config needed",
-                            __func__);
+                STLOG_HAL_D(
+                    "%s - No FW DBG traces enable/disable change needed",
+                    __func__);
               }
 
               if (data_len < 9 || p_data[6] == 0 || p_data[6] < (data_len - 7)
@@ -418,6 +442,11 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
                 memcpy(nciPropEnableFwDbgTraces, nciHeaderPropSetConfig, 9);
                 memcpy(&nciPropEnableFwDbgTraces[10], &p_data[8],
                        p_data[6] - 1);
+                if (rf_log || swp_log) {
+                  nciPropEnableFwDbgTraces[9] = (uint8_t)num;
+                  nciPropEnableFwDbgTraces[17] = (uint8_t)rf_log;
+                  nciPropEnableFwDbgTraces[19] = (uint8_t)swp_log;
+                }
                 if ((9 + p_data[6]) < sizeof(nciPropEnableFwDbgTraces)) {
                   nciPropEnableFwDbgTraces_size = 9 + p_data[6];
                 }
@@ -568,6 +597,15 @@ static void halWrapperCallback(uint8_t event, __attribute__((unused))uint8_t eve
         HalSendDownstreamStopTimer(mHalHandle);
         hal_fd_close();
         mHalWrapperState = HAL_WRAPPER_STATE_CLOSED;
+        return;
+      }
+      break;
+
+    case HAL_WRAPPER_STATE_OPEN:
+      if (event == HAL_WRAPPER_TIMEOUT_EVT) {
+        STLOG_HAL_D("NFC-NCI HAL: %s  Timeout accessing the CLF.", __func__);
+        HalSendDownstreamStopTimer(mHalHandle);
+        I2cRecovery();
         return;
       }
       break;

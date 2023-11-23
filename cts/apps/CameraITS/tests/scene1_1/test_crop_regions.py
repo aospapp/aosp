@@ -68,9 +68,9 @@ class CropRegionsTest(its_base_test.ItsBaseTest):
 
       # Uses a 2x digital zoom.
       max_digital_zoom = capture_request_utils.get_max_digital_zoom(props)
-      e_msg = 'Max digital zoom: %d, THRESH: %d' % (max_digital_zoom,
-                                                    MIN_DIGITAL_ZOOM_THRESH)
-      assert max_digital_zoom >= MIN_DIGITAL_ZOOM_THRESH, e_msg
+      if max_digital_zoom < MIN_DIGITAL_ZOOM_THRESH:
+        raise AssertionError(f'Max digital zoom: {max_digital_zoom}, '
+                             f'THRESH: {MIN_DIGITAL_ZOOM_THRESH}')
 
       # Capture a full frame.
       req = capture_request_utils.manual_capture_request(s, e)
@@ -95,6 +95,7 @@ class CropRegionsTest(its_base_test.ItsBaseTest):
         reqs.append(req)
       caps_regions = cam.do_capture(reqs)
       match_failed = False
+      e_msg = []
       for i, cap in enumerate(caps_regions):
         a = cap['metadata']['android.scaler.cropRegion']
         ax, ay = a['left'], a['top']
@@ -125,11 +126,13 @@ class CropRegionsTest(its_base_test.ItsBaseTest):
             min_diff_region = j
         if i != min_diff_region:
           match_failed = True
+          e_msg.append(f'i != min_diff_region. i: {i}, '
+                       f'min_diff_region: {min_diff_region}. ')
         logging.debug('Crop image %d (%d,%d %dx%d) best match with region %d',
                       i, ax, ay, aw, ah, min_diff_region)
 
-    assert not match_failed
+    if match_failed:
+      raise AssertionError(f'Match failed: {e_msg}')
 
 if __name__ == '__main__':
   test_runner.main()
-

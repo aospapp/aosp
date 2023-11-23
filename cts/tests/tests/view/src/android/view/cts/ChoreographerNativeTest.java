@@ -75,6 +75,14 @@ public class ChoreographerNativeTest {
     private static native void nativeTestPostCallback64WithoutDelayEventuallyRunsCallbacks(
             long ptr);
     private static native void nativeTestPostCallback64WithDelayEventuallyRunsCallbacks(long ptr);
+    private static native void nativeTestPostVsyncCallbackWithoutDelayEventuallyRunsCallbacks(
+            long ptr);
+    private static native void nativeTestFrameCallbackDataVsyncIdValid(
+            long ptr);
+    private static native void nativeTestFrameCallbackDataDeadlineInFuture(
+            long ptr);
+    private static native void nativeTestFrameCallbackDataExpectedPresentTimeInFuture(
+            long ptr);
     private static native void nativeTestPostCallbackMixedWithoutDelayEventuallyRunsCallbacks(
             long ptr);
     private static native void nativeTestPostCallbackMixedWithDelayEventuallyRunsCallbacks(
@@ -118,6 +126,30 @@ public class ChoreographerNativeTest {
         if (!nativePrepareChoreographerTests(mChoreographerPtr, mSupportedPeriods)) {
             fail("Failed to setup choreographer tests");
         }
+    }
+
+    @MediumTest
+    @Test
+    public void testPostVsyncCallbackWithoutDelayEventuallyRunsCallbacks() {
+        nativeTestPostVsyncCallbackWithoutDelayEventuallyRunsCallbacks(mChoreographerPtr);
+    }
+
+    @MediumTest
+    @Test
+    public void testFrameCallbackDataVsyncIdValid() {
+        nativeTestFrameCallbackDataVsyncIdValid(mChoreographerPtr);
+    }
+
+    @MediumTest
+    @Test
+    public void testFrameCallbackDataDeadlineInFuture() {
+        nativeTestFrameCallbackDataDeadlineInFuture(mChoreographerPtr);
+    }
+
+    @MediumTest
+    @Test
+    public void testFrameCallbackDataExpectedPresentTimeInFuture() {
+        nativeTestFrameCallbackDataExpectedPresentTimeInFuture(mChoreographerPtr);
     }
 
     @MediumTest

@@ -18,6 +18,7 @@
 #include <android-base/file.h>
 #include <android-base/result.h>
 #include <bootimg.h>
+#include <iostream>
 
 #include "cpio.h"
 #include "lz4_legacy.h"
@@ -37,7 +38,7 @@ android::base::Result<std::unique_ptr<TemporaryFile>> ExtractRamdiskRaw(
   android::base::unique_fd bootimg(
       TEMP_FAILURE_RETRY(open(boot_path.data(), O_RDONLY)));
   if (!bootimg.ok()) return ErrnoError() << "open(" << boot_path << ")";
-  boot_img_hdr_v3 hdr;
+  boot_img_hdr_v3 hdr{};
   if (!ReadFullyAtOffset(bootimg.get(), &hdr, sizeof(hdr), 0))
     return ErrnoError() << "read header";
   if (0 != memcmp(hdr.magic, BOOT_MAGIC, BOOT_MAGIC_SIZE))
@@ -45,6 +46,10 @@ android::base::Result<std::unique_ptr<TemporaryFile>> ExtractRamdiskRaw(
 
   if (hdr.header_version < 3)
     return Error() << "Unsupported header version V" << hdr.header_version;
+  if (hdr.ramdisk_size <= 0) {
+    return Error() << boot_path
+                   << " contains a valid bootimg header but no ramdisk";
+  }
 
   // See bootimg.h
   auto kernel_size_bytes = (hdr.kernel_size + 4096 - 1) / 4096 * 4096;
@@ -58,6 +63,7 @@ android::base::Result<std::unique_ptr<TemporaryFile>> ExtractRamdiskRaw(
   auto ramdisk_content_file = std::make_unique<TemporaryFile>();
   if (!WriteStringToFd(ramdisk_content, ramdisk_content_file->fd))
     return ErrnoError() << "write ramdisk section to file";
+  fsync(ramdisk_content_file->fd);
 
   return ramdisk_content_file;
 }

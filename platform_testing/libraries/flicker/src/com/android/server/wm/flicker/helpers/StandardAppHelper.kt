@@ -28,7 +28,11 @@ import androidx.test.uiautomator.By
 import androidx.test.uiautomator.BySelector
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
+import com.android.server.wm.traces.common.Condition
+import com.android.server.wm.traces.common.DeviceStateDump
 import com.android.server.wm.traces.common.FlickerComponentName
+import com.android.server.wm.traces.common.WindowManagerConditionsFactory
+import com.android.server.wm.traces.common.layers.BaseLayerTraceEntry
 import com.android.server.wm.traces.common.windowmanager.WindowManagerState
 import com.android.server.wm.traces.parser.windowmanager.WindowManagerStateHelper
 
@@ -119,10 +123,13 @@ open class StandardAppHelper @JvmOverloads constructor(
         wmHelper: WindowManagerStateHelper
     ) {
         val activityName = component.toActivityName()
-        wmHelper.waitFor("state of $activityName to be ${WindowManagerState.STATE_DESTROYED}") {
-            !it.wmState.containsActivity(activityName) ||
-                it.wmState.hasActivityState(activityName, WindowManagerState.STATE_DESTROYED)
-        }
+        val waitMsg = "state of $activityName to be ${WindowManagerState.STATE_DESTROYED}"
+        require(
+            wmHelper.waitFor(waitMsg) {
+                !it.wmState.containsActivity(activityName) ||
+                    it.wmState.hasActivityState(activityName, WindowManagerState.STATE_DESTROYED)
+            }
+        ) { "App activity should have been destroyed" }
         wmHelper.waitForAppTransitionIdle()
         // Ensure WindowManagerService wait until all animations have completed
         mInstrumentation.uiAutomation.syncInputTransactions()
@@ -166,18 +173,35 @@ open class StandardAppHelper @JvmOverloads constructor(
         expectedWindowName: String = "",
         action: String? = null,
         stringExtras: Map<String, String> = mapOf()
+    ) = launchViaIntentAndWaitShown(wmHelper, expectedWindowName, action, stringExtras)
+
+    /**
+     * Launches the app through an intent instead of interacting with the launcher and waits
+     * until the app window is visible
+     */
+    protected fun launchViaIntentAndWaitShown(
+        wmHelper: WindowManagerStateHelper,
+        expectedWindowName: String = "",
+        action: String? = null,
+        stringExtras: Map<String, String> = mapOf(),
+        waitConditions: Array<
+            Condition<DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>>> =
+            emptyArray()
     ) {
         launchAppViaIntent(action, stringExtras)
 
-        val window = if (expectedWindowName.isNotEmpty()) {
-            expectedWindowName
+        val expectedWindow = if (expectedWindowName.isNotEmpty()) {
+            FlickerComponentName("", expectedWindowName)
         } else {
-            component.toWindowName()
+            component
         }
-        wmHelper.waitFor("App is shown") {
-            it.wmState.isComplete() && it.wmState.isWindowVisible(window) &&
-                !it.layerState.isAnimating()
-        }
+        val appShown = wmHelper.waitFor(
+            WindowManagerConditionsFactory.isWMStateComplete(),
+            WindowManagerConditionsFactory.hasLayersAnimating().negate(),
+            WindowManagerConditionsFactory.isWindowVisible(expectedWindow),
+            *waitConditions
+        )
+        require(appShown) { "App didn't launch correctly via intent" }
 
         wmHelper.waitForAppTransitionIdle()
         // During seamless rotation the app window is shown
@@ -187,7 +211,7 @@ open class StandardAppHelper @JvmOverloads constructor(
         }
 
         // Ensure WindowManagerService wait until all animations have completed
-        mInstrumentation.getUiAutomation().syncInputTransactions()
+        mInstrumentation.uiAutomation.syncInputTransactions()
     }
 
     companion object {

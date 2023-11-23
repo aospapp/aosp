@@ -20,6 +20,7 @@ import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.result.error.DeviceErrorIdentifier;
 import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.util.CommandResult;
@@ -57,7 +58,9 @@ public final class CheckGmsPreparer implements ITargetPreparer {
             CLog.e("GMS process still not running, throwing error");
             mEnable = false;
             throw new TargetSetupError(
-                    "GMS required but did not detect a running GMS process after device reboot");
+                    "GMS required but did not detect a running GMS process after device reboot",
+                    testInfo.getDevice().getDeviceDescriptor(),
+                    DeviceErrorIdentifier.DEVICE_UNEXPECTED_RESPONSE);
         }
     }
 

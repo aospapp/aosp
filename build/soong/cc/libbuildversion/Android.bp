@@ -14,8 +14,10 @@ cc_library_static {
             enabled: true,
         },
     },
+    min_sdk_version: "26",
     apex_available: [
         "//apex_available:platform",
         "//apex_available:anyapex",
     ],
+    vendor_available: true,
 }

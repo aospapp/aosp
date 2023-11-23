@@ -17,10 +17,15 @@
 // later when a module using the interface is updated, e.g., Mainline modules.
 
 package android.aidl.versioned.tests;
+@JavaDelegator
 interface IFooInterface {
-  void originalApi();
-  @utf8InCpp String acceptUnionAndReturnString(in android.aidl.versioned.tests.BazUnion u);
-  @SuppressWarnings(value={"inout-parameter"}) int ignoreParcelablesAndRepeatInt(in android.aidl.versioned.tests.Foo inFoo, inout android.aidl.versioned.tests.Foo inoutFoo, out android.aidl.versioned.tests.Foo outFoo, int value);
-  int returnsLengthOfFooArray(in android.aidl.versioned.tests.Foo[] foos);
-  void newApi();
+    void originalApi();
+    @utf8InCpp String acceptUnionAndReturnString(
+            in android.aidl.versioned.tests.BazUnion u);
+    @SuppressWarnings(value={"inout-parameter"})
+    int ignoreParcelablesAndRepeatInt(in android.aidl.versioned.tests.Foo inFoo,
+            inout android.aidl.versioned.tests.Foo inoutFoo,
+            out android.aidl.versioned.tests.Foo outFoo, int value);
+    int returnsLengthOfFooArray(in android.aidl.versioned.tests.Foo[] foos);
+    void newApi();
 }

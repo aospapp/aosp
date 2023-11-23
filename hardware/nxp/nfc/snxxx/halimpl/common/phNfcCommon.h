@@ -1,19 +1,20 @@
-/*
- * Copyright (C) 2010-2018 NXP Semiconductors
+/******************************************************************************
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ *  Copyright 2010-2018, 2021 NXP
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ ******************************************************************************/
 /*
  *  OSAL header files related to memory, debug, random, semaphore and mutex
  * functions.
@@ -35,10 +36,6 @@
 
 #define FW_DLL_ROOT_DIR "/system/vendor/"
 #define FW_DLL_EXTENSION ".so"
-#define FW_LIB_ROOT_DIR "/vendor/lib64/"
-#define FW_BIN_ROOT_DIR "/vendor/firmware/"
-#define FW_LIB_EXTENSION ".so"
-#define FW_BIN_EXTENSION ".bin"
 
 /* Actual FW library name*/
 /* Restore Corrupted PLL Settings/etc */
@@ -91,10 +88,57 @@
 #define CLK_FREQ_19_2MHZ 2
 #define CLK_FREQ_24MHZ 3
 #define CLK_FREQ_26MHZ 4
-#define CLK_FREQ_32MHZ 5
-#define CLK_FREQ_38_4MHZ 6
-#define CLK_FREQ_52MHZ 7
+#define CLK_FREQ_38_4MHZ 5
+#define CLK_FREQ_52MHZ 6
+#define CLK_FREQ_32MHZ 7
 
+static const uint8_t PN557_SET_CONFIG_CMD_PLL_13MHZ[] = {
+    0x20, 0x02, 0x0C, 0x01, 0xA0, 0x20, 0x08, 0x08,
+    0x52, 0xA2, 0x02, 0x30, 0x01, 0xE1, 0x02};
+
+static const uint8_t PN557_SET_CONFIG_CMD_DPLL_13MHZ[] = {
+    0x20, 0x02, 0x0C, 0x01, 0xA0, 0x26, 0x08, 0x40,
+    0x42, 0xA3, 0x02, 0x88, 0x01, 0xE2, 0x02};
+
+static const uint8_t PN557_SET_CONFIG_CMD_PLL_19_2MHZ[] = {
+    0x20, 0x02, 0x0C, 0x01, 0xA0, 0x20, 0x08, 0x88,
+    0x51, 0xE3, 0x02, 0xB8, 0x21, 0xE1, 0x02};
+
+static const uint8_t PN557_SET_CONFIG_CMD_DPLL_19_2MHZ[] = {
+    0x20, 0x02, 0x0C, 0x01, 0xA0, 0x26, 0x08, 0x88,
+    0x01, 0xE2, 0x02, 0xF0, 0x00, 0xA2, 0x01};
+
+static const uint8_t PN557_SET_CONFIG_CMD_PLL_24MHZ[] = {
+    0x20, 0x02, 0x0C, 0x01, 0xA0, 0x20, 0x08, 0x28,
+    0xC2, 0xA2, 0x83, 0x88, 0x11, 0xE1, 0x02};
+
+static const uint8_t PN557_SET_CONFIG_CMD_DPLL_24MHZ[] = {
+    0x20, 0x02, 0x0C, 0x01, 0xA0, 0x26, 0x08, 0x38,
+    0x41, 0xD3, 0x02, 0x88, 0x01, 0xE2, 0x02};
+
+static const uint8_t PN557_SET_CONFIG_CMD_PLL_26MHZ[] = {
+    0x20, 0x02, 0x0C, 0x01, 0xA0, 0x20, 0x08, 0x08,
+    0x52, 0xA2, 0x82, 0x30, 0x01, 0xE1, 0x02};
+
+static const uint8_t PN557_SET_CONFIG_CMD_DPLL_26MHZ[] = {
+    0x20, 0x02, 0x0C, 0x01, 0xA0, 0x26, 0x08, 0x20,
+    0x41, 0xA3, 0x01, 0x88, 0x01, 0xE2, 0x02};
+
+static const uint8_t PN557_SET_CONFIG_CMD_PLL_32MHZ[] = {
+    0x20, 0x02, 0x0C, 0x01, 0xA0, 0x20, 0x08, 0xB8,
+    0x51, 0xA3, 0x82, 0x88, 0xF1, 0xF0, 0x02};
+
+static const uint8_t PN557_SET_CONFIG_CMD_DPLL_32MHZ[] = {
+    0x20, 0x02, 0x0C, 0x01, 0xA0, 0x26, 0x08, 0xB0,
+    0x01, 0xA3, 0x82, 0x88, 0x01, 0xE2, 0x02};
+
+static const uint8_t PN557_SET_CONFIG_CMD_PLL_38_4MHZ[] = {
+    0x20, 0x02, 0x0C, 0x01, 0xA0, 0x20, 0x08, 0x88,
+    0x51, 0xE3, 0x82, 0xB8, 0x21, 0xE1, 0x02};
+
+static const uint8_t PN557_SET_CONFIG_CMD_DPLL_38_4MHZ[] = {
+    0x20, 0x02, 0x0C, 0x01, 0xA0, 0x26, 0x08, 0x88,
+    0x01, 0xE2, 0x82, 0xF0, 0x00, 0xA2, 0x01};
 /* Set to one of CLK_FREQ_<value> */
 #define NXP_SYS_CLK_FREQ_SEL CLK_FREQ_19_2MHZ
 

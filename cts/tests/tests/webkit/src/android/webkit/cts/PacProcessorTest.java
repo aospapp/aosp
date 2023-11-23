@@ -23,13 +23,12 @@ import android.webkit.PacProcessor;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
 public final class PacProcessorTest {
-    private static final String TAG = "PacProcessorCtsTest";
-    private static final long REMOTE_TIMEOUT_MS = 5000;
 
     private TestProcessClient mProcess;
 
@@ -37,6 +36,11 @@ public final class PacProcessorTest {
     public void setUp() throws Throwable {
         Context context = InstrumentationRegistry.getInstrumentation().getContext();
         mProcess = TestProcessClient.createProcessB(context);
+    }
+
+    @After
+    public void tearDown() throws Throwable {
+        mProcess.close();
     }
 
     static class TestCreatePacProcessor extends TestProcessClient.TestRunnable {
@@ -48,21 +52,22 @@ public final class PacProcessorTest {
             Assert.assertNotNull("createPacProcessor must not return null", pacProcessor);
             Assert.assertNotNull("createPacProcessor must not return null", otherPacProcessor);
 
-            Assert.assertFalse("createPacProcessor must return different objects", pacProcessor == otherPacProcessor);
+            Assert.assertFalse(
+                    "createPacProcessor must return different objects",
+                    pacProcessor == otherPacProcessor);
 
             pacProcessor.setProxyScript(
-                    "function FindProxyForURL(url, host) {" +
-                            "return \"PROXY 1.2.3.4:8080\";" +
-                            "}"
-            );
+                    "function FindProxyForURL(url, host) {"
+                            + "return \"PROXY 1.2.3.4:8080\";"
+                            + "}");
             otherPacProcessor.setProxyScript(
-                    "function FindProxyForURL(url, host) {" +
-                            "return \"PROXY 5.6.7.8:8080\";" +
-                            "}"
-            );
+                    "function FindProxyForURL(url, host) {"
+                            + "return \"PROXY 5.6.7.8:8080\";"
+                            + "}");
 
             Assert.assertEquals("PROXY 1.2.3.4:8080", pacProcessor.findProxyForUrl("test.url"));
-            Assert.assertEquals("PROXY 5.6.7.8:8080", otherPacProcessor.findProxyForUrl("test.url"));
+            Assert.assertEquals(
+                    "PROXY 5.6.7.8:8080", otherPacProcessor.findProxyForUrl("test.url"));
 
             pacProcessor.release();
             otherPacProcessor.release();
@@ -74,7 +79,7 @@ public final class PacProcessorTest {
      */
     @Test
     public void testCreatePacProcessor() throws Throwable {
-        mProcess.run(TestCreatePacProcessor.class, REMOTE_TIMEOUT_MS);
+        mProcess.run(TestCreatePacProcessor.class);
     }
 
     static class TestDefaultNetworkIsNull extends TestProcessClient.TestRunnable {
@@ -92,7 +97,7 @@ public final class PacProcessorTest {
      */
     @Test
     public void testDefaultNetworkIsNull() throws Throwable {
-        mProcess.run(TestDefaultNetworkIsNull.class, REMOTE_TIMEOUT_MS);
+        mProcess.run(TestDefaultNetworkIsNull.class);
     }
 
     static class TestSetNetwork extends TestProcessClient.TestRunnable {
@@ -101,14 +106,17 @@ public final class PacProcessorTest {
             ConnectivityManager connectivityManager =
                     ctx.getSystemService(ConnectivityManager.class);
             Network[] networks = connectivityManager.getAllNetworks();
-            Assert.assertTrue("testSetNetwork requires at least one available Network", networks.length > 0);
+            Assert.assertTrue(
+                    "testSetNetwork requires at least one available Network", networks.length > 0);
 
             PacProcessor pacProcessor = PacProcessor.createInstance();
             PacProcessor otherPacProcessor = PacProcessor.createInstance();
 
             pacProcessor.setNetwork(networks[0]);
             Assert.assertEquals("Network is not set", networks[0], pacProcessor.getNetwork());
-            Assert.assertNull("setNetwork must not affect other PacProcessors", otherPacProcessor.getNetwork());
+            Assert.assertNull(
+                    "setNetwork must not affect other PacProcessors",
+                    otherPacProcessor.getNetwork());
 
             pacProcessor.setNetwork(null);
             Assert.assertNull("Network is not unset", pacProcessor.getNetwork());
@@ -117,11 +125,12 @@ public final class PacProcessorTest {
             otherPacProcessor.release();
         }
     }
+
     /**
      * Test that setNetwork correctly set Network to PacProcessor.
      */
     @Test
     public void testSetNetwork() throws Throwable {
-        mProcess.run(TestSetNetwork.class, REMOTE_TIMEOUT_MS);
+        mProcess.run(TestSetNetwork.class);
     }
 }

@@ -431,6 +431,13 @@ status_t CameraDeviceSession::Initialize(
     return res;
   }
 
+  res = utils::GetStreamUseCases(characteristics.get(), &stream_use_cases_);
+  if (res != OK) {
+    ALOGE("%s: Initializing stream use case failed: %s(%d)", __FUNCTION__,
+          strerror(-res), res);
+    return res;
+  }
+
   res = InitializeBufferManagement(characteristics.get());
   if (res != OK) {
     ALOGE("%s: Initialize buffer management failed: %s(%d)", __FUNCTION__,
@@ -688,6 +695,15 @@ status_t CameraDeviceSession::ConfigureStreams(
 
   operation_mode_ = stream_config.operation_mode;
   multi_res_reprocess_ = stream_config.multi_resolution_input_image;
+
+  // TODO: We would ideally want this to be a part of CreateCaptureSession,
+  // which internally calls IsStreamCombinationSupported. However this
+  // IsStreamCombinationSupported doesn't match the
+  // CameraDevice::IsStreamCombination. We should look at unifying the two for a
+  // potentially cleaner code-base.
+  if (!utils::IsStreamUseCaseSupported(stream_config, stream_use_cases_)) {
+    return BAD_VALUE;
+  }
 
   capture_session_ = CreateCaptureSession(
       stream_config, kWrapperCaptureSessionEntries,
@@ -1415,6 +1431,8 @@ void CameraDeviceSession::RemoveBufferCache(
               hidl_res.description().c_str());
       }
     };
+
+    device_session_hwl_->RemoveCachedBuffers(buffer_handle_it->second);
 
     if (buffer_mapper_v4_ != nullptr) {
       free_buffer_mapper(buffer_mapper_v4_);

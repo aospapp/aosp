@@ -24,7 +24,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.LinkedList;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -40,11 +41,24 @@ public class ZipUtil {
      * @throws IOException if failed to create zip file
      */
     public static void createZip(File dir, File zipFile) throws IOException {
+        createZip(Collections.singletonList(dir), zipFile);
+    }
+
+    /**
+     * Utility method to create a zip file containing the given directory and all its contents.
+     *
+     * @param files list of files or directories to zip
+     * @param zipFile the zip file to create - it should not already exist
+     * @throws IOException if failed to create zip file
+     */
+    public static void createZip(List<File> files, File zipFile) throws IOException {
         ZipOutputStream out = null;
         try {
             FileOutputStream fileStream = new FileOutputStream(zipFile);
             out = new ZipOutputStream(new BufferedOutputStream(fileStream));
-            addToZip(out, dir, new LinkedList<String>());
+            for (File file : files) {
+                addToZip(out, file, new ArrayList<>());
+            }
         } catch (IOException e) {
             zipFile.delete();
             throw e;

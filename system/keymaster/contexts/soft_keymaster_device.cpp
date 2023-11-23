@@ -158,8 +158,9 @@ static keymaster_error_t map_digests(keymaster1_device_t* dev, SoftKeymasterDevi
 }
 
 SoftKeymasterDevice::SoftKeymasterDevice(KmVersion version)
-    : wrapped_km1_device_(nullptr), context_(new SoftKeymasterContext(version)),
-      impl_(new AndroidKeymaster(context_, kOperationTableSize)), configured_(false) {
+    : wrapped_km1_device_(nullptr), context_(new (std::nothrow) SoftKeymasterContext(version)),
+      impl_(new (std::nothrow) AndroidKeymaster(context_, kOperationTableSize)),
+      configured_(false) {
     LOG_I("Creating device", 0);
     LOG_D("Device address: %p", this);
 
@@ -169,7 +170,8 @@ SoftKeymasterDevice::SoftKeymasterDevice(KmVersion version)
 
 SoftKeymasterDevice::SoftKeymasterDevice(SoftKeymasterContext* context)
     : wrapped_km1_device_(nullptr), context_(context),
-      impl_(new AndroidKeymaster(context_, kOperationTableSize)), configured_(false) {
+      impl_(new (std::nothrow) AndroidKeymaster(context_, kOperationTableSize)),
+      configured_(false) {
     LOG_I("Creating test device", 0);
     LOG_D("Device address: %p", this);
 

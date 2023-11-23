@@ -40,7 +40,7 @@ aidl_interface {
             enabled: false,
         },
         rust: {
-            enabled: false,
+            enabled: true,
         },
     },
     versions: ["1"],
@@ -64,7 +64,7 @@ aidl_interface {
             enabled: false,
         },
         rust: {
-            enabled: false,
+            enabled: true,
         },
     },
 }
@@ -87,7 +87,7 @@ aidl_interface {
             enabled: false,
         },
         rust: {
-            enabled: false,
+            enabled: true,
         },
     },
     versions: ["1"],

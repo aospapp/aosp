@@ -14,16 +14,16 @@
      limitations under the License.
 -->
 <configuration description="Installs a test package with -t arg and check for launch crashes">
-    <option name="package-name" value="{package}"/>
-    <target_preparer class="com.android.compatibility.targetprep.AppSetupPreparer">
-        <option name="test-file-name" value="app://{package}"/>
-        <option name="install-arg" value="-t"/>
-    </target_preparer>
     <target_preparer class="com.android.compatibility.targetprep.CheckGmsPreparer"/>
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="input keyevent KEYCODE_WAKEUP"/>
         <option name="run-command" value="input keyevent KEYCODE_MENU"/>
         <option name="run-command" value="input keyevent KEYCODE_HOME"/>
     </target_preparer>
-    <test class="com.android.compatibility.testtype.AppLaunchTest"/>
+    <test class="com.android.tradefed.testtype.HostTest" >
+        <option name="set-option" value="package-name:{package}"/>
+        <option name="set-option" value="install-apk:app\://{package}"/>
+        <option name="set-option" value="install-arg:-t"/>
+        <option name="class" value="com.android.csuite.tests.AppLaunchTest" />
+    </test>
 </configuration>

@@ -43,6 +43,8 @@ public class CodecInfo {
     public boolean mSupportSemiPlanar = false;
     /** if codec is supporting YUV planar format */
     public boolean mSupportPlanar = false;
+    /** if codec is software-based */
+    public boolean mIsSoftware = false;
 
     private static final String TAG = "CodecInfo";
     private static final String VIDEO_AVC = MediaFormat.MIMETYPE_VIDEO_AVC;
@@ -85,6 +87,8 @@ public class CodecInfo {
         MediaUtils.setMaxEncoderFrameAndBitrates(cap.getVideoCapabilities(), format, maxFps);
         info.mFps = format.getInteger(MediaFormat.KEY_FRAME_RATE);
         info.mBitRate = format.getInteger(MediaFormat.KEY_BIT_RATE);
+
+        info.mIsSoftware = !codec.getCodecInfo().isHardwareAccelerated();
 
         codec.release();
         return info;

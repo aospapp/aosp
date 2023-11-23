@@ -52,14 +52,12 @@ PlatformAudio::PlatformAudio() {}
 PlatformAudio::~PlatformAudio() {
   if (mAudioApi != nullptr) {
     LOGV("Platform audio closing");
-    prePalApiCall();
     mAudioApi->close();
     LOGV("Platform audio closed");
   }
 }
 
 void PlatformAudio::init() {
-  prePalApiCall();
   mAudioApi = chrePalAudioGetApi(CHRE_PAL_AUDIO_API_CURRENT_VERSION);
   if (mAudioApi != nullptr) {
     if (!mAudioApi->open(&gChrePalSystemApi, &sAudioCallbacks)) {
@@ -109,7 +107,6 @@ bool PlatformAudio::requestAudioDataEvent(uint32_t handle, uint32_t numSamples,
                                           Nanoseconds eventDelay) {
   bool success = false;
   if (mAudioApi != nullptr) {
-    prePalApiCall();
     success = mAudioApi->requestAudioDataEvent(handle, numSamples,
                                                eventDelay.toRawNanoseconds());
   }
@@ -119,14 +116,12 @@ bool PlatformAudio::requestAudioDataEvent(uint32_t handle, uint32_t numSamples,
 
 void PlatformAudio::cancelAudioDataEventRequest(uint32_t handle) {
   if (mAudioApi != nullptr) {
-    prePalApiCall();
     mAudioApi->cancelAudioDataEvent(handle);
   }
 }
 
 void PlatformAudio::releaseAudioDataEvent(struct chreAudioDataEvent *event) {
   if (mAudioApi != nullptr) {
-    prePalApiCall();
     mAudioApi->releaseAudioDataEvent(event);
   }
 }
@@ -134,7 +129,6 @@ void PlatformAudio::releaseAudioDataEvent(struct chreAudioDataEvent *event) {
 size_t PlatformAudio::getSourceCount() {
   size_t sourceCount = 0;
   if (mAudioApi != nullptr) {
-    prePalApiCall();
     sourceCount = mAudioApi->getSourceCount();
   }
 
@@ -145,7 +139,6 @@ bool PlatformAudio::getAudioSource(uint32_t handle,
                                    struct chreAudioSource *source) const {
   bool success = false;
   if (mAudioApi != nullptr) {
-    prePalApiCall();
     success = mAudioApi->getAudioSource(handle, source);
   }
 

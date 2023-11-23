@@ -36,42 +36,42 @@ class AndroidApiChecks {
             methodComparator = MethodItem.sourceOrderComparator,
             fieldComparator = FieldItem.comparator
         ) {
-            override fun skip(item: Item): Boolean {
-                // Limit the checks to the android.* namespace (except for ICU)
-                if (item is ClassItem) {
-                    val name = item.qualifiedName()
-                    return !(name.startsWith("android.") && !name.startsWith("android.icu."))
+                override fun skip(item: Item): Boolean {
+                    // Limit the checks to the android.* namespace (except for ICU)
+                    if (item is ClassItem) {
+                        val name = item.qualifiedName()
+                        return !(name.startsWith("android.") && !name.startsWith("android.icu."))
+                    }
+                    return super.skip(item)
                 }
-                return super.skip(item)
-            }
 
-            override fun visitItem(item: Item) {
-                checkTodos(item)
-            }
-
-            override fun visitMethod(method: MethodItem) {
-                checkRequiresPermission(method)
-                if (!method.isConstructor()) {
-                    checkVariable(method, "@return", "Return value of '" + method.name() + "'", method.returnType())
+                override fun visitItem(item: Item) {
+                    checkTodos(item)
                 }
-            }
 
-            override fun visitField(field: FieldItem) {
-                if (field.name().contains("ACTION")) {
-                    checkIntentAction(field)
+                override fun visitMethod(method: MethodItem) {
+                    checkRequiresPermission(method)
+                    if (!method.isConstructor()) {
+                        checkVariable(method, "@return", "Return value of '" + method.name() + "'", method.returnType())
+                    }
                 }
-                checkVariable(field, null, "Field '" + field.name() + "'", field.type())
-            }
 
-            override fun visitParameter(parameter: ParameterItem) {
-                checkVariable(
-                    parameter,
-                    parameter.name(),
-                    "Parameter '" + parameter.name() + "' of '" + parameter.containingMethod().name() + "'",
-                    parameter.type()
-                )
-            }
-        })
+                override fun visitField(field: FieldItem) {
+                    if (field.name().contains("ACTION")) {
+                        checkIntentAction(field)
+                    }
+                    checkVariable(field, null, "Field '" + field.name() + "'", field.type())
+                }
+
+                override fun visitParameter(parameter: ParameterItem) {
+                    checkVariable(
+                        parameter,
+                        parameter.name(),
+                        "Parameter '" + parameter.name() + "' of '" + parameter.containingMethod().name() + "'",
+                        parameter.type()
+                    )
+                }
+            })
     }
 
     private var cachedDocumentation: String = ""
@@ -148,9 +148,11 @@ class AndroidApiChecks {
         for (i in begin + 1 until doc.length) {
             val c = doc[i]
 
-            if (c == '@' && (isLinePrefix ||
+            if (c == '@' && (
+                isLinePrefix ||
                     doc.startsWith("@param", i, true) ||
-                    doc.startsWith("@return", i, true))
+                    doc.startsWith("@return", i, true)
+                )
             ) {
                 // Found it
                 end = i
@@ -174,9 +176,9 @@ class AndroidApiChecks {
     private fun checkRequiresPermission(method: MethodItem) {
         val text = method.documentation
 
-        val annotation = method.modifiers.findAnnotation("android.support.annotation.RequiresPermission")
+        val annotation = method.modifiers.findAnnotation("androidx.annotation.RequiresPermission")
         if (annotation != null) {
-            for (attribute in annotation.attributes()) {
+            for (attribute in annotation.attributes) {
                 var values: List<AnnotationAttributeValue>? = null
                 when (attribute.name) {
                     "value", "allOf", "anyOf" -> {
@@ -195,7 +197,8 @@ class AndroidApiChecks {
                         reporter.report(
                             // Why is that a problem? Sometimes you want to describe
                             // particular use cases.
-                            Issues.REQUIRES_PERMISSION, method, "Method '" + method.name() +
+                            Issues.REQUIRES_PERMISSION, method,
+                            "Method '" + method.name() +
                                 "' documentation mentions permissions already declared by @RequiresPermission"
                         )
                     }
@@ -203,7 +206,8 @@ class AndroidApiChecks {
             }
         } else if (text.contains("android.Manifest.permission") || text.contains("android.permission.")) {
             reporter.report(
-                Issues.REQUIRES_PERMISSION, method, "Method '" + method.name() +
+                Issues.REQUIRES_PERMISSION, method,
+                "Method '" + method.name() +
                     "' documentation mentions permissions without declaring @RequiresPermission"
             )
         }
@@ -231,7 +235,8 @@ class AndroidApiChecks {
             }
             if (!hasSdkConstant) {
                 reporter.report(
-                    Issues.SDK_CONSTANT, field, "Field '" + field.name() +
+                    Issues.SDK_CONSTANT, field,
+                    "Field '" + field.name() +
                         "' is missing @SdkConstant(SdkConstantType.BROADCAST_INTENT_ACTION)"
                 )
             }
@@ -240,7 +245,8 @@ class AndroidApiChecks {
         if (text.contains("Activity Action:")) {
             if (!hasSdkConstant) {
                 reporter.report(
-                    Issues.SDK_CONSTANT, field, "Field '" + field.name() +
+                    Issues.SDK_CONSTANT, field,
+                    "Field '" + field.name() +
                         "' is missing @SdkConstant(SdkConstantType.ACTIVITY_INTENT_ACTION)"
                 )
             }

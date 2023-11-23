@@ -30,10 +30,10 @@
 #include <nnapi/OperandTypes.h>
 #include <nnapi/Result.h>
 #include <nnapi/Types.h>
+#include <nnapi/hal/1.0/HandleError.h>
+#include <nnapi/hal/1.0/ProtectCallback.h>
 #include <nnapi/hal/1.1/Conversions.h>
 #include <nnapi/hal/CommonUtils.h>
-#include <nnapi/hal/HandleError.h>
-#include <nnapi/hal/ProtectCallback.h>
 
 #include <functional>
 #include <memory>
@@ -49,31 +49,31 @@ namespace {
 
 nn::GeneralResult<nn::Capabilities> capabilitiesCallback(V1_0::ErrorStatus status,
                                                          const Capabilities& capabilities) {
-    HANDLE_HAL_STATUS(status) << "getting capabilities failed with " << toString(status);
+    HANDLE_STATUS_HIDL(status) << "getting capabilities failed with " << toString(status);
     return nn::convert(capabilities);
 }
 
 nn::GeneralResult<std::string> versionStringCallback(V1_0::ErrorStatus status,
                                                      const hidl_string& versionString) {
-    HANDLE_HAL_STATUS(status) << "getVersionString failed with " << toString(status);
+    HANDLE_STATUS_HIDL(status) << "getVersionString failed with " << toString(status);
     return versionString;
 }
 
 nn::GeneralResult<nn::DeviceType> deviceTypeCallback(V1_0::ErrorStatus status,
                                                      DeviceType deviceType) {
-    HANDLE_HAL_STATUS(status) << "getDeviceType failed with " << toString(status);
+    HANDLE_STATUS_HIDL(status) << "getDeviceType failed with " << toString(status);
     return nn::convert(deviceType);
 }
 
 nn::GeneralResult<std::vector<nn::Extension>> supportedExtensionsCallback(
         V1_0::ErrorStatus status, const hidl_vec<Extension>& extensions) {
-    HANDLE_HAL_STATUS(status) << "getExtensions failed with " << toString(status);
+    HANDLE_STATUS_HIDL(status) << "getExtensions failed with " << toString(status);
     return nn::convert(extensions);
 }
 
 nn::GeneralResult<std::pair<uint32_t, uint32_t>> numberOfCacheFilesNeededCallback(
         V1_0::ErrorStatus status, uint32_t numModelCache, uint32_t numDataCache) {
-    HANDLE_HAL_STATUS(status) << "getNumberOfCacheFilesNeeded failed with " << toString(status);
+    HANDLE_STATUS_HIDL(status) << "getNumberOfCacheFilesNeeded failed with " << toString(status);
     if (numModelCache > nn::kMaxNumberOfCacheFiles) {
         return NN_ERROR() << "getNumberOfCacheFilesNeeded returned numModelCache files greater "
                              "than allowed max ("
@@ -192,7 +192,7 @@ const std::string& Device::getVersionString() const {
 }
 
 nn::Version Device::getFeatureLevel() const {
-    return nn::Version::ANDROID_Q;
+    return kVersion;
 }
 
 nn::DeviceType Device::getType() const {
@@ -236,7 +236,9 @@ nn::GeneralResult<std::vector<bool>> Device::getSupportedOperations(const nn::Mo
 nn::GeneralResult<nn::SharedPreparedModel> Device::prepareModel(
         const nn::Model& model, nn::ExecutionPreference preference, nn::Priority /*priority*/,
         nn::OptionalTimePoint /*deadline*/, const std::vector<nn::SharedHandle>& modelCache,
-        const std::vector<nn::SharedHandle>& dataCache, const nn::CacheToken& token) const {
+        const std::vector<nn::SharedHandle>& dataCache, const nn::CacheToken& token,
+        const std::vector<nn::TokenValuePair>& /*hints*/,
+        const std::vector<nn::ExtensionNameAndPrefix>& /*extensionNameToPrefix*/) const {
     // Ensure that model is ready for IPC.
     std::optional<nn::Model> maybeModelInShared;
     const nn::Model& modelInShared =
@@ -254,7 +256,7 @@ nn::GeneralResult<nn::SharedPreparedModel> Device::prepareModel(
     const auto ret = kDevice->prepareModel_1_2(hidlModel, hidlPreference, hidlModelCache,
                                                hidlDataCache, hidlToken, cb);
     const auto status = HANDLE_TRANSPORT_FAILURE(ret);
-    HANDLE_HAL_STATUS(status) << "model preparation failed with " << toString(status);
+    HANDLE_STATUS_HIDL(status) << "model preparation failed with " << toString(status);
 
     return cb->get();
 }
@@ -271,7 +273,7 @@ nn::GeneralResult<nn::SharedPreparedModel> Device::prepareModelFromCache(
 
     const auto ret = kDevice->prepareModelFromCache(hidlModelCache, hidlDataCache, hidlToken, cb);
     const auto status = HANDLE_TRANSPORT_FAILURE(ret);
-    HANDLE_HAL_STATUS(status) << "model preparation from cache failed with " << toString(status);
+    HANDLE_STATUS_HIDL(status) << "model preparation from cache failed with " << toString(status);
 
     return cb->get();
 }

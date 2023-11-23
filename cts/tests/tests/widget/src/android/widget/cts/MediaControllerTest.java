@@ -16,6 +16,8 @@
 
 package android.widget.cts;
 
+import static android.content.pm.ApplicationInfo.PRIVATE_FLAG_EXT_ENABLE_ON_BACK_INVOKED_CALLBACK;
+
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -26,6 +28,7 @@ import android.app.Instrumentation;
 import android.content.Context;
 import android.util.AttributeSet;
 import android.util.Xml;
+import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.MediaController;
@@ -149,6 +152,32 @@ public class MediaControllerTest {
 
         // isShowing() should return false, but MediaController still shows, this may be a bug.
         PollingCheck.waitFor(500, mMediaController::isShowing);
+    }
+
+    @Test
+    public void testOnBackInvokedCallback() throws Throwable {
+        // Enable the new back dispatch
+        mActivity.getApplicationInfo().privateFlagsExt |=
+                PRIVATE_FLAG_EXT_ENABLE_ON_BACK_INVOKED_CALLBACK;
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mActivity.getWindow().getDecorView(),
+                () -> mMediaController = new MediaController(mActivity, true));
+
+        final MockMediaPlayerControl mediaPlayerControl = new MockMediaPlayerControl();
+        mMediaController.setMediaPlayer(mediaPlayerControl);
+
+        final VideoView videoView =
+                (VideoView) mActivity.findViewById(R.id.mediacontroller_videoview);
+        mMediaController.setAnchorView(videoView);
+
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mActivity.getWindow().getDecorView(),
+                mMediaController::show);
+        assertTrue(mMediaController.isShowing());
+
+        mInstrumentation.sendCharacterSync(KeyEvent.KEYCODE_BACK);
+        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mActivity.getWindow().getDecorView(),
+                mMediaController::hide);
+        assertFalse(mMediaController.isShowing());
     }
 
     private String prepareSampleVideo() {

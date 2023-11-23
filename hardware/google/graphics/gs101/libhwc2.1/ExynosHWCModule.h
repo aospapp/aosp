@@ -30,11 +30,10 @@
 #define DP_LINK_NAME	"130b0000.displayport"
 #define DP_UEVENT_NAME	"change@/devices/platform/%s/extcon/extcon0"
 #define DP_CABLE_STATE_NAME "/sys/devices/platform/%s/extcon/extcon0/cable.0/state"
-#define BRIGHTNESS_NODE_0_BASE "/sys/class/backlight/panel0-backlight/brightness"
-#define MAX_BRIGHTNESS_NODE_0_BASE "/sys/class/backlight/panel0-backlight/max_brightness"
-#define BRIGHTNESS_NODE_1_BASE "/sys/class/backlight/panel1-backlight/brightness"
-#define MAX_BRIGHTNESS_NODE_1_BASE "/sys/class/backlight/panel1-backlight/max_brightness"
-#define EARLY_WAKUP_NODE_BASE "/sys/devices/platform/1c300000.drmdecon/early_wakeup"
+#define BRIGHTNESS_SYSFS_NODE "/sys/class/backlight/panel%d-backlight/brightness"
+#define MAX_BRIGHTNESS_SYSFS_NODE "/sys/class/backlight/panel%d-backlight/max_brightness"
+
+#define EARLY_WAKUP_NODE_0_BASE "/sys/devices/platform/1c300000.drmdecon/early_wakeup"
 
 #define IDMA(x) static_cast<decon_idma_type>(x)
 

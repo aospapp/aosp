@@ -69,19 +69,17 @@ public class SetSupportMessageActivity extends Activity implements View.OnClickL
     @Override
     public void onClick(View view) {
         String message = null;
-        switch (view.getId()) {
-            case R.id.set_default_message: {
-                message = getString(TYPE_SHORT_MSG.equals(mType)
-                        ? R.string.policy_transparency_default_short_msg
-                        : R.string.policy_transparency_default_long_msg);
-            } break;
-            case R.id.set_message: {
-                message = mSupportMessage.getText().toString();
-            } break;
-            case R.id.clear_message: {
-                message = null;
-            } break;
+        int id = view.getId();
+        if (id == R.id.set_default_message) {
+            message = getString(TYPE_SHORT_MSG.equals(mType)
+                    ? R.string.policy_transparency_default_short_msg
+                    : R.string.policy_transparency_default_long_msg);
+        } else if (id == R.id.set_message) {
+            message = mSupportMessage.getText().toString();
+        } else if (id == R.id.clear_message) {
+            message = null;
         }
+
         if (TYPE_SHORT_MSG.equals(mType)) {
             mDpm.setShortSupportMessage(mAdmin, message);
         } else {

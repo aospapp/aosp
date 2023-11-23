@@ -35,10 +35,11 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class AndroidVirtualDevice(object):
+class AndroidVirtualDevice():
     """Represent an Android device."""
 
-    def __init__(self, instance_name, ip=None, time_info=None, stage=None):
+    def __init__(self, instance_name, ip=None, time_info=None, stage=None,
+                 openwrt=None):
         """Initialize.
 
         Args:
@@ -47,6 +48,7 @@ class AndroidVirtualDevice(object):
                 gce instance, e.g. "external:140.110.20.1, internal:10.0.0.1"
             time_info: Dict of time cost information, e.g. {"launch_cvd": 5}
             stage: Integer of AVD in which stage, e.g. STAGE_GCE, STAGE_BOOT_UP
+            openwrt: Boolean of the instance creates the OpenWrt device.
         """
         self._ip = ip
         self._instance_name = instance_name
@@ -74,6 +76,7 @@ class AndroidVirtualDevice(object):
         #  "system_gcs_bucket_build_id": "12345"}
         self._build_info = {}
         self._stage = stage
+        self._openwrt = openwrt
 
     @property
     def ip(self):
@@ -106,6 +109,11 @@ class AndroidVirtualDevice(object):
     def stage(self):
         """Getter of _stage."""
         return self._stage
+
+    @property
+    def openwrt(self):
+        """Getter of _openwrt."""
+        return self._openwrt
 
     @build_info.setter
     def build_info(self, value):

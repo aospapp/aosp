@@ -17,7 +17,6 @@ import time
 
 from acts import asserts
 from acts.controllers.openwrt_ap import MOBLY_CONTROLLER_CONFIG_NAME as OPENWRT
-from acts import base_test
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.net import connectivity_const as cconst
 from acts_contrib.test_utils.net import connectivity_test_utils as cutils
@@ -32,6 +31,8 @@ WLAN = "wlan0"
 ACCEPT_CONTINUE = "Accept and Continue"
 CONNECTED = "Connected"
 SIGN_IN_NOTIFICATION = "Sign in to network"
+FAS_FDQN = "netsplashpage.net"
+NETWORK_AND_INTERNET = ["Network & internet", "Network and Internet"]
 
 
 class CaptivePortalTest(WifiBaseTest):
@@ -61,7 +62,7 @@ class CaptivePortalTest(WifiBaseTest):
             else:
                 self.configure_openwrt_ap_and_start(wpa_network=True)
                 self.wifi_network = self.openwrt.get_wifi_network()
-            self.openwrt.network_setting.setup_captive_portal()
+            self.openwrt.network_setting.setup_captive_portal(FAS_FDQN)
 
     def teardown_class(self):
         """Reset devices."""
@@ -83,11 +84,20 @@ class CaptivePortalTest(WifiBaseTest):
     def _go_to_wifi_settings(self):
         """Go to wifi settings to perform UI actions for Captive portal."""
         self.dut.adb.shell("am start -a android.settings.SETTINGS")
-        asserts.assert_true(
-            uutils.has_element(self.dut, text="Network & internet"),
-            "Failed to find 'Network & internet' icon")
-        uutils.wait_and_click(self.dut, text="Network & internet")
-        uutils.wait_and_click(self.dut, text="Internet")
+
+        access_internet_setting = False
+        for text in NETWORK_AND_INTERNET:
+            if uutils.has_element(self.dut, text=text):
+                uutils.wait_and_click(self.dut, text=text)
+                access_internet_setting = True
+                break
+        asserts.assert_true(access_internet_setting,
+                            "Fail to find button NETWORK_AND_INTERNET from UI.")
+        android_version = self.dut.adb.getprop("ro.build.version.release")
+        if int(android_version) < 12:
+            uutils.wait_and_click(self.dut, text="Wi‑Fi")
+        else:
+            uutils.wait_and_click(self.dut, text="Internet")
 
     def _verify_sign_in_notification(self):
         """Verify sign in notification shows for captive portal."""
@@ -102,7 +112,9 @@ class CaptivePortalTest(WifiBaseTest):
                   return
         asserts.fail("Failed to get sign in notification")
 
-    def _verify_captive_portal(self, network, click_accept=ACCEPT_CONTINUE):
+    def _verify_captive_portal(self, network, user="username",
+                               mail="user@example.net",
+                               click_accept=ACCEPT_CONTINUE):
         """Connect to captive portal network using uicd workflow.
 
         Steps:
@@ -112,15 +124,24 @@ class CaptivePortalTest(WifiBaseTest):
 
         Args:
             network: captive portal network to connect to
+            user: Option for captive portal login in
+            mail: Option for captive portal login in
             click_accept: Notification to select to accept captive portal
         """
         # connect to captive portal wifi network
         wutils.connect_to_wifi_network(
             self.dut, network, check_connectivity=False)
-
+        # Wait for captive portal detection.
+        time.sleep(10)
         # run ui automator
         self._verify_sign_in_notification()
         uutils.wait_and_click(self.dut, text="%s" % network["SSID"])
+        if uutils.has_element(self.dut, class_name="android.widget.EditText"):
+            uutils.wait_and_click(self.dut, class_name="android.widget.EditText")
+            self.dut.adb.shell("input text %s" % user)
+            self.dut.adb.shell("input keyevent 20")
+            self.dut.adb.shell("input text %s" % mail)
+            uutils.wait_and_click(self.dut, text="Accept Terms of Service")
         if uutils.has_element(self.dut, text="%s" % click_accept):
             uutils.wait_and_click(self.dut, text="%s" % click_accept)
 
@@ -185,7 +206,7 @@ class CaptivePortalTest(WifiBaseTest):
         # set private dns to strict mode
         cutils.set_private_dns(self.dut,
                                cconst.PRIVATE_DNS_MODE_STRICT,
-                               cconst.DNS_GOOGLE)
+                               cconst.DNS_GOOGLE_HOSTNAME)
 
         # verify connection to captive portal network
         self._verify_captive_portal(self.rk_captive_portal)
@@ -232,7 +253,7 @@ class CaptivePortalTest(WifiBaseTest):
         # set private dns to strict mode
         cutils.set_private_dns(self.dut,
                                cconst.PRIVATE_DNS_MODE_STRICT,
-                               cconst.DNS_GOOGLE)
+                               cconst.DNS_GOOGLE_HOSTNAME)
 
         # verify connection to captive portal network
         self._verify_captive_portal(self.gg_captive_portal)
@@ -247,7 +268,7 @@ class CaptivePortalTest(WifiBaseTest):
             3. Verify connectivity
         """
         cutils.set_private_dns(self.dut, cconst.PRIVATE_DNS_MODE_OPPORTUNISTIC)
-        self.openwrt.network_setting.service_manager.restart("nodogsplash")
+        self.openwrt.network_setting.service_manager.restart("opennds")
         self._verify_captive_portal(self.wifi_network, click_accept="Continue")
 
     @test_tracker_info(uuid="1419e36d-0303-44ba-bc60-4d707b45ef48")
@@ -260,7 +281,7 @@ class CaptivePortalTest(WifiBaseTest):
             3. Verify connectivity
         """
         cutils.set_private_dns(self.dut, cconst.PRIVATE_DNS_MODE_OFF)
-        self.openwrt.network_setting.service_manager.restart("nodogsplash")
+        self.openwrt.network_setting.service_manager.restart("opennds")
         self._verify_captive_portal(self.wifi_network, click_accept="Continue")
 
     @test_tracker_info(uuid="5aae44ee-fa62-47b9-9b3d-8121f9f92da1")
@@ -274,6 +295,8 @@ class CaptivePortalTest(WifiBaseTest):
         """
         cutils.set_private_dns(self.dut,
                                cconst.PRIVATE_DNS_MODE_STRICT,
-                               cconst.DNS_GOOGLE)
-        self.openwrt.network_setting.service_manager.restart("nodogsplash")
+                               cconst.DNS_GOOGLE_HOSTNAME)
+        self.openwrt.network_setting.service_manager.restart("opennds")
         self._verify_captive_portal(self.wifi_network, click_accept="Continue")
+
+

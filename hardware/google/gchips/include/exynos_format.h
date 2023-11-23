@@ -17,6 +17,8 @@
 #ifndef _EXYNOS_FORMAT_H_
 #define _EXYNOS_FORMAT_H_
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif

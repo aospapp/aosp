@@ -84,6 +84,7 @@ def assert_equal_testinfo_sets(test_class, test_info_set_a, test_info_set_b):
 # pylint: disable=too-many-return-statements
 def isfile_side_effect(value):
     """Mock return values for os.path.isfile."""
+    value = str(value)
     if value == '/%s/%s' % (uc.CC_MODULE_DIR, constants.MODULE_CONFIG):
         return True
     if value == '/%s/%s' % (uc.MODULE_DIR, constants.MODULE_CONFIG):

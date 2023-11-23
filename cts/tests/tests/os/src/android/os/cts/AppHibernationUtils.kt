@@ -16,12 +16,17 @@
 
 package android.os.cts
 
+import android.app.Activity
 import android.app.ActivityManager
 import android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_TOP_SLEEPING
 import android.app.Instrumentation
 import android.app.UiAutomation
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Handler
+import android.os.Looper
 import android.os.ParcelFileDescriptor
 import android.os.Process
 import android.provider.DeviceConfig
@@ -32,6 +37,7 @@ import android.support.test.uiautomator.UiObject2
 import android.support.test.uiautomator.UiScrollable
 import android.support.test.uiautomator.UiSelector
 import android.support.test.uiautomator.Until
+import android.util.Log
 import androidx.test.InstrumentationRegistry
 import com.android.compatibility.common.util.ExceptionUtils.wrappingExceptions
 import com.android.compatibility.common.util.LogcatInspector
@@ -48,7 +54,12 @@ import org.hamcrest.Matcher
 import org.hamcrest.Matchers
 import org.junit.Assert
 import org.junit.Assert.assertThat
+import org.junit.Assert.assertTrue
 import java.io.InputStream
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+
+private const val BROADCAST_TIMEOUT_MS = 60000L
 
 const val SYSUI_PKG_NAME = "com.android.systemui"
 const val NOTIF_LIST_ID = "com.android.systemui:id/notification_stack_scroller"
@@ -56,7 +67,7 @@ const val CLEAR_ALL_BUTTON_ID = "dismiss_text"
 // Time to find a notification. Unlikely, but in cases with a lot of notifications, it may take
 // time to find the notification we're looking for
 const val NOTIF_FIND_TIMEOUT = 20000L
-const val VIEW_WAIT_TIMEOUT = 1000L
+const val VIEW_WAIT_TIMEOUT = 3000L
 
 const val CMD_EXPAND_NOTIFICATIONS = "cmd statusbar expand-notifications"
 const val CMD_COLLAPSE = "cmd statusbar collapse"
@@ -67,6 +78,40 @@ const val APK_PATH_R_APP = "/data/local/tmp/cts/os/CtsAutoRevokeRApp.apk"
 const val APK_PACKAGE_NAME_R_APP = "android.os.cts.autorevokerapp"
 const val APK_PATH_Q_APP = "/data/local/tmp/cts/os/CtsAutoRevokeQApp.apk"
 const val APK_PACKAGE_NAME_Q_APP = "android.os.cts.autorevokeqapp"
+
+fun runBootCompleteReceiver(context: Context, testTag: String) {
+    val pkgManager = context.packageManager
+    val permissionControllerPkg = pkgManager.permissionControllerPackageName
+    val receivers = pkgManager.queryBroadcastReceivers(
+        Intent(Intent.ACTION_BOOT_COMPLETED), /* flags= */ 0)
+    for (ri in receivers) {
+        val pkg = ri.activityInfo.packageName
+        if (pkg == permissionControllerPkg) {
+            val permissionControllerSetupIntent = Intent()
+                .setClassName(pkg, ri.activityInfo.name)
+                .setFlags(Intent.FLAG_RECEIVER_FOREGROUND)
+                .setPackage(permissionControllerPkg)
+            val countdownLatch = CountDownLatch(1)
+            Log.d(testTag, "Sending boot complete broadcast directly to ${ri.activityInfo.name} " +
+                "in package $permissionControllerPkg")
+            context.sendOrderedBroadcast(
+                permissionControllerSetupIntent,
+                /* receiverPermission= */ null,
+                object : BroadcastReceiver() {
+                    override fun onReceive(context: Context?, intent: Intent?) {
+                        countdownLatch.countDown()
+                        Log.d(testTag, "Broadcast received by $permissionControllerPkg")
+                    }
+                },
+                Handler.createAsync(Looper.getMainLooper()),
+                Activity.RESULT_OK,
+                /* initialData= */ null,
+                /* initialExtras= */ null)
+            assertTrue("Timed out while waiting for boot receiver broadcast to be received",
+                countdownLatch.await(BROADCAST_TIMEOUT_MS, TimeUnit.MILLISECONDS))
+        }
+    }
+}
 
 fun runAppHibernationJob(context: Context, tag: String) {
     val logcat = Logcat()

@@ -284,7 +284,7 @@ class DexoptAnalyzer final {
     }
     // Runtime::Create acquired the mutator_lock_ that is normally given away when we
     // Runtime::Start. Give it away now.
-    Thread::Current()->TransitionFromRunnableToSuspended(kNative);
+    Thread::Current()->TransitionFromRunnableToSuspended(ThreadState::kNative);
 
     return true;
   }
@@ -385,12 +385,15 @@ class DexoptAnalyzer final {
     std::string error_msg;
     const std::vector<std::string>& bcp = runtime->GetBootClassPath();
     const std::vector<std::string>& bcp_locations = runtime->GetBootClassPathLocations();
+    const std::vector<int>& bcp_fds = runtime->GetBootClassPathFds();
+    const std::vector<std::string>& image_locations = runtime->GetImageLocations();
     const std::string bcp_locations_path = android::base::Join(bcp_locations, ':');
     if (!ImageSpace::VerifyBootClassPathChecksums(checksums,
                                                   bcp_locations_path,
-                                                  runtime->GetImageLocation(),
+                                                  ArrayRef<const std::string>(image_locations),
                                                   ArrayRef<const std::string>(bcp_locations),
                                                   ArrayRef<const std::string>(bcp),
+                                                  ArrayRef<const int>(bcp_fds),
                                                   runtime->GetInstructionSet(),
                                                   &error_msg)) {
       LOG(INFO) << "Failed to verify boot class path checksums: " << error_msg;

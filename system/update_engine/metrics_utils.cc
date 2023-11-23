@@ -294,7 +294,7 @@ metrics::ConnectionType GetConnectionType(ConnectionType type,
   return metrics::ConnectionType::kUnknown;
 }
 
-int64_t GetPersistedValue(const std::string& key, PrefsInterface* prefs) {
+int64_t GetPersistedValue(std::string_view key, PrefsInterface* prefs) {
   CHECK(prefs);
   if (!prefs->Exists(key))
     return 0;
@@ -363,10 +363,12 @@ bool LoadAndReportTimeToReboot(MetricsReporterInterface* metrics_reporter,
     return false;
 
   Time system_updated_at = Time::FromInternalValue(stored_value);
-  TimeDelta time_to_reboot = clock->GetMonotonicTime() - system_updated_at;
+  const auto current_time = clock->GetMonotonicTime();
+  TimeDelta time_to_reboot = current_time - system_updated_at;
   if (time_to_reboot.ToInternalValue() < 0) {
-    LOG(ERROR) << "time_to_reboot is negative - system_updated_at: "
-               << utils::ToString(system_updated_at);
+    LOG(WARNING) << "time_to_reboot is negative - system_updated_at: "
+                 << utils::ToString(system_updated_at) << " current time: "
+                 << utils::ToString(current_time);
     return false;
   }
   metrics_reporter->ReportTimeToReboot(time_to_reboot.InMinutes());

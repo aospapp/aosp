@@ -83,6 +83,7 @@ class AccessCameraOrMicActivity : Activity() {
     }
 
     override fun finish() {
+        super.finish()
         cameraDevice?.close()
         cameraDevice = null
         recorder?.stop()
@@ -95,7 +96,6 @@ class AccessCameraOrMicActivity : Activity() {
                     packageName)
         }
         appOpsManager = null
-        super.finish()
     }
 
     override fun onStop() {

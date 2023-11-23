@@ -30,14 +30,14 @@ type hiddenAPI struct {
 	// that information encoded within it.
 	active bool
 
-	// The path to the dex jar that is in the boot class path. If this is nil then the associated
+	// The path to the dex jar that is in the boot class path. If this is unset then the associated
 	// module is not a boot jar, but could be one of the <x>-hiddenapi modules that provide additional
 	// annotations for the <x> boot dex jar but which do not actually provide a boot dex jar
 	// themselves.
 	//
 	// This must be the path to the unencoded dex jar as the encoded dex jar indirectly depends on
 	// this file so using the encoded dex jar here would result in a cycle in the ninja rules.
-	bootDexJarPath android.Path
+	bootDexJarPath OptionalDexJarPath
 
 	// The paths to the classes jars that contain classes and class members annotated with
 	// the UnsupportedAppUsage annotation that need to be extracted as part of the hidden API
@@ -49,7 +49,7 @@ type hiddenAPI struct {
 	uncompressDexState *bool
 }
 
-func (h *hiddenAPI) bootDexJar() android.Path {
+func (h *hiddenAPI) bootDexJar() OptionalDexJarPath {
 	return h.bootDexJarPath
 }
 
@@ -65,10 +65,12 @@ func (h *hiddenAPI) uncompressDex() *bool {
 type hiddenAPIModule interface {
 	android.Module
 	hiddenAPIIntf
+
+	MinSdkVersion(ctx android.EarlyModuleContext) android.SdkSpec
 }
 
 type hiddenAPIIntf interface {
-	bootDexJar() android.Path
+	bootDexJar() OptionalDexJarPath
 	classesJars() android.Paths
 	uncompressDex() *bool
 }
@@ -79,7 +81,7 @@ var _ hiddenAPIIntf = (*hiddenAPI)(nil)
 //
 // uncompressedDexState should be nil when the module is a prebuilt and so does not require hidden
 // API encoding.
-func (h *hiddenAPI) initHiddenAPI(ctx android.ModuleContext, dexJar, classesJar android.Path, uncompressedDexState *bool) {
+func (h *hiddenAPI) initHiddenAPI(ctx android.ModuleContext, dexJar OptionalDexJarPath, classesJar android.Path, uncompressedDexState *bool) {
 
 	// Save the classes jars even if this is not active as they may be used by modular hidden API
 	// processing.
@@ -118,11 +120,11 @@ func (h *hiddenAPI) initHiddenAPI(ctx android.ModuleContext, dexJar, classesJar 
 }
 
 func isModuleInBootClassPath(ctx android.BaseModuleContext, module android.Module) bool {
-	// Get the configured non-updatable and updatable boot jars.
-	nonUpdatableBootJars := ctx.Config().NonUpdatableBootJars()
-	updatableBootJars := ctx.Config().UpdatableBootJars()
-	active := isModuleInConfiguredList(ctx, module, nonUpdatableBootJars) ||
-		isModuleInConfiguredList(ctx, module, updatableBootJars)
+	// Get the configured platform and apex boot jars.
+	nonApexBootJars := ctx.Config().NonApexBootJars()
+	apexBootJars := ctx.Config().ApexBootJars()
+	active := isModuleInConfiguredList(ctx, module, nonApexBootJars) ||
+		isModuleInConfiguredList(ctx, module, apexBootJars)
 	return active
 }
 
@@ -148,7 +150,7 @@ func (h *hiddenAPI) hiddenAPIEncodeDex(ctx android.ModuleContext, dexJar android
 	// Create a copy of the dex jar which has been encoded with hiddenapi flags.
 	flagsCSV := hiddenAPISingletonPaths(ctx).flags
 	outputDir := android.PathForModuleOut(ctx, "hiddenapi").OutputPath
-	encodedDex := hiddenAPIEncodeDex(ctx, dexJar, flagsCSV, uncompressDex, outputDir)
+	encodedDex := hiddenAPIEncodeDex(ctx, dexJar, flagsCSV, uncompressDex, android.SdkSpecNone, outputDir)
 
 	// Use the encoded dex jar from here onwards.
 	return encodedDex
@@ -246,7 +248,7 @@ var hiddenAPIEncodeDexRule = pctx.AndroidStaticRule("hiddenAPIEncodeDex", bluepr
 // The encode dex rule requires unzipping, encoding and rezipping the classes.dex files along with
 // all the resources from the input jar. It also ensures that if it was uncompressed in the input
 // it stays uncompressed in the output.
-func hiddenAPIEncodeDex(ctx android.ModuleContext, dexInput, flagsCSV android.Path, uncompressDex bool, outputDir android.OutputPath) android.OutputPath {
+func hiddenAPIEncodeDex(ctx android.ModuleContext, dexInput, flagsCSV android.Path, uncompressDex bool, minSdkVersion android.SdkSpec, outputDir android.OutputPath) android.OutputPath {
 
 	// The output file has the same name as the input file and is in the output directory.
 	output := outputDir.Join(ctx, dexInput.Base())
@@ -274,6 +276,15 @@ func hiddenAPIEncodeDex(ctx android.ModuleContext, dexInput, flagsCSV android.Pa
 		hiddenapiFlags = "--no-force-assign-all"
 	}
 
+	// If the library is targeted for Q and/or R then make sure that they do not
+	// have any S+ flags encoded as that will break the runtime.
+	minApiLevel := minSdkVersion.ApiLevel
+	if !minApiLevel.IsNone() {
+		if minApiLevel.LessThanOrEqualTo(android.ApiLevelOrPanic(ctx, "R")) {
+			hiddenapiFlags = hiddenapiFlags + " --max-hiddenapi-level=max-target-r"
+		}
+	}
+
 	ctx.Build(pctx, android.BuildParams{
 		Rule:        hiddenAPIEncodeDexRule,
 		Description: "hiddenapi encode dex",
@@ -297,6 +308,7 @@ func hiddenAPIEncodeDex(ctx android.ModuleContext, dexInput, flagsCSV android.Pa
 
 type hiddenApiAnnotationsDependencyTag struct {
 	blueprint.BaseDependencyTag
+	android.LicenseAnnotationSharedDependencyTag
 }
 
 // Tag used to mark dependencies on java_library instances that contains Java source files whose

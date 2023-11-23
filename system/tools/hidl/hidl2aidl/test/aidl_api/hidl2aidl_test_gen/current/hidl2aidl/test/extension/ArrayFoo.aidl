@@ -21,5 +21,5 @@ package hidl2aidl.test.extension;
 @VintfStability
 parcelable ArrayFoo {
   hidl2aidl.test.ArrayFoo base;
-  byte[] e;
+  byte[12] e;
 }

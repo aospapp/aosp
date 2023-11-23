@@ -36,7 +36,7 @@ import java.util.Map;
 public abstract class DisplayModifier {
     private static final RectF RECT = new RectF(0, 0, 100, 100);
     private static final float[] POINTS = new float[]{
-            0, 40, 40, 0, 40, 80, 80, 40
+            0.5f, 40.5f, 40.5f, 0.5f, 40.5f, 80.5f, 80.5f, 40.5f
     };
     private static final float[] TRIANGLE_POINTS = new float[]{
             40, 0, 80, 80, 80, 80, 0, 80, 0, 80, 40, 0

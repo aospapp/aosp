@@ -453,6 +453,50 @@
                 android:lineSpacingMultiplier="0.5"
                 android:lineHeight="@dimen/textview_lineHeight" />
 
+            <TextView
+                android:id="@+id/textview_line_break_style_default"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/sample_text" />
+
+            <TextView
+                android:id="@+id/textview_line_break_style_none"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/sample_text"
+                android:lineBreakStyle="none"
+                android:lineBreakWordStyle="phrase" />
+
+            <TextView
+                android:id="@+id/textview_line_break_style_loose"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/sample_text"
+                android:lineBreakStyle="loose"
+                android:lineBreakWordStyle="none" />
+
+            <TextView
+                android:id="@+id/textview_line_break_style_normal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/sample_text"
+                android:lineBreakStyle="normal"
+                android:lineBreakWordStyle="phrase" />
+
+            <TextView
+                android:id="@+id/textview_line_break_style_strict"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/sample_text"
+                android:lineBreakStyle="strict"
+                android:lineBreakWordStyle="none" />
+
+            <TextView
+                android:id="@+id/textview_line_break_with_style"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/sample_text"
+                style="@style/LineBreakConfig_loose_phrase" />
         </LinearLayout>
 
 </ScrollView>

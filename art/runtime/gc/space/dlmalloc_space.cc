@@ -184,7 +184,7 @@ mirror::Object* DlMallocSpace::AllocWithGrowth(Thread* self, size_t num_bytes,
     // Zero freshly allocated memory, done while not holding the space's lock.
     memset(result, 0, num_bytes);
     // Check that the result is contained in the space.
-    CHECK(!kDebugSpaces || Contains(result));
+    CHECK_IMPLIES(kDebugSpaces, Contains(result));
   }
   return result;
 }
@@ -367,7 +367,7 @@ bool DlMallocSpace::LogFragmentationAllocFailure(std::ostream& os,
   // lock, temporarily release the shared access to the mutator
   // lock here by transitioning to the suspended state.
   Locks::mutator_lock_->AssertSharedHeld(self);
-  ScopedThreadSuspension sts(self, kSuspended);
+  ScopedThreadSuspension sts(self, ThreadState::kSuspended);
   Walk(MSpaceChunkCallback, &max_contiguous_allocation);
   if (failed_alloc_bytes > max_contiguous_allocation) {
     os << "; failed due to fragmentation (largest possible contiguous allocation "

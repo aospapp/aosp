@@ -24,6 +24,7 @@
 #include <hidl/MQDescriptor.h>
 #include <hidl/Status.h>
 #include <log/log.h>
+#include <pthread.h>
 
 namespace android {
 namespace hardware {
@@ -96,13 +97,34 @@ struct Nfc : public V1_2::INfc, public hidl_death_recipient {
     }
   }
 
-  virtual void serviceDied(uint64_t /*cookie*/, const wp<IBase>& /*who*/) {
-    close();
+  virtual void serviceDied(uint64_t cookie, const wp<IBase>& /*who*/) {
+    pthread_mutex_lock(&mLockOpenClose);
+    ALOGE("serviceDied!!! %llu, %llu, %s, %s",
+          (unsigned long long)cookie,
+          (unsigned long long)mOpenCount,
+          (mCallbackV1_0 == nullptr ? "null" : "defined"),
+          (mCallbackV1_1 == nullptr ? "null" : "defined"));
+    if (cookie == mOpenCount) {
+      if (mCallbackV1_1 != nullptr) {
+        mCallbackV1_1->unlinkToDeath(this);
+        mCallbackV1_1 = nullptr;
+      }
+      if (mCallbackV1_0 != nullptr) {
+        mCallbackV1_0->unlinkToDeath(this);
+        mCallbackV1_0 = nullptr;
+      }
+      pthread_mutex_unlock(&mLockOpenClose);
+      close();
+    } else {
+      pthread_mutex_unlock(&mLockOpenClose);
+    }
   }
 
  private:
   static sp<V1_1::INfcClientCallback> mCallbackV1_1;
   static sp<V1_0::INfcClientCallback> mCallbackV1_0;
+  pthread_mutex_t mLockOpenClose = PTHREAD_MUTEX_INITIALIZER;
+  uint64_t mOpenCount = 0;
 };
 
 }  // namespace implementation

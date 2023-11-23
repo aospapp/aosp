@@ -69,6 +69,7 @@ class HostProtocolCommon {
    *        host. Lists the Android permissions covering the contents of the
    *        message. These permissions are used to record and attribute access
    *        to permissions-controlled resources.
+   * @param wokeHost true if this message results in waking up the host.
    */
   static void encodeNanoappMessage(
       flatbuffers::FlatBufferBuilder &builder, uint64_t appId,
@@ -77,7 +78,8 @@ class HostProtocolCommon {
       uint32_t permissions =
           static_cast<uint32_t>(chre::NanoappPermissions::CHRE_PERMS_ALL),
       uint32_t messagePermissions =
-          static_cast<uint32_t>(chre::NanoappPermissions::CHRE_PERMS_ALL));
+          static_cast<uint32_t>(chre::NanoappPermissions::CHRE_PERMS_ALL),
+      bool wokeHost = false);
 
   /**
    * Adds a string to the provided builder as a byte vector.

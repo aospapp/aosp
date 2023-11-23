@@ -33,9 +33,13 @@ class EntireScreenCoveredAlways : BaseAssertion() {
         layerSubject: LayersTraceSubject
     ) {
         layerSubject.invoke("entireScreenCovered") { entry ->
-            entry.entry.displays.forEach { display ->
+            val displays = entry.entry.displays
+            if (displays.isEmpty()) {
+                entry.fail("No displays found")
+            }
+            displays.forEach { display ->
                 entry.visibleRegion().coversAtLeast(display.layerStackSpace)
             }
-        }
+        }.forAllEntries()
     }
 }

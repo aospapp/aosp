@@ -26,7 +26,6 @@ import android.content.Intent;
 import android.content.IntentSender;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
-import android.graphics.Rect;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
@@ -46,6 +45,7 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.os.BuildCompat;
 
 import com.android.cts.documentclient.MyActivity.Result;
 
@@ -71,6 +71,7 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
     private static final String TEST_TARGET_DIRECTORY_PATH =
             TEST_SOURCE_DIRECTORY_PATH + File.separatorChar + TEST_TARGET_DIRECTORY_NAME;
     private static final String STORAGE_AUTHORITY = "com.android.externalstorage.documents";
+    private static final String DEFAULT_DEVICE_NAME = "Internal storage";
 
     private UiSelector findRootListSelector() throws UiObjectNotFoundException {
         return new UiSelector().resourceId(
@@ -173,19 +174,19 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
         return new UiObject(new UiSelector().resourceId("android:id/button1"));
     }
 
-    private void assertToolbarTitleEquals(String label) throws UiObjectNotFoundException {
+    private boolean checkToolbarTitleEquals(String label) throws UiObjectNotFoundException {
         final UiObject title = new UiObject(new UiSelector().resourceId(
                 getDocumentsUiPackageId() + ":id/toolbar").childSelector(
                 new UiSelector().className("android.widget.TextView").text(label)));
 
-        assertTrue(title.waitForExists(TIMEOUT));
+        return title.waitForExists(TIMEOUT);
     }
 
     private String getDeviceName() {
         final String deviceName = Settings.Global.getString(
                 mActivity.getContentResolver(), Settings.Global.DEVICE_NAME);
-        // Device name should always be set. In case it isn't, fall back to "Internal Storage"
-        return !TextUtils.isEmpty(deviceName) ? deviceName : "Internal Storage";
+        // Device name should always be set. In case it isn't, fall back to "Internal storage"
+        return !TextUtils.isEmpty(deviceName) ? deviceName : DEFAULT_DEVICE_NAME;
     }
 
     @Override
@@ -431,15 +432,25 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
         // save button is disabled for the storage root
         assertFalse(findSaveButton().isEnabled());
 
-        // We should always have Android directory available
-        findDocument("Android").click();
-        mDevice.waitForIdle();
+        // SAF directory access to /Android is blocked in ag/13163842, this change may not be
+        // present on some R devices, so only test it from above S.
+        if (BuildCompat.isAtLeastS()) {
+            // We should always have Android directory available
+            findDocument("Android").click();
+            mDevice.waitForIdle();
 
-        // save button is disabled for Android folder
-        assertFalse(findSaveButton().isEnabled());
+            // save button is disabled for Android folder
+            assertFalse(findSaveButton().isEnabled());
+        }
 
-        findRoot(getDeviceName()).click();
-        mDevice.waitForIdle();
+        try {
+            findRoot(getDeviceName()).click();
+            mDevice.waitForIdle();
+        } catch(UiObjectNotFoundException e) {
+            // It might be possible that OEMs customize storage root to "Internal storage".
+            findRoot(DEFAULT_DEVICE_NAME).click();
+            mDevice.waitForIdle();
+        }
 
         try {
             findDocument("Download").click();
@@ -476,7 +487,7 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
 
         mDevice.waitForIdle();
 
-        // save button is enabled for for the storage root
+        // save button is enabled for the storage root
         assertTrue(findSaveButton().isEnabled());
 
         // We should always have Android directory available
@@ -486,8 +497,14 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
         // save button is enabled for Android folder
         assertTrue(findSaveButton().isEnabled());
 
-        findRoot(getDeviceName()).click();
-        mDevice.waitForIdle();
+        try {
+            findRoot(getDeviceName()).click();
+            mDevice.waitForIdle();
+        } catch(UiObjectNotFoundException e) {
+            // It might be possible that OEMs customize storage root to "Internal storage".
+            findRoot(DEFAULT_DEVICE_NAME).click();
+            mDevice.waitForIdle();
+        }
 
         try {
             findDocument("Download").click();
@@ -510,6 +527,36 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
         mDevice.waitForIdle();
         // save button is enabled for dir2
         assertTrue(findSaveButton().isEnabled());
+    }
+
+    public void testScopeStorageAtInitLocationRootWithDot_blockFromTree() throws Exception {
+        if (!supportedHardware()) return;
+
+        launchOpenDocumentTreeAtInitialLocation(STORAGE_AUTHORITY, "primary:.");
+
+        // save button is disabled for the directory
+        assertFalse(findSaveButton().isEnabled());
+
+        // The Android directory is available
+        assertTrue(findDocument("Android").exists());
+    }
+
+    public void testScopeStorageAtInitLocationAndroidData_blockFromTree() throws Exception {
+        if (!supportedHardware()) return;
+
+        launchOpenDocumentTreeAtInitialLocation(STORAGE_AUTHORITY, "primary:Android/data");
+
+        // save button is disabled for the directory
+        assertFalse(findSaveButton().isEnabled());
+    }
+
+    public void testScopeStorageAtInitLocationAndroidObb_blockFromTree() throws Exception {
+        if (!supportedHardware()) return;
+
+        launchOpenDocumentTreeAtInitialLocation(STORAGE_AUTHORITY, "primary:Android/obb");
+
+        // save button is disabled for the directory
+        assertFalse(findSaveButton().isEnabled());
     }
 
     public void testGetContent_rootsShowing() throws Exception {
@@ -556,11 +603,25 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
 
         mDevice.waitForIdle();
 
-        assertTrue(findDocument(queryString).exists());
-
         UiObject textField = findSearchViewTextField();
+        int tryLimit = 3;
+
+        textField.waitForExists(TIMEOUT);
         assertTrue(textField.exists());
+
+        while (tryLimit-- > 0) {
+            if (queryString.equals(textField.getText())) {
+                // start search, hide IME
+                mDevice.pressEnter();
+                break;
+            } else {
+                SystemClock.sleep(500);
+            }
+        }
+
         assertEquals(queryString, textField.getText());
+
+        assertTrue(findDocument(queryString).exists());
     }
 
     public void testGetContent_returnsResultToCallingActivity() throws Exception {
@@ -767,15 +828,7 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
     public void testOpenDocumentTreeAtInitialLocation() throws Exception {
         if (!supportedHardware()) return;
 
-        // Clear DocsUI's storage to avoid it opening stored last location.
-        clearDocumentsUi();
-
-        final Uri docUri = DocumentsContract.buildDocumentUri(PROVIDER_PACKAGE, "doc:dir2");
-        final Intent intent = new Intent();
-        intent.setAction(Intent.ACTION_OPEN_DOCUMENT_TREE);
-        intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, docUri);
-        mActivity.startActivityForResult(intent, REQUEST_CODE);
-        mDevice.waitForIdle();
+        launchOpenDocumentTreeAtInitialLocation(PROVIDER_PACKAGE, "doc:dir2");
 
         assertTrue(findDocument("FILE4").exists());
     }
@@ -790,8 +843,9 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
         mActivity.startActivityForResult(intent, REQUEST_CODE);
         mDevice.waitForIdle();
 
-        // assert the default root is internal storage root
-        assertToolbarTitleEquals(getDeviceName());
+        // assert toolbar title should be set to either device name or "Internal storage".
+        assertTrue(checkToolbarTitleEquals(getDeviceName())
+            || checkToolbarTitleEquals(DEFAULT_DEVICE_NAME));
 
         // no Downloads root
         assertFalse(findRoot("Downloads").exists());
@@ -937,6 +991,19 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
                 context.checkCallingOrSelfUriPermission(targetUri, permissionFlag));
     }
 
+    private void launchOpenDocumentTreeAtInitialLocation(@NonNull String authority,
+            @NonNull String docId) throws Exception {
+        // Clear DocsUI's storage to avoid it opening stored last location.
+        clearDocumentsUi();
+
+        final Uri initUri = DocumentsContract.buildDocumentUri(authority, docId);
+        final Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, initUri);
+        mActivity.startActivityForResult(intent, REQUEST_CODE);
+
+        mDevice.waitForIdle();
+    }
+
     private Uri assertCreateDocumentSuccess(@Nullable Uri initUri, @NonNull String displayName,
             @NonNull String mimeType) throws Exception {
         // Clear DocsUI's storage to avoid it opening stored last location.
@@ -959,6 +1026,9 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
         final Uri uri = mActivity.getResult().data.getData();
         assertEquals(displayName, getColumn(uri, Document.COLUMN_DISPLAY_NAME));
         assertEquals(mimeType, getColumn(uri, Document.COLUMN_MIME_TYPE));
+
+        // Multiple calls to this method too quickly may result in onActivityResult being skipped.
+        mDevice.waitForIdle();
 
         return uri;
     }

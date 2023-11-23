@@ -16,45 +16,38 @@
 
 package com.android.cts.verifier.audio;
 
-import com.android.compatibility.common.util.ReportLog;
-import com.android.compatibility.common.util.ResultType;
-import com.android.compatibility.common.util.ResultUnit;
+import static com.android.cts.verifier.TestListActivity.sCurrentDisplayMode;
+import static com.android.cts.verifier.TestListAdapter.setTestNameSuffix;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.Resources;
-
 import android.graphics.Color;
-
 import android.media.AudioDeviceCallback;
 import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
-
 import android.os.Bundle;
 import android.os.Handler;
-
 import android.util.Log;
-
 import android.view.KeyEvent;
 import android.view.View;
-
 import android.widget.Button;
 import android.widget.TextView;
 
+import com.android.compatibility.common.util.CddTest;
+import com.android.compatibility.common.util.ResultType;
+import com.android.compatibility.common.util.ResultUnit;
 import com.android.cts.verifier.PassFailButtons;
-import com.android.cts.verifier.R;  // needed to access resource in CTSVerifier project namespace.
+import com.android.cts.verifier.R;
 
-// MegaPlayer
 import org.hyphonate.megaaudio.player.AudioSourceProvider;
 import org.hyphonate.megaaudio.player.JavaPlayer;
 import org.hyphonate.megaaudio.player.PlayerBuilder;
 import org.hyphonate.megaaudio.player.sources.SinAudioSourceProvider;
 
-import static com.android.cts.verifier.TestListActivity.sCurrentDisplayMode;
-import static com.android.cts.verifier.TestListAdapter.setTestNameSuffix;
-
+@CddTest(requirement = "7.8.2.1/C-1-1,C-1-2,C-1-3,C-1-4,C-2-1")
 public class AnalogHeadsetAudioActivity
         extends PassFailButtons.Activity
         implements View.OnClickListener {
@@ -381,32 +374,21 @@ public class AnalogHeadsetAudioActivity
     //
     @Override
     public void onClick(View view) {
-        switch (view.getId()) {
-            case R.id.headset_analog_port_yes:
-                reportHeadsetPort(true);
-                break;
-
-            case R.id.headset_analog_port_no:
-                reportHeadsetPort(false);
-                break;
-
-            case R.id.headset_analog_play:
-                startPlay();
-                break;
-
-            case R.id.headset_analog_stop:
-                stopPlay();
-                mPlaybackSuccessBtn.setEnabled(true);
-                mPlaybackFailBtn.setEnabled(true);
-                break;
-
-            case R.id.headset_analog_play_yes:
-                reportPlaybackStatus(true);
-                break;
-
-            case R.id.headset_analog_play_no:
-                reportPlaybackStatus(false);
-                break;
+        int id = view.getId();
+        if (id == R.id.headset_analog_port_yes) {
+            reportHeadsetPort(true);
+        } else if (id == R.id.headset_analog_port_no) {
+            reportHeadsetPort(false);
+        } else if (id == R.id.headset_analog_play) {
+            startPlay();
+        } else if (id == R.id.headset_analog_stop) {
+            stopPlay();
+            mPlaybackSuccessBtn.setEnabled(true);
+            mPlaybackFailBtn.setEnabled(true);
+        } else if (id == R.id.headset_analog_play_yes) {
+            reportPlaybackStatus(true);
+        } else if (id == R.id.headset_analog_play_no) {
+            reportPlaybackStatus(false);
         }
     }
 
@@ -423,13 +405,13 @@ public class AnalogHeadsetAudioActivity
             }
         }
 
-        reportHeadsetPort(mHeadsetDeviceInfo != null);
-
         getReportLog().addValue(
                 KEY_HEADSET_CONNECTED,
                 mHeadsetDeviceInfo != null ? 1 : 0,
                 ResultType.NEUTRAL,
                 ResultUnit.NONE);
+
+        reportHeadsetPort(mHeadsetDeviceInfo != null);
 
         showConnectedDevice();
     }

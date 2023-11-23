@@ -33,7 +33,6 @@ import org.mockito.Mockito;
 
 @RunWith(JUnit4.class)
 public final class SystemAppUninstallerTest {
-    private static final ITestDevice NULL_DEVICE = null;
     private static final String TEST_PACKAGE_NAME = "test.package.name";
     private static final String SYSTEM_APP_INSTALL_DIRECTORY = "/system/app";
     private static final String CHECK_PACKAGE_INSTALLED_COMMAND_PREFIX = "pm list packages ";
@@ -154,7 +153,7 @@ public final class SystemAppUninstallerTest {
     @Test
     public void uninstallPackage_adbRootCommandFailed_throws() throws Exception {
         ITestDevice device = createGoodDeviceWithSystemAppInstalled();
-        Mockito.when(device.enableAdbRoot()).thenThrow(new DeviceNotAvailableException());
+        Mockito.when(device.enableAdbRoot()).thenThrow(new DeviceNotAvailableException("", ""));
 
         assertThrows(
                 DeviceNotAvailableException.class,
@@ -174,7 +173,7 @@ public final class SystemAppUninstallerTest {
     @Test
     public void uninstallPackage_adbDisableRootCommandFailed_throws() throws Exception {
         ITestDevice device = createGoodDeviceWithSystemAppInstalled();
-        Mockito.when(device.disableAdbRoot()).thenThrow(new DeviceNotAvailableException());
+        Mockito.when(device.disableAdbRoot()).thenThrow(new DeviceNotAvailableException("", ""));
 
         assertThrows(
                 DeviceNotAvailableException.class,
@@ -194,7 +193,9 @@ public final class SystemAppUninstallerTest {
     @Test
     public void uninstallPackage_adbRemountFailed_throws() throws Exception {
         ITestDevice device = createGoodDeviceWithSystemAppInstalled();
-        Mockito.doThrow(new DeviceNotAvailableException()).when(device).remountSystemWritable();
+        Mockito.doThrow(new DeviceNotAvailableException("", ""))
+                .when(device)
+                .remountSystemWritable();
 
         assertThrows(
                 DeviceNotAvailableException.class,

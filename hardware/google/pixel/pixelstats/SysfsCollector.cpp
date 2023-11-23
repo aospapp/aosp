@@ -157,6 +157,13 @@ void SysfsCollector::logBatteryEEPROM(const std::shared_ptr<IStats> &stats_clien
 }
 
 /**
+ * Log battery health stats
+ */
+void SysfsCollector::logBatteryHealth(const std::shared_ptr<IStats> &stats_client) {
+    battery_health_reporter_.checkAndReportStatus(stats_client);
+}
+
+/**
  * Check the codec for failures over the past 24hr.
  */
 void SysfsCollector::logCodecFailed(const std::shared_ptr<IStats> &stats_client) {
@@ -415,7 +422,7 @@ void SysfsCollector::logBatteryCapacity(const std::shared_ptr<IStats> &stats_cli
     values[BatteryCapacity::kDeltaVfsocSumFieldNumber - kVendorAtomOffset] = tmp;
 
     // Send vendor atom to IStats HAL
-    VendorAtom event = {.reverseDomainName = PixelAtoms::ReverseDomainNames().pixel(),
+    VendorAtom event = {.reverseDomainName = "",
                         .atomId = PixelAtoms::Atom::kBatteryCapacity,
                         .values = std::move(values)};
     const ndk::ScopedAStatus ret = stats_client->reportVendorAtom(event);
@@ -457,7 +464,7 @@ void SysfsCollector::logUFSLifetime(const std::shared_ptr<IStats> &stats_client)
     values[StorageUfsHealth::kLifetimeCFieldNumber - kVendorAtomOffset] = tmp;
 
     // Send vendor atom to IStats HAL
-    VendorAtom event = {.reverseDomainName = PixelAtoms::ReverseDomainNames().pixel(),
+    VendorAtom event = {.reverseDomainName = "",
                         .atomId = PixelAtoms::Atom::kStorageUfsHealth,
                         .values = std::move(values)};
     const ndk::ScopedAStatus ret = stats_client->reportVendorAtom(event);
@@ -489,7 +496,7 @@ void SysfsCollector::logUFSErrorStats(const std::shared_ptr<IStats> &stats_clien
     values[StorageUfsResetCount::kHostResetCountFieldNumber - kVendorAtomOffset] = tmp;
 
     // Send vendor atom to IStats HAL
-    VendorAtom event = {.reverseDomainName = PixelAtoms::ReverseDomainNames().pixel(),
+    VendorAtom event = {.reverseDomainName = "",
                         .atomId = PixelAtoms::Atom::kUfsResetCount,
                         .values = std::move(values)};
     const ndk::ScopedAStatus ret = stats_client->reportVendorAtom(event);
@@ -585,7 +592,7 @@ void SysfsCollector::logF2fsStats(const std::shared_ptr<IStats> &stats_client) {
     values[F2fsStatsInfo::kValidBlocksFieldNumber - kVendorAtomOffset] = tmp;
 
     // Send vendor atom to IStats HAL
-    VendorAtom event = {.reverseDomainName = PixelAtoms::ReverseDomainNames().pixel(),
+    VendorAtom event = {.reverseDomainName = "",
                         .atomId = PixelAtoms::Atom::kF2FsStats,
                         .values = std::move(values)};
     const ndk::ScopedAStatus ret = stats_client->reportVendorAtom(event);
@@ -643,7 +650,7 @@ void SysfsCollector::logF2fsCompressionInfo(const std::shared_ptr<IStats> &stats
     values[F2fsCompressionInfo::kComprNewInodesFieldNumber - kVendorAtomOffset] = tmp;
 
     // Send vendor atom to IStats HAL
-    VendorAtom event = {.reverseDomainName = PixelAtoms::ReverseDomainNames().pixel(),
+    VendorAtom event = {.reverseDomainName = "",
                         .atomId = PixelAtoms::Atom::kF2FsCompressionInfo,
                         .values = values};
     const ndk::ScopedAStatus ret = stats_client->reportVendorAtom(event);
@@ -705,7 +712,7 @@ void SysfsCollector::logF2fsGcSegmentInfo(const std::shared_ptr<IStats> &stats_c
     values[F2fsGcSegmentInfo::kReclaimedSegmentsUrgentLowFieldNumber - kVendorAtomOffset] = tmp;
 
     // Send vendor atom to IStats HAL
-    VendorAtom event = {.reverseDomainName = PixelAtoms::ReverseDomainNames().pixel(),
+    VendorAtom event = {.reverseDomainName = "",
                         .atomId = PixelAtoms::Atom::kF2FsGcSegmentInfo,
                         .values = values};
     const ndk::ScopedAStatus ret = stats_client->reportVendorAtom(event);
@@ -771,7 +778,7 @@ void SysfsCollector::reportZramMmStat(const std::shared_ptr<IStats> &stats_clien
         prev_huge_pages_since_boot_ = huge_pages_since_boot;
 
         // Send vendor atom to IStats HAL
-        VendorAtom event = {.reverseDomainName = PixelAtoms::ReverseDomainNames().pixel(),
+        VendorAtom event = {.reverseDomainName = "",
                             .atomId = PixelAtoms::Atom::kZramMmStat,
                             .values = std::move(values)};
         const ndk::ScopedAStatus ret = stats_client->reportVendorAtom(event);
@@ -812,7 +819,7 @@ void SysfsCollector::reportZramBdStat(const std::shared_ptr<IStats> &stats_clien
         values[ZramBdStat::kBdWritesFieldNumber - kVendorAtomOffset] = tmp;
 
         // Send vendor atom to IStats HAL
-        VendorAtom event = {.reverseDomainName = PixelAtoms::ReverseDomainNames().pixel(),
+        VendorAtom event = {.reverseDomainName = "",
                             .atomId = PixelAtoms::Atom::kZramBdStat,
                             .values = std::move(values)};
         const ndk::ScopedAStatus ret = stats_client->reportVendorAtom(event);
@@ -860,7 +867,7 @@ void SysfsCollector::logBootStats(const std::shared_ptr<IStats> &stats_client) {
     values[BootStatsInfo::kCheckpointTimeSecFieldNumber - kVendorAtomOffset] = tmp;
 
     // Send vendor atom to IStats HAL
-    VendorAtom event = {.reverseDomainName = PixelAtoms::ReverseDomainNames().pixel(),
+    VendorAtom event = {.reverseDomainName = "",
                         .atomId = PixelAtoms::Atom::kBootStats,
                         .values = std::move(values)};
     const ndk::ScopedAStatus ret = stats_client->reportVendorAtom(event);
@@ -884,6 +891,7 @@ void SysfsCollector::logPerDay() {
     logBatteryCapacity(stats_client);
     logBatteryChargeCycles(stats_client);
     logBatteryEEPROM(stats_client);
+    logBatteryHealth(stats_client);
     logCodec1Failed(stats_client);
     logCodecFailed(stats_client);
     logF2fsStats(stats_client);

@@ -44,6 +44,7 @@ public abstract class TestCase {
 
     protected static final int TIMEOUT = 25000;
     protected static final int TIMEOUT_FOR_USER_ACTION = 60000;
+    protected static final int MAXIMUM_EXPECTED_CONNECTION_LATENCY_WITH_CONFIG_MS = 1500;
     protected static final int SUCCESS = 0;
 
     protected Context mContext;

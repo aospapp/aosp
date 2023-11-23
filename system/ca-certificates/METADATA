@@ -2,7 +2,7 @@
 #     CONSULT THE OWNERS AND opensource-licensing@google.com BEFORE
 #     DEPENDING ON IT IN YOUR PROJECT. ***
 third_party {
-  # Quo Vadis Certificate Policy in files/5cf9d536.0 references:
-  #   Quo Vadis Certificate Holder Agreement
+  license_note: "Quo Vadis Certificate Policy in files/5cf9d536.0 references:\n"
+  "   Quo Vadis Certificate Holder Agreement"
   license_type: BY_EXCEPTION_ONLY
 }

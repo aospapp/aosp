@@ -16,6 +16,8 @@
 
 package android.appsecurity.cts;
 
+import static org.junit.Assume.assumeTrue;
+
 import com.android.ddmlib.testrunner.TestResult.TestStatus;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.result.TestDescription;
@@ -31,7 +33,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import static org.junit.Assume.assumeTrue;
 
 import java.util.Map;
 
@@ -43,11 +44,15 @@ public class StorageHostTest extends BaseHostJUnit4Test {
     private static final String PKG_STATS = "com.android.cts.storagestatsapp";
     private static final String PKG_A = "com.android.cts.storageapp_a";
     private static final String PKG_B = "com.android.cts.storageapp_b";
+    private static  final String PKG_NO_APP_STORAGE = "com.android.cts.noappstorage";
     private static final String APK_STATS = "CtsStorageStatsApp.apk";
     private static final String APK_A = "CtsStorageAppA.apk";
     private static final String APK_B = "CtsStorageAppB.apk";
+    private static final String APK_NO_APP_STORAGE = "CtsNoAppDataStorageApp.apk";
     private static final String CLASS_STATS = "com.android.cts.storagestatsapp.StorageStatsTest";
     private static final String CLASS = "com.android.cts.storageapp.StorageTest";
+    private static final String CLASS_NO_APP_STORAGE =
+            "com.android.cts.noappstorage.NoAppDataStorageTest";
 
     private int[] mUsers;
 
@@ -58,6 +63,7 @@ public class StorageHostTest extends BaseHostJUnit4Test {
         installPackage(APK_STATS);
         installPackage(APK_A);
         installPackage(APK_B);
+        installPackage(APK_NO_APP_STORAGE);
 
         for (int user : mUsers) {
             getDevice().executeShellCommand("appops set --user " + user + " " + PKG_STATS
@@ -72,6 +78,7 @@ public class StorageHostTest extends BaseHostJUnit4Test {
         getDevice().uninstallPackage(PKG_STATS);
         getDevice().uninstallPackage(PKG_A);
         getDevice().uninstallPackage(PKG_B);
+        getDevice().uninstallPackage(PKG_NO_APP_STORAGE);
     }
 
     @Test
@@ -165,7 +172,6 @@ public class StorageHostTest extends BaseHostJUnit4Test {
         // To make the cache clearing logic easier to verify, ignore any cache
         // and low space reserved space.
         getDevice().executeShellCommand("settings put global sys_storage_threshold_max_bytes 0");
-        getDevice().executeShellCommand("settings put global sys_storage_cache_max_bytes 0");
         getDevice().executeShellCommand("svc data disable");
         getDevice().executeShellCommand("svc wifi disable");
         try {
@@ -180,7 +186,6 @@ public class StorageHostTest extends BaseHostJUnit4Test {
             }
         } finally {
             getDevice().executeShellCommand("settings delete global sys_storage_threshold_max_bytes");
-            getDevice().executeShellCommand("settings delete global sys_storage_cache_max_bytes");
             getDevice().executeShellCommand("svc data enable");
             getDevice().executeShellCommand("svc wifi enable");
         }
@@ -220,6 +225,23 @@ public class StorageHostTest extends BaseHostJUnit4Test {
             Utils.runDeviceTestsAsCurrentUser(getDevice(), PKG_A, CLASS, "testClearSpace");
         } finally {
             getDevice().executeShellCommand("settings delete global hide_error_dialogs");
+        }
+    }
+
+    @Test
+    public void testNoInternalAppStorage() throws Exception {
+        for (int user : mUsers) {
+            runDeviceTests(
+                    PKG_NO_APP_STORAGE, CLASS_NO_APP_STORAGE, "testNoInternalCeStorage", user);
+            runDeviceTests(
+                    PKG_NO_APP_STORAGE, CLASS_NO_APP_STORAGE, "testNoInternalDeStorage", user);
+        }
+    }
+
+    @Test
+    public void testNoExternalAppStorage() throws Exception {
+        for (int user : mUsers) {
+            runDeviceTests(PKG_NO_APP_STORAGE, CLASS_NO_APP_STORAGE, "testNoExternalStorage", user);
         }
     }
 
@@ -266,7 +288,7 @@ public class StorageHostTest extends BaseHostJUnit4Test {
 
     private boolean isWatch() {
         try {
-             return getDevice().hasFeature("feature:android.hardware.type.watch");
+            return getDevice().hasFeature("feature:android.hardware.type.watch");
         } catch (DeviceNotAvailableException e) {
             return false;
         }

@@ -40,10 +40,6 @@ logger = logging.getLogger(__name__)
 
 _RE_DISPLAY = re.compile(r"([\d]+)x([\d]+)\s.*")
 _VNC_STARTED_PATTERN = "ssvnc vnc://127.0.0.1:%(vnc_port)d"
-_WEBRTC_PORTS_SEARCH = "".join(
-    [utils.PORT_MAPPING % {"local_port":port["local"],
-                           "target_port":port["target"]}
-     for port in utils.WEBRTC_PORTS_MAPPING])
 
 
 def _IsWebrtcEnable(instance, host_user, host_ssh_private_key_path,
@@ -75,24 +71,6 @@ def _IsWebrtcEnable(instance, host_user, host_ssh_private_key_path,
     except errors.ConfigError:
         logger.debug("No cuttlefish config[%s] found!",
                      remote_cuttlefish_config)
-    return False
-
-
-def _WebrtcPortOccupied():
-    """To decide whether need to release port.
-
-    Remote webrtc instance will create a ssh tunnel which may conflict with
-    local webrtc instance default port. Searching process cmd in the pattern
-    of _WEBRTC_PORTS_SEARCH to decide whether to release port.
-
-    Return:
-        True if need to release port.
-    """
-    process_output = utils.CheckOutput(constants.COMMAND_PS)
-    for line in process_output.splitlines():
-        match = re.search(_WEBRTC_PORTS_SEARCH, line)
-        if match:
-            return True
     return False
 
 
@@ -143,7 +121,7 @@ def ReconnectInstance(ssh_private_key_path,
                       instance,
                       reconnect_report,
                       extra_args_ssh_tunnel=None,
-                      connect_vnc=True):
+                      autoconnect=None):
     """Reconnect to the specified instance.
 
     It will:
@@ -158,7 +136,7 @@ def ReconnectInstance(ssh_private_key_path,
         instance: list.Instance() object.
         reconnect_report: Report object.
         extra_args_ssh_tunnel: String, extra args for ssh tunnel connection.
-        connect_vnc: Boolean, True will launch vnc.
+        autoconnect: String, for decide whether to launch vnc/browser or not.
 
     Raises:
         errors.UnknownAvdType: Unable to reconnect to instance of unknown avd
@@ -189,29 +167,20 @@ def ReconnectInstance(ssh_private_key_path,
             extra_args_ssh_tunnel=extra_args_ssh_tunnel)
         vnc_port = forwarded_ports.vnc_port
         adb_port = forwarded_ports.adb_port
-    if _IsWebrtcEnable(instance,
-                       constants.GCE_USER,
-                       ssh_private_key_path,
-                       extra_args_ssh_tunnel):
-        if instance.islocal:
-            if _WebrtcPortOccupied():
-                raise errors.PortOccupied("\nReconnect to a local webrtc instance "
-                                          "is not work because remote webrtc "
-                                          "instance has established ssh tunnel "
-                                          "which occupied local webrtc instance "
-                                          "port. If you want to connect to a "
-                                          "local-instance of webrtc. please run "
-                                          "'acloud create --local-instance "
-                                          "--autoconnect webrtc' directly.")
-        else:
-            utils.EstablishWebRTCSshTunnel(
-                ip_addr=instance.ip,
-                rsa_key_file=ssh_private_key_path,
-                ssh_user=constants.GCE_USER,
-                extra_args_ssh_tunnel=extra_args_ssh_tunnel)
+    if autoconnect is constants.INS_KEY_WEBRTC:
+        if not instance.islocal:
+            webrtc_port = utils.GetWebrtcPortFromSSHTunnel(instance.ip)
+            if not webrtc_port:
+                webrtc_port = utils.PickFreePort()
+                utils.EstablishWebRTCSshTunnel(
+                    ip_addr=instance.ip,
+                    webrtc_local_port=webrtc_port,
+                    rsa_key_file=ssh_private_key_path,
+                    ssh_user=constants.GCE_USER,
+                    extra_args_ssh_tunnel=extra_args_ssh_tunnel)
         utils.LaunchBrowser(constants.WEBRTC_LOCAL_HOST,
                             webrtc_port)
-    elif(vnc_port and connect_vnc):
+    elif vnc_port and autoconnect is constants.INS_KEY_VNC:
         StartVnc(vnc_port, instance.display)
 
     device_dict = {
@@ -224,7 +193,7 @@ def ReconnectInstance(ssh_private_key_path,
         device_dict[constants.DEVICE_SERIAL] = (
             constants.REMOTE_INSTANCE_ADB_SERIAL % adb_port)
 
-    if vnc_port and adb_port:
+    if (vnc_port or webrtc_port) and adb_port:
         reconnect_report.AddData(key="devices", value=device_dict)
     else:
         # We use 'ps aux' to grep adb/vnc fowarding port from ssh tunnel
@@ -263,6 +232,6 @@ def Run(args):
                           instance,
                           reconnect_report,
                           cfg.extra_args_ssh_tunnel,
-                          connect_vnc=(args.autoconnect is True))
+                          autoconnect=(args.autoconnect or instance.autoconnect))
 
     utils.PrintDeviceSummary(reconnect_report)

@@ -3,5 +3,10 @@
     {
       "name": "CtsLibnativehelperTestCases"
     }
+  ],
+  "hwasan-postsubmit": [
+    {
+      "name": "CtsLibnativehelperTestCases"
+    }
   ]
 }

@@ -40,6 +40,7 @@
 
 #if defined(__ANDROID__)
 #include <android-base/properties.h>
+#include <cutils/android_filesystem_config.h>
 #endif
 
 #include "IOEventLoop.h"
@@ -426,14 +427,14 @@ ArchType GetMachineArch() {
   utsname uname_buf;
   if (TEMP_FAILURE_RETRY(uname(&uname_buf)) != 0) {
     PLOG(WARNING) << "uname() failed";
-    return GetBuildArch();
+    return GetTargetArch();
   }
   ArchType arch = GetArchType(uname_buf.machine);
 #endif
   if (arch != ARCH_UNSUPPORTED) {
     return arch;
   }
-  return GetBuildArch();
+  return GetTargetArch();
 }
 
 void PrepareVdsoFile() {
@@ -657,7 +658,7 @@ bool InAppRunner::RunCmdInApp(const std::string& cmd, const std::vector<std::str
     stop_signal_wfd.reset();
   }
   int exit_code;
-  if (!workload->WaitChildProcess(&exit_code) || exit_code != 0) {
+  if (!workload->WaitChildProcess(true, &exit_code) || exit_code != 0) {
     return false;
   }
   return true;
@@ -719,7 +720,7 @@ bool RunAs::Prepare() {
 
 class SimpleperfAppRunner : public InAppRunner {
  public:
-  SimpleperfAppRunner(int user_id, const std::string& package_name, const std::string app_type)
+  SimpleperfAppRunner(int user_id, const std::string& package_name, const std::string& app_type)
       : InAppRunner(user_id, package_name) {
     // On Android < S, the app type is unknown before running simpleperf_app_runner. Assume it's
     // profileable.
@@ -961,15 +962,25 @@ const char* GetTraceFsDir() {
 }
 
 std::optional<std::pair<int, int>> GetKernelVersion() {
-  utsname uname_buf;
-  int major;
-  int minor;
-  if (TEMP_FAILURE_RETRY(uname(&uname_buf)) != 0 ||
-      sscanf(uname_buf.release, "%d.%d", &major, &minor) != 2) {
-    return std::nullopt;
+  static std::optional<std::pair<int, int>> kernel_version;
+  if (!kernel_version.has_value()) {
+    utsname uname_buf;
+    int major;
+    int minor;
+    if (TEMP_FAILURE_RETRY(uname(&uname_buf)) != 0 ||
+        sscanf(uname_buf.release, "%d.%d", &major, &minor) != 2) {
+      return std::nullopt;
+    }
+    kernel_version = std::make_pair(major, minor);
   }
-  return std::make_pair(major, minor);
+  return kernel_version;
 }
+
+#if defined(__ANDROID__)
+bool IsInAppUid() {
+  return getuid() % AID_USER_OFFSET >= AID_APP_START;
+}
+#endif
 
 std::optional<uid_t> GetProcessUid(pid_t pid) {
   std::string status_file = "/proc/" + std::to_string(pid) + "/status";

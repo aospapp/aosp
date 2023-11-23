@@ -67,12 +67,4 @@ std::string ArtField::PrettyField(bool with_type) {
   return result;
 }
 
-void ArtField::GetAccessFlagsDCheck() {
-  CHECK(GetDeclaringClass()->IsLoaded() || GetDeclaringClass()->IsErroneous());
-}
-
-void ArtField::GetOffsetDCheck() {
-  CHECK(GetDeclaringClass()->IsResolved());
-}
-
 }  // namespace art

@@ -44,6 +44,7 @@
 #define ST21NFC_SET_POLARITY_FALLING _IOR(ST21NFC_MAGIC, 0x04, unsigned int)
 #define ST21NFC_SET_POLARITY_HIGH _IOR(ST21NFC_MAGIC, 0x05, unsigned int)
 #define ST21NFC_SET_POLARITY_LOW _IOR(ST21NFC_MAGIC, 0x06, unsigned int)
+#define ST21NFC_RECOVERY _IOR(ST21NFC_MAGIC, 0x08, unsigned int)
 #define ST21NFC_CLK_ENABLE _IOR(ST21NFC_MAGIC, 0x11, unsigned int)
 #define ST21NFC_CLK_DISABLE _IOR(ST21NFC_MAGIC, 0x12, unsigned int)
 #define ST21NFC_CLK_STATE _IOR(ST21NFC_MAGIC, 0x13, unsigned int)
@@ -53,6 +54,7 @@
 static int fidI2c = 0;
 static int cmdPipe[2] = {0, 0};
 static int notifyResetRequest = 0;
+static bool recovery_mode = false;
 
 static struct pollfd event_table[3];
 static pthread_t threadHandle = (pthread_t)NULL;
@@ -69,6 +71,7 @@ unsigned long hal_activerw_timer = 0;
 
 static int i2cSetPolarity(int fid, bool low, bool edge);
 static int i2cResetPulse(int fid);
+static int SetToRecoveryMode(int fid);
 static int i2cRead(int fid, uint8_t* pvBuffer, int length);
 static int i2cGetGPIOState(int fid);
 static int i2cWrite(int fd, const uint8_t* pvBuffer, int length);
@@ -116,11 +119,13 @@ static void* I2cWorkerThread(void* arg) {
 
     if (event_table[0].revents & POLLIN) {
       STLOG_HAL_V("echo thread wakeup from chip...\n");
-
       uint8_t buffer[300];
       int count = 0;
 
       do {
+        if (recovery_mode) {
+          break;
+        }
         // load first four bytes:
         int bytesRead = i2cRead(fidI2c, buffer, 3);
 
@@ -173,7 +178,6 @@ static void* I2cWorkerThread(void* arg) {
 
         readOk = false;
         memset(buffer, 0xca, sizeof(buffer));
-
         /* read while we have data available, up to 2 times then allow writes */
       } while ((i2cGetGPIOState(fidI2c) == 1) && (count++ < 2));
     }
@@ -359,6 +363,15 @@ void I2cResetPulse() {
   i2cResetPulse(fidI2c);
   (void)pthread_mutex_unlock(&i2ctransport_mtx);
 }
+void I2cRecovery() {
+  ALOGD("%s: enter\n", __func__);
+
+  (void)pthread_mutex_lock(&i2ctransport_mtx);
+  recovery_mode = true;
+  SetToRecoveryMode(fidI2c);
+  recovery_mode = false;
+  (void)pthread_mutex_unlock(&i2ctransport_mtx);
+}
 /**************************************************************************************************
  *
  *                                      Private API Definition
@@ -411,6 +424,21 @@ static int i2cResetPulse(int fid) {
   STLOG_HAL_D("! i2cResetPulse!!, result = %d", result);
   return result;
 } /* i2cResetPulse*/
+
+/**
+ * Call the st21nfc driver to generate pulses on RESET line to get a recovery.
+ * @param fid File descriptor for NFC device
+ * @return Result of IOCTL system call (0 if ok)
+ */
+static int SetToRecoveryMode(int fid) {
+  int result;
+
+  if (-1 == (result = ioctl(fid, ST21NFC_RECOVERY, NULL))) {
+    result = -1;
+  }
+  STLOG_HAL_D("! SetToRecoveryMode!!, result = %d", result);
+  return result;
+} /* SetToRecoveryMode*/
 
 /**
  * Write data to st21nfc, on failure do max 3 retries.

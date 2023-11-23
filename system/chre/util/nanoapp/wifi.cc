@@ -17,7 +17,7 @@
 #include "chre/util/nanoapp/wifi.h"
 
 #ifdef CHRE_IS_NANOAPP_BUILD
-#include "util/nanoapp/log.h"
+#include "chre/util/nanoapp/log.h"
 #else
 #include "chre/platform/log.h"
 #endif  // CHRE_IS_NANOAPP_BUILD

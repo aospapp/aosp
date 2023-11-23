@@ -69,6 +69,7 @@ public class ProfileTest {
                                     .setJourney(
                                             "android.platform.test.scenario.calendar.FlingWeekPage"))
                     .build();
+
     private static final String CONFIG_WITH_INVALID_JOURNEY_KEY = "config_with_invalid_journey";
     protected static final Configuration CONFIG_WITH_INVALID_JOURNEY =
             Configuration.newBuilder()
@@ -80,11 +81,38 @@ public class ProfileTest {
                                             "android.platform.test.scenario.calendar.FlingWeekPage"))
                     .addScenarios(Scenario.newBuilder().setAt("00:02:00").setJourney("invalid"))
                     .build();
+
+    private static final String CONFIG_WITH_REPEATED_TIMESTAMPED_JOURNEY_KEY =
+            "config_with_repeated_timestamped_journey";
+    protected static final Configuration CONFIG_WITH_REPEATED_TIMESTAMPED_JOURNEY =
+            Configuration.newBuilder()
+                    .setRepetitions(2)
+                    .setSchedule(Schedule.TIMESTAMPED)
+                    .addScenarios(
+                            Scenario.newBuilder().setJourney(
+                                    "android.platform.test.scenario.calendar.FlingWeekPage"))
+                    .build();
+
+    private static final String CONFIG_WITH_REPEATED_JOURNEY_KEY = "config_with_repeated_journey";
+    protected static final Configuration CONFIG_WITH_REPEATED_JOURNEY =
+            Configuration.newBuilder()
+                    .setRepetitions(2)
+                    .setSchedule(Schedule.SEQUENTIAL)
+                    .addScenarios(
+                            Scenario.newBuilder().setJourney(
+                                    "android.platform.test.scenario.calendar.FlingWeekPage"))
+                    .addScenarios(
+                            Scenario.newBuilder().setJourney(
+                                    "android.platform.test.scenario.calendar.FlingDayPage"))
+                    .build();
+
     private static final String CONFIG_WITH_MISSING_TIMESTAMPS_KEY =
             "config_with_missing_timestamps";
     protected static final ImmutableMap<String, Configuration> TEST_CONFIGS= ImmutableMap.of(
             VALID_CONFIG_KEY, VALID_CONFIG,
-            CONFIG_WITH_INVALID_JOURNEY_KEY, CONFIG_WITH_INVALID_JOURNEY);
+            CONFIG_WITH_INVALID_JOURNEY_KEY, CONFIG_WITH_INVALID_JOURNEY,
+            CONFIG_WITH_REPEATED_TIMESTAMPED_JOURNEY_KEY, CONFIG_WITH_REPEATED_TIMESTAMPED_JOURNEY,
+            CONFIG_WITH_REPEATED_JOURNEY_KEY, CONFIG_WITH_REPEATED_JOURNEY);
     private static final ImmutableList<String> AVAILABLE_JOURNEYS = ImmutableList.of(
             "android.platform.test.scenario.calendar.FlingWeekPage",
             "android.platform.test.scenario.calendar.FlingDayPage",
@@ -126,6 +154,37 @@ public class ProfileTest {
                 r.getDescription().getDisplayName()).collect(Collectors.toList());
         boolean respected = outputDescriptions.equals(expectedJourneyOrder);
         assertThat(respected).isTrue();
+    }
+
+    /**
+     * Tests that the returned runners are ordered according to their scheduled timestamps.
+     */
+    @Test
+    public void testProfileRepeatRespected() {
+        ImmutableList<String> expectedJourneyOrder = ImmutableList.of(
+            "android.platform.test.scenario.calendar.FlingWeekPage",
+            "android.platform.test.scenario.calendar.FlingDayPage",
+            "android.platform.test.scenario.calendar.FlingWeekPage",
+            "android.platform.test.scenario.calendar.FlingDayPage");
+
+        List<Runner> output = getProfile(getArguments(CONFIG_WITH_REPEATED_JOURNEY_KEY))
+                .getRunnerSequence(mMockInput);
+        List<String> outputDescriptions = output.stream().map(r ->
+                r.getDescription().getDisplayName()).collect(Collectors.toList());
+        boolean respected = outputDescriptions.equals(expectedJourneyOrder);
+        assertThat(respected).isTrue();
+    }
+
+    /**
+     * Tests that the returned runners are ordered according to their scheduled timestamps.
+     */
+    @Test
+    public void testTimestampedProfileWithRepeatThrows() {
+        exceptionThrown.expect(IllegalArgumentException.class);
+        exceptionThrown.expectMessage("Repetitions param not supported for TIMESTAMPED scheduler");
+
+        List<Runner> output = getProfile(getArguments(CONFIG_WITH_REPEATED_TIMESTAMPED_JOURNEY_KEY))
+                .getRunnerSequence(mMockInput);
     }
 
     /**

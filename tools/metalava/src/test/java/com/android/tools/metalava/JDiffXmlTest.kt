@@ -23,7 +23,6 @@ class JDiffXmlTest : DriverTest() {
     @Test
     fun `Loading a signature file and writing the API back out`() {
         check(
-            compatibilityMode = true,
             signatureSource =
             """
             package test.pkg {
@@ -114,7 +113,6 @@ class JDiffXmlTest : DriverTest() {
     @Test
     fun `Abstract interfaces`() {
         check(
-            compatibilityMode = true,
             format = FileFormat.V2,
             signatureSource =
             """
@@ -191,7 +189,6 @@ class JDiffXmlTest : DriverTest() {
             }
             """
         check(
-            compatibilityMode = true,
             signatureSource = source,
             apiXml =
             """
@@ -217,30 +214,6 @@ class JDiffXmlTest : DriverTest() {
              deprecated="not deprecated"
              visibility="public"
             >
-            <method name="valueOf"
-             return="test.pkg.Foo"
-             abstract="false"
-             native="false"
-             synchronized="false"
-             static="true"
-             final="false"
-             deprecated="not deprecated"
-             visibility="public"
-            >
-            <parameter name="null" type="java.lang.String">
-            </parameter>
-            </method>
-            <method name="values"
-             return="test.pkg.Foo[]"
-             abstract="false"
-             native="false"
-             synchronized="false"
-             static="true"
-             final="true"
-             deprecated="not deprecated"
-             visibility="public"
-            >
-            </method>
             <constructor name="Foo"
              type="test.pkg.Foo"
              static="false"
@@ -388,7 +361,6 @@ class JDiffXmlTest : DriverTest() {
             }
             """
         check(
-            compatibilityMode = false,
             signatureSource = source,
             apiXml =
             """
@@ -479,116 +451,8 @@ class JDiffXmlTest : DriverTest() {
     }
 
     @Test
-    fun `Test enums compat mode`() {
-        val source = """
-            package test.pkg {
-              public final class Foo extends java.lang.Enum {
-                ctor public Foo(int);
-                ctor public Foo(int, int);
-                method public static test.pkg.Foo valueOf(java.lang.String);
-                method public static final test.pkg.Foo[] values();
-                enum_constant public static final test.pkg.Foo A;
-                enum_constant public static final test.pkg.Foo B;
-              }
-            }
-            """
-        check(
-            compatibilityMode = true,
-            signatureSource = source,
-            apiXml =
-            """
-            <api xmlns:metalava="http://www.android.com/metalava/">
-            <package name="test.pkg"
-            >
-            <class name="Foo"
-             extends="java.lang.Enum"
-             abstract="false"
-             static="false"
-             final="true"
-             deprecated="not deprecated"
-             visibility="public"
-            >
-            <method name="valueOf"
-             return="test.pkg.Foo"
-             abstract="false"
-             native="false"
-             synchronized="false"
-             static="true"
-             final="false"
-             deprecated="not deprecated"
-             visibility="public"
-            >
-            <parameter name="null" type="java.lang.String">
-            </parameter>
-            </method>
-            <method name="values"
-             return="test.pkg.Foo[]"
-             abstract="false"
-             native="false"
-             synchronized="false"
-             static="true"
-             final="true"
-             deprecated="not deprecated"
-             visibility="public"
-            >
-            </method>
-            <constructor name="Foo"
-             type="test.pkg.Foo"
-             static="false"
-             final="false"
-             deprecated="not deprecated"
-             visibility="public"
-            >
-            <parameter name="null" type="int">
-            </parameter>
-            </constructor>
-            <constructor name="Foo"
-             type="test.pkg.Foo"
-             static="false"
-             final="false"
-             deprecated="not deprecated"
-             visibility="public"
-            >
-            <parameter name="null" type="int">
-            </parameter>
-            <parameter name="null" type="int">
-            </parameter>
-            </constructor>
-            <method name="valueOf"
-             return="test.pkg.Foo"
-             abstract="false"
-             native="false"
-             synchronized="false"
-             static="true"
-             final="false"
-             deprecated="not deprecated"
-             visibility="public"
-            >
-            <parameter name="null" type="java.lang.String">
-            </parameter>
-            </method>
-            <method name="values"
-             return="test.pkg.Foo[]"
-             abstract="false"
-             native="false"
-             synchronized="false"
-             static="true"
-             final="true"
-             deprecated="not deprecated"
-             visibility="public"
-            >
-            </method>
-            </class>
-            </package>
-            </api>
-            """
-        )
-    }
-
-    @Test
     fun `Throws Lists`() {
         check(
-            compatibilityMode = true,
             signatureSource = """
                     package android.accounts {
                       public abstract interface AccountManagerFuture<V> {
@@ -657,7 +521,6 @@ class JDiffXmlTest : DriverTest() {
     @Test
     fun `Generics in interfaces`() {
         check(
-            compatibilityMode = false,
             signatureSource = """
                     package android.accounts {
                       public class ArgbEvaluator implements android.animation.DefaultEvaluator<D> implements android.animation.TypeEvaluator<V> {
@@ -693,7 +556,6 @@ class JDiffXmlTest : DriverTest() {
     @Test
     fun `Type Parameter Mapping`() {
         check(
-            compatibilityMode = false,
             signatureSource = """
                 package test.pkg {
                   public interface AbstractList<D,E,F> extends test.pkg.List<A,B,C> {
@@ -744,7 +606,6 @@ class JDiffXmlTest : DriverTest() {
     @Test
     fun `Half float short from signature file`() {
         check(
-            compatibilityMode = false,
             signatureSource = """
                 package test.pkg {
                   public class Test {
@@ -795,7 +656,6 @@ class JDiffXmlTest : DriverTest() {
     @Test
     fun `Half float short from source`() {
         check(
-            compatibilityMode = false,
             sourceFiles = arrayOf(
                 java(
                     """
@@ -846,42 +706,8 @@ class JDiffXmlTest : DriverTest() {
     }
 
     @Test
-    fun `Interface extends, compat mode`() {
+    fun `Interface extends`() {
         check(
-            compatibilityMode = true,
-            format = FileFormat.V1,
-            signatureSource = """
-            // Signature format: 2.0
-            package android.companion {
-              public interface DeviceFilter<D extends android.os.Parcelable> extends android.os.Parcelable {
-              }
-            }
-            """,
-            apiXml =
-            """
-            <api xmlns:metalava="http://www.android.com/metalava/">
-            <package name="android.companion"
-            >
-            <interface name="DeviceFilter"
-             abstract="true"
-             static="false"
-             final="false"
-             deprecated="not deprecated"
-             visibility="public"
-            >
-            <implements name="android.os.Parcelable">
-            </implements>
-            </interface>
-            </package>
-            </api>
-            """
-        )
-    }
-
-    @Test
-    fun `Interface extends, non-compat mode`() {
-        check(
-            compatibilityMode = false,
             format = FileFormat.V2,
             signatureSource = """
             // Signature format: 2.0
@@ -914,7 +740,6 @@ class JDiffXmlTest : DriverTest() {
     fun `Test default methods from signature files`() {
         // Ensure that we treat not just static but default methods in interfaces as non-abstract
         check(
-            compatibilityMode = true,
             format = FileFormat.V1,
             signatureSource = """
                 package test.pkg {
@@ -961,7 +786,6 @@ class JDiffXmlTest : DriverTest() {
         // *diffs* relative to the base API, are tricky: They may for example list just an
         // inner class. See 122926140 for a scenario where this happens.
         check(
-            compatibilityMode = true,
             format = FileFormat.V1,
             signatureSource = """
             // Signature format: 2.0
@@ -1044,7 +868,6 @@ class JDiffXmlTest : DriverTest() {
         // JDiff expects spaces in type argument lists
         // Regression test for 123140708
         check(
-            compatibilityMode = false,
             format = FileFormat.V2,
             signatureSource = """
             // Signature format: 2.0

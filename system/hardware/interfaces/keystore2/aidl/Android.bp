@@ -25,7 +25,6 @@ aidl_interface {
     backend: {
         java: {
             platform_apis: true,
-            srcs_available: true,
         },
         ndk: {
             vndk: {
@@ -35,7 +34,22 @@ aidl_interface {
         },
         rust: {
             enabled: true,
+            apex_available: [
+                "//apex_available:platform",
+                "com.android.compos",
+            ],
         },
     },
-    versions: ["1"],
+    versions_with_info: [
+        {
+            version: "1",
+            imports: ["android.hardware.security.keymint-V1"],
+        },
+        {
+            version: "2",
+            imports: ["android.hardware.security.keymint-V2"],
+        },
+
+    ],
+
 }

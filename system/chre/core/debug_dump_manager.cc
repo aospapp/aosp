@@ -48,13 +48,13 @@ void DebugDumpManager::trigger() {
 
 void DebugDumpManager::appendNanoappLog(const Nanoapp &nanoapp,
                                         const char *formatStr, va_list args) {
-  uint32_t instanceId = nanoapp.getInstanceId();
+  uint16_t instanceId = nanoapp.getInstanceId();
 
   // Note this check isn't exact as it's possible that the nanoapp isn't
   // handling CHRE_EVENT_DEBUG_DUMP. This approximate check is used for its low
   // complexity as it doesn't introduce any real harms.
   if (!mCollectingNanoappDebugDumps) {
-    LOGW("Nanoapp instance %" PRIu32
+    LOGW("Nanoapp instance %" PRIu16
          " logging debug data while not in an active debug dump session",
          instanceId);
   } else if (formatStr != nullptr) {
@@ -89,7 +89,10 @@ void DebugDumpManager::collectFrameworkDebugDumps() {
 #ifdef CHRE_AUDIO_SUPPORT_ENABLED
   eventLoopManager->getAudioRequestManager().logStateToBuffer(mDebugDump);
 #endif  // CHRE_AUDIO_SUPPORT_ENABLED
-  logSettingStateToBuffer(mDebugDump);
+#ifdef CHRE_BLE_SUPPORT_ENABLED
+  eventLoopManager->getBleRequestManager().logStateToBuffer(mDebugDump);
+#endif  // CHRE_BLE_SUPPORT_ENABLED
+  eventLoopManager->getSettingManager().logStateToBuffer(mDebugDump);
   logStateToBuffer(mDebugDump);
 }
 

@@ -25,7 +25,7 @@
 #include "DwarfEncoding.h"
 
 #include "LogFake.h"
-#include "MemoryFake.h"
+#include "utils/MemoryFake.h"
 
 namespace unwindstack {
 
@@ -479,7 +479,7 @@ TYPED_TEST_P(DwarfEhFrameWithHdrTest, GetCieFde32) {
 
   ASSERT_TRUE(fde->cie != nullptr);
   EXPECT_EQ(1U, fde->cie->version);
-  EXPECT_EQ(DW_EH_PE_sdata4, fde->cie->fde_address_encoding);
+  EXPECT_EQ(DW_EH_PE_udata4, fde->cie->fde_address_encoding);
   EXPECT_EQ(DW_EH_PE_omit, fde->cie->lsda_encoding);
   EXPECT_EQ(0U, fde->cie->segment_size);
   EXPECT_EQ(1U, fde->cie->augmentation_string.size());
@@ -517,7 +517,7 @@ TYPED_TEST_P(DwarfEhFrameWithHdrTest, GetCieFde64) {
 
   ASSERT_TRUE(fde->cie != nullptr);
   EXPECT_EQ(1U, fde->cie->version);
-  EXPECT_EQ(DW_EH_PE_sdata8, fde->cie->fde_address_encoding);
+  EXPECT_EQ(DW_EH_PE_udata8, fde->cie->fde_address_encoding);
   EXPECT_EQ(DW_EH_PE_omit, fde->cie->lsda_encoding);
   EXPECT_EQ(0U, fde->cie->segment_size);
   EXPECT_EQ(1U, fde->cie->augmentation_string.size());

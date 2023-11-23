@@ -34,10 +34,11 @@ class StatusBarLayerPositionAtStart : BaseAssertion() {
         wmSubject: WindowManagerTraceSubject,
         layerSubject: LayersTraceSubject
     ) {
-        val startDisplay = layerSubject.first().entry.displays.minByOrNull { it.id }
-            ?: throw RuntimeException("Display not found")
+        val targetSubject = layerSubject.first()
+        val startDisplay = targetSubject.entry.displays.firstOrNull { !it.isVirtual }
+            ?: error("Display not found")
 
-        layerSubject.first().visibleRegion(FlickerComponentName.STATUS_BAR)
+        targetSubject.visibleRegion(FlickerComponentName.STATUS_BAR)
             .coversExactly(WindowUtils.getStatusBarPosition(startDisplay))
     }
 }

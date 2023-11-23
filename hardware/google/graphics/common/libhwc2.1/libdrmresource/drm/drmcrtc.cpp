@@ -55,6 +55,8 @@ int DrmCrtc::Init() {
 
   if (drm_->GetCrtcProperty(*this, "cgc_lut", &cgc_lut_property_))
     ALOGI("Failed to get cgc_lut property");
+  if (drm_->GetCrtcProperty(*this, "cgc_lut_fd", &cgc_lut_fd_property_))
+    ALOGI("Failed to get cgc_lut_fd property");
   if (drm_->GetCrtcProperty(*this, "DEGAMMA_LUT", &degamma_lut_property_))
     ALOGI("Failed to get &degamma_lut property");
   if (drm_->GetCrtcProperty(*this, "DEGAMMA_LUT_SIZE", &degamma_lut_size_property_))
@@ -83,11 +85,22 @@ int DrmCrtc::Init() {
     ALOGI("Failed to get &dqe_enabled_property property");
   if (drm_->GetCrtcProperty(*this, "color mode", &color_mode_property_))
     ALOGI("Failed to get color mode property");
+  if (drm_->GetCrtcProperty(*this, "expected_present_time", &expected_present_time_property_))
+      ALOGI("Failed to get expected_present_time property");
+
+  /* Histogram Properties */
+  if (drm_->GetCrtcProperty(*this, "histogram_roi", &histogram_roi_property_))
+      ALOGI("Failed to get &histogram_roi property");
+  if (drm_->GetCrtcProperty(*this, "histogram_weights", &histogram_weights_property_))
+      ALOGI("Failed to get &histogram_weights property");
+  if (drm_->GetCrtcProperty(*this, "histogram_threshold", &histogram_threshold_property_))
+      ALOGI("Failed to get &histogram_threshold property");
 
   properties_.push_back(&active_property_);
   properties_.push_back(&mode_property_);
   properties_.push_back(&out_fence_ptr_property_);
   properties_.push_back(&cgc_lut_property_);
+  properties_.push_back(&cgc_lut_fd_property_);
   properties_.push_back(&degamma_lut_property_);
   properties_.push_back(&degamma_lut_size_property_);
   properties_.push_back(&gamma_lut_property_);
@@ -103,6 +116,12 @@ int DrmCrtc::Init() {
   properties_.push_back(&max_disp_freq_property_);
   properties_.push_back(&dqe_enabled_property_);
   properties_.push_back(&color_mode_property_);
+  properties_.push_back(&expected_present_time_property_);
+
+  /* Histogram Properties */
+  properties_.push_back(&histogram_roi_property_);
+  properties_.push_back(&histogram_weights_property_);
+  properties_.push_back(&histogram_threshold_property_);
 
   return 0;
 }
@@ -153,6 +172,10 @@ const DrmProperty &DrmCrtc::out_fence_ptr_property() const {
 
 const DrmProperty &DrmCrtc::cgc_lut_property() const {
     return cgc_lut_property_;
+}
+
+const DrmProperty &DrmCrtc::cgc_lut_fd_property() const {
+    return cgc_lut_fd_property_;
 }
 
 const DrmProperty &DrmCrtc::degamma_lut_property() const {
@@ -213,6 +236,23 @@ const DrmProperty &DrmCrtc::dqe_enabled_property() const {
 
 const DrmProperty &DrmCrtc::color_mode_property() const {
     return color_mode_property_;
+}
+
+const DrmProperty &DrmCrtc::expected_present_time_property() const {
+    return expected_present_time_property_;
+}
+
+/* Histogram Properties */
+const DrmProperty &DrmCrtc::histogram_roi_property() const {
+    return histogram_roi_property_;
+}
+
+const DrmProperty &DrmCrtc::histogram_weights_property() const {
+    return histogram_weights_property_;
+}
+
+const DrmProperty &DrmCrtc::histogram_threshold_property() const {
+    return histogram_threshold_property_;
 }
 
 }  // namespace android

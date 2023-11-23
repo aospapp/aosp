@@ -35,20 +35,15 @@ MOCK_LOGFILE_PATH = '/path/to/foo'
 
 class IPerfServerModuleTest(unittest.TestCase):
     """Tests the acts.controllers.iperf_server module."""
-
     def test_create_creates_local_iperf_server_with_int(self):
         self.assertIsInstance(
-            iperf_server.create([12345])[0],
-            IPerfServer,
-            'create() failed to create IPerfServer for integer input.'
-        )
+            iperf_server.create([12345])[0], IPerfServer,
+            'create() failed to create IPerfServer for integer input.')
 
     def test_create_creates_local_iperf_server_with_str(self):
         self.assertIsInstance(
-            iperf_server.create(['12345'])[0],
-            IPerfServer,
-            'create() failed to create IPerfServer for integer input.'
-        )
+            iperf_server.create(['12345'])[0], IPerfServer,
+            'create() failed to create IPerfServer for integer input.')
 
     def test_create_cannot_create_local_iperf_server_with_bad_str(self):
         with self.assertRaises(ValueError):
@@ -57,39 +52,47 @@ class IPerfServerModuleTest(unittest.TestCase):
     @mock.patch('acts.controllers.iperf_server.utils')
     def test_create_creates_server_over_ssh_with_ssh_config_and_port(self, _):
         self.assertIsInstance(
-            iperf_server.create([{'ssh_config': {'user': '', 'host': ''},
-                                  'port': ''}])[0],
-            IPerfServerOverSsh,
-            'create() failed to create IPerfServerOverSsh for a valid config.'
-        )
+            iperf_server.create([{
+                'ssh_config': {
+                    'user': '',
+                    'host': ''
+                },
+                'port': ''
+            }])[0], IPerfServerOverSsh,
+            'create() failed to create IPerfServerOverSsh for a valid config.')
 
     def test_create_creates_server_over_adb_with_proper_config(self):
         self.assertIsInstance(
-            iperf_server.create([{'AndroidDevice': '53R147', 'port': 0}])[0],
-            IPerfServerOverAdb,
-            'create() failed to create IPerfServerOverAdb for a valid config.'
-        )
+            iperf_server.create([{
+                'AndroidDevice': '53R147',
+                'port': 0
+            }])[0], IPerfServerOverAdb,
+            'create() failed to create IPerfServerOverAdb for a valid config.')
 
     def test_create_raises_value_error_on_bad_config_dict(self):
         with self.assertRaises(ValueError):
-            iperf_server.create([{'AndroidDevice': '53R147', 'ssh_config': {}}])
+            iperf_server.create([{
+                'AndroidDevice': '53R147',
+                'ssh_config': {}
+            }])
 
     def test_get_port_from_ss_output_returns_correct_port_ipv4(self):
         ss_output = ('tcp LISTEN  0 5 127.0.0.1:<PORT>  *:*'
                      ' users:(("cmd",pid=<PID>,fd=3))')
         self.assertEqual(
-            iperf_server._get_port_from_ss_output(ss_output, '<PID>'), '<PORT>')
+            iperf_server._get_port_from_ss_output(ss_output, '<PID>'),
+            '<PORT>')
 
     def test_get_port_from_ss_output_returns_correct_port_ipv6(self):
         ss_output = ('tcp LISTEN  0 5 ff:ff:ff:ff:ff:ff:<PORT>  *:*'
                      ' users:(("cmd",pid=<PID>,fd=3))')
         self.assertEqual(
-            iperf_server._get_port_from_ss_output(ss_output, '<PID>'), '<PORT>')
+            iperf_server._get_port_from_ss_output(ss_output, '<PID>'),
+            '<PORT>')
 
 
 class IPerfServerBaseTest(unittest.TestCase):
     """Tests acts.controllers.iperf_server.IPerfServerBase."""
-
     @mock.patch('os.makedirs')
     def test_get_full_file_path_creates_parent_directory(self, mock_makedirs):
         # Will never actually be created/used.
@@ -99,15 +102,11 @@ class IPerfServerBaseTest(unittest.TestCase):
 
         full_file_path = server._get_full_file_path()
 
-        self.assertTrue(
-            mock_makedirs.called,
-            'Did not attempt to create a directory.'
-        )
+        self.assertTrue(mock_makedirs.called,
+                        'Did not attempt to create a directory.')
         self.assertEqual(
-            os.path.dirname(full_file_path),
-            mock_makedirs.call_args[ARGS][0],
-            'The parent directory of the full file path was not created.'
-        )
+            os.path.dirname(full_file_path), mock_makedirs.call_args[ARGS][0],
+            'The parent directory of the full file path was not created.')
 
 
 class IPerfServerTest(unittest.TestCase):
@@ -152,10 +151,8 @@ class IPerfServerTest(unittest.TestCase):
         server.start()
 
         self.assertEqual(
-            server._current_log_file,
-            MOCK_LOGFILE_PATH,
-            'The _current_log_file was not received from _get_full_file_path.'
-        )
+            server._current_log_file, MOCK_LOGFILE_PATH,
+            'The _current_log_file was not received from _get_full_file_path.')
 
     @mock.patch('builtins.open')
     @mock.patch('acts.controllers.iperf_server.subprocess')
@@ -167,16 +164,14 @@ class IPerfServerTest(unittest.TestCase):
 
         log_file = server.stop()
 
-        self.assertEqual(
-            log_file,
-            MOCK_LOGFILE_PATH,
-            'The _current_log_file was not returned by stop().'
-        )
+        self.assertEqual(log_file, MOCK_LOGFILE_PATH,
+                         'The _current_log_file was not returned by stop().')
 
     @mock.patch('builtins.open')
     @mock.patch('acts.controllers.iperf_server.subprocess')
     @mock.patch('acts.controllers.iperf_server.job')
-    def test_start_does_not_run_two_concurrent_processes(self, start_proc, _, __):
+    def test_start_does_not_run_two_concurrent_processes(
+            self, start_proc, _, __):
         server = IPerfServer('port')
         server._get_full_file_path = lambda _: MOCK_LOGFILE_PATH
         server._iperf_process = mock.Mock()
@@ -185,8 +180,7 @@ class IPerfServerTest(unittest.TestCase):
 
         self.assertFalse(
             start_proc.called,
-            'start() should not begin a second process if another is running.'
-        )
+            'start() should not begin a second process if another is running.')
 
     @mock.patch('acts.utils.stop_standing_subprocess')
     def test_stop_exits_early_if_no_process_has_started(self, stop_proc):
@@ -198,8 +192,7 @@ class IPerfServerTest(unittest.TestCase):
 
         self.assertFalse(
             stop_proc.called,
-            'stop() should not kill a process if no process is running.'
-        )
+            'stop() should not kill a process if no process is running.')
 
 
 class IPerfServerOverSshTest(unittest.TestCase):
@@ -212,6 +205,7 @@ class IPerfServerOverSshTest(unittest.TestCase):
         """Tests calling start() without calling stop() makes started True."""
         server = IPerfServerOverSsh(*self.INIT_ARGS)
         server._ssh_session = mock.Mock()
+        server._cleanup_iperf_port = mock.Mock()
         server._get_full_file_path = lambda _: MOCK_LOGFILE_PATH
 
         server.start()
@@ -224,6 +218,7 @@ class IPerfServerOverSshTest(unittest.TestCase):
         """Tests calling start() without calling stop() makes started True."""
         server = IPerfServerOverSsh(*self.INIT_ARGS)
         server._ssh_session = mock.Mock()
+        server._cleanup_iperf_port = mock.Mock()
         server._get_full_file_path = lambda _: MOCK_LOGFILE_PATH
 
         server.start()
@@ -236,21 +231,20 @@ class IPerfServerOverSshTest(unittest.TestCase):
     def test_stop_returns_expected_log_file(self, _, __):
         server = IPerfServerOverSsh(*self.INIT_ARGS)
         server._ssh_session = mock.Mock()
+        server._cleanup_iperf_port = mock.Mock()
         server._get_full_file_path = lambda _: MOCK_LOGFILE_PATH
         server._iperf_pid = mock.Mock()
 
         log_file = server.stop()
 
-        self.assertEqual(
-            log_file,
-            MOCK_LOGFILE_PATH,
-            'The expected log file was not returned by stop().'
-        )
+        self.assertEqual(log_file, MOCK_LOGFILE_PATH,
+                         'The expected log file was not returned by stop().')
 
     @mock.patch('acts.controllers.iperf_server.connection')
     def test_start_does_not_run_two_concurrent_processes(self, _):
         server = IPerfServerOverSsh(*self.INIT_ARGS)
         server._ssh_session = mock.Mock()
+        server._cleanup_iperf_port = mock.Mock()
         server._get_full_file_path = lambda _: MOCK_LOGFILE_PATH
         server._iperf_pid = mock.Mock()
 
@@ -258,14 +252,14 @@ class IPerfServerOverSshTest(unittest.TestCase):
 
         self.assertFalse(
             server._ssh_session.run_async.called,
-            'start() should not begin a second process if another is running.'
-        )
+            'start() should not begin a second process if another is running.')
 
     @mock.patch('acts.utils.stop_standing_subprocess')
     @mock.patch('acts.controllers.iperf_server.connection')
     def test_stop_exits_early_if_no_process_has_started(self, _, __):
         server = IPerfServerOverSsh(*self.INIT_ARGS)
         server._ssh_session = mock.Mock()
+        server._cleanup_iperf_port = mock.Mock()
         server._get_full_file_path = lambda _: MOCK_LOGFILE_PATH
         server._iperf_pid = None
 
@@ -273,8 +267,7 @@ class IPerfServerOverSshTest(unittest.TestCase):
 
         self.assertFalse(
             server._ssh_session.run_async.called,
-            'stop() should not kill a process if no process is running.'
-        )
+            'stop() should not kill a process if no process is running.')
 
 
 class IPerfServerOverAdbTest(unittest.TestCase):
@@ -320,11 +313,8 @@ class IPerfServerOverAdbTest(unittest.TestCase):
 
         log_file = server.stop()
 
-        self.assertEqual(
-            log_file,
-            MOCK_LOGFILE_PATH,
-            'The expected log file was not returned by stop().'
-        )
+        self.assertEqual(log_file, MOCK_LOGFILE_PATH,
+                         'The expected log file was not returned by stop().')
 
     @mock.patch(ANDROID_DEVICE_PROP)
     def test_start_does_not_run_two_concurrent_processes(self, android_device):
@@ -336,14 +326,13 @@ class IPerfServerOverAdbTest(unittest.TestCase):
 
         self.assertFalse(
             android_device.adb.shell_nb.called,
-            'start() should not begin a second process if another is running.'
-        )
+            'start() should not begin a second process if another is running.')
 
     @mock.patch('acts.libs.proc.job.run')
     @mock.patch('builtins.open')
     @mock.patch(ANDROID_DEVICE_PROP)
-    def test_stop_exits_early_if_no_process_has_started(self, android_device, _,
-                                                        __):
+    def test_stop_exits_early_if_no_process_has_started(
+            self, android_device, _, __):
         server = IPerfServerOverAdb('53R147', 'PORT')
         server._get_full_file_path = lambda _: MOCK_LOGFILE_PATH
         server._iperf_pid = None
@@ -352,8 +341,7 @@ class IPerfServerOverAdbTest(unittest.TestCase):
 
         self.assertFalse(
             android_device.adb.shell_nb.called,
-            'stop() should not kill a process if no process is running.'
-        )
+            'stop() should not kill a process if no process is running.')
 
 
 if __name__ == '__main__':

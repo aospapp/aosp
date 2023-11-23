@@ -16,11 +16,10 @@
 
 package android.location.cts.none;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import android.location.Location;
@@ -38,87 +37,140 @@ import java.text.DecimalFormat;
 @RunWith(AndroidJUnit4.class)
 public class LocationTest {
 
-    private static final float DELTA = 0.1f;
-    private final float TEST_ACCURACY = 1.0f;
-    private final float TEST_VERTICAL_ACCURACY = 2.0f;
-    private final float TEST_SPEED_ACCURACY = 3.0f;
-    private final float TEST_BEARING_ACCURACY = 4.0f;
-    private final double TEST_ALTITUDE = 1.0;
-    private final double TEST_LATITUDE = 50;
-    private final float TEST_BEARING = 1.0f;
-    private final double TEST_LONGITUDE = 20;
-    private final float TEST_SPEED = 5.0f;
-    private final long TEST_TIME = 100;
-    private final String TEST_PROVIDER = "LocationProvider";
-    private final String TEST_KEY1NAME = "key1";
-    private final String TEST_KEY2NAME = "key2";
-    private final boolean TEST_KEY1VALUE = false;
-    private final byte TEST_KEY2VALUE = 10;
+    private static final float DELTA = 0.01f;
 
     @Test
-    public void testConstructor() {
-        new Location("LocationProvider");
+    public void testConstructor_Defaults() {
+        Location l = new Location("provider");
 
-        Location l = createTestLocation();
-        Location location = new Location(l);
-        assertTestLocation(location);
+        assertThat(l.getProvider()).isEqualTo("provider");
+        assertThat(l.getTime()).isEqualTo(0);
+        assertThat(l.getElapsedRealtimeNanos()).isEqualTo(0);
+        assertThat(l.hasElapsedRealtimeUncertaintyNanos()).isFalse();
+        assertThat(l.getLatitude()).isEqualTo(0);
+        assertThat(l.getLongitude()).isEqualTo(0);
+        assertThat(l.hasAltitude()).isFalse();
+        assertThat(l.hasSpeed()).isFalse();
+        assertThat(l.hasBearing()).isFalse();
+        assertThat(l.hasVerticalAccuracy()).isFalse();
+        assertThat(l.hasSpeedAccuracy()).isFalse();
+        assertThat(l.hasBearingAccuracy()).isFalse();
+        assertThat(l.isMock()).isFalse();
+        assertThat(l.getExtras()).isNull();
+    }
 
-        try {
-            new Location((Location) null);
-            fail("should throw NullPointerException");
-        } catch (NullPointerException e) {
-            // expected.
-        }
+    @Test
+    public void testSet() {
+        Location location = new Location("");
+
+        Location l = new Location("test");
+        l.setTime(1);
+        l.setElapsedRealtimeNanos(2);
+        l.setElapsedRealtimeUncertaintyNanos(3);
+        l.setLatitude(-90);
+        l.setLongitude(90);
+        l.setAltitude(100);
+        l.setVerticalAccuracyMeters(90);
+        l.setSpeed(1000);
+        l.setSpeedAccuracyMetersPerSecond(9);
+        l.setBearing(7);
+        l.setBearingAccuracyDegrees(11);
+        l.setMock(true);
+        Bundle b = new Bundle();
+        b.putString("key", "value");
+        l.setExtras(b);
+
+        location.set(l);
+        assertThat(location).isEqualTo(l);
+    }
+
+    @Test
+    public void testValues() {
+        Location l = new Location("provider");
+
+        l.setProvider("test");
+        assertThat(l.getProvider()).isEqualTo("test");
+
+        l.setTime(1);
+        assertThat(l.getTime()).isEqualTo(1);
+        l.setTime(Long.MAX_VALUE);
+        assertThat(l.getTime()).isEqualTo(Long.MAX_VALUE);
+
+        l.setElapsedRealtimeNanos(1);
+        assertThat(l.getElapsedRealtimeNanos()).isEqualTo(1);
+        l.setElapsedRealtimeNanos(Long.MAX_VALUE);
+        assertThat(l.getElapsedRealtimeNanos()).isEqualTo(Long.MAX_VALUE);
+
+        l.setElapsedRealtimeUncertaintyNanos(1);
+        assertThat(l.hasElapsedRealtimeUncertaintyNanos()).isTrue();
+        assertThat(l.getElapsedRealtimeUncertaintyNanos()).isEqualTo(1);
+        l.removeElapsedRealtimeUncertaintyNanos();
+        assertThat(l.hasElapsedRealtimeUncertaintyNanos()).isFalse();
+
+        l.setLatitude(-90);
+        assertThat(l.getLatitude()).isEqualTo(-90);
+
+        l.setLongitude(90);
+        assertThat(l.getLongitude()).isEqualTo(90);
+
+        l.setAltitude(100);
+        assertThat(l.hasAltitude()).isTrue();
+        assertThat(l.getAltitude()).isEqualTo(100);
+        l.removeAltitude();
+        assertThat(l.hasAltitude()).isFalse();
+
+        l.setVerticalAccuracyMeters(90);
+        assertThat(l.hasVerticalAccuracy()).isTrue();
+        assertThat(l.getVerticalAccuracyMeters()).isEqualTo(90);
+        l.removeVerticalAccuracy();
+        assertThat(l.hasVerticalAccuracy()).isFalse();
+
+        l.setSpeed(1000);
+        assertThat(l.hasSpeed()).isTrue();
+        assertThat(l.getSpeed()).isEqualTo(1000);
+        l.removeSpeed();
+        assertThat(l.hasSpeed()).isFalse();
+
+        l.setSpeedAccuracyMetersPerSecond(9);
+        assertThat(l.hasSpeedAccuracy()).isTrue();
+        assertThat(l.getSpeedAccuracyMetersPerSecond()).isEqualTo(9);
+        l.removeSpeedAccuracy();
+        assertThat(l.hasSpeedAccuracy()).isFalse();
+
+        l.setBearing(7);
+        assertThat(l.hasBearing()).isTrue();
+        assertThat(l.getBearing()).isEqualTo(7);
+        l.setBearing(Float.MAX_VALUE);
+        assertThat(l.getBearing()).isEqualTo(0);
+        l.setBearing((Float.MAX_VALUE - 1) * -1);
+        assertThat(l.getBearing()).isEqualTo(0);
+        l.setBearing(371);
+        assertThat(l.getBearing()).isEqualTo(11f);
+        l.setBearing(-371);
+        assertThat(l.getBearing()).isEqualTo(349f);
+        l.removeBearing();
+        assertThat(l.hasBearing()).isFalse();
+
+        l.setBearingAccuracyDegrees(11);
+        assertThat(l.hasBearingAccuracy()).isTrue();
+        assertThat(l.getBearingAccuracyDegrees()).isEqualTo(11);
+        l.removeBearingAccuracy();
+        assertThat(l.hasBearingAccuracy()).isFalse();
+
+        l.setMock(true);
+        assertThat(l.isMock()).isTrue();
+        l.setMock(false);
+        assertThat(l.isMock()).isFalse();
+
+        l.setExtras(new Bundle());
+        assertThat(l.getExtras()).isNotNull();
     }
 
     @Test
     public void testDump() {
         StringBuilder sb = new StringBuilder();
-        StringBuilderPrinter printer = new StringBuilderPrinter(sb);
-        Location location = new Location("LocationProvider");
-        location.dump(printer, "");
+        new Location("").dump(new StringBuilderPrinter(sb), "");
         assertNotNull(sb.toString());
-    }
-
-    @Test
-    public void testBearingTo() {
-        Location location = new Location("");
-        Location dest = new Location("");
-
-        // set the location to Beijing
-        location.setLatitude(39.9);
-        location.setLongitude(116.4);
-        // set the destination to Chengdu
-        dest.setLatitude(30.7);
-        dest.setLongitude(104.1);
-        assertEquals(-128.66, location.bearingTo(dest), DELTA);
-
-        float bearing;
-        Location zeroLocation = new Location("");
-        zeroLocation.setLatitude(0);
-        zeroLocation.setLongitude(0);
-
-        Location testLocation = new Location("");
-        testLocation.setLatitude(0);
-        testLocation.setLongitude(150);
-
-        bearing = zeroLocation.bearingTo(zeroLocation);
-        assertEquals(0.0f, bearing, DELTA);
-
-        bearing = zeroLocation.bearingTo(testLocation);
-        assertEquals(90.0f, bearing, DELTA);
-
-        testLocation.setLatitude(90);
-        testLocation.setLongitude(0);
-        bearing = zeroLocation.bearingTo(testLocation);
-        assertEquals(0.0f, bearing, DELTA);
-
-        try {
-            location.bearingTo(null);
-            fail("should throw NullPointerException");
-        } catch (NullPointerException e) {
-            // expected.
-        }
     }
 
     @Test
@@ -219,12 +271,6 @@ public class LocationTest {
     }
 
     @Test
-    public void testDescribeContents() {
-        Location location = new Location("");
-        location.describeContents();
-    }
-
-    @Test
     public void testDistanceBetween() {
         float[] result = new float[3];
         Location.distanceBetween(0, 0, 0, 0, result);
@@ -271,278 +317,72 @@ public class LocationTest {
     }
 
     @Test
-    public void testAccessAccuracy() {
+    public void testBearingTo() {
         Location location = new Location("");
-        assertFalse(location.hasAccuracy());
+        Location dest = new Location("");
 
-        location.setAccuracy(1.0f);
-        assertEquals(1.0, location.getAccuracy(), DELTA);
-        assertTrue(location.hasAccuracy());
+        // set the location to Beijing
+        location.setLatitude(39.9);
+        location.setLongitude(116.4);
+        // set the destination to Chengdu
+        dest.setLatitude(30.7);
+        dest.setLongitude(104.1);
+        assertEquals(-128.66, location.bearingTo(dest), DELTA);
+
+        float bearing;
+        Location zeroLocation = new Location("");
+        zeroLocation.setLatitude(0);
+        zeroLocation.setLongitude(0);
+
+        Location testLocation = new Location("");
+        testLocation.setLatitude(0);
+        testLocation.setLongitude(150);
+
+        bearing = zeroLocation.bearingTo(zeroLocation);
+        assertEquals(0.0f, bearing, DELTA);
+
+        bearing = zeroLocation.bearingTo(testLocation);
+        assertEquals(90.0f, bearing, DELTA);
+
+        testLocation.setLatitude(90);
+        testLocation.setLongitude(0);
+        bearing = zeroLocation.bearingTo(testLocation);
+        assertEquals(0.0f, bearing, DELTA);
+
+        try {
+            location.bearingTo(null);
+            fail("should throw NullPointerException");
+        } catch (NullPointerException e) {
+            // expected.
+        }
     }
 
     @Test
-    public void testAccessVerticalAccuracy() {
-        Location location = new Location("");
-        assertFalse(location.hasVerticalAccuracy());
-
-        location.setVerticalAccuracyMeters(1.0f);
-        assertEquals(1.0, location.getVerticalAccuracyMeters(), DELTA);
-        assertTrue(location.hasVerticalAccuracy());
-    }
-
-    @Test
-    public void testAccessSpeedAccuracy() {
-        Location location = new Location("");
-        assertFalse(location.hasSpeedAccuracy());
-
-        location.setSpeedAccuracyMetersPerSecond(1.0f);
-        assertEquals(1.0, location.getSpeedAccuracyMetersPerSecond(), DELTA);
-        assertTrue(location.hasSpeedAccuracy());
-    }
-
-    @Test
-    public void testAccessBearingAccuracy() {
-        Location location = new Location("");
-        assertFalse(location.hasBearingAccuracy());
-
-        location.setBearingAccuracyDegrees(1.0f);
-        assertEquals(1.0, location.getBearingAccuracyDegrees(), DELTA);
-        assertTrue(location.hasBearingAccuracy());
-    }
-
-
-    @Test
-    public void testAccessAltitude() {
-        Location location = new Location("");
-        assertFalse(location.hasAltitude());
-
-        location.setAltitude(1.0);
-        assertEquals(1.0, location.getAltitude(), DELTA);
-        assertTrue(location.hasAltitude());
-    }
-
-    @Test
-    public void testAccessBearing() {
-        Location location = new Location("");
-        assertFalse(location.hasBearing());
-
-        location.setBearing(1.0f);
-        assertEquals(1.0, location.getBearing(), DELTA);
-        assertTrue(location.hasBearing());
-
-        location.setBearing(371.0f);
-        assertEquals(11.0, location.getBearing(), DELTA);
-        assertTrue(location.hasBearing());
-
-        location.setBearing(-361.0f);
-        assertEquals(359.0, location.getBearing(), DELTA);
-        assertTrue(location.hasBearing());
-    }
-
-    @Test
-    public void testAccessExtras() {
-        Location location = createTestLocation();
-
-        assertTestBundle(location.getExtras());
-
-        location.setExtras(null);
-        assertNull(location.getExtras());
-    }
-
-    @Test
-    public void testAccessLatitude() {
-        Location location = new Location("");
-
-        location.setLatitude(0);
-        assertEquals(0, location.getLatitude(), DELTA);
-
-        location.setLatitude(90);
-        assertEquals(90, location.getLatitude(), DELTA);
-
-        location.setLatitude(-90);
-        assertEquals(-90, location.getLatitude(), DELTA);
-    }
-
-    @Test
-    public void testAccessLongitude() {
-        Location location = new Location("");
-
-        location.setLongitude(0);
-        assertEquals(0, location.getLongitude(), DELTA);
-
-        location.setLongitude(180);
-        assertEquals(180, location.getLongitude(), DELTA);
-
-        location.setLongitude(-180);
-        assertEquals(-180, location.getLongitude(), DELTA);
-    }
-
-    @Test
-    public void testAccessProvider() {
-        Location location = new Location("");
-
-        String provider = "Location Provider";
-        location.setProvider(provider);
-        assertEquals(provider, location.getProvider());
-
-        location.setProvider(null);
-        assertNull(location.getProvider());
-    }
-
-    @Test
-    public void testAccessSpeed() {
-        Location location = new Location("");
-        assertFalse(location.hasSpeed());
-
-        location.setSpeed(234.0045f);
-        assertEquals(234.0045, location.getSpeed(), DELTA);
-        assertTrue(location.hasSpeed());
-    }
-
-    @Test
-    public void testAccessTime() {
-        Location location = new Location("");
-
-        location.setTime(0);
-        assertEquals(0, location.getTime());
-
-        location.setTime(Long.MAX_VALUE);
-        assertEquals(Long.MAX_VALUE, location.getTime());
-
-        location.setTime(12000);
-        assertEquals(12000, location.getTime());
-    }
-
-    @Test
-    public void testAccessElapsedRealtime() {
-        Location location = new Location("");
-
-        location.setElapsedRealtimeNanos(0);
-        assertEquals(0, location.getElapsedRealtimeNanos());
-
-        location.setElapsedRealtimeNanos(Long.MAX_VALUE);
-        assertEquals(Long.MAX_VALUE, location.getElapsedRealtimeNanos());
-
-        location.setElapsedRealtimeNanos(12000);
-        assertEquals(12000, location.getElapsedRealtimeNanos());
-    }
-
-    @Test
-    public void testAccessElapsedRealtimeUncertaintyNanos() {
-        Location location = new Location("");
-        assertFalse(location.hasElapsedRealtimeUncertaintyNanos());
-        assertEquals(0.0, location.getElapsedRealtimeUncertaintyNanos(), DELTA);
-
-        location.setElapsedRealtimeUncertaintyNanos(12000.0);
-        assertEquals(12000.0, location.getElapsedRealtimeUncertaintyNanos(), DELTA);
-        assertTrue(location.hasElapsedRealtimeUncertaintyNanos());
-
-        location.reset();
-        assertFalse(location.hasElapsedRealtimeUncertaintyNanos());
-        assertEquals(0.0, location.getElapsedRealtimeUncertaintyNanos(), DELTA);
-    }
-
-    @Test
-    public void testSetMock() {
-        Location location = new Location("");
-        assertFalse(location.isMock());
-        location.setMock(true);
-        assertTrue(location.isMock());
-    }
-
-    @Test
-    public void testSet() {
-        Location location = new Location("");
-
-        Location loc = createTestLocation();
-
-        location.set(loc);
-        assertTestLocation(location);
-
-        location.reset();
-        assertNull(location.getProvider());
-        assertEquals(0, location.getTime());
-        assertEquals(0, location.getLatitude(), DELTA);
-        assertEquals(0, location.getLongitude(), DELTA);
-        assertEquals(0, location.getAltitude(), DELTA);
-        assertFalse(location.hasAltitude());
-        assertEquals(0, location.getSpeed(), DELTA);
-        assertFalse(location.hasSpeed());
-        assertEquals(0, location.getBearing(), DELTA);
-        assertFalse(location.hasBearing());
-        assertEquals(0, location.getAccuracy(), DELTA);
-        assertFalse(location.hasAccuracy());
-
-        assertEquals(0, location.getVerticalAccuracyMeters(), DELTA);
-        assertEquals(0, location.getSpeedAccuracyMetersPerSecond(), DELTA);
-        assertEquals(0, location.getBearingAccuracyDegrees(), DELTA);
-
-        assertFalse(location.hasVerticalAccuracy());
-        assertFalse(location.hasSpeedAccuracy());
-        assertFalse(location.hasBearingAccuracy());
-
-        assertNull(location.getExtras());
-    }
-
-    @Test
-    public void testToString() {
-        Location location = createTestLocation();
-
-        assertNotNull(location.toString());
-    }
-
-    @Test
-    public void testWriteToParcel() {
-        Location location = createTestLocation();
+    public void testParcelRoundtrip() {
+        Location l = new Location("test");
+        l.setTime(1);
+        l.setElapsedRealtimeNanos(2);
+        l.setElapsedRealtimeUncertaintyNanos(3);
+        l.setLatitude(-90);
+        l.setLongitude(90);
+        l.setAltitude(100);
+        l.setVerticalAccuracyMeters(90);
+        l.setSpeed(1000);
+        l.setSpeedAccuracyMetersPerSecond(9);
+        l.setBearing(7);
+        l.setBearingAccuracyDegrees(11);
+        l.setMock(true);
+        Bundle b = new Bundle();
+        b.putString("key", "value");
+        l.setExtras(b);
 
         Parcel parcel = Parcel.obtain();
-        location.writeToParcel(parcel, 0);
-        parcel.setDataPosition(0);
-        Location newLocation = Location.CREATOR.createFromParcel(parcel);
-        assertTestLocation(newLocation);
-
-        parcel.recycle();
-    }
-
-    private void assertTestLocation(Location l) {
-        assertNotNull(l);
-        assertEquals(TEST_PROVIDER, l.getProvider());
-        assertEquals(TEST_ACCURACY, l.getAccuracy(), DELTA);
-        assertEquals(TEST_VERTICAL_ACCURACY, l.getVerticalAccuracyMeters(), DELTA);
-        assertEquals(TEST_SPEED_ACCURACY, l.getSpeedAccuracyMetersPerSecond(), DELTA);
-        assertEquals(TEST_BEARING_ACCURACY, l.getBearingAccuracyDegrees(), DELTA);
-        assertEquals(TEST_ALTITUDE, l.getAltitude(), DELTA);
-        assertEquals(TEST_LATITUDE, l.getLatitude(), DELTA);
-        assertEquals(TEST_BEARING, l.getBearing(), DELTA);
-        assertEquals(TEST_LONGITUDE, l.getLongitude(), DELTA);
-        assertEquals(TEST_SPEED, l.getSpeed(), DELTA);
-        assertEquals(TEST_TIME, l.getTime());
-        assertTestBundle(l.getExtras());
-    }
-
-    private Location createTestLocation() {
-        Location l = new Location(TEST_PROVIDER);
-        l.setAccuracy(TEST_ACCURACY);
-        l.setVerticalAccuracyMeters(TEST_VERTICAL_ACCURACY);
-        l.setSpeedAccuracyMetersPerSecond(TEST_SPEED_ACCURACY);
-        l.setBearingAccuracyDegrees(TEST_BEARING_ACCURACY);
-
-        l.setAltitude(TEST_ALTITUDE);
-        l.setLatitude(TEST_LATITUDE);
-        l.setBearing(TEST_BEARING);
-        l.setLongitude(TEST_LONGITUDE);
-        l.setSpeed(TEST_SPEED);
-        l.setTime(TEST_TIME);
-        Bundle bundle = new Bundle();
-        bundle.putBoolean(TEST_KEY1NAME, TEST_KEY1VALUE);
-        bundle.putByte(TEST_KEY2NAME, TEST_KEY2VALUE);
-        l.setExtras(bundle);
-
-        return l;
-    }
-
-    private void assertTestBundle(Bundle bundle) {
-        assertFalse(bundle.getBoolean(TEST_KEY1NAME));
-        assertEquals(TEST_KEY2VALUE, bundle.getByte(TEST_KEY2NAME));
+        try {
+            l.writeToParcel(parcel, 0);
+            parcel.setDataPosition(0);
+            assertThat(Location.CREATOR.createFromParcel(parcel)).isEqualTo(l);
+        } finally {
+            parcel.recycle();
+        }
     }
 }

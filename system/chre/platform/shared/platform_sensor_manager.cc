@@ -56,7 +56,7 @@ void PlatformSensorManager::init() {
 
 DynamicVector<Sensor> PlatformSensorManager::getSensors() {
   DynamicVector<Sensor> sensors;
-  struct chreSensorInfo *palSensors = nullptr;
+  const struct chreSensorInfo *palSensors = nullptr;
   uint32_t arraySize;
   if (mSensorApi != nullptr) {
     if (!mSensorApi->getSensors(&palSensors, &arraySize) || arraySize == 0) {
@@ -65,7 +65,7 @@ DynamicVector<Sensor> PlatformSensorManager::getSensors() {
       LOG_OOM();
     } else {
       for (uint32_t i = 0; i < arraySize; i++) {
-        struct chreSensorInfo *sensor = &palSensors[i];
+        const struct chreSensorInfo *sensor = &palSensors[i];
         sensors.push_back(Sensor());
         sensors[i].initBase(sensor, i /* sensorHandle */);
         if (sensor->sensorName != nullptr) {

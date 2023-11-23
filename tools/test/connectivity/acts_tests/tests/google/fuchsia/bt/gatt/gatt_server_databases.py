@@ -13,7 +13,6 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations under
 # the License.
-
 """
 GATT server dictionaries which will be setup in various tests.
 """
@@ -24,7 +23,6 @@ from acts_contrib.test_utils.bt.bt_constants import gatt_service_types
 from acts_contrib.test_utils.bt.bt_constants import gatt_char_types
 from acts_contrib.test_utils.bt.bt_constants import gatt_characteristic_value_format
 from acts_contrib.test_utils.bt.bt_constants import gatt_char_desc_uuids
-
 
 SINGLE_PRIMARY_SERVICE = {
     'services': [{
@@ -61,6 +59,7 @@ DUPLICATE_SERVICES = {
 }
 
 ### Begin SIG defined services ###
+# yapf: disable
 
 # TODO: Reconcile all the proper security parameters of each service.
 # Some are correct, others are not.
@@ -2488,4 +2487,5 @@ WEIGHT_SCALE_SERVICE = {
 }
 
 
+# yapf: enable
 ### End SIG defined services ###

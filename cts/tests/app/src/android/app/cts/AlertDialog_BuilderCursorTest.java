@@ -36,7 +36,7 @@ import android.widget.ListView;
 
 import androidx.test.InstrumentationRegistry;
 
-import com.android.compatibility.common.util.PollingCheck;
+import com.android.compatibility.common.util.WindowUtil;
 
 import java.io.File;
 
@@ -103,7 +103,7 @@ public class AlertDialog_BuilderCursorTest
         mInstrumentation = getInstrumentation();
         mContext = getActivity();
 
-        PollingCheck.waitFor(() -> getActivity().hasWindowFocus());
+        WindowUtil.waitForFocus(getActivity());
 
         mListView = null;
         mDialog = null;

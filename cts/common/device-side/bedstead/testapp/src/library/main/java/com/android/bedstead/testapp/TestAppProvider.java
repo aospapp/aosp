@@ -40,6 +40,11 @@ public final class TestAppProvider {
 
     private boolean mTestAppsInitialised = false;
     private final Set<TestAppDetails> mTestApps = new HashSet<>();
+    private Set<TestAppDetails> mTestAppsSnapshot = null;
+
+    public TestAppProvider() {
+        initTestApps();
+    }
 
     /** Begin a query for a {@link TestApp}. */
     public TestAppQueryBuilder query() {
@@ -54,9 +59,24 @@ public final class TestAppProvider {
     }
 
     Set<TestAppDetails> testApps() {
-        initTestApps();
-        Log.d(TAG, "testApps(): returning " + mTestApps.size() + " apps (" + mTestApps + ")");
         return mTestApps;
+    }
+
+    /** Save the state of the provider, to be reset by {@link #restore()}. */
+    public void snapshot() {
+        mTestAppsSnapshot = new HashSet<>(mTestApps);
+        mTestAppsSnapshot = new HashSet<>(mTestApps);
+    }
+
+    /**
+     * Restore the state of the provider to that recorded by {@link #snapshot()}.
+     */
+    public void restore() {
+        if (mTestAppsSnapshot == null) {
+            throw new IllegalStateException("You must call snapshot() before restore()");
+        }
+        mTestApps.clear();
+        mTestApps.addAll(mTestAppsSnapshot);
     }
 
     private void initTestApps() {
@@ -101,6 +121,8 @@ public final class TestAppProvider {
                     .exported(activityEntry.getExported())
                     .intentFilters(intentFilterSetFromProtoList(
                             activityEntry.getIntentFiltersList()))
+                    .permission(activityEntry.getPermission().equals("") ? null
+                            : activityEntry.getPermission())
                     .build());
         }
 

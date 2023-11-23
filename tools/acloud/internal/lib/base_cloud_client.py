@@ -20,10 +20,7 @@ BasicCloudApiCliend does basic setup for a cloud API.
 import logging
 import socket
 import ssl
-
-import six
-from six.moves import http_client
-
+import http
 # pylint: disable=import-error
 import httplib2
 from apiclient import errors as gerrors
@@ -57,7 +54,7 @@ class BaseCloudApiClient():
         502,  # Bad Gateway
         503,  # Service Unavailable
     ]
-    RETRIABLE_ERRORS = (http_client.HTTPException, httplib2.HttpLib2Error,
+    RETRIABLE_ERRORS = (http.client.HTTPException, httplib2.HttpLib2Error,
                         socket.error, ssl.SSLError)
     RETRIABLE_AUTH_ERRORS = (client.AccessTokenRefreshError, )
 
@@ -95,6 +92,9 @@ class BaseCloudApiClient():
             # of api client.
             # https://github.com/google/google-api-python-client/issues/435
             cache_discovery=False,
+            # This is workaround to prevent raise the errors.UnknownApiNameOrVersion
+            # https://github.com/googleapis/google-api-python-client/issues/1263
+            static_discovery=False,
             http=http_auth)
 
     @staticmethod
@@ -246,7 +246,7 @@ class BaseCloudApiClient():
             results[request_id] = (response, self._TranslateError(exception))
 
         batch = self._service.new_batch_http_request()
-        for request_id, request in six.iteritems(requests):
+        for request_id, request in requests.items():
             batch.add(
                 request=request, callback=_CallBack, request_id=request_id)
         batch.execute()

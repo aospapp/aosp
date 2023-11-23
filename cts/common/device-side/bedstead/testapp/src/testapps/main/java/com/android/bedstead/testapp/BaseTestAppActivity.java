@@ -31,6 +31,8 @@ import java.util.WeakHashMap;
  */
 public class BaseTestAppActivity extends EventLibActivity {
 
+    public static final String ACTIVITY_RESULT_KEY = "ACTIVITY_RESULT";
+
     private static Map<String, BaseTestAppActivity> sActivities = new WeakHashMap<>();
 
     /**
@@ -57,6 +59,8 @@ public class BaseTestAppActivity extends EventLibActivity {
             sActivities.put(getClassName(), this);
         }
         super.onCreate(savedInstanceState);
+
+        forwardIntentResult();
     }
 
     @Override
@@ -65,6 +69,8 @@ public class BaseTestAppActivity extends EventLibActivity {
             sActivities.put(getClassName(), this);
         }
         super.onCreate(savedInstanceState, persistentState);
+
+        forwardIntentResult();
     }
 
     @Override
@@ -95,5 +101,15 @@ public class BaseTestAppActivity extends EventLibActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+    }
+
+    // TODO(b/198280332): Remove this temporary solution to set return values for methods
+    private void forwardIntentResult() {
+        int result = getIntent().getIntExtra(ACTIVITY_RESULT_KEY, -1);
+
+        if (result != -1) {
+            setResult(result);
+            finish();
+        }
     }
 }

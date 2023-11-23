@@ -16,6 +16,7 @@
 
 set -e
 shopt -s extglob
+shopt -s globstar
 
 # to use relative paths
 cd $(dirname $0)
@@ -34,10 +35,31 @@ else
   export LD_LIBRARY_PATH=$(realpath tools)/lib64:$LD_LIBRARY_PATH
 fi
 
-# $1: tmp root
-# $2: apex
-function activate() {
-  cp -r ./testdata/root/apex/$2 $1/apex
+# $1: target libraries.txt file
+# $2: list of libs. ex) a.so:b.so:c.so
+function write_libraries_txt {
+  rm -rf $1
+  IFS=':'
+  for lib in $2; do
+    echo $lib >> $1
+  done
+  unset IFS
+}
+
+# Simulate build process
+# $1: input tree (with *.json)
+# $2: output tree (*.json files are converted into *.pb)
+function build_root {
+  cp -R $1/* $2
+
+  for json in $2/**/linker.config.json; do
+    conv_linker_config proto -s $json -o ${json%.json}.pb
+    rm $json
+  done
+  for json in $2/**/apex_manifest.json; do
+    conv_apex_manifest proto $json -o ${json%.json}.pb
+    rm $json
+  done
 }
 
 # $1: target output directory
@@ -46,22 +68,42 @@ function run_linkerconfig_to {
   rm -rf $1
 
   TMP_ROOT=$(mktemp -d -t linkerconfig-root-XXXXXXXX)
+  # Build the root
+  build_root testdata/root $TMP_ROOT
 
-  ./testdata/prepare_root.sh --in testdata/root --out $TMP_ROOT
+  # Run linkerconfig with various configurations
+
+  ./testdata/prepare_root.sh --root $TMP_ROOT
   mkdir -p $1/stage0
   linkerconfig -v R -r $TMP_ROOT -t $1/stage0
 
-  ./testdata/prepare_root.sh --bootstrap --in testdata/root --out $TMP_ROOT
+  ./testdata/prepare_root.sh --bootstrap --root $TMP_ROOT
   mkdir -p $1/stage1
   linkerconfig -v R -r $TMP_ROOT -t $1/stage1
 
-  ./testdata/prepare_root.sh --all --in testdata/root --out $TMP_ROOT
+  ./testdata/prepare_root.sh --all --root $TMP_ROOT
   mkdir -p $1/stage2
   linkerconfig -v R -r $TMP_ROOT -t $1/stage2
 
+  # skip prepare_root in order to use the same apexs
   mkdir -p $1/product-enabled
   linkerconfig -v R -p R -r $TMP_ROOT -t $1/product-enabled
 
+  # skip prepare_root in order to use the same apexs
+  # but with system/etc/vndkcorevariant.libraries.txt
+  vndk_core_variant_libs_file=$TMP_ROOT/system/etc/vndkcorevariant.libraries.txt
+  write_libraries_txt $vndk_core_variant_libs_file libevent.so:libexif.so:libfmq.so
+  mkdir -p $1/vndk-in-system
+  linkerconfig -v R -p R -r $TMP_ROOT -t $1/vndk-in-system
+  # clean up
+  rm -if $vndk_core_variant_libs_file
+  vndk_core_variant_libs_file=
+
+  ./testdata/prepare_root.sh --all --block com.android.art:com.android.vndk.vR --root $TMP_ROOT
+  mkdir -p $1/guest
+  linkerconfig -v R -p R -r $TMP_ROOT -t $1/guest
+
+  # skip prepare_root in order to use the same apexes except VNDK
   rm -iRf $TMP_ROOT/apex/com.android.vndk.vR
   mkdir -p $1/legacy
   linkerconfig -r $TMP_ROOT -t $1/legacy

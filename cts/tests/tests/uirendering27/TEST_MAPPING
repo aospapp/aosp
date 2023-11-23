@@ -3,5 +3,10 @@
     {
       "name": "CtsUiRenderingTestCases27"
     }
+  ],
+  "hwasan-postsubmit": [
+    {
+      "name": "CtsUiRenderingTestCases27"
+    }
   ]
 }

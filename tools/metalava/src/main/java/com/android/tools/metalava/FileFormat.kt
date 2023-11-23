@@ -20,7 +20,11 @@ import com.android.SdkConstants.DOT_TXT
 import com.android.SdkConstants.DOT_XML
 
 /** File formats that metalava can emit APIs to */
-enum class FileFormat(val description: String, val version: String? = null) {
+enum class FileFormat(
+    val description: String,
+    val version: String? = null,
+    val conciseDefaultValues: Boolean = false
+) {
     UNKNOWN("?"),
     JDIFF("JDiff"),
     BASELINE("Metalava baseline file", "1.0"),
@@ -30,19 +34,16 @@ enum class FileFormat(val description: String, val version: String? = null) {
     V1("Doclava signature file", "1.0"),
     V2("Metalava signature file", "2.0"),
     V3("Metalava signature file", "3.0"),
-    V4("Metalava signature file", "4.0");
+    V4("Metalava signature file", "4.0", conciseDefaultValues = true);
 
     /** Configures the option object such that the output format will be the given format */
-    fun configureOptions(options: Options, compatibility: Compatibility) {
+    fun configureOptions(options: Options) {
         if (this == JDIFF) {
             return
         }
         options.outputFormat = this
-        options.compatOutput = this == V1
         options.outputKotlinStyleNulls = this >= V3
         options.outputDefaultValues = this >= V2
-        options.outputConciseDefaultValues = this >= V4
-        compatibility.omitCommonPackages = this >= V2
         options.includeSignatureFormatVersion = this >= V2
     }
 
@@ -107,6 +108,12 @@ enum class FileFormat(val description: String, val version: String? = null) {
     }
 
     companion object {
+        /** The recommended signature file version, equivalent to --format=recommended */
+        val recommended = V2
+
+        /** The latest signature file version, equivalent to --format=latest */
+        val latest = values().maxOrNull()!!
+
         private fun firstLine(s: String): String {
             val index = s.indexOf('\n')
             if (index == -1) {

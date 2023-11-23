@@ -32,3 +32,21 @@ cc_test_library {
     ],
     gtest: false,
 }
+
+android_test {
+    name: "GameCoreJavaTestCases",
+    sdk_version: "30",
+    static_libs: [
+        "androidx.test.rules",
+        "truth-prebuilt",
+        "GameCoreHelper",
+    ],
+    jni_libs: [
+        "libgamecore_sample",
+        "libgamecore_java_tests_jni",
+        "libagq",
+    ],
+    test_suites: ["device-tests"],
+    srcs: ["src/**/*.java"],
+    stl: "c++_shared",
+}

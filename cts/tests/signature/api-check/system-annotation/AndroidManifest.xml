@@ -27,7 +27,7 @@
                  android:extractNativeLibs="true"
                  android:largeHeap="true"/>
 
-    <instrumentation android:name="repackaged.android.test.InstrumentationTestRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.signature.cts.api.system_annotation"
                      android:label="System API Annotation Test"/>
 

@@ -117,7 +117,7 @@ func (s SdkSpec) Stable() bool {
 	return false
 }
 
-// PrebuiltSdkAvailableForUnbundledBuilt tells whether this SdkSpec can have a prebuilt SDK
+// PrebuiltSdkAvailableForUnbundledBuild tells whether this SdkSpec can have a prebuilt SDK
 // that can be used for unbundled builds.
 func (s SdkSpec) PrebuiltSdkAvailableForUnbundledBuild() bool {
 	// "", "none", and "core_platform" are not available for unbundled build
@@ -157,7 +157,7 @@ func (s SdkSpec) UsePrebuilt(ctx EarlyModuleContext) bool {
 		return ctx.Config().AlwaysUsePrebuiltSdks()
 	} else if !s.ApiLevel.IsPreview() {
 		// validation check
-		if s.Kind != SdkPublic && s.Kind != SdkSystem && s.Kind != SdkTest && s.Kind != SdkModule {
+		if s.Kind != SdkPublic && s.Kind != SdkSystem && s.Kind != SdkTest && s.Kind != SdkModule && s.Kind != SdkSystemServer {
 			panic(fmt.Errorf("prebuilt SDK is not not available for SdkKind=%q", s.Kind))
 			return false
 		}
@@ -212,6 +212,10 @@ var (
 )
 
 func SdkSpecFrom(ctx EarlyModuleContext, str string) SdkSpec {
+	return SdkSpecFromWithConfig(ctx.Config(), str)
+}
+
+func SdkSpecFromWithConfig(config Config, str string) SdkSpec {
 	switch str {
 	// special cases first
 	case "":
@@ -252,7 +256,7 @@ func SdkSpecFrom(ctx EarlyModuleContext, str string) SdkSpec {
 			return SdkSpec{SdkInvalid, NoneApiLevel, str}
 		}
 
-		apiLevel, err := ApiLevelFromUser(ctx, versionString)
+		apiLevel, err := ApiLevelFromUserWithConfig(config, versionString)
 		if err != nil {
 			return SdkSpec{SdkInvalid, apiLevel, str}
 		}

@@ -679,10 +679,6 @@ std::string Interface::getBaseName() const {
     return fqName().getInterfaceBaseName();
 }
 
-std::string Interface::getAdapterName() const {
-    return fqName().getInterfaceAdapterName();
-}
-
 std::string Interface::getProxyName() const {
     return fqName().getInterfaceProxyName();
 }

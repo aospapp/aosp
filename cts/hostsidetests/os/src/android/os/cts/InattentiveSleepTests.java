@@ -40,15 +40,20 @@ import org.junit.runner.RunWith;
 @RunWith(DeviceJUnit4ClassRunner.class)
 public class InattentiveSleepTests extends BaseHostJUnit4Test {
     private static final String FEATURE_LEANBACK_ONLY = "android.software.leanback_only";
-    private static final String PACKAGE_NAME = "android.os.inattentivesleeptests";
     private static final String APK_NAME = "CtsInattentiveSleepTestApp.apk";
 
     private static final long TIME_BEFORE_WARNING_MS = 1200L;
 
     private static final String CMD_DUMPSYS_POWER = "dumpsys power --proto";
     private static final String WARNING_WINDOW_TOKEN_TITLE = "InattentiveSleepWarning";
-    private static final String CMD_START_APP_TEMPLATE =
-            "am start -W -a android.intent.action.MAIN -p %s -c android.intent.category.LAUNCHER";
+    private static final String ACTIVITY_KEEP_SCREEN_ON = ".KeepScreenOnActivity";
+    private static final String SERVICE_PARTIAL_WAKE_LOCK = ".PartialWakeLockService";
+    private static final String CMD_START_ACTIVITY_TEMPLATE =
+            "am start -W android.os.inattentivesleeptests/%s";
+    private static final String CMD_START_FG_SERVICE_TEMPLATE =
+            "am start-foreground-service android.os.inattentivesleeptests/%s";
+    private static final String CMD_STOP_SERVICE_TEMPLATE =
+            "am stop-service android.os.inattentivesleeptests/%s";
 
     private static final String CMD_GET_STAY_ON = "settings get global stay_on_while_plugged_in";
     private static final String CMD_PUT_STAY_ON_TEMPLATE =
@@ -81,12 +86,20 @@ public class InattentiveSleepTests extends BaseHostJUnit4Test {
         mWarningDurationConfig = getWarningDurationConfig();
         mOriginalStayOnSetting = Long.parseLong(
                 mDevice.executeShellCommand(CMD_GET_STAY_ON).trim());
+
+        installPackage(APK_NAME);
+
+        // Prevent the device from suspending while screen is off
+        startPartialWakeLockService();
+
         mDevice.executeShellCommand(CMD_DISABLE_STAY_ON);
         setInattentiveSleepTimeout(TIME_BEFORE_WARNING_MS + mWarningDurationConfig);
     }
 
     @After
     public void tearDown() throws Exception {
+        wakeUp();
+        stopPartialWakeLockService();
         mDevice.executeShellCommand(
                 String.format(CMD_PUT_STAY_ON_TEMPLATE, mOriginalStayOnSetting));
         mDevice.executeShellCommand(CMD_DELETE_TIMEOUT_SETTING);
@@ -101,9 +114,19 @@ public class InattentiveSleepTests extends BaseHostJUnit4Test {
         mDevice.executeShellCommand(CMD_KEYEVENT_WAKEUP);
     }
 
+    private void startPartialWakeLockService() throws Exception {
+        mDevice.executeShellCommand(
+                String.format(CMD_START_FG_SERVICE_TEMPLATE, SERVICE_PARTIAL_WAKE_LOCK));
+    }
+
+    private void stopPartialWakeLockService() throws Exception {
+        mDevice.executeShellCommand(
+                String.format(CMD_STOP_SERVICE_TEMPLATE, SERVICE_PARTIAL_WAKE_LOCK));
+    }
+
     private void startKeepScreenOnActivity() throws Exception {
-        installPackage(APK_NAME);
-        mDevice.executeShellCommand(String.format(CMD_START_APP_TEMPLATE, PACKAGE_NAME));
+        mDevice.executeShellCommand(
+                String.format(CMD_START_ACTIVITY_TEMPLATE, ACTIVITY_KEEP_SCREEN_ON));
     }
 
     private void setInattentiveSleepTimeout(long timeoutMs) throws Exception {

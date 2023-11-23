@@ -16,27 +16,45 @@
 
 package com.android.cts.verifier.companion;
 
+import android.companion.AssociationInfo;
 import android.companion.CompanionDeviceService;
+import android.util.Log;
 import android.widget.Toast;
 
+import java.util.HashSet;
+import java.util.Set;
+
 /**
- * A Listener for {@Link CompanionDeviceAwakeTestActivity}
+ * A Listener for {@link CompanionDeviceServiceTestActivity}.
  */
 public class DevicePresenceListener extends CompanionDeviceService {
-    public static Boolean sDeviceNearBy;
+    private static final String LOG_TAG = "CDMServiceTestActivity";
+    private static final Set<Integer> NEARBY_DEVICES = new HashSet<>();
 
-    @Override
-    public void onDeviceAppeared(String address) {
-        sDeviceNearBy = true;
-        Toast.makeText(this, "Device appeared: " + address,
-                Toast.LENGTH_LONG).show();
+    /**
+     * Checks if the given association ID is for a device that is nearby.
+     * A device is considered to be "nearby" if its appearance has been detected previously
+     * and its disappearance hasn't been reported yet.
+     * @param associationId association ID of the device to check.
+     * @return true if device is nearby.
+     */
+    public static boolean isDeviceNearby(int associationId) {
+        return NEARBY_DEVICES.contains(associationId);
     }
 
     @Override
-    public void onDeviceDisappeared(String address) {
-        sDeviceNearBy = false;
-        Toast.makeText(this, "Device disappeared: " + address,
-                Toast.LENGTH_LONG).show();
+    public void onDeviceAppeared(AssociationInfo association) {
+        NEARBY_DEVICES.add(association.getId());
+        String message = "Device appeared: " + association.getDeviceMacAddressAsString();
+        Log.d(LOG_TAG, message);
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
     }
 
+    @Override
+    public void onDeviceDisappeared(AssociationInfo association) {
+        NEARBY_DEVICES.remove(association.getId());
+        String message = "Device disappeared: " + association.getDeviceMacAddressAsString();
+        Log.d(LOG_TAG, message);
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+    }
 }

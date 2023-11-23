@@ -1,4 +1,4 @@
-#!/usr/bin/python -B
+#!/usr/bin/python3 -B
 
 # Copyright 2017 The Android Open Source Project
 #
@@ -38,16 +38,16 @@ def FtpRetrieveFile(ftp, filename):
 
 def CheckSignature(data_filename, signature_filename):
   """Checks the signature of a file."""
-  print 'Verifying signature of %s using %s...' % (data_filename, signature_filename)
+  print('Verifying signature of %s using %s...' % (data_filename, signature_filename))
   try:
     subprocess.check_call(['gpg', '--trusted-key=ED97E90E62AA7E34', '--verify',
                           signature_filename, data_filename])
   except subprocess.CalledProcessError as err:
-    print 'Unable to verify signature'
-    print '\n\n******'
-    print 'If this fails for you, you probably need to import Paul Eggert''s public key:'
-    print '  gpg --receive-keys ED97E90E62AA7E34'
-    print '******\n\n'
+    print('Unable to verify signature')
+    print('\n\n******')
+    print('If this fails for you, you probably need to import Paul Eggert''s public key:')
+    print('  gpg --receive-keys ED97E90E62AA7E34')
+    print('******\n\n')
     raise
 
 
@@ -56,7 +56,7 @@ def FindLatestRemoteTar(ftp, file_prefix):
 
   for filename in ftp.nlst():
     if "/" in filename:
-      print "FTP server returned bogus file name"
+      print("FTP server returned bogus file name")
       sys.exit(1)
 
     if filename.startswith(file_prefix) and filename.endswith('.tar.gz'):
@@ -65,7 +65,7 @@ def FindLatestRemoteTar(ftp, file_prefix):
   iana_tar_filenames.sort(reverse=True)
 
   if len(iana_tar_filenames) == 0:
-    print 'No files found'
+    print('No files found')
     sys.exit(1)
 
   return iana_tar_filenames[0]
@@ -85,14 +85,14 @@ def DownloadAndReplaceLocalFiles(file_prefixes, ftp, local_dir):
               % (local_dir, latest_iana_tar_filename, local_iana_tar_filename))
         continue
 
-    print 'Found new %s* file for %s: %s' % (file_prefix, local_dir, latest_iana_tar_filename)
+    print('Found new %s* file for %s: %s' % (file_prefix, local_dir, latest_iana_tar_filename))
     i18nutil.SwitchToNewTemporaryDirectory()
 
-    print 'Downloading file %s...' % latest_iana_tar_filename
+    print('Downloading file %s...' % latest_iana_tar_filename)
     FtpRetrieveFile(ftp, latest_iana_tar_filename)
 
     signature_filename = '%s.asc' % latest_iana_tar_filename
-    print 'Downloading signature %s...' % signature_filename
+    print('Downloading signature %s...' % signature_filename)
     FtpRetrieveFile(ftp, signature_filename)
 
     CheckSignature(latest_iana_tar_filename, signature_filename)
@@ -126,7 +126,7 @@ def main():
     parser.error("Nothing to do")
     sys.exit(1)
 
-  print 'Looking for new IANA files...'
+  print('Looking for new IANA files...')
 
   ftp = ftplib.FTP('ftp.iana.org')
   ftp.login()
@@ -145,11 +145,11 @@ def main():
     output_files += new_files
 
   if len(output_files) == 0:
-    print 'No files updated'
+    print('No files updated')
   else:
-    print 'New files:'
+    print('New files:')
     for output_file in output_files:
-      print '  %s' % output_file
+      print('  %s' % output_file)
 
 
 if __name__ == '__main__':

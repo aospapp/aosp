@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "java/app/jni_dep.h"
+#include "build/bazel/examples/android_app/java/com/app/jni_dep.h"
 
 #include <stdlib.h>
 #include <string.h>

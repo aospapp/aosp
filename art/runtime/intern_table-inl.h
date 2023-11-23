@@ -28,15 +28,31 @@
 
 namespace art {
 
-inline std::size_t InternTable::StringHash::operator()(const GcRoot<mirror::String>& root) const {
+ALWAYS_INLINE
+inline uint32_t InternTable::Utf8String::Hash(uint32_t utf16_length, const char* utf8_data) {
+  DCHECK_EQ(utf16_length, CountModifiedUtf8Chars(utf8_data));
+  if (LIKELY(utf8_data[utf16_length] == 0)) {
+    int32_t hash = ComputeUtf16Hash(utf8_data, utf16_length);
+    DCHECK_EQ(hash, ComputeUtf16HashFromModifiedUtf8(utf8_data, utf16_length));
+    return hash;
+  } else {
+    return ComputeUtf16HashFromModifiedUtf8(utf8_data, utf16_length);
+  }
+}
+
+ALWAYS_INLINE
+inline size_t InternTable::StringHash::operator()(const GcRoot<mirror::String>& root) const {
   if (kIsDebugBuild) {
     Locks::mutator_lock_->AssertSharedHeld(Thread::Current());
   }
+  ObjPtr<mirror::String> s = root.Read<kWithoutReadBarrier>();
+  int32_t hash = s->GetStoredHashCode();
+  DCHECK_EQ(hash, s->ComputeHashCode());
   // An additional cast to prevent undesired sign extension.
-  return static_cast<size_t>(
-      static_cast<uint32_t>(root.Read<kWithoutReadBarrier>()->GetHashCode()));
+  return static_cast<uint32_t>(hash);
 }
 
+ALWAYS_INLINE
 inline bool InternTable::StringEquals::operator()(const GcRoot<mirror::String>& a,
                                                   const GcRoot<mirror::String>& b) const {
   if (kIsDebugBuild) {
@@ -45,6 +61,7 @@ inline bool InternTable::StringEquals::operator()(const GcRoot<mirror::String>& 
   return a.Read<kWithoutReadBarrier>()->Equals(b.Read<kWithoutReadBarrier>());
 }
 
+ALWAYS_INLINE
 inline bool InternTable::StringEquals::operator()(const GcRoot<mirror::String>& a,
                                                   const Utf8String& b) const {
   if (kIsDebugBuild) {
@@ -55,19 +72,16 @@ inline bool InternTable::StringEquals::operator()(const GcRoot<mirror::String>& 
   if (a_length != b.GetUtf16Length()) {
     return false;
   }
+  DCHECK_GE(strlen(b.GetUtf8Data()), a_length);
   if (a_string->IsCompressed()) {
-    size_t b_byte_count = strlen(b.GetUtf8Data());
-    size_t b_utf8_length = CountModifiedUtf8Chars(b.GetUtf8Data(), b_byte_count);
-    // Modified UTF-8 single byte character range is 0x01 .. 0x7f
+    // Modified UTF-8 single byte character range is 0x01 .. 0x7f.
     // The string compression occurs on regular ASCII with same exact range,
-    // not on extended ASCII which up to 0xff
-    const bool is_b_regular_ascii = (b_byte_count == b_utf8_length);
-    if (is_b_regular_ascii) {
-      return memcmp(b.GetUtf8Data(),
-                    a_string->GetValueCompressed(), a_length * sizeof(uint8_t)) == 0;
-    } else {
-      return false;
-    }
+    // not on extended ASCII which is up to 0xff.
+    return b.GetUtf8Data()[a_length] == 0 &&
+           memcmp(b.GetUtf8Data(), a_string->GetValueCompressed(), a_length * sizeof(uint8_t)) == 0;
+  } else if (mirror::kUseStringCompression && b.GetUtf8Data()[a_length] == 0) {
+    // ASCII string `b` cannot equal non-ASCII `a_string`.
+    return false;
   } else {
     const uint16_t* a_value = a_string->GetValue();
     return CompareModifiedUtf8ToUtf16AsCodePointValues(b.GetUtf8Data(), a_value, a_length) == 0;
@@ -107,32 +121,35 @@ inline size_t InternTable::AddTableFromMemory(const uint8_t* ptr,
 
 inline void InternTable::Table::AddInternStrings(UnorderedSet&& intern_strings,
                                                  bool is_boot_image) {
-  static constexpr bool kCheckDuplicates = kIsDebugBuild;
-  if (kCheckDuplicates) {
+  if (kIsDebugBuild) {
     // Avoid doing read barriers since the space might not yet be added to the heap.
     // See b/117803941
     for (GcRoot<mirror::String>& string : intern_strings) {
-      CHECK(Find(string.Read<kWithoutReadBarrier>()) == nullptr)
+      ObjPtr<mirror::String> s = string.Read<kWithoutReadBarrier>();
+      uint32_t hash = static_cast<uint32_t>(s->GetStoredHashCode());
+      CHECK_EQ(hash, static_cast<uint32_t>(s->ComputeHashCode()));
+      CHECK(Find(s, hash) == nullptr)
           << "Already found " << string.Read<kWithoutReadBarrier>()->ToModifiedUtf8()
           << " in the intern table";
     }
   }
-  // Insert at the front since we add new interns into the back.
-  tables_.insert(tables_.begin(),
-                 InternalTable(std::move(intern_strings), is_boot_image));
+
+  // Insert before the last (unfrozen) table since we add new interns into the back.
+  // Keep the order of previous frozen tables unchanged, so that we can can remember
+  // the number of searched frozen tables and not search them again.
+  DCHECK(!tables_.empty());
+  tables_.insert(tables_.end() - 1, InternalTable(std::move(intern_strings), is_boot_image));
 }
 
 template <typename Visitor>
 inline void InternTable::VisitInterns(const Visitor& visitor,
                                       bool visit_boot_images,
                                       bool visit_non_boot_images) {
-  auto visit_tables = [&](std::vector<Table::InternalTable>& tables)
+  auto visit_tables = [&](dchecked_vector<Table::InternalTable>& tables)
       NO_THREAD_SAFETY_ANALYSIS {
     for (Table::InternalTable& table : tables) {
-      // Determine if we want to visit the table based on the flags..
-      const bool visit =
-          (visit_boot_images && table.IsBootImage()) ||
-          (visit_non_boot_images && !table.IsBootImage());
+      // Determine if we want to visit the table based on the flags.
+      const bool visit = table.IsBootImage() ? visit_boot_images : visit_non_boot_images;
       if (visit) {
         for (auto& intern : table.set_) {
           visitor(intern);
@@ -144,16 +161,13 @@ inline void InternTable::VisitInterns(const Visitor& visitor,
   visit_tables(weak_interns_.tables_);
 }
 
-inline size_t InternTable::CountInterns(bool visit_boot_images,
-                                        bool visit_non_boot_images) const {
+inline size_t InternTable::CountInterns(bool visit_boot_images, bool visit_non_boot_images) const {
   size_t ret = 0u;
-  auto visit_tables = [&](const std::vector<Table::InternalTable>& tables)
+  auto visit_tables = [&](const dchecked_vector<Table::InternalTable>& tables)
       NO_THREAD_SAFETY_ANALYSIS {
     for (const Table::InternalTable& table : tables) {
-      // Determine if we want to visit the table based on the flags..
-      const bool visit =
-          (visit_boot_images && table.IsBootImage()) ||
-          (visit_non_boot_images && !table.IsBootImage());
+      // Determine if we want to visit the table based on the flags.
+      const bool visit = table.IsBootImage() ? visit_boot_images : visit_non_boot_images;
       if (visit) {
         ret += table.set_.size();
       }

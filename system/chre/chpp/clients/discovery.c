@@ -100,7 +100,7 @@ static uint8_t chppFindMatchingClient(
 static void chppDiscoveryProcessDiscoverAll(struct ChppAppState *context,
                                             const uint8_t *buf, size_t len) {
   if (context->isDiscoveryComplete) {
-    CHPP_LOGE("Duplicate discovery response");
+    CHPP_LOGE("Dupe discovery resp");
     return;
   }
 
@@ -110,19 +110,14 @@ static void chppDiscoveryProcessDiscoverAll(struct ChppAppState *context,
   uint8_t serviceCount =
       (uint8_t)(servicesLen / sizeof(struct ChppServiceDescriptor));
 
-  if (servicesLen != serviceCount * sizeof(struct ChppServiceDescriptor)) {
-    // Incomplete service list
-    CHPP_LOGE("Descriptor len=%" PRIuSIZE " doesn't match count=%" PRIu8
-              " and size=%" PRIuSIZE,
-              servicesLen, serviceCount, sizeof(struct ChppServiceDescriptor));
-    CHPP_DEBUG_ASSERT(false);
-  }
+  CHPP_DEBUG_ASSERT_LOG(
+      servicesLen == serviceCount * sizeof(struct ChppServiceDescriptor),
+      "Discovery desc len=%" PRIuSIZE " != count=%" PRIu8 " * size=%" PRIuSIZE,
+      servicesLen, serviceCount, sizeof(struct ChppServiceDescriptor));
 
-  if (serviceCount > CHPP_MAX_DISCOVERED_SERVICES) {
-    CHPP_LOGE("Service count=%" PRIu8 " larger than max=%d", serviceCount,
-              CHPP_MAX_DISCOVERED_SERVICES);
-    CHPP_DEBUG_ASSERT(false);
-  }
+  CHPP_DEBUG_ASSERT_LOG(serviceCount <= CHPP_MAX_DISCOVERED_SERVICES,
+                        "Service count=%" PRIu8 " > max=%d", serviceCount,
+                        CHPP_MAX_DISCOVERED_SERVICES);
 
   CHPP_LOGI("Discovered %" PRIu8 " services", serviceCount);
 
@@ -138,8 +133,8 @@ static void chppDiscoveryProcessDiscoverAll(struct ChppAppState *context,
 
     if (context->clientIndexOfServiceIndex[i] == CHPP_CLIENT_INDEX_NONE) {
       CHPP_LOGE(
-          "No matching client for service: %d"
-          " name=%s, UUID=%s, version=%" PRIu8 ".%" PRIu8 ".%" PRIu16,
+          "No client for service #%d"
+          " name=%s, UUID=%s, v=%" PRIu8 ".%" PRIu8 ".%" PRIu16,
           CHPP_SERVICE_HANDLE_OF_INDEX(i), response->services[i].name, uuidText,
           response->services[i].version.major,
           response->services[i].version.minor,
@@ -171,8 +166,8 @@ static void chppDiscoveryProcessDiscoverAll(struct ChppAppState *context,
               CHPP_SERVICE_HANDLE_OF_INDEX(i),
               response->services[i].version) == false) {
         CHPP_LOGE(
-            "Client rejected init: client ver=%" PRIu8 ".%" PRIu8 ".%" PRIu16
-            ", service ver=%" PRIu8 ".%" PRIu8 ".%" PRIu16,
+            "Client v=%" PRIu8 ".%" PRIu8 ".%" PRIu16
+            " rejected init. Service v=%" PRIu8 ".%" PRIu8 ".%" PRIu16,
             context->registeredClients[context->clientIndexOfServiceIndex[i]]
                 ->descriptor.version.major,
             context->registeredClients[context->clientIndexOfServiceIndex[i]]

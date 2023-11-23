@@ -32,6 +32,12 @@ cc_library_headers {
         },
     },
     min_sdk_version: "29",
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.media",
+        "com.android.media.swcodec",
+        "com.android.bluetooth",
+    ],
 }
 
 filegroup {

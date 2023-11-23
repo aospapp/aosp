@@ -58,7 +58,7 @@ TEST_F(Hidl2aidlTranslateTest, Outer) {
 }
 
 TEST_F(Hidl2aidlTranslateTest, OuterInner) {
-    aidl::hidl2aidl::test::OuterInner dest;
+    aidl::hidl2aidl::test::Outer::Inner dest;
     hidl2aidl::test::V1_0::Outer::Inner source;
     source.a = 12;
     ASSERT_TRUE(h2a::translate(source, &dest));
@@ -78,7 +78,7 @@ TEST_F(Hidl2aidlTranslateTest, NameCollision) {
 }
 
 TEST_F(Hidl2aidlTranslateTest, IFooBigStruct) {
-    aidl::hidl2aidl::test::IFooBigStruct dest;
+    aidl::hidl2aidl::test::IFoo::BigStruct dest;
     hidl2aidl::test::V1_1::IFoo::BigStruct source;
     source.type = 12;
     source.value = 16;
@@ -88,7 +88,7 @@ TEST_F(Hidl2aidlTranslateTest, IFooBigStruct) {
 }
 
 TEST_F(Hidl2aidlTranslateTest, IBarInner) {
-    aidl::hidl2aidl::test::IBarInner dest;
+    aidl::hidl2aidl::test::IBar::Inner dest;
     hidl2aidl::test::V1_0::IBar::Inner source;
     source.a = 0x70000000;
     ASSERT_TRUE(h2a::translate(source, &dest));
@@ -96,7 +96,7 @@ TEST_F(Hidl2aidlTranslateTest, IBarInner) {
 }
 
 TEST_F(Hidl2aidlTranslateTest, UnsignedToSignedTooLarge) {
-    aidl::hidl2aidl::test::IBarInner dest;
+    aidl::hidl2aidl::test::IBar::Inner dest;
     hidl2aidl::test::V1_0::IBar::Inner source;
     // source.a is uint32_t, dest.a is int32_t
     source.a = 0xf0000000;
@@ -196,11 +196,52 @@ TEST_F(Hidl2aidlTranslateTest, SafeUnionBarChar16) {
     EXPECT_EQ(source.i(), dest.get<aidl::hidl2aidl::test::SafeUnionBar::i>());
 }
 
+TEST_F(Hidl2aidlTranslateTest, SafeUnionBarVec8) {
+    aidl::hidl2aidl::test::SafeUnionBar dest;
+    hidl2aidl::test::V1_2::SafeUnionBar source;
+    source.j({12, 6});
+    ASSERT_TRUE(h2a::translate(source, &dest));
+    EXPECT_EQ(source.j().size(), dest.get<aidl::hidl2aidl::test::SafeUnionBar::j>().size());
+    EXPECT_EQ(source.j()[0], dest.get<aidl::hidl2aidl::test::SafeUnionBar::j>()[0]);
+    EXPECT_EQ(source.j()[1], dest.get<aidl::hidl2aidl::test::SafeUnionBar::j>()[1]);
+}
+
+TEST_F(Hidl2aidlTranslateTest, SafeUnionBarVec64) {
+    aidl::hidl2aidl::test::SafeUnionBar dest;
+    hidl2aidl::test::V1_2::SafeUnionBar source;
+    source.k({hidl2aidl::test::V1_1::Value::A, hidl2aidl::test::V1_1::Value::B});
+    ASSERT_TRUE(h2a::translate(source, &dest));
+    EXPECT_EQ(source.k().size(), dest.get<aidl::hidl2aidl::test::SafeUnionBar::k>().size());
+    EXPECT_EQ(source.k()[0], static_cast<hidl2aidl::test::V1_1::Value>(
+                                     dest.get<aidl::hidl2aidl::test::SafeUnionBar::k>()[0]));
+    EXPECT_EQ(source.k()[1], static_cast<hidl2aidl::test::V1_1::Value>(
+                                     dest.get<aidl::hidl2aidl::test::SafeUnionBar::k>()[1]));
+}
+
+TEST_F(Hidl2aidlTranslateTest, SafeUnionBarArray8) {
+    aidl::hidl2aidl::test::SafeUnionBar dest;
+    hidl2aidl::test::V1_2::SafeUnionBar source;
+    source.l(::android::hardware::hidl_array<int8_t, 2>({12, 6}));
+    ASSERT_TRUE(h2a::translate(source, &dest));
+    EXPECT_EQ(source.l().size(), dest.get<aidl::hidl2aidl::test::SafeUnionBar::l>().size());
+    EXPECT_EQ(source.l()[0], dest.get<aidl::hidl2aidl::test::SafeUnionBar::l>()[0]);
+    EXPECT_EQ(source.l()[1], dest.get<aidl::hidl2aidl::test::SafeUnionBar::l>()[1]);
+}
+
+TEST_F(Hidl2aidlTranslateTest, SafeUnionBarRepeatedFloat) {
+    aidl::hidl2aidl::test::SafeUnionBar dest;
+    hidl2aidl::test::V1_2::SafeUnionBar source;
+    source.m(3.5f);
+    ASSERT_TRUE(h2a::translate(source, &dest));
+    EXPECT_EQ(source.m(), dest.get<aidl::hidl2aidl::test::SafeUnionBar::m>());
+}
+
 TEST_F(Hidl2aidlTranslateTest, ArrayFoo) {
     aidl::hidl2aidl::test::ArrayFoo dest;
     hidl2aidl::test::V1_2::ArrayFoo source;
     source.a[0] = 42;
     source.a[1] = 8;
+    ASSERT_EQ(sizeof(source.e), 0u);
     ASSERT_TRUE(h2a::translate(source, &dest));
     ASSERT_EQ(12u, dest.a.size());
     EXPECT_EQ(source.a[0], dest.a[0]);

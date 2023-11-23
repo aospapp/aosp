@@ -19,6 +19,8 @@
 #include "chre/util/memory.h"
 #include "chre/util/unique_ptr.h"
 
+#include "chre/platform/linux/pal_nan.h"
+
 #include <chrono>
 #include <cinttypes>
 #include <thread>
@@ -35,6 +37,9 @@ std::thread gScanEventsThread;
 
 //! Thread to use when delivering a scan monitor status update.
 std::thread gScanMonitorStatusThread;
+
+//! Whether scan monitoring is active.
+bool gScanMonitoringActive = false;
 
 void sendScanResponse() {
   gCallbacks->scanResponseCallback(true, CHRE_ERROR_NONE);
@@ -67,13 +72,14 @@ void stopScanMonitorThreads() {
 
 uint32_t chrePalWifiGetCapabilities() {
   return CHRE_WIFI_CAPABILITIES_SCAN_MONITORING |
-         CHRE_WIFI_CAPABILITIES_ON_DEMAND_SCAN;
+         CHRE_WIFI_CAPABILITIES_ON_DEMAND_SCAN | CHRE_WIFI_CAPABILITIES_NAN_SUB;
 }
 
 bool chrePalWifiConfigureScanMonitor(bool enable) {
   stopScanMonitorThreads();
 
   gScanMonitorStatusThread = std::thread(sendScanMonitorResponse, enable);
+  gScanMonitoringActive = enable;
 
   return true;
 }
@@ -86,10 +92,63 @@ bool chrePalWifiApiRequestScan(const struct chreWifiScanParams * /* params */) {
   return true;
 }
 
+bool chrePalWifiApiRequestRanging(
+    const struct chreWifiRangingParams * /* params */) {
+  // unimplemented
+  return false;
+}
+
 void chrePalWifiApiReleaseScanEvent(struct chreWifiScanEvent *event) {
   chre::memoryFree(const_cast<uint32_t *>(event->scannedFreqList));
   chre::memoryFree(const_cast<struct chreWifiScanResult *>(event->results));
   chre::memoryFree(event);
+}
+
+void chrePalWifiApiReleaseRangingEvent(struct chreWifiRangingEvent *event) {
+  chre::memoryFree(const_cast<struct chreWifiRangingResult *>(event->results));
+  chre::memoryFree(event);
+}
+
+bool chrePalWifiApiNanSubscribe(
+    const struct chreWifiNanSubscribeConfig *config) {
+  uint32_t subscriptionId = 0;
+  uint8_t errorCode =
+      chre::PalNanEngineSingleton::get()->subscribe(config, &subscriptionId);
+
+  gCallbacks->nanServiceIdentifierCallback(errorCode, subscriptionId);
+
+  return true;
+}
+
+bool chrePalWifiApiNanSubscribeCancel(const uint32_t subscriptionId) {
+  gCallbacks->nanSubscriptionCanceledCallback(CHRE_ERROR_NONE, subscriptionId);
+  return chre::PalNanEngineSingleton::get()->subscribeCancel(subscriptionId);
+}
+
+void chrePalWifiApiNanReleaseDiscoveryEvent(
+    struct chreWifiNanDiscoveryEvent *event) {
+  chre::PalNanEngineSingleton::get()->destroyDiscoveryEvent(event);
+}
+
+bool chrePalWifiApiRequestNanRanging(
+    const struct chreWifiNanRangingParams *params) {
+  constexpr uint32_t kFakeRangeMeasurementMm = 1000;
+
+  auto *event = chre::memoryAlloc<struct chreWifiRangingEvent>();
+  CHRE_ASSERT_NOT_NULL(event);
+
+  auto *result = chre::memoryAlloc<struct chreWifiRangingResult>();
+  CHRE_ASSERT_NOT_NULL(result);
+
+  std::memcpy(result->macAddress, params->macAddress, CHRE_WIFI_BSSID_LEN);
+  result->status = CHRE_WIFI_RANGING_STATUS_SUCCESS;
+  result->distance = kFakeRangeMeasurementMm;
+  event->resultCount = 1;
+  event->results = result;
+
+  gCallbacks->rangingEventCallback(CHRE_ERROR_NONE, event);
+
+  return true;
 }
 
 void chrePalWifiApiClose() {
@@ -105,6 +164,9 @@ bool chrePalWifiApiOpen(const struct chrePalSystemApi *systemApi,
   if (systemApi != nullptr && callbacks != nullptr) {
     gSystemApi = systemApi;
     gCallbacks = callbacks;
+
+    chre::PalNanEngineSingleton::get()->setPlatformWifiCallbacks(callbacks);
+
     success = true;
   }
 
@@ -112,6 +174,10 @@ bool chrePalWifiApiOpen(const struct chrePalSystemApi *systemApi,
 }
 
 }  // anonymous namespace
+
+bool chrePalWifiIsScanMonitoringActive() {
+  return gScanMonitoringActive;
+}
 
 const struct chrePalWifiApi *chrePalWifiGetApi(uint32_t requestedApiVersion) {
   static const struct chrePalWifiApi kApi = {
@@ -122,12 +188,19 @@ const struct chrePalWifiApi *chrePalWifiGetApi(uint32_t requestedApiVersion) {
       .configureScanMonitor = chrePalWifiConfigureScanMonitor,
       .requestScan = chrePalWifiApiRequestScan,
       .releaseScanEvent = chrePalWifiApiReleaseScanEvent,
+      .requestRanging = chrePalWifiApiRequestRanging,
+      .releaseRangingEvent = chrePalWifiApiReleaseRangingEvent,
+      .nanSubscribe = chrePalWifiApiNanSubscribe,
+      .nanSubscribeCancel = chrePalWifiApiNanSubscribeCancel,
+      .releaseNanDiscoveryEvent = chrePalWifiApiNanReleaseDiscoveryEvent,
+      .requestNanRanging = chrePalWifiApiRequestNanRanging,
   };
 
   if (!CHRE_PAL_VERSIONS_ARE_COMPATIBLE(kApi.moduleVersion,
                                         requestedApiVersion)) {
     return nullptr;
   } else {
+    chre::PalNanEngineSingleton::init();
     return &kApi;
   }
 }

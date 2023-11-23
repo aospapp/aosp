@@ -173,7 +173,8 @@ bool MapRecordThread::ReadMapRecords(const std::function<bool(Record*)>& callbac
       PLOG(ERROR) << "fread() failed";
       return false;
     }
-    auto r = ReadRecordFromBuffer(map_record_reader_.Attr(), header.type, buffer.data());
+    auto r = ReadRecordFromBuffer(map_record_reader_.Attr(), header.type, buffer.data(),
+                                  buffer.data() + header.size);
     CHECK(r);
     if (!callback(r.get())) {
       return false;

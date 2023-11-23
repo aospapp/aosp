@@ -25,7 +25,7 @@ android_test_helper_app {
         "arcts",
         "cts",
         "general-tests",
-        "mts",
+        "mts-permission",
         "sts",
     ],
     sdk_version: "current",

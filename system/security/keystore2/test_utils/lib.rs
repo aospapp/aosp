@@ -19,6 +19,14 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::{env::temp_dir, ops::Deref};
 
+use android_system_keystore2::aidl::android::system::keystore2::IKeystoreService::IKeystoreService;
+
+pub mod authorizations;
+pub mod key_generations;
+pub mod run_as;
+
+static KS2_SERVICE_NAME: &str = "android.system.keystore2.IKeystoreService/default";
+
 /// Represents the lifecycle of a temporary directory for testing.
 #[derive(Debug)]
 pub struct TempDir {
@@ -101,4 +109,9 @@ impl Deref for PathBuilder {
     fn deref(&self) -> &Self::Target {
         &self.0
     }
+}
+
+/// Get Keystore2 service.
+pub fn get_keystore_service() -> binder::Strong<dyn IKeystoreService> {
+    binder::get_interface(KS2_SERVICE_NAME).unwrap()
 }

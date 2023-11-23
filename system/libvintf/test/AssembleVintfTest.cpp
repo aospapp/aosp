@@ -17,11 +17,15 @@
 #define LOG_TAG "AssembleVintfTest"
 
 #include <android-base/logging.h>
+#include <android-base/stringprintf.h>
 #include <gtest/gtest.h>
 
 #include <vintf/AssembleVintf.h>
 #include <vintf/parse_string.h>
+#include "constants-private.h"
 #include "test_constants.h"
+
+using android::base::StringPrintf;
 
 namespace android {
 namespace vintf {
@@ -611,6 +615,15 @@ TEST_F(AssembleVintfTest, NoAutoSetKernelFcmWithConfig) {
                                               makeStream("CONFIG_FOO=y"));
     EXPECT_TRUE(getInstance()->assemble());
     EXPECT_IN("<kernel version=\"3.18.10\">", getOutput());
+}
+
+TEST_F(AssembleVintfTest, NoKernelFcmT) {
+    addInput("manifest.xml",
+        StringPrintf(R"(<manifest %s type="device" target-level="%s">
+                            <kernel target-level="10"/>
+                        </manifest>)", kMetaVersionStr.c_str(),
+                        to_string(details::kEnforceDeviceManifestNoKernelLevel).c_str()));
+    EXPECT_FALSE(getInstance()->assemble());
 }
 
 // Automatically add kernel FCM when parsing framework matrix for a single FCM version.

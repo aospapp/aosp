@@ -21,6 +21,7 @@ import static org.junit.Assert.assertThat;
 import static org.junit.Assert.fail;
 
 import hidl2aidl.test.Translate;
+import java.util.ArrayList;
 import org.junit.Test;
 import org.junit.runners.JUnit4;
 
@@ -64,7 +65,7 @@ public class TranslateJavaTest {
 
     @Test
     public void OuterInner() {
-        hidl2aidl.test.OuterInner dest;
+        hidl2aidl.test.Outer.Inner dest;
         hidl2aidl.test.V1_0.Outer.Inner source = new hidl2aidl.test.V1_0.Outer.Inner();
         source.a = 12;
         dest = Translate.h2aTranslate(source);
@@ -86,7 +87,7 @@ public class TranslateJavaTest {
 
     @Test
     public void IFooBigStruct() {
-        hidl2aidl.test.IFooBigStruct dest;
+        hidl2aidl.test.IFoo.BigStruct dest;
         hidl2aidl.test.V1_1.IFoo.BigStruct source = new hidl2aidl.test.V1_1.IFoo.BigStruct();
         source.type = 12;
         source.value = 16;
@@ -97,7 +98,7 @@ public class TranslateJavaTest {
 
     @Test
     public void IBarInner() {
-        hidl2aidl.test.IBarInner dest;
+        hidl2aidl.test.IBar.Inner dest;
         hidl2aidl.test.V1_0.IBar.Inner source = new hidl2aidl.test.V1_0.IBar.Inner();
         source.a = 0x70000000;
         dest = Translate.h2aTranslate(source);
@@ -106,7 +107,7 @@ public class TranslateJavaTest {
 
     @Test
     public void UnsignedToSignedTooLarge() {
-        hidl2aidl.test.IBarInner dest;
+        hidl2aidl.test.IBar.Inner dest;
         hidl2aidl.test.V1_0.IBar.Inner source = new hidl2aidl.test.V1_0.IBar.Inner();
         // source.a is uint32_t, dest.a is int32_t
         source.a = -1;
@@ -235,11 +236,57 @@ public class TranslateJavaTest {
     }
 
     @Test
+    public void SafeUnionBarVecByte() {
+        hidl2aidl.test.SafeUnionBar dest;
+        hidl2aidl.test.V1_2.SafeUnionBar source = new hidl2aidl.test.V1_2.SafeUnionBar();
+        source.j(new ArrayList<Byte>());
+        source.j().add((byte) 12);
+        source.j().add((byte) 6);
+        dest = Translate.h2aTranslate(source);
+        assertThat(source.j().get(0), is((byte) dest.getJ()[0]));
+        assertThat(source.j().get(1), is((byte) dest.getJ()[1]));
+    }
+
+    @Test
+    public void SafeUnionBarVecLong() {
+        hidl2aidl.test.SafeUnionBar dest;
+        hidl2aidl.test.V1_2.SafeUnionBar source = new hidl2aidl.test.V1_2.SafeUnionBar();
+        source.k(new ArrayList<Integer>());
+        source.k().add(hidl2aidl.test.Value.A);
+        source.k().add(hidl2aidl.test.Value.B);
+        dest = Translate.h2aTranslate(source);
+        assertThat(source.k().get(0), is(dest.getK()[0]));
+        assertThat(source.k().get(1), is(dest.getK()[1]));
+    }
+
+    @Test
+    public void SafeUnionBarArrayByte() {
+        hidl2aidl.test.SafeUnionBar dest;
+        hidl2aidl.test.V1_2.SafeUnionBar source = new hidl2aidl.test.V1_2.SafeUnionBar();
+        source.l(new byte[2]);
+        source.l()[0] = (byte) 12;
+        source.l()[1] = (byte) 6;
+        dest = Translate.h2aTranslate(source);
+        assertThat(source.l()[0], is(dest.getL()[0]));
+        assertThat(source.l()[1], is(dest.getL()[1]));
+    }
+
+    @Test
+    public void SafeUnionBarRepeatedFloat() {
+        hidl2aidl.test.SafeUnionBar dest;
+        hidl2aidl.test.V1_2.SafeUnionBar source = new hidl2aidl.test.V1_2.SafeUnionBar();
+        source.m(3.5f);
+        dest = Translate.h2aTranslate(source);
+        assertThat(source.m(), is(dest.getM()));
+    }
+
+    @Test
     public void ArrayFoo() {
         hidl2aidl.test.ArrayFoo dest;
         hidl2aidl.test.V1_2.ArrayFoo source = new hidl2aidl.test.V1_2.ArrayFoo();
         source.a[0] = 42;
         source.a[0] = 42;
+        assertThat(source.e.length, is(0));
         dest = Translate.h2aTranslate(source);
         assertThat(source.a[0], is(dest.a[0]));
     }

@@ -218,7 +218,9 @@ wifi_error wifi_virtual_interface_delete(wifi_handle handle, const char* ifname)
 #define max(x, y)       ((x) > (y) ? (x) : (y))
 
 #define REQUEST_ID_MAX 1000
+#define REQUEST_ID_U8_MAX 255
 #define get_requestid() ((arc4random()%REQUEST_ID_MAX) + 1)
+#define get_requestid_u8() ((arc4random()%REQUEST_ID_U8_MAX) + 1)
 #define WAIT_TIME_FOR_SET_REG_DOMAIN 50000
 
 #ifndef UNUSED

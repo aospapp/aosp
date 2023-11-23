@@ -15,14 +15,15 @@
 package build
 
 import (
-	"android/soong/finder"
-	"android/soong/finder/fs"
-	"android/soong/ui/logger"
 	"bytes"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"android/soong/finder"
+	"android/soong/finder/fs"
+	"android/soong/ui/logger"
 
 	"android/soong/ui/metrics"
 )
@@ -72,10 +73,10 @@ func NewSourceFinder(ctx Context, config Config) (f *finder.Finder) {
 			"AndroidProducts.mk",
 			// General Soong build definitions, using the Blueprint syntax.
 			"Android.bp",
-			// build/blueprint build definitions, using the Blueprint syntax.
-			"Blueprints",
 			// Bazel build definitions.
 			"BUILD.bazel",
+			// Bazel build definitions.
+			"BUILD",
 			// Kati clean definitions.
 			"CleanSpec.mk",
 			// Ownership definition.
@@ -86,8 +87,8 @@ func NewSourceFinder(ctx Context, config Config) (f *finder.Finder) {
 			// Bazel top-level file to mark a directory as a Bazel workspace.
 			"WORKSPACE",
 		},
-		// Bazel Starlark configuration files.
-		IncludeSuffixes: []string{".bzl"},
+		// Bazel Starlark configuration files and all .mk files for product/board configuration.
+		IncludeSuffixes: []string{".bzl", ".mk"},
 	}
 	dumpDir := config.FileListDir()
 	f, err = finder.New(cacheParams, filesystem, logger.New(ioutil.Discard),
@@ -102,7 +103,20 @@ func NewSourceFinder(ctx Context, config Config) (f *finder.Finder) {
 func findBazelFiles(entries finder.DirEntries) (dirNames []string, fileNames []string) {
 	matches := []string{}
 	for _, foundName := range entries.FileNames {
-		if foundName == "BUILD.bazel" || foundName == "WORKSPACE" || strings.HasSuffix(foundName, ".bzl") {
+		if foundName == "BUILD.bazel" || foundName == "BUILD" || foundName == "WORKSPACE" || strings.HasSuffix(foundName, ".bzl") {
+			matches = append(matches, foundName)
+		}
+	}
+	return entries.DirNames, matches
+}
+
+func findProductAndBoardConfigFiles(entries finder.DirEntries) (dirNames []string, fileNames []string) {
+	matches := []string{}
+	for _, foundName := range entries.FileNames {
+		if foundName != "Android.mk" &&
+			foundName != "AndroidProducts.mk" &&
+			foundName != "CleanSpec.mk" &&
+			strings.HasSuffix(foundName, ".mk") {
 			matches = append(matches, foundName)
 		}
 	}
@@ -122,6 +136,17 @@ func FindSources(ctx Context, config Config, f *finder.Finder) {
 	err := dumpListToFile(ctx, config, androidMks, filepath.Join(dumpDir, "Android.mk.list"))
 	if err != nil {
 		ctx.Fatalf("Could not export module list: %v", err)
+	}
+
+	// Gate collecting/reporting mk metrics on builds that specifically request
+	// it, as identifying the total number of mk files adds 4-5ms onto null
+	// builds.
+	if config.reportMkMetrics {
+		androidMksTotal := f.FindNamedAt(".", "Android.mk")
+
+		ctx.Metrics.SetToplevelMakefiles(len(androidMks))
+		ctx.Metrics.SetTotalMakefiles(len(androidMksTotal))
+		ctx.Metrics.DumpMkMetrics(config.MkMetrics())
 	}
 
 	// Stop searching a subdirectory recursively after finding a CleanSpec.mk.
@@ -163,14 +188,19 @@ func FindSources(ctx Context, config Config, f *finder.Finder) {
 
 	// Recursively look for all Android.bp files
 	androidBps := f.FindNamedAt(".", "Android.bp")
-	// The files are named "Blueprints" only in the build/blueprint directory.
-	androidBps = append(androidBps, f.FindNamedAt("build/blueprint", "Blueprints")...)
 	if len(androidBps) == 0 {
 		ctx.Fatalf("No Android.bp found")
 	}
 	err = dumpListToFile(ctx, config, androidBps, filepath.Join(dumpDir, "Android.bp.list"))
 	if err != nil {
 		ctx.Fatalf("Could not find modules: %v", err)
+	}
+
+	// Recursively look for all product/board config files.
+	configurationFiles := f.FindMatching(".", findProductAndBoardConfigFiles)
+	err = dumpListToFile(ctx, config, configurationFiles, filepath.Join(dumpDir, "configuration.list"))
+	if err != nil {
+		ctx.Fatalf("Could not export product/board configuration list: %v", err)
 	}
 
 	if config.Dist() {

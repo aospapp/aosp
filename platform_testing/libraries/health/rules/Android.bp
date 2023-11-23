@@ -18,7 +18,6 @@ package {
 
 java_library {
     name: "platform-test-rules",
-    sdk_version: "test_current",
     static_libs: [
         "androidx.test.runner",
         "androidx.test.uiautomator",
@@ -31,8 +30,12 @@ java_library {
         "launcher-aosp-tapl",
         "flickerlib",
         "statsd-helper",
+        "health-testing-utils",
     ],
-    srcs: ["src/**/*.java"],
+    srcs: [
+        "src/**/*.java",
+        "src/**/*.kt",
+    ],
 }
 
 java_library {
@@ -49,6 +52,7 @@ java_library {
         "package-helper",
         "statsd-helper",
         "launcher-aosp-tapl",
+        "health-testing-utils",
     ],
     srcs: ["src/**/*.java"],
     exclude_srcs: [

@@ -19,13 +19,13 @@ package android.security.cts;
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.AsbSecurityTest;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
-import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
+import com.android.sts.common.tradefed.testtype.StsExtraBusinessLogicHostTestBase;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class CVE_2021_0693 extends BaseHostJUnit4Test {
+public class CVE_2021_0693 extends StsExtraBusinessLogicHostTestBase {
 
     private static final String TEST_PKG = "android.security.cts.CVE_2021_0693";
     private static final String TEST_CLASS = TEST_PKG + "." + "DeviceTest";

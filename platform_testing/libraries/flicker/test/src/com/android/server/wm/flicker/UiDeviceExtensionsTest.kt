@@ -18,7 +18,7 @@ package com.android.server.wm.flicker
 
 import androidx.test.platform.app.InstrumentationRegistry
 import com.android.server.wm.traces.common.DeviceStateDump
-import com.android.server.wm.traces.common.layers.LayerTraceEntry
+import com.android.server.wm.traces.common.layers.BaseLayerTraceEntry
 import com.android.server.wm.traces.common.windowmanager.WindowManagerState
 import com.android.server.wm.traces.parser.FLAG_STATE_DUMP_FLAG_LAYERS
 import com.android.server.wm.traces.parser.FLAG_STATE_DUMP_FLAG_WM
@@ -46,7 +46,7 @@ class UiDeviceExtensionsTest {
 
     private fun getCurrStateDump(
         @WmStateDumpFlags dumpFlags: Int = FLAG_STATE_DUMP_FLAG_WM.or(FLAG_STATE_DUMP_FLAG_LAYERS)
-    ): DeviceStateDump<WindowManagerState?, LayerTraceEntry?> {
+    ): DeviceStateDump<WindowManagerState?, BaseLayerTraceEntry?> {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         return getCurrentStateDump(instrumentation.uiAutomation, dumpFlags)
     }

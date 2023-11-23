@@ -22,7 +22,6 @@ import android.content.pm.PackageManager
 import android.content.pm.PackageManager.FEATURE_AUTOMOTIVE
 import android.content.pm.PackageManager.FEATURE_COMPANION_DEVICE_SETUP
 import android.content.pm.PackageManager.FEATURE_LEANBACK
-import android.content.pm.PackageManager.PERMISSION_GRANTED
 import android.net.MacAddress
 import android.os.Binder
 import android.os.Bundle
@@ -32,7 +31,6 @@ import android.platform.test.annotations.AppModeFull
 import android.util.Size
 import android.util.SizeF
 import android.util.SparseArray
-import android.widget.TextView
 import androidx.test.InstrumentationRegistry
 import androidx.test.runner.AndroidJUnit4
 import androidx.test.uiautomator.By
@@ -41,19 +39,14 @@ import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
 import com.android.compatibility.common.util.MatcherUtils.hasIdThat
-import com.android.compatibility.common.util.SystemUtil.eventually
 import com.android.compatibility.common.util.SystemUtil.getEventually
 import com.android.compatibility.common.util.SystemUtil.runShellCommand
 import com.android.compatibility.common.util.SystemUtil.runShellCommandOrThrow
 import com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity
 import com.android.compatibility.common.util.ThrowingSupplier
 import com.android.compatibility.common.util.UiAutomatorUtils.waitFindObject
-import com.android.compatibility.common.util.children
 import com.android.compatibility.common.util.click
-import java.io.Serializable
 import org.hamcrest.CoreMatchers.containsString
-import org.hamcrest.Matchers.empty
-import org.hamcrest.Matchers.not
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThat
@@ -61,8 +54,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeFalse
 import org.junit.Assume.assumeTrue
 import org.junit.Before
+import org.junit.Ignore
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.Serializable
 
 /**
  * Test for [CompanionDeviceManager]
@@ -77,6 +72,13 @@ class CompanionDeviceManagerTest {
         const val SHELL_PACKAGE_NAME = "com.android.shell"
         const val TEST_APP_PACKAGE_NAME = "android.os.cts.companiontestapp"
         const val TEST_APP_APK_LOCATION = "/data/local/tmp/cts/os/CtsCompanionTestApp.apk"
+        const val CDM_UI_PACKAGE_NAME = "com.android.companiondevicemanager"
+        const val RECYCLER_VIEW_CLASS = "androidx.recyclerview.widget.RecyclerView"
+
+        val DEVICE_LIST_ITEM_SELECTOR: BySelector = By.res(CDM_UI_PACKAGE_NAME, "list_item_device")
+        val DEVICE_LIST_SELECTOR: BySelector = By.pkg(CDM_UI_PACKAGE_NAME)
+                .clazz(RECYCLER_VIEW_CLASS)
+                .hasChild(DEVICE_LIST_ITEM_SELECTOR)
     }
 
     private val instrumentation: Instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -99,8 +101,6 @@ class CompanionDeviceManagerTest {
     @Before
     fun assumeHasFeature() {
         assumeTrue(hasFeatureCompanionDeviceSetup)
-        // TODO(b/191699828) test does not work in automotive due to accessibility issue
-        assumeFalse(isAuto)
     }
 
     @After
@@ -164,41 +164,7 @@ class CompanionDeviceManagerTest {
 
     @AppModeFull(reason = "Companion API for non-instant apps only")
     @Test
-    fun testProfiles() {
-        installApk("--user $userId $TEST_APP_APK_LOCATION")
-        startApp(TEST_APP_PACKAGE_NAME)
-
-        uiDevice.waitAndFind(By.desc("name filter")).text = ""
-        uiDevice.waitForIdle()
-
-        click("Watch")
-        val device = getEventually({
-            click("Associate")
-            waitFindNode(hasIdThat(containsString("device_list")),
-                    failMsg = "Test requires a discoverable bluetooth device nearby",
-                    timeoutMs = 9_000)
-                    .children
-                    .find { it.className == TextView::class.java.name }
-                    .assertNotNull { "Empty device list" }
-        }, 90_000)
-        device!!.click()
-
-        eventually {
-            assertThat(getAssociatedDevices(TEST_APP_PACKAGE_NAME), not(empty()))
-        }
-        val deviceAddress = getAssociatedDevices(TEST_APP_PACKAGE_NAME).last()
-
-        runShellCommandOrThrow("cmd companiondevice simulate_connect $deviceAddress")
-        assertPermission(
-                TEST_APP_PACKAGE_NAME, "android.permission.CALL_PHONE", PERMISSION_GRANTED)
-
-        runShellCommandOrThrow("cmd companiondevice simulate_disconnect $deviceAddress")
-        assertPermission(
-                TEST_APP_PACKAGE_NAME, "android.permission.CALL_PHONE", PERMISSION_GRANTED)
-    }
-
-    @AppModeFull(reason = "Companion API for non-instant apps only")
-    @Test
+    @Ignore("b/212535524")
     fun testRequestNotifications() {
         // Skip this test for Android TV due to NotificationAccessConfirmationActivity only exists
         // in Settings but not in TvSettings for Android TV devices (b/199224565).
@@ -210,17 +176,12 @@ class CompanionDeviceManagerTest {
         uiDevice.waitAndFind(By.desc("name filter")).text = ""
         uiDevice.waitForIdle()
 
-        val deviceForAssociation = getEventually({
-            click("Associate")
-            waitFindNode(hasIdThat(containsString("device_list")),
-                    failMsg = "Test requires a discoverable bluetooth device nearby",
-                    timeoutMs = 5_000)
-                    .children
-                    .find { it.className == TextView::class.java.name }
-                    .assertNotNull { "Empty device list" }
-        }, 60_000)
+        click("Associate")
 
-        deviceForAssociation!!.click()
+        uiDevice.wait(Until.findObject(DEVICE_LIST_SELECTOR), 20_000)
+                ?.findObject(DEVICE_LIST_ITEM_SELECTOR)
+                ?.click()
+                ?: throw AssertionError("Empty device list")
 
         waitForIdle()
 

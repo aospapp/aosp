@@ -30,18 +30,18 @@ import org.testng.Assert;
 import static org.testng.Assert.fail;
 
 // Android-changed: Added test annotations, remove main() method.
+
 /**
+ * @author Roger Riggs
  * @test Test for Math.*Exact integer and long methods.
  * @bug 6708398
  * @summary Basic tests for Math exact arithmetic operations.
- *
- * @author Roger Riggs
  */
 public class ExactArithTests {
 
     /**
-     * Test Math.addExact, multiplyExact, subtractExact, toIntValue methods
-     * with {@code int} arguments.
+     * Test Math.addExact, multiplyExact, subtractExact, toIntValue methods with {@code int}
+     * arguments.
      */
     @Test
     public void testIntegerExact() {
@@ -65,9 +65,8 @@ public class ExactArithTests {
     }
 
     /**
-     * Test exact arithmetic by comparing with the same operations using long
-     * and checking that the result is the same as the integer truncation.
-     * Errors are reported with {@link fail}.
+     * Test exact arithmetic by comparing with the same operations using long and checking that the
+     * result is the same as the integer truncation. Errors are reported with {@link fail}.
      *
      * @param x first parameter
      * @param y second parameter
@@ -78,14 +77,17 @@ public class ExactArithTests {
             int sum = Math.addExact(x, y);
             long sum2 = (long) x + (long) y;
             if ((int) sum2 != sum2) {
-                fail("FAIL: int Math.addExact(" + x + " + " + y + ") = " + sum + "; expected Arithmetic exception");
+                fail("FAIL: int Math.addExact(" + x + " + " + y + ") = " + sum
+                        + "; expected Arithmetic exception");
             } else if (sum != sum2) {
-                fail("FAIL: long Math.addExact(" + x + " + " + y + ") = " + sum + "; expected: " + sum2);
+                fail("FAIL: long Math.addExact(" + x + " + " + y + ") = " + sum + "; expected: "
+                        + sum2);
             }
         } catch (ArithmeticException ex) {
             long sum2 = (long) x + (long) y;
             if ((int) sum2 == sum2) {
-                fail("FAIL: int Math.addExact(" + x + " + " + y + ")" + "; Unexpected exception: " + ex);
+                fail("FAIL: int Math.addExact(" + x + " + " + y + ")" + "; Unexpected exception: "
+                        + ex);
 
             }
         }
@@ -95,13 +97,15 @@ public class ExactArithTests {
             int diff = Math.subtractExact(x, y);
             long diff2 = (long) x - (long) y;
             if ((int) diff2 != diff2) {
-                fail("FAIL: int Math.subtractExact(" + x + " - " + y + ") = " + diff + "; expected: " + diff2);
+                fail("FAIL: int Math.subtractExact(" + x + " - " + y + ") = " + diff
+                        + "; expected: " + diff2);
             }
 
         } catch (ArithmeticException ex) {
             long diff2 = (long) x - (long) y;
             if ((int) diff2 == diff2) {
-                fail("FAIL: int Math.subtractExact(" + x + " - " + y + ")" + "; Unexpected exception: " + ex);
+                fail("FAIL: int Math.subtractExact(" + x + " - " + y + ")"
+                        + "; Unexpected exception: " + ex);
             }
         }
 
@@ -110,12 +114,14 @@ public class ExactArithTests {
             int product = Math.multiplyExact(x, y);
             long m2 = (long) x * (long) y;
             if ((int) m2 != m2) {
-                fail("FAIL: int Math.multiplyExact(" + x + " * " + y + ") = " + product + "; expected: " + m2);
+                fail("FAIL: int Math.multiplyExact(" + x + " * " + y + ") = " + product
+                        + "; expected: " + m2);
             }
         } catch (ArithmeticException ex) {
             long m2 = (long) x * (long) y;
             if ((int) m2 == m2) {
-                fail("FAIL: int Math.multiplyExact(" + x + " * " + y + ")" + "; Unexpected exception: " + ex);
+                fail("FAIL: int Math.multiplyExact(" + x + " * " + y + ")"
+                        + "; Unexpected exception: " + ex);
             }
         }
 
@@ -124,7 +130,8 @@ public class ExactArithTests {
             int inc = Math.incrementExact(x);
             long inc2 = (long) x + 1L;
             if ((int) inc2 != inc2) {
-                fail("FAIL: int Math.incrementExact(" + x + ") = " + inc + "; expected Arithmetic exception");
+                fail("FAIL: int Math.incrementExact(" + x + ") = " + inc
+                        + "; expected Arithmetic exception");
             } else if (inc != inc2) {
                 fail("FAIL: long Math.incrementExact(" + x + ") = " + inc + "; expected: " + inc2);
             }
@@ -141,7 +148,8 @@ public class ExactArithTests {
             int dec = Math.decrementExact(x);
             long dec2 = (long) x - 1L;
             if ((int) dec2 != dec2) {
-                fail("FAIL: int Math.decrementExact(" + x + ") = " + dec + "; expected Arithmetic exception");
+                fail("FAIL: int Math.decrementExact(" + x + ") = " + dec
+                        + "; expected Arithmetic exception");
             } else if (dec != dec2) {
                 fail("FAIL: long Math.decrementExact(" + x + ") = " + dec + "; expected: " + dec2);
             }
@@ -156,9 +164,10 @@ public class ExactArithTests {
         try {
             // Test negateExact
             int neg = Math.negateExact(x);
-            long neg2 = -((long)x) ;
+            long neg2 = -((long) x);
             if ((int) neg2 != neg2) {
-                fail("FAIL: int Math.negateExact(" + x + ") = " + neg + "; expected Arithmetic exception");
+                fail("FAIL: int Math.negateExact(" + x + ") = " + neg
+                        + "; expected Arithmetic exception");
             } else if (neg != neg2) {
                 fail("FAIL: long Math.negateExact(" + x + ") = " + neg + "; expected: " + neg2);
             }
@@ -172,8 +181,8 @@ public class ExactArithTests {
     }
 
     /**
-     * Test Math.addExact, multiplyExact, subtractExact, toIntExact methods
-     * with {@code long} arguments.
+     * Test Math.addExact, multiplyExact, subtractExact, toIntExact methods with {@code long}
+     * arguments.
      */
     @Test
     static void testLongExact() {
@@ -192,23 +201,20 @@ public class ExactArithTests {
         testLongExactTwice(Long.MAX_VALUE, -1);
         testLongExactTwice(Long.MIN_VALUE, -2);
         testLongExactTwice(Long.MAX_VALUE, -2);
-        testLongExactTwice(Long.MIN_VALUE/2, 2);
+        testLongExactTwice(Long.MIN_VALUE / 2, 2);
         testLongExactTwice(Long.MAX_VALUE, 2);
         testLongExactTwice(Integer.MAX_VALUE, Integer.MAX_VALUE);
         testLongExactTwice(Integer.MAX_VALUE, -Integer.MAX_VALUE);
-        testLongExactTwice(Integer.MAX_VALUE+1, Integer.MAX_VALUE+1);
-        testLongExactTwice(Integer.MAX_VALUE+1, -Integer.MAX_VALUE+1);
-        testLongExactTwice(Integer.MIN_VALUE-1, Integer.MIN_VALUE-1);
-        testLongExactTwice(Integer.MIN_VALUE-1, -Integer.MIN_VALUE-1);
-        testLongExactTwice(Integer.MIN_VALUE/2, 2);
+        testLongExactTwice(Integer.MAX_VALUE + 1, Integer.MAX_VALUE + 1);
+        testLongExactTwice(Integer.MAX_VALUE + 1, -Integer.MAX_VALUE + 1);
+        testLongExactTwice(Integer.MIN_VALUE - 1, Integer.MIN_VALUE - 1);
+        testLongExactTwice(Integer.MIN_VALUE - 1, -Integer.MIN_VALUE - 1);
+        testLongExactTwice(Integer.MIN_VALUE / 2, 2);
 
     }
 
     /**
-     * Test each of the exact operations with the arguments and
-     * with the arguments reversed.
-     * @param x
-     * @param y
+     * Test each of the exact operations with the arguments and with the arguments reversed.
      */
     static void testLongExactTwice(long x, long y) {
         testLongExact(x, y);
@@ -217,9 +223,9 @@ public class ExactArithTests {
 
 
     /**
-     * Test long exact arithmetic by comparing with the same operations using BigInteger
-     * and checking that the result is the same as the long truncation.
-     * Errors are reported with {@link fail}.
+     * Test long exact arithmetic by comparing with the same operations using BigInteger and
+     * checking that the result is the same as the long truncation. Errors are reported with {@link
+     * fail}.
      *
      * @param x first parameter
      * @param y second parameter
@@ -235,7 +241,8 @@ public class ExactArithTests {
             checkResult("long Math.addExact", x, y, sum, resultBig);
         } catch (ArithmeticException ex) {
             if (inLongRange(resultBig)) {
-                fail("FAIL: long Math.addExact(" + x + " + " + y + "); Unexpected exception: " + ex);
+                fail("FAIL: long Math.addExact(" + x + " + " + y + "); Unexpected exception: "
+                        + ex);
             }
         }
 
@@ -246,7 +253,8 @@ public class ExactArithTests {
             checkResult("long Math.subtractExact", x, y, diff, resultBig);
         } catch (ArithmeticException ex) {
             if (inLongRange(resultBig)) {
-                fail("FAIL: long Math.subtractExact(" + x + " - " + y + ")" + "; Unexpected exception: " + ex);
+                fail("FAIL: long Math.subtractExact(" + x + " - " + y + ")"
+                        + "; Unexpected exception: " + ex);
             }
         }
 
@@ -257,7 +265,8 @@ public class ExactArithTests {
             checkResult("long Math.multiplyExact", x, y, product, resultBig);
         } catch (ArithmeticException ex) {
             if (inLongRange(resultBig)) {
-                fail("FAIL: long Math.multiplyExact(" + x + " * " + y + ")" + "; Unexpected exception: " + ex);
+                fail("FAIL: long Math.multiplyExact(" + x + " * " + y + ")"
+                        + "; Unexpected exception: " + ex);
             }
         }
 
@@ -297,8 +306,9 @@ public class ExactArithTests {
         try {
             // Test toIntExact
             int value = Math.toIntExact(x);
-            if ((long)value != x) {
-                fail("FAIL: " + "long Math.toIntExact" + "(" + x + ") = " + value + "; expected an arithmetic exception: ");
+            if ((long) value != x) {
+                fail("FAIL: " + "long Math.toIntExact" + "(" + x + ") = " + value
+                        + "; expected an arithmetic exception: ");
             }
         } catch (ArithmeticException ex) {
             if (resultBig.bitLength() <= 32) {
@@ -310,6 +320,7 @@ public class ExactArithTests {
 
     /**
      * Compare the expected and actual results.
+     *
      * @param message message for the error
      * @param x first argument
      * @param y second argument
@@ -319,15 +330,17 @@ public class ExactArithTests {
     static void checkResult(String message, long x, long y, long result, BigInteger expected) {
         BigInteger resultBig = BigInteger.valueOf(result);
         if (!inLongRange(expected)) {
-            fail("FAIL: " + message + "(" + x + ", " + y + ") = " + result + "; expected an arithmetic exception: ");
+            fail("FAIL: " + message + "(" + x + ", " + y + ") = " + result
+                    + "; expected an arithmetic exception: ");
         } else if (!resultBig.equals(expected)) {
-            fail("FAIL: " + message + "(" + x + ", " + y + ") = " + result + "; expected " + expected);
+            fail("FAIL: " + message + "(" + x + ", " + y + ") = " + result + "; expected "
+                    + expected);
         }
     }
 
     /**
      * Check if the value fits in 64 bits (a long).
-     * @param value
+     *
      * @return true if the value fits in 64 bits (including the sign).
      */
     static boolean inLongRange(BigInteger value) {
@@ -335,8 +348,7 @@ public class ExactArithTests {
     }
 
     /**
-     * Test Math.multiplyExact method with {@code long} and {@code int}
-     * arguments.
+     * Test Math.multiplyExact method with {@code long} and {@code int} arguments.
      */
     @Test
     static void testLongIntExact() {
@@ -355,21 +367,21 @@ public class ExactArithTests {
         testLongIntExact(Long.MAX_VALUE, -1);
         testLongIntExact(Long.MIN_VALUE, -2);
         testLongIntExact(Long.MAX_VALUE, -2);
-        testLongIntExact(Long.MIN_VALUE/2, 2);
+        testLongIntExact(Long.MIN_VALUE / 2, 2);
         testLongIntExact(Long.MAX_VALUE, 2);
         testLongIntExact(Integer.MAX_VALUE, Integer.MAX_VALUE);
         testLongIntExact(Integer.MAX_VALUE, -Integer.MAX_VALUE);
-        testLongIntExact((long)Integer.MAX_VALUE+1L, Integer.MAX_VALUE);
-        testLongIntExact((long)Integer.MAX_VALUE+1L, -Integer.MAX_VALUE+1);
-        testLongIntExact((long)Integer.MIN_VALUE-1L, Integer.MIN_VALUE);
-        testLongIntExact((long)Integer.MIN_VALUE-1, Integer.MAX_VALUE);
-        testLongIntExact(Integer.MIN_VALUE/2, 2);
+        testLongIntExact((long) Integer.MAX_VALUE + 1L, Integer.MAX_VALUE);
+        testLongIntExact((long) Integer.MAX_VALUE + 1L, -Integer.MAX_VALUE + 1);
+        testLongIntExact((long) Integer.MIN_VALUE - 1L, Integer.MIN_VALUE);
+        testLongIntExact((long) Integer.MIN_VALUE - 1, Integer.MAX_VALUE);
+        testLongIntExact(Integer.MIN_VALUE / 2, 2);
     }
 
     /**
-     * Test long-int exact arithmetic by comparing with the same operations using BigInteger
-     * and checking that the result is the same as the long truncation.
-     * Errors are reported with {@link fail}.
+     * Test long-int exact arithmetic by comparing with the same operations using BigInteger and
+     * checking that the result is the same as the long truncation. Errors are reported with {@link
+     * fail}.
      *
      * @param x first parameter
      * @param y second parameter
@@ -386,7 +398,8 @@ public class ExactArithTests {
             checkResult("long Math.multiplyExact", x, y, product, resultBig);
         } catch (ArithmeticException ex) {
             if (inLongRange(resultBig)) {
-                fail("FAIL: long Math.multiplyExact(" + x + " * " + y + ")" + "; Unexpected exception: " + ex);
+                fail("FAIL: long Math.multiplyExact(" + x + " * " + y + ")"
+                        + "; Unexpected exception: " + ex);
             }
         }
     }

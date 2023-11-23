@@ -86,6 +86,16 @@ public class NinePatchTest {
         mNinePatch = new NinePatch(mBitmap, mChunk, NAME);
         assertEquals(mBitmap, mNinePatch.getBitmap());
         assertEquals(NAME, mNinePatch.getName());
+
+        boolean caughtException = false;
+        try {
+            mNinePatch = new NinePatch(mBitmap, null);
+        } catch (Exception e) {
+            // No need to catch it, just asserting that it was thrown
+            caughtException = true;
+        } finally {
+            assertTrue(caughtException);
+        }
     }
 
     @Test

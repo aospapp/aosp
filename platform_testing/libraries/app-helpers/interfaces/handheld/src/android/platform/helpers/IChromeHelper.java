@@ -263,4 +263,13 @@ public interface IChromeHelper extends IAppHelper {
     public default UiObject2 getWebPage() {
         throw new UnsupportedOperationException("Not yet implemented.");
     }
+
+    /**
+     * Setup expectation: Chrome was loading a web page.
+     *
+     * <p>Returns a boolean to state if current page is loaded.
+     */
+    public default boolean isWebPageLoaded() {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
 }

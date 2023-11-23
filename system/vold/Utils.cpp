@@ -68,10 +68,10 @@ using android::base::unique_fd;
 namespace android {
 namespace vold {
 
-security_context_t sBlkidContext = nullptr;
-security_context_t sBlkidUntrustedContext = nullptr;
-security_context_t sFsckContext = nullptr;
-security_context_t sFsckUntrustedContext = nullptr;
+char* sBlkidContext = nullptr;
+char* sBlkidUntrustedContext = nullptr;
+char* sFsckContext = nullptr;
+char* sFsckUntrustedContext = nullptr;
 
 bool sSleepOnUnmount = true;
 
@@ -702,7 +702,7 @@ static status_t ReadLinesFromFdAndLog(std::vector<std::string>* output,
 }
 
 status_t ForkExecvp(const std::vector<std::string>& args, std::vector<std::string>* output,
-                    security_context_t context) {
+                    char* context) {
     auto argv = ConvertToArgv(args);
 
     android::base::unique_fd pipe_read, pipe_write;
@@ -754,7 +754,53 @@ status_t ForkExecvp(const std::vector<std::string>& args, std::vector<std::strin
     return OK;
 }
 
-pid_t ForkExecvpAsync(const std::vector<std::string>& args) {
+status_t ForkExecvpTimeout(const std::vector<std::string>& args, std::chrono::seconds timeout,
+                           char* context) {
+    int status;
+
+    pid_t wait_timeout_pid = fork();
+    if (wait_timeout_pid == 0) {
+        pid_t pid = ForkExecvpAsync(args, context);
+        if (pid == -1) {
+            _exit(EXIT_FAILURE);
+        }
+        pid_t timer_pid = fork();
+        if (timer_pid == 0) {
+            sleep(timeout.count());
+            _exit(ETIMEDOUT);
+        }
+        if (timer_pid == -1) {
+            PLOG(ERROR) << "fork in ForkExecvpAsync_timeout";
+            kill(pid, SIGTERM);
+            _exit(EXIT_FAILURE);
+        }
+        pid_t finished = wait(&status);
+        if (finished == pid) {
+            kill(timer_pid, SIGTERM);
+        } else {
+            kill(pid, SIGTERM);
+        }
+        if (!WIFEXITED(status)) {
+            _exit(ECHILD);
+        }
+        _exit(WEXITSTATUS(status));
+    }
+    if (waitpid(wait_timeout_pid, &status, 0) == -1) {
+        PLOG(ERROR) << "waitpid in ForkExecvpAsync_timeout";
+        return -errno;
+    }
+    if (!WIFEXITED(status)) {
+        LOG(ERROR) << "Process did not exit normally, status: " << status;
+        return -ECHILD;
+    }
+    if (WEXITSTATUS(status)) {
+        LOG(ERROR) << "Process exited with code: " << WEXITSTATUS(status);
+        return WEXITSTATUS(status);
+    }
+    return OK;
+}
+
+pid_t ForkExecvpAsync(const std::vector<std::string>& args, char* context) {
     auto argv = ConvertToArgv(args);
 
     pid_t pid = fork();
@@ -762,6 +808,12 @@ pid_t ForkExecvpAsync(const std::vector<std::string>& args) {
         close(STDIN_FILENO);
         close(STDOUT_FILENO);
         close(STDERR_FILENO);
+        if (context) {
+            if (setexeccon(context)) {
+                LOG(ERROR) << "Failed to setexeccon in ForkExecvpAsync";
+                abort();
+            }
+        }
 
         execvp(argv[0], const_cast<char**>(argv.data()));
         PLOG(ERROR) << "exec in ForkExecvpAsync";
@@ -1068,14 +1120,6 @@ std::string BuildDataMiscLegacyPath(userid_t userId) {
     return StringPrintf("%s/misc/user/%u", BuildDataPath("").c_str(), userId);
 }
 
-std::string BuildDataMiscCePath(userid_t userId) {
-    return StringPrintf("%s/misc_ce/%u", BuildDataPath("").c_str(), userId);
-}
-
-std::string BuildDataMiscDePath(userid_t userId) {
-    return StringPrintf("%s/misc_de/%u", BuildDataPath("").c_str(), userId);
-}
-
 // Keep in sync with installd (frameworks/native/cmds/installd/utils.h)
 std::string BuildDataProfilesDePath(userid_t userId) {
     return StringPrintf("%s/misc/profiles/cur/%u", BuildDataPath("").c_str(), userId);
@@ -1103,6 +1147,14 @@ std::string BuildDataMediaCePath(const std::string& volumeUuid, userid_t userId)
     // TODO: unify with installd path generation logic
     std::string data(BuildDataPath(volumeUuid));
     return StringPrintf("%s/media/%u", data.c_str(), userId);
+}
+
+std::string BuildDataMiscCePath(const std::string& volumeUuid, userid_t userId) {
+    return StringPrintf("%s/misc_ce/%u", BuildDataPath(volumeUuid).c_str(), userId);
+}
+
+std::string BuildDataMiscDePath(const std::string& volumeUuid, userid_t userId) {
+    return StringPrintf("%s/misc_de/%u", BuildDataPath(volumeUuid).c_str(), userId);
 }
 
 std::string BuildDataUserCePath(const std::string& volumeUuid, userid_t userId) {
@@ -1212,49 +1264,6 @@ bool IsVirtioBlkDevice(unsigned int major) {
     // kernel (4.4; see init() in drivers/block/virtio_blk.c).
     static unsigned int kMajorBlockVirtioBlk = GetMajorBlockVirtioBlk();
     return kMajorBlockVirtioBlk && major == kMajorBlockVirtioBlk;
-}
-
-static status_t findMountPointsWithPrefix(const std::string& prefix,
-                                          std::list<std::string>& mountPoints) {
-    // Add a trailing slash if the client didn't provide one so that we don't match /foo/barbaz
-    // when the prefix is /foo/bar
-    std::string prefixWithSlash(prefix);
-    if (prefix.back() != '/') {
-        android::base::StringAppendF(&prefixWithSlash, "/");
-    }
-
-    std::unique_ptr<FILE, int (*)(FILE*)> mnts(setmntent("/proc/mounts", "re"), endmntent);
-    if (!mnts) {
-        PLOG(ERROR) << "Unable to open /proc/mounts";
-        return -errno;
-    }
-
-    // Some volumes can be stacked on each other, so force unmount in
-    // reverse order to give us the best chance of success.
-    struct mntent* mnt;  // getmntent returns a thread local, so it's safe.
-    while ((mnt = getmntent(mnts.get())) != nullptr) {
-        auto mountPoint = std::string(mnt->mnt_dir) + "/";
-        if (android::base::StartsWith(mountPoint, prefixWithSlash)) {
-            mountPoints.push_front(mountPoint);
-        }
-    }
-    return OK;
-}
-
-// Unmount all mountpoints that start with prefix. prefix itself doesn't need to be a mountpoint.
-status_t UnmountTreeWithPrefix(const std::string& prefix) {
-    std::list<std::string> toUnmount;
-    status_t result = findMountPointsWithPrefix(prefix, toUnmount);
-    if (result < 0) {
-        return result;
-    }
-    for (const auto& path : toUnmount) {
-        if (umount2(path.c_str(), MNT_DETACH)) {
-            PLOG(ERROR) << "Failed to unmount " << path;
-            result = -errno;
-        }
-    }
-    return result;
 }
 
 status_t UnmountTree(const std::string& mountPoint) {
@@ -1442,6 +1451,17 @@ status_t AbortFuseConnections() {
     namespace fs = std::filesystem;
 
     for (const auto& itEntry : fs::directory_iterator("/sys/fs/fuse/connections")) {
+        std::string fsPath = itEntry.path().string() + "/filesystem";
+        std::string fs;
+
+        // Virtiofs is on top of fuse and there isn't any user space daemon.
+        // Android user space doesn't manage it.
+        if (android::base::ReadFileToString(fsPath, &fs, false) &&
+            android::base::Trim(fs) == "virtiofs") {
+            LOG(INFO) << "Ignore virtiofs connection entry " << itEntry.path().string();
+            continue;
+        }
+
         std::string abortPath = itEntry.path().string() + "/abort";
         LOG(DEBUG) << "Aborting fuse connection entry " << abortPath;
         bool ret = writeStringToFile("1", abortPath);
@@ -1743,6 +1763,16 @@ std::pair<android::base::unique_fd, std::string> OpenDirInProcfs(std::string_vie
 
     auto linkPath = std::string("/proc/self/fd/") += std::to_string(fd.get());
     return {std::move(fd), std::move(linkPath)};
+}
+
+bool IsFuseBpfEnabled() {
+    std::string bpf_override = android::base::GetProperty("persist.sys.fuse.bpf.override", "");
+    if (bpf_override == "true") {
+        return true;
+    } else if (bpf_override == "false") {
+        return false;
+    }
+    return base::GetBoolProperty("ro.fuse.bpf.enabled", false);
 }
 
 }  // namespace vold

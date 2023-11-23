@@ -25,6 +25,9 @@ cc_fuzz {
         "-DTRUSTY_APP_UUID=\"08d3ed40-bde2-448c-a91d-75f1989c57ef\"",
         "-DTRUSTY_APP_FILENAME=\"widevine.syms.elf\"",
     ],
+    fuzz_config: {
+       cc: ["trong@google.com"],
+    },
 }
 
 // Fuzzer for ODK_DispatchMessage() that's inside Trusty.
@@ -35,4 +38,7 @@ cc_fuzz {
     shared_libs: [
         "libdmabufheap",
     ],
+    fuzz_config: {
+       cc: ["trong@google.com"],
+    },
 }

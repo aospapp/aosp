@@ -21,7 +21,13 @@ import android.app.UiModeManager;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.os.IBinder;
+import android.telecom.PhoneAccount;
+import android.telecom.PhoneAccountHandle;
+import android.telecom.TelecomManager;
 import android.util.Log;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Control class for the car mode app; allows CTS tests to perform operations using the car mode
@@ -96,6 +102,36 @@ public class CtsCarModeInCallServiceControl extends Service {
         @Override
         public boolean checkBindStatus(boolean bind) {
             return CtsCarModeInCallService.checkBindStatus(bind);
+        }
+
+        @Override
+        public List<PhoneAccountHandle> getSelfManagedPhoneAccounts() {
+            TelecomManager telecomManager = getSystemService(TelecomManager.class);
+            return (telecomManager != null) ? telecomManager.getSelfManagedPhoneAccounts()
+                    : new ArrayList<>();
+        }
+
+        @Override
+        public List<PhoneAccountHandle> getOwnSelfManagedPhoneAccounts() {
+            TelecomManager telecomManager = getSystemService(TelecomManager.class);
+            return (telecomManager != null) ? telecomManager.getOwnSelfManagedPhoneAccounts()
+                    : new ArrayList<>();
+        }
+
+        @Override
+        public void registerPhoneAccount(PhoneAccount phoneAccount) {
+            TelecomManager telecomManager = getSystemService(TelecomManager.class);
+            if (telecomManager != null) {
+                telecomManager.registerPhoneAccount(phoneAccount);
+            }
+        }
+
+        @Override
+        public void unregisterPhoneAccount(PhoneAccountHandle phoneAccountHandle) {
+            TelecomManager telecomManager = getSystemService(TelecomManager.class);
+            if (telecomManager != null) {
+                telecomManager.unregisterPhoneAccount(phoneAccountHandle);
+            }
         }
     };
 

@@ -31,7 +31,7 @@ import android.util.Log
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
-private const val TAG = "AccessBluetoothOnCommand"
+private const val LOG_TAG = "AccessBluetoothOnCommand"
 
 class AccessBluetoothOnCommand : ContentProvider() {
 
@@ -40,6 +40,7 @@ class AccessBluetoothOnCommand : ContentProvider() {
     }
 
     override fun call(authority: String, method: String, arg: String?, extras: Bundle?): Bundle? {
+        Log.v(LOG_TAG, "call() - start")
         val res = Bundle()
 
         var scanner: BluetoothLeScanner? = null
@@ -55,31 +56,36 @@ class AccessBluetoothOnCommand : ContentProvider() {
 
             scanCallback = object : ScanCallback() {
                 override fun onScanResult(callbackType: Int, result: ScanResult) {
-                    Log.v(TAG, "onScanResult() - result = $result")
+                    Log.v(LOG_TAG, "onScanResult() - result = $result")
                     observedScans.add(Base64.encodeToString(result.scanRecord!!.bytes, 0))
                 }
 
                 override fun onBatchScanResults(results: List<ScanResult>) {
+                    Log.v(LOG_TAG, "onBatchScanResults() - results.size = ${results.size}")
                     for (result in results) {
                         onScanResult(0, result)
                     }
                 }
 
                 override fun onScanFailed(errorCode: Int) {
-                    Log.v(TAG, "onScanFailed() - errorCode = $errorCode")
+                    Log.e(LOG_TAG, "onScanFailed() - errorCode = $errorCode")
                     observedErrorCode.set(errorCode)
                 }
             }
 
+            Log.v(LOG_TAG, "call() - startScan...")
             scanner.startScan(scanCallback)
 
             // Wait a few seconds to figure out what we actually observed
+            Log.v(LOG_TAG, "call() - sleep...")
             SystemClock.sleep(3000)
 
             if (observedErrorCode.get() > 0) {
+                Log.v(LOG_TAG, "call() observed error: ${observedErrorCode.get()}")
                 res.putInt(Intent.EXTRA_INDEX, Result.ERROR.ordinal)
                 return res
             }
+            Log.v(LOG_TAG, "call() - (scanCount=${observedScans.size})")
 
             when (observedScans.size) {
                 0 -> res.putInt(Intent.EXTRA_INDEX, Result.EMPTY.ordinal)
@@ -88,14 +94,17 @@ class AccessBluetoothOnCommand : ContentProvider() {
                 else -> res.putInt(Intent.EXTRA_INDEX, Result.UNKNOWN.ordinal)
             }
         } catch (t: Throwable) {
-            Log.v(TAG, "Failed to scan", t)
+            Log.e(LOG_TAG, "call() - EXCEPTION", t)
             res.putInt(Intent.EXTRA_INDEX, Result.EXCEPTION.ordinal)
         } finally {
             try {
+                Log.v(LOG_TAG, "call() - finally - stopScan...")
                 scanner!!.stopScan(scanCallback)
             } catch (e: Exception) {
+                Log.e(LOG_TAG, "call() - finally - EXCEPTION", e)
             }
         }
+        Log.v(LOG_TAG, "call() - end")
         return res
     }
 

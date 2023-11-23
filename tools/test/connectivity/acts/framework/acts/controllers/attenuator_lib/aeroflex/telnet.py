@@ -78,7 +78,7 @@ class AttenuatorInstrument(attenuator.AttenuatorInstrument):
         """
         self._tnhelper.close()
 
-    def set_atten(self, idx, value):
+    def set_atten(self, idx, value, **_):
         """This function sets the attenuation of an attenuator given its index
         in the instrument.
 
@@ -107,7 +107,7 @@ class AttenuatorInstrument(attenuator.AttenuatorInstrument):
 
         self._tnhelper.cmd('ATTN ' + str(idx + 1) + ' ' + str(value), False)
 
-    def get_atten(self, idx):
+    def get_atten(self, idx, **_):
         """Returns the current attenuation of the attenuator at the given index.
 
         Args:

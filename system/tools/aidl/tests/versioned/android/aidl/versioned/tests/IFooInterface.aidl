@@ -1,6 +1,8 @@
 package android.aidl.versioned.tests;
 import android.aidl.versioned.tests.BazUnion;
 import android.aidl.versioned.tests.Foo;
+
+@JavaDelegator
 interface IFooInterface {
     // V1
     void originalApi();

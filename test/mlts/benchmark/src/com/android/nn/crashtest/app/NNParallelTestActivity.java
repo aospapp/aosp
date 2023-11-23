@@ -33,6 +33,7 @@ import android.widget.Button;
 import android.widget.TextView;
 
 import com.android.nn.benchmark.app.R;
+import com.android.nn.benchmark.core.TestModels;
 import com.android.nn.crashtest.core.CrashTestCoordinator;
 import com.android.nn.crashtest.core.test.RunModelsInParallel;
 
@@ -53,6 +54,8 @@ public class NNParallelTestActivity extends Activity {
     public static final String EXTRA_IGNORE_UNSUPPORTED_MODELS = "ignore_unsupported_models";
     public static final String EXTRA_RUN_MODEL_COMPILATION_ONLY = "run_model_compilation_only";
     public static final String EXTRA_MEMORY_MAP_MODEL = "memory_map_model";
+    public static final String EXTRA_USE_NNAPI_SL = "use_nnapi_sl";
+    public static final String EXTRA_EXTRACT_NNAPI_SL = "extract_nnapi_sl";
 
     // Not using AtomicBoolean to have the concept of unset status
     private CrashTestCoordinator mCoordinator;
@@ -109,6 +112,8 @@ public class NNParallelTestActivity extends Activity {
         boolean ignoreUnsupportedModels = intent.getBooleanExtra(EXTRA_IGNORE_UNSUPPORTED_MODELS,
                 false);
         boolean mmapModel = intent.getBooleanExtra(EXTRA_MEMORY_MAP_MODEL, false);
+        boolean useNnapiSl = intent.getBooleanExtra(EXTRA_USE_NNAPI_SL, false);
+        boolean extractNnapiSl = intent.getBooleanExtra(EXTRA_EXTRACT_NNAPI_SL, false);
 
         final boolean runModelCompilationOnly = intent.getBooleanExtra(
                 EXTRA_RUN_MODEL_COMPILATION_ONLY, false);
@@ -116,7 +121,8 @@ public class NNParallelTestActivity extends Activity {
         mCoordinator.startTest(RunModelsInParallel.class,
             RunModelsInParallel.intentInitializer(testList, threadCount,
                 Duration.ofMillis(testDurationMillis), mTestName, acceleratorName,
-                ignoreUnsupportedModels, runModelCompilationOnly, mmapModel),
+                ignoreUnsupportedModels, runModelCompilationOnly, mmapModel,
+                TestModels.getModelFilterRegex(), useNnapiSl, extractNnapiSl),
             mTestStatus, runInSeparateProcess, mTestName);
 
         mStopTestButton.setEnabled(true);

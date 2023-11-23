@@ -27,7 +27,6 @@ import android.util.ArraySet;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.Arrays;
 import java.util.ArrayList;
 
 public class ReadSettingsFieldsTest extends AndroidTestCase {
@@ -50,10 +49,10 @@ public class ReadSettingsFieldsTest extends AndroidTestCase {
             try {
                 callGetStringMethod(settingsClass, key);
             } catch (SecurityException ex) {
-                if (isSettingsDeprecated(ex)) {
+                if (isSettingsDeprecated(ex) || isAvailableForLowerOrEqualTargetedSDK(ex)) {
                     continue;
                 }
-                fail("Reading public " + settingsClass.getSimpleName() + " settings key <" + key
+                fail("Reading non-hidden " + settingsClass.getSimpleName() + " settings key <" + key
                         + "> should not raise exception! "
                         + "Did you forget to add @Readable annotation?\n" + ex.getMessage());
             }
@@ -93,6 +92,10 @@ public class ReadSettingsFieldsTest extends AndroidTestCase {
 
     private boolean isSettingsDeprecated(SecurityException ex) {
         return ex.getMessage().contains("is deprecated and no longer accessible");
+    }
+
+    private boolean isAvailableForLowerOrEqualTargetedSDK(SecurityException ex) {
+        return ex.getMessage().contains("targetSdkVersion lower than or equal");
     }
 
     /** Test hidden keys are readable with annotation */
@@ -218,6 +221,29 @@ public class ReadSettingsFieldsTest extends AndroidTestCase {
                 "people_space_conversation_type"};
         testHiddenSettingsKeysReadable(Settings.Global.class, publicSettingsKeys,
                 hiddenSettingsKeys);
+    }
+
+
+    public void testSettingsKeysNotReadableForAfterR() {
+        final String keyWithTargetSdkR = "media_button_receiver";
+        try {
+            // Verify that the hidden key is not readable because of maxTargetSdk restriction
+            callGetStringMethod(Settings.System.class, keyWithTargetSdkR);
+            fail("Reading hidden settings key <" + keyWithTargetSdkR
+                    + "> should raise!");
+        } catch (SecurityException ex) {
+            assertTrue(ex.getMessage().contains("targetSdkVersion"));
+        }
+    }
+
+    public void testSettingsKeysReadableForRMinus() {
+        final String keyWithTargetSdkR = "media_button_receiver";
+        try {
+            // Verify that the hidden key can still be read
+            callGetStringMethod(Settings.System.class, keyWithTargetSdkR);
+        } catch (SecurityException ex) {
+            fail("Reading hidden settings key <" + keyWithTargetSdkR + "> should not raise!");
+        }
     }
 
     public void testQueryGlobalSettingsNoHiddenKeysWithoutAnnotation() {

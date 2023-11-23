@@ -35,13 +35,12 @@ extern "C" {
 // com.android.cts.verifier.audio.NativeAnalyzerThread
 //
 JNIEXPORT jlong JNICALL Java_com_android_cts_verifier_audio_NativeAnalyzerThread_openAudio
-  (JNIEnv * /*env */, jobject /* obj */,
-          jint /* micSource */) {
+  (JNIEnv * /*env */, jobject /* obj */, jint inputDeviceId, jint outputDeviceId) {
     // It is OK to use a raw pointer here because the pointer will be passed back
     // to Java and only used from one thread.
     // Java then deletes it from that same thread by calling _closeAudio() below.
     NativeAudioAnalyzer * analyzer = new NativeAudioAnalyzer();
-    aaudio_result_t result = analyzer->openAudio();
+    aaudio_result_t result = analyzer->openAudio(inputDeviceId, outputDeviceId);
     if (result != AAUDIO_OK) {
         delete analyzer;
         analyzer = nullptr;

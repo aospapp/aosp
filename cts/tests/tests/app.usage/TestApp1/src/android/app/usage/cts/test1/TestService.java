@@ -16,14 +16,17 @@
 
 package android.app.usage.cts.test1;
 
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.app.Service;
 import android.app.usage.UsageStatsManager;
 import android.app.usage.cts.ITestReceiver;
-import android.content.Context;
 import android.content.Intent;
 import android.os.IBinder;
 
 public class TestService extends Service {
+
     @Override
     public IBinder onBind(Intent intent) {
         return new TestReceiver();
@@ -32,9 +35,36 @@ public class TestService extends Service {
     private class TestReceiver extends ITestReceiver.Stub {
         @Override
         public boolean isAppInactive(String pkg) {
-            UsageStatsManager usm = (UsageStatsManager) getSystemService(
-                    Context.USAGE_STATS_SERVICE);
+            UsageStatsManager usm = getSystemService(UsageStatsManager.class);
             return usm.isAppInactive(pkg);
+        }
+
+        @Override
+        public void createNotificationChannel(String channelId, String channelName,
+                String channelDescription) {
+            final NotificationChannel channel = new NotificationChannel(channelId, channelName,
+                    NotificationManager.IMPORTANCE_DEFAULT);
+            channel.setDescription(channelDescription);
+            getNotificationManager().createNotificationChannel(channel);
+        }
+
+        @Override
+        public void postNotification(int notificationId, Notification notification) {
+            getNotificationManager().notify(notificationId, notification);
+        }
+
+        @Override
+        public void cancelNotification(int notificationId) {
+            getNotificationManager().cancel(notificationId);
+        }
+
+        @Override
+        public void cancelAll() {
+            getNotificationManager().cancelAll();
+        }
+
+        private NotificationManager getNotificationManager() {
+            return getSystemService(NotificationManager.class);
         }
     }
 }

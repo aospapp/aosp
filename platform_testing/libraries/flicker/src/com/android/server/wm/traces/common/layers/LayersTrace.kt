@@ -28,14 +28,13 @@ import com.android.server.wm.traces.common.ITrace
  *
  */
 data class LayersTrace(
-    override val entries: Array<LayerTraceEntry>,
-    override val source: String = ""
-) : ITrace<LayerTraceEntry>, List<LayerTraceEntry> by entries.toList() {
-    constructor(entry: LayerTraceEntry): this(arrayOf(entry))
+    override val entries: Array<BaseLayerTraceEntry>
+) : ITrace<BaseLayerTraceEntry>, List<BaseLayerTraceEntry> by entries.toList() {
+    constructor(entry: BaseLayerTraceEntry): this(arrayOf(entry))
 
     override fun toString(): String {
-        return "LayersTrace(Start: ${entries.first()}, " +
-            "End: ${entries.last()})"
+        return "LayersTrace(Start: ${entries.firstOrNull()}, " +
+            "End: ${entries.lastOrNull()})"
     }
 
     override fun equals(other: Any?): Boolean {
@@ -43,14 +42,12 @@ data class LayersTrace(
         if (other !is LayersTrace) return false
 
         if (!entries.contentEquals(other.entries)) return false
-        if (source != other.source) return false
 
         return true
     }
 
     override fun hashCode(): Int {
         var result = entries.contentHashCode()
-        result = 31 * result + source.hashCode()
         return result
     }
 
@@ -66,7 +63,7 @@ data class LayersTrace(
             this.entries
                 .dropWhile { it.timestamp < from }
                 .dropLastWhile { it.timestamp > to }
-                .toTypedArray(),
-            source = "")
+                .toTypedArray()
+        )
     }
 }

@@ -1,4 +1,4 @@
-# TODO:  Find a better way to separate build configs for ADP vs non-ADP devices
-ifneq ($(BOARD_IS_AUTOMOTIVE),true)
+#set TARGET_USES_HARDWARE_QCOM_WLAN to false to disable this project.
+ifneq ($(TARGET_USES_HARDWARE_QCOM_WLAN),false)
 include $(call all-subdir-makefiles)
 endif

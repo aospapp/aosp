@@ -19,7 +19,9 @@ package android.text.style.cts;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
+import android.content.res.Configuration;
 import android.graphics.Typeface;
+import android.graphics.fonts.FontStyle;
 import android.os.Parcel;
 import android.text.TextPaint;
 import android.text.style.StyleSpan;
@@ -43,6 +45,8 @@ public class StyleSpanTest {
             p.setDataPosition(0);
             StyleSpan fromParcel = new StyleSpan(p);
             assertEquals(2, fromParcel.getStyle());
+            assertEquals(Configuration.FONT_WEIGHT_ADJUSTMENT_UNDEFINED,
+                    fromParcel.getFontWeightAdjustment());
             new StyleSpan(-2);
         } finally {
             p.recycle();
@@ -59,7 +63,14 @@ public class StyleSpanTest {
     }
 
     @Test
-    public void testUpdateMeasureState() {
+    public void testGetFontWeightAdjustment() {
+        StyleSpan styleSpan = new StyleSpan(2, 300);
+        assertEquals(300, styleSpan.getFontWeightAdjustment());
+    }
+
+
+    @Test
+    public void testUpdateMeasureState_withStyle() {
         StyleSpan styleSpan = new StyleSpan(Typeface.BOLD);
 
         TextPaint tp = new TextPaint();
@@ -75,6 +86,24 @@ public class StyleSpanTest {
         assertEquals(Typeface.BOLD, tp.getTypeface().getStyle());
     }
 
+    @Test
+    public void testUpdateMeasureState_withFontWeightAdjustment() {
+        StyleSpan styleSpan = new StyleSpan(Typeface.BOLD, 300);
+
+        TextPaint tp = new TextPaint();
+        Typeface tf = Typeface.defaultFromStyle(Typeface.NORMAL);
+        tp.setTypeface(tf);
+
+        assertNotNull(tp.getTypeface());
+        assertEquals(Typeface.NORMAL, tp.getTypeface().getStyle());
+
+        styleSpan.updateMeasureState(tp);
+
+        assertNotNull(tp.getTypeface());
+        assertEquals(Typeface.BOLD, tp.getTypeface().getStyle());
+        assertEquals(tp.getTypeface().getWeight(), FontStyle.FONT_WEIGHT_MAX);
+    }
+
     @Test(expected=NullPointerException.class)
     public void testUpdateMeasureStateNull() {
         StyleSpan styleSpan = new StyleSpan(Typeface.BOLD);
@@ -83,7 +112,7 @@ public class StyleSpanTest {
     }
 
     @Test
-    public void testUpdateDrawState() {
+    public void testUpdateDrawState_withStyle() {
         StyleSpan styleSpan = new StyleSpan(Typeface.BOLD);
 
         TextPaint tp = new TextPaint();
@@ -98,6 +127,25 @@ public class StyleSpanTest {
         assertNotNull(tp.getTypeface());
         assertEquals(Typeface.BOLD, tp.getTypeface().getStyle());
     }
+
+    @Test
+    public void testUpdateDrawState_withFontWeightAdjustment() {
+        StyleSpan styleSpan = new StyleSpan(Typeface.BOLD, 300);
+
+        TextPaint tp = new TextPaint();
+        Typeface tf = Typeface.defaultFromStyle(Typeface.NORMAL);
+        tp.setTypeface(tf);
+
+        assertNotNull(tp.getTypeface());
+        assertEquals(Typeface.NORMAL, tp.getTypeface().getStyle());
+
+        styleSpan.updateDrawState(tp);
+
+        assertNotNull(tp.getTypeface());
+        assertEquals(Typeface.BOLD, tp.getTypeface().getStyle());
+        assertEquals(tp.getTypeface().getWeight(), FontStyle.FONT_WEIGHT_MAX);
+    }
+
 
     @Test(expected=NullPointerException.class)
     public void testUpdateDrawStateNull() {

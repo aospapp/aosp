@@ -42,9 +42,9 @@ public class UnresponsiveActivity extends Activity {
         super.onResume();
         final int delay = getIntent().getIntExtra(EXTRA_DELAY_UI_THREAD_MS, 0);
         final Handler handler = new Handler();
-        handler.postDelayed(() -> {
+        handler.post(() -> {
             SystemClock.sleep(delay);
-        }, 100);
+        });
 
     }
 

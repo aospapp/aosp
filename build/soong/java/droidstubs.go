@@ -16,6 +16,7 @@ package java
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/google/blueprint/proptools"
@@ -24,6 +25,9 @@ import (
 	"android/soong/java/config"
 	"android/soong/remoteexec"
 )
+
+// The values allowed for Droidstubs' Api_levels_sdk_type
+var allowedApiLevelSdkTypes = []string{"public", "system", "module-lib"}
 
 func init() {
 	RegisterStubsBuildComponents(android.InitRegistrationContext)
@@ -128,11 +132,14 @@ type DroidstubsProperties struct {
 	// whicih can be used for scheduling purposes
 	High_mem *bool
 
-	// is set to true, Metalava will allow framework SDK to contain API levels annotations.
+	// if set to true, Metalava will allow framework SDK to contain API levels annotations.
 	Api_levels_annotations_enabled *bool
 
 	// the dirs which Metalava extracts API levels annotations from.
 	Api_levels_annotations_dirs []string
+
+	// the sdk kind which Metalava extracts API levels annotations from. Supports 'public', 'system' and 'module-lib' for now; defaults to public.
+	Api_levels_sdk_type *string
 
 	// the filename which Metalava extracts API levels annotations from. Defaults to android.jar.
 	Api_levels_jar_filename *string
@@ -153,6 +160,7 @@ type ApiStubsSrcProvider interface {
 
 // Provider of information about API stubs, used by java_sdk_library.
 type ApiStubsProvider interface {
+	AnnotationsZip() android.Path
 	ApiFilePath
 	RemovedApiFilePath() android.Path
 
@@ -205,6 +213,10 @@ func (d *Droidstubs) OutputFiles(tag string) (android.Paths, error) {
 	default:
 		return nil, fmt.Errorf("unsupported module reference tag %q", tag)
 	}
+}
+
+func (d *Droidstubs) AnnotationsZip() android.Path {
+	return d.annotationsZip
 }
 
 func (d *Droidstubs) ApiFilePath() android.Path {
@@ -322,7 +334,11 @@ func (d *Droidstubs) annotationsFlags(ctx android.ModuleContext, cmd *android.Ru
 		// TODO(tnorbye): find owners to fix these warnings when annotation was enabled.
 		cmd.FlagWithArg("--hide ", "HiddenTypedefConstant").
 			FlagWithArg("--hide ", "SuperfluousPrefix").
-			FlagWithArg("--hide ", "AnnotationExtraction")
+			FlagWithArg("--hide ", "AnnotationExtraction").
+			// b/222738070
+			FlagWithArg("--hide ", "BannedThrow").
+			// b/223382732
+			FlagWithArg("--hide ", "ChangedDefault")
 	}
 }
 
@@ -367,6 +383,7 @@ func (d *Droidstubs) apiLevelsAnnotationsFlags(ctx android.ModuleContext, cmd *a
 
 	filename := proptools.StringDefault(d.properties.Api_levels_jar_filename, "android.jar")
 
+	var dirs []string
 	ctx.VisitDirectDepsWithTag(metalavaAPILevelsAnnotationsDirTag, func(m android.Module) {
 		if t, ok := m.(*ExportedDroiddocDir); ok {
 			for _, dep := range t.deps {
@@ -383,12 +400,41 @@ func (d *Droidstubs) apiLevelsAnnotationsFlags(ctx android.ModuleContext, cmd *a
 					cmd.Implicit(dep)
 				}
 			}
-			cmd.FlagWithArg("--android-jar-pattern ", t.dir.String()+"/%/public/"+filename)
+
+			dirs = append(dirs, t.dir.String())
 		} else {
 			ctx.PropertyErrorf("api_levels_annotations_dirs",
 				"module %q is not a metalava api-levels-annotations dir", ctx.OtherModuleName(m))
 		}
 	})
+
+	// Add all relevant --android-jar-pattern patterns for Metalava.
+	// When parsing a stub jar for a specific version, Metalava picks the first pattern that defines
+	// an actual file present on disk (in the order the patterns were passed). For system APIs for
+	// privileged apps that are only defined since API level 21 (Lollipop), fallback to public stubs
+	// for older releases. Similarly, module-lib falls back to system API.
+	var sdkDirs []string
+	switch proptools.StringDefault(d.properties.Api_levels_sdk_type, "public") {
+	case "module-lib":
+		sdkDirs = []string{"module-lib", "system", "public"}
+	case "system":
+		sdkDirs = []string{"system", "public"}
+	case "public":
+		sdkDirs = []string{"public"}
+	default:
+		ctx.PropertyErrorf("api_levels_sdk_type", "needs to be one of %v", allowedApiLevelSdkTypes)
+		return
+	}
+
+	for _, sdkDir := range sdkDirs {
+		for _, dir := range dirs {
+			cmd.FlagWithArg("--android-jar-pattern ", fmt.Sprintf("%s/%%/%s/%s", dir, sdkDir, filename))
+		}
+	}
+}
+
+func metalavaUseRbe(ctx android.ModuleContext) bool {
+	return ctx.Config().UseRBE() && ctx.Config().IsEnvTrue("RBE_METALAVA")
 }
 
 func metalavaCmd(ctx android.ModuleContext, rule *android.RuleBuilder, javaVersion javaVersion, srcs android.Paths,
@@ -399,7 +445,7 @@ func metalavaCmd(ctx android.ModuleContext, rule *android.RuleBuilder, javaVersi
 	cmd := rule.Command()
 	cmd.FlagWithArg("ANDROID_PREFS_ROOT=", homeDir.String())
 
-	if ctx.Config().UseRBE() && ctx.Config().IsEnvTrue("RBE_METALAVA") {
+	if metalavaUseRbe(ctx) {
 		rule.Remoteable(android.RemoteRuleSupports{RBE: true})
 		execStrategy := ctx.Config().GetenvWithDefault("RBE_METALAVA_EXEC_STRATEGY", remoteexec.LocalExecStrategy)
 		labels := map[string]string{"type": "tool", "name": "metalava"}
@@ -434,7 +480,10 @@ func metalavaCmd(ctx android.ModuleContext, rule *android.RuleBuilder, javaVersi
 		Flag("--quiet").
 		Flag("--format=v2").
 		FlagWithArg("--repeat-errors-max ", "10").
-		FlagWithArg("--hide ", "UnresolvedImport")
+		FlagWithArg("--hide ", "UnresolvedImport").
+		FlagWithArg("--hide ", "InvalidNullabilityOverride").
+		// b/223382732
+		FlagWithArg("--hide ", "ChangedDefault")
 
 	return cmd
 }
@@ -530,7 +579,8 @@ func (d *Droidstubs) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 			`\n` +
 			`If it is not possible to do so, there are workarounds:\n` +
 			`\n` +
-			`1. You can suppress the errors with @SuppressLint("<id>")\n`
+			`1. You can suppress the errors with @SuppressLint("<id>")\n` +
+			`   where the <id> is given in brackets in the error message above.\n`
 
 		if baselineFile.Valid() {
 			cmd.FlagWithInput("--baseline:api-lint ", baselineFile.Path())
@@ -619,7 +669,9 @@ func (d *Droidstubs) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 	}
 
 	// TODO(b/183630617): rewrapper doesn't support restat rules
-	// rule.Restat()
+	if !metalavaUseRbe(ctx) {
+		rule.Restat()
+	}
 
 	zipSyncCleanupCmd(rule, srcJarDir)
 
@@ -767,7 +819,7 @@ type PrebuiltStubsSources struct {
 
 	properties PrebuiltStubsSourcesProperties
 
-	stubsSrcJar android.ModuleOutPath
+	stubsSrcJar android.Path
 }
 
 func (p *PrebuiltStubsSources) OutputFiles(tag string) (android.Paths, error) {
@@ -784,35 +836,39 @@ func (d *PrebuiltStubsSources) StubsSrcJar() android.Path {
 }
 
 func (p *PrebuiltStubsSources) GenerateAndroidBuildActions(ctx android.ModuleContext) {
-	p.stubsSrcJar = android.PathForModuleOut(ctx, ctx.ModuleName()+"-"+"stubs.srcjar")
-
 	if len(p.properties.Srcs) != 1 {
-		ctx.PropertyErrorf("srcs", "must only specify one directory path, contains %d paths", len(p.properties.Srcs))
+		ctx.PropertyErrorf("srcs", "must only specify one directory path or srcjar, contains %d paths", len(p.properties.Srcs))
 		return
 	}
 
-	localSrcDir := p.properties.Srcs[0]
-	// Although PathForModuleSrc can return nil if either the path doesn't exist or
-	// the path components are invalid it won't in this case because no components
-	// are specified and the module directory must exist in order to get this far.
-	srcDir := android.PathForModuleSrc(ctx).(android.SourcePath).Join(ctx, localSrcDir)
+	src := p.properties.Srcs[0]
+	if filepath.Ext(src) == ".srcjar" {
+		// This is a srcjar. We can use it directly.
+		p.stubsSrcJar = android.PathForModuleSrc(ctx, src)
+	} else {
+		outPath := android.PathForModuleOut(ctx, ctx.ModuleName()+"-"+"stubs.srcjar")
 
-	// Glob the contents of the directory just in case the directory does not exist.
-	srcGlob := localSrcDir + "/**/*"
-	srcPaths := android.PathsForModuleSrc(ctx, []string{srcGlob})
+		// This is a directory. Glob the contents just in case the directory does not exist.
+		srcGlob := src + "/**/*"
+		srcPaths := android.PathsForModuleSrc(ctx, []string{srcGlob})
 
-	rule := android.NewRuleBuilder(pctx, ctx)
-	rule.Command().
-		BuiltTool("soong_zip").
-		Flag("-write_if_changed").
-		Flag("-jar").
-		FlagWithOutput("-o ", p.stubsSrcJar).
-		FlagWithArg("-C ", srcDir.String()).
-		FlagWithRspFileInputList("-r ", p.stubsSrcJar.ReplaceExtension(ctx, "rsp"), srcPaths)
+		// Although PathForModuleSrc can return nil if either the path doesn't exist or
+		// the path components are invalid it won't in this case because no components
+		// are specified and the module directory must exist in order to get this far.
+		srcDir := android.PathForModuleSrc(ctx).(android.SourcePath).Join(ctx, src)
 
-	rule.Restat()
-
-	rule.Build("zip src", "Create srcjar from prebuilt source")
+		rule := android.NewRuleBuilder(pctx, ctx)
+		rule.Command().
+			BuiltTool("soong_zip").
+			Flag("-write_if_changed").
+			Flag("-jar").
+			FlagWithOutput("-o ", outPath).
+			FlagWithArg("-C ", srcDir.String()).
+			FlagWithRspFileInputList("-r ", outPath.ReplaceExtension(ctx, "rsp"), srcPaths)
+		rule.Restat()
+		rule.Build("zip src", "Create srcjar from prebuilt source")
+		p.stubsSrcJar = outPath
+	}
 }
 
 func (p *PrebuiltStubsSources) Prebuilt() *android.Prebuilt {

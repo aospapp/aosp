@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 The Android Open Source Project
+ * Copyright (C) 2021 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@ package com.android.media.audiotestharness.common;
 
 import com.android.media.audiotestharness.proto.AudioDeviceOuterClass.AudioDevice;
 import com.android.media.audiotestharness.proto.AudioFormatOuterClass.AudioFormat;
+
+import java.time.Duration;
 
 /**
  * Contains all the defaults for the Audio Test Harness system shared between the client and server
@@ -48,7 +50,24 @@ public final class Defaults {
      */
     public static final AudioDevice AUDIO_DEVICE =
             AudioDevice.newBuilder()
-                    .setName("UMM6 [plughw:0,0]")
+                    .setName("UMM-6")
                     .addCapabilities(AudioDevice.Capability.CAPTURE)
                     .build();
+
+    /** Target size for each chunk captured and sent from host to client. */
+    public static final int CAPTURE_CHUNK_TARGET_SIZE_BYTES = 256;
+
+    /**
+     * Timeout for all calls between client and host at which point any outstanding calls will be
+     * cancelled or aborted.
+     */
+    public static final Duration SYSTEM_TIMEOUT = Duration.ofHours(1);
+
+    /**
+     * The port that the device attempts to connect to by default.
+     *
+     * <p>During test set up actions, requests are forwarded from this port on the device to the
+     * server port on the host.
+     */
+    public static final int DEVICE_PORT = 55555;
 }

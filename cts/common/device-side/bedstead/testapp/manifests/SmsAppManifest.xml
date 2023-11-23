@@ -18,11 +18,7 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="com.android.bedstead.testapp.SmsApp">
-
-    <uses-permission android:name="android.permission.READ_SMS"/>
-
     <application
-        android:appComponentFactory="com.android.bedstead.testapp.TestAppAppComponentFactory"
         android:testOnly="true">
 
         <!-- BroadcastReceiver that listens for incoming SMS messages -->

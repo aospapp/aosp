@@ -28,6 +28,7 @@
          android:multiArch="true"
          android:name="android.widget.cts.MockApplication"
          android:supportsRtl="true"
+         android:enableOnBackInvokedCallback="true"
          android:theme="@android:style/Theme.Material.Light.DarkActionBar">
 
         <uses-library android:name="android.test.runner"/>
@@ -685,6 +686,15 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST"/>
+            </intent-filter>
+        </activity>
+
+        <activity android:name="android.widget.cts.BackInvokedOnWidgetsActivity"
+                  android:label="BackInvokedOnWidgetsActivity"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
 

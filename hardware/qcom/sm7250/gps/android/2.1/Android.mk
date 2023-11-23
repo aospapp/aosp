@@ -4,7 +4,6 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := android.hardware.gnss@2.1-impl-qti
 LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD legacy_not_a_contribution
 LOCAL_LICENSE_CONDITIONS := by_exception_only not_allowed notice
-LOCAL_SANITIZE += $(GNSS_SANITIZE)
 # activate the following line for debug purposes only, comment out for production
 #LOCAL_SANITIZE_DIAG += $(GNSS_SANITIZE_DIAG)
 LOCAL_VENDOR_MODULE := true
@@ -78,7 +77,6 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := android.hardware.gnss@2.1-service-qti
 LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD legacy_not_a_contribution
 LOCAL_LICENSE_CONDITIONS := by_exception_only not_allowed notice
-LOCAL_SANITIZE += $(GNSS_SANITIZE)
 # activate the following line for debug purposes only, comment out for production
 #LOCAL_SANITIZE_DIAG += $(GNSS_SANITIZE_DIAG)
 LOCAL_VINTF_FRAGMENTS := android.hardware.gnss@2.1-service-qti.xml

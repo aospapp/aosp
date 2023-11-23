@@ -381,14 +381,36 @@ public class SystemFeaturesTest {
                 Sensor.TYPE_RELATIVE_HUMIDITY);
         assertFeatureForSensor(featuresLeft, PackageManager.FEATURE_SENSOR_HINGE_ANGLE,
                 Sensor.TYPE_HINGE_ANGLE);
+        assertFeatureForSensor(featuresLeft,
+                PackageManager.FEATURE_SENSOR_ACCELEROMETER_LIMITED_AXES,
+                Sensor.TYPE_ACCELEROMETER_LIMITED_AXES);
+        assertFeatureForSensor(featuresLeft,
+                PackageManager.FEATURE_SENSOR_GYROSCOPE_LIMITED_AXES,
+                Sensor.TYPE_GYROSCOPE_LIMITED_AXES);
+        assertFeatureForSensor(featuresLeft,
+                PackageManager.FEATURE_SENSOR_ACCELEROMETER_LIMITED_AXES_UNCALIBRATED,
+                Sensor.TYPE_ACCELEROMETER_LIMITED_AXES_UNCALIBRATED);
+        assertFeatureForSensor(featuresLeft,
+                PackageManager.FEATURE_SENSOR_GYROSCOPE_LIMITED_AXES_UNCALIBRATED,
+                Sensor.TYPE_GYROSCOPE_LIMITED_AXES_UNCALIBRATED);
+        assertFeatureForSensor(featuresLeft, PackageManager.FEATURE_SENSOR_HEADING,
+                Sensor.TYPE_HEADING);
 
+        // Note that FEATURE_SENSOR_DYNAMIC_HEAD_TRACKER requires dynamic sensor discovery, but
+        // dynamic sensor discovery does not require FEATURE_SENSOR_DYNAMIC_HEAD_TRACKER
+        if (mPackageManager.hasSystemFeature(PackageManager.FEATURE_SENSOR_DYNAMIC_HEAD_TRACKER)) {
+            assertTrue("Device declared " + PackageManager.FEATURE_SENSOR_DYNAMIC_HEAD_TRACKER
+                    + " but does not support dynamic sensor discovery",
+                    mSensorManager.isDynamicSensorDiscoverySupported());
+        }
+        featuresLeft.remove(PackageManager.FEATURE_SENSOR_DYNAMIC_HEAD_TRACKER);
 
         /*
          * We have three cases to test for :
          * Case 1:  Device does not have an HRM
          * FEATURE_SENSOR_HEART_RATE               false
          * FEATURE_SENSOR_HEART_RATE_ECG           false
-         * assertFeatureForSensor(TYPE_HEART_RATE) false
+         * assertFeatureForSensor(TßYPE_HEART_RATE) false
          *
          * Case 2:  Device has a PPG HRM
          * FEATURE_SENSOR_HEART_RATE               true
@@ -508,7 +530,7 @@ public class SystemFeaturesTest {
     @Test
     public void testTelephonyFeatures() {
         if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY) ||
-            !mPackageManager.hasSystemFeature(PackageManager.FEATURE_CONNECTION_SERVICE)) {
+                !mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELECOM)) {
                 return;
         }
 

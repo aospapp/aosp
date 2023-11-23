@@ -21,7 +21,10 @@ import static android.app.WindowConfiguration.ACTIVITY_TYPE_DREAM;
 import static android.app.WindowConfiguration.ACTIVITY_TYPE_HOME;
 import static android.app.WindowConfiguration.ACTIVITY_TYPE_RECENTS;
 import static android.app.WindowConfiguration.ACTIVITY_TYPE_STANDARD;
+import static android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK;
+import static android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_DOCUMENT;
+import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 import static android.server.wm.WindowManagerState.STATE_INITIALIZING;
 import static android.server.wm.WindowManagerState.STATE_STOPPED;
 import static android.server.wm.app.Components.BROADCAST_RECEIVER_ACTIVITY;
@@ -171,6 +174,7 @@ public class StartActivityTests extends ActivityManagerTestBase {
         getLaunchActivityBuilder()
                 .setTargetActivity(LAUNCHING_ACTIVITY)
                 .setUseInstrumentation()
+                .setWaitForLaunched(false)
                 .execute();
 
         // make sure TEST_ACTIVITY is still on top and resumed
@@ -369,6 +373,60 @@ public class StartActivityTests extends ActivityManagerTestBase {
         assertEquals(activitiesOrder, expectedOrder);
         mWmState.assertResumedActivity("TaskOverlay activity should be remained on top and "
                         + "resumed", taskOverlay.getComponent());
+    }
+
+    /**
+     * Test the activity launched with ActivityOptions#setTaskOverlay should not be finished after
+     * launch another activity with clear_task flag.
+     */
+    @Test
+    public void testStartActivitiesTaskOverlayWithClearTask() {
+        verifyStartActivitiesTaskOverlayWithLaunchFlags(
+                FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_CLEAR_TASK);
+    }
+
+    /**
+     * Test the activity launched with ActivityOptions#setTaskOverlay should not be finished after
+     * launch another activity with clear_top flag.
+     */
+    @Test
+    public void testStartActivitiesTaskOverlayWithClearTop() {
+        verifyStartActivitiesTaskOverlayWithLaunchFlags(FLAG_ACTIVITY_CLEAR_TOP);
+    }
+
+    private void verifyStartActivitiesTaskOverlayWithLaunchFlags(int flags) {
+        // Launch a regular activity
+        final Intent baseIntent = new Intent(mContext, Activities.RegularActivity.class);
+        final String regularActivityName = Activities.RegularActivity.class.getName();
+        final TestActivitySession<Activities.RegularActivity> activitySession =
+                createManagedTestActivitySession();
+        activitySession.launchTestActivityOnDisplaySync(regularActivityName, baseIntent,
+                DEFAULT_DISPLAY);
+        mWmState.computeState(baseIntent.getComponent());
+        final int taskId = mWmState.getTaskByActivity(baseIntent.getComponent()).getTaskId();
+        final Activity baseActivity = activitySession.getActivity();
+
+        // Launch a taskOverlay activity
+        final ActivityOptions overlayOptions = ActivityOptions.makeBasic();
+        overlayOptions.setTaskOverlay(true, true);
+        overlayOptions.setLaunchTaskId(taskId);
+        final Intent taskOverlay = new Intent().setComponent(SECOND_ACTIVITY);
+        runWithShellPermission(() ->
+                baseActivity.startActivity(taskOverlay, overlayOptions.toBundle()));
+        waitAndAssertResumedActivity(taskOverlay.getComponent(),
+                "taskOverlay activity on top");
+
+        // Launch the regular activity with specific flags
+        final Intent intent = new Intent(mContext, Activities.RegularActivity.class)
+                .addFlags(flags);
+        baseActivity.startActivity(intent);
+
+        waitAndAssertResumedActivity(taskOverlay.getComponent(),
+                "taskOverlay activity on top");
+        assertEquals("Instance of the taskOverlay activity must exist", 1,
+                mWmState.getActivityCountInTask(taskId, taskOverlay.getComponent()));
+        assertEquals("Activity must be in same task.", taskId,
+                mWmState.getTaskByActivity(intent.getComponent()).getTaskId());
     }
 
     /**

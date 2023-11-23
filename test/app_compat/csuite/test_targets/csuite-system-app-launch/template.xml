@@ -24,5 +24,8 @@
         <option name="run-command" value="input keyevent KEYCODE_MENU"/>
         <option name="run-command" value="input keyevent KEYCODE_HOME"/>
     </target_preparer>
-    <test class="com.android.compatibility.testtype.AppLaunchTest"/>
+    <test class="com.android.tradefed.testtype.HostTest" >
+        <option name="set-option" value="package-name:{package}"/>
+        <option name="class" value="com.android.csuite.tests.AppLaunchTest" />
+    </test>
 </configuration>

@@ -24,16 +24,24 @@
 
 #include <cppbor.h>
 #include <cppbor_parse.h>
-
+#include <openssl/bn.h>
 #include <openssl/cipher.h>
 #include <openssl/curve25519.h>
 #include <openssl/digest.h>
+#include <openssl/ec.h>
+#include <openssl/evp.h>
 #include <openssl/hkdf.h>
 #include <openssl/hmac.h>
 #include <openssl/mem.h>
+#include <openssl/nid.h>
 #include <openssl/sha.h>
 
 namespace cppcose {
+
+using BIGNUM_Ptr = bssl::UniquePtr<BIGNUM>;
+using EC_GROUP_Ptr = bssl::UniquePtr<EC_GROUP>;
+using EC_POINT_Ptr = bssl::UniquePtr<EC_POINT>;
+using BN_CTX_Ptr = bssl::UniquePtr<BN_CTX>;
 
 template <typename T> class ErrMsgOr;
 using bytevec = std::vector<uint8_t>;
@@ -57,6 +65,8 @@ constexpr int kCoseEncryptProtectedParams = 0;
 constexpr int kCoseEncryptUnprotectedParams = 1;
 constexpr int kCoseEncryptPayload = 2;
 constexpr int kCoseEncryptRecipients = 3;
+
+constexpr int kCoseMac0SemanticTag = 17;
 
 enum Label : int {
     ALGORITHM = 1,
@@ -203,6 +213,25 @@ class CoseKey {
         return key;
     }
 
+    static ErrMsgOr<bytevec> getEcPublicKey(const bytevec& pubX, const bytevec& pubY) {
+        if (pubX.empty() || pubY.empty()) {
+            return "Missing input parameters";
+        }
+        bytevec pubKey;
+        pubKey.insert(pubKey.begin(), pubX.begin(), pubX.end());
+        pubKey.insert(pubKey.end(), pubY.begin(), pubY.end());
+        return pubKey;
+    }
+
+    ErrMsgOr<bytevec> getEcPublicKey() {
+        auto pubX = getBstrValue(PUBKEY_X);
+        auto pubY = getBstrValue(PUBKEY_Y);
+        if (!pubX.has_value() || !pubY.has_value()) {
+            return "Error while getting EC public key from CoseKey.";
+        }
+        return getEcPublicKey(pubX.value(), pubY.value());
+    }
+
     std::optional<int> getIntValue(Label label) {
         const auto& value = key_->get(label);
         if (!value || !value->asInt()) return {};
@@ -252,6 +281,13 @@ ErrMsgOr<cppbor::Array> constructCoseSign1(const bytevec& key, const bytevec& pa
                                            const bytevec& aad);
 ErrMsgOr<cppbor::Array> constructCoseSign1(const bytevec& key, cppbor::Map extraProtectedFields,
                                            const bytevec& payload, const bytevec& aad);
+ErrMsgOr<cppbor::Array> constructECDSACoseSign1(const bytevec& key,
+                                                cppbor::Map extraProtectedFields,
+                                                const bytevec& payload, const bytevec& aad);
+
+ErrMsgOr<bytevec> ecdsaCoseSignatureToDer(const bytevec& ecdsaCoseSignature);
+
+ErrMsgOr<bytevec> ecdsaDerSignatureToCose(const bytevec& ecdsaSignature);
 /**
  * Verify and parse a COSE_Sign1 message, returning the payload.
  *
@@ -282,7 +318,10 @@ decryptCoseEncrypt(const bytevec& key, const cppbor::Item* encryptItem, const by
 
 ErrMsgOr<bytevec> x25519_HKDF_DeriveKey(const bytevec& senderPubKey, const bytevec& senderPrivKey,
                                         const bytevec& recipientPubKey, bool senderIsA);
-
+ErrMsgOr<bytevec> ECDH_HKDF_DeriveKey(const bytevec& pubKeyA, const bytevec& privKeyA,
+                                      const bytevec& pubKeyB, bool senderIsA);
+bool verifyEcdsaDigest(const bytevec& key, const bytevec& digest, const bytevec& signature);
+bytevec sha256(const bytevec& data);
 ErrMsgOr<bytevec /* ciphertextWithTag */> aesGcmEncrypt(const bytevec& key, const bytevec& nonce,
                                                         const bytevec& aad,
                                                         const bytevec& plaintext);

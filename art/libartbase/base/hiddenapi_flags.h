@@ -75,7 +75,7 @@ namespace helper {
 
 /*
  * This class represents the information whether a field/method is in
- * public API (whitelist) or if it isn't, apps targeting which SDK
+ * public API (SDK) or if it isn't, apps targeting which SDK
  * versions are allowed to access it.
  */
 class ApiList {
@@ -98,11 +98,12 @@ class ApiList {
     kMaxTargetP = 4,
     kMaxTargetQ = 5,
     kMaxTargetR = 6,
+    kMaxTargetS = 7,
 
     // Special values
     kInvalid =      (static_cast<uint32_t>(-1) & kValueBitMask),
     kMin =          kSdk,
-    kMax =          kMaxTargetR,
+    kMax =          kMaxTargetS,
   };
 
   // Additional bit flags after the first kValueBitSize bits in dex flags.
@@ -139,6 +140,7 @@ class ApiList {
     "max-target-p",
     "max-target-q",
     "max-target-r",
+    "max-target-s",
   };
 
   // A magic marker used by tests to mimic a hiddenapi list which doesn't exist
@@ -160,6 +162,7 @@ class ApiList {
     /* max-target-p */ SdkVersion::kP,
     /* max-target-q */ SdkVersion::kQ,
     /* max-target-r */ SdkVersion::kR,
+    /* max-target-s */ SdkVersion::kS,
   };
 
   explicit ApiList(Value val, uint32_t domain_apis = 0u)
@@ -204,6 +207,7 @@ class ApiList {
   static ApiList MaxTargetP() { return ApiList(Value::kMaxTargetP); }
   static ApiList MaxTargetQ() { return ApiList(Value::kMaxTargetQ); }
   static ApiList MaxTargetR() { return ApiList(Value::kMaxTargetR); }
+  static ApiList MaxTargetS() { return ApiList(Value::kMaxTargetS); }
   static ApiList CorePlatformApi() { return ApiList(DomainApi::kCorePlatformApi); }
   static ApiList TestApi() { return ApiList(DomainApi::kTestApi); }
 
@@ -252,22 +256,6 @@ class ApiList {
       *out_api_list = api_list;
     }
     return true;
-  }
-
-  // Clamp a max-target-* up to the given maxSdk; if the given api list is higher than
-  // maxSdk, return unsupported instead.
-  static std::string CoerceAtMost(const std::string& name, const std::string& maxSdk) {
-    const auto apiListToClamp = FromName(name);
-    // If the api list is a domain instead, return it unmodified.
-    if (!apiListToClamp.IsValid()) {
-      return name;
-    }
-    const auto maxApiList = FromName(maxSdk);
-    CHECK(maxApiList.IsValid()) << "invalid api list name " << maxSdk;
-    if (apiListToClamp > maxApiList) {
-      return kValueNames[Unsupported().GetIntValue()];
-    }
-    return name;
   }
 
   bool operator==(const ApiList& other) const { return dex_flags_ == other.dex_flags_; }
@@ -324,6 +312,10 @@ class ApiList {
   // Returns true if the ApiList is on blocklist.
   bool IsBlocked() const {
     return GetValue() == Value::kBlocked;
+  }
+
+  bool IsSdkApi() const {
+    return GetValue() == Value::kSdk;
   }
 
   // Returns true if the ApiList is a test API.

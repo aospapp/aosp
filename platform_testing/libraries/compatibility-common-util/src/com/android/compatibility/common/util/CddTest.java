@@ -27,5 +27,8 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD, ElementType.TYPE})
 public @interface CddTest {
-    String requirement();
+    @Deprecated
+    String requirement() default "";
+
+    String[] requirements() default {""};
 }

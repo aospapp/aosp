@@ -321,12 +321,16 @@ public class SensorCtsHelper {
     public static String getUnitsForSensor(Sensor sensor) {
         switch(sensor.getType()) {
             case Sensor.TYPE_ACCELEROMETER:
+            case Sensor.TYPE_ACCELEROMETER_LIMITED_AXES:
+            case Sensor.TYPE_ACCELEROMETER_LIMITED_AXES_UNCALIBRATED:
                 return "m/s^2";
             case Sensor.TYPE_MAGNETIC_FIELD:
             case Sensor.TYPE_MAGNETIC_FIELD_UNCALIBRATED:
                 return "uT";
             case Sensor.TYPE_GYROSCOPE:
             case Sensor.TYPE_GYROSCOPE_UNCALIBRATED:
+            case Sensor.TYPE_GYROSCOPE_LIMITED_AXES:
+            case Sensor.TYPE_GYROSCOPE_LIMITED_AXES_UNCALIBRATED:
                 return "radians/sec";
             case Sensor.TYPE_PRESSURE:
                 return "hPa";
@@ -338,8 +342,12 @@ public class SensorCtsHelper {
         switch (sensor.getType()) {
             case Sensor.TYPE_ACCELEROMETER:
             case Sensor.TYPE_ACCELEROMETER_UNCALIBRATED:
+            case Sensor.TYPE_ACCELEROMETER_LIMITED_AXES:
+            case Sensor.TYPE_ACCELEROMETER_LIMITED_AXES_UNCALIBRATED:
             case Sensor.TYPE_GYROSCOPE:
             case Sensor.TYPE_GYROSCOPE_UNCALIBRATED:
+            case Sensor.TYPE_GYROSCOPE_LIMITED_AXES:
+            case Sensor.TYPE_GYROSCOPE_LIMITED_AXES_UNCALIBRATED:
             case Sensor.TYPE_MAGNETIC_FIELD:
             case Sensor.TYPE_MAGNETIC_FIELD_UNCALIBRATED:
             case Sensor.TYPE_HINGE_ANGLE:
@@ -364,8 +372,12 @@ public class SensorCtsHelper {
         switch (sensor.getType()) {
             case Sensor.TYPE_ACCELEROMETER:
             case Sensor.TYPE_ACCELEROMETER_UNCALIBRATED:
+            case Sensor.TYPE_ACCELEROMETER_LIMITED_AXES:
+            case Sensor.TYPE_ACCELEROMETER_LIMITED_AXES_UNCALIBRATED:
             case Sensor.TYPE_GYROSCOPE:
             case Sensor.TYPE_GYROSCOPE_UNCALIBRATED:
+            case Sensor.TYPE_GYROSCOPE_LIMITED_AXES:
+            case Sensor.TYPE_GYROSCOPE_LIMITED_AXES_UNCALIBRATED:
                 // Accelerometer and gyroscope must have at least 12 bits
                 // of resolution. The maximum resolution calculation uses
                 // slightly more than twice the maximum range because
@@ -402,8 +414,12 @@ public class SensorCtsHelper {
         switch (sensor.getType()) {
             case Sensor.TYPE_ACCELEROMETER:
             case Sensor.TYPE_ACCELEROMETER_UNCALIBRATED:
+            case Sensor.TYPE_ACCELEROMETER_LIMITED_AXES:
+            case Sensor.TYPE_ACCELEROMETER_LIMITED_AXES_UNCALIBRATED:
             case Sensor.TYPE_GYROSCOPE:
             case Sensor.TYPE_GYROSCOPE_UNCALIBRATED:
+            case Sensor.TYPE_GYROSCOPE_LIMITED_AXES:
+            case Sensor.TYPE_GYROSCOPE_LIMITED_AXES_UNCALIBRATED:
             case Sensor.TYPE_MAGNETIC_FIELD:
             case Sensor.TYPE_MAGNETIC_FIELD_UNCALIBRATED:
             case Sensor.TYPE_SIGNIFICANT_MOTION:
@@ -422,8 +438,12 @@ public class SensorCtsHelper {
         switch (sensor.getType()) {
             case Sensor.TYPE_ACCELEROMETER:
             case Sensor.TYPE_ACCELEROMETER_UNCALIBRATED:
+            case Sensor.TYPE_ACCELEROMETER_LIMITED_AXES:
+            case Sensor.TYPE_ACCELEROMETER_LIMITED_AXES_UNCALIBRATED:
             case Sensor.TYPE_GYROSCOPE:
             case Sensor.TYPE_GYROSCOPE_UNCALIBRATED:
+            case Sensor.TYPE_GYROSCOPE_LIMITED_AXES:
+            case Sensor.TYPE_GYROSCOPE_LIMITED_AXES_UNCALIBRATED:
             case Sensor.TYPE_MAGNETIC_FIELD:
             case Sensor.TYPE_MAGNETIC_FIELD_UNCALIBRATED:
                 // Accelerometer, gyroscope, and mag are expected to have at most 24 bits of
@@ -453,6 +473,14 @@ public class SensorCtsHelper {
                 return "UncalGyro";
             case Sensor.TYPE_MAGNETIC_FIELD_UNCALIBRATED:
                 return "UncalMag";
+            case Sensor.TYPE_ACCELEROMETER_LIMITED_AXES:
+                return "LimitedAccel";
+            case Sensor.TYPE_ACCELEROMETER_LIMITED_AXES_UNCALIBRATED:
+                return "UncalLimitedAccel";
+            case Sensor.TYPE_GYROSCOPE_LIMITED_AXES:
+                return "LimitedGyro";
+            case Sensor.TYPE_GYROSCOPE_LIMITED_AXES_UNCALIBRATED:
+                return "UncalLimitedGyro";
             default:
                 return "Type_" + type;
         }

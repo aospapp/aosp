@@ -61,6 +61,19 @@
         <option name="push" value="art-gtest-jars-XandY.jar->/data/local/tmp/art_standalone_runtime_tests/art-gtest-jars-XandY.jar" />
     </target_preparer>
 
+    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
+        <option name="cleanup" value="true" />
+        <option name="append-bitness" value="true" />
+        <option name="push-file" key="generate-boot-image" value="/data/local/tmp/art_standalone_runtime_tests/generate-boot-image" />
+    </target_preparer>
+
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="throw-if-cmd-fail" value="true" />
+        <option name="run-command" value="mkdir -p /data/local/tmp/art_standalone_runtime_tests/art_boot_images" />
+        <option name="run-command" value="/data/local/tmp/art_standalone_runtime_tests/generate-boot-image --output-dir=/data/local/tmp/art_standalone_runtime_tests/art_boot_images" />
+        <option name="teardown-command" value="rm -rf /data/local/tmp/art_standalone_runtime_tests/art_boot_images" />
+    </target_preparer>
+
     <test class="com.android.tradefed.testtype.GTest" >
         <option name="native-test-device-path" value="/data/local/tmp/art_standalone_runtime_tests" />
         <option name="module-name" value="art_standalone_runtime_tests" />
@@ -70,7 +83,7 @@
         <!-- The following tests from `art_standalone_runtime_tests` are currently failing
              (observed on `aosp_cf_x86_64_phone-userdebug`).
 
-              TODO(b/162834439): Investigate these failures and re-enable these tests. -->
+              TODO(b/204649079): Investigate these failures and re-enable these tests. -->
         <option name="exclude-filter" value="HiddenApiTest.DexDomain_SystemDir" />
         <option name="exclude-filter" value="HiddenApiTest.DexDomain_SystemDir_MultiDex" />
         <option name="exclude-filter" value="HiddenApiTest.DexDomain_SystemFrameworkDir" />
@@ -93,7 +106,7 @@
              processes but `LD_LIBRARY_PATH` is set to a directory of 32-bit libraries which make
              them fail to dynamically link to the expected (64-bit) libraries.
 
-             TODO(b/162834439): Investigate these failures and re-enable these tests. -->
+             TODO(b/204649079): Investigate these failures and re-enable these tests. -->
         <option name="exclude-filter" value="ExecUtilsTest.EnvSnapshotDeletionsAreNotVisible" />
         <option name="exclude-filter" value="ExecUtilsTest.ExecNoTimeout" />
         <option name="exclude-filter" value="ExecUtilsTest.ExecSuccess" />
@@ -109,6 +122,6 @@
         <option name="mainline-module-package-name" value="com.android.art" />
     </object>
 
-    <!--- Only run tests if the device under test is SDK version 31 (Android 12) or above. -->
+    <!-- Only run tests if the device under test is SDK version 31 (Android 12) or above. -->
     <object type="module_controller" class="com.android.tradefed.testtype.suite.module.Sdk31ModuleController" />
 </configuration>

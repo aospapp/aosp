@@ -16,22 +16,22 @@
 
 package com.android.server.wm.flicker.windowmanager
 
-import android.view.Display
 import android.view.Surface
 import androidx.test.filters.FlakyTest
 import androidx.test.platform.app.InstrumentationRegistry
 import com.android.server.wm.flicker.readWmTraceFromDumpFile
 import com.android.server.wm.flicker.readWmTraceFromFile
 import com.android.server.wm.flicker.traces.windowmanager.WindowManagerStateSubject
-import com.android.server.wm.traces.common.Buffer
+import com.android.server.wm.traces.common.ActiveBuffer
 import com.android.server.wm.traces.common.Color
 import com.android.server.wm.traces.common.DeviceStateDump
 import com.android.server.wm.traces.common.FlickerComponentName
+import com.android.server.wm.traces.common.Matrix33
 import com.android.server.wm.traces.common.Rect
 import com.android.server.wm.traces.common.RectF
-import com.android.server.wm.traces.common.Region
+import com.android.server.wm.traces.common.region.Region
 import com.android.server.wm.traces.common.layers.Layer
-import com.android.server.wm.traces.common.layers.LayerTraceEntry
+import com.android.server.wm.traces.common.layers.BaseLayerTraceEntry
 import com.android.server.wm.traces.common.layers.LayerTraceEntryBuilder
 import com.android.server.wm.traces.common.layers.Transform
 import com.android.server.wm.traces.common.windowmanager.WindowManagerState
@@ -53,7 +53,7 @@ class WindowManagerStateHelperTest {
         /**
          * Predicate to supply a new UI information
          */
-        deviceDumpSupplier: () -> DeviceStateDump<WindowManagerState, LayerTraceEntry>,
+        deviceDumpSupplier: () -> DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>,
         numRetries: Int = 5,
         retryIntervalMs: Long = 500L
     ) : WindowManagerStateHelper(InstrumentationRegistry.getInstrumentation(),
@@ -61,7 +61,9 @@ class WindowManagerStateHelperTest {
         var wmState: WindowManagerState = _wmState
             private set
 
-        override fun updateCurrState(value: DeviceStateDump<WindowManagerState, LayerTraceEntry>) {
+        override fun updateCurrState(
+            value: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>
+        ) {
             wmState = value.wmState
         }
     }
@@ -73,7 +75,7 @@ class WindowManagerStateHelperTest {
         "com.android.server.wm.flicker.testapp/.SimpleActivity")
 
     private fun createImaginaryLayer(name: String, index: Int, id: Int, parentId: Int): Layer {
-        val transform = Transform(0, Transform.Matrix(0f, 0f, 0f, 0f, 0f, 0f))
+        val transform = Transform(0, Matrix33.EMPTY)
         val rect = RectF(
             left = index.toFloat(),
             top = index.toFloat(),
@@ -85,8 +87,8 @@ class WindowManagerStateHelperTest {
             id,
             parentId,
             z = 0,
-            visibleRegion = Region(rect.toRect()),
-            activeBuffer = Buffer(1, 1, 1, 1),
+            visibleRegion = Region.from(rect.toRect()),
+            activeBuffer = ActiveBuffer(1, 1, 1, 1),
             flags = 0,
             bounds = rect,
             color = Color(0f, 0f, 0f, 1f),
@@ -106,7 +108,8 @@ class WindowManagerStateHelperTest {
             crop = rect.toRect(),
             backgroundBlurRadius = 0,
             isRelativeOf = false,
-            zOrderRelativeOfId = -1
+            zOrderRelativeOfId = -1,
+            stackId = 0
         )
     }
 
@@ -124,7 +127,7 @@ class WindowManagerStateHelperTest {
 
     private fun WindowManagerTrace.asSupplier(
         startingTimestamp: Long = 0
-    ): () -> DeviceStateDump<WindowManagerState, LayerTraceEntry> {
+    ): () -> DeviceStateDump<WindowManagerState, BaseLayerTraceEntry> {
         val iterator = this.dropWhile { it.timestamp < startingTimestamp }.iterator()
         return {
             if (iterator.hasNext()) {
@@ -135,10 +138,10 @@ class WindowManagerStateHelperTest {
                 if (wmState.inputMethodWindowState?.isSurfaceShown == true) {
                     layerList.add(FlickerComponentName.IME)
                 }
-                val layerTraceEntry = LayerTraceEntryBuilder(timestamp = 0,
+                val ILayerTraceEntry = LayerTraceEntryBuilder(timestamp = 0,
                     displays = emptyArray(),
                     layers = createImaginaryVisibleLayers(layerList)).build()
-                DeviceStateDump(wmState, layerTraceEntry)
+                DeviceStateDump(wmState, ILayerTraceEntry)
             } else {
                 error("Reached the end of the trace")
             }
@@ -157,7 +160,7 @@ class WindowManagerStateHelperTest {
                 .isNonAppWindowVisible(FlickerComponentName.IME)
             error("IME state should not be available")
         } catch (e: AssertionError) {
-            helper.waitImeShown(Display.DEFAULT_DISPLAY)
+            helper.waitImeShown()
             WindowManagerStateSubject
                 .assertThat(helper.wmState)
                 .isNonAppWindowVisible(FlickerComponentName.IME)
@@ -214,7 +217,12 @@ class WindowManagerStateHelperTest {
                 .containsAppWindow(simpleAppComponentName)
             error("SimpleActivity window should not exist in the start of the trace")
         } catch (e: AssertionError) {
+            // nothing to do
+        }
+
+        try {
             helper.waitForVisibleWindow(simpleAppComponentName)
+        } catch (e: IllegalArgumentException) {
             WindowManagerStateSubject
                 .assertThat(helper.wmState)
                 .notContains(simpleAppComponentName)

@@ -16,7 +16,6 @@
 package android.content.pm.cts.shortcutmanager;
 
 import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils.assertWith;
-import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils.dumpsysShortcut;
 import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils.list;
 import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils.retryUntil;
 import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils.setDefaultLauncher;
@@ -33,6 +32,7 @@ import android.content.pm.cts.shortcutmanager.common.Constants;
 import android.content.pm.cts.shortcutmanager.common.ReplyUtil;
 import android.os.PersistableBundle;
 import android.util.Log;
+
 import com.android.compatibility.common.util.CddTest;
 
 import java.util.HashMap;
@@ -43,6 +43,7 @@ public class ShortcutManagerRequestPinTest extends ShortcutManagerCtsTestsBase {
     private static final String TAG = "ShortcutMRPT";
 
     private static final String SHORTCUT_ID = "s12345";
+    private static final String HIDDEN_SHORTCUT_ID = "s24680";
 
     @CddTest(requirement="[3.8.1/C-2-1],[3.8.1/C-3-1]")
     public void testIsRequestPinShortcutSupported() {
@@ -349,6 +350,29 @@ public class ShortcutManagerRequestPinTest extends ShortcutManagerCtsTestsBase {
                         , PackageManager.DONT_KILL_APP);
             }
         }
+    }
+
+    /**
+     * Same as {@link ShortcutManager#requestPinShortcut} except the app has no main activities.
+     */
+    public void testRequestPinShortcutExcludedFromLauncher_ThrowsException() {
+        setDefaultLauncher(getInstrumentation(), mLauncherContext1);
+
+        runWithCallerWithStrictMode(mPackageContext1, () -> {
+            final ShortcutInfo shortcut = makeShortcutBuilder(HIDDEN_SHORTCUT_ID)
+                    .setExcludedFromSurfaces(ShortcutInfo.SURFACE_LAUNCHER)
+                    .build();
+
+            Log.i(TAG, "Calling requestPinShortcut...");
+            boolean isIllegalArgumentExceptionThrown = false;
+            try {
+                assertTrue(getManager().requestPinShortcut(shortcut, /* intent sender */ null));
+            } catch (IllegalArgumentException e) {
+                isIllegalArgumentExceptionThrown = true;
+            }
+            assertTrue(isIllegalArgumentExceptionThrown);
+            Log.i(TAG, "Done.");
+        });
     }
 
     // TODO Various other cases (already pinned, etc)

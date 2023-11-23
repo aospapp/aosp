@@ -47,11 +47,11 @@ from acts_contrib.test_utils.tel.tel_defines import EventEtwsReceived
 from acts_contrib.test_utils.tel.tel_defines import EventSmsDeliverSuccess
 from acts_contrib.test_utils.tel.tel_defines import EventSmsSentSuccess
 from acts_contrib.test_utils.tel.tel_defines import EventSmsReceived
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_phone_idle
-from acts_contrib.test_utils.tel.tel_test_utils import hangup_call
-from acts_contrib.test_utils.tel.tel_test_utils import initiate_call
-from acts_contrib.test_utils.tel.tel_test_utils import wait_and_answer_call
-from acts_contrib.test_utils.tel.tel_test_utils import wait_for_droid_not_in_call
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_phone_idle
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import wait_for_droid_not_in_call
+from acts_contrib.test_utils.tel.tel_voice_utils import hangup_call
+from acts_contrib.test_utils.tel.tel_voice_utils import initiate_call
+from acts_contrib.test_utils.tel.tel_voice_utils import wait_and_answer_call
 
 # Timers
 # Time to wait after registration before sending a command to Anritsu
@@ -480,7 +480,7 @@ def _init_PDN(anritsu_handle,
         None
     """
     # Setting IP address for internet connection sharing
-    # Google Fi _init_PDN 
+    # Google Fi _init_PDN
     if sim_card == FiTMO or sim_card == FiSPR or sim_card == FiUSCC:
         pdn.ue_address_ipv4 = ipv4
         pdn.ue_address_ipv6 = ipv6
@@ -498,9 +498,9 @@ def _init_PDN(anritsu_handle,
             pdn.secondary_dns_address_ipv4 = Fi_DNS_IPV4_ADDR_Sec
             pdn.dns_address_ipv6 = Fi_DNS_IPV6_ADDR
             pdn.cscf_address_ipv4 = Fi_CSCF_IPV4_ADDR_Data
-            pdn.cscf_address_ipv6 = Fi_CSCF_IPV6_ADDR_Data    
+            pdn.cscf_address_ipv6 = Fi_CSCF_IPV6_ADDR_Data
     # Pixel Lab _init_PDN_
-    else:  
+    else:
         anritsu_handle.gateway_ipv4addr = GATEWAY_IPV4_ADDR
         pdn.ue_address_ipv4 = ipv4
         pdn.ue_address_ipv6 = ipv6
@@ -550,7 +550,7 @@ def _init_IMS(anritsu_handle,
             vnid.cscf_monitoring_ua = CSCF_Monitoring_UA_URI
         vnid.psap = Switch.ENABLE
         vnid.psap_auto_answer = Switch.ENABLE
-    else:   
+    else:
         vnid.cscf_address_ipv4 = CSCF_IPV4_ADDR
         vnid.cscf_address_ipv6 = ipv6_address
         vnid.imscscf_iptype = ip_type

@@ -97,8 +97,11 @@ func (c *Cmd) sandboxSupported() bool {
 			"-u", "nobody",
 			"-g", sandboxConfig.group,
 			"-R", "/",
-			"-B", sandboxConfig.srcDir,
+			// Mount tmp before srcDir
+			// srcDir is /tmp/.* in integration tests, which is a child dir of /tmp
+			// nsjail throws an error if a child dir is mounted before its parent
 			"-B", "/tmp",
+			"-B", sandboxConfig.srcDir,
 			"-B", sandboxConfig.outDir,
 		}
 
@@ -145,6 +148,13 @@ func (c *Cmd) sandboxSupported() bool {
 func (c *Cmd) wrapSandbox() {
 	wd, _ := os.Getwd()
 
+	var srcDirMountFlag string
+	if c.config.sandboxConfig.SrcDirIsRO() {
+		srcDirMountFlag = "-R"
+	} else {
+		srcDirMountFlag = "-B" //Read-Write
+	}
+
 	sandboxArgs := []string{
 		// The executable to run
 		"-x", c.Path,
@@ -184,8 +194,8 @@ func (c *Cmd) wrapSandbox() {
 		// Mount a writable tmp dir
 		"-B", "/tmp",
 
-		// Mount source are read-write
-		"-B", sandboxConfig.srcDir,
+		// Mount source
+		srcDirMountFlag, sandboxConfig.srcDir,
 
 		//Mount out dir as read-write
 		"-B", sandboxConfig.outDir,
@@ -196,6 +206,18 @@ func (c *Cmd) wrapSandbox() {
 
 		// Only log important warnings / errors
 		"-q",
+	}
+
+	// Mount srcDir RW allowlists as Read-Write
+	if len(c.config.sandboxConfig.SrcDirRWAllowlist()) > 0 && !c.config.sandboxConfig.SrcDirIsRO() {
+		errMsg := `Product source tree has been set as ReadWrite, RW allowlist not necessary.
+			To recover, either
+			1. Unset BUILD_BROKEN_SRC_DIR_IS_WRITABLE #or
+			2. Unset BUILD_BROKEN_SRC_DIR_RW_ALLOWLIST`
+		c.ctx.Fatalln(errMsg)
+	}
+	for _, srcDirChild := range c.config.sandboxConfig.SrcDirRWAllowlist() {
+		sandboxArgs = append(sandboxArgs, "-B", srcDirChild)
 	}
 
 	if _, err := os.Stat(sandboxConfig.distDir); !os.IsNotExist(err) {

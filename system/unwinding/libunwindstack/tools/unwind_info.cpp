@@ -103,9 +103,6 @@ void DumpDwarfSection(Elf* elf, DwarfSection* section, uint64_t) {
 }
 
 int GetElfInfo(const char* file, uint64_t offset) {
-  // Send all log messages to stdout.
-  log_to_stdout(true);
-
   Elf elf(Memory::CreateFileMemory(file, offset).release());
   if (!elf.Init() || !elf.valid()) {
     printf("%s is not a valid elf file.\n", file);

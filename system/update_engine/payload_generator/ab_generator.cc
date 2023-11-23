@@ -54,7 +54,7 @@ bool ABGenerator::GenerateOperations(const PayloadGenerationConfig& config,
                                                        new_part,
                                                        hard_chunk_blocks,
                                                        soft_chunk_blocks,
-                                                       config.version,
+                                                       config,
                                                        blob_file));
   LOG(INFO) << "done reading " << new_part.name;
 

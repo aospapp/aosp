@@ -172,7 +172,7 @@ public class CookieManagerTest extends
         final String url = "http://www.example.com";
         final String cookie = "name=test";
         mCookieManager.setCookie(url, cookie, null);
-        new PollingCheck(TEST_TIMEOUT) {
+        new PollingCheck(WebkitUtils.TEST_TIMEOUT_MS) {
             @Override
             protected boolean check() {
                 String c = mCookieManager.getCookie(url);
@@ -255,7 +255,7 @@ public class CookieManagerTest extends
 
         mCookieManager.removeSessionCookies(null);
         allCookies = mCookieManager.getCookie(url);
-        new PollingCheck(TEST_TIMEOUT) {
+        new PollingCheck(WebkitUtils.TEST_TIMEOUT_MS) {
             @Override
             protected boolean check() {
                 String c = mCookieManager.getCookie(url);
@@ -266,7 +266,7 @@ public class CookieManagerTest extends
         }.run();
 
         mCookieManager.removeAllCookies(null);
-        new PollingCheck(TEST_TIMEOUT) {
+        new PollingCheck(WebkitUtils.TEST_TIMEOUT_MS) {
             @Override
             protected boolean check() {
                 return !mCookieManager.hasCookies();
@@ -452,7 +452,7 @@ public class CookieManagerTest extends
     }
 
     private void waitForCookie(final String url) {
-        new PollingCheck(TEST_TIMEOUT) {
+        new PollingCheck(WebkitUtils.TEST_TIMEOUT_MS) {
             @Override
             protected boolean check() {
                 return mCookieManager.getCookie(url) != null;

@@ -59,10 +59,10 @@ const SensorInfo& Sensor::getSensorInfo() const {
 }
 
 void Sensor::batch(int64_t samplingPeriodNs) {
-    if (samplingPeriodNs < mSensorInfo.minDelay * 1000ll) {
-        samplingPeriodNs = mSensorInfo.minDelay * 1000ll;
-    } else if (samplingPeriodNs > mSensorInfo.maxDelay * 1000ll) {
-        samplingPeriodNs = mSensorInfo.maxDelay * 1000ll;
+    if (samplingPeriodNs < mSensorInfo.minDelay * 1000LL) {
+        samplingPeriodNs = mSensorInfo.minDelay * 1000LL;
+    } else if (samplingPeriodNs > mSensorInfo.maxDelay * 1000LL) {
+        samplingPeriodNs = mSensorInfo.maxDelay * 1000LL;
     }
 
     if (mSamplingPeriodNs != samplingPeriodNs) {
@@ -114,7 +114,7 @@ void Sensor::run() {
             });
         } else {
             timespec curTime;
-            clock_gettime(CLOCK_REALTIME, &curTime);
+            clock_gettime(CLOCK_BOOTTIME, &curTime);
             int64_t now = (curTime.tv_sec * kNanosecondsInSeconds) + curTime.tv_nsec;
             int64_t nextSampleTime = mLastSampleTimeNs + mSamplingPeriodNs;
 

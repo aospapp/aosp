@@ -13,15 +13,15 @@ package {
 cc_library_shared {
     name: "libipanat",
 
-     header_libs: ["device_kernel_headers"],
+    header_libs: ["device_kernel_headers"],
 
     srcs: [
         "src/ipa_nat_drv.c",
         "src/ipa_nat_drvi.c",
     ],
 
-   shared_libs:
-        ["libcutils",
+    shared_libs: [
+        "libcutils",
         "libdl",
         "libbase",
         "libutils",
@@ -34,5 +34,4 @@ cc_library_shared {
         "-Werror",
     ] + ["-DFEATURE_IPA_ANDROID"],
 
-    clang: true,
 }

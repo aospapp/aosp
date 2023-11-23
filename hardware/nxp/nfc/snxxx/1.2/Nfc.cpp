@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright 2019,2021 NXP
+ *  Copyright 2019-2021 NXP
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -72,7 +72,7 @@ Return<uint32_t> Nfc::write(const hidl_vec<uint8_t>& data) {
 
 Return<V1_0::NfcStatus> Nfc::coreInitialized(const hidl_vec<uint8_t>& data) {
   hidl_vec<uint8_t> copy = data;
-  NFCSTATUS status = phNxpNciHal_core_initialized(&copy[0]);
+  NFCSTATUS status = phNxpNciHal_core_initialized(copy.size(), &copy[0]);
   return CHK_STATUS(status);
 }
 
@@ -143,6 +143,22 @@ Return<void> Nfc::getConfig_1_2(getConfig_1_2_cb hidl_cb) {
   phNxpNciHal_getVendorConfig_1_2(nfcVendorConfig);
   hidl_cb(nfcVendorConfig);
   return Void();
+}
+
+void Nfc::serviceDied(uint64_t /*cookie*/, const wp<IBase>& /*who*/) {
+  if (mCallbackV1_1 == nullptr && mCallbackV1_0 == nullptr) {
+    return;
+  }
+  phNxpNciHal_close(true);
+
+  if (mCallbackV1_1 != nullptr) {
+    mCallbackV1_1->unlinkToDeath(this);
+    mCallbackV1_1 = nullptr;
+  }
+  if (mCallbackV1_0 != nullptr) {
+    mCallbackV1_0->unlinkToDeath(this);
+    mCallbackV1_0 = nullptr;
+  }
 }
 
 }  // namespace implementation

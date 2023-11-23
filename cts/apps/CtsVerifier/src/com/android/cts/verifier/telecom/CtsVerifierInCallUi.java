@@ -26,8 +26,10 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
+import com.android.compatibility.common.util.ApiTest;
 import com.android.cts.verifier.R;
 
+@ApiTest(apis={"android.telecom.InCallService"})
 public class CtsVerifierInCallUi extends Activity {
     TextView mCallNumber;
     Button mButton;

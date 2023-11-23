@@ -44,8 +44,8 @@ public class SimpleperfHelper {
 
     private static final int SIMPLEPERF_START_WAIT_COUNT = 3;
     private static final int SIMPLEPERF_START_WAIT_TIME = 1000;
-    private static final int SIMPLEPERF_STOP_WAIT_COUNT = 12;
-    private static final long SIMPLEPERF_STOP_WAIT_TIME = 5000;
+    private static final int SIMPLEPERF_STOP_WAIT_COUNT = 60;
+    private static final long SIMPLEPERF_STOP_WAIT_TIME = 15000;
 
     private UiDevice mUiDevice;
 

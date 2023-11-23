@@ -21,7 +21,10 @@ import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.Direction;
 import android.support.test.uiautomator.UiObject2;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+
+import java.util.List;
 
 /** An App Helper interface for the Notification. */
 public interface INotificationHelper extends IAppHelper {
@@ -49,6 +52,15 @@ public interface INotificationHelper extends IAppHelper {
      * @param index The index of the notification to open.
      */
     default void openNotificationbyIndex(int index) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Wait until pop-up notification dismissed
+     *
+     * @return true if notification is dismissed before internal timeout
+     */
+    default boolean waitPopUpNotificationAutoDismissed() {
         throw new UnsupportedOperationException("Not yet implemented.");
     }
 
@@ -99,10 +111,44 @@ public interface INotificationHelper extends IAppHelper {
     }
 
     /**
+     * Setup Expectations: None
+     *
+     * <p>Posts a number of notifications to the device with a groupId. Successive calls to this
+     * should post new notifications in addition to those previously posted. Note that this may fail
+     * if the helper has surpassed the system-defined limit for per-package notifications.
+     *
+     * @param count The number of notifications to post.
+     * @param pkg The application that will be launched by notifications.
+     * @param summary Summary text for this group notification
+     */
+    default void postGroupNotifications(int count, @Nullable String pkg, @NonNull String summary) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Get the default title text used for notification
+     *
+     * @return the default title text
+     */
+    @NonNull
+    default String getDefaultNotificationTitleText() {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * @return the notification shelf, containing overflow notifications that don't fit in the
+     *     screen. If unavailable, returns null.
+     */
+    @Nullable
+    default UiObject2 getNotificationShelf() {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
      * Setup Expectations: Shade is open
      *
-     * <p>Posts a bubble notification. This notification is associated with a conversation shortcut,
-     * a BubbleMetadata, and in {@link android.app.Notification.MessagingStyle}.
+     * <p>Posts multiple bubble notification. These notifications are associated with a conversation
+     * shortcut, a BubbleMetadata, and in {@link android.app.Notification.MessagingStyle}.
      *
      * @param senderName Name of notification sender.
      * @param count How many bubble notifications to send.
@@ -112,11 +158,43 @@ public interface INotificationHelper extends IAppHelper {
     }
 
     /**
+     * Posts a bubble notification. This notification is associated with a conversation shortcut, a
+     * BubbleMetadata, and in {@link android.app.Notification.MessagingStyle}.
+     *
+     * @param senderName Name of notification sender.
+     * @param id An unique notification identifier.
+     * @param text Notification message content.
+     */
+    default void postBubbleNotification(String senderName, int id, String text) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Updates an existing notification
+     *
+     * @param senderName Name of notification sender.
+     * @param id An identifier of the notification to be updated.
+     * @param text Update message content.
+     */
+    default void updateBubbleNotification(String senderName, int id, String text) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
      * Return notification if found by text.
      *
      * @param text Text that notification contains.
      */
     default UiObject2 getNotificationByText(String text) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Return expandableNotificationRows if found
+     *
+     * @return List of expandableNotificationRow
+     */
+    default List<UiObject2> getExpandableNotificationRows() {
         throw new UnsupportedOperationException("Not yet implemented.");
     }
 
@@ -184,25 +262,39 @@ public interface INotificationHelper extends IAppHelper {
     /**
      * Setup Expectations: Notification shade opened.
      *
-     * <p>Scrolls to the bottom of the notification shade and taps the "clear all" button if
-     * present.
+     * <p>Determines if the notification shade is showing the "empty shade view"
      */
-    default void clearAllNotifications() {
+    default boolean isShowingEmptyShade() {
         throw new UnsupportedOperationException("Not yet implemented.");
     }
 
     /**
-     * Setup Expectations: Notification snoozing is enabled.
+     * Setup Expectations: Notification shade opened.
      *
-     * <p>Empty the notification shade by first cancelling all of the test app's notifications, then
-     * snoozing all other notifications temporarily. Fails if any notifications are left in the
-     * shade.
-     *
-     * <p>Because unsnoozing can fail from command line, snoozing is implemented with a fixed time,
-     * so tests will take at least as long as the time limit given, plus some buffer built into this
-     * utility, to ensure that this test's snoozing will not interfere with other tests.
+     * <p>Determines if the notification shade is showing the "footer view", which indicates that
+     * there are nonzero notifications and that the shade is scrolled to the bottom.
      */
-    default void runWithEmptyNotificationShade(Runnable task, long taskTimeLimit) {
+    default boolean isShowingFooter() {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup Expectations: Notification shade opened.
+     *
+     * <p>Scrolls to the bottom of the notification shade, as determined by the "manage" button in
+     * the footer being visible.
+     */
+    default void scrollToBottom() {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup Expectations: Notification shade opened, clearable notifications exist.
+     *
+     * <p>Scrolls to the bottom of the notification shade and taps the "clear all" button, which
+     * must be present.
+     */
+    default void clearAllNotifications() {
         throw new UnsupportedOperationException("Not yet implemented.");
     }
 
@@ -320,6 +412,11 @@ public interface INotificationHelper extends IAppHelper {
      * <p>Open the notification shade by swiping on the home screen.
      */
     default void swipeToOpen() {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /** Closes the notification shade by swiping up. */
+    default void swipeToClose() {
         throw new UnsupportedOperationException("Not yet implemented.");
     }
 

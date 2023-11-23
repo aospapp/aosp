@@ -16,6 +16,8 @@
 
 package android.preference.cts;
 
+import static org.junit.Assert.assertNotNull;
+
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.app.UiAutomation;
@@ -69,6 +71,7 @@ public class TestUtils {
         waitForIdle();
 
         Bitmap bt = mAutomation.takeScreenshot();
+        assertNotNull("Screenshot must not return null", bt);
 
         // Crop-out the status bar to avoid flakiness with changing notifications / time.
         int statusBarHeight = getStatusBarHeight();

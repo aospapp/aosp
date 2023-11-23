@@ -19,10 +19,13 @@ import android.content.Context;
 import android.graphics.ImageFormat;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraExtensionCharacteristics;
+import android.hardware.camera2.CaptureRequest;
+import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.cts.helpers.StaticMetadata;
 import android.hardware.camera2.cts.testcases.Camera2AndroidTestRule;
 import android.platform.test.annotations.AppModeFull;
 import android.renderscript.Allocation;
+import android.util.ArraySet;
 import android.util.Log;
 import android.util.Range;
 import android.util.Size;
@@ -34,6 +37,7 @@ import com.android.compatibility.common.util.PropertyUtil;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.Assert.*;
 
@@ -234,6 +238,88 @@ public class CameraExtensionCharacteristicsTest {
                         assertTrue("Lower range value must be smaller compared to the upper",
                                 (latencyRange.getLower() < latencyRange.getUpper()));
                     }
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testExtensionRequestKeys() throws Exception {
+        for (String id : mTestRule.getCameraIdsUnderTest()) {
+            StaticMetadata staticMeta =
+                    new StaticMetadata(mTestRule.getCameraManager().getCameraCharacteristics(id));
+            if (!staticMeta.isColorOutputSupported()) {
+                continue;
+            }
+
+            CameraExtensionCharacteristics chars =
+                    mTestRule.getCameraManager().getCameraExtensionCharacteristics(id);
+            List<Integer> supportedExtensions = chars.getSupportedExtensions();
+            for (Integer extension : supportedExtensions) {
+                Set<CaptureRequest.Key> captureKeySet =
+                        chars.getAvailableCaptureRequestKeys(extension);
+                ArraySet<CaptureRequest.Key> captureKeys = new ArraySet<>(captureKeySet);
+                // No repeating keys allowed
+                assertEquals(captureKeys.size(), captureKeySet.size());
+                // Jpeg quality and jpeg orientation must always be available
+                assertTrue(captureKeys.contains(CaptureRequest.JPEG_QUALITY));
+                assertTrue(captureKeys.contains(CaptureRequest.JPEG_ORIENTATION));
+                // The extension request keys must always match or be a subset of the regular keys
+                for (CaptureRequest.Key captureKey : captureKeys) {
+                    String msg = String.format("Supported extension request key %s doesn't appear "
+                            + " int the regular camera characteristics list of supported keys!",
+                            captureKey.getName());
+                    assertTrue(msg, staticMeta.areKeysAvailable(captureKey));
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testExtensionResultKeys() throws Exception {
+        for (String id : mTestRule.getCameraIdsUnderTest()) {
+            StaticMetadata staticMeta =
+                    new StaticMetadata(mTestRule.getCameraManager().getCameraCharacteristics(id));
+            if (!staticMeta.isColorOutputSupported()) {
+                continue;
+            }
+
+            CameraExtensionCharacteristics chars =
+                    mTestRule.getCameraManager().getCameraExtensionCharacteristics(id);
+            List<Integer> supportedExtensions = chars.getSupportedExtensions();
+            for (Integer extension : supportedExtensions) {
+                Set<CaptureResult.Key> resultKeySet =
+                        chars.getAvailableCaptureResultKeys(extension);
+                if (resultKeySet.isEmpty()) {
+                    // Extension capture result support is optional
+                    continue;
+                }
+
+                ArraySet<CaptureResult.Key> resultKeys = new ArraySet<>(resultKeySet);
+                ArraySet<String> resultKeyNames = new ArraySet<>(resultKeys.size());
+                // No repeating keys allowed
+                assertEquals(resultKeys.size(), resultKeySet.size());
+                // Sensor timestamp, jpeg quality and jpeg orientation must always be available
+                assertTrue(resultKeys.contains(CaptureResult.SENSOR_TIMESTAMP));
+                assertTrue(resultKeys.contains(CaptureResult.JPEG_QUALITY));
+                assertTrue(resultKeys.contains(CaptureResult.JPEG_ORIENTATION));
+                // The extension result keys must always match or be a subset of the regular result
+                // keys
+                for (CaptureResult.Key resultKey : resultKeys) {
+                    String msg = String.format("Supported extension result key %s doesn't appear "
+                            + " in the regular camera characteristics list of supported keys!",
+                            resultKey.getName());
+                    assertTrue(msg, staticMeta.areKeysAvailable(resultKey));
+                    resultKeyNames.add(resultKey.getName());
+                }
+
+                ArraySet<CaptureRequest.Key> captureKeys = new ArraySet<>(
+                        chars.getAvailableCaptureRequestKeys(extension));
+                for (CaptureRequest.Key requestKey : captureKeys) {
+                    String msg = String.format("Supported extension request key %s doesn't appear "
+                            + " in the corresponding supported extension result key list!",
+                            requestKey.getName());
+                    assertTrue(msg, resultKeyNames.contains(requestKey.getName()));
                 }
             }
         }

@@ -78,6 +78,7 @@ public class BitmapColorSpaceTest {
                 Bitmap.Config.RGB_565,
                 Bitmap.Config.ARGB_4444,
                 Bitmap.Config.RGBA_F16,
+                Bitmap.Config.RGBA_1010102,
         };
         // in most cases, createBitmap respects the ColorSpace
         for (Bitmap.Config config : configs) {
@@ -184,6 +185,7 @@ public class BitmapColorSpaceTest {
                     Bitmap.Config.ALPHA_8,
                     Bitmap.Config.ARGB_4444,
                     Bitmap.Config.RGBA_F16,
+                    Bitmap.Config.RGBA_1010102,
             };
             for (Bitmap.Config config : configs) {
                 Bitmap orig = Bitmap.createBitmap(32, 32, config, false, rgb);

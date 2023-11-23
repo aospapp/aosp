@@ -18,14 +18,18 @@ package android.security.cts;
 
 import android.graphics.BitmapFactory;
 import android.platform.test.annotations.AsbSecurityTest;
-import android.test.AndroidTestCase;
-
+import androidx.test.runner.AndroidJUnit4;
+import com.android.sts.common.util.StsExtraBusinessLogicTestCase;
+import org.junit.runner.RunWith;
+import org.junit.Test;
+import static org.junit.Assert.*;
 import android.security.cts.R;
 
 import java.io.BufferedInputStream;
 import java.io.InputStream;
 
-public class BitmapFactoryDecodeStreamTest extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class BitmapFactoryDecodeStreamTest extends StsExtraBusinessLogicTestCase {
     /*
      * This test case reproduces the bug in CVE-2015-1532.
      * It verifies that the BitmapFactory:decodeStream method is not vulnerable
@@ -33,23 +37,26 @@ public class BitmapFactoryDecodeStreamTest extends AndroidTestCase {
      * npTc chunk.
      */
     @AsbSecurityTest(cveBugId = 19151999)
+    @Test
     public void testNinePatchHeapOverflow() throws Exception {
-        InputStream inStream = new BufferedInputStream(mContext.getResources().openRawResource(
+        InputStream inStream = new BufferedInputStream(getInstrumentation().getContext().getResources().openRawResource(
                 R.raw.cve_2015_1532));
         BitmapFactory.decodeStream(inStream);
 
     }
 
     @AsbSecurityTest(cveBugId = 36724453)
+    @Test
     public void testPocCVE_2017_0691() throws Exception {
-        InputStream exploitImage = new BufferedInputStream(mContext.getResources().openRawResource(
+        InputStream exploitImage = new BufferedInputStream(getInstrumentation().getContext().getResources().openRawResource(
                 R.raw.cve_2017_0691));
         BitmapFactory.decodeStream(exploitImage);
     }
 
     @AsbSecurityTest(cveBugId = 65290323)
+    @Test
     public void test_b65290323() throws Exception {
-        InputStream exploitImage = new BufferedInputStream(mContext.getResources().openRawResource(
+        InputStream exploitImage = new BufferedInputStream(getInstrumentation().getContext().getResources().openRawResource(
                 R.raw.b65290323));
         BitmapFactory.decodeStream(exploitImage);
     }

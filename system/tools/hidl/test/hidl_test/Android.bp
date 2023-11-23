@@ -93,6 +93,9 @@ cc_test {
     name: "hidl_test_client",
     defaults: ["hidl_test-defaults"],
 
+    tidy_timeout_srcs: [
+        "hidl_test_client.cpp",
+    ],
     srcs: [
         "hidl_test_client.cpp",
         "FooCallback.cpp",

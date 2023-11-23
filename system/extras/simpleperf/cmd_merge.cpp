@@ -338,7 +338,7 @@ class MergeCommand : public Command {
         }
       } else if (feature == PerfFileFormat::FEAT_BUILD_ID) {
         WriteBuildIdFeature();
-      } else if (feature == PerfFileFormat::FEAT_FILE) {
+      } else if (feature == PerfFileFormat::FEAT_FILE || feature == PerfFileFormat::FEAT_FILE2) {
         WriteFileFeature();
       } else {
         LOG(WARNING) << "Drop feature " << feature << ", which isn't supported in the merge cmd.";

@@ -21,8 +21,16 @@ package {
 android_test_helper_app {
     name: "CtsOverlayTarget",
     defaults: ["cts_support_defaults"],
-    sdk_version: "current",
+    sdk_version: "test_current",
     certificate: ":cts-testkey1",
+    static_libs: [
+        "truth-prebuilt",
+        "androidx.test.rules",
+        "compatibility-device-util-axt",
+    ],
+    srcs: [
+        "src/**/*.java",
+    ],
     resource_dirs: [
         "res",
         "res_overlayable",

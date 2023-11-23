@@ -1097,6 +1097,7 @@ NET_SetSockOpt(int fd, int level, int  opt, const void *arg,
         // Android-changed: This is out-dated RFC 1349 scheme. Modern Linux uses
         // Diffsev/ECN, and this mask is no longer relavant.
         // *iptos &= (IPTOS_TOS_MASK | IPTOS_PREC_MASK);
+        (void) iptos;
     }
 
     /*

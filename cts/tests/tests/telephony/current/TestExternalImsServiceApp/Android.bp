@@ -16,7 +16,10 @@ android_test_helper_app {
     aidl: {
         local_include_dirs: ["aidl/"],
     },
-    sdk_version: "test_current",
+    // Uncomment when ImsConferenceState constructor is not hidden
+    //sdk_version: "test_current",
+    // remove when ImsConferenceState constructor is not hidden
+    platform_apis: true,
     test_suites: [
         "cts",
         "general-tests",

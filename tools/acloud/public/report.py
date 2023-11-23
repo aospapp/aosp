@@ -98,6 +98,23 @@ class Status():
         return cls.SEVERITY_ORDER[candidate] > cls.SEVERITY_ORDER[reference]
 
 
+def LogFile(path, log_type, name=None):
+    """Create a log entry that can be added to the report.
+
+    Args:
+        path: A string, the local or remote path to the log file.
+        log_type: A string, the type of the log file.
+        name: A string, the optional entry name.
+
+    Returns:
+        The log entry as a dictionary.
+    """
+    log = {"path": path, "type": log_type}
+    if name:
+        log["name"] = name
+    return log
+
+
 class Report():
     """A class that stores and generates report."""
 
@@ -169,7 +186,8 @@ class Report():
                 self.status, status)
 
     def AddDevice(self, instance_name, ip_address, adb_port, vnc_port,
-                  webrtc_port=None, device_serial=None, key="devices"):
+                  webrtc_port=None, device_serial=None, logs=None,
+                  key="devices", update_data=None):
         """Add a record of a device.
 
         Args:
@@ -179,7 +197,9 @@ class Report():
             vnc_port: An integer.
             webrtc_port: An integer, the port to display device screen.
             device_serial: String of device serial.
+            logs: A list of LogFile.
             key: A string, the data entry where the record is added.
+            update_data: A dict to update device data.
         """
         device = {constants.INSTANCE_NAME: instance_name}
         if adb_port:
@@ -196,11 +216,17 @@ class Report():
 
         if webrtc_port:
             device[constants.WEBRTC_PORT] = webrtc_port
+
+        if logs:
+            device[constants.LOGS] = logs
+
+        if update_data:
+            device.update(update_data)
         self.AddData(key=key, value=device)
 
     def AddDeviceBootFailure(self, instance_name, ip_address, adb_port,
                              vnc_port, error, device_serial=None,
-                             webrtc_port=None):
+                             webrtc_port=None, logs=None):
         """Add a record of device boot failure.
 
         Args:
@@ -211,9 +237,11 @@ class Report():
             error: A string, the error message.
             device_serial: String of device serial.
             webrtc_port: An integer.
+            logs: A list of LogFile.
         """
         self.AddDevice(instance_name, ip_address, adb_port, vnc_port,
-                       webrtc_port, device_serial, "devices_failing_boot")
+                       webrtc_port, device_serial, logs,
+                       "devices_failing_boot")
         self.AddError(error)
 
     def UpdateFailure(self, error, error_type=None):

@@ -17,23 +17,10 @@
 # Stop if something fails.
 set -e
 
-# This test depends on the exact format of the DEX file. Since dx is deprecated,
-# the classes.dex file is packaged as a test input. See src/Main.java file
-# to check how it was created.
-
-# Wrapper function for javac which for this test does nothing as the
-# test uses a pre-built DEX file.
-function javac_wrapper {
-  return 0
-}
-
-export -f javac_wrapper
-export JAVAC=javac_wrapper
-
 # Do not invoke D8 for this test.
 export D8=':'
 
 ######################################################################
 
-jar -cf classes.jar classes.dex
+${SOONG_ZIP} --jar -o classes.jar -f classes.dex
 ./default-build "$@"

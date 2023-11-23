@@ -39,13 +39,6 @@ CMW_MIMO_MAPPING = {
     LteSimulation.MimoMode.MIMO_4x4: cmw500.MimoModes.MIMO4x4
 }
 
-CMW_MODULATION_MAPPING = {
-    LteSimulation.ModulationType.QPSK: cmw500.ModulationType.QPSK,
-    LteSimulation.ModulationType.Q16: cmw500.ModulationType.Q16,
-    LteSimulation.ModulationType.Q64: cmw500.ModulationType.Q64,
-    LteSimulation.ModulationType.Q256: cmw500.ModulationType.Q256
-}
-
 # get mcs vs tbsi map with 256-qam disabled(downlink)
 get_mcs_tbsi_map_dl = {
     cmw500.ModulationType.QPSK: {
@@ -167,15 +160,6 @@ class CMW500CellularSimulator(cc.AbstractCellularSimulator):
     """ A cellular simulator for telephony simulations based on the CMW 500
     controller. """
 
-    # Indicates if it is able to use 256 QAM as the downlink modulation for LTE
-    LTE_SUPPORTS_DL_256QAM = True
-
-    # Indicates if it is able to use 64 QAM as the uplink modulation for LTE
-    LTE_SUPPORTS_UL_64QAM = True
-
-    # Indicates if 4x4 MIMO is supported for LTE
-    LTE_SUPPORTS_4X4_MIMO = True
-
     # The maximum number of carriers that this simulator can support for LTE
     LTE_MAX_CARRIERS = 1
 
@@ -208,9 +192,13 @@ class CMW500CellularSimulator(cc.AbstractCellularSimulator):
         self.bts = [self.cmw.get_base_station()]
         self.cmw.switch_lte_signalling(cmw500.LteState.LTE_ON)
 
-    def setup_lte_ca_scenario(self):
-        """ Configures the equipment for an LTE with CA simulation. """
-        raise NotImplementedError()
+    def set_band_combination(self, bands):
+        """ Prepares the test equipment for the indicated band combination.
+
+        Args:
+            bands: a list of bands represented as ints or strings
+        """
+        self.num_carriers = len(bands)
 
     def set_lte_rrc_state_change_timer(self, enabled, time=10):
         """ Configures the LTE RRC state change timer.
@@ -442,7 +430,7 @@ class CMW500CellularSimulator(cc.AbstractCellularSimulator):
 
             time.sleep(1)
 
-            if self.dl_modulation == cmw500.ModulationType.Q256:
+            if self.dl_256_qam_enabled:
                 tbs = get_mcs_tbsi_map_for_256qam_dl[
                     self.dl_modulation][mcs_dl]
             else:
@@ -452,49 +440,38 @@ class CMW500CellularSimulator(cc.AbstractCellularSimulator):
             self.log.info('dl rb configurations set to {}'.format(
                 bts.rb_configuration_dl))
 
-    def set_dl_modulation(self, bts_index, modulation):
-        """ Sets the DL modulation for the indicated base station.
-
-        This function does not actually configure the test equipment with this
-        setting, but stores the value to be used later on when setting the
-        scheduling type. This is because the CMW500 API only allows to set
-        this parameters together.
+    def set_dl_256_qam_enabled(self, bts_index, enabled):
+        """ Determines what MCS table should be used for the downlink.
+        This only saves the setting that will be used when configuring MCS.
 
         Args:
             bts_index: the base station number
-            modulation: the new DL modulation
+            enabled: whether 256 QAM should be used
         """
-        # Convert dl modulation type to CMW modulation type.
-        self.dl_modulation = CMW_MODULATION_MAPPING[modulation]
+        self.log.info('Set 256 QAM DL MCS enabled: ' + str(enabled))
+        self.dl_modulation = cmw500.ModulationType.Q256 if enabled \
+            else cmw500.ModulationType.Q64
+        self.dl_256_qam_enabled = enabled
 
-        self.log.warning('Modulation config stored but not applied until '
-                         'set_scheduling_mode called.')
-
-    def set_ul_modulation(self, bts_index, modulation):
-        """ Sets the UL modulation for the indicated base station.
-
-        This function does not actually configure the test equipment with this
-        setting, but stores the value to be used later on when setting the
-        scheduling type. This is because the CMW500 API only allows to set
-        this parameters together.
+    def set_ul_64_qam_enabled(self, bts_index, enabled):
+        """ Determines what MCS table should be used for the uplink.
+        This only saves the setting that will be used when configuring MCS.
 
         Args:
             bts_index: the base station number
-            modulation: the new UL modulation
+            enabled: whether 64 QAM should be used
         """
+        self.log.info('Set 64 QAM UL MCS enabled: ' + str(enabled))
+        self.ul_modulation = cmw500.ModulationType.Q64 if enabled \
+            else cmw500.ModulationType.Q16
+        self.ul_64_qam_enabled = enabled
 
-        # Convert ul modulation type to CMW modulation type.
-        self.ul_modulation = CMW_MODULATION_MAPPING[modulation]
-
-        self.log.warning('Modulation config stored but not applied until '
-                         'set_scheduling_mode called.')
-
-    def set_tbs_pattern_on(self, bts_index, tbs_pattern_on):
-        """ Enables or disables TBS pattern in the indicated base station.
+    def set_mac_padding(self, bts_index, mac_padding):
+        """ Enables or disables MAC padding in the indicated base station.
 
         Args:
             bts_index: the base station number
-            tbs_pattern_on: the new TBS pattern setting
+            mac_padding: the new MAC padding setting
         """
         # TODO (b/143918664): CMW500 doesn't have an equivalent setting.
         pass

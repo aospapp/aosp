@@ -36,7 +36,13 @@ android_test {
         "cts",
         "general-tests",
     ],
-    sdk_version: "test_current"
+    sdk_version: "test_current",
+    data: [
+        ":CtsBlobStoreTestHelper",
+        ":CtsBlobStoreTestHelperDiffSig",
+        ":CtsBlobStoreTestHelperDiffSig2",
+    ],
+    per_testcase_directory: true,
 }
 
 android_test_helper_app {

@@ -67,8 +67,8 @@ class SingleATest(its_base_test.ItsBaseTest):
                                                      do_awb=three_a_req[2],
                                                      mono_camera=mono_camera)
 
-        except error_util.CameraItsError:
-          raise AssertionError(f'{k} did not converge.')
+        except error_util.CameraItsError as e_util:
+          raise AssertionError(f'{k} did not converge.') from e_util
 
         logging.debug('AWB gains: %s, xform: %s', str(awb_gains),
                       str(awb_xform))

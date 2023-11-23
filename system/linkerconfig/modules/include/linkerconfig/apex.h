@@ -25,6 +25,12 @@
 namespace android {
 namespace linkerconfig {
 namespace modules {
+
+struct Contribution {
+  std::string namespace_name;
+  std::vector<std::string> paths;
+};
+
 struct ApexInfo {
   std::string name;
   std::string namespace_name;
@@ -35,6 +41,7 @@ struct ApexInfo {
   std::vector<std::string> jni_libs;
   std::vector<std::string> permitted_paths;
   std::vector<std::string> public_libs;
+  std::vector<Contribution> contributions;
   bool has_bin;
   bool has_lib;
   bool visible;
@@ -45,7 +52,8 @@ struct ApexInfo {
            std::vector<std::string> provide_libs,
            std::vector<std::string> require_libs,
            std::vector<std::string> jni_libs,
-           std::vector<std::string> permitted_paths, bool has_bin, bool has_lib,
+           std::vector<std::string> permitted_paths,
+           std::vector<Contribution> contributions, bool has_bin, bool has_lib,
            bool visible, bool has_shared_lib)
       : name(std::move(name)),
         path(std::move(path)),
@@ -53,6 +61,7 @@ struct ApexInfo {
         require_libs(std::move(require_libs)),
         jni_libs(std::move(jni_libs)),
         permitted_paths(std::move(permitted_paths)),
+        contributions(std::move(contributions)),
         has_bin(has_bin),
         has_lib(has_lib),
         visible(visible),

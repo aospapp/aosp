@@ -24,6 +24,7 @@
 #include <xf86drmMode.h>
 #include <log/log.h>
 #include <inttypes.h>
+#include <utils/Errors.h>
 
 namespace android {
 
@@ -158,4 +159,31 @@ std::tuple<uint64_t, int> DrmProperty::GetEnumValueWithName(
 void DrmProperty::UpdateValue(uint64_t value) {
   value_ = value;
 }
+
+std::tuple<uint64_t, int> DrmEnumParser::halToDrmEnum(const uint32_t halData,
+                                                      const MapHal2DrmEnum& drmEnums) {
+    auto it = drmEnums.find(halData);
+    if (it != drmEnums.end()) {
+        return std::make_tuple(it->second, NO_ERROR);
+    } else {
+        ALOGE("%s::Failed to find standard enum(%d)",
+                __func__, halData);
+        return std::make_tuple(0, -EINVAL);
+    }
+}
+
+void DrmEnumParser::parseEnums(const DrmProperty &property,
+                               const std::vector<std::pair<uint32_t, const char *>> &enums,
+                               MapHal2DrmEnum& out_enums) {
+    uint64_t value;
+    int err;
+    for (auto &e : enums) {
+        std::tie(value, err) = property.GetEnumValueWithName(e.second);
+        if (err)
+            ALOGE("Fail to find enum value with name %s", e.second);
+        else
+            out_enums[e.first] = value;
+    }
+}
+
 }  // namespace android

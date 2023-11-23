@@ -16,14 +16,18 @@
 
 package com.android.queryable.info;
 
+import android.os.Parcel;
+import android.os.Parcelable;
+
 import java.io.Serializable;
+import java.util.Objects;
 
 /**
  * Wrapper for information about a {@link Class}.
  *
  * <p>This is used instead of {@link Class} so that it can be easily serialized.
  */
-public class ClassInfo implements Serializable {
+public class ClassInfo implements Serializable, Parcelable {
 
     private static final long serialVersionUID = 1;
 
@@ -39,6 +43,10 @@ public class ClassInfo implements Serializable {
 
     public ClassInfo(String className) {
         mClassName = className;
+    }
+
+    ClassInfo(Parcel in) {
+        mClassName = in.readString();
     }
 
     public String className() {
@@ -68,5 +76,39 @@ public class ClassInfo implements Serializable {
         return "Class{"
                 + "className=" + className()
                 + "}";
+    }
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel out, int flags) {
+        out.writeString(mClassName);
+    }
+
+    public static final Parcelable.Creator<ClassInfo> CREATOR =
+            new Parcelable.Creator<ClassInfo>() {
+                public ClassInfo createFromParcel(Parcel in) {
+                    return new ClassInfo(in);
+                }
+
+                public ClassInfo[] newArray(int size) {
+                    return new ClassInfo[size];
+                }
+    };
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof ClassInfo)) return false;
+        ClassInfo classInfo = (ClassInfo) o;
+        return mClassName.equals(classInfo.mClassName);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(mClassName);
     }
 }

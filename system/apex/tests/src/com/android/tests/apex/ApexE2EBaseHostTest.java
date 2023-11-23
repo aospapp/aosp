@@ -16,13 +16,11 @@
 
 package com.android.tests.apex;
 
-import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.junit.Assume.assumeTrue;
 
 import android.cts.install.lib.host.InstallUtilsHost;
-import android.platform.test.annotations.RequiresDevice;
 
 import com.android.tests.rollback.host.AbandonSessionsRule;
 import com.android.tradefed.config.Option;
@@ -50,9 +48,6 @@ public abstract class ApexE2EBaseHostTest extends BaseHostJUnit4Test {
     private static final String OPTION_APEX_FILE_NAME = "apex_file_name";
 
     private static final Duration BOOT_COMPLETE_TIMEOUT = Duration.ofMinutes(2);
-
-    private static final String USERSPACE_REBOOT_SUPPORTED_PROP =
-            "init.userspace_reboot.is_supported";
 
     // Protected so that derived tests can have access to test utils automatically
     protected final InstallUtilsHost mHostUtils = new InstallUtilsHost(this);
@@ -85,21 +80,13 @@ public abstract class ApexE2EBaseHostTest extends BaseHostJUnit4Test {
 
     @Test
     public final void testStageActivateUninstallApexPackage()  throws Exception {
-        stageActivateUninstallApexPackage(false/*userspaceReboot*/);
+        stageActivateUninstallApexPackage();
     }
 
-    @Test
-    @RequiresDevice // TODO(b/147726967): Remove when Userspace reboot works on cuttlefish
-    public final void testStageActivateUninstallApexPackageWithUserspaceReboot()  throws Exception {
-        assumeTrue("Userspace reboot not supported on the device",
-                getDevice().getBooleanProperty(USERSPACE_REBOOT_SUPPORTED_PROP, false));
-        stageActivateUninstallApexPackage(true/*userspaceReboot*/);
-    }
-
-    private void stageActivateUninstallApexPackage(boolean userspaceReboot)  throws Exception {
+    private void stageActivateUninstallApexPackage()  throws Exception {
         ApexInfo apex = installApex(mApexFileName);
 
-        reboot(userspaceReboot); // for install to take affect
+        getDevice().reboot(); // for install to take affect
         Set<ApexInfo> activatedApexes = getDevice().getActiveApexes();
         assertWithMessage("Failed to activate %s", apex).that(activatedApexes).contains(apex);
 
@@ -123,25 +110,6 @@ public abstract class ApexE2EBaseHostTest extends BaseHostJUnit4Test {
         ApexInfo testApexInfo = mHostUtils.getApexInfo(testAppFile);
         Assert.assertNotNull(testApexInfo);
         return testApexInfo;
-    }
-
-    protected final void reboot(boolean userspaceReboot) throws Exception {
-        if (userspaceReboot) {
-            assertThat(getDevice().setProperty("test.userspace_reboot.requested", "1")).isTrue();
-            getDevice().rebootUserspace();
-        } else {
-            getDevice().reboot();
-        }
-        boolean success = getDevice().waitForBootComplete(BOOT_COMPLETE_TIMEOUT.toMillis());
-        assertWithMessage("Device didn't boot in %s", BOOT_COMPLETE_TIMEOUT).that(success).isTrue();
-        if (userspaceReboot) {
-            // If userspace reboot fails and fallback to hard reboot is triggered then
-            // test.userspace_reboot.requested won't be set.
-            boolean res = getDevice().getBooleanProperty("test.userspace_reboot.requested", false);
-            String message = "Userspace reboot failed, fallback to full reboot was triggered. ";
-            message += "Boot reason: " + getDevice().getProperty("sys.boot.reason.last");
-            assertWithMessage(message).that(res).isTrue();
-        }
     }
 
     /**

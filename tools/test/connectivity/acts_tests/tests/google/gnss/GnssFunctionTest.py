@@ -19,7 +19,6 @@ import re
 import fnmatch
 from multiprocessing import Process
 
-from acts import utils
 from acts import asserts
 from acts import signals
 from acts.base_test import BaseTestClass
@@ -29,18 +28,13 @@ from acts_contrib.test_utils.tel import tel_test_utils as tutils
 from acts_contrib.test_utils.gnss import gnss_test_utils as gutils
 from acts.utils import get_current_epoch_time
 from acts.utils import unzip_maintain_permissions
-from acts.utils import force_airplane_mode
 from acts_contrib.test_utils.wifi.wifi_test_utils import wifi_toggle_state
-from acts_contrib.test_utils.tel.tel_test_utils import flash_radio
+from acts_contrib.test_utils.tel.tel_bootloader_utils import flash_radio
 from acts_contrib.test_utils.tel.tel_test_utils import verify_internet_connection
-from acts_contrib.test_utils.tel.tel_test_utils import abort_all_tests
-from acts_contrib.test_utils.tel.tel_test_utils import stop_qxdm_logger
 from acts_contrib.test_utils.tel.tel_test_utils import check_call_state_connected_by_adb
-from acts_contrib.test_utils.tel.tel_test_utils import initiate_call
-from acts_contrib.test_utils.tel.tel_test_utils import hangup_call
-from acts_contrib.test_utils.tel.tel_test_utils import http_file_download_by_sl4a
-from acts_contrib.test_utils.tel.tel_test_utils import start_qxdm_logger
-from acts_contrib.test_utils.tel.tel_test_utils import trigger_modem_crash
+from acts_contrib.test_utils.tel.tel_voice_utils import initiate_call
+from acts_contrib.test_utils.tel.tel_voice_utils import hangup_call
+from acts_contrib.test_utils.tel.tel_data_utils import http_file_download_by_sl4a
 from acts_contrib.test_utils.gnss.gnss_test_utils import get_baseband_and_gms_version
 from acts_contrib.test_utils.gnss.gnss_test_utils import set_attenuator_gnss_signal
 from acts_contrib.test_utils.gnss.gnss_test_utils import _init_device
@@ -63,7 +57,6 @@ from acts_contrib.test_utils.gnss.gnss_test_utils import process_ttff_by_gtw_gps
 from acts_contrib.test_utils.gnss.gnss_test_utils import check_ttff_data
 from acts_contrib.test_utils.gnss.gnss_test_utils import start_youtube_video
 from acts_contrib.test_utils.gnss.gnss_test_utils import fastboot_factory_reset
-from acts_contrib.test_utils.gnss.gnss_test_utils import gnss_trigger_modem_ssr_by_adb
 from acts_contrib.test_utils.gnss.gnss_test_utils import gnss_trigger_modem_ssr_by_mds
 from acts_contrib.test_utils.gnss.gnss_test_utils import disable_supl_mode
 from acts_contrib.test_utils.gnss.gnss_test_utils import connect_to_wifi_network
@@ -73,9 +66,13 @@ from acts_contrib.test_utils.gnss.gnss_test_utils import parse_gtw_gpstool_log
 from acts_contrib.test_utils.gnss.gnss_test_utils import enable_supl_mode
 from acts_contrib.test_utils.gnss.gnss_test_utils import start_toggle_gnss_by_gtw_gpstool
 from acts_contrib.test_utils.gnss.gnss_test_utils import grant_location_permission
-from acts_contrib.test_utils.tel.tel_test_utils import start_adb_tcpdump
-from acts_contrib.test_utils.tel.tel_test_utils import stop_adb_tcpdump
-from acts_contrib.test_utils.tel.tel_test_utils import get_tcpdump_log
+from acts_contrib.test_utils.gnss.gnss_test_utils import is_mobile_data_on
+from acts_contrib.test_utils.gnss.gnss_test_utils import is_wearable_btwifi
+from acts_contrib.test_utils.gnss.gnss_test_utils import delete_lto_file
+from acts_contrib.test_utils.gnss.gnss_test_utils import is_device_wearable
+from acts_contrib.test_utils.tel.tel_logging_utils import start_adb_tcpdump
+from acts_contrib.test_utils.tel.tel_logging_utils import stop_adb_tcpdump
+from acts_contrib.test_utils.tel.tel_logging_utils import get_tcpdump_log
 
 
 class GnssFunctionTest(BaseTestClass):
@@ -94,13 +91,14 @@ class GnssFunctionTest(BaseTestClass):
                       "weak_signal_xtra_cs_criteria",
                       "weak_signal_xtra_ws_criteria",
                       "weak_signal_xtra_hs_criteria",
+                      "wearable_reboot_hs_criteria",
                       "default_gnss_signal_attenuation",
                       "weak_gnss_signal_attenuation",
                       "no_gnss_signal_attenuation", "gnss_init_error_list",
                       "gnss_init_error_allowlist", "pixel_lab_location",
-                      "legacy_wifi_xtra_cs_criteria", "legacy_projects",
                       "qdsp6m_path", "supl_capabilities", "ttff_test_cycle",
-                      "collect_logs", "dpo_threshold"]
+                      "collect_logs", "dpo_threshold",
+                      "brcm_error_log_allowlist"]
         self.unpack_userparams(req_param_names=req_params)
         # create hashmap for SSID
         self.ssid_map = {}
@@ -109,11 +107,8 @@ class GnssFunctionTest(BaseTestClass):
             self.ssid_map[SSID] = network
         self.ttff_mode = {"cs": "Cold Start",
                           "ws": "Warm Start",
-                          "hs": "Hot Start"}
-        if self.ad.model in self.legacy_projects:
-            self.wifi_xtra_cs_criteria = self.legacy_wifi_xtra_cs_criteria
-        else:
-            self.wifi_xtra_cs_criteria = self.xtra_cs_criteria
+                          "hs": "Hot Start",
+                          "csa": "CSWith Assist"}
         if self.collect_logs and \
             gutils.check_chipset_vendor_by_qualcomm(self.ad):
             self.flash_new_radio_or_mbn()
@@ -126,6 +121,11 @@ class GnssFunctionTest(BaseTestClass):
             clear_logd_gnss_qxdm_log(self.ad)
             set_attenuator_gnss_signal(self.ad, self.attenuators,
                                        self.default_gnss_signal_attenuation)
+        # TODO (b/202101058:chenstanley): Need to double check how to disable wifi successfully in wearable projects.
+        if is_wearable_btwifi(self.ad):
+            wifi_toggle_state(self.ad, True)
+            connect_to_wifi_network(
+            self.ad, self.ssid_map[self.pixel_lab_network[0]["SSID"]])
         if not verify_internet_connection(self.ad.log, self.ad, retries=3,
                                           expected_state=True):
             raise signals.TestFailure("Fail to connect to LTE network.")
@@ -136,18 +136,23 @@ class GnssFunctionTest(BaseTestClass):
             stop_adb_tcpdump(self.ad)
             set_attenuator_gnss_signal(self.ad, self.attenuators,
                                        self.default_gnss_signal_attenuation)
-        if check_call_state_connected_by_adb(self.ad):
-            hangup_call(self.ad.log, self.ad)
-        if int(self.ad.adb.shell("settings get global airplane_mode_on")) != 0:
+        # TODO(chenstanley): sim structure issue
+        if not is_device_wearable(self.ad):
+            if check_call_state_connected_by_adb(self.ad):
+                hangup_call(self.ad.log, self.ad)
+        if self.ad.droid.connectivityCheckAirplaneMode():
             self.ad.log.info("Force airplane mode off")
-            force_airplane_mode(self.ad, False)
-        if self.ad.droid.wifiCheckState():
+            self.ad.droid.connectivityToggleAirplaneMode(False)
+        if not is_wearable_btwifi and self.ad.droid.wifiCheckState():
             wifi_toggle_state(self.ad, False)
-        if int(self.ad.adb.shell("settings get global mobile_data")) != 1:
+        if not is_mobile_data_on(self.ad):
             set_mobile_data(self.ad, True)
         if int(self.ad.adb.shell(
             "settings get global wifi_scan_always_enabled")) != 1:
             set_wifi_and_bt_scanning(self.ad, True)
+        if not verify_internet_connection(self.ad.log, self.ad, retries=3,
+                                          expected_state=True):
+            raise signals.TestFailure("Fail to connect to LTE network.")
 
     def on_fail(self, test_name, begin_time):
         if self.collect_logs:
@@ -287,7 +292,7 @@ class GnssFunctionTest(BaseTestClass):
         """
         self.start_qxdm_and_tcpdump_log()
         self.ad.log.info("Turn airplane mode on")
-        force_airplane_mode(self.ad, True)
+        self.ad.droid.connectivityToggleAirplaneMode(True)
         self.run_ttff_via_gtw_gpstool(mode, criteria)
 
     def supl_ttff_weak_gnss_signal(self, mode, criteria):
@@ -337,11 +342,36 @@ class GnssFunctionTest(BaseTestClass):
         disable_supl_mode(self.ad)
         self.start_qxdm_and_tcpdump_log()
         self.ad.log.info("Turn airplane mode on")
-        force_airplane_mode(self.ad, True)
+        self.ad.droid.connectivityToggleAirplaneMode(True)
         wifi_toggle_state(self.ad, True)
         connect_to_wifi_network(
             self.ad, self.ssid_map[self.pixel_lab_network[0]["SSID"]])
         self.run_ttff_via_gtw_gpstool(mode, criteria)
+
+    def ttff_with_assist(self, mode, criteria):
+        """Verify CS/WS TTFF functionality with Assist data.
+
+        Args:
+            mode: "csa" or "ws"
+            criteria: Criteria for the test.
+        """
+        disable_supl_mode(self.ad)
+        begin_time = get_current_epoch_time()
+        process_gnss_by_gtw_gpstool(
+            self.ad, self.standalone_cs_criteria)
+        check_xtra_download(self.ad, begin_time)
+        self.ad.log.info("Turn airplane mode on")
+        self.ad.droid.connectivityToggleAirplaneMode(True)
+        start_gnss_by_gtw_gpstool(self.ad, True)
+        start_ttff_by_gtw_gpstool(
+            self.ad, mode, iteration=self.ttff_test_cycle)
+        ttff_data = process_ttff_by_gtw_gpstool(
+            self.ad, begin_time, self.pixel_lab_location)
+        result = check_ttff_data(
+            self.ad, ttff_data, mode, criteria)
+        asserts.assert_true(
+            result, "TTFF %s fails to reach designated criteria of %d "
+                    "seconds." % (self.ttff_mode.get(mode), criteria))
 
     """ Test Cases """
 
@@ -383,26 +413,14 @@ class GnssFunctionTest(BaseTestClass):
                                       type="gnss",
                                       testtime=tracking_minutes,
                                       meas_flag=True)
-        dpo_results = self.ad.search_logcat("HardwareClockDiscontinuityCount",
-                                            dpo_begin_time)
-        if not dpo_results:
-            raise signals.TestError(
-                "No \"HardwareClockDiscontinuityCount\" is found in logs.")
-        self.ad.log.info(dpo_results[0]["log_message"])
-        self.ad.log.info(dpo_results[-1]["log_message"])
-        first_dpo_count = int(dpo_results[0]["log_message"].split()[-1])
-        final_dpo_count = int(dpo_results[-1]["log_message"].split()[-1])
-        dpo_rate = ((final_dpo_count - first_dpo_count)/(tracking_minutes * 60))
-        dpo_engage_rate = "{percent:.2%}".format(percent=dpo_rate)
-        self.ad.log.info("DPO is ON for %d seconds during %d minutes test." % (
-            final_dpo_count - first_dpo_count, tracking_minutes))
-        self.ad.log.info("TestResult DPO_Engage_Rate " + dpo_engage_rate)
-        threshold = "{percent:.0%}".format(percent=self.dpo_threshold / 100)
-        asserts.assert_true(dpo_rate * 100 > self.dpo_threshold,
-                            "DPO only engaged %s in %d minutes test with "
-                            "threshold %s." % (dpo_engage_rate,
-                                               tracking_minutes,
-                                               threshold))
+        if gutils.check_chipset_vendor_by_qualcomm(self.ad):
+            gutils.check_dpo_rate_via_gnss_meas(self.ad,
+                                                dpo_begin_time,
+                                                self.dpo_threshold)
+        else:
+            gutils.check_dpo_rate_via_brcm_log(self.ad,
+                                               self.dpo_threshold,
+                                               self.brcm_error_log_allowlist)
 
     @test_tracker_info(uuid="499d2091-640a-4735-9c58-de67370e4421")
     def test_gnss_init_error(self):
@@ -936,7 +954,7 @@ class GnssFunctionTest(BaseTestClass):
             All SUPL TTFF Cold Start results should be within supl_cs_criteria.
         """
         for times in range(1, 4):
-            fastboot_factory_reset(self.ad)
+            fastboot_factory_reset(self.ad, True)
             self.ad.unlock_screen(password=None)
             _init_device(self.ad)
             begin_time = get_current_epoch_time()
@@ -1052,9 +1070,9 @@ class GnssFunctionTest(BaseTestClass):
 
         Expected Results:
             XTRA/LTO TTFF Cold Start results should be within
-            wifi_xtra_cs_criteria.
+            xtra_cs_criteria.
         """
-        self.xtra_ttff_wifi("cs", self.wifi_xtra_cs_criteria)
+        self.xtra_ttff_wifi("cs", self.xtra_cs_criteria)
 
     @test_tracker_info(uuid="f6e79b31-99d5-49ca-974f-4543957ea449")
     def test_xtra_ttff_ws_wifi(self):
@@ -1171,7 +1189,7 @@ class GnssFunctionTest(BaseTestClass):
         disable_supl_mode(self.ad)
         self.start_qxdm_and_tcpdump_log()
         self.ad.log.info("Turn airplane mode on")
-        force_airplane_mode(self.ad, True)
+        self.ad.droid.connectivityToggleAirplaneMode(True)
         wifi_toggle_state(self.ad, True)
         connect_to_wifi_network(
             self.ad, self.ssid_map[self.pixel_lab_network[0]["SSID"]])
@@ -1283,12 +1301,80 @@ class GnssFunctionTest(BaseTestClass):
         start_gnss_by_gtw_gpstool(self.ad, False)
         for test_loop in range(1, 11):
             reboot(self.ad)
-            test_result = process_gnss_by_gtw_gpstool(
-                self.ad, self.supl_hs_criteria, clear_data=False)
+            self.start_qxdm_and_tcpdump_log()
+            if is_device_wearable(self.ad):
+                test_result = process_gnss_by_gtw_gpstool(
+                    self.ad, self.wearable_reboot_hs_criteria, clear_data=False)
+            else:
+                test_result = process_gnss_by_gtw_gpstool(
+                    self.ad, self.supl_hs_criteria, clear_data=False)
             start_gnss_by_gtw_gpstool(self.ad, False)
             self.ad.log.info("Iteration %d => %s" % (test_loop, test_result))
             overall_test_result.append(test_result)
+            gutils.stop_pixel_logger(self.ad)
+            stop_adb_tcpdump(self.ad)
         pass_rate = overall_test_result.count(True)/len(overall_test_result)
         self.ad.log.info("TestResult Pass_rate %s" % format(pass_rate, ".0%"))
         asserts.assert_true(all(overall_test_result),
                             "GNSS init fail after reboot.")
+
+    @test_tracker_info(uuid="2c62183a-4354-4efc-92f2-84580cbd3398")
+    def test_lto_download_after_reboot(self):
+        """Verify LTO data could be downloaded and injected after device reboot.
+
+        Steps:
+            1. Reboot device.
+            2. Verify whether LTO is auto downloaded and injected without trigger GPS.
+            3. Repeat Step 1 to Step 2 for 5 times.
+
+        Expected Results:
+            LTO data is properly downloaded and injected at the first time tether to phone.
+        """
+        reboot_lto_test_results_all = []
+        disable_supl_mode(self.ad)
+        for times in range(1, 6):
+            delete_lto_file(self.ad)
+            reboot(self.ad)
+            self.start_qxdm_and_tcpdump_log()
+            # Wait 20 seconds for boot busy and lto auto-download time
+            time.sleep(20)
+            begin_time = get_current_epoch_time()
+            reboot_lto_test_result = gutils.check_xtra_download(self.ad, begin_time)
+            self.ad.log.info("Iteration %d => %s" % (times, reboot_lto_test_result))
+            reboot_lto_test_results_all.append(reboot_lto_test_result)
+            gutils.stop_pixel_logger(self.ad)
+            tutils.stop_adb_tcpdump(self.ad)
+        asserts.assert_true(all(reboot_lto_test_results_all),
+                                "Fail to Download and Inject LTO File.")
+
+    @test_tracker_info(uuid="a7048a4f-8a40-40a4-bb6c-7fc90e8227bd")
+    def test_ws_with_assist(self):
+        """Verify Warm Start functionality with existed LTO data.
+
+        Steps:
+            1. Disable SUPL mode.
+            2. Make LTO is downloaded.
+            3. Turn on AirPlane mode to make sure there's no network connection.
+            4. TTFF Warm Start with Assist for 10 iteration.
+
+        Expected Results:
+            All TTFF Warm Start with Assist results should be within
+            xtra_ws_criteria.
+        """
+        self.ttff_with_assist("ws", self.xtra_ws_criteria)
+
+    @test_tracker_info(uuid="c5fb9519-63b0-42bd-bd79-fce7593604ea")
+    def test_cs_with_assist(self):
+        """Verify Cold Start functionality with existed LTO data.
+
+        Steps:
+            1. Disable SUPL mode.
+            2. Make sure LTO is downloaded.
+            3. Turn on AirPlane mode to make sure there's no network connection.
+            4. TTFF Cold Start with Assist for 10 iteration.
+
+        Expected Results:
+            All TTFF Cold Start with Assist results should be within
+            standalone_cs_criteria.
+        """
+        self.ttff_with_assist("csa", self.standalone_cs_criteria)

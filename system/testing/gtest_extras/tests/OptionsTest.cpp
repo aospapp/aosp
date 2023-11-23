@@ -95,6 +95,7 @@ TEST_F(OptionsTest, check_defaults) {
   EXPECT_EQ("", options.xml_file());
   EXPECT_EQ("", options.filter());
   EXPECT_EQ(1, options.num_iterations());
+  EXPECT_FALSE(options.stop_on_error());
   EXPECT_TRUE(options.print_time());
   EXPECT_FALSE(options.allow_disabled_tests());
   EXPECT_FALSE(options.list_tests());
@@ -560,7 +561,7 @@ TEST_F(OptionsTest, gtest_flagfile) {
   ASSERT_TRUE(options.Process(cur_args, &child_args_));
   EXPECT_EQ("no", options.color());
   EXPECT_FALSE(options.print_time());
-  EXPECT_EQ(10U, options.num_iterations());
+  EXPECT_EQ(10, options.num_iterations());
   EXPECT_THAT(child_args_, ElementsAre(StrEq("ignore"), StrEq("--gtest_color=no")));
 }
 
@@ -628,6 +629,27 @@ TEST_F(OptionsTest, gtest_flagfile_does_not_exist) {
   EXPECT_EQ("Unable to read data from file /this/does/not/exist\n", capture.str());
 }
 
+TEST_F(OptionsTest, stop_on_error) {
+  std::vector<const char*> cur_args{"ignore", "--gtest_break_on_failure"};
+  Options options;
+  ASSERT_TRUE(options.Process(cur_args, &child_args_));
+  EXPECT_TRUE(options.stop_on_error());
+  EXPECT_THAT(child_args_, ElementsAre(StrEq("ignore")));
+
+  ClearChildArgs();
+  cur_args = std::vector<const char*>{"ignore", "--gtest_throw_on_failure"};
+  ASSERT_TRUE(options.Process(cur_args, &child_args_));
+  EXPECT_TRUE(options.stop_on_error());
+  EXPECT_THAT(child_args_, ElementsAre(StrEq("ignore")));
+
+  ClearChildArgs();
+  cur_args =
+      std::vector<const char*>{"ignore", "--gtest_break_on_failure", "--gtest_throw_on_failure"};
+  ASSERT_TRUE(options.Process(cur_args, &child_args_));
+  EXPECT_TRUE(options.stop_on_error());
+  EXPECT_THAT(child_args_, ElementsAre(StrEq("ignore")));
+}
+
 void OptionsTest::CheckIncompatible(const std::string arg) {
   CapturedStdout capture;
   std::vector<const char*> cur_args{"ignore", arg.c_str()};
@@ -639,12 +661,10 @@ void OptionsTest::CheckIncompatible(const std::string arg) {
 }
 
 TEST_F(OptionsTest, incompatible) {
-  ASSERT_NO_FATAL_FAILURE(CheckIncompatible("--gtest_break_on_failure"));
   ASSERT_NO_FATAL_FAILURE(CheckIncompatible("--gtest_catch_exceptions"));
   ASSERT_NO_FATAL_FAILURE(CheckIncompatible("--gtest_random_seed"));
   ASSERT_NO_FATAL_FAILURE(CheckIncompatible("--gtest_shuffle"));
   ASSERT_NO_FATAL_FAILURE(CheckIncompatible("--gtest_stream_result_to"));
-  ASSERT_NO_FATAL_FAILURE(CheckIncompatible("--gtest_throw_on_failure"));
 }
 
 TEST_F(OptionsTest, verify_non_env_variables) {
@@ -663,6 +683,7 @@ TEST_F(OptionsTest, verify_non_env_variables) {
   EXPECT_EQ("", options.xml_file());
   EXPECT_EQ("", options.filter());
   EXPECT_EQ(1, options.num_iterations());
+  EXPECT_FALSE(options.stop_on_error());
   EXPECT_TRUE(options.print_time());
   EXPECT_FALSE(options.allow_disabled_tests());
   EXPECT_FALSE(options.list_tests());
@@ -901,6 +922,38 @@ TEST_F(OptionsTest, gtest_death_test_style_error_no_value_from_env) {
   ASSERT_NE(-1, unsetenv("GTEST_DEATH_TEST_STYLE"));
 }
 
+TEST_F(OptionsTest, stop_on_error_from_env) {
+  ASSERT_NE(-1, setenv("GTEST_BREAK_ON_FAILURE", "", 1));
+
+  std::vector<const char*> cur_args{"ignore"};
+  Options options;
+  ASSERT_TRUE(options.Process(cur_args, &child_args_));
+  EXPECT_TRUE(options.stop_on_error());
+  EXPECT_THAT(child_args_, ElementsAre(StrEq("ignore")));
+
+  ASSERT_NE(-1, unsetenv("GTEST_BREAK_ON_FAILURE"));
+
+  ASSERT_NE(-1, setenv("GTEST_THROW_ON_FAILURE", "", 1));
+
+  ClearChildArgs();
+  ASSERT_TRUE(options.Process(cur_args, &child_args_));
+  EXPECT_TRUE(options.stop_on_error());
+  EXPECT_THAT(child_args_, ElementsAre(StrEq("ignore")));
+
+  ASSERT_NE(-1, unsetenv("GTEST_THROW_ON_FAILURE"));
+
+  ASSERT_NE(-1, setenv("GTEST_BREAK_ON_FAILURE", "", 1));
+  ASSERT_NE(-1, setenv("GTEST_THROW_ON_FAILURE", "", 1));
+
+  ClearChildArgs();
+  ASSERT_TRUE(options.Process(cur_args, &child_args_));
+  EXPECT_TRUE(options.stop_on_error());
+  EXPECT_THAT(child_args_, ElementsAre(StrEq("ignore")));
+
+  ASSERT_NE(-1, unsetenv("GTEST_BREAK_ON_FAILURE"));
+  ASSERT_NE(-1, unsetenv("GTEST_THROW_ON_FAILURE"));
+}
+
 void OptionsTest::CheckIncompatibleFromEnv(const std::string env_var) {
   ASSERT_NE(-1, setenv(env_var.c_str(), "", 1));
 
@@ -926,12 +979,10 @@ void OptionsTest::CheckIncompatibleFromEnv(const std::string env_var) {
 }
 
 TEST_F(OptionsTest, incompatible_from_env) {
-  ASSERT_NO_FATAL_FAILURE(CheckIncompatibleFromEnv("GTEST_BREAK_ON_FAILURE"));
   ASSERT_NO_FATAL_FAILURE(CheckIncompatibleFromEnv("GTEST_CATCH_EXCEPTIONS"));
   ASSERT_NO_FATAL_FAILURE(CheckIncompatibleFromEnv("GTEST_RANDOM_SEED"));
   ASSERT_NO_FATAL_FAILURE(CheckIncompatibleFromEnv("GTEST_SHUFFLE"));
   ASSERT_NO_FATAL_FAILURE(CheckIncompatibleFromEnv("GTEST_STREAM_RESULT_TO"));
-  ASSERT_NO_FATAL_FAILURE(CheckIncompatibleFromEnv("GTEST_THROW_ON_FAILURE"));
 }
 
 }  // namespace gtest_extras

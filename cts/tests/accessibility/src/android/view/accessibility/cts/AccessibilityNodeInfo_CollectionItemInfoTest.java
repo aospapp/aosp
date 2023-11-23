@@ -16,6 +16,8 @@
 
 package android.view.accessibility.cts;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
@@ -50,11 +52,11 @@ public class AccessibilityNodeInfo_CollectionItemInfoTest {
 
         c = CollectionItemInfo.obtain(0, 1, 2, 3, true);
         assertNotNull(c);
-        verifyCollectionItemInfo(c, 0, 1, 2, 3, true, false);
+        verifyCollectionItemInfo(c, null, 0, 1, null, 2, 3, true, false);
 
         c = CollectionItemInfo.obtain(4, 5, 6, 7, true, true);
         assertNotNull(c);
-        verifyCollectionItemInfo(c, 4, 5, 6, 7, true, true);
+        verifyCollectionItemInfo(c, null, 4, 5, null, 6, 7, true, true);
     }
 
     @SmallTest
@@ -63,20 +65,34 @@ public class AccessibilityNodeInfo_CollectionItemInfoTest {
         CollectionItemInfo c;
 
         c = new CollectionItemInfo(0, 1, 2, 3, true);
-        verifyCollectionItemInfo(c, 0, 1, 2, 3, true, false);
+        verifyCollectionItemInfo(c, null, 0, 1, null, 2, 3, true, false);
 
         c = new CollectionItemInfo(4, 5, 6, 7, true, true);
-        verifyCollectionItemInfo(c, 4, 5, 6, 7, true, true);
+        verifyCollectionItemInfo(c, null, 4, 5, null, 6, 7, true, true);
+    }
+
+    @SmallTest
+    @Test
+    public void testBuilder() {
+        CollectionItemInfo.Builder builder = new CollectionItemInfo.Builder();
+
+        CollectionItemInfo collectionItemInfo = builder.setRowTitle("RowTitle").setRowIndex(
+                0).setRowSpan(1).setColumnTitle("ColumnTitle").setColumnIndex(2).setColumnSpan(
+                        3).setHeading(true).setSelected(true).build();
+        verifyCollectionItemInfo(collectionItemInfo, "RowTitle", 0, 1, "ColumnTitle", 2,
+                3, true, true);
     }
 
     /**
      * Verifies all properties of the <code>info</code> with input expected values.
      */
     public static void verifyCollectionItemInfo(AccessibilityNodeInfo.CollectionItemInfo info,
-            int rowIndex, int rowSpan, int columnIndex, int columnSpan, boolean heading,
-            boolean selected) {
+            String rowTitle, int rowIndex, int rowSpan, String columnTitle, int columnIndex,
+            int columnSpan, boolean heading, boolean selected) {
+        assertThat(rowTitle).isEqualTo(info.getRowTitle());
         assertEquals(rowIndex, info.getRowIndex());
         assertEquals(rowSpan, info.getRowSpan());
+        assertThat(columnTitle).isEqualTo(info.getColumnTitle());
         assertEquals(columnIndex, info.getColumnIndex());
         assertEquals(columnSpan, info.getColumnSpan());
         assertSame(heading, info.isHeading());

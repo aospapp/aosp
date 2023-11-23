@@ -95,15 +95,6 @@ func addDependencyOntoApexModulePair(ctx android.BottomUpMutatorContext, apex st
 	if ctx.OtherModuleDependencyVariantExists(variations, prebuiltName) {
 		ctx.AddVariationDependencies(variations, tag, prebuiltName)
 		addedDep = true
-	} else if ctx.Config().AlwaysUsePrebuiltSdks() && len(variations) > 0 {
-		// TODO(b/179354495): Remove this code path once the Android build has been fully migrated to
-		//  use bootclasspath_fragment properly.
-		// Some prebuilt java_sdk_library modules do not yet have an APEX variations so try and add a
-		// dependency on the non-APEX variant.
-		if ctx.OtherModuleDependencyVariantExists(nil, prebuiltName) {
-			ctx.AddVariationDependencies(nil, tag, prebuiltName)
-			addedDep = true
-		}
 	}
 
 	// If no appropriate variant existing for this, so no dependency could be added, then it is an
@@ -144,6 +135,8 @@ func gatherApexModulePairDepsWithTag(ctx android.BaseModuleContext, tag blueprin
 
 // ApexVariantReference specifies a particular apex variant of a module.
 type ApexVariantReference struct {
+	android.BpPrintableBase
+
 	// The name of the module apex variant, i.e. the apex containing the module variant.
 	//
 	// If this is not specified then it defaults to "platform" which will cause a dependency to be

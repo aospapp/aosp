@@ -76,6 +76,7 @@ import android.widget.RemoteViews;
 import android.widget.Spinner;
 import android.widget.TimePicker;
 
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -484,6 +485,7 @@ public class CheckoutActivityTest
     // Tests to verify CheckBox by setting with AutofillValue.
     // ============================================================================================
     @Test
+    @Ignore("b/232198065 Fix touch mode problem in ActivityTestRule")
     public void autofillToggleValueWithTrue() throws Exception {
         autofillCompoundButton(AutofillValue.forToggle(true), true, true);
     }
@@ -573,6 +575,7 @@ public class CheckoutActivityTest
     }
 
     @Test
+    @Ignore("b/232198065 Fix touch mode problem in ActivityTestRule")
     public void autofillOneListValueToSpinner() throws Exception {
         autofillListValue(AutofillValue.forList(1), 1, true);
     }

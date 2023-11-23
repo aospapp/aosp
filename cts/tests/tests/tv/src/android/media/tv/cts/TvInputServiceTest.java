@@ -17,6 +17,7 @@
 package android.media.tv.cts;
 
 import static androidx.test.ext.truth.view.MotionEventSubject.assertThat;
+
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
@@ -26,6 +27,7 @@ import android.app.Instrumentation;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.media.PlaybackParams;
+import android.media.tv.AitInfo;
 import android.media.tv.TvContentRating;
 import android.media.tv.TvContract;
 import android.media.tv.TvInputInfo;
@@ -35,6 +37,7 @@ import android.media.tv.TvTrackInfo;
 import android.media.tv.TvView;
 import android.media.tv.cts.TvInputServiceTest.CountingTvInputService.CountingRecordingSession;
 import android.media.tv.cts.TvInputServiceTest.CountingTvInputService.CountingSession;
+import android.media.tv.interactive.TvInteractiveAppServiceInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -119,6 +122,7 @@ public class TvInputServiceTest {
         private int mContentAllowedCount;
         private int mContentBlockedCount;
         private int mTimeShiftStatusChangedCount;
+        private int mAitInfoUpdatedCount;
 
         private Uri mChannelRetunedUri;
         private Integer mVideoUnavailableReason;
@@ -127,6 +131,7 @@ public class TvInputServiceTest {
         private List<TvTrackInfo> mTracksChangedTrackList;
         private TvContentRating mContentBlockedRating;
         private Integer mTimeShiftStatusChangedStatus;
+        private AitInfo mAitInfo;
 
         @Override
         public void onChannelRetuned(String inputId, Uri channelUri) {
@@ -180,6 +185,11 @@ public class TvInputServiceTest {
             mTimeShiftStatusChangedStatus = status;
         }
 
+        public void onAitInfoUpdated(String inputId, AitInfo aitInfo) {
+            mAitInfoUpdatedCount++;
+            mAitInfo = aitInfo;
+        }
+
         public void resetCounts() {
             mChannelRetunedCount = 0;
             mVideoAvailableCount = 0;
@@ -189,6 +199,7 @@ public class TvInputServiceTest {
             mContentAllowedCount = 0;
             mContentBlockedCount = 0;
             mTimeShiftStatusChangedCount = 0;
+            mAitInfoUpdatedCount = 0;
         }
 
         public void resetPassedValues() {
@@ -199,6 +210,7 @@ public class TvInputServiceTest {
             mTracksChangedTrackList = null;
             mContentBlockedRating = null;
             mTimeShiftStatusChangedStatus = null;
+            mAitInfo = null;
         }
     }
 
@@ -434,6 +446,7 @@ public class TvInputServiceTest {
     }
 
     @Test
+    @Ignore("b/216866512")
     public void verifyCallbackDisconnected() {
         resetCounts();
 
@@ -603,6 +616,7 @@ public class TvInputServiceTest {
         final long now = SystemClock.uptimeMillis();
         final MotionEvent event = MotionEvent.obtain(now, now, MotionEvent.ACTION_DOWN, 1.0f, 1.0f,
                 1.0f, 1.0f, 0, 1.0f, 1.0f, 0, 0);
+        event.setSource(InputDevice.SOURCE_UNKNOWN);
         onTvView(tvView -> tvView.dispatchGenericMotionEvent(event));
         mInstrumentation.waitForIdleSync();
         PollingCheck.waitFor(TIME_OUT, () -> session.mGenricMotionEventCount > 0);
@@ -726,6 +740,21 @@ public class TvInputServiceTest {
     }
 
     @Test
+    public void verifyCommandSetInteractiveAppNotificationEnabled() {
+        tune(CHANNEL_0);
+        final String action =
+                "android.media.tv.cts.TvInputServiceTest.setInteractiveAppNotificationEnabled";
+
+        onTvView(tvView -> tvView.setInteractiveAppNotificationEnabled(true));
+        mInstrumentation.waitForIdleSync();
+        final CountingSession session =
+                waitForSessionCheck(s -> s.mSetInteractiveAppNotificationEnabledCount > 0);
+
+        assertThat(session.mSetInteractiveAppNotificationEnabledCount).isEqualTo(1);
+        assertThat(session.mInteractiveAppNotificationEnabled).isEqualTo(true);
+    }
+
+    @Test
     public void verifyCallbackChannelRetuned() {
         final CountingSession session = tune(CHANNEL_0);
         resetPassedValues();
@@ -842,6 +871,22 @@ public class TvInputServiceTest {
 
         assertThat(mCallback.mTimeShiftStatusChangedCount).isEqualTo(1);
         assertThat(mCallback.mTimeShiftStatusChangedStatus).isEqualTo(status);
+    }
+
+    @Test
+    public void verifyCallbackAitInfoUpdated() {
+        final CountingSession session = tune(CHANNEL_0);
+        resetCounts();
+        resetPassedValues();
+
+        session.notifyAitInfoUpdated(
+                new AitInfo(TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_HBBTV, 2));
+        PollingCheck.waitFor(TIME_OUT, () -> mCallback.mAitInfoUpdatedCount > 0);
+
+        assertThat(mCallback.mAitInfoUpdatedCount).isEqualTo(1);
+        assertThat(mCallback.mAitInfo.getType())
+                .isEqualTo(TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_HBBTV);
+        assertThat(mCallback.mAitInfo.getVersion()).isEqualTo(2);
     }
 
     @Test
@@ -1095,6 +1140,7 @@ public class TvInputServiceTest {
             public volatile long mTimeShiftGetCurrentPositionCount;
             public volatile long mTimeShiftGetStartPositionCount;
             public volatile int mAppPrivateCommandCount;
+            public volatile int mSetInteractiveAppNotificationEnabledCount;
 
             public volatile String mAppPrivateCommandAction;
             public volatile Bundle mAppPrivateCommandData;
@@ -1121,6 +1167,7 @@ public class TvInputServiceTest {
             public volatile Uri mRecordedProgramUri;
             public volatile Integer mOverlayViewSizeChangedWidth;
             public volatile Integer mOverlayViewSizeChangedHeight;
+            public volatile Boolean mInteractiveAppNotificationEnabled;
 
 
             CountingSession(Context context, @Nullable String sessionId) {
@@ -1153,6 +1200,7 @@ public class TvInputServiceTest {
                 mTimeShiftGetCurrentPositionCount = 0;
                 mTimeShiftGetStartPositionCount = 0;
                 mAppPrivateCommandCount = 0;
+                mSetInteractiveAppNotificationEnabledCount = 0;
             }
 
             public void resetPassedValues() {
@@ -1181,6 +1229,7 @@ public class TvInputServiceTest {
                 mRecordedProgramUri = null;
                 mOverlayViewSizeChangedWidth = null;
                 mOverlayViewSizeChangedHeight = null;
+                mInteractiveAppNotificationEnabled = null;
             }
 
             @Override
@@ -1339,6 +1388,12 @@ public class TvInputServiceTest {
                 mOverlayViewSizeChangedCount++;
                 mOverlayViewSizeChangedWidth = width;
                 mOverlayViewSizeChangedHeight = height;
+            }
+
+            @Override
+            public void onSetInteractiveAppNotificationEnabled(boolean enabled) {
+                mSetInteractiveAppNotificationEnabledCount++;
+                mInteractiveAppNotificationEnabled = enabled;
             }
         }
 

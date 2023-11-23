@@ -25,15 +25,16 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"sort"
 	"strings"
 
 	"github.com/google/blueprint"
 	"github.com/google/blueprint/bootstrap"
+	"github.com/google/blueprint/pathtools"
 )
 
 func init() {
@@ -113,7 +114,7 @@ type AndroidMkEntries struct {
 	// If true, the module is skipped and does not appear on the final Android-<product name>.mk
 	// file. Useful when a module needs to be skipped conditionally.
 	Disabled bool
-	// The postprocessing mk file to include, e.g. $(BUILD_SYSTEM)/soong_cc_prebuilt.mk
+	// The postprocessing mk file to include, e.g. $(BUILD_SYSTEM)/soong_cc_rust_prebuilt.mk
 	// If not set, $(BUILD_SYSTEM)/prebuilt.mk is used.
 	Include string
 	// Required modules that need to be built and included in the final build output when building
@@ -147,6 +148,14 @@ type AndroidMkEntries struct {
 	// without worrying about the variables being mixed up in the actual mk file.
 	// 3. Makes troubleshooting and spotting errors easier.
 	entryOrder []string
+
+	// Provides data typically stored by Context objects that are commonly needed by
+	//AndroidMkEntries objects.
+	entryContext AndroidMkEntriesContext
+}
+
+type AndroidMkEntriesContext interface {
+	Config() Config
 }
 
 type AndroidMkExtraEntriesContext interface {
@@ -407,10 +416,19 @@ func (a *AndroidMkEntries) getDistContributions(mod blueprint.Module) *distContr
 				}
 			}
 
+			ext := filepath.Ext(dest)
+			suffix := ""
 			if dist.Suffix != nil {
-				ext := filepath.Ext(dest)
-				suffix := *dist.Suffix
-				dest = strings.TrimSuffix(dest, ext) + suffix + ext
+				suffix = *dist.Suffix
+			}
+
+			productString := ""
+			if dist.Append_artifact_with_product != nil && *dist.Append_artifact_with_product {
+				productString = fmt.Sprintf("_%s", a.entryContext.Config().DeviceProduct())
+			}
+
+			if suffix != "" || productString != "" {
+				dest = strings.TrimSuffix(dest, ext) + suffix + productString + ext
 			}
 
 			if dist.Dir != nil {
@@ -473,12 +491,15 @@ type fillInEntriesContext interface {
 	ModuleDir(module blueprint.Module) string
 	Config() Config
 	ModuleProvider(module blueprint.Module, provider blueprint.ProviderKey) interface{}
+	ModuleHasProvider(module blueprint.Module, provider blueprint.ProviderKey) bool
 }
 
 func (a *AndroidMkEntries) fillInEntries(ctx fillInEntriesContext, mod blueprint.Module) {
+	a.entryContext = ctx
 	a.EntryMap = make(map[string][]string)
-	amod := mod.(Module).base()
-	name := amod.BaseModuleName()
+	amod := mod.(Module)
+	base := amod.base()
+	name := base.BaseModuleName()
 	if a.OverrideName != "" {
 		name = a.OverrideName
 	}
@@ -486,9 +507,9 @@ func (a *AndroidMkEntries) fillInEntries(ctx fillInEntriesContext, mod blueprint
 	if a.Include == "" {
 		a.Include = "$(BUILD_PREBUILT)"
 	}
-	a.Required = append(a.Required, amod.commonProperties.Required...)
-	a.Host_required = append(a.Host_required, amod.commonProperties.Host_required...)
-	a.Target_required = append(a.Target_required, amod.commonProperties.Target_required...)
+	a.Required = append(a.Required, amod.RequiredModuleNames()...)
+	a.Host_required = append(a.Host_required, amod.HostRequiredModuleNames()...)
+	a.Target_required = append(a.Target_required, amod.TargetRequiredModuleNames()...)
 
 	for _, distString := range a.GetDistForGoals(mod) {
 		fmt.Fprintf(&a.header, distString)
@@ -499,14 +520,14 @@ func (a *AndroidMkEntries) fillInEntries(ctx fillInEntriesContext, mod blueprint
 	// Collect make variable assignment entries.
 	a.SetString("LOCAL_PATH", ctx.ModuleDir(mod))
 	a.SetString("LOCAL_MODULE", name+a.SubName)
-	a.AddStrings("LOCAL_LICENSE_KINDS", amod.commonProperties.Effective_license_kinds...)
-	a.AddStrings("LOCAL_LICENSE_CONDITIONS", amod.commonProperties.Effective_license_conditions...)
-	a.AddStrings("LOCAL_NOTICE_FILE", amod.commonProperties.Effective_license_text.Strings()...)
+	a.AddStrings("LOCAL_LICENSE_KINDS", base.commonProperties.Effective_license_kinds...)
+	a.AddStrings("LOCAL_LICENSE_CONDITIONS", base.commonProperties.Effective_license_conditions...)
+	a.AddStrings("LOCAL_NOTICE_FILE", base.commonProperties.Effective_license_text.Strings()...)
 	// TODO(b/151177513): Does this code need to set LOCAL_MODULE_IS_CONTAINER ?
-	if amod.commonProperties.Effective_package_name != nil {
-		a.SetString("LOCAL_LICENSE_PACKAGE_NAME", *amod.commonProperties.Effective_package_name)
-	} else if len(amod.commonProperties.Effective_licenses) > 0 {
-		a.SetString("LOCAL_LICENSE_PACKAGE_NAME", strings.Join(amod.commonProperties.Effective_licenses, " "))
+	if base.commonProperties.Effective_package_name != nil {
+		a.SetString("LOCAL_LICENSE_PACKAGE_NAME", *base.commonProperties.Effective_package_name)
+	} else if len(base.commonProperties.Effective_licenses) > 0 {
+		a.SetString("LOCAL_LICENSE_PACKAGE_NAME", strings.Join(base.commonProperties.Effective_licenses, " "))
 	}
 	a.SetString("LOCAL_MODULE_CLASS", a.Class)
 	a.SetString("LOCAL_PREBUILT_MODULE_FILE", a.OutputFile.String())
@@ -514,31 +535,41 @@ func (a *AndroidMkEntries) fillInEntries(ctx fillInEntriesContext, mod blueprint
 	a.AddStrings("LOCAL_HOST_REQUIRED_MODULES", a.Host_required...)
 	a.AddStrings("LOCAL_TARGET_REQUIRED_MODULES", a.Target_required...)
 
+	// If the install rule was generated by Soong tell Make about it.
+	if len(base.katiInstalls) > 0 {
+		// Assume the primary install file is last since it probably needs to depend on any other
+		// installed files.  If that is not the case we can add a method to specify the primary
+		// installed file.
+		a.SetPath("LOCAL_SOONG_INSTALLED_MODULE", base.katiInstalls[len(base.katiInstalls)-1].to)
+		a.SetString("LOCAL_SOONG_INSTALL_PAIRS", base.katiInstalls.BuiltInstalled())
+		a.SetPaths("LOCAL_SOONG_INSTALL_SYMLINKS", base.katiSymlinks.InstallPaths().Paths())
+	}
+
 	if am, ok := mod.(ApexModule); ok {
 		a.SetBoolIfTrue("LOCAL_NOT_AVAILABLE_FOR_PLATFORM", am.NotAvailableForPlatform())
 	}
 
-	archStr := amod.Arch().ArchType.String()
+	archStr := base.Arch().ArchType.String()
 	host := false
-	switch amod.Os().Class {
+	switch base.Os().Class {
 	case Host:
-		if amod.Target().HostCross {
+		if base.Target().HostCross {
 			// Make cannot identify LOCAL_MODULE_HOST_CROSS_ARCH:= common.
-			if amod.Arch().ArchType != Common {
+			if base.Arch().ArchType != Common {
 				a.SetString("LOCAL_MODULE_HOST_CROSS_ARCH", archStr)
 			}
 		} else {
 			// Make cannot identify LOCAL_MODULE_HOST_ARCH:= common.
-			if amod.Arch().ArchType != Common {
+			if base.Arch().ArchType != Common {
 				a.SetString("LOCAL_MODULE_HOST_ARCH", archStr)
 			}
 		}
 		host = true
 	case Device:
 		// Make cannot identify LOCAL_MODULE_TARGET_ARCH:= common.
-		if amod.Arch().ArchType != Common {
-			if amod.Target().NativeBridge {
-				hostArchStr := amod.Target().NativeBridgeHostArchName
+		if base.Arch().ArchType != Common {
+			if base.Target().NativeBridge {
+				hostArchStr := base.Target().NativeBridgeHostArchName
 				if hostArchStr != "" {
 					a.SetString("LOCAL_MODULE_TARGET_ARCH", hostArchStr)
 				}
@@ -547,31 +578,31 @@ func (a *AndroidMkEntries) fillInEntries(ctx fillInEntriesContext, mod blueprint
 			}
 		}
 
-		if !amod.InRamdisk() && !amod.InVendorRamdisk() {
-			a.AddPaths("LOCAL_FULL_INIT_RC", amod.initRcPaths)
+		if !base.InVendorRamdisk() {
+			a.AddPaths("LOCAL_FULL_INIT_RC", base.initRcPaths)
 		}
-		if len(amod.vintfFragmentsPaths) > 0 {
-			a.AddPaths("LOCAL_FULL_VINTF_FRAGMENTS", amod.vintfFragmentsPaths)
+		if len(base.vintfFragmentsPaths) > 0 {
+			a.AddPaths("LOCAL_FULL_VINTF_FRAGMENTS", base.vintfFragmentsPaths)
 		}
-		a.SetBoolIfTrue("LOCAL_PROPRIETARY_MODULE", Bool(amod.commonProperties.Proprietary))
-		if Bool(amod.commonProperties.Vendor) || Bool(amod.commonProperties.Soc_specific) {
+		a.SetBoolIfTrue("LOCAL_PROPRIETARY_MODULE", Bool(base.commonProperties.Proprietary))
+		if Bool(base.commonProperties.Vendor) || Bool(base.commonProperties.Soc_specific) {
 			a.SetString("LOCAL_VENDOR_MODULE", "true")
 		}
-		a.SetBoolIfTrue("LOCAL_ODM_MODULE", Bool(amod.commonProperties.Device_specific))
-		a.SetBoolIfTrue("LOCAL_PRODUCT_MODULE", Bool(amod.commonProperties.Product_specific))
-		a.SetBoolIfTrue("LOCAL_SYSTEM_EXT_MODULE", Bool(amod.commonProperties.System_ext_specific))
-		if amod.commonProperties.Owner != nil {
-			a.SetString("LOCAL_MODULE_OWNER", *amod.commonProperties.Owner)
+		a.SetBoolIfTrue("LOCAL_ODM_MODULE", Bool(base.commonProperties.Device_specific))
+		a.SetBoolIfTrue("LOCAL_PRODUCT_MODULE", Bool(base.commonProperties.Product_specific))
+		a.SetBoolIfTrue("LOCAL_SYSTEM_EXT_MODULE", Bool(base.commonProperties.System_ext_specific))
+		if base.commonProperties.Owner != nil {
+			a.SetString("LOCAL_MODULE_OWNER", *base.commonProperties.Owner)
 		}
 	}
 
-	if len(amod.noticeFiles) > 0 {
-		a.SetString("LOCAL_NOTICE_FILE", strings.Join(amod.noticeFiles.Strings(), " "))
+	if len(base.noticeFiles) > 0 {
+		a.SetString("LOCAL_NOTICE_FILE", strings.Join(base.noticeFiles.Strings(), " "))
 	}
 
 	if host {
-		makeOs := amod.Os().String()
-		if amod.Os() == Linux || amod.Os() == LinuxBionic {
+		makeOs := base.Os().String()
+		if base.Os() == Linux || base.Os() == LinuxBionic || base.Os() == LinuxMusl {
 			makeOs = "linux"
 		}
 		a.SetString("LOCAL_MODULE_HOST_OS", makeOs)
@@ -579,10 +610,10 @@ func (a *AndroidMkEntries) fillInEntries(ctx fillInEntriesContext, mod blueprint
 	}
 
 	prefix := ""
-	if amod.ArchSpecific() {
-		switch amod.Os().Class {
+	if base.ArchSpecific() {
+		switch base.Os().Class {
 		case Host:
-			if amod.Target().HostCross {
+			if base.Target().HostCross {
 				prefix = "HOST_CROSS_"
 			} else {
 				prefix = "HOST_"
@@ -592,9 +623,14 @@ func (a *AndroidMkEntries) fillInEntries(ctx fillInEntriesContext, mod blueprint
 
 		}
 
-		if amod.Arch().ArchType != ctx.Config().Targets[amod.Os()][0].Arch.ArchType {
+		if base.Arch().ArchType != ctx.Config().Targets[base.Os()][0].Arch.ArchType {
 			prefix = "2ND_" + prefix
 		}
+	}
+
+	if ctx.ModuleHasProvider(mod, LicenseMetadataProvider) {
+		licenseMetadata := ctx.ModuleProvider(mod, LicenseMetadataProvider).(*LicenseMetadataInfo)
+		a.SetPath("LOCAL_SOONG_LICENSE_METADATA", licenseMetadata.LicenseMetadataPath)
 	}
 
 	extraCtx := &androidMkExtraEntriesContext{
@@ -678,7 +714,7 @@ func (c *androidMkSingleton) GenerateBuildActions(ctx SingletonContext) {
 	})
 }
 
-func translateAndroidMk(ctx SingletonContext, mkFile string, mods []blueprint.Module) error {
+func translateAndroidMk(ctx SingletonContext, absMkFile string, mods []blueprint.Module) error {
 	buf := &bytes.Buffer{}
 
 	fmt.Fprintln(buf, "LOCAL_MODULE_MAKEFILE := $(lastword $(MAKEFILE_LIST))")
@@ -687,7 +723,7 @@ func translateAndroidMk(ctx SingletonContext, mkFile string, mods []blueprint.Mo
 	for _, mod := range mods {
 		err := translateAndroidMkModule(ctx, buf, mod)
 		if err != nil {
-			os.Remove(mkFile)
+			os.Remove(absMkFile)
 			return err
 		}
 
@@ -707,27 +743,7 @@ func translateAndroidMk(ctx SingletonContext, mkFile string, mods []blueprint.Mo
 		fmt.Fprintf(buf, "STATS.SOONG_MODULE_TYPE.%s := %d\n", mod_type, typeStats[mod_type])
 	}
 
-	// Don't write to the file if it hasn't changed
-	if _, err := os.Stat(absolutePath(mkFile)); !os.IsNotExist(err) {
-		if data, err := ioutil.ReadFile(absolutePath(mkFile)); err == nil {
-			matches := buf.Len() == len(data)
-
-			if matches {
-				for i, value := range buf.Bytes() {
-					if value != data[i] {
-						matches = false
-						break
-					}
-				}
-			}
-
-			if matches {
-				return nil
-			}
-		}
-	}
-
-	return ioutil.WriteFile(absolutePath(mkFile), buf.Bytes(), 0666)
+	return pathtools.WriteFileIfChanged(absMkFile, buf.Bytes(), 0666)
 }
 
 func translateAndroidMkModule(ctx SingletonContext, w io.Writer, mod blueprint.Module) error {
@@ -836,6 +852,7 @@ func translateAndroidModule(ctx SingletonContext, w io.Writer, mod blueprint.Mod
 		case "*aidl.aidlApi": // writes non-custom before adding .phony
 		case "*aidl.aidlMapping": // writes non-custom before adding .phony
 		case "*android.customModule": // appears in tests only
+		case "*android_sdk.sdkRepoHost": // doesn't go through base_rules
 		case "*apex.apexBundle": // license properties written
 		case "*bpf.bpf": // license properties written (both for module and objs)
 		case "*genrule.Module": // writes non-custom before adding .phony
@@ -845,7 +862,7 @@ func translateAndroidModule(ctx SingletonContext, w io.Writer, mod blueprint.Mod
 		case "*selinux.selinuxContextsModule": // license properties written
 		case "*sysprop.syspropLibrary": // license properties written
 		default:
-			if ctx.Config().IsEnvTrue("ANDROID_REQUIRE_LICENSES") {
+			if !ctx.Config().IsEnvFalse("ANDROID_REQUIRE_LICENSES") {
 				return fmt.Errorf("custom make rules not allowed for %q (%q) module %q", ctx.ModuleType(mod), reflect.TypeOf(mod), ctx.ModuleName(mod))
 			}
 		}
@@ -894,10 +911,26 @@ func translateAndroidMkEntriesModule(ctx SingletonContext, w io.Writer, mod blue
 	return nil
 }
 
+func ShouldSkipAndroidMkProcessing(module Module) bool {
+	return shouldSkipAndroidMkProcessing(module.base())
+}
+
 func shouldSkipAndroidMkProcessing(module *ModuleBase) bool {
 	if !module.commonProperties.NamespaceExportedToMake {
 		// TODO(jeffrygaston) do we want to validate that there are no modules being
 		// exported to Kati that depend on this module?
+		return true
+	}
+
+	// On Mac, only expose host darwin modules to Make, as that's all we claim to support.
+	// In reality, some of them depend on device-built (Java) modules, so we can't disable all
+	// device modules in Soong, but we can hide them from Make (and thus the build user interface)
+	if runtime.GOOS == "darwin" && module.Os() != Darwin {
+		return true
+	}
+
+	// Only expose the primary Darwin target, as Make does not understand Darwin+Arm64
+	if module.Os() == Darwin && module.Target().HostCross {
 		return true
 	}
 

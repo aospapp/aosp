@@ -24,7 +24,9 @@ import android.service.notification.Adjustment;
 import android.service.notification.NotificationAssistantService;
 import android.service.notification.StatusBarNotification;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class TestNotificationAssistant extends NotificationAssistantService {
     public static final String TAG = "TestNotificationAssistant";
@@ -43,6 +45,8 @@ public class TestNotificationAssistant extends NotificationAssistantService {
     String snoozedKey;
     String snoozedUntilContext;
     private NotificationManager mNotificationManager;
+
+    public Map<String, Integer> mRemoved = new HashMap<>();
 
     public static String getId() {
         return String.format("%s/%s", TestNotificationAssistant.class.getPackage().getName(),
@@ -144,4 +148,12 @@ public class TestNotificationAssistant extends NotificationAssistantService {
         notificationFeedback = feedback.getInt(FEEDBACK_RATING, 0);
     }
 
+    @Override
+    public void onNotificationRemoved(StatusBarNotification sbn, RankingMap rankingMap,
+            int reason) {
+        if (sbn == null) {
+            return;
+        }
+        mRemoved.put(sbn.getKey(), reason);
+    }
 }

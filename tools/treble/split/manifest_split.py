@@ -121,10 +121,12 @@ class ManifestSplitConfig:
       this project, for projects that should be added to the resulting manifest.
     path_mappings: A list of PathMappingConfigs to modify a path in the build
       sandbox to the path in the manifest.
+    ignore_paths: Set of paths to ignore when parsing module_info_file
   """
   remove_projects: Dict[str, str]
   add_projects: Dict[str, str]
   path_mappings: List[PathMappingConfig]
+  ignore_paths: Set[str]
 
   @classmethod
   def from_config_files(cls, config_files: List[str]):
@@ -139,6 +141,8 @@ class ManifestSplitConfig:
     remove_projects: Dict[str, str] = {}
     add_projects: Dict[str, str] = {}
     path_mappings = []
+    """ Always ignore paths in out/ directory. """
+    ignore_paths = set(["out/"])
     for config_file in config_files:
       root = ET.parse(config_file).getroot()
 
@@ -155,7 +159,10 @@ class ManifestSplitConfig:
           for child in root.findall("path_mapping")
       ])
 
-    return cls(remove_projects, add_projects, path_mappings)
+      ignore_paths.update(
+          {c.attrib["name"]: config_file for c in root.findall("ignore_path")})
+
+    return cls(remove_projects, add_projects, path_mappings, ignore_paths)
 
 
 def get_repo_projects(repo_list_file, manifest, path_mappings):
@@ -195,7 +202,7 @@ def get_repo_projects(repo_list_file, manifest, path_mappings):
 class ModuleInfo:
   """Contains various mappings to/from module/project"""
 
-  def __init__(self, module_info_file, repo_projects):
+  def __init__(self, module_info_file, repo_projects, ignore_paths):
     """Initialize a module info instance.
 
     Builds various maps related to platform build system modules and how they
@@ -204,6 +211,7 @@ class ModuleInfo:
     Args:
       module_info_file: The path to a module-info.json file from a build.
       repo_projects: The output of the get_repo_projects function.
+      ignore_paths: Set of paths to ignore from module_info_file data
 
     Raises:
       ValueError: A module from module-info.json belongs to a path not
@@ -221,14 +229,18 @@ class ModuleInfo:
     with open(module_info_file) as module_info_file:
       module_info = json.load(module_info_file)
 
+    # Check that module contains a path and the path is not in set of
+    # ignore paths
     def module_has_valid_path(module):
-      return ("path" in module_info[module] and module_info[module]["path"] and
-              not module_info[module]["path"][0].startswith("out/"))
+      paths = module.get("path")
+      if not paths:
+        return False
+      return all(not paths[0].startswith(p) for p in ignore_paths)
 
     module_paths = {
         module: module_info[module]["path"][0]
         for module in module_info
-        if module_has_valid_path(module)
+        if module_has_valid_path(module_info[module])
     }
     module_project_paths = {
         module: scan_repo_projects(repo_projects, module_paths[module])
@@ -519,7 +531,8 @@ def create_split_manifest(targets, manifest_file, split_manifest_file,
 
   # While we still have projects whose modules we haven't checked yet,
   if module_info_file:
-    module_info = ModuleInfo(module_info_file, repo_projects)
+    module_info = ModuleInfo(module_info_file, repo_projects,
+                             config.ignore_paths)
     checked_projects = set()
     projects_to_check = input_projects.difference(checked_projects)
     logger.info("Checking module-info dependencies for direct and adjacent modules...")

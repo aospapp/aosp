@@ -39,10 +39,13 @@ import java.math.BigInteger;
 // Android-added: testng.
 import org.testng.Assert;
 import org.testng.annotations.Test;
+
 import static org.testng.Assert.fail;
 
 public class MultiplicationTests {
-    private MultiplicationTests(){}
+
+    private MultiplicationTests() {
+    }
 
     // BEGIN Android-removed: randomness, main().
     /*
@@ -99,7 +102,7 @@ public class MultiplicationTests {
         };
 
         for (long[] xy : v) {
-            if(!check(xy[0], xy[1])) {
+            if (!check(xy[0], xy[1])) {
                 failures++;
             }
         }

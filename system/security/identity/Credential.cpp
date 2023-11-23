@@ -70,10 +70,10 @@ using ::aidl::android::security::authorization::IKeystoreAuthorization;
 Credential::Credential(CipherSuite cipherSuite, const std::string& dataPath,
                        const std::string& credentialName, uid_t callingUid,
                        HardwareInformation hwInfo, sp<IIdentityCredentialStore> halStoreBinder,
-                       int halApiVersion)
+                       sp<IPresentationSession> halSessionBinder, int halApiVersion)
     : cipherSuite_(cipherSuite), dataPath_(dataPath), credentialName_(credentialName),
       callingUid_(callingUid), hwInfo_(std::move(hwInfo)), halStoreBinder_(halStoreBinder),
-      halApiVersion_(halApiVersion) {}
+      halSessionBinder_(halSessionBinder), halApiVersion_(halApiVersion) {}
 
 Credential::~Credential() {}
 
@@ -85,25 +85,40 @@ Status Credential::ensureOrReplaceHalBinder() {
                                                 "Error loading data for credential");
     }
 
-    sp<IIdentityCredential> halBinder;
-    Status status =
-        halStoreBinder_->getCredential(cipherSuite_, data->getCredentialData(), &halBinder);
-    if (!status.isOk() && status.exceptionCode() == binder::Status::EX_SERVICE_SPECIFIC) {
-        int code = status.serviceSpecificErrorCode();
-        if (code == IIdentityCredentialStore::STATUS_CIPHER_SUITE_NOT_SUPPORTED) {
-            return halStatusToError(status, ICredentialStore::ERROR_CIPHER_SUITE_NOT_SUPPORTED);
+    // If we're in a session we explicitly don't get the binder to IIdentityCredential until
+    // it's used in getEntries() which is the only method call allowed for sessions.
+    //
+    // Why? This is because we want to throw the IIdentityCredential object away as soon as it's
+    // used because the HAL only guarantees a single IIdentityCredential object alive at a time
+    // and in a session there may be multiple credentials in play and we want to do multiple
+    // getEntries() calls on all of them.
+    //
+
+    if (!halSessionBinder_) {
+        sp<IIdentityCredential> halBinder;
+        Status status =
+            halStoreBinder_->getCredential(cipherSuite_, data->getCredentialData(), &halBinder);
+        if (!status.isOk() && status.exceptionCode() == binder::Status::EX_SERVICE_SPECIFIC) {
+            int code = status.serviceSpecificErrorCode();
+            if (code == IIdentityCredentialStore::STATUS_CIPHER_SUITE_NOT_SUPPORTED) {
+                return halStatusToError(status, ICredentialStore::ERROR_CIPHER_SUITE_NOT_SUPPORTED);
+            }
         }
+        if (!status.isOk()) {
+            LOG(ERROR) << "Error getting HAL binder";
+            return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC);
+        }
+        halBinder_ = halBinder;
     }
-    if (!status.isOk()) {
-        LOG(ERROR) << "Error getting HAL binder";
-        return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC);
-    }
-    halBinder_ = halBinder;
 
     return Status::ok();
 }
 
 Status Credential::getCredentialKeyCertificateChain(std::vector<uint8_t>* _aidl_return) {
+    if (halSessionBinder_) {
+        return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
+                                                "Cannot be used with session");
+    }
     sp<CredentialData> data = new CredentialData(dataPath_, callingUid_, credentialName_);
     if (!data->loadFromDisk()) {
         LOG(ERROR) << "Error loading data for credential";
@@ -116,7 +131,11 @@ Status Credential::getCredentialKeyCertificateChain(std::vector<uint8_t>* _aidl_
 
 // Returns operation handle
 Status Credential::selectAuthKey(bool allowUsingExhaustedKeys, bool allowUsingExpiredKeys,
-                                 int64_t* _aidl_return) {
+                                 bool incrementUsageCount, int64_t* _aidl_return) {
+    if (halSessionBinder_) {
+        return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
+                                                "Cannot be used with session");
+    }
     sp<CredentialData> data = new CredentialData(dataPath_, callingUid_, credentialName_);
     if (!data->loadFromDisk()) {
         LOG(ERROR) << "Error loading data for credential";
@@ -127,7 +146,7 @@ Status Credential::selectAuthKey(bool allowUsingExhaustedKeys, bool allowUsingEx
     // We just check if a key is available, we actually don't store it since we
     // don't keep CredentialData around between binder calls.
     const AuthKeyData* authKey =
-        data->selectAuthKey(allowUsingExhaustedKeys, allowUsingExpiredKeys);
+        data->selectAuthKey(allowUsingExhaustedKeys, allowUsingExpiredKeys, incrementUsageCount);
     if (authKey == nullptr) {
         return Status::fromServiceSpecificError(
             ICredentialStore::ERROR_NO_AUTHENTICATION_KEY_AVAILABLE,
@@ -148,10 +167,19 @@ bool Credential::ensureChallenge() {
     }
 
     int64_t challenge;
-    Status status = halBinder_->createAuthChallenge(&challenge);
-    if (!status.isOk()) {
-        LOG(ERROR) << "Error getting challenge: " << status.exceptionMessage();
-        return false;
+    // If we're in a session, the challenge is selected by the session
+    if (halSessionBinder_) {
+        Status status = halSessionBinder_->getAuthChallenge(&challenge);
+        if (!status.isOk()) {
+            LOG(ERROR) << "Error getting challenge from session: " << status.exceptionMessage();
+            return false;
+        }
+    } else {
+        Status status = halBinder_->createAuthChallenge(&challenge);
+        if (!status.isOk()) {
+            LOG(ERROR) << "Error getting challenge: " << status.exceptionMessage();
+            return false;
+        }
     }
     if (challenge == 0) {
         LOG(ERROR) << "Returned challenge is 0 (bug in HAL or TA)";
@@ -218,7 +246,8 @@ Status Credential::getEntries(const vector<uint8_t>& requestMessage,
                               const vector<RequestNamespaceParcel>& requestNamespaces,
                               const vector<uint8_t>& sessionTranscript,
                               const vector<uint8_t>& readerSignature, bool allowUsingExhaustedKeys,
-                              bool allowUsingExpiredKeys, GetEntriesResultParcel* _aidl_return) {
+                              bool allowUsingExpiredKeys, bool incrementUsageCount,
+                              GetEntriesResultParcel* _aidl_return) {
     GetEntriesResultParcel ret;
 
     sp<CredentialData> data = new CredentialData(dataPath_, callingUid_, credentialName_);
@@ -226,6 +255,28 @@ Status Credential::getEntries(const vector<uint8_t>& requestMessage,
         LOG(ERROR) << "Error loading data for credential";
         return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
                                                 "Error loading data for credential");
+    }
+
+    // If used in a session, get the binder on demand...
+    //
+    sp<IIdentityCredential> halBinder = halBinder_;
+    if (halSessionBinder_) {
+        if (halBinder) {
+            LOG(ERROR) << "Unexpected HAL binder for session";
+            return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
+                                                    "Unexpected HAL binder for session");
+        }
+        Status status = halSessionBinder_->getCredential(data->getCredentialData(), &halBinder);
+        if (!status.isOk() && status.exceptionCode() == binder::Status::EX_SERVICE_SPECIFIC) {
+            int code = status.serviceSpecificErrorCode();
+            if (code == IIdentityCredentialStore::STATUS_CIPHER_SUITE_NOT_SUPPORTED) {
+                return halStatusToError(status, ICredentialStore::ERROR_CIPHER_SUITE_NOT_SUPPORTED);
+            }
+        }
+        if (!status.isOk()) {
+            LOG(ERROR) << "Error getting HAL binder";
+            return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC);
+        }
     }
 
     // Calculate requestCounts ahead of time and be careful not to include
@@ -354,33 +405,40 @@ Status Credential::getEntries(const vector<uint8_t>& requestMessage,
         }
     }
 
-    // Note that the selectAuthKey() method is only called if a CryptoObject is involved at
-    // the Java layer. So we could end up with no previously selected auth key and we may
-    // need one.
+    // Reuse the same AuthKey over multiple getEntries() calls.
     //
-    const AuthKeyData* authKey =
-        data->selectAuthKey(allowUsingExhaustedKeys, allowUsingExpiredKeys);
-    if (authKey == nullptr) {
-        // If no authKey is available, consider it an error only when a
-        // SessionTranscript was provided.
+    bool updateUseCountOnDisk = false;
+    if (!selectedAuthKey_) {
+        // Note that the selectAuthKey() method is only called if a CryptoObject is involved at
+        // the Java layer. So we could end up with no previously selected auth key and we may
+        // need one.
         //
-        // We allow no SessionTranscript to be provided because it makes
-        // the API simpler to deal with insofar it can be used without having
-        // to generate any authentication keys.
-        //
-        // In this "no SessionTranscript is provided" mode we don't return
-        // DeviceNameSpaces nor a MAC over DeviceAuthentication so we don't
-        // need a device key.
-        //
-        if (sessionTranscript.size() > 0) {
-            return Status::fromServiceSpecificError(
-                ICredentialStore::ERROR_NO_AUTHENTICATION_KEY_AVAILABLE,
-                "No suitable authentication key available and one is needed");
+        const AuthKeyData* authKey = data->selectAuthKey(
+            allowUsingExhaustedKeys, allowUsingExpiredKeys, incrementUsageCount);
+        if (authKey == nullptr) {
+            // If no authKey is available, consider it an error only when a
+            // SessionTranscript was provided.
+            //
+            // We allow no SessionTranscript to be provided because it makes
+            // the API simpler to deal with insofar it can be used without having
+            // to generate any authentication keys.
+            //
+            // In this "no SessionTranscript is provided" mode we don't return
+            // DeviceNameSpaces nor a MAC over DeviceAuthentication so we don't
+            // need a device key.
+            //
+            if (sessionTranscript.size() > 0) {
+                return Status::fromServiceSpecificError(
+                    ICredentialStore::ERROR_NO_AUTHENTICATION_KEY_AVAILABLE,
+                    "No suitable authentication key available and one is needed");
+            }
+        } else {
+            // We did find an authKey. Store its contents for future getEntries() calls.
+            updateUseCountOnDisk = true;
+            selectedAuthKeySigningKeyBlob_ = authKey->keyBlob;
+            selectedAuthKeyStaticAuthData_ = authKey->staticAuthenticationData;
         }
-    }
-    vector<uint8_t> signingKeyBlob;
-    if (authKey != nullptr) {
-        signingKeyBlob = authKey->keyBlob;
+        selectedAuthKey_ = true;
     }
 
     // Pass the HAL enough information to allow calculating the size of
@@ -405,22 +463,22 @@ Status Credential::getEntries(const vector<uint8_t>& requestMessage,
     }
     // This is not catastrophic, we might be dealing with a version 1 implementation which
     // doesn't have this method.
-    Status status = halBinder_->setRequestedNamespaces(halRequestNamespaces);
+    Status status = halBinder->setRequestedNamespaces(halRequestNamespaces);
     if (!status.isOk()) {
         LOG(INFO) << "Failed setting expected requested namespaces, assuming V1 HAL "
                   << "and continuing";
     }
 
     // Pass the verification token. Failure is OK, this method isn't in the V1 HAL.
-    status = halBinder_->setVerificationToken(aidlVerificationToken);
+    status = halBinder->setVerificationToken(aidlVerificationToken);
     if (!status.isOk()) {
         LOG(INFO) << "Failed setting verification token, assuming V1 HAL "
                   << "and continuing";
     }
 
-    status =
-        halBinder_->startRetrieval(selectedProfiles, aidlAuthToken, requestMessage, signingKeyBlob,
-                                   sessionTranscript, readerSignature, requestCounts);
+    status = halBinder->startRetrieval(selectedProfiles, aidlAuthToken, requestMessage,
+                                       selectedAuthKeySigningKeyBlob_, sessionTranscript,
+                                       readerSignature, requestCounts);
     if (!status.isOk() && status.exceptionCode() == binder::Status::EX_SERVICE_SPECIFIC) {
         int code = status.serviceSpecificErrorCode();
         if (code == IIdentityCredentialStore::STATUS_EPHEMERAL_PUBLIC_KEY_NOT_FOUND) {
@@ -453,8 +511,8 @@ Status Credential::getEntries(const vector<uint8_t>& requestMessage,
             }
 
             status =
-                halBinder_->startRetrieveEntryValue(rns.namespaceName, rep.name, eData.value().size,
-                                                    eData.value().accessControlProfileIds);
+                halBinder->startRetrieveEntryValue(rns.namespaceName, rep.name, eData.value().size,
+                                                   eData.value().accessControlProfileIds);
             if (!status.isOk() && status.exceptionCode() == binder::Status::EX_SERVICE_SPECIFIC) {
                 int code = status.serviceSpecificErrorCode();
                 if (code == IIdentityCredentialStore::STATUS_USER_AUTHENTICATION_FAILED) {
@@ -482,7 +540,7 @@ Status Credential::getEntries(const vector<uint8_t>& requestMessage,
             vector<uint8_t> value;
             for (const auto& encryptedChunk : eData.value().encryptedChunks) {
                 vector<uint8_t> chunk;
-                status = halBinder_->retrieveEntryValue(encryptedChunk, &chunk);
+                status = halBinder->retrieveEntryValue(encryptedChunk, &chunk);
                 if (!status.isOk()) {
                     return halStatusToGenericError(status);
                 }
@@ -496,16 +554,14 @@ Status Credential::getEntries(const vector<uint8_t>& requestMessage,
         ret.resultNamespaces.push_back(resultNamespaceParcel);
     }
 
-    status = halBinder_->finishRetrieval(&ret.mac, &ret.deviceNameSpaces);
+    status = halBinder->finishRetrieval(&ret.mac, &ret.deviceNameSpaces);
     if (!status.isOk()) {
         return halStatusToGenericError(status);
     }
-    if (authKey != nullptr) {
-        ret.staticAuthenticationData = authKey->staticAuthenticationData;
-    }
+    ret.staticAuthenticationData = selectedAuthKeyStaticAuthData_;
 
     // Ensure useCount is updated on disk.
-    if (authKey != nullptr) {
+    if (updateUseCountOnDisk) {
         if (!data->saveToDisk()) {
             return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
                                                     "Error saving data");
@@ -517,6 +573,11 @@ Status Credential::getEntries(const vector<uint8_t>& requestMessage,
 }
 
 Status Credential::deleteCredential(vector<uint8_t>* _aidl_return) {
+    if (halSessionBinder_) {
+        return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
+                                                "Cannot be used with session");
+    }
+
     vector<uint8_t> proofOfDeletionSignature;
 
     sp<CredentialData> data = new CredentialData(dataPath_, callingUid_, credentialName_);
@@ -544,6 +605,12 @@ Status Credential::deleteWithChallenge(const vector<uint8_t>& challenge,
         return Status::fromServiceSpecificError(ICredentialStore::ERROR_NOT_SUPPORTED,
                                                 "Not implemented by HAL");
     }
+
+    if (halSessionBinder_) {
+        return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
+                                                "Cannot be used with session");
+    }
+
     vector<uint8_t> proofOfDeletionSignature;
 
     sp<CredentialData> data = new CredentialData(dataPath_, callingUid_, credentialName_);
@@ -570,6 +637,12 @@ Status Credential::proveOwnership(const vector<uint8_t>& challenge, vector<uint8
         return Status::fromServiceSpecificError(ICredentialStore::ERROR_NOT_SUPPORTED,
                                                 "Not implemented by HAL");
     }
+
+    if (halSessionBinder_) {
+        return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
+                                                "Cannot be used with session");
+    }
+
     vector<uint8_t> proofOfOwnershipSignature;
     Status status = halBinder_->proveOwnership(challenge, &proofOfOwnershipSignature);
     if (!status.isOk()) {
@@ -580,19 +653,26 @@ Status Credential::proveOwnership(const vector<uint8_t>& challenge, vector<uint8
 }
 
 Status Credential::createEphemeralKeyPair(vector<uint8_t>* _aidl_return) {
+    if (halSessionBinder_) {
+        return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
+                                                "Cannot be used with session");
+    }
+
     vector<uint8_t> keyPair;
     Status status = halBinder_->createEphemeralKeyPair(&keyPair);
     if (!status.isOk()) {
         return halStatusToGenericError(status);
     }
 
+    time_t nowSeconds = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    time_t validityNotBefore = nowSeconds;
+    time_t validityNotAfter = nowSeconds + 24 * 60 * 60;
     optional<vector<uint8_t>> pkcs12Bytes = ecKeyPairGetPkcs12(keyPair,
                                                                "ephemeralKey",  // Alias for key
                                                                "0",  // Serial, as a decimal number
                                                                "Credstore",      // Issuer
                                                                "Ephemeral Key",  // Subject
-                                                               0,  // Validity Not Before
-                                                               24 * 60 * 60);  // Validity Not After
+                                                               validityNotBefore, validityNotAfter);
     if (!pkcs12Bytes) {
         return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
                                                 "Error creating PKCS#12 structure for key pair");
@@ -602,6 +682,11 @@ Status Credential::createEphemeralKeyPair(vector<uint8_t>* _aidl_return) {
 }
 
 Status Credential::setReaderEphemeralPublicKey(const vector<uint8_t>& publicKey) {
+    if (halSessionBinder_) {
+        return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
+                                                "Cannot be used with session");
+    }
+
     Status status = halBinder_->setReaderEphemeralPublicKey(publicKey);
     if (!status.isOk()) {
         return halStatusToGenericError(status);
@@ -610,6 +695,11 @@ Status Credential::setReaderEphemeralPublicKey(const vector<uint8_t>& publicKey)
 }
 
 Status Credential::setAvailableAuthenticationKeys(int32_t keyCount, int32_t maxUsesPerKey) {
+    if (halSessionBinder_) {
+        return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
+                                                "Cannot be used with session");
+    }
+
     sp<CredentialData> data = new CredentialData(dataPath_, callingUid_, credentialName_);
     if (!data->loadFromDisk()) {
         LOG(ERROR) << "Error loading data for credential";
@@ -625,6 +715,11 @@ Status Credential::setAvailableAuthenticationKeys(int32_t keyCount, int32_t maxU
 }
 
 Status Credential::getAuthKeysNeedingCertification(vector<AuthKeyParcel>* _aidl_return) {
+    if (halSessionBinder_) {
+        return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
+                                                "Cannot be used with session");
+    }
+
     sp<CredentialData> data = new CredentialData(dataPath_, callingUid_, credentialName_);
     if (!data->loadFromDisk()) {
         LOG(ERROR) << "Error loading data for credential";
@@ -653,6 +748,11 @@ Status Credential::getAuthKeysNeedingCertification(vector<AuthKeyParcel>* _aidl_
 
 Status Credential::storeStaticAuthenticationData(const AuthKeyParcel& authenticationKey,
                                                  const vector<uint8_t>& staticAuthData) {
+    if (halSessionBinder_) {
+        return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
+                                                "Cannot be used with session");
+    }
+
     sp<CredentialData> data = new CredentialData(dataPath_, callingUid_, credentialName_);
     if (!data->loadFromDisk()) {
         LOG(ERROR) << "Error loading data for credential";
@@ -681,6 +781,12 @@ Credential::storeStaticAuthenticationDataWithExpiration(const AuthKeyParcel& aut
         return Status::fromServiceSpecificError(ICredentialStore::ERROR_NOT_SUPPORTED,
                                                 "Not implemented by HAL");
     }
+
+    if (halSessionBinder_) {
+        return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
+                                                "Cannot be used with session");
+    }
+
     sp<CredentialData> data = new CredentialData(dataPath_, callingUid_, credentialName_);
     if (!data->loadFromDisk()) {
         LOG(ERROR) << "Error loading data for credential";
@@ -702,6 +808,11 @@ Credential::storeStaticAuthenticationDataWithExpiration(const AuthKeyParcel& aut
 }
 
 Status Credential::getAuthenticationDataUsageCount(vector<int32_t>* _aidl_return) {
+    if (halSessionBinder_) {
+        return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
+                                                "Cannot be used with session");
+    }
+
     sp<CredentialData> data = new CredentialData(dataPath_, callingUid_, credentialName_);
     if (!data->loadFromDisk()) {
         LOG(ERROR) << "Error loading data for credential";
@@ -741,6 +852,12 @@ Status Credential::update(sp<IWritableCredential>* _aidl_return) {
         return Status::fromServiceSpecificError(ICredentialStore::ERROR_NOT_SUPPORTED,
                                                 "Not implemented by HAL");
     }
+
+    if (halSessionBinder_) {
+        return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
+                                                "Cannot be used with session");
+    }
+
     sp<CredentialData> data = new CredentialData(dataPath_, callingUid_, credentialName_);
     if (!data->loadFromDisk()) {
         LOG(ERROR) << "Error loading data for credential";

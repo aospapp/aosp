@@ -13,7 +13,7 @@ cc_library_shared {
     name: "libbatching",
     vendor: true,
 
-    sanitize: GNSS_SANITIZE,
+
 
     shared_libs: [
         "libutils",

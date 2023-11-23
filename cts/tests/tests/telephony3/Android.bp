@@ -19,7 +19,10 @@ package {
 android_test {
     name: "CtsTelephony3TestCases",
     defaults: ["cts_defaults"],
-    static_libs: ["ctstestrunner-axt"],
+    static_libs: [
+        "ctstestrunner-axt",
+        "compatibility-device-util-axt",
+    ],
     srcs: ["src/**/*.java"],
     // The SDK version is set to 28 to test device identifier access for apps with
     // the READ_PHONE_STATE permission targeting pre-Q.

@@ -94,10 +94,15 @@ public class WhitelistTest extends AbstractContentCaptureIntegrationActivityLess
     public void testWhitelisted_byService_alreadyRunning() throws Exception {
         IOutOfProcessDataSharingService service = getDataShareService();
 
+        // enable service and set allowlist package
         enableService(toSet(MY_PACKAGE), NO_ACTIVITIES);
 
-        // Wait for update to propagate
-        mUiDevice.waitForIdle();
+        // Wait for update to propagate. We can only get the manager if the service allowlist
+        // the activity or package. Because we don't have a signal to know if the allowlist is set.
+        // So try to check ContentCaptureManager available within a given timeout.
+        Helper.eventually("Can not get ContentCaptureManager",
+                () -> service.isApplicationContentCaptureManagerAvailable()
+                    ? "can get ContentCaptureManager" : null);
 
         assertContentCaptureManagerAvailable(service, true);
     }

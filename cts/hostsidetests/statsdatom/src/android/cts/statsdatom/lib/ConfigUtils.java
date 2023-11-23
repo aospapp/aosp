@@ -68,8 +68,11 @@ public final class ConfigUtils {
                 .setId(CONFIG_ID)
                 .addAllowedLogSource("AID_SYSTEM")
                 .addAllowedLogSource("AID_BLUETOOTH")
-                // TODO(b/134091167): Fix bluetooth source name issue in Auto platform.
                 .addAllowedLogSource("com.android.bluetooth")
+                // TODO(b/236681553): Remove this.
+                .addAllowedLogSource("com.android.bluetooth.services")
+                // TODO(b/236681553): Remove this.
+                .addAllowedLogSource("com.google.android.bluetooth.services")
                 .addAllowedLogSource("AID_LMKD")
                 .addAllowedLogSource("AID_MEDIA")
                 .addAllowedLogSource("AID_RADIO")

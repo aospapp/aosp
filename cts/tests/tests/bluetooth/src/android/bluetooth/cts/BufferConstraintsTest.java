@@ -60,7 +60,7 @@ public class BufferConstraintsTest extends AndroidTestCase {
         }
         mBufferConstraints = new BufferConstraints(mBufferConstraintList);
 
-        for (int i = 0; i < BluetoothCodecConfig.SOURCE_CODEC_TYPE_MAX; i++) {
+        for (int i = 0; i < 6; i++) {
             assertEquals(DEFAULT_BUFFER_TIME, mBufferConstraints.forCodec(i).getDefaultMillis());
             assertEquals(MAXIMUM_BUFFER_TIME, mBufferConstraints.forCodec(i).getMaxMillis());
             assertEquals(MINIMUM_BUFFER_TIME, mBufferConstraints.forCodec(i).getMinMillis());

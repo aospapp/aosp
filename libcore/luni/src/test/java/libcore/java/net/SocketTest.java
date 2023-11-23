@@ -32,6 +32,9 @@ import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.SocketException;
 import java.net.SocketImpl;
+import java.net.SocketOption;
+import java.net.SocketOptions;
+import java.net.StandardSocketOptions;
 import java.net.URI;
 import java.net.UnknownHostException;
 import java.nio.channels.ServerSocketChannel;
@@ -55,6 +58,15 @@ public class SocketTest extends TestCaseWithRules {
 
     // This hostname is required to resolve to 127.0.0.1 and ::1 for all tests to pass.
     private static final String ALL_LOOPBACK_HOSTNAME = "loopback46.unittest.grpc.io";
+
+    private static final InetAddress[] ALL_LOOPBACK_ADDRESSES = {
+        Inet4Address.LOOPBACK,
+        Inet6Address.LOOPBACK
+    };
+
+    {
+        sortAddresses(ALL_LOOPBACK_ADDRESSES);
+    }
 
     // From net/inet_ecn.h
     private static final int INET_ECN_MASK = 0x3;
@@ -191,47 +203,51 @@ public class SocketTest extends TestCaseWithRules {
         assertEquals(outLocalAddress.getPort(), outLocalAddressAfterClose.getPort());
     }
 
+    private static class MySocketImpl extends SocketImpl {
+        public int option;
+        public Object value;
+
+        public boolean createCalled;
+        public boolean createStream;
+
+        public MySocketImpl() { super(); }
+        @Override protected void accept(SocketImpl arg0) throws IOException { }
+        @Override protected int available() throws IOException { return 0; }
+        @Override protected void bind(InetAddress arg0, int arg1) throws IOException { }
+        @Override protected void close() throws IOException { }
+        @Override protected void connect(String arg0, int arg1) throws IOException { }
+        @Override protected void connect(InetAddress arg0, int arg1) throws IOException { }
+        @Override protected void connect(SocketAddress arg0, int arg1) throws IOException { }
+        @Override protected InputStream getInputStream() throws IOException { return null; }
+        @Override protected OutputStream getOutputStream() throws IOException { return null; }
+        @Override protected void listen(int arg0) throws IOException { }
+        @Override protected void sendUrgentData(int arg0) throws IOException { }
+        public Object getOption(int arg0) throws SocketException { return null; }
+
+        @Override protected void create(boolean isStream) throws IOException {
+            this.createCalled = true;
+            this.createStream = isStream;
+        }
+
+        public void setOption(int option, Object value) throws SocketException {
+            this.option = option;
+            this.value = value;
+        }
+
+        public <T> void setSuperOption(SocketOption<T> option, T value) throws IOException {
+            super.setOption(option, value);
+        }
+    }
+
+    private static class MySocket extends Socket {
+        public MySocket(SocketImpl impl) throws SocketException {
+            super(impl);
+        }
+    }
+
     // SocketOptions.setOption has weird behavior for setSoLinger/SO_LINGER.
     // This test ensures we do what the RI does.
     public void test_SocketOptions_setOption() throws Exception {
-        class MySocketImpl extends SocketImpl {
-            public int option;
-            public Object value;
-
-            public boolean createCalled;
-            public boolean createStream;
-
-            public MySocketImpl() { super(); }
-            @Override protected void accept(SocketImpl arg0) throws IOException { }
-            @Override protected int available() throws IOException { return 0; }
-            @Override protected void bind(InetAddress arg0, int arg1) throws IOException { }
-            @Override protected void close() throws IOException { }
-            @Override protected void connect(String arg0, int arg1) throws IOException { }
-            @Override protected void connect(InetAddress arg0, int arg1) throws IOException { }
-            @Override protected void connect(SocketAddress arg0, int arg1) throws IOException { }
-            @Override protected InputStream getInputStream() throws IOException { return null; }
-            @Override protected OutputStream getOutputStream() throws IOException { return null; }
-            @Override protected void listen(int arg0) throws IOException { }
-            @Override protected void sendUrgentData(int arg0) throws IOException { }
-            public Object getOption(int arg0) throws SocketException { return null; }
-
-            @Override protected void create(boolean isStream) throws IOException {
-                this.createCalled = true;
-                this.createStream = isStream;
-            }
-
-            public void setOption(int option, Object value) throws SocketException {
-                this.option = option;
-                this.value = value;
-            }
-        }
-
-        class MySocket extends Socket {
-            public MySocket(SocketImpl impl) throws SocketException {
-                super(impl);
-            }
-        }
-
         MySocketImpl impl = new MySocketImpl();
         Socket s = new MySocket(impl);
 
@@ -253,6 +269,30 @@ public class SocketTest extends TestCaseWithRules {
         assertEquals(Integer.valueOf(0), (Integer) impl.value);
         s.setSoLinger(true, 1);
         assertEquals(Integer.valueOf(1), (Integer) impl.value);
+
+        // API test for SocketImpl.setOption(SocketOption, Object).
+        // The value isn't sent to the kernel, because the mock intercepts the value in this test.
+        setAndAssertOption(impl, StandardSocketOptions.SO_KEEPALIVE,
+                SocketOptions.SO_KEEPALIVE, true);
+        setAndAssertOption(impl, StandardSocketOptions.SO_SNDBUF,
+                SocketOptions.SO_SNDBUF, 1);
+        setAndAssertOption(impl, StandardSocketOptions.SO_RCVBUF,
+                SocketOptions.SO_RCVBUF, 2);
+        setAndAssertOption(impl, StandardSocketOptions.SO_REUSEADDR,
+                SocketOptions.SO_REUSEADDR, true);
+        setAndAssertOption(impl, StandardSocketOptions.SO_LINGER,
+                SocketOptions.SO_LINGER, 3);
+        setAndAssertOption(impl, StandardSocketOptions.IP_TOS,
+                SocketOptions.IP_TOS, 4);
+        setAndAssertOption(impl, StandardSocketOptions.TCP_NODELAY,
+                SocketOptions.TCP_NODELAY, true);
+    }
+
+    private static void setAndAssertOption(MySocketImpl sockImpl, SocketOption option,
+            int optionInt, Object value) throws IOException {
+        sockImpl.setSuperOption(option, value);
+        assertEquals(sockImpl.option, optionInt);
+        assertEquals(sockImpl.value, value);
     }
 
     public void test_setTrafficClass() throws Exception {
@@ -596,17 +636,15 @@ public class SocketTest extends TestCaseWithRules {
 
     // b/30007735
     public void testSocketTestAllAddresses() throws Exception {
+        checkLoopbackHost();
+
         // Socket Ctor should try all sockets.
         //
         // This test creates server sockets bound to 127.0.0.1 and ::1, and connects using a
         // hostname that resolves to both addresses. We should be able to connect to the server
         // socket in either setup.
-        final String loopbackHost = ALL_LOOPBACK_HOSTNAME;
-
-        checkLoopbackHost(loopbackHost);
-
         final int port = 9999;
-        for (InetAddress addr : new InetAddress[]{ Inet4Address.LOOPBACK, Inet6Address.LOOPBACK }) {
+        for (InetAddress addr : ALL_LOOPBACK_ADDRESSES) {
             try (ServerSocket ss = new ServerSocket(port, 0, addr)) {
                 new Thread(() -> {
                     try {
@@ -616,21 +654,51 @@ public class SocketTest extends TestCaseWithRules {
                     }
                 }).start();
 
-                assertTrue(canConnect(loopbackHost, port));
+                assertTrue(canConnect(ALL_LOOPBACK_HOSTNAME, port));
             }
         }
     }
 
+    private static int compareInetAddress(InetAddress lhs, InetAddress rhs) {
+        return Arrays.compare(lhs.getAddress(), rhs.getAddress());
+    }
+
+    private static void sortAddresses(InetAddress[] addresses) {
+        Arrays.sort(addresses, (InetAddress lhs, InetAddress rhs) -> compareInetAddress(lhs, rhs));
+    }
+
+    private static boolean allUniqueLoopbackAddresses(InetAddress[] addresses) {
+        for (InetAddress a : addresses) {
+            if (!a.isLoopbackAddress()) {
+                return false;
+            }
+        }
+        return addresses.length <= 1 || (addresses.length == 2 && addresses[0] != addresses[1]);
+    }
+
     /** Confirm the supplied hostname maps to only loopback addresses, both IPv4 and IPv6. */
-    private static void checkLoopbackHost(String host) throws UnknownHostException {
-        InetAddress[] addrArray = InetAddress.getAllByName(host);
-        final String addressesString = Arrays.toString(addrArray);
-        List<InetAddress> addrs = Arrays.asList(addrArray);
-        final String msg = ALL_LOOPBACK_HOSTNAME
-                + " must only return loopback addresses, both IPv4 and IPv6. Got: "
-                + addressesString;
-        assertTrue(msg, addrs.stream().allMatch(InetAddress::isLoopbackAddress)
-                && addrs.contains(Inet4Address.LOOPBACK) && addrs.contains(Inet6Address.LOOPBACK));
+    private static void checkLoopbackHost() throws UnknownHostException {
+        // b/202426043 retry a few times since DNS maybe prone to being dropped or slow in
+        // responding and we have no control over the query or cache timeouts here.
+        final int WAIT_MILLIS = 2000;
+        for (int triesLeft = 2; triesLeft >= 0; --triesLeft) {
+            InetAddress[] addresses = InetAddress.getAllByName(ALL_LOOPBACK_HOSTNAME);
+            sortAddresses(addresses);
+            if (Arrays.equals(ALL_LOOPBACK_ADDRESSES, addresses)) {
+                return;
+            }
+
+            if (triesLeft == 0 || addresses.length > 2 || !allUniqueLoopbackAddresses(addresses)) {
+                fail("Expected " + Arrays.toString(ALL_LOOPBACK_ADDRESSES) +
+                     ", got " + Arrays.toString(addresses));
+            }
+
+            try {
+                Thread.sleep(WAIT_MILLIS);
+            } catch (InterruptedException e) {
+                fail("Test interrupted");
+            }
+        }
     }
 
     private static boolean canConnect(String host, int port) {

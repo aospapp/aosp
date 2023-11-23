@@ -16,28 +16,31 @@
 
 package com.android.cts.verifier.audio;
 
+import static com.android.cts.verifier.TestListActivity.sCurrentDisplayMode;
+import static com.android.cts.verifier.TestListAdapter.setTestNameSuffix;
+
 import android.app.AlertDialog;
 import android.content.DialogInterface;
-import android.content.pm.PackageManager;
 import android.content.res.Resources;
+import android.media.AudioDeviceCallback;
 import android.media.AudioDeviceInfo;
 import android.media.AudioFormat;
+import android.media.AudioManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.CheckBox;
 import android.widget.TextView;
 
+import com.android.compatibility.common.util.CddTest;
 import com.android.compatibility.common.util.ResultType;
 import com.android.compatibility.common.util.ResultUnit;
-import com.android.cts.verifier.audio.audiolib.AudioSystemFlags;
 import com.android.cts.verifier.CtsVerifierReportLog;
 import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
+import com.android.cts.verifier.audio.audiolib.AudioSystemFlags;
 
-import static com.android.cts.verifier.TestListActivity.sCurrentDisplayMode;
-import static com.android.cts.verifier.TestListAdapter.setTestNameSuffix;
-
+@CddTest(requirement = "5.10/C-1-1,C-1-3,C-1-4")
 public class ProAudioActivity
         extends PassFailButtons.Activity
         implements View.OnClickListener {
@@ -80,6 +83,10 @@ public class ProAudioActivity
     }
 
     // HDMI Stuff
+    private boolean isHDMIConnected() {
+        return mHDMIDeviceInfo != null;
+    }
+
     private boolean isHDMIValid() {
         if (mHDMIDeviceInfo == null) {
             return false;
@@ -130,21 +137,21 @@ public class ProAudioActivity
         return true;
     }
 
-    protected void handleDeviceConnection(AudioDeviceInfo devInfo) {
+    protected void handleDeviceConnection(AudioDeviceInfo[] addedDevices) {
         mHDMIDeviceInfo = null;
-
-        if (devInfo.isSink() && devInfo.getType() == AudioDeviceInfo.TYPE_HDMI) {
-            mHDMIDeviceInfo = devInfo;
+        for (AudioDeviceInfo deviceInfo : addedDevices) {
+            Log.i(TAG, "  " + deviceInfo.getProductName() + " type:" + deviceInfo.getType());
+            if (deviceInfo.isSink() && deviceInfo.getType() == AudioDeviceInfo.TYPE_HDMI) {
+                mHDMIDeviceInfo = deviceInfo;
+                break;
+            }
         }
 
         if (mHDMIDeviceInfo != null) {
             mClaimsHDMICheckBox.setChecked(true);
-            mHDMISupportLbl.setText(getResources().getString(
-                    isHDMIValid() ? R.string.pass_button_text : R.string.fail_button_text));
         }
-        mHDMISupportLbl.setText(getResources().getString(R.string.audio_proaudio_NA));
 
-        calculatePass();
+        displayTestResults();
     }
 
     private boolean calculatePass() {
@@ -174,8 +181,12 @@ public class ProAudioActivity
         } else if (!mClaimsUSBPeripheralMode) {
             mTestStatusLbl.setText(strings.getString(
                     R.string.audio_proaudio_usbperipheralnotreported));
-        } else if (mClaimsHDMI && isHDMIValid()) {
-            mTestStatusLbl.setText(strings.getString(R.string.audio_proaudio_hdminotvalid));
+        } else if (mClaimsHDMI) {
+            if (!isHDMIConnected()) {
+                mTestStatusLbl.setText(strings.getString(R.string.audio_proaudio_hdmiNotFound));
+            } else if (!isHDMIValid()) {
+                mTestStatusLbl.setText(strings.getString(R.string.hdmi_insufficient));
+            }
         }
     }
 
@@ -218,7 +229,10 @@ public class ProAudioActivity
 
         mTestStatusLbl = (TextView)findViewById(R.id.proAudioTestStatusLbl);
 
-        calculatePass();
+        AudioManager audioManager = getSystemService(AudioManager.class);
+        audioManager.registerAudioDeviceCallback(new TestAudioDeviceCallback(), null);
+
+        displayTestResults();
     }
 
     /**
@@ -285,28 +299,38 @@ public class ProAudioActivity
 
     @Override
     public void onClick(View view) {
-        switch (view.getId()) {
-        case R.id.proAudioHasHDMICheckBox:
+        if (view.getId() == R.id.proAudioHasHDMICheckBox) {
             if (mClaimsHDMICheckBox.isChecked()) {
-                AlertDialog.Builder builder =
-                        new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert);
+                AlertDialog.Builder builder = new AlertDialog.Builder(
+                        this, android.R.style.Theme_Material_Dialog_Alert);
                 builder.setTitle(getResources().getString(R.string.proaudio_hdmi_infotitle));
                 builder.setMessage(getResources().getString(R.string.proaudio_hdmi_message));
                 builder.setPositiveButton(android.R.string.yes,
-                    new DialogInterface.OnClickListener() {
-                        public void onClick(DialogInterface dialog, int which) {}
-                 });
+                        new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog, int which) {
+                            }
+                        });
                 builder.setIcon(android.R.drawable.ic_dialog_alert);
                 builder.show();
 
                 mClaimsHDMI = true;
-                mHDMISupportLbl.setText(getResources().getString(R.string.audio_proaudio_pending));
+                mHDMISupportLbl.setText(
+                        getResources().getString(R.string.audio_proaudio_hdmiPending));
             } else {
                 mClaimsHDMI = false;
                 mHDMISupportLbl.setText(getResources().getString(R.string.audio_proaudio_NA));
             }
-            calculatePass();
-            break;
+            displayTestResults();
+        }
+    }
+
+    private class TestAudioDeviceCallback extends AudioDeviceCallback {
+        public void onAudioDevicesAdded(AudioDeviceInfo[] addedDevices) {
+            handleDeviceConnection(addedDevices);
+        }
+
+        public void onAudioDevicesRemoved(AudioDeviceInfo[] removedDevices) {
+            // NOP
         }
     }
 }

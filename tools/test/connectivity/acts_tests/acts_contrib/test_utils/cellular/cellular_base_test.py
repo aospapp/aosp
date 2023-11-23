@@ -23,12 +23,13 @@ from acts.controllers.anritsu_lib import md8475_cellular_simulator as anritsu
 from acts.controllers.rohdeschwarz_lib import cmw500_cellular_simulator as cmw
 from acts.controllers.rohdeschwarz_lib import cmx500_cellular_simulator as cmx
 from acts.controllers.cellular_lib import AndroidCellularDut
-from acts.controllers.cellular_lib import GsmSimulation
-from acts.controllers.cellular_lib import LteSimulation
-from acts.controllers.cellular_lib import UmtsSimulation
-from acts.controllers.cellular_lib import LteCaSimulation
-from acts.controllers.cellular_lib import LteImsSimulation
+from acts.controllers.cellular_lib import BaseSimulation as base_sim
+from acts.controllers.cellular_lib import GsmSimulation as gsm_sim
+from acts.controllers.cellular_lib import LteSimulation as lte_sim
+from acts.controllers.cellular_lib import UmtsSimulation as umts_sim
+from acts.controllers.cellular_lib import LteImsSimulation as lteims_sim
 
+from acts_contrib.test_utils.tel import tel_logging_utils
 from acts_contrib.test_utils.tel import tel_test_utils as telutils
 
 
@@ -40,11 +41,13 @@ class CellularBaseTest(base_test.BaseTestClass):
     PARAM_SIM_TYPE_LTE = "lte"
     PARAM_SIM_TYPE_LTE_CA = "lteca"
     PARAM_SIM_TYPE_LTE_IMS = "lteims"
+    PARAM_SIM_TYPE_NR = "nr"
     PARAM_SIM_TYPE_UMTS = "umts"
     PARAM_SIM_TYPE_GSM = "gsm"
 
     # Custom files
     FILENAME_CALIBRATION_TABLE_UNFORMATTED = 'calibration_table_{}.json'
+    FILENAME_TEST_CONFIGS = 'cellular_test_config.json'
 
     # Name of the files in the logs directory that will contain test results
     # and other information in csv format.
@@ -62,6 +65,7 @@ class CellularBaseTest(base_test.BaseTestClass):
         self.simulation = None
         self.cellular_simulator = None
         self.calibration_table = {}
+        self.test_configs = {}
 
     def setup_class(self):
         """ Executed before any test case is started.
@@ -78,6 +82,8 @@ class CellularBaseTest(base_test.BaseTestClass):
 
         TEST_PARAMS = self.TAG + '_params'
         self.cellular_test_params = self.user_params.get(TEST_PARAMS, {})
+        self.log.info(
+            'self.cellular_test_params: ' + str(self.cellular_test_params))
 
         # Unpack test parameters used in this class
         self.unpack_userparams(['custom_files'],
@@ -96,13 +102,28 @@ class CellularBaseTest(base_test.BaseTestClass):
 
         for file in self.custom_files:
             if filename_calibration_table in file:
-                self.calibration_table = self.unpack_custom_file(file, False)
+                with open(file, 'r') as f:
+                    self.calibration_table = json.load(f)
                 self.log.info('Loading calibration table from ' + file)
                 self.log.debug(self.calibration_table)
                 break
 
         # Ensure the calibration table only contains non-negative values
         self.ensure_valid_calibration_table(self.calibration_table)
+
+        # Load test configs from json file
+        for file in self.custom_files:
+            if self.FILENAME_TEST_CONFIGS in file:
+                self.log.info('Loading test configs from ' + file)
+                with open(file, 'r') as f:
+                    config_file = json.load(f)
+                self.test_configs = config_file.get(self.TAG)
+                if not self.test_configs:
+                    self.log.debug(config_file)
+                    raise RuntimeError('Test config file does not include '
+                                       'class %s'.format(self.TAG))
+                self.log.debug(self.test_configs)
+                break
 
         # Turn on airplane mode for all devices, as some might
         # be unused during the test
@@ -202,6 +223,8 @@ class CellularBaseTest(base_test.BaseTestClass):
             self.init_simulation(self.PARAM_SIM_TYPE_LTE_CA)
         elif self.consume_parameter(self.PARAM_SIM_TYPE_LTE_IMS):
             self.init_simulation(self.PARAM_SIM_TYPE_LTE_IMS)
+        elif self.consume_parameter(self.PARAM_SIM_TYPE_NR):
+            self.init_simulation(self.PARAM_SIM_TYPE_NR)
         elif self.consume_parameter(self.PARAM_SIM_TYPE_UMTS):
             self.init_simulation(self.PARAM_SIM_TYPE_UMTS)
         elif self.consume_parameter(self.PARAM_SIM_TYPE_GSM):
@@ -214,23 +237,32 @@ class CellularBaseTest(base_test.BaseTestClass):
         # Changing cell parameters requires the phone to be detached
         self.simulation.detach()
 
-        # Parse simulation parameters.
-        # This may throw a ValueError exception if incorrect values are passed
-        # or if required arguments are omitted.
-        try:
-            self.simulation.parse_parameters(self.parameters)
-        except ValueError as error:
-            self.log.error(str(error))
-            return False
+        # Configure simulation with parameters loaded from json file
+        sim_params = self.test_configs.get(self.test_name)
+        if not sim_params:
+            raise KeyError('Test config file does not contain '
+                           'settings for ' + self.test_name)
 
-        # Wait for new params to settle
-        time.sleep(5)
+        # Changes the single band sim_params type to list to make it easier
+        # to apply the class parameters to test parameters for multiple bands
+        if not isinstance(sim_params, list):
+            sim_params = [sim_params]
+        num_band = len(sim_params)
+
+        # Get class parameters and apply if not overwritten by test parameters
+        for key, val in self.test_configs.items():
+            if not key.startswith('test_'):
+                for idx in range(num_band):
+                    if key not in sim_params[idx]:
+                        sim_params[idx][key] = val
+        self.log.info('Simulation parameters: ' + str(sim_params))
+        self.simulation.configure(sim_params)
 
         # Enable QXDM logger if required
         if self.qxdm_logs:
             self.log.info('Enabling the QXDM logger.')
-            telutils.set_qxdm_logger_command(self.dut)
-            telutils.start_qxdm_logger(self.dut)
+            tel_logging_utils.set_qxdm_logger_command(self.dut)
+            tel_logging_utils.start_qxdm_logger(self.dut)
 
         # Start the simulation. This method will raise an exception if
         # the phone is unable to attach.
@@ -250,7 +282,7 @@ class CellularBaseTest(base_test.BaseTestClass):
         # If QXDM logging was enabled pull the results
         if self.qxdm_logs:
             self.log.info('Stopping the QXDM logger and pulling results.')
-            telutils.stop_qxdm_logger(self.dut)
+            tel_logging_utils.stop_qxdm_logger(self.dut)
             self.dut.get_qxdm_logs()
 
     def consume_parameter(self, parameter_name, num_values=0):
@@ -313,11 +345,14 @@ class CellularBaseTest(base_test.BaseTestClass):
         """
 
         simulation_dictionary = {
-            self.PARAM_SIM_TYPE_LTE: LteSimulation.LteSimulation,
-            self.PARAM_SIM_TYPE_UMTS: UmtsSimulation.UmtsSimulation,
-            self.PARAM_SIM_TYPE_GSM: GsmSimulation.GsmSimulation,
-            self.PARAM_SIM_TYPE_LTE_CA: LteCaSimulation.LteCaSimulation,
-            self.PARAM_SIM_TYPE_LTE_IMS: LteImsSimulation.LteImsSimulation
+            self.PARAM_SIM_TYPE_LTE: lte_sim.LteSimulation,
+            self.PARAM_SIM_TYPE_LTE_CA: lte_sim.LteSimulation,
+            # The LteSimulation class is able to handle NR cells as well.
+            # The long-term goal is to consolidate all simulation classes.
+            self.PARAM_SIM_TYPE_NR: lte_sim.LteSimulation,
+            self.PARAM_SIM_TYPE_UMTS: umts_sim.UmtsSimulation,
+            self.PARAM_SIM_TYPE_GSM: gsm_sim.GsmSimulation,
+            self.PARAM_SIM_TYPE_LTE_IMS: lteims_sim.LteImsSimulation
         }
 
         if not sim_type in simulation_dictionary:
@@ -341,10 +376,21 @@ class CellularBaseTest(base_test.BaseTestClass):
         cellular_dut = AndroidCellularDut.AndroidCellularDut(
             self.dut, self.log)
         # Instantiate a new simulation
-        self.simulation = simulation_class(self.cellular_simulator, self.log,
-                                           cellular_dut,
-                                           self.cellular_test_params,
-                                           self.calibration_table[sim_type])
+        if sim_type == self.PARAM_SIM_TYPE_NR:
+            self.simulation = simulation_class(
+                self.cellular_simulator,
+                self.log,
+                cellular_dut,
+                self.cellular_test_params,
+                self.calibration_table[sim_type],
+                nr_mode=self.PARAM_SIM_TYPE_NR)
+        else:
+            self.simulation = simulation_class(
+                self.cellular_simulator,
+                self.log,
+                cellular_dut,
+                self.cellular_test_params,
+                self.calibration_table[sim_type])
 
     def ensure_valid_calibration_table(self, calibration_table):
         """ Ensures the calibration table has the correct structure.
@@ -362,21 +408,3 @@ class CellularBaseTest(base_test.BaseTestClass):
                 raise TypeError('Calibration table value must be a number')
             elif val < 0.0:
                 raise ValueError('Calibration table contains negative values')
-
-    def unpack_custom_file(self, file, test_specific=True):
-        """Loads a json file.
-
-          Args:
-              file: the common file containing pass fail threshold.
-              test_specific: if True, returns the JSON element within the file
-                  that starts with the test class name.
-          """
-        with open(file, 'r') as f:
-            params = json.load(f)
-        if test_specific:
-            try:
-                return params[self.TAG]
-            except KeyError:
-                pass
-        else:
-            return params

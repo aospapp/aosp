@@ -43,6 +43,7 @@ using std::vector;
 using android::base::Error;
 using android::base::Result;
 using android::base::Split;
+using android::base::StartsWith;
 
 namespace android {
 namespace aidl {
@@ -105,11 +106,6 @@ unique_ptr<string> IoDelegate::GetFileContents(
   in.close();
 
   return contents;
-}
-
-unique_ptr<LineReader> IoDelegate::GetLineReader(
-    const string& file_path) const {
-  return LineReader::ReadFromFile(file_path);
 }
 
 bool IoDelegate::FileIsReadable(const string& path) const {
@@ -187,14 +183,6 @@ unique_ptr<CodeWriter> IoDelegate::GetCodeWriter(
   }
 }
 
-void IoDelegate::RemovePath(const std::string& file_path) const {
-#ifdef _WIN32
-  _unlink(file_path.c_str());
-#else
-  unlink(file_path.c_str());
-#endif
-}
-
 #ifdef _WIN32
 Result<vector<string>> IoDelegate::ListFiles(const string&) const {
   return Error() << "File listing not implemented on Windows";
@@ -243,6 +231,13 @@ Result<vector<string>> IoDelegate::ListFiles(const string& dir) const {
   return result;
 }
 #endif
+
+string IoDelegate::CleanPath(const string& path) {
+  if (base::StartsWith(path, string{'.', OS_PATH_SEPARATOR})) {
+    return path.substr(2);
+  }
+  return path;
+}
 
 }  // namespace android
 }  // namespace aidl

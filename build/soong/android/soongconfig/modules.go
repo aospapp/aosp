@@ -20,15 +20,18 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/google/blueprint"
 	"github.com/google/blueprint/parser"
 	"github.com/google/blueprint/proptools"
+
+	"android/soong/starlark_fmt"
 )
 
 const conditionsDefault = "conditions_default"
 
-var soongConfigProperty = proptools.FieldNameForProperty("soong_config_variables")
+var SoongConfigProperty = proptools.FieldNameForProperty("soong_config_variables")
 
 // loadSoongConfigModuleTypeDefinition loads module types from an Android.bp file.  It caches the
 // result so each file is only parsed once.
@@ -176,10 +179,14 @@ func processStringVariableDef(v *SoongConfigDefinition, def *parser.Module) (err
 		return []error{fmt.Errorf("values property must be set")}
 	}
 
+	vals := make(map[string]bool, len(stringProps.Values))
 	for _, name := range stringProps.Values {
 		if err := checkVariableName(name); err != nil {
 			return []error{fmt.Errorf("soong_config_string_variable: values property error %s", err)}
+		} else if _, ok := vals[name]; ok {
+			return []error{fmt.Errorf("soong_config_string_variable: values property error: duplicate value: %q", name)}
 		}
+		vals[name] = true
 	}
 
 	v.variables[base.variable] = &stringVariable{
@@ -230,6 +237,105 @@ type SoongConfigDefinition struct {
 	variables map[string]soongConfigVariable
 }
 
+// Bp2BuildSoongConfigDefinition keeps a global record of all soong config
+// string vars, bool vars and value vars created by every
+// soong_config_module_type in this build.
+type Bp2BuildSoongConfigDefinitions struct {
+	// varCache contains a cache of string variables namespace + property
+	// The same variable may be used in multiple module types (for example, if need support
+	// for cc_default and java_default), only need to process once
+	varCache map[string]bool
+
+	StringVars map[string][]string
+	BoolVars   map[string]bool
+	ValueVars  map[string]bool
+}
+
+var bp2buildSoongConfigVarsLock sync.Mutex
+
+// SoongConfigVariablesForBp2build extracts information from a
+// SoongConfigDefinition that bp2build needs to generate constraint settings and
+// values for, in order to migrate soong_config_module_type usages to Bazel.
+func (defs *Bp2BuildSoongConfigDefinitions) AddVars(mtDef SoongConfigDefinition) {
+	// In bp2build mode, this method is called concurrently in goroutines from
+	// loadhooks while parsing soong_config_module_type, so add a mutex to
+	// prevent concurrent map writes. See b/207572723
+	bp2buildSoongConfigVarsLock.Lock()
+	defer bp2buildSoongConfigVarsLock.Unlock()
+
+	if defs.StringVars == nil {
+		defs.StringVars = make(map[string][]string)
+	}
+	if defs.BoolVars == nil {
+		defs.BoolVars = make(map[string]bool)
+	}
+	if defs.ValueVars == nil {
+		defs.ValueVars = make(map[string]bool)
+	}
+	if defs.varCache == nil {
+		defs.varCache = make(map[string]bool)
+	}
+	for _, moduleType := range mtDef.ModuleTypes {
+		for _, v := range moduleType.Variables {
+			key := strings.Join([]string{moduleType.ConfigNamespace, v.variableProperty()}, "__")
+
+			// The same variable may be used in multiple module types (for example, if need support
+			// for cc_default and java_default), only need to process once
+			if _, keyInCache := defs.varCache[key]; keyInCache {
+				continue
+			} else {
+				defs.varCache[key] = true
+			}
+
+			if strVar, ok := v.(*stringVariable); ok {
+				for _, value := range strVar.values {
+					defs.StringVars[key] = append(defs.StringVars[key], value)
+				}
+			} else if _, ok := v.(*boolVariable); ok {
+				defs.BoolVars[key] = true
+			} else if _, ok := v.(*valueVariable); ok {
+				defs.ValueVars[key] = true
+			} else {
+				panic(fmt.Errorf("Unsupported variable type: %+v", v))
+			}
+		}
+	}
+}
+
+// This is a copy of the one available in soong/android/util.go, but depending
+// on the android package causes a cyclic dependency. A refactoring here is to
+// extract common utils out from android/utils.go for other packages like this.
+func sortedStringKeys(m interface{}) []string {
+	v := reflect.ValueOf(m)
+	if v.Kind() != reflect.Map {
+		panic(fmt.Sprintf("%#v is not a map", m))
+	}
+	keys := v.MapKeys()
+	s := make([]string, 0, len(keys))
+	for _, key := range keys {
+		s = append(s, key.String())
+	}
+	sort.Strings(s)
+	return s
+}
+
+// String emits the Soong config variable definitions as Starlark dictionaries.
+func (defs Bp2BuildSoongConfigDefinitions) String() string {
+	ret := ""
+	ret += "soong_config_bool_variables = "
+	ret += starlark_fmt.PrintBoolDict(defs.BoolVars, 0)
+	ret += "\n\n"
+
+	ret += "soong_config_value_variables = "
+	ret += starlark_fmt.PrintBoolDict(defs.ValueVars, 0)
+	ret += "\n\n"
+
+	ret += "soong_config_string_variables = "
+	ret += starlark_fmt.PrintStringListDict(defs.StringVars, 0)
+
+	return ret
+}
+
 // CreateProperties returns a reflect.Value of a newly constructed type that contains the desired
 // property layout for the Soong config variables, with each possible value an interface{} that
 // contains a nil pointer to another newly constructed type that contains the affectable properties.
@@ -271,12 +377,12 @@ func CreateProperties(factory blueprint.ModuleFactory, moduleType *ModuleType) r
 	}
 
 	typ := reflect.StructOf([]reflect.StructField{{
-		Name: soongConfigProperty,
+		Name: SoongConfigProperty,
 		Type: reflect.StructOf(fields),
 	}})
 
 	props := reflect.New(typ)
-	structConditions := props.Elem().FieldByName(soongConfigProperty)
+	structConditions := props.Elem().FieldByName(SoongConfigProperty)
 
 	for i, c := range moduleType.Variables {
 		c.initializeProperties(structConditions.Field(i), affectablePropertiesType)
@@ -415,7 +521,7 @@ func typeForPropertyFromPropertyStruct(ps interface{}, property string) reflect.
 // soong_config_variables are expected to be in the same order as moduleType.Variables.
 func PropertiesToApply(moduleType *ModuleType, props reflect.Value, config SoongConfig) ([]interface{}, error) {
 	var ret []interface{}
-	props = props.Elem().FieldByName(soongConfigProperty)
+	props = props.Elem().FieldByName(SoongConfigProperty)
 	for i, c := range moduleType.Variables {
 		if ps, err := c.PropertiesToApply(config, props.Field(i)); err != nil {
 			return nil, err

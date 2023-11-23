@@ -41,6 +41,7 @@
 #include "update_engine/common/error_code.h"
 #include "update_engine/common/error_code_utils.h"
 #include "update_engine/update_status_utils.h"
+#include "utils/String8.h"
 
 using android::binder::Status;
 
@@ -71,6 +72,8 @@ class UpdateEngineClientAndroid : public brillo::Daemon {
 
   // Called whenever the UpdateEngine daemon dies.
   void UpdateEngineServiceDied();
+  // Register callback to watch for death notification from update_engine.
+  void RegisterDeathNotification();
 
   static std::vector<android::String16> ParseHeaders(const std::string& arg);
 
@@ -106,6 +109,18 @@ Status UpdateEngineClientAndroid::UECallback::onPayloadApplicationComplete(
   return Status::ok();
 }
 
+constexpr auto&& UNSPECIFIED_FLAG = "unspecified";
+
+void UpdateEngineClientAndroid::RegisterDeathNotification() {
+  // When following updates status changes, exit if the update_engine daemon
+  // dies.
+  android::BinderWrapper::Create();
+  android::BinderWrapper::Get()->RegisterForDeathNotifications(
+      android::os::IUpdateEngine::asBinder(service_),
+      base::Bind(&UpdateEngineClientAndroid::UpdateEngineServiceDied,
+                 base::Unretained(this)));
+}
+
 int UpdateEngineClientAndroid::OnInit() {
   int ret = Daemon::OnInit();
   if (ret != EX_OK)
@@ -137,6 +152,11 @@ int UpdateEngineClientAndroid::OnInit() {
                 "The path to the update payload metadata. "
                 "Used when --verify or --allocate is passed.");
 
+  DEFINE_string(switch_slot,
+                UNSPECIFIED_FLAG,
+                "Perform just the slow switching part of OTA. "
+                "Used to revert a slot switch or re-do slot switch. Valid "
+                "values are 'true' and 'false'");
   DEFINE_bool(suspend, false, "Suspend an ongoing update and exit.");
   DEFINE_bool(resume, false, "Resume a suspended update.");
   DEFINE_bool(cancel, false, "Cancel the ongoing update and exit.");
@@ -182,6 +202,19 @@ int UpdateEngineClientAndroid::OnInit() {
     return ExitWhenIdle(1);
   }
 
+  // Other commands, such as |setShouldSwitchSlotOnReboot|, might rely on the
+  // follow behavior, so created callback before running these commands.
+  if (FLAGS_follow) {
+    // Register a callback object with the service.
+    callback_ = new UECallback(this);
+    bool bound;
+    if (!service_->bind(callback_, &bound).isOk() || !bound) {
+      LOG(ERROR) << "Failed to bind() the UpdateEngine daemon.";
+      return 1;
+    }
+    keep_running = true;
+  }
+
   if (FLAGS_suspend) {
     return ExitWhenIdle(service_->suspend());
   }
@@ -196,6 +229,28 @@ int UpdateEngineClientAndroid::OnInit() {
 
   if (FLAGS_reset_status) {
     return ExitWhenIdle(service_->resetStatus());
+  }
+
+  if (FLAGS_switch_slot != UNSPECIFIED_FLAG) {
+    if (FLAGS_switch_slot != "true" && FLAGS_switch_slot != "false") {
+      LOG(ERROR) << "--switch_slot should be either true or false, got "
+                 << FLAGS_switch_slot;
+      return 1;
+    }
+    const bool should_switch = FLAGS_switch_slot == "true";
+    ::android::binder::Status status;
+    if (should_switch) {
+      status = service_->setShouldSwitchSlotOnReboot(
+          android::String16(FLAGS_metadata.c_str(), FLAGS_metadata.size()));
+      if (!FLAGS_follow) {
+        return ExitWhenIdle(status);
+      }
+    } else {
+      // resetShouldSwitchSlotOnReboot() is a synchronous call, no need to
+      // follow
+      status = service_->resetShouldSwitchSlotOnReboot();
+      return ExitWhenIdle(status);
+    }
   }
 
   if (FLAGS_verify) {
@@ -237,17 +292,6 @@ int UpdateEngineClientAndroid::OnInit() {
     keep_running = true;
   }
 
-  if (FLAGS_follow) {
-    // Register a callback object with the service.
-    callback_ = new UECallback(this);
-    bool bound;
-    if (!service_->bind(callback_, &bound).isOk() || !bound) {
-      LOG(ERROR) << "Failed to bind() the UpdateEngine daemon.";
-      return 1;
-    }
-    keep_running = true;
-  }
-
   if (FLAGS_update) {
     auto and_headers = ParseHeaders(FLAGS_headers);
     Status status = service_->applyPayload(
@@ -262,14 +306,7 @@ int UpdateEngineClientAndroid::OnInit() {
   if (!keep_running)
     return ExitWhenIdle(EX_OK);
 
-  // When following updates status changes, exit if the update_engine daemon
-  // dies.
-  android::BinderWrapper::Create();
-  android::BinderWrapper::Get()->RegisterForDeathNotifications(
-      android::os::IUpdateEngine::asBinder(service_),
-      base::Bind(&UpdateEngineClientAndroid::UpdateEngineServiceDied,
-                 base::Unretained(this)));
-
+  RegisterDeathNotification();
   return EX_OK;
 }
 

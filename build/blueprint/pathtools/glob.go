@@ -24,12 +24,6 @@ import (
 	"strings"
 )
 
-// BPGlobArgumentVersion is used to abort argument parsing early when the bpglob argument format
-// has changed but soong_build hasn't had a chance to rerun yet to update build-globs.ninja.
-// Increment it manually when changing the bpglob argument format.  It is located here because
-// pathtools is the only package that is shared between bpglob and bootstrap.
-const BPGlobArgumentVersion = 2
-
 var GlobMultipleRecursiveErr = errors.New("pattern contains multiple '**'")
 var GlobLastRecursiveErr = errors.New("pattern has '**' as last path element")
 var GlobInvalidRecursiveErr = errors.New("pattern contains other characters between '**' and path separator")
@@ -130,6 +124,10 @@ func startGlob(fs FileSystem, pattern string, excludes []string,
 			info, err = fs.Lstat(match)
 		} else {
 			info, err = fs.Stat(match)
+			if err != nil && os.IsNotExist(err) {
+				// ErrNotExist from Stat may be due to a dangling symlink, retry with lstat.
+				info, err = fs.Lstat(match)
+			}
 		}
 		if err != nil {
 			return GlobResult{}, err
@@ -178,7 +176,7 @@ func glob(fs FileSystem, pattern string, hasRecursive bool,
 		return matches, dirs, err
 	}
 
-	dir, file := saneSplit(pattern)
+	dir, file := quickSplit(pattern)
 
 	if file == "**" {
 		if hasRecursive {
@@ -232,7 +230,7 @@ func glob(fs FileSystem, pattern string, hasRecursive bool,
 // Faster version of dir, file := filepath.Dir(path), filepath.File(path) with no allocations
 // Similar to filepath.Split, but returns "." if dir is empty and trims trailing slash if dir is
 // not "/".  Returns ".", "" if path is "."
-func saneSplit(path string) (dir, file string) {
+func quickSplit(path string) (dir, file string) {
 	if path == "." {
 		return ".", ""
 	}

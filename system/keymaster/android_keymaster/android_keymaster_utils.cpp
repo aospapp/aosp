@@ -40,6 +40,31 @@ int memcmp_s(const void* p1, const void* p2, size_t length) {
     return result == 0 ? 0 : 1;
 }
 
+keymaster_error_t EllipticKeySizeToCurve(uint32_t key_size_bits, keymaster_ec_curve_t* curve) {
+    switch (key_size_bits) {
+    default:
+        return KM_ERROR_UNSUPPORTED_KEY_SIZE;
+
+    case 224:
+        *curve = KM_EC_CURVE_P_224;
+        break;
+
+    case 256:
+        // 256 bits could be P-256 or Curve25519
+        return KM_ERROR_UNSUPPORTED_KEY_SIZE;
+
+    case 384:
+        *curve = KM_EC_CURVE_P_384;
+        break;
+
+    case 521:
+        *curve = KM_EC_CURVE_P_521;
+        break;
+    }
+
+    return KM_ERROR_OK;
+}
+
 keymaster_error_t EcKeySizeToCurve(uint32_t key_size_bits, keymaster_ec_curve_t* curve) {
     switch (key_size_bits) {
     default:
@@ -84,6 +109,10 @@ keymaster_error_t EcCurveToKeySize(keymaster_ec_curve_t curve, uint32_t* key_siz
 
     case KM_EC_CURVE_P_521:
         *key_size_bits = 521;
+        break;
+
+    case KM_EC_CURVE_CURVE_25519:
+        *key_size_bits = 256;
         break;
     }
 

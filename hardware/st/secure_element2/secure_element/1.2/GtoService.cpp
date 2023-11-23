@@ -11,10 +11,12 @@
 
  ****************************************************************************/
 #include <android/hardware/secure_element/1.2/ISecureElement.h>
+#include <dlfcn.h>
 #include <hidl/LegacySupport.h>
 #include <log/log.h>
 
 #include "SecureElement.h"
+typedef int (*STEsePreProcess)(void);
 
 // Generated HIDL files
 using android::hardware::secure_element::V1_2::ISecureElement;
@@ -27,7 +29,20 @@ using android::status_t;
 
 int main() {
   ALOGD("android::hardware::secure_element::V1_2 is starting.");
-  ALOGD("Thales Secure Element HAL for eSE1 Service 1.5.0 is starting. libse-gto v1.13");
+  ALOGD("Thales Secure Element HAL for eSE1 Service 1.6.0 is starting. libse-gto v1.13");
+  // Ignore this dlopen if libstpreprocess21.so doesn't exist.
+  void* stdll = dlopen("/vendor/lib64/libstpreprocess21.so", RTLD_NOW);
+  if (stdll) {
+    STEsePreProcess fn = (STEsePreProcess)dlsym(stdll, "pre_process");
+    if (fn) {
+      int ret = fn();
+      if (ret == 0) {
+        ALOGD("STEsePreProcess=%d", ret);
+      } else {
+        ALOGE("Error STEsePreProcess=%d", ret);
+      }
+    }
+  }
   sp<ISecureElement> se_service = new SecureElement("eSE1");
   configureRpcThreadpool(1, true);
   status_t status = se_service->registerAsService("eSE1");

@@ -28,7 +28,7 @@ using chromeos_update_engine::FakePrefs;
 
 namespace {
 
-void CheckNotNull(const string& key, void* ptr) {
+void CheckNotNull(std::string_view key, void* ptr) {
   EXPECT_NE(nullptr, ptr) << "Called Get*() for key \"" << key
                           << "\" with a null parameter.";
 }
@@ -63,41 +63,41 @@ template <>
 bool FakePrefs::PrefValue::*const FakePrefs::PrefConsts<bool>::member =
     &FakePrefs::PrefValue::as_bool;
 
-bool FakePrefs::GetString(const string& key, string* value) const {
+bool FakePrefs::GetString(std::string_view key, string* value) const {
   return GetValue(key, value);
 }
 
-bool FakePrefs::SetString(const string& key, std::string_view value) {
+bool FakePrefs::SetString(std::string_view key, std::string_view value) {
   SetValue(key, std::string(value));
   return true;
 }
 
-bool FakePrefs::GetInt64(const string& key, int64_t* value) const {
+bool FakePrefs::GetInt64(std::string_view key, int64_t* value) const {
   return GetValue(key, value);
 }
 
-bool FakePrefs::SetInt64(const string& key, const int64_t value) {
+bool FakePrefs::SetInt64(std::string_view key, const int64_t value) {
   SetValue(key, value);
   return true;
 }
 
-bool FakePrefs::GetBoolean(const string& key, bool* value) const {
+bool FakePrefs::GetBoolean(std::string_view key, bool* value) const {
   return GetValue(key, value);
 }
 
-bool FakePrefs::SetBoolean(const string& key, const bool value) {
+bool FakePrefs::SetBoolean(std::string_view key, const bool value) {
   SetValue(key, value);
   return true;
 }
 
-bool FakePrefs::Exists(const string& key) const {
+bool FakePrefs::Exists(std::string_view key) const {
   return values_.find(key) != values_.end();
 }
 
-bool FakePrefs::Delete(const string& key) {
+bool FakePrefs::Delete(std::string_view key) {
   if (values_.find(key) == values_.end())
     return false;
-  values_.erase(key);
+  values_.erase(std::string{key});
   const auto observers_for_key = observers_.find(key);
   if (observers_for_key != observers_.end()) {
     std::vector<ObserverInterface*> copy_observers(observers_for_key->second);
@@ -107,7 +107,7 @@ bool FakePrefs::Delete(const string& key) {
   return true;
 }
 
-bool FakePrefs::Delete(const string& key, const vector<string>& nss) {
+bool FakePrefs::Delete(std::string_view key, const vector<string>& nss) {
   bool success = Delete(key);
   for (const auto& ns : nss) {
     vector<string> ns_keys;
@@ -123,7 +123,7 @@ bool FakePrefs::Delete(const string& key, const vector<string>& nss) {
   return success;
 }
 
-bool FakePrefs::GetSubKeys(const string& ns, vector<string>* keys) const {
+bool FakePrefs::GetSubKeys(std::string_view ns, vector<string>* keys) const {
   for (const auto& pr : values_)
     if (pr.first.compare(0, ns.length(), ns) == 0)
       keys->push_back(pr.first);
@@ -142,7 +142,7 @@ string FakePrefs::GetTypeName(PrefType type) {
   return "Unknown";
 }
 
-void FakePrefs::CheckKeyType(const string& key, PrefType type) const {
+void FakePrefs::CheckKeyType(std::string_view key, PrefType type) const {
   auto it = values_.find(key);
   EXPECT_TRUE(it == values_.end() || it->second.type == type)
       << "Key \"" << key << "\" if defined as " << GetTypeName(it->second.type)
@@ -150,10 +150,11 @@ void FakePrefs::CheckKeyType(const string& key, PrefType type) const {
 }
 
 template <typename T>
-void FakePrefs::SetValue(const string& key, T value) {
+void FakePrefs::SetValue(std::string_view key, T value) {
+  std::string str_key{key};
   CheckKeyType(key, PrefConsts<T>::type);
-  values_[key].type = PrefConsts<T>::type;
-  values_[key].value.*(PrefConsts<T>::member) = std::move(value);
+  values_[str_key].type = PrefConsts<T>::type;
+  values_[str_key].value.*(PrefConsts<T>::member) = std::move(value);
   const auto observers_for_key = observers_.find(key);
   if (observers_for_key != observers_.end()) {
     std::vector<ObserverInterface*> copy_observers(observers_for_key->second);
@@ -163,7 +164,7 @@ void FakePrefs::SetValue(const string& key, T value) {
 }
 
 template <typename T>
-bool FakePrefs::GetValue(const string& key, T* value) const {
+bool FakePrefs::GetValue(std::string_view key, T* value) const {
   CheckKeyType(key, PrefConsts<T>::type);
   auto it = values_.find(key);
   if (it == values_.end())
@@ -173,12 +174,14 @@ bool FakePrefs::GetValue(const string& key, T* value) const {
   return true;
 }
 
-void FakePrefs::AddObserver(const string& key, ObserverInterface* observer) {
-  observers_[key].push_back(observer);
+void FakePrefs::AddObserver(std::string_view key, ObserverInterface* observer) {
+  observers_[string{key}].push_back(observer);
 }
 
-void FakePrefs::RemoveObserver(const string& key, ObserverInterface* observer) {
-  std::vector<ObserverInterface*>& observers_for_key = observers_[key];
+void FakePrefs::RemoveObserver(std::string_view key,
+                               ObserverInterface* observer) {
+  string str_key{key};
+  std::vector<ObserverInterface*>& observers_for_key = observers_[str_key];
   auto observer_it =
       std::find(observers_for_key.begin(), observers_for_key.end(), observer);
   EXPECT_NE(observer_it, observers_for_key.end())
@@ -186,7 +189,7 @@ void FakePrefs::RemoveObserver(const string& key, ObserverInterface* observer) {
   if (observer_it != observers_for_key.end())
     observers_for_key.erase(observer_it);
   if (observers_for_key.empty())
-    observers_.erase(key);
+    observers_.erase(str_key);
 }
 
 }  // namespace chromeos_update_engine

@@ -21,6 +21,7 @@ import com.android.tools.lint.checks.infrastructure.TestFiles.jar
 import com.android.tools.lint.checks.infrastructure.TestFiles.xml
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -31,7 +32,7 @@ import kotlin.text.Charsets.UTF_8
 class RewriteAnnotationsTest : DriverTest() {
     @Test
     fun `Test copying private annotations from one of the stubs`() {
-        val source = File("stub-annotations".replace('/', File.separatorChar))
+        val source = File("stub-annotations")
         assertTrue(source.path, source.isDirectory)
         val target = temporaryFolder.newFolder()
         runDriver(
@@ -40,10 +41,16 @@ class RewriteAnnotationsTest : DriverTest() {
 
             ARG_COPY_ANNOTATIONS,
             source.path,
-            target.path
-        )
+            target.path,
 
-        // Source retention: Shouldn't exist
+            ARG_CLASS_PATH,
+            getAndroidJar().path
+        )
+        // Source retention explicitly listed: Shouldn't exist
+        val nullable = File(target, "android/annotation/SdkConstant.java")
+        assertFalse("${nullable.path} exists", nullable.isFile)
+
+        // Source retention androidx: Shouldn't exist
         val nonNull = File(target, "androidx/annotation/NonNull.java")
         assertFalse("${nonNull.path} exists", nonNull.isFile)
 
@@ -83,14 +90,57 @@ class RewriteAnnotationsTest : DriverTest() {
             @Retention(CLASS)
             @Target({METHOD, PARAMETER, FIELD})
             @interface RecentlyNullable {}
-        """.trimIndent().trim(), recentlyNull.readText(UTF_8).trim().replace("\r\n", "\n")
+            """.trimIndent().trim(),
+            recentlyNull.readText(UTF_8).trim().replace("\r\n", "\n")
         )
+    }
+
+    @Test
+    fun `Test stub-annotations containing unknown annotation`() {
+        val source = temporaryFolder.newFolder()
+        File("stub-annotations").copyRecursively(source)
+        assertTrue(source.path, source.isDirectory)
+        val target = temporaryFolder.newFolder()
+
+        val fooSource =
+            """
+            package android.annotation;
+
+            import static java.lang.annotation.ElementType.FIELD;
+            import static java.lang.annotation.ElementType.METHOD;
+            import static java.lang.annotation.ElementType.PARAMETER;
+            import static java.lang.annotation.RetentionPolicy.SOURCE;
+
+            import java.lang.annotation.Retention;
+            import java.lang.annotation.Target;
+
+            /** Stub only annotation. Do not use directly. */
+            @Retention(SOURCE)
+            @Target({METHOD, PARAMETER, FIELD})
+            public @interface Foo {}
+            """
+
+        File(source, "src/main/java/android/annotation/Unknown.java").writeText(fooSource)
+        assertThrows(IllegalStateException::class.java) {
+            runDriver(
+                ARG_NO_COLOR,
+                ARG_NO_BANNER,
+
+                ARG_COPY_ANNOTATIONS,
+                source.path,
+                target.path,
+
+                ARG_CLASS_PATH,
+                getAndroidJar().path
+            )
+        }
     }
 
     @Test
     fun `Test rewriting the bytecode for one of the public annotations`() {
         val bytecode = base64gzip(
-            "androidx/annotation/CallSuper.class", "" +
+            "androidx/annotation/CallSuper.class",
+            "" +
                 "H4sIAAAAAAAAAIWPsU4CQRRF70NhEQWxJMZoLCjdxs6KIMYCA2E3NlbD8kKG" +
                 "DDNkmSXwaxZ+gB9FfGMBFps4yczc5J53kve9//wC8IirCK0IlxHahEbiijzj" +
                 "F22Y0OorY5JixfnDQm0UoTMprNdLftdrPTXcs9Z55bWza8LdMDCxUXYeq0MR" +
@@ -107,7 +157,10 @@ class RewriteAnnotationsTest : DriverTest() {
             ARG_NO_BANNER,
 
             ARG_REWRITE_ANNOTATIONS,
-            compiledStubs.path
+            compiledStubs.path,
+
+            ARG_CLASS_PATH,
+            getAndroidJar().path
         )
 
         // Load the class to make sure it's legit
@@ -122,7 +175,8 @@ class RewriteAnnotationsTest : DriverTest() {
     @Test
     fun `Test rewriting the bytecode for one of the public annotations in a jar file`() {
         val bytecode = base64gzip(
-            "androidx/annotation/CallSuper.class", "" +
+            "androidx/annotation/CallSuper.class",
+            "" +
                 "H4sIAAAAAAAAAIWPsU4CQRRF70NhEQWxJMZoLCjdxs6KIMYCA2E3NlbD8kKG" +
                 "DDNkmSXwaxZ+gB9FfGMBFps4yczc5J53kve9//wC8IirCK0IlxHahEbiijzj" +
                 "F22Y0OorY5JixfnDQm0UoTMprNdLftdrPTXcs9Z55bWza8LdMDCxUXYeq0MR" +
@@ -144,7 +198,10 @@ class RewriteAnnotationsTest : DriverTest() {
             ARG_NO_BANNER,
 
             ARG_REWRITE_ANNOTATIONS,
-            jarFile.path
+            jarFile.path,
+
+            ARG_CLASS_PATH,
+            getAndroidJar().path
         )
 
         // Load the class to make sure it's legit

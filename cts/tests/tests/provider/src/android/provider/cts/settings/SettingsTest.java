@@ -36,6 +36,7 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteException;
 import android.net.Uri;
 import android.os.Binder;
+import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.RemoteException;
@@ -43,12 +44,14 @@ import android.os.SystemClock;
 import android.provider.Settings;
 
 import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SdkSuppress;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.SystemUtil;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -370,6 +373,18 @@ public class SettingsTest {
             fail("Expect throwing SecurityException due to no WRITE_SETTINGS permission");
         } catch (SecurityException se) { }
 
+    }
+
+    @Ignore("b/229197836")
+    @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
+    public void testDataRoamingAccessPermission() throws Exception {
+        try {
+            Settings.Global.getInt(getContext().getContentResolver(), Settings.Global.DATA_ROAMING);
+            fail("Expect throwing RuntimeException due readable maxTargetedSdk = S");
+        } catch (SecurityException e) {
+            // Expected.
+        }
     }
 
     private Instrumentation getInstrumentation() {

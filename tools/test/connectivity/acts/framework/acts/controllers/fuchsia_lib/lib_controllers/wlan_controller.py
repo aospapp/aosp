@@ -30,6 +30,7 @@ class WlanControllerError(signals.ControllerError):
 
 class WlanController:
     """Contains methods related to wlan core, to be used in FuchsiaDevice object"""
+
     def __init__(self, fuchsia_device):
         self.device = fuchsia_device
         self.log = logger.create_tagged_trace_logger(
@@ -44,86 +45,87 @@ class WlanController:
     def _deconfigure_wlan(self):
         pass
 
-    def get_wlan_client_interface_id(self):
-        """ Returns the wlan interface id of the first found wlan client
-        interface.
+    def update_wlan_interfaces(self):
+        """ Retrieves WLAN interfaces from device and sets the FuchsiaDevice
+        attributes.
         """
-        # Retrieve wlan ifaces
+        wlan_interfaces = self.get_interfaces_by_role()
+        self.device.wlan_client_interfaces = wlan_interfaces['client']
+        self.device.wlan_ap_interfaces = wlan_interfaces['ap']
+
+        # Set test interfaces to value from config, else the first found
+        # interface, else None
+        self.device.wlan_client_test_interface_name = self.device.conf_data.get(
+            'wlan_client_test_interface',
+            next(iter(self.device.wlan_client_interfaces), None))
+
+        self.device.wlan_ap_test_interface_name = self.device.conf_data.get(
+            'wlan_ap_test_interface',
+            next(iter(self.device.wlan_ap_interfaces), None))
+
+    def get_interfaces_by_role(self):
+        """ Retrieves WLAN interface information, supplimented by netstack info.
+
+        Returns:
+            Dict with keys 'client' and 'ap', each of which contain WLAN
+            interfaces.
+        """
+
+        # Retrieve WLAN interface IDs
         response = self.device.wlan_lib.wlanGetIfaceIdList()
         if response.get('error'):
             raise WlanControllerError('Failed to get WLAN iface ids: %s' %
                                       response['error'])
 
-        # If iface has role 'client', retunr id
-        iface_ids = response.get('result', [])
-        for id in iface_ids:
-            query_response = self.device.wlan_lib.wlanQueryInterface(id)
-            if query_response.get('error'):
+        wlan_iface_ids = response.get('result', [])
+        if len(wlan_iface_ids) < 1:
+            return {'client': {}, 'ap': {}}
+
+        # Use IDs to get WLAN interface info and mac addresses
+        wlan_ifaces_by_mac = {}
+        for id in wlan_iface_ids:
+            response = self.device.wlan_lib.wlanQueryInterface(id)
+            if response.get('error'):
                 raise WlanControllerError(
                     'Failed to query wlan iface id %s: %s' %
-                    (id, query_response['error']))
+                    (id, response['error']))
 
-            if query_response['result'].get('role').lower() == 'client':
-                return id
+            mac = response['result'].get('sta_addr', None)
+            if mac is None:
+                # Fallback to older field name to maintain backwards
+                # compatibility with older versions of SL4F's
+                # QueryIfaceResponse. See https://fxrev.dev/562146.
+                mac = response['result'].get('mac_addr')
 
-        return None
+            wlan_ifaces_by_mac[utils.mac_address_list_to_str(
+                mac)] = response['result']
 
-    def get_wlan_interface_mac_addr_from_id(self, iface_id):
-        """ Retrieves the mac address of a wlan iface, using the wlan iface
-        id.
+        # Use mac addresses to query the interfaces from the netstack view,
+        # which allows us to supplement the interface information with the name,
+        # netstack_id, etc.
 
-        Args:
-            iface_id: int, wlan iface id
+        # TODO(fxb/75909): This tedium is necessary to get the interface name
+        # because only netstack has that information. The bug linked here is
+        # to reconcile some of the information between the two perspectives, at
+        # which point we can eliminate step.
+        net_ifaces = self.device.netstack_controller.list_interfaces()
+        wlan_ifaces_by_role = {'client': {}, 'ap': {}}
+        for iface in net_ifaces:
+            try:
+                # Some interfaces might not have a MAC
+                iface_mac = utils.mac_address_list_to_str(iface['mac'])
+            except Exception as e:
+                self.log.debug(f'Error {e} getting MAC for iface {iface}')
+                continue
+            if iface_mac in wlan_ifaces_by_mac:
+                wlan_ifaces_by_mac[iface_mac]['netstack_id'] = iface['id']
 
-        Returns:
-            string, mac address of wlan iface
-        """
-        query_response = self.device.wlan_lib.wlanQueryInterface(iface_id)
-        if query_response.get('error'):
-            raise WlanControllerError('Failed to query wlan iface id %s: %s' %
-                                      (iface_id, query_response['error']))
-        return utils.mac_address_list_to_str(
-            query_response['result'].get('mac_addr'))
+                # Add to return dict, mapped by role then name.
+                wlan_ifaces_by_role[
+                    wlan_ifaces_by_mac[iface_mac]['role'].lower()][
+                        iface['name']] = wlan_ifaces_by_mac[iface_mac]
 
-    def get_wlan_interface_name(self, mac_addr=None):
-        """ Retrieves name (netstack) of wlan interface using the mac address. If
-        mac address is not provided, returns the name of the first found wlan
-        client (as opposed to AP) interface.
-
-        Args:
-            mac_addr: optional, string or list of decimal octets representing
-                the mac addr of the wlan interface. e.g. "44:07:0b:50:c1:ef" or
-                [68, 7, 11, 80, 193, 239]
-
-        Returns:
-            string, name of wlan interface
-        """
-        # Default to first found client wlan interface
-        if not mac_addr:
-            client_iface_id = self.get_wlan_client_interface_id()
-            mac_addr = self.get_wlan_interface_mac_addr_from_id(
-                client_iface_id)
-
-        # Convert mac addr to list, for comparison
-        if type(mac_addr) == str:
-            mac_addr = utils.mac_address_str_to_list(mac_addr)
-
-        err = self.device.netstack_lib.init().get('error')
-        if err:
-            raise WlanControllerError('Failed to init netstack_lib: %s' % err)
-
-        # Retrieve net ifaces
-        response = self.device.netstack_lib.netstackListInterfaces()
-        if response.get('error'):
-            raise WlanControllerError(
-                'Failed to get network interfaces list: %s' %
-                response['error'])
-
-        # Find iface with matching mac addr, and return name
-        for iface_info in response['result']:
-            if iface_info['mac'] == mac_addr:
-                return iface_info['name']
-        return None
+        return wlan_ifaces_by_role
 
     def set_country_code(self, country_code):
         """Sets country code through the regulatory region service and waits

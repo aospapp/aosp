@@ -22,8 +22,8 @@ from acts_contrib.test_utils.coex.CoexPerformanceBaseTest import CoexPerformance
 from acts_contrib.test_utils.coex.coex_test_utils import initiate_disconnect_from_hf
 from acts_contrib.test_utils.coex.coex_test_utils import pair_and_connect_headset
 from acts_contrib.test_utils.coex.coex_test_utils import setup_tel_config
-from acts_contrib.test_utils.tel.tel_test_utils import hangup_call
-from acts_contrib.test_utils.tel.tel_test_utils import initiate_call
+from acts_contrib.test_utils.tel.tel_voice_utils import hangup_call
+from acts_contrib.test_utils.tel.tel_voice_utils import initiate_call
 
 
 class WlanWithHfpPerformanceTest(CoexPerformanceBaseTest):

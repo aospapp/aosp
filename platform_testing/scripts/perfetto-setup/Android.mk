@@ -35,6 +35,16 @@ LOCAL_PREBUILT_MODULE_FILE := prebuilts/tools/linux-x86_64/perfetto/configs/long
 include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
+LOCAL_MODULE := long_trace_binder_config.textproto
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_MODULE_CLASS := ETC
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/local/tmp
+LOCAL_PREBUILT_MODULE_FILE := prebuilts/tools/linux-x86_64/perfetto/configs/long_trace_binder_config.textproto
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
 LOCAL_MODULE := trace_config.textproto
 LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
 LOCAL_LICENSE_CONDITIONS := notice
@@ -52,6 +62,16 @@ LOCAL_MODULE_CLASS := ETC
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/local/tmp
 LOCAL_PREBUILT_MODULE_FILE := prebuilts/tools/linux-x86_64/perfetto/configs/trace_config_experimental.textproto
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := trace_config_multi_user_cuj_tests.textproto
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_MODULE_CLASS := ETC
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/local/tmp
+LOCAL_PREBUILT_MODULE_FILE := prebuilts/tools/linux-x86_64/perfetto/configs/trace_config_multi_user_cuj_tests.textproto
 include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)

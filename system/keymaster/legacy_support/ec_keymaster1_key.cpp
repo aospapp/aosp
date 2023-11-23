@@ -31,9 +31,9 @@ EcdsaKeymaster1KeyFactory::EcdsaKeymaster1KeyFactory(const SoftwareKeyBlobMaker&
                                                      const KeymasterContext& context,
                                                      const Keymaster1Engine* engine)
     : EcKeyFactory(blob_maker, context), engine_(engine),
-      sign_factory_(new EcdsaKeymaster1OperationFactory(KM_PURPOSE_SIGN, engine)),
+      sign_factory_(new (std::nothrow) EcdsaKeymaster1OperationFactory(KM_PURPOSE_SIGN, engine)),
       // For pubkey ops we can use the normal operation factories.
-      verify_factory_(new EcdsaVerifyOperationFactory) {}
+      verify_factory_(new (std::nothrow) EcdsaVerifyOperationFactory) {}
 
 static bool is_supported(uint32_t digest) {
     return digest == KM_DIGEST_NONE || digest == KM_DIGEST_SHA_2_256;

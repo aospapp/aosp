@@ -36,7 +36,7 @@ namespace chromeos_update_engine {
 // MockHttpFetcher will send a chunk of data down in each call to BeginTransfer
 // and Unpause. For the other chunks of data, a callback is put on the run
 // loop and when that's called, another chunk is sent down.
-const size_t kMockHttpFetcherChunkSize(65536);
+static constexpr size_t kMockHttpFetcherChunkSize(65536);
 
 class MockHttpFetcher : public HttpFetcher {
  public:

@@ -70,4 +70,94 @@ public class ForkJoinPoolTest {
             fail("Unexpected exception: " + t.getMessage());
         }
     }
+
+    @Test
+    public void testConstructor_withKeepAliveTime() {
+
+        try {
+            ForkJoinPool pool = new ForkJoinPool(0,
+                    ForkJoinPool.defaultForkJoinWorkerThreadFactory,
+                    /*handler*/ null,
+                    /*asyncMode*/ false,
+                    /*corePoolSize*/ 10,
+                    /*maximumPoolSize*/ 10,
+                    /*minimumRunnable*/ 1,
+                    /*saturate*/ null,
+                    /*keepAliveTime*/ 60,
+                    /*unit*/ TimeUnit.SECONDS);
+            fail("Expected IllegalArgumentException when parallelism is 0");
+        } catch (IllegalArgumentException e) {
+        }
+
+        try {
+            ForkJoinPool pool = new ForkJoinPool(-1,
+                    ForkJoinPool.defaultForkJoinWorkerThreadFactory,
+                    /*handler*/ null,
+                    /*asyncMode*/ false,
+                    /*corePoolSize*/ 10,
+                    /*maximumPoolSize*/ 10,
+                    /*minimumRunnable*/ 1,
+                    /*saturate*/ null,
+                    /*keepAliveTime*/ 60,
+                    /*unit*/ TimeUnit.SECONDS);
+            fail("Expected IllegalArgumentException when parallelism is less than 0");
+        } catch (IllegalArgumentException e) {
+        }
+
+        try {
+            ForkJoinPool pool = new ForkJoinPool(8,
+                    ForkJoinPool.defaultForkJoinWorkerThreadFactory,
+                    /*handler*/ null,
+                    /*asyncMode*/ false,
+                    /*corePoolSize*/ 10,
+                    /*maximumPoolSize*/ 5,
+                    /*minimumRunnable*/ 1,
+                    /*saturate*/ null,
+                    /*keepAliveTime*/ 60,
+                    /*unit*/ TimeUnit.SECONDS);
+            fail("Expected IllegalArgumentException when maximumPoolSize is less than parallelism");
+        } catch (IllegalArgumentException e) {
+        }
+
+        try {
+            ForkJoinPool pool = new ForkJoinPool(8,
+                    ForkJoinPool.defaultForkJoinWorkerThreadFactory,
+                    /*handler*/ null,
+                    /*asyncMode*/ false,
+                    /*corePoolSize*/ 10,
+                    /*maximumPoolSize*/ 10,
+                    /*minimumRunnable*/ 1,
+                    /*saturate*/ null,
+                    /*keepAliveTime*/ 0,
+                    /*unit*/ TimeUnit.SECONDS);
+            fail("Expected IllegalArgumentException when keepAlivetime is 0");
+        } catch (IllegalArgumentException e) {
+        }
+
+        try {
+            ForkJoinPool pool = new ForkJoinPool(8,
+                    null,
+                    /*handler*/ null,
+                    /*asyncMode*/ false,
+                    /*corePoolSize*/ 10,
+                    /*maximumPoolSize*/ 10,
+                    /*minimumRunnable*/ 1,
+                    /*saturate*/ null,
+                    /*keepAliveTime*/ 60,
+                    /*unit*/ TimeUnit.SECONDS);
+            fail("Expected NullPointerException when factory is null");
+        } catch (NullPointerException e) {
+        }
+
+        ForkJoinPool pool = new ForkJoinPool(8,
+                ForkJoinPool.defaultForkJoinWorkerThreadFactory,
+                /*handler*/ null,
+                /*asyncMode*/ false,
+                /*corePoolSize*/ 10,
+                /*maximumPoolSize*/ 10,
+                /*minimumRunnable*/ 1,
+                /*saturate*/ null,
+                /*keepAliveTime*/ 60,
+                /*unit*/ TimeUnit.SECONDS);
+    }
 }

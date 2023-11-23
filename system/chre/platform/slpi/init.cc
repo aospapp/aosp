@@ -41,7 +41,7 @@ extern "C" {
 #endif
 
 #ifdef CHRE_QSH_ENABLED
-#include "chre/platform/slpi/qsh/qsh_shim.h"
+#include "chre/platform/slpi/qsh/qsh_proto_shim.h"
 #endif
 
 #ifdef CHRE_USE_BUFFERED_LOGGING

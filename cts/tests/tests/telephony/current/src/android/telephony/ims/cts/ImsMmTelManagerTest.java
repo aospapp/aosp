@@ -37,6 +37,7 @@ import android.telephony.SubscriptionManager;
 import android.telephony.ims.ImsException;
 import android.telephony.ims.ImsManager;
 import android.telephony.ims.ImsMmTelManager;
+import android.telephony.ims.ImsStateCallback;
 import android.telephony.ims.feature.MmTelFeature;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -578,6 +579,59 @@ public class ImsMmTelManagerTest {
             assertNotNull(resultQueue.poll(ImsUtils.TEST_TIMEOUT_MS, TimeUnit.MILLISECONDS));
         } catch (SecurityException e) {
             fail("getRegistrationTransportType requires READ_PRIVILEGED_PHONE_STATE permission.");
+        }
+
+        ImsStateCallback callback = new ImsStateCallback() {
+            @Override
+            public void onUnavailable(int reason) { }
+            @Override
+            public void onAvailable() { }
+            @Override
+            public void onError() { }
+        };
+
+        try {
+            mMmTelManager.registerImsStateCallback(Runnable::run, callback);
+            fail("registerImsStateCallback requires READ_PRECISE_PHONE_STATE or "
+                    + "READ_PRIVILEGED_PHONE_STATE permission.");
+        } catch (SecurityException e) {
+            //expected
+        } catch (ImsException ie) {
+            fail("registerImsStateCallback requires READ_PRECISE_PHONE_STATE or "
+                    + "READ_PRIVILEGED_PHONE_STATE permission.");
+        }
+
+        try {
+            ShellIdentityUtils.invokeThrowableMethodWithShellPermissionsNoReturn(mMmTelManager,
+                    m -> m.registerImsStateCallback(Runnable::run, callback),
+                    ImsException.class, "android.permission.READ_PRECISE_PHONE_STATE");
+        } catch (SecurityException e) {
+            fail("registerImsStateCallback requires READ_PRECISE_PHONE_STATE permission.");
+        } catch (ImsException ignore) {
+            // don't care, permission check passed
+        }
+
+        try {
+            mMmTelManager.unregisterImsStateCallback(callback);
+        } catch (SecurityException e) {
+            fail("uregisterImsStateCallback requires no permission.");
+        }
+
+        try {
+            ShellIdentityUtils.invokeThrowableMethodWithShellPermissionsNoReturn(mMmTelManager,
+                    m -> m.registerImsStateCallback(Runnable::run, callback),
+                    ImsException.class, "android.permission.READ_PRIVILEGED_PHONE_STATE");
+        } catch (SecurityException e) {
+            fail("registerImsStateCallback requires READ_PRIVILEGED_PHONE_STATE permission.");
+        } catch (ImsException ignore) {
+            // don't care, permission check passed
+        }
+
+        try {
+            mMmTelManager.unregisterImsStateCallback(callback);
+        } catch (SecurityException e) {
+            // unreachable, already passed permission check
+            fail("uregisterImsStateCallback requires no permission.");
         }
     }
 

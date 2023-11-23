@@ -171,10 +171,8 @@ static bool shouldWarnOutParam(const std::string& typeName) {
 }
 
 void AidlHelper::emitAidl(
-        const Interface& interface, const Coordinator& coordinator,
+        const Interface& interface, Formatter& out,
         const std::map<const NamedType*, const ProcessedCompoundType>& processedTypes) {
-    Formatter out = getFileWithHeader(interface, coordinator, processedTypes);
-
     interface.emitDocComment(out);
     if (interface.superType() && interface.superType()->fqName() != gIBaseFqName) {
         out << "// Interface inherits from " << interface.superType()->fqName().string()
@@ -225,7 +223,10 @@ void AidlHelper::emitAidl(
                          << " since a newer alternative is available.";
                  });
         if (!supersededNamedTypes.empty()) out << "\n\n";
-
+        // Emit the nested type definitions
+        for (const auto& [name, type] : latestTypeForBaseName) {
+            emitAidl(*type.node, out, processedTypes);
+        }
         // Add comment for superseded methods
         out.join(supersededMethods.begin(), supersededMethods.end(), "\n",
                  [&](const NodeWithVersion<Method>& versionedMethod) {
@@ -340,6 +341,7 @@ void AidlHelper::emitAidl(
                      out << wrappedOutput;
                  });
     });
+    out << "\n";
 }
 
 }  // namespace android

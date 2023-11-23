@@ -18,7 +18,6 @@ package android.platform.test.rule;
 
 import static androidx.test.InstrumentationRegistry.getInstrumentation;
 
-import static com.android.systemui.shared.system.QuickStepContract.NAV_BAR_MODE_2BUTTON_OVERLAY;
 import static com.android.systemui.shared.system.QuickStepContract.NAV_BAR_MODE_3BUTTON_OVERLAY;
 import static com.android.systemui.shared.system.QuickStepContract.NAV_BAR_MODE_GESTURAL_OVERLAY;
 
@@ -84,9 +83,7 @@ public class NavigationModeRule extends TestWatcher {
     private static String getCurrentOverlayPackage(int currentInteractionMode) {
         return QuickStepContract.isGesturalMode(currentInteractionMode)
                 ? NAV_BAR_MODE_GESTURAL_OVERLAY
-                : QuickStepContract.isSwipeUpMode(currentInteractionMode)
-                        ? NAV_BAR_MODE_2BUTTON_OVERLAY
-                        : NAV_BAR_MODE_3BUTTON_OVERLAY;
+                : NAV_BAR_MODE_3BUTTON_OVERLAY;
     }
 
     @Override

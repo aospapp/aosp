@@ -28,6 +28,8 @@ from manifest import parse_manifest
 from manifest import parse_test_config
 from manifest import write_xml
 
+KNOWN_PREPARERS = ['com.android.tradefed.targetprep.TestAppInstallSetup',
+                   'com.android.tradefed.targetprep.suite.SuiteApkInstaller']
 
 def parse_args():
   """Parse commandline arguments."""
@@ -64,7 +66,7 @@ def overwrite_test_file_name(test_config_doc, test_file_name):
   tests = get_children_with_tag(test_config, 'target_preparer')
 
   for test in tests:
-    if test.getAttribute('class') == "com.android.tradefed.targetprep.TestAppInstallSetup":
+    if test.getAttribute('class') in KNOWN_PREPARERS:
       options = get_children_with_tag(test, 'option')
       for option in options:
         if option.getAttribute('name') == "test-file-name":
@@ -86,7 +88,7 @@ def main():
     if args.test_file_name:
       overwrite_test_file_name(doc, args.test_file_name)
 
-    with open(args.output, 'wb') as f:
+    with open(args.output, 'w') as f:
       write_xml(f, doc)
 
   # pylint: disable=broad-except

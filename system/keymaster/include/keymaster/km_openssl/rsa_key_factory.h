@@ -52,7 +52,6 @@ class RsaKeyFactory : public AsymmetricKeyFactory, public SoftKeyFactoryMixin {
     OperationFactory* GetOperationFactory(keymaster_purpose_t purpose) const override;
 
     keymaster_algorithm_t keymaster_key_type() const override { return KM_ALGORITHM_RSA; }
-    int evp_key_type() const override { return EVP_PKEY_RSA; }
 
   protected:
     keymaster_error_t UpdateImportKeyDescription(const AuthorizationSet& key_description,

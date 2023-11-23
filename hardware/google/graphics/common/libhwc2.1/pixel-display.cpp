@@ -162,6 +162,21 @@ ndk::ScopedAStatus Display::setRefreshRateThrottle(int delayMs, int *_aidl_retur
     }
     return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
 }
+
+ndk::ScopedAStatus Display::histogramSample(const RoiRect &roi, const Weight &weight,
+                                            HistogramPos pos, Priority pri,
+                                            std::vector<char16_t> *histogrambuffer,
+                                            HistogramErrorCode *_aidl_return) {
+    return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+}
+
+ndk::ScopedAStatus Display::getPanelCalibrationStatus(PanelCalibrationStatus *_aidl_return){
+    if (mDevice) {
+        *_aidl_return = mDevice->getPanelCalibrationStatus();
+        return ndk::ScopedAStatus::ok();
+    }
+    return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+}
 } // namespace display
 } // namespace pixel
 } // namespace hardware

@@ -92,6 +92,8 @@ public class Utils {
     public static final int HOTWORD_DETECTION_SERVICE_DSP_ONREJECT_TEST = 105;
     public static final int HOTWORD_DETECTION_SERVICE_PROCESS_DIED_TEST = 106;
     public static final int HOTWORD_DETECTION_SERVICE_CALL_STOP_RECOGNITION = 107;
+    public static final int HOTWORD_DETECTION_SERVICE_DSP_DESTROY_DETECTOR = 108;
+    public static final int HOTWORD_DETECTION_SERVICE_SOFTWARE_DESTROY_DETECTOR = 109;
 
     public static final int HOTWORD_DETECTION_SERVICE_TRIGGER_SUCCESS = 1;
     public static final int HOTWORD_DETECTION_SERVICE_TRIGGER_ILLEGAL_STATE_EXCEPTION = 2;
@@ -161,6 +163,7 @@ public class Utils {
     public static final String DIRECT_ACTIONS_ACTIVITY_CMD_DESTROYED_INTERACTOR =
             "destroyedInteractor";
     public static final String DIRECT_ACTIONS_ACTIVITY_CMD_INVALIDATE_ACTIONS = "invalidateActions";
+    public static final String DIRECT_ACTIONS_ACTIVITY_CMD_GET_PACKAGE_NAME = "getpackagename";
 
     public static final String DIRECT_ACTIONS_RESULT_PERFORMED = "performed";
     public static final String DIRECT_ACTIONS_RESULT_CANCELLED = "cancelled";
@@ -179,6 +182,8 @@ public class Utils {
 
     public static final String HOTWORD_DETECTION_SERVICE_TRIGGER_RESULT_INTENT =
             "android.intent.action.HOTWORD_DETECTION_SERVICE_TRIGGER_RESULT";
+    public static final String HOTWORD_DETECTION_SERVICE_SOFTWARE_TRIGGER_RESULT_INTENT =
+            "android.intent.action.HOTWORD_DETECTION_SERVICE_SOFTWARE_TRIGGER_RESULT";
     public static final String HOTWORD_DETECTION_SERVICE_ONDETECT_RESULT_INTENT =
             "android.intent.action.HOTWORD_DETECTION_SERVICE_ONDETECT_RESULT";
     public static final String KEY_SERVICE_TYPE = "serviceType";

@@ -18,11 +18,11 @@ set -e
 
 bootstrap=
 all=
-in=
-out=
+root=
+block_apexes=
 
 function usage() {
-  echo "usage: $0 [--bootstrap|--all] --in in --out out" && exit 1
+  echo "usage: $0 [--bootstrap|--all] [--block apexes(colol-separated)] --root root" && exit 1
 }
 
 while [[ $# -gt 0 ]]; do
@@ -35,13 +35,13 @@ while [[ $# -gt 0 ]]; do
       all=yes
       shift
       ;;
-    --in)
-      in=$2
+    --block)
+      block_apexes=$2
       shift
       shift
       ;;
-    --out)
-      out=$2
+    --root)
+      root=$2
       shift
       shift
       ;;
@@ -50,7 +50,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [ -z $in ] || [ -z $out ]; then
+if [ -z $root ]; then
   usage
 fi
 
@@ -82,42 +82,43 @@ function abs() {
   fi
 }
 
-ROOT_IN=$(abs $in)
-ROOT_OUT=$(abs $out)
+ROOT=$(abs $root)
 
 # to use relative paths
 cd $(dirname $0)
 
-rm -iRf $ROOT_OUT
-mkdir -p $ROOT_OUT
-mkdir -p $ROOT_OUT/apex
-cp -R $ROOT_IN/* $ROOT_OUT
+# clean /apex directory
+rm -iRf $ROOT/apex
 
-if test -f $ROOT_OUT/system/etc/linker.config.json; then
-  conv_linker_config proto -s $ROOT_OUT/system/etc/linker.config.json -o $ROOT_OUT/system/etc/linker.config.pb
-fi
+# prepare /apex directory
+# 1) activate APEXes
+# 2) generate /apex/apex-info-list.xml
 
-apexInfo=$ROOT_OUT/apex/apex-info-list.xml
+mkdir -p $ROOT/apex
+
+blockIndex=1
+apexInfo=$ROOT/apex/apex-info-list.xml
 echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > $apexInfo
 echo "<apex-info-list>" > $apexInfo
 
 for partition in system product system_ext vendor; do
-  if [ -d $ROOT_OUT/$partition/apex ]; then
-    for src in $ROOT_OUT/$partition/apex/*/; do
+  if [ -d $ROOT/$partition/apex ]; then
+    for src in $ROOT/$partition/apex/*/; do
+      if test ! -d $src; then
+        continue
+      fi
       name=$(basename $src)
-      dst=$ROOT_OUT/apex/$name
-      preinstalled_path=/$(realpath --relative-to=$ROOT_OUT $src)
-      module_path=/$(realpath --relative-to=$ROOT_OUT $dst)
+      dst=$ROOT/apex/$name
+      module_path=/$(realpath --relative-to=$ROOT $src)
+      # simulate block apexes are activated from /dev/block/vdaN
+      if [[ "$block_apexes" == *"$name"* ]]; then
+        module_path=/dev/block/vda$blockIndex
+        ((blockIndex=blockIndex+1))
+      fi
       if [ $(get_level $name) -le $activate_level ]; then
+        # simulate "activation" by copying "apex dir" into /apex
         cp -r $src $dst
-        conv_apex_manifest proto $dst/apex_manifest.json -o $dst/apex_manifest.pb
-        if test -f $dst/etc/linker.config.json; then
-          conv_linker_config proto -s $dst/etc/linker.config.json -o $dst/etc/linker.config.pb
-        fi
-        mkdir $dst/lib
-        echo " <apex-info moduleName=\"$name\" modulePath=\"$module_path\" preinstalledModulePath=\"$preinstalled_path\" isFactory=\"true\" isActive=\"true\" />" >> $apexInfo
-      else
-        echo " <apex-info moduleName=\"$name\" preinstalledModulePath=\"$preinstalled_path\" isFactory=\"true\" isActive=\"false\" />" >> $apexInfo
+        echo " <apex-info moduleName=\"$name\" modulePath=\"$module_path\" preinstalledModulePath=\"$module_path\" isFactory=\"true\" isActive=\"true\" />" >> $apexInfo
       fi
     done
   fi

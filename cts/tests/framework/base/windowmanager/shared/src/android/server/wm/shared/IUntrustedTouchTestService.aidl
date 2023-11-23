@@ -20,7 +20,7 @@ import android.os.IBinder;
 
 interface IUntrustedTouchTestService {
     void showToast();
-    void showSystemAlertWindow(String windowName, float opacity);
+    void showSystemAlertWindow(String windowName, float opacity, int viewX, int viewY);
     void showActivityChildWindow(String windowName, in IBinder token);
     void removeOverlays();
 }

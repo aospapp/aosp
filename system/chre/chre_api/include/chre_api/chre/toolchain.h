@@ -54,7 +54,7 @@
 // For platforms that don't support error pragmas, utilize the best method of
 // showing an error depending on the platform support.
 #ifndef CHRE_BUILD_ERROR
-#ifdef __cplusplus  // C++11 or greater assumed
+#ifdef __cplusplus  // C++17 or greater assumed
 #define CHRE_BUILD_ERROR(message) static_assert(0, message)
 #elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
 #define CHRE_BUILD_ERROR(message) _Static_assert(0, message)

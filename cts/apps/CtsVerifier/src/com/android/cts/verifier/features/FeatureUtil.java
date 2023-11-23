@@ -80,6 +80,13 @@ public final class FeatureUtil {
     }
 
     /**
+     * Checks whether the device requires new user disclaimer acknowledgement for managed user.
+     */
+    public static boolean isNewManagerUserDisclaimerRequired(Context context) {
+        return isAutomotive(context);
+    }
+
+    /**
      * Checks whether the device supports file transfer.
      */
     public static boolean isUsbFileTransferSupported(Context context) {

@@ -111,6 +111,46 @@ public class LegacyStorageHostTest extends BaseHostTestCase {
     }
 
     @Test
+    public void testCantInsertFilesInOtherAppPrivateDir_hasRW() throws Exception {
+        runDeviceTest("testCantInsertFilesInOtherAppPrivateDir_hasRW");
+    }
+
+    @Test
+    public void testCantUpdateFilesInOtherAppPrivateDir_hasRW() throws Exception {
+        runDeviceTest("testCantUpdateFilesInOtherAppPrivateDir_hasRW");
+    }
+
+    @Test
+    public void testCantInsertFilesInOtherAppPrivateDir_hasMES() throws Exception {
+        allowAppOps("android:manage_external_storage");
+        try {
+            runDeviceTest("testCantInsertFilesInOtherAppPrivateDir_hasMES");
+        } finally {
+            denyAppOps("android:manage_external_storage");
+        }
+    }
+
+    @Test
+    public void testCantUpdateFilesInOtherAppPrivateDir_hasMES() throws Exception {
+        allowAppOps("android:manage_external_storage");
+        try {
+            runDeviceTest("testCantUpdateFilesInOtherAppPrivateDir_hasMES");
+        } finally {
+            denyAppOps("android:manage_external_storage");
+        }
+    }
+
+    @Test
+    public void testCantInsertFilesInOtherAppPrivateDir_hasSystemGallery() throws Exception {
+        runDeviceTest("testCantInsertFilesInOtherAppPrivateDir_hasSystemGallery");
+    }
+
+    @Test
+    public void testCantUpdateFilesInOtherAppPrivateDir_hasSystemGallery() throws Exception {
+        runDeviceTest("testCantUpdateFilesInOtherAppPrivateDir_hasSystemGallery");
+    }
+
+    @Test
     public void testMkdirInRandomPlaces_hasW() throws Exception {
         revokePermissions("android.permission.READ_EXTERNAL_STORAGE");
         executeShellCommand("mkdir -p /sdcard/Android/data/com.android.shell -m 2770");
@@ -144,6 +184,11 @@ public class LegacyStorageHostTest extends BaseHostTestCase {
     @Test
     public void testCanRename_hasRW() throws Exception {
         runDeviceTest("testCanRename_hasRW");
+    }
+
+    @Test
+    public void testCanTrashOtherAndroidMediaFiles_hasRW() throws Exception {
+        runDeviceTest("testCanTrashOtherAndroidMediaFiles_hasRW");
     }
 
     @Test
@@ -214,6 +259,15 @@ public class LegacyStorageHostTest extends BaseHostTestCase {
         runDeviceTest("testLegacySystemGalleryCanRenameImagesAndVideosWithoutDbUpdates");
     }
 
+    /**
+     * (b/205673506): Test that legacy System Gallery can update() media file's releative_path to a
+     * non default top level directory.
+     */
+    @Test
+    public void testLegacySystemGalleryCanUpdateToExistingDirectory() throws Exception {
+        runDeviceTest("testLegacySystemGalleryCanUpdateToExistingDirectory");
+    }
+
     @Test
     public void testLegacySystemGalleryWithoutWESCannotRename() throws Exception {
         revokePermissions("android.permission.WRITE_EXTERNAL_STORAGE");
@@ -248,5 +302,19 @@ public class LegacyStorageHostTest extends BaseHostTestCase {
     @Test
     public void testUpdateToExternalDirsViaRelativePath() throws Exception {
         runDeviceTest("testUpdateToExternalDirsViaRelativePath");
+    }
+
+    private void allowAppOps(String... ops) throws Exception {
+        for (String op : ops) {
+            executeShellCommand("cmd appops set --uid android.scopedstorage.cts.legacy "
+                    + op + " allow");
+        }
+    }
+
+    private void denyAppOps(String... ops) throws Exception {
+        for (String op : ops) {
+            executeShellCommand("cmd appops set --uid android.scopedstorage.cts.legacy "
+                    + op + " deny");
+        }
     }
 }

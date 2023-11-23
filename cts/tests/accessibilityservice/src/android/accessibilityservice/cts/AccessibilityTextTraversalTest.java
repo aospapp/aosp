@@ -3928,8 +3928,139 @@ public class AccessibilityTextTraversalTest {
         assertSame(refreshedText.getTextSelectionEnd(), 4);
     }
 
+    @Test
+    public void testViewDoesNotHaveSelectableText() {
+        final TextView nonSelectableView = mActivity.findViewById(R.id.text);
+
+        sInstrumentation.runOnMainSync(() -> {
+            nonSelectableView.setVisibility(View.VISIBLE);
+            nonSelectableView.setText(getString(R.string.a_b));
+
+        });
+
+        final AccessibilityNodeInfo textNode = sUiAutomation
+                .getRootInActiveWindow().findAccessibilityNodeInfosByText(
+                        getString(R.string.a_b)).get(0);
+
+        assertFalse("Text node has selectable text.", textNode.isTextSelectable());
+    }
+
+    @Test
+    public void testViewDoesHaveSelectableText() {
+        final TextView selectableView = mActivity.findViewById(R.id.selectableText);
+        final EditText editText = mActivity.findViewById(R.id.editText);
+
+        sInstrumentation.runOnMainSync(() -> {
+            selectableView.setVisibility(View.VISIBLE);
+            selectableView.setText(getString(R.string.a_b));
+            editText.setVisibility(View.VISIBLE);
+            editText.setText(getString(R.string.foo_bar_baz));
+        });
+
+        final AccessibilityNodeInfo selectableTextNode = sUiAutomation
+                .getRootInActiveWindow().findAccessibilityNodeInfosByText(
+                        getString(R.string.a_b)).get(0);
+
+        final AccessibilityNodeInfo editTextNode = sUiAutomation
+                .getRootInActiveWindow().findAccessibilityNodeInfosByText(
+                        getString(R.string.foo_bar_baz)).get(0);
+
+        assertTrue("Text node does not have selectable text.",
+                selectableTextNode.isTextSelectable());
+
+        assertTrue("EditText node does not have selectable text.", editTextNode.isTextSelectable());
+    }
+
+    @Test
+    public void testSelectionMovesFocus() throws Exception {
+        final TextView selectableView = mActivity.findViewById(R.id.selectableText);
+        final EditText editText = mActivity.findViewById(R.id.editText);
+
+        sInstrumentation.runOnMainSync(() -> {
+            selectableView.setVisibility(View.VISIBLE);
+            selectableView.setText(getString(R.string.a_b));
+            editText.setVisibility(View.VISIBLE);
+            editText.setText(getString(R.string.foo_bar_baz));
+            editText.setFocusable(true);
+            editText.requestFocus();
+        });
+
+        AccessibilityNodeInfo selectableTextNode = sUiAutomation
+                .getRootInActiveWindow().findAccessibilityNodeInfosByText(
+                        getString(R.string.a_b)).get(0);
+
+        final AccessibilityNodeInfo editTextNode = sUiAutomation
+                .getRootInActiveWindow().findAccessibilityNodeInfosByText(
+                        getString(R.string.foo_bar_baz)).get(0);
+
+        assertTrue("Selectable text node does not have selectable text.",
+                selectableTextNode.isTextSelectable());
+
+        assertTrue("EditText node does not have selectable text.",
+                editTextNode.isTextSelectable());
+
+        assertTrue("EditText is not focused", editTextNode.isFocused());
+
+        performMovementActionAndGetEvent(selectableTextNode,
+                AccessibilityNodeInfo.AccessibilityAction.ACTION_NEXT_AT_MOVEMENT_GRANULARITY,
+                AccessibilityNodeInfo.MOVEMENT_GRANULARITY_CHARACTER, true);
+
+        // Refresh node.
+        selectableTextNode = sUiAutomation
+                .getRootInActiveWindow().findAccessibilityNodeInfosByText(
+                        getString(R.string.a_b)).get(0);
+
+        assertTrue("Selectable text node does not get focus after selection",
+                selectableTextNode.isFocused());
+    }
+
+    @Test
+    public void testSelectionDoesNotMoveFocus() throws Exception {
+        final TextView selectableView = mActivity.findViewById(R.id.selectableText);
+        final EditText editText = mActivity.findViewById(R.id.editText);
+
+        sInstrumentation.runOnMainSync(() -> {
+            selectableView.setVisibility(View.VISIBLE);
+            selectableView.setText(getString(R.string.a_b));
+            selectableView.setTextIsSelectable(false);
+            editText.setVisibility(View.VISIBLE);
+            editText.setText(getString(R.string.foo_bar_baz));
+            editText.setFocusable(true);
+            editText.requestFocus();
+        });
+
+        AccessibilityNodeInfo selectableTextNode = sUiAutomation
+                .getRootInActiveWindow().findAccessibilityNodeInfosByText(
+                        getString(R.string.a_b)).get(0);
+
+        final AccessibilityNodeInfo editTextNode = sUiAutomation
+                .getRootInActiveWindow().findAccessibilityNodeInfosByText(
+                        getString(R.string.foo_bar_baz)).get(0);
+
+        assertFalse("Selectable text node does have selectable text.",
+                selectableTextNode.isTextSelectable());
+
+        assertTrue("EditText node does not have selectable text.",
+                editTextNode.isTextSelectable());
+
+        assertTrue("EditText is not focused", editTextNode.isFocused());
+
+        performMovementActionAndGetEvent(selectableTextNode,
+                AccessibilityNodeInfo.AccessibilityAction.ACTION_NEXT_AT_MOVEMENT_GRANULARITY,
+                AccessibilityNodeInfo.MOVEMENT_GRANULARITY_CHARACTER, true);
+
+        // Refresh node.
+        selectableTextNode = sUiAutomation
+                .getRootInActiveWindow().findAccessibilityNodeInfosByText(
+                        getString(R.string.a_b)).get(0);
+
+        assertFalse("Selectable text node gets focus after selection",
+                selectableTextNode.isFocused());
+    }
+
     private AccessibilityEvent performMovementActionAndGetEvent(final AccessibilityNodeInfo target,
-            final int action, final int granularity, final boolean extendSelection)
+            AccessibilityNodeInfo.AccessibilityAction action, final int granularity,
+            final boolean extendSelection)
             throws Exception {
         final Bundle arguments = new Bundle();
         arguments.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_MOVEMENT_GRANULARITY_INT,
@@ -3938,23 +4069,15 @@ public class AccessibilityTextTraversalTest {
             arguments.putBoolean(
                     AccessibilityNodeInfo.ACTION_ARGUMENT_EXTEND_SELECTION_BOOLEAN, true);
         }
-        Runnable performActionRunnable = new Runnable() {
-            @Override
-            public void run() {
-                target.performAction(action, arguments);
-            }
-        };
-        UiAutomation.AccessibilityEventFilter filter = new UiAutomation.AccessibilityEventFilter() {
-            @Override
-            public boolean accept(AccessibilityEvent event) {
-                boolean isMovementEvent = event.getEventType()
-                        == AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY;
-                boolean actionMatches = event.getAction() == action;
-                boolean packageMatches =
-                        event.getPackageName().equals(mActivity.getPackageName());
-                boolean granularityMatches = event.getMovementGranularity() == granularity;
-                return isMovementEvent && actionMatches && packageMatches && granularityMatches;
-            }
+        Runnable performActionRunnable = () -> target.performAction(action.getId(), arguments);
+        UiAutomation.AccessibilityEventFilter filter = event -> {
+            boolean isMovementEvent = event.getEventType()
+                    == AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY;
+            boolean actionMatches = event.getAction() == action.getId();
+            boolean packageMatches = TextUtils.equals(event.getPackageName(),
+                    mActivity.getPackageName());
+            boolean granularityMatches = event.getMovementGranularity() == granularity;
+            return isMovementEvent && actionMatches && packageMatches && granularityMatches;
         };
         return sUiAutomation
                 .executeAndWaitForEvent(performActionRunnable, filter, DEFAULT_TIMEOUT_MS);

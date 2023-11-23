@@ -54,4 +54,11 @@ public interface IPlayStoreHelper extends IAppHelper {
      * the app completes uninstallation, though uninstallation cannot be guaranteed.
      */
     public void uninstallApp();
+
+    /**
+     * Setup expectations: YouTube is on the home page.
+     *
+     * <p>This method attempts to verify home page element of YouTube.
+     */
+    void verifyHomePage();
 }

@@ -16,6 +16,9 @@
 
 #pragma once
 
+#include <optional>
+
+#include <aidl/android/hardware/security/keymint/EcCurve.h>
 #include <aidl/android/hardware/security/keymint/ErrorCode.h>
 #include <keymasterV4_1/keymaster_tags.h>
 #include <keymint_support/keymint_tags.h>
@@ -278,7 +281,7 @@ static KMV1::Digest convert(V4_0::Digest d) {
     }
 }
 
-static V4_0::EcCurve convert(KMV1::EcCurve e) {
+static std::optional<V4_0::EcCurve> convert(KMV1::EcCurve e) {
     switch (e) {
     case KMV1::EcCurve::P_224:
         return V4_0::EcCurve::P_224;
@@ -288,7 +291,11 @@ static V4_0::EcCurve convert(KMV1::EcCurve e) {
         return V4_0::EcCurve::P_384;
     case KMV1::EcCurve::P_521:
         return V4_0::EcCurve::P_521;
+    case KMV1::EcCurve::CURVE_25519:
+        // KeyMaster did not support curve 25519
+        return std::nullopt;
     }
+    return std::nullopt;
 }
 
 static KMV1::EcCurve convert(V4_0::EcCurve e) {
@@ -490,7 +497,9 @@ static V4_0::KeyParameter convertKeyParameterToLegacy(const KMV1::KeyParameter& 
         break;
     case KMV1::Tag::EC_CURVE:
         if (auto v = KMV1::authorizationValue(KMV1::TAG_EC_CURVE, kp)) {
-            return V4_0::makeKeyParameter(V4_0::TAG_EC_CURVE, convert(v->get()));
+            if (auto curve = convert(v->get())) {
+                return V4_0::makeKeyParameter(V4_0::TAG_EC_CURVE, curve.value());
+            }
         }
         break;
     case KMV1::Tag::RSA_PUBLIC_EXPONENT:

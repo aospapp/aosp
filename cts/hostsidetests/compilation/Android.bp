@@ -20,7 +20,11 @@ java_test_host {
     name: "CtsCompilationTestCases",
     srcs: ["src/**/*.java"],
     java_resource_dirs: ["assets/"],
-    java_resources: [":CtsCompilationApp"],
+    java_resources: [
+        ":AppUsedByOtherApp",
+        ":AppUsingOtherApp",
+        ":CtsCompilationApp",
+    ],
     // tag this module as a cts test artifact
     test_suites: [
         "cts",
@@ -31,5 +35,6 @@ java_test_host {
         "tradefed",
         "compatibility-host-util",
         "guava",
+        "truth-prebuilt",
     ],
 }

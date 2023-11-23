@@ -41,15 +41,7 @@ internal fun preprocessArgv(args: Array<String>): Array<String> {
             if (prepend.isEmpty() && append.isEmpty()) {
                 args
             } else {
-                val index = args.indexOf(ARG_GENERATE_DOCUMENTATION)
-                val newArgs =
-                    if (index != -1) {
-                        args.sliceArray(0 until index) + prepend +
-                            args.sliceArray(index until args.size) + append
-                    } else {
-                        prepend + args + append
-                    }
-                newArgs
+                prepend + args + append
             }
         } else {
             args
@@ -149,7 +141,8 @@ private fun dumpArgv(
 /** Generate a rerun script file name minus the extension. */
 private fun createRerunScriptBaseFilename(): String {
     val timestamp = LocalDateTime.now().format(
-        DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss.SSS"))
+        DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss.SSS")
+    )
 
     val uniqueInt = Random.nextInt(0, Int.MAX_VALUE)
     val dir = System.getenv("METALAVA_TEMP") ?: System.getenv("TMP") ?: System.getenv("TEMP") ?: "/tmp"
@@ -178,7 +171,8 @@ private fun generateRerunScript(stdout: PrintWriter, args: Array<String>) {
     val script = File("$scriptBaseName.sh")
     var optFileIndex = 0
     script.printWriter().use { out ->
-        out.println("""
+        out.println(
+            """
             |#!/bin/sh
             |#
             |# Auto-generated $PROGRAM_NAME rerun script
@@ -195,17 +189,20 @@ private fun generateRerunScript(stdout: PrintWriter, args: Array<String>) {
             |jvm_opts=(${"$"}METALAVA_JVM_OPTS)
             |
             |if [ ${"$"}{#jvm_opts[@]} -eq 0 ] ; then
-            """.trimMargin())
+            """.trimMargin()
+        )
 
         jvmOptions.forEach {
             out.println("""    jvm_opts+=(${shellEscape(it)})""")
         }
 
-        out.println("""
+        out.println(
+            """
             |fi
             |
             |${"$"}METALAVA_RUN_PREFIX $java "${"$"}{jvm_opts[@]}" \
-            """.trimMargin())
+            """.trimMargin()
+        )
         out.println("""    -jar $jar \""")
 
         // Write the actual metalava options

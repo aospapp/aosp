@@ -51,4 +51,4 @@ include $(CHRE_PREFIX)/build/tools_config.mk
 include $(CHRE_PREFIX)/build/nanopb.mk
 
 # TFLM Sources
-include $(CHRE_PREFIX)/build/tflm.mk
+include $(CHRE_PREFIX)/external/tflm/tflm.mk

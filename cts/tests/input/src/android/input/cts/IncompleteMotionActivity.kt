@@ -21,15 +21,15 @@ import android.view.MotionEvent
 import java.util.concurrent.atomic.AtomicBoolean
 
 class IncompleteMotionActivity : Activity() {
-    private val mReceivedMove = AtomicBoolean(false)
+    private val receivedMove = AtomicBoolean(false)
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (event.action == MotionEvent.ACTION_MOVE) {
-            mReceivedMove.set(true)
+            receivedMove.set(true)
         }
         return true
     }
 
     fun receivedMove(): Boolean {
-        return mReceivedMove.get()
+        return receivedMove.get()
     }
 }

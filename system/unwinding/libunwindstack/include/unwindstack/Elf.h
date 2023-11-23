@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef _LIBUNWINDSTACK_ELF_H
-#define _LIBUNWINDSTACK_ELF_H
+#pragma once
 
 #include <stddef.h>
 
@@ -68,6 +67,8 @@ class Elf {
 
   std::string GetBuildID();
 
+  std::string GetPrintableBuildID();
+
   int64_t GetLoadBias() { return load_bias_; }
 
   bool IsValidPc(uint64_t pc);
@@ -100,14 +101,20 @@ class Elf {
 
   static std::string GetBuildID(Memory* memory);
 
+  // Caching cannot be enabled/disabled while unwinding. It is assumed
+  // that once enabled, it remains enabled while all unwinds are running.
+  // If the state of the caching changes while unwinding is occurring,
+  // it could cause crashes.
   static void SetCachingEnabled(bool enable);
+
   static bool CachingEnabled() { return cache_enabled_; }
 
   static void CacheLock();
   static void CacheUnlock();
   static void CacheAdd(MapInfo* info);
   static bool CacheGet(MapInfo* info);
-  static bool CacheAfterCreateMemory(MapInfo* info);
+
+  static std::string GetPrintableBuildID(std::string& build_id);
 
  protected:
   bool valid_ = false;
@@ -124,10 +131,9 @@ class Elf {
   std::unique_ptr<ElfInterface> gnu_debugdata_interface_;
 
   static bool cache_enabled_;
-  static std::unordered_map<std::string, std::pair<std::shared_ptr<Elf>, bool>>* cache_;
+  static std::unordered_map<std::string, std::unordered_map<uint64_t, std::shared_ptr<Elf>>>*
+      cache_;
   static std::mutex* cache_lock_;
 };
 
 }  // namespace unwindstack
-
-#endif  // _LIBUNWINDSTACK_ELF_H

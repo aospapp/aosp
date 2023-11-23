@@ -51,7 +51,7 @@ static void TestSignal(benchmark::State& state) {
     auto tmp = makeFile();
     auto mapping = android::base::MappedFile::FromFd(tmp->fd, 0, 1, PROT_READ);
 
-    int val;
+    int val = 0;
     for (auto _ : state) {
         SCOPED_SIGBUS_HANDLER({ break; });
         val += *mapping->data();

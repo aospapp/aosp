@@ -203,6 +203,9 @@ class OatTest : public CommonCompilerDriverTest {
       return false;
     }
     oat_writer.Initialize(compiler_driver_.get(), /*image_writer=*/ nullptr, dex_files);
+    if (!oat_writer.FinishVdexFile(vdex_file, /*verifier_deps=*/ nullptr)) {
+      return false;
+    }
     oat_writer.PrepareLayout(&patcher);
     elf_writer->PrepareDynamicSection(oat_writer.GetOatHeader().GetExecutableOffset(),
                                       oat_writer.GetCodeSize(),
@@ -212,9 +215,6 @@ class OatTest : public CommonCompilerDriverTest {
                                       oat_writer.GetBssRootsOffset(),
                                       oat_writer.GetVdexSize());
 
-    if (!oat_writer.FinishVdexFile(vdex_file, /*verifier_deps=*/ nullptr)) {
-      return false;
-    }
 
     if (!oat_writer.WriteRodata(oat_rodata)) {
       return false;
@@ -502,10 +502,10 @@ TEST_F(OatTest, WriteRead) {
 TEST_F(OatTest, OatHeaderSizeCheck) {
   // If this test is failing and you have to update these constants,
   // it is time to update OatHeader::kOatVersion
-  EXPECT_EQ(64U, sizeof(OatHeader));
+  EXPECT_EQ(68U, sizeof(OatHeader));
   EXPECT_EQ(4U, sizeof(OatMethodOffsets));
   EXPECT_EQ(4U, sizeof(OatQuickMethodHeader));
-  EXPECT_EQ(169 * static_cast<size_t>(GetInstructionSetPointerSize(kRuntimeISA)),
+  EXPECT_EQ(167 * static_cast<size_t>(GetInstructionSetPointerSize(kRuntimeISA)),
             sizeof(QuickEntryPoints));
 }
 

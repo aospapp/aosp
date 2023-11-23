@@ -15,7 +15,8 @@
 //! This module implements IKeystoreAuthorization AIDL interface.
 
 use crate::error::Error as KeystoreError;
-use crate::globals::{ENFORCEMENTS, SUPER_KEY, DB, LEGACY_MIGRATOR};
+use crate::error::anyhow_error_to_cstring;
+use crate::globals::{ENFORCEMENTS, SUPER_KEY, DB, LEGACY_IMPORTER};
 use crate::permission::KeystorePerm;
 use crate::super_key::UserState;
 use crate::utils::{check_keystore_permission, watchdog as wd};
@@ -88,7 +89,10 @@ where
                     // as well.
                     _ => ResponseCode::SYSTEM_ERROR.0,
                 };
-                return Err(BinderStatus::new_service_specific_error(rc, None));
+                return Err(BinderStatus::new_service_specific_error(
+                    rc,
+                    anyhow_error_to_cstring(&e).as_deref(),
+                ));
             }
             let rc = match root_cause.downcast_ref::<Error>() {
                 Some(Error::Rc(rcode)) => rcode.0,
@@ -98,7 +102,10 @@ where
                     _ => ResponseCode::SYSTEM_ERROR.0,
                 },
             };
-            Err(BinderStatus::new_service_specific_error(rc, None))
+            Err(BinderStatus::new_service_specific_error(
+                rc,
+                anyhow_error_to_cstring(&e).as_deref(),
+            ))
         },
         handle_ok,
     )
@@ -119,7 +126,7 @@ impl AuthorizationManager {
 
     fn add_auth_token(&self, auth_token: &HardwareAuthToken) -> Result<()> {
         // Check keystore permission.
-        check_keystore_permission(KeystorePerm::add_auth()).context("In add_auth_token.")?;
+        check_keystore_permission(KeystorePerm::AddAuth).context("In add_auth_token.")?;
 
         ENFORCEMENTS.add_auth_token(auth_token.clone());
         Ok(())
@@ -143,12 +150,14 @@ impl AuthorizationManager {
             (LockScreenEvent::UNLOCK, Some(password)) => {
                 // This corresponds to the unlock() method in legacy keystore API.
                 // check permission
-                check_keystore_permission(KeystorePerm::unlock())
+                check_keystore_permission(KeystorePerm::Unlock)
                     .context("In on_lock_screen_event: Unlock with password.")?;
                 ENFORCEMENTS.set_device_locked(user_id, false);
 
+                let mut skm = SUPER_KEY.write().unwrap();
+
                 DB.with(|db| {
-                    SUPER_KEY.unlock_screen_lock_bound_key(
+                    skm.unlock_screen_lock_bound_key(
                         &mut db.borrow_mut(),
                         user_id as u32,
                         &password,
@@ -159,10 +168,9 @@ impl AuthorizationManager {
                 // Unlock super key.
                 if let UserState::Uninitialized = DB
                     .with(|db| {
-                        UserState::get_with_password_unlock(
+                        skm.unlock_and_get_user_state(
                             &mut db.borrow_mut(),
-                            &LEGACY_MIGRATOR,
-                            &SUPER_KEY,
+                            &LEGACY_IMPORTER,
                             user_id as u32,
                             &password,
                         )
@@ -177,21 +185,23 @@ impl AuthorizationManager {
                 Ok(())
             }
             (LockScreenEvent::UNLOCK, None) => {
-                check_keystore_permission(KeystorePerm::unlock())
+                check_keystore_permission(KeystorePerm::Unlock)
                     .context("In on_lock_screen_event: Unlock.")?;
                 ENFORCEMENTS.set_device_locked(user_id, false);
+                let mut skm = SUPER_KEY.write().unwrap();
                 DB.with(|db| {
-                    SUPER_KEY.try_unlock_user_with_biometric(&mut db.borrow_mut(), user_id as u32)
+                    skm.try_unlock_user_with_biometric(&mut db.borrow_mut(), user_id as u32)
                 })
                 .context("In on_lock_screen_event: try_unlock_user_with_biometric failed")?;
                 Ok(())
             }
             (LockScreenEvent::LOCK, None) => {
-                check_keystore_permission(KeystorePerm::lock())
+                check_keystore_permission(KeystorePerm::Lock)
                     .context("In on_lock_screen_event: Lock")?;
                 ENFORCEMENTS.set_device_locked(user_id, true);
+                let mut skm = SUPER_KEY.write().unwrap();
                 DB.with(|db| {
-                    SUPER_KEY.lock_screen_lock_bound_key(
+                    skm.lock_screen_lock_bound_key(
                         &mut db.borrow_mut(),
                         user_id as u32,
                         unlocking_sids.unwrap_or(&[]),
@@ -215,7 +225,7 @@ impl AuthorizationManager {
     ) -> Result<AuthorizationTokens> {
         // Check permission. Function should return if this failed. Therefore having '?' at the end
         // is very important.
-        check_keystore_permission(KeystorePerm::get_auth_token())
+        check_keystore_permission(KeystorePerm::GetAuthToken)
             .context("In get_auth_tokens_for_credstore.")?;
 
         // If the challenge is zero, return error
@@ -265,7 +275,7 @@ impl IKeystoreAuthorization for AuthorizationManager {
         challenge: i64,
         secure_user_id: i64,
         auth_token_max_age_millis: i64,
-    ) -> binder::public_api::Result<AuthorizationTokens> {
+    ) -> binder::Result<AuthorizationTokens> {
         let _wp = wd::watch_millis("IKeystoreAuthorization::getAuthTokensForCredStore", 500);
         map_or_log_err(
             self.get_auth_tokens_for_credstore(

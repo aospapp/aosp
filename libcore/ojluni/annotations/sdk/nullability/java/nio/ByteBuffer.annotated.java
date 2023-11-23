@@ -100,6 +100,8 @@ public int compareTo(@libcore.util.NonNull java.nio.ByteBuffer that) { throw new
 
 @libcore.util.NonNull public final java.nio.ByteBuffer order(@libcore.util.NonNull java.nio.ByteOrder bo) { throw new RuntimeException("Stub!"); }
 
+@libcore.util.NonNull public final java.nio.ByteBuffer alignedSlice(int unitSize) { throw new RuntimeException("Stub!"); }
+
 public abstract char getChar();
 
 @libcore.util.NonNull public abstract java.nio.ByteBuffer putChar(char value);

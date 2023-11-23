@@ -39,4 +39,8 @@ android_test {
     ],
     instrumentation_for: "CtsAdminApp",
     sdk_version: "test_current",
+    data: [
+        ":CtsAdminApp",
+    ],
+    per_testcase_directory: true,
 }

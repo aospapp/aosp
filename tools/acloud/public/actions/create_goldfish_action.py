@@ -94,7 +94,7 @@ class GoldfishDeviceFactory(base_device_factory.BaseDeviceFactory):
 
         compute_client = goldfish_compute_client.GoldfishComputeClient(
             cfg, self.credentials)
-        super(GoldfishDeviceFactory, self).__init__(compute_client)
+        super().__init__(compute_client)
 
         # Private creation parameters
         self._cfg = cfg

@@ -61,7 +61,8 @@ public final class SystemPackageUninstaller {
                         startFramework(device);
                     });
             if (!isPackageManagerRunning(device)) {
-                throw new TargetSetupError("The package manager failed to start.");
+                throw new TargetSetupError(
+                        "The package manager failed to start.", device.getDeviceDescriptor());
             }
         }
 
@@ -140,7 +141,8 @@ public final class SystemPackageUninstaller {
 
         if (!device.isAdbRoot()) {
             if (!device.enableAdbRoot()) {
-                throw new TargetSetupError("Failed to enable adb root");
+                throw new TargetSetupError(
+                        "Failed to enable adb root", device.getDeviceDescriptor());
             }
 
             disableRootAfterUninstall = true;
@@ -150,7 +152,8 @@ public final class SystemPackageUninstaller {
             action.run();
         } finally {
             if (disableRootAfterUninstall && !device.disableAdbRoot()) {
-                throw new TargetSetupError("Failed to disable adb root");
+                throw new TargetSetupError(
+                        "Failed to disable adb root", device.getDeviceDescriptor());
             }
         }
     }
@@ -182,7 +185,8 @@ public final class SystemPackageUninstaller {
 
         if (commandResult.getStatus() != CommandStatus.SUCCESS) {
             throw new TargetSetupError(
-                    String.format("%s; Command result: %s", failureMessage, commandResult));
+                    String.format("%s; Command result: %s", failureMessage, commandResult),
+                    device.getDeviceDescriptor());
         }
 
         return commandResult;
@@ -238,7 +242,9 @@ public final class SystemPackageUninstaller {
             CLog.i("Removed an update package for %s", packageName);
         }
 
-        throw new TargetSetupError("Too many updates were uninstalled. Something must be wrong.");
+        throw new TargetSetupError(
+                "Too many updates were uninstalled. Something must be wrong.",
+                device.getDeviceDescriptor());
     }
 
     private static void removePackageData(String packageName, ITestDevice device)
@@ -267,8 +273,8 @@ public final class SystemPackageUninstaller {
 
         if (commandResult.getStdout() == null) {
             throw new TargetSetupError(
-                    String.format(
-                            "Failed to get pm command output: %s", commandResult.getStdout()));
+                    String.format("Failed to get pm command output: %s", commandResult.getStdout()),
+                    device.getDeviceDescriptor());
         }
 
         return Arrays.asList(commandResult.getStdout().split("\\r?\\n"))
@@ -287,7 +293,8 @@ public final class SystemPackageUninstaller {
                 || !commandResult.getStdout().startsWith("package:")) {
             throw new TargetSetupError(
                     String.format(
-                            "Failed to get pm path command output %s", commandResult.getStdout()));
+                            "Failed to get pm path command output %s", commandResult.getStdout()),
+                    device.getDeviceDescriptor());
         }
 
         String packageInstallPath = commandResult.getStdout().substring("package:".length());

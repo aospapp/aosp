@@ -45,7 +45,7 @@ public final class PermissionReadCarDisplayUnitsTest {
                     VehiclePropertyIds.FUEL_VOLUME_DISPLAY_UNITS,
                     VehiclePropertyIds.TIRE_PRESSURE_DISPLAY_UNITS,
                     VehiclePropertyIds.EV_BATTERY_DISPLAY_UNITS,
-                    /*VehiclePropertyIds.VEHICLE_SPEED_DISPLAY_UNITS=*/ 289408516,
+                    VehiclePropertyIds.VEHICLE_SPEED_DISPLAY_UNITS,
                     VehiclePropertyIds.FUEL_CONSUMPTION_UNITS_DISTANCE_OVER_VOLUME)
                     .build();
 

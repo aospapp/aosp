@@ -113,6 +113,8 @@ public class TranscodeTest {
         Assume.assumeFalse("FEATURE_LEANBACK", pm.hasSystemFeature(pm.FEATURE_LEANBACK));
         Assume.assumeFalse("FEATURE_WATCH", pm.hasSystemFeature(pm.FEATURE_WATCH));
         Assume.assumeFalse("FEATURE_AUTOMOTIVE", pm.hasSystemFeature(pm.FEATURE_AUTOMOTIVE));
+        Assume.assumeTrue("AVC hw encoder not supported",
+                TranscodeTestUtils.isAVCHWEncoderSupported());
 
         TranscodeTestUtils.pollForExternalStorageState();
         TranscodeTestUtils.grantPermission(getContext().getPackageName(),

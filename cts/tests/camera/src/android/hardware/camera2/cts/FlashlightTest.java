@@ -17,6 +17,7 @@
 package android.hardware.camera2.cts;
 
 import android.hardware.camera2.CameraManager;
+import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.cts.CameraTestUtils.HandlerExecutor;
 import android.hardware.camera2.cts.testcases.Camera2AndroidTestCase;
@@ -50,6 +51,7 @@ public class FlashlightTest extends Camera2AndroidTestCase {
     private static final int NUM_REGISTERS = 10;
 
     private ArrayList<String> mFlashCameraIdList;
+    private ArrayList<String> mNoFlashCameraIdList;
 
     @Override
     public void setUp() throws Exception {
@@ -60,15 +62,113 @@ public class FlashlightTest extends Camera2AndroidTestCase {
         // initialize the list of cameras that have a flash unit so it won't interfere with
         // flash tests.
         mFlashCameraIdList = new ArrayList<String>();
+        mNoFlashCameraIdList = new ArrayList<String>();
         for (String id : mCameraIdsUnderTest) {
             StaticMetadata info =
                     new StaticMetadata(mCameraManager.getCameraCharacteristics(id),
                                        CheckLevel.ASSERT, /*collector*/ null);
             if (info.hasFlash()) {
                 mFlashCameraIdList.add(id);
+            } else  {
+                mNoFlashCameraIdList.add(id);
             }
         }
     }
+
+    @Test
+    public void testTurnOnTorchWithStrengthLevel() throws Exception {
+        if (mNoFlashCameraIdList.size() != 0) {
+            for (String id : mNoFlashCameraIdList) {
+                CameraCharacteristics pc = mCameraManager.getCameraCharacteristics(id);
+                assertNull(pc.get(CameraCharacteristics.FLASH_INFO_STRENGTH_DEFAULT_LEVEL));
+                assertNull(pc.get(CameraCharacteristics.FLASH_INFO_STRENGTH_MAXIMUM_LEVEL));
+            }
+        }
+
+        if (mFlashCameraIdList.size() == 0)
+            return;
+
+        for (String id : mFlashCameraIdList) {
+            resetTorchModeStatus(id);
+        }
+
+        for (String id: mFlashCameraIdList) {
+            int maxLevel = 0;
+            int defaultLevel = 0;
+            int minLevel = 1;
+            CameraCharacteristics pc = mCameraManager.getCameraCharacteristics(id);
+            if (pc.get(CameraCharacteristics.FLASH_INFO_STRENGTH_DEFAULT_LEVEL) != null) {
+                defaultLevel = pc.get(CameraCharacteristics.FLASH_INFO_STRENGTH_DEFAULT_LEVEL);
+            }
+            if (pc.get(CameraCharacteristics.FLASH_INFO_STRENGTH_MAXIMUM_LEVEL) != null) {
+                maxLevel = pc.get(CameraCharacteristics.FLASH_INFO_STRENGTH_MAXIMUM_LEVEL);
+            }
+            if (maxLevel > 1) {
+                assertTrue(minLevel <= defaultLevel);
+                assertTrue(defaultLevel <= maxLevel);
+                int torchStrength = 0;
+                CameraManager.TorchCallback torchListener = mock(CameraManager.TorchCallback.class);
+                mCameraManager.registerTorchCallback(torchListener, mHandler);
+
+                mCameraManager.turnOnTorchWithStrengthLevel(id, maxLevel);
+                SystemClock.sleep(TORCH_DURATION_MS);
+                torchStrength = mCameraManager.getTorchStrengthLevel(id);
+                assertEquals(torchStrength, maxLevel);
+                // Calling with same value twice to verify onTorchStrengthLevelChanged()
+                // with maxLevel value is called only once.
+                mCameraManager.turnOnTorchWithStrengthLevel(id, maxLevel);
+                torchStrength = mCameraManager.getTorchStrengthLevel(id);
+                assertEquals(torchStrength, maxLevel);
+
+                mCameraManager.turnOnTorchWithStrengthLevel(id, defaultLevel);
+                torchStrength = mCameraManager.getTorchStrengthLevel(id);
+                assertEquals(torchStrength, defaultLevel);
+
+                mCameraManager.turnOnTorchWithStrengthLevel(id, minLevel);
+                torchStrength = mCameraManager.getTorchStrengthLevel(id);
+                assertEquals(torchStrength, minLevel);
+
+                try {
+                    mCameraManager.turnOnTorchWithStrengthLevel(id, 0);
+                    fail("turnOnTorchWithStrengthLevel with strengthLevel = 0 must fail.");
+                } catch (IllegalArgumentException e) {
+                    Log.v(TAG, e.getMessage());
+                }
+
+                try {
+                    mCameraManager.turnOnTorchWithStrengthLevel(id, maxLevel + 1);
+                    fail("turnOnTorchWithStrengthLevel with strengthLevel" + (maxLevel + 1) + " must fail.");
+                } catch (IllegalArgumentException e) {
+                    Log.v(TAG, e.getMessage());
+                }
+
+                // Turn off the torch and verify if the strength level gets
+                // reset to default level.
+                mCameraManager.setTorchMode(id, false);
+                torchStrength = mCameraManager.getTorchStrengthLevel(id);
+                assertEquals(torchStrength, defaultLevel);
+
+                // verify corrected numbers of callbacks
+                verify(torchListener, timeout(TORCH_TIMEOUT_MS).
+                        times(1)).onTorchModeChanged(id, true);
+
+                verify(torchListener,timeout(TORCH_TIMEOUT_MS).
+                        times(1)).onTorchStrengthLevelChanged(id, maxLevel);
+                verify(torchListener,timeout(TORCH_TIMEOUT_MS).
+                        times(1)).onTorchStrengthLevelChanged(id, minLevel);
+                verify(torchListener,timeout(TORCH_TIMEOUT_MS).
+                        times(1)).onTorchStrengthLevelChanged(id, defaultLevel);
+
+                verify(torchListener, timeout(TORCH_TIMEOUT_MS).
+                        times(2)).onTorchModeChanged(id, false);
+
+                mCameraManager.unregisterTorchCallback(torchListener);
+            } else {
+                Log.i(TAG, "Torch strength level adjustment is not supported.");
+            }
+        }
+    }
+
 
     @Test
     public void testSetTorchModeOnOff() throws Exception {
@@ -363,6 +463,8 @@ public class FlashlightTest extends Camera2AndroidTestCase {
         private String mCameraId;
         private ArrayBlockingQueue<Integer> mStatusQueue =
                 new ArrayBlockingQueue<Integer>(QUEUE_CAPACITY);
+        private ArrayBlockingQueue<Integer> mTorchStrengthQueue =
+                new ArrayBlockingQueue<Integer>(QUEUE_CAPACITY);
 
         public static final int STATUS_UNAVAILABLE = 0;
         public static final int STATUS_OFF = 1;
@@ -390,6 +492,17 @@ public class FlashlightTest extends Camera2AndroidTestCase {
                 Integer s = new Integer(STATUS_UNAVAILABLE);
                 try {
                     mStatusQueue.put(s);
+                } catch (Throwable e) {
+                    fail(e.getMessage());
+                }
+            }
+        }
+
+        @Override
+        public void onTorchStrengthLevelChanged(String cameraId, int newStrengthLevel) {
+            if (cameraId.equals(mCameraId)) {
+                try {
+                    mTorchStrengthQueue.put(newStrengthLevel);
                 } catch (Throwable e) {
                     fail(e.getMessage());
                 }

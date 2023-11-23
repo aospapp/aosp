@@ -22,6 +22,7 @@ import static android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED;
 import android.app.job.JobInfo;
 import android.content.ClipData;
 import android.content.Intent;
+import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
 import android.net.Uri;
 import android.os.Bundle;
@@ -164,11 +165,20 @@ public class JobInfoTest extends BaseJobSchedulerTest {
         // Test all allowed constraints.
         JobInfo ji = new JobInfo.Builder(JOB_ID, kJobServiceComponent)
                 .setExpedited(true)
+                .setPriority(JobInfo.PRIORITY_HIGH)
                 .setPersisted(true)
                 .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
                 .setRequiresStorageNotLow(true)
                 .build();
         assertTrue(ji.isExpedited());
+        // Confirm JobScheduler accepts the JobInfo object.
+        mJobScheduler.schedule(ji);
+
+        // Confirm default priority for EJs.
+        ji = new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                .setExpedited(true)
+                .build();
+        assertEquals(JobInfo.PRIORITY_MAX, ji.getPriority());
         // Confirm JobScheduler accepts the JobInfo object.
         mJobScheduler.schedule(ji);
 
@@ -187,6 +197,14 @@ public class JobInfoTest extends BaseJobSchedulerTest {
                 new JobInfo.Builder(JOB_ID, kJobServiceComponent)
                         .setExpedited(true)
                         .setPeriodic(15 * 60_000));
+        assertBuildFails(failureMessage,
+                new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                        .setExpedited(true)
+                        .setPriority(JobInfo.PRIORITY_LOW));
+        assertBuildFails(failureMessage,
+                new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                        .setExpedited(true)
+                        .setPriority(JobInfo.PRIORITY_DEFAULT));
         assertBuildFails(failureMessage,
                 new JobInfo.Builder(JOB_ID, kJobServiceComponent)
                         .setExpedited(true)
@@ -216,6 +234,7 @@ public class JobInfoTest extends BaseJobSchedulerTest {
                         .addTriggerContentUri(tcu));
     }
 
+    @SuppressWarnings("deprecation")
     public void testImportantWhileForeground() {
         // Assert the default value is false
         JobInfo ji = new JobInfo.Builder(JOB_ID, kJobServiceComponent)
@@ -228,6 +247,7 @@ public class JobInfoTest extends BaseJobSchedulerTest {
                 .setImportantWhileForeground(true)
                 .build();
         assertTrue(ji.isImportantWhileForeground());
+        assertEquals(JobInfo.PRIORITY_HIGH, ji.getPriority());
         // Confirm JobScheduler accepts the JobInfo object.
         mJobScheduler.schedule(ji);
 
@@ -235,6 +255,55 @@ public class JobInfoTest extends BaseJobSchedulerTest {
                 .setImportantWhileForeground(false)
                 .build();
         assertFalse(ji.isImportantWhileForeground());
+        // Confirm JobScheduler accepts the JobInfo object.
+        mJobScheduler.schedule(ji);
+    }
+
+    public void testMinimumChunkSizeBytes() {
+        assertBuildFails(
+                "Successfully built a JobInfo specifying minimum chunk bytes without"
+                        + " requesting network",
+                new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                        .setMinimumNetworkChunkBytes(500));
+        try {
+            assertBuildFails(
+                    "Successfully built a JobInfo specifying minimum chunk bytes a negative value",
+                    new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                            .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                            .setMinimumNetworkChunkBytes(-500));
+        } catch (IllegalArgumentException expected) {
+            // Success. setMinimumNetworkChunkBytes() should throw the exception.
+        }
+
+        assertBuildFails(
+                "Successfully built a JobInfo with a higher minimum chunk size than total"
+                        + " transfer size",
+                new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                        .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                        .setMinimumNetworkChunkBytes(500)
+                        .setEstimatedNetworkBytes(5, 5));
+        assertBuildFails(
+                "Successfully built a JobInfo with a higher minimum chunk size than total"
+                        + " transfer size",
+                new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                        .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                        .setMinimumNetworkChunkBytes(500)
+                        .setEstimatedNetworkBytes(JobInfo.NETWORK_BYTES_UNKNOWN, 5));
+        assertBuildFails(
+                "Successfully built a JobInfo with a higher minimum chunk size than total"
+                        + " transfer size",
+                new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                        .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                        .setMinimumNetworkChunkBytes(500)
+                        .setEstimatedNetworkBytes(5, JobInfo.NETWORK_BYTES_UNKNOWN));
+
+        JobInfo ji = new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                .setMinimumNetworkChunkBytes(500)
+                .setEstimatedNetworkBytes(
+                        JobInfo.NETWORK_BYTES_UNKNOWN, JobInfo.NETWORK_BYTES_UNKNOWN)
+                .build();
+        assertEquals(500, ji.getMinimumNetworkChunkBytes());
         // Confirm JobScheduler accepts the JobInfo object.
         mJobScheduler.schedule(ji);
     }
@@ -320,6 +389,85 @@ public class JobInfoTest extends BaseJobSchedulerTest {
         assertFalse(ji.isPrefetch());
         // Confirm JobScheduler accepts the JobInfo object.
         mJobScheduler.schedule(ji);
+
+        ji = new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                .setMinimumLatency(60_000L)
+                .setPrefetch(true)
+                .build();
+        assertTrue(ji.isPrefetch());
+        // Confirm JobScheduler accepts the JobInfo object.
+        mJobScheduler.schedule(ji);
+
+        // CTS naturally targets latest SDK version. Compat change should be enabled by default.
+        assertBuildFails("Modern prefetch jobs can't have a deadline",
+                new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                        .setMinimumLatency(60_000L)
+                        .setOverrideDeadline(600_000L)
+                        .setPrefetch(true));
+    }
+
+    public void testPriority() {
+        // Assert the default value is DEFAULT
+        JobInfo ji = new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                .build();
+        assertEquals(JobInfo.PRIORITY_DEFAULT, ji.getPriority());
+        // Confirm JobScheduler accepts the JobInfo object.
+        mJobScheduler.schedule(ji);
+
+        ji = new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                .setPriority(JobInfo.PRIORITY_LOW)
+                .build();
+        assertEquals(JobInfo.PRIORITY_LOW, ji.getPriority());
+        // Confirm JobScheduler accepts the JobInfo object.
+        mJobScheduler.schedule(ji);
+
+        ji = new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                .setPriority(JobInfo.PRIORITY_MIN)
+                .build();
+        assertEquals(JobInfo.PRIORITY_MIN, ji.getPriority());
+        // Confirm JobScheduler accepts the JobInfo object.
+        mJobScheduler.schedule(ji);
+
+        // Attempt an invalid number
+        try {
+            // It's over 9000!!!
+            new JobInfo.Builder(JOB_ID, kJobServiceComponent).setPriority(9001).build();
+            fail("Successfully built a job with an invalid priority level");
+        } catch (Exception e) {
+            // Success
+        }
+        try {
+            new JobInfo.Builder(JOB_ID, kJobServiceComponent).setPriority(-1).build();
+            fail("Successfully built a job with an invalid priority level");
+        } catch (Exception e) {
+            // Success
+        }
+        try {
+            new JobInfo.Builder(JOB_ID, kJobServiceComponent).setPriority(123).build();
+            fail("Successfully built a job with an invalid priority level");
+        } catch (Exception e) {
+            // Success
+        }
+
+        // Test other invalid configurations.
+        final String failureMessage =
+                "Successfully built a JobInfo object with disallowed priority configurations";
+        assertBuildFails(failureMessage,
+                new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                        .setPriority(JobInfo.PRIORITY_MAX));
+        //noinspection deprecation
+        assertBuildFails(failureMessage,
+                new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                        .setPriority(JobInfo.PRIORITY_LOW)
+                        .setImportantWhileForeground(true));
+        assertBuildFails(failureMessage,
+                new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                        .setPriority(JobInfo.PRIORITY_HIGH)
+                        .setPrefetch(true));
+        assertBuildFails(failureMessage,
+                new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                        .setPriority(JobInfo.PRIORITY_HIGH)
+                        .setPeriodic(JobInfo.getMinPeriodMillis()));
     }
 
     public void testRequiredNetwork() {
@@ -348,6 +496,7 @@ public class JobInfoTest extends BaseJobSchedulerTest {
         JobInfo ji = new JobInfo.Builder(JOB_ID, kJobServiceComponent)
                 .build();
         assertEquals(JobInfo.NETWORK_TYPE_NONE, ji.getNetworkType());
+        assertNull(ji.getRequiredNetwork());
         // Confirm JobScheduler accepts the JobInfo object.
         mJobScheduler.schedule(ji);
 
@@ -355,6 +504,14 @@ public class JobInfoTest extends BaseJobSchedulerTest {
                 .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
                 .build();
         assertEquals(JobInfo.NETWORK_TYPE_ANY, ji.getNetworkType());
+        assertTrue(ji.getRequiredNetwork()
+                .hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET));
+        assertTrue(ji.getRequiredNetwork()
+                .hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED));
+        assertFalse(ji.getRequiredNetwork()
+                .hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED));
+        assertFalse(ji.getRequiredNetwork()
+                .hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN));
         // Confirm JobScheduler accepts the JobInfo object.
         mJobScheduler.schedule(ji);
 
@@ -362,6 +519,14 @@ public class JobInfoTest extends BaseJobSchedulerTest {
                 .setRequiredNetworkType(JobInfo.NETWORK_TYPE_UNMETERED)
                 .build();
         assertEquals(JobInfo.NETWORK_TYPE_UNMETERED, ji.getNetworkType());
+        assertTrue(ji.getRequiredNetwork()
+                .hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET));
+        assertTrue(ji.getRequiredNetwork()
+                .hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED));
+        assertFalse(ji.getRequiredNetwork()
+                .hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED));
+        assertFalse(ji.getRequiredNetwork()
+                .hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN));
         // Confirm JobScheduler accepts the JobInfo object.
         mJobScheduler.schedule(ji);
 
@@ -369,6 +534,14 @@ public class JobInfoTest extends BaseJobSchedulerTest {
                 .setRequiredNetworkType(JobInfo.NETWORK_TYPE_NOT_ROAMING)
                 .build();
         assertEquals(JobInfo.NETWORK_TYPE_NOT_ROAMING, ji.getNetworkType());
+        assertTrue(ji.getRequiredNetwork()
+                .hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET));
+        assertTrue(ji.getRequiredNetwork()
+                .hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED));
+        assertFalse(ji.getRequiredNetwork()
+                .hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED));
+        assertFalse(ji.getRequiredNetwork()
+                .hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN));
         // Confirm JobScheduler accepts the JobInfo object.
         mJobScheduler.schedule(ji);
 
@@ -376,6 +549,14 @@ public class JobInfoTest extends BaseJobSchedulerTest {
                 .setRequiredNetworkType(JobInfo.NETWORK_TYPE_CELLULAR)
                 .build();
         assertEquals(JobInfo.NETWORK_TYPE_CELLULAR, ji.getNetworkType());
+        assertTrue(ji.getRequiredNetwork()
+                .hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET));
+        assertTrue(ji.getRequiredNetwork()
+                .hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED));
+        assertFalse(ji.getRequiredNetwork()
+                .hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED));
+        assertFalse(ji.getRequiredNetwork()
+                .hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN));
         // Confirm JobScheduler accepts the JobInfo object.
         mJobScheduler.schedule(ji);
 
@@ -383,6 +564,7 @@ public class JobInfoTest extends BaseJobSchedulerTest {
                 .setRequiredNetworkType(JobInfo.NETWORK_TYPE_NONE)
                 .build();
         assertEquals(JobInfo.NETWORK_TYPE_NONE, ji.getNetworkType());
+        assertNull(ji.getRequiredNetwork());
         // Confirm JobScheduler accepts the JobInfo object.
         mJobScheduler.schedule(ji);
     }

@@ -29,6 +29,8 @@ import com.android.queryable.info.ActivityInfo;
 import com.android.queryable.queries.ActivityQuery;
 import com.android.queryable.queries.ActivityQueryHelper;
 import com.android.queryable.queries.BundleQueryHelper;
+import com.android.queryable.queries.IntegerQuery;
+import com.android.queryable.queries.IntegerQueryHelper;
 import com.android.queryable.queries.PersistableBundleQuery;
 import com.android.queryable.queries.PersistableBundleQueryHelper;
 import com.android.queryable.util.SerializableParcelWrapper;
@@ -57,6 +59,7 @@ public final class ActivityCreatedEvent extends Event {
                 new BundleQueryHelper<>(this);
         PersistableBundleQueryHelper<ActivityCreatedEventQuery> mPersistentState =
                 new PersistableBundleQueryHelper<>(this);
+        IntegerQuery<ActivityCreatedEventQuery> mTaskId = new IntegerQueryHelper<>(this);
 
         private ActivityCreatedEventQuery(String packageName) {
             super(ActivityCreatedEvent.class, packageName);
@@ -87,6 +90,12 @@ public final class ActivityCreatedEvent extends Event {
             return mActivity;
         }
 
+        /** Query {@code taskId}. */
+        @CheckResult
+        public IntegerQuery<ActivityCreatedEventQuery> whereTaskId() {
+            return mTaskId;
+        }
+
         @Override
         protected boolean filter(ActivityCreatedEvent event) {
             if (!mSavedInstanceState.matches(event.mSavedInstanceState)) {
@@ -98,6 +107,9 @@ public final class ActivityCreatedEvent extends Event {
             if (!mActivity.matches(event.mActivity)) {
                 return false;
             }
+            if (!mTaskId.matches(event.mTaskId)) {
+                return false;
+            }
             return true;
         }
 
@@ -107,6 +119,7 @@ public final class ActivityCreatedEvent extends Event {
                     .field("savedInstanceState", mSavedInstanceState)
                     .field("persistentState", mPersistentState)
                     .field("activity", mActivity)
+                    .field("taskId", mTaskId)
                     .toString();
         }
     }
@@ -120,7 +133,8 @@ public final class ActivityCreatedEvent extends Event {
     public static final class ActivityCreatedEventLogger extends EventLogger<ActivityCreatedEvent> {
         private ActivityCreatedEventLogger(Activity activity, android.content.pm.ActivityInfo activityInfo, Bundle savedInstanceState) {
             super(activity, new ActivityCreatedEvent());
-            mEvent.mSavedInstanceState = new SerializableParcelWrapper<>(savedInstanceState);
+            setSavedInstanceState(savedInstanceState);
+            setTaskId(activity.getTaskId());
             setActivity(activityInfo);
         }
 
@@ -141,11 +155,18 @@ public final class ActivityCreatedEvent extends Event {
             mEvent.mPersistentState = new SerializableParcelWrapper<>(persistentState);
             return this;
         }
+
+        /** Sets the task ID for the activity. */
+        public ActivityCreatedEventLogger setTaskId(int taskId) {
+            mEvent.mTaskId = taskId;
+            return this;
+        }
     }
 
     protected SerializableParcelWrapper<Bundle> mSavedInstanceState;
     protected SerializableParcelWrapper<PersistableBundle> mPersistentState;
     protected ActivityInfo mActivity;
+    protected int mTaskId;
 
     /**
      * The {@code savedInstanceState} {@link Bundle} passed into
@@ -175,12 +196,18 @@ public final class ActivityCreatedEvent extends Event {
         return mActivity;
     }
 
+    /** The Task ID of the Activity. */
+    public int taskId() {
+        return mTaskId;
+    }
+
     @Override
     public String toString() {
         return "ActivityCreatedEvent{"
                 + " savedInstanceState=" + savedInstanceState()
                 + ", persistentState=" + persistentState()
                 + ", activity=" + mActivity
+                + ", taskId=" + mTaskId
                 + ", packageName='" + mPackageName + "'"
                 + ", timestamp=" + mTimestamp
                 + "}";

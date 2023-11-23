@@ -15,9 +15,11 @@
 package cc
 
 import (
+	"runtime"
 	"testing"
 
 	"android/soong/android"
+	"android/soong/bazel/cquery"
 
 	"github.com/google/blueprint"
 )
@@ -28,6 +30,7 @@ var prepareForPrebuiltTest = android.GroupFixturePreparers(
 )
 
 func testPrebuilt(t *testing.T, bp string, fs android.MockFS, handlers ...android.FixturePreparer) *android.TestContext {
+	t.Helper()
 	result := android.GroupFixturePreparers(
 		prepareForPrebuiltTest,
 		fs.AddToFixture(),
@@ -271,8 +274,8 @@ func TestPrebuiltLibrarySharedStem(t *testing.T) {
 }
 
 func TestPrebuiltSymlinkedHostBinary(t *testing.T) {
-	if android.BuildOs != android.Linux {
-		t.Skipf("Skipping host prebuilt testing that is only supported on %s not %s", android.Linux, android.BuildOs)
+	if runtime.GOOS != "linux" {
+		t.Skipf("Skipping host prebuilt testing that is only supported on linux not %s", runtime.GOOS)
 	}
 
 	ctx := testPrebuilt(t, `
@@ -376,4 +379,144 @@ func TestPrebuiltLibrarySanitized(t *testing.T) {
 
 	static2 = ctx.ModuleForTests("libtest_static", "android_arm64_armv8-a_static_hwasan").Module().(*Module)
 	assertString(t, static2.OutputFile().Path().Base(), "libf.hwasan.a")
+}
+
+func TestPrebuiltLibrarySharedWithBazelWithoutToc(t *testing.T) {
+	const bp = `
+cc_prebuilt_library_shared {
+	name: "foo",
+	srcs: ["foo.so"],
+	bazel_module: { label: "//foo/bar:bar" },
+}`
+	outBaseDir := "outputbase"
+	config := TestConfig(t.TempDir(), android.Android, nil, bp, nil)
+	config.BazelContext = android.MockBazelContext{
+		OutputBaseDir: outBaseDir,
+		LabelToCcInfo: map[string]cquery.CcInfo{
+			"//foo/bar:bar": cquery.CcInfo{
+				CcSharedLibraryFiles: []string{"foo.so"},
+			},
+		},
+	}
+	ctx := testCcWithConfig(t, config)
+	sharedFoo := ctx.ModuleForTests("foo", "android_arm_armv7-a-neon_shared").Module()
+	pathPrefix := outBaseDir + "/execroot/__main__/"
+
+	info := ctx.ModuleProvider(sharedFoo, SharedLibraryInfoProvider).(SharedLibraryInfo)
+	android.AssertPathRelativeToTopEquals(t, "prebuilt shared library",
+		pathPrefix+"foo.so", info.SharedLibrary)
+	android.AssertPathRelativeToTopEquals(t, "prebuilt's 'nullary' ToC",
+		pathPrefix+"foo.so", info.TableOfContents.Path())
+
+	outputFiles, err := sharedFoo.(android.OutputFileProducer).OutputFiles("")
+	if err != nil {
+		t.Errorf("Unexpected error getting cc_object outputfiles %s", err)
+	}
+	expectedOutputFiles := []string{pathPrefix + "foo.so"}
+	android.AssertDeepEquals(t, "output files", expectedOutputFiles, outputFiles.Strings())
+}
+
+func TestPrebuiltLibrarySharedWithBazelWithToc(t *testing.T) {
+	const bp = `
+cc_prebuilt_library_shared {
+	name: "foo",
+	srcs: ["foo.so"],
+	bazel_module: { label: "//foo/bar:bar" },
+}`
+	outBaseDir := "outputbase"
+	config := TestConfig(t.TempDir(), android.Android, nil, bp, nil)
+	config.BazelContext = android.MockBazelContext{
+		OutputBaseDir: outBaseDir,
+		LabelToCcInfo: map[string]cquery.CcInfo{
+			"//foo/bar:bar": cquery.CcInfo{
+				CcSharedLibraryFiles: []string{"foo.so"},
+				TocFile:              "toc",
+			},
+		},
+	}
+	ctx := testCcWithConfig(t, config)
+	sharedFoo := ctx.ModuleForTests("foo", "android_arm_armv7-a-neon_shared").Module()
+	pathPrefix := outBaseDir + "/execroot/__main__/"
+
+	info := ctx.ModuleProvider(sharedFoo, SharedLibraryInfoProvider).(SharedLibraryInfo)
+	android.AssertPathRelativeToTopEquals(t, "prebuilt shared library's ToC",
+		pathPrefix+"toc", info.TableOfContents.Path())
+	android.AssertPathRelativeToTopEquals(t, "prebuilt shared library",
+		pathPrefix+"foo.so", info.SharedLibrary)
+
+	outputFiles, err := sharedFoo.(android.OutputFileProducer).OutputFiles("")
+	if err != nil {
+		t.Errorf("Unexpected error getting cc_object outputfiles %s", err)
+	}
+	expectedOutputFiles := []string{pathPrefix + "foo.so"}
+	android.AssertDeepEquals(t, "output files", expectedOutputFiles, outputFiles.Strings())
+}
+
+func TestPrebuiltStubNoinstall(t *testing.T) {
+	testFunc := func(t *testing.T, bp string) {
+		result := android.GroupFixturePreparers(
+			prepareForPrebuiltTest,
+			android.PrepareForTestWithMakevars,
+		).RunTestWithBp(t, bp)
+
+		installRules := result.InstallMakeRulesForTesting(t)
+		var installedlibRule *android.InstallMakeRule
+		for i, rule := range installRules {
+			if rule.Target == "out/target/product/test_device/system/lib/installedlib.so" {
+				if installedlibRule != nil {
+					t.Errorf("Duplicate install rules for %s", rule.Target)
+				}
+				installedlibRule = &installRules[i]
+			}
+		}
+		if installedlibRule == nil {
+			t.Errorf("No install rule found for installedlib")
+			return
+		}
+
+		android.AssertStringListDoesNotContain(t,
+			"installedlib has install dependency on stub",
+			installedlibRule.Deps,
+			"out/target/product/test_device/system/lib/stublib.so")
+		android.AssertStringListDoesNotContain(t,
+			"installedlib has order-only install dependency on stub",
+			installedlibRule.OrderOnlyDeps,
+			"out/target/product/test_device/system/lib/stublib.so")
+	}
+
+	const prebuiltStublibBp = `
+		cc_prebuilt_library {
+			name: "stublib",
+			prefer: true,
+			srcs: ["foo.so"],
+			stubs: {
+				versions: ["1"],
+			},
+		}
+	`
+
+	const installedlibBp = `
+		cc_library {
+			name: "installedlib",
+			shared_libs: ["stublib"],
+		}
+	`
+
+	t.Run("prebuilt without source", func(t *testing.T) {
+		testFunc(t, prebuiltStublibBp+installedlibBp)
+	})
+
+	const disabledSourceStublibBp = `
+		cc_library {
+			name: "stublib",
+			enabled: false,
+			stubs: {
+				versions: ["1"],
+			},
+		}
+	`
+
+	t.Run("prebuilt with disabled source", func(t *testing.T) {
+		testFunc(t, disabledSourceStublibBp+prebuiltStublibBp+installedlibBp)
+	})
 }

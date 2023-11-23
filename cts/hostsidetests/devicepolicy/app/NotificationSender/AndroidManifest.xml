@@ -18,6 +18,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.android.cts.managedprofiletests.notificationsender">
 
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application>
       <activity android:name=".SendNotification"
                 android:exported="true">

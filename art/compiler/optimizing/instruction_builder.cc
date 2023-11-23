@@ -28,6 +28,7 @@
 #include "dex/dex_instruction-inl.h"
 #include "driver/dex_compilation_unit.h"
 #include "driver/compiler_options.h"
+#include "entrypoints/entrypoint_utils-inl.h"
 #include "imtable-inl.h"
 #include "intrinsics.h"
 #include "intrinsics_utils.h"
@@ -372,6 +373,9 @@ bool HInstructionBuilder::Build() {
     if (current_block_->IsEntryBlock()) {
       InitializeParameters();
       AppendInstruction(new (allocator_) HSuspendCheck(0u));
+      if (graph_->IsDebuggable() && code_generator_->GetCompilerOptions().IsJitCompiler()) {
+        AppendInstruction(new (allocator_) HMethodEntryHook(0u));
+      }
       AppendInstruction(new (allocator_) HGoto(0u));
       continue;
     } else if (current_block_->IsExitBlock()) {
@@ -822,10 +826,18 @@ void HInstructionBuilder::BuildReturn(const Instruction& instruction,
           compilation_stats_,
           MethodCompilationStat::kConstructorFenceGeneratedFinal);
     }
+    if (graph_->IsDebuggable() && code_generator_->GetCompilerOptions().IsJitCompiler()) {
+      // Return value is not used for void functions. We pass NullConstant to
+      // avoid special cases when generating code.
+      AppendInstruction(new (allocator_) HMethodExitHook(graph_->GetNullConstant(), dex_pc));
+    }
     AppendInstruction(new (allocator_) HReturnVoid(dex_pc));
   } else {
     DCHECK(!RequiresConstructorBarrier(dex_compilation_unit_));
     HInstruction* value = LoadLocal(instruction.VRegA(), type);
+    if (graph_->IsDebuggable() && code_generator_->GetCompilerOptions().IsJitCompiler()) {
+      AppendInstruction(new (allocator_) HMethodExitHook(value, dex_pc));
+    }
     AppendInstruction(new (allocator_) HReturn(value, dex_pc));
   }
   current_block_ = nullptr;
@@ -921,35 +933,17 @@ static ArtMethod* ResolveMethod(uint16_t method_idx,
   // make this an invoke-unresolved to handle cross-dex invokes or abstract super methods, both of
   // which require runtime handling.
   if (*invoke_type == kSuper) {
-    ObjPtr<mirror::Class> compiling_class = dex_compilation_unit.GetCompilingClass().Get();
-    if (compiling_class == nullptr) {
+    if (referrer == nullptr) {
       // We could not determine the method's class we need to wait until runtime.
       DCHECK(Runtime::Current()->IsAotCompiler());
       return nullptr;
     }
-    ObjPtr<mirror::Class> referenced_class = class_linker->LookupResolvedType(
-        dex_compilation_unit.GetDexFile()->GetMethodId(method_idx).class_idx_,
-        dex_compilation_unit.GetDexCache().Get(),
-        class_loader.Get());
-    DCHECK(referenced_class != nullptr);  // We have already resolved a method from this class.
-    if (!referenced_class->IsAssignableFrom(compiling_class)) {
-      // We cannot statically determine the target method. The runtime will throw a
-      // NoSuchMethodError on this one.
+    ArtMethod* actual_method = FindSuperMethodToCall</*access_check=*/true>(
+        method_idx, resolved_method, referrer, soa.Self());
+    if (actual_method == nullptr) {
+      // Clean up any exception left by method resolution.
+      soa.Self()->ClearException();
       return nullptr;
-    }
-    ArtMethod* actual_method;
-    if (referenced_class->IsInterface()) {
-      actual_method = referenced_class->FindVirtualMethodForInterfaceSuper(
-          resolved_method, class_linker->GetImagePointerSize());
-    } else {
-      uint16_t vtable_index = resolved_method->GetMethodIndex();
-      if (vtable_index >= static_cast<uint32_t>(
-              compiling_class->GetSuperClass()->GetVTableLength())) {
-        // No super method. The runtime will throw a NoSuchMethodError.
-        return nullptr;
-      }
-      actual_method = compiling_class->GetSuperClass()->GetVTableEntry(
-          vtable_index, class_linker->GetImagePointerSize());
     }
     if (!actual_method->IsInvokable()) {
       // Fail if the actual method cannot be invoked. Otherwise, the runtime resolution stub
@@ -1168,6 +1162,154 @@ static bool VarHandleAccessorNeedsReturnTypeCheck(HInvoke* invoke, DataType::Typ
   }
 }
 
+// This function initializes `VarHandleOptimizations`, does a number of static checks and disables
+// the intrinsic if some of the checks fail. This is necessary for the code generator to work (for
+// both the baseline and the optimizing compiler).
+static void DecideVarHandleIntrinsic(HInvoke* invoke) {
+  switch (invoke->GetIntrinsic()) {
+    case Intrinsics::kVarHandleCompareAndExchange:
+    case Intrinsics::kVarHandleCompareAndExchangeAcquire:
+    case Intrinsics::kVarHandleCompareAndExchangeRelease:
+    case Intrinsics::kVarHandleCompareAndSet:
+    case Intrinsics::kVarHandleGet:
+    case Intrinsics::kVarHandleGetAcquire:
+    case Intrinsics::kVarHandleGetAndAdd:
+    case Intrinsics::kVarHandleGetAndAddAcquire:
+    case Intrinsics::kVarHandleGetAndAddRelease:
+    case Intrinsics::kVarHandleGetAndBitwiseAnd:
+    case Intrinsics::kVarHandleGetAndBitwiseAndAcquire:
+    case Intrinsics::kVarHandleGetAndBitwiseAndRelease:
+    case Intrinsics::kVarHandleGetAndBitwiseOr:
+    case Intrinsics::kVarHandleGetAndBitwiseOrAcquire:
+    case Intrinsics::kVarHandleGetAndBitwiseOrRelease:
+    case Intrinsics::kVarHandleGetAndBitwiseXor:
+    case Intrinsics::kVarHandleGetAndBitwiseXorAcquire:
+    case Intrinsics::kVarHandleGetAndBitwiseXorRelease:
+    case Intrinsics::kVarHandleGetAndSet:
+    case Intrinsics::kVarHandleGetAndSetAcquire:
+    case Intrinsics::kVarHandleGetAndSetRelease:
+    case Intrinsics::kVarHandleGetOpaque:
+    case Intrinsics::kVarHandleGetVolatile:
+    case Intrinsics::kVarHandleSet:
+    case Intrinsics::kVarHandleSetOpaque:
+    case Intrinsics::kVarHandleSetRelease:
+    case Intrinsics::kVarHandleSetVolatile:
+    case Intrinsics::kVarHandleWeakCompareAndSet:
+    case Intrinsics::kVarHandleWeakCompareAndSetAcquire:
+    case Intrinsics::kVarHandleWeakCompareAndSetPlain:
+    case Intrinsics::kVarHandleWeakCompareAndSetRelease:
+      break;
+    default:
+      return;  // Not a VarHandle intrinsic, skip.
+  }
+
+  DCHECK(invoke->IsInvokePolymorphic());
+  VarHandleOptimizations optimizations(invoke);
+
+  // Do only simple static checks here (those for which we have enough information). More complex
+  // checks should be done in instruction simplifier, which runs after other optimization passes
+  // that may provide useful information.
+
+  size_t expected_coordinates_count = GetExpectedVarHandleCoordinatesCount(invoke);
+  if (expected_coordinates_count > 2u) {
+    optimizations.SetDoNotIntrinsify();
+    return;
+  }
+  if (expected_coordinates_count != 0u) {
+    // Except for static fields (no coordinates), the first coordinate must be a reference.
+    // Do not intrinsify if the reference is null as we would always go to slow path anyway.
+    HInstruction* object = invoke->InputAt(1);
+    if (object->GetType() != DataType::Type::kReference || object->IsNullConstant()) {
+      optimizations.SetDoNotIntrinsify();
+      return;
+    }
+  }
+  if (expected_coordinates_count == 2u) {
+    // For arrays and views, the second coordinate must be convertible to `int`.
+    // In this context, `boolean` is not convertible but we have to look at the shorty
+    // as compiler transformations can give the invoke a valid boolean input.
+    DataType::Type index_type = GetDataTypeFromShorty(invoke, 2);
+    if (index_type == DataType::Type::kBool ||
+        DataType::Kind(index_type) != DataType::Type::kInt32) {
+      optimizations.SetDoNotIntrinsify();
+      return;
+    }
+  }
+
+  uint32_t number_of_arguments = invoke->GetNumberOfArguments();
+  DataType::Type return_type = invoke->GetType();
+  mirror::VarHandle::AccessModeTemplate access_mode_template =
+      mirror::VarHandle::GetAccessModeTemplateByIntrinsic(invoke->GetIntrinsic());
+  switch (access_mode_template) {
+    case mirror::VarHandle::AccessModeTemplate::kGet:
+      // The return type should be the same as varType, so it shouldn't be void.
+      if (return_type == DataType::Type::kVoid) {
+        optimizations.SetDoNotIntrinsify();
+        return;
+      }
+      break;
+    case mirror::VarHandle::AccessModeTemplate::kSet:
+      if (return_type != DataType::Type::kVoid) {
+        optimizations.SetDoNotIntrinsify();
+        return;
+      }
+      break;
+    case mirror::VarHandle::AccessModeTemplate::kCompareAndSet: {
+      if (return_type != DataType::Type::kBool) {
+        optimizations.SetDoNotIntrinsify();
+        return;
+      }
+      uint32_t expected_value_index = number_of_arguments - 2;
+      uint32_t new_value_index = number_of_arguments - 1;
+      DataType::Type expected_value_type = GetDataTypeFromShorty(invoke, expected_value_index);
+      DataType::Type new_value_type = GetDataTypeFromShorty(invoke, new_value_index);
+      if (expected_value_type != new_value_type) {
+        optimizations.SetDoNotIntrinsify();
+        return;
+      }
+      break;
+    }
+    case mirror::VarHandle::AccessModeTemplate::kCompareAndExchange: {
+      uint32_t expected_value_index = number_of_arguments - 2;
+      uint32_t new_value_index = number_of_arguments - 1;
+      DataType::Type expected_value_type = GetDataTypeFromShorty(invoke, expected_value_index);
+      DataType::Type new_value_type = GetDataTypeFromShorty(invoke, new_value_index);
+      if (expected_value_type != new_value_type || return_type != expected_value_type) {
+        optimizations.SetDoNotIntrinsify();
+        return;
+      }
+      break;
+    }
+    case mirror::VarHandle::AccessModeTemplate::kGetAndUpdate: {
+      DataType::Type value_type = GetDataTypeFromShorty(invoke, number_of_arguments - 1);
+      if (IsVarHandleGetAndAdd(invoke) &&
+          (value_type == DataType::Type::kReference || value_type == DataType::Type::kBool)) {
+        // We should only add numerical types.
+        //
+        // For byte array views floating-point types are not allowed, see javadoc comments for
+        // java.lang.invoke.MethodHandles.byteArrayViewVarHandle(). But ART treats them as numeric
+        // types in ByteArrayViewVarHandle::Access(). Consequently we do generate intrinsic code,
+        // but it always fails access mode check at runtime.
+        optimizations.SetDoNotIntrinsify();
+        return;
+      } else if (IsVarHandleGetAndBitwiseOp(invoke) && !DataType::IsIntegralType(value_type)) {
+        // We can only apply operators to bitwise integral types.
+        // Note that bitwise VarHandle operations accept a non-integral boolean type and
+        // perform the appropriate logical operation. However, the result is the same as
+        // using the bitwise operation on our boolean representation and this fits well
+        // with DataType::IsIntegralType() treating the compiler type kBool as integral.
+        optimizations.SetDoNotIntrinsify();
+        return;
+      }
+      if (value_type != return_type) {
+        optimizations.SetDoNotIntrinsify();
+        return;
+      }
+      break;
+    }
+  }
+}
+
 bool HInstructionBuilder::BuildInvokePolymorphic(uint32_t dex_pc,
                                                  uint32_t method_idx,
                                                  dex::ProtoIndex proto_idx,
@@ -1216,6 +1358,8 @@ bool HInstructionBuilder::BuildInvokePolymorphic(uint32_t dex_pc,
     BuildTypeCheck(/* is_instance_of= */ false, invoke, return_type_index, dex_pc);
     latest_result_ = current_block_->GetLastInstruction();
   }
+
+  DecideVarHandleIntrinsic(invoke);
 
   return true;
 }
@@ -1685,7 +1829,8 @@ bool HInstructionBuilder::HandleInvoke(HInvoke* invoke,
                                        const InstructionOperands& operands,
                                        const char* shorty,
                                        bool is_unresolved) {
-  DCHECK(!invoke->IsInvokeStaticOrDirect() || !invoke->AsInvokeStaticOrDirect()->IsStringInit());
+  DCHECK_IMPLIES(invoke->IsInvokeStaticOrDirect(),
+                 !invoke->AsInvokeStaticOrDirect()->IsStringInit());
 
   ReceiverArg receiver_arg = (invoke->GetInvokeType() == InvokeType::kStatic)
       ? ReceiverArg::kNone
@@ -1763,14 +1908,17 @@ bool HInstructionBuilder::BuildSimpleIntrinsic(ArtMethod* method,
           new (allocator_) HArrayLength(/*array=*/ nullptr, dex_pc, /* is_string_length= */ true);
       break;
     case Intrinsics::kUnsafeLoadFence:
+    case Intrinsics::kJdkUnsafeLoadFence:
       receiver_arg = ReceiverArg::kNullCheckedOnly;
       instruction = new (allocator_) HMemoryBarrier(MemBarrierKind::kLoadAny, dex_pc);
       break;
     case Intrinsics::kUnsafeStoreFence:
+    case Intrinsics::kJdkUnsafeStoreFence:
       receiver_arg = ReceiverArg::kNullCheckedOnly;
       instruction = new (allocator_) HMemoryBarrier(MemBarrierKind::kAnyStore, dex_pc);
       break;
     case Intrinsics::kUnsafeFullFence:
+    case Intrinsics::kJdkUnsafeFullFence:
       receiver_arg = ReceiverArg::kNullCheckedOnly;
       instruction = new (allocator_) HMemoryBarrier(MemBarrierKind::kAnyAny, dex_pc);
       break;
@@ -2077,22 +2225,26 @@ ArtField* HInstructionBuilder::ResolveField(uint16_t field_idx, bool is_static, 
     return nullptr;
   }
 
-  if (is_put &&
-      resolved_field->IsFinal() &&
-      (compiling_class.Get() != resolved_field->GetDeclaringClass())) {
-    // Final fields can only be updated within their own class.
-    // TODO: Only allow it in constructors. b/34966607.
-    return nullptr;
+  if (is_put) {
+    if (resolved_field->IsFinal() &&
+        (compiling_class.Get() != resolved_field->GetDeclaringClass())) {
+      // Final fields can only be updated within their own class.
+      // TODO: Only allow it in constructors. b/34966607.
+      return nullptr;
+    }
+
+    // Note: We do not need to resolve the field type for `get` opcodes.
+    StackArtFieldHandleScope<1> rhs(soa.Self());
+    ReflectiveHandle<ArtField> resolved_field_handle(rhs.NewHandle(resolved_field));
+    if (resolved_field->ResolveType().IsNull()) {
+      // ArtField::ResolveType() may fail as evidenced with a dexing bug (b/78788577).
+      soa.Self()->ClearException();
+      return nullptr;  // Failure
+    }
+    resolved_field = resolved_field_handle.Get();
   }
 
-  StackArtFieldHandleScope<1> rhs(soa.Self());
-  ReflectiveHandle<ArtField> resolved_field_handle(rhs.NewHandle(resolved_field));
-  if (resolved_field->ResolveType().IsNull()) {
-    // ArtField::ResolveType() may fail as evidenced with a dexing bug (b/78788577).
-    soa.Self()->ClearException();
-    return nullptr;  // Failure
-  }
-  return resolved_field_handle.Get();
+  return resolved_field;
 }
 
 void HInstructionBuilder::BuildStaticFieldAccess(const Instruction& instruction,

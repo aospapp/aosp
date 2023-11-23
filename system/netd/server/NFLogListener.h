@@ -19,7 +19,7 @@
 
 #include <netdutils/Netfilter.h>
 
-#include "NetlinkListener.h"
+#include "netdutils/NetlinkListener.h"
 #include "netdutils/StatusOr.h"
 
 namespace android {
@@ -64,7 +64,7 @@ class NFLogListener : public NFLogListenerInterface {
 
     // Do not invoke this constructor directly outside of tests. Use
     // makeNFLogListener() instead.
-    NFLogListener(std::shared_ptr<NetlinkListenerInterface> listener);
+    NFLogListener(std::shared_ptr<netdutils::NetlinkListenerInterface> listener);
 
     ~NFLogListener() override;
 
@@ -76,7 +76,7 @@ class NFLogListener : public NFLogListenerInterface {
     netdutils::Status unsubscribe(uint16_t nfLogGroup) override;
 
   private:
-    std::shared_ptr<NetlinkListenerInterface> mListener;
+    std::shared_ptr<netdutils::NetlinkListenerInterface> mListener;
     std::mutex mMutex;
     std::map<uint16_t, DispatchFn> mDispatchMap;  // guarded by mMutex
 };

@@ -47,7 +47,7 @@ static void BenchmarkElfCreate(benchmark::State& state, const std::string& elf_f
 
     unwindstack::Elf elf(file_memory.release());
     if (!elf.Init() || !elf.valid()) {
-      errx(1, "Internal Error: Cannot open elf.");
+      errx(1, "Internal Error: Cannot open elf: %s", elf_file.c_str());
     }
 
     state.PauseTiming();
@@ -73,10 +73,15 @@ void BM_elf_create(benchmark::State& state) {
 }
 BENCHMARK(BM_elf_create);
 
-void BM_elf_create_compressed(benchmark::State& state) {
-  BenchmarkElfCreate(state, GetCompressedElfFile());
+void BM_elf_create_large_compressed(benchmark::State& state) {
+  BenchmarkElfCreate(state, GetLargeCompressedFrameElfFile());
 }
-BENCHMARK(BM_elf_create_compressed);
+BENCHMARK(BM_elf_create_large_compressed);
+
+void BM_elf_create_large_eh_frame(benchmark::State& state) {
+  BenchmarkElfCreate(state, GetLargeEhFrameElfFile());
+}
+BENCHMARK(BM_elf_create_large_eh_frame);
 
 static void InitializeBuildId(benchmark::State& state, unwindstack::Maps& maps,
                               unwindstack::MapInfo** build_id_map_info) {

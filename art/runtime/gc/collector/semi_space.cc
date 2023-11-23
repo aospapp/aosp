@@ -145,8 +145,9 @@ void SemiSpace::InitializePhase() {
 
 void SemiSpace::ProcessReferences(Thread* self) {
   WriterMutexLock mu(self, *Locks::heap_bitmap_lock_);
-  GetHeap()->GetReferenceProcessor()->ProcessReferences(
-      false, GetTimings(), GetCurrentIteration()->GetClearSoftReferences(), this);
+  ReferenceProcessor* rp = GetHeap()->GetReferenceProcessor();
+  rp->Setup(self, this, /*concurrent=*/false, GetCurrentIteration()->GetClearSoftReferences());
+  rp->ProcessReferences(self, GetTimings());
 }
 
 void SemiSpace::MarkingPhase() {
@@ -156,13 +157,13 @@ void SemiSpace::MarkingPhase() {
     Locks::mutator_lock_->AssertExclusiveHeld(self_);
     // Store the stack traces into the runtime fault string in case we Get a heap corruption
     // related crash later.
-    ThreadState old_state = self_->SetStateUnsafe(kRunnable);
+    ThreadState old_state = self_->SetStateUnsafe(ThreadState::kRunnable);
     std::ostringstream oss;
     Runtime* runtime = Runtime::Current();
     runtime->GetThreadList()->DumpForSigQuit(oss);
     runtime->GetThreadList()->DumpNativeStacks(oss);
     runtime->SetFaultMessage(oss.str());
-    CHECK_EQ(self_->SetStateUnsafe(old_state), kRunnable);
+    CHECK_EQ(self_->SetStateUnsafe(old_state), ThreadState::kRunnable);
   }
   // Revoke the thread local buffers since the GC may allocate into a RosAllocSpace and this helps
   // to prevent fragmentation.

@@ -25,6 +25,7 @@ import static android.autofillservice.cts.testcore.Helper.assertFillEventForSave
 import static android.autofillservice.cts.testcore.Helper.assertNoDeprecatedClientState;
 import static android.autofillservice.cts.testcore.Helper.getContext;
 import static android.autofillservice.cts.testcore.InstrumentedAutoFillServiceInlineEnabled.SERVICE_NAME;
+import static android.service.autofill.FillEventHistory.Event.UI_TYPE_INLINE;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_GENERIC;
 
 import android.autofillservice.cts.activities.LoginActivity;
@@ -120,9 +121,9 @@ public class InlineFillEventHistoryTest extends FillEventHistoryCommonTestCase {
         final FillEventHistory selection = InstrumentedAutoFillService.getFillEventHistory(4);
         assertNoDeprecatedClientState(selection);
         final List<Event> events = selection.getEvents();
-        assertFillEventForDatasetShown(events.get(0));
-        assertFillEventForDatasetSelected(events.get(1), NULL_DATASET_ID);
-        assertFillEventForDatasetShown(events.get(0));
+        assertFillEventForDatasetShown(events.get(0), UI_TYPE_INLINE);
+        assertFillEventForDatasetSelected(events.get(1), NULL_DATASET_ID, UI_TYPE_INLINE);
+        assertFillEventForDatasetShown(events.get(0), UI_TYPE_INLINE);
         assertFillEventForSaveShown(events.get(3), NULL_DATASET_ID);
     }
 }

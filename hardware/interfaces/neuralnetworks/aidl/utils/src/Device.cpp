@@ -125,7 +125,7 @@ nn::GeneralResult<std::pair<uint32_t, uint32_t>> getNumberOfCacheFilesNeededFrom
 }  // namespace
 
 nn::GeneralResult<std::shared_ptr<const Device>> Device::create(
-        std::string name, std::shared_ptr<aidl_hal::IDevice> device) {
+        std::string name, std::shared_ptr<aidl_hal::IDevice> device, nn::Version featureLevel) {
     if (name.empty()) {
         return NN_ERROR(nn::ErrorStatus::INVALID_ARGUMENT)
                << "aidl_hal::utils::Device::create must have non-empty name";
@@ -143,18 +143,19 @@ nn::GeneralResult<std::shared_ptr<const Device>> Device::create(
 
     auto deathHandler = NN_TRY(DeathHandler::create(device));
     return std::make_shared<const Device>(
-            PrivateConstructorTag{}, std::move(name), std::move(versionString), deviceType,
-            std::move(extensions), std::move(capabilities), numberOfCacheFilesNeeded,
+            PrivateConstructorTag{}, std::move(name), std::move(versionString), featureLevel,
+            deviceType, std::move(extensions), std::move(capabilities), numberOfCacheFilesNeeded,
             std::move(device), std::move(deathHandler));
 }
 
 Device::Device(PrivateConstructorTag /*tag*/, std::string name, std::string versionString,
-               nn::DeviceType deviceType, std::vector<nn::Extension> extensions,
-               nn::Capabilities capabilities,
+               nn::Version featureLevel, nn::DeviceType deviceType,
+               std::vector<nn::Extension> extensions, nn::Capabilities capabilities,
                std::pair<uint32_t, uint32_t> numberOfCacheFilesNeeded,
                std::shared_ptr<aidl_hal::IDevice> device, DeathHandler deathHandler)
     : kName(std::move(name)),
       kVersionString(std::move(versionString)),
+      kFeatureLevel(featureLevel),
       kDeviceType(deviceType),
       kExtensions(std::move(extensions)),
       kCapabilities(std::move(capabilities)),
@@ -171,7 +172,7 @@ const std::string& Device::getVersionString() const {
 }
 
 nn::Version Device::getFeatureLevel() const {
-    return nn::Version::ANDROID_S;
+    return kFeatureLevel;
 }
 
 nn::DeviceType Device::getType() const {
@@ -214,7 +215,9 @@ nn::GeneralResult<std::vector<bool>> Device::getSupportedOperations(const nn::Mo
 nn::GeneralResult<nn::SharedPreparedModel> Device::prepareModel(
         const nn::Model& model, nn::ExecutionPreference preference, nn::Priority priority,
         nn::OptionalTimePoint deadline, const std::vector<nn::SharedHandle>& modelCache,
-        const std::vector<nn::SharedHandle>& dataCache, const nn::CacheToken& token) const {
+        const std::vector<nn::SharedHandle>& dataCache, const nn::CacheToken& token,
+        const std::vector<nn::TokenValuePair>& hints,
+        const std::vector<nn::ExtensionNameAndPrefix>& extensionNameToPrefix) const {
     // Ensure that model is ready for IPC.
     std::optional<nn::Model> maybeModelInShared;
     const nn::Model& modelInShared =
@@ -224,17 +227,28 @@ nn::GeneralResult<nn::SharedPreparedModel> Device::prepareModel(
     const auto aidlPreference = NN_TRY(convert(preference));
     const auto aidlPriority = NN_TRY(convert(priority));
     const auto aidlDeadline = NN_TRY(convert(deadline));
-    const auto aidlModelCache = NN_TRY(convert(modelCache));
-    const auto aidlDataCache = NN_TRY(convert(dataCache));
-    const auto aidlToken = NN_TRY(convert(token));
+    auto aidlModelCache = NN_TRY(convert(modelCache));
+    auto aidlDataCache = NN_TRY(convert(dataCache));
 
-    const auto cb = ndk::SharedRefBase::make<PreparedModelCallback>();
+    const auto cb = ndk::SharedRefBase::make<PreparedModelCallback>(kFeatureLevel);
     const auto scoped = kDeathHandler.protectCallback(cb.get());
 
+    if (kFeatureLevel.level >= nn::Version::Level::FEATURE_LEVEL_8) {
+        auto aidlHints = NN_TRY(convert(hints));
+        auto aidlExtensionPrefix = NN_TRY(convert(extensionNameToPrefix));
+        const auto ret = kDevice->prepareModelWithConfig(
+                aidlModel,
+                {aidlPreference, aidlPriority, aidlDeadline, std::move(aidlModelCache),
+                 std::move(aidlDataCache), token, std::move(aidlHints),
+                 std::move(aidlExtensionPrefix)},
+                cb);
+        HANDLE_ASTATUS(ret) << "prepareModel failed";
+        return cb->get();
+    }
+    const auto aidlToken = NN_TRY(convert(token));
     const auto ret = kDevice->prepareModel(aidlModel, aidlPreference, aidlPriority, aidlDeadline,
                                            aidlModelCache, aidlDataCache, aidlToken, cb);
     HANDLE_ASTATUS(ret) << "prepareModel failed";
-
     return cb->get();
 }
 
@@ -246,7 +260,7 @@ nn::GeneralResult<nn::SharedPreparedModel> Device::prepareModelFromCache(
     const auto aidlDataCache = NN_TRY(convert(dataCache));
     const auto aidlToken = NN_TRY(convert(token));
 
-    const auto cb = ndk::SharedRefBase::make<PreparedModelCallback>();
+    const auto cb = ndk::SharedRefBase::make<PreparedModelCallback>(kFeatureLevel);
     const auto scoped = kDeathHandler.protectCallback(cb.get());
 
     const auto ret = kDevice->prepareModelFromCache(aidlDeadline, aidlModelCache, aidlDataCache,

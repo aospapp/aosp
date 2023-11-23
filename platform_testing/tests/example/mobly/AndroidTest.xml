@@ -20,6 +20,7 @@
     </target_preparer>
     <test class="com.android.tradefed.testtype.mobly.MoblyBinaryHostTest">
       <option name="mobly-par-file-name" value="mobly-hello-world-test" />
+      <option name="mobly-config-file-name" value="mobly-hello-world-test_config.yaml" />
       <option name="mobly-test-timeout" value="1800000" />
     </test>
 </configuration>

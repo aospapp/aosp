@@ -23,25 +23,22 @@
 #include <memory>
 #include <string>
 
+#include <android-base/expected.h>
 #include <android-base/file.h>
 #include <android-base/logging.h>
 #include <android-base/parseint.h>
 #include <android-base/strings.h>
 
+#include "ETMConstants.h"
 #include "environment.h"
 #include "utils.h"
 
 namespace simpleperf {
 
-static constexpr bool ETM_RECORD_TIMESTAMP = false;
+using android::base::expected;
+using android::base::unexpected;
 
-// Config bits from include/linux/coresight-pmu.h in the kernel
-// For etm_event_config:
-static constexpr int ETM_OPT_CTXTID = 14;
-static constexpr int ETM_OPT_TS = 28;
-// For etm_config_reg:
-static constexpr int ETM4_CFG_BIT_CTXTID = 6;
-static constexpr int ETM4_CFG_BIT_TS = 11;
+static constexpr bool ETM_RECORD_TIMESTAMP = false;
 
 static const std::string ETM_DIR = "/sys/bus/event_source/devices/cs_etm/";
 
@@ -51,11 +48,13 @@ static int GetTraceId(int cpu) {
 }
 
 template <typename T>
-static bool ReadValueInEtmDir(const std::string& file, T* value, bool report_error = true) {
+static bool ReadValueInEtmDir(const std::string& file, T* value, bool report_error = true,
+                              const std::string& prefix = "") {
   std::string s;
   uint64_t v;
   if (!android::base::ReadFileToString(ETM_DIR + file, &s) ||
-      !android::base::ParseUint(android::base::Trim(s), &v)) {
+      !android::base::StartsWith(s, prefix) ||
+      !android::base::ParseUint(&android::base::Trim(s)[prefix.size()], &v)) {
     if (report_error) {
       LOG(ERROR) << "failed to read " << ETM_DIR << file;
     }
@@ -108,38 +107,40 @@ std::unique_ptr<EventType> ETMRecorder::BuildEventType() {
                                      "CoreSight ETM instruction tracing", "arm");
 }
 
-bool ETMRecorder::CheckEtmSupport() {
+bool ETMRecorder::IsETMDriverAvailable() {
+  return IsDir(ETM_DIR);
+}
+
+expected<bool, std::string> ETMRecorder::CheckEtmSupport() {
   if (GetEtmEventType() == -1) {
-    LOG(ERROR) << "etm event type isn't supported on device";
-    return false;
+    return unexpected("etm event type isn't supported on device");
   }
   if (!ReadEtmInfo()) {
-    LOG(ERROR) << "etm devices are not available";
-    return false;
+    return unexpected("etm devices are not available");
   }
   for (const auto& p : etm_info_) {
     if (p.second.GetMajorVersion() < 4) {
-      LOG(ERROR) << "etm device version is less than 4.0";
-      return false;
+      return unexpected("etm device version is less than 4.0");
     }
     if (!p.second.IsContextIDSupported()) {
-      LOG(ERROR) << "etm device doesn't support contextID";
-      return false;
+      return unexpected("etm device doesn't support contextID");
     }
     if (!p.second.IsEnabled()) {
-      LOG(ERROR) << "etm device isn't enabled by the bootloader";
-      return false;
+      return unexpected("etm device isn't enabled by the bootloader");
     }
   }
   if (!FindSinkConfig()) {
-    LOG(ERROR) << "can't find etr device, which moves etm data to memory";
-    return false;
+    return unexpected("can't find etr device, which moves etm data to memory");
   }
   etm_supported_ = true;
   return true;
 }
 
 bool ETMRecorder::ReadEtmInfo() {
+  int contextid_value;
+  use_contextid2_ = ReadValueInEtmDir("/format/contextid", &contextid_value, false, "config:") &&
+                    contextid_value == ETM_OPT_CTXTID2;
+
   std::vector<int> online_cpus = GetOnlineCpus();
   for (const auto& name : GetEntriesInDir(ETM_DIR)) {
     int cpu;
@@ -155,6 +156,10 @@ bool ETMRecorder::ReadEtmInfo() {
                      ReadValueInEtmDir(name + "/trcidr/trcidr4", &cpu_info.trcidr4) &&
                      ReadValueInEtmDir(name + "/trcidr/trcidr8", &cpu_info.trcidr8) &&
                      ReadValueInEtmDir(name + "/mgmt/trcauthstatus", &cpu_info.trcauthstatus);
+
+      if (!ReadValueInEtmDir(name + "/mgmt/trcdevarch", &cpu_info.trcdevarch, false)) {
+        cpu_info.trcdevarch = 0;
+      }
       if (!success) {
         return false;
       }
@@ -194,8 +199,14 @@ void ETMRecorder::SetEtmPerfEventAttr(perf_event_attr* attr) {
 
 void ETMRecorder::BuildEtmConfig() {
   if (etm_event_config_ == 0) {
-    etm_event_config_ |= 1ULL << ETM_OPT_CTXTID;
-    etm_config_reg_ |= 1U << ETM4_CFG_BIT_CTXTID;
+    if (use_contextid2_) {
+      etm_event_config_ |= 1ULL << ETM_OPT_CTXTID2;
+      etm_config_reg_ |= 1U << ETM4_CFG_BIT_VMID;
+      etm_config_reg_ |= 1U << ETM4_CFG_BIT_VMID_OPT;
+    } else {
+      etm_event_config_ |= 1ULL << ETM_OPT_CTXTID;
+      etm_config_reg_ |= 1U << ETM4_CFG_BIT_CTXTID;
+    }
 
     if (ETM_RECORD_TIMESTAMP) {
       bool ts_supported = true;
@@ -214,13 +225,20 @@ AuxTraceInfoRecord ETMRecorder::CreateAuxTraceInfoRecord() {
   AuxTraceInfoRecord::DataType data;
   memset(&data, 0, sizeof(data));
   data.aux_type = AuxTraceInfoRecord::AUX_TYPE_ETM;
+  data.version = 1;
   data.nr_cpu = etm_info_.size();
   data.pmu_type = GetEtmEventType();
-  std::vector<AuxTraceInfoRecord::ETM4Info> etm4_v(etm_info_.size());
+  std::vector<AuxTraceInfoRecord::ETEInfo> ete(etm_info_.size());
   size_t pos = 0;
   for (auto& p : etm_info_) {
-    auto& e = etm4_v[pos++];
-    e.magic = AuxTraceInfoRecord::MAGIC_ETM4;
+    auto& e = ete[pos++];
+    if (p.second.trcdevarch == 0) {
+      e.magic = AuxTraceInfoRecord::MAGIC_ETM4;
+      e.nrtrcparams = sizeof(AuxTraceInfoRecord::ETM4Info) / sizeof(uint64_t) - 3;
+    } else {
+      e.magic = AuxTraceInfoRecord::MAGIC_ETE;
+      e.nrtrcparams = sizeof(AuxTraceInfoRecord::ETEInfo) / sizeof(uint64_t) - 3;
+    }
     e.cpu = p.first;
     e.trcconfigr = etm_config_reg_;
     e.trctraceidr = GetTraceId(p.first);
@@ -229,8 +247,9 @@ AuxTraceInfoRecord ETMRecorder::CreateAuxTraceInfoRecord() {
     e.trcidr2 = p.second.trcidr2;
     e.trcidr8 = p.second.trcidr8;
     e.trcauthstatus = p.second.trcauthstatus;
+    e.trcdevarch = p.second.trcdevarch;
   }
-  return AuxTraceInfoRecord(data, etm4_v);
+  return AuxTraceInfoRecord(data, ete);
 }
 
 size_t ETMRecorder::GetAddrFilterPairs() {

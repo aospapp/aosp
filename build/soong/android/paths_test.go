@@ -137,26 +137,35 @@ func TestValidatePath(t *testing.T) {
 
 func TestOptionalPath(t *testing.T) {
 	var path OptionalPath
-	checkInvalidOptionalPath(t, path)
+	checkInvalidOptionalPath(t, path, "unknown")
 
 	path = OptionalPathForPath(nil)
-	checkInvalidOptionalPath(t, path)
+	checkInvalidOptionalPath(t, path, "unknown")
+
+	path = InvalidOptionalPath("foo")
+	checkInvalidOptionalPath(t, path, "foo")
+
+	path = InvalidOptionalPath("")
+	checkInvalidOptionalPath(t, path, "unknown")
 
 	path = OptionalPathForPath(PathForTesting("path"))
 	checkValidOptionalPath(t, path, "path")
 }
 
-func checkInvalidOptionalPath(t *testing.T, path OptionalPath) {
+func checkInvalidOptionalPath(t *testing.T, path OptionalPath, expectedInvalidReason string) {
 	t.Helper()
 	if path.Valid() {
-		t.Errorf("Uninitialized OptionalPath should not be valid")
+		t.Errorf("Invalid OptionalPath should not be valid")
+	}
+	if path.InvalidReason() != expectedInvalidReason {
+		t.Errorf("Wrong invalid reason: expected %q, got %q", expectedInvalidReason, path.InvalidReason())
 	}
 	if path.String() != "" {
-		t.Errorf("Uninitialized OptionalPath String() should return \"\", not %q", path.String())
+		t.Errorf("Invalid OptionalPath String() should return \"\", not %q", path.String())
 	}
 	paths := path.AsPaths()
 	if len(paths) != 0 {
-		t.Errorf("Uninitialized OptionalPath AsPaths() should return empty Paths, not %q", paths)
+		t.Errorf("Invalid OptionalPath AsPaths() should return empty Paths, not %q", paths)
 	}
 	defer func() {
 		if r := recover(); r == nil {
@@ -170,6 +179,9 @@ func checkValidOptionalPath(t *testing.T, path OptionalPath, expectedString stri
 	t.Helper()
 	if !path.Valid() {
 		t.Errorf("Initialized OptionalPath should not be invalid")
+	}
+	if path.InvalidReason() != "" {
+		t.Errorf("Initialized OptionalPath should not have an invalid reason, got: %q", path.InvalidReason())
 	}
 	if path.String() != expectedString {
 		t.Errorf("Initialized OptionalPath String() should return %q, not %q", expectedString, path.String())
@@ -981,7 +993,7 @@ func TestPathForSource(t *testing.T) {
 		{
 			name:     "in out dir",
 			buildDir: "out",
-			src:      "out/a/b/c",
+			src:      "out/soong/a/b/c",
 			err:      "is in output",
 		},
 	}
@@ -1125,6 +1137,12 @@ type pathForModuleSrcTestCase struct {
 	rels []string
 	src  string
 	rel  string
+
+	// Make test specific preparations to the test fixture.
+	preparer FixturePreparer
+
+	// A test specific error handler.
+	errorHandler FixtureErrorHandler
 }
 
 func testPathForModuleSrc(t *testing.T, tests []pathForModuleSrcTestCase) {
@@ -1157,14 +1175,23 @@ func testPathForModuleSrc(t *testing.T, tests []pathForModuleSrcTestCase) {
 				"foo/src_special/$": nil,
 			}
 
+			errorHandler := test.errorHandler
+			if errorHandler == nil {
+				errorHandler = FixtureExpectsNoErrors
+			}
+
 			result := GroupFixturePreparers(
 				FixtureRegisterWithContext(func(ctx RegistrationContext) {
 					ctx.RegisterModuleType("test", pathForModuleSrcTestModuleFactory)
 					ctx.RegisterModuleType("output_file_provider", pathForModuleSrcOutputFileProviderModuleFactory)
-					ctx.RegisterModuleType("filegroup", FileGroupFactory)
 				}),
+				PrepareForTestWithFilegroup,
+				PrepareForTestWithNamespace,
 				mockFS.AddToFixture(),
-			).RunTest(t)
+				OptionalFixturePreparer(test.preparer),
+			).
+				ExtendWithErrorHandler(errorHandler).
+				RunTest(t)
 
 			m := result.ModuleForTests("foo", "").Module().(*pathForModuleSrcTestModule)
 
@@ -1333,6 +1360,73 @@ func TestPathForModuleSrc(t *testing.T) {
 			src: "foo/src_special/$",
 			rel: "src_special/$",
 		},
+		{
+			// This test makes sure that an unqualified module name cannot contain characters that make
+			// it appear as a qualified module name.
+			name: "output file provider, invalid fully qualified name",
+			bp: `
+			test {
+				name: "foo",
+				src: "://other:b",
+				srcs: ["://other:c"],
+			}`,
+			preparer: FixtureAddTextFile("other/Android.bp", `
+				soong_namespace {}
+
+				output_file_provider {
+					name: "b",
+					outs: ["gen/b"],
+				}
+
+				output_file_provider {
+					name: "c",
+					outs: ["gen/c"],
+				}
+			`),
+			src:  "foo/:/other:b",
+			rel:  ":/other:b",
+			srcs: []string{"foo/:/other:c"},
+			rels: []string{":/other:c"},
+		},
+		{
+			name: "output file provider, missing fully qualified name",
+			bp: `
+			test {
+				name: "foo",
+				src: "//other:b",
+				srcs: ["//other:c"],
+			}`,
+			errorHandler: FixtureExpectsAllErrorsToMatchAPattern([]string{
+				`"foo" depends on undefined module "//other:b"`,
+				`"foo" depends on undefined module "//other:c"`,
+			}),
+		},
+		{
+			name: "output file provider, fully qualified name",
+			bp: `
+			test {
+				name: "foo",
+				src: "//other:b",
+				srcs: ["//other:c"],
+			}`,
+			src:  "out/soong/.intermediates/other/b/gen/b",
+			rel:  "gen/b",
+			srcs: []string{"out/soong/.intermediates/other/c/gen/c"},
+			rels: []string{"gen/c"},
+			preparer: FixtureAddTextFile("other/Android.bp", `
+				soong_namespace {}
+
+				output_file_provider {
+					name: "b",
+					outs: ["gen/b"],
+				}
+
+				output_file_provider {
+					name: "c",
+					outs: ["gen/c"],
+				}
+			`),
+		},
 	}
 
 	testPathForModuleSrc(t, tests)
@@ -1392,7 +1486,8 @@ func TestPathRelativeToTop(t *testing.T) {
 		AssertPathRelativeToTopEquals(t, "install path for soong", "out/soong/target/product/test_device/system/install/path", p)
 	})
 	t.Run("install for make", func(t *testing.T) {
-		p := PathForModuleInstall(ctx, "install/path").ToMakePath()
+		p := PathForModuleInstall(ctx, "install/path")
+		p.makePath = true
 		AssertPathRelativeToTopEquals(t, "install path for make", "out/target/product/test_device/system/install/path", p)
 	})
 	t.Run("output", func(t *testing.T) {
@@ -1406,14 +1501,12 @@ func TestPathRelativeToTop(t *testing.T) {
 	t.Run("mixture", func(t *testing.T) {
 		paths := Paths{
 			PathForModuleInstall(ctx, "install/path"),
-			PathForModuleInstall(ctx, "install/path").ToMakePath(),
 			PathForOutput(ctx, "output/path"),
 			PathForSource(ctx, "source/path"),
 		}
 
 		expected := []string{
 			"out/soong/target/product/test_device/system/install/path",
-			"out/target/product/test_device/system/install/path",
 			"out/soong/output/path",
 			"source/path",
 		}
@@ -1431,7 +1524,7 @@ func ExampleOutputPath_ReplaceExtension() {
 	fmt.Println(p.Rel(), p2.Rel())
 
 	// Output:
-	// out/system/framework/boot.art out/system/framework/boot.oat
+	// out/soong/system/framework/boot.art out/soong/system/framework/boot.oat
 	// boot.art boot.oat
 }
 
@@ -1445,7 +1538,7 @@ func ExampleOutputPath_InSameDir() {
 	fmt.Println(p.Rel(), p2.Rel())
 
 	// Output:
-	// out/system/framework/boot.art out/system/framework/oat/arm/boot.vdex
+	// out/soong/system/framework/boot.art out/soong/system/framework/oat/arm/boot.vdex
 	// boot.art oat/arm/boot.vdex
 }
 

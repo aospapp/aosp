@@ -98,8 +98,13 @@ public class MockConnectionService extends ConnectionService {
             connection.setConnectionProperties(connection.getConnectionProperties() |
                     Connection.PROPERTY_IS_RTT);
         }
+        Bundle testExtra;
+        if (request.getExtras() != null) {
+            testExtra = request.getExtras();
+        } else {
+            testExtra = new Bundle();
+        }
         // Emit an extra into the connection.  We'll see if it makes it through.
-        Bundle testExtra = new Bundle();
         testExtra.putString(EXTRA_TEST, TEST_VALUE);
         connection.putExtras(testExtra);
         outgoingConnections.add(connection);

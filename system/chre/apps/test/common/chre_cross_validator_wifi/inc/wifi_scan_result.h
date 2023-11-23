@@ -71,6 +71,10 @@ class WifiScanResult {
     mSeen = true;
   }
 
+  const uint8_t *getBssid() const {
+    return mBssid;
+  }
+
  private:
   char mSsid[CHRE_WIFI_SSID_MAX_LEN];
   uint8_t mBssid[CHRE_WIFI_BSSID_LEN];

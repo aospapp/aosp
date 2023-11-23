@@ -43,4 +43,9 @@ public final class RemoteDelegate extends RemotePolicyManager {
     public ComponentName componentName() {
         return null;
     }
+
+    @Override
+    public boolean isDelegate() {
+        return true;
+    }
 }

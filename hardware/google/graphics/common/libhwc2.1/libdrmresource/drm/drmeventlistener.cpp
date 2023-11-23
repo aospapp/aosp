@@ -67,11 +67,15 @@ int DrmEventListener::Init() {
   tuievent_fd_.Set(open(kTUIStatusPath, O_RDONLY));
   if (tuievent_fd_.get() < 0) {
     ALOGE("Failed to open sysfs(%s) for TUI event: %s", kTUIStatusPath, strerror(errno));
-    return tuievent_fd_.get();
-  }
+  } else {
+    /* Read garbage data once */
+    pread(tuievent_fd_.get(), &buffer, sizeof(buffer), 0);
 
-  /* Read garbage data once */
-  pread(tuievent_fd_.get(), &buffer, sizeof(buffer), 0);
+    ev.events = EPOLLPRI;
+    ev.data.fd = tuievent_fd_.get();
+    if (epoll_ctl(epoll_fd_.get(), EPOLL_CTL_ADD, tuievent_fd_.get(), &ev) < 0)
+      ALOGE("Failed to add tui fd into epoll: %s", strerror(errno));
+  }
 
   /* Set EPoll*/
   epoll_fd_.Set(epoll_create(maxFds));
@@ -94,13 +98,6 @@ int DrmEventListener::Init() {
     return -errno;
   }
 
-  ev.events = EPOLLPRI;
-  ev.data.fd = tuievent_fd_.get();
-  if (epoll_ctl(epoll_fd_.get(), EPOLL_CTL_ADD, tuievent_fd_.get(), &ev) < 0) {
-    ALOGE("Failed to add tui fd into epoll: %s", strerror(errno));
-    return -errno;
-  }
-
   return InitWorker();
 }
 
@@ -112,6 +109,15 @@ void DrmEventListener::RegisterHotplugHandler(DrmEventHandler *handler) {
 void DrmEventListener::UnRegisterHotplugHandler(DrmEventHandler *handler) {
   if (handler == hotplug_handler_.get())
     hotplug_handler_ = NULL;
+}
+
+void DrmEventListener::RegisterHistogramHandler(DrmHistogramEventHandler *handler) {
+    assert(!histogram_handler_);
+    histogram_handler_.reset(handler);
+}
+
+void DrmEventListener::UnRegisterHistogramHandler(DrmHistogramEventHandler *handler) {
+    if (handler == histogram_handler_.get()) histogram_handler_ = NULL;
 }
 
 void DrmEventListener::RegisterTUIHandler(DrmTUIEventHandler *handler) {
@@ -127,19 +133,33 @@ void DrmEventListener::UnRegisterTUIHandler(DrmTUIEventHandler *handler) {
     tui_handler_ = NULL;
 }
 
+void DrmEventListener::RegisterPanelIdleHandler(DrmPanelIdleEventHandler *handler) {
+  assert(!panel_idle_handler_);
+  panel_idle_handler_.reset(handler);
+}
+
+void DrmEventListener::UnRegisterPanelIdleHandler(DrmPanelIdleEventHandler *handler) {
+  if (handler == panel_idle_handler_.get())
+    panel_idle_handler_ = NULL;
+}
+
 bool DrmEventListener::IsDrmInTUI() {
   char buffer[1024];
   int ret;
 
-  ret = pread(tuievent_fd_.get(), &buffer, sizeof(buffer), 0);
-  if (ret == 0) {
-    return false;
-  } else if (ret < 0) {
-    ALOGE("Got error reading TUI event %s", strerror(errno));
-    return false;
+  if (tuievent_fd_.get() >= 0) {
+    ret = pread(tuievent_fd_.get(), &buffer, sizeof(buffer), 0);
+    if (ret == 0) {
+      return false;
+    } else if (ret < 0) {
+      ALOGE("Got error reading TUI event %s", strerror(errno));
+      return false;
+    }
+
+    return atoi(buffer) == 1 ? true : false;
   }
 
-  return atoi(buffer) == 1 ? true : false;
+  return false;
 }
 
 void DrmEventListener::FlipHandler(int /* fd */, unsigned int /* sequence */,
@@ -149,7 +169,7 @@ void DrmEventListener::FlipHandler(int /* fd */, unsigned int /* sequence */,
   if (!handler)
     return;
 
-  handler->HandleEvent((uint64_t)tv_sec * 1000 * 1000 + tv_usec);
+  handler->handleEvent((uint64_t)tv_sec * 1000 * 1000 + tv_usec);
   delete handler;
 }
 
@@ -167,7 +187,7 @@ void DrmEventListener::UEventHandler() {
 
   ret = read(uevent_fd_.get(), &buffer, sizeof(buffer));
   if (ret == 0) {
-      return;
+    return;
   } else if (ret < 0) {
     ALOGE("Got error reading uevent %d", ret);
     return;
@@ -176,8 +196,11 @@ void DrmEventListener::UEventHandler() {
   bool drm_event = false, hotplug_event = false;
   for (int i = 0; i < ret;) {
     char *event = buffer + i;
+
     if (!strcmp(event, "DEVTYPE=drm_minor")) {
       drm_event = true;
+    } else if (!strncmp(event, "PANEL_IDLE_ENTER=", strlen("PANEL_IDLE_ENTER="))) {
+      panel_idle_handler_->handleIdleEnterEvent(event);
     } else if (!strcmp(event, "HOTPLUG=1")) {
       hotplug_event = true;
     }
@@ -189,8 +212,49 @@ void DrmEventListener::UEventHandler() {
     if (!hotplug_handler_)
       return;
 
-    hotplug_handler_->HandleEvent(timestamp);
+    hotplug_handler_->handleEvent(timestamp);
   }
+}
+
+void DrmEventListener::DRMEventHandler() {
+    char buffer[1024];
+    int len, i;
+    struct drm_event *e;
+    struct drm_event_vblank *vblank;
+    struct exynos_drm_histogram_event *histo;
+    void *user_data;
+
+    len = read(drm_->fd(), &buffer, sizeof(buffer));
+    if (len == 0) return;
+    if (len < (int)sizeof(*e)) return;
+
+    i = 0;
+    while (i < len) {
+        e = (struct drm_event *)(buffer + i);
+        switch (e->type) {
+            case EXYNOS_DRM_HISTOGRAM_EVENT:
+                if (histogram_handler_) {
+                    histo = (struct exynos_drm_histogram_event *)e;
+                    histogram_handler_->handleHistogramEvent((void *)&(histo->bins));
+                }
+                break;
+            case DRM_EVENT_FLIP_COMPLETE:
+                vblank = (struct drm_event_vblank *)e;
+                user_data = (void *)(unsigned long)(vblank->user_data);
+                FlipHandler(drm_->fd(), vblank->sequence, vblank->tv_sec, vblank->tv_usec,
+                            user_data);
+                break;
+            case DRM_EVENT_VBLANK:
+            case DRM_EVENT_CRTC_SEQUENCE:
+                /* These DRM events are not handled */
+                break;
+            default:
+                break;
+        }
+        i += e->length;
+    }
+
+    return;
 }
 
 void DrmEventListener::TUIEventHandler() {
@@ -199,7 +263,7 @@ void DrmEventListener::TUIEventHandler() {
     return;
   }
 
-  tui_handler_->HandleTUIEvent();
+  tui_handler_->handleTUIEvent();
 }
 
 void DrmEventListener::Routine() {
@@ -215,14 +279,10 @@ void DrmEventListener::Routine() {
       if (events[n].data.fd == uevent_fd_.get()) {
         UEventHandler();
       } else if (events[n].data.fd == drm_->fd()) {
-        drmEventContext event_context =
-            {.version = 2,
-             .vblank_handler = NULL,
-             .page_flip_handler = DrmEventListener::FlipHandler};
-        drmHandleEvent(drm_->fd(), &event_context);
+          DRMEventHandler();
       }
     } else if (events[n].events & EPOLLPRI) {
-      if (events[n].data.fd == tuievent_fd_.get()) {
+      if (tuievent_fd_.get() >= 0 && events[n].data.fd == tuievent_fd_.get()) {
         TUIEventHandler();
       }
     }

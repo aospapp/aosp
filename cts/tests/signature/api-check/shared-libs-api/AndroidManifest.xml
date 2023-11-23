@@ -37,7 +37,7 @@
         <uses-library android:name="org.apache.http.legacy" android:required="false"/>
     </application>
 
-    <instrumentation android:name="repackaged.android.test.InstrumentationTestRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.signature.cts.api.shared_libs"
                      android:label="Shared Libraries API Signature Muti Libs Test"/>
 

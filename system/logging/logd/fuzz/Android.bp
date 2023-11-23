@@ -30,6 +30,10 @@ cc_defaults {
         "libz",
         "libzstd",
     ],
+    shared_libs: [
+        "libbinder",
+        "libutils",
+    ],
     cflags: ["-Wextra"],
     host_supported: true,
 }

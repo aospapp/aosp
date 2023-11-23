@@ -551,6 +551,70 @@ public class BoringLayoutTest {
         }
     }
 
+    @Test
+    public void testSetGetUseFallbackLineSpacing_True() {
+        String text = "Hello, world";
+        String text2 = "Hello, Android";
+        TextPaint paint = new TextPaint();
+        BoringLayout.Metrics m = BoringLayout.isBoring(text, paint, TextDirectionHeuristics.LTR,
+                true, null);
+
+        BoringLayout bl = BoringLayout.make("hello, world", new TextPaint(),
+                100 /* outer width */,
+                Alignment.ALIGN_NORMAL,
+                m,
+                false /* include font padding */,
+                null,
+                100 /* ellipsis width */,
+                true);
+
+        assertTrue(bl.isFallbackLineSpacingEnabled());
+
+        BoringLayout bl2 = bl.replaceOrMake(text2, paint,
+                200 /* outer width */,
+                Alignment.ALIGN_CENTER,
+                m,
+                true /* include font padding */,
+                null,
+                100 /* ellipsis width */,
+                false);
+
+        assertFalse(bl2.isFallbackLineSpacingEnabled());
+
+    }
+
+    @Test
+    public void testSetGetUseFallbackLineSpacing_False() {
+        String text = "Hello, world";
+        String text2 = "Hello, Android";
+        TextPaint paint = new TextPaint();
+        BoringLayout.Metrics m = BoringLayout.isBoring(text, paint, TextDirectionHeuristics.LTR,
+                false, null);
+
+        BoringLayout bl = BoringLayout.make("hello, world", new TextPaint(),
+                100 /* outer width */,
+                Alignment.ALIGN_NORMAL,
+                m,
+                false /* include font padding */,
+                null,
+                100 /* ellipsis width */,
+                false);
+
+        assertFalse(bl.isFallbackLineSpacingEnabled());
+
+        BoringLayout bl2 = bl.replaceOrMake(text2, paint,
+                200 /* outer width */,
+                Alignment.ALIGN_CENTER,
+                m,
+                true /* include font padding */,
+                null,
+                100 /* ellipsis width */,
+                true);
+
+        assertTrue(bl2.isFallbackLineSpacingEnabled());
+
+    }
+
     private static Metrics createMetrics(
             final int top,
             final int ascent,

@@ -20,9 +20,9 @@ import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
 import android.view.WindowManager;
-
-import java.lang.Override;
 
 /**
  * A simple activity to install for various users to test LauncherApps.
@@ -46,6 +46,11 @@ public class SimpleActivity extends Activity {
         Intent reply = new Intent();
         reply.setAction(ACTIVITY_LAUNCHED_ACTION);
         sendBroadcast(reply);
+
+        final WindowInsetsController insetsController = getWindow().getInsetsController();
+        if (insetsController != null) {
+            insetsController.hide(WindowInsets.Type.navigationBars());
+        }
     }
 
     @Override

@@ -171,3 +171,37 @@ void setCloseOnExec(const char *sock) {
         ALOGE("Can't set control socket %s to FD_CLOEXEC", sock);
     }
 }
+
+// SIGTERM with timeout first, if fail, SIGKILL
+void stopProcess(int pid, const char* processName) {
+    int err = kill(pid, SIGTERM);
+    if (err) {
+        err = errno;
+    }
+    if (err == ESRCH) {
+        // This means that someone else inside netd called this helper function,
+        // which is a programming error. There's no point in calling waitpid() here since we
+        // know that the process is gone.
+        ALOGE("%s child process %d unexpectedly disappeared", processName, pid);
+        return;
+    }
+    if (err) {
+        ALOGE("Error killing %s child process %d: %s", processName, pid, strerror(err));
+    }
+    int status = 0;
+    int ret = 0;
+    for (int count = 0; ret == 0 && count < 50; count++) {
+        usleep(100000); // sleep 0.1s to wait for process stop.
+        ret = waitpid(pid, &status, WNOHANG);
+    }
+    if (ret == 0) {
+        ALOGE("Failed to SIGTERM %s pid=%d, try SIGKILL", processName, pid);
+        kill(pid, SIGKILL);
+        ret = waitpid(pid, &status, 0);
+    }
+    if (ret == -1) {
+        ALOGE("Error waiting for %s child process %d: %s", processName, pid, strerror(errno));
+    } else {
+        ALOGD("%s process %d terminated status=%d", processName, pid, status);
+    }
+}

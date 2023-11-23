@@ -22,6 +22,8 @@ import java.security.spec.InvalidParameterSpecException;
 
 import javax.crypto.spec.IvParameterSpec;
 
+import org.junit.Test;
+
 abstract class AESCBCCipherTestBase extends BlockCipherTestBase {
 
     @Override

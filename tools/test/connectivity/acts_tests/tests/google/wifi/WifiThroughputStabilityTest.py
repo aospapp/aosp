@@ -29,7 +29,9 @@ from acts.controllers import iperf_server as ipf
 from acts.controllers.utils_lib import ssh
 from acts.metrics.loggers.blackbox import BlackboxMappedMetricLogger
 from acts_contrib.test_utils.wifi import ota_chamber
+from acts_contrib.test_utils.wifi import ota_sniffer
 from acts_contrib.test_utils.wifi import wifi_performance_test_utils as wputils
+from acts_contrib.test_utils.wifi.wifi_performance_test_utils.bokeh_figure import BokehFigure
 from acts_contrib.test_utils.wifi import wifi_retail_ap as retail_ap
 from acts_contrib.test_utils.wifi import wifi_test_utils as wutils
 from functools import partial
@@ -57,10 +59,9 @@ class WifiThroughputStabilityTest(base_test.BaseTestClass):
             BlackboxMappedMetricLogger.for_test_class())
         self.publish_testcase_metrics = True
         # Generate test cases
-        self.tests = self.generate_test_cases([6, 36, 149],
-                                              ['bw20', 'bw40', 'bw80'],
-                                              ['TCP', 'UDP'], ['DL', 'UL'],
-                                              ['high', 'low'])
+        self.tests = self.generate_test_cases(
+            [6, 36, 149, '6g37'], ['bw20', 'bw40', 'bw80', 'bw160'],
+            ['TCP', 'UDP'], ['DL', 'UL'], ['high', 'low'])
 
     def generate_test_cases(self, channels, modes, traffic_types,
                             traffic_directions, signal_levels):
@@ -68,11 +69,11 @@ class WifiThroughputStabilityTest(base_test.BaseTestClass):
         allowed_configs = {
             20: [
                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 36, 40, 44, 48, 64, 100,
-                116, 132, 140, 149, 153, 157, 161
+                116, 132, 140, 149, 153, 157, 161, '6g37', '6g117', '6g213'
             ],
-            40: [36, 44, 100, 149, 157],
-            80: [36, 100, 149],
-            160: [36]
+            40: [36, 44, 100, 149, 157, '6g37', '6g117', '6g213'],
+            80: [36, 100, 149, '6g37', '6g117', '6g213'],
+            160: [36, '6g37', '6g117', '6g213']
         }
 
         test_cases = []
@@ -108,7 +109,8 @@ class WifiThroughputStabilityTest(base_test.BaseTestClass):
             'throughput_stability_test_params', 'testbed_params',
             'main_network', 'RetailAccessPoints', 'RemoteServer'
         ]
-        self.unpack_userparams(req_params)
+        opt_params = ['OTASniffer']
+        self.unpack_userparams(req_params, opt_params)
         self.testclass_params = self.throughput_stability_test_params
         self.num_atten = self.attenuators[0].instrument.num_atten
         self.remote_server = ssh.connection.SshConnection(
@@ -116,6 +118,13 @@ class WifiThroughputStabilityTest(base_test.BaseTestClass):
         self.iperf_server = self.iperf_servers[0]
         self.iperf_client = self.iperf_clients[0]
         self.access_point = retail_ap.create(self.RetailAccessPoints)[0]
+        if hasattr(self,
+                   'OTASniffer') and self.testbed_params['sniffer_enable']:
+            try:
+                self.sniffer = ota_sniffer.create(self.OTASniffer)[0]
+            except:
+                self.log.warning('Could not start sniffer. Disabling sniffs.')
+                self.testbed_params['sniffer_enable'] = 0
         self.log_path = os.path.join(logging.log_path, 'test_results')
         os.makedirs(self.log_path, exist_ok=True)
         self.log.info('Access Point Configuration: {}'.format(
@@ -133,7 +142,14 @@ class WifiThroughputStabilityTest(base_test.BaseTestClass):
     def teardown_test(self):
         self.iperf_server.stop()
 
-    def pass_fail_check(self, test_result_dict):
+    def teardown_class(self):
+        self.access_point.teardown()
+        # Turn WiFi OFF
+        for dev in self.android_devices:
+            wutils.wifi_toggle_state(dev, False)
+            dev.go_to_sleep()
+
+    def pass_fail_check(self, test_result):
         """Check the test result and decide if it passed or failed.
 
         Checks the throughput stability test's PASS/FAIL criteria based on
@@ -143,11 +159,11 @@ class WifiThroughputStabilityTest(base_test.BaseTestClass):
             test_result_dict: dict containing attenuation, throughput and other
             meta data
         """
-        avg_throughput = test_result_dict['iperf_results']['avg_throughput']
-        min_throughput = test_result_dict['iperf_results']['min_throughput']
+        avg_throughput = test_result['iperf_summary']['avg_throughput']
+        min_throughput = test_result['iperf_summary']['min_throughput']
         std_dev_percent = (
-            test_result_dict['iperf_results']['std_deviation'] /
-            test_result_dict['iperf_results']['avg_throughput']) * 100
+            test_result['iperf_summary']['std_deviation'] /
+            test_result['iperf_summary']['avg_throughput']) * 100
         # Set blackbox metrics
         if self.publish_testcase_metrics:
             self.testcase_metric_logger.add_metric('avg_throughput',
@@ -163,13 +179,21 @@ class WifiThroughputStabilityTest(base_test.BaseTestClass):
         std_deviation_check = std_dev_percent < self.testclass_params[
             'std_deviation_threshold']
 
+        llstats = (
+            'TX MCS = {0} ({1:.1f}%). '
+            'RX MCS = {2} ({3:.1f}%)'.format(
+                test_result['llstats']['summary']['common_tx_mcs'],
+                test_result['llstats']['summary']['common_tx_mcs_freq'] * 100,
+                test_result['llstats']['summary']['common_rx_mcs'],
+                test_result['llstats']['summary']['common_rx_mcs_freq'] * 100))
+
         test_message = (
             'Atten: {0:.2f}dB, RSSI: {1:.2f}dB. '
             'Throughput (Mean: {2:.2f}, Std. Dev:{3:.2f}%, Min: {4:.2f} Mbps).'
-            'LLStats : {5}'.format(test_result_dict['attenuation'],
-                                   test_result_dict['rssi'], avg_throughput,
-                                   std_dev_percent, min_throughput,
-                                   test_result_dict['llstats']))
+            'LLStats : {5}'.format(
+                test_result['attenuation'],
+                test_result['rssi_result']['signal_poll_rssi']['mean'],
+                avg_throughput, std_dev_percent, min_throughput, llstats))
         if min_throughput_check and std_deviation_check:
             asserts.explicit_pass('Test Passed.' + test_message)
         asserts.fail('Test Failed. ' + test_message)
@@ -188,18 +212,6 @@ class WifiThroughputStabilityTest(base_test.BaseTestClass):
         test_name = self.current_test_name
         results_file_path = os.path.join(self.log_path,
                                          '{}.txt'.format(test_name))
-        test_result_dict = {}
-        test_result_dict['ap_settings'] = test_result['ap_settings'].copy()
-        test_result_dict['attenuation'] = test_result['attenuation']
-        test_result_dict['rssi'] = test_result['rssi_result'][
-            'signal_poll_rssi']['mean']
-        test_result_dict['llstats'] = (
-            'TX MCS = {0} ({1:.1f}%). '
-            'RX MCS = {2} ({3:.1f}%)'.format(
-                test_result['llstats']['summary']['common_tx_mcs'],
-                test_result['llstats']['summary']['common_tx_mcs_freq'] * 100,
-                test_result['llstats']['summary']['common_rx_mcs'],
-                test_result['llstats']['summary']['common_rx_mcs_freq'] * 100))
         if test_result['iperf_result'].instantaneous_rates:
             instantaneous_rates_Mbps = [
                 rate * 8 * (1.024**2)
@@ -210,20 +222,20 @@ class WifiThroughputStabilityTest(base_test.BaseTestClass):
                 'iperf_result'].get_std_deviation(
                     self.testclass_params['iperf_ignored_interval']) * 8
         else:
-            instantaneous_rates_Mbps = float('nan')
+            instantaneous_rates_Mbps = [float('nan')]
             tput_standard_deviation = float('nan')
-        test_result_dict['iperf_results'] = {
+        test_result['iperf_summary'] = {
             'instantaneous_rates': instantaneous_rates_Mbps,
             'avg_throughput': numpy.mean(instantaneous_rates_Mbps),
             'std_deviation': tput_standard_deviation,
             'min_throughput': min(instantaneous_rates_Mbps)
         }
         with open(results_file_path, 'w') as results_file:
-            json.dump(test_result_dict, results_file)
+            json.dump(wputils.serialize_dict(test_result), results_file)
         # Plot and save
-        figure = wputils.BokehFigure(test_name,
-                                     x_label='Time (s)',
-                                     primary_y_label='Throughput (Mbps)')
+        figure = BokehFigure(test_name,
+                             x_label='Time (s)',
+                             primary_y_label='Throughput (Mbps)')
         time_data = list(range(0, len(instantaneous_rates_Mbps)))
         figure.add_line(time_data,
                         instantaneous_rates_Mbps,
@@ -232,7 +244,7 @@ class WifiThroughputStabilityTest(base_test.BaseTestClass):
         output_file_path = os.path.join(self.log_path,
                                         '{}.html'.format(test_name))
         figure.generate_figure(output_file_path)
-        return test_result_dict
+        return test_result
 
     def setup_ap(self, testcase_params):
         """Sets up the access point in the configuration required by the test.
@@ -242,12 +254,16 @@ class WifiThroughputStabilityTest(base_test.BaseTestClass):
         """
         band = self.access_point.band_lookup_by_channel(
             testcase_params['channel'])
-        if '2G' in band:
-            frequency = wutils.WifiEnums.channel_2G_to_freq[
-                testcase_params['channel']]
+        if '6G' in band:
+            frequency = wutils.WifiEnums.channel_6G_to_freq[int(
+                testcase_params['channel'].strip('6g'))]
         else:
-            frequency = wutils.WifiEnums.channel_5G_to_freq[
-                testcase_params['channel']]
+            if testcase_params['channel'] < 13:
+                frequency = wutils.WifiEnums.channel_2G_to_freq[
+                    testcase_params['channel']]
+            else:
+                frequency = wutils.WifiEnums.channel_5G_to_freq[
+                    testcase_params['channel']]
         if frequency in wutils.WifiEnums.DFS_5G_FREQUENCIES:
             self.access_point.set_region(self.testbed_params['DFS_region'])
         else:
@@ -263,11 +279,13 @@ class WifiThroughputStabilityTest(base_test.BaseTestClass):
         Args:
             testcase_params: dict containing AP and other test params
         """
-        # Check battery level before test
-        if not wputils.health_check(self.dut, 10):
-            asserts.skip('Battery level too low. Skipping test.')
         # Turn screen off to preserve battery
-        self.dut.go_to_sleep()
+        if self.testbed_params.get('screen_on',
+                                   False) or self.testclass_params.get(
+                                       'screen_on', False):
+            self.dut.droid.wakeLockAcquireDim()
+        else:
+            self.dut.go_to_sleep()
         band = self.access_point.band_lookup_by_channel(
             testcase_params['channel'])
         if wputils.validate_network(self.dut,
@@ -276,13 +294,15 @@ class WifiThroughputStabilityTest(base_test.BaseTestClass):
         else:
             wutils.wifi_toggle_state(self.dut, True)
             wutils.reset_wifi(self.dut)
+            if self.testbed_params.get('txbf_off', False):
+                wputils.disable_beamforming(self.dut)
             wutils.set_wifi_country_code(self.dut,
                                          self.testclass_params['country_code'])
             self.main_network[band]['channel'] = testcase_params['channel']
             wutils.wifi_connect(self.dut,
                                 testcase_params['test_network'],
                                 num_of_tries=5,
-                                check_connectivity=False)
+                                check_connectivity=True)
         self.dut_ip = self.dut.droid.connectivityGetIPv4Addresses('wlan0')[0]
 
     def setup_throughput_stability_test(self, testcase_params):
@@ -293,6 +313,9 @@ class WifiThroughputStabilityTest(base_test.BaseTestClass):
         """
         # Configure AP
         self.setup_ap(testcase_params)
+        # Set attenuator to 0 dB
+        for attenuator in self.attenuators:
+            attenuator.set_atten(0, strict=False, retry=True)
         # Reset, configure, and connect DUT
         self.setup_dut(testcase_params)
         # Wait before running the first wifi test
@@ -331,6 +354,12 @@ class WifiThroughputStabilityTest(base_test.BaseTestClass):
         self.log.info('Starting iperf test.')
         llstats_obj = wputils.LinkLayerStats(self.dut)
         llstats_obj.update_stats()
+        if self.testbed_params['sniffer_enable']:
+            self.sniffer.start_capture(
+                network=testcase_params['test_network'],
+                chan=testcase_params['channel'],
+                bw=testcase_params['bandwidth'],
+                duration=self.testclass_params['iperf_duration'] / 5)
         self.iperf_server.start(tag=str(testcase_params['atten_level']))
         current_rssi = wputils.get_connected_rssi_nb(
             dut=self.dut,
@@ -345,6 +374,9 @@ class WifiThroughputStabilityTest(base_test.BaseTestClass):
             self.testclass_params['iperf_duration'] + TEST_TIMEOUT)
         current_rssi = current_rssi.result()
         server_output_path = self.iperf_server.stop()
+        # Stop sniffer
+        if self.testbed_params['sniffer_enable']:
+            self.sniffer.stop_capture()
         # Set attenuator to 0 dB
         for attenuator in self.attenuators:
             attenuator.set_atten(0)
@@ -389,9 +421,9 @@ class WifiThroughputStabilityTest(base_test.BaseTestClass):
 
         # Get attenuation for target RSSI
         if testcase_params['signal_level'] == 'low':
-            target_rssi = self.testclass_params['low_throughput_target']
+            target_rssi = self.testclass_params['low_throughput_rssi_target']
         else:
-            target_rssi = self.testclass_params['high_throughput_target']
+            target_rssi = self.testclass_params['high_throughput_rssi_target']
         target_atten = wputils.get_atten_for_target_rssi(
             target_rssi, self.attenuators, self.dut, self.remote_server)
 
@@ -400,6 +432,11 @@ class WifiThroughputStabilityTest(base_test.BaseTestClass):
 
     def compile_test_params(self, testcase_params):
         """Function that completes setting the test case parameters."""
+        # Check if test should be skipped based on parameters.
+        wputils.check_skip_conditions(testcase_params, self.dut,
+                                      self.access_point,
+                                      getattr(self, 'ota_chamber', None))
+
         band = self.access_point.band_lookup_by_channel(
             testcase_params['channel'])
         testcase_params['test_network'] = self.main_network[band]
@@ -423,7 +460,9 @@ class WifiThroughputStabilityTest(base_test.BaseTestClass):
                 reverse_direction=1,
                 traffic_type=testcase_params['traffic_type'],
                 socket_size=testcase_params['iperf_socket_size'],
-                num_processes=testcase_params['iperf_processes'])
+                num_processes=testcase_params['iperf_processes'],
+                udp_throughput=self.testclass_params['UDP_rates'][
+                    testcase_params['mode']])
             testcase_params['use_client_output'] = True
         else:
             testcase_params['iperf_args'] = wputils.get_iperf_arg_string(
@@ -431,7 +470,9 @@ class WifiThroughputStabilityTest(base_test.BaseTestClass):
                 reverse_direction=0,
                 traffic_type=testcase_params['traffic_type'],
                 socket_size=testcase_params['iperf_socket_size'],
-                num_processes=testcase_params['iperf_processes'])
+                num_processes=testcase_params['iperf_processes'],
+                udp_throughput=self.testclass_params['UDP_rates'][
+                    testcase_params['mode']])
             testcase_params['use_client_output'] = False
 
         return testcase_params
@@ -475,6 +516,7 @@ class WifiOtaThroughputStabilityTest(WifiThroughputStabilityTest):
             self.user_params['OTAChamber'])[0]
 
     def teardown_class(self):
+        WifiThroughputStabilityTest.teardown_class(self)
         self.ota_chamber.reset_chamber()
         self.process_testclass_results()
 
@@ -496,12 +538,9 @@ class WifiOtaThroughputStabilityTest(WifiThroughputStabilityTest):
                 ]).items())
             test_data = channel_data.setdefault(
                 test_id, collections.OrderedDict(position=[], throughput=[]))
-            current_throughput = (numpy.mean(
-                test['iperf_result'].instantaneous_rates[
-                    self.testclass_params['iperf_ignored_interval']:-1])
-                                  ) * 8 * (1.024**2)
             test_data['position'].append(current_params['position'])
-            test_data['throughput'].append(current_throughput)
+            test_data['throughput'].append(
+                test['iperf_summary']['avg_throughput'])
 
         chamber_mode = self.testclass_results[0]['testcase_params'][
             'chamber_mode']
@@ -519,7 +558,7 @@ class WifiOtaThroughputStabilityTest(WifiThroughputStabilityTest):
                     test_id_dict['traffic_direction'], channel,
                     test_id_dict['mode'])
                 metric_name = metric_tag + '.avg_throughput'
-                metric_value = numpy.mean(test_data['throughput'])
+                metric_value = numpy.nanmean(test_data['throughput'])
                 self.testclass_metric_logger.add_metric(
                     metric_name, metric_value)
                 metric_name = metric_tag + '.min_throughput'
@@ -530,7 +569,7 @@ class WifiOtaThroughputStabilityTest(WifiThroughputStabilityTest):
         # Plot test class results
         plots = []
         for channel, channel_data in testclass_data.items():
-            current_plot = wputils.BokehFigure(
+            current_plot = BokehFigure(
                 title='Channel {} - Rate vs. Position'.format(channel),
                 x_label=x_label,
                 primary_y_label='Rate (Mbps)',
@@ -547,7 +586,7 @@ class WifiOtaThroughputStabilityTest(WifiThroughputStabilityTest):
             plots.append(current_plot)
         current_context = context.get_current_context().get_full_output_path()
         plot_file_path = os.path.join(current_context, 'results.html')
-        wputils.BokehFigure.save_figures(plots, plot_file_path)
+        BokehFigure.save_figures(plots, plot_file_path)
 
     def setup_throughput_stability_test(self, testcase_params):
         WifiThroughputStabilityTest.setup_throughput_stability_test(
@@ -559,10 +598,11 @@ class WifiOtaThroughputStabilityTest(WifiThroughputStabilityTest):
             self.ota_chamber.step_stirrers(testcase_params['total_positions'])
 
     def get_target_atten(self, testcase_params):
+        band = wputils.CHANNEL_TO_BAND_MAP[testcase_params['channel']]
         if testcase_params['signal_level'] == 'high':
-            test_atten = self.testclass_params['default_atten_levels'][0]
+            test_atten = self.testclass_params['ota_atten_levels'][band][0]
         elif testcase_params['signal_level'] == 'low':
-            test_atten = self.testclass_params['default_atten_levels'][1]
+            test_atten = self.testclass_params['ota_atten_levels'][band][1]
         return test_atten
 
     def generate_test_cases(self, channels, modes, traffic_types,
@@ -571,16 +611,16 @@ class WifiOtaThroughputStabilityTest(WifiThroughputStabilityTest):
         allowed_configs = {
             20: [
                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 36, 40, 44, 48, 64, 100,
-                116, 132, 140, 149, 153, 157, 161
+                116, 132, 140, 149, 153, 157, 161, '6g37', '6g117', '6g213'
             ],
-            40: [36, 44, 100, 149, 157],
-            80: [36, 100, 149],
-            160: [36]
+            40: [36, 44, 100, 149, 157, '6g37', '6g117', '6g213'],
+            80: [36, 100, 149, '6g37', '6g117', '6g213'],
+            160: [36, '6g37', '6g117', '6g213']
         }
 
         test_cases = []
-        for channel, mode, position, traffic_type, signal_level, traffic_direction in itertools.product(
-                channels, modes, positions, traffic_types, signal_levels,
+        for channel, mode, signal_level, position, traffic_type, traffic_direction in itertools.product(
+                channels, modes, signal_levels, positions, traffic_types,
                 traffic_directions):
             bandwidth = int(''.join([x for x in mode if x.isdigit()]))
             if channel not in allowed_configs[bandwidth]:
@@ -588,6 +628,7 @@ class WifiOtaThroughputStabilityTest(WifiThroughputStabilityTest):
             testcase_params = collections.OrderedDict(
                 channel=channel,
                 mode=mode,
+                bandwidth=bandwidth,
                 traffic_type=traffic_type,
                 traffic_direction=traffic_direction,
                 signal_level=signal_level,
@@ -608,7 +649,8 @@ class WifiOtaThroughputStability_TenDegree_Test(WifiOtaThroughputStabilityTest
                                                 ):
     def __init__(self, controllers):
         WifiOtaThroughputStabilityTest.__init__(self, controllers)
-        self.tests = self.generate_test_cases([6, 36, 149], ['bw20', 'bw80'],
+        self.tests = self.generate_test_cases([6, 36, 149, '6g37'],
+                                              ['bw20', 'bw80', 'bw160'],
                                               ['TCP'], ['DL', 'UL'],
                                               ['high', 'low'], 'orientation',
                                               list(range(0, 360, 10)))
@@ -617,7 +659,8 @@ class WifiOtaThroughputStability_TenDegree_Test(WifiOtaThroughputStabilityTest
 class WifiOtaThroughputStability_45Degree_Test(WifiOtaThroughputStabilityTest):
     def __init__(self, controllers):
         WifiOtaThroughputStabilityTest.__init__(self, controllers)
-        self.tests = self.generate_test_cases([6, 36, 149], ['bw20', 'bw80'],
+        self.tests = self.generate_test_cases([6, 36, 149, '6g37'],
+                                              ['bw20', 'bw80', 'bw160'],
                                               ['TCP'], ['DL', 'UL'],
                                               ['high', 'low'], 'orientation',
                                               list(range(0, 360, 45)))
@@ -627,7 +670,8 @@ class WifiOtaThroughputStability_SteppedStirrers_Test(
         WifiOtaThroughputStabilityTest):
     def __init__(self, controllers):
         WifiOtaThroughputStabilityTest.__init__(self, controllers)
-        self.tests = self.generate_test_cases([6, 36, 149], ['bw20', 'bw80'],
+        self.tests = self.generate_test_cases([6, 36, 149, '6g37'],
+                                              ['bw20', 'bw80', 'bw160'],
                                               ['TCP'], ['DL', 'UL'],
                                               ['high', 'low'],
                                               'stepped stirrers',

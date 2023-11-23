@@ -32,6 +32,10 @@ namespace stress_test {
 
 namespace {
 
+//! Additional duration to handle request timeout over the specified
+//! CHRE API timeout (to account for processing delay).
+#define TIMEOUT_BUFFER_DELAY_NS (1 * CHRE_NSEC_PER_SEC)
+
 constexpr chre::Nanoseconds kWifiScanInterval = chre::Seconds(5);
 
 bool isRequestTypeForLocation(uint8_t requestType) {
@@ -213,8 +217,8 @@ void Manager::handleDelayedWifiTimer() {
     sendFailure("Failed to make WiFi scan request");
   } else {
     mWifiScanAsyncRequest = AsyncRequest(&kOnDemandWifiScanCookie);
-    setTimer(CHRE_WIFI_SCAN_RESULT_TIMEOUT_NS, true /* oneShot */,
-             &mWifiScanAsyncTimerHandle);
+    setTimer(CHRE_WIFI_SCAN_RESULT_TIMEOUT_NS + TIMEOUT_BUFFER_DELAY_NS,
+             true /* oneShot */, &mWifiScanAsyncTimerHandle);
   }
 }
 
@@ -388,7 +392,8 @@ void Manager::handleGnssMeasurementStartCommand(bool start) {
 }
 
 void Manager::handleWwanStartCommand(bool start) {
-  constexpr uint64_t kTimerDelayNs = CHRE_ASYNC_RESULT_TIMEOUT_NS;
+  constexpr uint64_t kTimerDelayNs =
+      CHRE_ASYNC_RESULT_TIMEOUT_NS + TIMEOUT_BUFFER_DELAY_NS;
 
   if (chreWwanGetCapabilities() & CHRE_WWAN_GET_CELL_INFO) {
     mWwanTestStarted = start;
@@ -414,8 +419,8 @@ void Manager::handleWifiScanMonitoringCommand(bool start) {
     if (!success) {
       sendFailure("Scan monitor request failed");
     } else {
-      setTimer(CHRE_ASYNC_RESULT_TIMEOUT_NS, true /* oneShot */,
-               &mWifiScanMonitorAsyncTimerHandle);
+      setTimer(CHRE_ASYNC_RESULT_TIMEOUT_NS + TIMEOUT_BUFFER_DELAY_NS,
+               true /* oneShot */, &mWifiScanMonitorAsyncTimerHandle);
     }
   } else {
     sendFailure("Platform has no WiFi scan monitoring capability");
@@ -469,8 +474,8 @@ void Manager::makeGnssLocationRequest() {
     sendFailure("Failed to make location request");
   } else {
     mGnssLocationAsyncRequest = AsyncRequest(&kGnssLocationCookie);
-    setTimer(CHRE_GNSS_ASYNC_RESULT_TIMEOUT_NS, true /* oneShot */,
-             &mGnssLocationAsyncTimerHandle);
+    setTimer(CHRE_GNSS_ASYNC_RESULT_TIMEOUT_NS + TIMEOUT_BUFFER_DELAY_NS,
+             true /* oneShot */, &mGnssLocationAsyncTimerHandle);
   }
 }
 
@@ -504,8 +509,8 @@ void Manager::makeGnssMeasurementRequest() {
     sendFailure("Failed to make measurement request");
   } else {
     mGnssMeasurementAsyncRequest = AsyncRequest(&kGnssMeasurementCookie);
-    setTimer(CHRE_GNSS_ASYNC_RESULT_TIMEOUT_NS, true /* oneShot */,
-             &mGnssMeasurementAsyncTimerHandle);
+    setTimer(CHRE_GNSS_ASYNC_RESULT_TIMEOUT_NS + TIMEOUT_BUFFER_DELAY_NS,
+             true /* oneShot */, &mGnssMeasurementAsyncTimerHandle);
   }
 }
 
@@ -545,7 +550,7 @@ void Manager::sendFailure(const char *errorMessage) {
   test_shared::sendTestResultWithMsgToHost(
       mHostEndpoint.value(),
       chre_stress_test_MessageType_TEST_RESULT /* messageType */,
-      false /* success */, errorMessage);
+      false /* success */, errorMessage, false /* abortOnFailure */);
 }
 
 }  // namespace stress_test

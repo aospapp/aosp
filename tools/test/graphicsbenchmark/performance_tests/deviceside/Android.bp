@@ -25,7 +25,6 @@ android_test_helper_app {
     static_libs: [
         "androidx.test.rules",
         "GameCoreHelper",
-        "repackaged.android.test.base",
     ],
     test_suites: ["device-tests"],
     srcs: ["src/**/*.java"],

@@ -370,10 +370,6 @@ std::string FQName::getInterfaceBaseName() const {
     return getInterfaceName().substr(1);
 }
 
-std::string FQName::getInterfaceAdapterName() const {
-    return "A" + getInterfaceBaseName();
-}
-
 std::string FQName::getInterfaceHwName() const {
     return "IHw" + getInterfaceBaseName();
 }
@@ -392,10 +388,6 @@ std::string FQName::getInterfacePassthroughName() const {
 
 FQName FQName::getInterfaceProxyFqName() const {
     return FQName(package(), version(), getInterfaceProxyName());
-}
-
-FQName FQName::getInterfaceAdapterFqName() const {
-    return FQName(package(), version(), getInterfaceAdapterName());
 }
 
 FQName FQName::getInterfaceStubFqName() const {

@@ -41,6 +41,7 @@
 #include "update_engine/common/mock_download_action.h"
 #include "update_engine/common/mock_prefs.h"
 #include "update_engine/common/test_utils.h"
+#include "update_engine/common/testing_constants.h"
 #include "update_engine/common/utils.h"
 #include "update_engine/payload_consumer/install_plan.h"
 #include "update_engine/payload_consumer/payload_constants.h"
@@ -65,13 +66,6 @@ using testing::IsEmpty;
 using testing::NiceMock;
 using testing::Not;
 using testing::Return;
-
-extern const char* kUnittestPrivateKeyPath;
-extern const char* kUnittestPublicKeyPath;
-extern const char* kUnittestPrivateKey2Path;
-extern const char* kUnittestPublicKey2Path;
-extern const char* kUnittestPrivateKeyECPath;
-extern const char* kUnittestPublicKeyECPath;
 
 static const uint32_t kDefaultKernelSize = 4096;  // Something small for a test
 // clang-format off
@@ -156,7 +150,7 @@ class DeltaPerformerIntegrationTest : public ::testing::Test {
     performer.manifest_.CopyFrom(manifest);
     performer.major_payload_version_ = major_version;
 
-    EXPECT_EQ(expected, performer.ValidateManifest());
+    ASSERT_EQ(expected, performer.ValidateManifest());
   }
   void AddPartition(DeltaArchiveManifest* manifest,
                     string name,
@@ -171,19 +165,19 @@ class DeltaPerformerIntegrationTest : public ::testing::Test {
 static void CompareFilesByBlock(const string& a_file,
                                 const string& b_file,
                                 size_t image_size) {
-  EXPECT_EQ(0U, image_size % kBlockSize);
+  ASSERT_EQ(0U, image_size % kBlockSize);
 
   brillo::Blob a_data, b_data;
-  EXPECT_TRUE(utils::ReadFile(a_file, &a_data)) << "file failed: " << a_file;
-  EXPECT_TRUE(utils::ReadFile(b_file, &b_data)) << "file failed: " << b_file;
+  ASSERT_TRUE(utils::ReadFile(a_file, &a_data)) << "file failed: " << a_file;
+  ASSERT_TRUE(utils::ReadFile(b_file, &b_data)) << "file failed: " << b_file;
 
   EXPECT_GE(a_data.size(), image_size);
   EXPECT_GE(b_data.size(), image_size);
   for (size_t i = 0; i < image_size; i += kBlockSize) {
-    EXPECT_EQ(0U, i % kBlockSize);
+    ASSERT_EQ(0U, i % kBlockSize);
     brillo::Blob a_sub(&a_data[i], &a_data[i + kBlockSize]);
     brillo::Blob b_sub(&b_data[i], &b_data[i + kBlockSize]);
-    EXPECT_TRUE(a_sub == b_sub) << "Block " << (i / kBlockSize) << " differs";
+    ASSERT_EQ(a_sub, b_sub) << "Block " << (i / kBlockSize) << " differs";
   }
   if (::testing::Test::HasNonfatalFailure()) {
     LOG(INFO) << "Compared filesystems with size " << image_size
@@ -207,8 +201,7 @@ static bool WriteByteAtOffset(const string& path, off_t offset) {
   int fd = open(path.c_str(), O_CREAT | O_WRONLY, 0644);
   TEST_AND_RETURN_FALSE_ERRNO(fd >= 0);
   ScopedFdCloser fd_closer(&fd);
-  EXPECT_TRUE(utils::PWriteAll(fd, "\0", 1, offset));
-  return true;
+  return utils::PWriteAll(fd, "\0", 1, offset);
 }
 
 static bool InsertSignaturePlaceholder(size_t signature_size,
@@ -245,7 +238,7 @@ static void SignGeneratedPayload(const string& payload_path,
                                                    {metadata_signature},
                                                    payload_path,
                                                    out_metadata_size));
-  EXPECT_TRUE(PayloadSigner::VerifySignedPayload(
+  ASSERT_TRUE(PayloadSigner::VerifySignedPayload(
       payload_path, GetBuildArtifactsPath(kUnittestPublicKeyPath)));
 }
 
@@ -359,12 +352,12 @@ static void SignGeneratedShellPayload(SignatureTest signature_test,
     // openssl genrsa -out <private_key_path> 2048
     RSA* rsa = RSA_new();
     BIGNUM* e = BN_new();
-    EXPECT_EQ(1, BN_set_word(e, RSA_F4));
-    EXPECT_EQ(1, RSA_generate_key_ex(rsa, 2048, e, nullptr));
+    ASSERT_EQ(1, BN_set_word(e, RSA_F4));
+    ASSERT_EQ(1, RSA_generate_key_ex(rsa, 2048, e, nullptr));
     BN_free(e);
     FILE* fprikey = fopen(private_key_path.c_str(), "w");
     EXPECT_NE(nullptr, fprikey);
-    EXPECT_EQ(1,
+    ASSERT_EQ(1,
               PEM_write_RSAPrivateKey(
                   fprikey, rsa, nullptr, nullptr, 0, nullptr, nullptr));
     fclose(fprikey);
@@ -405,7 +398,7 @@ static void GenerateDeltaFile(bool full_kernel,
   // in-place on A, we apply it to a new image, result_img.
   state->result_img.reset(new ScopedTempFile("result_img.XXXXXX"));
 
-  EXPECT_TRUE(
+  ASSERT_TRUE(
       base::CopyFile(GetBuildArtifactsPath().Append("gen/disk_ext2_4k.img"),
                      base::FilePath(state->a_img->path())));
 
@@ -422,28 +415,28 @@ static void GenerateDeltaFile(bool full_kernel,
                             std::begin(kRandomString),
                             std::end(kRandomString));
     }
-    EXPECT_TRUE(utils::WriteFile(
+    ASSERT_TRUE(utils::WriteFile(
         base::StringPrintf("%s/hardtocompress", a_mnt.c_str()).c_str(),
         hardtocompress.data(),
         hardtocompress.size()));
 
     brillo::Blob zeros(16 * 1024, 0);
-    EXPECT_EQ(static_cast<int>(zeros.size()),
+    ASSERT_EQ(static_cast<int>(zeros.size()),
               base::WriteFile(base::FilePath(base::StringPrintf(
                                   "%s/move-to-sparse", a_mnt.c_str())),
                               reinterpret_cast<const char*>(zeros.data()),
                               zeros.size()));
 
-    EXPECT_TRUE(WriteSparseFile(
+    ASSERT_TRUE(WriteSparseFile(
         base::StringPrintf("%s/move-from-sparse", a_mnt.c_str()), 16 * 1024));
 
-    EXPECT_TRUE(WriteByteAtOffset(
+    ASSERT_TRUE(WriteByteAtOffset(
         base::StringPrintf("%s/move-semi-sparse", a_mnt.c_str()), 4096));
 
     // Write 1 MiB of 0xff to try to catch the case where writing a bsdiff
     // patch fails to zero out the final block.
     brillo::Blob ones(1024 * 1024, 0xff);
-    EXPECT_TRUE(
+    ASSERT_TRUE(
         utils::WriteFile(base::StringPrintf("%s/ones", a_mnt.c_str()).c_str(),
                          ones.data(),
                          ones.size()));
@@ -451,12 +444,12 @@ static void GenerateDeltaFile(bool full_kernel,
 
   // Create a result image with image_size bytes of garbage.
   brillo::Blob ones(state->image_size, 0xff);
-  EXPECT_TRUE(utils::WriteFile(
+  ASSERT_TRUE(utils::WriteFile(
       state->result_img->path().c_str(), ones.data(), ones.size()));
-  EXPECT_EQ(utils::FileSize(state->a_img->path()),
+  ASSERT_EQ(utils::FileSize(state->a_img->path()),
             utils::FileSize(state->result_img->path()));
 
-  EXPECT_TRUE(
+  ASSERT_TRUE(
       base::CopyFile(GetBuildArtifactsPath().Append("gen/disk_ext2_4k.img"),
                      base::FilePath(state->b_img->path())));
   {
@@ -465,45 +458,45 @@ static void GenerateDeltaFile(bool full_kernel,
     ScopedLoopMounter b_mounter(state->b_img->path(), &b_mnt, 0);
     base::FilePath mnt_path(b_mnt);
 
-    EXPECT_TRUE(base::CopyFile(mnt_path.Append("regular-small"),
+    ASSERT_TRUE(base::CopyFile(mnt_path.Append("regular-small"),
                                mnt_path.Append("regular-small2")));
 #if BASE_VER < 800000
-    EXPECT_TRUE(base::DeleteFile(mnt_path.Append("regular-small"), false));
+    ASSERT_TRUE(base::DeleteFile(mnt_path.Append("regular-small"), false));
 #else
-    EXPECT_TRUE(base::DeleteFile(mnt_path.Append("regular-small")));
+    ASSERT_TRUE(base::DeleteFile(mnt_path.Append("regular-small")));
 #endif
-    EXPECT_TRUE(base::Move(mnt_path.Append("regular-small2"),
+    ASSERT_TRUE(base::Move(mnt_path.Append("regular-small2"),
                            mnt_path.Append("regular-small")));
-    EXPECT_TRUE(
+    ASSERT_TRUE(
         test_utils::WriteFileString(mnt_path.Append("foo").value(), "foo"));
-    EXPECT_EQ(0, base::WriteFile(mnt_path.Append("emptyfile"), "", 0));
+    ASSERT_EQ(0, base::WriteFile(mnt_path.Append("emptyfile"), "", 0));
 
-    EXPECT_TRUE(
+    ASSERT_TRUE(
         WriteSparseFile(mnt_path.Append("fullsparse").value(), 1024 * 1024));
-    EXPECT_TRUE(
+    ASSERT_TRUE(
         WriteSparseFile(mnt_path.Append("move-to-sparse").value(), 16 * 1024));
 
     brillo::Blob zeros(16 * 1024, 0);
-    EXPECT_EQ(static_cast<int>(zeros.size()),
+    ASSERT_EQ(static_cast<int>(zeros.size()),
               base::WriteFile(mnt_path.Append("move-from-sparse"),
                               reinterpret_cast<const char*>(zeros.data()),
                               zeros.size()));
 
-    EXPECT_TRUE(
+    ASSERT_TRUE(
         WriteByteAtOffset(mnt_path.Append("move-semi-sparse").value(), 4096));
-    EXPECT_TRUE(WriteByteAtOffset(mnt_path.Append("partsparse").value(), 4096));
+    ASSERT_TRUE(WriteByteAtOffset(mnt_path.Append("partsparse").value(), 4096));
 
-    EXPECT_TRUE(
+    ASSERT_TRUE(
         base::CopyFile(mnt_path.Append("regular-16k"), mnt_path.Append("tmp")));
-    EXPECT_TRUE(base::Move(mnt_path.Append("tmp"),
+    ASSERT_TRUE(base::Move(mnt_path.Append("tmp"),
                            mnt_path.Append("link-hard-regular-16k")));
 
 #if BASE_VER < 800000
-    EXPECT_TRUE(base::DeleteFile(mnt_path.Append("link-short_symlink"), false));
+    ASSERT_TRUE(base::DeleteFile(mnt_path.Append("link-short_symlink"), false));
 #else
-    EXPECT_TRUE(base::DeleteFile(mnt_path.Append("link-short_symlink")));
+    ASSERT_TRUE(base::DeleteFile(mnt_path.Append("link-short_symlink")));
 #endif
-    EXPECT_TRUE(test_utils::WriteFileString(
+    ASSERT_TRUE(test_utils::WriteFileString(
         mnt_path.Append("link-short_symlink").value(), "foobar"));
 
     brillo::Blob hardtocompress;
@@ -512,7 +505,7 @@ static void GenerateDeltaFile(bool full_kernel,
                             std::begin(kRandomString),
                             std::end(kRandomString));
     }
-    EXPECT_TRUE(utils::WriteFile(
+    ASSERT_TRUE(utils::WriteFile(
         base::StringPrintf("%s/hardtocompress", b_mnt.c_str()).c_str(),
         hardtocompress.data(),
         hardtocompress.size()));
@@ -534,13 +527,13 @@ static void GenerateDeltaFile(bool full_kernel,
       std::begin(kNewData), std::end(kNewData), state->new_kernel_data.begin());
 
   // Write kernels to disk
-  EXPECT_TRUE(utils::WriteFile(state->old_kernel->path().c_str(),
+  ASSERT_TRUE(utils::WriteFile(state->old_kernel->path().c_str(),
                                state->old_kernel_data.data(),
                                state->old_kernel_data.size()));
-  EXPECT_TRUE(utils::WriteFile(state->new_kernel->path().c_str(),
+  ASSERT_TRUE(utils::WriteFile(state->new_kernel->path().c_str(),
                                state->new_kernel_data.data(),
                                state->new_kernel_data.size()));
-  EXPECT_TRUE(utils::WriteFile(state->result_kernel->path().c_str(),
+  ASSERT_TRUE(utils::WriteFile(state->result_kernel->path().c_str(),
                                state->result_kernel_data.data(),
                                state->result_kernel_data.size()));
 
@@ -564,9 +557,9 @@ static void GenerateDeltaFile(bool full_kernel,
       if (!full_kernel)
         payload_config.source.partitions.back().path =
             state->old_kernel->path();
-      EXPECT_TRUE(payload_config.source.LoadImageSize());
+      ASSERT_TRUE(payload_config.source.LoadImageSize());
       for (PartitionConfig& part : payload_config.source.partitions)
-        EXPECT_TRUE(part.OpenFilesystem());
+        ASSERT_TRUE(part.OpenFilesystem());
     } else {
       if (payload_config.hard_chunk_size == -1)
         // Use 1 MiB chunk size for the full unittests.
@@ -576,26 +569,26 @@ static void GenerateDeltaFile(bool full_kernel,
     payload_config.target.partitions.back().path = state->b_img->path();
     payload_config.target.partitions.emplace_back(kPartitionNameKernel);
     payload_config.target.partitions.back().path = state->new_kernel->path();
-    EXPECT_TRUE(payload_config.target.LoadImageSize());
+    ASSERT_TRUE(payload_config.target.LoadImageSize());
     for (PartitionConfig& part : payload_config.target.partitions)
-      EXPECT_TRUE(part.OpenFilesystem());
+      ASSERT_TRUE(part.OpenFilesystem());
 
-    EXPECT_TRUE(payload_config.Validate());
-    EXPECT_TRUE(GenerateUpdatePayloadFile(payload_config,
+    ASSERT_TRUE(payload_config.Validate());
+    ASSERT_TRUE(GenerateUpdatePayloadFile(payload_config,
                                           state->delta_file->path(),
                                           private_key,
                                           &state->metadata_size));
   }
   // Extend the "partitions" holding the file system a bit.
-  EXPECT_EQ(0,
+  ASSERT_EQ(0,
             HANDLE_EINTR(truncate(state->a_img->path().c_str(),
                                   state->image_size + 1024 * 1024)));
-  EXPECT_EQ(static_cast<off_t>(state->image_size + 1024 * 1024),
+  ASSERT_EQ(static_cast<off_t>(state->image_size + 1024 * 1024),
             utils::FileSize(state->a_img->path()));
-  EXPECT_EQ(0,
+  ASSERT_EQ(0,
             HANDLE_EINTR(truncate(state->b_img->path().c_str(),
                                   state->image_size + 1024 * 1024)));
-  EXPECT_EQ(static_cast<off_t>(state->image_size + 1024 * 1024),
+  ASSERT_EQ(static_cast<off_t>(state->image_size + 1024 * 1024),
             utils::FileSize(state->b_img->path()));
 
   if (signature_test == kSignatureGeneratedPlaceholder ||
@@ -643,9 +636,9 @@ static void ApplyDeltaFile(bool full_kernel,
                            uint32_t minor_version) {
   // Check the metadata.
   {
-    EXPECT_TRUE(utils::ReadFile(state->delta_file->path(), &state->delta));
+    ASSERT_TRUE(utils::ReadFile(state->delta_file->path(), &state->delta));
     PayloadMetadata payload_metadata;
-    EXPECT_TRUE(payload_metadata.ParsePayloadHeader(state->delta));
+    ASSERT_TRUE(payload_metadata.ParsePayloadHeader(state->delta));
     state->metadata_size = payload_metadata.GetMetadataSize();
     LOG(INFO) << "Metadata size: " << state->metadata_size;
     state->metadata_signature_size =
@@ -653,23 +646,23 @@ static void ApplyDeltaFile(bool full_kernel,
     LOG(INFO) << "Metadata signature size: " << state->metadata_signature_size;
 
     DeltaArchiveManifest manifest;
-    EXPECT_TRUE(payload_metadata.GetManifest(state->delta, &manifest));
+    ASSERT_TRUE(payload_metadata.GetManifest(state->delta, &manifest));
     if (signature_test == kSignatureNone) {
-      EXPECT_FALSE(manifest.has_signatures_offset());
-      EXPECT_FALSE(manifest.has_signatures_size());
+      ASSERT_FALSE(manifest.has_signatures_offset());
+      ASSERT_FALSE(manifest.has_signatures_size());
     } else {
-      EXPECT_TRUE(manifest.has_signatures_offset());
-      EXPECT_TRUE(manifest.has_signatures_size());
+      ASSERT_TRUE(manifest.has_signatures_offset());
+      ASSERT_TRUE(manifest.has_signatures_size());
       Signatures sigs_message;
-      EXPECT_TRUE(sigs_message.ParseFromArray(
+      ASSERT_TRUE(sigs_message.ParseFromArray(
           &state->delta[state->metadata_size + state->metadata_signature_size +
                         manifest.signatures_offset()],
           manifest.signatures_size()));
       if (signature_test == kSignatureGeneratedShellRotateCl1 ||
           signature_test == kSignatureGeneratedShellRotateCl2)
-        EXPECT_EQ(2, sigs_message.signatures_size());
+        ASSERT_EQ(2, sigs_message.signatures_size());
       else
-        EXPECT_EQ(1, sigs_message.signatures_size());
+        ASSERT_EQ(1, sigs_message.signatures_size());
       const Signatures::Signature& signature = sigs_message.signatures(0);
 
       vector<string> key_paths{GetBuildArtifactsPath(kUnittestPrivateKeyPath)};
@@ -680,10 +673,10 @@ static void ApplyDeltaFile(bool full_kernel,
         key_paths.push_back(GetBuildArtifactsPath(kUnittestPrivateKey2Path));
       }
       uint64_t expected_sig_data_length = 0;
-      EXPECT_TRUE(PayloadSigner::SignatureBlobLength(
+      ASSERT_TRUE(PayloadSigner::SignatureBlobLength(
           key_paths, &expected_sig_data_length));
-      EXPECT_EQ(expected_sig_data_length, manifest.signatures_size());
-      EXPECT_FALSE(signature.data().empty());
+      ASSERT_EQ(expected_sig_data_length, manifest.signatures_size());
+      ASSERT_FALSE(signature.data().empty());
     }
 
     // TODO(ahassani): Make |DeltaState| into a partition list kind of struct
@@ -696,15 +689,15 @@ static void ApplyDeltaFile(bool full_kernel,
           return partition.partition_name() == kPartitionNameKernel;
         });
     if (full_kernel) {
-      EXPECT_FALSE(kernel_part.has_old_partition_info());
+      ASSERT_FALSE(kernel_part.has_old_partition_info());
     } else {
-      EXPECT_EQ(state->old_kernel_data.size(),
+      ASSERT_EQ(state->old_kernel_data.size(),
                 kernel_part.old_partition_info().size());
-      EXPECT_FALSE(kernel_part.old_partition_info().hash().empty());
+      ASSERT_FALSE(kernel_part.old_partition_info().hash().empty());
     }
-    EXPECT_EQ(state->new_kernel_data.size(),
+    ASSERT_EQ(state->new_kernel_data.size(),
               kernel_part.new_partition_info().size());
-    EXPECT_FALSE(kernel_part.new_partition_info().hash().empty());
+    ASSERT_FALSE(kernel_part.new_partition_info().hash().empty());
 
     const auto& rootfs_part =
         *std::find_if(manifest.partitions().begin(),
@@ -713,11 +706,11 @@ static void ApplyDeltaFile(bool full_kernel,
                         return partition.partition_name() == kPartitionNameRoot;
                       });
     if (full_rootfs) {
-      EXPECT_FALSE(rootfs_part.has_old_partition_info());
+      ASSERT_FALSE(rootfs_part.has_old_partition_info());
     } else {
-      EXPECT_FALSE(rootfs_part.old_partition_info().hash().empty());
+      ASSERT_FALSE(rootfs_part.old_partition_info().hash().empty());
     }
-    EXPECT_FALSE(rootfs_part.new_partition_info().hash().empty());
+    ASSERT_FALSE(rootfs_part.new_partition_info().hash().empty());
   }
 
   NiceMock<MockPrefs> prefs;
@@ -798,7 +791,7 @@ static void ApplyDeltaFile(bool full_kernel,
           ? GetBuildArtifactsPath(kUnittestPrivateKeyECPath)
           : GetBuildArtifactsPath(kUnittestPrivateKeyPath),
       &install_plan->payloads[0].metadata_signature));
-  EXPECT_FALSE(install_plan->payloads[0].metadata_signature.empty());
+  ASSERT_FALSE(install_plan->payloads[0].metadata_signature.empty());
 
   *performer = new DeltaPerformer(&prefs,
                                   &state->fake_boot_control_,
@@ -806,19 +799,19 @@ static void ApplyDeltaFile(bool full_kernel,
                                   &state->mock_delegate_,
                                   install_plan,
                                   &install_plan->payloads[0],
-                                  false /* interactive */);
+                                  false /* interactive */,
+                                  "");
   string public_key_path = signature_test == kSignatureGeneratedShellECKey
                                ? GetBuildArtifactsPath(kUnittestPublicKeyECPath)
                                : GetBuildArtifactsPath(kUnittestPublicKeyPath);
-  EXPECT_TRUE(utils::FileExists(public_key_path.c_str()));
+  ASSERT_TRUE(utils::FileExists(public_key_path.c_str()));
   (*performer)->set_public_key_path(public_key_path);
-  (*performer)->set_update_certificates_path("");
 
-  EXPECT_EQ(
+  ASSERT_EQ(
       static_cast<off_t>(state->image_size),
       HashCalculator::RawHashOfFile(
           state->a_img->path(), state->image_size, &root_part.source_hash));
-  EXPECT_TRUE(HashCalculator::RawHashOfData(state->old_kernel_data,
+  ASSERT_TRUE(HashCalculator::RawHashOfData(state->old_kernel_data,
                                             &kernel_part.source_hash));
 
   // The partitions should be empty before DeltaPerformer.
@@ -872,23 +865,23 @@ static void ApplyDeltaFile(bool full_kernel,
     // we cannot proceed applying the delta.
     if (!write_succeeded) {
       LOG(INFO) << "Write failed. Checking if it failed with expected error";
-      EXPECT_EQ(expected_error, actual_error);
+      ASSERT_EQ(expected_error, actual_error);
       if (!continue_writing) {
         LOG(INFO) << "Cannot continue writing. Bailing out.";
         break;
       }
     }
 
-    EXPECT_EQ(ErrorCode::kSuccess, actual_error);
+    ASSERT_EQ(ErrorCode::kSuccess, actual_error);
   }
 
   // If we had continued all the way through, Close should succeed.
   // Otherwise, it should fail. Check appropriately.
   bool close_result = (*performer)->Close();
   if (continue_writing)
-    EXPECT_EQ(0, close_result);
+    ASSERT_EQ(0, close_result);
   else
-    EXPECT_LE(0, close_result);
+    ASSERT_LE(0, close_result);
 }
 
 void VerifyPayloadResult(DeltaPerformer* performer,
@@ -896,14 +889,14 @@ void VerifyPayloadResult(DeltaPerformer* performer,
                          ErrorCode expected_result,
                          uint32_t minor_version) {
   if (!performer) {
-    EXPECT_TRUE(!"Skipping payload verification since performer is null.");
+    ASSERT_TRUE(!"Skipping payload verification since performer is null.");
     return;
   }
 
   LOG(INFO) << "Verifying payload for expected result " << expected_result;
   brillo::Blob expected_hash;
   HashCalculator::RawHashOfData(state->delta, &expected_hash);
-  EXPECT_EQ(expected_result,
+  ASSERT_EQ(expected_result,
             performer->VerifyPayload(expected_hash, state->delta.size()));
   LOG(INFO) << "Verified payload.";
 
@@ -919,31 +912,31 @@ void VerifyPayloadResult(DeltaPerformer* performer,
       state->result_img->path(), state->b_img->path(), state->image_size);
 
   brillo::Blob updated_kernel_partition;
-  EXPECT_TRUE(
+  ASSERT_TRUE(
       utils::ReadFile(state->result_kernel->path(), &updated_kernel_partition));
   ASSERT_GE(updated_kernel_partition.size(), base::size(kNewData));
-  EXPECT_TRUE(std::equal(std::begin(kNewData),
+  ASSERT_TRUE(std::equal(std::begin(kNewData),
                          std::end(kNewData),
                          updated_kernel_partition.begin()));
 
   const auto& partitions = state->install_plan.partitions;
-  EXPECT_EQ(2U, partitions.size());
-  EXPECT_EQ(kPartitionNameRoot, partitions[0].name);
-  EXPECT_EQ(kPartitionNameKernel, partitions[1].name);
+  ASSERT_EQ(2U, partitions.size());
+  ASSERT_EQ(kPartitionNameRoot, partitions[0].name);
+  ASSERT_EQ(kPartitionNameKernel, partitions[1].name);
 
-  EXPECT_EQ(kDefaultKernelSize, partitions[1].target_size);
+  ASSERT_EQ(kDefaultKernelSize, partitions[1].target_size);
   brillo::Blob expected_new_kernel_hash;
-  EXPECT_TRUE(HashCalculator::RawHashOfData(state->new_kernel_data,
+  ASSERT_TRUE(HashCalculator::RawHashOfData(state->new_kernel_data,
                                             &expected_new_kernel_hash));
-  EXPECT_EQ(expected_new_kernel_hash, partitions[1].target_hash);
+  ASSERT_EQ(expected_new_kernel_hash, partitions[1].target_hash);
 
-  EXPECT_EQ(state->image_size, partitions[0].target_size);
+  ASSERT_EQ(state->image_size, partitions[0].target_size);
   brillo::Blob expected_new_rootfs_hash;
-  EXPECT_EQ(
+  ASSERT_EQ(
       static_cast<off_t>(state->image_size),
       HashCalculator::RawHashOfFile(
           state->b_img->path(), state->image_size, &expected_new_rootfs_hash));
-  EXPECT_EQ(expected_new_rootfs_hash, partitions[0].target_hash);
+  ASSERT_EQ(expected_new_rootfs_hash, partitions[0].target_hash);
 }
 
 void VerifyPayload(DeltaPerformer* performer,

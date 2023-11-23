@@ -126,7 +126,7 @@ class LogBufferTest : public testing::TestWithParam<std::string> {
                     test_.log_buffer_.get(), &test_.reader_list_, std::move(test_writer),
                     params.non_block, params.tail, params.log_mask, params.pid, params.start_time,
                     params.sequence, params.deadline));
-            test_.reader_list_.reader_threads().emplace_back(std::move(log_reader));
+            test_.reader_list_.AddAndRunThread(std::move(log_reader));
         }
 
         void WaitUntilReleased() {
@@ -149,7 +149,7 @@ class LogBufferTest : public testing::TestWithParam<std::string> {
         auto reader = TestReaderThread(params, *this);
         reader.WaitUntilReleased();
         auto lock = std::lock_guard{logd_lock};
-        EXPECT_EQ(0U, reader_list_.reader_threads().size());
+        EXPECT_EQ(0U, reader_list_.running_reader_threads().size());
 
         return reader.read_log_messages();
     }
@@ -157,7 +157,7 @@ class LogBufferTest : public testing::TestWithParam<std::string> {
     void ReleaseAndJoinReaders() {
         {
             auto lock = std::lock_guard{logd_lock};
-            for (auto& reader : reader_list_.reader_threads()) {
+            for (auto& reader : reader_list_.running_reader_threads()) {
                 reader->Release();
             }
         }
@@ -166,7 +166,7 @@ class LogBufferTest : public testing::TestWithParam<std::string> {
         while (retries--) {
             usleep(5000);
             auto lock = std::lock_guard{logd_lock};
-            if (reader_list_.reader_threads().size() == 0) {
+            if (reader_list_.running_reader_threads().size() == 0) {
                 return;
             }
         }

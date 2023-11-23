@@ -25,6 +25,7 @@
  *
  * @test
  * @bug 8206120
+ * @modules jdk.localedata
  */
 
 package test.java.time.format;
@@ -85,14 +86,9 @@ public class TestNonIsoFormatter {
             // Chronology, Format Locale, Numbering Locale, ChronoLocalDate, expected string
             { JAPANESE, Locale.JAPANESE, Locale.JAPANESE, JAPANESE.date(IsoDate),
               "\u5e73\u621025\u5e742\u670811\u65e5\u6708\u66dc\u65e5" }, // Japanese Heisei 25-02-11
-            // Android-changed: requesting arabic numbering actually produces arabic digits. Also
-            // new CLDR patterns include the era. Test Arabic locale with ASCII digits below.
             { HIJRAH, ARABIC, ARABIC, HIJRAH.date(IsoDate),
               "\u0627\u0644\u0627\u062b\u0646\u064a\u0646\u060c \u0661 \u0631\u0628\u064a\u0639 "
               + "\u0627\u0644\u0622\u062e\u0631 \u0661\u0664\u0663\u0664 \u0647\u0640" }, // Hijrah AH 1434-04-01 (Mon)
-            { HIJRAH, ARABIC, Locale.ENGLISH, HIJRAH.date(IsoDate),
-              "\u0627\u0644\u0627\u062b\u0646\u064a\u0646\u060c 1 \u0631\u0628\u064a\u0639 "
-              + "\u0627\u0644\u0622\u062e\u0631 1434 \u0647\u0640" }, // Hijrah AH 1434-04-01 (Mon)
             { MINGUO, Locale.TAIWAN, Locale.TAIWAN, MINGUO.date(IsoDate),
               "\u6c11\u570b102\u5e742\u670811\u65e5 \u661f\u671f\u4e00" }, // Minguo ROC 102-02-11 (Mon)
             { BUDDHIST, thTH, thTH, BUDDHIST.date(IsoDate),
@@ -138,7 +134,7 @@ public class TestNonIsoFormatter {
 
             { HIJRAH,   ARABIC, "\u0627\u0644\u062a\u0642\u0648\u064a\u0645 "
                                 + "\u0627\u0644\u0625\u0633\u0644\u0627\u0645\u064a "
-                                + "(\u0623\u0645 \u0627\u0644\u0642\u0631\u0649)" }, // JDK-8015986
+                                + "(\u0623\u0645 \u0627\u0644\u0642\u0631\u0649)" },
         };
     }
 
@@ -198,7 +194,7 @@ public class TestNonIsoFormatter {
         String mdStr = "-01-01";
         DateTimeFormatter dtf = new DateTimeFormatterBuilder()
             .appendPattern("GGGG y-M-d")
-            .toFormatter()
+            .toFormatter(Locale.ROOT)
             .withChronology(chrono);
         DateTimeFormatter dtfLenient = dtf.withResolverStyle(ResolverStyle.LENIENT);
         assertEquals(LocalDate.parse(lenient+mdStr, dtfLenient), LocalDate.parse(strict+mdStr, dtf));

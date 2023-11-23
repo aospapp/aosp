@@ -21,17 +21,28 @@ type nameProperties struct {
 type hostProperties struct {
 	Cflags []string
 }
-type perTargetProperties struct {
+
+type darwinProperties struct {
 	Enabled *bool
 }
 
+type imageProperties struct {
+	Shared_libs         []string
+	Header_libs         []string
+	Exclude_shared_libs []string
+	Cflags              []string
+}
+
 type ccTargetProperties struct {
-	Host   hostProperties
-	Darwin perTargetProperties
+	Host     hostProperties
+	Darwin   darwinProperties
+	Platform imageProperties
+	Vendor   imageProperties
+	Product  imageProperties
 }
 
 type rustTargetProperties struct {
-	Darwin perTargetProperties
+	Darwin darwinProperties
 }
 
 type ccProperties struct {
@@ -42,6 +53,7 @@ type ccProperties struct {
 	Vendor_available          *bool
 	Odm_available             *bool
 	Product_available         *bool
+	Recovery_available        *bool
 	Host_supported            *bool
 	Generated_sources         []string
 	Generated_headers         []string
@@ -56,7 +68,6 @@ type ccProperties struct {
 	Stem                      *string
 	Apex_available            []string
 	Min_sdk_version           *string
-	UseApexNameMacro          bool
 	Target                    ccTargetProperties
 	Tidy                      *bool
 	Tidy_flags                []string
@@ -77,16 +88,18 @@ type javaProperties struct {
 }
 
 type rustProperties struct {
-	Name           *string
-	Crate_name     string
-	Owner          *string
-	Defaults       []string
-	Host_supported *bool
-	Srcs           []string
-	Rustlibs       []string
-	Stem           *string
-	Target         rustTargetProperties
-	Apex_available []string
+	Name             *string
+	Crate_name       string
+	Owner            *string
+	Defaults         []string
+	Host_supported   *bool
+	Vendor_available *bool
+	Srcs             []string
+	Rustlibs         []string
+	Stem             *string
+	Target           rustTargetProperties
+	Apex_available   []string
+	Min_sdk_version  *string
 }
 
 type phonyProperties struct {

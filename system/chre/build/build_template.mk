@@ -18,6 +18,10 @@
 # TARGET_NAME    - A convenience target that depends on the above archive and
 #                  shared object targets.
 #
+# Nanoapps can optionally use the NANOAPP_LATE_CFLAGS variable to provide
+# compile flags, which will be added at the end of the compile command
+# (for instance, it can be used to override common flags in COMMON_CFLAGS).
+#
 # Argument List:
 #     $1  - TARGET_NAME          - The name of the target being built.
 #     $2  - TARGET_CFLAGS        - The compiler flags to use for this target.
@@ -48,66 +52,66 @@ define BUILD_TEMPLATE
 # Target Objects ###############################################################
 
 # Source files.
-$$(1)_CC_SRCS = $$(filter %.cc, $(COMMON_SRCS) $(8))
-$$(1)_CPP_SRCS = $$(filter %.cpp, $(COMMON_SRCS) $(8))
-$$(1)_C_SRCS = $$(filter %.c, $(COMMON_SRCS) $(8))
-$$(1)_S_SRCS = $$(filter %.S, $(COMMON_SRCS) $(8))
+$(1)_CC_SRCS = $$(filter %.cc, $(COMMON_SRCS) $(8))
+$(1)_CPP_SRCS = $$(filter %.cpp, $(COMMON_SRCS) $(8))
+$(1)_C_SRCS = $$(filter %.c, $(COMMON_SRCS) $(8))
+$(1)_S_SRCS = $$(filter %.S, $(COMMON_SRCS) $(8))
 
 # Object files.
-$$(1)_OBJS_DIR = $(1)_objs
-$$(1)_CC_OBJS = $$(patsubst %.cc, $(OUT)/$$($$(1)_OBJS_DIR)/%.o, \
-                            $$($$(1)_CC_SRCS))
-$$(1)_CPP_OBJS = $$(patsubst %.cpp, $(OUT)/$$($$(1)_OBJS_DIR)/%.o, \
-                             $$($$(1)_CPP_SRCS))
-$$(1)_C_OBJS = $$(patsubst %.c, $(OUT)/$$($$(1)_OBJS_DIR)/%.o, \
-                           $$($$(1)_C_SRCS))
-$$(1)_S_OBJS = $$(patsubst %.S, $(OUT)/$$($$(1)_OBJS_DIR)/%.o, \
-                           $$($$(1)_S_SRCS))
+$(1)_OBJS_DIR = $(1)_objs
+$(1)_CC_OBJS = $$(patsubst %.cc, $(OUT)/$$($(1)_OBJS_DIR)/%.o, \
+                           $$($(1)_CC_SRCS))
+$(1)_CPP_OBJS = $$(patsubst %.cpp, $(OUT)/$$($(1)_OBJS_DIR)/%.o, \
+                            $$($(1)_CPP_SRCS))
+$(1)_C_OBJS = $$(patsubst %.c, $(OUT)/$$($(1)_OBJS_DIR)/%.o, \
+                          $$($(1)_C_SRCS))
+$(1)_S_OBJS = $$(patsubst %.S, $(OUT)/$$($(1)_OBJS_DIR)/%.o, \
+                          $$($(1)_S_SRCS))
 
 # Automatic dependency resolution Makefiles.
-$$(1)_CC_DEPS = $$(patsubst %.cc, $(OUT)/$$($$(1)_OBJS_DIR)/%.d, \
-                            $$($$(1)_CC_SRCS))
-$$(1)_CPP_DEPS = $$(patsubst %.cpp, $(OUT)/$$($$(1)_OBJS_DIR)/%.d, \
-                             $$($$(1)_CPP_SRCS))
-$$(1)_C_DEPS = $$(patsubst %.c, $(OUT)/$$($$(1)_OBJS_DIR)/%.d, \
-                           $$($$(1)_C_SRCS))
-$$(1)_S_DEPS = $$(patsubst %.S, $(OUT)/$$($$(1)_OBJS_DIR)/%.d, \
-                           $$($$(1)_S_SRCS))
+$(1)_CC_DEPS = $$(patsubst %.cc, $(OUT)/$$($(1)_OBJS_DIR)/%.d, \
+                           $$($(1)_CC_SRCS))
+$(1)_CPP_DEPS = $$(patsubst %.cpp, $(OUT)/$$($(1)_OBJS_DIR)/%.d, \
+                            $$($(1)_CPP_SRCS))
+$(1)_C_DEPS = $$(patsubst %.c, $(OUT)/$$($(1)_OBJS_DIR)/%.d, \
+                          $$($(1)_C_SRCS))
+$(1)_S_DEPS = $$(patsubst %.S, $(OUT)/$$($(1)_OBJS_DIR)/%.d, \
+                          $$($(1)_S_SRCS))
 
 # Add object file directories.
-$$$(1)_DIRS = $$(sort $$(dir $$($$(1)_CC_OBJS) \
-                             $$($$(1)_CPP_OBJS) \
-                             $$($$(1)_C_OBJS) \
-                             $$($$(1)_S_OBJS)))
+$(1)_DIRS = $$(sort $$(dir $$($(1)_CC_OBJS) \
+                           $$($(1)_CPP_OBJS) \
+                           $$($(1)_C_OBJS) \
+                           $$($(1)_S_OBJS)))
 
 # Outputs ######################################################################
 
 # Shared Object
-$$(1)_SO = $(OUT)/$$$(1)/$(OUTPUT_NAME).so
+$(1)_SO = $(OUT)/$(1)/$(OUTPUT_NAME).so
 
 # Static Archive
-$$(1)_AR = $(OUT)/$$$(1)/$(OUTPUT_NAME).a
+$(1)_AR = $(OUT)/$(1)/$(OUTPUT_NAME).a
 
 # Nanoapp Header
-$$(1)_HEADER = $$(if $(IS_NANOAPP_BUILD), $(OUT)/$$$(1)/$(OUTPUT_NAME).napp_header, )
+$(1)_HEADER = $$(if $(IS_NANOAPP_BUILD), $(OUT)/$(1)/$(OUTPUT_NAME).napp_header, )
 
 # Optional Binary
-$$(1)_BIN = $$(if $(9), $(OUT)/$$$(1)/$(OUTPUT_NAME), )
+$(1)_BIN = $$(if $(9), $(OUT)/$(1)/$(OUTPUT_NAME), )
 
 # Top-level Build Rule #########################################################
 
 # Define the phony target.
 .PHONY: $(1)_ar
-$(1)_ar: $$($$(1)_AR)
+$(1)_ar: $$($(1)_AR)
 
 .PHONY: $(1)_so
-$(1)_so: $$($$(1)_SO)
+$(1)_so: $$($(1)_SO)
 
 .PHONY: $(1)_bin
-$(1)_bin: $$($$(1)_BIN)
+$(1)_bin: $$($(1)_BIN)
 
 .PHONY: $(1)_header
-$(1)_header: $$($$(1)_HEADER)
+$(1)_header: $$($(1)_HEADER)
 
 .PHONY: $(1)
 ifeq ($(IS_ARCHIVE_ONLY_BUILD),true)
@@ -163,7 +167,7 @@ endif
 #
 # The highest order byte is reserved for platform-specific usage.
 
-$$($$(1)_HEADER): $$(OUT)/$$$(1) $$($$$(1)_DIRS)
+$$($(1)_HEADER): $$(OUT)/$(1) $$($(1)_DIRS)
 	printf "00000000  %.8x " `$(BE_TO_LE_SCRIPT) 0x00000001` > $$@
 	printf "%.8x " `$(BE_TO_LE_SCRIPT) 0x4f4e414e` >> $$@
 	printf "%.16x\n" `$(BE_TO_LE_SCRIPT) $(NANOAPP_ID)` >> $$@
@@ -181,22 +185,22 @@ $$($$(1)_HEADER): $$(OUT)/$$$(1) $$($$$(1)_DIRS)
 
 # Compile ######################################################################
 
-$$($$(1)_CPP_OBJS): $(OUT)/$$($$(1)_OBJS_DIR)/%.o: %.cpp $(MAKEFILE_LIST)
+$$($(1)_CPP_OBJS): $(OUT)/$$($(1)_OBJS_DIR)/%.o: %.cpp $(MAKEFILE_LIST)
 	@echo " [CPP] $$<"
 	$(V)$(3) $(COMMON_CXX_CFLAGS) -DCHRE_FILENAME=\"$$(notdir $$<)\" $(2) -c \
 		$$< -o $$@
 
-$$($$(1)_CC_OBJS): $(OUT)/$$($$(1)_OBJS_DIR)/%.o: %.cc $(MAKEFILE_LIST)
+$$($(1)_CC_OBJS): $(OUT)/$$($(1)_OBJS_DIR)/%.o: %.cc $(MAKEFILE_LIST)
 	@echo " [CC] $$<"
 	$(V)$(3) $(COMMON_CXX_CFLAGS) -DCHRE_FILENAME=\"$$(notdir $$<)\" $(2) -c \
 		$$< -o $$@
 
-$$($$(1)_C_OBJS): $(OUT)/$$($$(1)_OBJS_DIR)/%.o: %.c $(MAKEFILE_LIST)
+$$($(1)_C_OBJS): $(OUT)/$$($(1)_OBJS_DIR)/%.o: %.c $(MAKEFILE_LIST)
 	@echo " [C] $$<"
 	$(V)$(3) $(COMMON_C_CFLAGS) -DCHRE_FILENAME=\"$$(notdir $$<)\" $(2) -c $$< \
 		-o $$@
 
-$$($$(1)_S_OBJS): $(OUT)/$$($$(1)_OBJS_DIR)/%.o: %.S $(MAKEFILE_LIST)
+$$($(1)_S_OBJS): $(OUT)/$$($(1)_OBJS_DIR)/%.o: %.S $(MAKEFILE_LIST)
 	@echo " [AS] $$<"
 	$(V)$(3) -DCHRE_FILENAME=\"$$(notdir $$<)\" $(2) -c $$< \
 		-o $$@
@@ -204,25 +208,25 @@ $$($$(1)_S_OBJS): $(OUT)/$$($$(1)_OBJS_DIR)/%.o: %.S $(MAKEFILE_LIST)
 # Archive ######################################################################
 
 # Add common and target-specific archive flags.
-$$$(1)_ARFLAGS = $(COMMON_ARFLAGS) \
+$(1)_ARFLAGS = $(COMMON_ARFLAGS) \
     $(6)
 
-$$($$(1)_AR): $$(OUT)/$$$(1) $$($$$(1)_DIRS) $$($$(1)_CC_OBJS) \
-              $$($$(1)_CPP_OBJS) $$($$(1)_C_OBJS) $$($$(1)_S_OBJS)
-	$(V)$(7) $$($$$(1)_ARFLAGS) $$@ $$(filter %.o, $$^)
+$$($(1)_AR): $$($(1)_CC_OBJS) $$($(1)_CPP_OBJS) $$($(1)_C_OBJS) \
+              $$($(1)_S_OBJS) | $$(OUT)/$(1) $$($(1)_DIRS)
+	$(V)$(7) $$($(1)_ARFLAGS) $$@ $$(filter %.o, $$^)
 
 # Link #########################################################################
 
-$$($$(1)_SO): $$(OUT)/$$$(1) $$($$$(1)_DIRS) $$($$(1)_CC_DEPS) \
-              $$($$(1)_CPP_DEPS) $$($$(1)_C_DEPS) $$($$(1)_S_DEPS) \
-              $$($$(1)_CC_OBJS) $$($$(1)_CPP_OBJS) $$($$(1)_C_OBJS) \
-              $$($$(1)_S_OBJS)
+$$($(1)_SO): $$($(1)_CC_DEPS) \
+              $$($(1)_CPP_DEPS) $$($(1)_C_DEPS) $$($(1)_S_DEPS) \
+              $$($(1)_CC_OBJS) $$($(1)_CPP_OBJS) $$($(1)_C_OBJS) \
+              $$($(1)_S_OBJS) | $$(OUT)/$(1) $$($(1)_DIRS)
 	$(V)$(5) $(4) -o $$@ $(11) $$(filter %.o, $$^) $(12)
 
-$$($$(1)_BIN): $$(OUT)/$$$(1) $$($$$(1)_DIRS) $$($$(1)_CC_DEPS) \
-               $$($$(1)_CPP_DEPS) $$($$(1)_C_DEPS) $$($$(1)_S_DEPS) \
-               $$($$(1)_CC_OBJS) $$($$(1)_CPP_OBJS) $$($$(1)_C_OBJS) \
-               $$($$(1)_S_OBJS)
+$$($(1)_BIN): $$($(1)_CC_DEPS) \
+               $$($(1)_CPP_DEPS) $$($(1)_C_DEPS) $$($(1)_S_DEPS) \
+               $$($(1)_CC_OBJS) $$($(1)_CPP_OBJS) $$($(1)_C_OBJS) \
+               $$($(1)_S_OBJS) | $$(OUT)/$(1) $$($(1)_DIRS)
 	$(V)$(3) -o $$@ $(11) $$(filter %.o, $$^) $(12) $(10)
 
 # Output Directories ###########################################################
@@ -230,27 +234,27 @@ $$($$(1)_BIN): $$(OUT)/$$$(1) $$($$$(1)_DIRS) $$($$(1)_CC_DEPS) \
 $$($$$(1)_DIRS):
 	$(V)mkdir -p $$@
 
-$$(OUT)/$$$(1):
+$$(OUT)/$(1):
 	$(V)mkdir -p $$@
 
 # Automatic Dependency Resolution ##############################################
 
-$$($$(1)_CC_DEPS): $(OUT)/$$($$(1)_OBJS_DIR)/%.d: %.cc
+$$($(1)_CC_DEPS): $(OUT)/$$($(1)_OBJS_DIR)/%.d: %.cc
 	$(V)mkdir -p $$(dir $$@)
 	$(V)$(3) $(DEP_CFLAGS) $(COMMON_CXX_CFLAGS) \
 		-DCHRE_FILENAME=\"$$(notdir $$<)\" $(2) -c $$< -o $$@
 
-$$($$(1)_CPP_DEPS): $(OUT)/$$($$(1)_OBJS_DIR)/%.d: %.cpp
+$$($(1)_CPP_DEPS): $(OUT)/$$($(1)_OBJS_DIR)/%.d: %.cpp
 	$(V)mkdir -p $$(dir $$@)
 	$(V)$(3) $(DEP_CFLAGS) $(COMMON_CXX_CFLAGS) \
 		-DCHRE_FILENAME=\"$$(notdir $$<)\" $(2) -c $$< -o $$@
 
-$$($$(1)_C_DEPS): $(OUT)/$$($$(1)_OBJS_DIR)/%.d: %.c
+$$($(1)_C_DEPS): $(OUT)/$$($(1)_OBJS_DIR)/%.d: %.c
 	$(V)mkdir -p $$(dir $$@)
 	$(V)$(3) $(DEP_CFLAGS) $(COMMON_C_CFLAGS) \
 		-DCHRE_FILENAME=\"$$(notdir $$<)\" $(2) -c $$< -o $$@
 
-$$($$(1)_S_DEPS): $(OUT)/$$($$(1)_OBJS_DIR)/%.d: %.S
+$$($(1)_S_DEPS): $(OUT)/$$($(1)_OBJS_DIR)/%.d: %.S
 	$(V)mkdir -p $$(dir $$@)
 	$(V)$(3) $(DEP_CFLAGS) \
 		-DCHRE_FILENAME=\"$$(notdir $$<)\" $(2) -c $$< -o $$@
@@ -259,10 +263,10 @@ $$($$(1)_S_DEPS): $(OUT)/$$($$(1)_OBJS_DIR)/%.d: %.S
 # This avoids dependency generation from occuring for a debug target when a
 # non-debug target is requested.
 ifneq ($(filter $(1) all, $(MAKECMDGOALS)),)
--include $$(patsubst %.o, %.d, $$($$(1)_CC_DEPS))
--include $$(patsubst %.o, %.d, $$($$(1)_CPP_DEPS))
--include $$(patsubst %.o, %.d, $$($$(1)_C_DEPS))
--include $$(patsubst %.o, %.d, $$($$(1)_S_DEPS))
+-include $$(patsubst %.o, %.d, $$($(1)_CC_DEPS))
+-include $$(patsubst %.o, %.d, $$($(1)_CPP_DEPS))
+-include $$(patsubst %.o, %.d, $$($(1)_C_DEPS))
+-include $$(patsubst %.o, %.d, $$($(1)_S_DEPS))
 endif
 
 endef
@@ -275,33 +279,35 @@ TARGET_CFLAGS_LOCAL += -DCHRE_PLATFORM_ID=$(TARGET_PLATFORM_ID)
 
 # Default the nanoapp header flag values to signed if not overidden.
 TARGET_NANOAPP_FLAGS ?= 0x00000001
-$(eval $(call BUILD_TEMPLATE, $(TARGET_NAME), \
-                              $(COMMON_CFLAGS) $(TARGET_CFLAGS_LOCAL), \
-                              $(TARGET_CC), \
-                              $(TARGET_SO_LDFLAGS), \
-                              $(TARGET_LD), \
-                              $(TARGET_ARFLAGS), \
-                              $(TARGET_AR), \
-                              $(TARGET_VARIANT_SRCS), \
-                              $(TARGET_BUILD_BIN), \
-                              $(TARGET_BIN_LDFLAGS), \
-                              $(TARGET_SO_EARLY_LIBS), \
-                              $(TARGET_SO_LATE_LIBS), \
-                              $(TARGET_PLATFORM_ID)))
+$(eval $(call BUILD_TEMPLATE,$(TARGET_NAME), \
+                             $(COMMON_CFLAGS) $(TARGET_CFLAGS_LOCAL) \
+                                 $(NANOAPP_LATE_CFLAGS), \
+                             $(TARGET_CC), \
+                             $(TARGET_SO_LDFLAGS), \
+                             $(TARGET_LD), \
+                             $(TARGET_ARFLAGS), \
+                             $(TARGET_AR), \
+                             $(TARGET_VARIANT_SRCS), \
+                             $(TARGET_BUILD_BIN), \
+                             $(TARGET_BIN_LDFLAGS), \
+                             $(TARGET_SO_EARLY_LIBS), \
+                             $(TARGET_SO_LATE_LIBS), \
+                             $(TARGET_PLATFORM_ID)))
 
 # Debug Template Invocation ####################################################
 
-$(eval $(call BUILD_TEMPLATE, $(TARGET_NAME)_debug, \
-                              $(COMMON_CFLAGS) $(COMMON_DEBUG_CFLAGS) \
-                                  $(TARGET_CFLAGS_LOCAL) $(TARGET_DEBUG_CFLAGS), \
-                              $(TARGET_CC), \
-                              $(TARGET_SO_LDFLAGS), \
-                              $(TARGET_LD), \
-                              $(TARGET_ARFLAGS), \
-                              $(TARGET_AR), \
-                              $(TARGET_VARIANT_SRCS), \
-                              $(TARGET_BUILD_BIN), \
-                              $(TARGET_BIN_LDFLAGS), \
-                              $(TARGET_SO_EARLY_LIBS), \
-                              $(TARGET_SO_LATE_LIBS), \
-                              $(TARGET_PLATFORM_ID)))
+$(eval $(call BUILD_TEMPLATE,$(TARGET_NAME)_debug, \
+                             $(COMMON_CFLAGS) $(COMMON_DEBUG_CFLAGS) \
+                                 $(TARGET_CFLAGS_LOCAL) $(TARGET_DEBUG_CFLAGS) \
+                                 $(NANOAPP_LATE_CFLAGS), \
+                             $(TARGET_CC), \
+                             $(TARGET_SO_LDFLAGS), \
+                             $(TARGET_LD), \
+                             $(TARGET_ARFLAGS), \
+                             $(TARGET_AR), \
+                             $(TARGET_VARIANT_SRCS), \
+                             $(TARGET_BUILD_BIN), \
+                             $(TARGET_BIN_LDFLAGS), \
+                             $(TARGET_SO_EARLY_LIBS), \
+                             $(TARGET_SO_LATE_LIBS), \
+                             $(TARGET_PLATFORM_ID)))

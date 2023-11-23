@@ -18,8 +18,8 @@ package com.android.cts.verifier.nfc.offhost;
 
 import android.content.ComponentName;
 
-import com.android.cts.verifier.nfc.hce.CommandApdu;
 import com.android.cts.verifier.nfc.hce.HceUtils;
+import com.android.cts.verifier.nfc.hce.CommandApdu;
 
 public class UiccTransactionEvent2Service {
     public static final ComponentName COMPONENT =
@@ -27,8 +27,8 @@ public class UiccTransactionEvent2Service {
                     UiccTransactionEvent2Service.class.getName());
 
     public static final CommandApdu[] APDU_COMMAND_SEQUENCE = {
-        HceUtils.buildCommandApdu("02"
-                + HceUtils.buildSelectApdu(HceUtils.TRANSACTION_EVENT_AID, true).getApdu(), true),
+        HceUtils.buildCommandApdu("02" +
+                HceUtils.buildSelectApdu(HceUtils.TRANSACTION_EVENT_AID, true).getApdu(), true),
     };
 
     public static final String[] APDU_RESPOND_SEQUENCE = {

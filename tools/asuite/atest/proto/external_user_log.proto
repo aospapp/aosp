@@ -58,6 +58,7 @@ message AtestLogEventExternal {
   optional string run_id = 2;
   optional UserType user_type = 3;
   optional string tool_name = 10;
+  optional string sub_tool_name = 12;
   oneof event {
     AtestStartEvent atest_start_event = 4;
     AtestExitEvent atest_exit_event = 5;

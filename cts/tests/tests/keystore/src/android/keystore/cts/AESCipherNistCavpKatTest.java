@@ -16,9 +16,15 @@
 
 package android.keystore.cts;
 
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.fail;
+
+import android.content.Context;
 import android.security.keystore.KeyProperties;
 import android.security.keystore.KeyProtection;
-import android.test.AndroidTestCase;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
@@ -36,98 +42,130 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
-public class AESCipherNistCavpKatTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@RunWith(AndroidJUnit4.class)
+public class AESCipherNistCavpKatTest {
+
+    private Context getContext() {
+        return InstrumentationRegistry.getInstrumentation().getTargetContext();
+    }
+
+    @Test
     public void testECBVarKey128() throws Exception {
         runTestsForKatFile("ECBVarKey128.rsp");
     }
 
+    @Test
     public void testECBVarKey192() throws Exception {
         runTestsForKatFile("ECBVarKey192.rsp");
     }
+    @Test
     public void testECBVarKey256() throws Exception {
         runTestsForKatFile("ECBVarKey256.rsp");
     }
 
+    @Test
     public void testECBVarTxt128() throws Exception {
         runTestsForKatFile("ECBVarTxt128.rsp");
     }
 
+    @Test
     public void testECBVarTxt192() throws Exception {
         runTestsForKatFile("ECBVarTxt192.rsp");
     }
 
+    @Test
     public void testECBVarTxt256() throws Exception {
         runTestsForKatFile("ECBVarTxt256.rsp");
     }
 
+    @Test
     public void testECBGFSbox128() throws Exception {
         runTestsForKatFile("ECBGFSbox128.rsp");
     }
 
+    @Test
     public void testECBGFSbox192() throws Exception {
         runTestsForKatFile("ECBGFSbox192.rsp");
     }
 
+    @Test
     public void testECBGFSbox256() throws Exception {
         runTestsForKatFile("ECBGFSbox256.rsp");
     }
 
+    @Test
     public void testECBKeySbox128() throws Exception {
         runTestsForKatFile("ECBKeySbox128.rsp");
     }
 
+    @Test
     public void testECBKeySbox192() throws Exception {
         runTestsForKatFile("ECBKeySbox192.rsp");
     }
 
+    @Test
     public void testECBKeySbox256() throws Exception {
         runTestsForKatFile("ECBKeySbox256.rsp");
     }
 
+    @Test
     public void testCBCVarKey128() throws Exception {
         runTestsForKatFile("CBCVarKey128.rsp");
     }
 
+    @Test
     public void testCBCVarKey192() throws Exception {
         runTestsForKatFile("CBCVarKey192.rsp");
     }
+    @Test
     public void testCBCVarKey256() throws Exception {
         runTestsForKatFile("CBCVarKey256.rsp");
     }
 
+    @Test
     public void testCBCVarTxt128() throws Exception {
         runTestsForKatFile("CBCVarTxt128.rsp");
     }
 
+    @Test
     public void testCBCVarTxt192() throws Exception {
         runTestsForKatFile("CBCVarTxt192.rsp");
     }
 
+    @Test
     public void testCBCVarTxt256() throws Exception {
         runTestsForKatFile("CBCVarTxt256.rsp");
     }
 
+    @Test
     public void testCBCGFSbox128() throws Exception {
         runTestsForKatFile("CBCGFSbox128.rsp");
     }
 
+    @Test
     public void testCBCGFSbox192() throws Exception {
         runTestsForKatFile("CBCGFSbox192.rsp");
     }
 
+    @Test
     public void testCBCGFSbox256() throws Exception {
         runTestsForKatFile("CBCGFSbox256.rsp");
     }
 
+    @Test
     public void testCBCKeySbox128() throws Exception {
         runTestsForKatFile("CBCKeySbox128.rsp");
     }
 
+    @Test
     public void testCBCKeySbox192() throws Exception {
         runTestsForKatFile("CBCKeySbox192.rsp");
     }
 
+    @Test
     public void testCBCKeySbox256() throws Exception {
         runTestsForKatFile("CBCKeySbox256.rsp");
     }

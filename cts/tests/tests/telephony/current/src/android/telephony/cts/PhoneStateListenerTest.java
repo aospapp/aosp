@@ -26,6 +26,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -107,6 +108,7 @@ public class PhoneStateListenerTest {
     private static ConnectivityManager mCm;
     private HandlerThread mHandlerThread;
     private Handler mHandler;
+    private PackageManager mPackageManager;
     private static final List<Integer> DATA_CONNECTION_STATE = Arrays.asList(
             TelephonyManager.DATA_CONNECTED,
             TelephonyManager.DATA_DISCONNECTED,
@@ -142,6 +144,7 @@ public class PhoneStateListenerTest {
         mHandlerThread = new HandlerThread("PhoneStateListenerTest");
         mHandlerThread.start();
         mHandler = new Handler(mHandlerThread.getLooper());
+        mPackageManager = getContext().getPackageManager();
     }
 
     @After
@@ -279,53 +282,6 @@ public class PhoneStateListenerTest {
         assertTrue(mOnSignalStrengthChangedCalled);
     }
 
-     /**
-     * Due to the corresponding API is hidden in R and will be public in S, this test
-     * is commented and will be un-commented in Android S.
-     *
-    @Test
-    public void testOnAlwaysReportedSignalStrengthChanged() throws Throwable {
-        if (mCm.getNetworkInfo(ConnectivityManager.TYPE_MOBILE) == null) {
-            Log.d(TAG, "Skipping test that requires ConnectivityManager.TYPE_MOBILE");
-            return;
-        }
-
-        assertTrue(mSignalStrength == null);
-
-        mHandler.post(() -> {
-            mListener = new PhoneStateListener() {
-                @Override
-                public void onSignalStrengthsChanged(SignalStrength signalStrength) {
-                    synchronized (mLock) {
-                        mSignalStrength = signalStrength;
-                        mLock.notify();
-                    }
-                }
-            };
-            ShellIdentityUtils.invokeMethodWithShellPermissionsNoReturn(mTelephonyManager,
-                    (tm) -> tm.listen(mListener,
-                            PhoneStateListener.LISTEN_ALWAYS_REPORTED_SIGNAL_STRENGTH));
-        });
-        synchronized (mLock) {
-            if (mSignalStrength == null) {
-                mLock.wait(WAIT_TIME);
-            }
-        }
-
-        assertTrue(mSignalStrength != null);
-        // Call SignalStrength methods to make sure they do not throw any exceptions
-        mSignalStrength.getCdmaDbm();
-        mSignalStrength.getCdmaEcio();
-        mSignalStrength.getEvdoDbm();
-        mSignalStrength.getEvdoEcio();
-        mSignalStrength.getEvdoSnr();
-        mSignalStrength.getGsmBitErrorRate();
-        mSignalStrength.getGsmSignalStrength();
-        mSignalStrength.isGsm();
-        mSignalStrength.getLevel();
-    }
-    */
-
     @Test
     public void testOnSignalStrengthsChanged() throws Throwable {
         if (mCm.getNetworkInfo(ConnectivityManager.TYPE_MOBILE) == null) {
@@ -445,8 +401,8 @@ public class PhoneStateListenerTest {
 
     @Test
     public void testOnPreciseCallStateChanged() throws Throwable {
-        if (mCm.getNetworkInfo(ConnectivityManager.TYPE_MOBILE) == null) {
-            Log.d(TAG, "Skipping test that requires ConnectivityManager.TYPE_MOBILE");
+        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            Log.d(TAG, "Skipping test that requires FEATURE_TELEPHONY");
             return;
         }
         assertThat(mOnPreciseCallStateChangedCalled).isFalse();
@@ -480,8 +436,8 @@ public class PhoneStateListenerTest {
 
     @Test
     public void testOnCallDisconnectCauseChanged() throws Throwable {
-        if (mCm.getNetworkInfo(ConnectivityManager.TYPE_MOBILE) == null) {
-            Log.d(TAG, "Skipping test that requires ConnectivityManager.TYPE_MOBILE");
+        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            Log.d(TAG, "Skipping test that requires FEATURE_TELEPHONY");
             return;
         }
         assertThat(mOnCallDisconnectCauseChangedCalled).isFalse();
@@ -512,8 +468,8 @@ public class PhoneStateListenerTest {
 
     @Test
     public void testOnImsCallDisconnectCauseChanged() throws Throwable {
-        if (mCm.getNetworkInfo(ConnectivityManager.TYPE_MOBILE) == null) {
-            Log.d(TAG, "Skipping test that requires ConnectivityManager.TYPE_MOBILE");
+        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            Log.d(TAG, "Skipping test that requires FEATURE_TELEPHONY");
             return;
         }
         assertThat(mOnImsCallDisconnectCauseChangedCalled).isFalse();
@@ -543,8 +499,8 @@ public class PhoneStateListenerTest {
 
     @Test
     public void testOnPhoneStateListenerExecutorWithSrvccChanged() throws Throwable {
-        if (mCm.getNetworkInfo(ConnectivityManager.TYPE_MOBILE) == null) {
-            Log.d(TAG, "Skipping test that requires ConnectivityManager.TYPE_MOBILE");
+        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            Log.d(TAG, "Skipping test that requires FEATURE_TELEPHONY");
             return;
         }
         assertThat(mSrvccStateChangedCalled).isFalse();
@@ -575,8 +531,8 @@ public class PhoneStateListenerTest {
 
     @Test
     public void testOnRadioPowerStateChanged() throws Throwable {
-        if (mCm.getNetworkInfo(ConnectivityManager.TYPE_MOBILE) == null) {
-            Log.d(TAG, "Skipping test that requires ConnectivityManager.TYPE_MOBILE");
+        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            Log.d(TAG, "Skipping test that requires FEATURE_TELEPHONY");
             return;
         }
         assertThat(mOnRadioPowerStateChangedCalled).isFalse();
@@ -643,8 +599,8 @@ public class PhoneStateListenerTest {
 
     @Test
     public void testOnPreciseDataConnectionStateChanged() throws Throwable {
-        if (mCm.getNetworkInfo(ConnectivityManager.TYPE_MOBILE) == null) {
-            Log.d(TAG, "Skipping test that requires ConnectivityManager.TYPE_MOBILE");
+        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            Log.d(TAG, "Skipping test that requires FEATURE_TELEPHONY");
             return;
         }
         assertThat(mOnCallDisconnectCauseChangedCalled).isFalse();
@@ -953,8 +909,8 @@ public class PhoneStateListenerTest {
 
     @Test
     public void testOnOutgoingSmsEmergencyNumberChanged() throws Throwable {
-        if (mCm.getNetworkInfo(ConnectivityManager.TYPE_MOBILE) == null) {
-            Log.d(TAG, "Skipping test that requires ConnectivityManager.TYPE_MOBILE");
+        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            Log.d(TAG, "Skipping test that requires FEATURE_TELEPHONY");
             return;
         }
 

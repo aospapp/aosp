@@ -24,11 +24,12 @@ import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.app.ActivityManager;
 import android.app.ActivityManager.RunningServiceInfo;
-import android.app.AlarmManager;
 import android.app.AppOpsManager;
-import android.app.PendingIntent;
+import android.app.GameManager;
+import android.app.GameState;
 import android.app.job.JobInfo;
 import android.app.job.JobScheduler;
+import android.app.usage.NetworkStatsManager;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
@@ -53,7 +54,6 @@ import android.media.MediaPlayer;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
-import android.net.NetworkInfo;
 import android.net.NetworkRequest;
 import android.net.cts.util.CtsNetUtils;
 import android.net.wifi.WifiManager;
@@ -64,6 +64,7 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.PowerManager;
 import android.os.Process;
+import android.os.RemoteException;
 import android.os.SystemClock;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
@@ -219,6 +220,11 @@ public class AtomTests {
         APP_OPS_ENUM_MAP.put(AppOpsManager.OPSTR_ACTIVITY_RECOGNITION_SOURCE, 113);
         APP_OPS_ENUM_MAP.put(AppOpsManager.OPSTR_BLUETOOTH_ADVERTISE, 114);
         APP_OPS_ENUM_MAP.put(AppOpsManager.OPSTR_RECORD_INCOMING_PHONE_AUDIO, 115);
+        APP_OPS_ENUM_MAP.put(AppOpsManager.OPSTR_NEARBY_WIFI_DEVICES, 116);
+        APP_OPS_ENUM_MAP.put(AppOpsManager.OPSTR_ESTABLISH_VPN_SERVICE, 117);
+        APP_OPS_ENUM_MAP.put(AppOpsManager.OPSTR_ESTABLISH_VPN_MANAGER, 118);
+        APP_OPS_ENUM_MAP.put(AppOpsManager.OPSTR_ACCESS_RESTRICTED_SETTINGS, 119);
+        APP_OPS_ENUM_MAP.put(AppOpsManager.OPSTR_RECEIVE_AMBIENT_TRIGGER_AUDIO, 120);
     }
 
     @Test
@@ -677,8 +683,6 @@ public class AtomTests {
         sleep(500);
         setScreenBrightness(100);
         sleep(500);
-        setScreenBrightness(140);
-        sleep(500);
 
 
         wl.release();
@@ -726,10 +730,33 @@ public class AtomTests {
         builder.setOverrideDeadline(0);
         JobInfo job = builder.build();
 
-        long startTime = System.currentTimeMillis();
         CountDownLatch latch = StatsdJobService.resetCountDownLatch();
         js.schedule(job);
         waitForReceiver(context, 5_000, latch, null);
+    }
+
+    @Test
+    public void testScheduledJobPriority() throws Exception {
+        final ComponentName name =
+                new ComponentName(MY_PACKAGE_NAME, StatsdJobService.class.getName());
+
+        Context context = InstrumentationRegistry.getContext();
+        JobScheduler js = context.getSystemService(JobScheduler.class);
+        assertWithMessage("JobScheduler service not available").that(js).isNotNull();
+
+        final int[] priorities = {
+                JobInfo.PRIORITY_HIGH, JobInfo.PRIORITY_DEFAULT,
+                JobInfo.PRIORITY_LOW, JobInfo.PRIORITY_MIN};
+        for (int priority : priorities) {
+            JobInfo job = new JobInfo.Builder(priority, name)
+                    .setOverrideDeadline(0)
+                    .setPriority(priority)
+                    .build();
+
+            CountDownLatch latch = StatsdJobService.resetCountDownLatch();
+            js.schedule(job);
+            waitForReceiver(context, 5_000, latch, null);
+        }
     }
 
     @Test
@@ -797,7 +824,6 @@ public class AtomTests {
         StatsLog.write(builder.build());
     }
 
-
     @Test
     public void testWakelockLoad() {
         final int NUM_THREADS = 16;
@@ -807,65 +833,6 @@ public class AtomTests {
             t.start();
         }
         waitForReceiver(null, 120_000, latch, null);
-    }
-
-    @Test
-    public void testWakeupAlarm() {
-        Context context = InstrumentationRegistry.getContext();
-        String name = "android.cts.statsdatom.testWakeupAlarm";
-        CountDownLatch onReceiveLatch = new CountDownLatch(1);
-        BroadcastReceiver receiver =
-                registerReceiver(context, onReceiveLatch, new IntentFilter(name));
-        AlarmManager manager = (AlarmManager) (context.getSystemService(AlarmManager.class));
-        PendingIntent pintent = PendingIntent.getBroadcast(context, 0, new Intent(name),
-                PendingIntent.FLAG_IMMUTABLE);
-        manager.setExact(AlarmManager.ELAPSED_REALTIME_WAKEUP,
-            SystemClock.elapsedRealtime() + 2_000, pintent);
-        waitForReceiver(context, 10_000, onReceiveLatch, receiver);
-    }
-
-    @Test
-    public void testAlarmScheduled() {
-        Context context = InstrumentationRegistry.getContext();
-        String name = "android.cts.statsdatom.testAlarmScheduled";
-
-        final AlarmManager am = context.getSystemService(AlarmManager.class);
-        PendingIntent pi1 = PendingIntent.getBroadcast(context, 1, new Intent(name),
-                PendingIntent.FLAG_IMMUTABLE);
-        PendingIntent pi2 = PendingIntent.getBroadcast(context, 2, new Intent(name),
-                PendingIntent.FLAG_IMMUTABLE);
-
-        final long trigger1 = SystemClock.elapsedRealtime() + 5_000;
-        final long trigger2 = System.currentTimeMillis() + 5_200;
-        am.setExact(AlarmManager.ELAPSED_REALTIME_WAKEUP, trigger1, pi1);
-        am.setWindow(AlarmManager.RTC, trigger2, 10_000, pi2);
-    }
-
-    @Test
-    public void testPendingAlarmInfo() {
-        Context context = InstrumentationRegistry.getContext();
-        final AlarmManager am = context.getSystemService(AlarmManager.class);
-
-        // Just schedule esoteric alarms whose counts can be verified in the pulled atom.
-        PendingIntent activity = PendingIntent.getActivity(context, 0,
-                new Intent("com.irrelevant.activity"), PendingIntent.FLAG_IMMUTABLE);
-        PendingIntent fgs1 = PendingIntent.getForegroundService(context, 1,
-                new Intent("com.irrelevant.fgs1"), PendingIntent.FLAG_IMMUTABLE);
-        PendingIntent fgs2 = PendingIntent.getForegroundService(context, 2,
-                new Intent("com.irrelevant.fgs2"), PendingIntent.FLAG_IMMUTABLE);
-        PendingIntent service = PendingIntent.getService(context, 0,
-                new Intent("com.irrelevant.service"), PendingIntent.FLAG_IMMUTABLE);
-
-        final long farTriggerRtc = System.currentTimeMillis() + 600_000;
-        final long farTriggerElapsed = SystemClock.elapsedRealtime() + 600_000;
-        final long neverTriggerElapsed = SystemClock.elapsedRealtime() + 10 * 365 * 86400 * 1000L;
-
-        am.set(AlarmManager.RTC_WAKEUP, farTriggerRtc, "testPendingAlarmInfo",
-                () -> Log.e(TAG, "Should not have fired"), null);
-        am.setAlarmClock(new AlarmManager.AlarmClockInfo(farTriggerRtc, activity), activity);
-        am.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME, farTriggerElapsed, fgs1);
-        am.setRepeating(AlarmManager.ELAPSED_REALTIME_WAKEUP, farTriggerElapsed, 60_000, fgs2);
-        am.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME, neverTriggerElapsed, service);
     }
 
     @Test
@@ -949,30 +916,43 @@ public class AtomTests {
         int[] uids = {1234, appInfo.uid};
         String[] tags = {"tag1", "tag2"};
         byte[] experimentIds = {8, 1, 8, 2, 8, 3}; // Corresponds to 1, 2, 3.
+
+        int[] int32Array = {3, 6};
+        long[] int64Array = {1000L, 1002L};
+        float[] floatArray = {0.3f, 0.09f};
+        String[] stringArray = {"str1", "str2"};
+        boolean[] boolArray = {true, false};
+        int[] enumArray = {StatsLogStatsdCts.TEST_ATOM_REPORTED__STATE__OFF,
+                StatsLogStatsdCts.TEST_ATOM_REPORTED__STATE__ON};
+
         StatsLogStatsdCts.write(StatsLogStatsdCts.TEST_ATOM_REPORTED, uids, tags, 42,
                 Long.MAX_VALUE, 3.14f, "This is a basic test!", false,
-                StatsLogStatsdCts.TEST_ATOM_REPORTED__STATE__ON, experimentIds);
+                StatsLogStatsdCts.TEST_ATOM_REPORTED__STATE__ON, experimentIds, int32Array,
+                int64Array, floatArray, stringArray, boolArray, enumArray);
 
         // All nulls. Should get dropped since cts app is not in the attribution chain.
-        StatsLogStatsdCts.write(StatsLogStatsdCts.TEST_ATOM_REPORTED, null, null, 0, 0,
-                0f, null, false, StatsLogStatsdCts.TEST_ATOM_REPORTED__STATE__ON, null);
+        StatsLogStatsdCts.write(StatsLogStatsdCts.TEST_ATOM_REPORTED, null, null, 0, 0, 0f, null,
+                false, StatsLogStatsdCts.TEST_ATOM_REPORTED__STATE__ON, null, null, null, null,
+                null, null, null);
 
         // Null tag in attribution chain.
         int[] uids2 = {9999, appInfo.uid};
         String[] tags2 = {"tag9999", null};
         StatsLogStatsdCts.write(StatsLogStatsdCts.TEST_ATOM_REPORTED, uids2, tags2, 100,
                 Long.MIN_VALUE, -2.5f, "Test null uid", true,
-                StatsLogStatsdCts.TEST_ATOM_REPORTED__STATE__UNKNOWN, experimentIds);
+                StatsLogStatsdCts.TEST_ATOM_REPORTED__STATE__UNKNOWN, experimentIds, int32Array,
+                int64Array, floatArray, stringArray, boolArray, enumArray);
 
         // Non chained non-null
-        StatsLogStatsdCts.write_non_chained(StatsLogStatsdCts.TEST_ATOM_REPORTED,
-                appInfo.uid, "tag1", -256, -1234567890L, 42.01f, "Test non chained", true,
-                StatsLogStatsdCts.TEST_ATOM_REPORTED__STATE__OFF, experimentIds);
+        StatsLogStatsdCts.write_non_chained(StatsLogStatsdCts.TEST_ATOM_REPORTED, appInfo.uid,
+                "tag1", -256, -1234567890L, 42.01f, "Test non chained", true,
+                StatsLogStatsdCts.TEST_ATOM_REPORTED__STATE__OFF, experimentIds, new int[0],
+                new long[0], new float[0], new String[0], new boolean[0], new int[0]);
 
         // Non chained all null
         StatsLogStatsdCts.write_non_chained(StatsLogStatsdCts.TEST_ATOM_REPORTED, appInfo.uid, null,
-                0, 0, 0f, null, true, StatsLogStatsdCts.TEST_ATOM_REPORTED__STATE__OFF, null);
-
+                0, 0, 0f, null, true, StatsLogStatsdCts.TEST_ATOM_REPORTED__STATE__OFF, null, null,
+                null, null, null, null, null);
     }
 
     /**
@@ -982,6 +962,23 @@ public class AtomTests {
     public void testGenerateMobileTraffic() throws Exception {
         final Context context = InstrumentationRegistry.getContext();
         doGenerateNetworkTraffic(context, NetworkCapabilities.TRANSPORT_CELLULAR);
+    }
+
+    /**
+     * Force poll NetworkStatsService to get most updated network stats from lower layer.
+     */
+    @Test
+    public void testForcePollNetworkStats() throws Exception {
+        final Context context = InstrumentationRegistry.getContext();
+        final NetworkStatsManager nsm = context.getSystemService(NetworkStatsManager.class);
+        try {
+            nsm.setPollForce(true);
+            // This query is for triggering force poll NetworkStatsService.
+            nsm.querySummaryForUser(ConnectivityManager.TYPE_WIFI, null, Long.MIN_VALUE,
+                    Long.MAX_VALUE);
+        } catch (RemoteException e) {
+            Log.e(TAG, "doPollNetworkStats failed with " + e);
+        }
     }
 
     // Constants which are locally used by doGenerateNetworkTraffic.
@@ -1159,5 +1156,12 @@ public class AtomTests {
                 }
             }
         }
+    }
+
+    @Test
+    public void testGameState() throws Exception {
+        Context context = InstrumentationRegistry.getContext();
+        GameManager gameManager = context.getSystemService(GameManager.class);
+        gameManager.setGameState(new GameState(true, GameState.MODE_CONTENT, 1, 2));
     }
 }

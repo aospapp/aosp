@@ -17,7 +17,6 @@
 package com.android.tools.metalava.model.text
 
 import com.android.tools.metalava.model.text.TextTypeParameterItem.Companion.bounds
-
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 
@@ -29,14 +28,15 @@ class TextTypeParameterItemTest {
         assertThat(bounds("X").toString()).isEqualTo("[]")
         assertThat(bounds("DEF extends T").toString()).isEqualTo("[T]")
         assertThat(bounds("T extends java.lang.Comparable<? super T>").toString())
-            .isEqualTo("[java.lang.Comparable]")
+            .isEqualTo("[java.lang.Comparable<? super T>]")
         assertThat(bounds("T extends java.util.List<Number> & java.util.RandomAccess").toString())
-            .isEqualTo("[java.util.List, java.util.RandomAccess]")
+            .isEqualTo("[java.util.List<Number>, java.util.RandomAccess]")
 
         // When a type variable is on a member and the type variable is defined on the surrounding
         // class, look up the bound on the class type parameter:
         val codebase = ApiFile.parseApi(
-            "test", """
+            "test",
+            """
             package androidx.navigation {
               public final class NavDestination {
                 ctor public NavDestination();
@@ -46,7 +46,8 @@ class TextTypeParameterItemTest {
                 method public D build();
               }
             }
-        """.trimIndent(), false
+            """.trimIndent(),
+            false
         )
         val cls = codebase.findClass("androidx.navigation.NavDestinationBuilder")
         val method = cls?.findMethod("build", "") as TextMethodItem

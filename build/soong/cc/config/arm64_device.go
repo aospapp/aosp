@@ -48,12 +48,12 @@ var (
 		"-Wl,-z,separate-code",
 	}
 
-	arm64Lldflags = append(ClangFilterUnknownLldflags(arm64Ldflags),
+	arm64Lldflags = append(arm64Ldflags,
 		"-Wl,-z,max-page-size=4096")
 
 	arm64Cppflags = []string{}
 
-	arm64ClangCpuVariantCflags = map[string][]string{
+	arm64CpuVariantCflags = map[string][]string{
 		"cortex-a53": []string{
 			"-mcpu=cortex-a53",
 		},
@@ -96,64 +96,68 @@ func init() {
 	pctx.SourcePathVariable("Arm64GccRoot",
 		"prebuilts/gcc/${HostPrebuiltTag}/aarch64/aarch64-linux-android-${arm64GccVersion}")
 
-	pctx.StaticVariable("Arm64Ldflags", strings.Join(arm64Ldflags, " "))
-	pctx.StaticVariable("Arm64Lldflags", strings.Join(arm64Lldflags, " "))
+	exportedVars.ExportStringListStaticVariable("Arm64Ldflags", arm64Ldflags)
+	exportedVars.ExportStringListStaticVariable("Arm64Lldflags", arm64Lldflags)
 
-	pctx.StaticVariable("Arm64ClangCflags", strings.Join(ClangFilterUnknownCflags(arm64Cflags), " "))
-	pctx.StaticVariable("Arm64ClangLdflags", strings.Join(ClangFilterUnknownCflags(arm64Ldflags), " "))
-	pctx.StaticVariable("Arm64ClangLldflags", strings.Join(ClangFilterUnknownCflags(arm64Lldflags), " "))
-	pctx.StaticVariable("Arm64ClangCppflags", strings.Join(ClangFilterUnknownCflags(arm64Cppflags), " "))
+	exportedVars.ExportStringListStaticVariable("Arm64Cflags", arm64Cflags)
+	exportedVars.ExportStringListStaticVariable("Arm64Cppflags", arm64Cppflags)
 
-	pctx.StaticVariable("Arm64ClangArmv8ACflags", strings.Join(arm64ArchVariantCflags["armv8-a"], " "))
-	pctx.StaticVariable("Arm64ClangArmv8ABranchProtCflags", strings.Join(arm64ArchVariantCflags["armv8-a-branchprot"], " "))
-	pctx.StaticVariable("Arm64ClangArmv82ACflags", strings.Join(arm64ArchVariantCflags["armv8-2a"], " "))
-	pctx.StaticVariable("Arm64ClangArmv82ADotprodCflags", strings.Join(arm64ArchVariantCflags["armv8-2a-dotprod"], " "))
+	exportedVars.ExportVariableReferenceDict("Arm64ArchVariantCflags", arm64ArchVariantCflagsVar)
+	exportedVars.ExportVariableReferenceDict("Arm64CpuVariantCflags", arm64CpuVariantCflagsVar)
+	exportedVars.ExportVariableReferenceDict("Arm64CpuVariantLdflags", arm64CpuVariantLdflags)
 
-	pctx.StaticVariable("Arm64ClangCortexA53Cflags",
-		strings.Join(arm64ClangCpuVariantCflags["cortex-a53"], " "))
+	exportedVars.ExportStringListStaticVariable("Arm64Armv8ACflags", arm64ArchVariantCflags["armv8-a"])
+	exportedVars.ExportStringListStaticVariable("Arm64Armv8ABranchProtCflags", arm64ArchVariantCflags["armv8-a-branchprot"])
+	exportedVars.ExportStringListStaticVariable("Arm64Armv82ACflags", arm64ArchVariantCflags["armv8-2a"])
+	exportedVars.ExportStringListStaticVariable("Arm64Armv82ADotprodCflags", arm64ArchVariantCflags["armv8-2a-dotprod"])
 
-	pctx.StaticVariable("Arm64ClangCortexA55Cflags",
-		strings.Join(arm64ClangCpuVariantCflags["cortex-a55"], " "))
+	exportedVars.ExportStringListStaticVariable("Arm64CortexA53Cflags", arm64CpuVariantCflags["cortex-a53"])
+	exportedVars.ExportStringListStaticVariable("Arm64CortexA55Cflags", arm64CpuVariantCflags["cortex-a55"])
+	exportedVars.ExportStringListStaticVariable("Arm64KryoCflags", arm64CpuVariantCflags["kryo"])
+	exportedVars.ExportStringListStaticVariable("Arm64ExynosM1Cflags", arm64CpuVariantCflags["exynos-m1"])
+	exportedVars.ExportStringListStaticVariable("Arm64ExynosM2Cflags", arm64CpuVariantCflags["exynos-m2"])
 
-	pctx.StaticVariable("Arm64ClangKryoCflags",
-		strings.Join(arm64ClangCpuVariantCflags["kryo"], " "))
-
-	pctx.StaticVariable("Arm64ClangExynosM1Cflags",
-		strings.Join(arm64ClangCpuVariantCflags["exynos-m1"], " "))
-
-	pctx.StaticVariable("Arm64ClangExynosM2Cflags",
-		strings.Join(arm64ClangCpuVariantCflags["exynos-m2"], " "))
+	exportedVars.ExportStringListStaticVariable("Arm64FixCortexA53Ldflags", []string{"-Wl,--fix-cortex-a53-843419"})
 }
 
 var (
-	arm64ClangArchVariantCflagsVar = map[string]string{
-		"armv8-a":            "${config.Arm64ClangArmv8ACflags}",
-		"armv8-a-branchprot": "${config.Arm64ClangArmv8ABranchProtCflags}",
-		"armv8-2a":           "${config.Arm64ClangArmv82ACflags}",
-		"armv8-2a-dotprod":   "${config.Arm64ClangArmv82ADotprodCflags}",
+	arm64ArchVariantCflagsVar = map[string]string{
+		"armv8-a":            "${config.Arm64Armv8ACflags}",
+		"armv8-a-branchprot": "${config.Arm64Armv8ABranchProtCflags}",
+		"armv8-2a":           "${config.Arm64Armv82ACflags}",
+		"armv8-2a-dotprod":   "${config.Arm64Armv82ADotprodCflags}",
 	}
 
-	arm64ClangCpuVariantCflagsVar = map[string]string{
-		"":           "",
-		"cortex-a53": "${config.Arm64ClangCortexA53Cflags}",
-		"cortex-a55": "${config.Arm64ClangCortexA55Cflags}",
-		"cortex-a72": "${config.Arm64ClangCortexA53Cflags}",
-		"cortex-a73": "${config.Arm64ClangCortexA53Cflags}",
-		"cortex-a75": "${config.Arm64ClangCortexA55Cflags}",
-		"cortex-a76": "${config.Arm64ClangCortexA55Cflags}",
-		"kryo":       "${config.Arm64ClangKryoCflags}",
-		"kryo385":    "${config.Arm64ClangCortexA53Cflags}",
-		"exynos-m1":  "${config.Arm64ClangExynosM1Cflags}",
-		"exynos-m2":  "${config.Arm64ClangExynosM2Cflags}",
+	arm64CpuVariantCflagsVar = map[string]string{
+		"cortex-a53": "${config.Arm64CortexA53Cflags}",
+		"cortex-a55": "${config.Arm64CortexA55Cflags}",
+		"cortex-a72": "${config.Arm64CortexA53Cflags}",
+		"cortex-a73": "${config.Arm64CortexA53Cflags}",
+		"cortex-a75": "${config.Arm64CortexA55Cflags}",
+		"cortex-a76": "${config.Arm64CortexA55Cflags}",
+		"kryo":       "${config.Arm64KryoCflags}",
+		"kryo385":    "${config.Arm64CortexA53Cflags}",
+		"exynos-m1":  "${config.Arm64ExynosM1Cflags}",
+		"exynos-m2":  "${config.Arm64ExynosM2Cflags}",
+	}
+
+	arm64CpuVariantLdflags = map[string]string{
+		"cortex-a53": "${config.Arm64FixCortexA53Ldflags}",
+		"cortex-a72": "${config.Arm64FixCortexA53Ldflags}",
+		"cortex-a73": "${config.Arm64FixCortexA53Ldflags}",
+		"kryo":       "${config.Arm64FixCortexA53Ldflags}",
+		"exynos-m1":  "${config.Arm64FixCortexA53Ldflags}",
+		"exynos-m2":  "${config.Arm64FixCortexA53Ldflags}",
 	}
 )
 
 type toolchainArm64 struct {
+	toolchainBionic
 	toolchain64Bit
 
-	ldflags              string
-	lldflags             string
-	toolchainClangCflags string
+	ldflags         string
+	lldflags        string
+	toolchainCflags string
 }
 
 func (t *toolchainArm64) Name() string {
@@ -180,24 +184,24 @@ func (t *toolchainArm64) ClangTriple() string {
 	return t.GccTriple()
 }
 
-func (t *toolchainArm64) ClangCflags() string {
-	return "${config.Arm64ClangCflags}"
+func (t *toolchainArm64) Cflags() string {
+	return "${config.Arm64Cflags}"
 }
 
-func (t *toolchainArm64) ClangCppflags() string {
-	return "${config.Arm64ClangCppflags}"
+func (t *toolchainArm64) Cppflags() string {
+	return "${config.Arm64Cppflags}"
 }
 
-func (t *toolchainArm64) ClangLdflags() string {
+func (t *toolchainArm64) Ldflags() string {
 	return t.ldflags
 }
 
-func (t *toolchainArm64) ClangLldflags() string {
+func (t *toolchainArm64) Lldflags() string {
 	return t.lldflags
 }
 
-func (t *toolchainArm64) ToolchainClangCflags() string {
-	return t.toolchainClangCflags
+func (t *toolchainArm64) ToolchainCflags() string {
+	return t.toolchainCflags
 }
 
 func (toolchainArm64) LibclangRuntimeLibraryArch() string {
@@ -215,16 +219,11 @@ func arm64ToolchainFactory(arch android.Arch) Toolchain {
 		panic(fmt.Sprintf("Unknown ARM architecture version: %q", arch.ArchVariant))
 	}
 
-	toolchainClangCflags := []string{arm64ClangArchVariantCflagsVar[arch.ArchVariant]}
-	toolchainClangCflags = append(toolchainClangCflags,
-		variantOrDefault(arm64ClangCpuVariantCflagsVar, arch.CpuVariant))
+	toolchainCflags := []string{arm64ArchVariantCflagsVar[arch.ArchVariant]}
+	toolchainCflags = append(toolchainCflags,
+		variantOrDefault(arm64CpuVariantCflagsVar, arch.CpuVariant))
 
-	var extraLdflags string
-	switch arch.CpuVariant {
-	case "cortex-a53", "cortex-a72", "cortex-a73", "kryo", "exynos-m1", "exynos-m2":
-		extraLdflags = "-Wl,--fix-cortex-a53-843419"
-	}
-
+	extraLdflags := variantOrDefault(arm64CpuVariantLdflags, arch.CpuVariant)
 	return &toolchainArm64{
 		ldflags: strings.Join([]string{
 			"${config.Arm64Ldflags}",
@@ -234,7 +233,7 @@ func arm64ToolchainFactory(arch android.Arch) Toolchain {
 			"${config.Arm64Lldflags}",
 			extraLdflags,
 		}, " "),
-		toolchainClangCflags: strings.Join(toolchainClangCflags, " "),
+		toolchainCflags: strings.Join(toolchainCflags, " "),
 	}
 }
 

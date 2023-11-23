@@ -17,7 +17,9 @@
 #ifndef SYSTEM_KEYMASTER_KEYMASTER_CONFIGURATION_H_
 #define SYSTEM_KEYMASTER_KEYMASTER_CONFIGURATION_H_
 
+#include <optional>
 #include <string>
+#include <vector>
 
 #include <stdint.h>
 
@@ -64,6 +66,29 @@ uint32_t GetOsPatchlevel();
  * YYYYMMDD on success.
  */
 uint32_t GetVendorPatchlevel();
+
+/**
+ * Retrieves the verified boot state from properties (which may require SELinux permission).
+ */
+std::string GetVerifiedBootState();
+
+/**
+ * Retrieves the bootloader state (locked or unlocked) from properties (which may require
+ * SELinux permission).
+ */
+std::string GetBootloaderState();
+
+/**
+ * Parses the given verified boot metadata digest. Returns nullopt if the value is not a binary
+ * string.
+ */
+std::optional<std::vector<uint8_t>> GetVbmetaDigest(std::string_view vbmeta_string);
+
+/**
+ * Retrieves and parses the verified boot metadata digest from properties (which may require
+ * SELinux permission). Returns nullopt if the property is not a binary string.
+ */
+std::optional<std::vector<uint8_t>> GetVbmetaDigest();
 
 }  // namespace keymaster
 

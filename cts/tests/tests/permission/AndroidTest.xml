@@ -20,6 +20,7 @@
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user"/>
     <option name="config-descriptor:metadata" key="token" value="SIM_CARD" />
+    <option name="config-descriptor:metadata" key="parameter" value="no_foldable_states" />
 
     <object type="module_controller" class="com.android.tradefed.testtype.suite.module.Sdk30ModuleController" />
 
@@ -77,6 +78,7 @@
         <option name="push" value="CtsInstallPermissionUserApp.apk->/data/local/tmp/cts/permissions/CtsInstallPermissionUserApp.apk" />
         <option name="push" value="CtsInstallPermissionEscalatorApp.apk->/data/local/tmp/cts/permissions/CtsInstallPermissionEscalatorApp.apk" />
         <option name="push" value="CtsAppThatRequestsOneTimePermission.apk->/data/local/tmp/cts/permissions/CtsAppThatRequestsOneTimePermission.apk" />
+        <option name="push" value="CtsAppToTestRevokeSelfPermission.apk->/data/local/tmp/cts/permissions/CtsAppToTestRevokeSelfPermission.apk" />
         <option name="push" value="AppThatDefinesUndefinedPermissionGroupElement.apk->/data/local/tmp/cts/permissions/AppThatDefinesUndefinedPermissionGroupElement.apk" />
         <option name="push" value="CtsAppThatDefinesPermissionA.apk->/data/local/tmp/cts/permissions/CtsAppThatDefinesPermissionA.apk" />
         <option name="push" value="CtsAppThatAlsoDefinesPermissionA.apk->/data/local/tmp/cts/permissions/CtsAppThatAlsoDefinesPermissionA.apk" />

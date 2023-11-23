@@ -35,6 +35,7 @@ import android.content.Context;
 import android.os.Build;
 import android.os.Parcel;
 import android.telephony.AccessNetworkConstants;
+import android.telephony.DataSpecificRegistrationInfo;
 import android.telephony.LteVopsSupportInfo;
 import android.telephony.NetworkRegistrationInfo;
 import android.telephony.NrVopsSupportInfo;
@@ -371,9 +372,12 @@ public class ServiceStateTest {
                 new LteVopsSupportInfo(LteVopsSupportInfo.LTE_STATUS_NOT_AVAILABLE,
                         LteVopsSupportInfo.LTE_STATUS_NOT_AVAILABLE);
 
-        NetworkRegistrationInfo wwanDataRegState = new NetworkRegistrationInfo(
-                NetworkRegistrationInfo.DOMAIN_PS, AccessNetworkConstants.TRANSPORT_TYPE_WWAN,
-                0, 0, 0, true, null, null, "", 0, false, false, false, vopsSupportInfo);
+        NetworkRegistrationInfo wwanDataRegState = new NetworkRegistrationInfo.Builder()
+                .setDomain(NetworkRegistrationInfo.DOMAIN_PS)
+                .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                .setDataSpecificInfo(new DataSpecificRegistrationInfo(
+                        0, false, false, false, vopsSupportInfo))
+                .setEmergencyOnly(true).build();
 
         ServiceState ss = new ServiceState();
 
@@ -386,9 +390,12 @@ public class ServiceStateTest {
                 new LteVopsSupportInfo(LteVopsSupportInfo.LTE_STATUS_SUPPORTED,
                         LteVopsSupportInfo.LTE_STATUS_NOT_SUPPORTED);
 
-        wwanDataRegState = new NetworkRegistrationInfo(
-                NetworkRegistrationInfo.DOMAIN_PS, AccessNetworkConstants.TRANSPORT_TYPE_WWAN,
-                0, 0, 0, true, null, null, "", 0, false, false, false, vopsSupportInfo);
+        wwanDataRegState = new NetworkRegistrationInfo.Builder()
+                .setDomain(NetworkRegistrationInfo.DOMAIN_PS)
+                .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                .setDataSpecificInfo(new DataSpecificRegistrationInfo(
+                        0, false, false, false, vopsSupportInfo))
+                .setEmergencyOnly(true).build();
         ss.addNetworkRegistrationInfo(wwanDataRegState);
         assertEquals(ss.getNetworkRegistrationInfo(NetworkRegistrationInfo.DOMAIN_PS,
                 AccessNetworkConstants.TRANSPORT_TYPE_WWAN), wwanDataRegState);
@@ -402,9 +409,12 @@ public class ServiceStateTest {
         vopsSupportInfo = new NrVopsSupportInfo(NrVopsSupportInfo.NR_STATUS_VOPS_NOT_SUPPORTED,
                 NrVopsSupportInfo.NR_STATUS_EMC_NOT_SUPPORTED,
                 NrVopsSupportInfo.NR_STATUS_EMF_NOT_SUPPORTED);
-        wwanDataRegState = new NetworkRegistrationInfo(
-                NetworkRegistrationInfo.DOMAIN_PS, AccessNetworkConstants.TRANSPORT_TYPE_WWAN,
-                0, 0, 0, true, null, null, "", 0, false, false, false, vopsSupportInfo);
+        wwanDataRegState = new NetworkRegistrationInfo.Builder()
+                .setDomain(NetworkRegistrationInfo.DOMAIN_PS)
+                .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                .setDataSpecificInfo(new DataSpecificRegistrationInfo(
+                        0, false, false, false, vopsSupportInfo))
+                .setEmergencyOnly(true).build();
         ss.addNetworkRegistrationInfo(wwanDataRegState);
         assertEquals(ss.getNetworkRegistrationInfo(NetworkRegistrationInfo.DOMAIN_PS,
                 AccessNetworkConstants.TRANSPORT_TYPE_WWAN), wwanDataRegState);

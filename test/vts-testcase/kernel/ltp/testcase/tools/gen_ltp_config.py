@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import argparse
 import os
 import sys
 from distutils.util import strtobool
@@ -21,7 +22,7 @@ from distutils.util import strtobool
 import ltp_test_cases
 from common import filter_utils
 
-def run(android_build_top, arch, n_bit, is_low_mem, is_hwasan, output_file):
+def run(android_build_top, arch, n_bit, is_low_mem, is_hwasan, run_staging, output_file):
 
     android_build_top = android_build_top
     ltp_tests = ltp_test_cases.LtpTestCases(
@@ -33,17 +34,52 @@ def run(android_build_top, arch, n_bit, is_low_mem, is_hwasan, output_file):
         n_bit,
         test_filter,
         output_file=output_file,
-        run_staging=False,
+        run_staging=run_staging,
         is_low_mem=is_low_mem,
         is_hwasan=is_hwasan)
 
 if __name__ == '__main__':
-    if len(sys.argv) < 4:
-        print("use: %s n_bit output_file" % sys.argv[0])
-        sys.exit(1)
-    arch = sys.argv[1]
-    n_bit = sys.argv[2]
-    is_low_mem = strtobool(sys.argv[3])
-    is_hwasan = strtobool(sys.argv[4])
-    output_path = sys.argv[5]
-    run(os.environ['ANDROID_BUILD_TOP'], arch, n_bit, is_low_mem, is_hwasan, output_path)
+    arg_parser = argparse.ArgumentParser(
+        description='Generate LTP configuration files for VTS')
+    arg_parser.add_argument('--arch',
+                            dest='arch',
+                            type=str,
+                            choices=['arm', 'x86'],
+                            required=True,
+                            help="Target device architecture")
+    arg_parser.add_argument('--bitness',
+                            dest='bitness',
+                            type=int,
+                            choices=[32, 64],
+                            required=True,
+                            help="Target device architecture bitness")
+    arg_parser.add_argument('--low-mem',
+                            dest='is_low_mem',
+                            type=str,
+                            choices=['True', 'False'],
+                            required=True,
+                            help="Target device is low memory device")
+    arg_parser.add_argument('--hwasan',
+                            dest='is_hwasan',
+                            type=str,
+                            choices=['True', 'False'],
+                            required=True,
+                            help="Target device is hwasan")
+    arg_parser.add_argument('--staging',
+                            dest='run_staging',
+                            type=str,
+                            choices=['True', 'False'],
+                            default="False",
+                            help="Run all the tests, except from the disabled ones")
+    arg_parser.add_argument('output_file_path',
+                            nargs=1,
+                            help="Path for the output file")
+    args = arg_parser.parse_args()
+
+    run(android_build_top=os.environ['ANDROID_BUILD_TOP'],
+        arch=args.arch,
+        n_bit=str(args.bitness),
+        is_low_mem=strtobool(args.is_low_mem),
+        is_hwasan=strtobool(args.is_hwasan),
+        run_staging=strtobool(args.run_staging),
+        output_file=args.output_file_path[0])

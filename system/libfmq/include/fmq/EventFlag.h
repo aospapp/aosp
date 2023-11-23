@@ -31,22 +31,6 @@ namespace hardware {
  */
 struct EventFlag {
     /**
-     * Create an event flag object with mapping information.
-     *
-     * @param fd File descriptor to be mmapped to create the event flag word.
-     * There is no transfer of ownership of the fd. The caller will still
-     * own the fd for the purpose of closing it.
-     * @param offset Offset parameter to mmap.
-     * @param ef Pointer to address of the EventFlag object that gets created. Will be set to
-     * nullptr if unsuccesful.
-     *
-     * @return status Returns a status_t error code. Likely error codes are
-     * NO_ERROR if the method is successful or BAD_VALUE due to invalid
-     * mapping arguments.
-     */
-    static status_t createEventFlag(int fd, off_t offset, EventFlag** ef);
-
-    /**
      * Create an event flag object from the address of the flag word.
      *
      * @param  efWordPtr Pointer to the event flag word.
@@ -109,11 +93,6 @@ struct EventFlag {
 private:
     bool mEfWordNeedsUnmapping = false;
     std::atomic<uint32_t>* mEfWordPtr = nullptr;
-
-    /*
-     * mmap memory for the event flag word.
-     */
-    EventFlag(int fd, off_t offset, status_t* status);
 
     /*
      * Use this constructor if we already know where the event flag word

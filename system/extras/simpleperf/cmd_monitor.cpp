@@ -130,7 +130,7 @@ class MonitorCommand : public Command {
 "\n"
 "Sample filter options:\n"
 "--exclude-perf                Exclude samples for simpleperf process.\n"
-RECORD_FILTER_OPTION_HELP_MSG
+RECORD_FILTER_OPTION_HELP_MSG_FOR_RECORDING
 "\n"
                 // clang-format on
                 ),
@@ -266,21 +266,22 @@ bool MonitorCommand::PrepareMonitoring() {
   // 5. Add read/signal/periodic Events.
   IOEventLoop* loop = event_selection_set_.GetIOEventLoop();
   auto exit_loop_callback = [loop]() { return loop->ExitLoop(); };
-  if (!loop->AddSignalEvents({SIGCHLD, SIGINT, SIGTERM}, exit_loop_callback)) {
+  if (!loop->AddSignalEvents({SIGCHLD, SIGINT, SIGTERM}, exit_loop_callback, IOEventHighPriority)) {
     return false;
   }
 
   // Only add an event for SIGHUP if we didn't inherit SIG_IGN (e.g. from
   // nohup).
   if (!SignalIsIgnored(SIGHUP)) {
-    if (!loop->AddSignalEvent(SIGHUP, exit_loop_callback)) {
+    if (!loop->AddSignalEvent(SIGHUP, exit_loop_callback, IOEventHighPriority)) {
       return false;
     }
   }
 
   if (duration_in_sec_ != 0) {
-    if (!loop->AddPeriodicEvent(SecondToTimeval(duration_in_sec_),
-                                [loop]() { return loop->ExitLoop(); })) {
+    if (!loop->AddPeriodicEvent(
+            SecondToTimeval(duration_in_sec_), [loop]() { return loop->ExitLoop(); },
+            IOEventHighPriority)) {
       return false;
     }
   }
@@ -291,6 +292,10 @@ bool MonitorCommand::DoMonitoring() {
   if (!event_selection_set_.GetIOEventLoop()->RunLoop()) {
     return false;
   }
+  if (!event_selection_set_.SyncKernelBuffer()) {
+    return false;
+  }
+  event_selection_set_.CloseEventFiles();
   if (!event_selection_set_.FinishReadMmapEventData()) {
     return false;
   }
@@ -313,7 +318,7 @@ inline const OptionFormatMap& GetMonitorCmdOptionFormats() {
         {"-g", {OptionValueType::NONE, OptionType::ORDERED, AppRunnerType::ALLOWED}},
         {"-t", {OptionValueType::STRING, OptionType::MULTIPLE, AppRunnerType::ALLOWED}},
     };
-    const OptionFormatMap& record_filter_options = GetRecordFilterOptionFormats();
+    OptionFormatMap record_filter_options = GetRecordFilterOptionFormats(true);
     option_formats.insert(record_filter_options.begin(), record_filter_options.end());
   }
   return option_formats;
@@ -427,7 +432,7 @@ bool MonitorCommand::ParseOptions(const std::vector<std::string>& args) {
   }
 
   if (fp_callchain_sampling_) {
-    if (GetBuildArch() == ARCH_ARM) {
+    if (GetTargetArch() == ARCH_ARM) {
       LOG(WARNING) << "`--callgraph fp` option doesn't work well on arm architecture, "
                    << "consider using `-g` option or profiling on aarch64 architecture.";
     }

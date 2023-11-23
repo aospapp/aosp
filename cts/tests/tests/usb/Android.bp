@@ -23,6 +23,7 @@ android_test {
     defaults: ["cts_defaults"],
     static_libs: [
 	"ctstestrunner-axt",
+	"CtsMockInputMethodLib",
     ],
     libs: [
         "android.test.runner",

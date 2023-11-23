@@ -111,11 +111,44 @@ impl WatchdogState {
         }
         self.last_report = Instant::now();
         self.has_overdue = has_overdue;
-        log::warn!("Keystore Watchdog report:");
-        log::warn!("Overdue records:");
+        log::warn!("### Keystore Watchdog report - BEGIN ###");
+
         let now = Instant::now();
-        for (i, r) in self.records.iter() {
-            if r.deadline.saturating_duration_since(now) == Duration::new(0, 0) {
+        let mut overdue_records: Vec<(&Index, &Record)> = self
+            .records
+            .iter()
+            .filter(|(_, r)| r.deadline.saturating_duration_since(now) == Duration::new(0, 0))
+            .collect();
+
+        log::warn!("When extracting from a bug report, please include this header");
+        log::warn!("and all {} records below.", overdue_records.len());
+
+        // Watch points can be nested, i.e., a single thread may have multiple armed
+        // watch points. And the most recent on each thread (thread recent) is closest to the point
+        // where something is blocked. Furthermore, keystore2 has various critical section
+        // and common backend resources KeyMint that can only be entered serialized. So if one
+        // thread hangs, the others will soon follow suite. Thus the oldest "thread recent" watch
+        // point is most likely pointing toward the culprit.
+        // Thus, sort by start time first.
+        overdue_records.sort_unstable_by(|(_, r1), (_, r2)| r1.started.cmp(&r2.started));
+        // Then we groups all of the watch points per thread preserving the order within
+        // groups.
+        let groups = overdue_records.iter().fold(
+            HashMap::<thread::ThreadId, Vec<(&Index, &Record)>>::new(),
+            |mut acc, (i, r)| {
+                acc.entry(i.tid).or_default().push((i, r));
+                acc
+            },
+        );
+        // Put the groups back into a vector.
+        let mut groups: Vec<Vec<(&Index, &Record)>> = groups.into_iter().map(|(_, v)| v).collect();
+        // Sort the groups by start time of the most recent (.last()) of each group.
+        // It is panic safe to use unwrap() here because we never add empty vectors to
+        // the map.
+        groups.sort_by(|v1, v2| v1.last().unwrap().1.started.cmp(&v2.last().unwrap().1.started));
+
+        for g in groups.iter() {
+            for (i, r) in g.iter() {
                 match &r.callback {
                     Some(cb) => {
                         log::warn!(
@@ -139,6 +172,7 @@ impl WatchdogState {
                 }
             }
         }
+        log::warn!("### Keystore Watchdog report - END ###");
         true
     }
 

@@ -27,6 +27,9 @@ cc_defaults {
     name: "libdexfile_defaults",
     defaults: ["art_defaults"],
     host_supported: true,
+    tidy_timeout_srcs: [
+        "dex/dex_file_verifier.cc",
+    ],
     srcs: [
         "dex/art_dex_file_loader.cc",
         "dex/compact_dex_file.cc",
@@ -262,6 +265,9 @@ art_cc_library {
 
 art_cc_defaults {
     name: "art_libdexfile_tests_defaults",
+    tidy_timeout_srcs: [
+        "dex/dex_file_verifier_test.cc",
+    ],
     srcs: [
         "dex/art_dex_file_loader_test.cc",
         "dex/class_accessor_test.cc",
@@ -314,6 +320,7 @@ art_cc_test {
 
 cc_library_headers {
     name: "libdexfile_external_headers",
+    defaults: ["art_defaults"],
     visibility: ["//visibility:public"],
     host_supported: true,
     header_libs: ["libbase_headers"],
@@ -322,6 +329,9 @@ cc_library_headers {
 
     target: {
         windows: {
+            enabled: true,
+        },
+        darwin: {
             enabled: true,
         },
     },
@@ -333,12 +343,12 @@ cc_library_headers {
         "com.android.media",
         "com.android.runtime",
     ],
-    min_sdk_version: "S",
 }
 
 // Make dex_instruction_list.h available for tools/jvmti-agents/titrace
 cc_library_headers {
     name: "libdexfile_all_headers",
+    defaults: ["art_defaults"],
     visibility: ["//art:__subpackages__"],
     host_supported: true,
     export_include_dirs: ["."],
@@ -347,14 +357,12 @@ cc_library_headers {
         "com.android.art",
         "com.android.art.debug",
     ],
-    min_sdk_version: "S",
 }
 
-art_cc_test {
-    name: "art_libdexfile_external_tests",
+art_cc_defaults {
+    name: "art_libdexfile_external_tests_defaults",
     defaults: [
         "art_module_source_build_defaults",
-        "art_test_defaults",
     ],
     test_suites: ["general-tests"],
     srcs: [
@@ -369,6 +377,42 @@ art_cc_test {
         "jni_headers",
         "libdexfile_external_headers",
     ],
+}
+
+// Version of ART gtest `art_libdexfile_external_tests` bundled with the ART APEX on target.
+// TODO(b/192274705): Remove this module when the migration to standalone ART gtests is complete.
+art_cc_test {
+    name: "art_libdexfile_external_tests",
+    defaults: [
+        "art_test_defaults",
+        "art_libdexfile_external_tests_defaults",
+    ],
+}
+
+// Standalone version of ART gtest `art_libdexfile_external_tests`, not bundled with the ART APEX on
+// target.
+art_cc_test {
+    name: "art_standalone_libdexfile_external_tests",
+    defaults: [
+        "art_standalone_test_defaults",
+        "art_libdexfile_external_tests_defaults",
+    ],
+
+    // Support multilib variants (using different suffix per sub-architecture), which is needed on
+    // build targets with secondary architectures, as the CTS test suite packaging logic flattens
+    // all test artifacts into a single `testcases` directory.
+    compile_multilib: "both",
+    multilib: {
+        lib32: {
+            suffix: "32",
+        },
+        lib64: {
+            suffix: "64",
+        },
+    },
+
+    test_config_template: ":art-gtests-target-standalone-cts-template",
+    test_suites: ["cts"], // For backed-by API coverage.
 }
 
 // Support library with a C++ API for accessing the libdexfile API for external
@@ -388,6 +432,7 @@ art_cc_test {
 // static libraries (b/169779783).
 art_cc_library_static {
     name: "libdexfile_support",
+    defaults: ["art_defaults"],
     visibility: ["//visibility:public"],
     host_supported: true,
     srcs: [
@@ -409,7 +454,6 @@ art_cc_library_static {
         "com.android.media.swcodec",
         "com.android.runtime",
     ],
-    min_sdk_version: "S",
 }
 
 art_cc_defaults {
@@ -472,6 +516,7 @@ art_cc_test {
 
 cc_library_static {
     name: "libdexfile_support_static",
+    defaults: ["art_defaults"],
     host_supported: true,
     srcs: [
         "external/dex_file_supp.cc",

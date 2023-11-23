@@ -20,4 +20,4 @@ cd $(dirname "$0")/../..
 source build/envsetup.sh
 lunch aosp_arm-eng
 mmma tools/external_updater
-out/soong/host/linux-x86/bin/external_updater $@
+out/host/linux-x86/bin/external_updater $@

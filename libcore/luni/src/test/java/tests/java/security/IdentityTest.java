@@ -41,7 +41,7 @@ import junit.framework.TestCase;
  * Tests for class Identity
  *
  */
-@SuppressWarnings("deprecation")
+@SuppressWarnings("removal")
 public class IdentityTest extends TestCase {
 
     public static class MySecurityManager extends SecurityManager {

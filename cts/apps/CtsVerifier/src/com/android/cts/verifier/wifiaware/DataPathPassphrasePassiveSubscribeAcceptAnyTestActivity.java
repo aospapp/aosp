@@ -28,6 +28,6 @@ public class DataPathPassphrasePassiveSubscribeAcceptAnyTestActivity extends Bas
     protected BaseTestCase getTestCase(Context context) {
         return new DataPathInBandTestCase(context, /* isSecurityOpen */ false,
                 /* isPublish */ false, /* isUnsolicited */ true, /* usePmk */ false,
-                /* acceptAny */ false);
+                /* acceptAny */ false, /* forceChannel */false);
     }
 }

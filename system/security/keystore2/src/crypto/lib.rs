@@ -16,11 +16,11 @@
 //! Keystore 2.0.
 
 mod error;
-mod zvec;
+pub mod zvec;
 pub use error::Error;
 use keystore2_crypto_bindgen::{
-    extractSubjectFromCertificate, generateKeyFromPassword, randomBytes, AES_gcm_decrypt,
-    AES_gcm_encrypt, ECDHComputeKey, ECKEYGenerateKey, ECKEYMarshalPrivateKey,
+    extractSubjectFromCertificate, generateKeyFromPassword, hmacSha256, randomBytes,
+    AES_gcm_decrypt, AES_gcm_encrypt, ECDHComputeKey, ECKEYGenerateKey, ECKEYMarshalPrivateKey,
     ECKEYParsePrivateKey, ECPOINTOct2Point, ECPOINTPoint2Oct, EC_KEY_free, EC_KEY_get0_public_key,
     EC_POINT_free, HKDFExpand, HKDFExtract, EC_KEY, EC_MAX_BYTES, EC_POINT, EVP_MAX_MD_SIZE,
 };
@@ -39,6 +39,8 @@ pub const AES_256_KEY_LENGTH: usize = 32;
 pub const AES_128_KEY_LENGTH: usize = 16;
 /// Length of the expected salt for key from password generation.
 pub const SALT_LENGTH: usize = 16;
+/// Length of an HMAC-SHA256 tag in bytes.
+pub const HMAC_SHA256_LEN: usize = 32;
 
 /// Older versions of keystore produced IVs with four extra
 /// ignored zero bytes at the end; recognise and trim those.
@@ -69,6 +71,21 @@ pub fn generate_random_data(size: usize) -> Result<Vec<u8>, Error> {
         Ok(data)
     } else {
         Err(Error::RandomNumberGenerationFailed)
+    }
+}
+
+/// Perform HMAC-SHA256.
+pub fn hmac_sha256(key: &[u8], msg: &[u8]) -> Result<Vec<u8>, Error> {
+    let mut tag = vec![0; HMAC_SHA256_LEN];
+    // Safety: The first two pairs of arguments must point to const buffers with
+    // size given by the second arg of the pair.  The final pair of arguments
+    // must point to an output buffer with size given by the second arg of the
+    // pair.
+    match unsafe {
+        hmacSha256(key.as_ptr(), key.len(), msg.as_ptr(), msg.len(), tag.as_mut_ptr(), tag.len())
+    } {
+        true => Ok(tag),
+        false => Err(Error::HmacSha256Failed),
     }
 }
 
@@ -564,5 +581,19 @@ mod tests {
 
         assert_eq!(left_key, right_key);
         Ok(())
+    }
+
+    #[test]
+    fn test_hmac_sha256() {
+        let key = b"This is the key";
+        let msg1 = b"This is a message";
+        let msg2 = b"This is another message";
+        let tag1a = hmac_sha256(key, msg1).unwrap();
+        assert_eq!(tag1a.len(), HMAC_SHA256_LEN);
+        let tag1b = hmac_sha256(key, msg1).unwrap();
+        assert_eq!(tag1a, tag1b);
+        let tag2 = hmac_sha256(key, msg2).unwrap();
+        assert_eq!(tag2.len(), HMAC_SHA256_LEN);
+        assert_ne!(tag1a, tag2);
     }
 }

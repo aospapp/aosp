@@ -93,7 +93,7 @@ func setupVisitTest(t *testing.T) *Context {
 	ctx.RegisterTopDownMutator("visit", visitMutator)
 
 	ctx.MockFileSystem(map[string][]byte{
-		"Blueprints": []byte(`
+		"Android.bp": []byte(`
 			visit_module {
 				name: "A",
 				visit: ["B"],
@@ -125,7 +125,7 @@ func setupVisitTest(t *testing.T) *Context {
 		`),
 	})
 
-	_, errs := ctx.ParseBlueprintsFiles("Blueprints", nil)
+	_, errs := ctx.ParseBlueprintsFiles("Android.bp", nil)
 	if len(errs) > 0 {
 		t.Errorf("unexpected parse errors:")
 		for _, err := range errs {

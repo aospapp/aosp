@@ -21,6 +21,7 @@
 #include "tensorflow/lite/delegates/nnapi/nnapi_delegate.h"
 #include "tensorflow/lite/interpreter.h"
 #include "tensorflow/lite/model.h"
+#include "tensorflow/lite/nnapi/sl/include/SupportLibrary.h"
 
 #include <memory>
 #include <unistd.h>
@@ -98,7 +99,8 @@ class BenchmarkModel {
   static BenchmarkModel* create(const char* modelfile, int tfliteBackend,
                                 bool enable_intermediate_tensors_dump,
                                 int* nnapiErrno, const char* nnapi_device_name,
-                                bool mmapModel, const char* nnapi_cache_dir);
+                                bool mmapModel, const char* nnapi_cache_dir,
+                                const tflite::nnapi::NnApiSupportLibrary* nnApiSl = nullptr);
 
   bool resizeInputTensors(std::vector<int> shape);
   bool setInput(const uint8_t* dataPtr, size_t length);
@@ -110,7 +112,10 @@ class BenchmarkModel {
                  int seqInferencesMaxCount, float timeout, int flags,
                  std::vector<InferenceResult>* result);
 
-  bool benchmarkCompilation(int maxNumIterations, float warmupTimeout, float runTimeout,
+  bool benchmarkCompilation(int maxNumIterations,
+                            float warmupTimeout,
+                            float runTimeout,
+                            bool useNnapiSl,
                             CompilationBenchmarkResult* result);
 
   bool dumpAllLayers(const char* path,
@@ -124,24 +129,31 @@ class BenchmarkModel {
             /* flag to choose between memory mapping the model and initializing
                 the model from programs memory*/
             bool mmapModel,
-            const char* nnapi_cache_dir);
+            const char* nnapi_cache_dir,
+            const tflite::nnapi::NnApiSupportLibrary* nnApiSl = nullptr);
 
   void getOutputError(const uint8_t* dataPtr, size_t length,
                       InferenceResult* result, int output_index);
   void saveInferenceOutput(InferenceResult* result, int output_index);
 
-  bool runCompilation(const char* cacheDir);
-  bool benchmarkSingleTypeOfCompilation(CompilationBenchmarkType type, int maxNumIterations,
-                                        float timeout, std::vector<float>* results);
+  bool runCompilation(const char* cacheDir, bool useNnapiSl);
+  bool benchmarkSingleTypeOfCompilation(CompilationBenchmarkType type,
+                                        int maxNumIterations,
+                                        float timeout,
+                                        bool useNnapiSl,
+                                        std::vector<float>* results);
   bool benchmarkSingleTypeOfCompilationWithWarmup(CompilationBenchmarkType type,
-                                                  int maxNumIterations, float warmupTimeout,
-                                                  float runTimeout, std::vector<float>* results);
-  bool getCompilationCacheSize(int* cacheSizeBytes);
+                                                  int maxNumIterations,
+                                                  float warmupTimeout,
+                                                  float runTimeout,
+                                                  bool useNnapiSl,
+                                                  std::vector<float>* results);
+  bool getCompilationCacheSize(int* cacheSizeBytes, bool useNnapiSl);
 
   std::string mModelBuffer;
   std::unique_ptr<tflite::FlatBufferModel> mTfliteModel;
-  std::unique_ptr<tflite::Interpreter> mTfliteInterpreter;
   std::unique_ptr<tflite::StatefulNnApiDelegate> mTfliteNnapiDelegate;
+  std::unique_ptr<tflite::Interpreter> mTfliteInterpreter;
   // Store indices of output tensors, used to dump intermediate tensors
   std::vector<int> outputs;
 
@@ -149,6 +161,7 @@ class BenchmarkModel {
   std::string mModelFile;
   std::optional<std::string> mCacheDir;
   std::string mNnApiDeviceName;
+  const tflite::nnapi::NnApiSupportLibrary* mNnApiSl = nullptr;
 #if defined(NN_BENCHMARK_ENABLE_GPU)
   TfLiteDelegate* mGpuDelegate;
 #endif  // defined(NN_BENCHMARK_ENABLE_GPU)

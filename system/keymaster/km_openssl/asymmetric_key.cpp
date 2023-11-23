@@ -35,8 +35,8 @@ keymaster_error_t AsymmetricKey::formatted_key_material(keymaster_key_format_t f
 
     if (material == nullptr || size == nullptr) return KM_ERROR_OUTPUT_PARAMETER_NULL;
 
-    EVP_PKEY_Ptr pkey(EVP_PKEY_new());
-    if (!InternalToEvp(pkey.get())) return TranslateLastOpenSslError();
+    EVP_PKEY_Ptr pkey(InternalToEvp());
+    if (pkey.get() == nullptr) return TranslateLastOpenSslError();
 
     int key_data_length = i2d_PUBKEY(pkey.get(), nullptr);
     if (key_data_length <= 0) return TranslateLastOpenSslError();

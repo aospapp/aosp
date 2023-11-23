@@ -1,9 +1,0 @@
-namespace bluetooth.hci;
-
-attribute "privacy";
-
-table AclManagerData {
-    title:string (privacy:"Any");
-}
-
-root_type AclManagerData;

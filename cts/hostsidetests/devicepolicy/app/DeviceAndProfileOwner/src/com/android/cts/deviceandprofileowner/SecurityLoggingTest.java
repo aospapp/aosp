@@ -15,8 +15,12 @@
  */
 package com.android.cts.deviceandprofileowner;
 
+import static android.app.KeyguardManager.PIN;
 import static android.app.admin.DevicePolicyManager.KEYGUARD_DISABLE_FINGERPRINT;
 import static android.app.admin.DevicePolicyManager.PASSWORD_COMPLEXITY_HIGH;
+import static android.app.admin.DevicePolicyManager.PASSWORD_COMPLEXITY_LOW;
+import static android.app.admin.DevicePolicyManager.PASSWORD_COMPLEXITY_MEDIUM;
+import static android.app.admin.DevicePolicyManager.PASSWORD_COMPLEXITY_NONE;
 import static android.app.admin.DevicePolicyManager.PASSWORD_QUALITY_COMPLEX;
 import static android.app.admin.SecurityLog.LEVEL_ERROR;
 import static android.app.admin.SecurityLog.LEVEL_INFO;
@@ -46,6 +50,7 @@ import static android.app.admin.SecurityLog.TAG_MEDIA_MOUNT;
 import static android.app.admin.SecurityLog.TAG_MEDIA_UNMOUNT;
 import static android.app.admin.SecurityLog.TAG_OS_SHUTDOWN;
 import static android.app.admin.SecurityLog.TAG_OS_STARTUP;
+import static android.app.admin.SecurityLog.TAG_PASSWORD_CHANGED;
 import static android.app.admin.SecurityLog.TAG_PASSWORD_COMPLEXITY_REQUIRED;
 import static android.app.admin.SecurityLog.TAG_PASSWORD_COMPLEXITY_SET;
 import static android.app.admin.SecurityLog.TAG_PASSWORD_EXPIRATION_SET;
@@ -57,12 +62,14 @@ import static android.app.admin.SecurityLog.TAG_USER_RESTRICTION_ADDED;
 import static android.app.admin.SecurityLog.TAG_USER_RESTRICTION_REMOVED;
 import static android.app.admin.SecurityLog.TAG_WIPE_FAILURE;
 
+import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
 import static com.android.cts.devicepolicy.TestCertificates.TEST_CA;
 import static com.android.cts.devicepolicy.TestCertificates.TEST_CA_SUBJECT;
 
 import static com.google.common.collect.ImmutableList.of;
 import static com.google.common.truth.Truth.assertThat;
 
+import android.app.KeyguardManager;
 import android.app.admin.DevicePolicyManager;
 import android.app.admin.SecurityLog;
 import android.app.admin.SecurityLog.SecurityEvent;
@@ -153,6 +160,7 @@ public class SecurityLoggingTest extends BaseDeviceAdminTest {
                     .put(TAG_CERT_VALIDATION_FAILURE, of(S))
                     .put(TAG_CAMERA_POLICY_SET, of(S, I, I, I))
                     .put(TAG_PASSWORD_COMPLEXITY_REQUIRED, of(S, I, I, I))
+                    .put(TAG_PASSWORD_CHANGED, of(I, I))
                     .build();
 
     private static final String GENERATED_KEY_ALIAS = "generated_key_alias";
@@ -232,6 +240,7 @@ public class SecurityLoggingTest extends BaseDeviceAdminTest {
         verifyKeystoreEventsPresent(events);
         verifyKeyChainEventsPresent(events);
         verifyAdminEventsPresent(events);
+        verifyPasswordChangedEventsPresent(events);
         verifyAdbShellCommand(events); // Event generated from host side logic
         if (mDevicePolicyManager.isOrganizationOwnedDeviceWithManagedProfile()) {
             verifyEventsRedacted(events);
@@ -270,6 +279,30 @@ public class SecurityLoggingTest extends BaseDeviceAdminTest {
         verifyUserRestrictionEventsPresent(events);
         verifyCameraPolicyEvents(events);
     }
+
+    private void verifyPasswordChangedEventsPresent(List<SecurityEvent> events) {
+        if (!mHasSecureLockScreen) {
+            return;
+        }
+        final int userId = Process.myUserHandle().getIdentifier();
+        findEvent("set low complexity password", events,
+                e -> e.getTag() == TAG_PASSWORD_CHANGED
+                        && getInt(e, 0) == PASSWORD_COMPLEXITY_LOW
+                        && getInt(e, 1) == userId);
+        findEvent("set medium complexity password", events,
+                e -> e.getTag() == TAG_PASSWORD_CHANGED
+                        && getInt(e, 0) == PASSWORD_COMPLEXITY_MEDIUM
+                        && getInt(e, 1) == userId);
+        findEvent("set high complexity password", events,
+                e -> e.getTag() == TAG_PASSWORD_CHANGED
+                        && getInt(e, 0) == PASSWORD_COMPLEXITY_HIGH
+                        && getInt(e, 1) == userId);
+        findEvent("set none complexity password", events,
+                e -> e.getTag() == TAG_PASSWORD_CHANGED
+                        && getInt(e, 0) == PASSWORD_COMPLEXITY_NONE
+                        && getInt(e, 1) == userId);
+    }
+
     private void verifyAdbShellCommand(List<SecurityEvent> events) {
         // Won't be able to locate the command on org-owned devices, as it will be redacted.
         if (!mDevicePolicyManager.isOrganizationOwnedDeviceWithManagedProfile()) {
@@ -300,6 +333,9 @@ public class SecurityLoggingTest extends BaseDeviceAdminTest {
                 case TAG_KEY_INTEGRITY_VIOLATION:
                     assertEquals(userId, UserHandle.getUserId(getInt(event, 1)));
                     break;
+                case TAG_PASSWORD_CHANGED:
+                    assertEquals(userId, getInt(event, 1));
+                    break;
             }
         }
     }
@@ -311,6 +347,7 @@ public class SecurityLoggingTest extends BaseDeviceAdminTest {
         generateKeystoreEvents();
         generateKeyChainEvents();
         generateAdminEvents();
+        generatePasswordChangedEvents();
     }
 
     private void generateKeyChainEvents() {
@@ -335,6 +372,18 @@ public class SecurityLoggingTest extends BaseDeviceAdminTest {
         generateCameraPolicyEvents();
     }
 
+    private void generatePasswordChangedEvents() {
+        if (!mHasSecureLockScreen) {
+            return;
+        }
+        KeyguardManager km = mContext.getSystemService(KeyguardManager.class);
+        runWithShellPermissionIdentity(() -> {
+            km.setLock(PIN, "1111".getBytes(), PIN, null);
+            km.setLock(PIN, "1914".getBytes(), PIN, "1111".getBytes());
+            km.setLock(PIN, "83651865".getBytes(), PIN, "1914".getBytes());
+            km.setLock(PIN, null, PIN, "83651865".getBytes());
+        });
+    }
     /**
      * Fetches and checks the events.
      */
@@ -491,12 +540,22 @@ public class SecurityLoggingTest extends BaseDeviceAdminTest {
         return findEvent(description, events, e -> e.getTag() == tag);
     }
 
+    private List<SecurityEvent> findEvents(List<SecurityEvent> events,
+            Predicate<SecurityEvent> predicate) {
+        return events.stream().filter(predicate).collect(Collectors.toList());
+    }
+
     private SecurityEvent findEvent(String description, List<SecurityEvent> events,
             Predicate<SecurityEvent> predicate) {
-        final List<SecurityEvent> matches =
-                events.stream().filter(predicate).collect(Collectors.toList());
+        final List<SecurityEvent> matches = findEvents(events, predicate);
         assertEquals("Invalid number of matching events: " + description, 1, matches.size());
         return matches.get(0);
+    }
+
+    private void assertNumberEvents(String description, List<SecurityEvent> events,
+            Predicate<SecurityEvent> predicate, int expectedSize) {
+        assertEquals("Invalid number of matching events: " + description, expectedSize,
+                findEvents(events, predicate).size());
     }
 
     private static Object getDatum(SecurityEvent event, int index) {
@@ -679,21 +738,21 @@ public class SecurityLoggingTest extends BaseDeviceAdminTest {
         // The order should be consistent with the order in generatePasswordComplexityEvents(), so
         // that the expected values change in the same sequence as when setting password policies.
         expectedPayload[PWD_QUALITY_INDEX] = PASSWORD_QUALITY_COMPLEX;
-        findPasswordComplexityEvent("set pwd quality", events, expectedPayload);
+        assertPasswordComplexityEvent("set pwd quality", events, expectedPayload);
         expectedPayload[PWD_LEN_INDEX] = TEST_PWD_LENGTH;
-        findPasswordComplexityEvent("set pwd length", events, expectedPayload);
+        assertPasswordComplexityEvent("set pwd length", events, expectedPayload);
         expectedPayload[LETTERS_INDEX] = TEST_PWD_CHARS;
-        findPasswordComplexityEvent("set pwd min letters", events, expectedPayload);
+        assertPasswordComplexityEvent("set pwd min letters", events, expectedPayload);
         expectedPayload[NON_LETTERS_INDEX] = TEST_PWD_CHARS;
-        findPasswordComplexityEvent("set pwd min non-letters", events, expectedPayload);
+        assertPasswordComplexityEvent("set pwd min non-letters", events, expectedPayload);
         expectedPayload[UPPERCASE_INDEX] = TEST_PWD_CHARS;
-        findPasswordComplexityEvent("set pwd min uppercase", events, expectedPayload);
+        assertPasswordComplexityEvent("set pwd min uppercase", events, expectedPayload);
         expectedPayload[LOWERCASE_INDEX] = TEST_PWD_CHARS;
-        findPasswordComplexityEvent("set pwd min lowercase", events, expectedPayload);
+        assertPasswordComplexityEvent("set pwd min lowercase", events, expectedPayload);
         expectedPayload[NUMERIC_INDEX] = TEST_PWD_CHARS;
-        findPasswordComplexityEvent("set pwd min numeric", events, expectedPayload);
+        assertPasswordComplexityEvent("set pwd min numeric", events, expectedPayload);
         expectedPayload[SYMBOLS_INDEX] = TEST_PWD_CHARS;
-        findPasswordComplexityEvent("set pwd min symbols", events, expectedPayload);
+        assertPasswordComplexityEvent("set pwd min symbols", events, expectedPayload);
     }
 
     private void verifyNewStylePasswordComplexityEventPresent(List<SecurityEvent> events) {
@@ -769,10 +828,11 @@ public class SecurityLoggingTest extends BaseDeviceAdminTest {
                         getInt(e, ADMIN_USER_INDEX) == userId);
     }
 
-    private void findPasswordComplexityEvent(
+    private void assertPasswordComplexityEvent(
             String description, List<SecurityEvent> events, Object[] expectedPayload) {
-        findEvent(description, events,
-                byTagAndPayload(TAG_PASSWORD_COMPLEXITY_SET, expectedPayload));
+        int expectedSize = mIsAutomotive ? 0 : 1;
+        assertNumberEvents(description, events,
+                byTagAndPayload(TAG_PASSWORD_COMPLEXITY_SET, expectedPayload), expectedSize);
     }
 
     private void findNewStylePasswordComplexityEvent(

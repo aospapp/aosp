@@ -14,11 +14,14 @@
  * limitations under the License.
  */
 
+#include <aidl/android/hardware/graphics/common/BufferUsage.h>
 #include <utils/Errors.h>
 #include <linux/videodev2.h>
 #include <sys/mman.h>
 #include <hardware/hwcomposer_defs.h>
 #include <hardware/exynos/ion.h>
+
+#include "BrightnessController.h"
 #include "ExynosLayer.h"
 #include "ExynosResourceManager.h"
 #include "ExynosHWCDebug.h"
@@ -29,6 +32,8 @@
 /**
  * ExynosLayer implementation
  */
+
+using AidlBufferUsage = ::aidl::android::hardware::graphics::common::BufferUsage;
 
 ExynosLayer::ExynosLayer(ExynosDisplay* display)
       : ExynosMPPSource(MPP_SOURCE_LAYER, this),
@@ -85,6 +90,11 @@ ExynosLayer::~ExynosLayer() {
         mMetaParcelFd = -1;
     }
 
+    if (mAcquireFence >= 0) {
+        mAcquireFence =
+                fence_close(mAcquireFence, mDisplay, FENCE_TYPE_SRC_ACQUIRE, FENCE_IP_UNDEFINED);
+    }
+
     if (mPrevAcquireFence != -1)
         mPrevAcquireFence = fence_close(mPrevAcquireFence, mDisplay, FENCE_TYPE_SRC_ACQUIRE,
                                         FENCE_IP_UNDEFINED);
@@ -138,6 +148,7 @@ int32_t ExynosLayer::doPreProcess()
     mPreprocessedInfo.sourceCrop = mSourceCrop;
     mPreprocessedInfo.displayFrame = mDisplayFrame;
     mPreprocessedInfo.interlacedType = V4L2_FIELD_NONE;
+    mPreprocessedInfo.sdrDimRatio = mBrightness;
 
     if (mCompositionType == HWC2_COMPOSITION_SOLID_COLOR) {
         mLayerFlag |= EXYNOS_HWC_DIM_LAYER;
@@ -322,7 +333,10 @@ int32_t ExynosLayer::doPreProcess()
         mPreprocessedInfo.preProcessed = true;
     }
 
-    if (getDrmMode(mLayerBuffer) != NO_DRM) {
+    if (VendorGraphicBufferMeta::get_usage(mLayerBuffer) &
+               toUnderlying(AidlBufferUsage::FRONT_BUFFER)) {
+        priority = ePriorityMax;
+    } else if (getDrmMode(mLayerBuffer) != NO_DRM) {
         priority = ePriorityMax;
     } else if (mIsHdrLayer) {
         if (isFormatRgb(gmeta.format))
@@ -342,6 +356,7 @@ int32_t ExynosLayer::doPreProcess()
         setGeometryChanged(GEOMETRY_LAYER_PRIORITY_CHANGED);
 
     mOverlayPriority = priority;
+
     return NO_ERROR;
 }
 
@@ -375,6 +390,11 @@ int32_t ExynosLayer::setLayerBuffer(buffer_handle_t buffer, int32_t acquireFence
             setGeometryChanged(GEOMETRY_LAYER_DRM_CHANGED);
         if (VendorGraphicBufferMeta::get_format(mLayerBuffer) != gmeta.format)
             setGeometryChanged(GEOMETRY_LAYER_FORMAT_CHANGED);
+        if ((VendorGraphicBufferMeta::get_usage(buffer) &
+                    toUnderlying(AidlBufferUsage::FRONT_BUFFER)) !=
+                (VendorGraphicBufferMeta::get_usage(mLayerBuffer) &
+                    toUnderlying(AidlBufferUsage::FRONT_BUFFER)))
+            setGeometryChanged(GEOMETRY_LAYER_FRONT_BUFFER_USAGE_CHANGED);
     }
 
     mLayerBuffer = buffer;
@@ -700,6 +720,34 @@ int32_t ExynosLayer::setLayerGenericMetadata(hwc2_layer_t __unused layer,
     return HWC2_ERROR_UNSUPPORTED;
 }
 
+int32_t ExynosLayer::setLayerBrightness(float brightness) {
+    if (mDisplay->mBrightnessController == nullptr ||
+        !mDisplay->mBrightnessController->validateLayerBrightness(brightness)) {
+        return HWC2_ERROR_BAD_PARAMETER;
+    }
+
+    if (mBrightness != brightness) {
+        // Trigger display validation in case client composition is needed.
+        setGeometryChanged(GEOMETRY_LAYER_WHITEPOINT_CHANGED);
+        mBrightness = brightness;
+    }
+    return HWC2_ERROR_NONE;
+}
+
+int32_t ExynosLayer::setLayerBlockingRegion(const std::vector<hwc_rect_t>& blockingRegion) {
+    hwc_rect_t maxRect;
+
+    for (auto rect : blockingRegion) {
+        maxRect = std::max(maxRect, rect, [](const hwc_rect_t& lhs, const hwc_rect_t& rhs) {
+            return rectSize(lhs) < rectSize(rhs);
+        });
+    }
+
+    mBlockingRect = maxRect;
+
+    return HWC2_ERROR_NONE;
+}
+
 void ExynosLayer::resetValidateData()
 {
     mValidateCompositionType = HWC2_COMPOSITION_INVALID;
@@ -919,7 +967,8 @@ void ExynosLayer::setSrcAcquireFence() {
                                            hwc_dup(mPrevAcquireFence, mDisplay,
                                                    FENCE_TYPE_SRC_ACQUIRE, FENCE_IP_LAYER));
     } else if (mAcquireFence != -1) {
-        setFenceInfo(mAcquireFence, mDisplay, FENCE_TYPE_SRC_ACQUIRE, FENCE_IP_LAYER, FENCE_FROM);
+        setFenceInfo(mAcquireFence, mDisplay, FENCE_TYPE_SRC_ACQUIRE, FENCE_IP_LAYER,
+                     HwcFenceDirection::FROM);
     }
 }
 
@@ -972,13 +1021,21 @@ void ExynosLayer::dump(String8& result)
                                                  mPreprocessedInfo.displayFrame.top,
                                                  mPreprocessedInfo.displayFrame.right,
                                                  mPreprocessedInfo.displayFrame.bottom}))
+                          .add("blockRect",
+                               std::vector<int>({mBlockingRect.left, mBlockingRect.top,
+                                                 mBlockingRect.right, mBlockingRect.bottom}))
                           .add("tr", mTransform, true)
                           .add("windowIndex", mWindowIndex)
                           .add("type", mCompositionType)
                           .add("exynosType", mExynosCompositionType)
                           .add("validateType", mValidateCompositionType)
                           .add("overlayInfo", mOverlayInfo, true)
-                          .add("supportedMPPFlag", mSupportedMPPFlag, true)
+                          .build()
+                          .c_str());
+
+    result.append(TableBuilder()
+                          .add("MPPFlag", mSupportedMPPFlag, true)
+                          .add("dim ratio", mPreprocessedInfo.sdrDimRatio)
                           .build()
                           .c_str());
 

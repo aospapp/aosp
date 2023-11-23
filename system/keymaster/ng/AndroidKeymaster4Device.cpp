@@ -175,7 +175,7 @@ void addClientAndAppData(const hidl_vec<uint8_t>& clientId, const hidl_vec<uint8
 keymaster_key_param_set_t hidlKeyParams2Km(const hidl_vec<KeyParameter>& keyParams) {
     keymaster_key_param_set_t set;
 
-    set.params = new keymaster_key_param_t[keyParams.size()];
+    set.params = new (std::nothrow) keymaster_key_param_t[keyParams.size()];
     set.length = keyParams.size();
 
     for (size_t i = 0; i < keyParams.size(); ++i) {
@@ -219,11 +219,17 @@ keymaster_key_param_set_t hidlKeyParams2Km(const hidl_vec<KeyParameter>& keyPara
 }
 
 AndroidKeymaster4Device::AndroidKeymaster4Device(KmVersion version, SecurityLevel securityLevel)
-    : impl_(new ::keymaster::AndroidKeymaster(
-          [&]() -> auto {
-              auto context = new PureSoftKeymasterContext(
+    : impl_(new (std::nothrow)::keymaster::AndroidKeymaster(
+          [&]() -> auto{
+              auto context = new (std::nothrow) PureSoftKeymasterContext(
                   version, static_cast<keymaster_security_level_t>(securityLevel));
               context->SetSystemVersion(GetOsVersion(), GetOsPatchlevel());
+              context->SetVendorPatchlevel(GetVendorPatchlevel());
+              // Software devices cannot be configured by the boot loader but they have
+              // to return a boot patch level. So lets just return the OS patch level.
+              // The OS patch level only has a year and a month so we just add the 1st
+              // of the month as day field.
+              context->SetBootPatchlevel(GetOsPatchlevel() * 100 + 1);
               return context;
           }(),
           kOperationTableSize)),
@@ -253,7 +259,8 @@ Return<void> AndroidKeymaster4Device::computeSharedHmac(
     const hidl_vec<::android::hardware::keymaster::V4_0::HmacSharingParameters>& params,
     computeSharedHmac_cb _hidl_cb) {
     ComputeSharedHmacRequest request(impl_->message_version());
-    request.params_array.params_array = new keymaster::HmacSharingParameters[params.size()];
+    request.params_array.params_array =
+        new (std::nothrow) keymaster::HmacSharingParameters[params.size()];
     request.params_array.num_params = params.size();
     for (size_t i = 0; i < params.size(); ++i) {
         request.params_array.params_array[i].seed = {params[i].seed.data(), params[i].seed.size()};
@@ -580,7 +587,7 @@ Return<ErrorCode> AndroidKeymaster4Device::abort(uint64_t operationHandle) {
 }
 
 IKeymasterDevice* CreateKeymasterDevice(SecurityLevel securityLevel) {
-    return new AndroidKeymaster4Device(securityLevel);
+    return new (std::nothrow) AndroidKeymaster4Device(securityLevel);
 }
 
 }  // namespace ng

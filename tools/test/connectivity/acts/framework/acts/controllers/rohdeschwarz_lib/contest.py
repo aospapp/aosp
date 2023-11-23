@@ -121,7 +121,7 @@ class Contest(object):
     def execute_testplan(self, testplan):
         """ Executes a test plan with Contest's Remote Server sequencer.
 
-        Waits until and exit code is provided in the output. Logs the ouput with
+        Waits until and exit code is provided in the output. Logs the output with
         the class logger and pulls the json report from the server if the test
         succeeds.
 

@@ -17,6 +17,7 @@
  ******************************************************************************/
 
 #include <android/hardware/secure_element/1.0/ISecureElementHalCallback.h>
+
 #include "../../../secure_element_extns/inc/eSEClientIntf.h"
 #include "phNxpEse_Api.h"
 

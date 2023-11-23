@@ -17,15 +17,17 @@
 package android.hdmicec.cts.common;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assume.assumeTrue;
 
 import android.hdmicec.cts.BaseHdmiCecCtsTest;
 import android.hdmicec.cts.CecMessage;
 import android.hdmicec.cts.CecOperand;
-import android.hdmicec.cts.HdmiCecConstants;
+import android.hdmicec.cts.HdmiControlManagerUtility;
 import android.hdmicec.cts.LogicalAddress;
+import android.hdmicec.cts.LogHelper;
 
+import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
 import org.junit.Rule;
@@ -38,6 +40,23 @@ import org.junit.Test;
 public final class HdmiCecVendorCommandsTest extends BaseHdmiCecCtsTest {
 
     private static final int INCORRECT_VENDOR_ID = 0x0;
+
+    private static final String VENDOR_LISTENER_WITH_ID =
+            "-a android.hdmicec.app.VENDOR_LISTENER_WITH_ID";
+    private static final String VENDOR_LISTENER_WITHOUT_ID =
+            "-a android.hdmicec.app.VENDOR_LISTENER_WITHOUT_ID";
+
+    /** Log confirmation message after listener registration. */
+    private static final String REGISTERED_LISTENER = "Registered vendor command listener";
+
+    /** The TAG that the test class will use. */
+    private static final String TEST_LOG_TAG = "HdmiControlManagerHelper";
+
+    /**
+     * This has to be the same as the vendor ID used in the instrumentation test {@link
+     * HdmiControlManagerHelper#VENDOR_ID}
+     */
+    private static final int VENDOR_ID = 0xBADDAD;
 
     @Rule
     public RuleChain ruleChain =
@@ -65,6 +84,20 @@ public final class HdmiCecVendorCommandsTest extends BaseHdmiCecCtsTest {
     }
 
     /**
+     * Tests that the device responds to a {@code <GIVE_DEVICE_VENDOR_ID>} when in standby.
+     */
+    @Test
+    public void cectGiveDeviceVendorIdDuringStandby() throws Exception {
+        ITestDevice device = getDevice();
+        try {
+            sendDeviceToSleepAndValidate();
+            cect_11_2_9_1_GiveDeviceVendorId();
+        } finally {
+            wakeUpDevice();
+        }
+    }
+
+    /**
      * Test 11.2.9-2
      * <p>Tests that the device broadcasts a {@code <DEVICE_VENDOR_ID>} message after successful
      * initialisation and address allocation.
@@ -75,5 +108,118 @@ public final class HdmiCecVendorCommandsTest extends BaseHdmiCecCtsTest {
         device.reboot();
         String message = hdmiCecClient.checkExpectedOutput(CecOperand.DEVICE_VENDOR_ID);
         assertThat(CecMessage.getParams(message)).isNotEqualTo(INCORRECT_VENDOR_ID);
+    }
+
+    /* The four following tests test the registration of a callback, and if the callback is received
+     * when the DUT receives a <Vendor Command> message.
+     * When there are no listeners registered, the DUT should respond with <Feature Abort>[Refused].
+     * Since the number of listeners registered is not queryable, the case where there are no
+     * listeners registered is not tested.
+     */
+
+    private Thread registerVendorCmdListenerWithId() {
+        return new Thread(
+                new Runnable() {
+                    public void run() {
+                        try {
+                            HdmiControlManagerUtility.registerVendorCmdListenerWithId(
+                                    HdmiCecVendorCommandsTest.this);
+                        } catch (DeviceNotAvailableException dnae) {
+                            CLog.w("HdmiCecVendorcommandstest", "Device not available exception");
+                        }
+                    }
+                });
+    }
+
+    private Thread registerVendorCmdListenerWithoutId() {
+        return new Thread(
+                new Runnable() {
+                    public void run() {
+                        try {
+                            HdmiControlManagerUtility.registerVendorCmdListenerWithoutId(
+                                    HdmiCecVendorCommandsTest.this);
+                        } catch (DeviceNotAvailableException dnae) {
+                            CLog.w("HdmiCecVendorcommandstest", "Device not available exception");
+                        }
+                    }
+                });
+    }
+
+    @Test
+    public void cecVendorCommandListenerWithVendorIdTest() throws Exception {
+        ITestDevice device = getDevice();
+        Thread test = registerVendorCmdListenerWithId();
+
+        test.start();
+
+        try {
+            LogHelper.waitForLog(getDevice(), TEST_LOG_TAG, 10, REGISTERED_LISTENER);
+            String params = CecMessage.formatParams(VENDOR_ID);
+            params += CecMessage.formatParams("010203");
+            hdmiCecClient.sendCecMessage(
+                    LogicalAddress.TV, CecOperand.VENDOR_COMMAND_WITH_ID, params);
+
+            LogHelper.assertLog(
+                    device, TEST_LOG_TAG, "Received vendor command with correct vendor ID");
+        } finally {
+            test.join();
+        }
+    }
+
+    @Test
+    public void cecVendorCommandListenerReceivesVendorCommandWithoutId() throws Exception {
+        ITestDevice device = getDevice();
+        Thread test = registerVendorCmdListenerWithId();
+        test.start();
+
+        try {
+            LogHelper.waitForLog(getDevice(), TEST_LOG_TAG, 10, REGISTERED_LISTENER);
+
+            String params = CecMessage.formatParams("010203");
+            hdmiCecClient.sendCecMessage(LogicalAddress.TV, CecOperand.VENDOR_COMMAND, params);
+
+            LogHelper.assertLog(device, TEST_LOG_TAG, "Received vendor command without vendor ID");
+        } finally {
+            test.join();
+        }
+    }
+
+    @Test
+    public void cecVendorCommandListenerWithoutVendorIdTest() throws Exception {
+        ITestDevice device = getDevice();
+        Thread test = registerVendorCmdListenerWithoutId();
+        test.start();
+
+        try {
+            LogHelper.waitForLog(getDevice(), TEST_LOG_TAG, 10, REGISTERED_LISTENER);
+
+            String params = CecMessage.formatParams("010203");
+            hdmiCecClient.sendCecMessage(LogicalAddress.TV, CecOperand.VENDOR_COMMAND, params);
+
+            LogHelper.assertLog(device, TEST_LOG_TAG, "Received vendor command without vendor ID");
+        } finally {
+            test.join();
+        }
+    }
+
+    @Test
+    public void cecVendorCommandListenerWithoutVendorIdDoesNotReceiveTest() throws Exception {
+        ITestDevice device = getDevice();
+        Thread test = registerVendorCmdListenerWithoutId();
+        test.start();
+
+        try {
+            LogHelper.waitForLog(getDevice(), TEST_LOG_TAG, 10, REGISTERED_LISTENER);
+
+            String params = CecMessage.formatParams(VENDOR_ID);
+            params += CecMessage.formatParams("010203");
+            hdmiCecClient.sendCecMessage(
+                    LogicalAddress.TV, CecOperand.VENDOR_COMMAND_WITH_ID, params);
+
+            LogHelper.assertLogDoesNotContain(
+                    device, TEST_LOG_TAG, "Received vendor command with correct vendor ID");
+        } finally {
+            test.join();
+        }
     }
 }

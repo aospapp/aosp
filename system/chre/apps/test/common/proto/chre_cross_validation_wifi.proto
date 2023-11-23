@@ -42,6 +42,10 @@ enum Step {
 
 message StepStartCommand {
   optional Step step = 1;
+  // The maxinum number of WiFi scans that can be delivered to CHRE, which
+  // will be used to limit the cross-validation check. This value is only
+  // valid if the step value is SETUP.
+  optional int32 chreScanCapacity = 2;
 }
 
 /*

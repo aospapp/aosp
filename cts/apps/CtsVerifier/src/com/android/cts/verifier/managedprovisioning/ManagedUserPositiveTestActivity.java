@@ -55,6 +55,7 @@ public class ManagedUserPositiveTestActivity extends PassFailButtons.TestListAct
     private static final String DISABLE_KEYGUARD_TEST_ID = "DISABLE_KEYGUARD";
     private static final String POLICY_TRANSPARENCY_TEST_ID = "POLICY_TRANSPARENCY";
     private static final String DISALLOW_REMOVE_USER_TEST_ID = "DISALLOW_REMOVE_USER";
+    private static final String CHECK_NEW_USER_DISCLAIMER_TEST_ID = "CHECK_NEW_UESR_DISCLAIMER";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -111,6 +112,19 @@ public class ManagedUserPositiveTestActivity extends PassFailButtons.TestListAct
     }
 
     private void addTestsToAdapter(final ArrayTestListAdapter adapter) {
+        // Check managed user's new user disclaimer
+        if (FeatureUtil.isNewManagerUserDisclaimerRequired(this)) {
+            adapter.add(createInteractiveTestItem(this, CHECK_NEW_USER_DISCLAIMER_TEST_ID,
+                    R.string.check_new_user_disclaimer,
+                    R.string.check_new_user_disclaimer_info,
+                    new ButtonInfo[]{
+                            new ButtonInfo(
+                                    R.string.device_owner_settings_go,
+                                    new Intent(Settings.ACTION_USER_SETTINGS)),
+                            new ButtonInfo(R.string.enterprise_privacy_set_organization,
+                                    createSetOrganizationNameIntent())}));
+        }
+
         adapter.add(createTestItem(this, CHECK_AFFILIATED_PROFILE_OWNER_TEST_ID,
                 R.string.managed_user_check_managed_user_test,
                 new Intent(ACTION_CHECK_AFFILIATED_PROFILE_OWNER)
@@ -185,9 +199,7 @@ public class ManagedUserPositiveTestActivity extends PassFailButtons.TestListAct
         adapter.add(createTestItem(this, POLICY_TRANSPARENCY_TEST_ID,
                 R.string.device_profile_owner_policy_transparency_test,
                 policyTransparencyTestIntent));
-
     }
-
 
     static TestListItem createTestItem(Activity activity, String id, int titleRes,
             Intent intent) {
@@ -199,5 +211,13 @@ public class ManagedUserPositiveTestActivity extends PassFailButtons.TestListAct
         // Watches don't support the status bar so this is an ok proxy, but this is not the most
         // general test for that. TODO: add a test API to do a real check for status bar support.
         return !getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH);
+    }
+
+    private Intent createSetOrganizationNameIntent() {
+        return new Intent(this, CommandReceiverActivity.class)
+                .putExtra(CommandReceiverActivity.EXTRA_COMMAND,
+                        CommandReceiverActivity.COMMAND_SET_ORGANIZATION_NAME)
+                .putExtra(CommandReceiverActivity.EXTRA_USE_CURRENT_USER_DPM, true)
+                .putExtra(CommandReceiverActivity.EXTRA_ORGANIZATION_NAME, "Foo, Inc.");
     }
 }

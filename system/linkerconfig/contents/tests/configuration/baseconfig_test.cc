@@ -65,7 +65,7 @@ TEST(linkerconfig_configuration_fulltest,
   MockGenericVariables();
   Context ctx;
   ctx.AddApexModule(ApexInfo(
-      "foo", "", {}, {}, {"libjni.so"}, {}, false, true, false, false));
+      "foo", "", {}, {}, {"libjni.so"}, {}, {}, false, true, false, false));
   auto config = CreateBaseConfiguration(ctx);
 
   auto* section = config.GetSection("system");
@@ -73,6 +73,61 @@ TEST(linkerconfig_configuration_fulltest,
   auto* ns = section->GetNamespace("foo");
   ASSERT_TRUE(ns);
   ASSERT_TRUE(ns->IsVisible());
+
+  ConfigWriter config_writer;
+  config.WriteConfig(config_writer);
+  VerifyConfiguration(config_writer.ToString());
+}
+
+TEST(linkerconfig_configuration_fulltest,
+     vendor_apex_configured_to_use_vndk_can_load_vndk) {
+  MockGenericVariables();
+  Context ctx;
+
+  android::linkerconfig::proto::LinkerConfig vendor_config;
+  vendor_config.add_requirelibs("libapexprovide.so");
+  vendor_config.add_providelibs("libvendorprovide.so");
+  ctx.SetVendorConfig(vendor_config);
+
+  // Vendor apex requires :vndk
+  auto vendor_apex = ApexInfo("vendor_apex",
+                              "/apex/vendor_apex",
+                              {"libapexprovide.so"},
+                              {":vndk", "libvendorprovide.so"},
+                              {},
+                              {},
+                              {},
+                              false,
+                              true,
+                              true,
+                              false);
+  vendor_apex.original_path = "/vendor/apex/com.android.vendor";
+  ctx.AddApexModule(vendor_apex);
+
+  // To generate vendor section
+  ctx.AddApexModule(ApexInfo("com.android.vndk.v",
+                             "/apex/com.android.vndk.v",
+                             {},
+                             {},
+                             {},
+                             {},
+                             {},
+                             false,
+                             true,
+                             true,
+                             false));
+
+  auto config = CreateBaseConfiguration(ctx);
+
+  auto* section = config.GetSection("vendor");
+  ASSERT_TRUE(section);
+
+  // vendor apex should be able to load vndk libraries
+  auto shared_libs =
+      section->GetNamespace("vendor_apex")->GetLink("vndk").GetSharedLibs();
+  ASSERT_TRUE(std::find(shared_libs.begin(),
+                        shared_libs.end(),
+                        "vndk_core_libraries") != shared_libs.end());
 
   ConfigWriter config_writer;
   config.WriteConfig(config_writer);

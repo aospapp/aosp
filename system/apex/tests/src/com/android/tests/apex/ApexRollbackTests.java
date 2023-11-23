@@ -52,6 +52,10 @@ public class ApexRollbackTests extends BaseHostJUnit4Test {
 
     private boolean mWasAdbRoot = false;
 
+    private static boolean sCheckedIfCrashingProcessExists = false;
+    private static boolean sAlreadyCrashingProcessExists = false;
+    private static String sCrashingProcess;
+
     @Before
     public void setUp() throws Exception {
         mHostUtils.uninstallShimApexIfNecessary();
@@ -59,6 +63,12 @@ public class ApexRollbackTests extends BaseHostJUnit4Test {
         mWasAdbRoot = getDevice().isAdbRoot();
         if (!mWasAdbRoot) {
             assumeTrue("Requires root", getDevice().enableAdbRoot());
+        }
+        if (!sCheckedIfCrashingProcessExists) {
+            sAlreadyCrashingProcessExists =
+                    getDevice().getBooleanProperty("sys.init.updatable_crashing", false);
+            sCrashingProcess = getDevice().getProperty("sys.init.updatable_crashing_process_name");
+            sCheckedIfCrashingProcessExists = true;
         }
     }
 
@@ -95,11 +105,9 @@ public class ApexRollbackTests extends BaseHostJUnit4Test {
         assumeTrue("Device does not support updating APEX", mHostUtils.isApexUpdateSupported());
         ITestDevice device = getDevice();
         // Skip this test if there is already crashing process on device
-        boolean hasCrashingProcess =
-                device.getBooleanProperty("sys.init.updatable_crashing", false);
-        String crashingProcess = device.getProperty("sys.init.updatable_crashing_process_name");
         assumeFalse(
-                "Device already has a crashing process: " + crashingProcess, hasCrashingProcess);
+                "Device already has a crashing process: " + sCrashingProcess,
+                sAlreadyCrashingProcessExists);
         File apexFile = mHostUtils.getTestFile("com.android.apex.cts.shim.v2.apex");
 
         // To simulate an apex update that causes a boot loop, we install a
@@ -253,8 +261,6 @@ public class ApexRollbackTests extends BaseHostJUnit4Test {
         assertThat(activatedApexes).doesNotContain(ctsShimV1);
     }
 
-    // TODO(ioffe): check that we recover from the boot loop in case of userspace reboot.
-
     /**
      * Test to verify that apexd won't boot loop a device in case {@code sys.init
      * .updatable_crashing} is {@code true} and there is no apex session to revert.
@@ -272,97 +278,6 @@ public class ApexRollbackTests extends BaseHostJUnit4Test {
                 getDevice().waitForBootComplete(Duration.ofMinutes(1).toMillis())).isTrue();
         // Verify that property was set to true.
         assertThat(getDevice().getBooleanProperty("sys.init.updatable_crashing", false)).isTrue();
-    }
-
-    /**
-     * Test to verify that if a hard reboot is triggered during userspace reboot boot
-     * sequence, an apex update will not be reverted.
-     */
-    @Test
-    public void testFailingUserspaceReboot_doesNotRevertUpdate() throws Exception {
-        assumeTrue("Device does not support updating APEX", mHostUtils.isApexUpdateSupported());
-        assumeTrue("Device doesn't support userspace reboot",
-                getDevice().getBooleanProperty("init.userspace_reboot.is_supported", false));
-        assumeTrue("Device doesn't support fs checkpointing", mHostUtils.isCheckpointSupported());
-
-        File apexFile = mHostUtils.getTestFile("com.android.apex.cts.shim.v2.apex");
-        // Simulate failure in userspace reboot by triggering a full reboot in the middle of the
-        // boot sequence.
-        assertThat(getDevice().setProperty("test.apex_revert_test_force_reboot", "1")).isTrue();
-        String error = mHostUtils.installStagedPackage(apexFile);
-        assertWithMessage("Failed to stage com.android.apex.cts.shim.v2.apex : %s", error).that(
-                error).isNull();
-        // After we reboot the device, apexd will apply the update
-        getDevice().rebootUserspace();
-        // Verify that hard reboot happened.
-        assertThat(getDevice().getIntProperty("sys.init.userspace_reboot.last_finished",
-                -1)).isEqualTo(-1);
-        Set<ApexInfo> activatedApexes = getDevice().getActiveApexes();
-        assertThat(activatedApexes).doesNotContain(new ApexInfo("com.android.apex.cts.shim", 1L));
-        assertThat(activatedApexes).contains(new ApexInfo("com.android.apex.cts.shim", 2L));
-    }
-
-    /**
-     * Test to verify that if a hard reboot is triggered before executing init executes {@code
-     * /system/bin/vdc checkpoint markBootAttempt} of userspace reboot boot sequence, apex update
-     * still will be installed.
-     */
-    @Test
-    public void testUserspaceRebootFailedShutdownSequence_doesNotRevertUpdate() throws Exception {
-        assumeTrue("Device does not support updating APEX", mHostUtils.isApexUpdateSupported());
-        assumeTrue("Device doesn't support userspace reboot",
-                getDevice().getBooleanProperty("init.userspace_reboot.is_supported", false));
-        assumeTrue("Device doesn't support fs checkpointing", mHostUtils.isCheckpointSupported());
-
-        File apexFile = mHostUtils.getTestFile("com.android.apex.cts.shim.v2.apex");
-        // Simulate failure in userspace reboot by triggering a full reboot in the middle of the
-        // boot sequence.
-        assertThat(getDevice().setProperty("test.apex_userspace_reboot_simulate_shutdown_failed",
-                "1")).isTrue();
-        String error = mHostUtils.installStagedPackage(apexFile);
-        assertWithMessage("Failed to stage com.android.apex.cts.shim.v2.apex : %s", error).that(
-                error).isNull();
-        // After the userspace reboot started, we simulate it's failure by rebooting device during
-        // on userspace-reboot-requested action. Since boot attempt hasn't been marked yet, next
-        // boot will apply the update.
-        assertThat(getDevice().getIntProperty("test.apex_userspace_reboot_simulate_shutdown_failed",
-                0)).isEqualTo(1);
-        getDevice().rebootUserspace();
-        // Verify that hard reboot happened.
-        assertThat(getDevice().getIntProperty("sys.init.userspace_reboot.last_finished",
-                -1)).isEqualTo(-1);
-        Set<ApexInfo> activatedApexes = getDevice().getActiveApexes();
-        assertThat(activatedApexes).contains(new ApexInfo("com.android.apex.cts.shim", 2L));
-    }
-
-    /**
-     * Test to verify that if a hard reboot is triggered around the time of
-     * executing {@code /system/bin/vdc checkpoint markBootAttempt} of userspace reboot boot
-     * sequence, apex update will still be installed.
-     */
-    @Test
-    public void testUserspaceRebootFailedRemount_revertsUpdate() throws Exception {
-        assumeTrue("Device does not support updating APEX", mHostUtils.isApexUpdateSupported());
-        assumeTrue("Device doesn't support userspace reboot",
-                getDevice().getBooleanProperty("init.userspace_reboot.is_supported", false));
-        assumeTrue("Device doesn't support fs checkpointing", mHostUtils.isCheckpointSupported());
-
-        File apexFile = mHostUtils.getTestFile("com.android.apex.cts.shim.v2.apex");
-        // Simulate failure in userspace reboot by triggering a full reboot in the middle of the
-        // boot sequence.
-        assertThat(getDevice().setProperty("test.apex_userspace_reboot_simulate_remount_failed",
-                "1")).isTrue();
-        String error = mHostUtils.installStagedPackage(apexFile);
-        assertWithMessage("Failed to stage com.android.apex.cts.shim.v2.apex : %s", error).that(
-                error).isNull();
-        // After we reboot the device, apexd will apply the update
-        getDevice().rebootUserspace();
-        // Verify that hard reboot happened.
-        assertThat(getDevice().getIntProperty("sys.init.userspace_reboot.last_finished",
-                -1)).isEqualTo(-1);
-        Set<ApexInfo> activatedApexes = getDevice().getActiveApexes();
-        assertThat(activatedApexes).doesNotContain(new ApexInfo("com.android.apex.cts.shim", 1L));
-        assertThat(activatedApexes).contains(new ApexInfo("com.android.apex.cts.shim", 2L));
     }
 
     /**
@@ -406,13 +321,9 @@ public class ApexRollbackTests extends BaseHostJUnit4Test {
         assumeTrue("Fs checkpointing is enabled", mHostUtils.isCheckpointSupported());
 
         ITestDevice device = getDevice();
-        // Skip this test if there is already crashing process on device
-        final boolean hasCrashingProcess =
-                device.getBooleanProperty("sys.init.updatable_crashing", false);
-        final String crashingProcess =
-                device.getProperty("sys.init.updatable_crashing_process_name");
         assumeFalse(
-                "Device already has a crashing process: " + crashingProcess, hasCrashingProcess);
+                "Device already has a crashing process: " + sCrashingProcess,
+                sAlreadyCrashingProcessExists);
         final File apexFile = mHostUtils.getTestFile("com.android.apex.cts.shim.v2.apex");
 
         // To simulate an apex update that causes a boot loop, we install a

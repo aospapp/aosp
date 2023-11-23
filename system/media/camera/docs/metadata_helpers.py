@@ -36,9 +36,13 @@ IMAGE_SRC_METADATA="images/camera2/metadata/"
 JAVADOC_IMAGE_SRC_METADATA="/reference/" + IMAGE_SRC_METADATA
 NDKDOC_IMAGE_SRC_METADATA="../" + IMAGE_SRC_METADATA
 
+#Corresponds to Android Q, where the camera VNDK was added (minor version 4 and vndk version 29).
+# Minor version and vndk version must correspond to the same release
+FRAMEWORK_CAMERA_VNDK_HAL_MINOR_VERSION = 4
+FRAMEWORK_CAMERA_VNDK_STARTING_VERSION =  29
+
 _context_buf = None
-_hal_major_version = None
-_hal_minor_version = None
+_enum = None
 
 def _is_sec_or_ins(x):
   return isinstance(x, metadata_model.Section) or    \
@@ -183,6 +187,7 @@ def protobuf_type(entry):
     "capability"             : "Capability",
     "multiResolutionStreamConfigurationMap" : "MultiResolutionStreamConfigurations",
     "deviceStateSensorOrientationMap"  : "DeviceStateSensorOrientationMap",
+    "dynamicRangeProfiles"   : "DynamicRangeProfiles",
   }
 
   if typeName not in typename_to_protobuftype:
@@ -938,6 +943,10 @@ def ndkdoc(metadata, indent = 4):
       else:
         target = target + '.html'
 
+      # Work around html links with inner classes.
+      target = target.replace('CaptureRequest/Builder', 'CaptureRequest.Builder')
+      target = target.replace('Build/VERSION', 'Build.VERSION')
+
       return '<a href="https://developer.android.com/reference/%s">%s</a>' % (target, shortname)
 
     ndktext = filter_links(ndktext, ndkdoc_link_filter)
@@ -1360,6 +1369,50 @@ def remove_synthetic_or_fwk_only(entries):
   """
   return (e for e in entries if not (e.synthetic or e.visibility == 'fwk_only'))
 
+"""
+  Return the vndk version for a given hal minor version. The major version is assumed to be 3
+
+  Args:
+    hal_minor_version : minor version to retrieve the vndk version for
+
+  Yields:
+    int representing the vndk version
+  """
+def get_vndk_version(hal_minor_version):
+  if hal_minor_version <= FRAMEWORK_CAMERA_VNDK_HAL_MINOR_VERSION:
+    return 0
+  return hal_minor_version - FRAMEWORK_CAMERA_VNDK_HAL_MINOR_VERSION \
+        + FRAMEWORK_CAMERA_VNDK_STARTING_VERSION
+
+"""
+  Returns an api level -> dict of metadata tags corresponding to the api level
+
+  Args:
+    sections : metadata sections to create the mapping for
+    metadata: the metadata structure to be used to create the mapping
+    kind : kind of entries to create a mapping for : 'static' or 'dynamic'
+
+  Yields:
+    A dictionary mapping api level to a dictionary of metadata tags for the particular key (api level)
+  """
+def get_api_level_to_keys(sections, metadata, kind):
+  api_level_to_keys = {}
+  for sec in sections:
+    for idx,entry in enumerate(remove_synthetic(find_unique_entries(sec))):
+      if entry._hal_minor_version > FRAMEWORK_CAMERA_VNDK_HAL_MINOR_VERSION and \
+          metadata.is_entry_this_kind(entry, kind):
+        api_level = get_vndk_version(entry._hal_minor_version)
+        try:
+          api_level_to_keys[api_level].add(entry.name)
+        except KeyError:
+          api_level_to_keys[api_level] = {entry.name}
+  #Insert the keys in sorted order since dicts in python (< 3.7, even OrderedDicts don't actually
+  # sort keys)
+  api_level_to_keys_ordered = OrderedDict()
+  for api_level_ordered in sorted(api_level_to_keys.keys()):
+    api_level_to_keys_ordered[api_level_ordered] = api_level_to_keys[api_level_ordered]
+  return api_level_to_keys_ordered
+
 def remove_synthetic(entries):
   """
   Filter the given entries by removing those that are synthetic.
@@ -1504,11 +1557,8 @@ def wbr(text):
 def copyright_year():
   return _copyright_year
 
-def hal_major_version():
-  return _hal_major_version
-
-def hal_minor_version():
-  return _hal_minor_version
+def enum():
+  return _enum
 
 def first_hal_minor_version(hal_major_version):
   return 2 if hal_major_version == 3 else 0
@@ -1553,3 +1603,19 @@ def find_first_older_used_hal_version(section, hal_major_version, hal_minor_vers
         (v[0] < hal_major_version or (v[0] == hal_major_version and v[1] < hal_minor_version)):
       hal_version = v
   return hal_version
+
+# Some exceptions need to be made regarding enum value identifiers in AIDL.
+# Process them here.
+def aidl_enum_value_name(name):
+  if name == 'ANDROID_INFO_SUPPORTED_BUFFER_MANAGEMENT_VERSION_HIDL_DEVICE_3_5':
+    name = 'ANDROID_INFO_SUPPORTED_BUFFER_MANAGEMENT_VERSION_AIDL_DEVICE'
+  return name
+
+def aidl_enum_values(entry):
+  ignoreList = [
+    'ANDROID_SCALER_AVAILABLE_RECOMMENDED_STREAM_CONFIGURATIONS_PUBLIC_END',
+    'ANDROID_SCALER_AVAILABLE_RECOMMENDED_STREAM_CONFIGURATIONS_PUBLIC_END_3_8'
+  ]
+  return [
+    val for val in entry.enum.values if '%s_%s'%(csym(entry.name), val.name) not in ignoreList
+  ]

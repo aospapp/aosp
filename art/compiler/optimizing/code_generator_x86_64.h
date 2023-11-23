@@ -231,6 +231,29 @@ class InstructionCodeGeneratorX86_64 : public InstructionCodeGenerator {
 
   X86_64Assembler* GetAssembler() const { return assembler_; }
 
+  // Generate a GC root reference load:
+  //
+  //   root <- *address
+  //
+  // while honoring read barriers based on read_barrier_option.
+  void GenerateGcRootFieldLoad(HInstruction* instruction,
+                               Location root,
+                               const Address& address,
+                               Label* fixup_label,
+                               ReadBarrierOption read_barrier_option);
+  void HandleFieldSet(HInstruction* instruction,
+                      uint32_t value_index,
+                      uint32_t extra_temp_index,
+                      DataType::Type field_type,
+                      Address field_addr,
+                      CpuRegister base,
+                      bool is_volatile,
+                      bool is_atomic,
+                      bool value_can_be_null,
+                      bool byte_swap = false);
+
+  void Bswap(Location value, DataType::Type type, CpuRegister* temp = nullptr);
+
  private:
   // Generate code for the given suspend check. If not null, `successor`
   // is the block to branch to if the suspend check is not needed, and after
@@ -256,6 +279,7 @@ class InstructionCodeGeneratorX86_64 : public InstructionCodeGenerator {
   void GenerateMinMaxInt(LocationSummary* locations, bool is_min, DataType::Type type);
   void GenerateMinMaxFP(LocationSummary* locations, bool is_min, DataType::Type type);
   void GenerateMinMax(HBinaryOperation* minmax, bool is_min);
+  void GenerateMethodEntryExitHook(HInstruction* instruction);
 
   // Generate a heap reference load using one register `out`:
   //
@@ -286,16 +310,6 @@ class InstructionCodeGeneratorX86_64 : public InstructionCodeGenerator {
                                          Location obj,
                                          uint32_t offset,
                                          ReadBarrierOption read_barrier_option);
-  // Generate a GC root reference load:
-  //
-  //   root <- *address
-  //
-  // while honoring read barriers based on read_barrier_option.
-  void GenerateGcRootFieldLoad(HInstruction* instruction,
-                               Location root,
-                               const Address& address,
-                               Label* fixup_label,
-                               ReadBarrierOption read_barrier_option);
 
   void PushOntoFPStack(Location source, uint32_t temp_offset,
                        uint32_t stack_adjustment, bool is_float);
@@ -410,6 +424,10 @@ class CodeGeneratorX86_64 : public CodeGenerator {
     return InstructionSet::kX86_64;
   }
 
+  InstructionCodeGeneratorX86_64* GetInstructionCodegen() {
+    return down_cast<InstructionCodeGeneratorX86_64*>(GetInstructionVisitor());
+  }
+
   const X86_64InstructionSetFeatures& GetInstructionSetFeatures() const;
 
   // Emit a write barrier.
@@ -423,6 +441,8 @@ class CodeGeneratorX86_64 : public CodeGenerator {
 
   // Helper method to move a value between two locations.
   void Move(Location destination, Location source);
+  // Helper method to load a value of non-reference type from memory.
+  void LoadFromMemoryNoReference(DataType::Type type, Location dst, Address src);
 
   Label* GetLabelOf(HBasicBlock* block) const {
     return CommonGetLabelOf<Label>(block_labels_, block);
@@ -462,7 +482,7 @@ class CodeGeneratorX86_64 : public CodeGenerator {
   void RecordBootImageRelRoPatch(uint32_t boot_image_offset);
   void RecordBootImageMethodPatch(HInvoke* invoke);
   void RecordMethodBssEntryPatch(HInvoke* invoke);
-  void RecordBootImageTypePatch(HLoadClass* load_class);
+  void RecordBootImageTypePatch(const DexFile& dex_file, dex::TypeIndex type_index);
   Label* NewTypeBssEntryPatch(HLoadClass* load_class);
   void RecordBootImageStringPatch(HLoadString* load_string);
   Label* NewStringBssEntryPatch(HLoadString* load_string);
@@ -476,6 +496,7 @@ class CodeGeneratorX86_64 : public CodeGenerator {
 
   void LoadBootImageAddress(CpuRegister reg, uint32_t boot_image_reference);
   void LoadIntrinsicDeclaringClass(CpuRegister reg, HInvoke* invoke);
+  void LoadClassRootForIntrinsic(CpuRegister reg, ClassRoot class_root);
 
   void EmitLinkerPatches(ArenaVector<linker::LinkerPatch>* linker_patches) override;
 
@@ -635,7 +656,6 @@ class CodeGeneratorX86_64 : public CodeGenerator {
   void GenerateImplicitNullCheck(HNullCheck* instruction) override;
   void GenerateExplicitNullCheck(HNullCheck* instruction) override;
   void MaybeGenerateInlineCacheCheck(HInstruction* instruction, CpuRegister cls);
-
 
   void MaybeIncrementHotness(bool is_frame_entry);
 

@@ -49,12 +49,13 @@ static void DoXtsMasking(uint8_t *data, int num_blocks,
   }
 }
 
-bool Aes256XtsCipher::DoEncrypt(const uint8_t key[kAes256XtsKeySize],
-                                const uint8_t iv[kAesBlockSize],
-                                const uint8_t *src, uint8_t *dst,
-                                int nbytes) const {
+bool Aes256XtsCipher::DoCrypt(const uint8_t key[kAes256XtsKeySize],
+                              const uint8_t iv[kAesBlockSize],
+                              const uint8_t *src, uint8_t *dst, int nbytes,
+                              bool encrypt) const {
   std::unique_ptr<EVP_CIPHER_CTX, void (*)(EVP_CIPHER_CTX *)> ctx(
       EVP_CIPHER_CTX_new(), EVP_CIPHER_CTX_free);
+  const char *op = encrypt ? "encryption" : "decryption";
   int outl;
 
   if (ctx == nullptr) {
@@ -79,28 +80,29 @@ bool Aes256XtsCipher::DoEncrypt(const uint8_t key[kAes256XtsKeySize],
   }
   if (EVP_EncryptUpdate(ctx.get(), tweak, &outl, iv, kAesBlockSize) != 1 ||
       outl != kAesBlockSize) {
-    ADD_FAILURE() << "BoringSSL AES encryption failed (tweak)";
+    ADD_FAILURE() << "BoringSSL AES encryption of tweak failed";
     return false;
   }
 
   // Copy plaintext to output buffer, so that we can just transform it in-place.
   memmove(dst, src, nbytes);
 
-  // Mask the data pre-encryption.
+  // Mask the data pre-encryption/decryption.
   DoXtsMasking(dst, nbytes / kAesBlockSize, tweak);
 
-  // Encrypt the data.
-  if (EVP_EncryptInit_ex(ctx.get(), EVP_aes_256_ecb(), nullptr, key, nullptr) !=
-      1) {
+  // Encrypt or decrypt the data.
+  if (EVP_CipherInit_ex(ctx.get(), EVP_aes_256_ecb(), nullptr, key, nullptr,
+                        encrypt) != 1) {
     ADD_FAILURE() << "Failed to reinitialize BoringSSL AES context";
     return false;
   }
-  if (EVP_EncryptUpdate(ctx.get(), dst, &outl, dst, nbytes) != 1 ||
+  EVP_CIPHER_CTX_set_padding(ctx.get(), 0);
+  if (EVP_CipherUpdate(ctx.get(), dst, &outl, dst, nbytes) != 1 ||
       outl != nbytes) {
-    ADD_FAILURE() << "BoringSSL AES encryption failed (data)";
+    ADD_FAILURE() << "BoringSSL AES " << op << " of data failed";
     return false;
   }
-  // Mask the data post-encryption.
+  // Mask the data post-encryption/decryption.
   DoXtsMasking(dst, nbytes / kAesBlockSize, tweak);
   return true;
 }

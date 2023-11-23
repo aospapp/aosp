@@ -16,6 +16,9 @@
 
 package android.app.notification.legacy29.cts;
 
+import static android.Manifest.permission.POST_NOTIFICATIONS;
+import static android.Manifest.permission.REVOKE_POST_NOTIFICATIONS_WITHOUT_KILL;
+import static android.Manifest.permission.REVOKE_RUNTIME_PERMISSIONS;
 import static android.service.notification.NotificationAssistantService.FEEDBACK_RATING;
 
 import static junit.framework.Assert.assertEquals;
@@ -41,7 +44,10 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
+import android.os.Process;
 import android.os.SystemClock;
+import android.permission.PermissionManager;
+import android.permission.cts.PermissionUtils;
 import android.provider.Telephony;
 import android.service.notification.Adjustment;
 import android.service.notification.NotificationAssistantService;
@@ -50,6 +56,8 @@ import android.service.notification.StatusBarNotification;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.SystemUtil;
 
 import junit.framework.Assert;
 
@@ -85,9 +93,10 @@ public class NotificationAssistantServiceTest {
     }
 
     @Before
-    public void setUp() throws IOException {
+    public void setUp() throws Exception {
         mUi = InstrumentationRegistry.getInstrumentation().getUiAutomation();
         mContext = InstrumentationRegistry.getContext();
+        PermissionUtils.grantPermission(mContext.getPackageName(), POST_NOTIFICATIONS);
         mNotificationManager = (NotificationManager) mContext.getSystemService(
                 Context.NOTIFICATION_SERVICE);
         mNotificationManager.createNotificationChannel(new NotificationChannel(
@@ -97,7 +106,16 @@ public class NotificationAssistantServiceTest {
     }
 
     @After
-    public void tearDown() throws IOException {
+    public void tearDown() throws Exception {
+        // Use test API to prevent PermissionManager from killing the test process when revoking
+        // permission.
+        SystemUtil.runWithShellPermissionIdentity(
+                () -> mContext.getSystemService(PermissionManager.class)
+                        .revokePostNotificationPermissionWithoutKillForTest(
+                                mContext.getPackageName(),
+                                Process.myUserHandle().getIdentifier()),
+                REVOKE_POST_NOTIFICATIONS_WITHOUT_KILL,
+                REVOKE_RUNTIME_PERMISSIONS);
         if (mNotificationListenerService != null) mNotificationListenerService.resetData();
 
         toggleListenerAccess(false);
@@ -692,6 +710,22 @@ public class NotificationAssistantServiceTest {
         mUi.dropShellPermissionIdentity();
     }
 
+    @Test
+    public void testNotificationCancel_api29HasLegacyReason() throws Exception {
+        setUpListeners(); // also enables assistant
+
+        sendNotification(1, ICON_ID);
+        Thread.sleep(500); // wait for notification listener to receive notification
+
+        StatusBarNotification sbn = getFirstNotificationFromPackage(TestNotificationListener.PKG);
+
+        mNotificationAssistantService.cancelNotifications(new String[]{sbn.getKey()});
+        int reason = getAssistantCancellationReason(sbn.getKey());
+        if (reason != NotificationListenerService.REASON_LISTENER_CANCEL) {
+            fail("Failed cancellation from assistant: reason=" + reason);
+        }
+    }
+
     private StatusBarNotification getFirstNotificationFromPackage(String PKG)
             throws InterruptedException {
         StatusBarNotification sbn = mNotificationListenerService.mPosted.poll(SLEEP_TIME,
@@ -825,5 +859,19 @@ public class NotificationAssistantServiceTest {
                 throw new IOException("Could not read stdout of command: " + command, e);
             }
         }
+    }
+
+    private int getAssistantCancellationReason(String key) {
+        for (int tries = 3; tries-- > 0; ) {
+            if (mNotificationAssistantService.mRemoved.containsKey(key)) {
+                return mNotificationAssistantService.mRemoved.get(key);
+            }
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException ex) {
+                // pass
+            }
+        }
+        return -1;
     }
 }

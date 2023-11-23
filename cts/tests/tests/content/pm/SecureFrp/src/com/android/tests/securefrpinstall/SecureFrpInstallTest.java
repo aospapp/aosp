@@ -64,12 +64,12 @@ public class SecureFrpInstallTest {
     }
 
     private static void assertInstalled() throws Exception {
-        sPackageManager.getPackageInfo(TestApp.A, 0);
+        sPackageManager.getPackageInfo(TestApp.A, PackageManager.PackageInfoFlags.of(0));
     }
 
     private static void assertNotInstalled() {
         try {
-            sPackageManager.getPackageInfo(TestApp.A, 0);
+            sPackageManager.getPackageInfo(TestApp.A, PackageManager.PackageInfoFlags.of(0));
             fail("Package should not be installed");
         } catch (PackageManager.NameNotFoundException expected) {
         }

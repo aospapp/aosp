@@ -47,21 +47,19 @@ class Vibrator : public BnVibrator {
         virtual bool setQ(std::string value) = 0;
         // Reports the number of effect waveforms loaded in firmware.
         virtual bool getEffectCount(uint32_t *value) = 0;
-        // Blocks until vibrator reaches desired state
-        // ("Vibe state: Haptic" means enabled).
-        // ("Vibe state: Stopped" means disabled).
-        virtual bool pollVibeState(std::string value, int32_t timeoutMs = -1) = 0;
-        // Enables/disables closed-loop active braking.
-        virtual bool setClabEnable(bool value) = 0;
-        // Reports the number of available PWLE segments.
-        virtual bool getAvailablePwleSegments(uint32_t *value) = 0;
-        // Specifies piecewise-linear specifications to generate complex
-        // waveforms.
-        virtual bool setPwle(std::string value) = 0;
+        // Blocks until timeout or vibrator reaches desired state
+        // (2 = ASP enabled, 1 = haptic enabled, 0 = disabled).
+        virtual bool pollVibeState(uint32_t value, int32_t timeoutMs = -1) = 0;
         // Reports whether getOwtFreeSpace() is supported.
         virtual bool hasOwtFreeSpace() = 0;
         // Reports the available OWT bytes.
         virtual bool getOwtFreeSpace(uint32_t *value) = 0;
+        // Enables/Disables F0 compensation enable status
+        virtual bool setF0CompEnable(bool value) = 0;
+        // Enables/Disables Redc compensation enable status
+        virtual bool setRedcCompEnable(bool value) = 0;
+        // Stores the minumun delay time between playback and stop effects.
+        virtual bool setMinOnOffInterval(uint32_t value) = 0;
         // Emit diagnostic information to the given file.
         virtual void debug(int fd) = 0;
     };
@@ -170,7 +168,6 @@ class Vibrator : public BnVibrator {
     std::array<uint32_t, 2> mLongEffectVol;
     std::vector<uint32_t> mEffectDurations;
     std::future<void> mAsyncHandle;
-    int32_t compositionSizeMax;
     ::android::base::unique_fd mInputFd;
     int8_t mActiveId{-1};
     struct pcm *mHapticPcm;

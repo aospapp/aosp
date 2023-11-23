@@ -21,7 +21,7 @@ from target_file_handler import *
 
 class BuildFileHandlerTest(unittest.TestCase):
 
-  def test_target_file_handler_get_hash(self):
+  def test_get_hash(self):
     """Test TargetFileHandler could get hash from target file."""
     build_file = './testdata/base_build_target-files.zip'
     handler = TargetFileHandler(build_file)
@@ -34,6 +34,21 @@ class BuildFileHandlerTest(unittest.TestCase):
     self.assertEqual(hash_dict['/vendor/deqp_dependency_file_b.so'],
                      hash(b'placeholder\nplaceholder\nplaceholder\n\n'))
     self.assertEqual(len(hash_dict), 2)
+
+  def test_get_system_fingerprint(self):
+    """Test TargetFileHandler could get SYSTEM fingerprint from target file."""
+    build_file = './testdata/base_build_target-files.zip'
+    handler = TargetFileHandler(build_file)
+    self.assertEqual(('generic/aosp_cf_x86_64_phone/vsoc_x86_64:S/AOSP.MASTER/7363308:'
+                      'userdebug/test-keys'), handler.get_system_fingerprint())
+
+  def test_get_system_fingerprint_without_buildprop(self):
+    """Test TargetFileHandler get fingerprint raises exception if build.prop doesn't exist."""
+    build_file = './testdata/current_build_target-files.zip'
+    handler = TargetFileHandler(build_file)
+    with self.assertRaises(KeyError):
+      handler.get_system_fingerprint()
+
 
 if __name__ == '__main__':
   unittest.main()

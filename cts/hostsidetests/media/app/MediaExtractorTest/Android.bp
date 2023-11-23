@@ -45,9 +45,8 @@ cc_test_library {
         "libandroid",
         "libnativehelper_compat_libc++",
     ],
-    header_libs: ["liblog_headers"],
-    include_dirs: [
-        "frameworks/av/media/ndk/include/media",
+    header_libs: [
+        "liblog_headers",
     ],
     stl: "libc++_static",
     cflags: [

@@ -24,11 +24,13 @@ import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
 
+import com.android.compatibility.common.util.ApiTest;
 import com.android.cts.verifier.PassFailButtons;
 
 /**
  * Utilities class for dealing with the Telecom CTS Verifier PhoneAccounts.
  */
+@ApiTest(apis={"android.Telecom.PhoneAccount"})
 public class PhoneAccountUtils {
     public static final String TEST_PHONE_ACCOUNT_ID = "test";
     public static final String TEST_PHONE_ACCOUNT_LABEL = "CTS Verifier Test";

@@ -22,6 +22,7 @@
 #include "NxpNfcCapability.h"
 
 /********************* Definitions and structures *****************************/
+#define MAX_INIT_RETRY_COUNT 3
 #define MAX_RETRY_COUNT 5
 #define NCI_MAX_DATA_LEN 300
 #define NCI_POLL_DURATION 500

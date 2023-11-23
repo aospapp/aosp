@@ -55,20 +55,20 @@ import java.util.concurrent.TimeoutException;
 public class ContextTestBase {
     public Context mApplicationContext = ApplicationProvider.getApplicationContext();
     private Display mDefaultDisplay;
-    private Display mSecondaryDisplay;
+    private VirtualDisplay mSecondaryDisplay;
 
     @Rule
     public final ActivityTestRule<MockActivity> mActivityRule =
             new ActivityTestRule<>(MockActivity.class);
 
     @Before
-    public final void setUp() {
+    public void setUp() {
         final DisplayManager dm = mApplicationContext.getSystemService(DisplayManager.class);
         mDefaultDisplay = dm.getDisplay(DEFAULT_DISPLAY);
         mSecondaryDisplay = createSecondaryDisplay();
     }
 
-    private Display createSecondaryDisplay() {
+    private VirtualDisplay createSecondaryDisplay() {
         final DisplayManager displayManager = mApplicationContext
                 .getSystemService(DisplayManager.class);
         final int width = 800;
@@ -79,7 +79,7 @@ public class ContextTestBase {
         VirtualDisplay virtualDisplay = displayManager.createVirtualDisplay(
                 ContextTest.class.getName(), width, height, density, reader.getSurface(),
                 VIRTUAL_DISPLAY_FLAG_PUBLIC | VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY);
-        return virtualDisplay.getDisplay();
+        return virtualDisplay;
     }
 
     public Display getDefaultDisplay() {
@@ -87,7 +87,11 @@ public class ContextTestBase {
     }
 
     public Display getSecondaryDisplay() {
-        return mSecondaryDisplay;
+        return mSecondaryDisplay.getDisplay();
+    }
+
+    public void resizeSecondaryDisplay(int width, int height, int densityDpi) {
+        mSecondaryDisplay.resize(width, height, densityDpi);
     }
 
     public Context createWindowContext() {

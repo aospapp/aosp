@@ -15,6 +15,7 @@
  */
 #include <cinttypes>
 
+#include "chre/util/macros.h"
 #include "chre/util/nanoapp/log.h"
 
 #include <general_test/basic_audio_test.h>
@@ -262,23 +263,23 @@ void handleAudioDataEvent(const chreAudioDataEvent *dataEvent) {
     }
   }
 
-  if (numDataEventsSoFar == 2) {
-    if (!chreAudioConfigureSource(kAudioHandle, false /* enable */,
-                                  0 /* bufferDuration */,
-                                  0 /* deliveryInterval */)) {
-      sendFatalFailureToHost("Failed to disable audio source for handle 0");
-    }
-  } else {
-    ++numDataEventsSoFar;
-  }
-
   if (!checkSamplesAllZeros(dataEvent->samplesS16, dataEvent->sampleCount)) {
     sendFatalFailureToHost("All audio samples were zeros");
   } else if (!checkSamplesAllSame(dataEvent->samplesS16,
                                   dataEvent->sampleCount)) {
     sendFatalFailureToHost("All audio samples were identical");
+  }
+
+  if (numDataEventsSoFar == 2) {
+    if (!chreAudioConfigureSource(kAudioHandle, false /* enable */,
+                                  0 /* bufferDuration */,
+                                  0 /* deliveryInterval */)) {
+      sendFatalFailureToHost("Failed to disable audio source for handle 0");
+    } else {
+      sendSuccessToHost();
+    }
   } else {
-    sendSuccessToHost();
+    ++numDataEventsSoFar;
   }
 }
 
@@ -317,6 +318,8 @@ void BasicAudioTest::setUp(uint32_t messageSize, const void * /* message */) {
 
 void BasicAudioTest::handleEvent(uint32_t senderInstanceId, uint16_t eventType,
                                  const void *eventData) {
+  UNUSED_VAR(senderInstanceId);
+
   if (mInMethod) {
     sendFatalFailureToHost("handleEvent() invoked while already in method.");
   }

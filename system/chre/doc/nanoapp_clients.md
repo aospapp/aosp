@@ -30,7 +30,7 @@ Manifest](https://developer.android.com/guide/topics/manifest/uses-permission-el
 and is only granted to APKs that are signed with the same key as the platform
 (“signature” scope) or are preinstalled in the privileged apps folder *and* are
 present on the [privileged permission
-whitelist](https://source.android.com/devices/tech/config/perms-whitelist).
+allowlist](https://source.android.com/devices/tech/config/perms-allowlist).
 
 The recommended flow for Java nanoapp client code is as follows:
 
@@ -63,6 +63,6 @@ code. However, it is not suitable for use from native code within an Android
 app.
 
 See `host/common/test/chre_test_client.cc` for an example of how to use this
-interface. Note that SELinux configuration is generally required to whitelist
+interface. Note that SELinux configuration is generally required to allowlist
 access to the CHRE socket.
 

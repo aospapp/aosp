@@ -28,6 +28,7 @@ import com.android.compatibility.common.util.ITestResult;
 import com.android.compatibility.common.util.InvocationResult;
 import com.android.compatibility.common.util.ReportLog;
 import com.android.compatibility.common.util.TestResultHistory;
+import com.android.compatibility.common.util.TestScreenshotsMetadata;
 import com.android.compatibility.common.util.TestStatus;
 import com.android.cts.verifier.TestListActivity.DisplayMode;
 import com.android.cts.verifier.TestListAdapter.TestListItem;
@@ -167,6 +168,12 @@ class TestResultsReport {
                         List<TestResultHistory> leafTestHistories =
                             getTestResultHistories(historyCollection);
                         currentTestResult.setTestResultHistories(leafTestHistories);
+                    }
+
+                    TestScreenshotsMetadata screenshotsMetadata = mAdapter
+                            .getScreenshotsMetadata(displayMode, i);
+                    if (screenshotsMetadata != null) {
+                        currentTestResult.setTestScreenshotsMetadata(screenshotsMetadata);
                     }
                 }
             }

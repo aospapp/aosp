@@ -16,6 +16,14 @@
 
 package android.keystore.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -59,7 +67,9 @@ import junit.framework.TestCase;
 import libcore.java.security.StandardNames;
 import libcore.java.security.TestKeyStore;
 
-public class KeyStoreTest extends TestCase {
+import org.junit.Test;
+
+public class KeyStoreTest {
 
     private static final HashMap<String, PrivateKeyEntry> sPrivateKeys
             = new HashMap<String, PrivateKeyEntry>();
@@ -439,6 +449,7 @@ public class KeyStoreTest extends TestCase {
                      Arrays.asList(actual));
     }
 
+    @Test
     public void test_KeyStore_create() throws Exception {
         Provider[] providers = Security.getProviders();
         for (Provider provider : providers) {
@@ -456,6 +467,7 @@ public class KeyStoreTest extends TestCase {
         }
     }
 
+    @Test
     public void test_KeyStore_getInstance() throws Exception {
         String type = KeyStore.getDefaultType();
         try {
@@ -507,6 +519,7 @@ public class KeyStoreTest extends TestCase {
         assertNotNull(KeyStore.getInstance(type, provider));
     }
 
+    @Test
     public void test_KeyStore_getDefaultType() throws Exception {
         String type = KeyStore.getDefaultType();
         assertNotNull(type);
@@ -515,6 +528,7 @@ public class KeyStoreTest extends TestCase {
         assertEquals(type, ks.getType());
     }
 
+    @Test
     public void test_KeyStore_getProvider() throws Exception {
         KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
         assertNotNull(ks.getProvider());
@@ -525,6 +539,7 @@ public class KeyStoreTest extends TestCase {
         }
     }
 
+    @Test
     public void test_KeyStore_getType() throws Exception {
         String type = KeyStore.getDefaultType();
         KeyStore ks = KeyStore.getInstance(type);
@@ -536,6 +551,7 @@ public class KeyStoreTest extends TestCase {
         }
     }
 
+    @Test
     public void test_KeyStore_getKey() throws Exception {
         for (KeyStore keyStore : keyStores()) {
             try {
@@ -661,6 +677,7 @@ public class KeyStoreTest extends TestCase {
         }
     }
 
+    @Test
     public void test_KeyStore_getCertificateChain() throws Exception {
         for (KeyStore keyStore : keyStores()) {
             try {
@@ -702,6 +719,7 @@ public class KeyStoreTest extends TestCase {
         }
     }
 
+    @Test
     public void test_KeyStore_getCertificate() throws Exception {
         for (KeyStore keyStore : keyStores()) {
             try {
@@ -743,6 +761,7 @@ public class KeyStoreTest extends TestCase {
         }
     }
 
+    @Test
     public void test_KeyStore_getCreationDate() throws Exception {
         for (KeyStore keyStore : keyStores()) {
             try {
@@ -791,6 +810,7 @@ public class KeyStoreTest extends TestCase {
         }
     }
 
+    @Test
     public void test_KeyStore_setKeyEntry_Key() throws Exception {
         for (KeyStore keyStore : keyStores()) {
             try {
@@ -1000,6 +1020,7 @@ public class KeyStoreTest extends TestCase {
         }
     }
 
+    @Test
     public void test_KeyStore_setKeyEntry_array() throws Exception {
         for (KeyStore keyStore : keyStores()) {
             try {
@@ -1154,6 +1175,7 @@ public class KeyStoreTest extends TestCase {
         }
     }
 
+    @Test
     public void test_KeyStore_setCertificateEntry() throws Exception {
         for (KeyStore keyStore : keyStores()) {
             try {
@@ -1265,6 +1287,7 @@ public class KeyStoreTest extends TestCase {
             }
         }
     }
+    @Test
     public void test_KeyStore_deleteEntry() throws Exception {
         for (KeyStore keyStore : keyStores()) {
             try {
@@ -1377,6 +1400,7 @@ public class KeyStoreTest extends TestCase {
         }
     }
 
+    @Test
     public void test_KeyStore_aliases() throws Exception {
         for (KeyStore keyStore : keyStores()) {
             try {
@@ -1430,6 +1454,7 @@ public class KeyStoreTest extends TestCase {
         }
     }
 
+    @Test
     public void test_KeyStore_containsAlias() throws Exception {
         for (KeyStore keyStore : keyStores()) {
             try {
@@ -1477,6 +1502,7 @@ public class KeyStoreTest extends TestCase {
         }
     }
 
+    @Test
     public void test_KeyStore_size() throws Exception {
         for (KeyStore keyStore : keyStores()) {
             try {
@@ -1527,6 +1553,7 @@ public class KeyStoreTest extends TestCase {
         }
     }
 
+    @Test
     public void test_KeyStore_isKeyEntry() throws Exception {
         for (KeyStore keyStore : keyStores()) {
             try {
@@ -1573,6 +1600,7 @@ public class KeyStoreTest extends TestCase {
         }
     }
 
+    @Test
     public void test_KeyStore_isCertificateEntry() throws Exception {
         for (KeyStore keyStore : keyStores()) {
             try {
@@ -1622,6 +1650,7 @@ public class KeyStoreTest extends TestCase {
         }
     }
 
+    @Test
     public void test_KeyStore_getCertificateAlias() throws Exception {
         for (KeyStore keyStore : keyStores()) {
             try {
@@ -1695,6 +1724,7 @@ public class KeyStoreTest extends TestCase {
         }
     }
 
+    @Test
     public void test_KeyStore_store_OutputStream() throws Exception {
         for (KeyStore keyStore : keyStores()) {
             try {
@@ -1790,6 +1820,7 @@ public class KeyStoreTest extends TestCase {
         }
     }
 
+    @Test
     public void test_KeyStore_store_LoadStoreParameter() throws Exception {
         for (KeyStore keyStore : keyStores()) {
             try {
@@ -1813,6 +1844,7 @@ public class KeyStoreTest extends TestCase {
         }
     }
 
+    @Test
     public void test_KeyStore_load_InputStream() throws Exception {
         for (KeyStore keyStore : keyStores()) {
             keyStore.load(null, null);
@@ -1846,6 +1878,7 @@ public class KeyStoreTest extends TestCase {
         // test_KeyStore_store_OutputStream effectively tests load as well as store
     }
 
+    @Test
     public void test_KeyStore_load_LoadStoreParameter() throws Exception {
         for (KeyStore keyStore : keyStores()) {
             keyStore.load(null);
@@ -1873,6 +1906,7 @@ public class KeyStoreTest extends TestCase {
         }
     }
 
+    @Test
     public void test_KeyStore_getEntry() throws Exception {
         for (KeyStore keyStore : keyStores()) {
             try {
@@ -1997,6 +2031,7 @@ public class KeyStoreTest extends TestCase {
     public static class FakeProtectionParameter implements ProtectionParameter {
     }
 
+    @Test
     public void test_KeyStore_setEntry() throws Exception {
         for (KeyStore keyStore : keyStores()) {
             keyStore.load(null, null);
@@ -2282,6 +2317,7 @@ public class KeyStoreTest extends TestCase {
         }
     }
 
+    @Test
     public void test_KeyStore_entryInstanceOf() throws Exception {
         for (KeyStore keyStore : keyStores()) {
             try {
@@ -2384,6 +2420,7 @@ public class KeyStoreTest extends TestCase {
     }
 
     // TODO(27810271): investigate why this is taking too long for armeabi-v7a
+    @Test
     public void test_KeyStore_Builder() throws Exception {
         for (KeyStore keyStore : keyStores()) {
             keyStore.load(null, null);
@@ -2490,6 +2527,7 @@ public class KeyStoreTest extends TestCase {
         }
     }
 
+    @Test
     public void test_KeyStore_cacerts() throws Exception {
         if (StandardNames.IS_RI) {
             return;
@@ -2528,6 +2566,7 @@ public class KeyStoreTest extends TestCase {
     }
 
     // http://b/857840: want JKS key store
+    @Test
     public void testDefaultKeystore() {
         String type = KeyStore.getDefaultType();
         assertEquals(StandardNames.KEY_STORE_ALGORITHM, type);

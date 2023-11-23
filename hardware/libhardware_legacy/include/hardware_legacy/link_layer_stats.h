@@ -61,7 +61,7 @@ typedef struct {
 
 /* channel information */
 typedef struct {
-   wifi_channel_width width;   // channel width (20, 40, 80, 80+80, 160)
+   wifi_channel_width width;   // channel width (20, 40, 80, 80+80, 160, 320)
    wifi_channel center_freq;   // primary 20 MHz channel
    wifi_channel center_freq0;  // center frequency (MHz) first segment
    wifi_channel center_freq1;  // center frequency (MHz) second segment
@@ -69,11 +69,11 @@ typedef struct {
 
 /* wifi rate */
 typedef struct {
-   u32 preamble   :3;   // 0: OFDM, 1:CCK, 2:HT 3:VHT 4:HE 5..7 reserved
+   u32 preamble   :3;   // 0: OFDM, 1:CCK, 2:HT 3:VHT 4:HE 5:EHT 6..7 reserved
    u32 nss        :2;   // 0:1x1, 1:2x2, 3:3x3, 4:4x4
-   u32 bw         :3;   // 0:20MHz, 1:40Mhz, 2:80Mhz, 3:160Mhz
+   u32 bw         :3;   // 0:20MHz, 1:40Mhz, 2:80Mhz, 3:160Mhz 4:320Mhz
    u32 rateMcsIdx :8;   // OFDM/CCK rate code would be as per ieee std in the units of 0.5mbps
-                        // HT/VHT/HE it would be mcs index
+                        // HT/VHT/HE/EHT it would be mcs index
    u32 reserved  :16;   // reserved
    u32 bitrate;         // units of 100 Kbps
 } wifi_rate;

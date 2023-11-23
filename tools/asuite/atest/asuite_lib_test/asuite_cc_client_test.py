@@ -35,7 +35,15 @@ class AsuiteCCLibTest(unittest.TestCase):
         from asuite.metrics import metrics_utils
         from asuite import atest_utils
 
-        # TODO (b/132602907): Add the real usage for checking if metrics pass or fail.
+        # TODO (b/132602907): Add the real usage for checking if metrics pass or
+        #  fail.
+        metrics_base.MetricsBase.tool_name = 'MyTestTool'
+        metrics_utils.get_start_time()
+        metrics.AtestStartEvent(
+            command_line='test_command',
+            test_references='test_reference',
+            cwd='test_cwd',
+            os='test_os')
 
 if __name__ == "__main__":
     unittest.main()

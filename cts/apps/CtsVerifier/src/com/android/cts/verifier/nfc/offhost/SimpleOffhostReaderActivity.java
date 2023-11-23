@@ -16,15 +16,16 @@
 
 package com.android.cts.verifier.nfc.offhost;
 
+import android.annotation.TargetApi;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.nfc.NfcAdapter;
 import android.nfc.NfcAdapter.ReaderCallback;
-import android.nfc.Tag;
 import android.nfc.tech.IsoDep;
 import android.nfc.tech.NfcA;
 import android.nfc.tech.NfcB;
+import android.nfc.Tag;
 import android.os.Bundle;
 import android.os.Parcelable;
 import android.util.Log;
@@ -37,11 +38,12 @@ import android.widget.TextView;
 
 import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
-import com.android.cts.verifier.nfc.hce.CommandApdu;
-import com.android.cts.verifier.nfc.hce.HceUtils;
 
 import java.io.IOException;
 import java.util.Arrays;
+
+import com.android.cts.verifier.nfc.hce.HceUtils;
+import com.android.cts.verifier.nfc.hce.CommandApdu;
 
 public class SimpleOffhostReaderActivity extends PassFailButtons.Activity implements ReaderCallback,
         OnItemSelectedListener {
@@ -120,10 +122,10 @@ public class SimpleOffhostReaderActivity extends PassFailButtons.Activity implem
         int count = 0;
 
         try {
-            if (mDeselect) {
+            if(mDeselect) {
                 mIsTypeB = mPrefs.getBoolean("typeB", false);
                 // Use FrameRF for deselect test case
-                if (mIsTypeB) {
+                if(mIsTypeB) {
                     NfcB nfcb = NfcB.get(tag);
                     if (nfcb == null) {
                         // TODO dialog box
@@ -141,14 +143,14 @@ public class SimpleOffhostReaderActivity extends PassFailButtons.Activity implem
                         return;
                     }
                     byte[] attrib = new byte[tagIdLen + 5];
-                    attrib[0] = (byte) 0x1d;
-                    for (int i = 0; i < tagIdLen; i++) {
-                        attrib[1 + i] = tagId[i];
+                    attrib[0] = (byte)0x1d;
+                    for(int i = 0; i < tagIdLen; i ++) {
+                        attrib[1+i] = tagId[i];
                     }
-                    attrib[tagIdLen + 1] = 0x00;
-                    attrib[tagIdLen + 2] = 0x08;
-                    attrib[tagIdLen + 3] = 0x01;
-                    attrib[tagIdLen + 4] = 0x00;
+                    attrib[tagIdLen+1] = 0x00;
+                    attrib[tagIdLen+2] = 0x08;
+                    attrib[tagIdLen+3] = 0x01;
+                    attrib[tagIdLen+4] = 0x00;
                     nfcb.transceive(attrib);
 
                     count = 0;
@@ -260,8 +262,8 @@ public class SimpleOffhostReaderActivity extends PassFailButtons.Activity implem
 
     private boolean responseCheck(StringBuilder sb, byte[] response, int count,
             long apduStartTime, long apduEndTime) {
-        sb.append("Response APDU (in " + Long.toString(apduEndTime - apduStartTime)
-                + " ms):\n");
+        sb.append("Response APDU (in " + Long.toString(apduEndTime - apduStartTime) +
+                " ms):\n");
         sb.append(HceUtils.getHexBytes(null, response));
         sb.append("\n\n\n");
         boolean wildCard = "*".equals(mResponses[count]);
@@ -274,8 +276,8 @@ public class SimpleOffhostReaderActivity extends PassFailButtons.Activity implem
         }
 
         if (!wildCard && !Arrays.equals(response, expectedResponse)) {
-            Log.d(TAG, "Unexpected APDU response: "
-                    + HceUtils.getHexBytes("", response));
+            Log.d(TAG, "Unexpected APDU response: " +
+                                HceUtils.getHexBytes("", response));
             return false;
         }
         return true;

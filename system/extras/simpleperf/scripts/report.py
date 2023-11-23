@@ -24,6 +24,7 @@ simpleperf report command. The reporter will call `simpleperf report` to
 generate report file, and display it.
 """
 
+import logging
 import os
 import os.path
 import re
@@ -184,7 +185,7 @@ def parse_event_reports(lines):
                 last_node = node
 
     if has_skipped_callgraph:
-        log_warning('some callgraphs are skipped in brief callgraph mode')
+        logging.warning('some callgraphs are skipped in brief callgraph mode')
 
     return event_reports
 

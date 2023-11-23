@@ -26,11 +26,13 @@ import static android.content.pm.PackageManager.MATCH_UNINSTALLED_PACKAGES;
 import static android.content.pm.PackageManager.PERMISSION_GRANTED;
 import static android.content.pm.PermissionInfo.PROTECTION_DANGEROUS;
 import static android.content.pm.PermissionInfo.PROTECTION_FLAG_DEVELOPMENT;
+import static android.os.Build.VERSION_CODES.P;
 import static android.os.Build.VERSION_CODES.S;
 import static android.os.Process.myUid;
 
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import android.annotation.TargetApi;
 import android.app.ActivityManager;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -78,6 +80,13 @@ public final class Package {
             TestApis.context().instrumentedContext().getPackageManager();
 
     private final String mPackageName;
+
+    /**
+     * Constructs a new {@link Package} from the provided {@code packageName}.
+     */
+    public static Package of(String packageName) {
+        return new Package(packageName);
+    }
 
     Package(String packageName) {
         mPackageName = packageName;
@@ -393,7 +402,7 @@ public final class Package {
         }
     }
 
-    private void checkCanGrantOrRevokePermission(UserReference user, String permission) {
+    void checkCanGrantOrRevokePermission(UserReference user, String permission) {
         if (!installedOnUser(user)) {
             throw new NeneException("Attempting to grant " + permission + " to " + this
                     + " on user " + user + ". But it is not installed");
@@ -781,23 +790,39 @@ public final class Package {
         return Packages.parseDumpsys().mPackages.containsKey(mPackageName);
     }
 
+    /** Get the targetSdkVersion for the package. */
+    @Experimental
+    public int targetSdkVersion() {
+        return applicationInfoFromAnyUserOrError(/* flags= */ 0).targetSdkVersion;
+    }
+
     /**
      * {@code true} if the package is installed in the device's system image.
      */
     @Experimental
     public boolean hasSystemFlag() {
-        ApplicationInfo appInfo = applicationInfoFromAnyUser(/* flags= */ 0);
-
-        if (appInfo == null) {
-            throw new NeneException("Package not installed: " + this);
-        }
-
-        return (appInfo.flags & FLAG_SYSTEM) > 0;
+        return (applicationInfoFromAnyUserOrError(/* flags= */ 0).flags & FLAG_SYSTEM) > 0;
     }
 
     @Experimental
     public boolean isInstantApp() {
         return sPackageManager.isInstantApp(mPackageName);
+    }
+
+    /** Get the AppComponentFactory for the package. */
+    @Experimental
+    @Nullable
+    @TargetApi(P)
+    public String appComponentFactory() {
+        return applicationInfoFromAnyUserOrError(/* flags= */ 0).appComponentFactory;
+    }
+
+    private ApplicationInfo applicationInfoFromAnyUserOrError(int flags) {
+        ApplicationInfo appInfo = applicationInfoFromAnyUser(flags);
+        if (appInfo == null) {
+            throw new NeneException("Package not installed: " + this);
+        }
+        return appInfo;
     }
 
     /**

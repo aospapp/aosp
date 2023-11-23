@@ -38,8 +38,8 @@ import com.android.server.wm.nano.WindowManagerServiceDumpProto
 import com.android.server.wm.nano.WindowManagerTraceFileProto
 import com.android.server.wm.nano.WindowStateProto
 import com.android.server.wm.nano.WindowTokenProto
-import com.android.server.wm.traces.common.Size
 import com.android.server.wm.traces.common.Rect
+import com.android.server.wm.traces.common.Size
 import com.android.server.wm.traces.common.windowmanager.WindowManagerState
 import com.android.server.wm.traces.common.windowmanager.WindowManagerTrace
 import com.android.server.wm.traces.common.windowmanager.windows.Activity
@@ -59,7 +59,6 @@ import com.android.server.wm.traces.common.windowmanager.windows.WindowState
 import com.android.server.wm.traces.common.windowmanager.windows.WindowToken
 import com.android.server.wm.traces.parser.LOG_TAG
 import com.google.protobuf.nano.InvalidProtocolBufferNanoException
-import java.nio.file.Path
 import kotlin.math.max
 import kotlin.system.measureTimeMillis
 
@@ -85,13 +84,11 @@ object WindowManagerTraceParser {
      * a list of trace entries.
      *
      * @param data binary proto data
-     * @param source Path to source of data for additional debug information
      */
     @JvmOverloads
     @JvmStatic
     fun parseFromTrace(
-        data: ByteArray?,
-        source: Path? = null
+        data: ByteArray?
     ): WindowManagerTrace {
         var fileProto: WindowManagerTraceFileProto? = null
         try {
@@ -104,7 +101,7 @@ object WindowManagerTraceParser {
             throw RuntimeException(e)
         }
 
-        return fileProto?.let { parseFromTrace(it, source) }
+        return fileProto?.let { parseFromTrace(it) }
                 ?: error("Unable to read trace file")
     }
 
@@ -112,13 +109,11 @@ object WindowManagerTraceParser {
      * Uses the proto to generates a list of trace entries.
      *
      * @param proto Parsed proto data
-     * @param source Path to source of data for additional debug information
      */
     @JvmOverloads
     @JvmStatic
     fun parseFromTrace(
-        proto: WindowManagerTraceFileProto,
-        source: Path? = null
+        proto: WindowManagerTraceFileProto
     ): WindowManagerTrace {
         val entries = mutableListOf<WindowManagerState>()
         var traceParseTime = 0L
@@ -133,7 +128,7 @@ object WindowManagerTraceParser {
 
         Log.v(LOG_TAG, "Parsing duration (WM Trace): ${traceParseTime}ms " +
             "(avg ${traceParseTime / max(entries.size, 1)}ms per entry)")
-        return WindowManagerTrace(entries.toTypedArray(), "${source?.toAbsolutePath()}")
+        return WindowManagerTrace(entries.toTypedArray())
     }
 
     /**
@@ -145,8 +140,7 @@ object WindowManagerTraceParser {
     @JvmStatic
     fun parseFromDump(proto: WindowManagerServiceDumpProto): WindowManagerTrace {
         return WindowManagerTrace(
-                arrayOf(newTraceEntry(proto, timestamp = 0, where = "")),
-            source = "")
+                arrayOf(newTraceEntry(proto, timestamp = 0, where = "")))
     }
 
     /**

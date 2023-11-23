@@ -130,7 +130,7 @@ public class CollectionAppWidgetProvider  extends AppWidgetProvider {
             // populated via the adapter when ListView has "real" bounds.
             final Runnable setScrollRunnable = new Runnable() {
                 public void run() {
-                    if (sSetScrollCondition.canProceed()) {
+                    if (sSetScrollCondition != null && sSetScrollCondition.canProceed()) {
                         // Gating condition has been satisfied. Call setScrollPosition and
                         // ask the widget manager to update our widget
                         widgetAdapterView.setScrollPosition(R.id.remoteViews_list, mScrollPosition);
@@ -151,7 +151,8 @@ public class CollectionAppWidgetProvider  extends AppWidgetProvider {
             // populated via the adapter when ListView has "real" bounds.
             final Runnable setRelativeScrollRunnable = new Runnable() {
                 public void run() {
-                    if (sSetRelativeScrollCondition.canProceed()) {
+                    if (sSetRelativeScrollCondition != null
+                            && sSetRelativeScrollCondition.canProceed()) {
                         // Gating condition has been satisfied. Call setRelativeScrollPosition and
                         // ask the widget manager to update our widget
                         widgetAdapterView.setRelativeScrollPosition(

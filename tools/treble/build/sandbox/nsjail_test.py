@@ -75,7 +75,7 @@ class NsjailTest(unittest.TestCase):
       self.assertEqual(stdout, expected)
 
   def testFailingJailedCommand(self):
-    with self.assertRaises(subprocess.CalledProcessError):
+    with self.assertRaises(RuntimeError):
       nsjail.run(
           nsjail_bin='/bin/false',
           chroot='/chroot',

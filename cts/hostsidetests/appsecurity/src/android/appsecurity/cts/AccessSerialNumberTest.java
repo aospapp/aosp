@@ -17,6 +17,7 @@
 package android.appsecurity.cts;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
+import com.android.compatibility.common.util.CddTest;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.testtype.DeviceTestCase;
@@ -70,5 +71,16 @@ public class AccessSerialNumberTest extends DeviceTestCase implements IBuildRece
         runDeviceTests(ACCESS_SERIAL_PKG,
                 "android.os.cts.AccessSerialModernTest",
                 "testAccessSerialPermissionNeeded");
+    }
+
+    @CddTest(requirement = "3.2.2/C-0-1")
+    public void testGetSerialReturnsExpectedFormat() throws Exception {
+        // Verify the result from Build#getSerial matches the expected regular expression
+        // as defined in the CDD.
+        assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
+                APK_ACCESS_SERIAL_MODERN), true, false));
+        runDeviceTests(ACCESS_SERIAL_PKG,
+                "android.os.cts.AccessSerialModernTest",
+                "testGetSerialReturnsExpectedFormat");
     }
 }

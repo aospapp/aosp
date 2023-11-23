@@ -19,8 +19,8 @@ import os
 import unittest
 
 from unittest import mock
-import six
 
+from acloud import errors
 from acloud.internal.lib import cvd_runtime_config as cf_cfg
 from acloud.internal.lib import driver_test_lib
 
@@ -35,7 +35,7 @@ class CvdRuntimeconfigTest(driver_test_lib.BaseDriverTest):
  "instances": {
    "2":{
        "adb_ip_and_port": "127.0.0.1:6520",
-       "host_port": 6520,
+       "adb_host_port": 6520,
        "instance_dir": "/path-to-instance-dir",
        "vnc_server_port": 6444
    }
@@ -51,7 +51,7 @@ class CvdRuntimeconfigTest(driver_test_lib.BaseDriverTest):
  "instances" : {
    "1":{
        "adb_ip_and_port": "127.0.0.1:6520",
-       "host_port": 6520,
+       "adb_host_port": 6520,
        "instance_dir": "/path-to-instance-dir",
        "vnc_server_port": 6444,
        "virtual_disk_paths": ["/path-to-image"]
@@ -82,14 +82,14 @@ class CvdRuntimeconfigTest(driver_test_lib.BaseDriverTest):
                          u'instances':
                              {u'2':
                                   {u'adb_ip_and_port': u'127.0.0.1:6520',
-                                   u'host_port': 6520,
+                                   u'adb_host_port': 6520,
                                    u'instance_dir': u'/path-to-instance-dir',
                                    u'vnc_server_port': 6444}
                              },
                         }
         mock_open = mock.mock_open(read_data=self.CF_RUNTIME_CONFIG)
         cf_cfg_path = "/fake-path/local-instance-2/fake.config"
-        with mock.patch.object(six.moves.builtins, "open", mock_open):
+        with mock.patch("builtins.open", mock_open):
             fake_cvd_runtime_config = cf_cfg.CvdRuntimeConfig(cf_cfg_path)
             self.assertEqual(fake_cvd_runtime_config._config_dict, expected_dict)
             self.assertEqual(fake_cvd_runtime_config.enable_webrtc, None)
@@ -114,6 +114,12 @@ class CvdRuntimeconfigTest(driver_test_lib.BaseDriverTest):
         self.assertEqual(fake_cvd_runtime_config_webrtc.adb_port, 6520)
         self.assertEqual(fake_cvd_runtime_config_webrtc.virtual_disk_paths, ['/path-to-image'])
         self.assertEqual(fake_cvd_runtime_config_webrtc.cvd_tools_path, "/home/vsoc-01/bin")
+
+        # Test exception with no config file and no raw_data.
+        self.assertRaises(errors.ConfigError,
+                          cf_cfg.CvdRuntimeConfig,
+                          config_path=None,
+                          raw_data=None)
 
 
 class CvdRuntimeconfigFunctionTest(driver_test_lib.BaseDriverTest):

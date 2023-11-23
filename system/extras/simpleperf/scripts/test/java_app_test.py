@@ -189,7 +189,7 @@ class TestExamplePureJavaTraceOffCpu(TestExampleBase):
                     ".SleepActivity")
 
     def test_smoke(self):
-        self.run_app_profiler(record_arg="-g -f 1000 --duration 10 -e cpu-cycles:u --trace-offcpu")
+        self.run_app_profiler(record_arg="-g -f 1000 --duration 10 -e cpu-clock:u --trace-offcpu")
         self.run_cmd(["report.py", "-g", "-o", "report.txt"])
         self.check_strings_in_file("report.txt", [
             "com.example.simpleperf.simpleperfexamplepurejava.SleepActivity$1.run",
@@ -197,7 +197,7 @@ class TestExamplePureJavaTraceOffCpu(TestExampleBase):
             "com.example.simpleperf.simpleperfexamplepurejava.SleepActivity$1.SleepFunction"
         ])
         remove("annotated_files")
-        self.run_cmd(["annotate.py", "-s", self.example_path])
+        self.run_cmd(["annotate.py", "-s", self.example_path, '--summary-width', '1000'])
         self.check_exist(dirname="annotated_files")
         if self.use_compiled_java_code:
             self.check_file_under_dir("annotated_files", "SleepActivity.java")

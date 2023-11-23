@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef _LIBUNWINDSTACK_MAP_INFO_H
-#define _LIBUNWINDSTACK_MAP_INFO_H
+#pragma once
 
 #include <stdint.h>
 
@@ -38,7 +37,7 @@ class MemoryFileAtOffset;
 // (for example, 400 process * 400 maps * 128 bytes = 20 MB + string data).
 class MapInfo {
  public:
-  MapInfo(MapInfo* prev_map, MapInfo* prev_real_map, uint64_t start, uint64_t end, uint64_t offset,
+  MapInfo(std::shared_ptr<MapInfo>& prev_map, uint64_t start, uint64_t end, uint64_t offset,
           uint64_t flags, SharedString name)
       : start_(start),
         end_(end),
@@ -46,16 +45,35 @@ class MapInfo {
         flags_(flags),
         name_(name),
         elf_fields_(nullptr),
-        prev_map_(prev_map),
-        prev_real_map_(prev_real_map) {
-    if (prev_real_map != nullptr) prev_real_map->next_real_map_ = this;
+        prev_map_(prev_map) {}
+  MapInfo(uint64_t start, uint64_t end, uint64_t offset, uint64_t flags, SharedString name)
+      : start_(start),
+        end_(end),
+        offset_(offset),
+        flags_(flags),
+        name_(name),
+        elf_fields_(nullptr) {}
+
+  static inline std::shared_ptr<MapInfo> Create(std::shared_ptr<MapInfo>& prev_map,
+                                                uint64_t start, uint64_t end, uint64_t offset,
+                                                uint64_t flags, SharedString name) {
+    auto map_info = std::make_shared<MapInfo>(prev_map, start, end, offset, flags, name);
+    if (prev_map) {
+      prev_map->next_map_ = map_info;
+    }
+    return map_info;
   }
+  static inline std::shared_ptr<MapInfo> Create(uint64_t start, uint64_t end, uint64_t offset,
+                                                uint64_t flags, SharedString name) {
+    return std::make_shared<MapInfo>(start, end, offset, flags, name);
+  }
+
   ~MapInfo();
 
   // Cached data for mapped ELF files.
   // We allocate this structure lazily since there are much fewer ELFs than maps.
   struct ElfFields {
-    ElfFields() : load_bias_(INT64_MAX), build_id_(0) {}
+    ElfFields() : load_bias_(UINT64_MAX), build_id_(0) {}
 
     std::shared_ptr<Elf> elf_;
     // The offset of the beginning of this mapping to the beginning of the
@@ -69,7 +87,7 @@ class MapInfo {
     // shared libraries into a read-only and read-execute map.
     uint64_t elf_start_offset_ = 0;
 
-    std::atomic_int64_t load_bias_;
+    std::atomic_uint64_t load_bias_;
 
     // This is a pointer to a new'd std::string.
     // Using an atomic value means that we don't need to lock and will
@@ -82,6 +100,38 @@ class MapInfo {
     // Protect the creation of the elf object.
     std::mutex elf_mutex_;
   };
+
+  // True if the file named by this map is not actually readable and the
+  // elf is using the data in memory.
+  bool ElfFileNotReadable();
+
+  // This is the previous map with the same name that is not empty and with
+  // a 0 offset. For example, this set of maps:
+  //  1000-2000  r--p 000000 00:00 0 libc.so
+  //  2000-3000  ---p 000000 00:00 0
+  //  3000-4000  r-xp 003000 00:00 0 libc.so
+  // The last map's prev_map would point to the 2000-3000 map, while
+  // GetPrevRealMap() would point to the 1000-2000 map.
+  // NOTE: If a map is encountered that has a non-zero offset, or has a
+  //       a name different from the current map, then GetPrevRealMap()
+  //       returns nullptr.
+  std::shared_ptr<MapInfo> GetPrevRealMap();
+  // This is the next map with the same name that is not empty and with
+  // a 0 offset. For the example above, the first map's GetNextRealMap()
+  // would be the 3000-4000 map.
+  // NOTE: If a map is encountered that has a non-zero offset, or has a
+  //       a name different from the current map, then GetNextRealMap()
+  //       returns nullptr.
+  std::shared_ptr<MapInfo> GetNextRealMap();
+
+  // This is guaranteed to give out the Elf object associated with the
+  // object. The invariant is that once the Elf object is set under the
+  // lock in a MapInfo object it never changes and is not freed until
+  // the MapInfo object is destructed.
+  inline Elf* GetElfObj() {
+    std::lock_guard<std::mutex> guard(elf_mutex());
+    return elf().get();
+  }
 
   inline uint64_t start() const { return start_; }
   inline void set_start(uint64_t value) { start_ = value; }
@@ -109,8 +159,8 @@ class MapInfo {
   inline uint64_t elf_start_offset() { return GetElfFields().elf_start_offset_; }
   inline void set_elf_start_offset(uint64_t value) { GetElfFields().elf_start_offset_ = value; }
 
-  inline std::atomic_int64_t& load_bias() { return GetElfFields().load_bias_; }
-  inline void set_load_bias(int64_t value) { GetElfFields().load_bias_ = value; }
+  inline std::atomic_uint64_t& load_bias() { return GetElfFields().load_bias_; }
+  inline void set_load_bias(uint64_t value) { GetElfFields().load_bias_ = value; }
 
   inline std::atomic<SharedString*>& build_id() { return GetElfFields().build_id_; }
   inline void set_build_id(SharedString* value) { GetElfFields().build_id_ = value; }
@@ -118,19 +168,27 @@ class MapInfo {
   inline bool memory_backed_elf() { return GetElfFields().memory_backed_elf_; }
   inline void set_memory_backed_elf(bool value) { GetElfFields().memory_backed_elf_ = value; }
 
-  inline MapInfo* prev_map() const { return prev_map_; }
-  inline void set_prev_map(MapInfo* value) { prev_map_ = value; }
+  inline std::shared_ptr<MapInfo> prev_map() const { return prev_map_.lock(); }
+  inline void set_prev_map(std::shared_ptr<MapInfo>& value) { prev_map_ = value; }
 
-  inline MapInfo* prev_real_map() const { return prev_real_map_; }
-  inline void set_prev_real_map(MapInfo* value) { prev_real_map_ = value; }
-
-  inline MapInfo* next_real_map() const { return next_real_map_; }
-  inline void set_next_real_map(MapInfo* value) { next_real_map_ = value; }
+  inline std::shared_ptr<MapInfo> next_map() const { return next_map_.lock(); }
+  inline void set_next_map(std::shared_ptr<MapInfo>& value) { next_map_ = value; }
 
   // This function guarantees it will never return nullptr.
   Elf* GetElf(const std::shared_ptr<Memory>& process_memory, ArchEnum expected_arch);
 
+  // Guaranteed to return the proper value if GetElf() has been called.
+  uint64_t GetLoadBias();
+
+  // Will get the proper value even if GetElf() hasn't been called.
   uint64_t GetLoadBias(const std::shared_ptr<Memory>& process_memory);
+
+  // This returns the name of the map plus the soname if this particular
+  // map represents an elf file that is contained inside of another file.
+  // The format of this soname embedded name is:
+  //   file.apk!libutils.so
+  // Otherwise, this function only returns the name of the map.
+  std::string GetFullName();
 
   Memory* CreateMemory(const std::shared_ptr<Memory>& process_memory);
 
@@ -168,20 +226,8 @@ class MapInfo {
 
   std::atomic<ElfFields*> elf_fields_;
 
-  MapInfo* prev_map_ = nullptr;
-  // This is the previous map that is not empty with a 0 offset. For
-  // example, this set of maps:
-  //  1000-2000  r--p 000000 00:00 0 libc.so
-  //  2000-3000  ---p 000000 00:00 0 libc.so
-  //  3000-4000  r-xp 003000 00:00 0 libc.so
-  // The last map's prev_map would point to the 2000-3000 map, while the
-  // prev_real_map would point to the 1000-2000 map.
-  MapInfo* prev_real_map_ = nullptr;
-
-  // Same as above but set to point to the next map.
-  MapInfo* next_real_map_ = nullptr;
+  std::weak_ptr<MapInfo> prev_map_;
+  std::weak_ptr<MapInfo> next_map_;
 };
 
 }  // namespace unwindstack
-
-#endif  // _LIBUNWINDSTACK_MAP_INFO_H

@@ -23,6 +23,7 @@ import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentat
 
 import android.app.Activity;
 import android.app.AppOpsManager;
+import android.app.BroadcastOptions;
 import android.app.Instrumentation;
 import android.app.WallpaperManager;
 import android.content.ActivityNotFoundException;
@@ -35,7 +36,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
-import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
 import android.content.res.Resources.NotFoundException;
@@ -60,6 +60,7 @@ import android.os.UserHandle;
 import android.platform.test.annotations.AppModeFull;
 import android.preference.PreferenceManager;
 import android.test.AndroidTestCase;
+import android.test.suitebuilder.annotation.Suppress;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.Xml;
@@ -114,6 +115,13 @@ public class ContextTest extends AndroidTestCase {
 
     private static final int BROADCAST_TIMEOUT = 10000;
     private static final int ROOT_UID = 0;
+
+    /**
+     * Shell command to broadcast {@link ResultReceiver#MOCK_ACTION} as an external app.
+     */
+    private static final String EXTERNAL_APP_BROADCAST_COMMAND =
+            "am broadcast -a " + ResultReceiver.MOCK_ACTION + " -f "
+                    + Intent.FLAG_RECEIVER_FOREGROUND;
 
     private Object mLockObj;
 
@@ -596,7 +604,14 @@ public class ContextTest extends AndroidTestCase {
     }
 
     private void registerBroadcastReceiver(BroadcastReceiver receiver, IntentFilter filter) {
-        mContext.registerReceiver(receiver, filter);
+        // All of the broadcasts for tests that use this method are sent by the local app, so by
+        // default all receivers can be registered as not exported.
+        registerBroadcastReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED);
+    }
+
+    private void registerBroadcastReceiver(BroadcastReceiver receiver, IntentFilter filter,
+            int flags) {
+        mContext.registerReceiver(receiver, filter, flags);
 
         mRegisteredReceiverList.add(receiver);
     }
@@ -1080,7 +1095,7 @@ public class ContextTest extends AndroidTestCase {
     }
 
     public void testCreatePackageContext() throws PackageManager.NameNotFoundException {
-        Context actualContext = mContext.createPackageContext(getValidPackageName(),
+        Context actualContext = mContext.createPackageContext("com.android.shell",
                 Context.CONTEXT_IGNORE_SECURITY);
 
         assertNotNull(actualContext);
@@ -1092,7 +1107,7 @@ public class ContextTest extends AndroidTestCase {
                 UserHandle.ALL, UserHandle.CURRENT, UserHandle.SYSTEM
         }) {
             assertEquals(user, mContext
-                    .createPackageContextAsUser(getValidPackageName(), 0, user).getUser());
+                    .createPackageContextAsUser("com.android.shell", 0, user).getUser());
         }
     }
 
@@ -1103,16 +1118,6 @@ public class ContextTest extends AndroidTestCase {
         }) {
             assertEquals(user, mContext.createContextAsUser(user, 0).getUser());
         }
-    }
-
-    /**
-     * Helper method to retrieve a valid application package name to use for tests.
-     */
-    protected String getValidPackageName() {
-        List<PackageInfo> packages = mContext.getPackageManager().getInstalledPackages(
-                PackageManager.GET_ACTIVITIES);
-        assertTrue(packages.size() >= 1);
-        return packages.get(0).packageName;
     }
 
     public void testGetMainLooper() {
@@ -1556,6 +1561,105 @@ public class ContextTest extends AndroidTestCase {
         }.run();
     }
 
+    /**
+     * Verify the receiver should get the broadcast since it has all of the required permissions.
+     */
+    public void testSendBroadcastRequireAllOfPermissions_receiverHasAllPermissions()
+            throws Exception {
+        final ResultReceiver receiver = new ResultReceiver();
+
+        registerBroadcastReceiver(receiver, new IntentFilter(ResultReceiver.MOCK_ACTION));
+        BroadcastOptions options = BroadcastOptions.makeBasic();
+        options.setRequireAllOfPermissions(
+                new String[] { // this test APK has both these permissions
+                        android.Manifest.permission.ACCESS_WIFI_STATE,
+                        android.Manifest.permission.ACCESS_NETWORK_STATE
+                });
+        mContext.sendBroadcast(new Intent(ResultReceiver.MOCK_ACTION), null,
+                options.toBundle());
+
+        new PollingCheck(BROADCAST_TIMEOUT) {
+            @Override
+            protected boolean check() {
+                return receiver.hasReceivedBroadCast();
+            }
+        }.run();
+    }
+
+    /** The receiver should not get the broadcast if it does not have all the permissions. */
+    public void testSendBroadcastRequireAllOfPermissions_receiverHasSomePermissions()
+            throws Exception {
+        final ResultReceiver receiver = new ResultReceiver();
+
+        registerBroadcastReceiver(receiver, new IntentFilter(ResultReceiver.MOCK_ACTION));
+        BroadcastOptions options = BroadcastOptions.makeBasic();
+        options.setRequireAllOfPermissions(
+                new String[] { // this test APK only has ACCESS_WIFI_STATE
+                        android.Manifest.permission.ACCESS_WIFI_STATE,
+                        android.Manifest.permission.NETWORK_STACK,
+                });
+
+        mContext.sendBroadcast(
+                new Intent(ResultReceiver.MOCK_ACTION), null,
+                options.toBundle());
+
+        Thread.sleep(BROADCAST_TIMEOUT);
+        assertFalse(receiver.hasReceivedBroadCast());
+    }
+
+    /**
+     * Verify the receiver will get the broadcast since it has none of the excluded permissions.
+     */
+    public void testSendBroadcastRequireNoneOfPermissions_receiverHasNoneOfExcludedPermissions()
+            throws Exception {
+        final ResultReceiver receiver = new ResultReceiver();
+
+        registerBroadcastReceiver(receiver, new IntentFilter(ResultReceiver.MOCK_ACTION));
+        BroadcastOptions options = BroadcastOptions.makeBasic();
+        options.setRequireAllOfPermissions(
+                new String[] { // this test APK has both these permissions
+                        android.Manifest.permission.ACCESS_WIFI_STATE,
+                        android.Manifest.permission.ACCESS_NETWORK_STATE
+                });
+        options.setRequireNoneOfPermissions(
+                new String[] { // test package does not have NETWORK_STACK
+                        android.Manifest.permission.NETWORK_STACK
+                });
+        mContext.sendBroadcast(new Intent(ResultReceiver.MOCK_ACTION), null,
+                options.toBundle());
+
+        new PollingCheck(BROADCAST_TIMEOUT) {
+            @Override
+            protected boolean check() {
+                return receiver.hasReceivedBroadCast();
+            }
+        }.run();
+    }
+
+    /**
+     * Verify the receiver will not get the broadcast since it has one of the excluded permissions.
+     */
+    public void testSendBroadcastRequireNoneOfPermissions_receiverHasExcludedPermissions()
+            throws Exception {
+        final ResultReceiver receiver = new ResultReceiver();
+
+        registerBroadcastReceiver(receiver, new IntentFilter(ResultReceiver.MOCK_ACTION));
+        BroadcastOptions options = BroadcastOptions.makeBasic();
+        options.setRequireAllOfPermissions(
+                new String[] { // this test APK has ACCESS_WIFI_STATE
+                        android.Manifest.permission.ACCESS_WIFI_STATE
+                });
+        options.setRequireNoneOfPermissions(
+                new String[] { // test package has ACCESS_NETWORK_STATE
+                        android.Manifest.permission.ACCESS_NETWORK_STATE
+                });
+        mContext.sendBroadcast(new Intent(ResultReceiver.MOCK_ACTION), null,
+                options.toBundle());
+
+        Thread.sleep(BROADCAST_TIMEOUT);
+        assertFalse(receiver.hasReceivedBroadCast());
+    }
+
     /** The receiver should get the broadcast if it has all the permissions. */
     public void testSendBroadcastWithMultiplePermissions_receiverHasAllPermissions()
             throws Exception {
@@ -1612,6 +1716,142 @@ public class ContextTest extends AndroidTestCase {
 
         Thread.sleep(BROADCAST_TIMEOUT);
         assertFalse(receiver.hasReceivedBroadCast());
+    }
+
+    /**
+     * Starting from Android 13, a SecurityException is thrown for apps targeting this
+     * release or later that do not specify {@link Context#RECEIVER_EXPORTED} or {@link
+     * Context#RECEIVER_NOT_EXPORTED} when registering for non-system broadcasts.
+     */
+    // TODO(b/206699109): Re-enable test when instrumentation workaround is removed; without a flag
+    // specified the instrumentation workaround automatically adds RECEIVER_EXPORTED.
+    @Suppress
+    public void testRegisterReceiver_noFlags_exceptionThrown() throws Exception {
+        try {
+            final ResultReceiver receiver = new ResultReceiver();
+
+            registerBroadcastReceiver(receiver, new IntentFilter(ResultReceiver.MOCK_ACTION), 0);
+
+            fail("An app targeting Android 13 and registering a dynamic receiver for a "
+                    + "non-system broadcast must receive a SecurityException if "
+                    + "RECEIVER_EXPORTED or RECEIVER_NOT_EXPORTED is not specified");
+        } catch (SecurityException expected) {
+        }
+    }
+
+    /**
+     * An app targeting Android 13 or later can register for system broadcasts without specifying
+     * {@link Context#RECEIVER_EXPORTED} or {@link Context@RECEIVER_NOT_EXPORTED}.
+     */
+    public void testRegisterReceiver_noFlagsProtectedBroadcast_noExceptionThrown()
+            throws Exception {
+        final ResultReceiver receiver = new ResultReceiver();
+
+        // Intent.ACTION_SCREEN_OFF is a system broadcast and thus should not require a flag
+        // indicating whether the receiver is exported.
+        registerBroadcastReceiver(receiver, new IntentFilter(Intent.ACTION_SCREEN_OFF), 0);
+    }
+
+    /**
+     * An app targeting Android 13 or later can request a sticky broadcast via
+     * {@code Context#registerReceiver} without specifying {@link Context#RECEIVER_EXPORTED} or
+     * {@link Context#RECEIVER_NOT_EXPORTED}.
+     */
+    public void testRegisterReceiver_noFlagsStickyBroadcast_noExceptionThrown() throws Exception {
+        // If a null receiver is specified to Context#registerReceiver, it indicates the caller
+        // is requesting a sticky broadcast without actually registering a receiver; a flag
+        // must not be required in this case.
+        mContext.registerReceiver(null, new IntentFilter(ResultReceiver.MOCK_ACTION), 0);
+    }
+
+    /**
+     * Starting from Android 13, an app targeting this release or later must specify one of either
+     * {@link Context#RECEIVER_EXPORTED} or {@link Context#RECEIVER_NOT_EXPORTED} when registering
+     * a receiver for non-system broadcasts; however if both are specified then an
+     * {@link IllegalArgumentException} should be thrown.
+     */
+    public void testRegisterReceiver_bothFlags_exceptionThrown() throws Exception {
+        try {
+            final ResultReceiver receiver = new ResultReceiver();
+
+            registerBroadcastReceiver(receiver, new IntentFilter(ResultReceiver.MOCK_ACTION),
+                    Context.RECEIVER_EXPORTED | Context.RECEIVER_NOT_EXPORTED);
+
+            fail("An app invoke invoking Context#registerReceiver with both RECEIVER_EXPORTED and"
+                    + " RECEIVER_NOT_EXPORTED set must receive an IllegalArgumentException");
+        } catch (IllegalArgumentException expected) {
+        }
+    }
+
+    /**
+     * Verifies a receiver registered with {@link Context#RECEIVER_EXPORTED} can receive a
+     * broadcast from an external app.
+     *
+     * <p>The broadcast is sent as a shell command since this most closely simulates sending a
+     * broadcast from an external app; sending the broadcast via {@code
+     * ShellIdentityUtils#invokeMethodWithShellPermissionsNoReturn} is still delivered even to
+     * apps that use {@link Context#RECEIVER_NOT_EXPORTED}.
+     */
+    public void testRegisterReceiver_exported_broadcastReceived() throws Exception {
+        final ResultReceiver receiver = new ResultReceiver();
+        registerBroadcastReceiver(receiver, new IntentFilter(ResultReceiver.MOCK_ACTION),
+                Context.RECEIVER_EXPORTED);
+
+        SystemUtil.runShellCommand(EXTERNAL_APP_BROADCAST_COMMAND);
+
+        new PollingCheck(BROADCAST_TIMEOUT, "The broadcast to the exported receiver"
+                + " was not received within the timeout window") {
+            @Override
+            protected boolean check() {
+                return receiver.hasReceivedBroadCast();
+            }
+        }.run();
+    }
+
+    /**
+     * Verifies a receiver registered with {@link Context#RECEIVER_EXPORTED_UNAUDITED} can receive
+     * a broadcast from an external app.
+     *
+     * <p>{@code Context#RECEIVER_EXPORTED_UNAUDITED} is only intended to be applied to receivers
+     * that have not yet been audited to determine their intended exported state; this test ensures
+     * this flag maintains the existing behavior of exporting the receiver until it can be
+     * evaluated.
+     */
+    public void testRegisterReceiver_exportedUnaudited_broadcastReceived() throws Exception {
+        final ResultReceiver receiver = new ResultReceiver();
+        registerBroadcastReceiver(receiver, new IntentFilter(ResultReceiver.MOCK_ACTION),
+                Context.RECEIVER_EXPORTED_UNAUDITED);
+
+        SystemUtil.runShellCommand(EXTERNAL_APP_BROADCAST_COMMAND);
+
+        new PollingCheck(BROADCAST_TIMEOUT, "The broadcast to the exported receiver"
+                + " was not received within the timeout window") {
+            @Override
+            protected boolean check() {
+                return receiver.hasReceivedBroadCast();
+            }
+        }.run();
+    }
+
+    /**
+     * Verifies a receiver registered with {@link Context#RECEIVER_NOT_EXPORTED} does not receive
+     * a broadcast from an external app.
+     */
+    // TODO(b/206699109): Re-enable this test once the skip for an external app sending a broadcast
+    // to an unexported receiver is restored in BroadcastQueue.
+    @Suppress
+    public void testRegisterReceiver_notExported_broadcastNotReceived() throws Exception {
+        final ResultReceiver receiver = new ResultReceiver();
+        registerBroadcastReceiver(receiver, new IntentFilter(ResultReceiver.MOCK_ACTION),
+                Context.RECEIVER_NOT_EXPORTED);
+
+        SystemUtil.runShellCommand(EXTERNAL_APP_BROADCAST_COMMAND);
+
+        Thread.sleep(BROADCAST_TIMEOUT);
+        assertFalse(
+                "An external app must not be able to send a broadcast to a dynamic receiver "
+                        + "registered with RECEIVER_NOT_EXPORTED",
+                receiver.hasReceivedBroadCast());
     }
 
     public void testEnforceCallingOrSelfUriPermission() {

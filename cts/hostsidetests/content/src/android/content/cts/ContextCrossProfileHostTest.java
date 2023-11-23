@@ -296,7 +296,7 @@ public class ContextCrossProfileHostTest extends BaseContextCrossProfileTest
     }
 
     @Test
-    public void testBindServiceAsUser_differentProfileGroup_withInteractAcrossUsersPermission_throwsException()
+    public void testBindServiceAsUser_differentProfileGroup_samePackage_withAcrossUsersPermission_bindsService()
             throws Exception {
         int userInDifferentProfileGroup = createUser();
         getDevice().startUser(userInDifferentProfileGroup, /* waitFlag= */true);
@@ -317,7 +317,36 @@ public class ContextCrossProfileHostTest extends BaseContextCrossProfileTest
                 getDevice(),
                 TEST_WITH_PERMISSION_PKG,
                 ".ContextCrossProfileDeviceTest",
-                "testBindServiceAsUser_differentProfileGroup_withInteractAcrossUsersPermission_throwsException",
+                "testBindServiceAsUser_differentProfileGroup_samePackage_withAcrossUsersPermission_bindsService",
+                mParentUserId,
+                mTestArgs,
+                /* timeout= */60L,
+                TimeUnit.SECONDS);
+    }
+
+    @Test
+    public void testBindServiceAsUser_differentProfileGroup_differentPackage_withAcrossUsersPermission_throwsException()
+            throws Exception {
+        int userInDifferentProfileGroup = createUser();
+        getDevice().startUser(userInDifferentProfileGroup, /* waitFlag= */true);
+        mTestArgs.put("testUser", Integer.toString(userInDifferentProfileGroup));
+        getDevice().installPackageForUser(
+                mApkFile, /* reinstall= */true, /* grantPermissions= */true,
+                userInDifferentProfileGroup, /* extraArgs= */"-t",
+                /* extraArgs= */"--force-queryable");
+
+        CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mCtsBuild);
+        File testServiceApkFile = buildHelper.getTestFile(TEST_SERVICE_WITH_PERMISSION_APK);
+        getDevice().installPackageForUser(
+                testServiceApkFile, /* reinstall= */true, /* grantPermissions= */true,
+                userInDifferentProfileGroup, /* extraArgs= */"-t",
+                /* extraArgs= */"--force-queryable");
+
+        runDeviceTests(
+                getDevice(),
+                TEST_WITH_PERMISSION_PKG,
+                ".ContextCrossProfileDeviceTest",
+                "testBindServiceAsUser_differentProfileGroup_differentPackage_withAcrossUsersPermission_throwsException",
                 mParentUserId,
                 mTestArgs,
                 /* timeout= */60L,

@@ -38,10 +38,25 @@
         android:layout_alignParentTop="true"
         android:layout_toRightOf="@id/tiles_status"/>
 
+    <Button
+        android:id="@+id/tiles_action_request"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        android:layout_toRightOf="@id/tiles_status"
+        android:layout_below="@id/tiles_instructions"
+        android:layout_alignParentRight="true"
+        android:layout_marginLeft="20dip"
+        android:layout_marginRight="20dip"
+        android:onClick="actionPressed"
+        android:text="Start request"
+        android:enabled="false"
+        />
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@id/tiles_instructions"
+        android:layout_below="@id/tiles_action_request"
         android:layout_toRightOf="@id/tiles_status"
         android:layout_alignParentRight="true">
 

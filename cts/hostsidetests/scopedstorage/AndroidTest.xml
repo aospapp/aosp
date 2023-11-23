@@ -28,6 +28,12 @@
         <option name="test-file-name" value="CtsScopedStorageTestAppDLegacy.apk" />
         <option name="test-file-name" value="CtsLegacyStorageTestAppRequestLegacy.apk" />
     </target_preparer>
+
+    <option
+        name="config-descriptor:metadata"
+        key="mainline-param"
+        value="com.google.android.mediaprovider.apex" />
+
     <test class="com.android.tradefed.testtype.HostTest" >
         <option name="class" value="android.scopedstorage.cts.host.LegacyStorageHostTest" />
         <option name="class" value="android.scopedstorage.cts.host.PreserveLegacyStorageHostTest" />

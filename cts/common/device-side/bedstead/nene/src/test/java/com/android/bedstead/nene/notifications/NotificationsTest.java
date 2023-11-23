@@ -16,6 +16,8 @@
 
 package com.android.bedstead.nene.notifications;
 
+import static android.Manifest.permission.POST_NOTIFICATIONS;
+
 import static com.android.bedstead.nene.notifications.NotificationListenerQuerySubject.assertThat;
 import static com.android.bedstead.nene.notifications.Notifications.LISTENER_COMPONENT;
 
@@ -32,6 +34,7 @@ import com.android.bedstead.harrier.BedsteadJUnit4;
 import com.android.bedstead.harrier.DeviceState;
 import com.android.bedstead.nene.TestApis;
 import com.android.bedstead.nene.exceptions.NeneException;
+import com.android.bedstead.nene.permissions.PermissionContext;
 import com.android.bedstead.nene.users.UserReference;
 
 import org.junit.ClassRule;
@@ -101,16 +104,18 @@ public class NotificationsTest {
     }
 
     private void createNotification() {
-        String channelId = "notifications";
-        sNotificationManager.createNotificationChannel(new NotificationChannel(channelId,
-                "notifications",
-                NotificationChannel.USER_LOCKED_IMPORTANCE));
+        try (PermissionContext p = TestApis.permissions().withPermission(POST_NOTIFICATIONS)) {
+            String channelId = "notifications";
+            sNotificationManager.createNotificationChannel(new NotificationChannel(channelId,
+                    "notifications",
+                    NotificationChannel.USER_LOCKED_IMPORTANCE));
 
-        Notification.Builder notificationBuilder =
-                new Notification.Builder(TestApis.context().instrumentedContext(), channelId)
-                .setSmallIcon(R.drawable.sym_def_app_icon);
+            Notification.Builder notificationBuilder =
+                    new Notification.Builder(TestApis.context().instrumentedContext(), channelId)
+                    .setSmallIcon(R.drawable.sym_def_app_icon);
 
-        sNotificationManager.notify(1, notificationBuilder.build());
+            sNotificationManager.notify(1, notificationBuilder.build());
+        }
     }
 
 }

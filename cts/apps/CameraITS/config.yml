@@ -25,10 +25,11 @@ TestBeds:
           - serial: <tablet_id>
             label: tablet
     TestParams:
-      brightness: 96
+      brightness: 192
       chart_distance: 31.0
       debug_mode: "False"  # quotes are needed here
-      chart_loc_arg: ""
+      lighting_cntl: <controller-type>  # can be arduino or "None"
+      lighting_ch: <controller-channel>
       camera: <camera-id>
       scene: <scene-name>  # if <scene-name> left as-is runs all scenes
 

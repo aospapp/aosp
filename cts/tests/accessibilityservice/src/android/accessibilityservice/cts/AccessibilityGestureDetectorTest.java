@@ -144,8 +144,8 @@ public class AccessibilityGestureDetectorTest {
         mStrokeLenPxX = (int) (GESTURE_LENGTH_INCHES * metrics.xdpi);
         // The threshold is determined by xdpi.
         mStrokeLenPxY = mStrokeLenPxX;
-        mMaxAdjustedStrokeLenPxX = metrics.heightPixels / 2;
-        mMaxAdjustedStrokeLenPxY = metrics.widthPixels / 2;
+        mMaxAdjustedStrokeLenPxX = metrics.widthPixels / 2;
+        mMaxAdjustedStrokeLenPxY = metrics.heightPixels / 2;
         final boolean screenWideEnough = metrics.widthPixels / 2 > mStrokeLenPxX;
         final boolean screenHighEnough =  metrics.heightPixels / 2 > mStrokeLenPxY;
         mScreenBigEnough = screenWideEnough && screenHighEnough;
@@ -641,14 +641,18 @@ public class AccessibilityGestureDetectorTest {
                 adjustStrokeDurationForSlop(STROKE_MS, dx, slopAdjustedDx),
                 adjustStrokeDurationForSlop(STROKE_MS, dy, slopAdjustedDy));
 
+        final PointF tapLocation = new PointF(mTapLocation);
+        final float locationOffsetX = (fingerCount - 1) * fingerOffset;
+        tapLocation.offset(dx > 0 ? -locationOffsetX : locationOffsetX , 0);
         for (int currentFinger = 0; currentFinger < fingerCount; ++currentFinger) {
             // Make sure adjustments don't take us outside of screen boundaries.
-            assertTrue(slopAdjustedDx + (fingerOffset * currentFinger) < mMaxAdjustedStrokeLenPxX);
+            assertTrue(slopAdjustedDx + (fingerOffset * currentFinger) < (mMaxAdjustedStrokeLenPxX
+                    + locationOffsetX));
             assertTrue(slopAdjustedDy < mMaxAdjustedStrokeLenPxY);
             builder.addStroke(
                     GestureUtils.swipe(
-                            add(mTapLocation, fingerOffset * currentFinger, 0),
-                            add(mTapLocation, slopAdjustedDx + (fingerOffset * currentFinger),
+                            add(tapLocation, fingerOffset * currentFinger, 0),
+                            add(tapLocation, slopAdjustedDx + (fingerOffset * currentFinger),
                                     slopAdjustedDy),
                             slopAdjustedStrokeDuration));
         }
@@ -657,9 +661,9 @@ public class AccessibilityGestureDetectorTest {
 
     private float adjustStrokeDeltaForSlop(int fingerCount, float strokeDelta) {
         if (strokeDelta > 0.0f) {
-            return strokeDelta + (fingerCount * mScaledTouchSlop);
+            return Math.max(strokeDelta, fingerCount * mScaledTouchSlop + 10);
         } else if (strokeDelta < 0.0f) {
-            return strokeDelta - (fingerCount * mScaledTouchSlop);
+            return Math.min(strokeDelta, -(fingerCount * mScaledTouchSlop + 10));
         }
         return strokeDelta;
     }

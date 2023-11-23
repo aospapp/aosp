@@ -402,7 +402,6 @@ static void rw_t2t_handle_tlv_detect_rsp(uint8_t* p_data) {
   uint16_t len = 0;
   bool failed = false;
   bool found = false;
-  tRW_EVENT event;
   uint8_t index;
   uint16_t count = 0;
   uint8_t xx;
@@ -724,7 +723,7 @@ static void rw_t2t_handle_tlv_detect_rsp(uint8_t* p_data) {
 
   p_t2t->work_offset += T2T_READ_DATA_LEN;
 
-  event = rw_t2t_info_to_event(p_cmd_rsp_info);
+  rw_t2t_info_to_event(p_cmd_rsp_info);
 
   /* If not found and not failed, read next block and search tlv */
   if (!found && !failed) {
@@ -1728,7 +1727,6 @@ static void rw_t2t_handle_config_tag_readonly(uint8_t* p_data) {
   bool b_notify = false;
   uint8_t write_block[T2T_BLOCK_SIZE];
   bool b_pending = false;
-  uint8_t read_lock = 0;
   uint8_t num_locks = 0;
   uint16_t offset;
 
@@ -1790,7 +1788,6 @@ static void rw_t2t_handle_config_tag_readonly(uint8_t* p_data) {
                * overwrite possible NDEF or Reserved data
                */
               b_pending = true;
-              read_lock = num_locks;
             } else {
               /* Write zero in internal byte */
               memset(write_block, 0, T2T_BLOCK_SIZE);

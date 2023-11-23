@@ -21,8 +21,12 @@ package hal.manifest {
   public static class Hal.Transport {
     ctor public Hal.Transport();
     method public String getArch();
+    method public String getIp();
+    method public String getPort();
     method public String getValue();
     method public void setArch(String);
+    method public void setIp(String);
+    method public void setPort(String);
     method public void setValue(String);
   }
 

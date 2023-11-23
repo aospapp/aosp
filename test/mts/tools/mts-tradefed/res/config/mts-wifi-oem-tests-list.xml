@@ -19,6 +19,10 @@
     <option name="compatibility:include-filter" value="MtsWifiTestCases" />
     <option name="compatibility:include-filter" value="CtsWifiTestCases" />
     <option name="compatibility:include-filter" value="CtsNetTestCasesLatestSdk" />
+    <!-- Do not include Connectivity (tethering) module-specific tests as Wifi MTS may not run
+         with the latest version of that module installed -->
+    <option name="compatibility:module-arg"
+            value="CtsNetTestCasesLatestSdk:exclude-annotation:com.android.testutils.ConnectivityModuleTest" />
     <option name="compatibility:include-filter"
             value="GtsGmscoreHostTestCases com.google.android.gts.wifi.WifiHostTest" />
     <option name="compatibility:include-filter"

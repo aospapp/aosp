@@ -34,7 +34,13 @@
         </receiver>
         <!--  TODO(b/176993670): remove if DpmWrapper goes away -->
         <receiver android:name="com.android.bedstead.dpmwrapper.IpcBroadcastReceiver"
-             android:exported="true"/>
+             android:exported="true">
+        <!--  TODO(b/213348113, b/213331396) - might need to explicitly set the filter below:
+            <intent-filter>
+               <action android:name="com.android.bedstead.dpmwrapper.action.WRAPPED_MANAGER_CALL"/>
+            </intent-filter>
+         -->
+        </receiver>
         <!--  TODO(b/176993670): remove if DpmWrapper goes away -->
         <receiver android:name="com.android.bedstead.dpmwrapper.TestAppCallbacksReceiver"
              android:exported="true"/>

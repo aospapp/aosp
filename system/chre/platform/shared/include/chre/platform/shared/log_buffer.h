@@ -41,7 +41,14 @@ enum class LogBufferNotificationSetting : uint8_t { ALWAYS, NEVER, THRESHOLD };
 /**
  * The log level options for logs stored in a log buffer.
  */
-enum class LogBufferLogLevel : uint8_t { ERROR, WARN, INFO, DEBUG, VERBOSE };
+enum class LogBufferLogLevel : uint8_t {
+  UNKNOWN,
+  ERROR,
+  WARN,
+  INFO,
+  DEBUG,
+  VERBOSE
+};
 
 // Forward declaration for LogBufferCallbackInterface.
 class LogBuffer;
@@ -72,6 +79,11 @@ class LogBuffer {
  public:
   //! The max size of a single log entry which must fit in a single byte.
   static constexpr size_t kLogMaxSize = UINT8_MAX;
+
+  //! The number of bytes in a log entry of the buffer before the log data is
+  //! encountered. This is determined by the size of the 'header' in the log
+  //! message.
+  static constexpr size_t kLogDataOffset = 5;
 
   /**
    * @param callback The callback object that will receive notifications about
@@ -108,6 +120,9 @@ class LogBuffer {
    */
   void handleLogVa(LogBufferLogLevel logLevel, uint32_t timestampMs,
                    const char *logFormat, va_list args);
+
+  void handleEncodedLog(LogBufferLogLevel logLevel, uint32_t timestampMs,
+                        const uint8_t *log, size_t logSize);
 
   // TODO(b/179786399): Remove the copyLogs method when the LogBufferManager is
   // refactored to no longer use it.
@@ -254,14 +269,57 @@ class LogBuffer {
    */
   size_t getLogDataLength(size_t startingIndex);
 
-  //! The number of bytes in a log entry of the buffer before the log data is
-  //! encountered.
-  static constexpr size_t kLogDataOffset = 5;
+  /**
+   * Encode the received log message (if tokenization or similar encoding
+   * is used) and dispatch it.
+   */
+  void processLog(LogBufferLogLevel logLevel, uint32_t timestampMs,
+                  const void *log, size_t logSize, bool encoded = true);
+
+  /**
+   * First ensure that there's enough space for the log by discarding older
+   * logs, then encode and copy this log into the internal log buffer.
+   */
+  void copyLogToBuffer(LogBufferLogLevel level, uint32_t timestampMs,
+                       const void *logBuffer, uint8_t logLen, bool encoded);
+
+  /**
+   * Invalidate memory allocated for log at head while the buffer is greater
+   * than max size. This function must only be called with the log buffer mutex
+   * locked.
+   */
+  void discardExcessOldLogsLocked(bool encoded, uint8_t currentLogLen);
+
+  /**
+   * Add an encoding header to the log message if the encoding param is true.
+   * This function must only be called with the log buffer mutex locked.
+   */
+  void encodeAndCopyLogLocked(LogBufferLogLevel level, uint32_t timestampMs,
+                              const void *logBuffer, uint8_t logLen,
+                              bool encoded);
+
+  /**
+   * Send ready to dispatch logs over, based on the current log notification
+   * setting
+   */
+  void dispatch();
 
   /**
    * The buffer data is stored in the format
    *
-   * [ logLevel (1B) , timestamp (4B), data (dataLenB) , \0 (1B) ]
+   * [ metadata (1B) , timestamp (4B), data (dataLenB) ]
+   *
+   * The upper nibble of the metadata indicates if an encoding scheme was used,
+   * while the lower nibble indicates the severity level of this log.
+   *
+   * The data buffer is encoded as follows:
+   *  - In the case of encoded logs, the first byte indicates the number of
+   *    actual log data bytes that follow. These are typically used as
+   *    information for the decoder, which decodes the log data from a 1 byte
+   *    offset.
+   *  - When logs are unencoded, the data buffer can be interpreted as a
+   *    NULL terminated C-style string (pass to string manipulation functions,
+   *    get size from strlen(), etc.).
    *
    * This pattern is repeated as many times as there is log entries in the
    * buffer.

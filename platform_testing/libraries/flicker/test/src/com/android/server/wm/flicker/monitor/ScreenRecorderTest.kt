@@ -19,7 +19,7 @@ package com.android.server.wm.flicker.monitor
 import android.app.Instrumentation
 import android.os.SystemClock
 import androidx.test.platform.app.InstrumentationRegistry
-import com.android.server.wm.flicker.FlickerRunResult
+import com.android.compatibility.common.util.SystemUtil
 import com.android.server.wm.flicker.getDefaultFlickerOutputDir
 import com.google.common.truth.Truth
 import org.junit.After
@@ -40,13 +40,18 @@ class ScreenRecorderTest {
     @Before
     fun setup() {
         val outputDir = getDefaultFlickerOutputDir()
-        mScreenRecorder = ScreenRecorder(outputDir, instrumentation.targetContext)
+        mScreenRecorder = ScreenRecorder(instrumentation.targetContext, outputDir)
+    }
+
+    @Before
+    fun clearOutputDir() {
+        SystemUtil.runShellCommand("rm -rf ${getDefaultFlickerOutputDir()}")
     }
 
     @After
     fun teardown() {
         mScreenRecorder.stop()
-        mScreenRecorder.outputPath.toFile().delete()
+        Files.deleteIfExists(mScreenRecorder.outputFile)
     }
 
     @Test
@@ -54,9 +59,9 @@ class ScreenRecorderTest {
         mScreenRecorder.start()
         SystemClock.sleep(100)
         mScreenRecorder.stop()
-        val file = mScreenRecorder.outputPath.toFile()
+        val file = mScreenRecorder.outputFile
         Truth.assertWithMessage("Screen recording file not found")
-            .that(file.exists())
+            .that(Files.exists(file))
             .isTrue()
     }
 
@@ -65,18 +70,7 @@ class ScreenRecorderTest {
         mScreenRecorder.start()
         SystemClock.sleep(3000)
         mScreenRecorder.stop()
-        val builder = FlickerRunResult.Builder()
-        mScreenRecorder.save("test", builder)
-        val traces = builder.buildAll().mapNotNull { result ->
-            result.traceFiles.firstOrNull {
-                it.toString().contains("transition")
-            }
-        }
-        traces.forEach {
-            Truth.assertWithMessage("Trace file $it not found").that(Files.exists(it)).isTrue()
-        }
-        traces.forEach {
-            Files.deleteIfExists(it)
-        }
+        val trace = mScreenRecorder.outputFile
+        Truth.assertWithMessage("Trace file $trace not found").that(Files.exists(trace)).isTrue()
     }
 }

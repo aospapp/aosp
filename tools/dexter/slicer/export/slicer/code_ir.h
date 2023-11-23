@@ -66,6 +66,7 @@ struct String;
 struct Type;
 struct Field;
 struct Method;
+struct Proto;
 struct DbgInfoHeader;
 struct LineNumber;
 struct DbgInfoAnnotation;
@@ -102,6 +103,7 @@ class Visitor {
   virtual bool Visit(Type* type) { return false; }
   virtual bool Visit(Field* field) { return false; }
   virtual bool Visit(Method* method) { return false; }
+  virtual bool Visit(Proto* proto) { return false; }
   virtual bool Visit(LineNumber* line) { return false; }
 };
 
@@ -212,7 +214,17 @@ struct Field : public IndexedOperand {
 struct Method : public IndexedOperand {
   ir::MethodDecl* ir_method;
 
-  Method(ir::MethodDecl* ir_method, dex::u4 index) : IndexedOperand(index), ir_method(ir_method) {}
+  Method(ir::MethodDecl* ir_method, dex::u4 index) : IndexedOperand(index), ir_method(ir_method) {
+    SLICER_CHECK_NE(ir_method, nullptr);
+  }
+
+  virtual bool Accept(Visitor* visitor) override { return visitor->Visit(this); }
+};
+
+struct Proto : public IndexedOperand {
+  ir::Proto* ir_proto;
+
+  Proto(ir::Proto* ir_proto, dex::u4 index) : IndexedOperand(index), ir_proto(ir_proto) {}
 
   virtual bool Accept(Visitor* visitor) override { return visitor->Visit(this); }
 };
@@ -242,10 +254,10 @@ template<class T>
 inline T* CastOperand(Operand* op) {
 #ifdef RTTI_ENABLED
   T* operand = dynamic_cast<T*>(op);
-  SLICER_CHECK(operand != nullptr);
+  SLICER_CHECK_NE(operand, nullptr);
   return operand;
 #else
-  SLICER_CHECK(op != nullptr);
+  SLICER_CHECK_NE(op, nullptr);
   struct CastVisitor : public Visitor {
     T* converted = nullptr;
     bool Visit(T* val) override {
@@ -255,7 +267,7 @@ inline T* CastOperand(Operand* op) {
   };
   CastVisitor cv;
   op->Accept(&cv);
-  SLICER_CHECK(cv.converted != nullptr);
+  SLICER_CHECK_NE(cv.converted, nullptr);
   return cv.converted;
 #endif
 }
@@ -265,10 +277,10 @@ template<>
 inline IndexedOperand* CastOperand<IndexedOperand>(Operand* op) {
 #ifdef RTTI_ENABLED
   IndexedOperand* operand = dynamic_cast<IndexedOperand*>(op);
-  SLICER_CHECK(operand != nullptr);
+  SLICER_CHECK_NE(operand, nullptr);
   return operand;
 #else
-  SLICER_CHECK(op != nullptr);
+  SLICER_CHECK_NE(op, nullptr);
   struct CastVisitor : public Visitor {
     IndexedOperand* converted = nullptr;
     bool Visit(String* val) override {
@@ -290,7 +302,7 @@ inline IndexedOperand* CastOperand<IndexedOperand>(Operand* op) {
   };
   CastVisitor cv;
   op->Accept(&cv);
-  SLICER_CHECK(cv.converted != nullptr);
+  SLICER_CHECK_NE(cv.converted, nullptr);
   return cv.converted;
 #endif
 }
@@ -403,7 +415,7 @@ struct CodeIr {
  public:
   CodeIr(ir::EncodedMethod* ir_method, std::shared_ptr<ir::DexFile> dex_ir)
       : ir_method(ir_method), dex_ir(dex_ir) {
-    Dissasemble();
+    Disassemble();
   }
 
   // No copy/move semantics
@@ -426,10 +438,10 @@ struct CodeIr {
   }
 
  private:
-  void Dissasemble();
-  void DissasembleBytecode(const ir::Code* ir_code);
-  void DissasembleTryBlocks(const ir::Code* ir_code);
-  void DissasembleDebugInfo(const ir::DebugInfo* ir_debug_info);
+  void Disassemble();
+  void DisassembleBytecode(const ir::Code* ir_code);
+  void DisassembleTryBlocks(const ir::Code* ir_code);
+  void DisassembleDebugInfo(const ir::DebugInfo* ir_debug_info);
 
   void FixupSwitches();
   void FixupPackedSwitch(PackedSwitchPayload* instr, dex::u4 base_offset, const dex::u2* ptr);
@@ -441,6 +453,7 @@ struct CodeIr {
   Bytecode* DecodeBytecode(const dex::u2* ptr, dex::u4 offset);
 
   IndexedOperand* GetIndexedOperand(dex::InstructionIndexType index_type, dex::u4 index);
+  IndexedOperand* GetSecondIndexedOperand(dex::InstructionIndexType index_type, dex::u4 index);
 
   Type* GetType(dex::u4 index);
   String* GetString(dex::u4 index);

@@ -207,7 +207,7 @@ def load_test_config_file(test_config_path, tb_filters=None):
                 tbs[name] = testbeds[name]
             else:
                 raise ActsConfigError(
-                    'Expected testbed named "%s", but none was found. Check'
+                    'Expected testbed named "%s", but none was found. Check '
                     'if you have the correct testbed names.' % name)
         testbeds = tbs
 

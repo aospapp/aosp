@@ -277,10 +277,22 @@ class SensorRequestManager : public NonCopyable {
     mPlatformSensorManager.releaseSamplingStatusUpdate(status);
   }
 
+  /**
+   * Disables all active sensor requests for the given nanoapp.
+   *
+   * The bias requests are automatically disabled together with the main
+   * request.
+   *
+   * @param nanoapp A non-null pointer to the nanoapp.
+   *
+   * @return The number of subscriptions disabled.
+   */
+  uint32_t disableAllSubscriptions(Nanoapp *nanoapp);
+
  private:
   //! An internal structure to store incoming sensor flush requests
   struct FlushRequest {
-    FlushRequest(uint32_t handle, uint32_t id, const void *cookiePtr) {
+    FlushRequest(uint32_t handle, uint16_t id, const void *cookiePtr) {
       sensorHandle = handle;
       nanoappInstanceId = id;
       cookie = cookiePtr;
@@ -292,31 +304,31 @@ class SensorRequestManager : public NonCopyable {
         Nanoseconds(CHRE_SENSOR_FLUSH_COMPLETE_TIMEOUT_NS);
     //! The sensor handle this flush request is for.
     uint32_t sensorHandle;
-    //! The ID of the nanoapp that requested the flush.
-    uint32_t nanoappInstanceId;
     //! The opaque pointer provided in flushAsync().
     const void *cookie;
+    //! The ID of the nanoapp that requested the flush.
+    uint16_t nanoappInstanceId;
     //! True if this flush request is active and is pending completion.
     bool isActive = false;
   };
 
   //! An internal structure to store sensor request logs
   struct SensorRequestLog {
-    SensorRequestLog(Nanoseconds timestampIn, uint32_t instanceIdIn,
+    SensorRequestLog(Nanoseconds timestampIn, uint16_t instanceIdIn,
                      uint32_t sensorHandleIn, SensorMode modeIn,
                      Nanoseconds intervalIn, Nanoseconds latencyIn)
         : timestamp(timestampIn),
           interval(intervalIn),
           latency(latencyIn),
-          instanceId(instanceIdIn),
           sensorHandle(sensorHandleIn),
+          instanceId(instanceIdIn),
           mode(modeIn) {}
 
     Nanoseconds timestamp;
     Nanoseconds interval;
     Nanoseconds latency;
-    uint32_t instanceId;
     uint32_t sensorHandle;
+    uint16_t instanceId;
     SensorMode mode;
   };
 
@@ -470,7 +482,7 @@ class SensorRequestManager : public NonCopyable {
    * @param sensorRequest The SensorRequest object holding params about
    *    request.
    */
-  void addSensorRequestLog(uint32_t nanoappInstanceId, uint32_t sensorHandle,
+  void addSensorRequestLog(uint16_t nanoappInstanceId, uint32_t sensorHandle,
                            const SensorRequest &sensorRequest);
 
   /**
@@ -497,7 +509,7 @@ class SensorRequestManager : public NonCopyable {
    * @return the target group masks that are actively enabled for this nanoapp
    *  and the sensor type.
    */
-  uint16_t getActiveTargetGroupMask(uint32_t nanoappInstanceId,
+  uint16_t getActiveTargetGroupMask(uint16_t nanoappInstanceId,
                                     uint8_t sensorType);
 };
 

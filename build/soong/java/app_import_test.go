@@ -15,6 +15,7 @@
 package java
 
 import (
+	"fmt"
 	"reflect"
 	"regexp"
 	"strings"
@@ -52,6 +53,11 @@ func TestAndroidAppImport(t *testing.T) {
 	if expected != signingFlag {
 		t.Errorf("Incorrect signing flags, expected: %q, got: %q", expected, signingFlag)
 	}
+	rule := variant.Rule("genProvenanceMetaData")
+	android.AssertStringEquals(t, "Invalid input", "prebuilts/apk/app.apk", rule.Inputs[0].String())
+	android.AssertStringEquals(t, "Invalid output", "out/soong/.intermediates/provenance_metadata/foo/provenance_metadata.textproto", rule.Output.String())
+	android.AssertStringEquals(t, "Invalid args", "foo", rule.Args["module_name"])
+	android.AssertStringEquals(t, "Invalid args", "/system/app/foo/foo.apk", rule.Args["install_path"])
 }
 
 func TestAndroidAppImport_NoDexPreopt(t *testing.T) {
@@ -73,6 +79,12 @@ func TestAndroidAppImport_NoDexPreopt(t *testing.T) {
 		variant.MaybeOutput("dexpreopt/oat/arm64/package.odex").Rule != nil {
 		t.Errorf("dexpreopt shouldn't have run.")
 	}
+
+	rule := variant.Rule("genProvenanceMetaData")
+	android.AssertStringEquals(t, "Invalid input", "prebuilts/apk/app.apk", rule.Inputs[0].String())
+	android.AssertStringEquals(t, "Invalid output", "out/soong/.intermediates/provenance_metadata/foo/provenance_metadata.textproto", rule.Output.String())
+	android.AssertStringEquals(t, "Invalid args", "foo", rule.Args["module_name"])
+	android.AssertStringEquals(t, "Invalid args", "/system/app/foo/foo.apk", rule.Args["install_path"])
 }
 
 func TestAndroidAppImport_Presigned(t *testing.T) {
@@ -101,6 +113,12 @@ func TestAndroidAppImport_Presigned(t *testing.T) {
 	if variant.MaybeOutput("zip-aligned/foo.apk").Rule == nil {
 		t.Errorf("can't find aligning rule")
 	}
+
+	rule := variant.Rule("genProvenanceMetaData")
+	android.AssertStringEquals(t, "Invalid input", "prebuilts/apk/app.apk", rule.Inputs[0].String())
+	android.AssertStringEquals(t, "Invalid output", "out/soong/.intermediates/provenance_metadata/foo/provenance_metadata.textproto", rule.Output.String())
+	android.AssertStringEquals(t, "Invalid args", "foo", rule.Args["module_name"])
+	android.AssertStringEquals(t, "Invalid args", "/system/app/foo/foo.apk", rule.Args["install_path"])
 }
 
 func TestAndroidAppImport_SigningLineage(t *testing.T) {
@@ -111,6 +129,7 @@ func TestAndroidAppImport_SigningLineage(t *testing.T) {
 			certificate: "platform",
 			additional_certificates: [":additional_certificate"],
 			lineage: "lineage.bin",
+			rotationMinSdkVersion: "32",
 		}
 
 		android_app_certificate {
@@ -130,12 +149,19 @@ func TestAndroidAppImport_SigningLineage(t *testing.T) {
 	if expected != certificatesFlag {
 		t.Errorf("Incorrect certificates flags, expected: %q, got: %q", expected, certificatesFlag)
 	}
-	// Check cert signing lineage flag.
-	signingFlag := signedApk.Args["flags"]
-	expected = "--lineage lineage.bin"
-	if expected != signingFlag {
-		t.Errorf("Incorrect signing flags, expected: %q, got: %q", expected, signingFlag)
+
+	// Check cert signing flags.
+	actualCertSigningFlags := signedApk.Args["flags"]
+	expectedCertSigningFlags := "--lineage lineage.bin --rotation-min-sdk-version 32"
+	if expectedCertSigningFlags != actualCertSigningFlags {
+		t.Errorf("Incorrect signing flags, expected: %q, got: %q", expectedCertSigningFlags, actualCertSigningFlags)
 	}
+
+	rule := variant.Rule("genProvenanceMetaData")
+	android.AssertStringEquals(t, "Invalid input", "prebuilts/apk/app.apk", rule.Inputs[0].String())
+	android.AssertStringEquals(t, "Invalid output", "out/soong/.intermediates/provenance_metadata/foo/provenance_metadata.textproto", rule.Output.String())
+	android.AssertStringEquals(t, "Invalid args", "foo", rule.Args["module_name"])
+	android.AssertStringEquals(t, "Invalid args", "/system/app/foo/foo.apk", rule.Args["install_path"])
 }
 
 func TestAndroidAppImport_SigningLineageFilegroup(t *testing.T) {
@@ -162,6 +188,12 @@ func TestAndroidAppImport_SigningLineageFilegroup(t *testing.T) {
 	if expected != signingFlag {
 		t.Errorf("Incorrect signing flags, expected: %q, got: %q", expected, signingFlag)
 	}
+
+	rule := variant.Rule("genProvenanceMetaData")
+	android.AssertStringEquals(t, "Invalid input", "prebuilts/apk/app.apk", rule.Inputs[0].String())
+	android.AssertStringEquals(t, "Invalid output", "out/soong/.intermediates/provenance_metadata/foo/provenance_metadata.textproto", rule.Output.String())
+	android.AssertStringEquals(t, "Invalid args", "foo", rule.Args["module_name"])
+	android.AssertStringEquals(t, "Invalid args", "/system/app/foo/foo.apk", rule.Args["install_path"])
 }
 
 func TestAndroidAppImport_DefaultDevCert(t *testing.T) {
@@ -191,6 +223,12 @@ func TestAndroidAppImport_DefaultDevCert(t *testing.T) {
 	if expected != signingFlag {
 		t.Errorf("Incorrect signing flags, expected: %q, got: %q", expected, signingFlag)
 	}
+
+	rule := variant.Rule("genProvenanceMetaData")
+	android.AssertStringEquals(t, "Invalid input", "prebuilts/apk/app.apk", rule.Inputs[0].String())
+	android.AssertStringEquals(t, "Invalid output", "out/soong/.intermediates/provenance_metadata/foo/provenance_metadata.textproto", rule.Output.String())
+	android.AssertStringEquals(t, "Invalid args", "foo", rule.Args["module_name"])
+	android.AssertStringEquals(t, "Invalid args", "/system/app/foo/foo.apk", rule.Args["install_path"])
 }
 
 func TestAndroidAppImport_DpiVariants(t *testing.T) {
@@ -213,40 +251,46 @@ func TestAndroidAppImport_DpiVariants(t *testing.T) {
 		}
 		`
 	testCases := []struct {
-		name                string
-		aaptPreferredConfig *string
-		aaptPrebuiltDPI     []string
-		expected            string
+		name                                   string
+		aaptPreferredConfig                    *string
+		aaptPrebuiltDPI                        []string
+		expected                               string
+		expectedProvenanceMetaDataArtifactPath string
 	}{
 		{
-			name:                "no preferred",
-			aaptPreferredConfig: nil,
-			aaptPrebuiltDPI:     []string{},
-			expected:            "verify_uses_libraries/apk/app.apk",
+			name:                                   "no preferred",
+			aaptPreferredConfig:                    nil,
+			aaptPrebuiltDPI:                        []string{},
+			expected:                               "verify_uses_libraries/apk/app.apk",
+			expectedProvenanceMetaDataArtifactPath: "prebuilts/apk/app.apk",
 		},
 		{
-			name:                "AAPTPreferredConfig matches",
-			aaptPreferredConfig: proptools.StringPtr("xhdpi"),
-			aaptPrebuiltDPI:     []string{"xxhdpi", "ldpi"},
-			expected:            "verify_uses_libraries/apk/app_xhdpi.apk",
+			name:                                   "AAPTPreferredConfig matches",
+			aaptPreferredConfig:                    proptools.StringPtr("xhdpi"),
+			aaptPrebuiltDPI:                        []string{"xxhdpi", "ldpi"},
+			expected:                               "verify_uses_libraries/apk/app_xhdpi.apk",
+			expectedProvenanceMetaDataArtifactPath: "prebuilts/apk/app_xhdpi.apk",
 		},
 		{
-			name:                "AAPTPrebuiltDPI matches",
-			aaptPreferredConfig: proptools.StringPtr("mdpi"),
-			aaptPrebuiltDPI:     []string{"xxhdpi", "xhdpi"},
-			expected:            "verify_uses_libraries/apk/app_xxhdpi.apk",
+			name:                                   "AAPTPrebuiltDPI matches",
+			aaptPreferredConfig:                    proptools.StringPtr("mdpi"),
+			aaptPrebuiltDPI:                        []string{"xxhdpi", "xhdpi"},
+			expected:                               "verify_uses_libraries/apk/app_xxhdpi.apk",
+			expectedProvenanceMetaDataArtifactPath: "prebuilts/apk/app_xxhdpi.apk",
 		},
 		{
-			name:                "non-first AAPTPrebuiltDPI matches",
-			aaptPreferredConfig: proptools.StringPtr("mdpi"),
-			aaptPrebuiltDPI:     []string{"ldpi", "xhdpi"},
-			expected:            "verify_uses_libraries/apk/app_xhdpi.apk",
+			name:                                   "non-first AAPTPrebuiltDPI matches",
+			aaptPreferredConfig:                    proptools.StringPtr("mdpi"),
+			aaptPrebuiltDPI:                        []string{"ldpi", "xhdpi"},
+			expected:                               "verify_uses_libraries/apk/app_xhdpi.apk",
+			expectedProvenanceMetaDataArtifactPath: "prebuilts/apk/app_xhdpi.apk",
 		},
 		{
-			name:                "no matches",
-			aaptPreferredConfig: proptools.StringPtr("mdpi"),
-			aaptPrebuiltDPI:     []string{"ldpi", "xxxhdpi"},
-			expected:            "verify_uses_libraries/apk/app.apk",
+			name:                                   "no matches",
+			aaptPreferredConfig:                    proptools.StringPtr("mdpi"),
+			aaptPrebuiltDPI:                        []string{"ldpi", "xxxhdpi"},
+			expected:                               "verify_uses_libraries/apk/app.apk",
+			expectedProvenanceMetaDataArtifactPath: "prebuilts/apk/app.apk",
 		},
 	}
 
@@ -269,6 +313,12 @@ func TestAndroidAppImport_DpiVariants(t *testing.T) {
 		if strings.HasSuffix(matches[1], test.expected) {
 			t.Errorf("wrong src apk, expected: %q got: %q", test.expected, matches[1])
 		}
+
+		provenanceMetaDataRule := variant.Rule("genProvenanceMetaData")
+		android.AssertStringEquals(t, "Invalid input", test.expectedProvenanceMetaDataArtifactPath, provenanceMetaDataRule.Inputs[0].String())
+		android.AssertStringEquals(t, "Invalid output", "out/soong/.intermediates/provenance_metadata/foo/provenance_metadata.textproto", provenanceMetaDataRule.Output.String())
+		android.AssertStringEquals(t, "Invalid args", "foo", provenanceMetaDataRule.Args["module_name"])
+		android.AssertStringEquals(t, "Invalid args", "/system/app/foo/foo.apk", provenanceMetaDataRule.Args["install_path"])
 	}
 }
 
@@ -289,16 +339,25 @@ func TestAndroidAppImport_Filename(t *testing.T) {
 		`)
 
 	testCases := []struct {
-		name     string
-		expected string
+		name                 string
+		expected             string
+		onDevice             string
+		expectedArtifactPath string
+		expectedMetaDataPath string
 	}{
 		{
-			name:     "foo",
-			expected: "foo.apk",
+			name:                 "foo",
+			expected:             "foo.apk",
+			onDevice:             "/system/app/foo/foo.apk",
+			expectedArtifactPath: "prebuilts/apk/app.apk",
+			expectedMetaDataPath: "out/soong/.intermediates/provenance_metadata/foo/provenance_metadata.textproto",
 		},
 		{
-			name:     "bar",
-			expected: "bar_sample.apk",
+			name:                 "bar",
+			expected:             "bar_sample.apk",
+			onDevice:             "/system/app/bar/bar_sample.apk",
+			expectedArtifactPath: "prebuilts/apk/app.apk",
+			expectedMetaDataPath: "out/soong/.intermediates/provenance_metadata/bar/provenance_metadata.textproto",
 		},
 	}
 
@@ -315,15 +374,23 @@ func TestAndroidAppImport_Filename(t *testing.T) {
 			t.Errorf("Incorrect LOCAL_INSTALLED_MODULE_STEM value '%s', expected '%s'",
 				actualValues, expectedValues)
 		}
+		rule := variant.Rule("genProvenanceMetaData")
+		android.AssertStringEquals(t, "Invalid input", test.expectedArtifactPath, rule.Inputs[0].String())
+		android.AssertStringEquals(t, "Invalid output", test.expectedMetaDataPath, rule.Output.String())
+		android.AssertStringEquals(t, "Invalid args", test.name, rule.Args["module_name"])
+		android.AssertStringEquals(t, "Invalid args", test.onDevice, rule.Args["install_path"])
 	}
 }
 
 func TestAndroidAppImport_ArchVariants(t *testing.T) {
 	// The test config's target arch is ARM64.
 	testCases := []struct {
-		name     string
-		bp       string
-		expected string
+		name         string
+		bp           string
+		expected     string
+		artifactPath string
+		metaDataPath string
+		installPath  string
 	}{
 		{
 			name: "matching arch",
@@ -342,7 +409,9 @@ func TestAndroidAppImport_ArchVariants(t *testing.T) {
 					},
 				}
 			`,
-			expected: "verify_uses_libraries/apk/app_arm64.apk",
+			expected:     "verify_uses_libraries/apk/app_arm64.apk",
+			artifactPath: "prebuilts/apk/app_arm64.apk",
+			installPath:  "/system/app/foo/foo.apk",
 		},
 		{
 			name: "no matching arch",
@@ -361,7 +430,9 @@ func TestAndroidAppImport_ArchVariants(t *testing.T) {
 					},
 				}
 			`,
-			expected: "verify_uses_libraries/apk/app.apk",
+			expected:     "verify_uses_libraries/apk/app.apk",
+			artifactPath: "prebuilts/apk/app.apk",
+			installPath:  "/system/app/foo/foo.apk",
 		},
 		{
 			name: "no matching arch without default",
@@ -379,7 +450,9 @@ func TestAndroidAppImport_ArchVariants(t *testing.T) {
 					},
 				}
 			`,
-			expected: "",
+			expected:     "",
+			artifactPath: "prebuilts/apk/app_arm.apk",
+			installPath:  "/system/app/foo/foo.apk",
 		},
 	}
 
@@ -392,6 +465,8 @@ func TestAndroidAppImport_ArchVariants(t *testing.T) {
 			if variant.Module().Enabled() {
 				t.Error("module should have been disabled, but wasn't")
 			}
+			rule := variant.MaybeRule("genProvenanceMetaData")
+			android.AssertDeepEquals(t, "Provenance metadata is not empty", android.TestingBuildParams{}, rule)
 			continue
 		}
 		jniRuleCommand := variant.Output("jnis-uncompressed/foo.apk").RuleParams.Command
@@ -402,6 +477,11 @@ func TestAndroidAppImport_ArchVariants(t *testing.T) {
 		if strings.HasSuffix(matches[1], test.expected) {
 			t.Errorf("wrong src apk, expected: %q got: %q", test.expected, matches[1])
 		}
+		rule := variant.Rule("genProvenanceMetaData")
+		android.AssertStringEquals(t, "Invalid input", test.artifactPath, rule.Inputs[0].String())
+		android.AssertStringEquals(t, "Invalid output", "out/soong/.intermediates/provenance_metadata/foo/provenance_metadata.textproto", rule.Output.String())
+		android.AssertStringEquals(t, "Invalid args", "foo", rule.Args["module_name"])
+		android.AssertStringEquals(t, "Invalid args", test.installPath, rule.Args["install_path"])
 	}
 }
 
@@ -490,6 +570,69 @@ func TestAndroidAppImport_frameworkRes(t *testing.T) {
 		t.Errorf("LOCAL_SOONG_RESOURCE_EXPORT_PACKAGE incorrect len %d", len(actualSoongResourceExportPackage))
 	} else if actualSoongResourceExportPackage[0] != expectedSoongResourceExportPackage {
 		t.Errorf("LOCAL_SOONG_RESOURCE_EXPORT_PACKAGE mismatch, actual: %s, expected: %s", actualSoongResourceExportPackage[0], expectedSoongResourceExportPackage)
+	}
+}
+
+func TestAndroidAppImport_relativeInstallPath(t *testing.T) {
+	bp := `
+		android_app_import {
+			name: "no_relative_install_path",
+			apk: "prebuilts/apk/app.apk",
+			presigned: true,
+		}
+
+		android_app_import {
+			name: "relative_install_path",
+			apk: "prebuilts/apk/app.apk",
+			presigned: true,
+			relative_install_path: "my/path",
+		}
+
+		android_app_import {
+			name: "framework-res",
+			apk: "prebuilts/apk/app.apk",
+			presigned: true,
+			prefer: true,
+		}
+
+		android_app_import {
+			name: "privileged_relative_install_path",
+			apk: "prebuilts/apk/app.apk",
+			presigned: true,
+			privileged: true,
+			relative_install_path: "my/path"
+		}
+		`
+	testCases := []struct {
+		name                string
+		expectedInstallPath string
+		errorMessage        string
+	}{
+		{
+			name:                "no_relative_install_path",
+			expectedInstallPath: "out/soong/target/product/test_device/system/app/no_relative_install_path/no_relative_install_path.apk",
+			errorMessage:        "Install path is not correct when relative_install_path is missing",
+		},
+		{
+			name:                "relative_install_path",
+			expectedInstallPath: "out/soong/target/product/test_device/system/app/my/path/relative_install_path/relative_install_path.apk",
+			errorMessage:        "Install path is not correct for app when relative_install_path is present",
+		},
+		{
+			name:                "prebuilt_framework-res",
+			expectedInstallPath: "out/soong/target/product/test_device/system/framework/framework-res.apk",
+			errorMessage:        "Install path is not correct for framework-res",
+		},
+		{
+			name:                "privileged_relative_install_path",
+			expectedInstallPath: "out/soong/target/product/test_device/system/priv-app/my/path/privileged_relative_install_path/privileged_relative_install_path.apk",
+			errorMessage:        "Install path is not correct for privileged app when relative_install_path is present",
+		},
+	}
+	for _, testCase := range testCases {
+		ctx, _ := testJava(t, bp)
+		mod := ctx.ModuleForTests(testCase.name, "android_common").Module().(*AndroidAppImport)
+		android.AssertPathRelativeToTopEquals(t, testCase.errorMessage, testCase.expectedInstallPath, mod.installPath)
 	}
 }
 
@@ -590,6 +733,77 @@ func TestAndroidTestImport_Preprocessed(t *testing.T) {
 		}
 		if variant.MaybeOutput("zip-aligned/"+apkName).Rule != nil {
 			t.Errorf("aligning rule shouldn't be for preprocessed")
+		}
+	}
+}
+
+func TestAndroidTestImport_UncompressDex(t *testing.T) {
+	testCases := []struct {
+		name string
+		bp   string
+	}{
+		{
+			name: "normal",
+			bp: `
+				android_app_import {
+					name: "foo",
+					presigned: true,
+					apk: "prebuilts/apk/app.apk",
+				}
+			`,
+		},
+		{
+			name: "privileged",
+			bp: `
+				android_app_import {
+					name: "foo",
+					presigned: true,
+					privileged: true,
+					apk: "prebuilts/apk/app.apk",
+				}
+			`,
+		},
+	}
+
+	test := func(t *testing.T, bp string, unbundled bool, dontUncompressPrivAppDexs bool) {
+		t.Helper()
+
+		result := android.GroupFixturePreparers(
+			prepareForJavaTest,
+			android.FixtureModifyProductVariables(func(variables android.FixtureProductVariables) {
+				if unbundled {
+					variables.Unbundled_build = proptools.BoolPtr(true)
+				}
+				variables.UncompressPrivAppDex = proptools.BoolPtr(!dontUncompressPrivAppDexs)
+			}),
+		).RunTestWithBp(t, bp)
+
+		foo := result.ModuleForTests("foo", "android_common")
+		actual := foo.MaybeRule("uncompress-dex").Rule != nil
+
+		expect := !unbundled
+		if strings.Contains(bp, "privileged: true") {
+			if dontUncompressPrivAppDexs {
+				expect = false
+			} else {
+				// TODO(b/194504107): shouldn't priv-apps be always uncompressed unless
+				// DONT_UNCOMPRESS_PRIV_APPS_DEXS is true (regardless of unbundling)?
+				// expect = true
+			}
+		}
+
+		android.AssertBoolEquals(t, "uncompress dex", expect, actual)
+	}
+
+	for _, unbundled := range []bool{false, true} {
+		for _, dontUncompressPrivAppDexs := range []bool{false, true} {
+			for _, tt := range testCases {
+				name := fmt.Sprintf("%s,unbundled:%t,dontUncompressPrivAppDexs:%t",
+					tt.name, unbundled, dontUncompressPrivAppDexs)
+				t.Run(name, func(t *testing.T) {
+					test(t, tt.bp, unbundled, dontUncompressPrivAppDexs)
+				})
+			}
 		}
 	}
 }

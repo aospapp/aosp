@@ -17,6 +17,24 @@
 import math
 import unittest
 
+COMMON_IMG_ARS = (1.333, 1.778)
+COMMON_IMG_ARS_ATOL = 0.01
+
+
+def is_common_aspect_ratio(size):
+  """Returns if aspect ratio is a 4:3 or 16:9.
+
+  Args:
+    size: tuple of image (w, h)
+
+  Returns:
+    Boolean
+  """
+  for aspect_ratio in COMMON_IMG_ARS:
+    if math.isclose(size[0]/size[1], aspect_ratio, abs_tol=COMMON_IMG_ARS_ATOL):
+      return True
+  return False
+
 
 def auto_capture_request(linear_tonemap=False, props=None):
   """Returns a capture request with everything set to auto.

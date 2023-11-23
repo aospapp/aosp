@@ -100,6 +100,8 @@ enum ChppLinkErrorCode chppPlatformLinkSend(
   chppMutexLock(&params->mutex);
   if (params->bufLen != 0) {
     CHPP_LOGE("Failed to send data - link layer busy");
+  } else if (!params->isLinkActive) {
+    success = false;
   } else {
     success = true;
     memcpy(params->buf, buf, len);

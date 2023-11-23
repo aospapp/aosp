@@ -97,35 +97,37 @@ class TestFinderHandlerUnittests(unittest.TestCase):
         """Test _get_test_reference_types parses reference types correctly."""
         self.assertEqual(
             test_finder_handler._get_test_reference_types('ModuleOrClassName'),
-            [REF_TYPE.CACHE, REF_TYPE.INTEGRATION, REF_TYPE.MODULE,
+            [REF_TYPE.MODULE, REF_TYPE.CACHE, REF_TYPE.INTEGRATION,
              REF_TYPE.CONFIG, REF_TYPE.SUITE_PLAN, REF_TYPE.CLASS,
              REF_TYPE.CC_CLASS]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('Module_or_Class_name'),
-            [REF_TYPE.CACHE, REF_TYPE.INTEGRATION, REF_TYPE.MODULE,
+            [REF_TYPE.MODULE, REF_TYPE.CACHE, REF_TYPE.INTEGRATION,
              REF_TYPE.CONFIG, REF_TYPE.SUITE_PLAN, REF_TYPE.CLASS,
              REF_TYPE.CC_CLASS]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('SuiteName'),
-            [REF_TYPE.CACHE, REF_TYPE.INTEGRATION, REF_TYPE.MODULE,
+            [REF_TYPE.MODULE, REF_TYPE.CACHE, REF_TYPE.INTEGRATION,
              REF_TYPE.CONFIG, REF_TYPE.SUITE_PLAN, REF_TYPE.CLASS,
              REF_TYPE.CC_CLASS]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('Suite-Name'),
-            [REF_TYPE.CACHE, REF_TYPE.INTEGRATION, REF_TYPE.MODULE,
+            [REF_TYPE.MODULE, REF_TYPE.CACHE, REF_TYPE.INTEGRATION,
              REF_TYPE.CONFIG, REF_TYPE.SUITE_PLAN, REF_TYPE.CLASS,
              REF_TYPE.CC_CLASS]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('some.package'),
-            [REF_TYPE.CACHE, REF_TYPE.MODULE, REF_TYPE.PACKAGE]
+            [REF_TYPE.MODULE, REF_TYPE.CACHE,
+             REF_TYPE.QUALIFIED_CLASS, REF_TYPE.PACKAGE]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('fully.q.Class'),
-            [REF_TYPE.CACHE, REF_TYPE.QUALIFIED_CLASS]
+            [REF_TYPE.MODULE, REF_TYPE.CACHE,
+             REF_TYPE.QUALIFIED_CLASS, REF_TYPE.PACKAGE]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('Integration.xml'),
@@ -162,11 +164,11 @@ class TestFinderHandlerUnittests(unittest.TestCase):
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('module:Class'),
-            [REF_TYPE.CACHE, REF_TYPE.INTEGRATION, REF_TYPE.MODULE_CLASS]
+            [REF_TYPE.CACHE, REF_TYPE.MODULE_CLASS, REF_TYPE.INTEGRATION]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('module:f.q.Class'),
-            [REF_TYPE.CACHE, REF_TYPE.INTEGRATION, REF_TYPE.MODULE_CLASS]
+            [REF_TYPE.CACHE, REF_TYPE.MODULE_CLASS, REF_TYPE.INTEGRATION]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('module:a.package'),
@@ -174,65 +176,65 @@ class TestFinderHandlerUnittests(unittest.TestCase):
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('.'),
-            [REF_TYPE.CACHE, REF_TYPE.INTEGRATION_FILE_PATH,
-             REF_TYPE.MODULE_FILE_PATH, REF_TYPE.SUITE_PLAN_FILE_PATH]
+            [REF_TYPE.CACHE, REF_TYPE.MODULE_FILE_PATH,
+             REF_TYPE.INTEGRATION_FILE_PATH, REF_TYPE.SUITE_PLAN_FILE_PATH]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('..'),
-            [REF_TYPE.CACHE, REF_TYPE.INTEGRATION_FILE_PATH,
-             REF_TYPE.MODULE_FILE_PATH, REF_TYPE.SUITE_PLAN_FILE_PATH]
+            [REF_TYPE.CACHE, REF_TYPE.MODULE_FILE_PATH,
+             REF_TYPE.INTEGRATION_FILE_PATH, REF_TYPE.SUITE_PLAN_FILE_PATH]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('./rel/path/to/test'),
-            [REF_TYPE.CACHE, REF_TYPE.INTEGRATION_FILE_PATH,
-             REF_TYPE.MODULE_FILE_PATH, REF_TYPE.SUITE_PLAN_FILE_PATH]
+            [REF_TYPE.CACHE, REF_TYPE.MODULE_FILE_PATH,
+             REF_TYPE.INTEGRATION_FILE_PATH, REF_TYPE.SUITE_PLAN_FILE_PATH]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('rel/path/to/test'),
-            [REF_TYPE.CACHE, REF_TYPE.INTEGRATION_FILE_PATH,
-             REF_TYPE.MODULE_FILE_PATH, REF_TYPE.INTEGRATION,
+            [REF_TYPE.CACHE, REF_TYPE.MODULE_FILE_PATH,
+             REF_TYPE.INTEGRATION_FILE_PATH, REF_TYPE.INTEGRATION,
              REF_TYPE.SUITE_PLAN_FILE_PATH, REF_TYPE.CC_CLASS]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('/abs/path/to/test'),
-            [REF_TYPE.CACHE, REF_TYPE.INTEGRATION_FILE_PATH,
-             REF_TYPE.MODULE_FILE_PATH, REF_TYPE.SUITE_PLAN_FILE_PATH]
+            [REF_TYPE.CACHE, REF_TYPE.MODULE_FILE_PATH,
+             REF_TYPE.INTEGRATION_FILE_PATH, REF_TYPE.SUITE_PLAN_FILE_PATH]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('int/test'),
-            [REF_TYPE.CACHE, REF_TYPE.INTEGRATION_FILE_PATH,
-             REF_TYPE.MODULE_FILE_PATH, REF_TYPE.INTEGRATION,
+            [REF_TYPE.CACHE, REF_TYPE.MODULE_FILE_PATH,
+             REF_TYPE.INTEGRATION_FILE_PATH, REF_TYPE.INTEGRATION,
              REF_TYPE.SUITE_PLAN_FILE_PATH, REF_TYPE.CC_CLASS]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('int/test:fully.qual.Class#m'),
-            [REF_TYPE.CACHE, REF_TYPE.INTEGRATION_FILE_PATH,
-             REF_TYPE.MODULE_FILE_PATH, REF_TYPE.INTEGRATION,
+            [REF_TYPE.CACHE, REF_TYPE.MODULE_FILE_PATH,
+             REF_TYPE.INTEGRATION_FILE_PATH, REF_TYPE.INTEGRATION,
              REF_TYPE.SUITE_PLAN_FILE_PATH, REF_TYPE.MODULE_CLASS]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('int/test:Class#method'),
-            [REF_TYPE.CACHE, REF_TYPE.INTEGRATION_FILE_PATH,
-             REF_TYPE.MODULE_FILE_PATH, REF_TYPE.INTEGRATION,
+            [REF_TYPE.CACHE, REF_TYPE.MODULE_FILE_PATH,
+             REF_TYPE.INTEGRATION_FILE_PATH, REF_TYPE.INTEGRATION,
              REF_TYPE.SUITE_PLAN_FILE_PATH, REF_TYPE.MODULE_CLASS]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('int_name_no_slash:Class#m'),
-            [REF_TYPE.CACHE, REF_TYPE.INTEGRATION, REF_TYPE.MODULE_CLASS]
+            [REF_TYPE.CACHE, REF_TYPE.MODULE_CLASS, REF_TYPE.INTEGRATION]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types(
                 'gtest_module:Class_Prefix/Class#Method/Method_Suffix'),
-            [REF_TYPE.CACHE, REF_TYPE.INTEGRATION_FILE_PATH,
-             REF_TYPE.MODULE_FILE_PATH, REF_TYPE.INTEGRATION,
+            [REF_TYPE.CACHE, REF_TYPE.MODULE_FILE_PATH,
+             REF_TYPE.INTEGRATION_FILE_PATH, REF_TYPE.INTEGRATION,
              REF_TYPE.SUITE_PLAN_FILE_PATH, REF_TYPE.MODULE_CLASS]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types(
                 'Class_Prefix/Class#Method/Method_Suffix'),
             [REF_TYPE.CACHE,
-             REF_TYPE.INTEGRATION_FILE_PATH,
              REF_TYPE.MODULE_FILE_PATH,
+             REF_TYPE.INTEGRATION_FILE_PATH,
              REF_TYPE.INTEGRATION,
              REF_TYPE.SUITE_PLAN_FILE_PATH,
              REF_TYPE.CC_CLASS]

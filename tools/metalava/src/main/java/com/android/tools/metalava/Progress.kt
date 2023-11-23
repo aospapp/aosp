@@ -82,7 +82,8 @@ private fun getCpuStats(): String {
         "+%.1freal +%.1fusr +%.1fsys",
         realDeltaMs / 1_000.0,
         userDeltaMillis / 1_000.0,
-        sysDeltaMillis / 1_000.0)
+        sysDeltaMillis / 1_000.0
+    )
 }
 
 private fun getMemoryStats(): String {
@@ -93,7 +94,8 @@ private fun getMemoryStats(): String {
         mu.init / 1024 / 1024,
         mu.used / 1024 / 1024,
         mu.committed / 1024 / 1024,
-        mu.max / 1024 / 1024)
+        mu.max / 1024 / 1024
+    )
 }
 
 /** Used for verbose output to show progress bar */

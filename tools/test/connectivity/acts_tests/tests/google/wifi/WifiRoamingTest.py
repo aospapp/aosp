@@ -276,7 +276,7 @@ class WifiRoamingTest(WifiBaseTest):
         """
         for ad in self.android_devices:
             wutils.set_wifi_country_code(
-                    ad, wutils.WifiEnums.CountryCode.AUSTRALIA)
+                ad, wutils.WifiEnums.CountryCode.AUSTRALIA)
         if "OpenWrtAP" in self.user_params:
             self.configure_openwrt_ap_and_start(open_network=True,
                                                 ap_count=2,
@@ -292,9 +292,9 @@ class WifiRoamingTest(WifiBaseTest):
 
         # start softap on 2G and verify the channel is 6.
         sap_config = {
-                WifiEnums.SSID_KEY: "hotspot_%s" % utils.rand_ascii_str(6),
-                WifiEnums.PWD_KEY: "pass_%s" % utils.rand_ascii_str(6),
-                WifiEnums.AP_BAND_KEY: WifiEnums.WIFI_CONFIG_SOFTAP_BAND_2G}
+            WifiEnums.SSID_KEY: "hotspot_%s" % utils.rand_ascii_str(6),
+            WifiEnums.PWD_KEY: "pass_%s" % utils.rand_ascii_str(6),
+            WifiEnums.AP_BAND_KEY: WifiEnums.WIFI_CONFIG_SOFTAP_BAND_2G}
         asserts.assert_true(
             self.dut.droid.wifiSetWifiApConfiguration(sap_config),
             "Failed to set WifiAp Configuration")
@@ -678,7 +678,7 @@ class WifiRoamingTest(WifiBaseTest):
 
         # Configure AP1 to enable capable PMF.
         self.configure_openwrt_ap_and_start(wpa_network=True,
-                                                ieee80211w=1)
+                                            ieee80211w=1)
         ap1_network = self.reference_networks[0]["5g"]
         ap1_network["bssid"] = self.bssid_map[0]["5g"][ap1_network["SSID"]]
 
@@ -1047,15 +1047,16 @@ class WifiRoamingTest(WifiBaseTest):
         self.roaming_from_AP1_and_AP2(ap1_network, ap2_network)
 
     @test_tracker_info(uuid="e875233f-d242-4ddd-b357-8e3e215af050")
-    def test_roaming_fail_between_psk_to_sae_5g(self):
+    def test_roaming_between_psk_to_sae_5g(self):
         """Verify fail with diff security type after roaming with OpenWrtAP
 
+         This test will pass after design change but this is not seamless roaming.
          Steps:
              1. Configure 2 APs security type to sae
              2. Configure AP1 security type to psk
              3. Connect DUT to AP1
              4. Roam to AP2
-             5. Verify the DUT can't connect to AP2 after roaming
+             5. Verify the DUT connect to AP2 after roaming
         """
         # Use OpenWrt as Wi-Fi AP when it's available in testbed.
         asserts.skip_if("OpenWrtAP" not in self.user_params, "OpenWrtAP not in user_params")
@@ -1081,15 +1082,10 @@ class WifiRoamingTest(WifiBaseTest):
         ap2_network["SSID"] = ap1_network["SSID"]
         ap2_network["password"] = ap1_network["password"]
 
-        try:
-          # DUT roaming from AP1 to AP2 with diff security type.
-          self.dut.log.info("Roaming via WPA2 AP1 to SAE AP2 [{}]"
-                            .format(ap2_network["bssid"]))
-          self.roaming_from_AP1_and_AP2(ap1_network, ap2_network)
-        except:
-          self.dut.log.info("Failed roaming to AP2 with diff security type")
-        else:
-          raise signals.TestFailure("DUT unexpectedly connect to Wi-Fi.")
+        # DUT roaming from AP1 to AP2 with diff security type.
+        # Expect device disconnect from AP1 and connect to AP2 due to
+        # saved network contain AP2.
+        self.roaming_from_AP1_and_AP2(ap1_network, ap2_network)
 
     @test_tracker_info(uuid="76098016-56a4-4b92-8c13-7333a21c9a1b")
     def test_roaming_between_psk_to_saemixed_2g(self):

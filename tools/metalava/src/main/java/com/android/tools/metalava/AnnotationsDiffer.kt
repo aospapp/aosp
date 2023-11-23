@@ -86,7 +86,7 @@ class AnnotationsDiffer(
                         }
                     } else {
                         // TODO: Check for other incompatibilities than nullness?
-                        val qualifiedName = annotation.qualifiedName() ?: continue
+                        val qualifiedName = annotation.qualifiedName ?: continue
                         if (newModifiers.findAnnotation(qualifiedName) == null) {
                             addAnnotation = true
                         }

@@ -19,6 +19,8 @@ package android.graphics.cts;
 import static android.system.OsConstants.EINVAL;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertTrue;
 
 import android.app.Activity;
@@ -44,7 +46,6 @@ import com.google.common.primitives.Floats;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -56,19 +57,25 @@ public class FrameRateCtsActivity extends Activity {
         System.loadLibrary("ctsgraphics_jni");
     }
 
-    private static String TAG = "FrameRateCtsActivity";
+    private static final String TAG = "FrameRateCtsActivity";
     private static final long FRAME_RATE_SWITCH_GRACE_PERIOD_SECONDS = 2;
     private static final long STABLE_FRAME_RATE_WAIT_SECONDS = 1;
     private static final long POST_BUFFER_INTERVAL_MILLIS = 500;
     private static final int PRECONDITION_WAIT_MAX_ATTEMPTS = 5;
     private static final long PRECONDITION_WAIT_TIMEOUT_SECONDS = 20;
     private static final long PRECONDITION_VIOLATION_WAIT_TIMEOUT_SECONDS = 3;
-    private static final float FRAME_RATE_TOLERANCE = 0.01f;
+    private static final float FRAME_RATE_TOLERANCE_STRICT = 0.01f;
+
+    // Tolerance which doesn't differentiate between the fractional refresh rate pairs, e.g.
+    // 59.94 and 60 will be considered the same refresh rate.
+    // Use this tolerance to verify the refresh rate after calling setFrameRate with
+    // {@Surface.FRAME_RATE_COMPATIBILITY_DEFAULT}.
+    private static final float FRAME_RATE_TOLERANCE_RELAXED = 0.1f;
 
     private DisplayManager mDisplayManager;
     private SurfaceView mSurfaceView;
     private Handler mHandler = new Handler(Looper.getMainLooper());
-    private Object mLock = new Object();
+    private final Object mLock = new Object();
     private Surface mSurface = null;
     private float mDeviceFrameRate;
     private ModeChangedEvents mModeChangedEvents = new ModeChangedEvents();
@@ -193,23 +200,20 @@ public class FrameRateCtsActivity extends Activity {
             mColor = color;
 
             if (mApi == Api.SURFACE || mApi == Api.ANATIVE_WINDOW || mApi == Api.SURFACE_CONTROL) {
-                assertTrue("No parent surface", parentSurfaceControl != null);
+                assertNotNull("No parent surface", parentSurfaceControl);
                 mSurfaceControl = new SurfaceControl.Builder()
                                           .setParent(parentSurfaceControl)
                                           .setName(mName)
                                           .setBufferSize(destFrame.right - destFrame.left,
                                                   destFrame.bottom - destFrame.top)
                                           .build();
-                SurfaceControl.Transaction transaction = new SurfaceControl.Transaction();
-                try {
+                try (SurfaceControl.Transaction transaction = new SurfaceControl.Transaction()) {
                     transaction.setGeometry(mSurfaceControl, null, destFrame, Surface.ROTATION_0)
                             .apply();
-                } finally {
-                    transaction.close();
                 }
                 mSurface = new Surface(mSurfaceControl);
             } else if (mApi == Api.NATIVE_SURFACE_CONTROL) {
-                assertTrue("No parent surface", parentSurface != null);
+                assertNotNull("No parent surface", parentSurface);
                 mNativeSurfaceControl = nativeSurfaceControlCreate(parentSurface, mName,
                         destFrame.left, destFrame.top, destFrame.right, destFrame.bottom);
                 assertTrue("Failed to create a native SurfaceControl", mNativeSurfaceControl != 0);
@@ -226,19 +230,25 @@ public class FrameRateCtsActivity extends Activity {
 
             int rc = 0;
             if (mApi == Api.SURFACE) {
-                mSurface.setFrameRate(frameRate, compatibility, changeFrameRateStrategy);
+                if (changeFrameRateStrategy == Surface.CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS) {
+                    mSurface.setFrameRate(frameRate, compatibility);
+                } else {
+                    mSurface.setFrameRate(frameRate, compatibility, changeFrameRateStrategy);
+                }
             } else if (mApi == Api.ANATIVE_WINDOW) {
                 rc = nativeWindowSetFrameRate(mSurface, frameRate, compatibility,
                         changeFrameRateStrategy);
             } else if (mApi == Api.SURFACE_CONTROL) {
-                SurfaceControl.Transaction transaction = new SurfaceControl.Transaction();
-                try {
-                    transaction
-                        .setFrameRate(mSurfaceControl, frameRate, compatibility,
-                                changeFrameRateStrategy)
-                        .apply();
-                } finally {
-                    transaction.close();
+                try (SurfaceControl.Transaction transaction = new SurfaceControl.Transaction()) {
+                    if (changeFrameRateStrategy == Surface.CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS) {
+                        transaction
+                                .setFrameRate(mSurfaceControl, frameRate, compatibility);
+                    } else {
+                        transaction
+                                .setFrameRate(mSurfaceControl, frameRate, compatibility,
+                                        changeFrameRateStrategy);
+                    }
+                    transaction.apply();
                 }
             } else if (mApi == Api.NATIVE_SURFACE_CONTROL) {
                 nativeSurfaceControlSetFrameRate(mNativeSurfaceControl, frameRate, compatibility,
@@ -262,9 +272,8 @@ public class FrameRateCtsActivity extends Activity {
             } else {
                 int rc = setFrameRate(frameRate, compatibility, changeFrameRateStrategy);
                 if (mApi == Api.ANATIVE_WINDOW) {
-                    assertTrue("Expected -EINVAL return value from invalid call to"
-                                    + " ANativeWindow_setFrameRate()",
-                            rc == -EINVAL);
+                    assertEquals("Expected -EINVAL return value from invalid call to"
+                            + " ANativeWindow_setFrameRate()", rc, -EINVAL);
                 }
             }
         }
@@ -274,11 +283,8 @@ public class FrameRateCtsActivity extends Activity {
                     String.format("Setting visibility for %s: %s", mName,
                             visible ? "visible" : "hidden"));
             if (mApi == Api.SURFACE || mApi == Api.ANATIVE_WINDOW || mApi == Api.SURFACE_CONTROL) {
-                SurfaceControl.Transaction transaction = new SurfaceControl.Transaction();
-                try {
+                try (SurfaceControl.Transaction transaction = new SurfaceControl.Transaction()) {
                     transaction.setVisibility(mSurfaceControl, visible).apply();
-                } finally {
-                    transaction.close();
                 }
             } else if (mApi == Api.NATIVE_SURFACE_CONTROL) {
                 nativeSurfaceControlSetVisibility(mNativeSurfaceControl, visible);
@@ -309,11 +315,8 @@ public class FrameRateCtsActivity extends Activity {
                 mSurface = null;
             }
             if (mSurfaceControl != null) {
-                SurfaceControl.Transaction transaction = new SurfaceControl.Transaction();
-                try {
+                try (SurfaceControl.Transaction transaction = new SurfaceControl.Transaction()) {
                     transaction.reparent(mSurfaceControl, null).apply();
-                } finally {
-                    transaction.close();
                 }
                 mSurfaceControl.release();
                 mSurfaceControl = null;
@@ -407,7 +410,7 @@ public class FrameRateCtsActivity extends Activity {
         for (float frameRate : frameRates) {
             if (uniqueFrameRates.isEmpty()
                     || frameRate - uniqueFrameRates.get(uniqueFrameRates.size() - 1)
-                            >= FRAME_RATE_TOLERANCE) {
+                            >= FRAME_RATE_TOLERANCE_STRICT) {
                 uniqueFrameRates.add(frameRate);
             }
         }
@@ -430,12 +433,12 @@ public class FrameRateCtsActivity extends Activity {
                 && mode1.getPhysicalWidth() == mode2.getPhysicalWidth();
     }
 
-    private boolean isFrameRateMultiple(float higherFrameRate, float lowerFrameRate) {
+    private boolean isFrameRateMultiple(
+            float higherFrameRate, float lowerFrameRate, float tolerance) {
         float multiple = higherFrameRate / lowerFrameRate;
         int roundedMultiple = Math.round(multiple);
         return roundedMultiple > 0
-                && Math.abs(roundedMultiple * lowerFrameRate - higherFrameRate)
-                    <= FRAME_RATE_TOLERANCE;
+                && Math.abs(roundedMultiple * lowerFrameRate - higherFrameRate) <= tolerance;
     }
 
     // Returns two device-supported frame rates that aren't multiples of each other, or null if no
@@ -446,7 +449,8 @@ public class FrameRateCtsActivity extends Activity {
         for (int i = 0; i < frameRates.size(); i++) {
             for (int j = i + 1; j < frameRates.size(); j++) {
                 if (!isFrameRateMultiple(Math.max(frameRates.get(i), frameRates.get(j)),
-                            Math.min(frameRates.get(i), frameRates.get(j)))) {
+                            Math.min(frameRates.get(i), frameRates.get(j)),
+                            FRAME_RATE_TOLERANCE_RELAXED)) {
                     return new float[] {frameRates.get(i), frameRates.get(j)};
                 }
             }
@@ -456,8 +460,8 @@ public class FrameRateCtsActivity extends Activity {
 
     // Waits until our SurfaceHolder has a surface and the activity is resumed.
     private void waitForPreconditions() throws InterruptedException {
-        assertTrue(
-                "Activity was unexpectedly destroyed", mActivityState != ActivityState.DESTROYED);
+        assertNotSame("Activity was unexpectedly destroyed", mActivityState,
+                ActivityState.DESTROYED);
         if (mSurface == null || mActivityState != ActivityState.RUNNING) {
             Log.i(TAG,
                     String.format(
@@ -473,8 +477,8 @@ public class FrameRateCtsActivity extends Activity {
                                mSurface != null, mActivityState == ActivityState.RUNNING),
                     timeRemainingMillis > 0);
             mLock.wait(timeRemainingMillis);
-            assertTrue("Activity was unexpectedly destroyed",
-                    mActivityState != ActivityState.DESTROYED);
+            assertNotSame("Activity was unexpectedly destroyed", mActivityState,
+                    ActivityState.DESTROYED);
             nowNanos = System.nanoTime();
         }
         // Make sure any previous mode changes are completed.
@@ -483,8 +487,8 @@ public class FrameRateCtsActivity extends Activity {
 
     // Returns true if we encounter a precondition violation, false otherwise.
     private boolean waitForPreconditionViolation() throws InterruptedException {
-        assertTrue(
-                "Activity was unexpectedly destroyed", mActivityState != ActivityState.DESTROYED);
+        assertNotSame("Activity was unexpectedly destroyed", mActivityState,
+                ActivityState.DESTROYED);
         long nowNanos = System.nanoTime();
         long endTimeNanos = nowNanos + PRECONDITION_VIOLATION_WAIT_TIMEOUT_SECONDS * 1_000_000_000L;
         while (mSurface != null && mActivityState == ActivityState.RUNNING) {
@@ -493,8 +497,8 @@ public class FrameRateCtsActivity extends Activity {
                 break;
             }
             mLock.wait(timeRemainingMillis);
-            assertTrue("Activity was unexpectedly destroyed",
-                    mActivityState != ActivityState.DESTROYED);
+            assertNotSame("Activity was unexpectedly destroyed", mActivityState,
+                    ActivityState.DESTROYED);
             nowNanos = System.nanoTime();
         }
         return mSurface == null || mActivityState != ActivityState.RUNNING;
@@ -507,7 +511,7 @@ public class FrameRateCtsActivity extends Activity {
     }
 
     // Returns true if we reached waitUntilNanos, false if some other event occurred.
-    private boolean waitForEvents(long waitUntilNanos, List<TestSurface> surfaces)
+    private boolean waitForEvents(long waitUntilNanos, TestSurface[] surfaces)
             throws InterruptedException {
         int numModeChangedEvents = mModeChangedEvents.size();
         long nowNanos = System.nanoTime();
@@ -539,21 +543,21 @@ public class FrameRateCtsActivity extends Activity {
         return true;
     }
 
-    private void waitForStableFrameRate() throws InterruptedException {
-        verifyCompatibleAndStableFrameRate(0, new ArrayList<>());
+    private void waitForStableFrameRate(TestSurface... surfaces) throws InterruptedException {
+        verifyCompatibleAndStableFrameRate(0, FRAME_RATE_TOLERANCE_STRICT, surfaces);
     }
 
     // Set expectedFrameRate to 0.0 to verify only stable frame rate.
-    private void verifyCompatibleAndStableFrameRate(float expectedFrameRate,
-            List<TestSurface> surfaces) throws InterruptedException {
+    private void verifyCompatibleAndStableFrameRate(float expectedFrameRate, float tolerance,
+            TestSurface... surfaces) throws InterruptedException {
         Log.i(TAG, "Verifying compatible and stable frame rate");
         long nowNanos = System.nanoTime();
         long gracePeriodEndTimeNanos =
                 nowNanos + FRAME_RATE_SWITCH_GRACE_PERIOD_SECONDS * 1_000_000_000L;
         while (true) {
-            if (expectedFrameRate > FRAME_RATE_TOLERANCE) { // expectedFrameRate > 0
+            if (expectedFrameRate > tolerance) { // expectedFrameRate > 0
                 // Wait until we switch to a compatible frame rate.
-                while (!isFrameRateMultiple(mDeviceFrameRate, expectedFrameRate)
+                while (!isFrameRateMultiple(mDeviceFrameRate, expectedFrameRate, tolerance)
                         && !waitForEvents(gracePeriodEndTimeNanos, surfaces)) {
                     // Empty
                 }
@@ -698,7 +702,8 @@ public class FrameRateCtsActivity extends Activity {
                     int initialNumEvents = mModeChangedEvents.size();
                     surface.setFrameRate(frameRate, Surface.FRAME_RATE_COMPATIBILITY_DEFAULT,
                             Surface.CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS);
-                    verifyCompatibleAndStableFrameRate(frameRate, Arrays.asList(surface));
+                    verifyCompatibleAndStableFrameRate(frameRate, FRAME_RATE_TOLERANCE_RELAXED,
+                            surface);
                     verifyModeSwitchesAreSeamless(initialNumEvents, mModeChangedEvents.size());
                     verifyModeSwitchesDontChangeResolution(initialNumEvents,
                             mModeChangedEvents.size());
@@ -707,7 +712,7 @@ public class FrameRateCtsActivity extends Activity {
                 surface.setFrameRate(0.f, Surface.FRAME_RATE_COMPATIBILITY_DEFAULT,
                         Surface.CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS);
                 // Wait for potential mode switches
-                verifyCompatibleAndStableFrameRate(0, Arrays.asList(surface));
+                waitForStableFrameRate(surface);
                 currentMode = display.getMode();
 
                 // Seamed rates should never generate a seamed switch.
@@ -727,7 +732,8 @@ public class FrameRateCtsActivity extends Activity {
                     int initialNumEvents = mModeChangedEvents.size();
                     surface.setFrameRate(frameRate, Surface.FRAME_RATE_COMPATIBILITY_DEFAULT,
                             Surface.CHANGE_FRAME_RATE_ALWAYS);
-                    verifyCompatibleAndStableFrameRate(frameRate, Arrays.asList(surface));
+                    verifyCompatibleAndStableFrameRate(frameRate, FRAME_RATE_TOLERANCE_RELAXED,
+                            surface);
                     verifyModeSwitchesDontChangeResolution(initialNumEvents,
                             mModeChangedEvents.size());
                 }
@@ -781,14 +787,11 @@ public class FrameRateCtsActivity extends Activity {
             surfaceB.setFrameRate(frameRateB, Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE,
                     changeFrameRateStrategy);
 
-            ArrayList<TestSurface> surfaces = new ArrayList<>();
-            surfaces.add(surfaceA);
-            surfaces.add(surfaceB);
-
             if (changeFrameRateStrategy == Surface.CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS) {
                 verifyModeSwitchesAreSeamless(initialNumEvents, mModeChangedEvents.size());
             } else {
-                verifyCompatibleAndStableFrameRate(frameRateA, surfaces);
+                verifyCompatibleAndStableFrameRate(frameRateA, FRAME_RATE_TOLERANCE_STRICT,
+                        surfaceA, surfaceB);
             }
 
             verifyModeSwitchesDontChangeResolution(initialNumEvents,
@@ -800,7 +803,8 @@ public class FrameRateCtsActivity extends Activity {
             if (changeFrameRateStrategy == Surface.CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS) {
                 verifyModeSwitchesAreSeamless(initialNumEvents, mModeChangedEvents.size());
             } else {
-                verifyCompatibleAndStableFrameRate(frameRateB, surfaces);
+                verifyCompatibleAndStableFrameRate(frameRateB, FRAME_RATE_TOLERANCE_STRICT,
+                        surfaceA, surfaceB);
             }
             verifyModeSwitchesDontChangeResolution(initialNumEvents,
                     mModeChangedEvents.size());
@@ -850,7 +854,7 @@ public class FrameRateCtsActivity extends Activity {
     }
 
     public void testInvalidParams() throws InterruptedException {
-        runTestsWithPreconditions(api -> testInvalidParams(api), "invalid params behavior");
+        runTestsWithPreconditions(this::testInvalidParams, "invalid params behavior");
     }
 
     private void runOneSurfaceTest(Api api, OneSurfaceTestInterface test)
@@ -861,32 +865,11 @@ public class FrameRateCtsActivity extends Activity {
                     "testSurface", mSurfaceView.getHolder().getSurfaceFrame(),
                     /*visible=*/true, Color.RED);
 
-            ArrayList<TestSurface> surfaces = new ArrayList<>();
-            surfaces.add(surface);
-
             test.run(surface);
         } finally {
             if (surface != null) {
                 surface.release();
             }
-        }
-    }
-
-    private void testSwitching(TestSurface surface, List<Float> frameRates, boolean expectSwitch,
-            int changeFrameRateStrategy) throws InterruptedException {
-        for (float frameRate : frameRates) {
-            int initialNumEvents = mModeChangedEvents.size();
-            surface.setFrameRate(frameRate, Surface.FRAME_RATE_COMPATIBILITY_DEFAULT,
-                    changeFrameRateStrategy);
-
-            if (expectSwitch) {
-                verifyCompatibleAndStableFrameRate(frameRate, Arrays.asList(surface));
-            }
-            if (changeFrameRateStrategy == Surface.CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS) {
-                verifyModeSwitchesAreSeamless(initialNumEvents, mModeChangedEvents.size());
-            }
-            verifyModeSwitchesDontChangeResolution(initialNumEvents,
-                    mModeChangedEvents.size());
         }
     }
 
@@ -898,18 +881,18 @@ public class FrameRateCtsActivity extends Activity {
 
             for (float frameRate : frameRates) {
                 int initialNumEvents = mModeChangedEvents.size();
-                surface.setFrameRate(frameRate, Surface.FRAME_RATE_COMPATIBILITY_DEFAULT,
+                surface.setFrameRate(frameRate, Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE,
                         Surface.CHANGE_FRAME_RATE_ALWAYS);
 
-                assertTrue("Mode switches are not expected but these were detected "
-                        + modeSwitchesToString(initialNumEvents, mModeChangedEvents.size()),
-                        mModeChangedEvents.size() == initialNumEvents);
+                assertEquals("Mode switches are not expected but these were detected "
+                                + modeSwitchesToString(initialNumEvents, mModeChangedEvents.size()),
+                        mModeChangedEvents.size(), initialNumEvents);
             }
         });
     }
 
     public void testMatchContentFramerate_None() throws InterruptedException {
-        runTestsWithPreconditions(api -> testMatchContentFramerate_None(api),
+        runTestsWithPreconditions(this::testMatchContentFramerate_None,
                 "testMatchContentFramerate_None");
     }
 
@@ -922,27 +905,27 @@ public class FrameRateCtsActivity extends Activity {
 
             for (float frameRate : frameRatesToTest) {
                 int initialNumEvents = mModeChangedEvents.size();
-                surface.setFrameRate(frameRate, Surface.FRAME_RATE_COMPATIBILITY_DEFAULT,
+                surface.setFrameRate(frameRate, Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE,
                         Surface.CHANGE_FRAME_RATE_ALWAYS);
 
-                verifyCompatibleAndStableFrameRate(frameRate, Arrays.asList(surface));
+                verifyCompatibleAndStableFrameRate(frameRate, FRAME_RATE_TOLERANCE_STRICT, surface);
                 verifyModeSwitchesDontChangeResolution(initialNumEvents,
                         mModeChangedEvents.size());
             }
 
             // Reset to default
-            surface.setFrameRate(0.f, Surface.FRAME_RATE_COMPATIBILITY_DEFAULT,
+            surface.setFrameRate(0.f, Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE,
                     Surface.CHANGE_FRAME_RATE_ALWAYS);
 
             // Wait for potential mode switches.
-            verifyCompatibleAndStableFrameRate(0, Arrays.asList(surface));
+            waitForStableFrameRate(surface);
 
             currentMode = display.getMode();
             List<Float> seamedRefreshRates = getSeamedRefreshRates(currentMode, display);
 
             for (float frameRate : seamedRefreshRates) {
                 int initialNumEvents = mModeChangedEvents.size();
-                surface.setFrameRate(frameRate, Surface.FRAME_RATE_COMPATIBILITY_DEFAULT,
+                surface.setFrameRate(frameRate, Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE,
                         Surface.CHANGE_FRAME_RATE_ALWAYS);
 
                 // Mode switches may have occurred, make sure they were all seamless.
@@ -954,7 +937,7 @@ public class FrameRateCtsActivity extends Activity {
     }
 
     public void testMatchContentFramerate_Auto() throws InterruptedException {
-        runTestsWithPreconditions(api -> testMatchContentFramerate_Auto(api),
+        runTestsWithPreconditions(this::testMatchContentFramerate_Auto,
                 "testMatchContentFramerate_Auto");
     }
 
@@ -964,10 +947,10 @@ public class FrameRateCtsActivity extends Activity {
             List<Float> frameRates = getRefreshRates(display.getMode(), display);
             for (float frameRate : frameRates) {
                 int initialNumEvents = mModeChangedEvents.size();
-                surface.setFrameRate(frameRate, Surface.FRAME_RATE_COMPATIBILITY_DEFAULT,
+                surface.setFrameRate(frameRate, Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE,
                         Surface.CHANGE_FRAME_RATE_ALWAYS);
 
-                verifyCompatibleAndStableFrameRate(frameRate, Arrays.asList(surface));
+                verifyCompatibleAndStableFrameRate(frameRate, FRAME_RATE_TOLERANCE_STRICT, surface);
                 verifyModeSwitchesDontChangeResolution(initialNumEvents,
                         mModeChangedEvents.size());
             }
@@ -975,7 +958,7 @@ public class FrameRateCtsActivity extends Activity {
     }
 
     public void testMatchContentFramerate_Always() throws InterruptedException {
-        runTestsWithPreconditions(api -> testMatchContentFramerate_Always(api),
+        runTestsWithPreconditions(this::testMatchContentFramerate_Always,
                 "testMatchContentFramerate_Always");
     }
 

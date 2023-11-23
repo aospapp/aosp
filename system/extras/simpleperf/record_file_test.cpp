@@ -19,6 +19,7 @@
 #include <string.h>
 
 #include <memory>
+#include <vector>
 
 #include <android-base/file.h>
 
@@ -179,4 +180,78 @@ TEST_F(RecordFileTest, write_debug_unwind_feature_section) {
     ASSERT_EQ(opt_debug_unwind.value()[i].path, debug_unwind[i].path);
     ASSERT_EQ(opt_debug_unwind.value()[i].size, debug_unwind[i].size);
   }
+}
+
+TEST_F(RecordFileTest, write_file2_feature_section) {
+  // Write to a record file.
+  std::unique_ptr<RecordFileWriter> writer = RecordFileWriter::CreateInstance(tmpfile_.path);
+  ASSERT_TRUE(writer != nullptr);
+  AddEventType("cpu-cycles");
+  ASSERT_TRUE(writer->WriteAttrSection(attr_ids_));
+
+  // Write file2 feature section.
+  ASSERT_TRUE(writer->BeginWriteFeatures(1));
+  std::vector<FileFeature> files(3);
+  files[0].path = "fake_dex_file";
+  files[0].type = DSO_DEX_FILE;
+  files[0].min_vaddr = 0x1000;
+  files[0].symbols.emplace_back("dex_symbol", 0x1001, 0x1002);
+  files[0].dex_file_offsets.assign(0x1003, 0x1004);
+  files[1].path = "fake_elf_file";
+  files[1].type = DSO_ELF_FILE;
+  files[1].min_vaddr = 0x2000;
+  Symbol symbol("elf_symbol", 0x2001, 0x2002);
+  files[1].symbol_ptrs.emplace_back(&symbol);
+  files[1].file_offset_of_min_vaddr = 0x2003;
+  files[2].path = "fake_kernel_module";
+  files[2].type = DSO_KERNEL_MODULE;
+  files[2].min_vaddr = 0x3000;
+  files[2].symbols.emplace_back("kernel_module_symbol", 0x3001, 0x3002);
+  files[2].file_offset_of_min_vaddr = 0x3003;
+
+  for (const auto& file : files) {
+    ASSERT_TRUE(writer->WriteFileFeature(file));
+  }
+  ASSERT_TRUE(writer->EndWriteFeatures());
+  ASSERT_TRUE(writer->Close());
+
+  // Read from a record file.
+  std::unique_ptr<RecordFileReader> reader = RecordFileReader::CreateInstance(tmpfile_.path);
+  ASSERT_TRUE(reader != nullptr);
+  size_t read_pos = 0;
+  FileFeature file;
+
+  auto check_symbol = [](const Symbol& sym1, const Symbol& sym2) {
+    return sym1.addr == sym2.addr && sym1.len == sym2.len && strcmp(sym1.Name(), sym2.Name()) == 0;
+  };
+
+  size_t file_id = 0;
+  while (reader->ReadFileFeature(read_pos, &file)) {
+    ASSERT_LT(file_id, files.size());
+    const FileFeature& expected_file = files[file_id++];
+    ASSERT_EQ(file.path, expected_file.path);
+    ASSERT_EQ(file.type, expected_file.type);
+    ASSERT_EQ(file.min_vaddr, expected_file.min_vaddr);
+    if (!expected_file.symbols.empty()) {
+      ASSERT_EQ(file.symbols.size(), expected_file.symbols.size());
+      for (size_t i = 0; i < file.symbols.size(); i++) {
+        ASSERT_TRUE(check_symbol(file.symbols[i], expected_file.symbols[i]));
+      }
+    } else {
+      ASSERT_EQ(file.symbols.size(), expected_file.symbol_ptrs.size());
+      for (size_t i = 0; i < file.symbols.size(); i++) {
+        ASSERT_TRUE(check_symbol(file.symbols[i], *expected_file.symbol_ptrs[i]));
+      }
+    }
+    if (file.type == DSO_DEX_FILE) {
+      ASSERT_EQ(file.dex_file_offsets, expected_file.dex_file_offsets);
+    } else if (file.type == DSO_ELF_FILE) {
+      ASSERT_TRUE(file.dex_file_offsets.empty());
+      ASSERT_EQ(file.file_offset_of_min_vaddr, expected_file.file_offset_of_min_vaddr);
+    } else if (file.type == DSO_KERNEL_MODULE) {
+      ASSERT_TRUE(file.dex_file_offsets.empty());
+      ASSERT_EQ(file.file_offset_of_min_vaddr, expected_file.file_offset_of_min_vaddr);
+    }
+  }
+  ASSERT_EQ(file_id, files.size());
 }

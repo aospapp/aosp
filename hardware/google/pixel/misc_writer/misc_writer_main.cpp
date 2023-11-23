@@ -42,6 +42,8 @@ static int Usage(std::string_view name) {
   std::cerr << "  --clear-dark-theme   Clear the dark theme flag\n";
   std::cerr << "  --set-sota           Write the silent OTA flag\n";
   std::cerr << "  --clear-sota         Clear the silent OTA flag\n";
+  std::cerr << "  --set-enable-pkvm    Write the enable pKVM flag\n";
+  std::cerr << "  --set-disable-pkvm   Write the disable pKVM flag\n";
   std::cerr << "Writes the given hex string to the specified offset in vendor space in /misc "
                "partition.\nDefault offset is used for each action unless "
                "--override-vendor-space-offset is specified.\n";
@@ -56,6 +58,8 @@ int main(int argc, char** argv) {
     { "set-sota", no_argument, nullptr, 0 },
     { "clear-sota", no_argument, nullptr, 0 },
     { "override-vendor-space-offset", required_argument, nullptr, 0 },
+    { "set-enable-pkvm", no_argument, nullptr, 0 },
+    { "set-disable-pkvm", no_argument, nullptr, 0 },
     { nullptr, 0, nullptr, 0 },
   };
 
@@ -64,6 +68,8 @@ int main(int argc, char** argv) {
     { "clear-dark-theme", MiscWriterActions::kClearDarkThemeFlag },
     { "set-sota", MiscWriterActions::kSetSotaFlag },
     { "clear-sota", MiscWriterActions::kClearSotaFlag },
+    { "set-enable-pkvm", MiscWriterActions::kSetEnablePkvmFlag },
+    { "set-disable-pkvm", MiscWriterActions::kSetDisablePkvmFlag },
   };
 
   std::unique_ptr<MiscWriter> misc_writer;

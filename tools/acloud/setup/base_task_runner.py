@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 _PARAGRAPH_BREAK = "="
 
 
-class BaseTaskRunner(object):
+class BaseTaskRunner():
     """A basic task runner class for setup cmd."""
 
     # WELCOME_MESSAGE and WELCOME_MESSAGE_TITLE should both be defined as

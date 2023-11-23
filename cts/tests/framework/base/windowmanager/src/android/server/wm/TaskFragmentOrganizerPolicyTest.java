@@ -19,7 +19,6 @@ package android.server.wm;
 import static android.content.Intent.FLAG_ACTIVITY_MULTIPLE_TASK;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 import static android.server.wm.TaskFragmentOrganizerTestBase.assertEmptyTaskFragment;
-import static android.server.wm.TaskFragmentOrganizerTestBase.assertNotEmptyTaskFragment;
 import static android.server.wm.TaskFragmentOrganizerTestBase.getActivityToken;
 import static android.server.wm.WindowManagerState.STATE_RESUMED;
 import static android.server.wm.app.Components.LAUNCHING_ACTIVITY;
@@ -28,11 +27,13 @@ import static android.server.wm.app30.Components.SDK_30_TEST_ACTIVITY;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.junit.Assert.assertEquals;
 
 import android.app.Activity;
 import android.app.Instrumentation;
+import android.content.ComponentName;
 import android.content.Intent;
 import android.graphics.Rect;
 import android.os.Binder;
@@ -40,6 +41,7 @@ import android.os.IBinder;
 import android.platform.test.annotations.Presubmit;
 import android.server.wm.TaskFragmentOrganizerTestBase.BasicTaskFragmentOrganizer;
 import android.server.wm.WindowContextTests.TestActivity;
+import android.server.wm.WindowManagerState.Task;
 import android.window.TaskAppearedInfo;
 import android.window.TaskFragmentCreationParams;
 import android.window.TaskFragmentInfo;
@@ -53,7 +55,6 @@ import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -177,16 +178,10 @@ public class TaskFragmentOrganizerPolicyTest extends ActivityManagerTestBase {
     }
 
     /**
-     * Verifies the behavior to start Activity from another process in a new created Task under
-     * TaskFragment with {@link android.permission#ACTIVITY_EMBEDDING}.
-     * <p>
-     * If the application to start Activity holds the permission, the activity is allowed to start
-     * on the Task. Otherwise, the TaskFragment should remain empty.
-     * </p>
+     * Verifies the behavior to start Activity in a new created Task in TaskFragment is forbidden.
      */
     @Test
-    @Ignore("b/197364677")
-    public void testStartActivityFromAnotherProcessInEmbeddedTask() {
+    public void testStartActivityFromAnotherProcessInNewTask_ThrowException() {
         final Activity activity = startNewActivity();
         final IBinder ownerToken = getActivityToken(activity);
         final TaskFragmentCreationParams params = mTaskFragmentOrganizer.generateTaskFragParams(
@@ -204,34 +199,13 @@ public class TaskFragmentOrganizerPolicyTest extends ActivityManagerTestBase {
                         null /* activityOptions */);
 
         mTaskFragmentOrganizer.applyTransaction(wct);
-
-        mTaskFragmentOrganizer.waitForTaskFragmentCreated();
-
-        TaskFragmentInfo info = mTaskFragmentOrganizer.getTaskFragmentInfo(taskFragToken);
-
-        // TaskFragment must remain empty because we don't hold EMBEDDING_ACTIVITY permission to
-        // launch Activity in the embedded Task.
-        assertEmptyTaskFragment(info, taskFragToken);
-
         mTaskFragmentOrganizer.waitForTaskFragmentError();
 
         assertThat(mTaskFragmentOrganizer.getThrowable()).isInstanceOf(SecurityException.class);
         assertThat(mTaskFragmentOrganizer.getErrorCallbackToken()).isEqualTo(errorCallbackToken);
 
-        final WindowContainerTransaction wctWithPermission = new WindowContainerTransaction()
-                .startActivityInTaskFragment(taskFragToken, ownerToken, intent,
-                        null /* activityOptions */);
-
-        NestedShellPermission.run(() -> mTaskFragmentOrganizer.applyTransaction(wctWithPermission),
-                "android.permission.ACTIVITY_EMBEDDING");
-
-        mTaskFragmentOrganizer.waitForTaskFragmentInfoChanged();
-
-        info = mTaskFragmentOrganizer.getTaskFragmentInfo(taskFragToken);
-
-        // The new started Activity must be launched in the new created Task under the TaskFragment
-        // with token taskFragToken.
-        assertNotEmptyTaskFragment(info, taskFragToken);
+        // Activity must be launched on a new task instead.
+        waitAndAssertActivityLaunchOnTask(LAUNCHING_ACTIVITY);
     }
 
     /**
@@ -257,9 +231,20 @@ public class TaskFragmentOrganizerPolicyTest extends ActivityManagerTestBase {
         mTaskFragmentOrganizer.waitForTaskFragmentError();
         assertThat(mTaskFragmentOrganizer.getThrowable()).isInstanceOf(SecurityException.class);
 
-        // Making sure no activity launched
+        // Making sure activity is not launched on the TaskFragment
         TaskFragmentInfo info = mTaskFragmentOrganizer.getTaskFragmentInfo(taskFragToken);
         assertEmptyTaskFragment(info, taskFragToken);
+
+        // Activity must be launched on a new task instead.
+        waitAndAssertActivityLaunchOnTask(SDK_30_TEST_ACTIVITY);
+    }
+
+    private void waitAndAssertActivityLaunchOnTask(ComponentName activityName) {
+        waitAndAssertResumedActivity(activityName, "Activity must be resumed.");
+
+        Task task = mWmState.getTaskByActivity(activityName);
+        assertWithMessage("Launching activity must be started on Task")
+                .that(task.getActivities()).contains(mWmState.getActivity(activityName));
     }
 
     /**

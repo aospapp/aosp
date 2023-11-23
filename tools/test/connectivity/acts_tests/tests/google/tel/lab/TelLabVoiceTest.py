@@ -23,11 +23,9 @@ from acts.controllers.anritsu_lib._anritsu_utils import AnritsuError
 from acts.controllers.anritsu_lib.md8475a import CsfbType
 from acts.controllers.anritsu_lib.md8475a import MD8475A
 from acts.controllers.anritsu_lib.md8475a import VirtualPhoneAutoAnswer
-from acts.controllers.anritsu_lib.md8475a import VirtualPhoneStatus
 from acts_contrib.test_utils.tel.anritsu_utils import WAIT_TIME_ANRITSU_REG_AND_CALL
 from acts_contrib.test_utils.tel.anritsu_utils import call_mo_setup_teardown
 from acts_contrib.test_utils.tel.anritsu_utils import ims_call_cs_teardown
-from acts_contrib.test_utils.tel.anritsu_utils import call_mt_setup_teardown
 from acts_contrib.test_utils.tel.anritsu_utils import set_system_model_1x
 from acts_contrib.test_utils.tel.anritsu_utils import set_system_model_1x_evdo
 from acts_contrib.test_utils.tel.anritsu_utils import set_system_model_gsm
@@ -43,7 +41,6 @@ from acts_contrib.test_utils.tel.tel_defines import RAT_FAMILY_CDMA2000
 from acts_contrib.test_utils.tel.tel_defines import RAT_FAMILY_GSM
 from acts_contrib.test_utils.tel.tel_defines import RAT_FAMILY_LTE
 from acts_contrib.test_utils.tel.tel_defines import RAT_FAMILY_UMTS
-from acts_contrib.test_utils.tel.tel_defines import RAT_1XRTT
 from acts_contrib.test_utils.tel.tel_defines import NETWORK_MODE_CDMA
 from acts_contrib.test_utils.tel.tel_defines import NETWORK_MODE_GSM_ONLY
 from acts_contrib.test_utils.tel.tel_defines import NETWORK_MODE_GSM_UMTS
@@ -52,13 +49,12 @@ from acts_contrib.test_utils.tel.tel_defines import NETWORK_MODE_LTE_CDMA_EVDO_G
 from acts_contrib.test_utils.tel.tel_defines import NETWORK_MODE_LTE_GSM_WCDMA
 from acts_contrib.test_utils.tel.tel_defines import WAIT_TIME_IN_CALL
 from acts_contrib.test_utils.tel.tel_defines import WAIT_TIME_IN_CALL_FOR_IMS
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_network_rat
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_phones_idle
+from acts_contrib.test_utils.tel.tel_ims_utils import toggle_volte
+from acts_contrib.test_utils.tel.tel_logging_utils import start_qxdm_loggers
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_network_rat
 from acts_contrib.test_utils.tel.tel_test_utils import toggle_airplane_mode_by_adb
-from acts_contrib.test_utils.tel.tel_test_utils import toggle_volte
 from acts_contrib.test_utils.tel.tel_test_utils import set_preferred_apn_by_adb
-from acts_contrib.test_utils.tel.tel_test_utils import start_qxdm_loggers
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_idle_volte
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_idle_volte
 from acts_contrib.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
 
 DEFAULT_CALL_NUMBER = "0123456789"

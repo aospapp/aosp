@@ -27,9 +27,7 @@ NANOPB_EXTENSION = nanopb
 
 NANOPB_SRCS += $(NANOAPP_PATH)/../proto/chre_cross_validation_wifi.proto
 NANOPB_SRCS += $(NANOAPP_PATH)/../proto/chre_test_common.proto
-NANOPB_PROTO_PATH = $(NANOAPP_PATH)/../proto
-NANOPB_INCLUDES = $(NANOPB_PROTO_PATH)
-NANOPB_FLAGS += --proto_path=$(NANOPB_PROTO_PATH)
+NANOPB_INCLUDES = $(NANOAPP_PATH)/../proto
 
 # Source Code ##################################################################
 
@@ -37,11 +35,13 @@ COMMON_SRCS += $(NANOAPP_PATH)/src/chre_cross_validator_wifi.cc
 COMMON_SRCS += $(NANOAPP_PATH)/src/chre_cross_validator_wifi_manager.cc
 COMMON_SRCS += $(NANOAPP_PATH)/src/wifi_scan_result.cc
 COMMON_SRCS += $(CHRE_PREFIX)/util/nanoapp/callbacks.cc
+COMMON_SRCS += $(CHRE_PREFIX)/util/nanoapp/wifi.cc
 
 # Compiler Flags ###############################################################
 
 # Defines
 COMMON_CFLAGS += -DNANOAPP_MINIMUM_LOG_LEVEL=CHRE_LOG_LEVEL_INFO
+COMMON_CFLAGS += -DLOG_TAG=\"[ChreCrossValidatorWifi]\"
 
 # Includes
 COMMON_CFLAGS += -I$(NANOAPP_PATH)/inc

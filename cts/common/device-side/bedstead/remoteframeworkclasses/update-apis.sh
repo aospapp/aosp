@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
-cp ../../../../../packages/modules/Wifi/framework/api/current.txt src/processor/res/wifi-current.txt
-cp ../../../../../frameworks/base/core/api/current.txt src/processor/res/current.txt
-cp ../../../../../frameworks/base/core/api/test-current.txt src/processor/res/test-current.txt
+cp ../../../../../packages/modules/Bluetooth/framework/api/current.txt src/processor/res/apis/bluetooth-current.txt
+cp ../../../../../packages/modules/Wifi/framework/api/current.txt src/processor/res/apis/wifi-current.txt
+cp ../../../../../frameworks/base/core/api/current.txt src/processor/res/apis/current.txt
+cp ../../../../../frameworks/base/core/api/test-current.txt src/processor/res/apis/test-current.txt

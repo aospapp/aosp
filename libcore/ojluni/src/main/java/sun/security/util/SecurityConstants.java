@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,14 +25,13 @@
 
 package sun.security.util;
 
+import java.lang.reflect.ReflectPermission;
 import java.net.SocketPermission;
 import java.net.NetPermission;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
 import java.security.Permission;
-import java.security.BasicPermission;
 import java.security.SecurityPermission;
 import java.security.AllPermission;
+import sun.security.action.GetPropertyAction;
 
 /**
  * Permission constants and string constants used to create permissions
@@ -70,84 +69,6 @@ public final class SecurityConstants {
     // sun.security.provider.PolicyFile
     public static final AllPermission ALL_PERMISSION = new AllPermission();
 
-    /**
-     * AWT Permissions used in the JDK.
-     */
-    // BEGIN Android-removed
-    /*
-    public static class AWT {
-        private AWT() { }
-
-        // The class name of the factory to create java.awt.AWTPermission objects.
-        private static final String AWTFactory = "sun.awt.AWTPermissionFactory";
-
-        // The PermissionFactory to create AWT permissions (or null if AWT is
-        // not present)
-        private static final PermissionFactory<?> factory = permissionFactory();
-
-        private static PermissionFactory<?> permissionFactory() {
-            Class<?> c;
-            try {
-                c = Class.forName(AWTFactory, false, AWT.class.getClassLoader());
-            } catch (ClassNotFoundException e) {
-                // not available
-                return null;
-            }
-            // AWT present
-            try {
-                return (PermissionFactory<?>)c.newInstance();
-            } catch (ReflectiveOperationException x) {
-                throw new InternalError(x);
-            }
-        }
-
-        private static Permission newAWTPermission(String name) {
-            return (factory == null) ? null : factory.newPermission(name);
-        }
-
-        // java.lang.SecurityManager
-        public static final Permission TOPLEVEL_WINDOW_PERMISSION =
-            newAWTPermission("showWindowWithoutWarningBanner");
-
-        // java.lang.SecurityManager
-        public static final Permission ACCESS_CLIPBOARD_PERMISSION =
-            newAWTPermission("accessClipboard");
-
-        // java.lang.SecurityManager
-        public static final Permission CHECK_AWT_EVENTQUEUE_PERMISSION =
-            newAWTPermission("accessEventQueue");
-
-        // java.awt.Dialog
-        public static final Permission TOOLKIT_MODALITY_PERMISSION =
-            newAWTPermission("toolkitModality");
-
-        // java.awt.Robot
-        public static final Permission READ_DISPLAY_PIXELS_PERMISSION =
-            newAWTPermission("readDisplayPixels");
-
-        // java.awt.Robot
-        public static final Permission CREATE_ROBOT_PERMISSION =
-            newAWTPermission("createRobot");
-
-        // java.awt.MouseInfo
-        public static final Permission WATCH_MOUSE_PERMISSION =
-            newAWTPermission("watchMousePointer");
-
-        // java.awt.Window
-        public static final Permission SET_WINDOW_ALWAYS_ON_TOP_PERMISSION =
-            newAWTPermission("setWindowAlwaysOnTop");
-
-        // java.awt.Toolkit
-        public static final Permission ALL_AWT_EVENTS_PERMISSION =
-            newAWTPermission("listenToAllAWTEvents");
-
-        // java.awt.SystemTray
-        public static final Permission ACCESS_SYSTEM_TRAY_PERMISSION =
-            newAWTPermission("accessSystemTray");
-    }
-    */
-    // END Android-removed
-
     // java.net.URL
     public static final NetPermission SPECIFY_HANDLER_PERMISSION =
        new NetPermission("specifyStreamHandler");
@@ -176,7 +97,11 @@ public final class SecurityConstants {
     public static final NetPermission GET_RESPONSECACHE_PERMISSION =
        new NetPermission("getResponseCache");
 
-    // java.lang.SecurityManager, sun.applet.AppletPanel, sun.misc.Launcher
+    // java.net.ServerSocket, java.net.Socket
+    public static final NetPermission SET_SOCKETIMPL_PERMISSION =
+        new NetPermission("setSocketImpl");
+
+    // java.lang.SecurityManager, sun.applet.AppletPanel
     public static final RuntimePermission CREATE_CLASSLOADER_PERMISSION =
         new RuntimePermission("createClassLoader");
 
@@ -208,6 +133,10 @@ public final class SecurityConstants {
     public static final RuntimePermission GET_STACK_TRACE_PERMISSION =
        new RuntimePermission("getStackTrace");
 
+    // java.lang.Thread
+    public static final RuntimePermission SUBCLASS_IMPLEMENTATION_PERMISSION =
+        new RuntimePermission("enableContextClassLoaderOverride");
+
     // java.security.AccessControlContext
     public static final SecurityPermission CREATE_ACC_PERMISSION =
        new SecurityPermission("createAccessControlContext");
@@ -223,4 +152,16 @@ public final class SecurityConstants {
     // java.lang.SecurityManager
     public static final SocketPermission LOCAL_LISTEN_PERMISSION =
         new SocketPermission("localhost:0", SOCKET_LISTEN_ACTION);
+
+    public static final String PROVIDER_VER =
+        GetPropertyAction.privilegedGetProperty("java.specification.version");
+
+    // java.lang.reflect.AccessibleObject
+    public static final ReflectPermission ACCESS_PERMISSION =
+        new ReflectPermission("suppressAccessChecks");
+
+    // sun.reflect.ReflectionFactory
+    public static final RuntimePermission REFLECTION_FACTORY_ACCESS_PERMISSION =
+        new RuntimePermission("reflectionFactoryAccess");
+
 }

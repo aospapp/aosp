@@ -29,7 +29,7 @@
     <uses-permission android:name="com.android.voicemail.permission.WRITE_VOICEMAIL"/>
 
     <application android:label="ThirdPtyDialerTestApp">
-        <service android:name=".android.telecom.cts.thirdptydialer.CtsThirdPtyDialerInCallService"
+        <service android:name=".CtsThirdPtyDialerInCallService"
                  android:permission="android.permission.BIND_INCALL_SERVICE"
                  android:launchMode="singleInstance"
                  android:exported="true">

@@ -101,8 +101,8 @@ public abstract class ResponderTestActivity extends PassFailButtons.Activity
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
+    protected void onStart() {
+        super.onStart();
         mTestCase.start(this);
         registerReceiver(mReceiver, mIntentFilter);
         mP2pMgr.requestDeviceInfo(mChannel, wifiP2pDevice -> {
@@ -119,8 +119,8 @@ public abstract class ResponderTestActivity extends PassFailButtons.Activity
     }
 
     @Override
-    protected void onPause() {
-        super.onPause();
+    protected void onStop() {
+        super.onStop();
         mTestCase.stop();
         unregisterReceiver(mReceiver);
     }

@@ -21,6 +21,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import com.android.bedstead.harrier.BedsteadJUnit4
 import com.android.bedstead.harrier.DeviceState
+import com.android.bedstead.harrier.UserType
 import com.android.bedstead.harrier.annotations.EnsureHasWorkProfile
 import com.android.bedstead.harrier.annotations.Postsubmit
 import com.android.bedstead.harrier.annotations.RequireRunOnPrimaryUser
@@ -31,7 +32,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 
-@EnsureHasWorkProfile(forUser = DeviceState.UserType.PRIMARY_USER)
+@EnsureHasWorkProfile(forUser = UserType.PRIMARY_USER)
 @RunWith(BedsteadJUnit4::class)
 class DomainVerificationWorkProfileCrossProfileIntentTests :
     DomainVerificationWorkProfileTestsBase() {

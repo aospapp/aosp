@@ -15,7 +15,6 @@
  */
 
 #include "chre/platform/system_time.h"
-#include "chre/platform/slpi/system_time.h"
 
 #include "chre/platform/slpi/system_time_util.h"
 
@@ -41,7 +40,7 @@ int64_t SystemTime::getEstimatedHostTimeOffset() {
   return gEstimatedHostTimeOffset;
 }
 
-void setEstimatedHostTimeOffset(int64_t offset) {
+void SystemTime::setEstimatedHostTimeOffset(int64_t offset) {
   gEstimatedHostTimeOffset = offset;
 }
 

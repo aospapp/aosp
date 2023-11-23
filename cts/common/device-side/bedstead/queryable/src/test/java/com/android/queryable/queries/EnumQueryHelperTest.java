@@ -16,6 +16,8 @@
 
 package com.android.queryable.queries;
 
+import static com.android.bedstead.nene.utils.ParcelTest.assertParcelsCorrectly;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.testng.Assert.assertThrows;
@@ -163,5 +165,15 @@ public class EnumQueryHelperTest {
 
         assertThrows(IllegalStateException.class,
                 () -> enumQueryHelper.isNotOneOf(TestEnum.VALUE1));
+    }
+
+    @Test
+    public void parcel_parcelsCorrectly() {
+        EnumQueryHelper<Queryable, TestEnum> enumQueryHelper = new EnumQueryHelper<>(mQuery);
+
+        enumQueryHelper.isEqualTo(TestEnum.VALUE1);
+        enumQueryHelper.isNotEqualTo(TestEnum.VALUE2);
+
+        assertParcelsCorrectly(EnumQueryHelper.class, enumQueryHelper);
     }
 }

@@ -1,4 +1,4 @@
-#!/usr/bin/python -B
+#!/usr/bin/python3 -B
 
 # Copyright 2020 The Android Open Source Project
 #
@@ -15,8 +15,6 @@
 # limitations under the License.
 
 """Allows visualization of zone trees (the thing that works out if zones are distinct)."""
-
-from __future__ import print_function
 
 import argparse
 import glob

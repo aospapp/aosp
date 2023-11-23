@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Copyright (C) 2017 The Android Open Source Project
 #
@@ -263,7 +263,7 @@ def main():
     if args.for_javadoc:
         for i in range(len(output)):
             output[i] = ' * ' + output[i]
-    print '\n'.join(output)
+    print('\n'.join(output))
 
 
 if __name__ == '__main__':

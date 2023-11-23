@@ -36,10 +36,14 @@ public class FrameRateOverrideHostTest extends CompatChangeGatingTestCase {
     @Override
     protected void setUp() throws Exception {
         installPackage(TEST_APK, true);
+        // add device config to enable game mode
+        runCommand("device_config put game_overlay " + TEST_PKG + " mode=2:mode=3");
     }
 
     @Override
     protected void tearDown() throws Exception {
+        // remove device config
+        runCommand("device_config delete game_overlay " + TEST_PKG);
         uninstallPackage(TEST_PKG, true);
     }
 
@@ -117,6 +121,86 @@ public class FrameRateOverrideHostTest extends CompatChangeGatingTestCase {
             throws Exception {
         runDeviceCompatTest(TEST_PKG, ".FrameRateOverrideTest",
                 "testDisplayModeGetRefreshRateDisplayModeReturnsPhysicalRefreshRateDisabled",
+                /*enabledChanges*/
+                ImmutableSet.of(),
+                /*disabledChanges*/
+                ImmutableSet.of(DISPLAY_MODE_RETURNS_PHYSICAL_REFRESH_RATE_CHANGEID));
+    }
+
+    public void testGameModeBackpressureDisplayModeReturnsPhysicalRefreshRateEnabled()
+            throws Exception {
+        runDeviceCompatTest(TEST_PKG, ".FrameRateOverrideTest",
+                "testGameModeBackpressure",
+                /*enabledChanges*/
+                ImmutableSet.of(DISPLAY_MODE_RETURNS_PHYSICAL_REFRESH_RATE_CHANGEID),
+                /*disabledChanges*/
+                ImmutableSet.of());
+    }
+
+    public void testGameModeBackpressureDisplayModeReturnsPhysicalRefreshRateDisabled()
+            throws Exception {
+        runDeviceCompatTest(TEST_PKG, ".FrameRateOverrideTest",
+                "testGameModeBackpressure",
+                /*enabledChanges*/
+                ImmutableSet.of(),
+                /*disabledChanges*/
+                ImmutableSet.of(DISPLAY_MODE_RETURNS_PHYSICAL_REFRESH_RATE_CHANGEID));
+    }
+
+    public void testGameModeChoreographerDisplayModeReturnsPhysicalRefreshRateEnabled()
+            throws Exception {
+        runDeviceCompatTest(TEST_PKG, ".FrameRateOverrideTest",
+                "testGameModeChoreographer",
+                /*enabledChanges*/
+                ImmutableSet.of(DISPLAY_MODE_RETURNS_PHYSICAL_REFRESH_RATE_CHANGEID),
+                /*disabledChanges*/
+                ImmutableSet.of());
+    }
+
+    public void testGameModeChoreographerDisplayModeReturnsPhysicalRefreshRateDisabled()
+            throws Exception {
+        runDeviceCompatTest(TEST_PKG, ".FrameRateOverrideTest",
+                "testGameModeChoreographer",
+                /*enabledChanges*/
+                ImmutableSet.of(),
+                /*disabledChanges*/
+                ImmutableSet.of(DISPLAY_MODE_RETURNS_PHYSICAL_REFRESH_RATE_CHANGEID));
+    }
+
+    public void testGameModeDisplayGetRefreshRateDisplayModeReturnsPhysicalRefreshRateEnabled()
+            throws Exception {
+        runDeviceCompatTest(TEST_PKG, ".FrameRateOverrideTest",
+                "testGameModeDisplayGetRefreshRate",
+                /*enabledChanges*/
+                ImmutableSet.of(DISPLAY_MODE_RETURNS_PHYSICAL_REFRESH_RATE_CHANGEID),
+                /*disabledChanges*/
+                ImmutableSet.of());
+    }
+
+    public void testGameModeDisplayGetRefreshRateDisplayModeReturnsPhysicalRefreshRateDisabled()
+            throws Exception {
+        runDeviceCompatTest(TEST_PKG, ".FrameRateOverrideTest",
+                "testGameModeDisplayGetRefreshRate",
+                /*enabledChanges*/
+                ImmutableSet.of(),
+                /*disabledChanges*/
+                ImmutableSet.of(DISPLAY_MODE_RETURNS_PHYSICAL_REFRESH_RATE_CHANGEID));
+    }
+
+    public void testGameModeDisplayModeGetRefreshRateDisplayModeReturnsPhysicalRefreshRateEnabled()
+            throws Exception {
+        runDeviceCompatTest(TEST_PKG, ".FrameRateOverrideTest",
+                "testGameModeDisplayModeGetRefreshRateDisplayModeReturnsPhysicalRefreshRateEnabled",
+                /*enabledChanges*/
+                ImmutableSet.of(DISPLAY_MODE_RETURNS_PHYSICAL_REFRESH_RATE_CHANGEID),
+                /*disabledChanges*/
+                ImmutableSet.of());
+    }
+
+    public void testGameModeDisplayModeGetRefreshRateDisplayModeReturnsPhysicalRefreshRateDisabled()
+            throws Exception {
+        runDeviceCompatTest(TEST_PKG, ".FrameRateOverrideTest",
+                "testGameModeDisplayModeGetRefreshRateDisplayModeReturnsPhysicalRefreshRateDisabled",
                 /*enabledChanges*/
                 ImmutableSet.of(),
                 /*disabledChanges*/

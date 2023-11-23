@@ -50,7 +50,7 @@ bool PathExists(const std::string& path) {
 
 Result<std::set<std::string>> ReadPublicLibraries(const std::string& filepath) {
   std::string file_content;
-  if (!android::base::ReadFileToString(filepath, &file_content)) {
+  if (!android::base::ReadFileToString(filepath, &file_content, true)) {
     return ErrnoError();
   }
   std::vector<std::string> lines = android::base::Split(file_content, "\n");
@@ -146,6 +146,7 @@ Result<std::map<std::string, ApexInfo>> ScanActiveApexes(const std::string& root
 
     std::vector<std::string> permitted_paths;
     bool visible = false;
+    std::vector<Contribution> contributions;
 
     std::string linker_config_path = path + "/etc/linker.config.pb";
     if (PathExists(linker_config_path)) {
@@ -163,6 +164,12 @@ Result<std::map<std::string, ApexInfo>> ScanActiveApexes(const std::string& root
           }
         }
         visible = linker_config->visible();
+        for (auto& contribution : linker_config->contributions()) {
+          Contribution c;
+          c.namespace_name = contribution.namespace_();
+          c.paths = {contribution.paths().begin(), contribution.paths().end()};
+          contributions.emplace_back(std::move(c));
+        }
       } else {
         return Error() << "Failed to read APEX linker config : "
                        << linker_config.error();
@@ -177,6 +184,7 @@ Result<std::map<std::string, ApexInfo>> ScanActiveApexes(const std::string& root
                    manifest.requirenativelibs().end()},
                   {manifest.jnilibs().begin(), manifest.jnilibs().end()},
                   std::move(permitted_paths),
+                  std::move(contributions),
                   has_bin,
                   has_lib,
                   visible,
@@ -190,8 +198,26 @@ Result<std::map<std::string, ApexInfo>> ScanActiveApexes(const std::string& root
         com::android::apex::readApexInfoList(info_list_file.c_str());
     if (info_list.has_value()) {
       for (const auto& info : info_list->getApexInfo()) {
-        apexes[info.getModuleName()].original_path =
-            info.getPreinstalledModulePath();
+        // Get the pre-installed path of the apex. Normally (i.e. in Android),
+        // failing to find the pre-installed path is an assertion failure
+        // because apexd demands that every apex to have a pre-installed one.
+        // However, when this runs in a VM where apexes are seen as virtio block
+        // devices, the situation is different. If the APEX in the host side is
+        // an updated (or staged) one, the block device representing the APEX on
+        // the VM side doesn't have the pre-installed path because the factory
+        // version of the APEX wasn't exported to the VM. Therefore, we use the
+        // module path as original_path when we are running in a VM which can be
+        // guessed by checking if the path is /dev/block/vdN.
+        std::string path;
+        if (info.hasPreinstalledModulePath()) {
+          path = info.getPreinstalledModulePath();
+        } else if (StartsWith(info.getModulePath(), "/dev/block/vd")) {
+          path = info.getModulePath();
+        } else {
+          return Error() << "Failed to determine original path for apex "
+                         << info.getModuleName() << " at " << info_list_file;
+        }
+        apexes[info.getModuleName()].original_path = path;
       }
     } else {
       return ErrnoError() << "Can't read " << info_list_file;
@@ -223,7 +249,9 @@ bool ApexInfo::InSystem() const {
   return StartsWith(original_path, "/system/apex/") ||
          StartsWith(original_path, "/system_ext/apex/") ||
          (!IsProductVndkVersionDefined() &&
-          StartsWith(original_path, "/product/apex/"));
+          StartsWith(original_path, "/product/apex/")) ||
+         // Guest mode Android may have system APEXes from host via block APEXes
+         StartsWith(original_path, "/dev/block/vd");
 }
 
 bool ApexInfo::InProduct() const {

@@ -16,19 +16,36 @@
 
 package android.keystore.cts;
 
+import static com.google.common.truth.Truth.assertThat;
+
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import android.app.KeyguardManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.keystore.cts.util.EmptyArray;
+import android.keystore.cts.util.ImportedKey;
+import android.keystore.cts.util.TestUtils;
 import android.os.SystemClock;
 import android.platform.test.annotations.Presubmit;
 import android.security.keystore.KeyProperties;
 import android.security.keystore.KeyProtection;
 import android.server.wm.ActivityManagerTestBase;
 import android.server.wm.UiDeviceUtils;
-import android.test.AndroidTestCase;
-import android.test.MoreAsserts;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.google.common.collect.ObjectArrays;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -37,10 +54,10 @@ import java.security.InvalidKeyException;
 import java.security.Key;
 import java.security.KeyStoreException;
 import java.security.Provider;
+import java.security.Provider.Service;
 import java.security.Security;
 import java.security.spec.AlgorithmParameterSpec;
 import java.security.spec.MGF1ParameterSpec;
-import java.security.Provider.Service;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
@@ -66,7 +83,8 @@ import javax.crypto.spec.SecretKeySpec;
  * Tests for algorithm-agnostic functionality of {@code Cipher} implementations backed by Android
  * Keystore.
  */
-public class CipherTest extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class CipherTest {
 
     private static final String EXPECTED_PROVIDER_NAME = TestUtils.EXPECTED_CRYPTO_OP_PROVIDER_NAME;
 
@@ -274,7 +292,11 @@ public class CipherTest extends AndroidTestCase {
     private static final byte[] DESede_KAT_KEY_BYTES = HexEncoding.decode(
             "5EBE2294ECD0E0F08EAB7690D2A6EE6926AE5CC854E36B6B");
 
-    private class DeviceLockSession  extends ActivityManagerTestBase implements AutoCloseable {
+    private Context getContext() {
+        return InstrumentationRegistry.getInstrumentation().getTargetContext();
+    }
+
+    private class DeviceLockSession extends ActivityManagerTestBase implements AutoCloseable {
 
         private LockScreenSession mLockCredential;
 
@@ -308,11 +330,11 @@ public class CipherTest extends AndroidTestCase {
         @Override
         public void close() throws Exception {
             mLockCredential.close();
-            tearDown();
         }
     }
 
     @Presubmit
+    @Test
     public void testAlgorithmList() {
         // Assert that Android Keystore Provider exposes exactly the expected Cipher
         // transformations. We don't care whether the transformations are exposed via aliases, as
@@ -337,6 +359,7 @@ public class CipherTest extends AndroidTestCase {
                 expectedAlgsLowerCase.toArray(new String[0]));
     }
 
+    @Test
     public void testAndroidKeyStoreKeysHandledByAndroidKeyStoreProviderWhenDecrypting()
             throws Exception {
         Provider provider = Security.getProvider(EXPECTED_PROVIDER_NAME);
@@ -374,6 +397,7 @@ public class CipherTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testAndroidKeyStorePublicKeysAcceptedByHighestPriorityProviderWhenEncrypting()
             throws Exception {
         Provider provider = Security.getProvider(EXPECTED_PROVIDER_NAME);
@@ -399,6 +423,7 @@ public class CipherTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testEmptyPlaintextEncryptsAndDecrypts()
             throws Exception {
         Provider provider = Security.getProvider(EXPECTED_PROVIDER_NAME);
@@ -434,7 +459,7 @@ public class CipherTest extends AndroidTestCase {
                     Key decryptionKey = key.getKeystoreBackedDecryptionKey();
                     cipher.init(Cipher.DECRYPT_MODE, decryptionKey, params);
                     byte[] actualPlaintext = cipher.doFinal(ciphertext);
-                    MoreAsserts.assertEquals(expectedPlaintext, actualPlaintext);
+                    assertArrayEquals(expectedPlaintext, actualPlaintext);
                 } catch (Throwable e) {
                     throw new RuntimeException(
                             "Failed for " + algorithm + " with key " + key.getAlias(),
@@ -449,6 +474,7 @@ public class CipherTest extends AndroidTestCase {
      * is in interrupted state which cannot be signaled to the user of the Java Crypto
      * API.
      */
+    @Test
     public void testEncryptsAndDecryptsInterrupted()
             throws Exception {
 
@@ -487,7 +513,7 @@ public class CipherTest extends AndroidTestCase {
                     cipher.init(Cipher.DECRYPT_MODE, decryptionKey, params);
                     byte[] actualPlaintext = cipher.doFinal(ciphertext);
                     assertTrue(Thread.currentThread().interrupted());
-                    MoreAsserts.assertEquals(expectedPlaintext, actualPlaintext);
+                    assertArrayEquals(expectedPlaintext, actualPlaintext);
                 } catch (Throwable e) {
                     throw new RuntimeException(
                             "Failed for " + algorithm + " with key " + key.getAlias(),
@@ -500,6 +526,7 @@ public class CipherTest extends AndroidTestCase {
     /*
      * This test performs a round trip en/decryption using Cipher*Streams.
      */
+    @Test
     public void testEncryptsAndDecryptsUsingCipherStreams()
             throws Exception {
 
@@ -577,7 +604,7 @@ public class CipherTest extends AndroidTestCase {
             Key decryptionKey = key.getKeystoreBackedDecryptionKey();
             cipher.init(Cipher.DECRYPT_MODE, decryptionKey, params);
             byte[] actualPlaintext = cipher.doFinal(ciphertext);
-            MoreAsserts.assertEquals(expectedPlaintext, actualPlaintext);
+            assertArrayEquals(expectedPlaintext, actualPlaintext);
             return true;
         } catch (Throwable e) {
             return false;
@@ -589,10 +616,16 @@ public class CipherTest extends AndroidTestCase {
         return (pm != null && pm.hasSystemFeature("android.software.leanback_only"));
     }
 
+    private boolean hasSecureLockScreen() {
+        PackageManager pm = getContext().getPackageManager();
+        return (pm != null && pm.hasSystemFeature("android.software.secure_lock_screen"));
+    }
+
     @Presubmit
+    @Test
     public void testKeyguardLockAndUnlock()
             throws Exception {
-        if (isLeanbackOnly()) {
+        if (!hasSecureLockScreen()) {
             return;
         }
 
@@ -608,12 +641,13 @@ public class CipherTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testEmptyPlaintextEncryptsAndDecryptsWhenUnlockedRequired()
             throws Exception {
         final boolean isUnlockedDeviceRequired = true;
         final boolean isUserAuthRequired = false;
 
-        if (isLeanbackOnly()) {
+        if (!hasSecureLockScreen()) {
             return;
         }
 
@@ -698,6 +732,7 @@ public class CipherTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testCiphertextGeneratedByAndroidKeyStoreDecryptsByAndroidKeyStore()
             throws Exception {
         Provider provider = Security.getProvider(EXPECTED_PROVIDER_NAME);
@@ -733,7 +768,7 @@ public class CipherTest extends AndroidTestCase {
                     Key decryptionKey = key.getKeystoreBackedDecryptionKey();
                     cipher.init(Cipher.DECRYPT_MODE, decryptionKey, params);
                     byte[] actualPlaintext = cipher.doFinal(ciphertext);
-                    MoreAsserts.assertEquals(expectedPlaintext, actualPlaintext);
+                    assertArrayEquals(expectedPlaintext, actualPlaintext);
                 } catch (Throwable e) {
                     throw new RuntimeException(
                             "Failed for " + algorithm + " with key " + key.getAlias(),
@@ -743,6 +778,7 @@ public class CipherTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testCiphertextGeneratedByHighestPriorityProviderDecryptsByAndroidKeyStore()
             throws Exception {
         Provider keystoreProvider = Security.getProvider(EXPECTED_PROVIDER_NAME);
@@ -844,7 +880,7 @@ public class CipherTest extends AndroidTestCase {
                     Key decryptionKey = key.getKeystoreBackedDecryptionKey();
                     cipher.init(Cipher.DECRYPT_MODE, decryptionKey, params);
                     byte[] actualPlaintext = cipher.doFinal(ciphertext);
-                    MoreAsserts.assertEquals(expectedPlaintext, actualPlaintext);
+                    assertArrayEquals(expectedPlaintext, actualPlaintext);
                 } catch (Throwable e) {
                     throw new RuntimeException(
                             "Failed for " + algorithm + " with key " + key.getAlias()
@@ -855,6 +891,7 @@ public class CipherTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testCiphertextGeneratedByAndroidKeyStoreDecryptsByHighestPriorityProvider()
             throws Exception {
         Provider keystoreProvider = Security.getProvider(EXPECTED_PROVIDER_NAME);
@@ -906,7 +943,7 @@ public class CipherTest extends AndroidTestCase {
                         continue;
                     }
                     byte[] actualPlaintext = cipher.doFinal(ciphertext);
-                    MoreAsserts.assertEquals(expectedPlaintext, actualPlaintext);
+                    assertArrayEquals(expectedPlaintext, actualPlaintext);
                 } catch (Throwable e) {
                     throw new RuntimeException(
                             "Failed for " + algorithm + " with key " + key.getAlias()
@@ -917,6 +954,7 @@ public class CipherTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testMaxSizedPlaintextSupported() throws Exception {
         Provider keystoreProvider = Security.getProvider(EXPECTED_PROVIDER_NAME);
         assertNotNull(keystoreProvider);
@@ -967,7 +1005,7 @@ public class CipherTest extends AndroidTestCase {
                     Key decryptionKey = key.getKeystoreBackedDecryptionKey();
                     cipher.init(Cipher.DECRYPT_MODE, decryptionKey, params);
                     byte[] actualPlaintext = cipher.doFinal(ciphertext);
-                    MoreAsserts.assertEquals(expectedPlaintext, actualPlaintext);
+                    assertArrayEquals(expectedPlaintext, actualPlaintext);
 
                     // Check that ciphertext decrypts using the highest-priority provider.
                     cipher = Cipher.getInstance(algorithm);
@@ -984,7 +1022,7 @@ public class CipherTest extends AndroidTestCase {
                         continue;
                     }
                     actualPlaintext = cipher.doFinal(ciphertext);
-                    MoreAsserts.assertEquals(expectedPlaintext, actualPlaintext);
+                    assertArrayEquals(expectedPlaintext, actualPlaintext);
                 } catch (Throwable e) {
                     throw new RuntimeException(
                             "Failed for " + algorithm + " with key " + key.getAlias()
@@ -996,6 +1034,7 @@ public class CipherTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testLargerThanMaxSizedPlaintextRejected() throws Exception {
         Provider keystoreProvider = Security.getProvider(EXPECTED_PROVIDER_NAME);
         assertNotNull(keystoreProvider);
@@ -1075,6 +1114,7 @@ public class CipherTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testKat() throws Exception {
         Provider provider = Security.getProvider(EXPECTED_PROVIDER_NAME);
         assertNotNull(provider);
@@ -1097,7 +1137,7 @@ public class CipherTest extends AndroidTestCase {
                     expectedPlaintext = TestUtils.leftPadWithZeroBytes(
                             expectedPlaintext, modulusLengthBytes);
                 }
-                MoreAsserts.assertEquals(expectedPlaintext, actualPlaintext);
+                assertArrayEquals(expectedPlaintext, actualPlaintext);
                 if (!isRandomizedEncryption(algorithm)) {
                     // Deterministic encryption: ciphertext depends only on plaintext and input
                     // parameters. Assert that encrypting the plaintext results in the same
@@ -1106,7 +1146,7 @@ public class CipherTest extends AndroidTestCase {
                     cipher = Cipher.getInstance(algorithm, provider);
                     cipher.init(Cipher.ENCRYPT_MODE, encryptionKey, testVector.params);
                     byte[] actualCiphertext = cipher.doFinal(testVector.plaintext);
-                    MoreAsserts.assertEquals(testVector.ciphertext, actualCiphertext);
+                    assertArrayEquals(testVector.ciphertext, actualCiphertext);
                 }
             } catch (Throwable e) {
                 throw new RuntimeException("Failed for " + algorithm, e);
@@ -1120,11 +1160,12 @@ public class CipherTest extends AndroidTestCase {
                 || (transformationUpperCase.contains("OAEP"));
     }
 
+    @Test
     public void testCanCreateAuthBoundKeyWhenScreenLocked() throws Exception {
         final boolean isUnlockedDeviceRequired = false;
         final boolean isUserAuthRequired = true;
 
-        if (isLeanbackOnly()) {
+        if (!hasSecureLockScreen()) {
             return;
         }
 
@@ -1147,6 +1188,7 @@ public class CipherTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testCannotCreateAuthBoundKeyWhenDevicePinNotSet() throws Exception {
         final boolean isUserAuthRequired = true;
         final boolean isUnlockedDeviceRequired = false;
@@ -1165,10 +1207,12 @@ public class CipherTest extends AndroidTestCase {
                 fail("Importing auth bound keys to an insecure device should fail");
             } catch (KeyStoreException e) {
                 // Expected behavior
+                assertThat(e.getCause()).isInstanceOf(IllegalStateException.class);
             }
         }
     }
 
+    @Test
     public void testInitDecryptFailsWhenNotAuthorizedToDecrypt() throws Exception {
         for (String transformation : EXPECTED_ALGORITHMS) {
             try {
@@ -1184,6 +1228,7 @@ public class CipherTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitEncryptSymmetricFailsWhenNotAuthorizedToEncrypt() throws Exception {
         for (String transformation : EXPECTED_ALGORITHMS) {
             if (!isSymmetric(transformation)) {
@@ -1203,6 +1248,7 @@ public class CipherTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitEncryptAsymmetricIgnoresAuthorizedPurposes() throws Exception {
         for (String transformation : EXPECTED_ALGORITHMS) {
             if (isSymmetric(transformation)) {
@@ -1222,6 +1268,7 @@ public class CipherTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitDecryptFailsWhenBlockModeNotAuthorized() throws Exception {
         for (String transformation : EXPECTED_ALGORITHMS) {
             if (KeyProperties.KEY_ALGORITHM_RSA.equalsIgnoreCase(
@@ -1250,6 +1297,7 @@ public class CipherTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitEncryptSymmetricFailsWhenBlockModeNotAuthorized() throws Exception {
         for (String transformation : EXPECTED_ALGORITHMS) {
             if (!isSymmetric(transformation)) {
@@ -1283,6 +1331,7 @@ public class CipherTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitEncryptAsymmetricIgnoresAuthorizedBlockModes() throws Exception {
         for (String transformation : EXPECTED_ALGORITHMS) {
             if (isSymmetric(transformation)) {
@@ -1303,6 +1352,7 @@ public class CipherTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitDecryptFailsWhenDigestNotAuthorized() throws Exception {
         for (String transformation : EXPECTED_ALGORITHMS) {
             String impliedDigest = TestUtils.getCipherDigest(transformation);
@@ -1336,6 +1386,7 @@ public class CipherTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitEncryptSymmetricFailsWhenDigestNotAuthorized() throws Exception {
         for (String transformation : EXPECTED_ALGORITHMS) {
             if (!isSymmetric(transformation)) {
@@ -1373,6 +1424,7 @@ public class CipherTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitEncryptAsymmetricIgnoresAuthorizedDigests() throws Exception {
         for (String transformation : EXPECTED_ALGORITHMS) {
             if (isSymmetric(transformation)) {
@@ -1391,6 +1443,7 @@ public class CipherTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitDecryptFailsWhenPaddingSchemeNotAuthorized() throws Exception {
         for (String transformation : EXPECTED_ALGORITHMS) {
             String impliedEncryptionPadding = TestUtils.getCipherEncryptionPadding(transformation);
@@ -1437,6 +1490,7 @@ public class CipherTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitEncryptSymmetricFailsWhenPaddingSchemeNotAuthorized() throws Exception {
         for (String transformation : EXPECTED_ALGORITHMS) {
             if (!isSymmetric(transformation)) {
@@ -1476,6 +1530,7 @@ public class CipherTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitEncryptAsymmetricIgnoresAuthorizedPaddingSchemes() throws Exception {
         for (String transformation : EXPECTED_ALGORITHMS) {
             if (isSymmetric(transformation)) {
@@ -1498,6 +1553,7 @@ public class CipherTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitDecryptFailsWhenKeyNotYetValid() throws Exception {
         Date badStartDate = new Date(System.currentTimeMillis() + DAY_IN_MILLIS);
         for (String transformation : EXPECTED_ALGORITHMS) {
@@ -1515,6 +1571,7 @@ public class CipherTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitEncryptSymmetricFailsWhenKeyNotYetValid() throws Exception {
         Date badStartDate = new Date(System.currentTimeMillis() + DAY_IN_MILLIS);
         for (String transformation : EXPECTED_ALGORITHMS) {
@@ -1535,6 +1592,7 @@ public class CipherTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitEncryptAsymmetricIgnoresThatKeyNotYetValid() throws Exception {
         Date badStartDate = new Date(System.currentTimeMillis() + DAY_IN_MILLIS);
         for (String transformation : EXPECTED_ALGORITHMS) {
@@ -1555,6 +1613,7 @@ public class CipherTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitDecryptFailsWhenKeyNoLongerValidForConsumption() throws Exception {
         Date badEndDate = new Date(System.currentTimeMillis() - DAY_IN_MILLIS);
         for (String transformation : EXPECTED_ALGORITHMS) {
@@ -1574,6 +1633,7 @@ public class CipherTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitDecryptIgnoresThatKeyNoLongerValidForOrigination() throws Exception {
         Date badEndDate = new Date(System.currentTimeMillis() - DAY_IN_MILLIS);
         for (String transformation : EXPECTED_ALGORITHMS) {
@@ -1593,6 +1653,7 @@ public class CipherTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitEncryptSymmetricFailsWhenKeyNoLongerValidForOrigination() throws Exception {
         Date badEndDate = new Date(System.currentTimeMillis() - DAY_IN_MILLIS);
         for (String transformation : EXPECTED_ALGORITHMS) {
@@ -1615,6 +1676,7 @@ public class CipherTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitEncryptSymmetricIgnoresThatKeyNoLongerValidForConsumption()
             throws Exception {
         Date badEndDate = new Date(System.currentTimeMillis() - DAY_IN_MILLIS);
@@ -1638,6 +1700,7 @@ public class CipherTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInitEncryptAsymmetricIgnoresThatKeyNoLongerValid() throws Exception {
         Date badEndDate = new Date(System.currentTimeMillis() - DAY_IN_MILLIS);
         for (String transformation : EXPECTED_ALGORITHMS) {

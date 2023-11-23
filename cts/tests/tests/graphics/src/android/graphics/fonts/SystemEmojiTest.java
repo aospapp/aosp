@@ -18,6 +18,9 @@ package android.graphics.fonts;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import android.graphics.Paint;
+import android.graphics.text.PositionedGlyphs;
+import android.graphics.text.TextRunShaper;
 import android.test.suitebuilder.annotation.SmallTest;
 
 import androidx.test.runner.AndroidJUnit4;
@@ -45,5 +48,32 @@ public class SystemEmojiTest {
         assertThat(emojiFont).isNotNull();
 
         assertThat(FontFileTestUtil.containsEmojiCompatMetadata(emojiFont)).isTrue();
+    }
+
+    public String getFontName(String chars) {
+        Paint paint = new Paint();
+
+        PositionedGlyphs glyphs = TextRunShaper.shapeTextRun(
+                chars, 0, chars.length(), 0, chars.length(), 0f, 0f, false, paint);
+        assertThat(glyphs.glyphCount()).isEqualTo(1);
+        assertThat(glyphs.getFont(0)).isNotNull();
+        File file = glyphs.getFont(0).getFile();
+        assertThat(file).isNotNull();
+        assertThat(file.getParent()).isEqualTo("/system/fonts");
+
+        return file.getName();
+    }
+
+    @Test
+    public void doNotDrawLegacy() {
+        assertThat(getFontName("\u263A")).isNotEqualTo("NotoColorEmojiLegacy.ttf");
+    }
+
+    @Test
+    public void doNotRemoveLegacyFont() {
+        File legacyFile = new File("/system/fonts", "NotoColorEmojiLegacy.ttf");
+        assertThat(legacyFile.exists()).isTrue();
+        assertThat(legacyFile.isFile()).isTrue();
+        assertThat(legacyFile.canRead()).isTrue();
     }
 }

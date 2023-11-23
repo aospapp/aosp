@@ -54,22 +54,21 @@ class NativeModuleInfo(module_info.AidegenModuleInfo):
         if not module_file:
             module_file = common_util.get_blueprint_json_path(
                 constant.BLUEPRINT_CC_JSONFILE_NAME)
+        self.force_build = force_build
         if not os.path.isfile(module_file):
-            force_build = True
-        super().__init__(force_build, module_file)
+            self.force_build = True
+        super().__init__(self.force_build, module_file)
 
-    def _load_module_info_file(self, force_build, module_file):
+    def _load_module_info_file(self, module_file):
         """Load the module file.
 
         Args:
-            force_build: Boolean to indicate if we should rebuild the
-                         module_info file regardless if it's created or not.
             module_file: String of path to file to load up. Used for testing.
 
         Returns:
             Tuple of module_info_target and dict of json.
         """
-        if force_build:
+        if self.force_build:
             self._discover_mod_file_and_target(True)
         mod_info = common_util.get_json_dict(module_file)
         NativeModuleInfo.c_lang_path = mod_info.get(_CLANG, '')

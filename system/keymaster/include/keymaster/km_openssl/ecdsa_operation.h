@@ -23,6 +23,7 @@
 #include <keymaster/UniquePtr.h>
 
 #include <keymaster/key.h>
+#include <keymaster/km_openssl/curve25519_key.h>
 #include <keymaster/operation.h>
 
 namespace keymaster {
@@ -80,6 +81,24 @@ class EcdsaVerifyOperation : public EcdsaOperation {
                              Buffer* output) override;
 };
 
+class Ed25519SignOperation : public EcdsaSignOperation {
+  public:
+    Ed25519SignOperation(AuthorizationSet&& hw_enforced, AuthorizationSet&& sw_enforced,
+                         keymaster_digest_t digest, EVP_PKEY* key)
+        : EcdsaSignOperation(move(hw_enforced), move(sw_enforced), digest, key) {}
+    keymaster_error_t Begin(const AuthorizationSet& input_params,
+                            AuthorizationSet* output_params) override;
+    keymaster_error_t Update(const AuthorizationSet& additional_params, const Buffer& input,
+                             AuthorizationSet* output_params, Buffer* output,
+                             size_t* input_consumed) override;
+    keymaster_error_t Finish(const AuthorizationSet& additional_params, const Buffer& input,
+                             const Buffer& signature, AuthorizationSet* output_params,
+                             Buffer* output) override;
+
+  protected:
+    keymaster_error_t StoreAllData(const Buffer& input, size_t* input_consumed);
+};
+
 class EcdsaOperationFactory : public OperationFactory {
   private:
     KeyType registry_key() const override { return KeyType(KM_ALGORITHM_EC, purpose()); }
@@ -98,8 +117,13 @@ class EcdsaSignOperationFactory : public EcdsaOperationFactory {
     keymaster_purpose_t purpose() const override { return KM_PURPOSE_SIGN; }
     Operation* InstantiateOperation(AuthorizationSet&& hw_enforced, AuthorizationSet&& sw_enforced,
                                     keymaster_digest_t digest, EVP_PKEY* key) override {
-        return new (std::nothrow)
-            EcdsaSignOperation(move(hw_enforced), move(sw_enforced), digest, key);
+        if (IsEd25519Key(hw_enforced, sw_enforced)) {
+            return new (std::nothrow)
+                Ed25519SignOperation(move(hw_enforced), move(sw_enforced), digest, key);
+        } else {
+            return new (std::nothrow)
+                EcdsaSignOperation(move(hw_enforced), move(sw_enforced), digest, key);
+        }
     }
 };
 

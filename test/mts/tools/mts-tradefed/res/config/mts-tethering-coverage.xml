@@ -17,5 +17,16 @@
 
     <option name="plan" value="mts-tethering-coverage" />
 
-    <option name="compatibility:include-filter" value="TetheringCoverageTests" />
+    <option name="compatibility:include-filter" value="ConnectivityCoverageTests" />
+    <option name="compatibility:include-filter" value="NearbyUnitTests" />
+    <option name="compatibility:include-filter" value="CtsNearbyFastPairTestCases" />
+    <option name="compatibility:include-filter" value="netd_updatable_unit_test" />
+    <option name="compatibility:include-filter" value="libnetworkstats_test" />
+    <option name="compatibility:include-filter" value="traffic_controller_unit_test" />
+    <option name="compatibility:include-filter" value="libclat_test" />
+
+    <!-- Coverage runs are significantly slower than normal runs, and testFuzzing cannot
+         complete before the general test timeout (5 minutes) on such configurations. It is
+         still run in other non-coverage test suites. -->
+    <option name="compatibility:exclude-filter" value="ConnectivityCoverageTests android.net.NetworkStatsHistoryTest#testFuzzing" />
 </configuration>

@@ -16,6 +16,8 @@
 
 package android.hdmicec.cts;
 
+import android.hdmicec.cts.HdmiCecConstants.CecDeviceType;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -60,7 +62,7 @@ public enum LogicalAddress {
         return this.address;
     }
 
-    public int getDeviceType() {
+    public @CecDeviceType int getDeviceType() {
         switch (this) {
             case PLAYBACK_1:
             case PLAYBACK_2:

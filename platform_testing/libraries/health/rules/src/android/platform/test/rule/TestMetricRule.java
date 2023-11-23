@@ -15,6 +15,7 @@
  */
 package android.platform.test.rule;
 
+import android.app.Instrumentation;
 import android.device.collectors.BaseMetricListener;
 import android.os.Bundle;
 import android.util.Log;
@@ -50,12 +51,12 @@ import java.util.List;
  * approach taken by {@link BaseMetricListener}.
  */
 public class TestMetricRule extends TestWatcher {
-    private static final String LOG_TAG = TestMetricRule.class.getSimpleName();
-
     @VisibleForTesting static final String METRIC_COLLECTORS_OPTION = "test-metric-collectors";
     @VisibleForTesting static final String METRIC_COLLECTORS_PACKAGE = "android.device.collectors";
 
-    private List<BaseMetricListener> mMetricListeners = new ArrayList<>();
+    protected List<BaseMetricListener> mMetricListeners = new ArrayList<>();
+
+    private final String mLogTag;
 
     public TestMetricRule() {
         this(InstrumentationRegistry.getArguments());
@@ -63,8 +64,25 @@ public class TestMetricRule extends TestWatcher {
 
     @VisibleForTesting
     TestMetricRule(Bundle args) {
+        this(
+                args,
+                InstrumentationRegistry.getInstrumentation(),
+                METRIC_COLLECTORS_OPTION,
+                TestMetricRule.class.getSimpleName());
+    }
+
+    /**
+     * A constructor that allows subclasses to change out various components used at initialization
+     * time.
+     */
+    protected TestMetricRule(
+            Bundle args,
+            Instrumentation instrumentation,
+            String collectorsOptionName,
+            String logTag) {
+        mLogTag = logTag;
         List<String> listenerNames =
-                Arrays.asList(args.getString(METRIC_COLLECTORS_OPTION, "").split(","));
+                Arrays.asList(args.getString(collectorsOptionName, "").split(","));
         for (String listenerName : listenerNames) {
             if (listenerName.isEmpty()) {
                 continue;
@@ -73,7 +91,7 @@ public class TestMetricRule extends TestWatcher {
             // We could use a regex here, but this is simpler and should work just as well.
             if (listenerName.contains(".")) {
                 Log.i(
-                        LOG_TAG,
+                        mLogTag,
                         String.format(
                                 "Attempting to dynamically load metric collector with fully "
                                         + "qualified name %s.",
@@ -91,7 +109,7 @@ public class TestMetricRule extends TestWatcher {
             } else {
                 String fullName = String.format("%s.%s", METRIC_COLLECTORS_PACKAGE, listenerName);
                 Log.i(
-                        LOG_TAG,
+                        mLogTag,
                         String.format(
                                 "Attempting to dynamically load metric collector with simple class "
                                         + "name %s (fully qualified name: %s).",
@@ -111,19 +129,21 @@ public class TestMetricRule extends TestWatcher {
         }
         // Initialize each listener.
         for (BaseMetricListener listener : mMetricListeners) {
-            listener.setInstrumentation(InstrumentationRegistry.getInstrumentation());
-            listener.setupAdditionalArgs();
+            listener.setInstrumentation(instrumentation);
         }
     }
 
     @Override
     protected void starting(Description description) {
         for (BaseMetricListener listener : mMetricListeners) {
+            listener.setUp();
+        }
+        for (BaseMetricListener listener : mMetricListeners) {
             try {
                 listener.testStarted(description);
             } catch (Exception e) {
                 Log.e(
-                        LOG_TAG,
+                        mLogTag,
                         String.format(
                                 "Exception from listener %s during starting().",
                                 listener.getClass().getCanonicalName()),
@@ -139,12 +159,15 @@ public class TestMetricRule extends TestWatcher {
                 listener.testFinished(description);
             } catch (Exception e) {
                 Log.e(
-                        LOG_TAG,
+                        mLogTag,
                         String.format(
                                 "Exception from listener %s during finished().",
                                 listener.getClass().getCanonicalName()),
                         e);
             }
+        }
+        for (BaseMetricListener listener : mMetricListeners) {
+            listener.cleanUp();
         }
     }
 
@@ -156,7 +179,7 @@ public class TestMetricRule extends TestWatcher {
                 listener.testFailure(failure);
             } catch (Exception e) {
                 Log.e(
-                        LOG_TAG,
+                        mLogTag,
                         String.format(
                                 "Exception from listener %s during failed().",
                                 listener.getClass().getCanonicalName()),

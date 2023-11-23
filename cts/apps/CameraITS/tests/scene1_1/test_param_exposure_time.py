@@ -82,6 +82,7 @@ class ParamExposureTimeTest(its_base_test.ItsBaseTest):
         patch = image_processing_utils.get_image_patch(
             img, PATCH_X, PATCH_Y, PATCH_W, PATCH_H)
         rgb_means = image_processing_utils.compute_image_means(patch)
+        logging.debug('RGB means: %s', str(rgb_means))
         exp_times.append(e * e_mult)
         r_means.append(rgb_means[0])
         g_means.append(rgb_means[1])
@@ -101,8 +102,10 @@ class ParamExposureTimeTest(its_base_test.ItsBaseTest):
     # Assert each shot is brighter than previous.
     for ch, means in enumerate([r_means, g_means, b_means]):
       for i in range(len(EXP_MULT_FACTORS)-1):
-        e_msg = '%s [i+1]: %.4f, [i]: %.4f' % (COLORS[ch], means[i+1], means[i])
-        assert means[i+1] > means[i], e_msg
+        if means[i+1] <= means[i]:
+          raise AssertionError(f'{COLORS[ch]} not increasing in brightness! '
+                               f'{COLORS[ch]}[i+1]: {means[i+1]:.4f}, '
+                               f'{COLORS[ch]}[i]: {means[i]:.4f}')
 
 if __name__ == '__main__':
   test_runner.main()

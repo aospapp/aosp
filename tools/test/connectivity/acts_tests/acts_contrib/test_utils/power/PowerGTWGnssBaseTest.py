@@ -92,6 +92,7 @@ class PowerGTWGnssBaseTest(PowerBaseTest):
             lowpower: a boolean to set GNSS Low Power Mode.
             meas: a boolean to set GNSS Measurement registeration.
         """
+        c_power, c_tracking, c_acquisition = self.request_power_stat()
         self.ad.adb.shell('settings put secure location_mode 3')
         gutils.start_gnss_by_gtw_gpstool(self.ad, True, 'gnss', True, freq,
                                          lowpower, meas)
@@ -106,6 +107,10 @@ class PowerGTWGnssBaseTest(PowerBaseTest):
         self.ad.send_keycode('WAKEUP')
 
         gutils.start_gnss_by_gtw_gpstool(self.ad, False, 'gnss')
+        n_power, n_tracking, n_acquisition = self.request_power_stat()
+        self.ad.log.info("TestResult Total_power: %.2f" %(n_power - c_power))
+        self.ad.log.info("TestResult Tracking: %.2f" %(n_tracking - c_tracking))
+        self.ad.log.info("TestResult Acquisition: %.2f" %(n_acquisition - c_acquisition))
         gutils.parse_gtw_gpstool_log(self.ad, self.test_location, type='gnss')
 
     def calibrate_avg_current(self, samples):
@@ -139,3 +144,33 @@ class PowerGTWGnssBaseTest(PowerBaseTest):
             self.ad.log.info(result)
             raise signals.TestFailure('DPO is not able to Turn: %s' % enable)
         self.dut_rockbottom()
+
+    def request_power_stat(self):
+        """Request the power state via command.
+        Returns:
+            total_power, tracking, acquisition power consumption.
+            If the device does not support, return 0, 0, 0
+        """
+        self.ad.adb.shell('cmd location providers send-extra-command gps request_power_stats')
+        time.sleep(1)
+        res = self.ad.adb.shell('dumpsys location | grep -A 10 -i \'power stats\'')
+        if res:
+            for line in res.split("\n"):
+                if "total power" in line:
+                    total_power = line.split(" ")[-1].split("mJ")[0]
+                if "single-band tracking" in line:
+                    single_tracking = line.split(" ")[-1].split("mJ")[0]
+                    self.ad.log.info(single_tracking)
+                if "multi-band tracking" in line:
+                    multi_tracking = line.split(" ")[-1].split("mJ")[0]
+                if "single-band acquisition" in line:
+                    single_acquisition = line.split(" ")[-1].split("mJ")[0]
+                if "multi-band acquisition" in line:
+                    multi_acquisition = line.split(" ")[-1].split("mJ")[0]
+            tracking = float(single_tracking) + float(multi_tracking)
+            acquisition = float(single_acquisition) + float(multi_acquisition)
+            self.ad.log.info("total power: %.2f" %float(total_power))
+            self.ad.log.info("tracking: %.2f" %tracking)
+            self.ad.log.info("acquisition: %.2f" %acquisition)
+            return float(total_power), tracking, acquisition
+        return 0, 0, 0

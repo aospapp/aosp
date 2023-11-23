@@ -22,6 +22,7 @@ import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
 import android.app.Instrumentation.ActivityResult;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.cts.tagging.Utils;
@@ -39,10 +40,14 @@ import org.junit.Test;
 
 import com.android.compatibility.common.util.DropBoxReceiver;
 
+import android.cts.tagging.ServiceRunnerActivity;
+import static android.cts.tagging.Constants.*;
+
 @RunWith(AndroidJUnit4.class)
 @SmallTest
 public class TaggingTest {
     private static final String NATIVE_CRASH_TAG = "data_app_native_crash";
+    private static String TAG = TaggingTest.class.getName();
 
     private Context mContext;
 
@@ -140,19 +145,58 @@ public class TaggingTest {
     @Rule
     public ActivityTestRule<TestActivity> mTestActivityRule =
             new ActivityTestRule<>(
-                    TestActivity.class, false /*initialTouchMode*/, true /*launchActivity*/);
+                    TestActivity.class, false /*initialTouchMode*/, false /*launchActivity*/);
 
     @Test
     public void testHeapZeroInitActivity() throws Exception {
-      TestActivity activity = mTestActivityRule.getActivity();
+      TestActivity activity = mTestActivityRule.launchActivity(null);
       activity.callActivity(HeapZeroInitActivity.class);
       assertFalse(activity.failed());
     }
 
     @Test
     public void testHeapZeroInitMemtagAsyncActivity() throws Exception {
-      TestActivity activity = mTestActivityRule.getActivity();
+      TestActivity activity = mTestActivityRule.launchActivity(null);
       activity.callActivity(HeapZeroInitMemtagAsyncActivity.class);
       assertFalse(activity.failed());
     }
+
+    // Exported service tests.
+
+    @Rule
+    public ActivityTestRule<ServiceRunnerActivity> mServiceRunnerActivityRule = new ActivityTestRule<>(
+        ServiceRunnerActivity.class, false /*initialTouchMode*/, false /*launchActivity*/);
+
+    @Test
+    public void testExportedMemtagSyncService() throws Exception {
+      ServiceRunnerActivity activity = mServiceRunnerActivityRule.launchActivity(null);
+      activity.runExternalService(new ComponentName(
+          "android.cts.tagging.sdk30memtag", "android.cts.tagging.sdk30memtag.ExportedMemtagSyncService"));
+      assertEquals(TAGGING_MODE_SYNC, activity.getResult());
+    }
+
+    @Test
+    public void testExportedMemtagOffService() throws Exception {
+      ServiceRunnerActivity activity = mServiceRunnerActivityRule.launchActivity(null);
+      activity.runExternalService(new ComponentName(
+          "android.cts.tagging.sdk30memtag", "android.cts.tagging.sdk30memtag.ExportedMemtagOffService"));
+      assertEquals(TAGGING_MODE_OFF, activity.getResult());
+    }
+
+    @Test
+    public void testExportedMemtagSyncAppZygoteService() throws Exception {
+      ServiceRunnerActivity activity = mServiceRunnerActivityRule.launchActivity(null);
+      activity.runExternalService(new ComponentName(
+          "android.cts.tagging.sdk30memtag", "android.cts.tagging.sdk30memtag.ExportedMemtagSyncAppZygoteService"));
+      assertEquals(TAGGING_MODE_SYNC, activity.getResult());
+    }
+
+    @Test
+    public void testExportedMemtagOffAppZygoteService() throws Exception {
+      ServiceRunnerActivity activity = mServiceRunnerActivityRule.launchActivity(null);
+      activity.runExternalService(new ComponentName(
+          "android.cts.tagging.sdk30memtag", "android.cts.tagging.sdk30memtag.ExportedMemtagOffAppZygoteService"));
+      assertEquals(TAGGING_MODE_OFF, activity.getResult());
+    }
+
 }

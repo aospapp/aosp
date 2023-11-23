@@ -19,7 +19,7 @@ package {
 java_test {
     name: "cts-background-activity-common",
 
-    srcs: ["src/**/*.java"],
+    srcs: ["src/**/*.java", "aidl/**/*.aidl"],
 
     static_libs: [
         "androidx.annotation_annotation",

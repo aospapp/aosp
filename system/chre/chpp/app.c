@@ -268,6 +268,7 @@ static bool chppDatagramLenIsOk(struct ChppAppState *context,
         break;
 
       default:
+        // len remains SIZE_MAX
         CHPP_LOGE("Invalid H#%" PRIu8, handle);
     }
 
@@ -339,7 +340,7 @@ ChppDispatchFunction *chppGetDispatchFunction(struct ChppAppState *context,
           (struct ChppClientState *)chppClientServiceContextOfHandle(
               context, handle, type);
       if (clientState->openState == CHPP_OPEN_STATE_CLOSED) {
-        CHPP_LOGE("Rx service response but client closed");
+        CHPP_LOGE("RX service response but client closed");
       } else {
         return chppClientOfHandle(context, handle)->responseDispatchFunctionPtr;
       }
@@ -355,7 +356,7 @@ ChppDispatchFunction *chppGetDispatchFunction(struct ChppAppState *context,
           (struct ChppClientState *)chppClientServiceContextOfHandle(
               context, handle, type);
       if (clientState->openState == CHPP_OPEN_STATE_CLOSED) {
-        CHPP_LOGE("Rx service notification but client closed");
+        CHPP_LOGE("RX service notification but client closed");
       } else {
         return chppClientOfHandle(context, handle)
             ->notificationDispatchFunctionPtr;
@@ -685,8 +686,7 @@ void chppAppProcessRxDatagram(struct ChppAppState *context, uint8_t *buf,
   struct ChppAppHeader *rxHeader = (struct ChppAppHeader *)buf;
 
   if (len == 0) {
-    CHPP_LOGE("App rx w/ len 0");
-    CHPP_DEBUG_ASSERT(false);
+    CHPP_DEBUG_ASSERT_LOG(false, "App rx w/ len 0");
 
   } else if (len < sizeof(struct ChppAppHeader)) {
     uint8_t *handle = (uint8_t *)buf;
@@ -795,4 +795,20 @@ uint8_t chppAppErrorToChreError(uint8_t chppError) {
       return CHRE_ERROR;
     }
   }
+}
+
+uint8_t chppAppShortResponseErrorHandler(uint8_t *buf, size_t len,
+                                         const char *responseName) {
+  CHPP_ASSERT(len >= sizeof(struct ChppAppHeader));
+  uint8_t result = CHRE_ERROR;
+  struct ChppAppHeader *rxHeader = (struct ChppAppHeader *)buf;
+
+  if (rxHeader->error == CHPP_APP_ERROR_NONE) {
+    CHPP_LOGE("%s resp short len=%" PRIuSIZE, responseName, len);
+  } else {
+    CHPP_LOGI("%s resp short len=%" PRIuSIZE, responseName, len);
+    result = chppAppErrorToChreError(rxHeader->error);
+  }
+
+  return result;
 }

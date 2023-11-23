@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "IptablesRestoreController"
 #include "IptablesRestoreController.h"
 
 #include <poll.h>
@@ -21,12 +22,12 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#define LOG_TAG "IptablesRestoreController"
 #include <android-base/logging.h>
 #include <android-base/file.h>
 #include <netdutils/Syscalls.h>
 
 #include "Controllers.h"
+#include "NetdConstants.h"
 
 using android::netdutils::StatusOr;
 using android::netdutils::sSyscalls;
@@ -44,7 +45,9 @@ int IptablesRestoreController::POLL_TIMEOUT_MS = 100;
 
 class IptablesProcess {
 public:
-    IptablesProcess(pid_t pid, int stdIn, int stdOut, int stdErr) :
+    IptablesProcess(const IptablesRestoreController::IptablesProcessType type,
+            pid_t pid, int stdIn, int stdOut, int stdErr) :
+        type(type),
         pid(pid),
         stdIn(stdIn),
         processTerminated(false) {
@@ -76,34 +79,13 @@ public:
         // process was killed by something else on the system). In both cases, it's safe to send the
         // PID a SIGTERM, because the PID continues to exist until its parent (i.e., us) calls
         // waitpid on it, so there's no risk that the PID is reused.
-        int err = kill(pid, SIGTERM);
-        if (err) {
-            err = errno;
-        }
-
-        if (err == ESRCH) {
-            // This means that someone else inside netd but outside this class called waitpid(),
-            // which is a programming error. There's no point in calling waitpid() here since we
-            // know that the process is gone.
-            ALOGE("iptables child process %d unexpectedly disappeared", pid);
-            processTerminated = true;
-            return;
-        }
-
-        if (err) {
-            ALOGE("Error killing iptables child process %d: %s", pid, strerror(err));
-        }
-
-        int status;
-        if (waitpid(pid, &status, 0) == -1) {
-            ALOGE("Error waiting for iptables child process %d: %s", pid, strerror(errno));
-        } else {
-            ALOGW("iptables-restore process %d terminated status=%d", pid, status);
-        }
+        ::stopProcess(pid, (type == IptablesRestoreController::IPTABLES_PROCESS) ?
+                "iptables-restore" : "ip6tables-restore");
 
         processTerminated = true;
     }
 
+    const IptablesRestoreController::IptablesProcessType type;
     const pid_t pid;  // NOLINT(misc-non-private-member-variables-in-classes)
     const int stdIn;  // NOLINT(misc-non-private-member-variables-in-classes)
 
@@ -197,7 +179,8 @@ IptablesProcess* IptablesRestoreController::forkAndExec(const IptablesProcessTyp
         ALOGW("close() failed: %s", strerror(errno));
     }
 
-    return new IptablesProcess(child_pid.value(), stdin_pipe[1], stdout_pipe[0], stderr_pipe[0]);
+    return new IptablesProcess(type,
+            child_pid.value(), stdin_pipe[1], stdout_pipe[0], stderr_pipe[0]);
 }
 
 // TODO: Return -errno on failure instead of -1.

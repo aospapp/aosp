@@ -56,9 +56,6 @@ int main(int argc, char** argv) {
     }
   }
 
-  // Send all log messages to stdout.
-  unwindstack::log_to_stdout(true);
-
   unwindstack::Elf elf(unwindstack::Memory::CreateFileMemory(argv[1], 0).release());
   if (!elf.Init() || !elf.valid()) {
     printf("%s is not a valid elf file.\n", argv[1]);

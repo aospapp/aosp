@@ -415,8 +415,7 @@ class FieldVisitor {
         Visit(self, klass->GetSuperClass(), visitor);
       }
       for (uint32_t i = 0; i != klass->NumDirectInterfaces(); ++i) {
-        art::ObjPtr<art::mirror::Class> inf_klass =
-            art::mirror::Class::GetDirectInterface(self, klass, i);
+        art::ObjPtr<art::mirror::Class> inf_klass = klass->GetDirectInterface(i);
         DCHECK(inf_klass != nullptr);
         VisitInterface(self, inf_klass, visitor);
       }
@@ -436,8 +435,7 @@ class FieldVisitor {
 
       // Now visit the superinterfaces.
       for (uint32_t i = 0; i != inf_klass->NumDirectInterfaces(); ++i) {
-        art::ObjPtr<art::mirror::Class> super_inf_klass =
-            art::mirror::Class::GetDirectInterface(self, inf_klass, i);
+        art::ObjPtr<art::mirror::Class> super_inf_klass = inf_klass->GetDirectInterface(i);
         DCHECK(super_inf_klass != nullptr);
         VisitInterface(self, super_inf_klass, visitor);
       }
@@ -1405,7 +1403,7 @@ jvmtiError HeapUtil::FollowReferences(jvmtiEnv* env,
   {
     art::ScopedObjectAccess soa(self);      // Now we know we have the shared lock.
     art::jni::ScopedEnableSuspendAllJniIdQueries sjni;  // make sure we can get JNI ids.
-    art::ScopedThreadSuspension sts(self, art::kWaitingForVisitObjects);
+    art::ScopedThreadSuspension sts(self, art::ThreadState::kWaitingForVisitObjects);
     art::ScopedSuspendAll ssa("FollowReferences");
 
     art::ObjPtr<art::mirror::Class> class_filter = klass == nullptr
@@ -1782,7 +1780,7 @@ static void ReplaceStrongRoots(art::Thread* self, const ObjectMap& map)
       // already have.
       // TODO We technically only need to do this if the frames are not already being interpreted.
       // The cost for doing an extra stack walk is unlikely to be worth it though.
-      instr->InstrumentThreadStack(t);
+      instr->InstrumentThreadStack(t, /* deopt_all_frames= */ true);
     }
   }
 }

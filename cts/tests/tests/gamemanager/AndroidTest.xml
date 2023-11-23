@@ -25,6 +25,15 @@
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsGameManagerTestCases.apk" />
     </target_preparer>
+
+    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
+        <option name="push" value="CtsLegacyGameTestApp.apk->/data/local/tmp/cts/gamemanager/test/apps/CtsLegacyGameTestApp.apk" />
+        <option name="push" value="CtsNotGameTestApp.apk->/data/local/tmp/cts/gamemanager/test/apps/CtsNotGameTestApp.apk" />
+        <option name="push" value="CtsGameTestApp.apk->/data/local/tmp/cts/gamemanager/test/apps/CtsGameTestApp.apk" />
+        <option name="push" value="CtsGameTestAppWithBatteryMode.apk->/data/local/tmp/cts/gamemanager/test/apps/CtsGameTestAppWithBatteryMode.apk" />
+        <option name="push" value="CtsGameTestAppWithPerformanceMode.apk->/data/local/tmp/cts/gamemanager/test/apps/CtsGameTestAppWithPerformanceMode.apk" />
+    </target_preparer>
+
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.gamemanager.cts" />
     </test>

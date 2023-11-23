@@ -30,6 +30,7 @@ import android.autofillservice.cts.commontests.AugmentedAutofillAutoActivityLaun
 import android.autofillservice.cts.testcore.AutofillActivityTestRule;
 import android.autofillservice.cts.testcore.CannedAugmentedFillResponse;
 import android.autofillservice.cts.testcore.CtsAugmentedAutofillService;
+import android.autofillservice.cts.testcore.InlineUiBot;
 import android.content.IntentSender;
 import android.platform.test.annotations.Presubmit;
 import android.service.autofill.Dataset;
@@ -38,6 +39,7 @@ import android.view.autofill.AutofillValue;
 import android.widget.EditText;
 
 import org.junit.Test;
+import org.junit.rules.TestRule;
 
 @Presubmit
 public class InlineAugmentedAuthTest
@@ -57,6 +59,11 @@ public class InlineAugmentedAuthTest
                 mActivity = getActivity();
             }
         };
+    }
+
+    @Override
+    public TestRule getMainTestRule() {
+        return InlineUiBot.annotateRule(super.getMainTestRule());
     }
 
     @Test

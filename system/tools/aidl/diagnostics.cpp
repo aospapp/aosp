@@ -55,6 +55,9 @@ class DiagnosticsContext {
   DiagnosticsContext(DiagnosticMapping mapping) : mapping_({std::move(mapping)}) {}
   AidlErrorLog Report(const AidlLocation& loc, DiagnosticID id,
                       DiagnosticSeverity force_severity = DiagnosticSeverity::DISABLED) {
+    if (loc.IsInternal()) {
+      return AidlErrorLog(AidlErrorLog::NO_OP, loc);
+    }
     const std::string suffix = " [-W" + to_string(id) + "]";
     auto severity = std::max(force_severity, mapping_.top().Severity(id));
     switch (severity) {
@@ -195,6 +198,7 @@ struct DiagnoseMixedOneway : DiagnosticsVisitor {
     bool has_twoway = false;
     for (const auto& m : i.GetMethods()) {
       if (!m->IsUserDefined()) continue;
+      if (Suppressed(*m)) continue;
       if (m->IsOneway()) {
         has_oneway = true;
       } else {
@@ -207,6 +211,14 @@ struct DiagnoseMixedOneway : DiagnosticsVisitor {
           << "' has both one-way and two-way methods. This makes it hard to reason about threading "
              "of client code.";
     }
+  }
+  bool Suppressed(const AidlMethod& m) const {
+    for (const auto& w : m.GetType().SuppressWarnings()) {
+      if (w == to_string(DiagnosticID::mixed_oneway)) {
+        return true;
+      }
+    }
+    return false;
   }
 };
 
@@ -248,6 +260,83 @@ struct DiagnoseOutNullable : DiagnosticsVisitor {
   }
 };
 
+struct DiagnoseImports : DiagnosticsVisitor {
+  DiagnoseImports(DiagnosticsContext& diag) : DiagnosticsVisitor(diag) {}
+  void Visit(const AidlDocument& doc) override {
+    auto collide_with_decls = [&](const auto& import) {
+      for (const auto& type : doc.DefinedTypes()) {
+        if (type->GetCanonicalName() != import && type->GetName() == SimpleName(import)) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    std::set<std::string> imported_names;
+    for (const auto& import : doc.Imports()) {
+      if (collide_with_decls(import)) {
+        diag.Report(doc.GetLocation(), DiagnosticID::unique_import)
+            << SimpleName(import) << " is already defined in this file.";
+      }
+      auto [_, inserted] = imported_names.insert(SimpleName(import));
+      if (!inserted) {
+        diag.Report(doc.GetLocation(), DiagnosticID::unique_import)
+            << SimpleName(import) << " is already imported.";
+      }
+    }
+  }
+};
+
+struct DiagnoseUntypedCollection : DiagnosticsVisitor {
+  DiagnoseUntypedCollection(DiagnosticsContext& diag) : DiagnosticsVisitor(diag) {}
+  void Visit(const AidlTypeSpecifier& t) override {
+    if (t.GetName() == "List" || t.GetName() == "Map") {
+      if (!t.IsGeneric()) {
+        diag.Report(t.GetLocation(), DiagnosticID::untyped_collection)
+            << "Use List<V> or Map<K,V> instead.";
+      }
+    }
+  }
+};
+
+struct DiagnosePermissionAnnotations : DiagnosticsVisitor {
+  DiagnosePermissionAnnotations(DiagnosticsContext& diag) : DiagnosticsVisitor(diag) {}
+  void Visit(const AidlInterface& intf) override {
+    const std::string diag_message =
+        " is not annotated for permissions. Declare which permissions are "
+        "required using @EnforcePermission. If permissions are manually "
+        "verified within the implementation, use @PermissionManuallyEnforced. "
+        "If no permissions are required, use @RequiresNoPermission.";
+    if (intf.EnforceExpression() || intf.IsPermissionManual() || intf.IsPermissionNone()) {
+      return;
+    }
+    const auto& methods = intf.GetMethods();
+    std::vector<size_t> methods_without_annotations;
+    size_t num_user_defined_methods = 0;
+    for (size_t i = 0; i < methods.size(); ++i) {
+      auto& m = methods[i];
+      if (!m->IsUserDefined()) continue;
+      num_user_defined_methods++;
+      if (m->GetType().EnforceExpression() || m->GetType().IsPermissionManual() ||
+          m->GetType().IsPermissionNone()) {
+        continue;
+      }
+      methods_without_annotations.push_back(i);
+    }
+    if (methods_without_annotations.size() == num_user_defined_methods) {
+      diag.Report(intf.GetLocation(), DiagnosticID::missing_permission_annotation)
+          << intf.GetName() << diag_message
+          << " This can be done for the whole interface or for each method.";
+    } else {
+      for (size_t i : methods_without_annotations) {
+        auto& m = methods[i];
+        diag.Report(m->GetLocation(), DiagnosticID::missing_permission_annotation)
+            << m->GetName() << diag_message;
+      }
+    }
+  }
+};
+
 bool Diagnose(const AidlDocument& doc, const DiagnosticMapping& mapping) {
   DiagnosticsContext diag(mapping);
 
@@ -259,6 +348,9 @@ bool Diagnose(const AidlDocument& doc, const DiagnosticMapping& mapping) {
   DiagnoseOutArray{diag}.Check(doc);
   DiagnoseFileDescriptor{diag}.Check(doc);
   DiagnoseOutNullable{diag}.Check(doc);
+  DiagnoseImports{diag}.Check(doc);
+  DiagnoseUntypedCollection{diag}.Check(doc);
+  DiagnosePermissionAnnotations{diag}.Check(doc);
 
   return diag.ErrorCount() == 0;
 }

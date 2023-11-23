@@ -115,7 +115,8 @@ class WifiWpa3AutoUpdateTest(WifiAutoUpdateTest):
     @WifiBaseTest.wifi_test_wrap
     def test_check_wpa3_wifi_state_after_au(self):
         """Check if the state of WiFi is enabled after Auto-update."""
-        super().test_check_wifi_state_after_au()
+        if not self.dut.droid.wifiCheckState():
+            raise signals.TestFailure("WiFi is disabled after Auto-update!!!")
 
     @test_tracker_info(uuid="4dd106b0-6390-47d2-9b6d-00f21a0535f1")
     @WifiBaseTest.wifi_test_wrap
@@ -126,7 +127,7 @@ class WifiWpa3AutoUpdateTest(WifiAutoUpdateTest):
                Number of networs should be the same and match each network.
 
         """
-        super().test_verify_networks_after_au()
+        self.check_networks_after_autoupdate(self.wifi_config_list)
 
     @test_tracker_info(uuid="4e5107d1-17cc-4c4d-aee5-38052dec5ddd")
     @WifiBaseTest.wifi_test_wrap
@@ -175,8 +176,10 @@ class WifiWpa3AutoUpdateTest(WifiAutoUpdateTest):
                1. Connect to a wpa3 network.
                2. Forget ntworks added in 1.
         """
-        super().test_connection_to_new_networks()
-
+        for network in self.new_networks:
+            wutils.connect_to_wifi_network(self.dut, network)
+        for network in self.new_networks:
+            wutils.wifi_forget_network(self.dut, network[SSID])
 
     @test_tracker_info(uuid="542a39c3-eea0-445c-89ae-8c74c6afb0bf")
     @WifiBaseTest.wifi_test_wrap
@@ -186,16 +189,25 @@ class WifiWpa3AutoUpdateTest(WifiAutoUpdateTest):
            Steps:
                1. Connect to previously added wpa3 network using network id.
         """
-        super().test_all_networks_connectable_after_au()
+        network = self.wifi_config_list[0]
+        if not wutils.connect_to_wifi_network_with_id(self.dut,
+                                                      network[NETID],
+                                                      network[SSID]):
+            raise signals.TestFailure("Failed to connect to %s after OTA" %
+                                      network[SSID])
+        wutils.wifi_forget_network(self.dut, network[SSID])
 
     @test_tracker_info(uuid="68a34667-aca2-4630-b2fa-c25f1d234a92")
     @WifiBaseTest.wifi_test_wrap
     def test_check_wpa3_wifi_toggling_after_au(self):
         """Check if WiFi can be toggled ON/OFF after auto-update."""
-        super().test_check_wifi_toggling_after_au()
+        self.log.debug("Going from on to off.")
+        wutils.wifi_toggle_state(self.dut, False)
+        self.log.debug("Going from off to on.")
+        wutils.wifi_toggle_state(self.dut, True)
 
     @test_tracker_info(uuid="39ba98de-cb49-4475-a218-7470122af885")
     @WifiBaseTest.wifi_test_wrap
     def test_reset_wpa3_wifi_after_au(self):
         """"Check if WiFi can be reset after auto-update."""
-        super().test_reset_wifi_after_au()
+        wutils.reset_wifi(self.dut)

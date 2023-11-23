@@ -22,9 +22,9 @@
 #include "dex_ir_builder.h"
 
 #include <memory>
-#include <vector>
-#include <utility>
 #include <set>
+#include <utility>
+#include <vector>
 
 namespace slicer {
 
@@ -57,7 +57,7 @@ class EntryHook : public Transformation {
   explicit EntryHook(const ir::MethodId& hook_method_id, Tweak tweak)
       : hook_method_id_(hook_method_id), tweak_(tweak) {
     // hook method signature is generated automatically
-    SLICER_CHECK(hook_method_id_.signature == nullptr);
+    SLICER_CHECK_EQ(hook_method_id_.signature, nullptr);
   }
 
   // TODO: Delete this legacy constrcutor.
@@ -97,7 +97,7 @@ class ExitHook : public Transformation {
    explicit ExitHook(const ir::MethodId& hook_method_id, Tweak tweak)
       : hook_method_id_(hook_method_id), tweak_(tweak) {
     // hook method signature is generated automatically
-    SLICER_CHECK(hook_method_id_.signature == nullptr);
+    SLICER_CHECK_EQ(hook_method_id_.signature, nullptr);
   }
 
   explicit ExitHook(const ir::MethodId& hook_method_id) : ExitHook(hook_method_id, Tweak::None) {}
@@ -128,7 +128,7 @@ class DetourHook : public Transformation {
       : orig_method_id_(orig_method_id), detour_method_id_(detour_method_id) {
     // detour method signature is automatically created
     // to match the original method and must not be explicitly specified
-    SLICER_CHECK(detour_method_id_.signature == nullptr);
+    SLICER_CHECK_EQ(detour_method_id_.signature, nullptr);
   }
 
   virtual bool Apply(lir::CodeIr* code_ir) override;
@@ -170,13 +170,13 @@ class AllocateScratchRegs : public Transformation {
  public:
   explicit AllocateScratchRegs(int allocate_count, bool allow_renumbering = true)
     : allocate_count_(allocate_count), allow_renumbering_(allow_renumbering) {
-    SLICER_CHECK(allocate_count > 0);
+    SLICER_CHECK_GT(allocate_count, 0);
   }
 
   virtual bool Apply(lir::CodeIr* code_ir) override;
 
   const std::set<dex::u4>& ScratchRegs() const {
-    SLICER_CHECK(scratch_regs_.size() == static_cast<size_t>(allocate_count_));
+    SLICER_CHECK_EQ(scratch_regs_.size(), static_cast<size_t>(allocate_count_));
     return scratch_regs_;
   }
 

@@ -25,6 +25,11 @@
 #include <phNxpLog.h>
 #include <phTmlNfc.h>
 #include <string>
+
+#if (NXP_NFC_RECOVERY == TRUE)
+#include <phDnldNfc_UpdateSeq.h>
+#endif
+
 static void* pFwHandle; /* Global firmware handle*/
 uint16_t wMwVer = 0;    /* Middleware version no */
 uint16_t wFwVer = 0;    /* Firmware version no */
@@ -390,12 +395,14 @@ NFCSTATUS phDnldNfc_Write(bool_t bRecoverSeq, pphDnldNfc_Buff_t pData,
           wLen = gpphDnldContext->nxp_nfc_fw_len;
 
         } else {
-          if (PH_DL_STATUS_PLL_ERROR == (gpphDnldContext->tLastStatus)) {
-            wStatus = phDnldNfc_LoadRecInfo();
-          } else if (PH_DL_STATUS_SIGNATURE_ERROR ==
-                     (gpphDnldContext->tLastStatus)) {
-            wStatus = phDnldNfc_LoadPKInfo();
-          } else {
+          if (nfcFL.chipType >= sn100u) {
+            if (PH_DL_STATUS_PLL_ERROR == (gpphDnldContext->tLastStatus)) {
+              wStatus = phDnldNfc_LoadRecInfo();
+            } else if (PH_DL_STATUS_SIGNATURE_ERROR ==
+                       (gpphDnldContext->tLastStatus)) {
+              wStatus = phDnldNfc_LoadPKInfo();
+            } else {
+            }
           }
 
           if (NFCSTATUS_SUCCESS == wStatus) {
@@ -726,12 +733,12 @@ NFCSTATUS phDnldNfc_RawReq(pphDnldNfc_Buff_t pFrameData,
 ** Description      Extracts image information and stores it in respective
 **                  variables, to be used internally for write operation
 **
-** Parameters       None
+** Parameters       bMinimalFw - flag indicates for minimal FW Image
 **
 ** Returns          NFC status
 **
 *******************************************************************************/
-NFCSTATUS phDnldNfc_InitImgInfo(void) {
+NFCSTATUS phDnldNfc_InitImgInfo(bool bMinimalFw) {
   NFCSTATUS wStatus = NFCSTATUS_SUCCESS;
   uint8_t* pImageInfo = NULL;
   uint32_t ImageInfoLen = 0;
@@ -743,15 +750,25 @@ NFCSTATUS phDnldNfc_InitImgInfo(void) {
 
   gpphDnldContext->FwFormat = FW_FORMAT_UNKNOWN;
   phDnldNfc_SetDlRspTimeout((uint16_t)PHDNLDNFC_RSP_TIMEOUT);
-  /*Read Firmware file name from config file*/
-  if (GetNxpNumValue(NAME_NXP_FW_TYPE, &fwType, sizeof(fwType)) == true) {
+  if (bMinimalFw) {
+    fwType = FW_FORMAT_ARRAY;
+  } else if (GetNxpNumValue(NAME_NXP_FW_TYPE, &fwType, sizeof(fwType)) ==
+             true) {
+    /*Read Firmware file name from config file*/
     NXPLOG_FWDNLD_D("firmware type from conf file: %lu", fwType);
   } else {
     NXPLOG_FWDNLD_W("firmware type not found. Taking default value: %lu",
                     fwType);
   }
 
-  if (fwType == FW_FORMAT_BIN) {
+  if (fwType == FW_FORMAT_ARRAY) {
+    gpphDnldContext->FwFormat = FW_FORMAT_ARRAY;
+#if (NXP_NFC_RECOVERY == TRUE)
+    pImageInfo = (uint8_t*)gphDnldNfc_DlSequence;
+    ImageInfoLen = gphDnldNfc_DlSeqSz;
+#endif
+    wStatus = NFCSTATUS_SUCCESS;
+  } else if (fwType == FW_FORMAT_BIN) {
     gpphDnldContext->FwFormat = FW_FORMAT_BIN;
     wStatus = phDnldNfc_LoadBinFW(&pImageInfo, &ImageInfoLen);
   } else if (fwType == FW_FORMAT_SO) {
@@ -781,7 +798,7 @@ NFCSTATUS phDnldNfc_InitImgInfo(void) {
   }
 
   if (wStatus != NFCSTATUS_SUCCESS) {
-    NXPLOG_FWDNLD_E("Error loading libpn54x_fw !!\n");
+    NXPLOG_FWDNLD_E("Error loading FW file !!\n");
   }
 
   /* get the MW version */
@@ -815,6 +832,16 @@ NFCSTATUS phDnldNfc_InitImgInfo(void) {
     } else {
       NXPLOG_FWDNLD_E("Image details extraction Failed!!");
       wStatus = NFCSTATUS_FAILED;
+    }
+  }
+
+  /* gpphDnldContext reset by phDnldNfc_SetHwDevHandle()
+     so reassign the Fragment Length based on chip version */
+  if (NFCSTATUS_SUCCESS == wStatus) {
+    if (nfcFL.chipType >= sn100u) {
+      phDnldNfc_SetI2CFragmentLength(PHDNLDNFC_CMDRESP_MAX_BUFF_SIZE_SNXXX);
+    } else {
+      phDnldNfc_SetI2CFragmentLength(PHDNLDNFC_CMDRESP_MAX_BUFF_SIZE_PN557);
     }
   }
 
@@ -857,13 +884,18 @@ NFCSTATUS phDnldNfc_LoadRecInfo(void) {
 
   /* load the PLL recovery image library */
   if (wStatus != NFCSTATUS_SUCCESS) {
-    NXPLOG_FWDNLD_E("Error loading libpn54x_fw_platform !!\n");
+    NXPLOG_FWDNLD_E("Error loading FW file... !!\n");
   }
 
   if (NFCSTATUS_SUCCESS == wStatus) {
     /* fetch the PLL recovery image pointer and the image length */
     gpphDnldContext->nxp_nfc_fwp = (uint8_t*)pImageInfo;
     gpphDnldContext->nxp_nfc_fwp_len = ImageInfoLen;
+
+    /* gpphDnldContext reset by phDnldNfc_SetHwDevHandle()
+    so reassign the Fragment Length 554 (0x22A) for chip sn1xx*/
+    phDnldNfc_SetI2CFragmentLength(PHDNLDNFC_CMDRESP_MAX_BUFF_SIZE_SNXXX);
+
     if ((NULL != gpphDnldContext->nxp_nfc_fwp) &&
         (0 != gpphDnldContext->nxp_nfc_fwp_len)) {
       NXPLOG_FWDNLD_D("Recovery Image Length - %d", ImageInfoLen);
@@ -915,13 +947,17 @@ NFCSTATUS phDnldNfc_LoadPKInfo(void) {
   }
 
   if (wStatus != NFCSTATUS_SUCCESS) {
-    NXPLOG_FWDNLD_E("Error loading libpn54x_fw_pku !!\n");
+    NXPLOG_FWDNLD_E("Error loading FW File pku !!\n");
   }
 
   if (NFCSTATUS_SUCCESS == wStatus) {
     /* fetch the PKU image pointer and the image length */
     gpphDnldContext->nxp_nfc_fwp = (uint8_t*)pImageInfo;
     gpphDnldContext->nxp_nfc_fwp_len = ImageInfoLen;
+
+    /* gpphDnldContext reset by phDnldNfc_SetHwDevHandle()
+    so reassign the Fragment Length 554 (0x22A) for chip sn1xx*/
+    phDnldNfc_SetI2CFragmentLength(PHDNLDNFC_CMDRESP_MAX_BUFF_SIZE_SNXXX);
 
     if ((NULL != gpphDnldContext->nxp_nfc_fwp) &&
         (0 != gpphDnldContext->nxp_nfc_fwp_len)) {
@@ -1022,7 +1058,14 @@ NFCSTATUS phDnldNfc_LoadFW(const char* pathName, uint8_t** pImgInfo,
     return NFCSTATUS_FAILED;
   }
 
-  (*pImgInfoLen) = (uint32_t)(*((uint32_t*)pImageInfoLen));
+  if (nfcFL.chipType >= sn100u) {
+    (*pImgInfoLen) = (uint32_t)(*((uint32_t*)pImageInfoLen));
+    NXPLOG_FWDNLD_D("FW image loded for chipType sn100u (%x)", nfcFL.chipType)
+  } else {
+    (*pImgInfoLen) = (uint16_t)(*((uint16_t*)pImageInfoLen));
+    NXPLOG_FWDNLD_D("FW image loded for chipType pn557 (%x)", nfcFL.chipType)
+  }
+
   return NFCSTATUS_SUCCESS;
 }
 
@@ -1215,6 +1258,28 @@ void phDnldNfc_SetDlRspTimeout(uint16_t timeout) {
   NXPLOG_FWDNLD_E("phDnldNfc_SetDlRspTimeout timeout value =%x", timeout);
 }
 
+/*******************************************************************************
+**
+** Function         phDnldNfc_SetI2CFragmentLength
+**
+** Description      sets the fragment length
+**
+** Parameters       Fragment Length
+**
+** Returns          None                -
+**
+*******************************************************************************/
+void phDnldNfc_SetI2CFragmentLength(uint16_t len) {
+  if (NULL != gpphDnldContext) {
+    gpphDnldContext->nxp_i2c_fragment_len = len;
+    NXPLOG_FWDNLD_D("fragment len set %x",
+                    gpphDnldContext->nxp_i2c_fragment_len);
+  } else {
+    NXPLOG_FWDNLD_E("Error setting the fragment length");
+  }
+  return;
+}
+
 #ifdef EEPROM_Read_Mem_IMP
 static pphDnldNfc_RspCb_t UserCb; /* Upper layer call back function */
 static void* UserCtxt;            /* Pointer to upper layer context */
@@ -1259,6 +1324,9 @@ NFCSTATUS phDnldNfc_ReadMem(void* pHwRef, pphDnldNfc_RspCb_t pNotify,
     if (NFCSTATUS_SUCCESS == wStatus) {
       /* Set the obtained device handle to download module */
       phDnldNfc_SetHwDevHandle();
+      /* gpphDnldContext reset by phDnldNfc_SetHwDevHandle()
+      so reassign the Fragment Length 554 (0x22A) for chip sn1xx*/
+      phDnldNfc_SetI2CFragmentLength(PHDNLDNFC_CMDRESP_MAX_BUFF_SIZE_SNXXX);
     } else {
       wStatus = NFCSTATUS_FAILED;
     }

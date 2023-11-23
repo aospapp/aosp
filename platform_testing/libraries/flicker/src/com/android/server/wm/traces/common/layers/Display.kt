@@ -20,7 +20,7 @@ import com.android.server.wm.traces.common.Rect
 import com.android.server.wm.traces.common.Size
 
 /**
- * Representation of a Display in the SF trace
+ * Wrapper for DisplayProto (frameworks/native/services/surfaceflinger/layerproto/display.proto)
  */
 data class Display(
     val id: ULong,
@@ -28,8 +28,11 @@ data class Display(
     val layerStackId: Int,
     val size: Size,
     val layerStackSpace: Rect,
-    val transform: Transform
+    val transform: Transform,
+    val isVirtual: Boolean
 ) {
+    val isOff = layerStackId == BLANK_LAYER_STACK
+
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is Display) return false
@@ -40,6 +43,7 @@ data class Display(
         if (size != other.size) return false
         if (layerStackSpace != other.layerStackSpace) return false
         if (transform != other.transform) return false
+        if (isVirtual != other.isVirtual) return false
 
         return true
     }
@@ -51,17 +55,21 @@ data class Display(
         result = 31 * result + size.hashCode()
         result = 31 * result + layerStackSpace.hashCode()
         result = 31 * result + transform.hashCode()
+        result = 31 * result + isVirtual.hashCode()
         return result
     }
 
     companion object {
+        const val BLANK_LAYER_STACK = - 1
+
         val EMPTY = Display(
             id = 0.toULong(),
             name = "EMPTY",
-            layerStackId = -1,
+            layerStackId = BLANK_LAYER_STACK,
             size = Size.EMPTY,
             layerStackSpace = Rect.EMPTY,
-            transform = Transform.EMPTY
+            transform = Transform.EMPTY,
+            isVirtual = false
         )
     }
 }

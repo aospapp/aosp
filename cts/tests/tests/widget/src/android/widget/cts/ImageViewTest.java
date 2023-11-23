@@ -324,13 +324,30 @@ public class ImageViewTest {
         assertNull(mImageViewRegular.getDrawable());
 
         final Drawable drawable = mActivity.getDrawable(R.drawable.testimage);
+        drawable.setLevel(1);
         mImageViewRegular.setImageDrawable(drawable);
         assertTrue(mImageViewRegular.isLayoutRequested());
         assertNotNull(mImageViewRegular.getDrawable());
+        assertEquals(1, mImageViewRegular.getDrawable().getLevel());
         BitmapDrawable testimageBitmap = (BitmapDrawable) drawable;
         Drawable imageViewDrawable = mImageViewRegular.getDrawable();
         BitmapDrawable imageViewBitmap = (BitmapDrawable) imageViewDrawable;
         WidgetTestUtils.assertEquals(testimageBitmap.getBitmap(), imageViewBitmap.getBitmap());
+    }
+
+    @UiThreadTest
+    @Test
+    public void testSetImageLevelAfterSetImageDrawable() {
+        mImageViewRegular.setImageDrawable(null);
+        assertNull(mImageViewRegular.getDrawable());
+
+        final Drawable drawable = mActivity.getDrawable(R.drawable.testimage);
+        drawable.setLevel(1);
+        mImageViewRegular.setImageDrawable(drawable);
+        assertEquals(1, mImageViewRegular.getDrawable().getLevel());
+        mImageViewRegular.setImageLevel(3);
+        mImageViewRegular.setImageDrawable(drawable);
+        assertEquals(3, mImageViewRegular.getDrawable().getLevel());
     }
 
     @UiThreadTest

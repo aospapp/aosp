@@ -279,24 +279,38 @@ public class ProfileSession {
     }
 
     private void checkIfPerfEnabled() {
+        if (getProperty("persist.simpleperf.profile_app_uid").equals("" + Os.getuid())) {
+            String timeStr = getProperty("persist.simpleperf.profile_app_expiration_time");
+            if (!timeStr.isEmpty()) {
+                try {
+                    long expirationTime = Long.parseLong(timeStr);
+                    if (expirationTime > System.currentTimeMillis() / 1000) {
+                        return;
+                    }
+                } catch (NumberFormatException e) {
+                }
+            }
+        }
+        if (getProperty("security.perf_harden") == "1") {
+            throw new Error("Recording app isn't enabled on the device."
+                    + " Please run api_profiler.py.");
+        }
+    }
+
+    private String getProperty(String name) {
         String value;
         Process process;
         try {
             process = new ProcessBuilder()
-                    .command("/system/bin/getprop", "security.perf_harden").start();
+                    .command("/system/bin/getprop", name).start();
         } catch (IOException e) {
-            // Omit check if getprop doesn't exist.
-            return;
+            return "";
         }
         try {
             process.waitFor();
         } catch (InterruptedException e) {
         }
-        value = readInputStream(process.getInputStream());
-        if (value.startsWith("1")) {
-            throw new Error("linux perf events aren't enabled on the device."
-                    + " Please run api_profiler.py.");
-        }
+        return readInputStream(process.getInputStream());
     }
 
     private void createSimpleperfDataDir() {

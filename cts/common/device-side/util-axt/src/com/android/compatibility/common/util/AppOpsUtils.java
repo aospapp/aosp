@@ -75,6 +75,15 @@ public class AppOpsUtils {
     }
 
     /**
+     * Sets the app op mode for a given uid.
+     */
+    public static void setUidMode(int uid, String opStr, int mode) {
+        final AppOpsManager aom = InstrumentationRegistry.getTargetContext().getSystemService(
+                AppOpsManager.class);
+        SystemUtil.runWithShellPermissionIdentity(() -> aom.setUidMode(opStr, uid, mode));
+    }
+
+    /**
      * Get the app op mode (e.g. MODE_ALLOWED, MODE_DEFAULT) for a single package and operation.
      */
     public static int getOpMode(String packageName, String opStr)

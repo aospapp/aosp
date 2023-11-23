@@ -18,12 +18,14 @@ package android.appintegrity.cts;
 import android.content.integrity.IntegrityFormula;
 import android.content.integrity.Rule;
 import android.content.integrity.RuleSet;
-import androidx.test.rule.ActivityTestRule;
+
 import androidx.test.runner.AndroidJUnit4;
-import java.util.Arrays;
+
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.util.Arrays;
 
 /**
  * Test public APIs defined for AppIntegrityManager.
@@ -55,6 +57,16 @@ public class CtsAppIntegrityDeviceTest {
     @Test
     public void applicationCertificatesContainFormulaApiAvailable() throws Exception {
         IntegrityFormula formula = IntegrityFormula.Application.certificatesContain("certificate");
+        Assert.assertNotNull(formula);
+    }
+
+    /**
+     * Test app integrity rule creation for app certificate lineage contain formula.
+     */
+    @Test
+    public void applicationCertificateLineageContainFormulaApiAvailable() throws Exception {
+        IntegrityFormula formula =
+                IntegrityFormula.Application.certificateLineageContains("certificate");
         Assert.assertNotNull(formula);
     }
 

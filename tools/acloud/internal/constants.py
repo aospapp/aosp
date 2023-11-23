@@ -18,7 +18,7 @@ BRANCH_PREFIX = "git_"
 BUILD_TARGET_MAPPING = {
     # TODO: Add aosp goldfish targets and internal cf targets to vendor code
     # base.
-    "aosp_phone": "aosp_cf_x86_phone-userdebug",
+    "aosp_phone": "aosp_cf_x86_64_phone-userdebug",
     "aosp_tablet": "aosp_cf_x86_tablet-userdebug",
 }
 SPEC_NAMES = {
@@ -32,6 +32,7 @@ LOGCAT_SERIAL_PORT = 2
 BUILD_TARGET = "build_target"
 BUILD_BRANCH = "branch"
 BUILD_ID = "build_id"
+BUILD_ARTIFACT = "artifact"
 
 # Special value of local image parameters
 FIND_IN_BUILD_ENV = ""
@@ -91,12 +92,8 @@ HW_ALIAS_DPI = "dpi"
 HW_ALIAS_MEMORY = "memory"
 HW_ALIAS_DISK = "disk"
 HW_PROPERTIES_CMD_EXAMPLE = (
-    " %s:2,%s:1280x700,%s:160,%s:2g,%s:2g" %
-    (HW_ALIAS_CPUS,
-     HW_ALIAS_RESOLUTION,
-     HW_ALIAS_DPI,
-     HW_ALIAS_MEMORY,
-     HW_ALIAS_DISK)
+    f" {HW_ALIAS_CPUS}:2,{HW_ALIAS_RESOLUTION}:1280x700,{HW_ALIAS_DPI}:160,"
+    f"{HW_ALIAS_MEMORY}:2g,{HW_ALIAS_DISK}:2g"
 )
 HW_PROPERTIES = [HW_ALIAS_CPUS, HW_ALIAS_RESOLUTION, HW_ALIAS_DPI,
                  HW_ALIAS_MEMORY, HW_ALIAS_DISK]
@@ -106,8 +103,9 @@ HW_Y_RES = "y_res"
 USER_ANSWER_YES = {"y", "yes", "Y"}
 
 # Cuttlefish groups
-LIST_CF_USER_GROUPS = ["kvm", "cvdnetwork"]
+LIST_CF_USER_GROUPS = ["kvm", "cvdnetwork", "render"]
 
+# Report keys
 IP = "ip"
 INSTANCE_NAME = "instance_name"
 GCE_USER = "vsoc-01"
@@ -115,6 +113,8 @@ VNC_PORT = "vnc_port"
 ADB_PORT = "adb_port"
 WEBRTC_PORT = "webrtc_port"
 DEVICE_SERIAL = "device_serial"
+LOGS = "logs"
+BASE_INSTANCE_NUM = "base_instance_num"
 # For cuttlefish remote instances
 CF_ADB_PORT = 6520
 CF_VNC_PORT = 6444
@@ -133,6 +133,7 @@ FVP_ADB_PORT = 5555
 MAX_PORT = 65535
 
 COMMAND_PS = ["ps", "aux"]
+CMD_CVD = "cvd"
 CMD_LAUNCH_CVD = "launch_cvd"
 CMD_PGREP = "pgrep"
 CMD_STOP_CVD = "stop_cvd"
@@ -168,6 +169,7 @@ INS_KEY_IP = "ip"
 INS_KEY_ADB = "adb"
 INS_KEY_VNC = "vnc"
 INS_KEY_WEBRTC = "webrtc"
+INS_KEY_WEBRTC_PORT = "webrtc_port"
 INS_KEY_CREATETIME = "creationTimestamp"
 INS_KEY_AVD_TYPE = "avd_type"
 INS_KEY_AVD_FLAVOR = "flavor"
@@ -177,6 +179,7 @@ INS_STATUS_RUNNING = "RUNNING"
 ENV_CUTTLEFISH_CONFIG_FILE = "CUTTLEFISH_CONFIG_FILE"
 ENV_CUTTLEFISH_INSTANCE = "CUTTLEFISH_INSTANCE"
 ENV_CVD_HOME = "HOME"
+ANDROID_INFO_FILE = "android-info.txt"
 CUTTLEFISH_CONFIG_FILE = "cuttlefish_config.json"
 
 TEMP_ARTIFACTS_FOLDER = "acloud_image_artifacts"
@@ -197,15 +200,24 @@ SELECT_ONE_GCE_INSTANCE = "select_one_gce_instance"
 # Webrtc
 WEBRTC_LOCAL_PORT = 8443
 WEBRTC_LOCAL_HOST = "localhost"
+WEBRTC_CERTS_PATH = "usr/share/webrtc/certs"
+WEBRTC_CERTS_FILES = ["server.crt", "server.key"]
+SSL_DIR = ".config/acloud/mkcert"
+SSL_CA_NAME = "ACloud-webRTC-CA"
+SSL_TRUST_CA_DIR = "/usr/local/share/ca-certificates"
 
 # Remote Log
-REMOTE_LOG_FOLDER = "/home/%s/cuttlefish_runtime" % GCE_USER
-
-# Cheeps specific stuff.
-CHEEPS_BETTY_IMAGE = "betty_image"
+REMOTE_LOG_FOLDER = "cuttlefish_runtime"
 
 # Key name in report
 ERROR_LOG_FOLDER = "error_log_folder"
+
+# Type of "logs" entries in report.
+# The values must be consistent with LogDataType in TradeFed.
+LOG_TYPE_DIR = "DIR"
+LOG_TYPE_KERNEL_LOG = "KERNEL_LOG"
+LOG_TYPE_LOGCAT = "LOGCAT"
+LOG_TYPE_TEXT = "TEXT"
 
 # Stages for create progress
 STAGE_INIT = 0
@@ -214,5 +226,33 @@ STAGE_SSH_CONNECT = 2
 STAGE_ARTIFACT = 3
 STAGE_BOOT_UP = 4
 
+# Acloud error types
+# Also update InfraErrorIdentifier.java in TradeFed for the errors to be
+# properly reported.
+ACLOUD_CONFIG_ERROR = "ACLOUD_CONFIG_ERROR"
+ACLOUD_UNKNOWN_ARGS_ERROR = "ACLOUD_UNKNOWN_ARGS_ERROR"
+ACLOUD_BOOT_UP_ERROR = "ACLOUD_BOOT_UP_ERROR"
+ACLOUD_CREATE_GCE_ERROR = "ACLOUD_CREATE_GCE_ERROR"
+ACLOUD_DOWNLOAD_ARTIFACT_ERROR = "ACLOUD_DOWNLOAD_ARTIFACT_ERROR"
+ACLOUD_INIT_ERROR = "ACLOUD_INIT_ERROR"
+ACLOUD_UNKNOWN_ERROR = "ACLOUD_UNKNOWN_ERROR"
+ACLOUD_SSH_CONNECT_ERROR = "ACLOUD_SSH_CONNECT_ERROR"
+GCE_QUOTA_ERROR = "GCE_QUOTA_ERROR"
+ACLOUD_OXYGEN_LEASE_ERROR = "ACLOUD_OXYGEN_LEASE_ERROR"
+ACLOUD_OXYGEN_RELEASE_ERROR = "ACLOUD_OXYGEN_RELEASE_ERROR"
+
+# Key words of error messages.
+ERROR_MSG_VNC_NOT_SUPPORT = "unknown command line flag 'start_vnc_server'"
+ERROR_MSG_WEBRTC_NOT_SUPPORT = "unknown command line flag 'start_webrtc'"
+
 # The name of download image tool.
 FETCH_CVD = "fetch_cvd"
+
+# For setup and cleanup
+# Packages "devscripts" and "equivs" are required for "mk-build-deps".
+# Packages from: https://android.googlesource.com/device/google/cuttlefish/
+AVD_REQUIRED_PKGS = [
+    "devscripts", "equivs", "libvirt-clients", "libvirt-daemon-system",
+    "config-package-dev", "golang"]
+BASE_REQUIRED_PKGS = ["ssvnc", "lzop", "python3-tk"]
+CUTTLEFISH_COMMOM_PKG = "cuttlefish-common"

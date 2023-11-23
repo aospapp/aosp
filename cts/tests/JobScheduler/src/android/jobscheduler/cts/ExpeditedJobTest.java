@@ -83,6 +83,21 @@ public class ExpeditedJobTest {
                 225 /* ProcessList.PERCEPTIBLE_MEDIUM_APP_ADJ */);
     }
 
+    /** Test that EJs for the TOP app start immediately and there is no limit on the number. */
+    @Test
+    public void testTopEJUnlimited() throws Exception {
+        final int standardConcurrency = 16;
+        final int numEjs = 2 * standardConcurrency;
+        mTestAppInterface.startAndKeepTestActivity(true);
+        for (int i = 0; i < numEjs; ++i) {
+            mTestAppInterface.scheduleJob(
+                    Map.of(TestJobSchedulerReceiver.EXTRA_AS_EXPEDITED, true),
+                    Map.of(TestJobSchedulerReceiver.EXTRA_JOB_ID_KEY, i));
+            assertTrue("Job did not start after scheduling",
+                    mTestAppInterface.awaitJobStart(i, DEFAULT_WAIT_TIMEOUT_MS));
+        }
+    }
+
     /** Forces JobScheduler to run the job */
     private void forceRunJob() throws Exception {
         mUiDevice.executeShellCommand("cmd jobscheduler run -f"

@@ -56,6 +56,13 @@ class PayloadFile {
                     const std::string& private_key_path,
                     uint64_t* metadata_size_out);
 
+  static bool WritePayload(const std::string& payload_file,
+                           const std::string& ordered_blobs_file,
+                           const std::string& private_key_path,
+                           uint64_t major_version_,
+                           const DeltaArchiveManifest& manifest,
+                           uint64_t* out_metadata_size);
+
  private:
   FRIEND_TEST(PayloadFileTest, ReorderBlobsTest);
 

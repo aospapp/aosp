@@ -122,7 +122,7 @@ public class PrintStreamTest extends junit.framework.TestCase {
 
         // regression for HARMONY-1195
         try {
-            os = new PrintStream(bos, true, null);
+            os = new PrintStream(bos, true, (String) null);
             fail("Should throw NPE");
         } catch (NullPointerException e) {
         }

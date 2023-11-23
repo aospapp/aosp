@@ -1,23 +1,18 @@
 /*
-**
-** Copyright 2006-2014, The Android Open Source Project
-**
-** Licensed under the Apache License, Version 2.0 (the "License");
-** you may not use this file except in compliance with the License.
-** You may obtain a copy of the License at
-**
-**     http://www.apache.org/licenses/LICENSE-2.0
-**
-** Unless required by applicable law or agreed to in writing, software
-** distributed under the License is distributed on an "AS IS" BASIS,
-** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-** See the License for the specific language governing permissions and
-** limitations under the License.
-*/
-
-#ifndef __MINGW32__
-#define HAVE_STRSEP
-#endif
+ * Copyright 2006, The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include <log/logprint.h>
 
@@ -38,16 +33,14 @@
 
 #include <cutils/list.h>
 
+#include <algorithm>
+
 #include <log/log.h>
 #include <log/log_read.h>
 #include <private/android_logger.h>
 
 #define MS_PER_NSEC 1000000
 #define US_PER_NSEC 1000
-
-#ifndef MIN
-#define MIN(a, b) (((a) < (b)) ? (a) : (b))
-#endif
 
 typedef struct FilterInfo_t {
   char* mTag;
@@ -292,72 +285,71 @@ int android_log_setPrintFormat(AndroidLogFormat* p_format, AndroidLogPrintFormat
   return 1;
 }
 
-#ifndef __MINGW32__
-static const char tz[] = "TZ";
-static const char utc[] = "UTC";
+#if !defined(__MINGW32__)
+// Sets $TZ, but allows it to be optionally reset.
+class TzSetter {
+ public:
+  TzSetter(const char* new_tz) {
+    old_tz_ = getenv("TZ");
+    if (old_tz_) old_tz_ = strdup(old_tz_);
+
+    setenv("TZ", new_tz, 1);
+    tzset();
+  }
+
+  ~TzSetter() { free(old_tz_); }
+
+  void Reset() {
+    if (old_tz_) {
+      setenv("TZ", old_tz_, 1);
+    } else {
+      unsetenv("TZ");
+    }
+    tzset();
+  }
+
+ private:
+  char* old_tz_;
+};
 #endif
 
-/**
- * Returns FORMAT_OFF on invalid string
- */
 AndroidLogPrintFormat android_log_formatFromString(const char* formatString) {
-  static AndroidLogPrintFormat format;
-
   /* clang-format off */
-  if (!strcmp(formatString, "brief")) format = FORMAT_BRIEF;
-  else if (!strcmp(formatString, "process")) format = FORMAT_PROCESS;
-  else if (!strcmp(formatString, "tag")) format = FORMAT_TAG;
-  else if (!strcmp(formatString, "thread")) format = FORMAT_THREAD;
-  else if (!strcmp(formatString, "raw")) format = FORMAT_RAW;
-  else if (!strcmp(formatString, "time")) format = FORMAT_TIME;
-  else if (!strcmp(formatString, "threadtime")) format = FORMAT_THREADTIME;
-  else if (!strcmp(formatString, "long")) format = FORMAT_LONG;
-  else if (!strcmp(formatString, "color")) format = FORMAT_MODIFIER_COLOR;
-  else if (!strcmp(formatString, "colour")) format = FORMAT_MODIFIER_COLOR;
-  else if (!strcmp(formatString, "usec")) format = FORMAT_MODIFIER_TIME_USEC;
-  else if (!strcmp(formatString, "nsec")) format = FORMAT_MODIFIER_TIME_NSEC;
-  else if (!strcmp(formatString, "printable")) format = FORMAT_MODIFIER_PRINTABLE;
-  else if (!strcmp(formatString, "year")) format = FORMAT_MODIFIER_YEAR;
-  else if (!strcmp(formatString, "zone")) format = FORMAT_MODIFIER_ZONE;
-  else if (!strcmp(formatString, "epoch")) format = FORMAT_MODIFIER_EPOCH;
-  else if (!strcmp(formatString, "monotonic")) format = FORMAT_MODIFIER_MONOTONIC;
-  else if (!strcmp(formatString, "uid")) format = FORMAT_MODIFIER_UID;
-  else if (!strcmp(formatString, "descriptive")) format = FORMAT_MODIFIER_DESCRIPT;
+  if (!strcmp(formatString, "brief")) return FORMAT_BRIEF;
+  if (!strcmp(formatString, "process")) return FORMAT_PROCESS;
+  if (!strcmp(formatString, "tag")) return FORMAT_TAG;
+  if (!strcmp(formatString, "thread")) return FORMAT_THREAD;
+  if (!strcmp(formatString, "raw")) return FORMAT_RAW;
+  if (!strcmp(formatString, "time")) return FORMAT_TIME;
+  if (!strcmp(formatString, "threadtime")) return FORMAT_THREADTIME;
+  if (!strcmp(formatString, "long")) return FORMAT_LONG;
+  if (!strcmp(formatString, "color")) return FORMAT_MODIFIER_COLOR;
+  if (!strcmp(formatString, "colour")) return FORMAT_MODIFIER_COLOR;
+  if (!strcmp(formatString, "usec")) return FORMAT_MODIFIER_TIME_USEC;
+  if (!strcmp(formatString, "nsec")) return FORMAT_MODIFIER_TIME_NSEC;
+  if (!strcmp(formatString, "printable")) return FORMAT_MODIFIER_PRINTABLE;
+  if (!strcmp(formatString, "year")) return FORMAT_MODIFIER_YEAR;
+  if (!strcmp(formatString, "zone")) return FORMAT_MODIFIER_ZONE;
+  if (!strcmp(formatString, "epoch")) return FORMAT_MODIFIER_EPOCH;
+  if (!strcmp(formatString, "monotonic")) return FORMAT_MODIFIER_MONOTONIC;
+  if (!strcmp(formatString, "uid")) return FORMAT_MODIFIER_UID;
+  if (!strcmp(formatString, "descriptive")) return FORMAT_MODIFIER_DESCRIPT;
     /* clang-format on */
 
-#ifndef __MINGW32__
-  else {
-    extern char* tzname[2];
-    static const char gmt[] = "GMT";
-    char* cp = getenv(tz);
-    if (cp) {
-      cp = strdup(cp);
-    }
-    setenv(tz, formatString, 1);
-    /*
-     * Run tzset here to determine if the timezone is legitimate. If the
-     * zone is GMT, check if that is what was asked for, if not then
-     * did not match any on the system; report an error to caller.
-     */
-    tzset();
-    if (!tzname[0] ||
-        ((!strcmp(tzname[0], utc) || !strcmp(tzname[0], gmt))                  /* error? */
-         && strcasecmp(formatString, utc) && strcasecmp(formatString, gmt))) { /* ok */
-      if (cp) {
-        setenv(tz, cp, 1);
-      } else {
-        unsetenv(tz);
-      }
-      tzset();
-      format = FORMAT_OFF;
-    } else {
-      format = FORMAT_MODIFIER_ZONE;
-    }
-    free(cp);
+#if !defined(__MINGW32__)
+  // Check whether the format string is actually a time zone. If tzname[0]
+  // is the empty string, that's tzset() signalling that it doesn't know
+  // the requested timezone.
+  TzSetter tz(formatString);
+  if (!*tzname[0]) {
+    tz.Reset();
+  } else {
+    // We keep the new time zone as a side effect!
+    return FORMAT_MODIFIER_ZONE;
   }
 #endif
 
-  return format;
+  return FORMAT_OFF;
 }
 
 /**
@@ -433,8 +425,7 @@ error:
   return -1;
 }
 
-#ifndef HAVE_STRSEP
-/* KISS replacement helper for below */
+#if defined(__MINGW32__)  // Windows doesn't have strsep(3).
 static char* strsep(char** stringp, const char* delim) {
   char* token;
   char* ret = *stringp;
@@ -1111,7 +1102,7 @@ size_t convertPrintable(char* p, const char* message, size_t messageLen) {
     }
     len = mbrtowc(nullptr, message, len, &mb_state);
 
-    if (len < 0) {
+    if (len <= 0) {
       snprintf(buf, sizeof(buf), "\\x%02X", static_cast<unsigned char>(*message));
       len = 1;
     } else {
@@ -1282,17 +1273,9 @@ static void convertMonotonic(struct timespec* result, const AndroidLogEntry* ent
           if (!cp) {
             continue;
           }
-          cp = getenv(tz);
-          if (cp) {
-            cp = strdup(cp);
-          }
-          setenv(tz, utc, 1);
-          time.tv_sec = mktime(&tm);
-          if (cp) {
-            setenv(tz, cp, 1);
-            free(cp);
-          } else {
-            unsetenv(tz);
+          {
+            TzSetter tz(cp);
+            time.tv_sec = mktime(&tm);
           }
           list = static_cast<conversionList*>(calloc(1, sizeof(conversionList)));
           list_init(&list->node);
@@ -1330,6 +1313,7 @@ static void convertMonotonic(struct timespec* result, const AndroidLogEntry* ent
           suspended_pending = false;
         }
       }
+      free(line);
       pclose(p);
     }
     /* last entry is our current time conversion */
@@ -1503,7 +1487,7 @@ char* android_log_formatLogLine(AndroidLogFormat* p_format, char* defaultBuffer,
   if (p_format->colored_output) {
     prefixLen =
         snprintf(prefixBuf, sizeof(prefixBuf), "\x1B[%dm", colorFromPri(entry->priority));
-    prefixLen = MIN(prefixLen, sizeof(prefixBuf));
+    prefixLen = std::min(prefixLen, sizeof(prefixBuf));
 
     const char suffixContents[] = "\x1B[0m";
     strcpy(suffixBuf, suffixContents);
@@ -1543,7 +1527,7 @@ char* android_log_formatLogLine(AndroidLogFormat* p_format, char* defaultBuffer,
     case FORMAT_PROCESS:
       len = snprintf(suffixBuf + suffixLen, sizeof(suffixBuf) - suffixLen, "  (%.*s)\n",
                      (int)entry->tagLen, entry->tag);
-      suffixLen += MIN(len, sizeof(suffixBuf) - suffixLen);
+      suffixLen += std::min(len, sizeof(suffixBuf) - suffixLen);
       len = snprintf(prefixBuf + prefixLen, sizeof(prefixBuf) - prefixLen, "%c(%s%5d) ", priChar,
                      uid, entry->pid);
       break;
@@ -1707,42 +1691,22 @@ char* android_log_formatLogLine(AndroidLogFormat* p_format, char* defaultBuffer,
   return ret;
 }
 
-/**
- * Either print or do not print log line, based on filter
- *
- * Returns count bytes written
- */
-
-int android_log_printLogLine(AndroidLogFormat* p_format, int fd, const AndroidLogEntry* entry) {
-  int ret;
-  char defaultBuffer[512];
-  char* outBuffer = NULL;
-  size_t totalLen;
-
-  outBuffer =
-      android_log_formatLogLine(p_format, defaultBuffer, sizeof(defaultBuffer), entry, &totalLen);
-
-  if (!outBuffer) return -1;
-
-  do {
-    ret = write(fd, outBuffer, totalLen);
-  } while (ret < 0 && errno == EINTR);
-
-  if (ret < 0) {
-    fprintf(stderr, "+++ LOG: write failed (errno=%d)\n", errno);
-    ret = 0;
-    goto done;
+size_t android_log_printLogLine(AndroidLogFormat* p_format, FILE* fp,
+                                const AndroidLogEntry* entry) {
+  char buf[4096] __attribute__((__uninitialized__));
+  size_t line_length;
+  char* line = android_log_formatLogLine(p_format, buf, sizeof(buf), entry, &line_length);
+  if (!line) {
+    fprintf(stderr, "android_log_formatLogLine failed\n");
+    exit(1);
   }
 
-  if (((size_t)ret) < totalLen) {
-    fprintf(stderr, "+++ LOG: write partial (%d of %d)\n", ret, (int)totalLen);
-    goto done;
+  size_t bytesWritten = fwrite(line, 1, line_length, fp);
+  if (bytesWritten != line_length) {
+    perror("fwrite failed");
+    exit(1);
   }
 
-done:
-  if (outBuffer != defaultBuffer) {
-    free(outBuffer);
-  }
-
-  return ret;
+  if (line != buf) free(line);
+  return bytesWritten;
 }

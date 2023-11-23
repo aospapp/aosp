@@ -17,6 +17,7 @@
 package com.android.compatibility.common.util;
 
 import android.os.Build;
+import android.os.SystemProperties;
 
 import java.lang.reflect.Field;
 
@@ -24,6 +25,11 @@ import java.lang.reflect.Field;
  * Device-side compatibility utility class for reading device API level.
  */
 public class ApiLevelUtil {
+    // os.Build.VERSION.DEVICE_INITIAL_SDK_INT can be used here, but it was called
+    // os.Build.VERSION.FIRST_SDK_INT in Android R and below. Using DEVICE_INITIAL_SDK_INT
+    // will mean that the tests built in Android S and above can't be run on Android R and below.
+    private static final int FIRST_API_LEVEL =
+            SystemProperties.getInt("ro.product.first_api_level", 0);
 
     public static boolean isBefore(int version) {
         return Build.VERSION.SDK_INT < version;
@@ -59,6 +65,42 @@ public class ApiLevelUtil {
 
     public static int getApiLevel() {
         return Build.VERSION.SDK_INT;
+    }
+
+    public static boolean isFirstApiBefore(int version) {
+        return FIRST_API_LEVEL < version;
+    }
+
+    public static boolean isFirstApiBefore(String version) {
+        return FIRST_API_LEVEL < resolveVersionString(version);
+    }
+
+    public static boolean isFirstApiAfter(int version) {
+        return FIRST_API_LEVEL > version;
+    }
+
+    public static boolean isFirstApiAfter(String version) {
+        return FIRST_API_LEVEL > resolveVersionString(version);
+    }
+
+    public static boolean isFirstApiAtLeast(int version) {
+        return FIRST_API_LEVEL >= version;
+    }
+
+    public static boolean isFirstApiAtLeast(String version) {
+        return FIRST_API_LEVEL >= resolveVersionString(version);
+    }
+
+    public static boolean isFirstApiAtMost(int version) {
+        return FIRST_API_LEVEL <= version;
+    }
+
+    public static boolean isFirstApiAtMost(String version) {
+        return FIRST_API_LEVEL <= resolveVersionString(version);
+    }
+
+    public static int getFirstApiLevel() {
+        return FIRST_API_LEVEL;
     }
 
     public static boolean codenameEquals(String name) {

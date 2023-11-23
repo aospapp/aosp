@@ -21,11 +21,12 @@ import logging
 import json
 import os
 
+import atest_utils
 import constants
 
 from metrics import metrics_utils
 
-_META_FILE = os.path.join(os.path.expanduser('~'),
+_META_FILE = os.path.join(atest_utils.get_misc_dir(),
                           '.config', 'asuite', 'atest_history.json')
 _DETECT_OPTION_FILTER = ['-v', '--verbose']
 _DETECTED_SUCCESS = 1
@@ -131,6 +132,8 @@ class BugDetector:
                                     key=lambda kv: kv[1][_UPDATED_AT])
             self.history = dict(
                 sorted_history[(num_history - constants.TRIM_TO_SIZE):])
+        if not os.path.exists(os.path.dirname(self.file)):
+            os.makedirs(os.path.dirname(self.file))
         with open(self.file, 'w') as outfile:
             try:
                 json.dump(self.history, outfile, indent=0)

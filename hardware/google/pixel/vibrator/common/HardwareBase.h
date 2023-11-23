@@ -71,13 +71,9 @@ class HwApiBase {
     template <typename T>
     bool get(T *value, std::istream *stream);
     template <typename T>
-    bool getStr(T *value, std::istream *stream);
-    template <typename T>
     bool set(const T &value, std::ostream *stream);
     template <typename T>
-    bool poll(const T &value, std::istream *stream);
-    template <typename T>
-    bool pollStr(const T &value, std::istream *stream, const int32_t timeout = -1);
+    bool poll(const T &value, std::istream *stream, const int32_t timeout = -1);
     template <typename T>
     void record(const char *func, const T &value, const std::ios *stream);
 
@@ -113,24 +109,6 @@ bool HwApiBase::get(T *value, std::istream *stream) {
 }
 
 template <typename T>
-bool HwApiBase::getStr(T *value, std::istream *stream) {
-    ATRACE_NAME("HwApi::getStr");
-    std::scoped_lock ioLock{mIoMutex};
-    bool ret;
-    stream->seekg(0);
-    utils::unpack(*stream, value);
-    if (!(ret = !!*stream)) {
-        ALOGE("Failed to read %s (%d): %s", mNames[stream].c_str(), errno, strerror(errno));
-    }
-    if (!(ret = stream->eof())) {
-        ALOGE("Invalid %s !", mNames[stream].c_str());
-    }
-    stream->clear();
-    HWAPI_RECORD(*value, stream);
-    return ret;
-}
-
-template <typename T>
 bool HwApiBase::set(const T &value, std::ostream *stream) {
     ATRACE_NAME("HwApi::set");
     using utils::operator<<;
@@ -146,33 +124,8 @@ bool HwApiBase::set(const T &value, std::ostream *stream) {
 }
 
 template <typename T>
-bool HwApiBase::poll(const T &value, std::istream *stream) {
+bool HwApiBase::poll(const T &value, std::istream *stream, const int32_t timeoutMs) {
     ATRACE_NAME("HwApi::poll");
-    auto path = mPathPrefix + mNames[stream];
-    unique_fd fileFd{::open(path.c_str(), O_RDONLY)};
-    unique_fd epollFd{epoll_create(1)};
-    epoll_event event = {
-            .events = EPOLLPRI | EPOLLET,
-    };
-    T actual;
-    bool ret;
-
-    if (epoll_ctl(epollFd, EPOLL_CTL_ADD, fileFd, &event)) {
-        ALOGE("Failed to poll %s (%d): %s", mNames[stream].c_str(), errno, strerror(errno));
-        return false;
-    }
-
-    while ((ret = get(&actual, stream)) && (actual != value)) {
-        epoll_wait(epollFd, &event, 1, -1);
-    }
-
-    HWAPI_RECORD(value, stream);
-    return ret;
-}
-
-template <typename T>
-bool HwApiBase::pollStr(const T &value, std::istream *stream, const int32_t timeoutMs) {
-    ATRACE_NAME("HwApi::pollStr");
     auto path = mPathPrefix + mNames[stream];
     unique_fd fileFd{::open(path.c_str(), O_RDONLY)};
     unique_fd epollFd{epoll_create(1)};
@@ -189,11 +142,11 @@ bool HwApiBase::pollStr(const T &value, std::istream *stream, const int32_t time
     }
 
     if (epoll_ctl(epollFd, EPOLL_CTL_ADD, fileFd, &event)) {
-        ALOGE("Failed to poll string %s (%d): %s", mNames[stream].c_str(), errno, strerror(errno));
+        ALOGE("Failed to poll %s (%d): %s", mNames[stream].c_str(), errno, strerror(errno));
         return false;
     }
 
-    while ((ret = getStr(&actual, stream)) && (actual != value)) {
+    while ((ret = get(&actual, stream)) && (actual != value)) {
         epollRet = epoll_wait(epollFd, &event, 1, timeoutMs);
         if (epollRet <= 0) {
             ALOGE("Polling error or timeout! (%d)", epollRet);

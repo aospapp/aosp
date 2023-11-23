@@ -134,6 +134,7 @@ class ZygoteMap {
   }
 
   void SetCompilationState(ZygoteCompilationState state) {
+    DCHECK_LT(static_cast<uint8_t>(*compilation_state_), static_cast<uint8_t>(state));
     region_->WriteData(compilation_state_, state);
   }
 
@@ -398,6 +399,9 @@ class JitCodeCache {
   bool IsInZygoteExecSpace(const void* ptr) const {
     return shared_region_.IsInExecSpace(ptr);
   }
+
+  ProfilingInfo* GetProfilingInfo(ArtMethod* method, Thread* self);
+  void ResetHotnessCounter(ArtMethod* method, Thread* self);
 
  private:
   JitCodeCache();

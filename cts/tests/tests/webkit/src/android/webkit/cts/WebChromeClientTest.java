@@ -24,7 +24,9 @@ import android.test.ActivityInstrumentationTestCase2;
 import android.util.Base64;
 import android.view.MotionEvent;
 import android.view.ViewGroup;
+import android.view.ViewParent;
 import android.webkit.ConsoleMessage;
+import android.view.ViewParent;
 import android.webkit.JsPromptResult;
 import android.webkit.JsResult;
 import android.webkit.WebIconDatabase;
@@ -44,7 +46,6 @@ import java.util.concurrent.TimeUnit;
 
 @AppModeFull
 public class WebChromeClientTest extends ActivityInstrumentationTestCase2<WebViewCtsActivity> {
-    private static final long TEST_TIMEOUT = 5000L;
     private static final String JAVASCRIPT_UNLOAD = "javascript unload";
     private static final String LISTENER_ADDED = "listener added";
     private static final String TOUCH_RECEIVED = "touch received";
@@ -95,7 +96,7 @@ public class WebChromeClientTest extends ActivityInstrumentationTestCase2<WebVie
         String url = mWebServer.getAssetUrl(TestHtmlConstants.HELLO_WORLD_URL);
         mOnUiThread.loadUrlAndWaitForCompletion(url);
 
-        new PollingCheck(TEST_TIMEOUT) {
+        new PollingCheck(WebkitUtils.TEST_TIMEOUT_MS) {
             @Override
             protected boolean check() {
                 return webChromeClient.hadOnProgressChanged();
@@ -114,7 +115,7 @@ public class WebChromeClientTest extends ActivityInstrumentationTestCase2<WebVie
         String url = mWebServer.getAssetUrl(TestHtmlConstants.HELLO_WORLD_URL);
         mOnUiThread.loadUrlAndWaitForCompletion(url);
 
-        new PollingCheck(TEST_TIMEOUT) {
+        new PollingCheck(WebkitUtils.TEST_TIMEOUT_MS) {
             @Override
             protected boolean check() {
                 return webChromeClient.hadOnReceivedTitle();
@@ -146,7 +147,7 @@ public class WebChromeClientTest extends ActivityInstrumentationTestCase2<WebVie
         String url = mWebServer.getAssetUrl(TestHtmlConstants.HELLO_WORLD_URL);
         mOnUiThread.loadUrlAndWaitForCompletion(url);
 
-        new PollingCheck(TEST_TIMEOUT) {
+        new PollingCheck(WebkitUtils.TEST_TIMEOUT_MS) {
             @Override
             protected boolean check() {
                 return webChromeClient.hadOnReceivedIcon();
@@ -171,7 +172,7 @@ public class WebChromeClientTest extends ActivityInstrumentationTestCase2<WebVie
         mOnUiThread.loadUrlAndWaitForCompletion(mWebServer.
                 getAssetUrl(TestHtmlConstants.JS_WINDOW_URL));
 
-        new PollingCheck(TEST_TIMEOUT) {
+        new PollingCheck(WebkitUtils.TEST_TIMEOUT_MS) {
             @Override
             protected boolean check() {
                 return webChromeClient.hadOnCreateWindow();
@@ -179,7 +180,7 @@ public class WebChromeClientTest extends ActivityInstrumentationTestCase2<WebVie
         }.run();
 
         if (expectWindowClose) {
-            new PollingCheck(TEST_TIMEOUT) {
+            new PollingCheck(WebkitUtils.TEST_TIMEOUT_MS) {
                 @Override
                 protected boolean check() {
                     return webChromeClient.hadOnCloseWindow();
@@ -273,7 +274,7 @@ public class WebChromeClientTest extends ActivityInstrumentationTestCase2<WebVie
         String url = mWebServer.getAssetUrl(TestHtmlConstants.JS_ALERT_URL);
         mOnUiThread.loadUrlAndWaitForCompletion(url);
 
-        new PollingCheck(TEST_TIMEOUT) {
+        new PollingCheck(WebkitUtils.TEST_TIMEOUT_MS) {
             @Override
             protected boolean check() {
                 return webChromeClient.hadOnJsAlert();
@@ -298,7 +299,7 @@ public class WebChromeClientTest extends ActivityInstrumentationTestCase2<WebVie
         String url = mWebServer.getAssetUrl(TestHtmlConstants.JS_CONFIRM_URL);
         mOnUiThread.loadUrlAndWaitForCompletion(url);
 
-        new PollingCheck(TEST_TIMEOUT) {
+        new PollingCheck(WebkitUtils.TEST_TIMEOUT_MS) {
             @Override
             protected boolean check() {
                 return webChromeClient.hadOnJsConfirm();
@@ -325,14 +326,14 @@ public class WebChromeClientTest extends ActivityInstrumentationTestCase2<WebVie
         String url = mWebServer.getAssetUrl(TestHtmlConstants.JS_PROMPT_URL);
         mOnUiThread.loadUrlAndWaitForCompletion(url);
 
-        new PollingCheck(TEST_TIMEOUT) {
+        new PollingCheck(WebkitUtils.TEST_TIMEOUT_MS) {
             @Override
             protected boolean check() {
                 return webChromeClient.hadOnJsPrompt();
             }
         }.run();
         // the result returned by the client gets set as the page title
-        new PollingCheck(TEST_TIMEOUT) {
+        new PollingCheck(WebkitUtils.TEST_TIMEOUT_MS) {
             @Override
             protected boolean check() {
                 return mOnUiThread.getTitle().equals(promptResult);
@@ -437,6 +438,7 @@ public class WebChromeClientTest extends ActivityInstrumentationTestCase2<WebVie
         private boolean mHadOnCreateWindow;
         private boolean mHadOnRequestFocus;
         private boolean mHadOnReceivedIcon;
+        private WebView mChildWebView;
 
         public MockWebChromeClient() {
             super(mOnUiThread);
@@ -548,6 +550,15 @@ public class WebChromeClientTest extends ActivityInstrumentationTestCase2<WebVie
         public void onCloseWindow(WebView window) {
             super.onCloseWindow(window);
             mHadOnCloseWindow = true;
+
+            if (mChildWebView != null) {
+                ViewParent parent =  mChildWebView.getParent();
+                if (parent instanceof ViewGroup) {
+                    ((ViewGroup) parent).removeView(mChildWebView);
+                }
+                mChildWebView.destroy();
+            }
+
         }
 
         @Override
@@ -561,12 +572,12 @@ public class WebChromeClientTest extends ActivityInstrumentationTestCase2<WebVie
             if (mBlockWindowCreationAsync) {
                 transport.setWebView(null);
             } else {
-                WebView childView = new WebView(getActivity());
-                final WebSettings settings = childView.getSettings();
+                mChildWebView = new WebView(getActivity());
+                final WebSettings settings = mChildWebView.getSettings();
                 settings.setJavaScriptEnabled(true);
-                childView.setWebChromeClient(this);
-                transport.setWebView(childView);
-                getActivity().addContentView(childView, new ViewGroup.LayoutParams(
+                mChildWebView.setWebChromeClient(this);
+                transport.setWebView(mChildWebView);
+                getActivity().addContentView(mChildWebView, new ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.FILL_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
             }
             resultMsg.sendToTarget();

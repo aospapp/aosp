@@ -113,7 +113,7 @@ fun ThreadModel.selectAll(predicate: (Slice) -> Boolean): List<Slice> {
  * @param predicate  The predicate used to test slices
  */
 fun Model.selectFirst(predicate: (Slice) -> Boolean) : Slice? {
-    return this.processes.values.mapNotNull { it.selectFirst(predicate) }.minBy { it.startTime }
+    return this.processes.values.mapNotNull { it.selectFirst(predicate) }.minByOrNull { it.startTime }
 }
 
 

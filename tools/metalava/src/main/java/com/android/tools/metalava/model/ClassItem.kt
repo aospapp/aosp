@@ -96,6 +96,15 @@ interface ClassItem : Item {
     /** The super class of this class, if any  */
     fun superClass(): ClassItem?
 
+    /** All super classes, if any */
+    fun allSuperClasses(): Sequence<ClassItem> {
+        return superClass()?.let { cls ->
+            return generateSequence(cls) {
+                it.superClass()
+            }
+        } ?: return emptySequence()
+    }
+
     /** The super class type of this class, if any. The difference between this and [superClass] is
      * that the type reference can include type arguments; e.g. in "class MyList extends List<String>"
      * the super class is java.util.List and the super class type is java.util.List<java.lang.String>.
@@ -234,6 +243,10 @@ interface ClassItem : Item {
     val isTypeParameter: Boolean
 
     var hasPrivateConstructor: Boolean
+
+    /** The primary constructor for this class in Kotlin, if present. */
+    val primaryConstructor: ConstructorItem?
+        get() = constructors().singleOrNull { it.isPrimary }
 
     /**
      * Maven artifact of this class, if any. (Not used for the Android SDK, but used in
@@ -529,8 +542,8 @@ interface ClassItem : Item {
         return true
     }
 
-    /** Returns the corresponding compilation unit, if any */
-    fun getCompilationUnit(): CompilationUnit? = null
+    /** Returns the corresponding source file, if any */
+    fun getSourceFile(): SourceFileItem? = null
 
     /** If this class is an annotation type, returns the retention of this class */
     fun getRetention(): AnnotationRetention

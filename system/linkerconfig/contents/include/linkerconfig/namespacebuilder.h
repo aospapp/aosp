@@ -42,6 +42,11 @@ NamespaceBuilder BuildPostInstallNamespace;
 NamespaceBuilder BuildRecoveryDefaultNamespace;
 NamespaceBuilder BuildIsolatedDefaultNamespace;
 
+modules::Namespace BuildVendorNamespace(const Context& ctx,
+                                        const std::string& name);
+modules::Namespace BuildProductNamespace(const Context& ctx,
+                                         const std::string& name);
+
 modules::Namespace BuildVndkNamespace(const Context& ctx,
                                       VndkUserPartition vndk_user);
 

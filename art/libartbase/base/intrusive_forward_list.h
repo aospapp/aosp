@@ -55,8 +55,7 @@ template <typename T, typename Tag = void>
 class IntrusiveForwardListBaseHookTraits;
 
 template <typename T,
-          typename HookTraits =
-              IntrusiveForwardListBaseHookTraits<typename std::remove_const<T>::type>>
+          typename HookTraits = IntrusiveForwardListBaseHookTraits<std::remove_const_t<T>>>
 class IntrusiveForwardList;
 
 template <typename T, typename HookTraits>
@@ -69,7 +68,7 @@ class IntrusiveForwardListIterator : public std::iterator<std::forward_iterator_
 
   // Conversion from iterator to const_iterator.
   template <typename OtherT,
-            typename = typename std::enable_if<std::is_same<T, const OtherT>::value>::type>
+            typename = std::enable_if_t<std::is_same_v<T, const OtherT>>>
   IntrusiveForwardListIterator(const IntrusiveForwardListIterator<OtherT, HookTraits>& src)  // NOLINT, implicit
       : hook_(src.hook_) { }
 
@@ -106,20 +105,20 @@ class IntrusiveForwardListIterator : public std::iterator<std::forward_iterator_
   friend class IntrusiveForwardList;
 
   template <typename OtherT1, typename OtherT2, typename OtherTraits>
-  friend typename std::enable_if<std::is_same<const OtherT1, const OtherT2>::value, bool>::type
+  friend std::enable_if_t<std::is_same_v<const OtherT1, const OtherT2>, bool>
   operator==(const IntrusiveForwardListIterator<OtherT1, OtherTraits>& lhs,
              const IntrusiveForwardListIterator<OtherT2, OtherTraits>& rhs);
 };
 
 template <typename T, typename OtherT, typename HookTraits>
-typename std::enable_if<std::is_same<const T, const OtherT>::value, bool>::type operator==(
+std::enable_if_t<std::is_same_v<const T, const OtherT>, bool> operator==(
     const IntrusiveForwardListIterator<T, HookTraits>& lhs,
     const IntrusiveForwardListIterator<OtherT, HookTraits>& rhs) {
   return lhs.hook_ == rhs.hook_;
 }
 
 template <typename T, typename OtherT, typename HookTraits>
-typename std::enable_if<std::is_same<const T, const OtherT>::value, bool>::type operator!=(
+std::enable_if_t<std::is_same_v<const T, const OtherT>, bool> operator!=(
     const IntrusiveForwardListIterator<T, HookTraits>& lhs,
     const IntrusiveForwardListIterator<OtherT, HookTraits>& rhs) {
   return !(lhs == rhs);
@@ -134,14 +133,14 @@ typename std::enable_if<std::is_same<const T, const OtherT>::value, bool>::type 
 template <typename T, typename HookTraits>
 class IntrusiveForwardList {
  public:
-  typedef HookTraits hook_traits;
-  typedef       T  value_type;
-  typedef       T& reference;
-  typedef const T& const_reference;
-  typedef       T* pointer;
-  typedef const T* const_pointer;
-  typedef IntrusiveForwardListIterator<      T, hook_traits> iterator;
-  typedef IntrusiveForwardListIterator<const T, hook_traits> const_iterator;
+  using hook_traits     = HookTraits;
+  using value_type      = T;
+  using reference       = T&;
+  using const_reference = const T&;
+  using pointer         = T*;
+  using const_pointer   = const T*;
+  using iterator        = IntrusiveForwardListIterator<T, hook_traits>;
+  using const_iterator  = IntrusiveForwardListIterator<const T, hook_traits>;
 
   // Construct/copy/destroy.
   IntrusiveForwardList() = default;
@@ -149,11 +148,11 @@ class IntrusiveForwardList {
   IntrusiveForwardList(InputIterator first, InputIterator last) : IntrusiveForwardList() {
     insert_after(before_begin(), first, last);
   }
-  IntrusiveForwardList(IntrusiveForwardList&& src) : first_(src.first_.next_hook) {
+  IntrusiveForwardList(IntrusiveForwardList&& src) noexcept : first_(src.first_.next_hook) {
     src.first_.next_hook = nullptr;
   }
   IntrusiveForwardList& operator=(const IntrusiveForwardList& src) = delete;
-  IntrusiveForwardList& operator=(IntrusiveForwardList&& src) {
+  IntrusiveForwardList& operator=(IntrusiveForwardList&& src) noexcept {
     IntrusiveForwardList tmp(std::move(src));
     tmp.swap(*this);
     return *this;

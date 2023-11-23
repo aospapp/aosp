@@ -45,6 +45,14 @@ class BaseContext {
   const std::vector<std::string>& GetSystemProvideLibs() const;
   const std::vector<std::string>& GetSystemRequireLibs() const;
 
+  void SetVendorConfig(const android::linkerconfig::proto::LinkerConfig& config);
+  const std::vector<std::string>& GetVendorProvideLibs() const;
+  const std::vector<std::string>& GetVendorRequireLibs() const;
+
+  void SetProductConfig(const android::linkerconfig::proto::LinkerConfig& config);
+  const std::vector<std::string>& GetProductProvideLibs() const;
+  const std::vector<std::string>& GetProductRequireLibs() const;
+
  private:
   bool strict_;
 
@@ -53,6 +61,10 @@ class BaseContext {
 
   std::vector<std::string> system_provide_libs_;
   std::vector<std::string> system_require_libs_;
+  std::vector<std::string> vendor_provide_libs_;
+  std::vector<std::string> vendor_require_libs_;
+  std::vector<std::string> product_provide_libs_;
+  std::vector<std::string> product_require_libs_;
 };
 
 }  // namespace modules

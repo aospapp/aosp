@@ -19,6 +19,9 @@ package com.android.nn.benchmark.core;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import androidx.test.InstrumentationRegistry;
+import java.util.stream.Collectors;
+import android.util.Log;
 
 /** Information about available benchmarking models */
 public class TestModels {
@@ -71,27 +74,32 @@ public class TestModels {
             mInDataSize = inDataSize;
         }
 
+        // Used by VTS tests.
         public NNTestBase createNNTestBase() {
             return new NNTestBase(mModelName, mModelFile, mInputShape, mInOutAssets, mInOutDatasets,
                     mEvaluator, mMinSdkVersion);
         }
 
         public NNTestBase createNNTestBase(TfLiteBackend tfLiteBackend, boolean enableIntermediateTensorsDump) {
-            return createNNTestBase(tfLiteBackend, enableIntermediateTensorsDump, /*mmapModel=*/false);
+            return createNNTestBase(tfLiteBackend, enableIntermediateTensorsDump, /*mmapModel=*/false,
+                /*useNnApiSl=*/false, /*extractNnApiSl=*/false);
         }
 
         // Used by CTS tests.
         public NNTestBase createNNTestBase(boolean useNNAPI, boolean enableIntermediateTensorsDump) {
             TfLiteBackend tfLiteBackend = useNNAPI ? TfLiteBackend.NNAPI : TfLiteBackend.CPU;
-            return createNNTestBase(tfLiteBackend, enableIntermediateTensorsDump, /*mmapModel=*/false);
+            return createNNTestBase(tfLiteBackend, enableIntermediateTensorsDump,
+                /*mmapModel=*/false, /*useNnApiSl=*/false, /*extractNnApiSl=*/false);
         }
 
         public NNTestBase createNNTestBase(TfLiteBackend tfLiteBackend, boolean enableIntermediateTensorsDump,
-                boolean mmapModel) {
+                boolean mmapModel, boolean useNnApiSl, boolean extractNnApiSl) {
             NNTestBase test = createNNTestBase();
             test.setTfLiteBackend(tfLiteBackend);
             test.enableIntermediateTensorsDump(enableIntermediateTensorsDump);
             test.setMmapModel(mmapModel);
+            test.setUseNnApiSupportLibrary(useNnApiSl);
+            test.setExtractNnApiSupportLibrary(extractNnApiSl);
             return test;
         }
 
@@ -129,12 +137,46 @@ public class TestModels {
         return frozenEntries.get() != null;
     }
 
+    static final String MODEL_FILTER_PROPERTY = "nnBenchmarkModelFilter";
+
+    public static String getModelFilterRegex() {
+        // All instrumentation arguments are passed as String so I have to convert the value here.
+        return InstrumentationRegistry.getArguments().getString(MODEL_FILTER_PROPERTY, "");
+    }
+
+    /**
+     * Returns the list of models eventually by a user specified instrumentation filter regex.
+     */
+    static public List<TestModelEntry> modelsList() {
+        return modelsList(getModelFilterRegex());
+    }
+
+    /**
+     * Returns the list of models eventually by a user specified instrumentation filter.
+     */
+    static public List<TestModelEntry> modelsList(String modelFilterRegex) {
+        if (modelFilterRegex == null || modelFilterRegex.isEmpty()) {
+            Log.i("NN_BENCHMARK", "No model filter, returning all models");
+            return fullModelsList();
+        }
+        Log.i("NN_BENCHMARK", "Filtering model with filter " + modelFilterRegex);
+        List<TestModelEntry> result = fullModelsList().stream()
+                .filter( modelEntry ->
+                    modelEntry.mModelName.matches(modelFilterRegex)
+                )
+                .collect(Collectors.toList());
+
+        Log.i("NN_BENCHMARK", "Returning models: " + result);
+
+        return result;
+    }
+
     /**
      * Fetch list of test models.
      *
      * If this method was called at least once, then it's impossible to register new models.
      */
-    static public List<TestModelEntry> modelsList() {
+    static public List<TestModelEntry> fullModelsList() {
         frozenEntries.compareAndSet(null, sTestModelEntryList);
         return frozenEntries.get();
     }

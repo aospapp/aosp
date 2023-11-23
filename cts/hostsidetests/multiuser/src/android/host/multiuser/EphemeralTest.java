@@ -23,6 +23,7 @@ import android.platform.test.annotations.LargeTest;
 import android.platform.test.annotations.Presubmit;
 
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+import com.android.tradefed.testtype.junit4.DeviceTestRunOptions;
 
 import org.junit.Rule;
 import org.junit.Test;
@@ -39,6 +40,9 @@ public class EphemeralTest extends BaseMultiUserTest {
 
     private static final String TEST_APP_PKG_NAME = "com.android.cts.multiuser";
     private static final String TEST_APP_PKG_APK = "CtsMultiuserApp.apk";
+
+    private static final int REMOVE_RESULT_REMOVED = 0; //UserManager.REMOVE_RESULT_REMOVED;
+    private static final int REMOVE_RESULT_DEFERRED = 1; //UserManager.REMOVE_RESULT_DEFERRED;
 
     @Rule
     public final SupportsMultiUserRule mSupportsMultiUserRule = new SupportsMultiUserRule(this);
@@ -93,35 +97,37 @@ public class EphemeralTest extends BaseMultiUserTest {
     }
 
     /**
-     * Test to verify that {@link android.os.UserManager#removeUserOrSetEphemeral(int)} immediately
+     * Test to verify that
+     * {@link android.os.UserManager#removeUserWhenPossible(UserHandle, boolean)} immediately
      * removes a user that isn't running.
-     *
-     * <p>Indirectly executed by means of the --set-ephemeral-if-in-use flag
+     * <p>
+     * Indirectly executed by means of the --set-ephemeral-if-in-use flag
      */
     @Presubmit
     @Test
-    public void testRemoveUserOrSetEphemeral_nonRunningUserRemoved() throws Exception {
+    public void testRemoveUserWhenPossible_nonRunningUserRemoved() throws Exception {
         final int userId = createUser();
 
-        executeRemoveUserOrSetEphemeralAdbCommand(userId);
+        executeRemoveUserWhenPossible(userId, /* expectedResult= */ REMOVE_RESULT_REMOVED);
 
         assertUserNotPresent(userId);
     }
 
     /**
-     * Test to verify that {@link android.os.UserManager#removeUserOrSetEphemeral(int)} sets the
-     * current user to ephemeral and removes the user after user switch.
-     *
-     * <p>Indirectly executed by means of the --set-ephemeral-if-in-use flag
+     * Test to verify that
+     * {@link android.os.UserManager#removeUserWhenPossible(UserHandle, boolean)} sets the current
+     * user to ephemeral and removes the user after user switch.
+     * <p>
+     * Indirectly executed by means of the --set-ephemeral-if-in-use flag
      */
     @Presubmit
     @Test
-    public void testRemoveUserOrSetEphemeral_currentUserSetEphemeral_removeAfterSwitch()
+    public void testRemoveUserWhenPossible_currentUserSetEphemeral_removeAfterSwitch()
             throws Exception {
         final int userId = createUser();
 
         assertSwitchToNewUser(userId);
-        executeRemoveUserOrSetEphemeralAdbCommand(userId);
+        executeRemoveUserWhenPossible(userId, /* expectedResult= */ REMOVE_RESULT_DEFERRED);
         assertUserEphemeral(userId);
 
         assertSwitchToUser(userId, mInitialUserId);
@@ -130,27 +136,39 @@ public class EphemeralTest extends BaseMultiUserTest {
     }
 
     /**
-     * Test to verify that {@link android.os.UserManager#removeUserOrSetEphemeral(int)} sets the
-     * current user to ephemeral and removes that user after reboot.
-     *
-     * <p>Indirectly executed by means of the --set-ephemeral-if-in-use flag
+     * Test to verify that
+     * {@link android.os.UserManager#removeUserWhenPossible(UserHandle, boolean)} sets the current
+     * user to ephemeral and removes that user after reboot.
+     * <p>
+     * Indirectly executed by means of the --set-ephemeral-if-in-use flag
      */
     @Presubmit
     @Test
-    public void testRemoveUserOrSetEphemeral_currentUserSetEphemeral_removeAfterReboot()
+    public void testRemoveUserWhenPossible_currentUserSetEphemeral_removeAfterReboot()
             throws Exception {
         final int userId = createUser();
 
         assertSwitchToNewUser(userId);
-        executeRemoveUserOrSetEphemeralAdbCommand(userId);
+        executeRemoveUserWhenPossible(userId, /* expectedResult= */ REMOVE_RESULT_DEFERRED);
         assertUserEphemeral(userId);
 
         getDevice().reboot();
         assertUserNotPresent(userId);
     }
 
-    private void executeRemoveUserOrSetEphemeralAdbCommand(int userId) throws Exception {
-        getDevice().executeShellV2Command("pm remove-user --set-ephemeral-if-in-use " + userId);
+    private void executeRemoveUserWhenPossible(int userId, int expectedResult) throws Exception {
+        installPackage(TEST_APP_PKG_APK, /* options= */"-t");
+        assertTrue(getDevice().isPackageInstalled(TEST_APP_PKG_NAME));
+
+        DeviceTestRunOptions options = new DeviceTestRunOptions(TEST_APP_PKG_NAME)
+                .setDevice(getDevice())
+                .setTestClassName(TEST_APP_PKG_NAME + ".UserOperationsTest")
+                .setTestMethodName("removeUserWhenPossibleDeviceSide")
+                .addInstrumentationArg("userId", String.valueOf(userId))
+                .addInstrumentationArg("overrideDevicePolicy", String.valueOf(false))
+                .addInstrumentationArg("expectedResult", String.valueOf(expectedResult));
+        final boolean appResult = runDeviceTests(options);
+        assertTrue("Failed to successfully run app", appResult);
     }
 
     private void assertUserEphemeral(int userId) throws Exception {

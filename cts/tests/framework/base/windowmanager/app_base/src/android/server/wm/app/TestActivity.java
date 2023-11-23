@@ -17,14 +17,15 @@
 package android.server.wm.app;
 
 import static android.server.wm.app.Components.TestActivity.COMMAND_NAVIGATE_UP_TO;
+import static android.server.wm.app.Components.TestActivity.COMMAND_START_ACTIVITIES;
 import static android.server.wm.app.Components.TestActivity.COMMAND_START_ACTIVITY;
 import static android.server.wm.app.Components.TestActivity.EXTRA_CONFIG_ASSETS_SEQ;
 import static android.server.wm.app.Components.TestActivity.EXTRA_FIXED_ORIENTATION;
-import static android.server.wm.app.Components.TestActivity.EXTRA_INTENTS;
 import static android.server.wm.app.Components.TestActivity.EXTRA_INTENT;
+import static android.server.wm.app.Components.TestActivity.EXTRA_INTENTS;
 import static android.server.wm.app.Components.TestActivity.EXTRA_NO_IDLE;
+import static android.server.wm.app.Components.TestActivity.EXTRA_OPTION;
 import static android.server.wm.app.Components.TestActivity.TEST_ACTIVITY_ACTION_FINISH_SELF;
-import static android.server.wm.app.Components.TestActivity.COMMAND_START_ACTIVITIES;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -88,7 +89,8 @@ public class TestActivity extends AbstractLifecycleLogActivity {
     @Override
     protected void onStart() {
         super.onStart();
-        registerReceiver(mReceiver, new IntentFilter(TEST_ACTIVITY_ACTION_FINISH_SELF));
+        registerReceiver(mReceiver, new IntentFilter(TEST_ACTIVITY_ACTION_FINISH_SELF),
+                Context.RECEIVER_EXPORTED);
     }
 
     @Override
@@ -108,18 +110,19 @@ public class TestActivity extends AbstractLifecycleLogActivity {
 
     @Override
     public void handleCommand(String command, Bundle data) {
+        final Bundle options = data.getParcelable(EXTRA_OPTION);
         switch (command) {
             case COMMAND_START_ACTIVITY:
                 final Intent startIntent = data.getParcelable(EXTRA_INTENT);
                 try {
-                    startActivity(startIntent);
+                    startActivity(startIntent, options);
                 } catch (Exception e) {
                     Log.w(getTag(), "Failed to startActivity: " + startIntent, e);
                 }
                 break;
             case COMMAND_START_ACTIVITIES:
                 final Parcelable[] intents = data.getParcelableArray(EXTRA_INTENTS);
-                startActivities(Arrays.copyOf(intents, intents.length, Intent[].class));
+                startActivities(Arrays.copyOf(intents, intents.length, Intent[].class), options);
                 break;
             case COMMAND_NAVIGATE_UP_TO:
                 final Intent intent = data.getParcelable(EXTRA_INTENT);

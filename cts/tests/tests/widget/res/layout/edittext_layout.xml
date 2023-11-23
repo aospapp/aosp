@@ -55,5 +55,12 @@
             android:autoSizeTextType="uniform"
             android:textSize="50dp"
             android:autoSizeStepGranularity="2dp" />
+
+        <EditText
+            android:id="@+id/edittext_conversion_suggestion"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="textEnableTextConversionSuggestions"
+            android:text="@string/edit_text" />
     </LinearLayout>
 </ScrollView>

@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright 2019-2020 NXP
+ *  Copyright 2019-2021 NXP
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -23,6 +23,8 @@
 #include "phNxpNciHal.h"
 
 extern bool sendRspToUpperLayer;
+extern bool bEnableMfcExtns;
+extern bool bDisableLegacyMfcExtns;
 
 NxpMfcReader& NxpMfcReader::getInstance() {
   static NxpMfcReader msNxpMfcReader;
@@ -43,18 +45,35 @@ int NxpMfcReader::Write(uint16_t mfcDataLen, const uint8_t* pMfcData) {
   uint16_t mfcTagCmdBuffLen = 0;
   uint8_t mfcTagCmdBuff[MAX_MFC_BUFF_SIZE] = {0};
 
+  if (mfcDataLen > MAX_MFC_BUFF_SIZE) {
+    android_errorWriteLog(0x534e4554, "169259605");
+    mfcDataLen = MAX_MFC_BUFF_SIZE;
+  }
   memcpy(mfcTagCmdBuff, pMfcData, mfcDataLen);
   if (mfcDataLen >= 3) mfcTagCmdBuffLen = mfcDataLen - NCI_HEADER_SIZE;
   BuildMfcCmd(&mfcTagCmdBuff[3], &mfcTagCmdBuffLen);
 
   mfcTagCmdBuff[2] = mfcTagCmdBuffLen;
   mfcDataLen = mfcTagCmdBuffLen + NCI_HEADER_SIZE;
+
+  if (checkIsMFCIncDecRestore(pMfcData[3])) {
+    if (sem_init(&mNacksem, 0, 0) != 0) {
+      NXPLOG_NCIHAL_E("%s : sem_init failed", __func__);
+      return 0;
+    }
+  }
   int writtenDataLen = phNxpNciHal_write_internal(mfcDataLen, mfcTagCmdBuff);
 
   /* send TAG_CMD part 2 for Mifare increment ,decrement and restore commands */
-  if (mfcTagCmdBuff[4] == eMifareDec || mfcTagCmdBuff[4] == eMifareInc ||
-      mfcTagCmdBuff[4] == eMifareRestore) {
-    SendIncDecRestoreCmdPart2(pMfcData);
+  if (checkIsMFCIncDecRestore(pMfcData[3])) {
+    MfcWaitForAck();
+    if (isAck) {
+      NXPLOG_NCIHAL_D("part 1 command Acked");
+      SendIncDecRestoreCmdPart2(pMfcData);
+    } else {
+      NXPLOG_NCIHAL_E("part 1 command NACK");
+    }
+    sem_destroy(&mNacksem);
   }
   return writtenDataLen;
 }
@@ -175,6 +194,20 @@ void NxpMfcReader::BuildReadCmd() { BuildRawCmd(); }
 
 /*******************************************************************************
 **
+** Function         checkIsMFCIncDecRestore
+**
+** Description      Check command is MF Increment/Decrement or Restore.
+**
+** Returns          True/False
+**
+*******************************************************************************/
+bool NxpMfcReader::checkIsMFCIncDecRestore(uint8_t cmdInst) {
+  return (cmdInst == eMifareDec || cmdInst == eMifareInc ||
+          cmdInst == eMifareRestore);
+}
+
+/*******************************************************************************
+**
 ** Function         BuildWrite16Cmd
 **
 ** Description      builds the TAG CMD for Mifare write part 2.
@@ -185,8 +218,10 @@ void NxpMfcReader::BuildReadCmd() { BuildRawCmd(); }
 void NxpMfcReader::BuildWrite16Cmd() {
   mMfcTagCmdIntfData.sendBuf[0] = eMfRawDataXchgHdr;
   mMfcTagCmdIntfData.sendBufLen = mMfcTagCmdIntfData.sendBufLen - 1;
-  memcpy(mMfcTagCmdIntfData.sendBuf + 1, mMfcTagCmdIntfData.sendBuf + 2,
-         mMfcTagCmdIntfData.sendBufLen);
+  uint8_t buff[mMfcTagCmdIntfData.sendBufLen];
+  memset(buff, 0, mMfcTagCmdIntfData.sendBufLen);
+  memcpy(buff, mMfcTagCmdIntfData.sendBuf + 2, mMfcTagCmdIntfData.sendBufLen);
+  memcpy(mMfcTagCmdIntfData.sendBuf + 1, buff, mMfcTagCmdIntfData.sendBufLen);
 }
 
 /*******************************************************************************
@@ -402,6 +437,61 @@ NFCSTATUS NxpMfcReader::CheckMfcResponse(uint8_t* pTransceiveData,
   } else if ((pTransceiveData)[0] == 0x10) {
     pTransceiveData += 1;
     transceiveDataLen = 0x10;
+  }
+  return status;
+}
+
+/*******************************************************************************
+**
+** Function         MfcAckReceived
+**
+** Description      This function is called to notify that MFC
+**                  response data is received
+**
+** Returns          NFCSTATUS_SUCCESS
+**                  NFCSTATUS_FAILED
+**
+*******************************************************************************/
+void NxpMfcReader::MfcNotifyOnAckReceived(uint8_t* buff) {
+  const uint8_t NCI_RF_CONN_ID = 0;
+  /*
+   * If Mifare Activated & received RF data packet
+   */
+  if (bEnableMfcExtns && bDisableLegacyMfcExtns &&
+      (buff[0] == NCI_RF_CONN_ID)) {
+    int sem_val;
+    isAck = (buff[3] == NFCSTATUS_SUCCESS);
+    sem_getvalue(&mNacksem, &sem_val);
+    if (sem_val == 0) {
+      if (sem_post(&mNacksem) == -1) {
+        NXPLOG_NCIHAL_E("%s : sem_post failed", __func__);
+      }
+    }
+  }
+}
+
+/*******************************************************************************
+**
+** Function         MfcWaitForAck
+**
+** Description      This function is called to wait for MFC NACK
+**
+** Returns          NFCSTATUS_SUCCESS
+**                  NFCSTATUS_FAILED
+**
+*******************************************************************************/
+NFCSTATUS NxpMfcReader::MfcWaitForAck() {
+  NFCSTATUS status = NFCSTATUS_FAILED;
+  int sem_timedout = 2, s;
+  struct timespec ts;
+  isAck = false;
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  ts.tv_sec += sem_timedout;
+  while ((s = sem_timedwait_monotonic_np(&mNacksem, &ts)) == -1 && errno == EINTR) {
+    continue; /* Restart if interrupted by handler */
+  }
+  if (s != -1) {
+    status = NFCSTATUS_SUCCESS;
   }
   return status;
 }

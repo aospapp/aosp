@@ -96,7 +96,7 @@ public class ArrowKeyMovementMethodTest {
                     WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
 
             activity.setContentView(mTextView);
-            mTextView.setFocusable(true);
+            mTextView.setFocusableInTouchMode(true);
             mTextView.requestFocus();
         });
         PollingCheck.waitFor(() -> mTextView.isFocused() && (mTextView.getLayout() != null));
@@ -916,7 +916,7 @@ public class ArrowKeyMovementMethodTest {
     @Test
     public void testOnTouchEventWithNullLayout() {
         initTextViewWithNullLayout();
-        mTextView.setFocusable(true);
+        mTextView.setFocusableInTouchMode(true);
         mTextView.requestFocus();
         assertTrue(mTextView.isFocused());
 

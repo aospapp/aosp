@@ -10,3 +10,12 @@ xsd_config {
     gen_writer: true,
     gen_has: true,
 }
+
+xsd_config {
+    name: "xsdc_simple_complex_content_tinyxml_tests",
+    srcs: ["simple_complex_content.xsd"],
+    package_name: "simple.complex.content",
+    gen_writer: true,
+    gen_has: true,
+    tinyxml: true,
+}

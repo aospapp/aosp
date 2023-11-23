@@ -18,10 +18,10 @@ Test to verify that a DUT's client interface's status can be queried.
 """
 
 from acts import signals
-from acts.base_test import BaseTestClass
+from acts_contrib.test_utils.abstract_devices.wlan_device_lib.AbstractDeviceWlanDeviceBaseTest import AbstractDeviceWlanDeviceBaseTest
 
 
-class WlanStatusTest(BaseTestClass):
+class WlanStatusTest(AbstractDeviceWlanDeviceBaseTest):
     """WLAN status test class.
 
     Test Bed Requirements:
@@ -35,19 +35,9 @@ class WlanStatusTest(BaseTestClass):
 
     def on_fail(self, test_name, begin_time):
         for fd in self.fuchsia_devices:
-            try:
-                fd.take_bug_report(test_name, begin_time)
-                fd.get_log(test_name, begin_time)
-            except Exception:
-                pass
-
-            try:
-                if fd.device.hard_reboot_on_fail:
-                    fd.hard_power_cycle(self.pdu_devices)
-                    fd.configure_wlan(association_mechanism='policy',
-                                      preserve_saved_networks=True)
-            except AttributeError:
-                pass
+            super().on_device_fail(fd, test_name, begin_time)
+            fd.configure_wlan(association_mechanism='policy',
+                              preserve_saved_networks=True)
 
     def test_wlan_stopped_client_status(self):
         """Queries WLAN status on DUTs with no WLAN ifaces.

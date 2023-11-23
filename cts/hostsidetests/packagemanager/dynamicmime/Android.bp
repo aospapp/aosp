@@ -30,4 +30,13 @@ java_test_host {
         "compatibility-host-util",
         "truth-prebuilt",
     ],
+    data: [
+        ":CtsDynamicMimeUpdateAppFirstGroup",
+        ":CtsDynamicMimeUpdateAppSecondGroup",
+        ":CtsDynamicMimeUpdateAppBothGroups",
+        ":CtsDynamicMimePreferredApp",
+        ":CtsDynamicMimeHelperApp",
+        ":CtsDynamicMimeTestApp",
+    ],
+    per_testcase_directory: true,
 }

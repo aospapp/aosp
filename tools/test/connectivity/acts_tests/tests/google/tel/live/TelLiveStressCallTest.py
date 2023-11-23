@@ -22,38 +22,35 @@ import time
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
 from acts_contrib.test_utils.tel.tel_defines import WFC_MODE_WIFI_PREFERRED
-from acts_contrib.test_utils.tel.tel_defines import VT_STATE_BIDIRECTIONAL
 from acts_contrib.test_utils.tel.tel_defines import WAIT_TIME_IN_CALL
-from acts_contrib.test_utils.tel.tel_test_utils import call_setup_teardown
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_phone_subscription
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_phones_idle
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_wifi_connected
-from acts_contrib.test_utils.tel.tel_test_utils import last_call_drop_reason
-from acts_contrib.test_utils.tel.tel_test_utils import hangup_call
-from acts_contrib.test_utils.tel.tel_test_utils import set_wfc_mode
-from acts_contrib.test_utils.tel.tel_test_utils import sms_send_receive_verify
-from acts_contrib.test_utils.tel.tel_test_utils import start_qxdm_loggers
+from acts_contrib.test_utils.tel.tel_ims_utils import set_wfc_mode
+from acts_contrib.test_utils.tel.tel_logging_utils import start_qxdm_loggers
+from acts_contrib.test_utils.tel.tel_logging_utils import start_sdm_loggers
+from acts_contrib.test_utils.tel.tel_message_utils import sms_send_receive_verify
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_csfb
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_voice_3g
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_voice_2g
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_volte
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_idle_iwlan
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_phone_subscription
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_phones_idle
 from acts_contrib.test_utils.tel.tel_test_utils import verify_incall_state
-from acts_contrib.test_utils.tel.tel_test_utils import multithread_func
 from acts_contrib.test_utils.tel.tel_test_utils import toggle_airplane_mode
+from acts_contrib.test_utils.tel.tel_video_utils import phone_setup_video
+from acts_contrib.test_utils.tel.tel_video_utils import video_call_setup
+from acts_contrib.test_utils.tel.tel_video_utils import is_phone_in_call_video_bidirectional
+from acts_contrib.test_utils.tel.tel_voice_utils import call_setup_teardown
+from acts_contrib.test_utils.tel.tel_voice_utils import hangup_call
 from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_3g
 from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_2g
 from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_csfb
 from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_iwlan
 from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_volte
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_csfb
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_iwlan
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_voice_3g
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_voice_2g
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_volte
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_idle_iwlan
-from acts_contrib.test_utils.tel.tel_video_utils import phone_setup_video
-from acts_contrib.test_utils.tel.tel_video_utils import video_call_setup
-from acts_contrib.test_utils.tel.tel_video_utils import \
-    is_phone_in_call_video_bidirectional
-from acts.logger import epoch_to_log_line_timestamp
+from acts_contrib.test_utils.tel.tel_voice_utils import last_call_drop_reason
+from acts_contrib.test_utils.tel.tel_wifi_utils import ensure_wifi_connected
 from acts.utils import get_current_epoch_time
 from acts.utils import rand_ascii_str
+from acts.libs.utils.multithread import multithread_func
 
 
 class TelLiveStressCallTest(TelephonyBaseTest):
@@ -237,7 +234,10 @@ class TelLiveStressCallTest(TelephonyBaseTest):
             if not iteration_result:
                 self._take_bug_report("%s_CallNo_%s" % (self.test_name, i),
                                       begin_time)
-                start_qxdm_loggers(self.log, self.android_devices)
+                if self.sdm_log:
+                    start_sdm_loggers(self.log, self.android_devices)
+                else:
+                    start_qxdm_loggers(self.log, self.android_devices)
 
             if self.sleep_time_between_test_iterations:
                 self.caller.droid.goToSleepNow()

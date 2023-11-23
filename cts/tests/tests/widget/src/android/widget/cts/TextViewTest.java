@@ -16,6 +16,8 @@
 
 package android.widget.cts;
 
+import static android.content.pm.ApplicationInfo.PRIVATE_FLAG_EXT_ENABLE_ON_BACK_INVOKED_CALLBACK;
+
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -66,6 +68,7 @@ import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.fonts.FontStyle;
+import android.graphics.text.LineBreakConfig;
 import android.icu.lang.UCharacter;
 import android.net.Uri;
 import android.os.Bundle;
@@ -171,6 +174,7 @@ import java.lang.annotation.Retention;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
 /**
  * Test {@link TextView}.
@@ -6867,6 +6871,40 @@ public class TextViewTest {
         verify(mockActionModeCallback, times(1)).onDestroyActionMode(any(ActionMode.class));
     }
 
+    @Test
+    public void testOnBackInvokedCallback() throws Throwable {
+        final String text = "abcde";
+        // Enable the new back dispatch
+        mActivity.getApplicationInfo().privateFlagsExt |=
+                PRIVATE_FLAG_EXT_ENABLE_ON_BACK_INVOKED_CALLBACK;
+        mActivityRule.runOnUiThread(() -> {
+            mTextView = new EditText(mActivity);
+            mActivity.setContentView(mTextView);
+            mTextView.setText(text, BufferType.SPANNABLE);
+            mTextView.setTextIsSelectable(true);
+            mTextView.requestFocus();
+            mTextView.setSelected(true);
+            mTextView.setTextClassifier(TextClassifier.NO_OP);
+        });
+
+        mInstrumentation.waitForIdleSync();
+        mActivityRule.runOnUiThread(() -> {
+            // Set selection and try to start action mode.
+            final Bundle args = new Bundle();
+            args.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, 0);
+            args.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, text.length());
+            mTextView.performAccessibilityAction(
+                    AccessibilityNodeInfo.ACTION_SET_SELECTION, args);
+        });
+        mInstrumentation.waitForIdleSync();
+        assertTrue(mTextView.hasSelection());
+
+        // Trigger back
+        mInstrumentation.sendCharacterSync(KeyEvent.KEYCODE_BACK);
+        mInstrumentation.waitForIdleSync();
+        assertFalse(mTextView.hasSelection());
+    }
+
     @UiThreadTest
     @Test
     public void testSetAndGetCustomInsertionActionMode() {
@@ -8548,6 +8586,15 @@ public class TextViewTest {
 
         mTextView.setTextMetricsParams(param);
         assertTrue(param.equals(mTextView.getTextMetricsParams()));
+
+        mTextView.setLineBreakStyle(LineBreakConfig.LINE_BREAK_STYLE_STRICT);
+        mTextView.setLineBreakWordStyle(LineBreakConfig.LINE_BREAK_WORD_STYLE_PHRASE);
+
+        PrecomputedText.Params resultParams = mTextView.getTextMetricsParams();
+        assertEquals(LineBreakConfig.LINE_BREAK_STYLE_STRICT,
+                resultParams.getLineBreakConfig().getLineBreakStyle());
+        assertEquals(LineBreakConfig.LINE_BREAK_WORD_STYLE_PHRASE,
+                resultParams.getLineBreakConfig().getLineBreakWordStyle());
     }
 
     @Test
@@ -8588,6 +8635,225 @@ public class TextViewTest {
         final Context context = InstrumentationRegistry.getTargetContext();
         final TextView textView = new TextView(context);
         assertEquals(Layout.BREAK_STRATEGY_HIGH_QUALITY, textView.getBreakStrategy());
+    }
+
+    @Test
+    public void testLineBreakConfigDefaultValue() {
+        final Context context = InstrumentationRegistry.getTargetContext();
+        final TextView textView = new TextView(context);
+        assertEquals(LineBreakConfig.LINE_BREAK_STYLE_NONE, textView.getLineBreakStyle());
+        assertEquals(LineBreakConfig.LINE_BREAK_WORD_STYLE_NONE, textView.getLineBreakWordStyle());
+    }
+
+    @UiThreadTest
+    @Test
+    public void testSetGetLineBreakConfig() {
+        TextView tv = new TextView(mActivity);
+        tv.setLineBreakStyle(LineBreakConfig.LINE_BREAK_STYLE_NONE);
+        assertEquals(LineBreakConfig.LINE_BREAK_STYLE_NONE, tv.getLineBreakStyle());
+
+        tv.setLineBreakStyle(LineBreakConfig.LINE_BREAK_STYLE_LOOSE);
+        assertEquals(LineBreakConfig.LINE_BREAK_STYLE_LOOSE, tv.getLineBreakStyle());
+
+        tv.setLineBreakStyle(LineBreakConfig.LINE_BREAK_STYLE_NORMAL);
+        assertEquals(LineBreakConfig.LINE_BREAK_STYLE_NORMAL, tv.getLineBreakStyle());
+
+        tv.setLineBreakStyle(LineBreakConfig.LINE_BREAK_STYLE_STRICT);
+        assertEquals(LineBreakConfig.LINE_BREAK_STYLE_STRICT, tv.getLineBreakStyle());
+
+        tv.setLineBreakWordStyle(LineBreakConfig.LINE_BREAK_WORD_STYLE_NONE);
+        assertEquals(LineBreakConfig.LINE_BREAK_WORD_STYLE_NONE, tv.getLineBreakWordStyle());
+
+        tv.setLineBreakWordStyle(LineBreakConfig.LINE_BREAK_WORD_STYLE_PHRASE);
+        assertEquals(LineBreakConfig.LINE_BREAK_WORD_STYLE_PHRASE, tv.getLineBreakWordStyle());
+    }
+
+    @Test
+    public void testUpdateLineBreakConfigBuilder() {
+        LineBreakConfig.Builder builder = new LineBreakConfig.Builder();
+        builder.setLineBreakStyle(LineBreakConfig.LINE_BREAK_STYLE_STRICT)
+                .setLineBreakWordStyle(LineBreakConfig.LINE_BREAK_WORD_STYLE_PHRASE);
+        LineBreakConfig resultConfig = builder.build();
+
+        assertEquals(LineBreakConfig.LINE_BREAK_STYLE_STRICT, resultConfig.getLineBreakStyle());
+        assertEquals(LineBreakConfig.LINE_BREAK_WORD_STYLE_PHRASE,
+                resultConfig.getLineBreakWordStyle());
+    }
+
+    @Test
+    public void testLineBreakConfigByStyle() {
+        TextView defaultTv = findTextView(R.id.textview_line_break_style_default);
+        TextView nonePhraseTv = findTextView(R.id.textview_line_break_style_none);
+        TextView looseNoneTv = findTextView(R.id.textview_line_break_style_loose);
+        TextView normalPhraseTv = findTextView(R.id.textview_line_break_style_normal);
+        TextView strictNoneTv = findTextView(R.id.textview_line_break_style_strict);
+        TextView loosePhraseTv = findTextView(R.id.textview_line_break_with_style);
+
+        assertEquals(LineBreakConfig.LINE_BREAK_STYLE_NONE, defaultTv.getLineBreakStyle());
+        assertEquals(LineBreakConfig.LINE_BREAK_WORD_STYLE_NONE, defaultTv.getLineBreakWordStyle());
+
+        assertEquals(LineBreakConfig.LINE_BREAK_STYLE_NONE, nonePhraseTv.getLineBreakStyle());
+        assertEquals(LineBreakConfig.LINE_BREAK_WORD_STYLE_PHRASE,
+                nonePhraseTv.getLineBreakWordStyle());
+
+        assertEquals(LineBreakConfig.LINE_BREAK_STYLE_LOOSE, looseNoneTv.getLineBreakStyle());
+        assertEquals(LineBreakConfig.LINE_BREAK_WORD_STYLE_NONE,
+                looseNoneTv.getLineBreakWordStyle());
+
+        assertEquals(LineBreakConfig.LINE_BREAK_STYLE_NORMAL, normalPhraseTv.getLineBreakStyle());
+        assertEquals(LineBreakConfig.LINE_BREAK_WORD_STYLE_PHRASE,
+                normalPhraseTv.getLineBreakWordStyle());
+
+        assertEquals(LineBreakConfig.LINE_BREAK_STYLE_STRICT, strictNoneTv.getLineBreakStyle());
+        assertEquals(LineBreakConfig.LINE_BREAK_WORD_STYLE_NONE,
+                strictNoneTv.getLineBreakWordStyle());
+
+        assertEquals(LineBreakConfig.LINE_BREAK_STYLE_LOOSE, loosePhraseTv.getLineBreakStyle());
+        assertEquals(LineBreakConfig.LINE_BREAK_WORD_STYLE_PHRASE,
+                loosePhraseTv.getLineBreakWordStyle());
+    }
+
+    @Test
+    public void testLineBreakConfigWithTextAppearance() {
+        TextView textView = new TextView(mActivity);
+        textView.setLineBreakStyle(LineBreakConfig.LINE_BREAK_STYLE_LOOSE);
+        textView.setLineBreakWordStyle(LineBreakConfig.LINE_BREAK_WORD_STYLE_NONE);
+
+        // Override the line break config via TextAppearance.
+        textView.setTextAppearance(R.style.LineBreakStyle_strict);
+        assertEquals(LineBreakConfig.LINE_BREAK_STYLE_STRICT, textView.getLineBreakStyle());
+
+        textView.setTextAppearance(R.style.LineBreakWordStyle_phrase);
+        assertEquals(LineBreakConfig.LINE_BREAK_WORD_STYLE_PHRASE,
+                textView.getLineBreakWordStyle());
+
+        textView.setTextAppearance(R.style.LineBreakConfig_loose_phrase);
+        assertEquals(LineBreakConfig.LINE_BREAK_STYLE_LOOSE, textView.getLineBreakStyle());
+        assertEquals(LineBreakConfig.LINE_BREAK_WORD_STYLE_PHRASE,
+                textView.getLineBreakWordStyle());
+    }
+
+    @Test
+    public void testLineBreakStyleEquals_returnsFalseIfStyleIsDifferent() {
+        LineBreakConfig looseNoneConfig = new LineBreakConfig.Builder()
+                .setLineBreakStyle(LineBreakConfig.LINE_BREAK_STYLE_LOOSE)
+                .setLineBreakWordStyle(LineBreakConfig.LINE_BREAK_WORD_STYLE_NONE).build();
+
+        LineBreakConfig normalNoneConfig = new LineBreakConfig.Builder()
+                .setLineBreakStyle(LineBreakConfig.LINE_BREAK_STYLE_NORMAL)
+                .setLineBreakWordStyle(LineBreakConfig.LINE_BREAK_WORD_STYLE_NONE).build();
+
+        LineBreakConfig strictNoneConfig = new LineBreakConfig.Builder()
+                .setLineBreakStyle(LineBreakConfig.LINE_BREAK_STYLE_STRICT)
+                .setLineBreakWordStyle(LineBreakConfig.LINE_BREAK_WORD_STYLE_NONE).build();
+
+        // Verify the lineBreakConfig instances are not equals.
+        assertFalse(looseNoneConfig.equals(normalNoneConfig));
+        assertFalse(looseNoneConfig.equals(strictNoneConfig));
+        assertFalse(normalNoneConfig.equals(strictNoneConfig));
+        assertFalse(Objects.equals(looseNoneConfig, normalNoneConfig));
+        assertFalse(Objects.equals(looseNoneConfig, strictNoneConfig));
+        assertFalse(Objects.equals(normalNoneConfig, strictNoneConfig));
+    }
+
+    @Test
+    public void testLineBreakStyleEquals_returnsTrueIfStyleIsNotDifferent() {
+        LineBreakConfig looseNoneConfig = new LineBreakConfig.Builder()
+                .setLineBreakStyle(LineBreakConfig.LINE_BREAK_STYLE_LOOSE)
+                .setLineBreakWordStyle(LineBreakConfig.LINE_BREAK_WORD_STYLE_NONE).build();
+
+        LineBreakConfig newLooseNoneConfig = new LineBreakConfig.Builder()
+                .setLineBreakStyle(LineBreakConfig.LINE_BREAK_STYLE_LOOSE)
+                .setLineBreakWordStyle(LineBreakConfig.LINE_BREAK_WORD_STYLE_NONE).build();
+
+        assertTrue(newLooseNoneConfig.equals(looseNoneConfig));
+        assertTrue(Objects.equals(newLooseNoneConfig, looseNoneConfig));
+
+        LineBreakConfig normalNoneConfig = new LineBreakConfig.Builder()
+                .setLineBreakStyle(LineBreakConfig.LINE_BREAK_STYLE_NORMAL)
+                .setLineBreakWordStyle(LineBreakConfig.LINE_BREAK_WORD_STYLE_NONE).build();
+
+        LineBreakConfig newNormalNoneConfig = new LineBreakConfig.Builder()
+                .setLineBreakStyle(LineBreakConfig.LINE_BREAK_STYLE_NORMAL)
+                .setLineBreakWordStyle(LineBreakConfig.LINE_BREAK_WORD_STYLE_NONE).build();
+
+        assertTrue(newNormalNoneConfig.equals(normalNoneConfig));
+        assertTrue(Objects.equals(newNormalNoneConfig, normalNoneConfig));
+
+        LineBreakConfig strictNoneConfig = new LineBreakConfig.Builder()
+                .setLineBreakStyle(LineBreakConfig.LINE_BREAK_STYLE_STRICT)
+                .setLineBreakWordStyle(LineBreakConfig.LINE_BREAK_WORD_STYLE_NONE).build();
+
+        LineBreakConfig newStringNoneStrictConfig = new LineBreakConfig.Builder()
+                .setLineBreakStyle(LineBreakConfig.LINE_BREAK_STYLE_STRICT)
+                .setLineBreakWordStyle(LineBreakConfig.LINE_BREAK_WORD_STYLE_NONE).build();
+
+        assertTrue(newStringNoneStrictConfig.equals(strictNoneConfig));
+        assertTrue(Objects.equals(newStringNoneStrictConfig, strictNoneConfig));
+    }
+
+    @Test
+    public void testLineBreakWordStyleEquals_returnsFalseIfWordStyleIsDifferent() {
+        LineBreakConfig nonePhraseConfig = new LineBreakConfig.Builder()
+                .setLineBreakStyle(LineBreakConfig.LINE_BREAK_STYLE_NONE)
+                .setLineBreakWordStyle(LineBreakConfig.LINE_BREAK_WORD_STYLE_PHRASE).build();
+
+        LineBreakConfig noneNoneConfig = new LineBreakConfig.Builder()
+                .setLineBreakStyle(LineBreakConfig.LINE_BREAK_STYLE_NONE)
+                .setLineBreakWordStyle(LineBreakConfig.LINE_BREAK_WORD_STYLE_NONE).build();
+
+        // Verify the lineBreakConfig instances are not equals.
+        assertFalse(nonePhraseConfig.equals(noneNoneConfig));
+        assertFalse(Objects.equals(nonePhraseConfig, noneNoneConfig));
+    }
+
+    @Test
+    public void testLineBreakWordStyleEquals_returnsTrueIfWordStyleIsNotDifferent() {
+        LineBreakConfig nonePhraseConfig = new LineBreakConfig.Builder()
+                .setLineBreakStyle(LineBreakConfig.LINE_BREAK_STYLE_NONE)
+                .setLineBreakWordStyle(LineBreakConfig.LINE_BREAK_WORD_STYLE_PHRASE).build();
+
+        LineBreakConfig newNonePhraseConfig = new LineBreakConfig.Builder()
+                .setLineBreakStyle(LineBreakConfig.LINE_BREAK_STYLE_NONE)
+                .setLineBreakWordStyle(LineBreakConfig.LINE_BREAK_WORD_STYLE_PHRASE).build();
+        assertTrue(nonePhraseConfig.equals(newNonePhraseConfig));
+        assertTrue(Objects.equals(nonePhraseConfig, newNonePhraseConfig));
+    }
+
+    @Test
+    public void testLineBreakConfigEquals_returnFalseIfValueOfConfigIsDifferent() {
+        LineBreakConfig[] lineBreakConfigArray = new LineBreakConfig[8];
+
+        int[] lineBreakStyleArray = {
+            LineBreakConfig.LINE_BREAK_STYLE_NONE,
+            LineBreakConfig.LINE_BREAK_STYLE_LOOSE,
+            LineBreakConfig.LINE_BREAK_STYLE_NORMAL,
+            LineBreakConfig.LINE_BREAK_STYLE_STRICT,
+        };
+
+        int[] lineBreakWordStyleArray = {
+            LineBreakConfig.LINE_BREAK_WORD_STYLE_NONE,
+            LineBreakConfig.LINE_BREAK_WORD_STYLE_PHRASE,
+        };
+
+        int index = 0;
+        for (int lineBreakStyle : lineBreakStyleArray) {
+            for (int lineBreakWordStyle : lineBreakWordStyleArray) {
+                lineBreakConfigArray[index++] = new LineBreakConfig.Builder()
+                        .setLineBreakStyle(lineBreakStyle)
+                        .setLineBreakWordStyle(lineBreakWordStyle).build();
+            }
+        }
+
+        // Verify the lineBreakConfig instances are not equal.
+        for (int i = 0; i < lineBreakConfigArray.length - 1; i++) {
+            LineBreakConfig lbConfig = lineBreakConfigArray[i];
+            for (int j = i + 1; j < lineBreakConfigArray.length; j++) {
+                LineBreakConfig comparedLbConfig = lineBreakConfigArray[j];
+                assertFalse(lbConfig.equals(comparedLbConfig));
+                assertFalse(Objects.equals(lbConfig, comparedLbConfig));
+            }
+        }
     }
 
     @Test

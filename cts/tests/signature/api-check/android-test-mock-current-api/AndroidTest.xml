@@ -26,9 +26,19 @@
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.signature.cts.api.android_test_mock_current" />
-        <option name="runner" value="repackaged.android.test.InstrumentationTestRunner" />
+        <option name="runner" value="androidx.test.runner.AndroidJUnitRunner" />
         <option name="class" value="android.signature.cts.api.current.mock.SignatureTest" />
+        <!--
+         ! android.test.mock classes must be accessible to this test as this test specifically
+         ! requests them using a <uses-library android:name="android.test.mock"/> in its manifest.
+         !-->
         <option name="instrumentation-arg" key="expected-api-files" value="android-test-mock-current.api.gz" />
+        <!--
+         ! android.test.base and android.test.runner classes must not be accessible to this test as
+         ! they are only provided when specifically requested using a <uses-library> element in the
+         ! manifest.
+         !-->
+        <option name="instrumentation-arg" key="unexpected-api-files" value="android-test-base-current.api.gz,android-test-runner-current.api.gz" />
         <option name="runtime-hint" value="5s" />
         <!-- Disable hidden API checks (http://b/171459260). -->
         <option name="hidden-api-checks" value="false" />

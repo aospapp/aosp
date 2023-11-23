@@ -83,8 +83,6 @@ class EmulatedCameraProviderHwlImpl : public CameraProviderHwl {
   status_t WaitForQemuSfFakeCameraPropertyAvailable();
   bool SupportsMandatoryConcurrentStreams(uint32_t camera_id);
 
-  static const char* kConfigurationFileLocation[];
-
   std::vector<std::unique_ptr<HalCameraMetadata>> static_metadata_;
   // Logical to physical camera Id mapping. Empty value vector in case
   // of regular non-logical device.

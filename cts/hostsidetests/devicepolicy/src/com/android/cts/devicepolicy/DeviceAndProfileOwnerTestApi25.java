@@ -61,13 +61,6 @@ public abstract class DeviceAndProfileOwnerTestApi25 extends BaseDevicePolicyTes
                 "testPasswordConstraintsDoesntThrowAndPreservesValuesPreR");
     }
 
-    @Test
-    public void testResetPasswordDeprecated() throws Exception {
-        assumeHasSecureLockScreenFeature();
-
-        executeDeviceTestMethod(".ResetPasswordTest", "testResetPasswordDeprecated");
-    }
-
     protected void executeDeviceTestClass(String className) throws Exception {
         runDeviceTestsAsUser(DEVICE_ADMIN_PKG, className, mUserId);
     }

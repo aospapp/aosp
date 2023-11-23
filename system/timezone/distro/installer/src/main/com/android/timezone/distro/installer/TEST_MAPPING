@@ -8,5 +8,15 @@
         }
       ]
     }
+  ],
+  "hwasan-postsubmit": [
+    {
+      "name": "CtsLibcoreTestCases",
+      "options": [
+        {
+          "include-filter": "com.android.timezone.distro.installer"
+        }
+      ]
+    }
   ]
 }

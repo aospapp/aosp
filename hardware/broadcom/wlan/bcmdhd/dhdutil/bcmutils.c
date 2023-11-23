@@ -1776,7 +1776,7 @@ static const char *crypto_algo_names[] = {
 	"AES_CCM",
 	"AES_OCB_MSDU",
 	"AES_OCB_MPDU",
-	"NALG"
+	"NALG",
 	"UNDEF",
 	"UNDEF",
 	"UNDEF",

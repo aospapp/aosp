@@ -22,7 +22,7 @@
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
     <application android:debuggable="true">
         <uses-library android:name="android.test.runner" />
-        <activity android:name="android.appenumeration.cts.query.TestActivity"
+        <activity android:name="android.appenumeration.cts.TestActivity"
                   android:exported="true" />
         <provider android:name="android.appenumeration.cts.query.TestProvider"
                   android:exported="true"
@@ -32,5 +32,9 @@
                   android:readPermission="android.appenumeration.queries.nothing.haspermission.READ"
                   android:grantUriPermissions="true"
                   android:authorities="android.appenumeration.queries.nothing.haspermission2" />
+        <provider android:name="android.appenumeration.cts.query.TestProvider"
+                  android:exported="false"
+                  android:grantUriPermissions="true"
+                  android:authorities="android.appenumeration.queries.nothing.haspermission3" />
     </application>
 </manifest>

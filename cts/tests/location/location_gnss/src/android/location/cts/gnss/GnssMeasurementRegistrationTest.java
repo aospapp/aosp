@@ -16,17 +16,29 @@
 
 package android.location.cts.gnss;
 
+import static org.junit.Assume.assumeFalse;
+import static org.junit.Assume.assumeTrue;
+
+import android.content.Context;
 import android.location.GnssMeasurement;
 import android.location.GnssMeasurementRequest;
 import android.location.GnssMeasurementsEvent;
 import android.location.GnssStatus;
-import android.location.cts.common.GnssTestCase;
 import android.location.cts.common.SoftAssert;
 import android.location.cts.common.TestGnssMeasurementListener;
+import android.location.cts.common.TestGnssStatusCallback;
 import android.location.cts.common.TestLocationListener;
 import android.location.cts.common.TestLocationManager;
 import android.location.cts.common.TestMeasurementUtil;
 import android.util.Log;
+
+import androidx.test.core.app.ApplicationProvider;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.util.List;
 
@@ -50,23 +62,25 @@ import java.util.List;
  *              Android Q, it is mandatory to report GnssMeasurement even if a location has not
  *              yet been reported. Therefore, the test fails.
  */
-public class GnssMeasurementRegistrationTest extends GnssTestCase {
+@RunWith(JUnit4.class)
+public class GnssMeasurementRegistrationTest {
 
     private static final String TAG = "GnssMeasRegTest";
     private static final int EVENTS_COUNT = 5;
     private static final int GPS_EVENTS_COUNT = 1;
     private TestLocationListener mLocationListener;
     private TestGnssMeasurementListener mMeasurementListener;
+    private TestLocationManager mTestLocationManager;
+    private Context mContext;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-
-        mTestLocationManager = new TestLocationManager(getContext());
+    @Before
+    public void setUp() throws Exception {
+        mContext = ApplicationProvider.getApplicationContext();
+        mTestLocationManager = new TestLocationManager(mContext);
     }
 
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         // Unregister listeners
         if (mLocationListener != null) {
             mTestLocationManager.removeLocationUpdates(mLocationListener);
@@ -74,22 +88,16 @@ public class GnssMeasurementRegistrationTest extends GnssTestCase {
         if (mMeasurementListener != null) {
             mTestLocationManager.unregisterGnssMeasurementCallback(mMeasurementListener);
         }
-        super.tearDown();
     }
 
     /**
      * Test GPS measurements registration.
      */
+    @Test
     public void testGnssMeasurementRegistration() throws Exception {
-        // Checks if GPS hardware feature is present, skips test (pass) if not
-        if (!TestMeasurementUtil.canTestRunOnCurrentDevice(mTestLocationManager, TAG)) {
-            return;
-        }
-
-        if (TestMeasurementUtil.isAutomotiveDevice(getContext())) {
-            Log.i(TAG, "Test is being skipped because the system has the AUTOMOTIVE feature.");
-            return;
-        }
+        assumeTrue(TestMeasurementUtil.canTestRunOnCurrentDevice(mTestLocationManager, TAG));
+        assumeFalse("Test is being skipped because the system has the AUTOMOTIVE feature.",
+                TestMeasurementUtil.isAutomotiveDevice(mContext));
 
         // Register for GPS measurements.
         mMeasurementListener = new TestGnssMeasurementListener(TAG, GPS_EVENTS_COUNT);
@@ -101,21 +109,33 @@ public class GnssMeasurementRegistrationTest extends GnssTestCase {
     /**
      * Test GPS measurements registration with full tracking enabled.
      */
+    @Test
     public void testGnssMeasurementRegistration_enableFullTracking() throws Exception {
-        // Checks if GPS hardware feature is present, skips test (pass) if not,
-        if (!TestMeasurementUtil.canTestRunOnCurrentDevice(mTestLocationManager, TAG)) {
-            return;
-        }
-
-        if (TestMeasurementUtil.isAutomotiveDevice(getContext())) {
-            Log.i(TAG, "Test is being skipped because the system has the AUTOMOTIVE feature.");
-            return;
-        }
+        assumeTrue(TestMeasurementUtil.canTestRunOnCurrentDevice(mTestLocationManager, TAG));
+        assumeFalse("Test is being skipped because the system has the AUTOMOTIVE feature.",
+                TestMeasurementUtil.isAutomotiveDevice(mContext));
 
         // Register for GPS measurements.
         mMeasurementListener = new TestGnssMeasurementListener(TAG, GPS_EVENTS_COUNT);
         mTestLocationManager.registerGnssMeasurementCallback(mMeasurementListener,
                 new GnssMeasurementRequest.Builder().setFullTracking(true).build());
+
+        verifyGnssMeasurementsReceived();
+    }
+
+    /**
+     * Test GPS measurements registration with 2s interval.
+     */
+    @Test
+    public void testGnssMeasurementRegistration_2secInterval() throws Exception {
+        assumeTrue(TestMeasurementUtil.canTestRunOnCurrentDevice(mTestLocationManager, TAG));
+        assumeFalse("Test is being skipped because the system has the AUTOMOTIVE feature.",
+                TestMeasurementUtil.isAutomotiveDevice(mContext));
+
+        // Register for GPS measurements.
+        mMeasurementListener = new TestGnssMeasurementListener(TAG, GPS_EVENTS_COUNT);
+        mTestLocationManager.registerGnssMeasurementCallback(mMeasurementListener,
+                new GnssMeasurementRequest.Builder().setIntervalMillis(2000).build());
 
         verifyGnssMeasurementsReceived();
     }

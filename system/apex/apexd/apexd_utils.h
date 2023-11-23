@@ -44,49 +44,6 @@
 namespace android {
 namespace apex {
 
-inline int WaitChild(pid_t pid) {
-  int status;
-  pid_t got_pid = TEMP_FAILURE_RETRY(waitpid(pid, &status, 0));
-
-  if (got_pid != pid) {
-    PLOG(WARNING) << "waitpid failed: wanted " << pid << ", got " << got_pid;
-    return 1;
-  }
-
-  if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
-    return 0;
-  } else {
-    return status;
-  }
-}
-
-inline android::base::Result<void> ForkAndRun(
-    const std::vector<std::string>& args) {
-  LOG(DEBUG) << "Forking : " << android::base::Join(args, " ");
-  std::vector<const char*> argv;
-  argv.resize(args.size() + 1, nullptr);
-  std::transform(args.begin(), args.end(), argv.begin(),
-                 [](const std::string& in) { return in.c_str(); });
-
-  pid_t pid = fork();
-  if (pid == -1) {
-    // Fork failed.
-    return android::base::ErrnoError() << "Unable to fork";
-  }
-
-  if (pid == 0) {
-    execv(argv[0], const_cast<char**>(argv.data()));
-    PLOG(ERROR) << "execv failed";
-    _exit(1);
-  }
-
-  int rc = WaitChild(pid);
-  if (rc != 0) {
-    return android::base::Error() << "Failed run: status=" << rc;
-  }
-  return {};
-}
-
 template <typename Fn>
 android::base::Result<void> WalkDir(const std::string& path, Fn fn) {
   namespace fs = std::filesystem;
@@ -202,6 +159,11 @@ inline void Reboot() {
   if (android_reboot(ANDROID_RB_RESTART2, 0, nullptr) != 0) {
     LOG(ERROR) << "Failed to reboot device";
   }
+  // Wait for reboot to complete as we expect this to be a terminal
+  // command. Crash apexd if reboot does not complete even after
+  // waiting an arbitrary significant amount of time.
+  std::this_thread::sleep_for(std::chrono::seconds(120));
+  LOG(FATAL) << "Device did not reboot within 120 seconds";
 }
 
 inline android::base::Result<void> WaitForFile(
@@ -370,6 +332,17 @@ inline android::base::Result<void> RestoreconPath(const std::string& path) {
     return android::base::ErrnoError() << "Failed to restorecon " << path;
   }
   return {};
+}
+
+inline android::base::Result<std::string> GetfileconPath(
+    const std::string& path) {
+  char* ctx;
+  if (getfilecon(path.c_str(), &ctx) < 0) {
+    return android::base::ErrnoError() << "Failed to getfilecon " << path;
+  }
+  std::string ret(ctx);
+  freecon(ctx);
+  return ret;
 }
 
 }  // namespace apex

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # The format of the kernel configs in the framework compatibility matrix
 # has a couple properties that would make it confusing or cumbersome to
@@ -24,47 +24,40 @@ import re
 import sys
 
 def fixup(args):
-    source_f = open(args.input) or die ("Could not open %s" % args.input)
-
-    # The first line of the conditional xml has the tag containing
-    # the kernel min LTS version.
-    line = source_f.readline()
-    exp_re = re.compile(r"^<kernel minlts=\"(\d+).(\d+).(\d+)\"\s+/>")
-    exp_match = re.match(exp_re, line)
-    assert exp_match, "Malformatted kernel conditional config file.\n"
-
-    major = exp_match.group(1)
-    minor = exp_match.group(2)
-    tiny = exp_match.group(3)
-
-    if args.output_version:
-        version_f = (open(args.output_version, "w+") or
-                  die("Could not open version file"))
-        version_f.write("{}.{}.{}".format(major, minor, tiny))
-        version_f.close()
-
-    if args.output_matrix:
-        dest_f = (open(args.output_matrix, "w+") or
-                  die("Could not open destination file"))
-        dest_f.write("<compatibility-matrix version=\"1.0\" type=\"framework\">\n")
-
-        # First <kernel> must not have <condition> for libvintf backwards compatibility.
-        dest_f.write("<kernel version=\"{}.{}.{}\" />".format(major, minor, tiny))
-
+    with open(args.input) as source_f:
+        # The first line of the conditional xml has the tag containing
+        # the kernel min LTS version.
         line = source_f.readline()
-        while line:
-            line = line.replace("<value type=\"bool\">",
-                    "<value type=\"tristate\">")
-            line = line.replace("<group>",
-                    "<kernel version=\"{}.{}.{}\">".format(major, minor, tiny))
-            line = line.replace("</group>", "</kernel>")
-            dest_f.write(line)
-            line = source_f.readline()
+        exp_re = re.compile(r"^<kernel minlts=\"(\d+).(\d+).(\d+)\"\s+/>")
+        exp_match = re.match(exp_re, line)
+        assert exp_match, "Malformatted kernel conditional config file.\n"
 
-        dest_f.write("</compatibility-matrix>")
-        dest_f.close()
+        major = exp_match.group(1)
+        minor = exp_match.group(2)
+        tiny = exp_match.group(3)
 
-    source_f.close()
+        if args.output_version:
+            with open(args.output_version, "w+") as version_f:
+                version_f.write("{}.{}.{}".format(major, minor, tiny))
+
+        if args.output_matrix:
+            with open(args.output_matrix, "w+") as dest_f:
+                dest_f.write("<compatibility-matrix version=\"1.0\" type=\"framework\">\n")
+
+                # First <kernel> must not have <condition> for libvintf backwards compatibility.
+                dest_f.write("<kernel version=\"{}.{}.{}\" />".format(major, minor, tiny))
+
+                line = source_f.readline()
+                while line:
+                    line = line.replace("<value type=\"bool\">",
+                            "<value type=\"tristate\">")
+                    line = line.replace("<group>",
+                            "<kernel version=\"{}.{}.{}\">".format(major, minor, tiny))
+                    line = line.replace("</group>", "</kernel>")
+                    dest_f.write(line)
+                    line = source_f.readline()
+
+                dest_f.write("</compatibility-matrix>")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)

@@ -28,7 +28,7 @@ def token_name(text):
 def token_lu(text):
     return int(text)
 
-@with_pattern(r'(kB)?')
+@with_pattern(r'[ ]*(kB)?')
 def token_kb(text):
     return text
 
@@ -79,7 +79,7 @@ class ProcMemInfoTest(KernelProcFileTestBase.KernelProcFileTestBase):
         lines = contents.split('\n')
         if lines[-1] != '':
             raise SyntaxError("missing final newline")
-        return [self.parse_line("{:name}: {:lu}{:^kb}", line,
+        return [self.parse_line("{:name}: {:lu}{:kb}", line,
             dict(name=token_name, lu=token_lu, kb=token_kb)) for line in lines[:-1]]
 
     def result_correct(self, parse_result):

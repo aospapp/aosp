@@ -18,6 +18,7 @@ import (
 	"github.com/google/blueprint/proptools"
 
 	"android/soong/android"
+	"android/soong/cc"
 	"android/soong/tradefed"
 )
 
@@ -49,6 +50,12 @@ type TestProperties struct {
 	// the test
 	Data []string `android:"path,arch_variant"`
 
+	// list of shared library modules that should be installed alongside the test
+	Data_libs []string `android:"arch_variant"`
+
+	// list of binary modules that should be installed alongside the test
+	Data_bins []string `android:"arch_variant"`
+
 	// Flag to indicate whether or not to create test config automatically. If AndroidTest.xml
 	// doesn't exist next to the Android.bp, this attribute doesn't need to be set to true
 	// explicitly.
@@ -59,6 +66,10 @@ type TestProperties struct {
 
 	// Test options.
 	Test_options TestOptions
+
+	// Add RootTargetPreparer to auto generated test config. This guarantees the test to run
+	// with root permission.
+	Require_root *bool
 }
 
 // A test module is a binary module with extra --test compiler flag
@@ -109,14 +120,55 @@ func (test *testDecorator) compilerProps() []interface{} {
 }
 
 func (test *testDecorator) install(ctx ModuleContext) {
+	testInstallBase := "/data/local/tests/unrestricted"
+	if ctx.RustModule().InVendor() || ctx.RustModule().UseVndk() {
+		testInstallBase = "/data/local/tests/vendor"
+	}
+
+	var configs []tradefed.Config
+	if Bool(test.Properties.Require_root) {
+		configs = append(configs, tradefed.Object{"target_preparer", "com.android.tradefed.targetprep.RootTargetPreparer", nil})
+	} else {
+		var options []tradefed.Option
+		options = append(options, tradefed.Option{Name: "force-root", Value: "false"})
+		configs = append(configs, tradefed.Object{"target_preparer", "com.android.tradefed.targetprep.RootTargetPreparer", options})
+	}
+
 	test.testConfig = tradefed.AutoGenRustTestConfig(ctx,
 		test.Properties.Test_config,
 		test.Properties.Test_config_template,
 		test.Properties.Test_suites,
-		nil,
-		test.Properties.Auto_gen_config)
+		configs,
+		test.Properties.Auto_gen_config,
+		testInstallBase)
 
 	dataSrcPaths := android.PathsForModuleSrc(ctx, test.Properties.Data)
+
+	ctx.VisitDirectDepsWithTag(dataLibDepTag, func(dep android.Module) {
+		depName := ctx.OtherModuleName(dep)
+		linkableDep, ok := dep.(cc.LinkableInterface)
+		if !ok {
+			ctx.ModuleErrorf("data_lib %q is not a linkable module", depName)
+		}
+		if linkableDep.OutputFile().Valid() {
+			test.data = append(test.data,
+				android.DataPath{SrcPath: linkableDep.OutputFile().Path(),
+					RelativeInstallPath: linkableDep.RelativeInstallPath()})
+		}
+	})
+
+	ctx.VisitDirectDepsWithTag(dataBinDepTag, func(dep android.Module) {
+		depName := ctx.OtherModuleName(dep)
+		linkableDep, ok := dep.(cc.LinkableInterface)
+		if !ok {
+			ctx.ModuleErrorf("data_bin %q is not a linkable module", depName)
+		}
+		if linkableDep.OutputFile().Valid() {
+			test.data = append(test.data,
+				android.DataPath{SrcPath: linkableDep.OutputFile().Path(),
+					RelativeInstallPath: linkableDep.RelativeInstallPath()})
+		}
+	})
 
 	for _, dataSrcPath := range dataSrcPaths {
 		test.data = append(test.data, android.DataPath{SrcPath: dataSrcPath})
@@ -158,6 +210,12 @@ func init() {
 
 func RustTestFactory() android.Module {
 	module, _ := NewRustTest(android.HostAndDeviceSupported)
+
+	// NewRustTest will set MultilibBoth true, however the host variant
+	// cannot produce the non-primary target. Therefore, add the
+	// rustTestHostMultilib load hook to set MultilibFirst for the
+	// host target.
+	android.AddLoadHook(module, rustTestHostMultilib)
 	return module.Init()
 }
 
@@ -175,5 +233,25 @@ func (test *testDecorator) compilerDeps(ctx DepsContext, deps Deps) Deps {
 
 	deps.Rustlibs = append(deps.Rustlibs, "libtest")
 
+	deps.DataLibs = append(deps.DataLibs, test.Properties.Data_libs...)
+	deps.DataBins = append(deps.DataBins, test.Properties.Data_bins...)
+
 	return deps
+}
+
+func (test *testDecorator) testBinary() bool {
+	return true
+}
+
+func rustTestHostMultilib(ctx android.LoadHookContext) {
+	type props struct {
+		Target struct {
+			Host struct {
+				Compile_multilib *string
+			}
+		}
+	}
+	p := &props{}
+	p.Target.Host.Compile_multilib = proptools.StringPtr("first")
+	ctx.AppendProperties(p)
 }

@@ -26,6 +26,7 @@ import android.telecom.DisconnectCause;
 import android.telecom.VideoProfile;
 import android.util.ArraySet;
 
+import com.android.compatibility.common.util.ApiTest;
 import com.android.cts.verifier.R;
 
 import java.util.Set;
@@ -36,6 +37,7 @@ import java.util.concurrent.TimeUnit;
  * An implementation of the {@link android.telecom.Connection} class used by the
  * {@link CtsConnectionService}.
  */
+@ApiTest(apis={"android.Telecom.Connection"})
 public class CtsConnection extends Connection {
     /**
      * Listener used to inform the CtsVerifier app of changes to a connection.

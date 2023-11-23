@@ -117,9 +117,8 @@ public class OnClickActionTest
         sReplier.getNextFillRequest();
 
         // Trigger save.
+        mActivity.setTextAndWaitTextChange(/* input= */ "42", /* password= */  "108");
         mActivity.syncRunOnUiThread(() -> {
-            mActivity.mInput.setText("42");
-            mActivity.mPassword.setText("108");
             mActivity.mCommit.performClick();
         });
         final UiObject2 saveUi = mUiBot.assertSaveShowing(SAVE_DATA_TYPE_GENERIC);

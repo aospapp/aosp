@@ -35,7 +35,7 @@ type Definition interface {
 }
 
 // An Assignment is a variable assignment at the top level of a Blueprints file, scoped to the
-// file and and subdirs.
+// file and subdirs.
 type Assignment struct {
 	Name       string
 	NamePos    scanner.Position
@@ -106,6 +106,29 @@ func (p *Property) String() string {
 
 func (p *Property) Pos() scanner.Position { return p.NamePos }
 func (p *Property) End() scanner.Position { return p.Value.End() }
+
+// A MapItem is a key: value pair within a Map, corresponding to map type, rather than a struct.
+type MapItem struct {
+	ColonPos scanner.Position
+	Key      *String
+	Value    Expression
+}
+
+func (m *MapItem) Copy() *MapItem {
+	ret := MapItem{
+		ColonPos: m.ColonPos,
+		Key:      m.Key.Copy().(*String),
+		Value:    m.Value.Copy(),
+	}
+	return &ret
+}
+
+func (m *MapItem) String() string {
+	return fmt.Sprintf("%s@%s: %s", m.Key, m.ColonPos, m.Value)
+}
+
+func (m *MapItem) Pos() scanner.Position { return m.Key.Pos() }
+func (m *MapItem) End() scanner.Position { return m.Value.End() }
 
 // An Expression is a Value in a Property or Assignment.  It can be a literal (String or Bool), a
 // Map, a List, an Operator that combines two expressions of the same type, or a Variable that
@@ -244,6 +267,7 @@ type Map struct {
 	LBracePos  scanner.Position
 	RBracePos  scanner.Position
 	Properties []*Property
+	MapItems   []*MapItem
 }
 
 func (x *Map) Pos() scanner.Position { return x.LBracePos }
@@ -255,20 +279,36 @@ func (x *Map) Copy() Expression {
 	for i := range x.Properties {
 		ret.Properties[i] = x.Properties[i].Copy()
 	}
+	ret.MapItems = make([]*MapItem, len(x.MapItems))
+	for i := range x.MapItems {
+		ret.MapItems[i] = x.MapItems[i].Copy()
+	}
 	return &ret
 }
 
 func (x *Map) Eval() Expression {
+	if len(x.Properties) > 0 && len(x.MapItems) > 0 {
+		panic("Cannot support both Properties and MapItems")
+	}
 	return x
 }
 
 func (x *Map) String() string {
-	propertyStrings := make([]string, len(x.Properties))
-	for i, property := range x.Properties {
-		propertyStrings[i] = property.String()
+	var s string
+	if len(x.MapItems) > 0 {
+		mapStrings := make([]string, len(x.MapItems))
+		for i, mapItem := range x.MapItems {
+			mapStrings[i] = mapItem.String()
+		}
+		s = strings.Join(mapStrings, ", ")
+	} else {
+		propertyStrings := make([]string, len(x.Properties))
+		for i, property := range x.Properties {
+			propertyStrings[i] = property.String()
+		}
+		s = strings.Join(propertyStrings, ", ")
 	}
-	return fmt.Sprintf("@%s-%s{%s}", x.LBracePos, x.RBracePos,
-		strings.Join(propertyStrings, ", "))
+	return fmt.Sprintf("@%s-%s{%s}", x.LBracePos, x.RBracePos, s)
 }
 
 func (x *Map) Type() Type { return MapType }
@@ -289,7 +329,7 @@ func (x *Map) getPropertyImpl(name string) (Property *Property, found bool, inde
 	return nil, false, -1
 }
 
-// GetProperty removes the property with the given name, if it exists.
+// RemoveProperty removes the property with the given name, if it exists.
 func (x *Map) RemoveProperty(propertyName string) (removed bool) {
 	_, found, index := x.getPropertyImpl(propertyName)
 	if found {

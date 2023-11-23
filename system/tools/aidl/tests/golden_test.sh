@@ -39,12 +39,20 @@ function _golden_test() {
   modules=(
     "aidl-test-interface-cpp-source"
     "aidl-test-interface-java-source"
-    "aidl-test-interface-ndk_platform-source"
+    "aidl-test-versioned-interface-V1-cpp-source"
+    "aidl-test-versioned-interface-V1-java-source"
+    "aidl-test-versioned-interface-V1-ndk-source"
+    "aidl-test-versioned-interface-V1-rust-source"
+    "aidl-test-interface-ndk-source"
     "aidl-test-interface-rust-source"
     "aidl_test_loggable_interface-cpp-source"
     "aidl_test_loggable_interface-java-source"
-    "aidl_test_loggable_interface-ndk_platform-source"
     "aidl_test_loggable_interface-ndk-source"
+    "aidl-test-interface-permission-java-source"
+    "aidl-test-fixedsizearray-cpp-source"
+    "aidl-test-fixedsizearray-java-source"
+    "aidl-test-fixedsizearray-ndk-source"
+    "aidl-test-fixedsizearray-rust-source"
   )
 
   local root="."
@@ -69,7 +77,7 @@ function _golden_test() {
       mkdir -p "$golden"
       cp -r "$built/gen" "$golden"
     else
-      diff -r "$built" "$golden" || e=1
+      diff -r "$built/gen" "$golden/gen" || e=1
     fi
   done
 

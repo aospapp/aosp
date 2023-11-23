@@ -210,7 +210,9 @@ bool RecordFileWriter::ReadDataSection(const std::function<void(const Record*)>&
       return false;
     }
     read_pos += header.size;
-    std::unique_ptr<Record> r = ReadRecordFromBuffer(event_attr_, header.type, record_buf.data());
+    std::unique_ptr<Record> r = ReadRecordFromBuffer(event_attr_, header.type, record_buf.data(),
+                                                     record_buf.data() + header.size);
+    CHECK(r);
     if (r->type() == PERF_RECORD_AUXTRACE) {
       auto auxtrace = static_cast<AuxTraceRecord*>(r.get());
       auxtrace->location.file_offset = data_section_offset_ + read_pos;
@@ -355,52 +357,41 @@ bool RecordFileWriter::WriteFileFeatures(const std::vector<Dso*>& dsos) {
 }
 
 bool RecordFileWriter::WriteFileFeature(const FileFeature& file) {
-  uint32_t symbol_count = file.symbols.size() + file.symbol_ptrs.size();
-  uint32_t size = file.path.size() + 1 + sizeof(uint32_t) * 2 + sizeof(uint64_t) +
-                  symbol_count * (sizeof(uint64_t) + sizeof(uint32_t));
-  for (const auto& symbol : file.symbols) {
-    size += strlen(symbol.Name()) + 1;
-  }
-  for (const auto& symbol : file.symbol_ptrs) {
-    size += strlen(symbol->Name()) + 1;
-  }
-  if (file.type == DSO_DEX_FILE) {
-    size += sizeof(uint32_t) + sizeof(uint64_t) * file.dex_file_offsets.size();
-  }
-  if (file.type == DSO_ELF_FILE || file.type == DSO_KERNEL_MODULE) {
-    size += sizeof(uint64_t);
-  }
-  std::vector<char> buf(sizeof(uint32_t) + size);
-  char* p = buf.data();
-  MoveToBinaryFormat(size, p);
-  MoveToBinaryFormat(file.path.c_str(), file.path.size() + 1, p);
-  MoveToBinaryFormat(static_cast<uint32_t>(file.type), p);
-  MoveToBinaryFormat(file.min_vaddr, p);
-  MoveToBinaryFormat(symbol_count, p);
-
-  auto write_symbol = [&](const Symbol* symbol) {
-    MoveToBinaryFormat(symbol->addr, p);
-    uint32_t len = symbol->len;
-    MoveToBinaryFormat(len, p);
-    MoveToBinaryFormat(symbol->Name(), strlen(symbol->Name()) + 1, p);
+  proto::FileFeature proto_file;
+  proto_file.set_path(file.path);
+  proto_file.set_type(static_cast<uint32_t>(file.type));
+  proto_file.set_min_vaddr(file.min_vaddr);
+  auto write_symbol = [&](const Symbol& symbol) {
+    proto::FileFeature::Symbol* proto_symbol = proto_file.add_symbol();
+    proto_symbol->set_vaddr(symbol.addr);
+    proto_symbol->set_len(symbol.len);
+    proto_symbol->set_name(symbol.Name());
   };
-  for (const auto& symbol : file.symbols) {
-    write_symbol(&symbol);
-  }
-  for (const auto& symbol : file.symbol_ptrs) {
+  for (const Symbol& symbol : file.symbols) {
     write_symbol(symbol);
   }
+  for (const Symbol* symbol_ptr : file.symbol_ptrs) {
+    write_symbol(*symbol_ptr);
+  }
   if (file.type == DSO_DEX_FILE) {
-    uint32_t offset_count = file.dex_file_offsets.size();
-    MoveToBinaryFormat(offset_count, p);
-    MoveToBinaryFormat(file.dex_file_offsets.data(), offset_count, p);
+    proto::FileFeature::DexFile* proto_dex_file = proto_file.mutable_dex_file();
+    proto_dex_file->mutable_dex_file_offset()->Add(file.dex_file_offsets.begin(),
+                                                   file.dex_file_offsets.end());
+  } else if (file.type == DSO_ELF_FILE) {
+    proto::FileFeature::ElfFile* proto_elf_file = proto_file.mutable_elf_file();
+    proto_elf_file->set_file_offset_of_min_vaddr(file.file_offset_of_min_vaddr);
+  } else if (file.type == DSO_KERNEL_MODULE) {
+    proto::FileFeature::KernelModule* proto_kernel_module = proto_file.mutable_kernel_module();
+    proto_kernel_module->set_memory_offset_of_min_vaddr(file.file_offset_of_min_vaddr);
   }
-  if (file.type == DSO_ELF_FILE || file.type == DSO_KERNEL_MODULE) {
-    MoveToBinaryFormat(file.file_offset_of_min_vaddr, p);
+  std::string s;
+  if (!proto_file.SerializeToString(&s)) {
+    LOG(ERROR) << "SerializeToString() failed";
+    return false;
   }
-  CHECK_EQ(buf.size(), static_cast<size_t>(p - buf.data()));
-
-  return WriteFeature(FEAT_FILE, buf.data(), buf.size());
+  uint32_t msg_size = s.size();
+  return WriteFeatureBegin(FEAT_FILE2) && Write(&msg_size, sizeof(uint32_t)) &&
+         Write(s.data(), s.size()) && WriteFeatureEnd(FEAT_FILE2);
 }
 
 bool RecordFileWriter::WriteMetaInfoFeature(

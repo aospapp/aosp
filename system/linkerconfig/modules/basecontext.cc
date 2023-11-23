@@ -61,6 +61,34 @@ const std::vector<std::string>& BaseContext::GetSystemRequireLibs() const {
   return system_require_libs_;
 }
 
+void BaseContext::SetVendorConfig(
+    const android::linkerconfig::proto::LinkerConfig& config) {
+  vendor_provide_libs_ = {config.providelibs().begin(),
+                          config.providelibs().end()};
+  vendor_require_libs_ = {config.requirelibs().begin(),
+                          config.requirelibs().end()};
+}
+const std::vector<std::string>& BaseContext::GetVendorProvideLibs() const {
+  return vendor_provide_libs_;
+}
+const std::vector<std::string>& BaseContext::GetVendorRequireLibs() const {
+  return vendor_require_libs_;
+}
+
+void BaseContext::SetProductConfig(
+    const android::linkerconfig::proto::LinkerConfig& config) {
+  product_provide_libs_ = {config.providelibs().begin(),
+                           config.providelibs().end()};
+  product_require_libs_ = {config.requirelibs().begin(),
+                           config.requirelibs().end()};
+}
+const std::vector<std::string>& BaseContext::GetProductProvideLibs() const {
+  return product_provide_libs_;
+}
+const std::vector<std::string>& BaseContext::GetProductRequireLibs() const {
+  return product_require_libs_;
+}
+
 }  // namespace modules
 }  // namespace linkerconfig
 }  // namespace android

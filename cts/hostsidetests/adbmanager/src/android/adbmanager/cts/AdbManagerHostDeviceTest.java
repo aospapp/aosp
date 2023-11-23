@@ -31,6 +31,7 @@ import org.junit.runner.RunWith;
 @RunWith(DeviceJUnit4ClassRunner.class)
 public class AdbManagerHostDeviceTest extends BaseHostJUnit4Test {
     private static final String FEATURE_WIFI = "android.hardware.wifi";
+    private static final String FEATURE_ETHERNET = "android.hardware.ethernet";
     private static final String FEATURE_CAMERA_ANY = "android.hardware.camera.any";
 
     private boolean hasFeature(String feature) throws Exception {
@@ -38,10 +39,15 @@ public class AdbManagerHostDeviceTest extends BaseHostJUnit4Test {
         return Boolean.parseBoolean(result.getStdout().trim());
     }
 
+    // The following testing case is for AdbService.java#isAdbWifiSupported which has expanded
+    // its support to Ethernet to provide wider coverage for ATV devices.
+    // We didn't rename the API `isAdbWifiSupported` since it's being referenced in multiple
+    // different places. But the following test case has been renamed to reflect the expanded
+    // coverage.
     @Test
     @CddTest(requirement="6.1/C-1-1")
-    public void test_isadbWifiSupported() throws Exception {
-        boolean expected = hasFeature(FEATURE_WIFI);
+    public void test_isadbNetworkSupported() throws Exception {
+        boolean expected = hasFeature(FEATURE_WIFI) || hasFeature(FEATURE_ETHERNET);
 
         CommandResult result = getDevice().executeShellV2Command("cmd adb is-wifi-supported");
 
@@ -49,10 +55,16 @@ public class AdbManagerHostDeviceTest extends BaseHostJUnit4Test {
         Assert.assertEquals(expected, Boolean.parseBoolean(result.getStdout().trim()));
     }
 
+    // The following testing case is for AdbService.java#isAdbWifiQrSupported which has expanded
+    // its support to Ethernet to provide wider coverage for ATV devices.
+    // We didn't rename the API `isAdbWifiQrSupported` since it's being referenced in multiple
+    // different places. But the following test case has been renamed to reflect the expanded
+    // coverage.
     @Test
     @CddTest(requirement="6.1/C-1-2")
-    public void test_isadbWifiQrSupported() throws Exception {
-        boolean expected = hasFeature(FEATURE_WIFI) && hasFeature(FEATURE_CAMERA_ANY);
+    public void test_isadbNetworkQrSupported() throws Exception {
+        boolean expected = (hasFeature(FEATURE_WIFI) || hasFeature(FEATURE_ETHERNET)) &&
+            hasFeature(FEATURE_CAMERA_ANY);
 
         CommandResult result = getDevice().executeShellV2Command("cmd adb is-wifi-qr-supported");
 

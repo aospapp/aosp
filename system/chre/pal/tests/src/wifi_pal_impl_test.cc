@@ -16,13 +16,14 @@
 
 #include "wifi_pal_impl_test.h"
 
+#include <cinttypes>
+
 #include "chre/platform/log.h"
 #include "chre/platform/shared/pal_system_api.h"
 #include "chre/platform/system_time.h"
 #include "chre/util/lock_guard.h"
+#include "chre/util/macros.h"
 #include "chre/util/nanoapp/wifi.h"
-
-#include <cinttypes>
 
 // Flag to require on-demand WiFi scanning capability to be enabled for the test
 // to pass. Set to false to allow tests to pass on disabled platforms.
@@ -77,6 +78,41 @@ void chrePalRangingEventCallback(uint8_t errorCode,
   }
 }
 
+void chrePalNanServiceIdentifierCallback(uint8_t errorCode,
+                                         uint32_t subscriptionId) {
+  if (gTest != nullptr) {
+    gTest->nanServiceIdentifierCallback(errorCode, subscriptionId);
+  }
+}
+
+void chrePalNanServiceDiscoveryCallback(
+    struct chreWifiNanDiscoveryEvent *event) {
+  if (gTest != nullptr) {
+    gTest->nanServiceDiscoveryCallback(event);
+  }
+}
+
+void chrePalNanServiceLostCallback(uint32_t subscriptionId,
+                                   uint32_t publisherId) {
+  if (gTest != nullptr) {
+    gTest->nanServiceLostCallback(subscriptionId, publisherId);
+  }
+}
+
+void chrePalNanServiceTerminatedCallback(uint32_t reason,
+                                         uint32_t subscriptionId) {
+  if (gTest != nullptr) {
+    gTest->nanServiceTerminatedCallback(reason, subscriptionId);
+  }
+}
+
+void chrePalNanSubscriptionCanceledCallback(uint8_t reason,
+                                            uint32_t subscriptionId) {
+  if (gTest != nullptr) {
+    gTest->nanSubscriptionCanceledCallback(reason, subscriptionId);
+  }
+}
+
 }  // anonymous namespace
 
 void PalWifiTest::SetUp() {
@@ -90,6 +126,11 @@ void PalWifiTest::SetUp() {
       .scanResponseCallback = chrePalScanResponseCallback,
       .scanEventCallback = chrePalScanEventCallback,
       .rangingEventCallback = chrePalRangingEventCallback,
+      .nanServiceIdentifierCallback = chrePalNanServiceIdentifierCallback,
+      .nanServiceDiscoveryCallback = chrePalNanServiceDiscoveryCallback,
+      .nanServiceLostCallback = chrePalNanServiceLostCallback,
+      .nanServiceTerminatedCallback = chrePalNanServiceTerminatedCallback,
+      .nanSubscriptionCanceledCallback = chrePalNanSubscriptionCanceledCallback,
   };
   ASSERT_TRUE(api_->open(&chre::gChrePalSystemApi, &kCallbacks));
   gTest = this;
@@ -154,6 +195,44 @@ void PalWifiTest::scanEventCallback(struct chreWifiScanEvent *event) {
 void PalWifiTest::rangingEventCallback(uint8_t errorCode,
                                        struct chreWifiRangingEvent *event) {
   // TODO:
+  UNUSED_VAR(errorCode);
+  UNUSED_VAR(event);
+}
+
+void PalWifiTest::nanServiceIdentifierCallback(uint8_t errorCode,
+                                               uint32_t subscriptionId) {
+  chre::LockGuard<chre::Mutex> lock(mutex_);
+  subscriptionId_ = subscriptionId;
+  errorCode_ = errorCode;
+  condVar_.notify_one();
+}
+
+void PalWifiTest::nanServiceDiscoveryCallback(
+    struct chreWifiNanDiscoveryEvent *event) {
+  if (event == nullptr) {
+    LOGE("Got null discovery event");
+  } else {
+    errorCode_ = CHRE_ERROR_LAST;
+    publishId_ = event->publishId;
+  }
+}
+
+void PalWifiTest::nanServiceLostCallback(uint32_t subscriptionId,
+                                         uint32_t publisherId) {
+  subscriptionId_ = subscriptionId;
+  publishId_ = publisherId;
+}
+
+void PalWifiTest::nanServiceTerminatedCallback(uint32_t reason,
+                                               uint32_t subscriptionId) {
+  subscriptionId_ = subscriptionId;
+  errorCode_ = reason;
+}
+
+void PalWifiTest::nanSubscriptionCanceledCallback(uint8_t errorCode,
+                                                  uint32_t subscriptionId) {
+  errorCode_ = errorCode;
+  subscriptionId_ = subscriptionId;
 }
 
 void PalWifiTest::validateWifiScanEvent(const chreWifiScanEvent &event) {
@@ -251,6 +330,68 @@ TEST_F(PalWifiTest, ScanMonitorTest) {
   ASSERT_TRUE(api_->configureScanMonitor(false /* enable */));
   waitForAsyncResponseAssertSuccess(kAsyncResultTimeoutNs);
   ASSERT_FALSE(scanMonitorEnabled_);
+}
+
+/*
+ * Tests if NAN capabilities are available and requests a service
+ * subscription. The test is terminated if NAN capabilities are not
+ * available.
+ *
+ * NOTE: The subscription config currently is mostly a placeholder -
+ * please modify it appropriately when testing and/or validating service
+ * discovery.
+ */
+TEST_F(PalWifiTest, NanSubscribeTest) {
+  bool hasNanCapabilities =
+      (api_->getCapabilities() & CHRE_WIFI_CAPABILITIES_NAN_SUB);
+  if (!hasNanCapabilities) {
+    GTEST_SKIP();
+  }
+
+  prepareForAsyncResponse();
+  struct chreWifiNanSubscribeConfig config = {
+      .subscribeType = CHRE_WIFI_NAN_SUBSCRIBE_TYPE_PASSIVE,
+      .service = "SomeService",
+  };
+  ASSERT_TRUE(api_->nanSubscribe(&config));
+  waitForAsyncResponseAssertSuccess(kAsyncResultTimeoutNs);
+  ASSERT_TRUE(subscriptionId_.has_value());
+}
+
+/*
+ * Tests if NAN capabilities are available and requests a service
+ * subscription, then requests a cancelation of the subscription.
+ * The test is terminated if NAN capabilities are not
+ * available.
+ *
+ * NOTE: The subscription config currently is mostly a placeholder -
+ * please modify it appropriately when testing and/or validating service
+ * discovery.
+ */
+TEST_F(PalWifiTest, NanSubscribeCancelTest) {
+  bool hasNanCapabilities =
+      (api_->getCapabilities() & CHRE_WIFI_CAPABILITIES_NAN_SUB);
+  if (!hasNanCapabilities) {
+    GTEST_SKIP();
+  }
+
+  prepareForAsyncResponse();
+  struct chreWifiNanSubscribeConfig config = {
+      .subscribeType = CHRE_WIFI_NAN_SUBSCRIBE_TYPE_PASSIVE,
+      .service = "SomeService",
+  };
+  ASSERT_TRUE(api_->nanSubscribe(&config));
+  waitForAsyncResponseAssertSuccess(kAsyncResultTimeoutNs);
+  ASSERT_TRUE(subscriptionId_.has_value());
+
+  prepareForAsyncResponse();
+  uint32_t cachedSubscriptionId = subscriptionId_.value();
+  subscriptionId_.reset();
+
+  ASSERT_TRUE(api_->nanSubscribeCancel(cachedSubscriptionId));
+  waitForAsyncResponseAssertSuccess(kAsyncResultTimeoutNs);
+  ASSERT_TRUE(subscriptionId_.has_value());
+  ASSERT_EQ(subscriptionId_.value(), cachedSubscriptionId);
 }
 
 }  // namespace wifi_pal_impl_test

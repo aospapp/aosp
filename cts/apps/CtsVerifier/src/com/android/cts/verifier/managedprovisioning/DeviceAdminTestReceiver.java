@@ -18,6 +18,7 @@ package com.android.cts.verifier.managedprovisioning;
 
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE;
 
+import android.Manifest;
 import android.app.Service;
 import android.app.admin.DeviceAdminReceiver;
 import android.app.admin.DevicePolicyManager;
@@ -240,6 +241,10 @@ public class DeviceAdminTestReceiver extends DeviceAdminReceiver {
         context.getPackageManager().setComponentEnabledSetting(
                 new ComponentName(context, ByodFlowTestActivity.class),
                 PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP);
+
+        dpm.setPermissionGrantState(getWho(context), context.getPackageName(),
+                Manifest.permission.POST_NOTIFICATIONS,
+                DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED);
     }
 
     private void wipeIfNecessary(Context context, Intent intent) {

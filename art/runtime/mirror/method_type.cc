@@ -43,14 +43,23 @@ ObjPtr<MethodType> MethodType::Create(Thread* const self,
   Handle<MethodType> mt(
       hs.NewHandle(ObjPtr<MethodType>::DownCast(GetClassRoot<MethodType>()->AllocObject(self))));
 
-  // TODO: Do we ever create a MethodType during a transaction ? There doesn't
-  // seem like a good reason to do a polymorphic invoke that results in the
-  // resolution of a method type in an unstarted runtime.
-  mt->SetFieldObject<false>(FormOffset(), nullptr);
-  mt->SetFieldObject<false>(MethodDescriptorOffset(), nullptr);
-  mt->SetFieldObject<false>(RTypeOffset(), return_type.Get());
-  mt->SetFieldObject<false>(PTypesOffset(), parameter_types.Get());
-  mt->SetFieldObject<false>(WrapAltOffset(), nullptr);
+  if (mt == nullptr) {
+    self->AssertPendingOOMException();
+    return nullptr;
+  }
+
+  // We're initializing a newly allocated object, so we do not need to record that under
+  // a transaction. If the transaction is aborted, the whole object shall be unreachable.
+  mt->SetFieldObject</*kTransactionActive=*/ false, /*kCheckTransaction=*/ false>(
+      FormOffset(), nullptr);
+  mt->SetFieldObject</*kTransactionActive=*/ false, /*kCheckTransaction=*/ false>(
+      MethodDescriptorOffset(), nullptr);
+  mt->SetFieldObject</*kTransactionActive=*/ false, /*kCheckTransaction=*/ false>(
+      RTypeOffset(), return_type.Get());
+  mt->SetFieldObject</*kTransactionActive=*/ false, /*kCheckTransaction=*/ false>(
+      PTypesOffset(), parameter_types.Get());
+  mt->SetFieldObject</*kTransactionActive=*/ false, /*kCheckTransaction=*/ false>(
+      WrapAltOffset(), nullptr);
 
   return mt.Get();
 }
@@ -150,6 +159,57 @@ bool MethodType::IsConvertible(ObjPtr<MethodType> target) {
     }
   }
   return true;
+}
+
+static bool IsParameterInPlaceConvertible(ObjPtr<Class> from, ObjPtr<Class> to)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  if (from == to) {
+    return true;
+  }
+
+  if (from->IsPrimitive() != to->IsPrimitive()) {
+    return false;  // No in-place conversion from place conversion for box/unboxing.
+  }
+
+  if (from->IsPrimitive()) {
+    // `from` and `to` are both primitives. The supported in-place conversions use a 32-bit
+    // interpreter representation and are a subset of permitted conversions for MethodHandles.
+    // Conversions are documented in JLS 11 S5.1.2 "Widening Primitive Conversion".
+    Primitive::Type src = from->GetPrimitiveType();
+    Primitive::Type dst = to->GetPrimitiveType();
+    switch (src) {
+      case Primitive::Type::kPrimByte:
+        return dst == Primitive::Type::kPrimShort || dst == Primitive::Type::kPrimInt;
+      case Primitive::Type::kPrimChar:
+        FALLTHROUGH_INTENDED;
+      case Primitive::Type::kPrimShort:
+        return dst == Primitive::Type::kPrimInt;
+      default:
+        return false;
+    }
+  }
+
+  // `from` and `to` are both references, apply an assignability check.
+  return to->IsAssignableFrom(from);
+}
+
+bool MethodType::IsInPlaceConvertible(ObjPtr<MethodType> target) {
+  const ObjPtr<ObjectArray<Class>> ptypes = GetPTypes();
+  const ObjPtr<ObjectArray<Class>> target_ptypes = target->GetPTypes();
+  const int32_t ptypes_length = ptypes->GetLength();
+  if (ptypes_length != target_ptypes->GetLength()) {
+    return false;
+  }
+
+  for (int32_t i = 0; i < ptypes_length; ++i) {
+    if (!IsParameterInPlaceConvertible(ptypes->GetWithoutChecks(i),
+                                       target_ptypes->GetWithoutChecks(i))) {
+      return false;
+    }
+  }
+
+  return GetRType()->IsPrimitiveVoid() ||
+         IsParameterInPlaceConvertible(target->GetRType(), GetRType());
 }
 
 std::string MethodType::PrettyDescriptor() {

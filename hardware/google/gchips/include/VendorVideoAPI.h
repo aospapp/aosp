@@ -42,6 +42,7 @@ typedef enum _ExynosVideoInfoType {
     VIDEO_INFO_TYPE_YSUM_DATA          = 0x1 << 3,
     VIDEO_INFO_TYPE_HDR_DYNAMIC        = 0x1 << 4,
     VIDEO_INFO_TYPE_CHECK_PIXEL_FORMAT = 0x1 << 5,
+    VIDEO_INFO_TYPE_ROI_INFO           = 0x1 << 7,
     VIDEO_INFO_TYPE_CROP_INFO          = 0x1 << 8,
 } ExynosVideoInfoType;
 
@@ -118,12 +119,22 @@ typedef struct _ExynosVideoCrop {
     int height;
 } ExynosVideoCrop;
 
+#define MAX_ROIINFO_SIZE 32400
+typedef struct _ExynosVideoROIData {
+    int     nUpperQpOffset;
+    int     nLowerQpOffset;
+    int     bUseRoiInfo;
+    int     nRoiMBInfoSize;
+    char    pRoiMBInfo[MAX_ROIINFO_SIZE];
+} ExynosVideoROIData;
+
 typedef struct _ExynosVideoDecData {
     int nInterlacedType;
 } ExynosVideoDecData;
 
 typedef struct _ExynosVideoEncData {
     ExynosVideoYSUMData sYsumData;
+    unsigned long long pRoiData;  /* for fixing byte alignment on 64x32 problem */
 } ExynosVideoEncData;
 
 typedef struct _ExynosVideoMeta {

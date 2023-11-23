@@ -139,7 +139,7 @@ func (p *printer) printExpression(value Expression) {
 func (p *printer) printList(list []Expression, pos, endPos scanner.Position) {
 	p.requestSpace()
 	p.printToken("[", pos)
-	if len(list) > 1 || pos.Line != endPos.Line {
+	if len(list) > 1 || pos.Line != endPos.Line || listHasMap(list) {
 		p.requestNewline()
 		p.indent(p.curIndent() + 4)
 		for _, value := range list {
@@ -391,4 +391,13 @@ func max(a, b int) int {
 	} else {
 		return b
 	}
+}
+
+func listHasMap(list []Expression) bool {
+	for _, value := range list {
+		if _, ok := value.(*Map); ok {
+			return true
+		}
+	}
+	return false
 }

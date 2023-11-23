@@ -303,6 +303,50 @@ TEST(RequestMultiplexer, AddManyUpdateWithLowerPriority) {
   }
 }
 
+TEST(RequestMultiplexer, AddManyUpdateWithLowerPriorityMoveSemantics) {
+  RequestMultiplexer<FakeRequest> multiplexer;
+  size_t index;
+
+  {
+    FakeRequest request(1);
+    bool maximalRequestChanged;
+    ASSERT_TRUE(multiplexer.addRequest(std::move(request), &index,
+                                       &maximalRequestChanged));
+    EXPECT_TRUE(maximalRequestChanged);
+    EXPECT_EQ(multiplexer.getRequests()[index].getPriority(), 1);
+    EXPECT_EQ(multiplexer.getCurrentMaximalRequest().getPriority(), 1);
+  }
+
+  {
+    FakeRequest request(5);
+    bool maximalRequestChanged;
+    ASSERT_TRUE(multiplexer.addRequest(std::move(request), &index,
+                                       &maximalRequestChanged));
+    EXPECT_TRUE(maximalRequestChanged);
+    EXPECT_EQ(multiplexer.getRequests()[index].getPriority(), 5);
+    EXPECT_EQ(multiplexer.getCurrentMaximalRequest().getPriority(), 5);
+  }
+
+  {
+    FakeRequest request(10);
+    bool maximalRequestChanged;
+    ASSERT_TRUE(multiplexer.addRequest(std::move(request), &index,
+                                       &maximalRequestChanged));
+    EXPECT_TRUE(maximalRequestChanged);
+    EXPECT_EQ(multiplexer.getRequests()[index].getPriority(), 10);
+    EXPECT_EQ(multiplexer.getCurrentMaximalRequest().getPriority(), 10);
+  }
+
+  {
+    FakeRequest request(8);
+    bool maximalRequestChanged;
+    multiplexer.updateRequest(1, std::move(request), &maximalRequestChanged);
+    EXPECT_FALSE(maximalRequestChanged);
+    EXPECT_EQ(multiplexer.getRequests()[1].getPriority(), 8);
+    EXPECT_EQ(multiplexer.getCurrentMaximalRequest().getPriority(), 10);
+  }
+}
+
 TEST(RequestMultiplexer, AddManyUpdateWithNewMaximalLowerPriority) {
   RequestMultiplexer<FakeRequest> multiplexer;
   size_t index;

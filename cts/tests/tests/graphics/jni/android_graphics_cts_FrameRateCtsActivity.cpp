@@ -173,6 +173,10 @@ jint nativeWindowSetFrameRate(JNIEnv* env, jclass, jobject jSurface, jfloat fram
     if (jSurface) {
         window.mNw = ANativeWindow_fromSurface(env, jSurface);
     }
+    if (changeFrameRateStrategy == ANATIVEWINDOW_CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS) {
+        return ANativeWindow_setFrameRate(window.mNw, frameRate, compatibility);
+    }
+
     return ANativeWindow_setFrameRateWithChangeStrategy(window.mNw, frameRate, compatibility,
             changeFrameRateStrategy);
 }
@@ -212,8 +216,13 @@ void surfaceControlSetFrameRate(JNIEnv*, jclass, jlong surfaceControlLong, jfloa
     ASurfaceControl* surfaceControl =
             reinterpret_cast<Surface*>(surfaceControlLong)->getSurfaceControl();
     ASurfaceTransaction* transaction = ASurfaceTransaction_create();
-    ASurfaceTransaction_setFrameRateWithChangeStrategy(transaction, surfaceControl, frameRate,
+    if (changeFrameRateStrategy == ANATIVEWINDOW_CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS) {
+        ASurfaceTransaction_setFrameRate(transaction, surfaceControl, frameRate,
+            compatibility);
+    } else {
+        ASurfaceTransaction_setFrameRateWithChangeStrategy(transaction, surfaceControl, frameRate,
             compatibility, changeFrameRateStrategy);
+    }
     ASurfaceTransaction_apply(transaction);
     ASurfaceTransaction_delete(transaction);
 }

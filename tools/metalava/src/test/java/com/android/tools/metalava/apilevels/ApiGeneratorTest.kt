@@ -16,17 +16,16 @@
 
 package com.android.tools.metalava.apilevels
 
-import com.android.tools.lint.LintCliClient
-import com.android.tools.lint.checks.ApiLookup
 import com.android.tools.metalava.ARG_ANDROID_JAR_PATTERN
 import com.android.tools.metalava.ARG_CURRENT_CODENAME
 import com.android.tools.metalava.ARG_CURRENT_VERSION
+import com.android.tools.metalava.ARG_FIRST_VERSION
 import com.android.tools.metalava.ARG_GENERATE_API_LEVELS
 import com.android.tools.metalava.DriverTest
-import com.android.utils.XmlUtils
+import com.android.tools.metalava.getApiLookup
+import com.android.tools.metalava.java
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -93,27 +92,59 @@ class ApiGeneratorTest : DriverTest() {
         // Also make sure package private super classes are pruned
         assertFalse(xml.contains("<extends name=\"android/icu/util/CECalendar\""))
 
-        val document = XmlUtils.parseDocumentSilently(xml, false)
-        assertNotNull(document)
+        val apiLookup = getApiLookup(output, temporaryFolder.newFolder())
 
-        // Make sure we can process it via ApiLookup as well
-        @Suppress("DEPRECATION") // still using older lint-api when building with soong
-        val client = object : LintCliClient() {
-            override fun findResource(relativePath: String): File? {
-                if (relativePath == ApiLookup.XML_FILE_PATH) {
-                    return output
-                }
-                return super.findResource(relativePath)
-            }
+        // Make sure we're really using the correct database, not the SDK one. (This placeholder
+        // class is provided as a source file above.)
+        assertEquals(90, apiLookup.getClassVersion("android.pkg.MyTest"))
 
-            override fun getCacheDir(name: String?, create: Boolean): File? {
-                return temporaryFolder.newFolder()
+        apiLookup.getClassVersion("android.v")
+        assertEquals(5, apiLookup.getFieldVersion("android.Manifest\$permission", "AUTHENTICATE_ACCOUNTS"))
+
+        val methodVersion = apiLookup.getMethodVersion("android/icu/util/CopticCalendar", "computeTime", "()")
+        assertEquals(24, methodVersion)
+    }
+
+    @Test
+    fun `Extract System API`() {
+        // These are the wrong jar paths but this test doesn't actually care what the
+        // content of the jar files, just checking the logic of starting the database
+        // at some higher number than 1
+        var platformJars = File("prebuilts/sdk")
+        if (!platformJars.isDirectory) {
+            platformJars = File("../../prebuilts/sdk")
+            if (!platformJars.isDirectory) {
+                println("Ignoring ${ApiGeneratorTest::class.java}: prebuilts not found: $platformJars")
+                return
             }
         }
 
-        val apiLookup = ApiLookup.get(client)
+        val output = File.createTempFile("api-info", "xml")
+        output.deleteOnExit()
+        val outputPath = output.path
+
+        check(
+            extraArguments = arrayOf(
+                ARG_GENERATE_API_LEVELS,
+                outputPath,
+                ARG_ANDROID_JAR_PATTERN,
+                "${platformJars.path}/%/public/android.jar",
+                ARG_FIRST_VERSION,
+                "21"
+            )
+        )
+
+        assertTrue(output.isFile)
+        val xml = output.readText(UTF_8)
+        assertTrue(xml.contains("<api version=\"2\" min=\"21\">"))
+        assertTrue(xml.contains("<class name=\"android/Manifest\" since=\"21\">"))
+        assertTrue(xml.contains("<field name=\"showWhenLocked\" since=\"27\"/>"))
+
+        val apiLookup = getApiLookup(output)
         apiLookup.getClassVersion("android.v")
-        assertEquals(5, apiLookup.getFieldVersion("android.Manifest\$permission", "AUTHENTICATE_ACCOUNTS"))
+        // This field was added in API level 5, but when we're starting the count higher
+        // (as in the system API), the first introduced API level is the one we use
+        assertEquals(21, apiLookup.getFieldVersion("android.Manifest\$permission", "AUTHENTICATE_ACCOUNTS"))
 
         val methodVersion = apiLookup.getMethodVersion("android/icu/util/CopticCalendar", "computeTime", "()")
         assertEquals(24, methodVersion)
@@ -170,6 +201,8 @@ class ApiGeneratorTest : DriverTest() {
         // Anything with a REL codename is in the current API level
         val xml = output.readText(UTF_8)
         assertTrue(xml.contains("<class name=\"android/pkg/MyTest\" since=\"89\""))
+        val apiLookup = getApiLookup(output, temporaryFolder.newFolder())
+        assertEquals(89, apiLookup.getClassVersion("android.pkg.MyTest"))
     }
 
     @Test
@@ -223,5 +256,7 @@ class ApiGeneratorTest : DriverTest() {
         // Metalava should understand that a codename means "current api + 1"
         val xml = output.readText(UTF_8)
         assertTrue(xml.contains("<class name=\"android/pkg/MyTest\" since=\"90\""))
+        val apiLookup = getApiLookup(output, temporaryFolder.newFolder())
+        assertEquals(90, apiLookup.getClassVersion("android.pkg.MyTest"))
     }
 }

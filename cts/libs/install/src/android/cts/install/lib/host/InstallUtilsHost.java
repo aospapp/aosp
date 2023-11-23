@@ -25,6 +25,7 @@ import com.android.ddmlib.Log;
 import com.android.tradefed.build.BuildInfoKey;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
@@ -38,6 +39,7 @@ import com.google.common.base.Stopwatch;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -51,24 +53,31 @@ public class InstallUtilsHost {
             ".*package:\\sname='(\\S+)\\'\\sversionCode='(\\d+)'\\s.*";
 
     private final IRunUtil mRunUtil = new RunUtil();
-    private final BaseHostJUnit4Test mTest;
+    private BaseHostJUnit4Test mTest = null;
+    private TestInformation mTestInfo = null;
 
     public InstallUtilsHost(BaseHostJUnit4Test test) {
         mTest = test;
+    }
+
+    public InstallUtilsHost(TestInformation testInfo) {
+        assertThat(testInfo).isNotNull();
+        mTestInfo = testInfo;
     }
 
     /**
      * Return {@code true} if and only if device supports updating apex.
      */
     public boolean isApexUpdateSupported() throws Exception {
-        return mTest.getDevice().getBooleanProperty("ro.apex.updatable", false);
+        return getTestInfo().getDevice().getBooleanProperty("ro.apex.updatable", false);
     }
 
     /**
      * Return {@code true} if and only if device supports file system checkpoint.
      */
     public boolean isCheckpointSupported() throws Exception {
-        CommandResult result = mTest.getDevice().executeShellV2Command("sm supports-checkpoint");
+        CommandResult result = getTestInfo().getDevice().executeShellV2Command(
+                "sm supports-checkpoint");
         assertWithMessage("Failed to check if file system checkpoint is supported : %s",
                 result.getStderr()).that(result.getStatus()).isEqualTo(CommandStatus.SUCCESS);
         return "true".equals(result.getStdout().trim());
@@ -95,11 +104,12 @@ public class InstallUtilsHost {
         }
         // Non system version is active, need to uninstall it and reboot the device.
         Log.i(TAG, "Uninstalling shim apex");
-        final String errorMessage = mTest.getDevice().uninstallPackage(SHIM_APEX_PACKAGE_NAME);
+        final String errorMessage =
+                getTestInfo().getDevice().uninstallPackage(SHIM_APEX_PACKAGE_NAME);
         if (errorMessage != null) {
             Log.e(TAG, "Failed to uninstall " + SHIM_APEX_PACKAGE_NAME + " : " + errorMessage);
         } else {
-            mTest.getDevice().reboot();
+            getTestInfo().getDevice().reboot();
             final ITestDevice.ApexInfo shim = getShimApex().orElseThrow(
                     () -> new AssertionError("Can't find " + SHIM_APEX_PACKAGE_NAME));
             assertThat(shim.versionCode).isEqualTo(1L);
@@ -111,7 +121,7 @@ public class InstallUtilsHost {
      * Returns the active shim apex as optional.
      */
     public Optional<ITestDevice.ApexInfo> getShimApex() throws DeviceNotAvailableException {
-        return mTest.getDevice().getActiveApexes().stream().filter(
+        return getTestInfo().getDevice().getActiveApexes().stream().filter(
                 apex -> apex.name.equals(SHIM_APEX_PACKAGE_NAME)).findAny();
     }
 
@@ -137,7 +147,7 @@ public class InstallUtilsHost {
      * Installs packages using staged install flow and waits for pre-reboot verification to complete
      */
     public String installStagedPackage(File pkg) throws Exception {
-        return mTest.getDevice().installPackage(pkg, false, "--staged");
+        return getTestInfo().getDevice().installPackage(pkg, false, "--staged");
     }
 
     /**
@@ -149,7 +159,7 @@ public class InstallUtilsHost {
         for (int i = 0; i < filenames.length; i++) {
             args[i + 1] = getTestFile(filenames[i]).getAbsolutePath();
         }
-        String stdout = mTest.getDevice().executeAdbCommand(args);
+        String stdout = getTestInfo().getDevice().executeAdbCommand(args);
         assertThat(stdout).isNotNull();
     }
 
@@ -159,7 +169,7 @@ public class InstallUtilsHost {
     public void waitForFileDeleted(String filePath, Duration timeout) throws Exception {
         Stopwatch stopwatch = Stopwatch.createStarted();
         while (true) {
-            if (!mTest.getDevice().doesFileExist(filePath)) {
+            if (!getTestInfo().getDevice().doesFileExist(filePath)) {
                 return;
             }
             if (stopwatch.elapsed().compareTo(timeout) > 0) {
@@ -178,16 +188,15 @@ public class InstallUtilsHost {
     public File getTestFile(String testFileName) throws IOException {
         File testFile = null;
 
-        String testcasesPath = System.getenv(
-                SystemUtil.EnvVariable.ANDROID_HOST_OUT_TESTCASES.toString());
-        if (testcasesPath != null) {
-            testFile = searchTestFile(new File(testcasesPath), testFileName);
-        }
-        if (testFile != null) {
-            return testFile;
+        final List<File> testCasesDirs = SystemUtil.getTestCasesDirs(getTestInfo().getBuildInfo());
+        for (File testCasesDir : testCasesDirs) {
+            testFile = searchTestFile(testCasesDir, testFileName);
+            if (testFile != null) {
+                return testFile;
+            }
         }
 
-        File hostLinkedDir = mTest.getBuild().getFile(
+        File hostLinkedDir = getTestInfo().getBuildInfo().getFile(
                 BuildInfoKey.BuildInfoFileKey.HOST_LINKED_DIR);
         if (hostLinkedDir != null) {
             testFile = searchTestFile(hostLinkedDir, testFileName);
@@ -197,7 +206,7 @@ public class InstallUtilsHost {
         }
 
         // Find the file in the buildinfo.
-        File buildInfoFile = mTest.getBuild().getFile(testFileName);
+        File buildInfoFile = getTestInfo().getBuildInfo().getFile(testFileName);
         if (buildInfoFile != null) {
             return buildInfoFile;
         }
@@ -228,5 +237,11 @@ public class InstallUtilsHost {
         return result.getStdout();
     }
 
-
+    private TestInformation getTestInfo() {
+        if (mTestInfo == null) {
+            mTestInfo = mTest.getTestInformation();
+            assertThat(mTestInfo).isNotNull();
+        }
+        return mTestInfo;
+    }
 }

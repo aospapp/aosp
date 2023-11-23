@@ -39,6 +39,7 @@ import android.app.assist.AssistStructure;
 import android.app.assist.AssistStructure.ViewNode;
 import android.app.assist.AssistStructure.WindowNode;
 import android.autofillservice.cts.R;
+import android.autofillservice.cts.activities.LoginActivity;
 import android.content.AutofillOptions;
 import android.content.ComponentName;
 import android.content.ContentResolver;
@@ -50,6 +51,7 @@ import android.graphics.Bitmap;
 import android.icu.util.Calendar;
 import android.os.Bundle;
 import android.os.Environment;
+import android.provider.DeviceConfig;
 import android.provider.Settings;
 import android.service.autofill.FieldClassification;
 import android.service.autofill.FieldClassification.Match;
@@ -63,6 +65,7 @@ import android.util.Size;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStructure.HtmlInfo;
+import android.view.WindowInsets;
 import android.view.autofill.AutofillId;
 import android.view.autofill.AutofillManager;
 import android.view.autofill.AutofillManager.AutofillCallback;
@@ -75,8 +78,11 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.autofill.inline.v1.InlineSuggestionUi;
 import androidx.test.platform.app.InstrumentationRegistry;
+import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry;
+import androidx.test.runner.lifecycle.Stage;
 
 import com.android.compatibility.common.util.BitmapUtils;
+import com.android.compatibility.common.util.DeviceConfigStateManager;
 import com.android.compatibility.common.util.OneTimeSettingsListener;
 import com.android.compatibility.common.util.SettingsUtils;
 import com.android.compatibility.common.util.ShellUtils;
@@ -85,6 +91,8 @@ import com.android.compatibility.common.util.Timeout;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -138,6 +146,8 @@ public final class Helper {
     private static final Timeout SETTINGS_BASED_SHELL_CMD_TIMEOUT = new Timeout(
             "SETTINGS_SHELL_CMD_TIMEOUT", OneTimeSettingsListener.DEFAULT_TIMEOUT_MS / 2, 2,
             OneTimeSettingsListener.DEFAULT_TIMEOUT_MS);
+
+    public static final String DEVICE_CONFIG_AUTOFILL_DIALOG_HINTS = "autofill_dialog_hints";
 
     /**
      * Helper interface used to filter nodes.
@@ -771,6 +781,7 @@ public final class Helper {
 
     /**
      * Gets the total number of nodes in an structure.
+     * A node that has a non-null IdPackage which does not match the test package is not counted.
      */
     public static int getNumberNodes(AssistStructure structure,
             CharSequence windowTitle) {
@@ -798,14 +809,18 @@ public final class Helper {
 
     /**
      * Gets the total number of nodes in an node, including all descendants and the node itself.
+     * A node that has a non-null IdPackage which does not match the test package is not counted.
      */
     public static int getNumberNodes(ViewNode node) {
+        if (node.getIdPackage() != null && !node.getIdPackage().equals(MY_PACKAGE)) {
+            Log.w(TAG, "ViewNode ignored in getNumberNodes because of mismatched package: "
+                    + node.getIdPackage());
+            return 0;
+        }
         int count = 1;
         final int childrenSize = node.getChildCount();
-        if (childrenSize > 0) {
-            for (int i = 0; i < childrenSize; i++) {
-                count += getNumberNodes(node.getChildAt(i));
-            }
+        for (int i = 0; i < childrenSize; i++) {
+            count += getNumberNodes(node.getChildAt(i));
         }
         return count;
     }
@@ -1104,6 +1119,11 @@ public final class Helper {
              .that(clientState).isNull();
     }
 
+    private static void assertFillEventPresentationType(FillEventHistory.Event event,
+            int expectedType) {
+        assertThat(event.getUiType()).isEqualTo(expectedType);
+    }
+
     /**
      * Asserts the content of a {@link android.service.autofill.FillEventHistory.Event}.
      *
@@ -1181,8 +1201,9 @@ public final class Helper {
      * @param datasetId dataset set id expected in the event
      */
     public static void assertFillEventForDatasetSelected(@NonNull FillEventHistory.Event event,
-            @Nullable String datasetId) {
+            @Nullable String datasetId, int uiType) {
         assertFillEvent(event, TYPE_DATASET_SELECTED, datasetId, null, null, null);
+        assertFillEventPresentationType(event, uiType);
     }
 
     /**
@@ -1195,8 +1216,9 @@ public final class Helper {
      * @param value the only value expected in the client state bundle
      */
     public static void assertFillEventForDatasetSelected(@NonNull FillEventHistory.Event event,
-            @Nullable String datasetId, @Nullable String key, @Nullable String value) {
+            @Nullable String datasetId, @Nullable String key, @Nullable String value, int uiType) {
         assertFillEvent(event, TYPE_DATASET_SELECTED, datasetId, key, value, null);
+        assertFillEventPresentationType(event, uiType);
     }
 
     /**
@@ -1232,10 +1254,12 @@ public final class Helper {
      * @param event event to be asserted
      * @param key the only key expected in the client state bundle
      * @param value the only value expected in the client state bundle
+     * @param expectedPresentation the exptected ui presentation type
      */
     public static void assertFillEventForDatasetShown(@NonNull FillEventHistory.Event event,
-            @NonNull String key, @NonNull String value) {
+            @NonNull String key, @NonNull String value, int expectedPresentation) {
         assertFillEvent(event, TYPE_DATASETS_SHOWN, NULL_DATASET_ID, key, value, null);
+        assertFillEventPresentationType(event, expectedPresentation);
     }
 
     /**
@@ -1244,8 +1268,10 @@ public final class Helper {
      *
      * @param event event to be asserted
      */
-    public static void assertFillEventForDatasetShown(@NonNull FillEventHistory.Event event) {
+    public static void assertFillEventForDatasetShown(@NonNull FillEventHistory.Event event,
+            int expectedPresentation) {
         assertFillEvent(event, TYPE_DATASETS_SHOWN, NULL_DATASET_ID, null, null, null);
+        assertFillEventPresentationType(event, expectedPresentation);
     }
 
     /**
@@ -1318,6 +1344,11 @@ public final class Helper {
     public static void assertHasFlags(int actualFlags, int expectedFlags) {
         assertWithMessage("Flags %s not in %s", expectedFlags, actualFlags)
                 .that(actualFlags & expectedFlags).isEqualTo(expectedFlags);
+    }
+
+    public static void assertNoFlags(int actualFlags, int expectedFlags) {
+        assertWithMessage("Flags %s in %s", expectedFlags, actualFlags)
+                .that(actualFlags & expectedFlags).isEqualTo(0);
     }
 
     public static String callbackEventAsString(int event) {
@@ -1623,6 +1654,81 @@ public final class Helper {
      */
     public static void clearApplicationAutofillOptions(@NonNull Context context) {
         context.getApplicationContext().setAutofillOptions(null);
+    }
+
+    /**
+     * Enable fill dialog feature
+     */
+    public static void enableFillDialogFeature(@NonNull Context context) {
+        DeviceConfigStateManager deviceConfigStateManager =
+                new DeviceConfigStateManager(context, DeviceConfig.NAMESPACE_AUTOFILL,
+                        AutofillManager.DEVICE_CONFIG_AUTOFILL_DIALOG_ENABLED);
+        setDeviceConfig(deviceConfigStateManager, "true");
+    }
+
+    /**
+     * Set hints list for fill dialog
+     */
+    public static void setFillDialogHints(@NonNull Context context, @Nullable String hints) {
+        DeviceConfigStateManager deviceConfigStateManager =
+                new DeviceConfigStateManager(context, DeviceConfig.NAMESPACE_AUTOFILL,
+                        DEVICE_CONFIG_AUTOFILL_DIALOG_HINTS);
+        setDeviceConfig(deviceConfigStateManager, hints);
+    }
+
+    public static void setDeviceConfig(@NonNull DeviceConfigStateManager deviceConfigStateManager,
+            @Nullable String value) {
+        final String previousValue = deviceConfigStateManager.get();
+        if (TextUtils.isEmpty(value) && TextUtils.isEmpty(previousValue)
+                || TextUtils.equals(previousValue, value)) {
+            Log.v(TAG, "No changed in config: " + deviceConfigStateManager);
+            return;
+        }
+
+        deviceConfigStateManager.set(value);
+    }
+
+    /**
+     * Whether IME is showing
+     */
+    public static boolean isImeShowing(WindowInsets rootWindowInsets) {
+        if (rootWindowInsets != null && rootWindowInsets.isVisible(WindowInsets.Type.ime())) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Asserts whether mock IME is showing
+     */
+    public static void assertMockImeStatus(LoginActivity activity,
+            boolean expectedImeShow) throws Exception {
+        Timeouts.MOCK_IME_TIMEOUT.run("assertMockImeStatus(" + expectedImeShow + ")",
+                () -> {
+                    final boolean actual = isImeShowing(activity.getRootWindowInsets());
+                    Log.v(TAG, "assertMockImeStatus(): expected=" + expectedImeShow + ", actual="
+                            + actual);
+                    return actual == expectedImeShow ? "expected" : null;
+                });
+    }
+
+    /**
+     * Make sure the activity that the name is clazz resumed.
+     */
+    public static void assertActivityShownInBackground(Class<?> clazz) throws Exception {
+        Timeouts.UI_TIMEOUT.run("activity is not resumed: " + clazz, () -> {
+            ArrayList<Boolean> result = new ArrayList<>();
+            InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+                final Collection<Activity> stage = ActivityLifecycleMonitorRegistry.getInstance()
+                        .getActivitiesInStage(Stage.RESUMED);
+                for (Activity act : stage) {
+                    if (act.getClass().equals(clazz)) {
+                        result.add(Boolean.TRUE);
+                    }
+                }
+            });
+            return result.isEmpty() ? null : Boolean.TRUE;
+        });
     }
 
     private Helper() {

@@ -193,7 +193,7 @@ void SuperblockCloner::RemapOrigInternalOrIncomingEdge(HBasicBlock* orig_block,
   // orig_block will be put at the end of the copy_succ's predecessors list; that corresponds
   // to the previously added phi inputs position.
   orig_block->ReplaceSuccessor(orig_succ, copy_succ);
-  DCHECK(!first_phi_met || copy_succ->GetPredecessors().size() == phi_input_count);
+  DCHECK_IMPLIES(first_phi_met, copy_succ->GetPredecessors().size() == phi_input_count);
 }
 
 void SuperblockCloner::AddCopyInternalEdge(HBasicBlock* orig_block,
@@ -855,9 +855,18 @@ void SuperblockCloner::SetSuccessorRemappingInfo(const HEdgeSet* remap_orig_inte
 }
 
 bool SuperblockCloner::IsSubgraphClonable() const {
-  // TODO: Support irreducible graphs and graphs with try-catch.
-  if (graph_->HasIrreducibleLoops() || graph_->HasTryCatch()) {
+  // TODO: Support irreducible graphs and subgraphs with try-catch.
+  if (graph_->HasIrreducibleLoops()) {
     return false;
+  }
+
+  for (HBasicBlock* block : graph_->GetReversePostOrder()) {
+    if (!IsInOrigBBSet(block)) {
+      continue;
+    }
+    if (block->GetTryCatchInformation() != nullptr) {
+      return false;
+    }
   }
 
   HInstructionMap live_outs(

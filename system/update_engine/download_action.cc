@@ -41,14 +41,16 @@ DownloadAction::DownloadAction(PrefsInterface* prefs,
                                BootControlInterface* boot_control,
                                HardwareInterface* hardware,
                                HttpFetcher* http_fetcher,
-                               bool interactive)
+                               bool interactive,
+                               std::string update_certificates_path)
     : prefs_(prefs),
       boot_control_(boot_control),
       hardware_(hardware),
       http_fetcher_(new MultiRangeHttpFetcher(http_fetcher)),
       interactive_(interactive),
       code_(ErrorCode::kSuccess),
-      delegate_(nullptr) {}
+      delegate_(nullptr),
+      update_certificates_path_(std::move(update_certificates_path)) {}
 
 DownloadAction::~DownloadAction() {}
 
@@ -132,7 +134,8 @@ void DownloadAction::StartDownloading() {
                                               delegate_,
                                               &install_plan_,
                                               payload_,
-                                              interactive_));
+                                              interactive_,
+                                              update_certificates_path_));
   }
 
   if (install_plan_.is_resume &&
@@ -147,13 +150,15 @@ void DownloadAction::StartDownloading() {
     if (!LoadCachedManifest(manifest_metadata_size + manifest_signature_size)) {
       if (delta_performer_) {
         // Create a new DeltaPerformer to reset all its state
-        delta_performer_ = std::make_unique<DeltaPerformer>(prefs_,
-                                                            boot_control_,
-                                                            hardware_,
-                                                            delegate_,
-                                                            &install_plan_,
-                                                            payload_,
-                                                            interactive_);
+        delta_performer_ =
+            std::make_unique<DeltaPerformer>(prefs_,
+                                             boot_control_,
+                                             hardware_,
+                                             delegate_,
+                                             &install_plan_,
+                                             payload_,
+                                             interactive_,
+                                             update_certificates_path_);
       }
       http_fetcher_->AddRange(base_offset_,
                               manifest_metadata_size + manifest_signature_size);

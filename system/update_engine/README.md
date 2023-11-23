@@ -41,11 +41,23 @@ available, it is written into the inactive partition. After a successful reboot,
 the previously inactive partition becomes active and the old active partition
 becomes inactive.
 
-But everything starts with generating update payloads in (Google) servers for
-each new system image. Once the update payloads are generated, they are signed
-with specific keys and stored in a location known to an update server (Omaha).
+### Generation
 
-When the updater client initiates an update (either periodically or user
+But everything starts with generating OTA packages on (Google) servers for
+each new system image. This is done by calling
+[ota_from_target_files](https://cs.android.com/android/platform/superproject/+/master:build/make/tools/releasetools/ota_from_target_files.py)
+with source and destination builds. This script requires target_file.zip to work,
+image files are not sufficient.
+
+### Distribution/Configuration
+Once the OTA packages are generated, they are signed with specific keys
+and stored in a location known to an update server (GOTA).
+GOTA will then make this OTA package accessible via a public URL. Optionally,
+operators an choose to make this OTA update available only to a specific
+subset of devices.
+
+### Installation
+When the device's updater client initiates an update (either periodically or user
 initiated), it first consults different device policies to see if the update
 check is allowed. For example, device policies can prevent an update check
 during certain times of a day or they require the update check time to be
@@ -53,14 +65,23 @@ scattered throughout the day randomly, etc.
 
 Once policies allow for the update check, the updater client sends a request to
 the update server (all this communication happens over HTTPS) and identifies its
-parameters like its Application ID, hardware ID, version, board, etc. Then if
-the update server decides to serve an update payload, it will respond with all
-the parameters needed to perform an update like the URLs to download the
+parameters like its Application ID, hardware ID, version, board, etc.
+
+Some policities on the server might prevent the device from getting specific
+OTA updates, these server side policities are often set by operators. For
+example, the operator might want to deliver a beta version of software to only
+a subset of devices.
+
+But if the update server decides to serve an update payload, it will respond
+with all the parameters needed to perform an update like the URLs to download the
 payloads, the metadata signatures, the payload size and hash, etc. The updater
 client continues communicating with the update server after different state
 changes, like reporting that it started to download the payload or it finished
 the update, or reports that the update failed with specific error codes, etc.
 
+The device will then proceed to actually installing the OTA update. This consists
+of roughly 3 steps.
+#### Download & Install
 Each payload consists of two main sections: metadata and extra data. The
 metadata is basically a list of operations that should be performed for an
 update. The extra data contains the data blobs needed by some or all of these
@@ -86,15 +107,26 @@ During the download, the updater client hashes the downloaded bytes and when the
 download finishes, it checks the payload signature (located at the end of the
 payload). If the signature cannot be verified, the update is rejected.
 
-After the inactive partition is updated, the entire partition is re-read, hashed
-and compared to a hash value passed in the metadata to make sure the update was
-successfully written into the partition.
+#### Hash Verification & Verity Computation
 
-In the next step, the [Postinstall] process (if any) is called. The postinstall
-reconstructs the dm-verity tree hash of the ROOT partition and writes it at the
-end of the partition (after the last block of the file system). The postinstall
-can also perform any board specific or firmware update tasks necessary. If
-postinstall fails, the entire update is considered failed.
+After the inactive partition is updated, the updater client will compute
+Forward-Error-Correction(also known as FEC, Verity) code for each partition,
+and wriee the computed verity data to inactive partitions. In some updates,
+verity data is included in the extra data, so this step will be skipped.
+
+Then, the entire partition is re-read, hashed and compared to a hash value
+passed in the metadata to make sure the update was successfully written into
+the partition. Hash computed in this step includes the verity code written in
+last step.
+
+#### Postintall
+
+In the next step, the [Postinstall] scripts (if any) is called. From OTA's perspective,
+these postinstall scripts are just blackboxes. Usually postinstall scripts will optimize
+existings apps on the phone and run file system garbage collection, so that device can boot
+fast after OTA. But these are managed by other teams.
+
+#### Finishing Touches
 
 Then the updater client goes into a state that identifies the update has
 completed and the user needs to reboot the system. At this point, until the user
@@ -106,21 +138,24 @@ in the field.
 After the update proved successful, the inactive partition is marked to have a
 higher priority (on a boot, a partition with higher priority is booted
 first). Once the user reboots the system, it will boot into the updated
-partition and it is marked as active. At this point, after the reboot, The
-updater client calls into the [`chromeos-setgoodkernel`] program. The program
-verifies the integrity of the system partitions using the dm-verity and marks
-the active partition as healthy. At this point the system is basically updated
-successfully.
+partition and it is marked as active. At this point, after the reboot, the
+[update_verifier](https://cs.android.com/android/platform/superproject/+/master:bootable/recovery/update_verifier/)
+program runs, read all dm-verity devices to make sure the partitions aren't corrupted,
+then mark the update as successful.
+
+A/B updates are considered completed at this point. Virtual A/B updates will have an
+additional step after this, called "merging". Merging usually takes few minutes, after that
+Virtual A/B updates are considered complete.
 
 ## Update Engine Daemon
 
 The `update_engine` is a single-threaded daemon process that runs all the
 times. This process is the heart of the auto updates. It runs with lower
 priorities in the background and is one of the last processes to start after a
-system boot. Different clients (like Chrome or other services) can send requests
+system boot. Different clients (like GMS Core or other services) can send requests
 for update checks to the update engine. The details of how requests are passed
 to the update engine is system dependent, but in Chrome OS it is D-Bus.  Look at
-the [D-Bus interface] for a list of all available methods.
+the [D-Bus interface] for a list of all available methods. On Android it is binder.
 
 There are many resiliency features embedded in the update engine that makes auto
 updates robust including but not limited to:
@@ -134,52 +169,11 @@ updates robust including but not limited to:
     partition) for a few times, it switches to full payload.
 
 The updater clients writes its active preferences in
-`/var/lib/update_engine/prefs`. These preferences help with tracking changes
+`/data/misc/update_engine/prefs`. These preferences help with tracking changes
 during the lifetime of the updater client and allows properly continuing the
 update process after failed attempts or crashes.
 
-The core update engine code base in a Chromium OS checkout is located in
-`src/aosp/system/update_engine` fetching [this repository].
 
-### Policy Management
-
-In Chrome OS, devices are allowed to accept different policies from their
-managing organizations. Some of these policies affect how/when updates should be
-performed. For example, an organization may want to scatter the update checks
-during certain times of the day so as not to interfere with normal
-business. Within the update engine daemon, [UpdateManager] has the
-responsibility of loading such policies and making different decisions based on
-them. For example, some policies may allow the act of checking for updates to
-happen, while they prevent downloading the update payload. Or some policies
-don’t allow the update check within certain time frames, etc.  Anything that
-relates to the Chrome OS update policies should be contained within the
-[update_manager] directory in the source code.
-
-### Rollback vs. Enterprise Rollback
-
-Chrome OS defines a concept for Rollback: Whenever a newly updated system does
-not work as it is intended, under certain circumstances the device can be rolled
-back to a previously working version. There are two types of rollback supported
-in Chrome OS: A (legacy, original) rollback and an enterprise rollback (I know,
-naming is confusing).
-
-A normal rollback, which has existed for as long as Chrome OS had auto updater,
-is performed by switching the currently inactive partition into the active
-partition and rebooting into it. It is as simple as running a successful
-postinstall on the inactive partition, and rebooting the device. It is a feature
-used by Chrome that happens under certain circumstances. Of course rollback
-can’t happen if the inactive partition has been tampered with or has been nuked
-by the updater client to install an even newer update. Normally a rollback is
-followed by a Powerwash which clobbers the stateful partition.
-
-Enterprise rollback is a new feature added to allow enterprise users to
-downgrade the installed image to an older version. It is very similar to a
-normal system update, except that an older update payload is downloaded and
-installed. There is no direct API for entering into the enterprise rollback. It
-is managed by the enterprise device policies only.
-
-Developers should be careful when touching any rollback related feature and make
-sure they know exactly which of these two features they are trying to adapt.
 
 ### Interactive vs Non-Interactive vs. Forced Updates
 
@@ -203,19 +197,6 @@ time. We can call a forced non-interactive update with:
 update_engine_client --interactive=false --check_for_update
 ```
 
-### P2P Updates
-
-Many organizations might not have the external bandwidth requirements that
-system updates need for all their devices. To help with this, Chrome OS can act
-as a payload server to other client devices in the same network subnet. This is
-basically a peer-to-peer update system that allows the devices to download the
-update payloads from other devices in the network. This has to be enabled
-explicitly in the organization through device policies and specific network
-configurations to be enabled for P2P updates to work. Regardless of the location
-of update payloads, all update requests go through update servers in HTTPS.
-
-Check out the [P2P update related code] for both the server and the client side.
-
 ### Network
 
 The updater client has the capability to download the payloads using Ethernet,
@@ -233,6 +214,8 @@ current data-time format in the log file’s name
 system reboots. The latest active log is symlinked to
 `/var/log/update_engine.log`.
 
+In Android the `update_engine` logs are located in `/data/misc/update_engine_log`.
+
 ## Update Payload Generation
 
 The update payload generation is the process of converting a set of
@@ -242,18 +225,6 @@ process involves breaking the input partitions into smaller components and
 compressing them in order to help with network bandwidth when downloading the
 payloads.
 
-For each generated payload, there is a corresponding properties file which
-contains the metadata information of the payload in JSON format. Normally the
-file is located in the same location as the generated payload and its file name
-is the same as the payload file name plus `.json`
-postfix. e.g. `/path/to/payload.bin` and `/path/to/payload.bin.json`. This
-properties file is necessary in order to do any kind of auto update in [`cros
-flash`], AU autotests, etc. Similarly the updater server uses this file to
-dispatch the payload properties to the updater clients.
-
-Once update payloads are generated, their original images cannot be changed
-anymore otherwise the update payloads may not be able to be applied.
-
 `delta_generator` is a tool with a wide range of options for generating
 different types of update payloads. Its code is located in
 `update_engine/payload_generator`. This directory contains all the source code
@@ -262,27 +233,25 @@ directory should be included or used in any other library/executable other than
 the `delta_generator` which means this directory does not get compiled into the
 rest of the update engine tools.
 
-However, it is not recommended to use `delta_generator` directly. To manually
-generate payloads easier, [`cros_generate_update_payloads`] should be used. Most
-of the higher level policies and tools for generating payloads reside as a
-library in [`chromite/lib/paygen`]. Whenever calls to the update payload
-generation API are needed, this library should be used instead.
+However, it is not recommended to use `delta_generator` directly, as it has way
+too many flags. Wrappers like [ota_from_target_files](https://cs.android.com/android/platform/superproject/+/master:build/make/tools/releasetools/ota_from_target_files.py)
+or [OTA Generator](https://github.com/google/ota-generator) should be used.
 
 ### Update Payload File Specification
 
 Each update payload file has a specific structure defined in the table below:
 
-|Field|Size (bytes)|Type|Description|
-|-----|------------|----|-----------|
-|Magic Number|4|char[4]|Magic string "CrAU" identifying this is an update payload.|
-|Major Version|8|uint64|Payload major version number.|
-|Manifest Size|8|uint64|Manifest size in bytes.|
-|Manifest Signature Size|4|uint32|Manifest signature blob size in bytes (only in major version 2).|
-|Manifest|Varies|[DeltaArchiveManifest]|The list of operations to be performed.|
-|Manifest Signature|Varies|[Signatures]|The signature of the first five fields. There could be multiple signatures if the key has changed.|
-|Payload Data|Varies|List of raw or compressed data blobs|The list of binary blobs used by operations in the metadata.|
-|Payload Signature Size|Varies|uint64|The size of the payload signature.|
-|Payload Signature|Varies|[Signatures]|The signature of the entire payload except the metadata signature. There could be multiple signatures if the key has changed.|
+| Field                   | Size (bytes) | Type                                 | Description                                                                                                                   |
+| ----------------------- | ------------ | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| Magic Number            | 4            | char[4]                              | Magic string "CrAU" identifying this is an update payload.                                                                    |
+| Major Version           | 8            | uint64                               | Payload major version number.                                                                                                 |
+| Manifest Size           | 8            | uint64                               | Manifest size in bytes.                                                                                                       |
+| Manifest Signature Size | 4            | uint32                               | Manifest signature blob size in bytes (only in major version 2).                                                              |
+| Manifest                | Varies       | [DeltaArchiveManifest]               | The list of operations to be performed.                                                                                       |
+| Manifest Signature      | Varies       | [Signatures]                         | The signature of the first five fields. There could be multiple signatures if the key has changed.                            |
+| Payload Data            | Varies       | List of raw or compressed data blobs | The list of binary blobs used by operations in the metadata.                                                                  |
+| Payload Signature Size  | Varies       | uint64                               | The size of the payload signature.                                                                                            |
+| Payload Signature       | Varies       | [Signatures]                         | The signature of the entire payload except the metadata signature. There could be multiple signatures if the key has changed. |
 
 ### Delta vs. Full Update Payloads
 
@@ -414,93 +383,27 @@ rebooted, should be implemented inside the postinstall.
 
 You can build `update_engine` the same as other platform applications:
 
-```bash
-(chroot) $ emerge-${BOARD} update_engine
-```
-or to build without the source copy:
+### Setup
 
-```bash
-(chroot) $ cros_workon_make --board=${BOARD} update_engine
-```
+Run these commands at top of Android repository before building anything.
+You only need to do this once per shell.
 
-After a change in the `update_engine` daemon, either build an image and install
-the image on the device using cros flash, etc. or use `cros deploy` to only
-install the `update_engine` service on the device:
+* `source build/envsetup.sh`
+* `lunch aosp_cf_x86_64_only_phone-userdebug` (Or replace aosp_cf_x86_64_only_phone-userdebug with your own target)
 
-```bash
-(chroot) $ cros deploy update_engine
-```
 
-You need to restart the `update_engine` daemon in order to see the affected
-changes:
+### Building
 
-```bash
-# SSH into the device.
-restart update-engine # with a dash not underscore.
-```
-
-Other payload generation tools like `delta_generator` are board agnostic and
-only available in the SDK. So in order to make any changes to the
-`delta_generator`, you should build the SDK:
-
-```bash
-# Do it only once to start building the 9999 ebuild from ToT.
-(chroot) $ cros_workon --host start update_engine
-
-(chroot) $ sudo emerge update_engine
-```
-
-If you make any changes to the D-Bus interface make sure `system_api`,
-`update_engine-client`, and `update_engine` packages are marked to build from
-9999 ebuild and then build both packages in that order:
-
-```bash
-(chroot) $ emerge-${BOARD} system_api update_engine-client update_engine
-```
-
-If you make any changes to [`update_engine` protobufs] in the `system_api`,
-build the `system_api` package first.
+`m update_engine update_engine_client delta_generator`
 
 ## Running Unit Tests
 
 [Running unit tests similar to other platforms]:
 
-```bash
-(chroot) $ FEATURES=test emerge-<board> update_engine
-```
-
-or
-
-```bash
-(chroot) $ cros_workon_make --board=<board> --test update_engine
-```
-
-or
-
-```bash
-(chroot) $ cros_run_unit_tests --board ${BOARD} --packages update_engine
-```
-
-The above commands run all the unit tests, but `update_engine` package is quite
-large and it takes a long time to run all the unit tests. To run all unit tests
-in a test class run:
-
-```bash
-(chroot) $ FEATURES=test \
-    P2_TEST_FILTER="*OmahaRequestActionTest.*-*RunAsRoot*" \
-    emerge-amd64-generic update_engine
-```
-
-To run one exact unit test fixture (e.g. `MultiAppUpdateTest`), run:
-
-```bash
-(chroot) $ FEATURES=test \
-    P2_TEST_FILTER="*OmahaRequestActionTest.MultiAppUpdateTest-*RunAsRoot*" \
-    emerge-amd64-generic update_engine
-```
-
-To run `update_payload` unit tests enter `update_engine/scripts` directory and
-run the desired `unittest.p`y files.
+* `atest update_engine_unittests` You will need a device connected to
+  your laptop and accessible via ADB to do this. Cuttlefish works as well.
+* `atest update_engine_host_unittests` Run a subset of tests on host, no device
+required.
 
 ## Initiating a Configured Update
 
@@ -508,37 +411,9 @@ There are different methods to initiate an update:
 
 *   Click on the “Check For Update” button in setting’s About page. There is no
     way to configure this way of update check.
-*   Use the [`update_engine_client`] program. There are a few configurations you
-    can do.
-*   Call `autest` in the crosh. Mainly used by the QA team and is not intended
-    to be used by any other team.
-*   Use [`cros flash`]. It internally uses the update_engine to flash a device
-    with a given image.
-*   Run one of many auto update autotests.
-*   Start a [Dev Server] on your host machine and send a specific HTTP request
-    (look at `cros_au` API in the Dev Server code), that has the information
-    like the IP address of your Chromebook and where the update payloads are
-    located to the Dev Server to start an update on your device (**Warning:**
-    complicated to do, not recommended).
+*   Use the [`scripts/update_device.py`] program and pass a path to your OTA zip file.
 
-`update_engine_client` is a client application that can help initiate an update
-or get more information about the status of the updater client. It has several
-options like initiating an interactive vs. non-interactive update, changing
-channels, getting the current status of update process, doing a rollback,
-changing the Omaha URL to download the payload (the most important one), etc.
 
-`update_engine` daemon reads the `/etc/lsb-release` file on the device to
-identify different update parameters like the updater server (Omaha) URL, the
-current channel, etc. However, to override any of these parameters, create the
-file `/mnt/stateful_partition/etc/lsb-release` with desired customized
-parameters. For example, this can be used to point to a developer version of the
-update server and allow the update_engine to schedule a periodic update from
-that specific server.
-
-If you have some changes in the protocol that communicates with Omaha, but you
-don’t have those changes in the update server, or you have some specific
-payloads that do not exist on the production update server you can use
-[Nebraska] to help with doing an update.
 
 ## Note to Developers and Maintainers
 
@@ -583,8 +458,11 @@ off greatly in the future.
 
 ### Be Respectful Of Other Code Bases
 
-The current update engine code base is used in many projects like Android. We
-sync the code base among these two projects frequently. Try to not break Android
+~~The current update engine code base is used in many projects like Android.~~~
+
+The Android and ChromeOS codebase have officially diverged.
+
+We sync the code base among these two projects frequently. Try to not break Android
 or other systems that share the update engine code. Whenever landing a change,
 always think about whether Android needs that change:
 

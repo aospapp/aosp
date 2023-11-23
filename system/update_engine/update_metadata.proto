@@ -146,25 +146,6 @@ message PartitionInfo {
   optional bytes hash = 2;
 }
 
-// Describe an image we are based on in a human friendly way.
-// Examples:
-//   dev-channel, x86-alex, 1.2.3, mp-v3
-//   nplusone-channel, x86-alex, 1.2.4, mp-v3, dev-channel, 1.2.3
-//
-// All fields will be set, if this message is present.
-message ImageInfo {
-  optional string board = 1 [deprecated = true];
-  optional string key = 2 [deprecated = true];
-  optional string channel = 3 [deprecated = true];
-  optional string version = 4 [deprecated = true];
-
-  // If these values aren't present, they should be assumed to match
-  // the equivalent value above. They are normally only different for
-  // special image types such as nplusone images.
-  optional string build_channel = 5 [deprecated = true];
-  optional string build_version = 6 [deprecated = true];
-}
-
 message InstallOperation {
   enum Type {
     REPLACE = 0;     // Replace destination extents w/ attached data.
@@ -187,6 +168,13 @@ message InstallOperation {
 
     // On minor version 5 or newer, these operations are supported:
     PUFFDIFF = 9;  // The data is in puffdiff format.
+
+    // On minor version 8 or newer, these operations are supported:
+    ZUCCHINI = 11;
+
+    // On minor version 9 or newer, these operations are supported:
+    LZ4DIFF_BSDIFF = 12;
+    LZ4DIFF_PUFFDIFF = 13;
   }
   required Type type = 1;
 
@@ -233,12 +221,22 @@ message InstallOperation {
 // read after write, similar to the inplace update schema.
 message CowMergeOperation {
   enum Type {
-    COW_COPY = 0;  // identical blocks
+    COW_COPY = 0;     // identical blocks
+    COW_XOR = 1;      // used when src/dst blocks are highly similar
+    COW_REPLACE = 2;  // Raw replace operation
   }
   optional Type type = 1;
 
   optional Extent src_extent = 2;
   optional Extent dst_extent = 3;
+  // For COW_XOR, source location might be unaligned, so this field is in range
+  // [0, block_size), representing how much should the src_extent shift toward
+  // larger block number. If this field is non-zero, then src_extent will
+  // include 1 extra block in the end, as the merge op actually references the
+  // first |src_offset| bytes of that extra block. For example, if |dst_extent|
+  // is [10, 15], |src_offset| is 500, then src_extent might look like [25, 31].
+  // Note that |src_extent| contains 1 extra block than the |dst_extent|.
+  optional uint32 src_offset = 4;
 }
 
 // Describes the update to apply to a single partition.
@@ -384,8 +382,7 @@ message DeltaArchiveManifest {
   // Only present in major version = 1. List of install operations for the
   // kernel and rootfs partitions. For major version = 2 see the |partitions|
   // field.
-  repeated InstallOperation install_operations = 1 [deprecated = true];
-  repeated InstallOperation kernel_install_operations = 2 [deprecated = true];
+  reserved 1, 2;
 
   // (At time of writing) usually 4096
   optional uint32 block_size = 3 [default = 4096];
@@ -398,17 +395,8 @@ message DeltaArchiveManifest {
   optional uint64 signatures_offset = 4;
   optional uint64 signatures_size = 5;
 
-  // Only present in major version = 1. Partition metadata used to validate the
-  // update. For major version = 2 see the |partitions| field.
-  optional PartitionInfo old_kernel_info = 6 [deprecated = true];
-  optional PartitionInfo new_kernel_info = 7 [deprecated = true];
-  optional PartitionInfo old_rootfs_info = 8 [deprecated = true];
-  optional PartitionInfo new_rootfs_info = 9 [deprecated = true];
-
-  // old_image_info will only be present for delta images.
-  optional ImageInfo old_image_info = 10 [deprecated = true];
-
-  optional ImageInfo new_image_info = 11 [deprecated = true];
+  // Fields deprecated in major version 2.
+  reserved 6,7,8,9,10,11;
 
   // The minor version, also referred as "delta version", of the payload.
   // Minor version 0 is full payload, everything else is delta payload.

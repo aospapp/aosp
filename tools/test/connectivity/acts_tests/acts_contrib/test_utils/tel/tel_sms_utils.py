@@ -17,13 +17,13 @@
 
 import time
 from acts.utils import rand_ascii_str
-from acts_contrib.test_utils.tel.tel_test_utils import sms_send_receive_verify
-from acts_contrib.test_utils.tel.tel_test_utils import call_setup_teardown
-from acts_contrib.test_utils.tel.tel_test_utils import hangup_call
+from acts_contrib.test_utils.tel.tel_message_utils import sms_send_receive_verify
 from acts_contrib.test_utils.tel.tel_subscription_utils import get_outgoing_message_sub_id
-
+from acts_contrib.test_utils.tel.tel_voice_utils import call_setup_teardown
+from acts_contrib.test_utils.tel.tel_voice_utils import hangup_call
 
 message_lengths = (50, 160, 180)
+
 
 def _sms_test(log, ads):
     """Test SMS between two phones.

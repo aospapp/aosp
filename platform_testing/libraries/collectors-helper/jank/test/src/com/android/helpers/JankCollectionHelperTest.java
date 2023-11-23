@@ -272,6 +272,91 @@ public class JankCollectionHelperTest {
         mHelper.stopCollecting();
     }
 
+    /**
+     * Test first values for package parsed. Gfx can provide values for every window in separate.
+     * For example gfx provides separate values for: ShellDropTarget, NavigationBar0,
+     * NotificationShade, StatusBar, etc. So we're looking for total value (the first one)
+     */
+    @Test
+    public void testCollect_firstValuesMatch() throws Exception {
+        final String totalApplicationResults =
+                "\n\n** Graphics info for pid 9999 [pkg1] **"
+                        + "\n"
+                        + "\nTotal frames rendered: 900"
+                        + "\nJanky frames: 300 (33.33%)"
+                        + "\nJanky frames (legacy): 200 (22.22%)"
+                        + "\n50th percentile: 150ms"
+                        + "\n90th percentile: 190ms"
+                        + "\n95th percentile: 195ms"
+                        + "\n99th percentile: 199ms"
+                        + "\nNumber Missed Vsync: 1"
+                        + "\nNumber High input latency: 2"
+                        + "\nNumber Slow UI thread: 3"
+                        + "\nNumber Slow bitmap uploads: 4"
+                        + "\nNumber Slow issue draw commands: 5"
+                        + "\nNumber Frame deadline missed (legacy): 3"
+                        + "\nNumber Frame deadline missed: 6";
+
+        final String shellDropTargetResults =
+                "\nWindow: ShellDropTarget"
+                        + "\n"
+                        + "\nTotal frames rendered: 0"
+                        + "\nJanky frames: 0 (00.00%)"
+                        + "\nJanky frames (legacy): 0 (00.00%)"
+                        + "\n50th percentile: 0ms"
+                        + "\n90th percentile: 0ms"
+                        + "\n95th percentile: 0ms"
+                        + "\n99th percentile: 0ms"
+                        + "\nNumber Missed Vsync: 0"
+                        + "\nNumber High input latency: 0"
+                        + "\nNumber Slow UI thread: 0"
+                        + "\nNumber Slow bitmap uploads: 0"
+                        + "\nNumber Slow issue draw commands: 0"
+                        + "\nNumber Frame deadline missed (legacy): 0"
+                        + "\nNumber Frame deadline missed: 0";
+
+        final String totalResults = totalApplicationResults + shellDropTargetResults;
+
+        mockResetCommand("", totalResults);
+        mockGetCommand("", totalResults);
+
+        mHelper.startCollecting();
+        Map<String, Double> metrics = mHelper.getMetrics();
+        assertThat(metrics.get(buildMetricKey("pkg1", TOTAL_FRAMES.getMetricId())))
+                .isEqualTo(900.0);
+        assertThat(metrics.get(buildMetricKey("pkg1", JANKY_FRAMES_COUNT.getMetricId())))
+                .isEqualTo(300.0);
+        assertThat(metrics.get(buildMetricKey("pkg1", JANKY_FRAMES_PRCNT.getMetricId())))
+                .isEqualTo(33.33);
+        assertThat(metrics.get(buildMetricKey("pkg1", JANKY_FRAMES_LEGACY_COUNT.getMetricId())))
+                .isEqualTo(200.0);
+        assertThat(metrics.get(buildMetricKey("pkg1", JANKY_FRAMES_LEGACY_PRCNT.getMetricId())))
+                .isEqualTo(22.22);
+        assertThat(metrics.get(buildMetricKey("pkg1", FRAME_TIME_50TH.getMetricId())))
+                .isEqualTo(150.0);
+        assertThat(metrics.get(buildMetricKey("pkg1", FRAME_TIME_90TH.getMetricId())))
+                .isEqualTo(190.0);
+        assertThat(metrics.get(buildMetricKey("pkg1", FRAME_TIME_95TH.getMetricId())))
+                .isEqualTo(195.0);
+        assertThat(metrics.get(buildMetricKey("pkg1", FRAME_TIME_99TH.getMetricId())))
+                .isEqualTo(199.0);
+        assertThat(metrics.get(buildMetricKey("pkg1", NUM_MISSED_VSYNC.getMetricId())))
+                .isEqualTo(1.0);
+        assertThat(metrics.get(buildMetricKey("pkg1", NUM_HIGH_INPUT_LATENCY.getMetricId())))
+                .isEqualTo(2.0);
+        assertThat(metrics.get(buildMetricKey("pkg1", NUM_SLOW_UI_THREAD.getMetricId())))
+                .isEqualTo(3.0);
+        assertThat(metrics.get(buildMetricKey("pkg1", NUM_SLOW_BITMAP_UPLOADS.getMetricId())))
+                .isEqualTo(4.0);
+        assertThat(metrics.get(buildMetricKey("pkg1", NUM_SLOW_DRAW.getMetricId()))).isEqualTo(5.0);
+        assertThat(metrics.get(buildMetricKey("pkg1", NUM_FRAME_DEADLINE_MISSED.getMetricId())))
+                .isEqualTo(6.0);
+        assertThat(
+                metrics.get(buildMetricKey("pkg1", NUM_FRAME_DEADLINE_MISSED_LEGACY.getMetricId())))
+                .isEqualTo(3.0);
+        mHelper.stopCollecting();
+    }
+
     /** Test that it collects known fields, even if some are unknown. */
     @Test
     public void testCollect_ignoreUnknownField() throws Exception {

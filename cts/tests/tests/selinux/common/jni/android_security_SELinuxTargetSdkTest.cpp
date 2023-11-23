@@ -26,7 +26,7 @@
 #include <memory>
 
 struct SecurityContext_Delete {
-    void operator()(security_context_t p) const {
+    void operator()(char* p) const {
         freecon(p);
     }
 };
@@ -61,6 +61,51 @@ static jint checkNetlinkRouteGetlink() {
     }
 
     return -1;
+}
+
+/**
+ * Function: checkNetlinkRouteGetneigh
+ * Purpose: Checks to see if RTM_GETNEIGH{TBL} is allowed on a netlink route socket.
+ * Returns: 3 (expected) if RTM_GETNEIGH and RTM_GETNEIGHTBL both fail with permission denied.
+ *          1 if only RTM_GETNEIGH fails with permission denied.
+ *          2 if only RTM_GETNEIGHTBL fails with permission denied.
+ *          0 if both succeed.
+ *          -1 if socket creation fails
+ */
+static jint checkNetlinkRouteGetneigh() {
+    int sock = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+    if (sock < 0)
+    {
+        __android_log_print(ANDROID_LOG_ERROR, "SELinuxTargetSdkTest", "socket creation failed.");
+        return -1;
+    }
+    struct NetlinkMessage
+    {
+        nlmsghdr hdr;
+        rtgenmsg msg;
+    } request;
+    memset(&request, 0, sizeof(request));
+    request.hdr.nlmsg_flags = NLM_F_DUMP | NLM_F_REQUEST;
+    request.hdr.nlmsg_len = sizeof(request);
+    request.msg.rtgen_family = AF_UNSPEC;
+
+    int return_value = 0;
+
+    request.hdr.nlmsg_type = RTM_GETNEIGH;
+    int ret = send(sock, &request, sizeof(request), 0);
+    if (ret < 0 && errno == 13)
+    {
+        return_value |= 1;
+    }
+
+    request.hdr.nlmsg_type = RTM_GETNEIGHTBL;
+    ret = send(sock, &request, sizeof(request), 0);
+    if (ret < 0 && errno == 13)
+    {
+        return_value |= 1 << 1;
+    }
+
+    return return_value;
 }
 
 /**
@@ -106,7 +151,7 @@ static jstring getFileContext(JNIEnv *env, jobject, jstring pathStr) {
         return NULL;
     }
 
-    security_context_t tmp = NULL;
+    char* tmp = NULL;
     int ret = getfilecon(path.c_str(), &tmp);
     Unique_SecurityContext context(tmp);
 
@@ -122,6 +167,7 @@ static JNINativeMethod gMethods[] = {
     { "getFileContext", "(Ljava/lang/String;)Ljava/lang/String;", (void*) getFileContext },
     { "checkNetlinkRouteBind", "()I", (void*) checkNetlinkRouteBind },
     { "checkNetlinkRouteGetlink", "()I", (void*) checkNetlinkRouteGetlink },
+    { "checkNetlinkRouteGetneigh", "()I", (void*) checkNetlinkRouteGetneigh },
 };
 
 int register_android_security_SELinuxTargetSdkTest(JNIEnv* env)

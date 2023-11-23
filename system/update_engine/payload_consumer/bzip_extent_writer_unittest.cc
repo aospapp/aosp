@@ -28,16 +28,13 @@
 #include "update_engine/common/test_utils.h"
 #include "update_engine/common/utils.h"
 #include "update_engine/payload_generator/extent_ranges.h"
+#include "update_engine/payload_generator/delta_diff_generator.h"
 
 using std::min;
 using std::string;
 using std::vector;
 
 namespace chromeos_update_engine {
-
-namespace {
-const uint32_t kBlockSize = 4096;
-}
 
 class BzipExtentWriterTest : public ::testing::Test {
  protected:

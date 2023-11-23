@@ -39,6 +39,7 @@ import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationChannelGroup;
+import android.app.PendingIntent;
 import android.app.Person;
 import android.content.Context;
 import android.content.Intent;
@@ -122,6 +123,14 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
         tests.add(new IsEnabledTest());
         tests.add(new ServiceStartedTest());
         tests.add(new NotificationReceivedTest());
+        /*
+        // TODO (b/200701618): re-enable tests if conditions in 3.8.3.1 change to MUST
+        if (!isAutomotive) {
+            tests.add(new SendUserToChangeFilter());
+            tests.add(new AskIfFilterChanged());
+            tests.add(new NotificationTypeFilterTest());
+            tests.add(new ResetChangeFilter());
+        }*/
         tests.add(new LongMessageTest());
         tests.add(new DataIntactTest());
         tests.add(new AudiblyAlertedTest());
@@ -133,9 +142,6 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
         tests.add(new SnoozeNotificationForTimeCancelTest());
         tests.add(new GetSnoozedNotificationTest());
         tests.add(new EnableHintsTest());
-        if (!isAutomotive) {
-            tests.add(new LockscreenVisibilityTest());
-        }
         tests.add(new ReceiveAppBlockNoticeTest());
         tests.add(new ReceiveAppUnblockNoticeTest());
         if (!isAutomotive) {
@@ -146,6 +152,7 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
         tests.add(new RequestBindTest());
         tests.add(new MessageBundleTest());
         tests.add(new ConversationOrderingTest());
+        tests.add(new HunDisplayTest());
         tests.add(new EnableHintsTest());
         tests.add(new IsDisabledTest());
         tests.add(new ServiceStoppedTest());
@@ -496,85 +503,6 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
             return new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                     .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
                     .putExtra(EXTRA_APP_PACKAGE, mContext.getPackageName());
-        }
-    }
-
-    /**
-     * Creates a notification channel. Sends the user to settings to disallow the channel from
-     * showing on the lockscreen. Sends a notification, checks the lockscreen setting in the
-     * ranking object.
-     */
-    protected class LockscreenVisibilityTest extends InteractiveTestCase {
-        private int mRetries = 3;
-        private View mView;
-        @Override
-        protected View inflate(ViewGroup parent) {
-            mView = createNlsSettingsItem(parent, R.string.nls_visibility);
-            Button button = mView.findViewById(R.id.nls_action_button);
-            button.setEnabled(false);
-            return mView;
-        }
-
-        @Override
-        protected void setUp() {
-            createChannels();
-            status = READY;
-            Button button = mView.findViewById(R.id.nls_action_button);
-            button.setEnabled(true);
-        }
-
-        @Override
-        boolean autoStart() {
-            return true;
-        }
-
-        @Override
-        protected void test() {
-            NotificationChannel channel = mNm.getNotificationChannel(NOTIFICATION_CHANNEL_ID);
-            if (channel.getLockscreenVisibility() == VISIBILITY_PRIVATE) {
-                if (mRetries == 3) {
-                    sendNotifications();
-                }
-
-                NotificationListenerService.Ranking rank =
-                        new NotificationListenerService.Ranking();
-                StatusBarNotification sbn = MockListener.getInstance().getPosted(mTag1);
-                if (sbn != null) {
-                    MockListener.getInstance().getCurrentRanking().getRanking(sbn.getKey(), rank);
-                    if (rank.getLockscreenVisibilityOverride() == VISIBILITY_PRIVATE) {
-                        status = PASS;
-                    } else {
-                        logFail("Actual visibility:" + rank.getLockscreenVisibilityOverride());
-                        status = FAIL;
-                    }
-                } else {
-                    if (mRetries > 0) {
-                        mRetries--;
-                        status = RETEST;
-                    } else {
-                        logFail("Notification wasn't posted");
-                        status = FAIL;
-                    }
-                }
-
-            } else {
-                // user hasn't jumped to settings  yet
-                status = WAIT_FOR_USER;
-            }
-
-            next();
-        }
-
-        protected void tearDown() {
-            MockListener.getInstance().resetData();
-            deleteChannels();
-        }
-
-        @Override
-        protected Intent getIntent() {
-            return new Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
-                    .putExtra(EXTRA_APP_PACKAGE, mContext.getPackageName())
-                    .putExtra(EXTRA_CHANNEL_ID, NOTIFICATION_CHANNEL_ID);
         }
     }
 
@@ -1661,6 +1589,7 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
                     .setContentTitle("ConversationOrderingTest")
                     .setContentText(mTag1)
                     .setSmallIcon(R.drawable.ic_stat_alice)
+                    .setGroup("conversations")
                     .setShortcutId(SHARE_SHORTCUT_ID)
                     .setStyle(new Notification.MessagingStyle(person)
                             .setConversationTitle("Bubble Chat")
@@ -1678,6 +1607,7 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
                     .setContentTitle("Non-Person Notification")
                     .setContentText(mTag1)
                     .setSmallIcon(R.drawable.ic_stat_alice)
+                    .setGroup("non-conversation")
                     .build();
             mNm.notify(mTag2, mId2, n2);
         }
@@ -1691,6 +1621,114 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
         protected void test() {
             status = WAIT_FOR_USER;
             next();
+        }
+    }
+
+    /**
+     * Tests that heads-up notifications appear with the view, resources, and actions provided
+     * in Notification.Builder.
+     */
+    private class HunDisplayTest extends InteractiveTestCase {
+
+        @Override
+        protected void setUp() {
+            createChannels();
+            sendNotifications();
+            status = READY;
+        }
+
+        @Override
+        protected void tearDown() {
+            mNm.cancelAll();
+            deleteChannels();
+            delay();
+        }
+
+        @Override
+        protected View inflate(ViewGroup parent) {
+            return createPassFailItem(parent, R.string.hun_display);
+        }
+
+        private void sendNotifications() {
+            mTag1 = UUID.randomUUID().toString();
+            mId1 = NOTIFICATION_ID + 1;
+
+            Notification n1 = new Notification.Builder(mContext, NOISY_NOTIFICATION_CHANNEL_ID)
+                    .setContentTitle("HunDisplayTest")
+                    .setContentText(mTag1)
+                    .setSmallIcon(R.drawable.ic_stat_alice)
+                    .setLargeIcon(Icon.createWithResource(mContext, R.drawable.test_pass_gradient))
+                    .addAction(generateAction(1))
+                    .addAction(generateAction(2))
+                    .build();
+            mNm.notify(mTag1, mId1, n1);
+        }
+
+        private Notification.Action generateAction(int num) {
+            PendingIntent pi = PendingIntent.getActivity(mContext, num,
+                    new Intent(Settings.ACTION_ALL_APPS_NOTIFICATION_SETTINGS),
+                    PendingIntent.FLAG_IMMUTABLE);
+            return new Notification.Action.Builder(
+                    Icon.createWithResource(mContext, R.drawable.ic_android),
+                    mContext.getString(R.string.action, num), pi)
+                    .build();
+        }
+
+        @Override
+        boolean autoStart() {
+            return true;
+        }
+
+        @Override
+        protected void test() {
+            status = WAIT_FOR_USER;
+            next();
+        }
+    }
+
+    /**
+     * Sends the user to settings filter out silent notifications for this notification listener.
+     * Sends silent and not silent notifs and makes sure only the non silent is received
+     */
+    private class NotificationTypeFilterTest extends InteractiveTestCase {
+        int mRetries = 3;
+        @Override
+        protected View inflate(ViewGroup parent) {
+            return createAutoItem(parent, R.string.nls_filter_test);
+
+        }
+
+        @Override
+        protected void setUp() {
+            createChannels();
+            sendNotifications();
+            sendNoisyNotification();
+            status = READY;
+        }
+
+        @Override
+        protected void tearDown() {
+            mNm.cancelAll();
+            MockListener.getInstance().resetData();
+            deleteChannels();
+        }
+
+        @Override
+        protected void test() {
+            if (MockListener.getInstance().getPosted(mTag4) == null) {
+                Log.d(TAG, "Could not find " + mTag4);
+                if (--mRetries > 0) {
+                    sleep(100);
+                    status = RETEST;
+                } else {
+                    status = FAIL;
+                }
+            } else if (MockListener.getInstance().getPosted(mTag2) != null) {
+                logFail("Found" + mTag2);
+                status = FAIL;
+            } else {
+                status = PASS;
+            }
         }
     }
 

@@ -22,7 +22,7 @@ from acts_contrib.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts_contrib.test_utils.bt.bt_test_utils import orchestrate_and_verify_pan_connection
 from acts_contrib.test_utils.bt.bt_test_utils import setup_multiple_devices_for_bt_test
 from acts_contrib.test_utils.net import net_test_utils as nutils
-from acts_contrib.test_utils.tel.tel_test_utils import wait_for_cell_data_connection
+from acts_contrib.test_utils.tel.tel_data_utils import wait_for_cell_data_connection
 from acts_contrib.test_utils.wifi import wifi_test_utils as wutils
 
 DEFAULT_PING_URL = "https://www.google.com/robots.txt"

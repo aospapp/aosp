@@ -42,21 +42,21 @@ class EventLogMonitorTest {
                 "com.android.phone.settings.fdn.FdnSetting (server)",
             "reason=test")
 
-        val result = FlickerRunResult.Builder()
-        monitor.save("test", result)
+        val resultBuilder = FlickerRunResult.Builder()
+        resultBuilder.setResultFrom(monitor)
 
-        assertEquals(2, result.eventLog?.size)
+        assertEquals(2, resultBuilder.eventLog?.size)
         assertEquals(
             "4749f88 com.android.phone/com.android.phone.settings.fdn.FdnSetting (server)",
-            result.eventLog?.get(0)?.window)
-        assertEquals(FocusEvent.Focus.LOST, result.eventLog?.get(0)?.focus)
+            resultBuilder.eventLog?.get(0)?.window)
+        assertEquals(FocusEvent.Focus.LOST, resultBuilder.eventLog?.get(0)?.focus)
         assertEquals(
             "7c01447 com.android.phone/com.android.phone.settings.fdn.FdnSetting (server)",
-            result.eventLog?.get(1)?.window)
-        assertEquals(FocusEvent.Focus.GAINED, result.eventLog?.get(1)?.focus)
-        assertTrue(result.eventLog?.get(0)?.timestamp ?: 0
-            <= result.eventLog?.get(1)?.timestamp ?: 0)
-        assertEquals(result.eventLog?.get(0)?.reason, "test")
+            resultBuilder.eventLog?.get(1)?.window)
+        assertEquals(FocusEvent.Focus.GAINED, resultBuilder.eventLog?.get(1)?.focus)
+        assertTrue(resultBuilder.eventLog?.get(0)?.timestamp ?: 0
+            <= resultBuilder.eventLog?.get(1)?.timestamp ?: 0)
+        assertEquals(resultBuilder.eventLog?.get(0)?.reason, "test")
     }
 
     @Test
@@ -84,21 +84,21 @@ class EventLogMonitorTest {
             "reason=test")
         monitor.stop()
 
-        val result = FlickerRunResult.Builder()
-        monitor.save("test", result)
+        val resultBuilder = FlickerRunResult.Builder()
+        resultBuilder.setResultFrom(monitor)
 
-        assertEquals(2, result.eventLog?.size)
+        assertEquals(2, resultBuilder.eventLog?.size)
         assertEquals("479f88 " +
             "com.android.phone/" +
             "com.android.phone.settings.fdn.FdnSetting (server)",
-            result.eventLog?.get(0)?.window)
-        assertEquals(FocusEvent.Focus.LOST, result.eventLog?.get(0)?.focus)
+            resultBuilder.eventLog?.get(0)?.window)
+        assertEquals(FocusEvent.Focus.LOST, resultBuilder.eventLog?.get(0)?.focus)
         assertEquals("7c01447 com.android.phone/" +
             "com.android.phone.settings.fdn.FdnSetting (server)",
-            result.eventLog?.get(1)?.window)
-        assertEquals(FocusEvent.Focus.GAINED, result.eventLog?.get(1)?.focus)
-        assertTrue(result.eventLog?.get(0)?.timestamp ?: 0
-            <= result.eventLog?.get(1)?.timestamp ?: 0)
+            resultBuilder.eventLog?.get(1)?.window)
+        assertEquals(FocusEvent.Focus.GAINED, resultBuilder.eventLog?.get(1)?.focus)
+        assertTrue(resultBuilder.eventLog?.get(0)?.timestamp ?: 0
+            <= resultBuilder.eventLog?.get(1)?.timestamp ?: 0)
     }
 
     @Test
@@ -119,21 +119,21 @@ class EventLogMonitorTest {
                 "reason=test")
         monitor.stop()
 
-        val result = FlickerRunResult.Builder()
-        monitor.save("test", result)
+        val resultBuilder = FlickerRunResult.Builder()
+        resultBuilder.setResultFrom(monitor)
 
-        assertEquals(2, result.eventLog?.size)
+        assertEquals(2, resultBuilder.eventLog?.size)
         assertEquals(
                 "4749f88 com.android.phone/com.android.phone.settings.fdn.FdnSetting (server)",
-                result.eventLog?.get(0)?.window)
-        assertEquals(FocusEvent.Focus.LOST, result.eventLog?.get(0)?.focus)
+                resultBuilder.eventLog?.get(0)?.window)
+        assertEquals(FocusEvent.Focus.LOST, resultBuilder.eventLog?.get(0)?.focus)
         assertEquals(
                 "7c01447 com.android.phone/com.android.phone.settings.fdn.FdnSetting (server)",
-                result.eventLog?.get(1)?.window)
-        assertEquals(FocusEvent.Focus.GAINED, result.eventLog?.get(1)?.focus)
-        assertTrue(result.eventLog?.get(0)?.timestamp ?: 0
-            <= result.eventLog?.get(1)?.timestamp ?: 0)
-        assertEquals(result.eventLog?.get(0)?.reason, "test")
+                resultBuilder.eventLog?.get(1)?.window)
+        assertEquals(FocusEvent.Focus.GAINED, resultBuilder.eventLog?.get(1)?.focus)
+        assertTrue(resultBuilder.eventLog?.get(0)?.timestamp ?: 0
+            <= resultBuilder.eventLog?.get(1)?.timestamp ?: 0)
+        assertEquals(resultBuilder.eventLog?.get(0)?.reason, "test")
     }
 
     private companion object {

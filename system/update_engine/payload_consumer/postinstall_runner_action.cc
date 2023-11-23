@@ -24,6 +24,8 @@
 #include <unistd.h>
 
 #include <cmath>
+#include <fstream>
+#include <string>
 
 #include <base/files/file_path.h>
 #include <base/files/file_util.h>
@@ -46,6 +48,31 @@ namespace {
 // sample_images.sh file.
 const int kPostinstallStatusFd = 3;
 
+static constexpr bool Contains(std::string_view haystack,
+                               std::string_view needle) {
+  return haystack.find(needle) != std::string::npos;
+}
+
+static void LogBuildInfoForPartition(std::string_view mount_point) {
+  static constexpr std::array<std::string_view, 3> kBuildPropFiles{
+      "build.prop", "etc/build.prop", "system/build.prop"};
+  for (const auto& file : kBuildPropFiles) {
+    auto path = std::string(mount_point);
+    if (path.back() != '/') {
+      path.push_back('/');
+    }
+    path += file;
+    LOG(INFO) << "Trying to read " << path;
+    std::ifstream infile(path);
+    std::string line;
+    while (std::getline(infile, line)) {
+      if (Contains(line, "ro.build")) {
+        LOG(INFO) << line;
+      }
+    }
+  }
+}
+
 }  // namespace
 
 namespace chromeos_update_engine {
@@ -64,7 +91,15 @@ PostinstallRunnerAction::PostinstallRunnerAction(
   fs_mount_dir_ = temp_dir.value();
 #endif  // __ANDROID__
   CHECK(!fs_mount_dir_.empty());
+  EnsureUnmounted();
   LOG(INFO) << "postinstall mount point: " << fs_mount_dir_;
+}
+
+void PostinstallRunnerAction::EnsureUnmounted() {
+  if (utils::IsMountpoint(fs_mount_dir_)) {
+    LOG(INFO) << "Found previously mounted filesystem at " << fs_mount_dir_;
+    utils::UnmountFilesystem(fs_mount_dir_);
+  }
 }
 
 void PostinstallRunnerAction::PerformAction() {
@@ -121,6 +156,49 @@ void PostinstallRunnerAction::PerformAction() {
   PerformPartitionPostinstall();
 }
 
+bool PostinstallRunnerAction::MountPartition(
+    const InstallPlan::Partition& partition) noexcept {
+  // Perform post-install for the current_partition_ partition. At this point we
+  // need to call CompletePartitionPostinstall to complete the operation and
+  // cleanup.
+  const auto mountable_device = partition.readonly_target_path;
+  if (!utils::FileExists(mountable_device.c_str())) {
+    LOG(ERROR) << "Mountable device " << mountable_device << " for partition "
+               << partition.name << " does not exist";
+    return false;
+  }
+
+  if (!utils::FileExists(fs_mount_dir_.c_str())) {
+    LOG(ERROR) << "Mount point " << fs_mount_dir_
+               << " does not exist, mount call will fail";
+    return false;
+  }
+  // Double check that the fs_mount_dir is not busy with a previous mounted
+  // filesystem from a previous crashed postinstall step.
+  EnsureUnmounted();
+
+#ifdef __ANDROID__
+  // In Chromium OS, the postinstall step is allowed to write to the block
+  // device on the target image, so we don't mark it as read-only and should
+  // be read-write since we just wrote to it during the update.
+
+  // Mark the block device as read-only before mounting for post-install.
+  if (!utils::SetBlockDeviceReadOnly(mountable_device, true)) {
+    return false;
+  }
+#endif  // __ANDROID__
+
+  if (!utils::MountFilesystem(
+          mountable_device,
+          fs_mount_dir_,
+          MS_RDONLY,
+          partition.filesystem_type,
+          hardware_->GetPartitionMountOptions(partition.name))) {
+    return false;
+  }
+  return true;
+}
+
 void PostinstallRunnerAction::PerformPartitionPostinstall() {
   if (install_plan_.download_url.empty()) {
     LOG(INFO) << "Skipping post-install during rollback";
@@ -132,6 +210,27 @@ void PostinstallRunnerAction::PerformPartitionPostinstall() {
          !install_plan_.partitions[current_partition_].run_postinstall) {
     VLOG(1) << "Skipping post-install on partition "
             << install_plan_.partitions[current_partition_].name;
+    // Attempt to mount a device if it has postinstall script configured, even
+    // if we want to skip running postinstall script.
+    // This is because we've seen bugs like b/198787355 which is only triggered
+    // when you attempt to mount a device. If device fails to mount, it will
+    // likely fail to mount during boot anyway, so it's better to catch any
+    // issues earlier.
+    // It's possible that some of the partitions aren't mountable, but these
+    // partitions shouldn't have postinstall configured. Therefore we guard this
+    // logic with |postinstall_path.empty()|.
+    const auto& partition = install_plan_.partitions[current_partition_];
+    if (!partition.postinstall_path.empty()) {
+      const auto mountable_device = partition.readonly_target_path;
+      if (!MountPartition(partition)) {
+        return CompletePostinstall(ErrorCode::kPostInstallMountError);
+      }
+      LogBuildInfoForPartition(fs_mount_dir_);
+      if (!utils::UnmountFilesystem(fs_mount_dir_)) {
+        return CompletePartitionPostinstall(
+            1, "Error unmounting the device " + mountable_device);
+      }
+    }
     current_partition_++;
   }
   if (current_partition_ == install_plan_.partitions.size())
@@ -141,27 +240,15 @@ void PostinstallRunnerAction::PerformPartitionPostinstall() {
       install_plan_.partitions[current_partition_];
 
   const string mountable_device = partition.readonly_target_path;
-  if (mountable_device.empty()) {
-    LOG(ERROR) << "Cannot make mountable device from " << partition.target_path;
-    return CompletePostinstall(ErrorCode::kPostinstallRunnerError);
-  }
-
   // Perform post-install for the current_partition_ partition. At this point we
   // need to call CompletePartitionPostinstall to complete the operation and
   // cleanup.
 
-  if (!utils::FileExists(fs_mount_dir_.c_str())) {
-    LOG(ERROR) << "Mount point " << fs_mount_dir_
-               << " does not exist, mount call will fail";
-    return CompletePostinstall(ErrorCode::kPostinstallRunnerError);
+  if (!MountPartition(partition)) {
+    CompletePostinstall(ErrorCode::kPostInstallMountError);
+    return;
   }
-  // Double check that the fs_mount_dir is not busy with a previous mounted
-  // filesystem from a previous crashed postinstall step.
-  if (utils::IsMountpoint(fs_mount_dir_)) {
-    LOG(INFO) << "Found previously mounted filesystem at " << fs_mount_dir_;
-    utils::UnmountFilesystem(fs_mount_dir_);
-  }
-
+  LogBuildInfoForPartition(fs_mount_dir_);
   base::FilePath postinstall_path(partition.postinstall_path);
   if (postinstall_path.IsAbsolute()) {
     LOG(ERROR) << "Invalid absolute path passed to postinstall, use a relative"
@@ -179,31 +266,9 @@ void PostinstallRunnerAction::PerformPartitionPostinstall() {
     return CompletePostinstall(ErrorCode::kPostinstallRunnerError);
   }
 
-#ifdef __ANDROID__
-  // In Chromium OS, the postinstall step is allowed to write to the block
-  // device on the target image, so we don't mark it as read-only and should
-  // be read-write since we just wrote to it during the update.
-
-  // Mark the block device as read-only before mounting for post-install.
-  if (!utils::SetBlockDeviceReadOnly(mountable_device, true)) {
-    return CompletePartitionPostinstall(
-        1, "Error marking the device " + mountable_device + " read only.");
-  }
-#endif  // __ANDROID__
-
-  if (!utils::MountFilesystem(
-          mountable_device,
-          fs_mount_dir_,
-          MS_RDONLY,
-          partition.filesystem_type,
-          hardware_->GetPartitionMountOptions(partition.name))) {
-    return CompletePartitionPostinstall(
-        1, "Error mounting the device " + mountable_device);
-  }
-
   LOG(INFO) << "Performing postinst (" << partition.postinstall_path << " at "
-            << abs_path << ") installed on device " << partition.target_path
-            << " and mountable device " << mountable_device;
+            << abs_path << ") installed on mountable device "
+            << mountable_device;
 
   // Logs the file format of the postinstall script we are about to run. This
   // will help debug when the postinstall script doesn't match the architecture

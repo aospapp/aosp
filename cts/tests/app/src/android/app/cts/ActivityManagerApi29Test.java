@@ -17,7 +17,6 @@ package android.app.cts;
 
 import static android.Manifest.permission.ACCESS_COARSE_LOCATION;
 import static android.app.ActivityManager.PROCESS_CAPABILITY_ALL;
-import static android.app.ActivityManager.PROCESS_CAPABILITY_FOREGROUND_LOCATION;
 import static android.app.ActivityManager.PROCESS_CAPABILITY_NONE;
 import static android.app.AppOpsManager.MODE_ALLOWED;
 import static android.app.AppOpsManager.MODE_FOREGROUND;
@@ -47,6 +46,7 @@ import android.content.pm.PackageManager.NameNotFoundException;
 import android.permission.cts.PermissionUtils;
 import android.provider.DeviceConfig;
 import android.provider.Settings;
+import android.support.test.uiautomator.UiDevice;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
@@ -128,6 +128,9 @@ public class ActivityManagerApi29Test {
             sAppOps.resetHistoryParameters(); }
         );
         mUidWatcher = new WatchUidRunner(sInstrumentation, sUid, WAITFOR_MSEC);
+        // Press home key to ensure stopAppSwitches is called so the grace period of
+        // the background start will be ignored if there's any.
+        UiDevice.getInstance(sInstrumentation).pressHome();
     }
 
     @After

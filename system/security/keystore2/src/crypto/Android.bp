@@ -35,6 +35,7 @@ rust_library {
         "libkeystore2_crypto",
         "libcrypto",
     ],
+    vendor_available: true,
 }
 
 cc_library {
@@ -48,6 +49,7 @@ cc_library {
         "libcrypto",
         "liblog",
     ],
+    vendor_available: true,
 }
 
 rust_bindgen {
@@ -56,9 +58,11 @@ rust_bindgen {
     crate_name: "keystore2_crypto_bindgen",
     source_stem: "bindings",
     host_supported: true,
+    vendor_available: true,
     shared_libs: ["libcrypto"],
     bindgen_flags: [
         "--size_t-is-usize",
+        "--allowlist-function", "hmacSha256",
         "--allowlist-function", "randomBytes",
         "--allowlist-function", "AES_gcm_encrypt",
         "--allowlist-function", "AES_gcm_decrypt",
@@ -124,4 +128,14 @@ cc_test {
     shared_libs: [
         "libcrypto",
     ],
+}
+
+rust_test {
+    name: "libkeystore2_crypto_bindgen_test",
+    srcs: [":libkeystore2_crypto_bindgen"],
+    crate_name: "keystore2_crypto_bindgen_test",
+    test_suites: ["general-tests"],
+    auto_gen_config: true,
+    clippy_lints: "none",
+    lints: "none",
 }

@@ -64,6 +64,7 @@ public class OptionalTest extends TestCase {
         assertFalse(Optional.<String>ofNullable(null).isPresent());
     }
 
+    @SuppressWarnings("OptionalOfRedundantMethod")
     public void testIfPresent() {
         Optional<String> empty = Optional.empty();
         Optional<String> ofNull = Optional.ofNullable(null);

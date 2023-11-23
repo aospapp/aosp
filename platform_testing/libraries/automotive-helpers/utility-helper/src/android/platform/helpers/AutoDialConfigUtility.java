@@ -187,6 +187,12 @@ public class AutoDialConfigUtility implements IAutoConfigUtility {
                         "user_profile_phone_number",
                         DIAL_APP_PACKAGE));
         inCallScreenConfiguration.addResource(
+                AutoConfigConstants.DIALED_CONTACT_TYPE,
+                new AutoConfigResource(
+                        AutoConfigConstants.RESOURCE_ID,
+                        "user_profile_phone_label",
+                        DIAL_APP_PACKAGE));
+        inCallScreenConfiguration.addResource(
                 AutoConfigConstants.END_CALL,
                 new AutoConfigResource(
                         AutoConfigConstants.RESOURCE_ID, "end_call_button", DIAL_APP_PACKAGE));
@@ -233,6 +239,36 @@ public class AutoDialConfigUtility implements IAutoConfigUtility {
                 AutoConfigConstants.DELETE_NUMBER,
                 new AutoConfigResource(
                         AutoConfigConstants.RESOURCE_ID, "delete_button", DIAL_APP_PACKAGE));
+        dialPadScreenConfiguration.addResource(
+                AutoConfigConstants.DIGIT_ZERO,
+                new AutoConfigResource(AutoConfigConstants.RESOURCE_ID, "zero", DIAL_APP_PACKAGE));
+        dialPadScreenConfiguration.addResource(
+                AutoConfigConstants.DIGIT_ONE,
+                new AutoConfigResource(AutoConfigConstants.RESOURCE_ID, "one", DIAL_APP_PACKAGE));
+        dialPadScreenConfiguration.addResource(
+                AutoConfigConstants.DIGIT_TWO,
+                new AutoConfigResource(AutoConfigConstants.RESOURCE_ID, "two", DIAL_APP_PACKAGE));
+        dialPadScreenConfiguration.addResource(
+                AutoConfigConstants.DIGIT_THREE,
+                new AutoConfigResource(AutoConfigConstants.RESOURCE_ID, "three", DIAL_APP_PACKAGE));
+        dialPadScreenConfiguration.addResource(
+                AutoConfigConstants.DIGIT_FOUR,
+                new AutoConfigResource(AutoConfigConstants.RESOURCE_ID, "four", DIAL_APP_PACKAGE));
+        dialPadScreenConfiguration.addResource(
+                AutoConfigConstants.DIGIT_FIVE,
+                new AutoConfigResource(AutoConfigConstants.RESOURCE_ID, "five", DIAL_APP_PACKAGE));
+        dialPadScreenConfiguration.addResource(
+                AutoConfigConstants.DIGIT_SIX,
+                new AutoConfigResource(AutoConfigConstants.RESOURCE_ID, "six", DIAL_APP_PACKAGE));
+        dialPadScreenConfiguration.addResource(
+                AutoConfigConstants.DIGIT_SEVEN,
+                new AutoConfigResource(AutoConfigConstants.RESOURCE_ID, "seven", DIAL_APP_PACKAGE));
+        dialPadScreenConfiguration.addResource(
+                AutoConfigConstants.DIGIT_EIGHT,
+                new AutoConfigResource(AutoConfigConstants.RESOURCE_ID, "eight", DIAL_APP_PACKAGE));
+        dialPadScreenConfiguration.addResource(
+                AutoConfigConstants.DIGIT_NINE,
+                new AutoConfigResource(AutoConfigConstants.RESOURCE_ID, "nine", DIAL_APP_PACKAGE));
         mDialConfigMap.put(AutoConfigConstants.DIAL_PAD_VIEW, dialPadScreenConfiguration);
     }
 

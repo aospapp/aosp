@@ -17,7 +17,9 @@
 #include <getopt.h>
 #include <inttypes.h>
 #include <stdio.h>
+#ifndef WIN32
 #include <sysexits.h>
+#endif
 
 #include <algorithm>
 #include <memory>
@@ -33,6 +35,13 @@ using namespace android::fs_mgr;
 
 using android::base::Error;
 using android::base::Result;
+
+#ifdef WIN32
+static constexpr int EX_OK = 0;
+static constexpr int EX_USAGE = 1;
+static constexpr int EX_SOFTWARE = 2;
+static constexpr int EX_CANTCREAT = 3;
+#endif
 
 /* Prints program usage to |where|. */
 static int usage(int /* argc */, char* argv[]) {

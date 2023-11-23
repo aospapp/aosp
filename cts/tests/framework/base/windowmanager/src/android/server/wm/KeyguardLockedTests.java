@@ -30,7 +30,6 @@ import static android.server.wm.app.Components.PipActivity.EXTRA_ENTER_PIP;
 import static android.server.wm.app.Components.PipActivity.EXTRA_SHOW_OVER_KEYGUARD;
 import static android.server.wm.app.Components.SHOW_WHEN_LOCKED_ACTIVITY;
 import static android.server.wm.app.Components.SHOW_WHEN_LOCKED_ATTR_IME_ACTIVITY;
-import static android.server.wm.app.Components.TURN_SCREEN_ON_ACTIVITY;
 import static android.server.wm.app.Components.TURN_SCREEN_ON_ATTR_DISMISS_KEYGUARD_ACTIVITY;
 import static android.view.Display.DEFAULT_DISPLAY;
 import static android.view.WindowInsets.Type.ime;
@@ -51,7 +50,6 @@ import android.content.ComponentName;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.platform.test.annotations.Presubmit;
-import android.server.wm.app.Components;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -394,7 +392,7 @@ public class KeyguardLockedTests extends KeyguardTestBase {
 
         lockScreenSession.setLockCredential().gotoKeyguard();
         assertTrue("Keyguard is showing", mWmState.getKeyguardControllerState().keyguardShowing);
-        lockScreenSession.enterAndConfirmLockCredential();
+        lockScreenSession.unlockDevice().enterAndConfirmLockCredential();
         mWmState.waitAndAssertKeyguardGone();
 
         final ImeEventStream stream = mockImeSession.openEventStream();

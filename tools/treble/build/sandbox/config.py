@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Parses config file and provides various ways of using it."""
 
 import xml.etree.ElementTree as ET
@@ -107,6 +106,7 @@ import collections
 
 Overlay = collections.namedtuple('Overlay', ['name', 'replacement_paths'])
 
+
 class BuildConfig(object):
   """Represents configuration of a build_target.
 
@@ -116,8 +116,8 @@ class BuildConfig(object):
     tags: List of tags associated with the build target config
     build_goals: List of goals to be used while building the target.
     overlays: List of overlays to be mounted.
-    views: A list of (source, destination) string path tuple to be mounted.
-      See view nodes in XML.
+    views: A list of (source, destination) string path tuple to be mounted. See
+      view nodes in XML.
     allow_readwrite_all: If true, mount source tree as rw.
     allow_readwrite: List of directories to be mounted as rw.
     allowed_projects_file: a string path name of a file with a containing
@@ -130,6 +130,7 @@ class BuildConfig(object):
                android_target,
                tags=frozenset(),
                build_goals=(),
+               build_flags=(),
                overlays=(),
                views=(),
                allow_readwrite_all=False,
@@ -141,6 +142,7 @@ class BuildConfig(object):
     self.android_target = android_target
     self.tags = tags
     self.build_goals = list(build_goals)
+    self.build_flags = list(build_flags)
     self.overlays = list(overlays)
     self.views = list(views)
     self.allow_readwrite_all = allow_readwrite_all
@@ -161,8 +163,7 @@ class BuildConfig(object):
 
   @classmethod
   def from_config(cls, config_elem, fs_view_map, base_config=None):
-    """Creates a BuildConfig from a config XML element and an optional
-      base_config.
+    """Creates a BuildConfig from a config XML element and an optional base_config.
 
     Args:
       config_elem: the config XML node element to build the configuration
@@ -188,6 +189,8 @@ class BuildConfig(object):
             'allowed_projects_file', base_config.allowed_projects_file),
         build_goals=_get_build_config_goals(config_elem,
                                             base_config.build_goals),
+        build_flags=_get_build_config_flags(config_elem,
+                                            base_config.build_flags),
         tags=_get_config_tags(config_elem, base_config.tags),
         overlays=_get_overlays(config_elem, base_config.overlays),
         allow_readwrite=_get_allow_readwrite(config_elem,
@@ -196,8 +199,7 @@ class BuildConfig(object):
         allow_readwrite_all=_get_allowed_readwrite_all(
             config_elem, base_config.allow_readwrite_all),
         configurations=_get_configurations(config_elem,
-                                           base_config.configurations)
-    )
+                                           base_config.configurations))
 
 
 def _get_configurations(config_elem, base):
@@ -226,6 +228,13 @@ def _get_build_config_goals(config_elem, base=None):
                  for goal in config_elem.findall('goal')]
 
 
+def _get_build_config_flags(config_elem, base=None):
+  """See _get_build_config_goals. Gets 'flag' instead of 'goal'."""
+  return base + [(goal.get('name'), set(goal.get('contexts').split(','))
+                  if goal.get('contexts') else None)
+                 for goal in config_elem.findall('flag')]
+
+
 def _get_config_tags(config_elem, base=frozenset()):
   """Retrieves tags from build_config or target.
 
@@ -241,13 +250,12 @@ def _get_config_tags(config_elem, base=frozenset()):
 
 
 def _get_allowed_readwrite_all(config_elem, default=False):
-  """Determines if build_config or target is set to allow readwrite for all
-    source paths.
+  """Determines if build_config or target is set to allow readwrite for all source paths.
 
   Args:
     config_elem: A build_config or target xml element.
-    default: Value to use if element doesn't contain the
-      allow_readwrite_all attribute.
+    default: Value to use if element doesn't contain the allow_readwrite_all
+      attribute.
 
   Returns:
     True if build config is set to allow readwrite for all sorce paths
@@ -264,7 +272,8 @@ def _get_overlays(config_elem, base=None):
     base: Initial list of overlays to prepend to the list
 
   Returns:
-    A list of tuples of overlays and replacement paths to mount for a build_config or target.
+    A list of tuples of overlays and replacement paths to mount for a
+    build_config or target.
   """
   overlays = []
   for overlay in config_elem.findall('overlay'):
@@ -275,6 +284,7 @@ def _get_overlays(config_elem, base=None):
                 path.get('path') for path in overlay.findall('replacement_path')
             ])))
   return base + overlays
+
 
 def _get_views(config_elem, fs_view_map, base=None):
   """Retrieves list of views from build_config or target.
@@ -287,13 +297,14 @@ def _get_views(config_elem, fs_view_map, base=None):
     A list of (source, destination) string path tuple to be mounted. See view
       nodes in XML.
   """
-  return base + [fs for o in config_elem.findall('view')
-                 for fs in fs_view_map[o.get('name')]]
+  return base + [
+      fs for o in config_elem.findall('view')
+      for fs in fs_view_map[o.get('name')]
+  ]
 
 
 def _get_allow_readwrite(config_elem, base=None):
-  """Retrieves list of directories to be mounted rw from build_config or
-    target.
+  """Retrieves list of directories to be mounted rw from build_config or target.
 
   Args:
     config_elem: A build_config or target xml element.
@@ -450,6 +461,18 @@ class Config:
 
     return build_goals
 
+  def get_build_flags(self, build_target, contexts=frozenset()):
+    """See get_build_goals. Gets flags instead of goals."""
+    build_flags = []
+    for flag, build_contexts in self._build_config_map[
+        build_target].build_flags:
+      if not build_contexts:
+        build_flags.append(flag)
+      elif build_contexts.intersection(contexts):
+        build_flags.append(flag)
+
+    return build_flags
+
   def get_rw_allowlist_map(self):
     """Return read-write allowlist map.
 
@@ -478,19 +501,18 @@ class Config:
       overlay names corresponding to the target.
     """
     return {
-        b.name : [o.name for o in b.overlays
-                 ] for b in self._build_config_map.values()
+        b.name: [o.name for o in b.overlays
+                ] for b in self._build_config_map.values()
     }
-
 
   def get_fs_view_map(self):
     """Return the filesystem view map.
+
     Returns:
       A dict of filesystem views keyed by target name. A filesystem view is a
       list of (source, destination) string path tuples.
     """
-    return {b.name : b.views for b in self._build_config_map.values()}
-
+    return {b.name: b.views for b in self._build_config_map.values()}
 
   def get_build_config(self, build_target):
     return self._build_config_map[build_target]

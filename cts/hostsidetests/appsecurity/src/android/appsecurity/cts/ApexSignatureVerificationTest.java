@@ -19,6 +19,8 @@ package android.appsecurity.cts;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import static org.junit.Assume.assumeTrue;
+
 import android.platform.test.annotations.RestrictedBuildTest;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -190,10 +192,13 @@ public class ApexSignatureVerificationTest extends BaseHostJUnit4Test {
         try {
             apexes = mDevice.getActiveApexes();
             for (ITestDevice.ApexInfo ap : apexes) {
-                mPreloadedApexPathMap.put(ap.name, ap.sourceDir);
+                if (!ap.sourceDir.startsWith("/data/")) {
+                    mPreloadedApexPathMap.put(ap.name, ap.sourceDir);
+                }
             }
 
-            assertThat(mPreloadedApexPathMap.size()).isAtLeast(0);
+            assumeTrue("No active APEX packages or all APEX packages have been already updated",
+                    mPreloadedApexPathMap.size() > 0);
         } catch (DeviceNotAvailableException e) {
             throw new AssertionError("getApexPackageList DeviceNotAvailableException" + e);
         }

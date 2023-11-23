@@ -31,7 +31,7 @@ class KeyAuthentication {
   public:
     KeyAuthentication(const std::string& s) : secret{s} {};
 
-    bool usesKeymaster() const { return secret.empty(); };
+    bool usesKeystore() const { return secret.empty(); };
 
     const std::string secret;
 };
@@ -41,11 +41,9 @@ extern const KeyAuthentication kEmptyAuthentication;
 bool createSecdiscardable(const std::string& path, std::string* hash);
 bool readSecdiscardable(const std::string& path, std::string* hash);
 
-// Create a directory at the named path, and store "key" in it,
-// in such a way that it can only be retrieved via Keymaster and
-// can be securely deleted.
-// It's safe to move/rename the directory after creation.
-bool storeKey(const std::string& dir, const KeyAuthentication& auth, const KeyBuffer& key);
+// Renames a key directory while also managing deferred commits appropriately.
+// This method should be used whenever a key directory needs to be moved/renamed.
+bool RenameKeyDir(const std::string& old_name, const std::string& new_name);
 
 // Create a directory at the named path, and store "key" in it as storeKey
 // This version creates the key in "tmp_path" then atomically renames "tmp_path"
@@ -63,10 +61,10 @@ bool destroyKey(const std::string& dir);
 
 bool runSecdiscardSingle(const std::string& file);
 
-// Generate wrapped storage key using keymaster. Uses STORAGE_KEY tag in keymaster.
+// Generate wrapped storage key using keystore. Uses STORAGE_KEY tag in keystore.
 bool generateWrappedStorageKey(KeyBuffer* key);
-// Export the per-boot boot wrapped storage key using keymaster.
-bool exportWrappedStorageKey(const KeyBuffer& kmKey, KeyBuffer* key);
+// Export the per-boot boot wrapped storage key using keystore.
+bool exportWrappedStorageKey(const KeyBuffer& ksKey, KeyBuffer* key);
 
 // Set a seed to be mixed into all key storage encryption keys.
 bool setKeyStorageBindingSeed(const std::vector<uint8_t>& seed);

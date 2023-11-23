@@ -30,13 +30,23 @@ extern "C" {
 // The maximum size we support for public keys in reader certificates.
 #define EIC_PRESENTATION_MAX_READER_PUBLIC_KEY_SIZE 65
 
+// Constant used to convey that no session is associated with a presentation.
+#define EIC_PRESENTATION_ID_UNSET 0
+
 typedef struct {
+    // A non-zero number unique for this EicPresentation instance
+    uint32_t id;
+
     int featureLevel;
 
     uint8_t storageKey[EIC_AES_128_KEY_SIZE];
     uint8_t credentialPrivateKey[EIC_P256_PRIV_KEY_SIZE];
 
     uint8_t ephemeralPrivateKey[EIC_P256_PRIV_KEY_SIZE];
+
+    // If non-zero (not EIC_PRESENTATION_ID_UNSET), the id of the EicSession object this
+    // presentation object is associated with.
+    uint32_t sessionId;
 
     // The challenge generated with eicPresentationCreateAuthChallenge()
     uint64_t authChallenge;
@@ -93,11 +103,20 @@ typedef struct {
     EicCbor cbor;
 } EicPresentation;
 
-bool eicPresentationInit(EicPresentation* ctx, bool testCredential, const char* docType,
+// If sessionId is zero (EIC_PRESENTATION_ID_UNSET), the presentation object is not associated
+// with a session object. Otherwise it's the id of the session object.
+//
+bool eicPresentationInit(EicPresentation* ctx, uint32_t sessionId, bool testCredential,
+                         const char* docType, size_t docTypeLength,
                          const uint8_t* encryptedCredentialKeys,
                          size_t encryptedCredentialKeysSize);
 
-bool eicPresentationGenerateSigningKeyPair(EicPresentation* ctx, const char* docType, time_t now,
+bool eicPresentationShutdown(EicPresentation* ctx);
+
+bool eicPresentationGetId(EicPresentation* ctx, uint32_t* outId);
+
+bool eicPresentationGenerateSigningKeyPair(EicPresentation* ctx, const char* docType,
+                                           size_t docTypeLength, time_t now,
                                            uint8_t* publicKeyCert, size_t* publicKeyCertSize,
                                            uint8_t signingKeyBlob[60]);
 
@@ -148,12 +167,17 @@ bool eicPresentationPushReaderCert(EicPresentation* ctx, const uint8_t* certX509
 // be called after pushing that certificate using
 // eicPresentationPushReaderCert().
 //
+// The scratchSpace should be set to a buffer at least 512 bytes. It's done
+// this way to avoid allocating stack space.
+//
 bool eicPresentationValidateAccessControlProfile(EicPresentation* ctx, int id,
                                                  const uint8_t* readerCertificate,
                                                  size_t readerCertificateSize,
                                                  bool userAuthenticationRequired, int timeoutMillis,
                                                  uint64_t secureUserId, const uint8_t mac[28],
-                                                 bool* accessGranted);
+                                                 bool* accessGranted,
+                                                 uint8_t* scratchSpace,
+                                                 size_t scratchSpaceSize);
 
 // Validates that the given requestMessage is signed by the public key in the
 // certificate last set with eicPresentationPushReaderCert().
@@ -196,7 +220,7 @@ bool eicPresentationCalcMacKey(EicPresentation* ctx, const uint8_t* sessionTrans
                                size_t sessionTranscriptSize,
                                const uint8_t readerEphemeralPublicKey[EIC_P256_PUB_KEY_SIZE],
                                const uint8_t signingKeyBlob[60], const char* docType,
-                               unsigned int numNamespacesWithValues,
+                               size_t docTypeLength, unsigned int numNamespacesWithValues,
                                size_t expectedDeviceNamespacesSize);
 
 // The scratchSpace should be set to a buffer at least 512 bytes (ideally 1024
@@ -204,9 +228,11 @@ bool eicPresentationCalcMacKey(EicPresentation* ctx, const uint8_t* sessionTrans
 // space.
 //
 EicAccessCheckResult eicPresentationStartRetrieveEntryValue(
-        EicPresentation* ctx, const char* nameSpace, const char* name,
-        unsigned int newNamespaceNumEntries, int32_t entrySize, const int* accessControlProfileIds,
-        size_t numAccessControlProfileIds, uint8_t* scratchSpace, size_t scratchSpaceSize);
+        EicPresentation* ctx, const char* nameSpace, size_t nameSpaceLength,
+        const char* name, size_t nameLength,
+        unsigned int newNamespaceNumEntries, int32_t entrySize,
+        const uint8_t* accessControlProfileIds, size_t numAccessControlProfileIds,
+        uint8_t* scratchSpace, size_t scratchSpaceSize);
 
 // Note: |content| must be big enough to hold |encryptedContentSize| - 28 bytes.
 //
@@ -215,9 +241,11 @@ EicAccessCheckResult eicPresentationStartRetrieveEntryValue(
 //
 bool eicPresentationRetrieveEntryValue(EicPresentation* ctx, const uint8_t* encryptedContent,
                                        size_t encryptedContentSize, uint8_t* content,
-                                       const char* nameSpace, const char* name,
-                                       const int* accessControlProfileIds,
-                                       size_t numAccessControlProfileIds, uint8_t* scratchSpace,
+                                       const char* nameSpace, size_t nameSpaceLength,
+                                       const char* name, size_t nameLength,
+                                       const uint8_t* accessControlProfileIds,
+                                       size_t numAccessControlProfileIds,
+                                       uint8_t* scratchSpace,
                                        size_t scratchSpaceSize);
 
 // Returns the HMAC-SHA256 of |ToBeMaced| as per RFC 8051 "6.3. How to Compute
@@ -229,7 +257,7 @@ bool eicPresentationFinishRetrieval(EicPresentation* ctx, uint8_t* digestToBeMac
 // the ToBeSigned CBOR from RFC 8051 "4.4. Signing and Verification Process"
 // where content is set to the ProofOfDeletion CBOR.
 //
-bool eicPresentationDeleteCredential(EicPresentation* ctx, const char* docType,
+bool eicPresentationDeleteCredential(EicPresentation* ctx, const char* docType, size_t docTypeLength,
                                      const uint8_t* challenge, size_t challengeSize,
                                      bool includeChallenge, size_t proofOfDeletionCborSize,
                                      uint8_t signatureOfToBeSigned[EIC_ECDSA_P256_SIGNATURE_SIZE]);
@@ -238,8 +266,8 @@ bool eicPresentationDeleteCredential(EicPresentation* ctx, const char* docType,
 // the ToBeSigned CBOR from RFC 8051 "4.4. Signing and Verification Process"
 // where content is set to the ProofOfOwnership CBOR.
 //
-bool eicPresentationProveOwnership(EicPresentation* ctx, const char* docType, bool testCredential,
-                                   const uint8_t* challenge, size_t challengeSize,
+bool eicPresentationProveOwnership(EicPresentation* ctx, const char* docType, size_t docTypeLength,
+                                   bool testCredential, const uint8_t* challenge, size_t challengeSize,
                                    size_t proofOfOwnershipCborSize,
                                    uint8_t signatureOfToBeSigned[EIC_ECDSA_P256_SIGNATURE_SIZE]);
 

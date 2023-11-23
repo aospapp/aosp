@@ -150,8 +150,9 @@ public final class ReportUtils {
                 atomTimestamp.add(Pair.create(atomInfo.getAtom(), timestampNs));
             }
         }
-        atomTimestamp.sort(Comparator.comparing(o -> o.second));
-        return atomTimestamp.stream().map(p -> p.first).collect(Collectors.toList());
+        return atomTimestamp.stream()
+                .sorted(Comparator.comparing(o -> o.second))
+                .map(p -> p.first).collect(Collectors.toList());
     }
 
     /**

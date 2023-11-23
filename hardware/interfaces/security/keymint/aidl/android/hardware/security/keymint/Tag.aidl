@@ -268,10 +268,6 @@ enum Tag {
     USAGE_EXPIRE_DATETIME = TagType.DATE | 402,
 
     /**
-     * TODO(seleneh) this tag need to be deleted.
-     *
-     * TODO(seleneh) this tag need to be deleted.
-     *
      * Tag::MIN_SECONDS_BETWEEN_OPS specifies the minimum amount of time that elapses between
      * allowed operations using a key.  This can be used to rate-limit uses of keys in contexts
      * where unlimited use may enable brute force attacks.
@@ -831,7 +827,7 @@ enum Tag {
     /**
      * DEVICE_UNIQUE_ATTESTATION is an argument to IKeyMintDevice::attested key generation/import
      * operations.  It indicates that attestation using a device-unique key is requested, rather
-     * than a batch key. When a device-unique key is used, the returned chain contains two or
+     * than a batch key. When a device-unique key is used, the returned chain should contain two or
      * three certificates.
      *
      * In case the chain contains two certificates, they should be:
@@ -844,7 +840,8 @@ enum Tag {
      *      KeyCreationResult.aidl, signed by the device-unique key.
      *    * An intermediate certificate, containing the public portion of the device-unique key.
      *    * A self-signed root certificate, signed by a dedicated key, certifying the
-     *      intermediate.
+     *      intermediate. Ideally, the dedicated key would be the same for all StrongBox
+     *      instances of the same manufacturer to ease validation.
      *
      * No additional chained certificates are provided. Only SecurityLevel::STRONGBOX
      * IKeyMintDevices may support device-unique attestations.  SecurityLevel::TRUSTED_ENVIRONMENT

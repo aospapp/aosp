@@ -34,11 +34,19 @@ public class SELinuxTargetSdkTest extends SELinuxTargetSdkTestBase
     }
 
     public void testNoNetlinkRouteGetlink() throws IOException {
-        checkNetlinkRouteGetlink(false);
+        noNetlinkRouteGetlink();
     }
 
     public void testNoNetlinkRouteBind() throws IOException {
-        checkNetlinkRouteBind(false);
+        noNetlinkRouteBind();
+    }
+
+    public void testNoNetlinkRouteGetneigh() throws IOException {
+        checkNetlinkRouteGetneigh(false);
+    }
+
+    public void testNoHardwareAddress() throws Exception {
+        checkNetworkInterfaceHardwareAddress_returnsNull();
     }
 
     public void testCanNotExecuteFromHomeDir() throws Exception {
@@ -51,10 +59,11 @@ public class SELinuxTargetSdkTest extends SELinuxTargetSdkTestBase
      */
     public void testAppDomainContext() throws IOException {
         String context = "u:r:untrusted_app:s0:c[0-9]+,c[0-9]+,c[0-9]+,c[0-9]+";
-        String msg = "Untrusted apps with targetSdkVersion 29 and above " +
+        String msg = "Untrusted apps with targetSdkVersion 32 and above " +
             "must run in the untrusted_app selinux domain and use the levelFrom=all " +
             "selector in SELinux seapp_contexts which adds four category types " +
-            "to the app's selinux context.\n" +
+            "to the app's selinux context. This test is targeting API level " +
+            getContext().getApplicationInfo().targetSdkVersion + ".\n" +
             "Example expected value: u:r:untrusted_app:s0:c89,c256,c512,c768\n" +
             "Actual value: ";
         appDomainContext(context, msg);

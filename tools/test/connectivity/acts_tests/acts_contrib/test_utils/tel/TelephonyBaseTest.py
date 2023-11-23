@@ -24,73 +24,67 @@ import shutil
 import time
 
 from acts import asserts
-from acts import logger as acts_logger
 from acts import signals
 from acts.base_test import BaseTestClass
 from acts.controllers.android_device import DEFAULT_QXDM_LOG_PATH
-from acts.controllers.android_device import DEFAULT_SDM_LOG_PATH
 from acts.keys import Config
 from acts import records
 from acts import utils
-
-from acts_contrib.test_utils.tel.tel_subscription_utils import \
-    initial_set_up_for_subid_infomation
-from acts_contrib.test_utils.tel.tel_subscription_utils import \
-    set_default_sub_for_all_services
-from acts_contrib.test_utils.tel.tel_subscription_utils import get_subid_from_slot_index
-from acts_contrib.test_utils.tel.tel_test_utils import build_id_override
-from acts_contrib.test_utils.tel.tel_test_utils import disable_qxdm_logger
-from acts_contrib.test_utils.tel.tel_test_utils import enable_connectivity_metrics
-from acts_contrib.test_utils.tel.tel_test_utils import enable_radio_log_on
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_phone_default_state
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_phone_idle
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_wifi_connected
-from acts_contrib.test_utils.tel.tel_test_utils import force_connectivity_metrics_upload
-from acts_contrib.test_utils.tel.tel_test_utils import get_operator_name
-from acts_contrib.test_utils.tel.tel_test_utils import get_screen_shot_log
-from acts_contrib.test_utils.tel.tel_test_utils import get_sim_state
-from acts_contrib.test_utils.tel.tel_test_utils import get_tcpdump_log
-from acts_contrib.test_utils.tel.tel_test_utils import multithread_func
-from acts_contrib.test_utils.tel.tel_test_utils import print_radio_info
-from acts_contrib.test_utils.tel.tel_test_utils import reboot_device
-from acts_contrib.test_utils.tel.tel_test_utils import recover_build_id
-from acts_contrib.test_utils.tel.tel_test_utils import run_multithread_func
-from acts_contrib.test_utils.tel.tel_test_utils import setup_droid_properties
-from acts_contrib.test_utils.tel.tel_test_utils import set_phone_screen_on
-from acts_contrib.test_utils.tel.tel_test_utils import set_phone_silent_mode
-from acts_contrib.test_utils.tel.tel_test_utils import set_qxdm_logger_command
-from acts_contrib.test_utils.tel.tel_test_utils import start_qxdm_logger
-from acts_contrib.test_utils.tel.tel_test_utils import start_qxdm_loggers
-from acts_contrib.test_utils.tel.tel_test_utils import start_sdm_loggers
-from acts_contrib.test_utils.tel.tel_test_utils import start_sdm_logger
-from acts_contrib.test_utils.tel.tel_test_utils import start_tcpdumps
-from acts_contrib.test_utils.tel.tel_test_utils import stop_qxdm_logger
-from acts_contrib.test_utils.tel.tel_test_utils import stop_sdm_loggers
-from acts_contrib.test_utils.tel.tel_test_utils import stop_sdm_logger
-from acts_contrib.test_utils.tel.tel_test_utils import stop_tcpdumps
-from acts_contrib.test_utils.tel.tel_test_utils import synchronize_device_time
-from acts_contrib.test_utils.tel.tel_test_utils import unlock_sim
-from acts_contrib.test_utils.tel.tel_test_utils import wait_for_sim_ready_by_adb
-from acts_contrib.test_utils.tel.tel_test_utils import wait_for_sims_ready_by_adb
-from acts_contrib.test_utils.tel.tel_test_utils import activate_wfc_on_device
-from acts_contrib.test_utils.tel.tel_test_utils import install_googleaccountutil_apk
-from acts_contrib.test_utils.tel.tel_test_utils import add_google_account
-from acts_contrib.test_utils.tel.tel_test_utils import install_googlefi_apk
-from acts_contrib.test_utils.tel.tel_test_utils import activate_google_fi_account
-from acts_contrib.test_utils.tel.tel_test_utils import check_google_fi_activated
-from acts_contrib.test_utils.tel.tel_test_utils import check_fi_apk_installed
-from acts_contrib.test_utils.tel.tel_test_utils import phone_switch_to_msim_mode
-from acts_contrib.test_utils.tel.tel_test_utils import activate_esim_using_suw
+from acts.libs.utils.multithread import multithread_func
+from acts.libs.utils.multithread import run_multithread_func
 from acts_contrib.test_utils.tel.tel_defines import PRECISE_CALL_STATE_LISTEN_LEVEL_BACKGROUND
 from acts_contrib.test_utils.tel.tel_defines import SINGLE_SIM_CONFIG, MULTI_SIM_CONFIG
 from acts_contrib.test_utils.tel.tel_defines import PRECISE_CALL_STATE_LISTEN_LEVEL_FOREGROUND
 from acts_contrib.test_utils.tel.tel_defines import PRECISE_CALL_STATE_LISTEN_LEVEL_RINGING
 from acts_contrib.test_utils.tel.tel_defines import SIM_STATE_ABSENT
 from acts_contrib.test_utils.tel.tel_defines import SIM_STATE_UNKNOWN
-from acts_contrib.test_utils.tel.tel_defines import WIFI_VERBOSE_LOGGING_ENABLED
 from acts_contrib.test_utils.tel.tel_defines import WIFI_VERBOSE_LOGGING_DISABLED
 from acts_contrib.test_utils.tel.tel_defines import INVALID_SUB_ID
 from acts_contrib.test_utils.tel.tel_defines import CHIPSET_MODELS_LIST
+from acts_contrib.test_utils.tel.tel_bootloader_utils import flash_radio
+from acts_contrib.test_utils.tel.tel_ims_utils import activate_wfc_on_device
+from acts_contrib.test_utils.tel.tel_logging_utils import disable_qxdm_logger
+from acts_contrib.test_utils.tel.tel_logging_utils import get_screen_shot_log
+from acts_contrib.test_utils.tel.tel_logging_utils import set_qxdm_logger_command
+from acts_contrib.test_utils.tel.tel_logging_utils import start_dsp_logger_p21
+from acts_contrib.test_utils.tel.tel_logging_utils import start_qxdm_logger
+from acts_contrib.test_utils.tel.tel_logging_utils import start_qxdm_loggers
+from acts_contrib.test_utils.tel.tel_logging_utils import stop_qxdm_logger
+from acts_contrib.test_utils.tel.tel_logging_utils import start_sdm_loggers
+from acts_contrib.test_utils.tel.tel_logging_utils import start_sdm_logger
+from acts_contrib.test_utils.tel.tel_logging_utils import stop_sdm_logger
+from acts_contrib.test_utils.tel.tel_logging_utils import start_tcpdumps
+from acts_contrib.test_utils.tel.tel_logging_utils import stop_tcpdumps
+from acts_contrib.test_utils.tel.tel_logging_utils import get_tcpdump_log
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_phone_default_state
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_phone_idle
+from acts_contrib.test_utils.tel.tel_subscription_utils import initial_set_up_for_subid_information
+from acts_contrib.test_utils.tel.tel_subscription_utils import set_default_sub_for_all_services
+from acts_contrib.test_utils.tel.tel_subscription_utils import get_subid_from_slot_index
+from acts_contrib.test_utils.tel.tel_test_utils import build_id_override
+from acts_contrib.test_utils.tel.tel_test_utils import enable_connectivity_metrics
+from acts_contrib.test_utils.tel.tel_test_utils import enable_radio_log_on
+from acts_contrib.test_utils.tel.tel_test_utils import force_connectivity_metrics_upload
+from acts_contrib.test_utils.tel.tel_test_utils import get_sim_state
+from acts_contrib.test_utils.tel.tel_test_utils import install_apk
+from acts_contrib.test_utils.tel.tel_test_utils import print_radio_info
+from acts_contrib.test_utils.tel.tel_test_utils import reboot_device
+from acts_contrib.test_utils.tel.tel_test_utils import recover_build_id
+from acts_contrib.test_utils.tel.tel_test_utils import setup_droid_properties
+from acts_contrib.test_utils.tel.tel_test_utils import set_phone_screen_on
+from acts_contrib.test_utils.tel.tel_test_utils import set_phone_silent_mode
+from acts_contrib.test_utils.tel.tel_test_utils import synchronize_device_time
+from acts_contrib.test_utils.tel.tel_test_utils import unlock_sim
+from acts_contrib.test_utils.tel.tel_test_utils import wait_for_sim_ready_by_adb
+from acts_contrib.test_utils.tel.tel_test_utils import wait_for_sims_ready_by_adb
+from acts_contrib.test_utils.tel.tel_test_utils import install_googleaccountutil_apk
+from acts_contrib.test_utils.tel.tel_test_utils import add_google_account
+from acts_contrib.test_utils.tel.tel_test_utils import install_googlefi_apk
+from acts_contrib.test_utils.tel.tel_test_utils import activate_google_fi_account
+from acts_contrib.test_utils.tel.tel_test_utils import check_google_fi_activated
+from acts_contrib.test_utils.tel.tel_test_utils import phone_switch_to_msim_mode
+from acts_contrib.test_utils.tel.tel_test_utils import activate_esim_using_suw
+from acts_contrib.test_utils.tel.tel_wifi_utils import ensure_wifi_connected
 
 
 class TelephonyBaseTest(BaseTestClass):
@@ -164,6 +158,7 @@ class TelephonyBaseTest(BaseTestClass):
         self.log_path = getattr(logging, "log_path", None)
         self.qxdm_log = self.user_params.get("qxdm_log", True)
         self.sdm_log = self.user_params.get("sdm_log", False)
+        self.dsp_log_p21 = self.user_params.get("dsp_log_p21", False)
         self.enable_radio_log_on = self.user_params.get(
             "enable_radio_log_on", False)
         self.cbrs_esim = self.user_params.get("cbrs_esim", False)
@@ -174,6 +169,32 @@ class TelephonyBaseTest(BaseTestClass):
         self.fi_util = self.user_params.get("fi_util", None)
         if isinstance(self.fi_util, list):
             self.fi_util = self.fi_util[0]
+        self.radio_img = self.user_params.get("radio_img", None)
+        if isinstance(self.radio_img, list):
+            self.radio_img = self.radio_img[0]
+        self.modem_bin = self.user_params.get("modem_bin", None)
+        if isinstance(self.modem_bin, list):
+            self.modem_bin = self.modem_bin[0]
+        self.extra_apk = self.user_params.get("extra_apk", None)
+        if isinstance(self.extra_apk, list):
+            self.extra_apk = self.extra_apk[0]
+        self.extra_package = self.user_params.get("extra_package", None)
+
+        if self.radio_img or self.modem_bin:
+            sideload_img = True
+            if self.radio_img:
+                file_path = self.radio_img
+            elif self.modem_bin:
+                file_path = self.modem_bin
+                sideload_img = False
+            tasks = [(flash_radio, [ad, file_path, True, sideload_img])
+                     for ad in self.android_devices]
+            multithread_func(self.log, tasks)
+        if self.extra_apk and self.extra_package:
+            tasks = [(install_apk, [ad, self.extra_apk, self.extra_package])
+                     for ad in self.android_devices]
+            multithread_func(self.log, tasks)
+
         tasks = [(self._init_device, [ad]) for ad in self.android_devices]
         multithread_func(self.log, tasks)
         self.skip_reset_between_cases = self.user_params.get(
@@ -237,6 +258,7 @@ class TelephonyBaseTest(BaseTestClass):
     def _setup_device(self, ad, sim_conf_file, qxdm_log_mask_cfg=None):
         ad.qxdm_log = getattr(ad, "qxdm_log", self.qxdm_log)
         ad.sdm_log = getattr(ad, "sdm_log", self.sdm_log)
+        ad.dsp_log_p21 = getattr(ad, "dsp_log_p21", self.dsp_log_p21)
         if self.user_params.get("enable_connectivity_metrics", False):
             enable_connectivity_metrics(ad)
         if self.user_params.get("build_id_override", False):
@@ -259,6 +281,8 @@ class TelephonyBaseTest(BaseTestClass):
                              % phone_mode)
                 reboot_device(ad)
 
+        if ad.dsp_log_p21:
+            start_dsp_logger_p21(ad)
         stop_qxdm_logger(ad)
         if ad.qxdm_log:
             qxdm_log_mask = getattr(ad, "qxdm_log_mask", None)
@@ -337,7 +361,7 @@ class TelephonyBaseTest(BaseTestClass):
         activate_wfc_on_device(self.log, ad)
 
         # Sub ID setup
-        initial_set_up_for_subid_infomation(self.log, ad)
+        initial_set_up_for_subid_information(self.log, ad)
 
 
         #try:
@@ -456,7 +480,8 @@ class TelephonyBaseTest(BaseTestClass):
             start_qxdm_loggers(self.log, self.android_devices, self.begin_time)
         if getattr(self, "sdm_log", False):
             start_sdm_loggers(self.log, self.android_devices)
-        if getattr(self, "tcpdump_log", False) or "wfc" in self.test_name:
+        if getattr(self, "tcpdump_log", False) or "wfc" in self.test_name or (
+            "iwlan" in self.test_name):
             mask = getattr(self, "tcpdump_mask", "all")
             interface = getattr(self, "tcpdump_interface", "wlan0")
             start_tcpdumps(
@@ -483,6 +508,11 @@ class TelephonyBaseTest(BaseTestClass):
         stop_tcpdumps(self.android_devices)
 
     def on_fail(self, test_name, begin_time):
+        for ad in self.android_devices:
+            # open Phone information page
+            ad.adb.shell("am start -n com.android.phone/.settings.RadioInfo")
+            time.sleep(3)
+            ad.screenshot(f"{ad.serial}_last_screen")
         self._take_bug_report(test_name, begin_time)
 
     def on_pass(self, test_name, begin_time):

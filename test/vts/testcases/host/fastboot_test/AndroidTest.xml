@@ -18,7 +18,7 @@
     <option name="test-suite-tag" value="apct-junit" />
 
     <object type="module_controller" class="com.android.tradefed.testtype.suite.module.ShippingApiLevelModuleController">
-        <option name="min-api-level" value="29" />
+        <option name="vsr-min-api-level" value="31" />
         <!-- TODO(b/146645516): remove this config after the bug is fixed. -->
         <option name="logcat-on-failure" value="false" />
     </object>

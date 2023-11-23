@@ -68,7 +68,9 @@ struct ChppWwanClientState {
 
   struct ChppRequestResponseState rRState[CHPP_WWAN_CLIENT_REQUEST_MAX + 1];
 
-  uint32_t capabilities;  // Cached GetCapabilities result
+  uint32_t capabilities;   // Cached GetCapabilities result
+  bool capabilitiesValid;  // Flag to indicate if the capabilities result
+                           // is valid
 };
 
 // Note: This global definition of gWwanClientContext supports only one
@@ -302,8 +304,7 @@ static void chppWwanCloseResult(struct ChppWwanClientState *clientContext,
 static void chppWwanGetCapabilitiesResult(
     struct ChppWwanClientState *clientContext, uint8_t *buf, size_t len) {
   if (len < sizeof(struct ChppWwanGetCapabilitiesResponse)) {
-    struct ChppAppHeader *rxHeader = (struct ChppAppHeader *)buf;
-    CHPP_LOGE("GetCapabilities resp. too short. err=%" PRIu8, rxHeader->error);
+    CHPP_LOGE("Bad WWAN capabilities len=%" PRIuSIZE, len);
 
   } else {
     struct ChppWwanGetCapabilitiesParameters *result =
@@ -312,12 +313,15 @@ static void chppWwanGetCapabilitiesResult(
     CHPP_LOGD("chppWwanGetCapabilitiesResult received capabilities=0x%" PRIx32,
               result->capabilities);
 
-#ifdef CHPP_WWAN_DEFAULT_CAPABILITIES
-    CHPP_ASSERT_LOG((result->capabilities == CHPP_WWAN_DEFAULT_CAPABILITIES),
-                    "Unexpected capability 0x%" PRIx32 " != 0x%" PRIx32,
-                    result->capabilities, CHPP_WWAN_DEFAULT_CAPABILITIES);
-#endif
+    // TODO(b/229758746): Disable assertion on WWAN side until it's fixed
+    // CHPP_ASSERT((result->capabilities & CHPP_WWAN_DEFAULT_CAPABILITIES) ==
+    //             CHPP_WWAN_DEFAULT_CAPABILITIES);
+    if (result->capabilities != CHPP_WWAN_DEFAULT_CAPABILITIES) {
+      CHPP_LOGE("WWAN capabilities 0x%" PRIx32 " != 0x%" PRIx32,
+                result->capabilities, CHPP_WWAN_DEFAULT_CAPABILITIES);
+    }
 
+    clientContext->capabilitiesValid = true;
     clientContext->capabilities = result->capabilities;
   }
 }
@@ -337,19 +341,11 @@ static void chppWwanGetCellInfoAsyncResult(
   UNUSED_VAR(clientContext);
   CHPP_LOGD("chppWwanGetCellInfoAsyncResult received data len=%" PRIuSIZE, len);
 
-  struct ChppAppHeader *rxHeader = (struct ChppAppHeader *)buf;
   struct chreWwanCellInfoResult *chre = NULL;
   uint8_t errorCode = CHRE_ERROR;
 
   if (len == sizeof(struct ChppAppHeader)) {
-    // Short response length indicates an error
-    CHPP_LOGE("GetCellInfo resp. too short. err=%" PRIu8, rxHeader->error);
-
-    if (rxHeader->error == CHPP_APP_ERROR_NONE) {
-      errorCode = CHPP_APP_ERROR_INVALID_LENGTH;
-    } else {
-      errorCode = chppAppErrorToChreError(rxHeader->error);
-    }
+    errorCode = chppAppShortResponseErrorHandler(buf, len, "GetCellInfo");
 
   } else {
     buf += sizeof(struct ChppAppHeader);
@@ -358,8 +354,7 @@ static void chppWwanGetCellInfoAsyncResult(
         chppWwanCellInfoResultToChre((struct ChppWwanCellInfoResult *)buf, len);
 
     if (chre == NULL) {
-      CHPP_LOGE("Cell info conversion failed len=%" PRIuSIZE " err=%" PRIu8,
-                len, rxHeader->error);
+      CHPP_LOGE("Cell info conversion failed len=%" PRIuSIZE, len);
     }
   }
 
@@ -412,20 +407,23 @@ static bool chppWwanClientOpen(const struct chrePalSystemApi *systemApi,
   gCallbacks = callbacks;
 
   CHPP_LOGD("WWAN client opening");
+  if (gWwanClientContext.client.appContext == NULL) {
+    CHPP_LOGE("WWAN client app is null");
+  } else {
+    // Wait for discovery to complete for "open" call to succeed
+    if (chppWaitForDiscoveryComplete(gWwanClientContext.client.appContext,
+                                     CHPP_WWAN_DISCOVERY_TIMEOUT_MS)) {
+      result = chppClientSendOpenRequest(
+          &gWwanClientContext.client,
+          &gWwanClientContext.rRState[CHPP_WWAN_OPEN], CHPP_WWAN_OPEN,
+          /*blocking=*/true);
+    }
 
-  // Wait for discovery to complete for "open" call to succeed
-  if (chppWaitForDiscoveryComplete(gWwanClientContext.client.appContext,
-                                   CHPP_WWAN_DISCOVERY_TIMEOUT_MS)) {
-    result = chppClientSendOpenRequest(
-        &gWwanClientContext.client, &gWwanClientContext.rRState[CHPP_WWAN_OPEN],
-        CHPP_WWAN_OPEN,
-        /*blocking=*/true);
+    // Since CHPP_WWAN_DEFAULT_CAPABILITIES is mandatory, we can always
+    // pseudo-open and return true. Otherwise, these should have been gated.
+    chppClientPseudoOpen(&gWwanClientContext.client);
+    result = true;
   }
-
-#ifdef CHPP_WWAN_CLIENT_OPEN_ALWAYS_SUCCESS
-  chppClientPseudoOpen(&gWwanClientContext.client);
-  result = true;
-#endif
 
   return result;
 }
@@ -446,6 +444,7 @@ static void chppWwanClientClose(void) {
                  sizeof(*request))) {
     gWwanClientContext.client.openState = CHPP_OPEN_STATE_CLOSED;
     gWwanClientContext.capabilities = CHRE_WWAN_CAPABILITIES_NONE;
+    gWwanClientContext.capabilitiesValid = false;
     chppClientCloseOpenRequests(&gWwanClientContext.client, &kWwanClientConfig,
                                 true /* clearOnly */);
   }
@@ -458,13 +457,9 @@ static void chppWwanClientClose(void) {
  * @return Capabilities flags.
  */
 static uint32_t chppWwanClientGetCapabilities(void) {
-#ifdef CHPP_WWAN_DEFAULT_CAPABILITIES
   uint32_t capabilities = CHPP_WWAN_DEFAULT_CAPABILITIES;
-#else
-  uint32_t capabilities = CHRE_WWAN_CAPABILITIES_NONE;
-#endif
 
-  if (gWwanClientContext.capabilities != CHRE_WWAN_CAPABILITIES_NONE) {
+  if (gWwanClientContext.capabilitiesValid) {
     // Result already cached
     capabilities = gWwanClientContext.capabilities;
 
@@ -480,7 +475,9 @@ static uint32_t chppWwanClientGetCapabilities(void) {
               &gWwanClientContext.rRState[CHPP_WWAN_GET_CAPABILITIES], request,
               sizeof(*request))) {
         // Success. gWwanClientContext.capabilities is now populated
-        capabilities = gWwanClientContext.capabilities;
+        if (gWwanClientContext.capabilitiesValid) {
+          capabilities = gWwanClientContext.capabilities;
+        }
       }
     }
   }

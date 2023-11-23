@@ -23,13 +23,15 @@ import (
 )
 
 var testCases = []struct {
-	name      string
-	input     string
-	output    string
-	property  string
-	addSet    string
-	removeSet string
-	setString *string
+	name           string
+	input          string
+	output         string
+	property       string
+	addSet         string
+	removeSet      string
+	addLiteral     *string
+	setString      *string
+	removeProperty bool
 }{
 	{
 		name: "add",
@@ -252,6 +254,25 @@ var testCases = []struct {
 		addSet:   "bar-v10-bar",
 	},
 	{
+		name:  "add a struct with literal",
+		input: `cc_foo {name: "foo"}`,
+		output: `cc_foo {
+    name: "foo",
+    structs: [
+        {
+            version: "1",
+            imports: [
+                "bar1",
+                "bar2",
+            ],
+        },
+    ],
+}
+`,
+		property:   "structs",
+		addLiteral: proptools.StringPtr(`{version: "1", imports: ["bar1", "bar2"]}`),
+	},
+	{
 		name: "set string",
 		input: `
 			cc_foo {
@@ -284,6 +305,56 @@ var testCases = []struct {
 		property:  "foo",
 		setString: proptools.StringPtr("bar"),
 	},
+	{
+		name: "remove existing property",
+		input: `
+			cc_foo {
+				name: "foo",
+				foo: "baz",
+			}
+		`,
+		output: `
+			cc_foo {
+				name: "foo",
+			}
+		`,
+		property:       "foo",
+		removeProperty: true,
+	}, {
+		name: "remove nested property",
+		input: `
+		cc_foo {
+			name: "foo",
+			foo: {
+				bar: "baz",
+			},
+		}
+	`,
+		output: `
+		cc_foo {
+			name: "foo",
+			foo: {},
+		}
+	`,
+		property:       "foo.bar",
+		removeProperty: true,
+	}, {
+		name: "remove non-existing property",
+		input: `
+			cc_foo {
+				name: "foo",
+				foo: "baz",
+			}
+		`,
+		output: `
+			cc_foo {
+				name: "foo",
+				foo: "baz",
+			}
+		`,
+		property:       "bar",
+		removeProperty: true,
+	},
 }
 
 func simplifyModuleDefinition(def string) string {
@@ -300,7 +371,9 @@ func TestProcessModule(t *testing.T) {
 			targetedProperty.Set(testCase.property)
 			addIdents.Set(testCase.addSet)
 			removeIdents.Set(testCase.removeSet)
+			removeProperty = &testCase.removeProperty
 			setString = testCase.setString
+			addLiteral = testCase.addLiteral
 
 			inAst, errs := parser.ParseAndEval("", strings.NewReader(testCase.input), parser.NewScope(nil))
 			if len(errs) > 0 {

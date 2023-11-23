@@ -16,8 +16,15 @@
 
 #pragma once
 
+#include "NetdPermissions.h"
+
+#include <android-base/stringprintf.h>
 #include <android-base/strings.h>
+#include <binder/IPCThreadState.h>
+#include <binder/IServiceManager.h>
+#include <binder/Status.h>
 #include <fmt/format.h>
+#include <private/android_filesystem_config.h>
 
 #ifdef ANDROID_BINDER_STATUS_H
 #define IS_BINDER_OK(__ex__) (__ex__ == ::android::binder::Status::EX_NONE)
@@ -39,7 +46,7 @@
 
 #endif
 
-std::string exceptionToString(int32_t exception) {
+inline std::string exceptionToString(int32_t exception) {
     switch (exception) {
         EXCEPTION_TO_STRING(EX_SECURITY, "SecurityException")
         EXCEPTION_TO_STRING(EX_BAD_PARCELABLE, "BadParcelableException")
@@ -99,4 +106,55 @@ void binderCallLogFn(const LogType& log, const LogFn& logFn) {
 
     // escape newline characters to avoid multiline log entries
     logFn(::android::base::StringReplace(output, "\n", "\\n", true));
+}
+
+// The input permissions should be equivalent that this function would return ok if any of them is
+// granted.
+inline android::binder::Status checkAnyPermission(const std::vector<const char*>& permissions) {
+    pid_t pid = android::IPCThreadState::self()->getCallingPid();
+    uid_t uid = android::IPCThreadState::self()->getCallingUid();
+
+    // TODO: Do the pure permission check in this function. Have another method
+    // (e.g. checkNetworkStackPermission) to wrap AID_SYSTEM and
+    // AID_NETWORK_STACK uid check.
+    // If the caller is the system UID, don't check permissions.
+    // Otherwise, if the system server's binder thread pool is full, and all the threads are
+    // blocked on a thread that's waiting for us to complete, we deadlock. http://b/69389492
+    //
+    // From a security perspective, there is currently no difference, because:
+    // 1. The system server has the NETWORK_STACK permission, which grants access to all the
+    //    IPCs in this file.
+    // 2. AID_SYSTEM always has all permissions. See ActivityManager#checkComponentPermission.
+    if (uid == AID_SYSTEM) {
+        return android::binder::Status::ok();
+    }
+    // AID_NETWORK_STACK own MAINLINE_NETWORK_STACK permission, don't IPC to system server to check
+    // MAINLINE_NETWORK_STACK permission. Cross-process(netd, networkstack and system server)
+    // deadlock: http://b/149766727
+    if (uid == AID_NETWORK_STACK) {
+        for (const char* permission : permissions) {
+            if (std::strcmp(permission, PERM_MAINLINE_NETWORK_STACK) == 0) {
+                return android::binder::Status::ok();
+            }
+        }
+    }
+
+    for (const char* permission : permissions) {
+        if (checkPermission(android::String16(permission), pid, uid)) {
+            return android::binder::Status::ok();
+        }
+    }
+
+    auto err = android::base::StringPrintf(
+            "UID %d / PID %d does not have any of the following permissions: %s", uid, pid,
+            android::base::Join(permissions, ',').c_str());
+    return android::binder::Status::fromExceptionCode(android::binder::Status::EX_SECURITY,
+                                                      err.c_str());
+}
+
+inline android::binder::Status statusFromErrcode(int ret) {
+    if (ret) {
+        return android::binder::Status::fromServiceSpecificError(-ret, strerror(-ret));
+    }
+    return android::binder::Status::ok();
 }

@@ -32,6 +32,42 @@ public class LongSummaryStatisticsTest extends junit.framework.TestCase {
         assertEquals(Long.MIN_VALUE, lss.getMax());
     }
 
+    public void test_bad_count() {
+        try {
+            new LongSummaryStatistics(-1, 0, 0, 0);
+            fail();
+        } catch (IllegalArgumentException e) {
+            assertEquals(e.getMessage(), "Negative count value");
+        }
+    }
+
+    public void test_bad_min_max() {
+        try {
+            new LongSummaryStatistics(2, 2, 0, 0);
+            fail();
+        } catch (IllegalArgumentException e) {
+            assertEquals(e.getMessage(), "Minimum greater than maximum");
+        }
+    }
+
+    public void test_defaults_when_count_is_zero() {
+        LongSummaryStatistics lss = new LongSummaryStatistics(0, 1, 10, 30);
+        assertEquals(0, lss.getCount());
+        assertEquals(0, lss.getSum());
+        assertEquals(0.0d, lss.getAverage());
+        assertEquals(Long.MAX_VALUE, lss.getMin());
+        assertEquals(Long.MIN_VALUE, lss.getMax());
+    }
+
+    public void test_filled_constructor() {
+        LongSummaryStatistics lss = new LongSummaryStatistics(9, 1, 5, 25);
+        assertEquals(9, lss.getCount());
+        assertEquals(25, lss.getSum());
+        assertEquals(1, lss.getMin());
+        assertEquals(5, lss.getMax());
+    }
+
+
     public void test_accept() {
         LongSummaryStatistics lss = new LongSummaryStatistics();
 

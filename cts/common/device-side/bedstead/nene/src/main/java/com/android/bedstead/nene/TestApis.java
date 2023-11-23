@@ -16,13 +16,20 @@
 
 package com.android.bedstead.nene;
 
+import com.android.bedstead.nene.accessibility.Accessibility;
 import com.android.bedstead.nene.activities.Activities;
 import com.android.bedstead.nene.annotations.Experimental;
+import com.android.bedstead.nene.bluetooth.Bluetooth;
 import com.android.bedstead.nene.context.Context;
+import com.android.bedstead.nene.device.Device;
 import com.android.bedstead.nene.devicepolicy.DevicePolicy;
+import com.android.bedstead.nene.inputmethods.InputMethods;
+import com.android.bedstead.nene.instrumentation.Instrumentation;
+import com.android.bedstead.nene.location.Locations;
 import com.android.bedstead.nene.notifications.Notifications;
 import com.android.bedstead.nene.packages.Packages;
 import com.android.bedstead.nene.permissions.Permissions;
+import com.android.bedstead.nene.roles.Roles;
 import com.android.bedstead.nene.settings.Settings;
 import com.android.bedstead.nene.systemproperties.SystemProperties;
 import com.android.bedstead.nene.users.Users;
@@ -75,6 +82,47 @@ public final class TestApis {
     /** Access Test APIs related to notifications. */
     public static Notifications notifications() {
         return Notifications.sInstance;
+    }
+
+    /** Access Test APIs related to the device. */
+    public static Device device() {
+        return Device.sInstance;
+    }
+
+    /** Access Test APIs related to location. */
+    @Experimental
+    public static Locations location() {
+        return Locations.sInstance;
+    }
+
+    /** Access Test APIs related to accessibility. */
+    @Experimental
+    public static Accessibility accessibility() {
+        return Accessibility.sInstance;
+    }
+
+    /** Access Test APIs related to bluetooth. */
+    @Experimental
+    public static Bluetooth bluetooth() {
+        return Bluetooth.sInstance;
+    }
+
+    /** Access Test APIs related to input methods. */
+    @Experimental
+    public static InputMethods inputMethods() {
+        return InputMethods.sInstance;
+    }
+
+    /** Access Test APIs related to instrumentation. */
+    @Experimental
+    public static Instrumentation instrumentation() {
+        return Instrumentation.sInstance;
+    }
+
+    /** Access Test APIs related to roles. */
+    @Experimental
+    public static Roles roles() {
+        return Roles.sInstance;
     }
 
     /** @deprecated Use statically */

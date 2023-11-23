@@ -496,8 +496,7 @@ TEST(logcat, End_to_End_multitude) {
 
     ASSERT_LT(0, __android_log_btwrite(0, EVENT_TYPE_LONG, &ts, sizeof(ts)));
 
-    FILE* fp[256];  // does this count as a multitude!
-    memset(fp, 0, sizeof(fp));
+    FILE* fp[256] = {};  // does this count as a multitude!
     size_t num = 0;
     do {
         EXPECT_TRUE(NULL != (fp[num] = popen(logcat_executable " -v brief -b events -t 100", "r")));

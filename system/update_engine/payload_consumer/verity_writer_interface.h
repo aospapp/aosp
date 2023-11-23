@@ -39,8 +39,7 @@ class VerityWriterInterface {
   virtual bool Update(uint64_t offset, const uint8_t* buffer, size_t size) = 0;
 
   // Write hash tree && FEC data to underlying fd, if they are present
-  virtual bool Finalize(FileDescriptorPtr read_fd,
-                        FileDescriptorPtr write_fd) = 0;
+  virtual bool Finalize(FileDescriptor* read_fd, FileDescriptor* write_fd) = 0;
 
  protected:
   VerityWriterInterface() = default;

@@ -28,7 +28,7 @@ struct DumpVisitor : AidlVisitor {
   void DumpMembers(const AidlDefinedType& dt);
   void DumpComments(const AidlCommentable& c);
   void DumpAnnotations(const AidlAnnotatable& a);
-  virtual void DumpConstantValue(const AidlTypeSpecifier& type, const AidlConstantValue& c);
+  void DumpConstantValue(const AidlTypeSpecifier& type, const AidlConstantValue& c);
 
   void Visit(const AidlInterface& t) override;
   void Visit(const AidlParcelable& t) override;
@@ -38,7 +38,6 @@ struct DumpVisitor : AidlVisitor {
   void Visit(const AidlMethod& m) override;
   void Visit(const AidlVariableDeclaration& v) override;
   void Visit(const AidlConstantDeclaration& c) override;
-  void Visit(const AidlEnumerator& e) override;
   void Visit(const AidlTypeSpecifier& t) override;
 };
 

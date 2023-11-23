@@ -31,8 +31,8 @@ import androidx.test.runner.AndroidJUnit4;
 
 import com.google.common.collect.ImmutableList;
 
-import org.junit.Test;
 import org.junit.Before;
+import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RequiresDevice
@@ -41,9 +41,15 @@ import org.junit.runner.RunWith;
 public final class PermissionCarEnergyTest {
     private static final ImmutableList<Integer> PERMISSION_CAR_ENERGY_PROPERTIES =
             ImmutableList.<Integer>builder().add(
-                    VehiclePropertyIds.FUEL_LEVEL, VehiclePropertyIds.EV_BATTERY_LEVEL,
-                    VehiclePropertyIds.EV_BATTERY_INSTANTANEOUS_CHARGE_RATE,
-                    VehiclePropertyIds.RANGE_REMAINING, VehiclePropertyIds.FUEL_LEVEL_LOW)
+                            VehiclePropertyIds.FUEL_LEVEL, VehiclePropertyIds.EV_BATTERY_LEVEL,
+                            VehiclePropertyIds.EV_BATTERY_INSTANTANEOUS_CHARGE_RATE,
+                            VehiclePropertyIds.RANGE_REMAINING, VehiclePropertyIds.FUEL_LEVEL_LOW,
+                            VehiclePropertyIds.EV_CHARGE_CURRENT_DRAW_LIMIT,
+                            VehiclePropertyIds.EV_CHARGE_PERCENT_LIMIT,
+                            VehiclePropertyIds.EV_CHARGE_STATE,
+                            VehiclePropertyIds.EV_CHARGE_SWITCH,
+                            VehiclePropertyIds.EV_CHARGE_TIME_REMAINING,
+                            VehiclePropertyIds.EV_REGENERATIVE_BRAKING_STATE)
                     .build();
 
     private CarPropertyManager mCarPropertyManager;

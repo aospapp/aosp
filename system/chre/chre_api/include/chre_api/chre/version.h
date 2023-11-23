@@ -34,77 +34,92 @@ extern "C" {
 /**
  * Value for version 0.1 of the Context Hub Runtime Environment API interface.
  *
- * This is a legacy version.  Version 1.0 is considered the first official
- * version of the API.
+ * This is a legacy version of the CHRE API. Version 1.0 is considered the first
+ * official CHRE API version.
  *
  * @see CHRE_API_VERSION
  */
-#define CHRE_API_VERSION_0_1  UINT32_C(0x00010000)
+#define CHRE_API_VERSION_0_1 UINT32_C(0x00010000)
 
 /**
  * Value for version 1.0 of the Context Hub Runtime Environment API interface.
  *
- * The version of the CHRE API which shipped with the Android Nougat release.
+ * This version of the CHRE API shipped with the Android Nougat release.
  *
  * @see CHRE_API_VERSION
  */
-#define CHRE_API_VERSION_1_0  UINT32_C(0x01000000)
+#define CHRE_API_VERSION_1_0 UINT32_C(0x01000000)
 
 /**
  * Value for version 1.1 of the Context Hub Runtime Environment API interface.
  *
- * The version of the CHRE API shipped with the Android O release. It adds
+ * This version of the CHRE API shipped with the Android O release. It adds
  * initial support for new GNSS, WiFi, and WWAN modules.
  *
  * @see CHRE_API_VERSION
  */
-#define CHRE_API_VERSION_1_1  UINT32_C(0x01010000)
+#define CHRE_API_VERSION_1_1 UINT32_C(0x01010000)
 
 /**
  * Value for version 1.2 of the Context Hub Runtime Environment API interface.
  *
- * The version of the CHRE API shipped with the Android P release. It adds
+ * This version of the CHRE API shipped with the Android P release. It adds
  * initial support for the new audio module.
  *
  * @see CHRE_API_VERSION
  */
-#define CHRE_API_VERSION_1_2  UINT32_C(0x01020000)
+#define CHRE_API_VERSION_1_2 UINT32_C(0x01020000)
 
 /**
  * Value for version 1.3 of the Context Hub Runtime Environment API interface.
  *
- * The version of the CHRE API shipped with the Android Q release. It adds
+ * This version of the CHRE API shipped with the Android Q release. It adds
  * support for GNSS location altitude/speed/bearing accuracy. It also adds step
  * detect as a standard CHRE sensor and supports bias event delivery and sensor
  * data flushing.
  *
  * @see CHRE_API_VERSION
  */
-#define CHRE_API_VERSION_1_3  UINT32_C(0x01030000)
+#define CHRE_API_VERSION_1_3 UINT32_C(0x01030000)
 
 /**
  * Value for version 1.4 of the Context Hub Runtime Environment API interface.
  *
- * The version of the CHRE API shipped with the Android R release. It adds
+ * This version of the CHRE API shipped with the Android R release. It adds
  * support for collecting debug dump information from nanoapps, receiving L5
  * GNSS measurements, determining if a sensor supports passive requests,
  * receiving 5G cell info, and deprecates chreSendMessageToHost.
  *
  * @see CHRE_API_VERSION
  */
-#define CHRE_API_VERSION_1_4  UINT32_C(0x01040000)
+#define CHRE_API_VERSION_1_4 UINT32_C(0x01040000)
 
 /**
  * Value for version 1.5 of the Context Hub Runtime Environment API interface.
  *
- * The version of the CHRE API shipped with the Android S release.
+ * This version of the CHRE API shipped with the Android S release. It adds
+ * support for multiple sensors of the same type, permissions for sensitive CHRE
+ * APIs / data usage, ability to receive user settings updates, step counter and
+ * hinge angle sensors, improved WiFi scan preferences to support power
+ * optimization, new WiFi security types, increased the lower bound for the
+ * maximum CHRE to host message size, and increased GNSS measurements in
+ * chreGnssDataEvent.
+ *
+ * @see CHRE_API_VERSION
+ */
+#define CHRE_API_VERSION_1_5 UINT32_C(0x01050000)
+
+/**
+ * Value for version 1.6 of the Context Hub Runtime Environment API interface.
+ *
+ * This version of the CHRE API is shipped with the Android T release.
  *
  * @note This version of the CHRE API has not been finalized yet, and is
  * currently considered a preview that is subject to change.
  *
  * @see CHRE_API_VERSION
  */
-#define CHRE_API_VERSION_1_5  UINT32_C(0x01050000)
+#define CHRE_API_VERSION_1_6 UINT32_C(0x01060000)
 
 /**
  * Major and Minor Version of this Context Hub Runtime Environment API.
@@ -123,7 +138,7 @@ extern "C" {
  * Note that version numbers can always be numerically compared with
  * expected results, so 1.0.0 < 1.0.4 < 1.1.0 < 2.0.300 < 3.5.0.
  */
-#define CHRE_API_VERSION CHRE_API_VERSION_1_5
+#define CHRE_API_VERSION CHRE_API_VERSION_1_6
 
 /**
  * Utility macro to extract only the API major version of a composite CHRE
@@ -135,7 +150,7 @@ extern "C" {
  * @return The API major version in the least significant byte, e.g. 0x01
  */
 #define CHRE_EXTRACT_MAJOR_VERSION(version) \
-    (((version) & UINT32_C(0xFF000000)) >> 24)
+  (uint32_t)(((version) & UINT32_C(0xFF000000)) >> 24)
 
 /**
  * Utility macro to extract only the API minor version of a composite CHRE
@@ -146,7 +161,7 @@ extern "C" {
  * @return The API minor version in the least significant byte, e.g. 0x01
  */
 #define CHRE_EXTRACT_MINOR_VERSION(version) \
-    (((version) & UINT32_C(0x00FF0000)) >> 16)
+  (uint32_t)(((version) & UINT32_C(0x00FF0000)) >> 16)
 
 /**
  * Utility macro to extract only the API minor version of a composite CHRE
@@ -158,8 +173,7 @@ extern "C" {
  * @return The implementation patch version in the least significant two bytes,
  *     e.g. 0x0123, with all other bytes set to 0
  */
-#define CHRE_EXTRACT_PATCH_VERSION(version)  ((version) & UINT32_C(0xFFFF))
-
+#define CHRE_EXTRACT_PATCH_VERSION(version) (uint32_t)((version) & UINT32_C(0xFFFF))
 
 /**
  * Get the API version the CHRE implementation was compiled against.
@@ -213,10 +227,8 @@ uint32_t chreGetVersion(void);
  */
 uint64_t chreGetPlatformId(void);
 
-
 #ifdef __cplusplus
 }
 #endif
 
-#endif  /* _CHRE_VERSION_H_ */
-
+#endif /* _CHRE_VERSION_H_ */

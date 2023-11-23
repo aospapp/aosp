@@ -20,7 +20,11 @@ package {
 
 cc_test {
     name: "VtsHalWifiKeystoreV1_0TargetTest",
-    defaults: ["VtsHalTargetTestDefaults"],
+    defaults: [
+        "VtsHalTargetTestDefaults",
+        "keymint_use_latest_hal_aidl_ndk_static",
+        "keystore2_use_latest_aidl_ndk_static",
+    ],
     srcs: [
         "VtsHalWifiKeystoreV1_0TargetTest.cpp",
     ],
@@ -35,8 +39,6 @@ cc_test {
     ],
     static_libs: [
         "VtsHalHidlTargetTestBase",
-        "android.hardware.security.keymint-V1-ndk_platform",
-        "android.system.keystore2-V1-ndk_platform",
         "android.system.wifi.keystore@1.0",
         "libkeymint_support",
     ],

@@ -169,36 +169,29 @@ public abstract class AudioColdStartBaseActivity
     //
     @Override
     public void onClick(View v) {
-        switch (v.getId()) {
-            case R.id.audioJavaApiBtn:
-                stopAudioTest();
-                updateTestStateButtons();
-                clearResults();
-                mAudioApi = BuilderBase.TYPE_JAVA;
-                break;
+        int id = v.getId();
+        if (id == R.id.audioJavaApiBtn) {
+            stopAudioTest();
+            updateTestStateButtons();
+            clearResults();
+            mAudioApi = BuilderBase.TYPE_JAVA;
+        } else if (id == R.id.audioNativeApiBtn) {
+            stopAudioTest();
+            updateTestStateButtons();
+            clearResults();
+            mAudioApi = BuilderBase.TYPE_OBOE;
+        } else if (id == R.id.coldstart_start_btn) {
+            startAudioTest();
 
-            case R.id.audioNativeApiBtn:
-                stopAudioTest();
-                updateTestStateButtons();
-                clearResults();
-                mAudioApi = BuilderBase.TYPE_OBOE;
-                break;
+            showAttributes();
+            showOpenTime();
+            showStartTime();
 
-            case R.id.coldstart_start_btn:
-                startAudioTest();
+            updateTestStateButtons();
+        } else if (id == R.id.coldstart_stop_btn) {
+            stopAudioTest();
 
-                showAttributes();
-                showOpenTime();
-                showStartTime();
-
-                updateTestStateButtons();
-                break;
-
-            case R.id.coldstart_stop_btn:
-                stopAudioTest();
-
-                updateTestStateButtons();
-                break;
+            updateTestStateButtons();
         }
     }
 }

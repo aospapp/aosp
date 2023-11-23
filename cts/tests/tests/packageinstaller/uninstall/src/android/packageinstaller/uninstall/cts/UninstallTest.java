@@ -34,9 +34,11 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.RemoteException;
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.AsbSecurityTest;
 import android.support.test.uiautomator.By;
+import android.support.test.uiautomator.SearchCondition;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.Until;
@@ -60,6 +62,7 @@ import org.junit.runner.RunWith;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.TimeUnit;
 
 @RunWith(AndroidJUnit4.class)
 @AppModeFull
@@ -99,12 +102,26 @@ public class UninstallTest {
         }
     }
 
-    private void startUninstall() {
+    private void startUninstall() throws RemoteException {
         Intent intent = new Intent(Intent.ACTION_UNINSTALL_PACKAGE);
         intent.setData(Uri.parse("package:" + TEST_APK_PACKAGE_NAME));
         intent.addFlags(FLAG_ACTIVITY_CLEAR_TASK | FLAG_ACTIVITY_NEW_TASK);
         Log.d(LOG_TAG, "sending uninstall intent ("  + intent + ") on user " + mContext.getUser());
+
+        mUiDevice.waitForIdle();
+        // wake up the screen
+        mUiDevice.wakeUp();
+        // unlock the keyguard or the expected window is by systemui or other alert window
+        mUiDevice.pressMenu();
+        // dismiss the system alert window for requesting permissions
+        mUiDevice.pressBack();
+        // return to home/launcher to prevent from being obscured by systemui or other alert window
+        mUiDevice.pressHome();
+
         mContext.startActivity(intent);
+
+        // wait for device idle
+        mUiDevice.waitForIdle();
     }
 
     @Test
@@ -147,16 +164,32 @@ public class UninstallTest {
         }
     }
 
+    private void waitFor(SearchCondition<UiObject2> condition)
+            throws IOException, InterruptedException {
+        final long OneSecond = TimeUnit.SECONDS.toMillis(1);
+        final long start = System.currentTimeMillis();
+        while (System.currentTimeMillis() - start < TIMEOUT_MS) {
+            try {
+                if (mUiDevice.wait(condition, OneSecond) == null) {
+                    continue;
+                }
+                return;
+            } catch (Throwable e) {
+                Thread.sleep(OneSecond);
+            }
+        }
+        dumpWindowHierarchy();
+        fail("Unable to wait for the uninstaller activity");
+    }
+
     @Test
     public void testUninstall() throws Exception {
         assertTrue("Package is not installed", isInstalled());
 
         startUninstall();
 
-        if (mUiDevice.wait(Until.findObject(By.text("Do you want to uninstall this app?")),
-                TIMEOUT_MS) == null) {
-            dumpWindowHierarchy();
-        }
+        waitFor(Until.findObject(By.text("Do you want to uninstall this app?")));
+
         assertNotNull("Uninstall prompt not shown",
                 mUiDevice.wait(Until.findObject(By.text("Do you want to uninstall this app?")),
                         TIMEOUT_MS));

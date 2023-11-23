@@ -269,7 +269,7 @@ class AdbProxy(object):
         def adb_call(*args, **kwargs):
             usage_metadata_logger.log_usage(self.__module__, name)
             clean_name = name.replace('_', '-')
-            if clean_name in ['pull', 'push'] and 'timeout' not in kwargs:
+            if clean_name in ['pull', 'push', 'remount'] and 'timeout' not in kwargs:
                 kwargs['timeout'] = DEFAULT_ADB_PULL_TIMEOUT
             arg_str = ' '.join(str(elem) for elem in args)
             return self._exec_adb_cmd(clean_name, arg_str, **kwargs)

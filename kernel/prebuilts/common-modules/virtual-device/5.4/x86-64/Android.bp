@@ -12,6 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["kernel_prebuilts_common_modules_virtual_device_5.4_x86_64_license"],
+}
+
+// See: http://go/android-license-faq
+license {
+    name: "kernel_prebuilts_common_modules_virtual_device_5.4_x86_64_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-GPL-2.0-only",
+    ],
+    // large-scale-change unable to identify any license_text files
+}
+
 filegroup {
     name: "virt_device_prebuilts_initramfs-5.4-x86_64",
     srcs: ["initramfs.img"],

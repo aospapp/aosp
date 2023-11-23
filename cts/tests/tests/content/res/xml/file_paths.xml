@@ -4,4 +4,5 @@
 <!-- Specify the storage area and path used in file provider. -->
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
     <files-path name="debug" path="debug/"/>
+    <files-path name="files" path="/" />
 </paths>

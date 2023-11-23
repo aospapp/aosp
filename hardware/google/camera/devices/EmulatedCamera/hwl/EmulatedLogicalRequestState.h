@@ -32,6 +32,7 @@ struct EmulatedStream : public HalStream {
   size_t buffer_size;
   bool is_input;
   int32_t group_id;
+  int64_t use_case;
 };
 
 struct EmulatedPipeline {

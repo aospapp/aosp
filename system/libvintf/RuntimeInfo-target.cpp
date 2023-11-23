@@ -42,6 +42,7 @@
 #define BUFFER_SIZE sysconf(_SC_PAGESIZE)
 
 static constexpr char kMainline[] = "-mainline-";
+static constexpr char kMainlineSuffix[] = "-mainline";
 
 namespace android {
 namespace vintf {
@@ -125,7 +126,8 @@ status_t RuntimeInfoFetcher::fetchVersion(RuntimeInfo::FetchFlags flags) {
     mRuntimeInfo->mOsVersion = buf.version;
     mRuntimeInfo->mHardwareId = buf.machine;
 
-    mRuntimeInfo->mIsMainline = mRuntimeInfo->mOsRelease.find(kMainline) != std::string::npos;
+    mRuntimeInfo->mIsMainline = mRuntimeInfo->mOsRelease.find(kMainline) != std::string::npos ||
+                                android::base::EndsWith(mRuntimeInfo->mOsRelease, kMainlineSuffix);
 
     status_t err = RuntimeInfo::parseGkiKernelRelease(flags, mRuntimeInfo->mOsRelease,
                                                       &mRuntimeInfo->mKernel.mVersion,

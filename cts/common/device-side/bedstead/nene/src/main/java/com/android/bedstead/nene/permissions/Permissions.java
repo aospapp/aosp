@@ -18,6 +18,9 @@ package com.android.bedstead.nene.permissions;
 
 import static android.content.pm.PackageManager.PERMISSION_GRANTED;
 
+import static com.android.bedstead.nene.permissions.CommonPermissions.MANAGE_APP_OPS_MODES;
+
+import android.app.AppOpsManager;
 import android.app.UiAutomation;
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -26,6 +29,7 @@ import android.os.Build;
 import android.util.Log;
 
 import com.android.bedstead.nene.TestApis;
+import com.android.bedstead.nene.appops.AppOpsMode;
 import com.android.bedstead.nene.exceptions.NeneException;
 import com.android.bedstead.nene.packages.Package;
 import com.android.bedstead.nene.users.UserReference;
@@ -40,20 +44,17 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 /** Permission manager for tests. */
 public final class Permissions {
 
-    public static final String MANAGE_PROFILE_AND_DEVICE_OWNERS =
-            "android.permission.MANAGE_PROFILE_AND_DEVICE_OWNERS";
-    public static final String MANAGE_DEVICE_ADMINS = "android.permission.MANAGE_DEVICE_ADMINS";
-    public static final String NOTIFY_PENDING_SYSTEM_UPDATE =
-            "android.permission.NOTIFY_PENDING_SYSTEM_UPDATE";
-    public static final String MANAGE_APP_OPS_MODES = "android.permission.MANAGE_APP_OPS_MODES";
     public static final AtomicBoolean sIgnorePermissions = new AtomicBoolean(false);
     private static final String LOG_TAG = "Permissions";
     private static final Context sContext = TestApis.context().instrumentedContext();
     private static final PackageManager sPackageManager = sContext.getPackageManager();
+    private static final AppOpsManager sAppOpsManager =
+            TestApis.context().instrumentedContext().getSystemService(AppOpsManager.class);
     private static final Package sInstrumentedPackage =
             TestApis.packages().find(sContext.getPackageName());
     private static final UserReference sUser = TestApis.users().instrumented();
@@ -152,6 +153,52 @@ public final class Permissions {
 
     /**
      * Enter a {@link PermissionContext} where the given permissions are granted only when running
+     * on the given version or below.
+     *
+     * <p>If the permissions cannot be granted, and are not already granted, an exception will be
+     * thrown.
+     *
+     * <p>If the version does not match, the permission context will not change.
+     */
+    public PermissionContextImpl withPermissionOnVersionAtMost(
+            int maxSdkVersion, String... permissions) {
+        if (mPermissionContexts.isEmpty()) {
+            recordExistingPermissions();
+        }
+
+        PermissionContextImpl permissionContext = new PermissionContextImpl(this);
+        mPermissionContexts.add(permissionContext);
+
+        permissionContext.withPermissionOnVersionAtMost(maxSdkVersion, permissions);
+
+        return permissionContext;
+    }
+
+    /**
+     * Enter a {@link PermissionContext} where the given permissions are granted only when running
+     * on the range of versions given (inclusive).
+     *
+     * <p>If the permissions cannot be granted, and are not already granted, an exception will be
+     * thrown.
+     *
+     * <p>If the version does not match, the permission context will not change.
+     */
+    public PermissionContextImpl withPermissionOnVersionBetween(
+            int minSdkVersion, int maxSdkVersion, String... permissions) {
+        if (mPermissionContexts.isEmpty()) {
+            recordExistingPermissions();
+        }
+
+        PermissionContextImpl permissionContext = new PermissionContextImpl(this);
+        mPermissionContexts.add(permissionContext);
+
+        permissionContext.withPermissionOnVersionBetween(minSdkVersion, maxSdkVersion, permissions);
+
+        return permissionContext;
+    }
+
+    /**
+     * Enter a {@link PermissionContext} where the given permissions are granted only when running
      * on the given version.
      *
      * <p>If the permissions cannot be granted, and are not already granted, an exception will be
@@ -173,6 +220,150 @@ public final class Permissions {
     }
 
     /**
+     * Enter a {@link PermissionContext} where the given appOps are granted.
+     *
+     * <p>If the appOps cannot be granted, and are not already granted, an exception will be
+     * thrown.
+     *
+     * <p>Recommended usage:
+     * {@code
+     *
+     * try (PermissionContext p = mTestApis.permissions().withAppOps(APP_OP1, APP_OP2) {
+     * // Code which needs the app ops goes here
+     * }
+     * }
+     */
+    public PermissionContextImpl withAppOp(String... appOps) {
+        if (mPermissionContexts.isEmpty()) {
+            recordExistingPermissions();
+        }
+
+        PermissionContextImpl permissionContext = new PermissionContextImpl(this);
+        mPermissionContexts.add(permissionContext);
+
+        permissionContext.withAppOp(appOps);
+
+        return permissionContext;
+    }
+
+    /**
+     * Enter a {@link PermissionContext} where the given appOps are granted.
+     *
+     * <p>If the appOps cannot be granted, and are not already granted, an exception will be
+     * thrown.
+     *
+     * <p>Recommended usage:
+     * {@code
+     *
+     * try (PermissionContext p = mTestApis.permissions().withAppOps(APP_OP1, APP_OP2) {
+     * // Code which needs the app ops goes here
+     * }
+     * }
+     *
+     * <p>If the version does not match the appOp will not be granted.
+     */
+    public PermissionContextImpl withAppOpOnVersion(int sdkVersion, String... appOps) {
+        if (mPermissionContexts.isEmpty()) {
+            recordExistingPermissions();
+        }
+
+        PermissionContextImpl permissionContext = new PermissionContextImpl(this);
+        mPermissionContexts.add(permissionContext);
+
+        permissionContext.withAppOpOnVersion(sdkVersion, appOps);
+
+        return permissionContext;
+    }
+
+    /**
+     * Enter a {@link PermissionContext} where the given appOps are granted.
+     *
+     * <p>If the appOps cannot be granted, and are not already granted, an exception will be
+     * thrown.
+     *
+     * <p>Recommended usage:
+     * {@code
+     *
+     * try (PermissionContext p = mTestApis.permissions().withAppOps(APP_OP1, APP_OP2) {
+     * // Code which needs the app ops goes here
+     * }
+     * }
+     *
+     * <p>If the version does not match the appOp will not be granted.
+     */
+    public PermissionContextImpl withAppOpOnVersionAtLeast(int sdkVersion, String... appOps) {
+        if (mPermissionContexts.isEmpty()) {
+            recordExistingPermissions();
+        }
+
+        PermissionContextImpl permissionContext = new PermissionContextImpl(this);
+        mPermissionContexts.add(permissionContext);
+
+        permissionContext.withAppOpOnVersionAtLeast(sdkVersion, appOps);
+
+        return permissionContext;
+    }
+
+    /**
+     * Enter a {@link PermissionContext} where the given appOps are granted.
+     *
+     * <p>If the appOps cannot be granted, and are not already granted, an exception will be
+     * thrown.
+     *
+     * <p>Recommended usage:
+     * {@code
+     *
+     * try (PermissionContext p = mTestApis.permissions().withAppOps(APP_OP1, APP_OP2) {
+     * // Code which needs the app ops goes here
+     * }
+     * }
+     *
+     * <p>If the version does not match the appOp will not be granted.
+     */
+    public PermissionContextImpl withAppOpOnVersionAtMost(int sdkVersion, String... appOps) {
+        if (mPermissionContexts.isEmpty()) {
+            recordExistingPermissions();
+        }
+
+        PermissionContextImpl permissionContext = new PermissionContextImpl(this);
+        mPermissionContexts.add(permissionContext);
+
+        permissionContext.withAppOpOnVersionAtMost(sdkVersion, appOps);
+
+        return permissionContext;
+    }
+
+    /**
+     * Enter a {@link PermissionContext} where the given appOps are granted.
+     *
+     * <p>If the appOps cannot be granted, and are not already granted, an exception will be
+     * thrown.
+     *
+     * <p>Recommended usage:
+     * {@code
+     *
+     * try (PermissionContext p = mTestApis.permissions().withAppOps(APP_OP1, APP_OP2) {
+     * // Code which needs the app ops goes here
+     * }
+     * }
+     *
+     * <p>If the version does not match the appOp will not be granted.
+     */
+    public PermissionContextImpl withAppOpOnVersionBetween(
+            int minSdkVersion, int maxSdkVersion, String... appOps) {
+        if (mPermissionContexts.isEmpty()) {
+            recordExistingPermissions();
+        }
+
+        PermissionContextImpl permissionContext = new PermissionContextImpl(this);
+        mPermissionContexts.add(permissionContext);
+
+        permissionContext.withAppOpOnVersionBetween(minSdkVersion, maxSdkVersion, appOps);
+
+        return permissionContext;
+    }
+
+    /**
      * Enter a {@link PermissionContext} where the given permissions are not granted.
      *
      * <p>If the permissions cannot be denied, and are not already denied, an exception will be
@@ -183,7 +374,7 @@ public final class Permissions {
      *
      * try (PermissionContext p =
      * mTestApis.permissions().withoutPermission(PERMISSION1, PERMISSION2) {
-     * // Code which needs the permissions goes here
+     * // Code which needs the permissions to be denied goes here
      * }
      */
     public PermissionContextImpl withoutPermission(String... permissions) {
@@ -195,6 +386,34 @@ public final class Permissions {
         mPermissionContexts.add(permissionContext);
 
         permissionContext.withoutPermission(permissions);
+
+        return permissionContext;
+    }
+
+    /**
+     * Enter a {@link PermissionContext} where the given appOps are not granted.
+     *
+     * <p>If the appOps cannot be denied, and are not already denied, an exception will be
+     * thrown.
+     *
+     * <p>Recommended usage:
+     * {@code
+     *
+     * try (PermissionContext p =
+     * mTestApis.permissions().withoutappOp(APP_OP1, APP_OP2) {
+     * // Code which needs the appOp to be denied goes here
+     * }
+     * }
+     */
+    public PermissionContextImpl withoutAppOp(String... appOps) {
+        if (mPermissionContexts.isEmpty()) {
+            recordExistingPermissions();
+        }
+
+        PermissionContextImpl permissionContext = new PermissionContextImpl(this);
+        mPermissionContexts.add(permissionContext);
+
+        permissionContext.withoutAppOp(appOps);
 
         return permissionContext;
     }
@@ -228,6 +447,8 @@ public final class Permissions {
         }
         Set<String> grantedPermissions = new HashSet<>();
         Set<String> deniedPermissions = new HashSet<>();
+        Set<String> grantedAppOps = new HashSet<>();
+        Set<String> deniedAppOps = new HashSet<>();
 
         synchronized (mPermissionContexts) {
             for (PermissionContextImpl permissionContext : mPermissionContexts) {
@@ -240,6 +461,16 @@ public final class Permissions {
                     grantedPermissions.remove(permission);
                     deniedPermissions.add(permission);
                 }
+
+                for (String appOp : permissionContext.grantedAppOps()) {
+                    grantedAppOps.add(appOp);
+                    deniedAppOps.remove(appOp);
+                }
+
+                for (String appOp : permissionContext.deniedAppOps()) {
+                    grantedAppOps.remove(appOp);
+                    deniedAppOps.add(appOp);
+                }
             }
         }
 
@@ -250,7 +481,7 @@ public final class Permissions {
 
         Set<String> adoptedShellPermissions = new HashSet<>();
         for (String permission : grantedPermissions) {
-            checkCanGrantOnAllSupportedVersions(permission, sUser);
+            checkCanGrantOnAllSupportedVersions(permission);
 
             Log.d(LOG_TAG, "Trying to grant " + permission);
             if (sInstrumentedPackage.hasPermission(sUser, permission)) {
@@ -269,7 +500,7 @@ public final class Permissions {
                 removePermissionContextsUntilCanApply();
 
                 throwPermissionException("PermissionContext requires granting "
-                        + permission + " but cannot.", permission, sUser);
+                        + permission + " but cannot.", permission);
             }
         }
 
@@ -284,8 +515,34 @@ public final class Permissions {
             } else { // We can't deny a permission to ourselves
                 removePermissionContextsUntilCanApply();
                 throwPermissionException("PermissionContext requires denying "
-                        + permission + " but cannot.", permission, sUser);
+                        + permission + " but cannot.", permission);
             }
+        }
+
+        Package appOpPackage = adoptedShellPermissions.isEmpty()
+                ? sInstrumentedPackage : sShellPackage;
+
+        // Filter so we get just the appOps which require a state that they are not currently in
+        Set<String> filteredGrantedAppOps = grantedAppOps.stream()
+                .filter(o -> appOpPackage.appOps().get(o) != AppOpsMode.ALLOWED)
+                .collect(Collectors.toSet());
+        Set<String> filteredDeniedAppOps = deniedAppOps.stream()
+                .filter(o -> appOpPackage.appOps().get(o) != AppOpsMode.IGNORED)
+                .collect(Collectors.toSet());
+
+        if (!filteredGrantedAppOps.isEmpty() || !filteredDeniedAppOps.isEmpty()) {
+            // We need MANAGE_APP_OPS_MODES to change app op permissions - but don't want to
+            // infinite loop so won't use .appOps().set()
+            ShellCommandUtils.uiAutomation().adoptShellPermissionIdentity(MANAGE_APP_OPS_MODES);
+            for (String appOp : filteredGrantedAppOps) {
+                sAppOpsManager.setMode(appOp, appOpPackage.uid(sUser),
+                        appOpPackage.packageName(), AppOpsMode.ALLOWED.value());
+            }
+            for (String appOp : filteredDeniedAppOps) {
+                sAppOpsManager.setMode(appOp, appOpPackage.uid(sUser),
+                        appOpPackage.packageName(), AppOpsMode.IGNORED.value());
+            }
+            ShellCommandUtils.uiAutomation().dropShellPermissionIdentity();
         }
 
         if (!adoptedShellPermissions.isEmpty()) {
@@ -296,7 +553,7 @@ public final class Permissions {
     }
 
     private void checkCanGrantOnAllSupportedVersions(
-            String permission, UserReference user) {
+            String permission) {
         if (sCheckedGrantPermissions.contains(permission)) {
             return;
         }
@@ -310,7 +567,7 @@ public final class Permissions {
                             + "possible add it to"
                             + "com.android.bedstead.nene.permissions"
                             + ".Permissions#EXEMPT_SHELL_PERMISSIONS",
-                    permission, user);
+                    permission);
         }
 
         sCheckedGrantPermissions.add(permission);
@@ -325,8 +582,11 @@ public final class Permissions {
         sCheckedDenyPermissions.add(permission);
     }
 
-    private void throwPermissionException(
-            String message, String permission, UserReference user) {
+    /**
+     * Throw an exception including permission contextual information.
+     */
+    public void throwPermissionException(
+            String message, String permission) {
         String protectionLevel = "Permission not found";
         try {
             protectionLevel = Integer.toString(sPackageManager.getPermissionInfo(
@@ -335,7 +595,7 @@ public final class Permissions {
             Log.e(LOG_TAG, "Permission not found", e);
         }
 
-        throw new NeneException(message + "\n\nRunning On User: " + user
+        throw new NeneException(message + "\n\nRunning On User: " + sUser
                 + "\nPermission: " + permission
                 + "\nPermission protection level: " + protectionLevel
                 + "\nPermission state: " + sContext.checkSelfPermission(permission)
@@ -351,6 +611,13 @@ public final class Permissions {
     void clearPermissions() {
         mPermissionContexts.clear();
         applyPermissions();
+    }
+
+    /**
+     * Returns all of the permissions which can be adopted.
+     */
+    public Set<String> adoptablePermissions() {
+        return mShellPermissions;
     }
 
     /**
@@ -410,5 +677,21 @@ public final class Permissions {
         }
 
         mExistingPermissions = null;
+    }
+
+    /** True if the current process has the given permission. */
+    public boolean hasPermission(String permission) {
+        return sContext.checkSelfPermission(permission) == PERMISSION_GRANTED;
+    }
+
+    /** True if the current process has the given appOp set to ALLOWED. */
+    public boolean hasAppOpAllowed(String appOp) {
+        Package appOpPackage = sInstrumentedPackage;
+        if (!ShellCommandUtils.uiAutomation().getAdoptedShellPermissions().isEmpty()) {
+            // We care about the shell package
+            appOpPackage = sShellPackage;
+        }
+
+        return appOpPackage.appOps().get(appOp) == AppOpsMode.ALLOWED;
     }
 }

@@ -64,6 +64,28 @@
             </intent-filter>
         </activity>
 
+        <activity android:name="android.webkit.cts.WebViewDarkThemeCtsActivity"
+             android:label="WebViewDarkThemeCtsActivity"
+             android:screenOrientation="nosensor"
+             android:exported="true"
+             android:theme="@android:style/Theme">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST"/>
+            </intent-filter>
+        </activity>
+
+        <activity android:name="android.webkit.cts.WebViewLightThemeCtsActivity"
+             android:label="WebViewLightThemeCtsActivity"
+             android:screenOrientation="nosensor"
+             android:exported="true"
+             android:theme="@android:style/Theme.Light">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST"/>
+            </intent-filter>
+        </activity>
+
         <service android:name="android.webkit.cts.TestProcessServiceA"
              android:process=":testprocessA"
              android:exported="false"/>

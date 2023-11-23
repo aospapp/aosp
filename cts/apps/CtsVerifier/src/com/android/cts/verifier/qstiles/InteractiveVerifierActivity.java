@@ -40,9 +40,6 @@ public abstract class InteractiveVerifierActivity extends PassFailButtons.Activi
     private static final String TAG = "InteractiveVerifier";
     private static final String STATE = "state";
     private static final String STATUS = "status";
-    protected static final String TILE_PATH = "com.android.cts.verifier/" +
-            "com.android.cts.verifier.qstiles.MockTileService";
-    protected static final ComponentName TILE_NAME = ComponentName.unflattenFromString(TILE_PATH);
     protected static final int SETUP = 0;
     protected static final int READY = 1;
     protected static final int RETEST = 2;
@@ -66,9 +63,12 @@ public abstract class InteractiveVerifierActivity extends PassFailButtons.Activi
     protected boolean setTileState(boolean enabled) {
         int state = enabled ? PackageManager.COMPONENT_ENABLED_STATE_ENABLED
                 : PackageManager.COMPONENT_ENABLED_STATE_DISABLED;
-        mPackageManager.setComponentEnabledSetting(TILE_NAME, state, PackageManager.DONT_KILL_APP);
-        return mPackageManager.getComponentEnabledSetting(TILE_NAME) == state;
+        mPackageManager.setComponentEnabledSetting(
+                getTileComponentName(), state, PackageManager.DONT_KILL_APP);
+        return mPackageManager.getComponentEnabledSetting(getTileComponentName()) == state;
     }
+
+    protected abstract ComponentName getTileComponentName();
 
     protected abstract class InteractiveTestCase {
         protected boolean mUserVerified;
@@ -82,6 +82,8 @@ public abstract class InteractiveVerifierActivity extends PassFailButtons.Activi
             if (view == null) {
                 view = inflate(parent);
             }
+            View requestAction = view.requireViewById(R.id.tiles_action_request);
+            requestAction.setVisibility(showRequestAction() ? View.VISIBLE : View.GONE);
             return view;
         }
 
@@ -129,6 +131,14 @@ public abstract class InteractiveVerifierActivity extends PassFailButtons.Activi
         protected void logFail(String message, Throwable e) {
             Log.e(TAG, "failed " + this.getClass().getSimpleName() +
                     ((message == null) ? "" : ": " + message), e);
+        }
+
+        protected boolean showRequestAction() {
+            return false;
+        }
+
+        protected void requestAction() {
+
         }
 
     }
@@ -205,8 +215,6 @@ public abstract class InteractiveVerifierActivity extends PassFailButtons.Activi
         }
         View item = test.view;
         ImageView status = (ImageView) item.findViewById(R.id.tiles_status);
-        View buttonPass = item.findViewById(R.id.tiles_action_pass);
-        View buttonFail = item.findViewById(R.id.tiles_action_fail);
         switch (test.status) {
             case WAIT_FOR_USER:
                 status.setImageResource(R.drawable.fs_warning);
@@ -216,32 +224,35 @@ public abstract class InteractiveVerifierActivity extends PassFailButtons.Activi
             case READY:
             case RETEST:
                 status.setImageResource(R.drawable.fs_clock);
-                buttonPass.setEnabled(true);
-                buttonPass.setClickable(true);
-                buttonFail.setEnabled(true);
-                buttonFail.setClickable(true);
+                setButtonsState(item, true);
                 break;
 
             case FAIL:
                 status.setImageResource(R.drawable.fs_error);
-                buttonFail.setClickable(false);
-                buttonFail.setEnabled(false);
-                buttonPass.setClickable(false);
-                buttonPass.setEnabled(false);
+                setButtonsState(item, false);
                 break;
 
             case PASS:
                 status.setImageResource(R.drawable.fs_good);
-                buttonFail.setClickable(false);
-                buttonFail.setEnabled(false);
-                buttonPass.setClickable(false);
-                buttonPass.setEnabled(false);
+                setButtonsState(item, false);
                 break;
 
         }
         status.invalidate();
     }
 
+    private void setButtonsState(View parent, boolean enabledAndClickable) {
+        View buttonPass = parent.findViewById(R.id.tiles_action_pass);
+        View buttonFail = parent.findViewById(R.id.tiles_action_fail);
+        View buttonRequest = parent.findViewById(R.id.tiles_action_request);
+
+        buttonPass.setEnabled(enabledAndClickable);
+        buttonPass.setClickable(enabledAndClickable);
+        buttonFail.setEnabled(enabledAndClickable);
+        buttonFail.setClickable(enabledAndClickable);
+        buttonRequest.setEnabled(enabledAndClickable);
+        buttonRequest.setClickable(enabledAndClickable);
+    }
 
     protected View createUserPassFail(ViewGroup parent, int messageId,
             Object... messageFormatArgs) {
@@ -368,19 +379,20 @@ public abstract class InteractiveVerifierActivity extends PassFailButtons.Activi
 
     public void actionPressed(View v) {
         if (mCurrentTest != null) {
-            switch (v.getId()) {
-                case R.id.tiles_action_pass:
-                    mCurrentTest.status = PASS;
-                    mCurrentTest.mUserVerified = true;
-                    next();
-                    break;
-                case R.id.tiles_action_fail:
-                    mCurrentTest.status = FAIL;
-                    mCurrentTest.mUserVerified = true;
-                    next();
-                    break;
-                default:
-                    break;
+            int id = v.getId();
+            if (id == R.id.tiles_action_pass) {
+                mCurrentTest.status = PASS;
+                mCurrentTest.mUserVerified = true;
+                next();
+            } else if (id == R.id.tiles_action_fail) {
+                mCurrentTest.status = FAIL;
+                mCurrentTest.mUserVerified = true;
+                next();
+            } else if (id == R.id.tiles_action_request) {
+                mCurrentTest.status = WAIT_FOR_USER;
+                v.setEnabled(false);
+                mHandler.post(mCurrentTest::requestAction);
+                next();
             }
         }
     }
@@ -391,6 +403,12 @@ public abstract class InteractiveVerifierActivity extends PassFailButtons.Activi
         Throwable stackTrace = new Throwable();
         stackTrace.fillInStackTrace();
         Log.e(TAG, message, stackTrace);
+    }
+
+    protected void setPassFailButtonsEnabledState(boolean enabled) {
+        View currentView = mCurrentTest.view;
+        currentView.requireViewById(R.id.tiles_action_pass).setEnabled(enabled);
+        currentView.requireViewById(R.id.tiles_action_fail).setEnabled(enabled);
     }
 
 }

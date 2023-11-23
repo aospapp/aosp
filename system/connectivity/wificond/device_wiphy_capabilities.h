@@ -32,8 +32,10 @@ class DeviceWiphyCapabilities : public ::android::Parcelable {
     return (is80211nSupported_ == rhs.is80211nSupported_
             && is80211acSupported_ == rhs.is80211acSupported_
             && is80211axSupported_ == rhs.is80211axSupported_
+            && is80211beSupported_ == rhs.is80211beSupported_
             && is160MhzSupported_ == rhs.is160MhzSupported_
             && is80p80MhzSupported_ == rhs.is80p80MhzSupported_
+            && is320MhzSupported_ == rhs.is320MhzSupported_
             && maxTxStreams_ == rhs.maxTxStreams_
             && maxRxStreams_ == rhs.maxRxStreams_);
   }
@@ -43,8 +45,10 @@ class DeviceWiphyCapabilities : public ::android::Parcelable {
   bool is80211nSupported_;
   bool is80211acSupported_;
   bool is80211axSupported_;
+  bool is80211beSupported_;
   bool is160MhzSupported_;
   bool is80p80MhzSupported_;
+  bool is320MhzSupported_;
   uint32_t maxTxStreams_;
   uint32_t maxRxStreams_;
 };

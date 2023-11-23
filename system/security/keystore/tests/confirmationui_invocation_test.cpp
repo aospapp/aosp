@@ -55,7 +55,7 @@ TEST(ConfirmationInvocationTest, InvokeAndCancel) {
     std::string locale("en");
     std::vector<uint8_t> extraData{0xaa, 0xff, 0x00, 0x55};
 
-    auto listener = std::make_shared<ConfirmationListener>();
+    auto listener = ndk::SharedRefBase::make<ConfirmationListener>();
 
     auto future = listener->get_future();
 

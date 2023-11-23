@@ -35,8 +35,8 @@ public class SilentUpdateHostsideTests extends BaseHostJUnit4Test {
     private static final String TEST_PKG = "com.android.tests.silentupdate";
     private static final String TEST_CLS = "com.android.tests.silentupdate.SilentUpdateTests";
     private static final String CURRENT_APK = "SilentInstallCurrent.apk";
-    private static final String P_APK = "SilentInstallP.apk";
     private static final String Q_APK = "SilentInstallQ.apk";
+    private static final String R_APK = "SilentInstallR.apk";
 
     @Before
     public void installAppOpAllowed() throws Exception {
@@ -89,15 +89,15 @@ public class SilentUpdateHostsideTests extends BaseHostJUnit4Test {
     }
 
     @Test
-    public void updatePreQApp_RequiresUserAction() throws Exception {
-        install(P_APK, TEST_PKG);
-        runDeviceTests(TEST_PKG, TEST_CLS, "updatePreQApp_RequiresUserAction");
+    public void updatePreRApp_RequiresUserAction() throws Exception {
+        install(Q_APK, TEST_PKG);
+        runDeviceTests(TEST_PKG, TEST_CLS, "updatePreRApp_RequiresUserAction");
     }
 
     @Test
-    public void updateQApp_RequiresNoUserAction() throws Exception {
-        install(Q_APK, TEST_PKG);
-        runDeviceTests(TEST_PKG, TEST_CLS, "updateQApp_RequiresNoUserAction");
+    public void updateRApp_RequiresNoUserAction() throws Exception {
+        install(R_APK, TEST_PKG);
+        runDeviceTests(TEST_PKG, TEST_CLS, "updateRApp_RequiresNoUserAction");
     }
 
     @Test
@@ -111,7 +111,7 @@ public class SilentUpdateHostsideTests extends BaseHostJUnit4Test {
 
     @Test
     public void setRequireUserAction_throwsOnIllegalArgument() throws Exception {
-        install(Q_APK, TEST_PKG);
+        install(R_APK, TEST_PKG);
         runDeviceTests(TEST_PKG, TEST_CLS, "setRequireUserAction_throwsOnIllegalArgument");
     }
 
@@ -133,6 +133,25 @@ public class SilentUpdateHostsideTests extends BaseHostJUnit4Test {
         install(CURRENT_APK, TEST_PKG);
         runDeviceTests(TEST_PKG, TEST_CLS,
                 "silentInstallRepeatedly_waitForThrottleTime_succeed");
+    }
+
+    @Test
+    public void newInstall_withInstallDpcPermission_requiresUserAction() throws Exception {
+        runDeviceTests(
+                TEST_PKG, TEST_CLS, "newInstall_withInstallDpcPermission_requiresUserAction");
+    }
+
+    @Test
+    public void newInstallDpc_withInstallDpcPermission_requiresNoUserAction() throws Exception {
+        runDeviceTests(
+                TEST_PKG, TEST_CLS, "newInstallDpc_withInstallDpcPermission_requiresNoUserAction");
+    }
+
+    @Test
+    public void newInstallDpc_withoutInstallDpcPermission_requiresUserAction() throws Exception {
+        runDeviceTests(
+                TEST_PKG, TEST_CLS,
+                "newInstallDpc_withoutInstallDpcPermission_requiresUserAction");
     }
 
     private void waitForPathChange(String packageName, String originalCodePath, long timeout)

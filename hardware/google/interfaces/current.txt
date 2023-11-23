@@ -1,3 +1,11 @@
+# HALs released in Android T
+
+5cac13157224d961fdfa4f27a03ba0de63d76997ef5e4705c4168f36cf5afe85 hardware.google.bluetooth.ccc@1.1::types
+4f61c104c6daff2fca7b4b946a6b7aefb5a5d7ae77f9ecf12170d498ac380cf7 hardware.google.bluetooth.ccc@1.1::IBluetoothCcc
+7d6b8268118c242880aee862de5baac357cb56698e374b1560b0ef6ef1099986 hardware.google.bluetooth.ccc@1.1::IBluetoothCccCallback
+55be275674153f9e967c37b57c50654ee8e7c6fc3591139b57216817a3fde27b hardware.google.bluetooth.ewp@1.0::IBluetoothEwp
+7e406108cc0a5e73a85b6b1da7a97494667ecd265c566e2b8ddf65abc44bb733 hardware.google.bluetooth.ext@1.0::IBluetoothExt
+
 # HALs released in Android S
 
 c34fdd31d56ca97aec45eb3eb9b47d62294335e1c880a7998013f2096825397d hardware.google.bluetooth.bt_channel_avoidance@1.0::IBTChannelAvoidance

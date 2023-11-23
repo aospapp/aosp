@@ -40,30 +40,28 @@ void ExpectRangeEq(const ExtentRanges& ranges,
   for (size_t i = 1; i < sz; i += 2) {
     blocks += expected[i];
   }
-  EXPECT_EQ(blocks, ranges.blocks()) << "line: " << line;
+  ASSERT_EQ(blocks, ranges.blocks()) << "line: " << line;
 
   const ExtentRanges::ExtentSet& result = ranges.extent_set();
   ExtentRanges::ExtentSet::const_iterator it = result.begin();
   for (size_t i = 0; i < sz; i += 2) {
-    EXPECT_FALSE(it == result.end()) << "line: " << line;
-    EXPECT_EQ(expected[i], it->start_block()) << "line: " << line;
-    EXPECT_EQ(expected[i + 1], it->num_blocks()) << "line: " << line;
+    ASSERT_FALSE(it == result.end()) << "line: " << line;
+    ASSERT_EQ(expected[i], it->start_block()) << "line: " << line;
+    ASSERT_EQ(expected[i + 1], it->num_blocks()) << "line: " << line;
     ++it;
   }
 }
 
-#define EXPECT_RANGE_EQ(ranges, var)                       \
-  do {                                                     \
-    ExpectRangeEq(ranges, var, base::size(var), __LINE__); \
-  } while (0)
+#define ASSERT_RANGE_EQ(ranges, var) \
+  ASSERT_NO_FATAL_FAILURE(ExpectRangeEq(ranges, var, base::size(var), __LINE__))
 
 void ExpectRangesOverlapOrTouch(uint64_t a_start,
                                 uint64_t a_num,
                                 uint64_t b_start,
                                 uint64_t b_num) {
-  EXPECT_TRUE(ExtentRanges::ExtentsOverlapOrTouch(
+  ASSERT_TRUE(ExtentRanges::ExtentsOverlapOrTouch(
       ExtentForRange(a_start, a_num), ExtentForRange(b_start, b_num)));
-  EXPECT_TRUE(ExtentRanges::ExtentsOverlapOrTouch(
+  ASSERT_TRUE(ExtentRanges::ExtentsOverlapOrTouch(
       ExtentForRange(b_start, b_num), ExtentForRange(a_start, a_num)));
 }
 
@@ -71,13 +69,13 @@ void ExpectFalseRangesOverlapOrTouch(uint64_t a_start,
                                      uint64_t a_num,
                                      uint64_t b_start,
                                      uint64_t b_num) {
-  EXPECT_FALSE(ExtentRanges::ExtentsOverlapOrTouch(
+  ASSERT_FALSE(ExtentRanges::ExtentsOverlapOrTouch(
       ExtentForRange(a_start, a_num), ExtentForRange(b_start, b_num)));
-  EXPECT_FALSE(ExtentRanges::ExtentsOverlapOrTouch(
+  ASSERT_FALSE(ExtentRanges::ExtentsOverlapOrTouch(
       ExtentForRange(b_start, b_num), ExtentForRange(a_start, a_num)));
-  EXPECT_FALSE(ExtentRanges::ExtentsOverlap(ExtentForRange(a_start, a_num),
+  ASSERT_FALSE(ExtentRanges::ExtentsOverlap(ExtentForRange(a_start, a_num),
                                             ExtentForRange(b_start, b_num)));
-  EXPECT_FALSE(ExtentRanges::ExtentsOverlap(ExtentForRange(b_start, b_num),
+  ASSERT_FALSE(ExtentRanges::ExtentsOverlap(ExtentForRange(b_start, b_num),
                                             ExtentForRange(a_start, a_num)));
 }
 
@@ -85,13 +83,13 @@ void ExpectRangesOverlap(uint64_t a_start,
                          uint64_t a_num,
                          uint64_t b_start,
                          uint64_t b_num) {
-  EXPECT_TRUE(ExtentRanges::ExtentsOverlap(ExtentForRange(a_start, a_num),
+  ASSERT_TRUE(ExtentRanges::ExtentsOverlap(ExtentForRange(a_start, a_num),
                                            ExtentForRange(b_start, b_num)));
-  EXPECT_TRUE(ExtentRanges::ExtentsOverlap(ExtentForRange(b_start, b_num),
+  ASSERT_TRUE(ExtentRanges::ExtentsOverlap(ExtentForRange(b_start, b_num),
                                            ExtentForRange(a_start, a_num)));
-  EXPECT_TRUE(ExtentRanges::ExtentsOverlapOrTouch(
+  ASSERT_TRUE(ExtentRanges::ExtentsOverlapOrTouch(
       ExtentForRange(a_start, a_num), ExtentForRange(b_start, b_num)));
-  EXPECT_TRUE(ExtentRanges::ExtentsOverlapOrTouch(
+  ASSERT_TRUE(ExtentRanges::ExtentsOverlapOrTouch(
       ExtentForRange(b_start, b_num), ExtentForRange(a_start, a_num)));
 }
 
@@ -99,41 +97,44 @@ void ExpectFalseRangesOverlap(uint64_t a_start,
                               uint64_t a_num,
                               uint64_t b_start,
                               uint64_t b_num) {
-  EXPECT_FALSE(ExtentRanges::ExtentsOverlap(ExtentForRange(a_start, a_num),
+  ASSERT_FALSE(ExtentRanges::ExtentsOverlap(ExtentForRange(a_start, a_num),
                                             ExtentForRange(b_start, b_num)));
-  EXPECT_FALSE(ExtentRanges::ExtentsOverlap(ExtentForRange(b_start, b_num),
+  ASSERT_FALSE(ExtentRanges::ExtentsOverlap(ExtentForRange(b_start, b_num),
                                             ExtentForRange(a_start, a_num)));
 }
 
 }  // namespace
 
 TEST(ExtentRangesTest, ExtentsOverlapTest) {
-  ExpectRangesOverlapOrTouch(10, 20, 30, 10);
-  ExpectRangesOverlap(10, 20, 25, 10);
-  ExpectFalseRangesOverlapOrTouch(10, 20, 35, 10);
-  ExpectFalseRangesOverlap(10, 20, 30, 10);
-  ExpectRangesOverlap(12, 4, 12, 3);
+  ASSERT_NO_FATAL_FAILURE(ExpectRangesOverlapOrTouch(10, 20, 30, 10));
+  ASSERT_NO_FATAL_FAILURE(ExpectRangesOverlap(10, 20, 25, 10));
+  ASSERT_NO_FATAL_FAILURE(ExpectFalseRangesOverlapOrTouch(10, 20, 35, 10));
+  ASSERT_NO_FATAL_FAILURE(ExpectFalseRangesOverlap(10, 20, 30, 10));
+  ASSERT_NO_FATAL_FAILURE(ExpectRangesOverlap(12, 4, 12, 3));
 
-  ExpectRangesOverlapOrTouch(kSparseHole, 2, kSparseHole, 3);
-  ExpectRangesOverlap(kSparseHole, 2, kSparseHole, 3);
-  ExpectFalseRangesOverlapOrTouch(kSparseHole, 2, 10, 3);
-  ExpectFalseRangesOverlapOrTouch(10, 2, kSparseHole, 3);
-  ExpectFalseRangesOverlap(kSparseHole, 2, 10, 3);
-  ExpectFalseRangesOverlap(10, 2, kSparseHole, 3);
+  ASSERT_NO_FATAL_FAILURE(
+      ExpectRangesOverlapOrTouch(kSparseHole, 2, kSparseHole, 3));
+  ASSERT_NO_FATAL_FAILURE(ExpectRangesOverlap(kSparseHole, 2, kSparseHole, 3));
+  ASSERT_NO_FATAL_FAILURE(
+      ExpectFalseRangesOverlapOrTouch(kSparseHole, 2, 10, 3));
+  ASSERT_NO_FATAL_FAILURE(
+      ExpectFalseRangesOverlapOrTouch(10, 2, kSparseHole, 3));
+  ASSERT_NO_FATAL_FAILURE(ExpectFalseRangesOverlap(kSparseHole, 2, 10, 3));
+  ASSERT_NO_FATAL_FAILURE(ExpectFalseRangesOverlap(10, 2, kSparseHole, 3));
 }
 
 TEST(ExtentRangesTest, SimpleTest) {
   ExtentRanges ranges;
   {
-    static const uint64_t expected[] = {};
+    static constexpr uint64_t expected[] = {};
     // Can't use arraysize() on 0-length arrays:
-    ExpectRangeEq(ranges, expected, 0, __LINE__);
+    ASSERT_NO_FATAL_FAILURE(ExpectRangeEq(ranges, expected, 0, __LINE__));
   }
   ranges.SubtractBlock(2);
   {
-    static const uint64_t expected[] = {};
+    static constexpr uint64_t expected[] = {};
     // Can't use arraysize() on 0-length arrays:
-    ExpectRangeEq(ranges, expected, 0, __LINE__);
+    ASSERT_NO_FATAL_FAILURE(ExpectRangeEq(ranges, expected, 0, __LINE__));
   }
 
   ranges.AddBlock(0);
@@ -142,54 +143,54 @@ TEST(ExtentRangesTest, SimpleTest) {
   ranges.AddBlock(3);
 
   {
-    static const uint64_t expected[] = {0, 2, 3, 1};
-    EXPECT_RANGE_EQ(ranges, expected);
+    static constexpr uint64_t expected[] = {0, 2, 3, 1};
+    ASSERT_RANGE_EQ(ranges, expected);
   }
   ranges.AddBlock(2);
   {
-    static const uint64_t expected[] = {0, 4};
-    EXPECT_RANGE_EQ(ranges, expected);
+    static constexpr uint64_t expected[] = {0, 4};
+    ASSERT_RANGE_EQ(ranges, expected);
     ranges.AddBlock(kSparseHole);
-    EXPECT_RANGE_EQ(ranges, expected);
+    ASSERT_RANGE_EQ(ranges, expected);
     ranges.SubtractBlock(kSparseHole);
-    EXPECT_RANGE_EQ(ranges, expected);
+    ASSERT_RANGE_EQ(ranges, expected);
   }
   ranges.SubtractBlock(2);
   {
-    static const uint64_t expected[] = {0, 2, 3, 1};
-    EXPECT_RANGE_EQ(ranges, expected);
+    static constexpr uint64_t expected[] = {0, 2, 3, 1};
+    ASSERT_RANGE_EQ(ranges, expected);
   }
 
   for (uint64_t i = 100; i < 1000; i += 100) {
     ranges.AddExtent(ExtentForRange(i, 50));
   }
   {
-    static const uint64_t expected[] = {0,   2,  3,   1,  100, 50, 200, 50,
-                                        300, 50, 400, 50, 500, 50, 600, 50,
-                                        700, 50, 800, 50, 900, 50};
-    EXPECT_RANGE_EQ(ranges, expected);
+    static constexpr uint64_t expected[] = {0,   2,  3,   1,  100, 50, 200, 50,
+                                            300, 50, 400, 50, 500, 50, 600, 50,
+                                            700, 50, 800, 50, 900, 50};
+    ASSERT_RANGE_EQ(ranges, expected);
   }
 
   ranges.SubtractExtent(ExtentForRange(210, 410 - 210));
   {
-    static const uint64_t expected[] = {0,   2,   3,   1,   100, 50,  200,
-                                        10,  410, 40,  500, 50,  600, 50,
-                                        700, 50,  800, 50,  900, 50};
-    EXPECT_RANGE_EQ(ranges, expected);
+    static constexpr uint64_t expected[] = {0,   2,   3,   1,   100, 50,  200,
+                                            10,  410, 40,  500, 50,  600, 50,
+                                            700, 50,  800, 50,  900, 50};
+    ASSERT_RANGE_EQ(ranges, expected);
   }
   ranges.AddExtent(ExtentForRange(100000, 0));
   {
-    static const uint64_t expected[] = {0,   2,   3,   1,   100, 50,  200,
-                                        10,  410, 40,  500, 50,  600, 50,
-                                        700, 50,  800, 50,  900, 50};
-    EXPECT_RANGE_EQ(ranges, expected);
+    static constexpr uint64_t expected[] = {0,   2,   3,   1,   100, 50,  200,
+                                            10,  410, 40,  500, 50,  600, 50,
+                                            700, 50,  800, 50,  900, 50};
+    ASSERT_RANGE_EQ(ranges, expected);
   }
   ranges.SubtractExtent(ExtentForRange(3, 0));
   {
-    static const uint64_t expected[] = {0,   2,   3,   1,   100, 50,  200,
-                                        10,  410, 40,  500, 50,  600, 50,
-                                        700, 50,  800, 50,  900, 50};
-    EXPECT_RANGE_EQ(ranges, expected);
+    static constexpr uint64_t expected[] = {0,   2,   3,   1,   100, 50,  200,
+                                            10,  410, 40,  500, 50,  600, 50,
+                                            700, 50,  800, 50,  900, 50};
+    ASSERT_RANGE_EQ(ranges, expected);
   }
 }
 
@@ -199,22 +200,22 @@ TEST(ExtentRangesTest, MultipleRanges) {
   ranges_b.AddBlock(4);
   ranges_b.AddBlock(3);
   {
-    uint64_t expected[] = {3, 2};
-    EXPECT_RANGE_EQ(ranges_b, expected);
+    constexpr uint64_t expected[] = {3, 2};
+    ASSERT_RANGE_EQ(ranges_b, expected);
   }
   ranges_a.AddRanges(ranges_b);
   {
-    uint64_t expected[] = {0, 1, 3, 2};
-    EXPECT_RANGE_EQ(ranges_a, expected);
+    constexpr uint64_t expected[] = {0, 1, 3, 2};
+    ASSERT_RANGE_EQ(ranges_a, expected);
   }
   ranges_a.SubtractRanges(ranges_b);
   {
-    uint64_t expected[] = {0, 1};
-    EXPECT_RANGE_EQ(ranges_a, expected);
+    constexpr uint64_t expected[] = {0, 1};
+    ASSERT_RANGE_EQ(ranges_a, expected);
   }
   {
-    uint64_t expected[] = {3, 2};
-    EXPECT_RANGE_EQ(ranges_b, expected);
+    constexpr uint64_t expected[] = {3, 2};
+    ASSERT_RANGE_EQ(ranges_b, expected);
   }
 }
 
@@ -223,7 +224,7 @@ TEST(ExtentRangesTest, GetExtentsForBlockCountTest) {
   ranges.AddExtents(vector<Extent>(1, ExtentForRange(10, 30)));
   {
     vector<Extent> zero_extents = ranges.GetExtentsForBlockCount(0);
-    EXPECT_TRUE(zero_extents.empty());
+    ASSERT_TRUE(zero_extents.empty());
   }
   ::google::protobuf::RepeatedPtrField<Extent> rep_field;
   *rep_field.Add() = ExtentForRange(30, 40);
@@ -231,7 +232,7 @@ TEST(ExtentRangesTest, GetExtentsForBlockCountTest) {
   ranges.SubtractExtents(vector<Extent>(1, ExtentForRange(20, 10)));
   *rep_field.Mutable(0) = ExtentForRange(50, 10);
   ranges.SubtractRepeatedExtents(rep_field);
-  EXPECT_EQ(40U, ranges.blocks());
+  ASSERT_EQ(40U, ranges.blocks());
 
   for (int i = 0; i < 2; i++) {
     vector<Extent> expected(2);
@@ -239,11 +240,11 @@ TEST(ExtentRangesTest, GetExtentsForBlockCountTest) {
     expected[1] = ExtentForRange(30, i == 0 ? 10 : 20);
     vector<Extent> actual =
         ranges.GetExtentsForBlockCount(10 + expected[1].num_blocks());
-    EXPECT_EQ(expected.size(), actual.size());
+    ASSERT_EQ(expected.size(), actual.size());
     for (vector<Extent>::size_type j = 0, e = expected.size(); j != e; ++j) {
-      EXPECT_EQ(expected[j].start_block(), actual[j].start_block())
+      ASSERT_EQ(expected[j].start_block(), actual[j].start_block())
           << "j = " << j;
-      EXPECT_EQ(expected[j].num_blocks(), actual[j].num_blocks())
+      ASSERT_EQ(expected[j].num_blocks(), actual[j].num_blocks())
           << "j = " << j;
     }
   }
@@ -251,30 +252,30 @@ TEST(ExtentRangesTest, GetExtentsForBlockCountTest) {
 
 TEST(ExtentRangesTest, ContainsBlockTest) {
   ExtentRanges ranges;
-  EXPECT_FALSE(ranges.ContainsBlock(123));
+  ASSERT_FALSE(ranges.ContainsBlock(123));
 
   ranges.AddExtent(ExtentForRange(10, 10));
   ranges.AddExtent(ExtentForRange(100, 1));
 
-  EXPECT_FALSE(ranges.ContainsBlock(9));
-  EXPECT_TRUE(ranges.ContainsBlock(10));
-  EXPECT_TRUE(ranges.ContainsBlock(15));
-  EXPECT_TRUE(ranges.ContainsBlock(19));
-  EXPECT_FALSE(ranges.ContainsBlock(20));
+  ASSERT_FALSE(ranges.ContainsBlock(9));
+  ASSERT_TRUE(ranges.ContainsBlock(10));
+  ASSERT_TRUE(ranges.ContainsBlock(15));
+  ASSERT_TRUE(ranges.ContainsBlock(19));
+  ASSERT_FALSE(ranges.ContainsBlock(20));
 
   // Test for an extent with just the block we are requesting.
-  EXPECT_FALSE(ranges.ContainsBlock(99));
-  EXPECT_TRUE(ranges.ContainsBlock(100));
-  EXPECT_FALSE(ranges.ContainsBlock(101));
+  ASSERT_FALSE(ranges.ContainsBlock(99));
+  ASSERT_TRUE(ranges.ContainsBlock(100));
+  ASSERT_FALSE(ranges.ContainsBlock(101));
 }
 
 TEST(ExtentRangesTest, FilterExtentRangesEmptyRanges) {
   ExtentRanges ranges;
-  EXPECT_EQ(vector<Extent>(), FilterExtentRanges(vector<Extent>(), ranges));
-  EXPECT_EQ(vector<Extent>{ExtentForRange(50, 10)},
+  ASSERT_EQ(vector<Extent>(), FilterExtentRanges(vector<Extent>(), ranges));
+  ASSERT_EQ(vector<Extent>{ExtentForRange(50, 10)},
             FilterExtentRanges(vector<Extent>{ExtentForRange(50, 10)}, ranges));
   // Check that the empty Extents are ignored.
-  EXPECT_EQ((vector<Extent>{ExtentForRange(10, 10), ExtentForRange(20, 10)}),
+  ASSERT_EQ((vector<Extent>{ExtentForRange(10, 10), ExtentForRange(20, 10)}),
             FilterExtentRanges(vector<Extent>{ExtentForRange(10, 10),
                                               ExtentForRange(3, 0),
                                               ExtentForRange(20, 10)},
@@ -291,7 +292,7 @@ TEST(ExtentRangesTest, FilterExtentRangesMultipleRanges) {
   ranges.AddExtent(ExtentForRange(70, 10));
   // This overlaps the end of the second extent.
   ranges.AddExtent(ExtentForRange(108, 6));
-  EXPECT_EQ((vector<Extent>{// For the first extent:
+  ASSERT_EQ((vector<Extent>{// For the first extent:
                             ExtentForRange(10, 18),
                             ExtentForRange(31, 19),
                             ExtentForRange(60, 10),
@@ -309,10 +310,84 @@ TEST(ExtentRangesTest, FilterExtentRangesOvelapping) {
   ranges.AddExtent(ExtentForRange(10, 3));
   ranges.AddExtent(ExtentForRange(20, 5));
   // Requested extent overlaps with one of the ranges.
-  EXPECT_EQ(vector<Extent>(),
+  ASSERT_EQ(vector<Extent>(),
             FilterExtentRanges(
                 vector<Extent>{ExtentForRange(10, 1), ExtentForRange(22, 1)},
                 ranges));
+}
+
+TEST(ExtentRangesTest, GetOverlapExtent) {
+  const auto ret1 =
+      GetOverlapExtent(ExtentForRange(5, 5), ExtentForRange(10, 10));
+  ASSERT_EQ(ret1.num_blocks(), 0UL) << ret1;
+  const auto ret2 =
+      GetOverlapExtent(ExtentForRange(5, 5), ExtentForRange(9, 10));
+  ASSERT_EQ(ret2, ExtentForRange(9, 1));
+
+  const auto ret3 =
+      GetOverlapExtent(ExtentForRange(7, 5), ExtentForRange(3, 10));
+  ASSERT_EQ(ret3, ExtentForRange(7, 5));
+  const auto ret4 =
+      GetOverlapExtent(ExtentForRange(7, 5), ExtentForRange(3, 3));
+  ASSERT_EQ(ret4.num_blocks(), 0UL);
+}
+
+TEST(ExtentRangesTest, ContainsBlockSameStart) {
+  ExtentRanges ranges{false};
+  ranges.AddExtent(ExtentForRange(5, 4));
+  ranges.AddExtent(ExtentForRange(10, 5));
+  ranges.AddExtent(ExtentForRange(15, 5));
+  ranges.AddExtent(ExtentForRange(20, 5));
+  ranges.AddExtent(ExtentForRange(25, 5));
+
+  ASSERT_TRUE(ranges.ContainsBlock(10));
+  ASSERT_TRUE(ranges.ContainsBlock(15));
+  ASSERT_TRUE(ranges.ContainsBlock(20));
+  ASSERT_TRUE(ranges.ContainsBlock(25));
+  ASSERT_TRUE(ranges.ContainsBlock(29));
+  ASSERT_FALSE(ranges.ContainsBlock(30));
+  ASSERT_FALSE(ranges.ContainsBlock(9));
+}
+
+TEST(ExtentRangesTest, OverlapsWithExtentSameStart) {
+  ExtentRanges ranges{false};
+  ranges.AddExtent(ExtentForRange(5, 4));
+  ranges.AddExtent(ExtentForRange(10, 5));
+  ranges.AddExtent(ExtentForRange(15, 5));
+  ranges.AddExtent(ExtentForRange(20, 5));
+  ranges.AddExtent(ExtentForRange(25, 5));
+
+  ASSERT_TRUE(ranges.OverlapsWithExtent(ExtentForRange(9, 2)));
+  ASSERT_TRUE(ranges.OverlapsWithExtent(ExtentForRange(12, 5)));
+  ASSERT_TRUE(ranges.OverlapsWithExtent(ExtentForRange(14, 5)));
+  ASSERT_TRUE(ranges.OverlapsWithExtent(ExtentForRange(10, 9)));
+  ASSERT_TRUE(ranges.OverlapsWithExtent(ExtentForRange(11, 20)));
+  ASSERT_FALSE(ranges.OverlapsWithExtent(ExtentForRange(0, 5)));
+  ASSERT_FALSE(ranges.OverlapsWithExtent(ExtentForRange(30, 20)));
+  ASSERT_FALSE(ranges.OverlapsWithExtent(ExtentForRange(9, 1)));
+
+  ranges.SubtractExtent(ExtentForRange(12, 5));
+  ASSERT_FALSE(ranges.OverlapsWithExtent(ExtentForRange(12, 5)));
+  ASSERT_FALSE(ranges.OverlapsWithExtent(ExtentForRange(13, 3)));
+  ASSERT_FALSE(ranges.OverlapsWithExtent(ExtentForRange(15, 2)));
+  ASSERT_TRUE(ranges.OverlapsWithExtent(ExtentForRange(14, 5)));
+  ASSERT_TRUE(ranges.OverlapsWithExtent(ExtentForRange(17, 1)));
+  ASSERT_TRUE(ranges.OverlapsWithExtent(ExtentForRange(8, 5)));
+  ASSERT_TRUE(ranges.OverlapsWithExtent(ExtentForRange(8, 4)));
+}
+
+TEST(ExtentRangesTest, OverlapsWithExtent) {
+  ExtentRanges ranges;
+  ranges.AddExtent(ExtentForRange(5, 5));
+  ranges.AddExtent(ExtentForRange(15, 5));
+  ASSERT_TRUE(ranges.OverlapsWithExtent(ExtentForRange(3, 10)));
+  ASSERT_TRUE(ranges.OverlapsWithExtent(ExtentForRange(17, 10)));
+  ASSERT_TRUE(ranges.OverlapsWithExtent(ExtentForRange(0, 10)));
+  ASSERT_FALSE(ranges.OverlapsWithExtent(ExtentForRange(10, 5)));
+  ASSERT_FALSE(ranges.OverlapsWithExtent(ExtentForRange(20, 5)));
+  ASSERT_TRUE(ranges.OverlapsWithExtent(ExtentForRange(7, 1)));
+  ASSERT_TRUE(ranges.OverlapsWithExtent(ExtentForRange(0, 100)));
+  ASSERT_TRUE(ranges.OverlapsWithExtent(ExtentForRange(19, 1)));
 }
 
 }  // namespace chromeos_update_engine

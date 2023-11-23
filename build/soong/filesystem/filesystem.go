@@ -43,8 +43,14 @@ type filesystem struct {
 	// Function that builds extra files under the root directory and returns the files
 	buildExtraFiles func(ctx android.ModuleContext, root android.OutputPath) android.OutputPaths
 
+	// Function that filters PackagingSpecs returned by PackagingBase.GatherPackagingSpecs()
+	filterPackagingSpecs func(specs map[string]android.PackagingSpec)
+
 	output     android.OutputPath
 	installDir android.InstallPath
+
+	// For testing. Keeps the result of CopyDepsToZip()
+	entries []string
 }
 
 type symlinkDefinition struct {
@@ -226,7 +232,7 @@ func (f *filesystem) buildRootZip(ctx android.ModuleContext) android.OutputPath 
 
 func (f *filesystem) buildImageUsingBuildImage(ctx android.ModuleContext) android.OutputPath {
 	depsZipFile := android.PathForModuleOut(ctx, "deps.zip").OutputPath
-	f.CopyDepsToZip(ctx, depsZipFile)
+	f.entries = f.CopyDepsToZip(ctx, f.gatherFilteredPackagingSpecs(ctx), depsZipFile)
 
 	builder := android.NewRuleBuilder(pctx, ctx)
 	depsBase := proptools.StringDefault(f.properties.Base_dir, ".")
@@ -345,7 +351,7 @@ func (f *filesystem) buildCpioImage(ctx android.ModuleContext, compressed bool) 
 	}
 
 	depsZipFile := android.PathForModuleOut(ctx, "deps.zip").OutputPath
-	f.CopyDepsToZip(ctx, depsZipFile)
+	f.entries = f.CopyDepsToZip(ctx, f.gatherFilteredPackagingSpecs(ctx), depsZipFile)
 
 	builder := android.NewRuleBuilder(pctx, ctx)
 	depsBase := proptools.StringDefault(f.properties.Base_dir, ".")
@@ -394,7 +400,7 @@ func (f *filesystem) AndroidMkEntries() []android.AndroidMkEntries {
 		OutputFile: android.OptionalPathForPath(f.output),
 		ExtraEntries: []android.AndroidMkExtraEntriesFunc{
 			func(ctx android.AndroidMkExtraEntriesContext, entries *android.AndroidMkEntries) {
-				entries.SetString("LOCAL_MODULE_PATH", f.installDir.ToMakePath().String())
+				entries.SetString("LOCAL_MODULE_PATH", f.installDir.String())
 				entries.SetString("LOCAL_INSTALLED_MODULE_STEM", f.installFileName())
 			},
 		},
@@ -433,4 +439,15 @@ func (f *filesystem) SignedOutputPath() android.Path {
 		return f.OutputPath()
 	}
 	return nil
+}
+
+// Filter the result of GatherPackagingSpecs to discard items targeting outside "system" partition.
+// Note that "apex" module installs its contents to "apex"(fake partition) as well
+// for symbol lookup by imitating "activated" paths.
+func (f *filesystem) gatherFilteredPackagingSpecs(ctx android.ModuleContext) map[string]android.PackagingSpec {
+	specs := f.PackagingBase.GatherPackagingSpecs(ctx)
+	if f.filterPackagingSpecs != nil {
+		f.filterPackagingSpecs(specs)
+	}
+	return specs
 }

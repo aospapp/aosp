@@ -21,7 +21,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <iterator>
+
 #include <keymaster/UniquePtr.h>
+#include <keymaster/logger.h>
 #include <keymaster/mem.h>
 
 namespace keymaster {
@@ -71,6 +74,12 @@ template <typename T> inline uintptr_t __pval(const T* p) {
 }
 
 /**
+ * Performs an overflow-checked bounds check. Returns true iff \p buf + \p len is less than
+ * \p end.
+ */
+bool __buffer_bound_check(const uint8_t* buf, const uint8_t* end, size_t len);
+
+/**
  * Append a byte array to a buffer.  Note that by itself this function isn't very useful, because it
  * provides no indication in the serialized buffer of what the array size is.  For writing arrays,
  * see \p append_size_and_data_to_buf().
@@ -108,6 +117,20 @@ inline uint8_t* append_size_and_data_to_buf(uint8_t* buf, const uint8_t* end, co
                                             size_t data_len) {
     buf = append_uint32_to_buf(buf, end, data_len);
     return append_to_buf(buf, end, data, data_len);
+}
+
+/**
+ * Append a collection type to buffer. The type must implement `size` and `data` accessors
+ * that return, respectively, the size of the data and a pointer to the start of the data.
+ * Returns a pointer to the first byte after the data written.
+ */
+template <typename T>
+uint8_t* append_collection_to_buf(uint8_t* buf, const uint8_t* end, const T& value) {
+    if (value.size() > UINT32_MAX) {
+        LOG_E("Skip collection serialization due to integer overflow", 0);
+        return buf;
+    }
+    return append_size_and_data_to_buf(buf, end, value.data(), value.size());
 }
 
 /**
@@ -193,6 +216,34 @@ inline bool copy_uint32_array_from_buf(const uint8_t** buf_ptr, const uint8_t* e
 }
 
 /**
+ * Copies a contiguously-allocated collection type (e.g. string, vector) from \p *buf_ptr. The
+ * type \p T must implement `reserve` and `push_back` functions. Returns false if there are less
+ * than 4 bytes remaining in \p *buf_ptr.  Advances \p *buf_ptr to the next byte to be read.
+ */
+template <typename T>
+bool copy_collection_from_buf(const uint8_t** buf_ptr, const uint8_t* end, T* value) {
+    uint32_t buf_size;
+    if (!copy_uint32_from_buf(buf_ptr, end, &buf_size)) {
+        return false;
+    }
+
+    if (!__buffer_bound_check(*buf_ptr, end, buf_size)) {
+        LOG_E("Skip collection deserialization due size mismatch", 0);
+        return false;
+    }
+
+    value->reserve(buf_size);
+    auto out = std::back_inserter(*value);
+    const uint8_t* const value_end = *buf_ptr + buf_size;
+    while (*buf_ptr < value_end) {
+        *out = **buf_ptr;
+        ++out;
+        ++*buf_ptr;
+    }
+    return true;
+}
+
+/**
  * A simple buffer that supports reading and writing.  Manages its own memory.
  */
 class Buffer : public Serializable {
@@ -241,6 +292,7 @@ class Buffer : public Serializable {
     bool valid_buffer_state() const;
 
     bool write(const uint8_t* src, size_t write_length);
+    template <size_t N> bool write(const uint8_t (&src)[N]) { return write(src, N); }
     bool read(uint8_t* dest, size_t read_length);
     const uint8_t* peek_read() const { return buffer_.get() + read_position_; }
     uint8_t* peek_write() { return buffer_.get() + write_position_; }

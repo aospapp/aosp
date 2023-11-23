@@ -51,6 +51,9 @@ public class RunModelsInParallel implements CrashTest {
     private static final String IGNORE_UNSUPPORTED_MODELS = "ignore_unsupported_models";
     private static final String RUN_MODEL_COMPILATION_ONLY = "run_model_compilation_only";
     private static final String MEMORY_MAP_MODEL = "memory_map_model";
+    private static final String MODEL_FILTER = "model_filter";
+    private static final String USE_NNAPI_SL = "use_nnapi_sl";
+    private static final String EXTRACT_NNAPI_SL = "extract_nnapi_sl";
 
     private final Set<Processor> activeTests = new HashSet<>();
     private final List<Boolean> mTestCompletionResults = Collections.synchronizedList(
@@ -67,11 +70,14 @@ public class RunModelsInParallel implements CrashTest {
     private CountDownLatch mParallelTestComplete;
     private ProgressListener mProgressListener;
     private boolean mMmapModel;
+    private boolean mUseNnapiSl;
+    private boolean mExtractNnapiSl;
 
     static public CrashTestIntentInitializer intentInitializer(int[] models, int threadCount,
-            Duration duration, String testName, String acceleratorName,
-            boolean ignoreUnsupportedModels,
-            boolean runModelCompilationOnly, boolean mmapModel) {
+        Duration duration, String testName, String acceleratorName,
+        boolean ignoreUnsupportedModels,
+        boolean runModelCompilationOnly, boolean mmapModel, String modelFilter, boolean useNnapiSl,
+        boolean extractNnapiSl) {
         return intent -> {
             intent.putExtra(MODELS, models);
             intent.putExtra(DURATION, duration.toMillis());
@@ -81,6 +87,9 @@ public class RunModelsInParallel implements CrashTest {
             intent.putExtra(IGNORE_UNSUPPORTED_MODELS, ignoreUnsupportedModels);
             intent.putExtra(RUN_MODEL_COMPILATION_ONLY, runModelCompilationOnly);
             intent.putExtra(MEMORY_MAP_MODEL, mmapModel);
+            intent.putExtra(MODEL_FILTER, modelFilter);
+            intent.putExtra(USE_NNAPI_SL, useNnapiSl);
+            intent.putExtra(EXTRACT_NNAPI_SL, extractNnapiSl);
         };
     }
 
@@ -96,6 +105,8 @@ public class RunModelsInParallel implements CrashTest {
                 IGNORE_UNSUPPORTED_MODELS, false);
         mRunModelCompilationOnly = configParams.getBooleanExtra(RUN_MODEL_COMPILATION_ONLY, false);
         mMmapModel = configParams.getBooleanExtra(MEMORY_MAP_MODEL, false);
+        mUseNnapiSl = configParams.getBooleanExtra(USE_NNAPI_SL, false);
+        mExtractNnapiSl = configParams.getBooleanExtra(EXTRACT_NNAPI_SL, false);
         mContext = context;
         mProgressListener = progressListener.orElseGet(() -> (Optional<String> message) -> {
             Log.v(CrashTest.TAG, message.orElse("."));
@@ -138,6 +149,8 @@ public class RunModelsInParallel implements CrashTest {
         result.setIgnoreUnsupportedModels(mIgnoreUnsupportedModels);
         result.setRunModelCompilationOnly(mRunModelCompilationOnly);
         result.setMmapModel(mMmapModel);
+        result.setUseNnApiSupportLibrary(mUseNnapiSl);
+        result.setExtractNnApiSupportLibrary(mExtractNnapiSl);
         return result;
     }
 

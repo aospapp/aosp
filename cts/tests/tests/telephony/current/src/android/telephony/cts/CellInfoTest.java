@@ -29,6 +29,7 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.Parcel;
 import android.os.SystemClock;
+import android.telephony.AccessNetworkConstants;
 import android.telephony.CellIdentity;
 import android.telephony.CellIdentityCdma;
 import android.telephony.CellIdentityGsm;
@@ -50,6 +51,7 @@ import android.telephony.CellSignalStrengthNr;
 import android.telephony.CellSignalStrengthTdscdma;
 import android.telephony.CellSignalStrengthWcdma;
 import android.telephony.ClosedSubscriberGroupInfo;
+import android.telephony.NetworkRegistrationInfo;
 import android.telephony.PhoneStateListener;
 import android.telephony.ServiceState;
 import android.telephony.TelephonyManager;
@@ -88,10 +90,10 @@ public class CellInfoTest {
     // Maximum and minimum possible RSSI values(in dbm).
     private static final int MAX_RSSI = -10;
     private static final int MIN_RSSI = -150;
-    // Maximum and minimum possible RSSP values(in dbm).
+    // Maximum and minimum possible RSRP values(in dbm).
     private static final int MAX_RSRP = -44;
     private static final int MIN_RSRP = -140;
-    // Maximum and minimum possible RSSQ values.
+    // Maximum and minimum possible RSRQ values.
     private static final int MAX_RSRQ = -3;
     private static final int MIN_RSRQ = -35;
     // Maximum and minimum possible RSSNR values.
@@ -240,8 +242,13 @@ public class CellInfoTest {
 
         ServiceState ss = mTm.getServiceState();
         if (ss == null) return false;
-        return (ss.getState() == ServiceState.STATE_IN_SERVICE
-                || ss.getState() == ServiceState.STATE_EMERGENCY_ONLY);
+        if (ss.getState() == ServiceState.STATE_EMERGENCY_ONLY) return true;
+        List<NetworkRegistrationInfo> nris = ss.getNetworkRegistrationInfoList();
+        for (NetworkRegistrationInfo nri : nris) {
+            if (nri.getTransportType() != AccessNetworkConstants.TRANSPORT_TYPE_WWAN) continue;
+            if (nri.isRegistered()) return true;
+        }
+        return false;
     }
 
     @Before
@@ -685,8 +692,9 @@ public class CellInfoTest {
         assertTrue("getTac() out of range [0,65535], tac=" + tac,
                 (tac == CellInfo.UNAVAILABLE) || (tac >= 0 && tac <= TAC));
 
+        // Bandwidth ranges from 1400 to 20000
         int bw = lte.getBandwidth();
-        assertTrue("getBandwidth out of range [1400, 20000] | Integer.Max_Value, bw=",
+        assertTrue("getBandwidth out of range [1400, 20000] | Integer.Max_Value, bw=" + bw,
                 bw == CellInfo.UNAVAILABLE || bw >= BANDWIDTH_LOW && bw <= BANDWIDTH_HIGH);
 
         int earfcn = lte.getEarfcn();

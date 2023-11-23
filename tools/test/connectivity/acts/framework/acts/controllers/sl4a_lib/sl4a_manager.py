@@ -25,6 +25,8 @@ from acts.controllers.sl4a_lib import error_reporter
 ATTEMPT_INTERVAL = .25
 MAX_WAIT_ON_SERVER_SECONDS = 5
 
+SL4A_PKG_NAME = 'com.googlecode.android_scripting'
+
 _SL4A_LAUNCH_SERVER_CMD = (
     'am startservice -a com.googlecode.android_scripting.action.LAUNCH_SERVER '
     '--ei com.googlecode.android_scripting.extra.USE_SERVICE_PORT %s '
@@ -203,8 +205,7 @@ class Sl4aManager(object):
     def is_sl4a_installed(self):
         """Returns True if SL4A is installed on the AndroidDevice."""
         return bool(
-            self.adb.shell('pm path com.googlecode\.android_scripting',
-                           ignore_status=True))
+            self.adb.shell('pm path %s' % SL4A_PKG_NAME, ignore_status=True))
 
     def start_sl4a_service(self):
         """Starts the SL4A Service on the device.
@@ -217,14 +218,11 @@ class Sl4aManager(object):
             if not self.is_sl4a_installed():
                 raise rpc_client.Sl4aNotInstalledError(
                     'SL4A is not installed on device %s' % self.adb.serial)
-            if self.adb.shell(
-                    '(ps | grep "S com.googlecode.android_scripting") || true'
-            ):
+            if self.adb.shell('(ps | grep "S %s") || true' % SL4A_PKG_NAME):
                 # Close all SL4A servers not opened by this manager.
                 # TODO(markdr): revert back to closing all ports after
                 # b/76147680 is resolved.
-                self.adb.shell(
-                    'kill -9 $(pidof com.googlecode.android_scripting)')
+                self.adb.shell('kill -9 $(pidof %s)' % SL4A_PKG_NAME)
             self.adb.shell(
                 'settings put global hidden_api_blacklist_exemptions "*"')
             # Start the service if it is not up already.
@@ -286,7 +284,12 @@ class Sl4aManager(object):
         return session
 
     def stop_service(self):
-        """Stops The SL4A Service."""
+        """Stops The SL4A Service. Force-stops the SL4A apk."""
+        try:
+            self.adb.shell('am force-stop %s' % SL4A_PKG_NAME,
+                           ignore_status=True)
+        except Exception as e:
+            self.log.warning("Fail to stop package %s: %s", SL4A_PKG_NAME, e)
         self._started = False
 
     def terminate_all_sessions(self):

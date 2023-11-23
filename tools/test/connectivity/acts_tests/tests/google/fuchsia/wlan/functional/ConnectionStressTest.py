@@ -17,7 +17,6 @@
 Script for testing WiFi connection and disconnection in a loop
 
 """
-from acts.base_test import BaseTestClass
 
 import os
 import uuid
@@ -47,7 +46,7 @@ class ConnectionStressTest(AbstractDeviceWlanDeviceBaseTest):
         self.ssid = rand_ascii_str(10)
         self.fd = self.fuchsia_devices[0]
         self.dut = create_wlan_device(self.fd)
-        self.ap = self.access_points[0]
+        self.access_point = self.access_points[0]
         self.num_of_iterations = int(
             self.user_params.get("connection_stress_test_iterations",
                                  self.num_of_iterations))
@@ -55,11 +54,12 @@ class ConnectionStressTest(AbstractDeviceWlanDeviceBaseTest):
 
     def teardown_test(self):
         self.dut.reset_wifi()
-        self.ap.stop_all_aps()
+        self.download_ap_logs()
+        self.access_point.stop_all_aps()
 
     def on_fail(self, test_name, begin_time):
         super().on_fail(test_name, begin_time)
-        self.ap.stop_all_aps()
+        self.access_point.stop_all_aps()
 
     def start_ap(self, profile, channel, security=None):
         """Starts an Access Point
@@ -69,7 +69,7 @@ class ConnectionStressTest(AbstractDeviceWlanDeviceBaseTest):
             channel: Channel to operate on
         """
         self.log.info('Profile: %s, Channel: %d' % (profile, channel))
-        setup_ap(access_point=self.ap,
+        setup_ap(access_point=self.access_point,
                  profile_name=profile,
                  channel=channel,
                  ssid=self.ssid,
@@ -132,7 +132,7 @@ class ConnectionStressTest(AbstractDeviceWlanDeviceBaseTest):
             time.sleep(1)
 
         # Stop AP
-        self.ap.stop_all_aps()
+        self.access_point.stop_all_aps()
         if failed:
             raise signals.TestFailure(
                 'One or more association attempt failed.')

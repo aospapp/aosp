@@ -19,6 +19,7 @@
     <option name="compatibility:include-filter" value="CtsSdkExtensionsTestCases" />
 
    <!-- Enable SdkExtensions MTS tests to use MainlineTestModuleController -->
+    <option name="compatibility:module-arg" value="CtsClasspathsTestCases:enable:true" />
     <option name="compatibility:module-arg" value="CtsSdkExtensionsTestCases:enable:true" />
 </configuration>
 

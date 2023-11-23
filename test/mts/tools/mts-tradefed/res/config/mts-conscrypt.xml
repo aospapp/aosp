@@ -17,8 +17,14 @@
 
     <include name="mts" />
 
-    <include name="mts-conscrypt-tests-list" />
+    <include name="mts-conscrypt-tests-list-eng-only" />
+    <include name="mts-conscrypt-tests-list-user" />
 
     <option name="plan" value="mts-conscrypt" />
+    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.PropertyCheck">
+        <option name="property-name" value="ro.build.type" />
+        <option name="expected-value" value="userdebug"/> <!-- Device should have userdebug/eng build -->
+        <option name="throw-error" value="false"/> <!-- Only print warning if not user build -->
+    </target_preparer>
 </configuration>
 

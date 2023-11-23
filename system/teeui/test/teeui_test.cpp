@@ -206,8 +206,8 @@ TEST(TeeUIUtilsTest, ConvexObjectLineIntersection) {
 
 TEST(TeeUIUtilsTest, ErrorOperatorOrOverloadTest) {
     // This expression should evaluate to the first (non OK) error code in the sequence.
-    ASSERT_EQ(Error::NotInitialized,
-              Error::OK || Error::NotInitialized || Error::FaceNotLoaded || Error::OK);
+    ASSERT_EQ(Error(Error::NotInitialized), Error(Error::OK) || Error(Error::NotInitialized) ||
+                                                Error(Error::FaceNotLoaded) || Error(Error::OK));
 }
 
 }  // namespace test

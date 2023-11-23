@@ -151,6 +151,7 @@ public class DebugTest extends AndroidTestCase {
         assertTrue(Debug.getNativeHeapAllocatedSize() >= 0);
         assertTrue(Debug.getNativeHeapFreeSize() >= 0);
         assertTrue(Debug.getNativeHeapSize() >= 0);
+        assertTrue(Debug.getPss() >= 0);
         assertTrue(Debug.getThreadAllocCount() >= 0);
         assertTrue(Debug.getThreadAllocSize() >= 0);
         assertTrue(Debug.getThreadExternalAllocCount() >=0);

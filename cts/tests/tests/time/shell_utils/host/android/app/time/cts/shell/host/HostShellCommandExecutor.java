@@ -15,16 +15,23 @@
  */
 package android.app.time.cts.shell.host;
 
+import static org.junit.Assert.fail;
+
 import android.app.time.cts.shell.DeviceShellCommandExecutor;
 
 import androidx.annotation.NonNull;
 
-import com.android.tradefed.device.CollectingByteOutputReceiver;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.util.CommandResult;
 
+import java.io.ByteArrayOutputStream;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
 public final class HostShellCommandExecutor extends DeviceShellCommandExecutor {
+
+    private static final long MAX_TIMEOUT_FOR_COMMAND_MILLIS = 2 * 60 * 1000;
+    private static final int RETRY_ATTEMPTS = 1;
 
     private final ITestDevice mDevice;
 
@@ -35,9 +42,17 @@ public final class HostShellCommandExecutor extends DeviceShellCommandExecutor {
     @Override
     @NonNull
     protected byte[] executeToBytesInternal(String command) throws Exception {
-        CollectingByteOutputReceiver bytesReceiver = new CollectingByteOutputReceiver();
-        mDevice.executeShellCommand(command, bytesReceiver);
-        return bytesReceiver.getOutput();
+        ByteArrayOutputStream stdOutBytesReceiver = new ByteArrayOutputStream();
+        ByteArrayOutputStream stdErrBytesReceiver = new ByteArrayOutputStream();
+        CommandResult result = mDevice.executeShellV2Command(
+                command, /*pipeAsInput=*/null, stdOutBytesReceiver, stdErrBytesReceiver,
+                MAX_TIMEOUT_FOR_COMMAND_MILLIS, TimeUnit.MILLISECONDS, RETRY_ATTEMPTS);
+        if (result.getExitCode() != 0 || stdErrBytesReceiver.size() > 0) {
+            fail("Command \'" + command + "\' produced exitCode=" + result.getExitCode()
+                    + " and stderr="
+                    + parseBytesAsString(stdErrBytesReceiver.toByteArray()).trim());
+        }
+        return stdOutBytesReceiver.toByteArray();
     }
 
     @Override

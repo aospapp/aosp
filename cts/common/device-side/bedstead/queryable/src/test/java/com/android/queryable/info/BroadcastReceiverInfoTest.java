@@ -16,13 +16,13 @@
 
 package com.android.queryable.info;
 
+import static com.android.bedstead.nene.utils.ParcelTest.assertParcelsCorrectly;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-
-import com.android.queryable.info.BroadcastReceiverInfo;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -81,5 +81,13 @@ public class BroadcastReceiverInfoTest {
 
         assertThat(broadcastReceiverInfo.simpleName())
                 .isEqualTo(TEST_BROADCAST_RECEIVER_SIMPLE_NAME);
+    }
+
+    @Test
+    public void parcel_parcelsCorrectly() {
+        BroadcastReceiverInfo broadcastReceiverInfo = new BroadcastReceiverInfo(
+                TEST_BROADCAST_RECEIVER_CLASS_NAME);
+
+        assertParcelsCorrectly(BroadcastReceiverInfo.class, broadcastReceiverInfo);
     }
 }

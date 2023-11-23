@@ -15,28 +15,17 @@
 package bp2build
 
 import (
+	"testing"
+
 	"android/soong/android"
 	"android/soong/cc"
-	"strings"
-	"testing"
 )
 
 const (
 	// See cc/testing.go for more context
 	soongCcLibraryHeadersPreamble = `
 cc_defaults {
-	name: "linux_bionic_supported",
-}
-
-toolchain_library {
-	name: "libclang_rt.builtins-x86_64-android",
-	defaults: ["linux_bionic_supported"],
-	vendor_available: true,
-	vendor_ramdisk_available: true,
-	product_available: true,
-	recovery_available: true,
-	native_bridge_supported: true,
-	src: "",
+    name: "linux_bionic_supported",
 }`
 )
 
@@ -64,49 +53,46 @@ func TestCcLibraryHeadersLoadStatement(t *testing.T) {
 			t.Fatalf("Expected load statements to be %s, got %s", expected, actual)
 		}
 	}
-
 }
 
-func TestCcLibraryHeadersBp2Build(t *testing.T) {
-	testCases := []struct {
-		description                        string
-		moduleTypeUnderTest                string
-		moduleTypeUnderTestFactory         android.ModuleFactory
-		moduleTypeUnderTestBp2BuildMutator func(android.TopDownMutatorContext)
-		preArchMutators                    []android.RegisterMutatorFunc
-		depsMutators                       []android.RegisterMutatorFunc
-		bp                                 string
-		expectedBazelTargets               []string
-		filesystem                         map[string]string
-		dir                                string
-	}{
-		{
-			description:                        "cc_library_headers test",
-			moduleTypeUnderTest:                "cc_library_headers",
-			moduleTypeUnderTestFactory:         cc.LibraryHeaderFactory,
-			moduleTypeUnderTestBp2BuildMutator: cc.CcLibraryHeadersBp2Build,
-			filesystem: map[string]string{
-				"lib-1/lib1a.h":                        "",
-				"lib-1/lib1b.h":                        "",
-				"lib-2/lib2a.h":                        "",
-				"lib-2/lib2b.h":                        "",
-				"dir-1/dir1a.h":                        "",
-				"dir-1/dir1b.h":                        "",
-				"dir-2/dir2a.h":                        "",
-				"dir-2/dir2b.h":                        "",
-				"arch_arm64_exported_include_dir/a.h":  "",
-				"arch_x86_exported_include_dir/b.h":    "",
-				"arch_x86_64_exported_include_dir/c.h": "",
-			},
-			bp: soongCcLibraryHeadersPreamble + `
+func registerCcLibraryHeadersModuleTypes(ctx android.RegistrationContext) {
+	cc.RegisterCCBuildComponents(ctx)
+}
+
+func runCcLibraryHeadersTestCase(t *testing.T, tc bp2buildTestCase) {
+	t.Helper()
+	runBp2BuildTestCase(t, registerCcLibraryHeadersModuleTypes, tc)
+}
+
+func TestCcLibraryHeadersSimple(t *testing.T) {
+	runCcLibraryHeadersTestCase(t, bp2buildTestCase{
+		description:                "cc_library_headers test",
+		moduleTypeUnderTest:        "cc_library_headers",
+		moduleTypeUnderTestFactory: cc.LibraryHeaderFactory,
+		filesystem: map[string]string{
+			"lib-1/lib1a.h":                        "",
+			"lib-1/lib1b.h":                        "",
+			"lib-2/lib2a.h":                        "",
+			"lib-2/lib2b.h":                        "",
+			"dir-1/dir1a.h":                        "",
+			"dir-1/dir1b.h":                        "",
+			"dir-2/dir2a.h":                        "",
+			"dir-2/dir2b.h":                        "",
+			"arch_arm64_exported_include_dir/a.h":  "",
+			"arch_x86_exported_include_dir/b.h":    "",
+			"arch_x86_64_exported_include_dir/c.h": "",
+		},
+		blueprint: soongCcLibraryHeadersPreamble + `
 cc_library_headers {
     name: "lib-1",
     export_include_dirs: ["lib-1"],
+    bazel_module: { bp2build_available: false },
 }
 
 cc_library_headers {
     name: "lib-2",
     export_include_dirs: ["lib-2"],
+    bazel_module: { bp2build_available: false },
 }
 
 cc_library_headers {
@@ -116,7 +102,7 @@ cc_library_headers {
 
     arch: {
         arm64: {
-	    // We expect dir-1 headers to be dropped, because dir-1 is already in export_include_dirs
+      // We expect dir-1 headers to be dropped, because dir-1 is already in export_include_dirs
             export_include_dirs: ["arch_arm64_exported_include_dir", "dir-1"],
         },
         x86: {
@@ -126,17 +112,14 @@ cc_library_headers {
             export_include_dirs: ["arch_x86_64_exported_include_dir"],
         },
     },
+    sdk_version: "current",
+    min_sdk_version: "29",
 
     // TODO: Also support export_header_lib_headers
 }`,
-			expectedBazelTargets: []string{`cc_library_headers(
-    name = "foo_headers",
-    copts = ["-I."],
-    deps = [
-        ":lib-1",
-        ":lib-2",
-    ],
-    includes = [
+		expectedBazelTargets: []string{
+			makeBazelTarget("cc_library_headers", "foo_headers", attrNameToString{
+				"export_includes": `[
         "dir-1",
         "dir-2",
     ] + select({
@@ -144,132 +127,133 @@ cc_library_headers {
         "//build/bazel/platforms/arch:x86": ["arch_x86_exported_include_dir"],
         "//build/bazel/platforms/arch:x86_64": ["arch_x86_64_exported_include_dir"],
         "//conditions:default": [],
-    }),
-)`, `cc_library_headers(
-    name = "lib-1",
-    copts = ["-I."],
-    includes = ["lib-1"],
-)`, `cc_library_headers(
-    name = "lib-2",
-    copts = ["-I."],
-    includes = ["lib-2"],
-)`},
+    })`,
+				"implementation_deps": `[
+        ":lib-1",
+        ":lib-2",
+    ]`,
+        "sdk_version": `"current"`,
+        "min_sdk_version": `"29"`,
+			}),
 		},
-		{
-			description:                        "cc_library_headers test with os-specific header_libs props",
-			moduleTypeUnderTest:                "cc_library_headers",
-			moduleTypeUnderTestFactory:         cc.LibraryHeaderFactory,
-			moduleTypeUnderTestBp2BuildMutator: cc.CcLibraryHeadersBp2Build,
-			depsMutators:                       []android.RegisterMutatorFunc{cc.RegisterDepsBp2Build},
-			filesystem:                         map[string]string{},
-			bp: soongCcLibraryPreamble + `
-cc_library_headers { name: "android-lib" }
-cc_library_headers { name: "base-lib" }
-cc_library_headers { name: "darwin-lib" }
-cc_library_headers { name: "fuchsia-lib" }
-cc_library_headers { name: "linux-lib" }
-cc_library_headers { name: "linux_bionic-lib" }
-cc_library_headers { name: "windows-lib" }
+	})
+}
+
+func TestCcLibraryHeadersOsSpecificHeader(t *testing.T) {
+	runCcLibraryHeadersTestCase(t, bp2buildTestCase{
+		description:                "cc_library_headers test with os-specific header_libs props",
+		moduleTypeUnderTest:        "cc_library_headers",
+		moduleTypeUnderTestFactory: cc.LibraryHeaderFactory,
+		filesystem:                 map[string]string{},
+		blueprint: soongCcLibraryPreamble + `
+cc_library_headers {
+    name: "android-lib",
+    bazel_module: { bp2build_available: false },
+}
+cc_library_headers {
+    name: "base-lib",
+    bazel_module: { bp2build_available: false },
+}
+cc_library_headers {
+    name: "darwin-lib",
+    bazel_module: { bp2build_available: false },
+}
+cc_library_headers {
+    name: "linux-lib",
+    bazel_module: { bp2build_available: false },
+}
+cc_library_headers {
+    name: "linux_bionic-lib",
+    bazel_module: { bp2build_available: false },
+}
+cc_library_headers {
+    name: "windows-lib",
+    bazel_module: { bp2build_available: false },
+}
 cc_library_headers {
     name: "foo_headers",
     header_libs: ["base-lib"],
     target: {
         android: { header_libs: ["android-lib"] },
         darwin: { header_libs: ["darwin-lib"] },
-        fuchsia: { header_libs: ["fuchsia-lib"] },
         linux_bionic: { header_libs: ["linux_bionic-lib"] },
         linux_glibc: { header_libs: ["linux-lib"] },
         windows: { header_libs: ["windows-lib"] },
     },
-    bazel_module: { bp2build_available: true },
+    include_build_directory: false,
 }`,
-			expectedBazelTargets: []string{`cc_library_headers(
-    name = "android-lib",
-    copts = ["-I."],
-)`, `cc_library_headers(
-    name = "base-lib",
-    copts = ["-I."],
-)`, `cc_library_headers(
-    name = "darwin-lib",
-    copts = ["-I."],
-)`, `cc_library_headers(
-    name = "foo_headers",
-    copts = ["-I."],
-    deps = [":base-lib"] + select({
+		expectedBazelTargets: []string{
+			makeBazelTarget("cc_library_headers", "foo_headers", attrNameToString{
+				"implementation_deps": `[":base-lib"] + select({
         "//build/bazel/platforms/os:android": [":android-lib"],
         "//build/bazel/platforms/os:darwin": [":darwin-lib"],
-        "//build/bazel/platforms/os:fuchsia": [":fuchsia-lib"],
         "//build/bazel/platforms/os:linux": [":linux-lib"],
         "//build/bazel/platforms/os:linux_bionic": [":linux_bionic-lib"],
         "//build/bazel/platforms/os:windows": [":windows-lib"],
         "//conditions:default": [],
-    }),
-)`, `cc_library_headers(
-    name = "fuchsia-lib",
-    copts = ["-I."],
-)`, `cc_library_headers(
-    name = "linux-lib",
-    copts = ["-I."],
-)`, `cc_library_headers(
-    name = "linux_bionic-lib",
-    copts = ["-I."],
-)`, `cc_library_headers(
-    name = "windows-lib",
-    copts = ["-I."],
-)`},
+    })`,
+			}),
 		},
-		{
-			description:                        "cc_library_headers test with os-specific header_libs and export_header_lib_headers props",
-			moduleTypeUnderTest:                "cc_library_headers",
-			moduleTypeUnderTestFactory:         cc.LibraryHeaderFactory,
-			moduleTypeUnderTestBp2BuildMutator: cc.CcLibraryHeadersBp2Build,
-			depsMutators:                       []android.RegisterMutatorFunc{cc.RegisterDepsBp2Build},
-			filesystem:                         map[string]string{},
-			bp: soongCcLibraryPreamble + `
-cc_library_headers { name: "android-lib" }
-cc_library_headers { name: "exported-lib" }
+	})
+}
+
+func TestCcLibraryHeadersOsSpecficHeaderLibsExportHeaderLibHeaders(t *testing.T) {
+	runCcLibraryHeadersTestCase(t, bp2buildTestCase{
+		description:                "cc_library_headers test with os-specific header_libs and export_header_lib_headers props",
+		moduleTypeUnderTest:        "cc_library_headers",
+		moduleTypeUnderTestFactory: cc.LibraryHeaderFactory,
+		filesystem:                 map[string]string{},
+		blueprint: soongCcLibraryPreamble + `
+cc_library_headers {
+    name: "android-lib",
+    bazel_module: { bp2build_available: false },
+  }
+cc_library_headers {
+    name: "exported-lib",
+    bazel_module: { bp2build_available: false },
+}
 cc_library_headers {
     name: "foo_headers",
     target: {
-        android: { header_libs: ["android-lib"], export_header_lib_headers: ["exported-lib"] },
+        android: {
+            header_libs: ["android-lib", "exported-lib"],
+            export_header_lib_headers: ["exported-lib"]
+        },
     },
+    include_build_directory: false,
 }`,
-			expectedBazelTargets: []string{`cc_library_headers(
-    name = "android-lib",
-    copts = ["-I."],
-)`, `cc_library_headers(
-    name = "exported-lib",
-    copts = ["-I."],
-)`, `cc_library_headers(
-    name = "foo_headers",
-    copts = ["-I."],
-    deps = select({
-        "//build/bazel/platforms/os:android": [
-            ":android-lib",
-            ":exported-lib",
-        ],
+		expectedBazelTargets: []string{
+			makeBazelTarget("cc_library_headers", "foo_headers", attrNameToString{
+				"deps": `select({
+        "//build/bazel/platforms/os:android": [":exported-lib"],
         "//conditions:default": [],
-    }),
-)`},
+    })`,
+				"implementation_deps": `select({
+        "//build/bazel/platforms/os:android": [":android-lib"],
+        "//conditions:default": [],
+    })`,
+			}),
 		},
-		{
-			description:                        "cc_library_headers test with arch-specific and target-specific export_system_include_dirs props",
-			moduleTypeUnderTest:                "cc_library_headers",
-			moduleTypeUnderTestFactory:         cc.LibraryHeaderFactory,
-			moduleTypeUnderTestBp2BuildMutator: cc.CcLibraryHeadersBp2Build,
-			depsMutators:                       []android.RegisterMutatorFunc{cc.RegisterDepsBp2Build},
-			filesystem:                         map[string]string{},
-			bp: soongCcLibraryPreamble + `cc_library_headers {
+	})
+}
+
+func TestCcLibraryHeadersArchAndTargetExportSystemIncludes(t *testing.T) {
+	runCcLibraryHeadersTestCase(t, bp2buildTestCase{
+		description:                "cc_library_headers test with arch-specific and target-specific export_system_include_dirs props",
+		moduleTypeUnderTest:        "cc_library_headers",
+		moduleTypeUnderTestFactory: cc.LibraryHeaderFactory,
+		filesystem:                 map[string]string{},
+		blueprint: soongCcLibraryPreamble + `cc_library_headers {
     name: "foo_headers",
     export_system_include_dirs: [
-	"shared_include_dir",
+        "shared_include_dir",
     ],
     target: {
-	android: {
-	    export_system_include_dirs: [
-		"android_include_dir",
+        android: {
+            export_system_include_dirs: [
+                "android_include_dir",
             ],
-	},
+        },
         linux_glibc: {
             export_system_include_dirs: [
                 "linux_include_dir",
@@ -283,21 +267,21 @@ cc_library_headers {
     },
     arch: {
         arm: {
-	    export_system_include_dirs: [
-		"arm_include_dir",
+            export_system_include_dirs: [
+                "arm_include_dir",
             ],
-	},
+        },
         x86_64: {
             export_system_include_dirs: [
                 "x86_64_include_dir",
             ],
         },
     },
+    include_build_directory: false,
 }`,
-			expectedBazelTargets: []string{`cc_library_headers(
-    name = "foo_headers",
-    copts = ["-I."],
-    includes = ["shared_include_dir"] + select({
+		expectedBazelTargets: []string{
+			makeBazelTarget("cc_library_headers", "foo_headers", attrNameToString{
+				"export_system_includes": `["shared_include_dir"] + select({
         "//build/bazel/platforms/arch:arm": ["arm_include_dir"],
         "//build/bazel/platforms/arch:x86_64": ["x86_64_include_dir"],
         "//conditions:default": [],
@@ -306,67 +290,41 @@ cc_library_headers {
         "//build/bazel/platforms/os:darwin": ["darwin_include_dir"],
         "//build/bazel/platforms/os:linux": ["linux_include_dir"],
         "//conditions:default": [],
-    }),
-)`},
+    })`,
+			}),
 		},
-	}
+	})
+}
 
-	dir := "."
-	for _, testCase := range testCases {
-		filesystem := make(map[string][]byte)
-		toParse := []string{
-			"Android.bp",
-		}
-		for f, content := range testCase.filesystem {
-			if strings.HasSuffix(f, "Android.bp") {
-				toParse = append(toParse, f)
-			}
-			filesystem[f] = []byte(content)
-		}
-		config := android.TestConfig(buildDir, nil, testCase.bp, filesystem)
-		ctx := android.NewTestContext(config)
-
-		// TODO(jingwen): make this default for all bp2build tests
-		ctx.RegisterBp2BuildConfig(bp2buildConfig)
-
-		cc.RegisterCCBuildComponents(ctx)
-		ctx.RegisterModuleType("toolchain_library", cc.ToolchainLibraryFactory)
-
-		ctx.RegisterModuleType(testCase.moduleTypeUnderTest, testCase.moduleTypeUnderTestFactory)
-		for _, m := range testCase.depsMutators {
-			ctx.DepsBp2BuildMutators(m)
-		}
-		ctx.RegisterBp2BuildMutator(testCase.moduleTypeUnderTest, testCase.moduleTypeUnderTestBp2BuildMutator)
-		ctx.RegisterForBazelConversion()
-
-		_, errs := ctx.ParseFileList(dir, toParse)
-		if Errored(t, testCase.description, errs) {
-			continue
-		}
-		_, errs = ctx.ResolveDependencies(config)
-		if Errored(t, testCase.description, errs) {
-			continue
-		}
-
-		checkDir := dir
-		if testCase.dir != "" {
-			checkDir = testCase.dir
-		}
-		codegenCtx := NewCodegenContext(config, *ctx.Context, Bp2Build)
-		bazelTargets := generateBazelTargetsForDir(codegenCtx, checkDir)
-		if actualCount, expectedCount := len(bazelTargets), len(testCase.expectedBazelTargets); actualCount != expectedCount {
-			t.Errorf("%s: Expected %d bazel target, got %d", testCase.description, expectedCount, actualCount)
-		} else {
-			for i, target := range bazelTargets {
-				if w, g := testCase.expectedBazelTargets[i], target.content; w != g {
-					t.Errorf(
-						"%s: Expected generated Bazel target to be '%s', got '%s'",
-						testCase.description,
-						w,
-						g,
-					)
-				}
-			}
-		}
-	}
+func TestCcLibraryHeadersNoCrtIgnored(t *testing.T) {
+	runCcLibraryHeadersTestCase(t, bp2buildTestCase{
+		description:                "cc_library_headers test",
+		moduleTypeUnderTest:        "cc_library_headers",
+		moduleTypeUnderTestFactory: cc.LibraryHeaderFactory,
+		filesystem: map[string]string{
+			"lib-1/lib1a.h":                        "",
+			"lib-1/lib1b.h":                        "",
+			"lib-2/lib2a.h":                        "",
+			"lib-2/lib2b.h":                        "",
+			"dir-1/dir1a.h":                        "",
+			"dir-1/dir1b.h":                        "",
+			"dir-2/dir2a.h":                        "",
+			"dir-2/dir2b.h":                        "",
+			"arch_arm64_exported_include_dir/a.h":  "",
+			"arch_x86_exported_include_dir/b.h":    "",
+			"arch_x86_64_exported_include_dir/c.h": "",
+		},
+		blueprint: soongCcLibraryHeadersPreamble + `
+cc_library_headers {
+    name: "lib-1",
+    export_include_dirs: ["lib-1"],
+    no_libcrt: true,
+    include_build_directory: false,
+}`,
+		expectedBazelTargets: []string{
+			makeBazelTarget("cc_library_headers", "lib-1", attrNameToString{
+				"export_includes": `["lib-1"]`,
+			}),
+		},
+	})
 }

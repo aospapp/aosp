@@ -25,25 +25,20 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.content.res.Configuration;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.telecom.TelecomManager;
 import android.telecom.cts.carmodetestapp.ICtsCarModeInCallServiceControl;
-import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
 
 import junit.framework.AssertionFailedError;
 
-import org.junit.Assert;
-import org.junit.Test;
-
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 public class CarModeInCallServiceTest extends BaseTelecomTestWithMockServices {
@@ -572,6 +567,35 @@ public class CarModeInCallServiceTest extends BaseTelecomTestWithMockServices {
 
         disableAndVerifyCarMode(mCarModeIncallServiceControlOne, Configuration.UI_MODE_TYPE_NORMAL);
         mInCallCallbacks.getService().disconnectAllCalls();
+    }
+
+    public void testNoSwitchToCarModeWhenDisabledCarModeAppAutomotiveProjection() throws Exception {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        if (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+            return;
+        }
+
+        try {
+            mContext.getPackageManager().setApplicationEnabledSetting(CARMODE_APP1_PACKAGE,
+                    COMPONENT_ENABLED_STATE_DISABLED, DONT_KILL_APP);
+            mInCallCallbacks.resetLatch();
+
+            // Place a call and verify it went to the default dialer
+            placeAndVerifyCall();
+            verifyConnectionForOutgoingCall();
+
+            // Now, request automotive projection; shouldn't unbind from default dialer.
+            requestAndVerifyAutomotiveProjection(mCarModeIncallServiceControlOne, true);
+            assertFalse(mInCallCallbacks.waitForUnbind());
+
+            releaseAutomotiveProjection(mCarModeIncallServiceControlOne);
+            mInCallCallbacks.getService().disconnectAllCalls();
+        } finally {
+            mContext.getPackageManager().setApplicationEnabledSetting(CARMODE_APP1_PACKAGE,
+                    COMPONENT_ENABLED_STATE_ENABLED, DONT_KILL_APP);
+        }
     }
 
 

@@ -5721,4 +5721,26 @@ public class ExplicitCastArgumentsTest {
         m.invokeExact((Double) DOUBLE_VALUES[0]);
     }
 
+    @Test
+    public void testIntegerObjectToInt() throws Throwable {
+        MethodHandle m = explicitCastArgumentToIdentity(int.class, Object.class);
+        assertEquals(3, (int) m.invokeExact((Object) Integer.valueOf(3)));
+    }
+
+    @Test
+    public void testStringObjectToInt() throws Throwable {
+        MethodHandle m = explicitCastArgumentToIdentity(int.class, Object.class);
+        try {
+            int n = (int) m.invokeExact((Object) "3");
+            fail("Expected CCE");
+        } catch (ClassCastException expected) {}
+    }
+
+    @Test
+    public void testObjectObjectToInt() throws Throwable {
+        MethodHandle m = explicitCastArgumentToIdentity(int.class, Object.class);
+        try {
+            int n = (int) m.invokeExact(new Object());
+        } catch (ClassCastException expected) {}
+    }
 }

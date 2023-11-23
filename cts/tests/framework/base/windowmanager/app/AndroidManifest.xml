@@ -164,6 +164,15 @@
                   <layout android:minWidth="1dp"
                        android:minHeight="1dp"/>
         </activity>
+        <activity android:name=".LaunchIntoPipHostActivity"
+             android:exported="true"
+             android:taskAffinity="nobody.but.PipActivity" />
+        <activity android:name=".LaunchIntoPipContainerActivity"
+             android:resizeableActivity="false"
+             android:supportsPictureInPicture="true"
+             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout"
+             android:exported="true"
+             android:taskAffinity="nobody.but.PipActivity"/>
         <activity android:name=".FreeformActivity"
              android:resizeableActivity="true"
              android:taskAffinity="nobody.but.FreeformActivity"
@@ -341,6 +350,7 @@
 
         <activity android:name=".AssistantActivity"
              android:exported="true"
+             android:configChanges="orientation|screenSize|screenLayout"
              android:screenOrientation="locked"/>
         <activity android:name=".TranslucentAssistantActivity"
              android:exported="true"
@@ -610,6 +620,22 @@
              android:exported="true"
              android:colorMode="wideColorGamut"
              android:theme="@style/BadBlurryDialog"/>
+        <activity android:name=".CustomTransitionExitActivity"
+            android:theme="@style/Theme.CustomTransitionTheme"
+            android:exported="true"
+            android:colorMode="wideColorGamut"
+            android:fitsSystemWindows="true" />
+        <activity android:name=".CustomTransitionEnterActivity"
+            android:theme="@style/Theme.CustomTransitionTheme"
+            android:exported="true"
+            android:colorMode="wideColorGamut"
+            android:fitsSystemWindows="true" />
+        <activity android:name=".KeepClearRectsActivity"
+            android:exported="true"
+            android:theme="@style/NoInsetsTheme"/>
+        <activity android:name=".KeepClearRectsActivity2"
+            android:exported="true"
+            android:theme="@style/NoInsetsTheme"/>
 
         <!-- Splash Screen Test Activities -->
         <activity android:name=".HandleSplashScreenExitActivity"
@@ -624,6 +650,10 @@
         <activity android:name=".SplashScreenReplaceThemeActivity"
                   android:exported="true"
                   android:theme="@style/ReplaceIconTheme"
+                  android:taskAffinity="nobody.but.TestSplashScreenAffinity"/>
+        <activity android:name=".SplashScreenStyleThemeActivity"
+                  android:exported="true"
+                  android:theme="@style/SplashScreenStyleTheme"
                   android:taskAffinity="nobody.but.TestSplashScreenAffinity"/>
 
         <service android:name=".OverlayTestService"

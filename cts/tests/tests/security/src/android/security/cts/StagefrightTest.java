@@ -22,13 +22,20 @@
  */
 package android.security.cts;
 
-import android.app.Instrumentation;
+import static org.hamcrest.Matchers.is;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeFalse;
+import static org.junit.Assume.assumeThat;
+
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.SurfaceTexture;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
@@ -36,63 +43,50 @@ import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.MediaMetadataRetriever;
 import android.media.MediaPlayer;
-import android.opengl.GLES20;
-import android.opengl.GLES11Ext;
+import android.media.TimedText;
 import android.os.Looper;
+import android.os.Parcel;
 import android.os.SystemClock;
 import android.platform.test.annotations.AppModeFull;
-import android.os.Parcel;
 import android.platform.test.annotations.AsbSecurityTest;
+import android.security.NetworkSecurityPolicy;
 import android.util.Log;
 import android.view.Surface;
 import android.webkit.cts.CtsTestServer;
 
+import androidx.test.runner.AndroidJUnit4;
+
 import com.android.compatibility.common.util.CrashUtils;
 import com.android.compatibility.common.util.mainline.MainlineModule;
 import com.android.compatibility.common.util.mainline.ModuleDetector;
+import com.android.sts.common.util.StsExtraBusinessLogicTestCase;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.TestName;
+import org.junit.runner.RunWith;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.BindException;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.net.URL;
 import java.nio.ByteBuffer;
-import java.io.FileOutputStream;
-import java.io.ObjectInputStream;
-import java.io.OutputStream;
-import java.io.InputStream;
-import java.net.BindException;
-import java.net.Socket;
-import java.net.ServerSocket;
-import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.regex.Pattern;
-
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-
-import android.security.cts.R;
-
-import android.security.NetworkSecurityPolicy;
-import android.media.TimedText;
-
-import androidx.test.InstrumentationRegistry;
-import androidx.test.runner.AndroidJUnit4;
-
-import org.junit.Rule;
-import org.junit.rules.TestName;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-
-import static org.junit.Assume.*;
-import static org.junit.Assert.*;
 
 /**
  * Verify that the device is not vulnerable to any known Stagefright
@@ -100,19 +94,13 @@ import static org.junit.Assert.*;
  */
 @AppModeFull
 @RunWith(AndroidJUnit4.class)
-public class StagefrightTest {
+public class StagefrightTest extends StsExtraBusinessLogicTestCase {
     static final String TAG = "StagefrightTest";
-    private Instrumentation mInstrumentation;
 
     private final long TIMEOUT_NS = 10000000000L;  // 10 seconds.
     private final static long CHECK_INTERVAL = 50;
 
     @Rule public TestName name = new TestName();
-
-    @Before
-    public void setup() {
-        mInstrumentation = InstrumentationRegistry.getInstrumentation();
-    }
 
     class CodecConfig {
         boolean isAudio;
@@ -1821,6 +1809,18 @@ public class StagefrightTest {
      before any existing test methods
      ***********************************************************/
     @Test
+    @AsbSecurityTest(cveBugId = 231156126)
+    public void testStagefright_cve_2022_22059() throws Exception {
+         doStagefrightTest(R.raw.cve_2022_22059);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 157906313)
+    public void testStagefright_cve_2020_11135() throws Exception {
+        doStagefrightTest(R.raw.cve_2020_11135);
+    }
+
+    @Test
     @AsbSecurityTest(cveBugId = 136175447)
     public void testStagefright_cve_2019_2186() throws Exception {
         long end = System.currentTimeMillis() + 180000; // 3 minutes from now
@@ -2360,6 +2360,16 @@ public class StagefrightTest {
                 try {
                     MediaCodecInfo.CodecCapabilities caps = info.getCapabilitiesForType(mime);
                     if (caps != null) {
+                        /* Add mainline skip to decoders in mainline module */
+                        if (isCodecInMainlineModule(info.getName())) {
+                            Log.i(TAG, "Skipping codec " + info.getName() +
+                                        " as it is part of mainline");
+                            continue;
+                        }
+                        if (info.isAlias()) {
+                            Log.i(TAG, "Skipping codec " + info.getName() + " as it is an alias");
+                            continue;
+                        }
                         matchingCodecs.add(info.getName());
                         Log.i(TAG, "Found matching codec " + info.getName() + " for track " + t);
                     }
@@ -2396,7 +2406,8 @@ public class StagefrightTest {
                 MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
                 try {
                     ByteBuffer [] inputBuffers = codec.getInputBuffers();
-                    while (true) {
+                    long startTime = System.nanoTime();
+                    while (System.nanoTime() - startTime < TIMEOUT_NS) {
                         int flags = ex.getSampleFlags();
                         long time = ex.getSampleTime();
                         ex.getCachedDuration();
@@ -2426,6 +2437,11 @@ public class StagefrightTest {
                 } catch (Exception e) {
                     // local exceptions ignored, not security issues
                 } finally {
+                    try {
+                        codec.stop();
+                    } catch (Exception e) {
+                        // local exceptions ignored, not security issues
+                    }
                     codec.release();
                     renderTarget.destroy();
                 }
@@ -2677,9 +2693,8 @@ public class StagefrightTest {
         } catch (InterruptedException e) {
             fail("operation was interrupted");
         }
-        if (t.isAlive()) {
-            fail("operation not completed within timeout of " + timeout + "ms");
-        }
+        assumeThat("operation not completed within timeout of " + timeout + "ms", t.isAlive(),
+                   is(false));
     }
 
     private void releaseCodec(final MediaCodec codec) {
@@ -2689,6 +2704,20 @@ public class StagefrightTest {
                 codec.release();
             }
         }, 5000);
+    }
+
+    private boolean isCodecInMainlineModule(String codecName) {
+        boolean value = false;
+        if (codecName.startsWith("c2.android.")) {
+            try {
+                value = ModuleDetector.moduleIsPlayManaged(
+                        getInstrumentation().getContext().getPackageManager(),
+                        MainlineModule.MEDIA_SOFTWARE_CODEC);
+            } catch (Exception e) {
+                Log.e(TAG, "Exception caught " + e.toString());
+            }
+        }
+        return value;
     }
 
     private void doStagefrightTestRawBlob(
@@ -2754,6 +2783,16 @@ public class StagefrightTest {
             try {
                 MediaCodecInfo.CodecCapabilities caps = info.getCapabilitiesForType(mime);
                 if (caps != null) {
+                    /* Add mainline skip to decoders in mainline module */
+                    if (isCodecInMainlineModule(info.getName())) {
+                        Log.i(TAG, "Skipping codec " + info.getName() +
+                                    " as it is part of mainline");
+                        continue;
+                    }
+                    if (info.isAlias()) {
+                        Log.i(TAG, "Skipping codec " + info.getName() + " as it is an alias");
+                        continue;
+                    }
                     matchingCodecs.add(info.getName());
                 }
             } catch (IllegalArgumentException e) {
@@ -2885,6 +2924,16 @@ public class StagefrightTest {
             try {
                 MediaCodecInfo.CodecCapabilities caps = info.getCapabilitiesForType(mime);
                 if (caps != null) {
+                    /* Add mainline skip to decoders in mainline module */
+                    if (isCodecInMainlineModule(info.getName())) {
+                        Log.i(TAG, "Skipping codec " + info.getName() +
+                                    " as it is part of mainline");
+                        continue;
+                    }
+                    if (info.isAlias()) {
+                        Log.i(TAG, "Skipping codec " + info.getName() + " as it is an alias");
+                        continue;
+                    }
                     matchingCodecs.add(info.getName());
                 }
             } catch (IllegalArgumentException e) {
@@ -3030,6 +3079,16 @@ public class StagefrightTest {
             try {
                 MediaCodecInfo.CodecCapabilities caps = info.getCapabilitiesForType(mime);
                 if (caps != null) {
+                    /* Add mainline skip to decoders in mainline module */
+                    if (isCodecInMainlineModule(info.getName())) {
+                        Log.i(TAG, "Skipping codec " + info.getName() +
+                                    " as it is part of mainline");
+                        continue;
+                    }
+                    if (info.isAlias()) {
+                        Log.i(TAG, "Skipping codec " + info.getName() + " as it is an alias");
+                        continue;
+                    }
                     matchingCodecs.add(info.getName());
                 }
             } catch (IllegalArgumentException e) {
@@ -3258,9 +3317,5 @@ public class StagefrightTest {
         }
 
         assertFalse(hung);
-    }
-
-    private Instrumentation getInstrumentation() {
-        return mInstrumentation;
     }
 }

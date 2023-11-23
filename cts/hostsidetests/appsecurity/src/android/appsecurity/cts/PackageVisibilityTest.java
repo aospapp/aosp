@@ -21,6 +21,8 @@ import static org.junit.Assert.assertTrue;
 
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.AppModeInstant;
+import android.platform.test.annotations.Presubmit;
+
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
 import org.junit.After;
@@ -31,6 +33,7 @@ import org.junit.runner.RunWith;
 /**
  * Tests for visibility of packages installed in one user, in a different user.
  */
+@Presubmit
 @RunWith(DeviceJUnit4ClassRunner.class)
 public class PackageVisibilityTest extends BaseAppSecurityTest {
 

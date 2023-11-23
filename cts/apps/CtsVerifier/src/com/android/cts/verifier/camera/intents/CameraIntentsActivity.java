@@ -15,8 +15,11 @@
  */
 package com.android.cts.verifier.camera.intents;
 
+import static android.media.MediaMetadataRetriever.METADATA_KEY_HAS_VIDEO;
+import static android.media.MediaMetadataRetriever.METADATA_KEY_LOCATION;
+
+import android.Manifest;
 import android.app.job.JobInfo;
-import android.app.job.JobParameters;
 import android.app.job.JobScheduler;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -24,7 +27,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.content.pm.PermissionInfo;
 import android.hardware.Camera;
 import android.media.ExifInterface;
 import android.media.MediaMetadataRetriever;
@@ -39,24 +41,20 @@ import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.TextView;
-import androidx.core.content.FileProvider;
-import android.Manifest;
+import android.widget.Toast;
 
-import com.android.cts.verifier.camera.intents.CameraContentJobService;
+import androidx.core.content.FileProvider;
+
 import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
 import com.android.cts.verifier.TestResult;
-import android.widget.Toast;
-
-import static android.media.MediaMetadataRetriever.METADATA_KEY_HAS_VIDEO;
-import static android.media.MediaMetadataRetriever.METADATA_KEY_LOCATION;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.TreeSet;
-import java.util.Date;
 import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.TreeSet;
 
 /**
  * Tests for manual verification of uri trigger and camera intents being fired.
@@ -518,7 +516,11 @@ implements OnClickListener, SurfaceHolder.Callback {
               mediaRetriever.extractMetadata(METADATA_KEY_HAS_VIDEO) +
               " METADATA_KEY_LOCATION: " +
               mediaRetriever.extractMetadata(METADATA_KEY_LOCATION));
-        mediaRetriever.release();
+        try {
+            mediaRetriever.release();
+        } catch (IOException e) {
+            // We ignore errors occurred while releasing the MediaMetadataRetriever.
+        }
         /* successful, unless we get the URI trigger back at some point later on. */
         mActionSuccess = true;
     }

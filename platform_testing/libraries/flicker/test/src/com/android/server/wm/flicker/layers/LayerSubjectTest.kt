@@ -16,6 +16,7 @@
 
 package com.android.server.wm.flicker.layers
 
+import com.android.server.wm.flicker.assertThatErrorContainsDebugInfo
 import com.android.server.wm.flicker.assertThrows
 import com.android.server.wm.flicker.readLayerTraceFromFile
 import com.android.server.wm.flicker.traces.layers.LayerSubject
@@ -41,13 +42,8 @@ class LayerSubjectTest {
                 .layer("ImaginaryLayer", 0)
                 .exists()
         }
+        assertThatErrorContainsDebugInfo(error)
         Truth.assertThat(error).hasMessageThat().contains("ImaginaryLayer")
-        Truth.assertThat(error).hasMessageThat().contains("What?")
-        Truth.assertThat(error).hasMessageThat().contains("Where?")
-        Truth.assertThat(error).hasMessageThat().contains("Entry")
-        Truth.assertThat(error).hasMessageThat().contains("Trace start")
-        Truth.assertThat(error).hasMessageThat().contains("Trace start")
-        Truth.assertThat(error).hasMessageThat().contains("Trace file")
         Truth.assertThat(error).hasMessageThat().contains("Layer name")
     }
 
@@ -61,13 +57,7 @@ class LayerSubjectTest {
                     .first()
                     .doesNotExist()
         }
-        Truth.assertThat(error).hasMessageThat().contains("What?")
-        Truth.assertThat(error).hasMessageThat().contains("Where?")
-        Truth.assertThat(error).hasMessageThat().contains("Entry")
-        Truth.assertThat(error).hasMessageThat().contains("Trace start")
-        Truth.assertThat(error).hasMessageThat().contains("Trace start")
-        Truth.assertThat(error).hasMessageThat().contains("Trace file")
-        Truth.assertThat(error).hasMessageThat().contains("Entry")
+        assertThatErrorContainsDebugInfo(error)
     }
 
     @Test

@@ -41,7 +41,7 @@ class CvdComputeClientTest(driver_test_lib.BaseDriverTest):
     NETWORK = "fake-network"
     ZONE = "fake-zone"
     BRANCH = "fake-branch"
-    TARGET = "aosp_cf_x86_phone-userdebug"
+    TARGET = "aosp_cf_x86_64_phone-userdebug"
     BUILD_ID = "2263051"
     KERNEL_BRANCH = "fake-kernel-branch"
     KERNEL_BUILD_ID = "1234567"
@@ -54,6 +54,7 @@ class CvdComputeClientTest(driver_test_lib.BaseDriverTest):
     BOOT_DISK_SIZE_GB = 10
     LAUNCH_ARGS = "--setupwizard_mode=REQUIRED"
     EXTRA_SCOPES = ["scope1"]
+    DISK_TYPE = "fake-disk-type"
 
     def _GetFakeConfig(self):
         """Create a fake configuration object.
@@ -142,6 +143,7 @@ class CvdComputeClientTest(driver_test_lib.BaseDriverTest):
             machine_type=self.MACHINE_TYPE,
             network=self.NETWORK,
             zone=self.ZONE,
+            disk_type=None,
             extra_scopes=self.EXTRA_SCOPES)
 
         #test use local image in the remote instance.
@@ -156,6 +158,7 @@ class CvdComputeClientTest(driver_test_lib.BaseDriverTest):
         args.adb_port = None
         args.remote_host = False
         args.launch_args = None
+        args.disk_type = self.DISK_TYPE
         fake_avd_spec = avd_spec.AVDSpec(args)
         fake_avd_spec.hw_property[constants.HW_X_RES] = str(self.X_RES)
         fake_avd_spec.hw_property[constants.HW_Y_RES] = str(self.Y_RES)
@@ -184,6 +187,7 @@ class CvdComputeClientTest(driver_test_lib.BaseDriverTest):
             machine_type=self.MACHINE_TYPE,
             network=self.NETWORK,
             zone=self.ZONE,
+            disk_type=self.DISK_TYPE,
             extra_scopes=self.EXTRA_SCOPES)
 
     # pylint: disable=protected-access

@@ -75,7 +75,8 @@ public class PackageItemInfoIconTest {
         // size_48x48 is defined as the application icon in this test's AndroidManifest.xml
         Drawable expectedIcon = mContext.getDrawable(R.drawable.size_48x48);
 
-        ApplicationInfo appInfo = mPackageManager.getApplicationInfo(PACKAGE_NAME, 0);
+        ApplicationInfo appInfo = mPackageManager.getApplicationInfo(PACKAGE_NAME,
+                PackageManager.ApplicationInfoFlags.of(0));
         PackageItemInfo itemInfo = new PackageItemInfo();
         itemInfo.icon = 0;
 
@@ -89,7 +90,8 @@ public class PackageItemInfoIconTest {
         // start is defined as the Activity icon in this test's AndroidManifest.xml
         Drawable expectedIcon = mContext.getDrawable(R.drawable.start);
 
-        ApplicationInfo appInfo = mPackageManager.getApplicationInfo(PACKAGE_NAME, 0);
+        ApplicationInfo appInfo = mPackageManager.getApplicationInfo(PACKAGE_NAME,
+                PackageManager.ApplicationInfoFlags.of(0));
         PackageItemInfo itemInfo = getTestItemInfo();
 
         assertEquals(R.drawable.start, itemInfo.icon);
@@ -117,7 +119,8 @@ public class PackageItemInfoIconTest {
         // size_48x48 is defined as the app icon in this test's AndroidManifest.xml
         Drawable expectedIcon = mContext.getDrawable(R.drawable.size_48x48);
 
-        ApplicationInfo appInfo = mPackageManager.getApplicationInfo(PACKAGE_NAME, 0);
+        ApplicationInfo appInfo = mPackageManager.getApplicationInfo(PACKAGE_NAME,
+                PackageManager.ApplicationInfoFlags.of(0));
 
         Drawable icon = appInfo.loadUnbadgedIcon(mPackageManager);
 
@@ -140,7 +143,8 @@ public class PackageItemInfoIconTest {
 
     private PackageItemInfo getTestItemInfo() throws PackageManager.NameNotFoundException {
         ComponentName componentName = new ComponentName(PACKAGE_NAME, ACTIVITY_NAME);
-        return mPackageManager.getActivityInfo(componentName, 0);
+        return mPackageManager.getActivityInfo(componentName,
+                PackageManager.ComponentInfoFlags.of(0));
     }
 
     private boolean comparePixelData(Drawable one, Drawable two) {

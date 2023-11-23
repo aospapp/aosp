@@ -15,6 +15,7 @@
  *
  */
 
+#include <ChoreographerTestUtils.h>
 #include <android/choreographer.h>
 #include <android/looper.h>
 #include <jni.h>
@@ -25,26 +26,19 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <limits>
 #include <mutex>
 #include <set>
 #include <sstream>
 #include <string>
 #include <thread>
+#include <tuple>
+#include <vector>
 
 #define LOG_TAG "ChoreographerNativeTest"
 
-#define ASSERT(condition, format, args...) \
-        if (!(condition)) { \
-            fail(env, format, ## args); \
-            return; \
-        }
-
 
 using namespace std::chrono_literals;
-
-static constexpr std::chrono::nanoseconds NOMINAL_VSYNC_PERIOD{16ms};
-static constexpr std::chrono::nanoseconds DELAY_PERIOD{NOMINAL_VSYNC_PERIOD * 5};
-static constexpr std::chrono::nanoseconds ZERO{std::chrono::nanoseconds::zero()};
 
 struct {
     struct {
@@ -53,14 +47,7 @@ struct {
     } choreographerNativeTest;
 } gJni;
 
-static std::mutex gLock;
 static std::set<int64_t> gSupportedRefreshPeriods;
-struct Callback {
-    Callback(const char* name): name(name) {}
-    std::string name;
-    int count{0};
-    std::chrono::nanoseconds frameTime{0LL};
-};
 
 struct RefreshRateCallback {
     RefreshRateCallback(const char* name): name(name) {}
@@ -79,17 +66,6 @@ struct RefreshRateCallbackWithDisplayManager {
     std::chrono::nanoseconds vsyncPeriod{0LL};
 };
 
-static void frameCallback64(int64_t frameTimeNanos, void* data) {
-    std::lock_guard<std::mutex> _l(gLock);
-    Callback* cb = static_cast<Callback*>(data);
-    cb->count++;
-    cb->frameTime = std::chrono::nanoseconds{frameTimeNanos};
-}
-
-static void frameCallback(long frameTimeNanos, void* data) {
-    frameCallback64((int64_t) frameTimeNanos, data);
-}
-
 static void refreshRateCallback(int64_t vsyncPeriodNanos, void* data) {
     std::lock_guard<std::mutex> _l(gLock);
     RefreshRateCallback* cb = static_cast<RefreshRateCallback*>(data);
@@ -106,37 +82,6 @@ static void refreshRateCallbackWithDisplayManager(int64_t vsyncPeriodNanos, void
     cb->env->CallVoidMethod(cb->clazz,
                             gJni.choreographerNativeTest.checkRefreshRateIsCurrentAndSwitch,
                             static_cast<int>(std::round(1e9f / cb->vsyncPeriod.count())));
-}
-
-static std::chrono::nanoseconds now() {
-    return std::chrono::steady_clock::now().time_since_epoch();
-}
-
-static void fail(JNIEnv* env, const char* format, ...) {
-    va_list args;
-
-    va_start(args, format);
-    char *msg;
-    int rc = vasprintf(&msg, format, args);
-    va_end(args);
-
-    jclass exClass;
-    const char *className = "java/lang/AssertionError";
-    exClass = env->FindClass(className);
-    env->ThrowNew(exClass, msg);
-    free(msg);
-}
-
-static void verifyCallback(JNIEnv* env, const Callback& cb, int expectedCount,
-                           std::chrono::nanoseconds startTime, std::chrono::nanoseconds maxTime) {
-    std::lock_guard<std::mutex> _l{gLock};
-    ASSERT(cb.count == expectedCount, "Choreographer failed to invoke '%s' %d times - actual: %d",
-           cb.name.c_str(), expectedCount, cb.count);
-    if (maxTime > ZERO) {
-        auto duration = cb.frameTime - startTime;
-        ASSERT(duration < maxTime, "Callback '%s' has incorrect frame time in invocation %d",
-               cb.name.c_str(), expectedCount);
-    }
 }
 
 static std::string dumpSupportedRefreshPeriods() {
@@ -188,6 +133,101 @@ static jboolean android_view_cts_ChoreographerNativeTest_prepareChoreographerTes
     }
     env->ReleaseLongArrayElements(supportedRefreshPeriods, const_cast<jlong*>(vals), JNI_ABORT);
     return choreographer != nullptr;
+}
+
+static void
+android_view_cts_ChoreographerNativeTest_testPostVsyncCallbackWithoutDelayEventuallyRunsCallback(
+        JNIEnv* env, jclass, jlong choreographerPtr) {
+    AChoreographer* choreographer = reinterpret_cast<AChoreographer*>(choreographerPtr);
+    VsyncCallback cb1("cb1", env);
+    VsyncCallback cb2("cb2", env);
+    auto start = now();
+
+    AChoreographer_postVsyncCallback(choreographer, vsyncCallback, &cb1);
+    AChoreographer_postVsyncCallback(choreographer, vsyncCallback, &cb2);
+    std::this_thread::sleep_for(NOMINAL_VSYNC_PERIOD * 3);
+
+    verifyCallback(env, cb1, 1, start, NOMINAL_VSYNC_PERIOD * 3);
+    verifyCallback(env, cb2, 1, start, NOMINAL_VSYNC_PERIOD * 3);
+    {
+        std::lock_guard<std::mutex> _l{gLock};
+        auto delta = cb2.frameTime - cb1.frameTime;
+        ASSERT(delta == ZERO || delta > ZERO && delta < NOMINAL_VSYNC_PERIOD * 2,
+               "Callback 1 and 2 have frame times too large of a delta in frame times");
+    }
+
+    AChoreographer_postVsyncCallback(choreographer, vsyncCallback, &cb1);
+    start = now();
+    std::this_thread::sleep_for(NOMINAL_VSYNC_PERIOD * 3);
+    verifyCallback(env, cb1, 2, start, NOMINAL_VSYNC_PERIOD * 3);
+    verifyCallback(env, cb2, 1, start, ZERO);
+}
+
+static void android_view_cts_ChoreographerNativeTest_testFrameCallbackDataVsyncIdValid(
+        JNIEnv* env, jclass, jlong choreographerPtr) {
+    AChoreographer* choreographer = reinterpret_cast<AChoreographer*>(choreographerPtr);
+    VsyncCallback cb1("cb1", env);
+    auto start = now();
+
+    AChoreographer_postVsyncCallback(choreographer, vsyncCallback, &cb1);
+    std::this_thread::sleep_for(NOMINAL_VSYNC_PERIOD * 3);
+
+    verifyCallback(env, cb1, 1, start, NOMINAL_VSYNC_PERIOD * 3);
+    std::lock_guard<std::mutex> _l{gLock};
+    for (const VsyncCallback::FrameTime& frameTime : cb1.getTimeline()) {
+        int64_t vsyncId = frameTime.vsyncId;
+        ASSERT(vsyncId >= 0, "Invalid vsync ID");
+        ASSERT(std::count_if(cb1.getTimeline().begin(), cb1.getTimeline().end(),
+                             [vsyncId](const VsyncCallback::FrameTime& ft) {
+                                 return ft.vsyncId == vsyncId;
+                             }) == 1,
+               "Vsync ID is not unique");
+    }
+}
+
+static void android_view_cts_ChoreographerNativeTest_testFrameCallbackDataDeadlineInFuture(
+        JNIEnv* env, jclass, jlong choreographerPtr) {
+    AChoreographer* choreographer = reinterpret_cast<AChoreographer*>(choreographerPtr);
+    VsyncCallback cb1("cb1", env);
+    auto start = now();
+
+    AChoreographer_postVsyncCallback(choreographer, vsyncCallback, &cb1);
+    std::this_thread::sleep_for(NOMINAL_VSYNC_PERIOD * 3);
+
+    verifyCallback(env, cb1, 1, start, NOMINAL_VSYNC_PERIOD * 3);
+    std::lock_guard<std::mutex> _l{gLock};
+    for (auto [i, lastValue] = std::tuple{0, cb1.frameTime}; i < cb1.getTimeline().size(); i++) {
+        auto deadline = std::chrono::nanoseconds{cb1.getTimeline()[i].deadline};
+        ASSERT(deadline > std::chrono::nanoseconds{start}, "Deadline must be after start time");
+        ASSERT(deadline > cb1.frameTime, "Deadline must be after frame time");
+        ASSERT(deadline > lastValue, "Deadline must be greater than last frame deadline");
+        lastValue = deadline;
+    }
+}
+
+static void
+android_view_cts_ChoreographerNativeTest_testFrameCallbackDataExpectedPresentTimeInFuture(
+        JNIEnv* env, jclass, jlong choreographerPtr) {
+    AChoreographer* choreographer = reinterpret_cast<AChoreographer*>(choreographerPtr);
+    VsyncCallback cb1("cb1", env);
+    auto start = now();
+
+    AChoreographer_postVsyncCallback(choreographer, vsyncCallback, &cb1);
+    std::this_thread::sleep_for(NOMINAL_VSYNC_PERIOD * 3);
+
+    verifyCallback(env, cb1, 1, start, NOMINAL_VSYNC_PERIOD * 3);
+    std::lock_guard<std::mutex> _l{gLock};
+    for (auto [i, lastValue] = std::tuple{0, cb1.frameTime}; i < cb1.getTimeline().size(); i++) {
+        auto expectedPresentTime =
+                std::chrono::nanoseconds(cb1.getTimeline()[i].expectedPresentTime);
+        auto deadline = std::chrono::nanoseconds(cb1.getTimeline()[i].deadline);
+        ASSERT(expectedPresentTime > cb1.frameTime,
+               "Expected present time must be after frame time");
+        ASSERT(expectedPresentTime > deadline, "Expected present time must be after deadline");
+        ASSERT(expectedPresentTime > lastValue,
+               "Expected present time must be greater than last frame expected present time");
+        lastValue = expectedPresentTime;
+    }
 }
 
 static void android_view_cts_ChoreographerNativeTest_testPostCallback64WithoutDelayEventuallyRunsCallback(
@@ -510,6 +550,14 @@ static JNINativeMethod gMethods[] = {
          (void*)android_view_cts_ChoreographerNativeTest_getChoreographer},
         {"nativePrepareChoreographerTests", "(J[J)Z",
          (void*)android_view_cts_ChoreographerNativeTest_prepareChoreographerTests},
+        {"nativeTestPostVsyncCallbackWithoutDelayEventuallyRunsCallbacks", "(J)V",
+         (void*)android_view_cts_ChoreographerNativeTest_testPostVsyncCallbackWithoutDelayEventuallyRunsCallback},
+        {"nativeTestFrameCallbackDataVsyncIdValid", "(J)V",
+         (void*)android_view_cts_ChoreographerNativeTest_testFrameCallbackDataVsyncIdValid},
+        {"nativeTestFrameCallbackDataDeadlineInFuture", "(J)V",
+         (void*)android_view_cts_ChoreographerNativeTest_testFrameCallbackDataDeadlineInFuture},
+        {"nativeTestFrameCallbackDataExpectedPresentTimeInFuture", "(J)V",
+         (void*)android_view_cts_ChoreographerNativeTest_testFrameCallbackDataExpectedPresentTimeInFuture},
         {"nativeTestPostCallback64WithoutDelayEventuallyRunsCallbacks", "(J)V",
          (void*)android_view_cts_ChoreographerNativeTest_testPostCallback64WithoutDelayEventuallyRunsCallback},
         {"nativeTestPostCallback64WithDelayEventuallyRunsCallbacks", "(J)V",

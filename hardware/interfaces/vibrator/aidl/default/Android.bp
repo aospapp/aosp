@@ -9,11 +9,12 @@ package {
 
 cc_library_static {
     name: "libvibratorexampleimpl",
-    vendor: true,
+    vendor_available: true,
+    host_supported: true,
     shared_libs: [
         "libbase",
         "libbinder_ndk",
-        "android.hardware.vibrator-V2-ndk_platform",
+        "android.hardware.vibrator-V2-ndk",
     ],
     export_include_dirs: ["include"],
     srcs: [
@@ -24,21 +25,69 @@ cc_library_static {
         ":__subpackages__",
         "//hardware/interfaces/tests/extension/vibrator:__subpackages__",
     ],
+    target: {
+        darwin: {
+            enabled: false,
+        },
+    },
+}
+
+filegroup {
+    name: "android.hardware.vibrator.xml",
+    srcs: ["android.hardware.vibrator.xml"],
 }
 
 cc_binary {
     name: "android.hardware.vibrator-service.example",
     relative_install_path: "hw",
     init_rc: ["vibrator-default.rc"],
-    vintf_fragments: ["vibrator-default.xml"],
+    vintf_fragments: [":android.hardware.vibrator.xml"],
     vendor: true,
     shared_libs: [
         "libbase",
         "libbinder_ndk",
-        "android.hardware.vibrator-V2-ndk_platform",
+        "android.hardware.vibrator-V2-ndk",
     ],
     static_libs: [
         "libvibratorexampleimpl",
     ],
     srcs: ["main.cpp"],
+}
+
+cc_fuzz {
+    name: "android.hardware.vibrator-service.example_fuzzer",
+    host_supported: true,
+    static_libs: [
+        "android.hardware.vibrator-V2-ndk",
+        "libbase",
+        "libbinder_random_parcel",
+        "libcutils",
+        "liblog",
+        "libvibratorexampleimpl",
+    ],
+    target: {
+        android: {
+            shared_libs: [
+                "libbinder_ndk",
+                "libbinder",
+                "libutils",
+            ],
+        },
+        host: {
+            static_libs: [
+                "libbinder_ndk",
+                "libbinder",
+                "libutils",
+            ],
+        },
+        darwin: {
+            enabled: false,
+        },
+    },
+    srcs: ["fuzzer.cpp"],
+    fuzz_config: {
+        cc: [
+            "smoreland@google.com",
+        ],
+    },
 }

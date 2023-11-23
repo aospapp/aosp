@@ -17,6 +17,7 @@
 package libcore.dalvik.system;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -234,6 +235,62 @@ public final class BaseDexClassLoaderTest {
     }
 
     @Test
+    public void testReporting_withSharedLibraries_loaded_after() throws Exception {
+        final ClassLoader parent = ClassLoader.getSystemClassLoader();
+        final ClassLoader sharedLoaders[] = new ClassLoader[] {
+                new PathClassLoader(jar2.getPath(), /* librarySearchPath */ null, parent),
+        };
+        // Reset so we don't get load reports from creating the shared library CL
+        reporter.reset();
+
+        BaseDexClassLoader bdcl = new PathClassLoader(
+                jar.getPath(), null, parent, null, sharedLoaders);
+
+        assertEquals(1, reporter.loadedDexMapping.size());
+
+        String[] contexts = separateSystemClassLoaderContext(
+                reporter.loadedDexMapping.get(jar.getPath()));
+        // We cannot fully verify the context of the system class loader because its classpath
+        // may vary based on system properties and whether or not we are in a test environment.
+        assertTrue(contexts[1].startsWith("PCL["));
+        // Verify the context for the loaded dex files. The system class loader should be part
+        // of the shared library class loader.
+        assertEquals("PCL[]{~PCL[" + jar2.getPath() + "];" + contexts[1] + "}",
+                contexts[0]);
+    }
+
+    @Test
+    public void testReporting_withSharedLibraries_loaded_before_and_after() throws Exception {
+        final ClassLoader parent = ClassLoader.getSystemClassLoader();
+        final String sharedJarPath = resourcesMap.get("parent.jar").getAbsolutePath();
+        final String sharedJarPath2 = resourcesMap.get("child.jar").getAbsolutePath();
+        final ClassLoader sharedLoaders[] = new ClassLoader[] {
+                new PathClassLoader(sharedJarPath, /* librarySearchPath */ null, parent),
+        };
+        final ClassLoader sharedLoadersAfter[] = new ClassLoader[] {
+                new PathClassLoader(sharedJarPath2, /* librarySearchPath */ null, parent),
+        };
+        // Reset so we don't get load reports from creating the shared library CL
+        reporter.reset();
+
+        BaseDexClassLoader bdcl = new PathClassLoader(jar.getPath(), null, parent, sharedLoaders,
+                sharedLoadersAfter);
+
+        assertEquals(1, reporter.loadedDexMapping.size());
+
+        String[] contexts = separateSystemClassLoaderContext(
+                reporter.loadedDexMapping.get(jar.getPath()));
+        // We cannot fully verify the context of the system class loader because its classpath
+        // may vary based on system properties and whether or not we are in a test environment.
+        assertTrue(contexts[1].startsWith("PCL["));
+        // Verify the context for the loaded dex files. The system class loader should be part
+        // of the shared library class loader.
+        assertEquals("PCL[]{PCL[" + sharedJarPath + "];" + contexts[1]
+                        + "#~PCL[" + sharedJarPath2 + "];" + contexts[1] + "}",
+                contexts[0]);
+    }
+
+    @Test
     public void testReporting_multipleJars_withSharedLibraries() throws Exception {
         final ClassLoader parent = ClassLoader.getSystemClassLoader();
         final String sharedJarPath = resourcesMap.get("parent.jar").getAbsolutePath();
@@ -268,6 +325,49 @@ public final class BaseDexClassLoaderTest {
         String[] contexts2 = separateSystemClassLoaderContext(
             reporter.loadedDexMapping.get(jar2.getPath()));
         String contextSuffix2 = "{PCL[" + sharedJarPath + "];" + contexts2[1] + "}";
+
+        // Verify the context for the loaded dex files.
+        assertEquals("PCL[" + jar.getPath() + "]" + contextSuffix2, contexts2[0]);
+        // We cannot fully verify the context of the system class loader because its classpath
+        // may vary based on system properties and whether or not we are in a test environment.
+        assertTrue(contexts2[1].startsWith("PCL[")) ;
+    }
+
+    @Test
+    public void testReporting_multipleJars_withSharedLibraries_loaded_after() throws Exception {
+        final ClassLoader parent = ClassLoader.getSystemClassLoader();
+        final String sharedJarPath = resourcesMap.get("parent.jar").getAbsolutePath();
+        final ClassLoader sharedLoaders[] = new ClassLoader[] {
+                new PathClassLoader(sharedJarPath, /* librarySearchPath */ null, parent),
+        };
+        // Reset so we don't get load reports from creating the shared library CL
+        reporter.reset();
+
+        BaseDexClassLoader bdcl = new PathClassLoader(
+                String.join(File.pathSeparator, jar.getPath(), jar2.getPath()),
+                null, parent, null, sharedLoaders);
+
+        assertEquals(2, reporter.loadedDexMapping.size());
+
+
+        // Verify the first jar.
+        String[] contexts = separateSystemClassLoaderContext(
+                reporter.loadedDexMapping.get(jar.getPath()));
+        String contextSuffix = "{~PCL[" + sharedJarPath + "];" + contexts[1] + "}";
+
+        // We cannot fully verify the context of the system class loader because its classpath
+        // may vary based on system properties and whether or not we are in a test environment.
+        assertTrue(contexts[1].startsWith("PCL["));
+        // Verify the context for the loaded dex files.
+        assertEquals("PCL[]" + contextSuffix, contexts[0]);
+        // We cannot fully verify the context of the system class loader because its classpath
+        // may vary based on system properties and whether or not we are in a test environment.
+        assertTrue(contexts[1].startsWith("PCL["));
+
+        // Verify the second jar.
+        String[] contexts2 = separateSystemClassLoaderContext(
+                reporter.loadedDexMapping.get(jar2.getPath()));
+        String contextSuffix2 = "{~PCL[" + sharedJarPath + "];" + contexts2[1] + "}";
 
         // Verify the context for the loaded dex files.
         assertEquals("PCL[" + jar.getPath() + "]" + contextSuffix2, contexts2[0]);
@@ -345,6 +445,16 @@ public final class BaseDexClassLoaderTest {
         loader = new DelegateLastClassLoader("", null, parent, sharedLibraries);
         assertEquals("parent", readResource(loader, "resource.txt"));
         checkResources(loader);
+
+        // PCL[]{~PCL[parent.jar]#~PCL[child.jar]}
+        loader = new PathClassLoader("", null, parent, null, sharedLibraries);
+        assertEquals("parent", readResource(loader, "resource.txt"));
+        checkResources(loader);
+
+        // DLC[]{~PCL[parent.jar]#~PCL[child.jar]}
+        loader = new DelegateLastClassLoader("", null, parent, null, sharedLibraries);
+        assertEquals("parent", readResource(loader, "resource.txt"));
+        checkResources(loader);
     }
 
     @Test
@@ -368,6 +478,16 @@ public final class BaseDexClassLoaderTest {
 
         // DLC[]{PCL[child.jar]#PCL[parent.jar]}
         loader = new DelegateLastClassLoader("", null, parent, sharedLibraries);
+        assertEquals("child", readResource(loader, "resource.txt"));
+        checkResources(loader);
+
+        // PCL[]{~PCL[child.jar]#~PCL[parent.jar]}
+        loader = new PathClassLoader("", null, parent, null, sharedLibraries);
+        assertEquals("child", readResource(loader, "resource.txt"));
+        checkResources(loader);
+
+        // DLC[]{~PCL[child.jar]#~PCL[parent.jar]}
+        loader = new DelegateLastClassLoader("", null, parent, null, sharedLibraries);
         assertEquals("child", readResource(loader, "resource.txt"));
         checkResources(loader);
     }
@@ -398,6 +518,16 @@ public final class BaseDexClassLoaderTest {
         loader = new DelegateLastClassLoader("", null, parent, sharedLibraryLevel1);
         assertEquals("parent", readResource(loader, "resource.txt"));
         checkResources(loader);
+
+        // PCL[]{~PCL[child.jar]{PCL[parent.jar]}}
+        loader = new PathClassLoader("", null, parent, null, sharedLibraryLevel1);
+        assertEquals("parent", readResource(loader, "resource.txt"));
+        checkResources(loader);
+
+        // DLC[]{~PCL[child.jar]{PCL[parent.jar]}}
+        loader = new DelegateLastClassLoader("", null, parent, null, sharedLibraryLevel1);
+        assertEquals("parent", readResource(loader, "resource.txt"));
+        checkResources(loader);
     }
 
     @Test
@@ -426,6 +556,16 @@ public final class BaseDexClassLoaderTest {
         loader = new DelegateLastClassLoader("", null, parent, sharedLibraryLevel1);
         assertEquals("child", readResource(loader, "resource.txt"));
         checkResources(loader);
+
+        // PCL[]{~PCL[parent.jar]{PCL[child.jar]}}
+        loader = new PathClassLoader("", null, parent, null, sharedLibraryLevel1);
+        assertEquals("child", readResource(loader, "resource.txt"));
+        checkResources(loader);
+
+        // DLC[]{~PCL[parent.jar]{PCL[child.jar]}}
+        loader = new DelegateLastClassLoader("", null, parent, null, sharedLibraryLevel1);
+        assertEquals("child", readResource(loader, "resource.txt"));
+        checkResources(loader);
     }
 
     @Test
@@ -448,12 +588,163 @@ public final class BaseDexClassLoaderTest {
         // Check that the parent was queried first.
         assertEquals("parent", readResource(pathLoader, "resource.txt"));
 
+        // PCL[]{~PCL[child.jar]};PCL[parent.jar]
+        pathLoader = new PathClassLoader("", null, parent, null, sharedLibrary);
+
+        // Check that the parent was queried first.
+        assertEquals("parent", readResource(pathLoader, "resource.txt"));
+
         // DLC[]{PCL[child.jar]};PCL[parent.jar]
         ClassLoader delegateLast = new DelegateLastClassLoader("", null, parent, sharedLibrary);
 
         // Check that the shared library was queried first.
         assertEquals("child", readResource(delegateLast, "resource.txt"));
 
+        // DLC[]{~PCL[child.jar]};PCL[parent.jar]
+        delegateLast = new DelegateLastClassLoader("", null, parent, null, sharedLibrary);
+
+        // Check that the shared library was queried first.
+        assertEquals("child", readResource(delegateLast, "resource.txt"));
+
+    }
+
+    @Test
+    public void testGetResourceSharedLibraries6() throws Exception {
+        File parentPath = resourcesMap.get("parent.jar");
+        File childPath = resourcesMap.get("child.jar");
+        assertTrue(parentPath != null);
+        assertTrue(childPath != null);
+
+        ClassLoader parent = Object.class.getClassLoader();
+
+        ClassLoader[] sharedLibrary = {
+                new PathClassLoader(childPath.getAbsolutePath(), null, parent),
+        };
+
+        // PCL[]{PCL[child.jar]};PCL[parent.jar]
+        ClassLoader pathLoader = new PathClassLoader(
+                parentPath.getAbsolutePath(), null, parent, sharedLibrary);
+
+        // Check that the parent was queried first.
+        assertEquals("child", readResource(pathLoader, "resource.txt"));
+
+        // PCL[]{~PCL[child.jar]};PCL[parent.jar]
+        pathLoader = new PathClassLoader(
+                parentPath.getAbsolutePath(), null, parent, null, sharedLibrary);
+
+        // Check that the parent was queried first.
+        assertEquals("parent", readResource(pathLoader, "resource.txt"));
+        // confirm resource from shard lib is available
+        checkResources(pathLoader);
+
+        // PCL[]{~PCL[child.jar]};PCL[]
+        pathLoader = new PathClassLoader("", null, parent, null, sharedLibrary);
+        // Check that the shared library was queried last.
+        assertEquals("child", readResource(pathLoader, "resource.txt"));
+
+        // DLC[]{PCL[child.jar]};PCL[parent.jar]
+        ClassLoader delegateLast = new DelegateLastClassLoader(
+                parentPath.getAbsolutePath(), null, parent, sharedLibrary);
+
+        // Check that the shared library was queried first.
+        assertEquals("child", readResource(delegateLast, "resource.txt"));
+
+        // DLC[]{~PCL[child.jar]};PCL[parent.jar]
+        delegateLast = new DelegateLastClassLoader(
+                parentPath.getAbsolutePath(), null, parent, null, sharedLibrary);
+
+        // Check that the shared library was queried first.
+        assertEquals("parent", readResource(delegateLast, "resource.txt"));
+        // confirm resource from shard lib is available
+        checkResources(delegateLast);
+
+        // DLC[]{~PCL[child.jar]};PCL[]
+        delegateLast = new DelegateLastClassLoader("", null, parent, null, sharedLibrary);
+        // Check that the shared library was queried last.
+        assertEquals("child", readResource(delegateLast, "resource.txt"));
+
+    }
+
+    @Test
+    public void testGetResourceSharedLibraries7() throws Exception {
+        File parentPath = resourcesMap.get("parent.jar");
+        File childPath = resourcesMap.get("child.jar");
+        assertTrue(parentPath != null);
+        assertTrue(childPath != null);
+
+        ClassLoader parent = Object.class.getClassLoader();
+
+        ClassLoader[] sharedLibrary1 = {
+                new PathClassLoader(parentPath.getAbsolutePath(), null, parent),
+        };
+
+        ClassLoader[] sharedLibrary2 = {
+                new PathClassLoader(childPath.getAbsolutePath(), null, parent),
+        };
+
+        // PCL[]{PCL[parent.jar]#~PCL[child.jar]}
+        ClassLoader loader = new PathClassLoader("", null, parent, sharedLibrary1, sharedLibrary2);
+        assertEquals("parent", readResource(loader, "resource.txt"));
+        checkResources(loader);
+
+        // PCL[]{PCL[child.jar]#~PCL[parent.jar]}
+        loader = new PathClassLoader("", null, parent, sharedLibrary2, sharedLibrary1);
+        assertEquals("child", readResource(loader, "resource.txt"));
+        checkResources(loader);
+
+        loader = new DelegateLastClassLoader("", null, parent, sharedLibrary1, sharedLibrary2);
+        assertEquals("parent", readResource(loader, "resource.txt"));
+        checkResources(loader);
+
+        // PCL[]{PCL[child.jar]#~PCL[parent.jar]}
+        loader = new DelegateLastClassLoader("", null, parent, sharedLibrary2, sharedLibrary1);
+        assertEquals("child", readResource(loader, "resource.txt"));
+        checkResources(loader);
+    }
+
+    @Test
+    public void testLookupOrder_loadClass() throws Exception {
+        File parentPath = resourcesMap.get("parent.jar");
+        File childPath = resourcesMap.get("child.jar");
+        assertTrue(parentPath != null);
+        assertTrue(childPath != null);
+
+        ClassLoader parent = Object.class.getClassLoader();
+
+        ClassLoader[] sharedLibrary1 = {
+                new PathClassLoader(parentPath.getAbsolutePath(), null, parent),
+        };
+
+        ClassLoader[] sharedLibrary2 = {
+                new PathClassLoader(childPath.getAbsolutePath(), null, parent),
+        };
+
+        // PCL[]{PCL[parent.jar]#~PCL[child.jar]}
+        ClassLoader loader = new PathClassLoader("", null, parent, sharedLibrary1, sharedLibrary2);
+        assertEquals("A_parent", callMethod(loader, "toString", sharedLibrary1[0]));
+        Class<?> parentClass = loader.loadClass("libcore.test.delegatelast.Parent");
+        assertSame(sharedLibrary1[0], parentClass.getClassLoader());
+        Class<?> childClass = loader.loadClass("libcore.test.delegatelast.Child");
+        assertSame(sharedLibrary2[0], childClass.getClassLoader());
+
+
+        // Note that the order is reversed here. "parent" is looked up before "child".
+        loader = new PathClassLoader("", null, parent, sharedLibrary2, sharedLibrary1);
+        assertEquals("A_child", callMethod(loader, "toString", sharedLibrary2[0]));
+        parentClass = loader.loadClass("libcore.test.delegatelast.Parent");
+        assertSame(sharedLibrary1[0], parentClass.getClassLoader());
+        childClass = loader.loadClass("libcore.test.delegatelast.Child");
+        assertSame(sharedLibrary2[0], childClass.getClassLoader());
+    }
+
+    private static String callMethod(ClassLoader cl, String name, ClassLoader srcofclass)
+            throws Exception {
+        Class<?> clazz = cl.loadClass("libcore.test.delegatelast.A");
+        assertSame(srcofclass, clazz.getClassLoader());
+
+        Method method = clazz.getMethod(name);
+        Object obj = clazz.newInstance();
+        return (String) method.invoke(obj);
     }
 
     @Test

@@ -19,6 +19,7 @@ from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.power import PowerWiFiBaseTest as PWBT
 from acts_contrib.test_utils.wifi import wifi_power_test_utils as wputils
 from acts.controllers import packet_sender as pkt_utils
+from acts.controllers.adb_lib.error import AdbCommandError
 
 RA_SHORT_LIFETIME = 3
 RA_LONG_LIFETIME = 1000
@@ -54,17 +55,34 @@ class PowerWiFimulticastTest(PWBT.PowerWiFiBaseTest):
         indices = [2, 4]
         self.decode_test_configs(attrs, indices)
         # Change DTIMx1 on the phone to receive all Multicast packets
-        rebooted = wputils.change_dtim(self.dut,
-                                       gEnableModulatedDTIM=1,
-                                       gMaxLIModulatedDTIM=10)
-        self.dut.log.info('DTIM value of the phone is now DTIMx1')
-        if rebooted:
-            self.dut_rockbottom()
+
+        # Starts from P21 device, the dtim setting method is changed to use adb.
+        # If no file match '/vendor/firmware/wlan/*/*.ini', use adb to change
+        # the dtim.
+        change_dtim_with_adb = False
+        try:
+            self.dut.adb.shell('ls /vendor/firmware/wlan/*/*.ini')
+        except AdbCommandError as e:
+            change_dtim_with_adb = True
+
+        if not change_dtim_with_adb:
+            # Initialize the dut to rock-bottom state
+            rebooted = wputils.change_dtim(
+                self.dut,
+                gEnableModulatedDTIM=1,
+                gMaxLIModulatedDTIM=10)
+            if rebooted:
+                self.dut_rockbottom()
+            self.dut.log.info('DTIM value of the phone is now DTIMx1')
 
         self.setup_ap_connection(
             self.main_network[self.test_configs.wifi_band])
         # Wait for DHCP with timeout of 60 seconds
         wputils.wait_for_dhcp(self.pkt_sender.interface)
+
+        if change_dtim_with_adb:
+            self.dut.log.info('No ini file for dtim, change dtim with adb')
+            wputils.change_dtim_adb(self.dut, gEnableModulatedDTIM=1)
 
         # Set the desired screen status
         if self.test_configs.screen_status == 'OFF':

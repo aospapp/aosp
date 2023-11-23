@@ -19,37 +19,10 @@ package com.android.server.wm.flicker.monitor
 import com.android.server.wm.flicker.FlickerRunResult
 
 /** Collects test artifacts during a UI transition.  */
-interface ITransitionMonitor {
+interface ITransitionMonitor : FlickerRunResult.IResultSetter {
     /** Starts monitor.  */
     fun start()
 
     /** Stops monitor.  */
     fun stop()
-
-    /**
-     * Saves any monitor artifacts to file adding `testTag` and `iteration` to the file
-     * name.
-     *
-     * @param testTag suffix added to artifact name
-     * @param iteration suffix added to artifact name
-     * @param flickerRunResultBuilder Flicker run results
-     * @return Path to saved artifact
-     */
-    fun save(testTag: String, iteration: Int, flickerRunResultBuilder: FlickerRunResult.Builder) =
-            save("${testTag}_$iteration", flickerRunResultBuilder)
-
-    /**
-     * Saves trace file to the external storage directory suffixing the name with the testtag and
-     * iteration.
-     *
-     *
-     * Moves the trace file from the default location via a shell command since the test app does
-     * not have security privileges to access /data/misc/wmtrace.
-     *
-     * @param testTag suffix added to trace name used to identify trace
-     * @param flickerRunResultBuilder Flicker run results
-     */
-    fun save(testTag: String, flickerRunResultBuilder: FlickerRunResult.Builder) {
-        throw UnsupportedOperationException("Save not implemented for this monitor")
-    }
 }

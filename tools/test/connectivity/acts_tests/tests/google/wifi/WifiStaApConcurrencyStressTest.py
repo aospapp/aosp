@@ -22,8 +22,8 @@ from acts import asserts
 from acts import signals
 from acts import utils
 from acts.test_decorators import test_tracker_info
-from acts_contrib.test_utils.tel.tel_test_utils import WIFI_CONFIG_APBAND_2G
-from acts_contrib.test_utils.tel.tel_test_utils import WIFI_CONFIG_APBAND_5G
+from acts_contrib.test_utils.tel.tel_wifi_utils import WIFI_CONFIG_APBAND_2G
+from acts_contrib.test_utils.tel.tel_wifi_utils import WIFI_CONFIG_APBAND_5G
 from WifiStaApConcurrencyTest import WifiStaApConcurrencyTest
 import acts_contrib.test_utils.wifi.wifi_test_utils as wutils
 

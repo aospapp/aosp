@@ -37,6 +37,7 @@ enum NanoappPermissions : uint32_t {
   CHRE_PERMS_GNSS = 1 << 1,
   CHRE_PERMS_WIFI = 1 << 2,
   CHRE_PERMS_WWAN = 1 << 3,
+  CHRE_PERMS_BLE = 1 << 4,
   CHRE_PERMS_ALL = 0xffffffff,
 };
 

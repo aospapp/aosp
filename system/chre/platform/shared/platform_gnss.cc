@@ -47,6 +47,12 @@ void PlatformGnss::init() {
   if (mGnssApi != nullptr) {
     if (!mGnssApi->open(&gChrePalSystemApi, &sGnssCallbacks)) {
       LOGE("GNSS PAL open returned false");
+
+#ifdef CHRE_TELEMETRY_SUPPORT_ENABLED
+      EventLoopManagerSingleton::get()->getTelemetryManager().onPalOpenFailure(
+          TelemetryManager::PalType::GNSS);
+#endif  // CHRE_TELEMETRY_SUPPORT_ENABLED
+
       mGnssApi = nullptr;
     } else {
       LOGD("Opened GNSS PAL version 0x%08" PRIx32, mGnssApi->moduleVersion);

@@ -16,11 +16,23 @@
 
 package android.app.usage.cts.test1;
 
+import static android.content.Intent.EXTRA_REMOTE_CALLBACK;
+
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.os.RemoteCallback;
+import android.util.Log;
 
 public final class TestBroadcastReceiver extends BroadcastReceiver {
+    private static final String TAG = "TestBroadcastReceiver";
+
     @Override
-    public void onReceive(Context context, Intent intent) {}
+    public void onReceive(Context context, Intent intent) {
+        Log.d(TAG, "Received broadcast: " + intent);
+        if (intent.hasExtra(EXTRA_REMOTE_CALLBACK)) {
+            final RemoteCallback remoteCallback = intent.getParcelableExtra(EXTRA_REMOTE_CALLBACK);
+            remoteCallback.sendResult(null);
+        }
+    }
 }

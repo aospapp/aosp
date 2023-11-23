@@ -103,6 +103,7 @@ enum dpp_comp_src {
   DPP_COMP_SRC_GPU
 };
 
+// clang-format off
 enum dpp_attr {
     DPP_ATTR_AFBC           = 0,
     DPP_ATTR_BLOCK          = 1,
@@ -119,5 +120,8 @@ enum dpp_attr {
     DPP_ATTR_IDMA           = 16,
     DPP_ATTR_ODMA           = 17,
     DPP_ATTR_DPP            = 18,
+    DPP_ATTR_WBMUX          = 19,
+    DPP_ATTR_RCD            = 20,
 };
+// clang-format on
 #endif

@@ -65,13 +65,9 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
-// Android-changed: Fuchsia: Point to correct header location. http://b/119426171
+// Android-changed: Point to correct header location. http://b/119426171
 // #include <sys/signal.h>
-#if !defined(__Fuchsia__)
-#include <sys/signal.h>
-#else
 #include <signal.h>
-#endif
 
 /* O Flags */
 

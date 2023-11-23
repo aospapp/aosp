@@ -197,6 +197,9 @@ int IPACM_Config::Init(void)
 		IPACMERR("Failed opening %s.\n", DEVICE_NAME);
 	}
 	ver = GetIPAVer(true);
+#ifdef IPA_IOCTL_GET_HW_FEATURE_SUPPORT
+	hw_feature = GetIPAFeatureSupport(true);
+#endif
 #ifdef FEATURE_IPACM_HAL
 	strlcpy(IPACM_config_file, "/vendor/etc/IPACM_cfg.xml", sizeof(IPACM_config_file));
 #else
@@ -911,11 +914,36 @@ enum ipa_hw_type IPACM_Config::GetIPAVer(bool get)
 	return ver;
 }
 
+#ifdef IPA_IOCTL_GET_HW_FEATURE_SUPPORT
+int IPACM_Config::GetIPAFeatureSupport(bool get)
+{
+	int ret;
+
+	if(!get)
+		return hw_feature;
+
+	ret = ioctl(m_fd, IPA_IOC_GET_HW_FEATURE_SUPPORT, &hw_feature);
+	if(ret != 0)
+	{
+		IPACMERR("Failed to get IPA HW feature support %d.\n", ret);
+		hw_feature = 0;
+		return hw_feature;
+	}
+	IPACMDBG_H("IPA HW supported feature %d.\n", hw_feature);
+	return hw_feature;
+}
+#endif
+
 bool IPACM_Config::isEthBridgingSupported()
 {
 	enum ipa_hw_type hw_type;
 
 	hw_type = GetIPAVer();
+#ifdef IPA_IOCTL_GET_HW_FEATURE_SUPPORT
+	if (hw_type >= IPA_HW_v4_11) {
+		return ((hw_feature & IPA_HW_ETH_BRIDGING_SUPPORT_BMSK) != 0);
+	}
+#endif
 
 #ifdef IPA_HW_v4_7
 	return ((hw_type >= IPA_HW_v4_5) &&

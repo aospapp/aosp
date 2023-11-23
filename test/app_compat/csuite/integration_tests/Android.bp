@@ -38,23 +38,21 @@ java_genrule_host {
         "cp $${ANDROID_HOST_OUT}/framework/csuite-tradefed.jar $${CSUITE_TOOLS} && " +
         "cp $(location :tradefed) $${CSUITE_TOOLS} && " +
         "cp $(location :compatibility-host-util) $${CSUITE_TOOLS} && " +
+        "cp $(location :csuite-app-launch) $${CSUITE_TESTCASES} && " +
         // We skip copying the csuite-tradefed-tests jar since its location is
         // not straight-forward to deduce and not really necessary.
         "touch $${CSUITE_TOOLS}/csuite-tradefed-tests.jar && " +
-        "cp $(location :csuite_generate_module) $${CSUITE_TOOLS} && " +
-        "cp $(location :csuite-launch-instrumentation) $${CSUITE_TESTCASES} && " +
         "chmod a+x $${CSUITE_TOOLS}/csuite-tradefed && " +
         "$(location soong_zip) -o $(out) -d -C $(genDir) -D $${ANDROID_CSUITE}",
     out: ["csuite-standalone.zip"],
     srcs: [
-        ":csuite-launch-instrumentation",
         ":tradefed",
         ":compatibility-host-util",
+        ":csuite-app-launch",
     ],
     tools: [
         "soong_zip",
         ":csuite-tradefed",
-        ":csuite_generate_module",
     ],
 }
 

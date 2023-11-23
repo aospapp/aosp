@@ -15,6 +15,7 @@
 package dexpreopt
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strconv"
@@ -192,6 +193,13 @@ type ClassLoaderContext struct {
 	// The name of the library.
 	Name string
 
+	// If the library is optional or required.
+	Optional bool
+
+	// If the library is implicitly infered by Soong (as opposed to explicitly added via `uses_libs`
+	// or `optional_uses_libs`.
+	Implicit bool
+
 	// On-host build path to the library dex file (used in dex2oat argument --class-loader-context).
 	Host android.Path
 
@@ -200,6 +208,34 @@ type ClassLoaderContext struct {
 
 	// Nested sub-CLC for dependencies.
 	Subcontexts []*ClassLoaderContext
+}
+
+// excludeLibs excludes the libraries from this ClassLoaderContext.
+//
+// This treats the supplied context as being immutable (as it may come from a dependency). So, it
+// implements copy-on-exclusion logic. That means that if any of the excluded libraries are used
+// within this context then this will return a deep copy of this without those libraries.
+//
+// If this ClassLoaderContext matches one of the libraries to exclude then this returns (nil, true)
+// to indicate that this context should be excluded from the containing list.
+//
+// If any of this ClassLoaderContext's Subcontexts reference the excluded libraries then this
+// returns a pointer to a copy of this without the excluded libraries and true to indicate that this
+// was copied.
+//
+// Otherwise, this returns a pointer to this and false to indicate that this was not copied.
+func (c *ClassLoaderContext) excludeLibs(excludedLibs []string) (*ClassLoaderContext, bool) {
+	if android.InList(c.Name, excludedLibs) {
+		return nil, true
+	}
+
+	if excludedList, modified := excludeLibsFromCLCList(c.Subcontexts, excludedLibs); modified {
+		clcCopy := *c
+		clcCopy.Subcontexts = excludedList
+		return &clcCopy, true
+	}
+
+	return c, false
 }
 
 // ClassLoaderContextMap is a map from SDK version to CLC. There is a special entry with key
@@ -254,8 +290,9 @@ const UnknownInstallLibraryPath = "error"
 const AnySdkVersion int = android.FutureApiLevelInt
 
 // Add class loader context for the given library to the map entry for the given SDK version.
-func (clcMap ClassLoaderContextMap) addContext(ctx android.ModuleInstallPathContext, sdkVer int, lib string,
-	hostPath, installPath android.Path, nestedClcMap ClassLoaderContextMap) error {
+func (clcMap ClassLoaderContextMap) addContext(ctx android.ModuleInstallPathContext, sdkVer int,
+	lib string, optional, implicit bool, hostPath, installPath android.Path,
+	nestedClcMap ClassLoaderContextMap) error {
 
 	// For prebuilts, library should have the same name as the source module.
 	lib = android.RemoveOptionalPrebuiltPrefix(lib)
@@ -285,16 +322,26 @@ func (clcMap ClassLoaderContextMap) addContext(ctx android.ModuleInstallPathCont
 	}
 	subcontexts := nestedClcMap[AnySdkVersion]
 
-	// If the library with this name is already present as one of the unconditional top-level
-	// components, do not re-add it.
+	// Check if the library with this name is already present in unconditional top-level CLC.
 	for _, clc := range clcMap[sdkVer] {
-		if clc.Name == lib {
+		if clc.Name != lib {
+			// Ok, a different library.
+		} else if clc.Host == hostPath && clc.Device == devicePath {
+			// Ok, the same library with the same paths. Don't re-add it, but don't raise an error
+			// either, as the same library may be reachable via different transitional dependencies.
 			return nil
+		} else {
+			// Fail, as someone is trying to add the same library with different paths. This likely
+			// indicates an error somewhere else, like trying to add a stub library.
+			return fmt.Errorf("a <uses-library> named %q is already in class loader context,"+
+				"but the library paths are different:\t\n", lib)
 		}
 	}
 
 	clcMap[sdkVer] = append(clcMap[sdkVer], &ClassLoaderContext{
 		Name:        lib,
+		Optional:    optional,
+		Implicit:    implicit,
 		Host:        hostPath,
 		Device:      devicePath,
 		Subcontexts: subcontexts,
@@ -307,9 +354,10 @@ func (clcMap ClassLoaderContextMap) addContext(ctx android.ModuleInstallPathCont
 // about paths). For the subset of libraries that are used in dexpreopt, their build/install paths
 // are validated later before CLC is used (in validateClassLoaderContext).
 func (clcMap ClassLoaderContextMap) AddContext(ctx android.ModuleInstallPathContext, sdkVer int,
-	lib string, hostPath, installPath android.Path, nestedClcMap ClassLoaderContextMap) {
+	lib string, optional, implicit bool, hostPath, installPath android.Path,
+	nestedClcMap ClassLoaderContextMap) {
 
-	err := clcMap.addContext(ctx, sdkVer, lib, hostPath, installPath, nestedClcMap)
+	err := clcMap.addContext(ctx, sdkVer, lib, optional, implicit, hostPath, installPath, nestedClcMap)
 	if err != nil {
 		ctx.ModuleErrorf(err.Error())
 	}
@@ -352,15 +400,101 @@ func (clcMap ClassLoaderContextMap) AddContextMap(otherClcMap ClassLoaderContext
 // Returns top-level libraries in the CLC (conditional CLC, i.e. compatibility libraries are not
 // included). This is the list of libraries that should be in the <uses-library> tags in the
 // manifest. Some of them may be present in the source manifest, others are added by manifest_fixer.
-func (clcMap ClassLoaderContextMap) UsesLibs() (ulibs []string) {
+// Required and optional libraries are in separate lists.
+func (clcMap ClassLoaderContextMap) usesLibs(implicit bool) (required []string, optional []string) {
 	if clcMap != nil {
 		clcs := clcMap[AnySdkVersion]
-		ulibs = make([]string, 0, len(clcs))
+		required = make([]string, 0, len(clcs))
+		optional = make([]string, 0, len(clcs))
 		for _, clc := range clcs {
-			ulibs = append(ulibs, clc.Name)
+			if implicit && !clc.Implicit {
+				// Skip, this is an explicit library and we need only the implicit ones.
+			} else if clc.Optional {
+				optional = append(optional, clc.Name)
+			} else {
+				required = append(required, clc.Name)
+			}
 		}
 	}
-	return ulibs
+	return required, optional
+}
+
+func (clcMap ClassLoaderContextMap) UsesLibs() ([]string, []string) {
+	return clcMap.usesLibs(false)
+}
+
+func (clcMap ClassLoaderContextMap) ImplicitUsesLibs() ([]string, []string) {
+	return clcMap.usesLibs(true)
+}
+
+func (clcMap ClassLoaderContextMap) Dump() string {
+	jsonCLC := toJsonClassLoaderContext(clcMap)
+	bytes, err := json.MarshalIndent(jsonCLC, "", "  ")
+	if err != nil {
+		panic(err)
+	}
+	return string(bytes)
+}
+
+// excludeLibsFromCLCList excludes the libraries from the ClassLoaderContext in this list.
+//
+// This treats the supplied list as being immutable (as it may come from a dependency). So, it
+// implements copy-on-exclusion logic. That means that if any of the excluded libraries are used
+// within the contexts in the list then this will return a deep copy of the list without those
+// libraries.
+//
+// If any of the ClassLoaderContext in the list reference the excluded libraries then this returns a
+// copy of this list without the excluded libraries and true to indicate that this was copied.
+//
+// Otherwise, this returns the list and false to indicate that this was not copied.
+func excludeLibsFromCLCList(clcList []*ClassLoaderContext, excludedLibs []string) ([]*ClassLoaderContext, bool) {
+	modifiedList := false
+	copiedList := make([]*ClassLoaderContext, 0, len(clcList))
+	for _, clc := range clcList {
+		resultClc, modifiedClc := clc.excludeLibs(excludedLibs)
+		if resultClc != nil {
+			copiedList = append(copiedList, resultClc)
+		}
+		modifiedList = modifiedList || modifiedClc
+	}
+
+	if modifiedList {
+		return copiedList, true
+	} else {
+		return clcList, false
+	}
+}
+
+// ExcludeLibs excludes the libraries from the ClassLoaderContextMap.
+//
+// If the list o libraries is empty then this returns the ClassLoaderContextMap.
+//
+// This treats the ClassLoaderContextMap as being immutable (as it may come from a dependency). So,
+// it implements copy-on-exclusion logic. That means that if any of the excluded libraries are used
+// within the contexts in the map then this will return a deep copy of the map without those
+// libraries.
+//
+// Otherwise, this returns the map unchanged.
+func (clcMap ClassLoaderContextMap) ExcludeLibs(excludedLibs []string) ClassLoaderContextMap {
+	if len(excludedLibs) == 0 {
+		return clcMap
+	}
+
+	excludedClcMap := make(ClassLoaderContextMap)
+	modifiedMap := false
+	for sdkVersion, clcList := range clcMap {
+		excludedList, modifiedList := excludeLibsFromCLCList(clcList, excludedLibs)
+		if len(excludedList) != 0 {
+			excludedClcMap[sdkVersion] = excludedList
+		}
+		modifiedMap = modifiedMap || modifiedList
+	}
+
+	if modifiedMap {
+		return excludedClcMap
+	} else {
+		return clcMap
+	}
 }
 
 // Now that the full unconditional context is known, reconstruct conditional context.
@@ -370,7 +504,8 @@ func (clcMap ClassLoaderContextMap) UsesLibs() (ulibs []string) {
 // TODO(b/132357300): remove "android.hidl.manager" and "android.hidl.base" for non-system apps.
 //
 func fixClassLoaderContext(clcMap ClassLoaderContextMap) {
-	usesLibs := clcMap.UsesLibs()
+	required, optional := clcMap.UsesLibs()
+	usesLibs := append(required, optional...)
 
 	for sdkVer, clcs := range clcMap {
 		if sdkVer == AnySdkVersion {
@@ -495,6 +630,8 @@ func computeClassLoaderContextRec(clcs []*ClassLoaderContext) (string, string, a
 // the same as Soong representation except that SDK versions and paths are represented with strings.
 type jsonClassLoaderContext struct {
 	Name        string
+	Optional    bool
+	Implicit    bool
 	Host        string
 	Device      string
 	Subcontexts []*jsonClassLoaderContext
@@ -526,6 +663,8 @@ func fromJsonClassLoaderContextRec(ctx android.PathContext, jClcs []*jsonClassLo
 	for _, clc := range jClcs {
 		clcs = append(clcs, &ClassLoaderContext{
 			Name:        clc.Name,
+			Optional:    clc.Optional,
+			Implicit:    clc.Implicit,
 			Host:        constructPath(ctx, clc.Host),
 			Device:      clc.Device,
 			Subcontexts: fromJsonClassLoaderContextRec(ctx, clc.Subcontexts),
@@ -548,9 +687,18 @@ func toJsonClassLoaderContext(clcMap ClassLoaderContextMap) jsonClassLoaderConte
 func toJsonClassLoaderContextRec(clcs []*ClassLoaderContext) []*jsonClassLoaderContext {
 	jClcs := make([]*jsonClassLoaderContext, len(clcs))
 	for i, clc := range clcs {
+		var host string
+		if clc.Host == nil {
+			// Defer build failure to when this CLC is actually used.
+			host = fmt.Sprintf("implementation-jar-for-%s-is-not-available.jar", clc.Name)
+		} else {
+			host = clc.Host.String()
+		}
 		jClcs[i] = &jsonClassLoaderContext{
 			Name:        clc.Name,
-			Host:        clc.Host.String(),
+			Optional:    clc.Optional,
+			Implicit:    clc.Implicit,
+			Host:        host,
 			Device:      clc.Device,
 			Subcontexts: toJsonClassLoaderContextRec(clc.Subcontexts),
 		}

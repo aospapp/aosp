@@ -46,7 +46,7 @@ class GnssPowerBasicTest(PowerGTWGnssBaseTest):
         self.start_gnss_tracking_with_power_data()
 
     # Long Interval tests
-    def test_standalone_DPO_long_strong_cn(self):
+    def test_standalone_DPO_strong_cn_long(self):
         self.start_gnss_tracking_with_power_data(freq=self.interval)
 
     def test_standalone_NDPO_strong_cn_long(self):

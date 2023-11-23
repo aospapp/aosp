@@ -24,7 +24,6 @@ from datetime import datetime
 import pprint
 import time
 
-import acts.base_test
 import acts_contrib.test_utils.wifi.wifi_test_utils as wutils
 
 from acts import signals
@@ -32,10 +31,10 @@ from acts.controllers.ap_lib import hostapd_ap_preset
 from acts.controllers.ap_lib import hostapd_bss_settings
 from acts.controllers.ap_lib import hostapd_constants
 from acts.controllers.ap_lib import hostapd_security
-from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
+from acts_contrib.test_utils.abstract_devices.wlan_device_lib.AbstractDeviceWlanDeviceBaseTest import AbstractDeviceWlanDeviceBaseTest
 
 
-class WlanScanTest(WifiBaseTest):
+class WlanScanTest(AbstractDeviceWlanDeviceBaseTest):
     """WLAN scan test class.
 
     Test Bed Requirement:
@@ -46,6 +45,7 @@ class WlanScanTest(WifiBaseTest):
     def setup_class(self):
         super().setup_class()
 
+        self.access_point = self.access_points[0]
         self.start_access_point = False
         for fd in self.fuchsia_devices:
             fd.configure_wlan(association_mechanism='drivers')
@@ -85,14 +85,14 @@ class WlanScanTest(WifiBaseTest):
                         security_mode=self.wpa2_network_5g["security"],
                         password=self.wpa2_network_5g["password"])))
             self.ap_2g = hostapd_ap_preset.create_ap_preset(
-                iface_wlan_2g=self.access_points[0].wlan_2g,
-                iface_wlan_5g=self.access_points[0].wlan_5g,
+                iface_wlan_2g=self.access_point.wlan_2g,
+                iface_wlan_5g=self.access_point.wlan_5g,
                 channel=hostapd_constants.AP_DEFAULT_CHANNEL_2G,
                 ssid=self.open_network_2g['SSID'],
                 bss_settings=bss_settings_2g)
             self.ap_5g = hostapd_ap_preset.create_ap_preset(
-                iface_wlan_2g=self.access_points[0].wlan_2g,
-                iface_wlan_5g=self.access_points[0].wlan_5g,
+                iface_wlan_2g=self.access_point.wlan_2g,
+                iface_wlan_5g=self.access_point.wlan_5g,
                 channel=hostapd_constants.AP_DEFAULT_CHANNEL_5G,
                 ssid=self.open_network_5g['SSID'],
                 bss_settings=bss_settings_5g)
@@ -134,10 +134,10 @@ class WlanScanTest(WifiBaseTest):
         # previously saved ssid on the device.
         if self.start_access_point_2g:
             self.start_access_point = True
-            self.access_points[0].start_ap(hostapd_config=self.ap_2g)
+            self.access_point.start_ap(hostapd_config=self.ap_2g)
         if self.start_access_point_5g:
             self.start_access_point = True
-            self.access_points[0].start_ap(hostapd_config=self.ap_5g)
+            self.access_point.start_ap(hostapd_config=self.ap_5g)
 
     def setup_test(self):
         for fd in self.fuchsia_devices:
@@ -150,7 +150,13 @@ class WlanScanTest(WifiBaseTest):
 
     def teardown_class(self):
         if self.start_access_point:
-            self.access_points[0].stop_all_aps()
+            self.download_ap_logs()
+            self.access_point.stop_all_aps()
+
+    def on_fail(self, test_name, begin_time):
+        for fd in self.fuchsia_devices:
+            super().on_device_fail(fd, test_name, begin_time)
+            fd.configure_wlan(association_mechanism='drivers')
 
     """Helper Functions"""
 

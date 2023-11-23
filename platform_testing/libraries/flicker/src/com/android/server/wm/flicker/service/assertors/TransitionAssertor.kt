@@ -61,16 +61,14 @@ class TransitionAssertor(
         categoryKey: String
     ): Map<Long, MutableList<Error>> {
         logger.invoke("Running assertions for $tag $categoryKey")
-        val wmSubject = WindowManagerTraceSubject.assertThat(wmTrace)
-        val layersSubject = LayersTraceSubject.assertThat(layersTrace)
         val assertions = assertions.filter { it.category == categoryKey }
-        return runAssertionsOnSubjects(tag, wmSubject, layersSubject, assertions)
+        return runAssertionsOnSubjects(tag, wmTrace, layersTrace, assertions)
     }
 
     private fun runAssertionsOnSubjects(
         tag: Tag,
-        wmSubject: WindowManagerTraceSubject,
-        layerSubject: LayersTraceSubject,
+        wmTrace: WindowManagerTrace,
+        layersTrace: LayersTrace,
         assertions: List<AssertionData>
     ): Map<Long, MutableList<Error>> {
         val errors = mutableMapOf<Long, MutableList<Error>>()
@@ -79,12 +77,18 @@ class TransitionAssertor(
             assertions.forEach {
                 val assertion = it.assertion
                 logger.invoke("Running assertion $assertion")
-                val result = assertion.runCatching { evaluate(tag, wmSubject, layerSubject) }
+                val wmSubject = WindowManagerTraceSubject.assertThat(wmTrace)
+                val layersSubject = LayersTraceSubject.assertThat(layersTrace)
+                val result = assertion.runCatching { evaluate(tag, wmSubject, layersSubject) }
                 if (result.isFailure) {
-                    val layer = assertion.getFailureLayer(tag, wmSubject, layerSubject)
-                    val window = assertion.getFailureWindow(tag, wmSubject, layerSubject)
-                    val exception = result.exceptionOrNull() as FlickerSubjectException
-
+                    val layer = assertion.getFailureLayer(tag, wmSubject, layersSubject)
+                    val window = assertion.getFailureWindow(tag, wmSubject, layersSubject)
+                    val exception = result.exceptionOrNull() ?: error("Exception not found")
+                    // if it's not a flicker exception, we don't know what
+                    // happened, raise the exception back to the test
+                    if (exception !is FlickerSubjectException) {
+                        throw exception
+                    }
                     errors.putIfAbsent(exception.timestamp, mutableListOf())
                     val errorEntry = Error(
                         stacktrace = exception.stackTraceToString(),
@@ -111,6 +115,6 @@ class TransitionAssertor(
             val stateTags = entry.value
             ErrorState(stateTags.toTypedArray(), timestamp.toString())
         }
-        return ErrorTrace(errorStates.toTypedArray(), source = "")
+        return ErrorTrace(errorStates.toTypedArray())
     }
 }

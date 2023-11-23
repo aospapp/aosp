@@ -19,8 +19,8 @@ package {
 blueprint_go_binary {
     name: "multiproduct_kati",
     deps: [
-        "soong-ui-build",
         "soong-ui-logger",
+        "soong-ui-signal",
         "soong-ui-terminal",
         "soong-ui-tracer",
         "soong-zip",
@@ -31,4 +31,14 @@ blueprint_go_binary {
     testSrcs: [
         "main_test.go",
     ],
+    linux: {
+        srcs: [
+            "main_linux.go",
+        ],
+    },
+    darwin: {
+        srcs: [
+            "main_darwin.go",
+        ],
+    },
 }

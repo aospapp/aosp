@@ -118,4 +118,13 @@ message UserConfig {
 
   // [Oxygen only] The API service url.
   optional string api_url = 33;
+
+  // [Oxygen only] The client to call oxygen api.
+  optional string oxygen_client = 34;
+
+  // [Oxygen only] The args append to lease command.
+  optional string oxygen_lease_args = 35;
+
+  // Storage options of created GCP instance, e.g. pd-standard, pd-ssd.
+  optional string disk_type = 36;
 }

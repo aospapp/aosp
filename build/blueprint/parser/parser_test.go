@@ -144,7 +144,8 @@ var validParseTestCases = []struct {
 	{`
 		foo {
 			stuff: ["asdf", "jkl;", "qwert",
-				"uiop", "bnm,"]
+				"uiop", ` + "`bnm,\n`" +
+		`]
 		}
 		`,
 		[]Definition{
@@ -153,7 +154,7 @@ var validParseTestCases = []struct {
 				TypePos: mkpos(3, 2, 3),
 				Map: Map{
 					LBracePos: mkpos(7, 2, 7),
-					RBracePos: mkpos(67, 5, 3),
+					RBracePos: mkpos(68, 6, 3),
 					Properties: []*Property{
 						{
 							Name:     "stuff",
@@ -161,7 +162,7 @@ var validParseTestCases = []struct {
 							ColonPos: mkpos(17, 3, 9),
 							Value: &List{
 								LBracePos: mkpos(19, 3, 11),
-								RBracePos: mkpos(63, 4, 19),
+								RBracePos: mkpos(64, 5, 2),
 								Values: []Expression{
 									&String{
 										LiteralPos: mkpos(20, 3, 12),
@@ -181,7 +182,122 @@ var validParseTestCases = []struct {
 									},
 									&String{
 										LiteralPos: mkpos(57, 4, 13),
-										Value:      "bnm,",
+										Value:      "bnm,\n",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		nil,
+	},
+
+	{`
+		foo {
+			stuff: {
+				"key1": 1,
+				"key2": 2,
+			},
+		}
+		`,
+		[]Definition{
+			&Module{
+				Type:    "foo",
+				TypePos: mkpos(3, 2, 3),
+				Map: Map{
+					LBracePos: mkpos(7, 2, 7),
+					RBracePos: mkpos(59, 7, 3),
+					Properties: []*Property{
+						{
+							Name:     "stuff",
+							NamePos:  mkpos(12, 3, 4),
+							ColonPos: mkpos(17, 3, 9),
+							Value: &Map{
+								LBracePos: mkpos(19, 3, 11),
+								RBracePos: mkpos(54, 6, 4),
+								MapItems: []*MapItem{
+									&MapItem{
+										ColonPos: mkpos(33, 4, 13),
+										Key: &String{
+											LiteralPos: mkpos(25, 4, 5),
+											Value:      "key1",
+										},
+										Value: &Int64{
+											LiteralPos: mkpos(33, 4, 13),
+											Value:      1,
+											Token:      "1",
+										},
+									},
+									&MapItem{
+										ColonPos: mkpos(48, 5, 13),
+										Key: &String{
+											LiteralPos: mkpos(40, 5, 5),
+											Value:      "key2",
+										},
+										Value: &Int64{
+											LiteralPos: mkpos(48, 5, 13),
+											Value:      2,
+											Token:      "2",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		nil,
+	},
+
+	{`
+		foo {
+			stuff: {
+				"key1": {
+					a: "abc",
+				},
+			},
+		}
+		`,
+		[]Definition{
+			&Module{
+				Type:    "foo",
+				TypePos: mkpos(3, 2, 3),
+				Map: Map{
+					LBracePos: mkpos(7, 2, 7),
+					RBracePos: mkpos(65, 8, 3),
+					Properties: []*Property{
+						{
+							Name:     "stuff",
+							NamePos:  mkpos(12, 3, 4),
+							ColonPos: mkpos(17, 3, 9),
+							Value: &Map{
+								LBracePos: mkpos(19, 3, 11),
+								RBracePos: mkpos(60, 7, 4),
+								MapItems: []*MapItem{
+									&MapItem{
+										ColonPos: mkpos(33, 4, 13),
+										Key: &String{
+											LiteralPos: mkpos(25, 4, 5),
+											Value:      "key1",
+										},
+										Value: &Map{
+											LBracePos: mkpos(33, 4, 13),
+											RBracePos: mkpos(54, 6, 5),
+											Properties: []*Property{
+												&Property{
+													Name:     "a",
+													NamePos:  mkpos(40, 5, 6),
+													ColonPos: mkpos(41, 5, 7),
+													Value: &String{
+														LiteralPos: mkpos(43, 5, 9),
+														Value:      "abc",
+													},
+												},
+											},
+										},
 									},
 								},
 							},
@@ -1214,6 +1330,28 @@ func TestParseValidInput(t *testing.T) {
 }
 
 // TODO: Test error strings
+
+func TestMapParserError(t *testing.T) {
+	input :=
+		`
+		foo {
+			stuff: {
+				1: "value1",
+				2: "value2",
+			},
+		}
+		`
+	expectedErr := `<input>:4:6: only strings are supported as map keys: int64 ('\x01'@<input>:4:5)`
+	_, errs := ParseAndEval("", bytes.NewBufferString(input), NewScope(nil))
+	if len(errs) == 0 {
+		t.Fatalf("Expected errors, got none.")
+	}
+	for _, err := range errs {
+		if expectedErr != err.Error() {
+			t.Errorf("Unexpected err:  %s", err)
+		}
+	}
+}
 
 func TestParserEndPos(t *testing.T) {
 	in := `

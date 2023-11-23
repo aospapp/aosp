@@ -18,19 +18,24 @@ package com.android.bedstead.harrier;
 
 import static android.Manifest.permission.INTERACT_ACROSS_PROFILES;
 import static android.Manifest.permission.INTERACT_ACROSS_USERS_FULL;
+import static android.app.AppOpsManager.OPSTR_FINE_LOCATION;
+import static android.app.AppOpsManager.OPSTR_START_FOREGROUND;
 import static android.app.admin.DevicePolicyManager.DELEGATION_APP_RESTRICTIONS;
 import static android.app.admin.DevicePolicyManager.DELEGATION_CERT_INSTALL;
 import static android.content.pm.PackageManager.PERMISSION_DENIED;
 import static android.content.pm.PackageManager.PERMISSION_GRANTED;
 
-import static com.android.bedstead.harrier.DeviceState.UserType.ANY;
-import static com.android.bedstead.harrier.DeviceState.UserType.PRIMARY_USER;
 import static com.android.bedstead.harrier.OptionalBoolean.FALSE;
 import static com.android.bedstead.harrier.OptionalBoolean.TRUE;
+import static com.android.bedstead.harrier.UserType.ANY;
+import static com.android.bedstead.harrier.UserType.PRIMARY_USER;
+import static com.android.bedstead.harrier.UserType.SECONDARY_USER;
 import static com.android.bedstead.harrier.annotations.RequireAospBuild.GMS_CORE_PACKAGE;
 import static com.android.bedstead.harrier.annotations.RequireCnGmsBuild.CHINA_GOOGLE_SERVICES_FEATURE;
 import static com.android.bedstead.harrier.annotations.enterprise.EnsureHasDelegate.AdminType.DEVICE_OWNER;
 import static com.android.bedstead.harrier.annotations.enterprise.EnsureHasDelegate.AdminType.PRIMARY;
+import static com.android.bedstead.nene.appops.AppOpsMode.ALLOWED;
+import static com.android.bedstead.nene.permissions.CommonPermissions.READ_CONTACTS;
 import static com.android.bedstead.nene.users.UserType.MANAGED_PROFILE_TYPE_NAME;
 import static com.android.bedstead.nene.users.UserType.SECONDARY_USER_TYPE_NAME;
 import static com.android.bedstead.nene.users.UserType.SYSTEM_USER_TYPE_NAME;
@@ -40,11 +45,19 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.testng.Assert.assertThrows;
 
 import android.app.ActivityManager;
+import android.app.admin.DevicePolicyManager;
+import android.content.PermissionChecker;
 import android.os.Build;
 import android.os.Bundle;
 import android.platform.test.annotations.AppModeFull;
 
+import com.android.bedstead.harrier.annotations.EnsureBluetoothDisabled;
+import com.android.bedstead.harrier.annotations.EnsureBluetoothEnabled;
+import com.android.bedstead.harrier.annotations.EnsureDemoMode;
+import com.android.bedstead.harrier.annotations.EnsureDoesNotHaveAppOp;
 import com.android.bedstead.harrier.annotations.EnsureDoesNotHavePermission;
+import com.android.bedstead.harrier.annotations.EnsureGlobalSettingSet;
+import com.android.bedstead.harrier.annotations.EnsureHasAppOp;
 import com.android.bedstead.harrier.annotations.EnsureHasNoSecondaryUser;
 import com.android.bedstead.harrier.annotations.EnsureHasNoTvProfile;
 import com.android.bedstead.harrier.annotations.EnsureHasNoWorkProfile;
@@ -52,7 +65,14 @@ import com.android.bedstead.harrier.annotations.EnsureHasPermission;
 import com.android.bedstead.harrier.annotations.EnsureHasSecondaryUser;
 import com.android.bedstead.harrier.annotations.EnsureHasTvProfile;
 import com.android.bedstead.harrier.annotations.EnsureHasWorkProfile;
+import com.android.bedstead.harrier.annotations.EnsureNotDemoMode;
 import com.android.bedstead.harrier.annotations.EnsurePackageNotInstalled;
+import com.android.bedstead.harrier.annotations.EnsurePasswordNotSet;
+import com.android.bedstead.harrier.annotations.EnsureScreenIsOn;
+import com.android.bedstead.harrier.annotations.EnsureTestAppHasAppOp;
+import com.android.bedstead.harrier.annotations.EnsureTestAppHasPermission;
+import com.android.bedstead.harrier.annotations.EnsureTestAppInstalled;
+import com.android.bedstead.harrier.annotations.OtherUser;
 import com.android.bedstead.harrier.annotations.RequireAospBuild;
 import com.android.bedstead.harrier.annotations.RequireCnGmsBuild;
 import com.android.bedstead.harrier.annotations.RequireDoesNotHaveFeature;
@@ -81,16 +101,21 @@ import com.android.bedstead.harrier.annotations.enterprise.EnsureHasNoProfileOwn
 import com.android.bedstead.harrier.annotations.enterprise.EnsureHasProfileOwner;
 import com.android.bedstead.harrier.annotations.parameterized.IncludeRunOnBackgroundDeviceOwnerUser;
 import com.android.bedstead.harrier.annotations.parameterized.IncludeRunOnDeviceOwnerUser;
-import com.android.bedstead.harrier.annotations.parameterized.IncludeRunOnNonAffiliatedDeviceOwnerSecondaryUser;
+import com.android.bedstead.harrier.annotations.parameterized.IncludeRunOnParentOfProfileOwnerUsingParentInstance;
 import com.android.bedstead.harrier.annotations.parameterized.IncludeRunOnParentOfProfileOwnerWithNoDeviceOwner;
 import com.android.bedstead.harrier.annotations.parameterized.IncludeRunOnProfileOwnerProfileWithNoDeviceOwner;
 import com.android.bedstead.harrier.annotations.parameterized.IncludeRunOnSecondaryUserInDifferentProfileGroupToProfileOwnerProfile;
+import com.android.bedstead.harrier.annotations.parameterized.IncludeRunOnUnaffiliatedDeviceOwnerSecondaryUser;
 import com.android.bedstead.nene.TestApis;
+import com.android.bedstead.nene.exceptions.NeneException;
 import com.android.bedstead.nene.packages.Package;
 import com.android.bedstead.nene.users.UserReference;
 import com.android.bedstead.nene.utils.Tags;
 import com.android.bedstead.remotedpc.RemoteDelegate;
 import com.android.bedstead.remotedpc.RemoteDpc;
+import com.android.bedstead.testapp.NotFoundException;
+import com.android.bedstead.testapp.TestApp;
+import com.android.bedstead.testapp.TestAppInstance;
 
 import org.junit.ClassRule;
 import org.junit.Ignore;
@@ -105,10 +130,25 @@ public class DeviceStateTest {
     @Rule
     public static final DeviceState sDeviceState = new DeviceState();
 
+    private static final String APP_OP = OPSTR_FINE_LOCATION;
+
     private static final String TV_PROFILE_TYPE_NAME = "com.android.tv.profile";
 
     private static final String TEST_PERMISSION_1 = INTERACT_ACROSS_PROFILES;
     private static final String TEST_PERMISSION_2 = INTERACT_ACROSS_USERS_FULL;
+
+    private static final DevicePolicyManager sLocalDevicePolicyManager =
+            TestApis.context().instrumentedContext().getSystemService(DevicePolicyManager.class);
+
+    // Expects that this package name matches an actual test app
+    private static final String TEST_APP_PACKAGE_NAME = "com.android.bedstead.testapp.LockTaskApp";
+    private static final String TEST_APP_PACKAGE_NAME2 = "com.android.bedstead.testapp.SmsApp";
+    private static final String TEST_APP_USED_IN_FIELD_NAME =
+            "com.android.bedstead.testapp.NotEmptyTestApp";
+    private static final TestApp sTestApp = sDeviceState.testApps().query()
+            .wherePackageName().isEqualTo(TEST_APP_USED_IN_FIELD_NAME).get();
+
+    private static final long TIMEOUT = 4000000;
 
     @Test
     @EnsureHasWorkProfile
@@ -359,14 +399,14 @@ public class DeviceStateTest {
     }
 
     @EnsureHasSecondaryUser
-    @EnsureHasProfileOwner(onUser = DeviceState.UserType.SECONDARY_USER)
+    @EnsureHasProfileOwner(onUser = UserType.SECONDARY_USER)
     public void ensureHasProfileOwnerAnnotation_otherUser_setsProfileOwner() {
         assertThat(TestApis.devicePolicy().getProfileOwner(sDeviceState.secondaryUser()))
                 .isNotNull();
     }
 
     @EnsureHasSecondaryUser
-    @EnsureHasNoProfileOwner(onUser = DeviceState.UserType.SECONDARY_USER)
+    @EnsureHasNoProfileOwner(onUser = UserType.SECONDARY_USER)
     public void ensureHasNoProfileOwnerAnnotation_otherUser_profileOwnerIsNotSet() {
         assertThat(TestApis.devicePolicy().getProfileOwner(sDeviceState.secondaryUser())).isNull();
     }
@@ -385,14 +425,14 @@ public class DeviceStateTest {
     }
 
     @EnsureHasSecondaryUser
-    @EnsureHasProfileOwner(onUser = DeviceState.UserType.SECONDARY_USER)
+    @EnsureHasProfileOwner(onUser = UserType.SECONDARY_USER)
     public void profileOwner_otherUser_profileOwnerIsSet_returnsProfileOwner() {
         assertThat(sDeviceState.profileOwner(sDeviceState.secondaryUser())).isNotNull();
     }
 
     @Test
     @EnsureHasSecondaryUser
-    @EnsureHasNoProfileOwner(onUser = DeviceState.UserType.SECONDARY_USER)
+    @EnsureHasNoProfileOwner(onUser = UserType.SECONDARY_USER)
     public void profileOwner_otherUser_profileOwnerIsNotSet_throwsException() {
         assertThrows(IllegalStateException.class, sDeviceState::profileOwner);
     }
@@ -400,7 +440,7 @@ public class DeviceStateTest {
     @Test
     public void profileOwner_userType_onUserIsNull_throwsException() {
         assertThrows(NullPointerException.class,
-                () -> sDeviceState.profileOwner((DeviceState.UserType) null));
+                () -> sDeviceState.profileOwner((UserType) null));
     }
 
     @Test
@@ -438,7 +478,7 @@ public class DeviceStateTest {
     }
 
     @Test
-    @IncludeRunOnNonAffiliatedDeviceOwnerSecondaryUser
+    @IncludeRunOnUnaffiliatedDeviceOwnerSecondaryUser
     public void includeRunOnNonAffiliatedDeviceOwnerSecondaryUserAnnotation_isRunningOnNonAffiliatedDeviceOwnerSecondaryUser() {
         assertThat(TestApis.devicePolicy().getDeviceOwner().user())
                 .isNotEqualTo(TestApis.users().instrumented());
@@ -774,5 +814,188 @@ public class DeviceStateTest {
     @EnsureHasDelegate(admin = PRIMARY, scopes = {}, isPrimary = true)
     public void ensureHasDelegateAnnotation_primaryAdminAndReplace_dpcReturnsDelegate() {
         assertThat(sDeviceState.dpc()).isInstanceOf(RemoteDelegate.class);
+    }
+
+    @Test
+    @EnsureScreenIsOn
+    public void ensureScreenIsOnAnnotation_screenIsOn() {
+        assertThat(TestApis.device().isScreenOn()).isTrue();
+    }
+
+    @Test
+    @EnsurePasswordNotSet
+    public void requirePasswordNotSetAnnotation_passwordNotSet() {
+        assertThat(TestApis.users().instrumented().hasPassword()).isFalse();
+    }
+
+    @Test
+    @IncludeRunOnParentOfProfileOwnerUsingParentInstance
+    public void includeRunOnParentOfProfileOwnerUsingProfileInstanceAnnotation_runningOnParentOfProfile() {
+        assertThat(sDeviceState.workProfile().parent()).isEqualTo(TestApis.users().instrumented());
+    }
+
+    @Test
+    @IncludeRunOnParentOfProfileOwnerUsingParentInstance
+    public void includeRunOnParentOfProfileOwnerUsingProfileInstanceAnnotation_dpcIsOnProfile() {
+        assertThat(sDeviceState.dpc().user()).isEqualTo(sDeviceState.workProfile());
+    }
+
+    @Test
+    @IncludeRunOnParentOfProfileOwnerUsingParentInstance
+    public void includeRunOnParentOfProfileOwnerUsingProfileInstanceAnnotation_devicePolicyManagerAffectsParent() {
+        long previousRequiredStrongAuthTimeout =
+                sLocalDevicePolicyManager.getRequiredStrongAuthTimeout(/* admin= */ null);
+        try {
+            sDeviceState.dpc().devicePolicyManager()
+                    .setRequiredStrongAuthTimeout(sDeviceState.dpc().componentName(), TIMEOUT);
+
+            assertThat(sLocalDevicePolicyManager
+                    .getRequiredStrongAuthTimeout(/* admin= */ null)).isEqualTo(TIMEOUT);
+        } finally {
+            sDeviceState.dpc().devicePolicyManager()
+                    .setRequiredStrongAuthTimeout(
+                            sDeviceState.dpc().componentName(), previousRequiredStrongAuthTimeout);
+        }
+    }
+
+    @Test
+    @EnsureHasSecondaryUser
+    @OtherUser(SECONDARY_USER)
+    public void otherUserAnnotation_otherUserReturnsCorrectType() {
+        assertThat(sDeviceState.otherUser()).isEqualTo(sDeviceState.secondaryUser());
+    }
+
+    @Test
+    public void otherUser_noOtherUserSpecified_throwsException() {
+        assertThrows(IllegalStateException.class, () -> sDeviceState.otherUser());
+    }
+
+    @Test
+    @EnsureBluetoothEnabled
+    public void ensureBluetoothEnabledAnnotation_bluetoothIsEnabled() {
+        assertThat(TestApis.bluetooth().isEnabled()).isTrue();
+    }
+
+    @Test
+    @EnsureBluetoothDisabled
+    public void ensureBluetoothDisabledAnnotation_bluetoothIsDisabled() {
+        assertThat(TestApis.bluetooth().isEnabled()).isFalse();
+    }
+
+    @EnsureHasAppOp(APP_OP)
+    public void ensureHasAppOpAnnotation_appOpIsAllowed() {
+        assertThat(TestApis.permissions().hasAppOpAllowed(APP_OP)).isTrue();
+    }
+
+    @Test
+    @EnsureDoesNotHaveAppOp(APP_OP)
+    public void ensureDoesNotHaveAppOpAnnotation_appOpIsNotAllowed() {
+        assertThat(TestApis.permissions().hasAppOpAllowed(APP_OP)).isFalse();
+    }
+
+    // We run this test twice to ensure that teardown doesn't change behaviour
+    @Test
+    public void testApps_testAppsAreAvailableToMultipleTests_1() {
+        assertThat(sDeviceState.testApps().query()
+                .wherePackageName().isEqualTo(TEST_APP_PACKAGE_NAME).get()).isNotNull();
+    }
+
+    @Test
+    public void testApps_testAppsAreAvailableToMultipleTests_2() {
+        assertThat(sDeviceState.testApps().query()
+                .wherePackageName().isEqualTo(TEST_APP_PACKAGE_NAME).get()).isNotNull();
+    }
+
+    // We run this test twice to ensure that teardown doesn't change behaviour
+    @Test
+    public void testApps_staticTestAppsAreNotReleased_1() {
+        assertThrows(NotFoundException.class, () -> sDeviceState.testApps().query()
+                .wherePackageName().isEqualTo(TEST_APP_USED_IN_FIELD_NAME).get());
+    }
+
+    @Test
+    public void testApps_staticTestAppsAreNotReleased_2() {
+        assertThrows(NotFoundException.class, () -> sDeviceState.testApps().query()
+                .wherePackageName().isEqualTo(TEST_APP_USED_IN_FIELD_NAME).get());
+    }
+
+    @EnsureTestAppInstalled(packageName = TEST_APP_PACKAGE_NAME)
+    @Test
+    public void ensureTestAppInstalledAnnotation_testAppIsInstalled() {
+        assertThat(TestApis.packages().find(TEST_APP_PACKAGE_NAME).installedOnUser()).isTrue();
+    }
+
+    @EnsureHasSecondaryUser
+    @EnsureTestAppInstalled(packageName = TEST_APP_PACKAGE_NAME, onUser = SECONDARY_USER)
+    @Test
+    public void ensureTestAppInstalledAnnotation_testAppIsInstalledOnCorrectUser() {
+        assertThat(TestApis.packages().find(TEST_APP_PACKAGE_NAME)
+                .installedOnUser(sDeviceState.secondaryUser())).isTrue();
+    }
+
+    @EnsureTestAppInstalled(packageName = TEST_APP_PACKAGE_NAME)
+    @Test
+    public void testApp_returnsTestApp() {
+        assertThat(sDeviceState.testApp().packageName()).isEqualTo(TEST_APP_PACKAGE_NAME);
+    }
+
+    @Test
+    public void testApp_noHarrierManagedTestApp_throwsException() {
+        try (TestAppInstance testApp = sDeviceState.testApps().any().install()) {
+            assertThrows(NeneException.class, sDeviceState::testApp);
+        }
+    }
+
+    @EnsureTestAppInstalled(key = "testApp1", packageName = TEST_APP_PACKAGE_NAME)
+    @EnsureTestAppInstalled(key = "testApp2", packageName = TEST_APP_PACKAGE_NAME2)
+    @Test
+    public void testApp_withKey_returnsCorrectTestApp() {
+        assertThat(sDeviceState.testApp("testApp1").packageName())
+                .isEqualTo(TEST_APP_PACKAGE_NAME);
+        assertThat(sDeviceState.testApp("testApp2").packageName())
+                .isEqualTo(TEST_APP_PACKAGE_NAME2);
+    }
+
+    @EnsureTestAppInstalled(packageName = TEST_APP_PACKAGE_NAME, isPrimary = true)
+    @Test
+    public void dpc_primaryTestApp_returnsTestApp() {
+        assertThat(sDeviceState.dpc().packageName()).isEqualTo(TEST_APP_PACKAGE_NAME);
+    }
+
+    @EnsureTestAppInstalled(packageName = TEST_APP_PACKAGE_NAME)
+    @EnsureTestAppHasPermission(READ_CONTACTS)
+    @Test
+    public void ensureTestAppHasPermissionAnnotation_testAppHasPermission() {
+        assertThat(sDeviceState.testApp().context().checkSelfPermission(
+                READ_CONTACTS)).isEqualTo(PermissionChecker.PERMISSION_GRANTED);
+    }
+
+    @EnsureTestAppInstalled(packageName = TEST_APP_PACKAGE_NAME)
+    @EnsureTestAppHasAppOp(OPSTR_START_FOREGROUND)
+    @Test
+    public void ensureTestAppHasAppOpAnnotation_testAppHasAppOp() {
+        assertThat(sDeviceState.testApp()
+                .testApp().pkg().appOps().get(OPSTR_START_FOREGROUND)).isEqualTo(ALLOWED);
+    }
+
+    @EnsureGlobalSettingSet(key = "testGlobalSetting", value = "testValue")
+    @Test
+    public void ensureGlobalSettingSetAnnotation_globalSettingIsSet() {
+        assertThat(TestApis.settings().global().getString("testGlobalSetting"))
+                .isEqualTo("testValue");
+    }
+
+    @EnsureDemoMode
+    @Test
+    public void ensureDemoModeAnnotation_deviceIsInDemoMode() {
+        assertThat(TestApis.settings().global().getInt("device_demo_mode"))
+                .isEqualTo(1);
+    }
+
+    @EnsureNotDemoMode
+    @Test
+    public void ensureNotDemoModeAnnotation_deviceIsNotInDemoMode() {
+        assertThat(TestApis.settings().global().getInt("device_demo_mode"))
+                .isEqualTo(0);
     }
 }

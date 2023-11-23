@@ -37,6 +37,11 @@ table NanoappMessage {
   /// For messages from a nanoaapp to the host, this must be a superset of
   /// message_permissions.
   permissions:uint;
+
+  // If true, the message has awakened the host AP (i.e. the AP has transitioned
+  // from suspend to awake as a result of this message transfer). This field is
+  // only valid for messages originating from a nanoapp.
+  woke_host:bool = false;
 }
 
 table HubInfoRequest {}
@@ -75,6 +80,14 @@ table HubInfoResponse {
 
 table NanoappListRequest {}
 
+/// Metadata regarding a Nanoapp RPC service. See the Android API
+/// core/java/android/hardware/location/NanoAppRpcService.java for more details
+/// on how this value is used by the Android application.
+table NanoappRpcService {
+  id: ulong;
+  version: uint;
+}
+
 table NanoappListEntry {
   app_id:ulong;
   version:uint;
@@ -89,6 +102,9 @@ table NanoappListEntry {
   /// Nanoapp permissions, if supported. Nanoapp permissions are required on
   /// CHRE API v1.5+, and are defined in chre/util/system/napp_permissions.h
   permissions:uint;
+
+  /// The list of RPC services supported by this nanoapp.
+  rpc_services:[NanoappRpcService];
 
   // TODO: memory usage
 }
@@ -259,6 +275,7 @@ enum Setting : byte {
   WIFI_AVAILABLE,
   AIRPLANE_MODE,
   MICROPHONE,
+  BLE_AVAILABLE,
 }
 
 /// An enum describing the state of a setting.
@@ -281,17 +298,34 @@ table LogMessageV2 {
   /// A buffer containing formatted log data. A flat array is used here to avoid
   /// overhead in serializing and deserializing. The format is as follows:
   ///
-  /// uint8_t                 - LogBuffer log level (1 = error, 2 = warn,
-  ///                                                3 = info,  4 = debug,
-  ///                                                5 = verbose)
+  /// uint8_t                 - Log metadata, encoded as follows:
+  ///                           [EI(Upper nibble) | Level(Lower nibble)]
+  ///                            * EI: Encoding indicator (eg: via tokenization)
+  ///                              (0 = No encoding, 1 = Tokenized log)
+  ///                            * LogBuffer log level (1 = error, 2 = warn,
+  ///                                                   3 = info,  4 = debug,
+  ///                                                   5 = verbose)
   /// uint32_t, little-endian - timestamp in milliseconds
-  /// char[]                  - message to log
-  /// char, \0                - null-terminator
+  /// char[]                  - Log data buffer
+  ///
+  /// The log data buffer format is as follows:
+  /// * Unencoded (string) logs: The log buffer can be interpreted as a NULL
+  ///   terminated string (eg: pass to string manipulation functions, get its
+  ///   size via strlen(), etc.).
+  ///
+  /// * Encoded logs: The first byte of the log buffer indicates the size of
+  ///   the actual encoded data to follow. For example, if a tokenized log of
+  ///   size 24 bytes were to be represented, a buffer of size 25 bytes would
+  ///   be needed to encode this as: [Size(1B) | Data(24B)]. A decoder would
+  ///   then have to decode this starting from a 1 byte offset from the
+  ///   received buffer.
   ///
   /// This pattern repeats until the end of the buffer for multiple log
   /// messages. The last byte will always be a null-terminator. There are no
   /// padding bytes between these fields. Treat this like a packed struct and be
   /// cautious with unaligned access when reading/writing this buffer.
+  /// Note that the log message might not be null-terminated if an encoding is
+  /// used.
   buffer:[byte];
 
   /// The number of logs dropped since CHRE started
@@ -305,6 +339,58 @@ table SelfTestRequest {}
 table SelfTestResponse {
   // True if the self-test succeeded.
   success:bool;
+}
+
+// Message sent whenever a host endpoint has connected with the Context Hub.
+// CHRE may receive messages from this host afterwards.
+table HostEndpointConnected {
+  /// The host-side endpoint that has connected to the framework.
+  host_endpoint:ushort;
+
+  /// The type of host endpoint, which should be any of the CHRE_HOST_ENDPOINT_TYPE_*
+  /// values defined in the chre_api/chre/event.h.
+  type:ubyte;
+
+  /// The (optional) package name associated with the host endpoint.
+  package_name:[byte];
+
+  /// The (optional) attribution tag associated with this host.
+  attribution_tag:[byte];
+}
+
+// Message sent whenever a host endpoint has disconnected from the Context Hub.
+table HostEndpointDisconnected {
+  /// The host-side endpoint that has disconnected from the framework.
+  host_endpoint:ushort;
+}
+
+// Represents metric messages from CHRE
+table MetricLog {
+  // A unique identifier for the encoded metric message.
+  id:uint;
+
+  // The metric data, which is encoded using a custom-defined protocol. This
+  // same protocol must be used to decode the data at the host side for consumption.
+  encoded_metric:[byte];
+}
+
+// A container to store batched metrics messages
+table BatchedMetricLog {
+  // The batched metrics
+  metrics: [MetricLog];
+}
+
+// NAN enable request sent from CHRE to the host.
+table NanConfigurationRequest {
+  enable:bool;
+}
+
+// NAN status message sent from the host to CHRE whenever a change in the NAN
+// enabled state is detected. Note that this update can be sent to CHRE either
+// as a response to a configuration request, or from out of band if NAN was
+// disabled by an external agent.
+table NanConfigurationUpdate {
+  enabled:bool;
 }
 
 /// A union that joins together all possible messages. Note that in FlatBuffers,
@@ -343,6 +429,15 @@ union ChreMessage {
 
   SelfTestRequest,
   SelfTestResponse,
+
+  HostEndpointConnected,
+  HostEndpointDisconnected,
+
+  MetricLog,
+  BatchedMetricLog,
+
+  NanConfigurationRequest,
+  NanConfigurationUpdate,
 }
 
 struct HostAddress {

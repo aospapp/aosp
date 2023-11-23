@@ -21,8 +21,25 @@ android_test {
     defaults: [
         "signature-api-check-defaults",
     ],
+
+    // Ensure that any android.test and junit classes embedded within this test do not conflict with
+    // the classes provided by the android.test.base or android.test.runner shared libraries.
+    jarjar_rules: ":cts-android-test-jarjar-rules",
+
     java_resources: [
         ":cts-android-test-base-current-api-gz",
+        ":cts-android-test-mock-current-api-gz",
+        ":cts-android-test-runner-current-api-gz",
+    ],
+
+    // Prevent android.test.base, android.test.runner and android.test.mock classes being available
+    // at runtime by excluding them from the list of libraries that are implicitly added to the
+    // manifest. Otherwise, the test would break as it is not expecting those classes to be
+    // available.
+    exclude_uses_libs: [
+        "android.test.base",
+        "android.test.runner",
+        "android.test.mock",
     ],
 
     use_embedded_native_libs: false,

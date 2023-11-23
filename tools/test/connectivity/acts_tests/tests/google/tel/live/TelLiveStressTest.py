@@ -1,6 +1,6 @@
 #!/usr/bin/env python3.4
 #
-#   Copyright 2017 - Google
+#   Copyright 2022 - Google
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -30,8 +30,6 @@ from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.tel.loggers.telephony_metric_logger import TelephonyMetricLogger
 from acts_contrib.test_utils.tel.loggers.telephony_stress_metric_logger import TelephonyStressMetricLogger
 from acts_contrib.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
-from acts_contrib.test_utils.tel.tel_defines import CAPABILITY_VOLTE
-from acts_contrib.test_utils.tel.tel_defines import CAPABILITY_WFC
 from acts_contrib.test_utils.tel.tel_defines import GEN_3G
 from acts_contrib.test_utils.tel.tel_defines import GEN_4G
 from acts_contrib.test_utils.tel.tel_defines import GOOGLE_CBRS_CARRIER_ID
@@ -48,53 +46,25 @@ from acts_contrib.test_utils.tel.tel_defines import WFC_MODE_CELLULAR_PREFERRED
 from acts_contrib.test_utils.tel.tel_defines import WFC_MODE_WIFI_PREFERRED
 from acts_contrib.test_utils.tel.tel_defines import WAIT_TIME_CHANGE_MESSAGE_SUB_ID
 from acts_contrib.test_utils.tel.tel_defines import WAIT_TIME_CHANGE_VOICE_SUB_ID
-from acts_contrib.test_utils.tel.tel_defines import WAIT_TIME_FOR_CBRS_DATA_SWITCH
-from acts_contrib.test_utils.tel.tel_defines import CARRIER_SING
+from acts_contrib.test_utils.tel.tel_5g_test_utils import provision_device_for_5g
+from acts_contrib.test_utils.tel.tel_5g_utils import is_current_network_5g
+from acts_contrib.test_utils.tel.tel_data_utils import active_file_download_test
+from acts_contrib.test_utils.tel.tel_ims_utils import set_wfc_mode
+from acts_contrib.test_utils.tel.tel_logging_utils import extract_test_log
+from acts_contrib.test_utils.tel.tel_logging_utils import start_qxdm_loggers
+from acts_contrib.test_utils.tel.tel_logging_utils import start_sdm_loggers
+from acts_contrib.test_utils.tel.tel_logging_utils import start_adb_tcpdump
 from acts_contrib.test_utils.tel.tel_lookup_tables import is_rat_svd_capable
-from acts_contrib.test_utils.tel.tel_test_utils import STORY_LINE
-from acts_contrib.test_utils.tel.tel_test_utils import active_file_download_test
-from acts_contrib.test_utils.tel.tel_test_utils import is_phone_in_call
-from acts_contrib.test_utils.tel.tel_test_utils import call_setup_teardown
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_network_generation_for_subscription
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_wifi_connected
-from acts_contrib.test_utils.tel.tel_test_utils import extract_test_log
-from acts_contrib.test_utils.tel.tel_test_utils import force_connectivity_metrics_upload
-from acts_contrib.test_utils.tel.tel_test_utils import get_device_epoch_time
-from acts_contrib.test_utils.tel.tel_test_utils import get_telephony_signal_strength
-from acts_contrib.test_utils.tel.tel_test_utils import hangup_call
-from acts_contrib.test_utils.tel.tel_test_utils import hangup_call_by_adb
-from acts_contrib.test_utils.tel.tel_test_utils import initiate_call
-from acts_contrib.test_utils.tel.tel_test_utils import last_call_drop_reason
-from acts_contrib.test_utils.tel.tel_test_utils import run_multithread_func
-from acts_contrib.test_utils.tel.tel_test_utils import set_wfc_mode
-from acts_contrib.test_utils.tel.tel_test_utils import sms_send_receive_verify
-from acts_contrib.test_utils.tel.tel_test_utils import start_qxdm_loggers
-from acts_contrib.test_utils.tel.tel_test_utils import start_sdm_loggers
-from acts_contrib.test_utils.tel.tel_test_utils import start_adb_tcpdump
-from acts_contrib.test_utils.tel.tel_test_utils import synchronize_device_time
-from acts_contrib.test_utils.tel.tel_test_utils import mms_send_receive_verify
-from acts_contrib.test_utils.tel.tel_test_utils import set_preferred_network_mode_pref
-from acts_contrib.test_utils.tel.tel_test_utils import verify_internet_connection
-from acts_contrib.test_utils.tel.tel_test_utils import verify_internet_connection_by_ping
-from acts_contrib.test_utils.tel.tel_test_utils import verify_http_connection
-from acts_contrib.test_utils.tel.tel_test_utils import wait_for_call_id_clearing
-from acts_contrib.test_utils.tel.tel_test_utils import wait_for_data_connection
-from acts_contrib.test_utils.tel.tel_test_utils import wait_for_in_call_active
-from acts_contrib.test_utils.tel.tel_test_utils import is_current_data_on_cbrs
-from acts_contrib.test_utils.tel.tel_test_utils import check_voice_network_type
-from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_3g
-from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_2g
-from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_csfb
-from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_iwlan
-from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_volte
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_csfb
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_iwlan
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_voice_3g
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_voice_2g
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_volte
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_idle_iwlan
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_idle_volte
-from acts_contrib.test_utils.tel.tel_voice_utils import get_current_voice_rat
+from acts_contrib.test_utils.tel.tel_message_utils import sms_send_receive_verify
+from acts_contrib.test_utils.tel.tel_message_utils import mms_send_receive_verify
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_network_generation_for_subscription
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_csfb
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_iwlan
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_voice_3g
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_voice_2g
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_volte
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_idle_iwlan
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_idle_volte
 from acts_contrib.test_utils.tel.tel_subscription_utils import get_subid_from_slot_index
 from acts_contrib.test_utils.tel.tel_subscription_utils import get_operatorname_from_slot_index
 from acts_contrib.test_utils.tel.tel_subscription_utils import get_carrierid_from_slot_index
@@ -103,9 +73,36 @@ from acts_contrib.test_utils.tel.tel_subscription_utils import set_subid_for_dat
 from acts_contrib.test_utils.tel.tel_subscription_utils import set_subid_for_message
 from acts_contrib.test_utils.tel.tel_subscription_utils import set_subid_for_outgoing_call
 from acts_contrib.test_utils.tel.tel_subscription_utils import set_always_allow_mms_data
-from acts_contrib.test_utils.tel.tel_5g_test_utils import provision_device_for_5g
+from acts_contrib.test_utils.tel.tel_test_utils import STORY_LINE
+from acts_contrib.test_utils.tel.tel_test_utils import force_connectivity_metrics_upload
+from acts_contrib.test_utils.tel.tel_test_utils import get_device_epoch_time
+from acts_contrib.test_utils.tel.tel_test_utils import get_telephony_signal_strength
+from acts_contrib.test_utils.tel.tel_test_utils import synchronize_device_time
+from acts_contrib.test_utils.tel.tel_test_utils import set_preferred_network_mode_pref
+from acts_contrib.test_utils.tel.tel_test_utils import verify_internet_connection
+from acts_contrib.test_utils.tel.tel_test_utils import verify_internet_connection_by_ping
+from acts_contrib.test_utils.tel.tel_test_utils import verify_http_connection
+from acts_contrib.test_utils.tel.tel_data_utils import wait_for_data_connection
+from acts_contrib.test_utils.tel.tel_test_utils import is_current_data_on_cbrs
+from acts_contrib.test_utils.tel.tel_test_utils import check_voice_network_type
+from acts_contrib.test_utils.tel.tel_voice_utils import call_setup_teardown
+from acts_contrib.test_utils.tel.tel_voice_utils import hangup_call
+from acts_contrib.test_utils.tel.tel_voice_utils import hangup_call_by_adb
+from acts_contrib.test_utils.tel.tel_voice_utils import initiate_call
+from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call
+from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_3g
+from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_2g
+from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_csfb
+from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_iwlan
+from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_volte
+from acts_contrib.test_utils.tel.tel_voice_utils import last_call_drop_reason
+from acts_contrib.test_utils.tel.tel_voice_utils import get_current_voice_rat
+from acts_contrib.test_utils.tel.tel_voice_utils import wait_for_call_id_clearing
+from acts_contrib.test_utils.tel.tel_voice_utils import wait_for_in_call_active
+from acts_contrib.test_utils.tel.tel_wifi_utils import ensure_wifi_connected
 from acts.utils import get_current_epoch_time
 from acts.utils import rand_ascii_str
+from acts.libs.utils.multithread import run_multithread_func
 
 EXCEPTION_TOLERANCE = 5
 BINDER_LOGS = ["/sys/kernel/debug/binder"]
@@ -196,6 +193,7 @@ class TelLiveStressTest(TelephonyBaseTest):
                                   "CALL_ID_CLEANUP_FAIL": 0 }
         self.call_stats_check = self.user_params.get("call_stats_check", False)
         self.nsa_5g_for_stress = self.user_params.get("nsa_5g_for_stress", False)
+        self.nr_type = self.user_params.get("nr_type", 'nsa')
         return True
 
     def setup_test(self):
@@ -480,8 +478,7 @@ class TelLiveStressTest(TelephonyBaseTest):
                 incall_ui_display=INCALL_UI_DISPLAY_BACKGROUND,
                 call_stats_check=self.call_stats_check,
                 voice_type_init=voice_type_init,
-                result_info = self.result_info,
-                nsa_5g_for_stress=self.nsa_5g_for_stress
+                result_info = self.result_info
             ) and wait_for_in_call_active(self.dut, 60, 3)
         else:
             call_setup_result = call_setup_teardown(
@@ -496,8 +493,7 @@ class TelLiveStressTest(TelephonyBaseTest):
                 slot_id_callee=slot_id_callee,
                 call_stats_check=self.call_stats_check,
                 voice_type_init=voice_type_init,
-                result_info = self.result_info,
-                nsa_5g_for_stress=self.nsa_5g_for_stress)
+                result_info = self.result_info)
             self.result_collection[RESULTS_LIST[call_setup_result.result_value]] += 1
 
         if not call_setup_result:
@@ -564,6 +560,11 @@ class TelLiveStressTest(TelephonyBaseTest):
         if not hangup_call(self.log, ads[0]):
             failure_reasons.add("Teardown")
             result = False
+        else:
+            if self.nsa_5g_for_stress:
+                for ad in (ads[0], ads[1]):
+                    if not is_current_network_5g(ad, self.nr_type):
+                        ad.log.error("Phone not attached on 5G")
         for ad in ads:
             if not wait_for_call_id_clearing(ad,
                                              []) or ad.droid.telecomIsInCall():

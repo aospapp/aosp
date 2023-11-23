@@ -36,7 +36,7 @@ public class Scroll {
 
     @Test
     public void testScrollUpAndDown() {
-        sHelper.get().scrollDownOnePage(500);
-        sHelper.get().scrollUpOnePage(500);
+        sHelper.get().scrollDownOnePage();
+        sHelper.get().scrollUpOnePage();
     }
 }

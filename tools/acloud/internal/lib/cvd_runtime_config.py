@@ -28,7 +28,9 @@ _CFG_KEY_INSTANCES = "instances"
 _CFG_KEY_ADB_IP_PORT = "adb_ip_and_port"
 _CFG_KEY_INSTANCE_DIR = "instance_dir"
 _CFG_KEY_VNC_PORT = "vnc_server_port"
+# The adb port field name changes from "host_port" to "adb_host_port".
 _CFG_KEY_ADB_PORT = "host_port"
+_CFG_KEY_ADB_HOST_PORT = "adb_host_port"
 _CFG_KEY_ENABLE_WEBRTC = "enable_webrtc"
 # TODO(148648620): Check instance_home_[id] for backward compatible.
 _RE_LOCAL_INSTANCE_ID = re.compile(r".+(?:local-instance-|instance_home_)"
@@ -55,7 +57,7 @@ def _GetIdFromInstanceDirStr(instance_dir):
     return None
 
 
-class CvdRuntimeConfig(object):
+class CvdRuntimeConfig():
     """The class that hold the information from cuttlefish_config.json.
 
     The example of cuttlefish_config.json
@@ -104,6 +106,8 @@ class CvdRuntimeConfig(object):
     """
 
     def __init__(self, config_path=None, raw_data=None):
+        if not config_path and not raw_data:
+            raise errors.ConfigError("No cuttlefish config found!")
         self._config_path = config_path
         self._instance_id = "1" if raw_data else _GetIdFromInstanceDirStr(
             config_path)
@@ -120,7 +124,8 @@ class CvdRuntimeConfig(object):
         # are more than one instance.
         self._instance_dir = self._config_dict.get(_CFG_KEY_INSTANCE_DIR)
         self._vnc_port = self._config_dict.get(_CFG_KEY_VNC_PORT)
-        self._adb_port = self._config_dict.get(_CFG_KEY_ADB_PORT)
+        self._adb_port = (self._config_dict.get(_CFG_KEY_ADB_PORT) or
+                          self._config_dict.get(_CFG_KEY_ADB_HOST_PORT))
         self._adb_ip_port = self._config_dict.get(_CFG_KEY_ADB_IP_PORT)
         self._virtual_disk_paths = self._config_dict.get(
             _CFG_KEY_VIRTUAL_DISK_PATHS)
@@ -134,7 +139,8 @@ class CvdRuntimeConfig(object):
                                          (self._instance_id, config_path))
             self._instance_dir = ins_dict.get(_CFG_KEY_INSTANCE_DIR)
             self._vnc_port = ins_dict.get(_CFG_KEY_VNC_PORT)
-            self._adb_port = ins_dict.get(_CFG_KEY_ADB_PORT)
+            self._adb_port = (ins_dict.get(_CFG_KEY_ADB_PORT) or
+                              ins_dict.get(_CFG_KEY_ADB_HOST_PORT))
             self._adb_ip_port = ins_dict.get(_CFG_KEY_ADB_IP_PORT)
             self._virtual_disk_paths = ins_dict.get(_CFG_KEY_VIRTUAL_DISK_PATHS)
 

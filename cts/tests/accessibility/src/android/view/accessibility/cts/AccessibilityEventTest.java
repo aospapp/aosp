@@ -20,7 +20,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 import android.accessibility.cts.common.AccessibilityDumpOnFailureRule;
 import android.accessibility.cts.common.InstrumentedAccessibilityServiceTestRule;
@@ -30,6 +29,7 @@ import android.app.UiAutomation;
 import android.content.Context;
 import android.os.Message;
 import android.os.Parcel;
+import android.os.SystemClock;
 import android.platform.test.annotations.Presubmit;
 import android.text.SpannableString;
 import android.text.TextUtils;
@@ -46,8 +46,6 @@ import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.SmallTest;
 import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
-
-import junit.framework.TestCase;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -66,6 +64,9 @@ import java.util.concurrent.TimeoutException;
 public class AccessibilityEventTest {
     private static final long IDLE_TIMEOUT_MS = 500;
     private static final long DEFAULT_TIMEOUT_MS = 1000;
+
+    // From ViewConfiguration.SEND_RECURRING_ACCESSIBILITY_EVENTS_INTERVAL_MILLIS
+    private static final long SEND_RECURRING_ACCESSIBILITY_EVENTS_INTERVAL_MILLIS = 100;
 
     private EventReportingLinearLayout mParentView;
     private View mChildView;
@@ -126,19 +127,20 @@ public class AccessibilityEventTest {
 
     @Test
     public void testScrollEvent() throws Exception {
-        sUiAutomation.executeAndWaitForEvent(
-                () -> mChildView.scrollTo(0, 100), new ScrollEventFilter(1), DEFAULT_TIMEOUT_MS);
+        sUiAutomation.executeAndWaitForEvent(() -> sInstrumentation.runOnMainSync(
+                () -> mChildView.scrollTo(0, 100)), new ScrollEventFilter(1), DEFAULT_TIMEOUT_MS);
     }
 
     @Test
     public void testScrollEventBurstCombined() throws Exception {
         sUiAutomation.executeAndWaitForEvent(
-                () -> {
-                    mChildView.scrollTo(0, 100);
-                    mChildView.scrollTo(0, 125);
-                    mChildView.scrollTo(0, 150);
-                    mChildView.scrollTo(0, 175);
-                },
+                () -> sInstrumentation.runOnMainSync(
+                        () -> {
+                            mChildView.scrollTo(0, 100);
+                            mChildView.scrollTo(0, 125);
+                            mChildView.scrollTo(0, 150);
+                            mChildView.scrollTo(0, 175);
+                        }),
                 new ScrollEventFilter(1),
                 DEFAULT_TIMEOUT_MS);
     }
@@ -147,18 +149,20 @@ public class AccessibilityEventTest {
     public void testScrollEventsDeliveredInCorrectInterval() throws Exception {
         sUiAutomation.executeAndWaitForEvent(
                 () -> {
-                    try {
+                    sInstrumentation.runOnMainSync(() -> {
                         mChildView.scrollTo(0, 25);
                         mChildView.scrollTo(0, 50);
                         mChildView.scrollTo(0, 100);
-                        Thread.sleep(150);
+                    });
+                    SystemClock.sleep(SEND_RECURRING_ACCESSIBILITY_EVENTS_INTERVAL_MILLIS * 2);
+                    sInstrumentation.runOnMainSync(() -> {
                         mChildView.scrollTo(0, 150);
                         mChildView.scrollTo(0, 175);
-                        Thread.sleep(50);
+                    });
+                    SystemClock.sleep(SEND_RECURRING_ACCESSIBILITY_EVENTS_INTERVAL_MILLIS / 2);
+                    sInstrumentation.runOnMainSync(() -> {
                         mChildView.scrollTo(0, 200);
-                    } catch (InterruptedException e) {
-                        fail("Interrupted while dispatching event bursts.");
-                    }
+                    });
                 },
                 new ScrollEventFilter(2),
                 DEFAULT_TIMEOUT_MS);
@@ -186,11 +190,12 @@ public class AccessibilityEventTest {
     public void testScrollEventsClearedOnDetach() throws Throwable {
         ScrollEventFilter scrollEventFilter = new ScrollEventFilter(1);
         sUiAutomation.executeAndWaitForEvent(
-                () -> {
-                    mChildView.scrollTo(0, 25);
-                    mChildView.scrollTo(5, 50);
-                    mChildView.scrollTo(7, 100);
-                },
+                () -> sInstrumentation.runOnMainSync(
+                        () -> {
+                            mChildView.scrollTo(0, 25);
+                            mChildView.scrollTo(5, 50);
+                            mChildView.scrollTo(7, 100);
+                        }),
                 scrollEventFilter,
                 DEFAULT_TIMEOUT_MS);
         mActivityRule.runOnUiThread(
@@ -199,9 +204,10 @@ public class AccessibilityEventTest {
                     mParentView.addView(mChildView);
                 });
         sUiAutomation.executeAndWaitForEvent(
-                () -> {
-                    mChildView.scrollTo(0, 150);
-                },
+                () -> sInstrumentation.runOnMainSync(
+                        () -> {
+                            mChildView.scrollTo(0, 150);
+                        }),
                 scrollEventFilter,
                 DEFAULT_TIMEOUT_MS);
         AccessibilityEvent event = scrollEventFilter.getLastEvent();
@@ -213,11 +219,12 @@ public class AccessibilityEventTest {
     public void testScrollEventsCaptureTotalDelta() throws Throwable {
         ScrollEventFilter scrollEventFilter = new ScrollEventFilter(1);
         sUiAutomation.executeAndWaitForEvent(
-                () -> {
-                    mChildView.scrollTo(0, 25);
-                    mChildView.scrollTo(5, 50);
-                    mChildView.scrollTo(7, 100);
-                },
+                () -> sInstrumentation.runOnMainSync(
+                        () -> {
+                            mChildView.scrollTo(0, 25);
+                            mChildView.scrollTo(5, 50);
+                            mChildView.scrollTo(7, 100);
+                        }),
                 scrollEventFilter,
                 DEFAULT_TIMEOUT_MS);
         AccessibilityEvent event = scrollEventFilter.getLastEvent();
@@ -230,18 +237,18 @@ public class AccessibilityEventTest {
         ScrollEventFilter scrollEventFilter = new ScrollEventFilter(2);
         sUiAutomation.executeAndWaitForEvent(
                 () -> {
-                    try {
+                    sInstrumentation.runOnMainSync(() -> {
                         mChildView.scrollTo(0, 25);
                         mChildView.scrollTo(5, 50);
                         mChildView.scrollTo(7, 100);
-                        Thread.sleep(100);
+                    });
+                    SystemClock.sleep(SEND_RECURRING_ACCESSIBILITY_EVENTS_INTERVAL_MILLIS * 2);
+                    sInstrumentation.runOnMainSync(() -> {
                         mChildView.scrollTo(0, 25);
                         mChildView.scrollTo(5, 50);
                         mChildView.scrollTo(7, 100);
                         mChildView.scrollTo(0, 150);
-                    } catch (InterruptedException e) {
-                        fail("Interrupted while dispatching event bursts.");
-                    }
+                    });
                 },
                 scrollEventFilter,
                 DEFAULT_TIMEOUT_MS);
@@ -277,18 +284,14 @@ public class AccessibilityEventTest {
     public void testStateEventsDeliveredInCorrectInterval() throws Throwable {
         sUiAutomation.executeAndWaitForEvent(
                 () -> {
-                    try {
-                        sendStateDescriptionChangedEvent(mChildView);
-                        sendStateDescriptionChangedEvent(mChildView);
-                        sendStateDescriptionChangedEvent(mChildView);
-                        Thread.sleep(150);
-                        sendStateDescriptionChangedEvent(mChildView);
-                        sendStateDescriptionChangedEvent(mChildView);
-                        Thread.sleep(50);
-                        sendStateDescriptionChangedEvent(mChildView);
-                    } catch (InterruptedException e) {
-                        fail("Interrupted while dispatching event bursts.");
-                    }
+                    sendStateDescriptionChangedEvent(mChildView);
+                    sendStateDescriptionChangedEvent(mChildView);
+                    sendStateDescriptionChangedEvent(mChildView);
+                    SystemClock.sleep(SEND_RECURRING_ACCESSIBILITY_EVENTS_INTERVAL_MILLIS * 2);
+                    sendStateDescriptionChangedEvent(mChildView);
+                    sendStateDescriptionChangedEvent(mChildView);
+                    SystemClock.sleep(SEND_RECURRING_ACCESSIBILITY_EVENTS_INTERVAL_MILLIS / 2);
+                    sendStateDescriptionChangedEvent(mChildView);
                 },
                 new StateDescriptionEventFilter(2),
                 DEFAULT_TIMEOUT_MS);
@@ -358,6 +361,27 @@ public class AccessibilityEventTest {
         event.setContentChangeTypes(AccessibilityEvent.CONTENT_CHANGE_TYPE_STATE_DESCRIPTION);
         event.getText().add(text);
         view.sendAccessibilityEventUnchecked(event);
+    }
+
+    @Test
+    public void setText_unChanged_doNotReceiveEvent() throws Throwable {
+        sUiAutomation.executeAndWaitForEvent(
+                () -> sInstrumentation.runOnMainSync(() -> mTextView.setText("a")),
+                event -> isExpectedChangeType(event, AccessibilityEvent.CONTENT_CHANGE_TYPE_TEXT),
+                DEFAULT_TIMEOUT_MS);
+
+        assertThrows(
+                TimeoutException.class,
+                () ->
+                        sUiAutomation.executeAndWaitForEvent(
+                                () -> {
+                                    sInstrumentation.runOnMainSync(
+                                            () -> {
+                                                mTextView.setText("a");
+                                            });
+                                },
+                                event -> isExpectedSource(event, mTextView),
+                                DEFAULT_TIMEOUT_MS));
     }
 
     @Test
@@ -610,6 +634,8 @@ public class AccessibilityEventTest {
         sentEvent.setScrollable(true);
         sentEvent.setAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS);
         sentEvent.setMovementGranularity(AccessibilityNodeInfo.MOVEMENT_GRANULARITY_LINE);
+        sentEvent.setDisplayId(Display.DEFAULT_DISPLAY);
+        sentEvent.setSpeechStateChangeTypes(AccessibilityEvent.SPEECH_STATE_SPEAKING_START);
 
         AccessibilityRecord record = AccessibilityRecord.obtain();
         AccessibilityRecordTest.fullyPopulateAccessibilityRecord(record);
@@ -716,6 +742,10 @@ public class AccessibilityEventTest {
                 "windowChangeTypes has incorrect value",
                 expectedEvent.getWindowChanges(),
                 receivedEvent.getWindowChanges());
+        assertEquals(
+                "speechStateChangeTypes has incorrect value,",
+                expectedEvent.getSpeechStateChangeTypes(),
+                receivedEvent.getSpeechStateChangeTypes());
 
         AccessibilityRecordTest.assertEqualsText(expectedEvent.getText(), receivedEvent.getText());
         AccessibilityRecordTest.assertEqualAccessibilityRecord(expectedEvent, receivedEvent);
@@ -734,17 +764,5 @@ public class AccessibilityEventTest {
             AccessibilityRecord receivedRecord = receivedEvent.getRecord(0);
             AccessibilityRecordTest.assertEqualAccessibilityRecord(expectedRecord, receivedRecord);
         }
-    }
-
-    /**
-     * Asserts that an {@link AccessibilityEvent} is cleared.
-     *
-     * @param event The event to check.
-     */
-    private static void assertAccessibilityEventCleared(AccessibilityEvent event) {
-        AccessibilityRecordTest.assertAccessibilityRecordCleared(event);
-        TestCase.assertEquals("eventTime not properly recycled", 0, event.getEventTime());
-        TestCase.assertEquals("eventType not properly recycled", 0, event.getEventType());
-        TestCase.assertNull("packageName not properly recycled", event.getPackageName());
     }
 }

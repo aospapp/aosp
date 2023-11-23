@@ -88,6 +88,10 @@ public class Components extends ComponentsBase {
     public static final ComponentName PIP_ACTIVITY_WITH_SAME_AFFINITY =
             component("PipActivityWithSameAffinity");
     public static final ComponentName PIP_ON_STOP_ACTIVITY = component("PipOnStopActivity");
+    public static final ComponentName LAUNCH_INTO_PIP_HOST_ACTIVITY =
+            component("LaunchIntoPipHostActivity");
+    public static final ComponentName LAUNCH_INTO_PIP_CONTAINER_ACTIVITY =
+            component("LaunchIntoPipContainerActivity");
     public static final ComponentName PORTRAIT_ORIENTATION_ACTIVITY =
             component("PortraitOrientationActivity");
     public static final ComponentName RECURSIVE_ACTIVITY = component("RecursiveActivity");
@@ -256,6 +260,8 @@ public class Components extends ComponentsBase {
             component("SplashScreenReplaceIconActivity");
     public static final ComponentName SPLASH_SCREEN_REPLACE_THEME_ACTIVITY =
             component("SplashScreenReplaceThemeActivity");
+    public static final ComponentName SPLASH_SCREEN_STYLE_THEME_ACTIVITY =
+            component("SplashScreenStyleThemeActivity");
 
     public static final ComponentName TEST_DREAM_SERVICE =
             component("TestDream");
@@ -277,6 +283,34 @@ public class Components extends ComponentsBase {
 
     public static final ComponentName BAD_BLUR_ACTIVITY =
             component("BadBlurActivity");
+
+    public static final ComponentName CUSTOM_TRANSITION_EXIT_ACTIVITY =
+            component("CustomTransitionExitActivity");
+
+    public static final ComponentName CUSTOM_TRANSITION_ENTER_ACTIVITY =
+            component("CustomTransitionEnterActivity");
+
+    public static final ComponentName KEEP_CLEAR_RECTS_ACTIVITY =
+            component("KeepClearRectsActivity");
+
+    public static final ComponentName KEEP_CLEAR_RECTS_ACTIVITY2 =
+            component("KeepClearRectsActivity2");
+
+    /**
+     * The keys used by {@link CustomTransitionExitActivity} to select the animation to run.
+     */
+    public static class CustomTransitionAnimations {
+        /** see @anim/show_backdrop_hide_window_animation.xml */
+        public static final String BACKGROUND_COLOR = "backgroundColor";
+        /** see @anim/edge_extension_right_window_animation.xml */
+        public static final String LEFT_EDGE_EXTENSION = "leftEdgeExtension";
+        /** see @anim/edge_extension_top_window_animation.xml */
+        public static final String TOP_EDGE_EXTENSION = "topEdgeExtension";
+        /** see @anim/edge_extension_left_window_animation.xml */
+        public static final String RIGHT_EDGE_EXTENSION = "rightEdgeExtension";
+        /** see @anim/edge_extension_bottom_window_animation.xml */
+        public static final String BOTTOM_EDGE_EXTENSION = "bottomExtension";
+    }
 
     /**
      * The keys are used for {@link TestJournalProvider} when testing starting window.
@@ -302,7 +336,7 @@ public class Components extends ComponentsBase {
         public static final String OVERRIDE_THEME_ENABLED = "override_theme_enabled";
         public static final String OVERRIDE_THEME_COLOR = "override_theme_color";
         public static final String OVERRIDE_THEME_COMPONENT = "override_theme_component";
-
+        public static final String STYLE_THEME_COMPONENT = "style_theme_component";
     }
 
     /**
@@ -335,6 +369,7 @@ public class Components extends ComponentsBase {
         public static final String COMMAND_NAVIGATE_UP_TO = "navigate_up_to";
         public static final String COMMAND_START_ACTIVITY = "start_activity";
         public static final String COMMAND_START_ACTIVITIES = "start_activities";
+        public static final String EXTRA_OPTION = "option";
     }
 
     /**
@@ -492,6 +527,18 @@ public class Components extends ComponentsBase {
         // Intent action that will request that the activity enters picture-in-picture.
         public static final String ACTION_ON_PIP_REQUESTED =
                 "android.server.wm.app.PipActivity.on_pip_requested";
+        // Intent action that will request that the activity initiates launch-into-pip
+        public static final String ACTION_START_LAUNCH_INTO_PIP_CONTAINER =
+                "android.server.wm.app.LaunchIntoPip.start_container_activity";
+        // Intent action that will request the host activity of launch-into-pip to finish itself
+        public static final String ACTION_FINISH_LAUNCH_INTO_PIP_HOST =
+                "android.server.wm.app.LaunchIntoPip.finish_host_activity";
+        // Intent action that will request the activity to change the PiP aspect ratio
+        public static final String ACTION_CHANGE_ASPECT_RATIO =
+                "android.server.wm.app.LaunchIntoPip.change_aspect_ratio";
+        // Intent action that will request the activity to start a new translucent activity
+        public static final String ACTION_LAUNCH_TRANSLUCENT_ACTIVITY =
+                "android.server.wm.app.LaunchIntoPip.launch_translucent_activity";
 
         // Adds an assertion that we do not ever get onStop() before we enter picture in picture
         public static final String EXTRA_ASSERT_NO_ON_STOP_BEFORE_PIP =
@@ -512,11 +559,19 @@ public class Components extends ComponentsBase {
         // Calls requestAutoEnterPictureInPicture() with the value provided
         public static final String EXTRA_ENTER_PIP_ON_PIP_REQUESTED =
                 "enter_pip_on_pip_requested";
+        public static final String EXTRA_EXPANDED_PIP_ASPECT_RATIO_NUMERATOR =
+                "expanded_pip_numerator";
+        public static final String EXTRA_EXPANDED_PIP_ASPECT_RATIO_DENOMINATOR =
+                "expanded_pip_denomenator";
         // Sets auto PIP allowed on the activity picture-in-picture params.
         public static final String EXTRA_ALLOW_AUTO_PIP = "enter_pip_auto_pip_allowed";
         // Sets seamless resize enabled on the activity picture-in-picture params.
         public static final String EXTRA_IS_SEAMLESS_RESIZE_ENABLED =
                 "enter_pip_is_seamless_resize_enabled";
+        // Sets the given title on the activity picture-in-picture params.
+        public static final String EXTRA_TITLE = "set_pip_title";
+        // Sets the given subtitle on the activity picture-in-picture params.
+        public static final String EXTRA_SUBTITLE = "set_pip_subtitle";
         // Finishes the activity at the end of onResume (after EXTRA_START_ACTIVITY is handled)
         public static final String EXTRA_FINISH_SELF_ON_RESUME = "finish_self_on_resume";
         // Sets the fixed orientation (can be one of {@link ActivityInfo.ScreenOrientation}
@@ -549,10 +604,12 @@ public class Components extends ComponentsBase {
         public static final String EXTRA_DISMISS_KEYGUARD = "dismiss_keyguard";
         // Number of custom actions should be set onto PictureInPictureParams
         public static final String EXTRA_NUMBER_OF_CUSTOM_ACTIONS = "number_of_custom_actions";
+        // Whether a custom close action should be set in the PictureInPictureParams.
+        public static final String EXTRA_CLOSE_ACTION = "set_pip_close_action";
         // Supplied when a callback is expected for pip
         public static final String EXTRA_SET_PIP_CALLBACK = "set_pip_callback";
-        // Key for obtaining the callback's results
-        public static final String PIP_CALLBACK_RESULT_KEY = "pip_callback_result_key";
+        // Result key for obtaining the PictureInPictureUiState#isStashed result
+        public static final String UI_STATE_STASHED_RESULT = "ui_state_stashed_result";
     }
 
     /**
@@ -636,6 +693,17 @@ public class Components extends ComponentsBase {
         public static final String ACTION = "hide_action";
         public static final String PONG = "pong_action";
         public static final String SHOULD_HIDE = "should_hide";
+    }
+
+    public static class BackgroundActivityTransition {
+        public static final String TRANSITION_REQUESTED = "transition_requested";
+    }
+
+    /**
+     * Extra constants for {@link android.server.wm.app.KeepClearRectsActivity}.
+     */
+    public static class KeepClearRectsActivity {
+        public static final String EXTRA_KEEP_CLEAR_RECTS = "keep_clear_rects";
     }
 
     private static ComponentName component(String className) {

@@ -4,7 +4,7 @@ set -o pipefail
 
 if [[ ! -d "build/bazel/ci" ]]; then
   echo "Please run this script from TOP".
-  exit -1
+  exit 1
 fi
 
 echo "Running presubmit scripts..."

@@ -25,5 +25,9 @@ class CustomBuildFileHandler(AbstractBuildFileHandler):
 
   def get_file_hash(self, file_names, hash_func=None):
     """See base class."""
-    raise NotImplementedError('You need to implement GetFileHash function.')
+    raise NotImplementedError('You need to implement get_file_hash function.')
+
+  def get_system_fingerprint(self):
+    """See base class."""
+    raise NotImplementedError('You need to implement get_system_fingerprint function.')
 

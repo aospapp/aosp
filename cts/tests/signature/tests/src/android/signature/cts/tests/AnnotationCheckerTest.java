@@ -83,29 +83,29 @@ public class AnnotationCheckerTest extends ApiPresenceCheckerTest<AnnotationChec
      */
     @Test
     public void testDetectUnauthorizedConstructorApi() {
-        ExpectFailure observer = new ExpectFailure(FailureType.EXTRA_CONSTRUCTOR);
+        try (ExpectFailure observer = new ExpectFailure(FailureType.EXTRA_CONSTRUCTOR)) {
+            JDiffClassDescription clz = createClass("SystemApiClass");
+            // (omitted) addConstructor(clz);
+            addPublicVoidMethod(clz, "apiMethod");
+            addPublicBooleanField(clz, "apiField");
 
-        JDiffClassDescription clz = createClass("SystemApiClass");
-        // (omitted) addConstructor(clz);
-        addPublicVoidMethod(clz, "apiMethod");
-        addPublicBooleanField(clz, "apiField");
+            checkSignatureCompliance(clz, observer,
+                    "android.signature.cts.tests.data.PublicApiClass",
+                    "android.signature.cts.tests.data.ForciblyPublicizedPrivateClass");
+        }
 
-        checkSignatureCompliance(clz, observer,
-                "android.signature.cts.tests.data.PublicApiClass",
-                "android.signature.cts.tests.data.ForciblyPublicizedPrivateClass");
-        observer.validate();
+        try (ExpectFailure observer = new ExpectFailure(FailureType.EXTRA_CONSTRUCTOR)) {
+            JDiffClassDescription clz = createClass("PublicApiClass");
 
-        observer = new ExpectFailure(FailureType.EXTRA_CONSTRUCTOR);
+            // (omitted) addConstructor(clz);
+            addPublicVoidMethod(clz, "apiMethod");
 
-        clz = createClass("PublicApiClass");
-        // (omitted) addConstructor(clz);
-        addPublicVoidMethod(clz, "apiMethod");
-        addPublicBooleanField(clz, "apiField");
+            addPublicBooleanField(clz, "apiField");
 
-        checkSignatureCompliance(clz, observer,
+            checkSignatureCompliance(clz, observer,
                 "android.signature.cts.tests.data.SystemApiClass",
-                "android.signature.cts.tests.data.ForciblyPublicizedPrivateClass");
-        observer.validate();
+                        "android.signature.cts.tests.data.ForciblyPublicizedPrivateClass");
+        }
     }
 
     /**
@@ -113,29 +113,27 @@ public class AnnotationCheckerTest extends ApiPresenceCheckerTest<AnnotationChec
      */
     @Test
     public void testDetectUnauthorizedMethodApi() {
-        ExpectFailure observer = new ExpectFailure(FailureType.EXTRA_METHOD);
+        try (ExpectFailure observer = new ExpectFailure(FailureType.EXTRA_METHOD)) {
+            JDiffClassDescription clz = createClass("SystemApiClass");
+            addConstructor(clz);
+            // (omitted) addPublicVoidMethod(clz, "apiMethod");
+            addPublicBooleanField(clz, "apiField");
 
-        JDiffClassDescription clz = createClass("SystemApiClass");
-        addConstructor(clz);
-        // (omitted) addPublicVoidMethod(clz, "apiMethod");
-        addPublicBooleanField(clz, "apiField");
+            checkSignatureCompliance(clz, observer,
+                    "android.signature.cts.tests.data.PublicApiClass",
+                    "android.signature.cts.tests.data.ForciblyPublicizedPrivateClass");
+        }
 
-        checkSignatureCompliance(clz, observer,
-                "android.signature.cts.tests.data.PublicApiClass",
-                "android.signature.cts.tests.data.ForciblyPublicizedPrivateClass");
-        observer.validate();
+        try (ExpectFailure observer = new ExpectFailure(FailureType.EXTRA_METHOD)) {
+            JDiffClassDescription clz = createClass("PublicApiClass");
+            addConstructor(clz);
+            // (omitted) addPublicVoidMethod(clz, "apiMethod");
+            addPublicBooleanField(clz, "apiField");
 
-        observer = new ExpectFailure(FailureType.EXTRA_METHOD);
-
-        clz = createClass("PublicApiClass");
-        addConstructor(clz);
-        // (omitted) addPublicVoidMethod(clz, "apiMethod");
-        addPublicBooleanField(clz, "apiField");
-
-        checkSignatureCompliance(clz, observer,
-                "android.signature.cts.tests.data.SystemApiClass",
-                "android.signature.cts.tests.data.ForciblyPublicizedPrivateClass");
-        observer.validate();
+            checkSignatureCompliance(clz, observer,
+                    "android.signature.cts.tests.data.SystemApiClass",
+                    "android.signature.cts.tests.data.ForciblyPublicizedPrivateClass");
+        }
     }
 
     /**
@@ -143,29 +141,27 @@ public class AnnotationCheckerTest extends ApiPresenceCheckerTest<AnnotationChec
      */
     @Test
     public void testDetectUnauthorizedFieldApi() {
-        ExpectFailure observer = new ExpectFailure(FailureType.EXTRA_FIELD);
+        try (ExpectFailure observer = new ExpectFailure(FailureType.EXTRA_FIELD)) {
+            JDiffClassDescription clz = createClass("SystemApiClass");
+            addConstructor(clz);
+            addPublicVoidMethod(clz, "apiMethod");
+            // (omitted) addPublicBooleanField(clz, "apiField");
 
-        JDiffClassDescription clz = createClass("SystemApiClass");
-        addConstructor(clz);
-        addPublicVoidMethod(clz, "apiMethod");
-        // (omitted) addPublicBooleanField(clz, "apiField");
+            checkSignatureCompliance(clz, observer,
+                    "android.signature.cts.tests.data.PublicApiClass",
+                    "android.signature.cts.tests.data.ForciblyPublicizedPrivateClass");
+        }
 
-        checkSignatureCompliance(clz, observer,
-                "android.signature.cts.tests.data.PublicApiClass",
-                "android.signature.cts.tests.data.ForciblyPublicizedPrivateClass");
-        observer.validate();
+        try (ExpectFailure observer = new ExpectFailure(FailureType.EXTRA_FIELD)) {
+            JDiffClassDescription clz = createClass("PublicApiClass");
+            addConstructor(clz);
+            addPublicVoidMethod(clz, "apiMethod");
+            // (omitted) addPublicBooleanField(clz, "apiField");
 
-        observer = new ExpectFailure(FailureType.EXTRA_FIELD);
-
-        clz = createClass("PublicApiClass");
-        addConstructor(clz);
-        addPublicVoidMethod(clz, "apiMethod");
-        // (omitted) addPublicBooleanField(clz, "apiField");
-
-        checkSignatureCompliance(clz, observer,
-                "android.signature.cts.tests.data.SystemApiClass",
-                "android.signature.cts.tests.data.ForciblyPublicizedPrivateClass");
-        observer.validate();
+            checkSignatureCompliance(clz, observer,
+                    "android.signature.cts.tests.data.SystemApiClass",
+                    "android.signature.cts.tests.data.ForciblyPublicizedPrivateClass");
+        }
     }
 
     /**
@@ -173,28 +169,27 @@ public class AnnotationCheckerTest extends ApiPresenceCheckerTest<AnnotationChec
      */
     @Test
     public void testDetectUnauthorizedClassApi() {
-        ExpectFailure observer = new ExpectFailure(FailureType.EXTRA_CLASS);
-        JDiffClassDescription clz = createClass("SystemApiClass");
-        addConstructor(clz);
-        addPublicVoidMethod(clz, "apiMethod");
-        addPublicBooleanField(clz, "apiField");
+        try (ExpectFailure observer = new ExpectFailure(FailureType.EXTRA_CLASS)) {
+            JDiffClassDescription clz = createClass("SystemApiClass");
+            addConstructor(clz);
+            addPublicVoidMethod(clz, "apiMethod");
+            addPublicBooleanField(clz, "apiField");
 
-        checkSignatureCompliance(clz, observer,
-                "android.signature.cts.tests.data.PublicApiClass");
-        // Note that ForciblyPublicizedPrivateClass is now included in the runtime classes
-        observer.validate();
+            checkSignatureCompliance(clz, observer,
+                    "android.signature.cts.tests.data.PublicApiClass");
+            // Note that ForciblyPublicizedPrivateClass is now included in the runtime classes
+        }
 
-        observer = new ExpectFailure(FailureType.EXTRA_CLASS);
+        try (ExpectFailure observer = new ExpectFailure(FailureType.EXTRA_CLASS)) {
+            JDiffClassDescription clz = createClass("PublicApiClass");
+            addConstructor(clz);
+            addPublicVoidMethod(clz, "apiMethod");
+            addPublicBooleanField(clz, "apiField");
 
-        clz = createClass("PublicApiClass");
-        addConstructor(clz);
-        addPublicVoidMethod(clz, "apiMethod");
-        addPublicBooleanField(clz, "apiField");
-
-        checkSignatureCompliance(clz, observer,
-                "android.signature.cts.tests.data.SystemApiClass");
-        // Note that ForciblyPublicizedPrivateClass is now included in the runtime classes
-        observer.validate();
+            checkSignatureCompliance(clz, observer,
+                    "android.signature.cts.tests.data.SystemApiClass");
+            // Note that ForciblyPublicizedPrivateClass is now included in the runtime classes
+        }
     }
 
     /**
@@ -243,44 +238,41 @@ public class AnnotationCheckerTest extends ApiPresenceCheckerTest<AnnotationChec
      */
     @Test
     public void testDetectMissingAnnotation() {
-        ExpectFailure observer = new ExpectFailure(FailureType.MISSING_ANNOTATION);
+        try (ExpectFailure observer = new ExpectFailure(FailureType.MISSING_ANNOTATION)) {
+            JDiffClassDescription clz = createClass("PublicApiClass");
+            addConstructor(clz);
+            addPublicVoidMethod(clz, "apiMethod");
+            addPublicBooleanField(clz, "apiField");
+            addConstructor(clz, "int"); // this is not annotated
 
-        JDiffClassDescription clz = createClass("PublicApiClass");
-        addConstructor(clz);
-        addPublicVoidMethod(clz, "apiMethod");
-        addPublicBooleanField(clz, "apiField");
-        addConstructor(clz, "int"); // this is not annotated
+            checkSignatureCompliance(clz, observer,
+                    "android.signature.cts.tests.data.SystemApiClass",
+                    "android.signature.cts.tests.data.ForciblyPublicizedPrivateClass");
+        }
 
-        checkSignatureCompliance(clz, observer,
-                "android.signature.cts.tests.data.SystemApiClass",
-                "android.signature.cts.tests.data.ForciblyPublicizedPrivateClass");
-        observer.validate();
+        try (ExpectFailure observer = new ExpectFailure(FailureType.MISSING_ANNOTATION)) {
+            JDiffClassDescription clz = createClass("PublicApiClass");
+            addConstructor(clz);
+            addPublicVoidMethod(clz, "apiMethod");
+            addPublicBooleanField(clz, "apiField");
+            addPublicVoidMethod(clz, "privateMethod"); // this is not annotated
 
-        observer = new ExpectFailure(FailureType.MISSING_ANNOTATION);
+            checkSignatureCompliance(clz, observer,
+                    "android.signature.cts.tests.data.SystemApiClass",
+                    "android.signature.cts.tests.data.ForciblyPublicizedPrivateClass");
+        }
 
-        clz = createClass("PublicApiClass");
-        addConstructor(clz);
-        addPublicVoidMethod(clz, "apiMethod");
-        addPublicBooleanField(clz, "apiField");
-        addPublicVoidMethod(clz, "privateMethod"); // this is not annotated
+        try (ExpectFailure observer = new ExpectFailure(FailureType.MISSING_ANNOTATION)) {
+            JDiffClassDescription clz = createClass("PublicApiClass");
+            addConstructor(clz);
+            addPublicVoidMethod(clz, "apiMethod");
+            addPublicBooleanField(clz, "apiField");
+            addPublicBooleanField(clz, "privateField"); // this is not annotated
 
-        checkSignatureCompliance(clz, observer,
-                "android.signature.cts.tests.data.SystemApiClass",
-                "android.signature.cts.tests.data.ForciblyPublicizedPrivateClass");
-        observer.validate();
-
-        observer = new ExpectFailure(FailureType.MISSING_ANNOTATION);
-
-        clz = createClass("PublicApiClass");
-        addConstructor(clz);
-        addPublicVoidMethod(clz, "apiMethod");
-        addPublicBooleanField(clz, "apiField");
-        addPublicBooleanField(clz, "privateField"); // this is not annotated
-
-        checkSignatureCompliance(clz, observer,
-                "android.signature.cts.tests.data.SystemApiClass",
-                "android.signature.cts.tests.data.ForciblyPublicizedPrivateClass");
-        observer.validate();
+            checkSignatureCompliance(clz, observer,
+                    "android.signature.cts.tests.data.SystemApiClass",
+                    "android.signature.cts.tests.data.ForciblyPublicizedPrivateClass");
+        }
     }
 
     /**

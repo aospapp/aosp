@@ -20,7 +20,6 @@ android_test_helper_app {
     name: "HdmiCecHelperApp",
     defaults: ["cts_defaults"],
     platform_apis: true,
-    certificate: "platform",
     srcs: ["src/**/*.java"],
     static_libs: [
         "androidx.test.runner",

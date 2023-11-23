@@ -154,7 +154,6 @@ void PrintArmRegInformation(ElfInterfaceArm* interface, uint64_t pc) {
 
   ArmExidx arm(nullptr, interface->memory(), nullptr);
 
-  log_to_stdout(true);
   arm.set_log(ARM_LOG_BY_REG);
   arm.set_log_skip_execution(true);
   arm.set_log_indent(1);

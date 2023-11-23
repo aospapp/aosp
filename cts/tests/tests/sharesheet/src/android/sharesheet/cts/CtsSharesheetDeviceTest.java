@@ -16,7 +16,6 @@
 package android.sharesheet.cts;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -49,6 +48,10 @@ import android.support.test.uiautomator.Until;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -56,10 +59,6 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
 
 /**
  * TODO: Add JavaDoc
@@ -86,6 +85,7 @@ public class CtsSharesheetDeviceTest {
     private Instrumentation mInstrumentation;
     private UiAutomation mAutomation;
     public UiDevice mDevice;
+    private UiObject2 mSharesheet;
 
     private String mPkg, mExcludePkg, mActivityLabelTesterPkg, mIntentFilterLabelTesterPkg;
     private String mSharesheetPkg;
@@ -106,8 +106,8 @@ public class CtsSharesheetDeviceTest {
     private boolean mMeetsResolutionRequirements;
 
     /**
-     * To validate Sharesheet API and API behavior works as intended UI test sare required. It is
-     * impossible to know the how the Sharesheet UI will be modified by end partners so these tests
+     * To validate Sharesheet API and API behavior works as intended, UI tests are required. It is
+     * impossible to know how the Sharesheet UI will be modified by end partners, so these tests
      * attempt to assume use the minimum needed assumptions to make the tests work.
      *
      * We cannot assume a scrolling direction or starting point because of potential UI variations.
@@ -490,6 +490,7 @@ public class CtsSharesheetDeviceTest {
     private void launchSharesheet(Intent shareIntent) {
         mContext.startActivity(shareIntent);
         waitAndAssertPkgVisible(mSharesheetPkg);
+        mSharesheet = mDevice.findObject(By.pkg(mSharesheetPkg).depth(0));
         waitForIdle();
     }
 
@@ -599,11 +600,11 @@ public class CtsSharesheetDeviceTest {
     }
 
     private void waitAndAssertPkgVisible(String pkg) {
-        waitAndAssertFound(By.pkg(pkg).depth(0));
+        waitAndAssertFoundOnDevice(By.pkg(pkg).depth(0));
     }
 
     private void waitAndAssertPkgNotVisible(String pkg) {
-        waitAndAssertNotFound(By.pkg(pkg));
+        waitAndAssertNotFoundOnDevice(By.pkg(pkg));
     }
 
     private void waitAndAssertTextContains(String containsText) {
@@ -615,21 +616,37 @@ public class CtsSharesheetDeviceTest {
     }
 
     /**
-     * waitAndAssertFound will wait until UI defined by the selector is found. If it's never found,
-     * this will wait for the duration of the full timeout. Take care to call this method after
-     * reasonable steps are taken to ensure fast completion.
+     * waitAndAssertFound will wait until UI within sharesheet defined by the selector is found. If
+     * it's never found, this will wait for the duration of the full timeout. Take care to call this
+     * method after reasonable steps are taken to ensure fast completion.
      */
     private void waitAndAssertFound(BySelector selector) {
+        assertNotNull(mSharesheet.wait(Until.findObject(selector),
+                WAIT_AND_ASSERT_FOUND_TIMEOUT_MS));
+    }
+
+    /**
+     * Same as waitAndAssertFound but searching the entire device UI.
+     */
+    private void waitAndAssertFoundOnDevice(BySelector selector) {
         assertNotNull(mDevice.wait(Until.findObject(selector), WAIT_AND_ASSERT_FOUND_TIMEOUT_MS));
     }
 
     /**
-     * waitAndAssertNotFound waits for any visible UI to be hidden, validates that it's indeed gone
-     * without waiting more and returns. This means if the UI wasn't visible to start with the
-     * method will return without no timeout. Take care to call this method only once there's reason
-     * to think the UI is in the right state for testing.
+     * waitAndAssertNotFound waits for any visible UI within sharesheet to be hidden, validates that
+     * it's indeed gone without waiting more and returns. This means if the UI wasn't visible to
+     * start with the method will return without no timeout. Take care to call this method only once
+     * there's reason to think the UI is in the right state for testing.
      */
     private void waitAndAssertNotFound(BySelector selector) {
+        mSharesheet.wait(Until.gone(selector), WAIT_AND_ASSERT_NOT_FOUND_TIMEOUT_MS);
+        assertNull(mSharesheet.findObject(selector));
+    }
+
+    /**
+     * Same as waitAndAssertNotFound() but searching the entire device UI.
+     */
+    private void waitAndAssertNotFoundOnDevice(BySelector selector) {
         mDevice.wait(Until.gone(selector), WAIT_AND_ASSERT_NOT_FOUND_TIMEOUT_MS);
         assertNull(mDevice.findObject(selector));
     }
@@ -641,7 +658,7 @@ public class CtsSharesheetDeviceTest {
      * @return UiObject2 that can be used, for example, to execute a click
      */
     private UiObject2 findTextContains(String containsText) {
-        return mDevice.wait(Until.findObject(By.textContains(containsText)),
+        return mSharesheet.wait(Until.findObject(By.textContains(containsText)),
                 WAIT_AND_ASSERT_FOUND_TIMEOUT_MS);
     }
 }

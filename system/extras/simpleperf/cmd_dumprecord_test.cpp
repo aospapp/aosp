@@ -77,3 +77,7 @@ TEST(cmd_dump, etm_data) {
   // Check if we can decode etm data into instruction range elements.
   ASSERT_NE(data.find("OCSD_GEN_TRC_ELEM_INSTR_RANGE"), std::string::npos);
 }
+
+TEST(cmd_dump, dump_arm_regs_recorded_in_arm64) {
+  ASSERT_TRUE(DumpCmd()->Run({GetTestData("perf_with_arm_regs.data")}));
+}

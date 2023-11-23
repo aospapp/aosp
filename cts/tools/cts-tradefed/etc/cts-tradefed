@@ -112,7 +112,7 @@ elif [ "$HOST" == "Darwin" ]; then
 fi
 
 # include any host-side test jars
-for j in ${CTS_ROOT}/android-cts/testcases/*.jar; do
+for j in $(find ${CTS_ROOT}/android-cts/testcases -name '*.jar'); do
     JAR_PATH=${JAR_PATH}:$j
 done
 

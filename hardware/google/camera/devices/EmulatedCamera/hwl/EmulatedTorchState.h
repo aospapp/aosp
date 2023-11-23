@@ -26,6 +26,7 @@ namespace android {
 
 using android::google_camera_hal::HwlTorchModeStatusChangeFunc;
 using android::google_camera_hal::TorchMode;
+using android::google_camera_hal::TorchModeStatus;
 
 class EmulatedTorchState {
  public:
@@ -34,8 +35,13 @@ class EmulatedTorchState {
   }
 
   status_t SetTorchMode(TorchMode mode);
+  status_t TurnOnTorchWithStrengthLevel(int32_t torch_strength);
+
   void AcquireFlashHw();
   void ReleaseFlashHw();
+  int32_t GetTorchStrengthLevel();
+  void InitializeTorchDefaultLevel(int32_t default_level);
+  void InitializeSupportTorchStrengthLevel(bool is_torch_strength_control_supported);
 
  private:
   std::mutex mutex_;
@@ -43,6 +49,10 @@ class EmulatedTorchState {
   uint32_t camera_id_;
   HwlTorchModeStatusChangeFunc torch_cb_;
   bool camera_open_ = false;
+  TorchModeStatus torch_status_;
+  int32_t new_torch_strength_level_ = 0;
+  bool support_torch_strength_control_ = false;
+  int32_t default_level_ = 0;
 
   EmulatedTorchState(const EmulatedTorchState&) = delete;
   EmulatedTorchState& operator=(const EmulatedTorchState&) = delete;

@@ -14,20 +14,20 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-from acts import utils
 from acts import asserts
 from acts import signals
 from acts.base_test import BaseTestClass
 from acts.test_decorators import test_tracker_info
 from acts.utils import get_current_epoch_time
 from acts_contrib.test_utils.wifi.wifi_test_utils import wifi_toggle_state
-from acts_contrib.test_utils.tel.tel_test_utils import start_qxdm_logger
-from acts_contrib.test_utils.tel.tel_test_utils import stop_qxdm_logger
+from acts_contrib.test_utils.tel.tel_logging_utils import start_qxdm_logger
+from acts_contrib.test_utils.tel.tel_logging_utils import stop_qxdm_logger
+from acts_contrib.test_utils.tel.tel_logging_utils import start_adb_tcpdump
+from acts_contrib.test_utils.tel.tel_logging_utils import stop_adb_tcpdump
+from acts_contrib.test_utils.tel.tel_logging_utils import get_tcpdump_log
 from acts_contrib.test_utils.tel.tel_test_utils import verify_internet_connection
-from acts_contrib.test_utils.tel.tel_test_utils import abort_all_tests
 from acts_contrib.test_utils.gnss.gnss_test_utils import get_baseband_and_gms_version
 from acts_contrib.test_utils.gnss.gnss_test_utils import _init_device
-from acts_contrib.test_utils.gnss.gnss_test_utils import check_location_service
 from acts_contrib.test_utils.gnss.gnss_test_utils import clear_logd_gnss_qxdm_log
 from acts_contrib.test_utils.gnss.gnss_test_utils import set_mobile_data
 from acts_contrib.test_utils.gnss.gnss_test_utils import get_gnss_qxdm_log
@@ -40,9 +40,6 @@ from acts_contrib.test_utils.gnss.gnss_test_utils import set_attenuator_gnss_sig
 from acts_contrib.test_utils.gnss.gnss_test_utils import connect_to_wifi_network
 from acts_contrib.test_utils.gnss.gnss_test_utils import gnss_tracking_via_gtw_gpstool
 from acts_contrib.test_utils.gnss.gnss_test_utils import parse_gtw_gpstool_log
-from acts_contrib.test_utils.tel.tel_test_utils import start_adb_tcpdump
-from acts_contrib.test_utils.tel.tel_test_utils import stop_adb_tcpdump
-from acts_contrib.test_utils.tel.tel_test_utils import get_tcpdump_log
 
 
 class FlpTtffTest(BaseTestClass):

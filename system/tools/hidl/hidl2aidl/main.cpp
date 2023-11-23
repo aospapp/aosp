@@ -173,7 +173,7 @@ static void emitAidlSharedLibs(Formatter& out, FQName fqName, AidlBackend backen
     if (backend == AidlBackend::NDK) {
         out << "        \"libbinder_ndk\",\n";
         out << "        \"libhidlbase\",\n";
-        out << "        \"" << AidlHelper::getAidlPackage(fqName) << "-V1-ndk_platform\",\n";
+        out << "        \"" << AidlHelper::getAidlPackage(fqName) << "-V1-ndk\",\n";
     } else if (backend == AidlBackend::CPP) {
         out << "        \"libbinder\",\n";
         out << "        \"libhidlbase\",\n";
@@ -226,6 +226,8 @@ static void emitBuildFile(Formatter& out, const FQName& fqName, std::vector<FQNa
     out << "        cpp: {\n";
     out << "            // FIXME should this be disabled?\n";
     out << "            // prefer NDK backend which can be used anywhere\n";
+    out << "            // If you disable this, you also need to delete the C++\n";
+    out << "            // translate code.\n";
     out << "            enabled: true,\n";
     out << "        },\n";
     out << "        java: {\n";
@@ -370,7 +372,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    // This is the list of all types which should be converted
+    // This is the list of all targets which should be converted
     std::vector<FQName> targets;
     for (FQName version = getLowestExistingFqName(coordinator, fqName);
          version.getPackageMinorVersion() <= fqName.getPackageMinorVersion();
@@ -457,7 +459,11 @@ int main(int argc, char** argv) {
     // emitAidl. The interfaces are consolidating methods from their typechains
     // and the composite types are being flattened.
     for (const auto& namedType : namedTypesInPackage) {
-        AidlHelper::emitAidl(*namedType, coordinator, processedTypesInPackage);
+        // Nested types do not get their own files
+        if (namedType->fqName().names().size() > 1) continue;
+        Formatter out =
+                AidlHelper::getFileWithHeader(*namedType, coordinator, processedTypesInPackage);
+        AidlHelper::emitAidl(*namedType, out, processedTypesInPackage);
     }
 
     err << "END OF LOG\n";

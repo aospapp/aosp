@@ -46,8 +46,6 @@ TODO:
 import logging
 import os
 
-import six
-
 from google.protobuf import text_format
 
 # pylint: disable=no-name-in-module,import-error
@@ -94,6 +92,22 @@ def GetDefaultConfigFile():
     if not os.path.exists(config_path):
         os.makedirs(config_path)
     return os.path.join(config_path, _DEFAULT_CONFIG_FILE)
+
+
+def GetUserConfigPath(config_path):
+    """Get Acloud user config file path.
+
+    If there is no config provided, Acloud would use default config path.
+
+    Args:
+        config_path: String, path of Acloud config file.
+
+    Returns:
+        Path (string) of the Acloud config.
+    """
+    if config_path:
+        return config_path
+    return GetDefaultConfigFile()
 
 
 def GetAcloudConfig(args):
@@ -146,38 +160,26 @@ class AcloudConfig():
         self.ssh_private_key_path = usr_cfg.ssh_private_key_path
         self.ssh_public_key_path = usr_cfg.ssh_public_key_path
         self.storage_bucket_name = usr_cfg.storage_bucket_name
-        self.metadata_variable = {
-            key: val for key, val in
-            six.iteritems(internal_cfg.default_usr_cfg.metadata_variable)
-        }
+        self.metadata_variable = dict(
+            internal_cfg.default_usr_cfg.metadata_variable.items())
         self.metadata_variable.update(usr_cfg.metadata_variable)
 
-        self.device_resolution_map = {
-            device: resolution for device, resolution in
-            six.iteritems(internal_cfg.device_resolution_map)
-        }
-        self.device_default_orientation_map = {
-            device: orientation for device, orientation in
-            six.iteritems(internal_cfg.device_default_orientation_map)
-        }
-        self.no_project_access_msg_map = {
-            project: msg for project, msg in
-            six.iteritems(internal_cfg.no_project_access_msg_map)
-        }
+        self.device_resolution_map = dict(
+            internal_cfg.device_resolution_map.items())
+        self.device_default_orientation_map = dict(
+            internal_cfg.device_default_orientation_map.items())
+        self.no_project_access_msg_map = dict(
+            internal_cfg.no_project_access_msg_map.items())
         self.min_machine_size = internal_cfg.min_machine_size
         self.disk_image_name = internal_cfg.disk_image_name
         self.disk_image_mime_type = internal_cfg.disk_image_mime_type
         self.disk_image_extension = internal_cfg.disk_image_extension
         self.disk_raw_image_name = internal_cfg.disk_raw_image_name
         self.disk_raw_image_extension = internal_cfg.disk_raw_image_extension
-        self.valid_branch_and_min_build_id = {
-            branch: min_build_id for branch, min_build_id in
-            six.iteritems(internal_cfg.valid_branch_and_min_build_id)
-        }
-        self.precreated_data_image_map = {
-            size_gb: image_name for size_gb, image_name in
-            six.iteritems(internal_cfg.precreated_data_image)
-        }
+        self.valid_branch_and_min_build_id = dict(
+            internal_cfg.valid_branch_and_min_build_id.items())
+        self.precreated_data_image_map = dict(
+            internal_cfg.precreated_data_image.items())
         self.extra_data_disk_size_gb = (
             usr_cfg.extra_data_disk_size_gb or
             internal_cfg.default_usr_cfg.extra_data_disk_size_gb)
@@ -232,8 +234,8 @@ class AcloudConfig():
         self.hw_property = usr_cfg.hw_property
 
         self.launch_args = usr_cfg.launch_args
-        self.api_key = usr_cfg.api_key
-        self.api_url = usr_cfg.api_url
+        self.oxygen_client = usr_cfg.oxygen_client
+        self.oxygen_lease_args = usr_cfg.oxygen_lease_args
         self.instance_name_pattern = (
             usr_cfg.instance_name_pattern or
             internal_cfg.default_usr_cfg.instance_name_pattern)
@@ -246,6 +248,7 @@ class AcloudConfig():
             self.enable_multi_stage = internal_cfg.default_usr_cfg.enable_multi_stage
         else:
             self.enable_multi_stage = False
+        self.disk_type = usr_cfg.disk_type
 
         # Verify validity of configurations.
         self.Verify()
@@ -366,6 +369,12 @@ class AcloudConfigManager():
         2. User didn't specify user config, use default config:
             a.Default config exist: Load config.
             b.Default config didn't exist: provide empty usr_cfg.
+
+        Raises:
+            errors.ConfigError: If config file doesn't exist.
+
+        Returns:
+            An instance of AcloudConfig.
         """
         internal_cfg = None
         usr_cfg = None
@@ -376,22 +385,18 @@ class AcloudConfigManager():
         except OSError as e:
             raise errors.ConfigError("Could not load config files: %s" % str(e))
         # Load user config file
-        if self.user_config_path:
-            if os.path.exists(self.user_config_path):
-                with open(self.user_config_path, "r") as config_file:
-                    usr_cfg = self.LoadConfigFromProtocolBuffer(
-                        config_file, user_config_pb2.UserConfig)
-            else:
-                raise errors.ConfigError("The file doesn't exist: %s" %
-                                         (self.user_config_path))
+        self.user_config_path = GetUserConfigPath(self.user_config_path)
+        if os.path.exists(self.user_config_path):
+            with open(self.user_config_path, "r") as config_file:
+                usr_cfg = self.LoadConfigFromProtocolBuffer(
+                    config_file, user_config_pb2.UserConfig)
         else:
-            self.user_config_path = GetDefaultConfigFile()
-            if os.path.exists(self.user_config_path):
-                with open(self.user_config_path, "r") as config_file:
-                    usr_cfg = self.LoadConfigFromProtocolBuffer(
-                        config_file, user_config_pb2.UserConfig)
-            else:
-                usr_cfg = user_config_pb2.UserConfig()
+            if self.user_config_path != GetDefaultConfigFile():
+                raise errors.ConfigError(
+                    "The config file doesn't exist: %s. For reset config "
+                    "information: go/acloud-googler-setup#reset-configuration" %
+                    (self.user_config_path))
+            usr_cfg = user_config_pb2.UserConfig()
         return AcloudConfig(usr_cfg, internal_cfg)
 
     @staticmethod

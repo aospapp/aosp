@@ -26,11 +26,26 @@ android_test {
         "android.test.runner",
         "android.test.base",
     ],
+    static_libs: [
+        "permission-test-util-lib",
+    ],
     srcs: ["src/**/*.java"],
     test_suites: [
         "cts",
         "general-tests",
     ],
+    data: [
+        ":CtsShortcutManagerPackage4",
+        ":CtsShortcutManagerPackage1",
+        ":CtsShortcutManagerPackage2",
+        ":CtsShortcutManagerPackage3",
+        ":CtsShortcutManagerLauncher4",
+        ":CtsShortcutManagerLauncher3",
+        ":CtsShortcutManagerThrottlingTest",
+        ":CtsShortcutManagerLauncher2",
+        ":CtsShortcutManagerLauncher1",
+    ],
+    per_testcase_directory: true,
 }
 
 //-----------------------------------------------------------

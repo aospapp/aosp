@@ -23,9 +23,9 @@
 #include <unwindstack/Memory.h>
 #include <unwindstack/Unwinder.h>
 
-#include "../MemoryFake.h"
 #include "UnwinderComponentCreator.h"
 #include "fuzzer/FuzzedDataProvider.h"
+#include "utils/MemoryFake.h"
 
 namespace unwindstack {
 

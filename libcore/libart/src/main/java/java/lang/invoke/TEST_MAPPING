@@ -13,6 +13,9 @@
       "options": [
         {
           "include-filter": "org.openjdk.tests.java.lang.invoke"
+        },
+        {
+          "include-filter": "test.java.lang.invoke"
         }
       ]
     }

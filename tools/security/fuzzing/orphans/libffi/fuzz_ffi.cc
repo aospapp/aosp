@@ -71,8 +71,8 @@ size_t getTotalSize(ffi_type* type) {
     }
 
     // Start the total as the size of the object itself
-    size_t total_size = type->size > WORDSIZE_BYTES ?
-            type->size : WORDSIZE_BYTES;
+    size_t total_size = type->size > sizeof(void*) ?
+            type->size : sizeof(void*);
 
     // Recursively add the size of the subelements
     if (type->elements != NULL) {

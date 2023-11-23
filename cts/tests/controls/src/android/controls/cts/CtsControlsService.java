@@ -96,6 +96,7 @@ public class CtsControlsService extends ControlsProviderService {
             .setDeviceType(DeviceTypes.TYPE_LIGHT)
             .setStructure("Home")
             .setControlTemplate(template)
+            .setAuthRequired(false)
             .build();
     }
 
@@ -351,6 +352,7 @@ public class CtsControlsService extends ControlsProviderService {
             .setCustomIcon(c.getCustomIcon())
             .setCustomColor(c.getCustomColor())
             .setStatus(c.getStatus())
-            .setStatusText(c.getStatusText());
+            .setStatusText(c.getStatusText())
+            .setAuthRequired(c.isAuthRequired());
     }
 }

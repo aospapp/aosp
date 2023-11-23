@@ -159,8 +159,8 @@
     <option name="compatibility:exclude-filter" value="CtsContentTestCases android.content.cts.AvailableIntentsTest#testManageStorage" />
 
     <!-- No SystemUI -->
-    <option name="compatibility:exclude-filter" value="CtsMediaTestCases android.media.cts.AudioPlaybackCaptureTest" />
-    <option name="compatibility:exclude-filter" value="CtsMediaTestCases android.media.cts.MediaProjectionTest" />
+    <option name="compatibility:exclude-filter" value="CtsMediaAudioTestCases android.media.audio.cts.AudioPlaybackCaptureTest" />
+    <option name="compatibility:exclude-filter" value="CtsMediaMiscTestCases android.media.misc.cts.MediaProjectionTest" />
     <option name="compatibility:exclude-filter" value="CtsPermission3TestCases android.permission3.cts.PermissionTest22#testCompatRevoked" />
     <option name="compatibility:exclude-filter" value="CtsPermission3TestCases android.permission3.cts.PermissionTest23#testGranted" />
     <option name="compatibility:exclude-filter" value="CtsPermission3TestCases android.permission3.cts.PermissionTest23#testRevokeAffectsWholeGroup" />

@@ -25,6 +25,7 @@ import static org.junit.Assert.fail;
 
 import android.database.CharArrayBuffer;
 import android.database.CursorWindow;
+import android.database.CursorWindowAllocationException;
 import android.database.MatrixCursor;
 import android.database.sqlite.SQLiteException;
 import android.os.Parcel;
@@ -438,15 +439,11 @@ public class CursorWindowTest {
         Exception actual = null;
         try {
             new CursorWindow("test", -1);
-        } catch (RuntimeException caught) {
+        } catch (IllegalArgumentException caught) {
             Log.i(TAG, "Received: " + caught);
-            actual = caught;
-            // CursorWindowAllocationException is hidden, so let's just check the message.
-            if (actual.getMessage().contains("Could not allocate CursorWindow")) {
-                return;
-            }
+            return;
         }
-        fail("Didn't catch CursorWindowAllocationException: actual=" + actual);
+        fail("Didn't catch IllegalArgumentException: actual=" + actual);
     }
 
     @Test
@@ -454,15 +451,24 @@ public class CursorWindowTest {
         Exception actual = null;
         try {
             CursorWindow.CREATOR.createFromParcel(Parcel.obtain());
-        } catch (RuntimeException caught) {
+        } catch (CursorWindowAllocationException caught) {
             Log.i(TAG, "Received: " + caught);
-            actual = caught;
-            // CursorWindowAllocationException is hidden, so let's just check the message.
-            if (actual.getMessage().contains("Could not create CursorWindow")) {
-                return;
-            }
+            return;
         }
         fail("Didn't catch CursorWindowAllocationException: actual=" + actual);
+    }
+
+    @Test
+    public void testCursorWindowAllocationException() {
+        String exceptionDescription = "description test";
+        CursorWindowAllocationException newException =
+                new CursorWindowAllocationException(exceptionDescription);
+        assertEquals(exceptionDescription, newException.getMessage());
+        try {
+            throw newException;
+        } catch (CursorWindowAllocationException exception) {
+            assertEquals(exceptionDescription, exception.getMessage());
+        }
     }
 
     private class MockCursorWindow extends CursorWindow {

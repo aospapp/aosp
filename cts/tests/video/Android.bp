@@ -24,6 +24,7 @@ android_test {
         "ctsmediautil",
         "compatibility-device-util-axt",
         "ctstestrunner-axt",
+        "cts-media-common",
     ],
     libs: [
         "android.test.runner",

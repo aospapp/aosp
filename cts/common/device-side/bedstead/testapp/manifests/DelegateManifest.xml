@@ -18,13 +18,19 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="com.android.Delegate" android:targetSandboxVersion="2">
-
-    <application
-        android:appComponentFactory="com.android.bedstead.testapp.TestAppAppComponentFactory">
-
+    <application>
         <!-- Don't allow this test app to be returned by queries unless filtered by package name -->
         <meta-data android:name="testapp-package-query-only" android:value="true" />
 
+        <receiver android:name="com.android.bedstead.testapp.BaseTestAppDelegatedAdminReceiver"
+                  android:permission="android.permission.BIND_DEVICE_ADMIN"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="android.app.action.CHOOSE_PRIVATE_KEY_ALIAS"/>
+                <action android:name="android.app.action.NETWORK_LOGS_AVAILABLE"/>
+                <action android:name="android.app.action.SECURITY_LOGS_AVAILABLE"/>
+            </intent-filter>
+        </receiver>
     </application>
     <uses-sdk android:minSdkVersion="28" android:targetSdkVersion="28"/>
 </manifest>

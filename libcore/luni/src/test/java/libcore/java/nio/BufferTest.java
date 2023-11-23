@@ -251,6 +251,14 @@ public class BufferTest extends TestCase {
         b.order(ByteOrder.LITTLE_ENDIAN);
         assertEquals(ByteOrder.BIG_ENDIAN, b.slice().order());
 
+        // alignedSlice always returns a big-endian buffer.
+        b.order(ByteOrder.BIG_ENDIAN);
+        assertEquals(ByteOrder.BIG_ENDIAN, b.alignedSlice(4).order());
+        assertEquals(0, b.alignedSlice(4).alignmentOffset(0, 4));
+        b.order(ByteOrder.LITTLE_ENDIAN);
+        assertEquals(ByteOrder.BIG_ENDIAN, b.alignedSlice(4).order());
+        assertEquals(0, b.alignedSlice(2).alignmentOffset(0, 2));
+
         // asXBuffer always returns a current-endian buffer.
         b.order(ByteOrder.BIG_ENDIAN);
         assertEquals(ByteOrder.BIG_ENDIAN, b.asCharBuffer().order());
@@ -637,6 +645,27 @@ public class BufferTest extends TestCase {
         directBuffer.get();
         ByteBuffer directSlice = directBuffer.slice();
         assertEquals(directBuffer.arrayOffset() + 1, directSlice.arrayOffset());
+    }
+
+    public void testAlignedSliceOffset() throws Exception {
+        final ByteBuffer [] buffers = {
+            ByteBuffer.allocate(10),
+            ByteBuffer.allocateDirect(10),
+            ByteBuffer.wrap(new byte[10]),
+            ByteBuffer.wrap(new byte[10], 1, 8),
+        };
+
+        for (ByteBuffer buffer: buffers) {
+            for (int i = 0; i < 4; ++i) {
+                // Slicing changes the array offset.
+                ByteBuffer slice = ((ByteBuffer) buffer.duplicate().position(i)).alignedSlice(4);
+                for (int j = 0; j < 4; ++j) {
+                    assertEquals(j, slice.alignmentOffset(j, 4));
+                }
+                assertEquals(0, slice.limit() % 4);
+                assertTrue(buffer.limit() > 0);
+            }
+        }
     }
 
     // http://code.google.com/p/android/issues/detail?id=16184
@@ -1440,5 +1469,42 @@ public class BufferTest extends TestCase {
         otherBuffer = null;
         FinalizationTester.induceFinalization();
         assertTrue(pr.isEnqueued());
+    }
+
+    private void alignmentOffsetChecks(final ByteBuffer buffer) {
+
+        for (int start = 0; start < buffer.limit(); ++start) {
+            buffer.position(start);
+            final ByteBuffer bb = buffer.slice();
+            for (int unitSize = 1; unitSize <= 8; unitSize *= 2) {
+                try {
+                    bb.alignmentOffset(-1 - start, unitSize);
+                    fail();
+                } catch (IllegalArgumentException expected) {
+                }
+
+                if (unitSize > 2) {
+                    try {
+                        bb.alignmentOffset(0, unitSize - 1);
+                        fail();
+                    } catch (IllegalArgumentException expected) {
+                    }
+                }
+
+                int alignmentAtZero = bb.alignmentOffset(0, unitSize);
+                for (int i = 0; i < bb.limit(); ++i) {
+                    assertEquals((alignmentAtZero + i) % unitSize, bb.alignmentOffset(i, unitSize));
+                }
+            }
+        }
+    }
+
+    public void test_alignmentOffset() throws Exception {
+        alignmentOffsetChecks(ByteBuffer.allocateDirect(32));
+        alignmentOffsetChecks(ByteBuffer.allocate(32));
+
+        byte[] array = new byte[32];
+        alignmentOffsetChecks(ByteBuffer.wrap(array));
+        alignmentOffsetChecks(ByteBuffer.wrap(array, 1, 31));
     }
 }

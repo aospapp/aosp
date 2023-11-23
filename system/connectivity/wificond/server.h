@@ -109,6 +109,8 @@ class Server : public android::net::wifi::nl80211::BnWificond {
       const std::string& iface_name,
       ::std::optional<net::wifi::nl80211::DeviceWiphyCapabilities>* capabilities) override;
 
+  android::binder::Status notifyCountryCodeChanged() override;
+
  private:
   // Request interface information from kernel and setup local interface object.
   // This assumes that interface should be in STATION mode. Even if we setup

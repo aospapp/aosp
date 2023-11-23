@@ -715,6 +715,62 @@ public class GradientDrawableTest {
     }
 
     @Test
+    public void testGradientColorInflationWithThemeAndNonThemeResources() {
+        final Context context = InstrumentationRegistry.getTargetContext();
+        final Theme theme = context.getResources().newTheme();
+        theme.applyStyle(R.style.Theme_MixedGradientTheme, true);
+        final Theme ctxTheme = context.getTheme();
+        ctxTheme.setTo(theme);
+
+        GradientDrawable drawable = (GradientDrawable)
+                ctxTheme.getDrawable(R.drawable.gradientdrawable_color_mix_theme);
+
+        int[] colors = drawable.getColors();
+        drawable.setColors(colors);
+        assertEquals(3, colors.length);
+        assertEquals(context.getColor(R.color.colorAccent), colors[0]);
+        assertEquals(context.getColor(R.color.colorPrimary), colors[1]);
+        assertEquals(context.getColor(R.color.colorPrimaryDark), colors[2]);
+    }
+
+    @Test
+    public void testGradientColorInflationWithAllThemeResources() {
+        final Context context = InstrumentationRegistry.getTargetContext();
+        final Theme theme = context.getResources().newTheme();
+        theme.applyStyle(R.style.Theme_MixedGradientTheme, true);
+        final Theme ctxTheme = context.getTheme();
+        ctxTheme.setTo(theme);
+
+        GradientDrawable drawable = (GradientDrawable)
+                ctxTheme.getDrawable(R.drawable.gradientdrawable_color_all_theme);
+
+        int[] colors = drawable.getColors();
+        drawable.setColors(colors);
+        assertEquals(3, colors.length);
+        assertEquals(context.getColor(R.color.colorPrimary), colors[0]);
+        assertEquals(context.getColor(R.color.colorPrimaryDark), colors[1]);
+        assertEquals(context.getColor(R.color.colorPrimaryDark), colors[2]);
+    }
+
+    @Test
+    public void testGradientColorNoCenterColorInflationWithThemeAndNonThemeResources() {
+        final Context context = InstrumentationRegistry.getTargetContext();
+        final Theme theme = context.getResources().newTheme();
+        theme.applyStyle(R.style.Theme_MixedGradientTheme, true);
+        final Theme ctxTheme = context.getTheme();
+        ctxTheme.setTo(theme);
+
+        GradientDrawable drawable = (GradientDrawable)
+                ctxTheme.getDrawable(R.drawable.gradientdrawable_noCenterColor_all_theme);
+
+        int[] colors = drawable.getColors();
+        drawable.setColors(colors);
+        assertEquals(2, colors.length);
+        assertEquals(context.getColor(R.color.colorPrimary), colors[0]);
+        assertEquals(context.getColor(R.color.colorPrimaryDark), colors[1]);
+    }
+
+    @Test
     public void testRadialInflationWithThemeAndNonThemeResources() {
         final Context context = new ContextThemeWrapper(InstrumentationRegistry.getTargetContext(),
                 R.style.Theme_MixedGradientTheme);

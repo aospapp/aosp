@@ -90,6 +90,8 @@ public final class GarageModeTestActivity extends PassFailButtons.Activity {
             editor.putLong(GarageModeChecker.PREFS_GARAGE_MODE_END, 0);
             editor.putLong(GarageModeChecker.PREFS_TERMINATION, 0);
             editor.putBoolean(GarageModeChecker.PREFS_HAD_CONNECTIVITY, false);
+            editor.putLong(GarageModeChecker.PREFS_START_BOOT_COUNT,
+                    GarageModeChecker.getBootCount(context));
             editor.commit();
 
             GarageModeChecker.scheduleAnIdleJob(context, NUM_SECONDS_DURATION);
@@ -131,6 +133,8 @@ public final class GarageModeTestActivity extends PassFailButtons.Activity {
         long termination = prefs.getLong(GarageModeChecker.PREFS_TERMINATION, 0);
         long jobUpdate = prefs.getLong(GarageModeChecker.PREFS_JOB_UPDATE, 0);
         boolean hadConnectivity = prefs.getBoolean(GarageModeChecker.PREFS_HAD_CONNECTIVITY, false);
+        long startBootCount = prefs.getLong(GarageModeChecker.PREFS_START_BOOT_COUNT, 0);
+        long currentBootCount = GarageModeChecker.getBootCount(context);
 
         boolean testPassed = false;
         if (initiateTime == 0) {
@@ -185,6 +189,12 @@ public final class GarageModeTestActivity extends PassFailButtons.Activity {
                     (hadConnectivity ? "" : "not "),
                     dateTime.format(initiateTime), dateTime.format(garageModeStart),
                     dateTime.format(termination));
+        }  else if ((garageModeStart > 0 && garageModeEnd == 0)
+                                        && (currentBootCount - startBootCount > 0)) {
+            resultsString = "Test failed.\n\n"
+                    + "Garage Mode started, but system restarted before it completed.\n\n"
+                    + dateTime.format(initiateTime) + " -- Test was enabled\n"
+                    + dateTime.format(garageModeStart) + " -- Garage mode started";
         } else if (now < jobUpdate + GarageModeChecker.MS_PER_ITERATION * 2) {
             resultsString = "Garage Mode started and test is running.\n\n"
                     + dateTime.format(initiateTime) + " -- Test was enabled\n"

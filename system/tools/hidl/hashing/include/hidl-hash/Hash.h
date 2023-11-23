@@ -35,7 +35,6 @@ struct Hash {
                                                const std::string& interfaceName, std::string* err,
                                                bool* fileExists = nullptr);
 
-    static std::string hexString(const std::vector<uint8_t>& hash);
     std::string hexString() const;
 
     const std::vector<uint8_t>& raw() const;

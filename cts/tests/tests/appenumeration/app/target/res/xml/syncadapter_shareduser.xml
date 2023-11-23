@@ -15,5 +15,5 @@
 -->
 <sync-adapter xmlns:android="http://schemas.android.com/apk/res/android"
     android:contentAuthority="android.appenumeration.syncadapter.shareduid.authority"
-    android:accountType="android.appenumeration.account.type"
+    android:accountType="android.appenumeration.shareduid.account.type"
 />

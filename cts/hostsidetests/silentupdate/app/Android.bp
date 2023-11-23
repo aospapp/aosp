@@ -19,6 +19,13 @@ package {
 android_test_helper_app {
     name: "SilentInstallCurrent",
     manifest:   "AndroidManifest.xml",
+    target_sdk_version: "31",
+    min_sdk_version:"28"
+}
+
+android_test_helper_app {
+    name: "SilentInstallR",
+    manifest:   "AndroidManifest.xml",
     target_sdk_version: "30",
     min_sdk_version:"28"
 }
@@ -27,12 +34,5 @@ android_test_helper_app {
     name: "SilentInstallQ",
     manifest:   "AndroidManifest.xml",
     target_sdk_version: "29",
-    min_sdk_version:"28"
-}
-
-android_test_helper_app {
-    name: "SilentInstallP",
-    manifest:   "AndroidManifest.xml",
-    target_sdk_version: "28",
     min_sdk_version:"28"
 }

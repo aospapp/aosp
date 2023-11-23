@@ -40,7 +40,6 @@ class AsymmetricKeyFactory : public KeyFactory {
                                              UniquePtr<AsymmetricKey>* key) const = 0;
 
     virtual keymaster_algorithm_t keymaster_key_type() const = 0;
-    virtual int evp_key_type() const = 0;
 
     virtual const keymaster_key_format_t*
     SupportedImportFormats(size_t* format_count) const override;

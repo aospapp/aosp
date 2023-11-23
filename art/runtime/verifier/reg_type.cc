@@ -849,7 +849,7 @@ const RegType& RegType::Merge(const RegType& incoming_type,
              (IsDoubleTypes() && incoming_type.IsDoubleTypes()) ||
              (IsDoubleHighTypes() && incoming_type.IsDoubleHighTypes())) {
     // check constant case was handled prior to entry
-    DCHECK(!IsConstant() || !incoming_type.IsConstant());
+    DCHECK_IMPLIES(IsConstant(), !incoming_type.IsConstant());
     // float/long/double MERGE float/long/double_constant => float/long/double
     return SelectNonConstant(*this, incoming_type);
   } else if (IsReferenceTypes() && incoming_type.IsReferenceTypes()) {
@@ -1030,53 +1030,6 @@ void UnresolvedSuperClass::CheckInvariants() const {
 std::ostream& operator<<(std::ostream& os, const RegType& rhs) {
   os << rhs.Dump();
   return os;
-}
-
-bool RegType::CanAssignArray(const RegType& src,
-                             RegTypeCache& reg_types,
-                             Handle<mirror::ClassLoader> class_loader,
-                             MethodVerifier* verifier,
-                             bool* soft_error) const {
-  if (!IsArrayTypes() || !src.IsArrayTypes()) {
-    *soft_error = false;
-    return false;
-  }
-
-  if (IsUnresolvedMergedReference() || src.IsUnresolvedMergedReference()) {
-    // An unresolved array type means that it's an array of some reference type. Reference arrays
-    // can never be assigned to primitive-type arrays, and vice versa. So it is a soft error if
-    // both arrays are reference arrays, otherwise a hard error.
-    *soft_error = IsObjectArrayTypes() && src.IsObjectArrayTypes();
-    return false;
-  }
-
-  const RegType& cmp1 = reg_types.GetComponentType(*this, class_loader.Get());
-  const RegType& cmp2 = reg_types.GetComponentType(src, class_loader.Get());
-
-  if (cmp1.IsAssignableFrom(cmp2, verifier)) {
-    return true;
-  }
-  if (cmp1.IsUnresolvedTypes()) {
-    if (cmp2.IsIntegralTypes() || cmp2.IsFloatTypes() || cmp2.IsArrayTypes()) {
-      *soft_error = false;
-      return false;
-    }
-    *soft_error = true;
-    return false;
-  }
-  if (cmp2.IsUnresolvedTypes()) {
-    if (cmp1.IsIntegralTypes() || cmp1.IsFloatTypes() || cmp1.IsArrayTypes()) {
-      *soft_error = false;
-      return false;
-    }
-    *soft_error = true;
-    return false;
-  }
-  if (!cmp1.IsArrayTypes() || !cmp2.IsArrayTypes()) {
-    *soft_error = false;
-    return false;
-  }
-  return cmp1.CanAssignArray(cmp2, reg_types, class_loader, verifier, soft_error);
 }
 
 const NullType* NullType::CreateInstance(ObjPtr<mirror::Class> klass,

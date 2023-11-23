@@ -50,6 +50,9 @@ public class LockscreenHelper {
     private static final int SWIPE_MARGIN_BOTTOM = 100;
     private static final int DEFAULT_FLING_STEPS = 5;
     private static final int DEFAULT_SCROLL_STEPS = 15;
+    private static final long MAX_SCREEN_LOCK_WAIT_TIME_MS = 5_000;
+    private static final BySelector SCREEN_LOCK =
+            By.res("com.android.systemui", "keyguard_bottom_area");
     private static final String PIN_ENTRY = "com.android.systemui:id/pinEntry";
     private static final String SET_PIN_COMMAND = "locksettings set-pin %s";
     private static final String SET_PASSWORD_COMMAND = "locksettings set-password %s";
@@ -412,6 +415,10 @@ public class LockscreenHelper {
             mDevice.pressEnter();
         }
         mDevice.wait(Until.findObject(By.text("DONE")), LONG_TIMEOUT).click();
+    }
+
+    public void waitLockscreenVisible() {
+        mDevice.wait(Until.hasObject(SCREEN_LOCK), MAX_SCREEN_LOCK_WAIT_TIME_MS);
     }
 
     /* Returns screen coordinates for each pattern dot

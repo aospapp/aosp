@@ -94,6 +94,20 @@ TEST(CameraDeviceTests, SetTorchMode) {
   EXPECT_EQ(device->SetTorchMode(TorchMode::kOn), OK);
 }
 
+TEST(CameraDeviceTests, TurnOnTorchWithStrengthLevel) {
+  auto mock_device_hwl = MockDeviceHwl::Create();
+  ASSERT_NE(mock_device_hwl, nullptr);
+  int32_t new_torch_strength = 5;
+
+  auto device = CameraDevice::Create(std::move(mock_device_hwl));
+  ASSERT_NE(device, nullptr);
+
+  EXPECT_EQ(device->TurnOnTorchWithStrengthLevel(new_torch_strength), OK);
+  int32_t torch_strength = 0;
+  EXPECT_EQ(device->GetTorchStrengthLevel(torch_strength), OK);
+  EXPECT_EQ(torch_strength, new_torch_strength);
+}
+
 TEST(CameraDeviceTests, DumpState) {
   auto mock_device_hwl = MockDeviceHwl::Create();
   ASSERT_NE(mock_device_hwl, nullptr);

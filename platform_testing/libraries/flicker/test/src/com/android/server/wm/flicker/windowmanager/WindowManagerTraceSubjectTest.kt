@@ -24,6 +24,7 @@ import com.android.server.wm.flicker.LAUNCHER_COMPONENT
 import com.android.server.wm.flicker.SCREEN_DECOR_COMPONENT
 import com.android.server.wm.flicker.WALLPAPER_COMPONENT
 import com.android.server.wm.flicker.assertFailure
+import com.android.server.wm.flicker.assertThatErrorContainsDebugInfo
 import com.android.server.wm.flicker.assertThrows
 import com.android.server.wm.flicker.readWmTraceFromFile
 import com.android.server.wm.flicker.traces.FlickerSubjectException
@@ -199,8 +200,36 @@ class WindowManagerTraceSubjectTest {
         val error = assertThrows(AssertionError::class.java) {
             assertThat(chromeTrace).isEmpty()
         }
-        Truth.assertThat(error).hasMessageThat().contains("Trace start")
-        Truth.assertThat(error).hasMessageThat().contains("Trace start")
-        Truth.assertThat(error).hasMessageThat().contains("Trace file")
+        assertThatErrorContainsDebugInfo(error, withBlameEntry = false)
+    }
+
+    @Test
+    fun testCanDetectSnapshotStartingWindow() {
+        val trace = readWmTraceFromFile("quick_switch_to_app_killed_in_background_trace.pb")
+        val app1 = FlickerComponentName("com.android.server.wm.flicker.testapp",
+            "com.android.server.wm.flicker.testapp.ImeActivity")
+        val app2 = FlickerComponentName("com.android.server.wm.flicker.testapp",
+            "com.android.server.wm.flicker.testapp.SimpleActivity")
+        assertThat(trace).isAppWindowVisible(app1)
+            .then()
+            .isAppSnapshotStartingWindowVisibleFor(app2, isOptional = true)
+            .then()
+            .isAppWindowVisible(app2)
+            .then()
+            .isAppSnapshotStartingWindowVisibleFor(app1, isOptional = true)
+            .then()
+            .isAppWindowVisible(app1)
+            .forAllEntries()
+
+        val failure = assertThrows(FlickerSubjectException::class.java) {
+            assertThat(trace)
+                .isAppWindowVisible(app1)
+                .then()
+                .isAppWindowVisible(app2)
+                .then()
+                .isAppWindowVisible(app1)
+                .forAllEntries()
+        }
+        assertFailure(failure).hasMessageThat().contains("Is Invisible")
     }
 }

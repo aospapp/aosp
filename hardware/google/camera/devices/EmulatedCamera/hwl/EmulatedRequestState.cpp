@@ -41,13 +41,23 @@ const std::set<uint8_t> EmulatedRequestState::kSupportedCapabilites = {
     ANDROID_REQUEST_AVAILABLE_CAPABILITIES_YUV_REPROCESSING,
     ANDROID_REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA,
     ANDROID_REQUEST_AVAILABLE_CAPABILITIES_REMOSAIC_REPROCESSING,
-    ANDROID_REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR};
+    ANDROID_REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR,
+    ANDROID_REQUEST_AVAILABLE_CAPABILITIES_DYNAMIC_RANGE_TEN_BIT,
+    ANDROID_REQUEST_AVAILABLE_CAPABILITIES_STREAM_USE_CASE};
 
 const std::set<uint8_t> EmulatedRequestState::kSupportedHWLevels = {
     ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED,
     ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_FULL,
     ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_3,
 };
+
+const std::vector<int64_t> EmulatedRequestState::kSupportedUseCases = {
+    ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_DEFAULT,
+    ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_PREVIEW,
+    ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_STILL_CAPTURE,
+    ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_VIDEO_RECORD,
+    ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_PREVIEW_VIDEO_STILL,
+    ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_VIDEO_CALL};
 
 template <typename T>
 T GetClosestValue(T val, T min, T max) {
@@ -2741,8 +2751,12 @@ status_t EmulatedRequestState::InitializeReprocessDefaults() {
           config_map.GetValidOutputFormatsForInput(input_format);
       for (const auto& output_format : output_formats) {
         if (!EmulatedSensor::IsReprocessPathSupported(
-                EmulatedSensor::OverrideFormat(input_format),
-                EmulatedSensor::OverrideFormat(output_format))) {
+                EmulatedSensor::OverrideFormat(
+                    input_format,
+                    ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_STANDARD),
+                EmulatedSensor::OverrideFormat(
+                    output_format,
+                    ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_STANDARD))) {
           ALOGE(
               "%s: Input format: 0x%x to output format: 0x%x reprocess is"
               " currently not supported!",
@@ -2832,10 +2846,29 @@ status_t EmulatedRequestState::InitializeRequestDefaults() {
       ANDROID_REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE);
   is_raw_capable_ =
       SupportsCapability(ANDROID_REQUEST_AVAILABLE_CAPABILITIES_RAW);
+  supports_stream_use_case_ =
+      SupportsCapability(ANDROID_REQUEST_AVAILABLE_CAPABILITIES_STREAM_USE_CASE);
 
   if (supports_manual_sensor_) {
     auto templateIdx = static_cast<size_t>(RequestTemplate::kManual);
     default_requests_[templateIdx] = HalCameraMetadata::Create(1, 10);
+  }
+
+  if (supports_stream_use_case_) {
+    ret = static_metadata_->Get(ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES,
+                                &entry);
+    if (ret != OK) {
+      ALOGE("%s: No available stream use cases!", __FUNCTION__);
+      return BAD_VALUE;
+    }
+    for (int64_t useCase : kSupportedUseCases) {
+      if (std::find(entry.data.i64, entry.data.i64 + entry.count, useCase) ==
+          entry.data.i64 + entry.count) {
+        ALOGE("%s: Mandatory stream use case %" PRId64 " not found!",
+              __FUNCTION__, useCase);
+        return BAD_VALUE;
+      }
+    }
   }
 
   for (size_t templateIdx = 0; templateIdx < kTemplateCount; templateIdx++) {

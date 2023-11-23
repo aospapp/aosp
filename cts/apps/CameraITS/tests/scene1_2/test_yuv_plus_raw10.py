@@ -70,8 +70,12 @@ class YuvPlusRaw10Test(its_base_test.ItsBaseTest):
 
       max_raw10_size = capture_request_utils.get_available_output_sizes(
           'raw10', props)[0]
-      w, h = capture_request_utils.get_available_output_sizes(
-          'yuv', props, MAX_IMG_SIZE, max_raw10_size)[0]
+      if capture_request_utils.is_common_aspect_ratio(max_raw10_size):
+        w, h = capture_request_utils.get_available_output_sizes(
+            'yuv', props, MAX_IMG_SIZE, max_raw10_size)[0]
+      else:
+        w, h = capture_request_utils.get_available_output_sizes(
+            'yuv', props, max_size=MAX_IMG_SIZE)[0]
       out_surfaces = [{'format': 'raw10'},
                       {'format': 'yuv', 'width': w, 'height': h}]
       cap_raw, cap_yuv = cam.do_capture(req, out_surfaces)
@@ -93,7 +97,7 @@ class YuvPlusRaw10Test(its_base_test.ItsBaseTest):
           img, PATCH_X, PATCH_Y, PATCH_W, PATCH_H)
       rgb_means_raw = image_processing_utils.compute_image_means(patch)
 
-      rms_diff = image_processing_utils.compute_image_rms_difference(
+      rms_diff = image_processing_utils.compute_image_rms_difference_1d(
           rgb_means_yuv, rgb_means_raw)
       msg = f'RMS diff: {rms_diff:.4f}'
       logging.debug('%s', msg)

@@ -15,7 +15,6 @@ cc_defaults {
         "-Wall",
         "-Werror",
     ],
-    group_static_libs: true,
 }
 
 cc_defaults {

@@ -77,10 +77,6 @@ bool parse(const std::string &s, VndkVersionRange *vr);
 #pragma clang diagnostic pop
 
 bool parse(const std::string &s, KernelVersion *ver);
-// if return true, ta->isValid() must be true.
-bool parse(const std::string &s, TransportArch *ta);
-// if return true, hal->isValid() must be true.
-bool parse(const std::string &s, ManifestHal *hal);
 bool parse(const std::string& s, FqInstance* fqInstance);
 
 bool parseKernelConfigInt(const std::string &s, int64_t *i);

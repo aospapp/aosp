@@ -2,6 +2,9 @@
   "presubmit": [
     {
       "name": "ApexTestCases"
+    },
+    {
+      "name": "MicrodroidHostTestCases"
     }
   ],
   "imports": [

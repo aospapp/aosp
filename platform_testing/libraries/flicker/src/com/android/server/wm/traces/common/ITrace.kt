@@ -18,12 +18,9 @@ package com.android.server.wm.traces.common
 
 interface ITrace<Entry : ITraceEntry> {
     val entries: Array<Entry>
-    val source: String
 
     fun getEntry(timestamp: Long): Entry {
         return entries.firstOrNull { it.timestamp == timestamp }
                 ?: throw RuntimeException("Entry does not exist for timestamp $timestamp")
     }
-
-    fun hasSource(): Boolean = source.isNotEmpty()
 }

@@ -26,13 +26,29 @@ template <typename RequestType>
 bool RequestMultiplexer<RequestType>::addRequest(const RequestType &request,
                                                  size_t *index,
                                                  bool *maximalRequestChanged) {
-  CHRE_ASSERT(index);
+  CHRE_ASSERT_NOT_NULL(index);
   CHRE_ASSERT(maximalRequestChanged);
 
   bool requestStored = mRequests.push_back(request);
   if (requestStored) {
     *index = (mRequests.size() - 1);
     *maximalRequestChanged = mCurrentMaximalRequest.mergeWith(request);
+  }
+
+  return requestStored;
+}
+
+template <typename RequestType>
+bool RequestMultiplexer<RequestType>::addRequest(RequestType &&request,
+                                                 size_t *index,
+                                                 bool *maximalRequestChanged) {
+  CHRE_ASSERT_NOT_NULL(index);
+  CHRE_ASSERT(maximalRequestChanged);
+
+  bool requestStored = mRequests.push_back(std::move(request));
+  if (requestStored) {
+    *index = (mRequests.size() - 1);
+    *maximalRequestChanged = mCurrentMaximalRequest.mergeWith(mRequests.back());
   }
 
   return requestStored;
@@ -51,9 +67,21 @@ void RequestMultiplexer<RequestType>::updateRequest(
 }
 
 template <typename RequestType>
+void RequestMultiplexer<RequestType>::updateRequest(
+    size_t index, RequestType &&request, bool *maximalRequestChanged) {
+  CHRE_ASSERT_NOT_NULL(maximalRequestChanged);
+  CHRE_ASSERT(index < mRequests.size());
+
+  if (index < mRequests.size()) {
+    mRequests[index] = std::move(request);
+    updateMaximalRequest(maximalRequestChanged);
+  }
+}
+
+template <typename RequestType>
 void RequestMultiplexer<RequestType>::removeRequest(
     size_t index, bool *maximalRequestChanged) {
-  CHRE_ASSERT(maximalRequestChanged);
+  CHRE_ASSERT_NOT_NULL(maximalRequestChanged);
   CHRE_ASSERT(index < mRequests.size());
 
   if (index < mRequests.size()) {
@@ -65,7 +93,7 @@ void RequestMultiplexer<RequestType>::removeRequest(
 template <typename RequestType>
 void RequestMultiplexer<RequestType>::removeAllRequests(
     bool *maximalRequestChanged) {
-  CHRE_ASSERT(maximalRequestChanged);
+  CHRE_ASSERT_NOT_NULL(maximalRequestChanged);
 
   mRequests.clear();
   updateMaximalRequest(maximalRequestChanged);
@@ -94,7 +122,7 @@ void RequestMultiplexer<RequestType>::updateMaximalRequest(
   *maximalRequestChanged =
       !mCurrentMaximalRequest.isEquivalentTo(maximalRequest);
   if (*maximalRequestChanged) {
-    mCurrentMaximalRequest = maximalRequest;
+    mCurrentMaximalRequest = std::move(maximalRequest);
   }
 }
 

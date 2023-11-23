@@ -16,13 +16,13 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-     package="com.android.angleIntegrationTest.driverTest"
+     package="com.android.angleintegrationtest.drivertest"
      android:targetSandboxVersion="2">
 
     <application android:debuggable="true">
         <uses-library android:name="android.test.runner"/>
 
-        <activity android:name="com.android.angleIntegrationTest.common.AngleIntegrationTestActivity"
+        <activity android:name="com.android.angleintegrationtest.common.AngleIntegrationTestActivity"
              android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
@@ -32,6 +32,6 @@
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-         android:targetPackage="com.android.angleIntegrationTest.driverTest"/>
+         android:targetPackage="com.android.angleintegrationtest.drivertest"/>
 
 </manifest>

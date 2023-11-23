@@ -69,11 +69,13 @@ enum incfs_metadata_type {
     INCFS_MD_NONE = 0,
     INCFS_MD_BLOCK_MAP = 1,
     INCFS_MD_FILE_ATTR = 2,
-    INCFS_MD_SIGNATURE = 3
+    INCFS_MD_SIGNATURE = 3,
+    INCFS_MD_STATUS = 4,
+    INCFS_MD_VERITY_SIGNATURE = 5,
 };
 
 enum incfs_file_header_flags {
-    INCFS_FILE_COMPLETE = 1 << 0,
+    INCFS_FILE_MAPPED = 1 << 1,
 };
 
 /* Header included at the beginning of all metadata records on the disk. */
@@ -90,50 +92,66 @@ struct incfs_md_header {
      * CRC32 of the metadata record.
      * (e.g. inode, dir entry etc) not just this struct.
      */
-    int32_t h_record_crc;
+    int32_t h_unused1;
 
     /* Offset of the next metadata entry if any */
     int64_t h_next_md_offset;
 
     /* Offset of the previous metadata entry if any */
-    int64_t h_prev_md_offset;
+    int64_t h_unused2;
 
 } __packed;
 
 /* Backing file header */
 struct incfs_file_header {
     /* Magic number: INCFS_MAGIC_NUMBER */
-    int64_t fh_magic;
+    __le64 fh_magic;
 
     /* Format version: INCFS_FORMAT_CURRENT_VER */
-    int64_t fh_version;
+    __le64 fh_version;
 
     /* sizeof(incfs_file_header) */
-    int16_t fh_header_size;
+    __le16 fh_header_size;
 
     /* INCFS_DATA_FILE_BLOCK_SIZE */
-    int16_t fh_data_block_size;
+    __le16 fh_data_block_size;
 
     /* File flags, from incfs_file_header_flags */
-    int32_t fh_file_header_flags;
+    __le32 fh_flags;
 
-    /* Offset of the first metadata record */
-    int64_t fh_first_md_offset;
+    union {
+        /* Standard incfs file */
+        struct {
+            /* Offset of the first metadata record */
+            __le64 fh_first_md_offset;
 
-    /*
-     * Put file specific information after this point
-     */
+            /* Full size of the file's content */
+            __le64 fh_file_size;
 
-    /* Full size of the file's content */
-    int64_t fh_file_size;
+            /* File uuid */
+            incfs_uuid_t fh_uuid;
+        };
 
-    /* File uuid */
-    incfs_uuid_t fh_uuid;
+        /* Mapped file - INCFS_FILE_MAPPED set in fh_flags */
+        struct {
+            /* Offset in original file */
+            __le64 fh_original_offset;
+
+            /* Full size of the file's content */
+            __le64 fh_mapped_file_size;
+
+            /* Original file's uuid */
+            incfs_uuid_t fh_original_uuid;
+        };
+    };
 } __packed;
 
 enum incfs_block_map_entry_flags {
-    INCFS_BLOCK_COMPRESSED_LZ4 = (1 << 0),
-    INCFS_BLOCK_HASH = (1 << 1),
+    INCFS_BLOCK_COMPRESSED_LZ4 = 1,
+    INCFS_BLOCK_COMPRESSED_ZSTD = 2,
+
+    /* Reserve 3 bits for compression alg */
+    INCFS_BLOCK_COMPRESSED_MASK = 7,
 };
 
 /* Block map entry pointing to an actual location of the data block. */
@@ -162,17 +180,6 @@ struct incfs_blockmap {
     int32_t m_block_count;
 } __packed;
 
-/* Metadata record for file attribute. Type = INCFS_MD_FILE_ATTR */
-struct incfs_file_attr {
-    struct incfs_md_header fa_header;
-
-    int64_t fa_offset;
-
-    int16_t fa_size;
-
-    int32_t fa_crc;
-} __packed;
-
 /* Metadata record for file signature. Type = INCFS_MD_SIGNATURE */
 struct incfs_file_signature {
     struct incfs_md_header sg_header;
@@ -186,11 +193,39 @@ struct incfs_file_signature {
     int64_t sg_hash_tree_offset; /* Hash tree offset in the backing file */
 } __packed;
 
+struct incfs_status {
+    struct incfs_md_header is_header;
+
+    __le32 is_data_blocks_written; /* Number of data blocks written */
+
+    __le32 is_hash_blocks_written; /* Number of hash blocks written */
+
+    __le32 is_dummy[6]; /* Spare fields */
+} __packed;
+
+/*
+ * Metadata record for verity signature. Type = INCFS_MD_VERITY_SIGNATURE
+ *
+ * This record will only exist for verity-enabled files with signatures. Verity
+ * enabled files without signatures do not have this record. This signature is
+ * checked by fs-verity identically to any other fs-verity signature.
+ */
+struct incfs_file_verity_signature {
+    struct incfs_md_header vs_header;
+
+    /* The size of the signature */
+    __le32 vs_size;
+
+    /* Signature's offset in the backing file */
+    __le64 vs_offset;
+} __packed;
+
 typedef union {
     struct incfs_md_header md_header;
     struct incfs_blockmap blockmap;
-    struct incfs_file_attr file_attr;
     struct incfs_file_signature signature;
+    struct incfs_status status;
+    struct incfs_file_verity_signature verity_signature;
 } md_buffer;
 
 #define INCFS_MAX_METADATA_RECORD_SIZE sizeof(md_buffer)
@@ -223,23 +258,33 @@ public:
             err() << "bad header size, expected: " << sizeof(header);
         }
         {
-            auto ostream = out() << "flags: " << hex(header.fh_file_header_flags);
-            if (header.fh_file_header_flags & INCFS_FILE_COMPLETE) {
-                out() << "(file_complete)";
+            auto ostream = out() << "flags: " << hex(header.fh_flags);
+            if (header.fh_flags & INCFS_FILE_MAPPED) {
+                ostream << " (mapped file)";
             }
         }
 
-        out() << "first metadata block offset: " << hex(header.fh_first_md_offset);
+        if (header.fh_flags & INCFS_FILE_MAPPED) {
+            out() << "source " << toString(header.fh_original_uuid);
+            out() << "size " << header.fh_mapped_file_size << " @ "
+                  << hex(header.fh_original_offset);
+        } else {
+            out() << "uuid " << toString(header.fh_uuid);
+            out() << "size " << header.fh_file_size;
+            out() << "first md offset " << hex(header.fh_first_md_offset);
 
-        auto metadataOffset = header.fh_first_md_offset;
-        if (mIn.tellg() != metadataOffset) {
-            out() << "gap of " << metadataOffset - mIn.tellg()
-                  << " bytes to the first metadata record";
+            int64_t metadataOffset = header.fh_first_md_offset;
+            if (metadataOffset >= mIn.tellg()) {
+                if (metadataOffset > mIn.tellg()) {
+                    out() << "gap of " << metadataOffset - mIn.tellg()
+                          << " bytes to the first metadata record";
+                }
+                incfs_md_header prevMd = {};
+                do {
+                    dumpMd(metadataOffset, prevMd);
+                } while (metadataOffset != 0);
+            }
         }
-        incfs_md_header prevMd = {};
-        do {
-            dumpMd(metadataOffset, prevMd);
-        } while (metadataOffset != 0);
         out() << "finished" << (mIn ? "" : " with read errors");
     }
 
@@ -256,10 +301,12 @@ private:
                 return "none";
             case INCFS_MD_BLOCK_MAP:
                 return "block map";
-            case INCFS_MD_FILE_ATTR:
-                return "file attr";
+            case INCFS_MD_STATUS:
+                return "status";
             case INCFS_MD_SIGNATURE:
                 return "signature";
+            case INCFS_MD_VERITY_SIGNATURE:
+                return "verity signature";
             default:
                 return "unknown";
         }
@@ -270,11 +317,11 @@ private:
             return {};
         }
         std::string res = "(";
-        if (flags & INCFS_BLOCK_COMPRESSED_LZ4) {
-            res += "|compressed|";
-        }
-        if (flags & INCFS_BLOCK_HASH) {
-            res += "|hash|";
+        auto compression = flags & INCFS_BLOCK_COMPRESSED_MASK;
+        if (compression == INCFS_BLOCK_COMPRESSED_LZ4) {
+            res += "|lz4-compressed|";
+        } else if (flags == INCFS_BLOCK_COMPRESSED_ZSTD) {
+            res += "|zstd-compressed|";
         }
         res += ")";
         return res;
@@ -298,11 +345,6 @@ private:
         }
     }
 
-    void dumpAttr(int64_t offset, int64_t size) {
-        auto nesting = scopedNesting();
-        out() << "attr " << offset << " " << size;
-    }
-
     void dumpTree(int64_t offset, int64_t size) {
         auto nesting = scopedNesting();
         out() << "tree " << offset << " " << size;
@@ -317,9 +359,7 @@ private:
 
         auto nesting = scopedNesting();
         out() << "record size: " << md.h_record_size;
-        out() << "record crc: " << hex(md.h_record_crc);
         out() << "next md offset: " << hex(md.h_next_md_offset);
-        out() << "prev md offset: " << hex(md.h_prev_md_offset);
 
         {
             switch (md.h_md_entry_type) {
@@ -334,15 +374,6 @@ private:
                     dumpBlockmap(bm.m_base_offset, bm.m_block_count);
                     break;
                 }
-                case INCFS_MD_FILE_ATTR: {
-                    auto& attr = mdBuf.file_attr;
-                    attr = readAt<decltype(attr)>(offset);
-                    out() << "offset: " << hex(attr.fa_offset);
-                    out() << "size:   " << attr.fa_size;
-                    out() << "crc:    " << hex(attr.fa_crc);
-                    dumpAttr(attr.fa_offset, attr.fa_size);
-                    break;
-                }
                 case INCFS_MD_SIGNATURE: {
                     auto& sig = mdBuf.signature;
                     sig = readAt<decltype(sig)>(offset);
@@ -351,6 +382,20 @@ private:
                     out() << "hash tree size:   " << sig.sg_hash_tree_size;
                     out() << "hash tree offset: " << hex(sig.sg_hash_tree_offset);
                     dumpTree(sig.sg_hash_tree_offset, sig.sg_hash_tree_size);
+                    break;
+                }
+                case INCFS_MD_STATUS: {
+                    auto& st = mdBuf.status;
+                    st = readAt<decltype(st)>(offset);
+                    out() << "data blocks written: " << st.is_data_blocks_written;
+                    out() << "hash blocks written: " << st.is_hash_blocks_written;
+                    break;
+                }
+                case INCFS_MD_VERITY_SIGNATURE: {
+                    auto& vs = mdBuf.verity_signature;
+                    vs = readAt<decltype(vs)>(offset);
+                    out() << "verity signature size:   " << vs.vs_size;
+                    out() << "verity signature offset: " << hex(vs.vs_offset);
                     break;
                 }
                 default:
@@ -366,7 +411,9 @@ private:
 
     struct OstreamWrapper {
         explicit OstreamWrapper(std::ostream& wrapped) : mWrapped(&wrapped) {}
-        OstreamWrapper(OstreamWrapper&& other) : mWrapped(std::exchange(other.mWrapped, nullptr)) {}
+        OstreamWrapper(OstreamWrapper&& other) noexcept
+              : mWrapped(std::exchange(other.mWrapped, nullptr)) {}
+
         ~OstreamWrapper() {
             if (mWrapped) {
                 *mWrapped << '\n';
@@ -388,10 +435,20 @@ private:
         std::ostream* mWrapped;
     };
 
-    std::string hex(uint64_t t) {
+    static std::string hex(uint64_t t) {
         char buf[32] = {};
         snprintf(buf, std::size(buf) - 1, "0x%llx", (unsigned long long)t);
         return buf;
+    }
+
+    static std::string toString(incfs_uuid_t uuid) {
+        std::string res;
+        for (unsigned char b : uuid.bytes) {
+            char buf[3] = {};
+            snprintf(buf, std::size(buf) - 1, "%02x", (unsigned int)b);
+            res += buf;
+        }
+        return res;
     }
 
     OstreamWrapper out() const {

@@ -25,7 +25,8 @@
 
 /**
  * Logs a message to both logcat and stdout. Don't use this directly; prefer one
- * of LOGE, LOGW, etc. to populate the level.
+ * of LOGE, LOGW, etc. to populate the level. Use LOG_PRI directly rather than
+ * ALOG to avoid misinterpreting LOG_* macros that may be incorrectly evaluated.
  *
  * @param level log level to pass to ALOG (LOG_ERROR, LOG_WARN, etc.)
  * @param stream output stream to print to (e.g. stdout)
@@ -33,7 +34,7 @@
  */
 #define CHRE_LOG(level, stream, format, ...)                                   \
   do {                                                                         \
-    ALOG(level, LOG_TAG, format, ##__VA_ARGS__);                               \
+    LOG_PRI(ANDROID_##level, LOG_TAG, format, ##__VA_ARGS__);                  \
     fprintf(stream, "%s:%d: " format "\n", __func__, __LINE__, ##__VA_ARGS__); \
   } while (0)
 

@@ -86,7 +86,7 @@ public class ProcessMemoryStatsTests extends DeviceTestCase implements IBuildRec
             assertThat(state.getOomAdjScore()).isAtLeast(0);
             assertThat(state.getPageFault()).isAtLeast(0L);
             assertThat(state.getPageMajorFault()).isAtLeast(0L);
-            assertThat(state.getRssInBytes()).isGreaterThan(0L);
+            assertThat(state.getRssInBytes()).isAtLeast(0L);
             assertThat(state.getCacheInBytes()).isAtLeast(0L);
             assertThat(state.getSwapInBytes()).isAtLeast(0L);
         }

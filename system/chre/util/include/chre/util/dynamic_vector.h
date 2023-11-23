@@ -35,7 +35,7 @@ class DynamicVector : private DynamicVectorBase {
    */
   typedef ElementType *iterator;
   typedef const ElementType *const_iterator;
-
+  typedef ElementType value_type;
   typedef size_t size_type;
 
   /**

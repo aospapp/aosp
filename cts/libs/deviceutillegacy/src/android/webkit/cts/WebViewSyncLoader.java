@@ -32,7 +32,6 @@ import com.android.compatibility.common.util.PollingCheck;
 import junit.framework.Assert;
 
 import java.util.Map;
-import java.util.concurrent.Callable;
 
 /**
  * Utility class to simplify tests that need to load data into a WebView and wait for completion
@@ -105,11 +104,10 @@ public class WebViewSyncLoader {
         mWebView.setWebChromeClient(null);
         mWebView.setWebViewClient(null);
         mWebView.setPictureListener(null);
-        mWebView = null;
     }
 
     /**
-     * Detach listeners, and destroy this webview.
+     * Detach listeners.
      */
     public void destroy() {
         if (!isUiThread()) {
@@ -120,7 +118,6 @@ public class WebViewSyncLoader {
         detach();
         webView.clearHistory();
         webView.clearCache(true);
-        webView.destroy();
     }
 
     /**
@@ -238,22 +235,12 @@ public class WebViewSyncLoader {
      * similar functions.
      */
     public void waitForLoadCompletion() {
-        waitForCriteria(WebkitUtils.TEST_TIMEOUT_MS,
-                new Callable<Boolean>() {
-                    @Override
-                    public Boolean call() {
-                        return isLoaded();
-                    }
-                });
-        clearLoad();
-    }
-
-    private void waitForCriteria(long timeout, Callable<Boolean> doneCriteria) {
         if (isUiThread()) {
-            waitOnUiThread(timeout, doneCriteria);
+            waitForLoadCompletionOnUiThread(WebkitUtils.TEST_TIMEOUT_MS);
         } else {
-            waitOnTestThread(timeout, doneCriteria);
+            waitForLoadCompletionOnTestThread(WebkitUtils.TEST_TIMEOUT_MS);
         }
+        clearLoad();
     }
 
     /**
@@ -261,6 +248,14 @@ public class WebViewSyncLoader {
      */
     private synchronized boolean isLoaded() {
         return mLoaded && mNewPicture && mProgress == 100;
+    }
+
+    /**
+     * @return A summary of the current loading status for error reporting.
+     */
+    private synchronized String getLoadStatus() {
+        return "Current load status: mLoaded=" + mLoaded + ", mNewPicture="
+                + mNewPicture + ", mProgress=" + mProgress;
     }
 
     /**
@@ -297,17 +292,17 @@ public class WebViewSyncLoader {
 
     /**
      * Uses a polling mechanism, while pumping messages to check when the
-     * criteria is met.
+     * load is done.
      */
-    private void waitOnUiThread(long timeout, final Callable<Boolean> doneCriteria) {
+    private void waitForLoadCompletionOnUiThread(long timeout) {
         new PollingCheck(timeout) {
             @Override
             protected boolean check() {
                 pumpMessages();
                 try {
-                    return doneCriteria.call();
+                    return isLoaded();
                 } catch (Exception e) {
-                    Assert.fail("Unexpected error while checking the criteria: "
+                    Assert.fail("Unexpected error while checking load completion: "
                             + e.getMessage());
                     return true;
                 }
@@ -316,21 +311,23 @@ public class WebViewSyncLoader {
     }
 
     /**
-     * Uses a wait/notify to check when the criteria is met.
+     * Uses a wait/notify to check when the load is done.
      */
-    private synchronized void waitOnTestThread(long timeout, Callable<Boolean> doneCriteria) {
+    private synchronized void waitForLoadCompletionOnTestThread(long timeout) {
         try {
             long waitEnd = SystemClock.uptimeMillis() + timeout;
             long timeRemaining = timeout;
-            while (!doneCriteria.call() && timeRemaining > 0) {
+            while (!isLoaded() && timeRemaining > 0) {
                 this.wait(timeRemaining);
                 timeRemaining = waitEnd - SystemClock.uptimeMillis();
             }
-            Assert.assertTrue("Action failed to complete before timeout", doneCriteria.call());
+            if (!isLoaded()) {
+                Assert.fail("Action failed to complete before timeout: " + getLoadStatus());
+            }
         } catch (InterruptedException e) {
             // We'll just drop out of the loop and fail
         } catch (Exception e) {
-            Assert.fail("Unexpected error while checking the criteria: "
+            Assert.fail("Unexpected error while checking load completion: "
                     + e.getMessage());
         }
     }

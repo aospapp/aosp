@@ -55,8 +55,11 @@ class X86_64JNIMacroAssembler final : public JNIMacroAssemblerFwd<X86_64Assemble
   void IncreaseFrameSize(size_t adjust) override;
   void DecreaseFrameSize(size_t adjust) override;
 
+  ManagedRegister CoreRegisterWithSize(ManagedRegister src, size_t size) override;
+
   // Store routines
   void Store(FrameOffset offs, ManagedRegister src, size_t size) override;
+  void Store(ManagedRegister base, MemberOffset offs, ManagedRegister src, size_t size) override;
   void StoreRef(FrameOffset dest, ManagedRegister src) override;
   void StoreRawPtr(FrameOffset dest, ManagedRegister src) override;
 
@@ -70,6 +73,7 @@ class X86_64JNIMacroAssembler final : public JNIMacroAssemblerFwd<X86_64Assemble
 
   // Load routines
   void Load(ManagedRegister dest, FrameOffset src, size_t size) override;
+  void Load(ManagedRegister dest, ManagedRegister base, MemberOffset offs, size_t size) override;
 
   void LoadFromThread(ManagedRegister dest, ThreadOffset64 src, size_t size) override;
 
@@ -85,7 +89,9 @@ class X86_64JNIMacroAssembler final : public JNIMacroAssemblerFwd<X86_64Assemble
   void LoadRawPtrFromThread(ManagedRegister dest, ThreadOffset64 offs) override;
 
   // Copying routines
-  void MoveArguments(ArrayRef<ArgumentLocation> dests, ArrayRef<ArgumentLocation> srcs) override;
+  void MoveArguments(ArrayRef<ArgumentLocation> dests,
+                     ArrayRef<ArgumentLocation> srcs,
+                     ArrayRef<FrameOffset> refs) override;
 
   void Move(ManagedRegister dest, ManagedRegister src, size_t size) override;
 
@@ -171,12 +177,29 @@ class X86_64JNIMacroAssembler final : public JNIMacroAssemblerFwd<X86_64Assemble
 
   // Call to address held at [base+offset]
   void Call(ManagedRegister base, Offset offset) override;
-  void Call(FrameOffset base, Offset offset) override;
   void CallFromThread(ThreadOffset64 offset) override;
 
+  // Generate fast-path for transition to Native. Go to `label` if any thread flag is set.
+  // The implementation can use `scratch_regs` which should be callee save core registers
+  // (already saved before this call) and must preserve all argument registers.
+  void TryToTransitionFromRunnableToNative(
+      JNIMacroLabel* label, ArrayRef<const ManagedRegister> scratch_regs) override;
+
+  // Generate fast-path for transition to Runnable. Go to `label` if any thread flag is set.
+  // The implementation can use `scratch_regs` which should be core argument registers
+  // not used as return registers and it must preserve the `return_reg` if any.
+  void TryToTransitionFromNativeToRunnable(JNIMacroLabel* label,
+                                           ArrayRef<const ManagedRegister> scratch_regs,
+                                           ManagedRegister return_reg) override;
+
+  // Generate suspend check and branch to `label` if there is a pending suspend request.
+  void SuspendCheck(JNIMacroLabel* label) override;
+
   // Generate code to check if Thread::Current()->exception_ is non-null
-  // and branch to a ExceptionSlowPath if it is.
-  void ExceptionPoll(size_t stack_adjust) override;
+  // and branch to the `label` if it is.
+  void ExceptionPoll(JNIMacroLabel* label) override;
+  // Deliver pending exception.
+  void DeliverPendingException() override;
 
   // Create a new label that can be used with Jump/Bind calls.
   std::unique_ptr<JNIMacroLabel> CreateLabel() override;
@@ -184,6 +207,8 @@ class X86_64JNIMacroAssembler final : public JNIMacroAssemblerFwd<X86_64Assemble
   void Jump(JNIMacroLabel* label) override;
   // Emit a conditional jump to the label by applying a unary condition test to the GC marking flag.
   void TestGcMarking(JNIMacroLabel* label, JNIMacroUnaryCondition cond) override;
+  // Emit a conditional jump to the label by applying a unary condition test to object's mark bit.
+  void TestMarkBit(ManagedRegister ref, JNIMacroLabel* label, JNIMacroUnaryCondition cond) override;
   // Code at this offset will serve as the target for the Jump call.
   void Bind(JNIMacroLabel* label) override;
 

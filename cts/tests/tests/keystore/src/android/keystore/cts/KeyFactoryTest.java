@@ -16,13 +16,24 @@
 
 package android.keystore.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.fail;
+
+import android.content.Context;
+import android.keystore.cts.R;
+import android.keystore.cts.util.TestUtils;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyInfo;
 import android.security.keystore.KeyProperties;
-import android.test.AndroidTestCase;
 import android.test.MoreAsserts;
 
-import android.keystore.cts.R;
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.io.InputStream;
 import java.security.InvalidKeyException;
@@ -33,6 +44,8 @@ import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.PrivateKey;
 import java.security.Provider;
+import java.security.Provider.Service;
+import java.security.PublicKey;
 import java.security.Security;
 import java.security.interfaces.ECPublicKey;
 import java.security.interfaces.RSAPublicKey;
@@ -44,8 +57,6 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.RSAPrivateKeySpec;
 import java.security.spec.RSAPublicKeySpec;
 import java.security.spec.X509EncodedKeySpec;
-import java.security.Provider.Service;
-import java.security.PublicKey;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -57,7 +68,8 @@ import java.util.Set;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
-public class KeyFactoryTest extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class KeyFactoryTest {
     private static final String EXPECTED_PROVIDER_NAME = TestUtils.EXPECTED_PROVIDER_NAME;
 
     private static final String[] EXPECTED_ALGORITHMS = {
@@ -65,6 +77,11 @@ public class KeyFactoryTest extends AndroidTestCase {
         "RSA",
     };
 
+    private Context getContext() {
+        return InstrumentationRegistry.getInstrumentation().getTargetContext();
+    }
+
+    @Test
     public void testAlgorithmList() {
         // Assert that Android Keystore Provider exposes exactly the expected KeyFactory algorithms.
         // We don't care whether the algorithms are exposed via aliases, as long as canonical names
@@ -77,6 +94,9 @@ public class KeyFactoryTest extends AndroidTestCase {
         Set<String> actualAlgsLowerCase = new HashSet<String>();
         Set<String> expectedAlgsLowerCase = new HashSet<String>(
                 Arrays.asList(TestUtils.toLowerCase(EXPECTED_ALGORITHMS)));
+        // XDH is also a supported algorithm, but not available for other tests as the keys
+        // generated with it have more limited set of uses.
+        expectedAlgsLowerCase.add("xdh");
         for (Service service : services) {
             if ("KeyFactory".equalsIgnoreCase(service.getType())) {
                 String algLowerCase = service.getAlgorithm().toLowerCase(Locale.US);
@@ -88,6 +108,7 @@ public class KeyFactoryTest extends AndroidTestCase {
                 expectedAlgsLowerCase.toArray(new String[0]));
     }
 
+    @Test
     public void testGetKeySpecWithKeystorePrivateKeyAndKeyInfoReflectsAllAuthorizations()
             throws Exception {
         Date keyValidityStart = new Date(System.currentTimeMillis() - TestUtils.DAY_IN_MILLIS);
@@ -151,6 +172,7 @@ public class KeyFactoryTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testGetKeySpecWithKeystorePublicKeyRejectsKeyInfo()
             throws Exception {
         for (String algorithm : EXPECTED_ALGORITHMS) {
@@ -170,6 +192,7 @@ public class KeyFactoryTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testGetKeySpecWithKeystorePrivateKeyRejectsTransparentKeySpecAndEncodedKeySpec()
             throws Exception {
         for (String algorithm : EXPECTED_ALGORITHMS) {
@@ -204,6 +227,7 @@ public class KeyFactoryTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testGetKeySpecWithKeystorePublicKeyAcceptsX509EncodedKeySpec()
             throws Exception {
         for (String algorithm : EXPECTED_ALGORITHMS) {
@@ -224,6 +248,7 @@ public class KeyFactoryTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testGetKeySpecWithKeystorePublicKeyAcceptsTransparentKeySpec()
             throws Exception {
         for (String algorithm : EXPECTED_ALGORITHMS) {
@@ -257,6 +282,7 @@ public class KeyFactoryTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testTranslateKeyWithNullKeyThrowsInvalidKeyException() throws Exception {
         for (String algorithm : EXPECTED_ALGORITHMS) {
             try {
@@ -271,6 +297,7 @@ public class KeyFactoryTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testTranslateKeyRejectsNonAndroidKeystoreKeys() throws Exception {
         for (String algorithm : EXPECTED_ALGORITHMS) {
             try {
@@ -286,6 +313,7 @@ public class KeyFactoryTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testTranslateKeyAcceptsAndroidKeystoreKeys() throws Exception {
         for (String algorithm : EXPECTED_ALGORITHMS) {
             try {
@@ -303,6 +331,7 @@ public class KeyFactoryTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testGeneratePrivateWithNullSpecThrowsInvalidKeySpecException() throws Exception {
         for (String algorithm : EXPECTED_ALGORITHMS) {
             try {
@@ -317,6 +346,7 @@ public class KeyFactoryTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testGeneratePublicWithNullSpecThrowsInvalidKeySpecException() throws Exception {
         for (String algorithm : EXPECTED_ALGORITHMS) {
             try {
@@ -331,6 +361,7 @@ public class KeyFactoryTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testGeneratePrivateRejectsPKCS8EncodedKeySpec() throws Exception {
         for (String algorithm : EXPECTED_ALGORITHMS) {
             int resId;
@@ -359,6 +390,7 @@ public class KeyFactoryTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testGeneratePublicRejectsX509EncodedKeySpec() throws Exception {
         for (String algorithm : EXPECTED_ALGORITHMS) {
             int resId;
@@ -387,6 +419,7 @@ public class KeyFactoryTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testGeneratePrivateRejectsTransparentKeySpec() throws Exception {
         for (String algorithm : EXPECTED_ALGORITHMS) {
             int resId;
@@ -416,6 +449,7 @@ public class KeyFactoryTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testGeneratePublicRejectsTransparentKeySpec() throws Exception {
         for (String algorithm : EXPECTED_ALGORITHMS) {
             int resId;
@@ -445,6 +479,7 @@ public class KeyFactoryTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testGeneratePrivateAndPublicRejectKeyInfo() throws Exception {
         for (String algorithm : EXPECTED_ALGORITHMS) {
             try {

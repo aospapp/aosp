@@ -28,3 +28,60 @@ android_test_helper_app {
     },
     srcs: ["src/**/*.java"],
 }
+
+//##########################################################
+// Variant: Privileged app upgrade
+
+android_test_import {
+    name: "CtsShimPrivUpgradePrebuilt",
+    // Make sure the build system doesn't try to resign the APK
+    certificate: "PRESIGNED",
+    preprocessed: true,
+    test_suites: [
+        "cts",
+        "general-tests",
+    ],
+    // The 'arm' apk has both arm and arm64 so's. Same for x86/x86_64.
+    arch: {
+        arm: {
+            apk: "apk/arm/CtsShimPrivUpgrade.apk",
+        },
+        arm64: {
+            apk: "apk/arm/CtsShimPrivUpgrade.apk",
+        },
+        x86: {
+            apk: "apk/x86/CtsShimPrivUpgrade.apk",
+        },
+        x86_64: {
+            apk: "apk/x86/CtsShimPrivUpgrade.apk",
+        },
+    },
+}
+
+//##########################################################
+// Variant: Privileged app upgrade (wrong SHA)
+
+android_test_import {
+    name: "CtsShimPrivUpgradeWrongSHAPrebuilt",
+    // Make sure the build system doesn't try to resign the APK
+    certificate: "PRESIGNED",
+    preprocessed: true,
+    test_suites: [
+        "cts",
+        "general-tests",
+    ],
+    arch: {
+        arm: {
+            apk: "apk/arm/CtsShimPrivUpgradeWrongSHA.apk",
+        },
+        arm64: {
+            apk: "apk/arm/CtsShimPrivUpgradeWrongSHA.apk",
+        },
+        x86: {
+            apk: "apk/x86/CtsShimPrivUpgradeWrongSHA.apk",
+        },
+        x86_64: {
+            apk: "apk/x86/CtsShimPrivUpgradeWrongSHA.apk",
+        },
+    },
+}

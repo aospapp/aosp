@@ -34,7 +34,7 @@ license {
 cc_defaults {
     name: "libdataloader_defaults",
     cpp_std: "c++2a",
-    cflags: ["-Werror", "-Wall", "-Wextra", "-Wno-unused-parameter"],
+    cflags: ["-Werror", "-Wall", "-Wextra", "-Wno-unused-parameter", "-D_FILE_OFFSET_BITS=64"],
     defaults: ["linux_bionic_supported"],
     export_include_dirs: ["include/"],
     local_include_dirs: ["include/"],

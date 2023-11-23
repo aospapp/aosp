@@ -86,7 +86,7 @@ std::string Network::uidRangesToString() const {
 // Check if the user has been added to this network. If yes, the highest priority of matching
 // setting is returned by subPriority. Thus caller can make choice among several matching
 // networks.
-bool Network::appliesToUser(uid_t uid, uint32_t* subPriority) const {
+bool Network::appliesToUser(uid_t uid, int32_t* subPriority) const {
     for (const auto& [priority, uidRanges] : mUidRangeMap) {
         if (uidRanges.hasUid(uid)) {
             *subPriority = priority;
@@ -96,7 +96,7 @@ bool Network::appliesToUser(uid_t uid, uint32_t* subPriority) const {
     return false;
 }
 
-void Network::addToUidRangeMap(const UidRanges& uidRanges, uint32_t subPriority) {
+void Network::addToUidRangeMap(const UidRanges& uidRanges, int32_t subPriority) {
     auto iter = mUidRangeMap.find(subPriority);
     if (iter != mUidRangeMap.end()) {
         iter->second.add(uidRanges);
@@ -105,7 +105,7 @@ void Network::addToUidRangeMap(const UidRanges& uidRanges, uint32_t subPriority)
     }
 }
 
-void Network::removeFromUidRangeMap(const UidRanges& uidRanges, uint32_t subPriority) {
+void Network::removeFromUidRangeMap(const UidRanges& uidRanges, int32_t subPriority) {
     auto iter = mUidRangeMap.find(subPriority);
     if (iter != mUidRangeMap.end()) {
         iter->second.remove(uidRanges);
@@ -113,11 +113,11 @@ void Network::removeFromUidRangeMap(const UidRanges& uidRanges, uint32_t subPrio
             mUidRangeMap.erase(subPriority);
         }
     } else {
-        ALOGW("uidRanges with priority %u not found", subPriority);
+        ALOGW("uidRanges with priority %d not found", subPriority);
     }
 }
 
-bool Network::canAddUidRanges(const UidRanges& uidRanges, uint32_t subPriority) const {
+bool Network::canAddUidRanges(const UidRanges& uidRanges, int32_t subPriority) const {
     if (uidRanges.overlapsSelf()) {
         ALOGE("uid range %s overlaps self", uidRanges.toString().c_str());
         return false;
@@ -125,7 +125,7 @@ bool Network::canAddUidRanges(const UidRanges& uidRanges, uint32_t subPriority) 
 
     auto iter = mUidRangeMap.find(subPriority);
     if (iter != mUidRangeMap.end() && uidRanges.overlaps(iter->second)) {
-        ALOGE("uid range %s overlaps priority %u %s", uidRanges.toString().c_str(), subPriority,
+        ALOGE("uid range %s overlaps priority %d %s", uidRanges.toString().c_str(), subPriority,
               iter->second.toString().c_str());
         return false;
     }

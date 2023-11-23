@@ -24,6 +24,7 @@ import com.android.os.StatsLog;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil;
+import com.android.utils.SparseIntArray;
 
 import com.google.common.collect.Range;
 
@@ -56,6 +57,37 @@ public final class AtomTestUtils {
     }
 
     /**
+     * Asserts that each set of states in {@code stateSets} occurs in {@code data} without assuming
+     * the order of occurrence.
+     *
+     * @param stateSets        A list of set of states, where each set represents an equivalent
+     *                         state of the device for the purpose of CTS.
+     * @param data             list of EventMetricData from statsd, produced by
+     *                         getReportMetricListData()
+     * @param getStateFromAtom expression that takes in an Atom and returns the state it contains
+     */
+    public static void assertStatesOccurred(List<Set<Integer>> stateSets,
+            List<StatsLog.EventMetricData> data,
+            Function<AtomsProto.Atom, Integer> getStateFromAtom) {
+        // Sometimes, there are more events than there are states.
+        // Eg: When the screen turns off, it may go into OFF and then DOZE immediately.
+        assertWithMessage("Number of result states").that(data.size()).isAtLeast(stateSets.size());
+        final SparseIntArray dataStateCount = new SparseIntArray();
+        for (StatsLog.EventMetricData emd : data) {
+            final int state = getStateFromAtom.apply(emd.getAtom());
+            dataStateCount.put(state, dataStateCount.get(state, 0) + 1);
+        }
+        for (Set<Integer> states : stateSets) {
+            for (int state : states) {
+                final int count = dataStateCount.get(state);
+                assertWithMessage("Remaining count of result state (%s)", state)
+                        .that(count).isGreaterThan(0);
+                dataStateCount.put(state, count - 1);
+            }
+        }
+    }
+
+    /**
      * Asserts that each set of states in stateSets occurs at least once in data.
      * Asserts that the states in data occur in the same order as the sets in stateSets.
      *
@@ -69,12 +101,12 @@ public final class AtomTestUtils {
      *                         assertion.
      * @param getStateFromAtom expression that takes in an Atom and returns the state it contains
      */
-    public static void assertStatesOccurred(List<Set<Integer>> stateSets,
+    public static void assertStatesOccurredInOrder(List<Set<Integer>> stateSets,
             List<StatsLog.EventMetricData> data,
             int wait, Function<AtomsProto.Atom, Integer> getStateFromAtom) {
         // Sometimes, there are more events than there are states.
         // Eg: When the screen turns off, it may go into OFF and then DOZE immediately.
-        assertWithMessage("Too few states found").that(data.size()).isAtLeast(stateSets.size());
+        assertWithMessage("Number of result states").that(data.size()).isAtLeast(stateSets.size());
         int stateSetIndex = 0; // Tracks which state set we expect the data to be in.
         for (int dataIndex = 0; dataIndex < data.size(); dataIndex++) {
             AtomsProto.Atom atom = data.get(dataIndex).getAtom();

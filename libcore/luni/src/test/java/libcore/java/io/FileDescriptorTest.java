@@ -72,4 +72,11 @@ public class FileDescriptorTest extends TestCase {
       Os.close(target);
     }
   }
+
+  public void testGetSetInt$() {
+      FileDescriptor fd = new FileDescriptor();
+      assertEquals(-1, fd.getInt$());
+      fd.setInt$(42);
+      assertEquals(42, fd.getInt$());
+  }
 }

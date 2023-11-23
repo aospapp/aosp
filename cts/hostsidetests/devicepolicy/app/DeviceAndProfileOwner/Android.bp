@@ -43,7 +43,7 @@ android_test_helper_app {
     test_suites: [
         "cts",
         "general-tests",
-        "mts",
+        "mts-permission",
     ],
     manifest: "api23/AndroidManifest.xml",
 }
@@ -78,7 +78,7 @@ android_test_helper_app {
         "arcts",
         "cts",
         "general-tests",
-        "mts",
+        "mts-permission",
     ],
     manifest: "api25/AndroidManifest.xml",
 }
@@ -111,7 +111,7 @@ android_test_helper_app {
         "arcts",
         "cts",
         "general-tests",
-        "mts",
+        "mts-permission",
     ],
     manifest: "api30/AndroidManifest.xml",
 }
@@ -148,7 +148,7 @@ android_test_helper_app {
         "arcts",
         "cts",
         "general-tests",
-        "mts",
+        "mts-permission",
     ],
     manifest: "latest/AndroidManifest.xml",
 }

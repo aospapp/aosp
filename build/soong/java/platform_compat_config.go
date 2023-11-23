@@ -115,7 +115,7 @@ func (p *platformCompatConfig) AndroidMkEntries() []android.AndroidMkEntries {
 		Include:    "$(BUILD_PREBUILT)",
 		ExtraEntries: []android.AndroidMkExtraEntriesFunc{
 			func(ctx android.AndroidMkExtraEntriesContext, entries *android.AndroidMkEntries) {
-				entries.SetString("LOCAL_MODULE_PATH", p.installDirPath.ToMakePath().String())
+				entries.SetString("LOCAL_MODULE_PATH", p.installDirPath.String())
 				entries.SetString("LOCAL_INSTALLED_MODULE_STEM", p.configFile.Base())
 			},
 		},
@@ -134,8 +134,8 @@ type compatConfigMemberType struct {
 	android.SdkMemberTypeBase
 }
 
-func (b *compatConfigMemberType) AddDependencies(mctx android.BottomUpMutatorContext, dependencyTag blueprint.DependencyTag, names []string) {
-	mctx.AddVariationDependencies(nil, dependencyTag, names...)
+func (b *compatConfigMemberType) AddDependencies(ctx android.SdkDependencyContext, dependencyTag blueprint.DependencyTag, names []string) {
+	ctx.AddVariationDependencies(nil, dependencyTag, names...)
 }
 
 func (b *compatConfigMemberType) IsInstance(module android.Module) bool {

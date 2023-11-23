@@ -27,6 +27,7 @@
              android:exported="true">
         </activity>
     </application>
+    <uses-sdk android:minSdkVersion="30" android:targetSdkVersion="30" />
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
             android:targetPackage="android.filesystem.cts"
             android:label="CTS tests for file system" />

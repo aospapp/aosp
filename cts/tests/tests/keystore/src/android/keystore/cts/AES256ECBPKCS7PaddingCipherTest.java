@@ -45,4 +45,7 @@ public class AES256ECBPKCS7PaddingCipherTest extends AESECBPKCS7PaddingCipherTes
     protected byte[] getKatCiphertext() {
         return KAT_CIPHERTEXT.clone();
     }
+
+    @Override
+    protected boolean isStrongbox() { return false; }
 }

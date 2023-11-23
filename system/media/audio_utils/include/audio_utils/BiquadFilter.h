@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_AUDIO_UTILS_BIQUAD_FILTER_H
-#define ANDROID_AUDIO_UTILS_BIQUAD_FILTER_H
+#pragma once
 
 #include "intrinsic_utils.h"
 
@@ -36,12 +35,371 @@
 #define USE_NEON
 #endif
 
+// Use dither to prevent subnormals for CPUs that raise an exception.
+#pragma push_macro("USE_DITHER")
+#undef USE_DITHER
+
+#if defined(__i386__) || defined(__x86_x64__)
+#define USE_DITHER
+#endif
+
 namespace android::audio_utils {
 
 static constexpr size_t kBiquadNumCoefs  = 5;
 static constexpr size_t kBiquadNumDelays = 2;
 
+/**
+ * The BiquadDirect2Transpose is a low overhead
+ * Biquad filter with coefficients b0, b1, b2, a1, a2.
+ *
+ * This can be used by itself, but it is preferred for best data management
+ * to use the BiquadFilter abstraction below.
+ *
+ * T is the data type (scalar or vector).
+ * F is the filter coefficient type.  It is either a scalar or vector (matching T).
+ */
+template <typename T, typename F>
+struct BiquadDirect2Transpose {
+    F coef_[5]; // these are stored with the denominator a's negated.
+    T s_[2]; // delay states
+
+    // These are the coefficient occupancies we optimize for (from b0, b1, b2, a1, a2)
+    // as expressed by a bitmask.
+    static inline constexpr size_t required_occupancies_[] = {
+        0x1,  // constant scale
+        0x3,  // single zero
+        0x7,  // double zero
+        0x9,  // single pole
+        0xb,  // (11) first order IIR
+        0x1b, // (27) double pole + single zero
+        0x1f, // (31) second order IIR (full Biquad)
+    };
+
+    // Take care the order of arguments - starts with b's then goes to a's.
+    // The a's are "positive" reference, some filters take negative.
+    BiquadDirect2Transpose(const F& b0, const F& b1, const F& b2, const F& a1, const F& a2,
+            const T& s0 = {}, const T& s1 = {})
+        // : coef_{b0, b1, b2, -a1, -a2}
+        : coef_{ b0,
+            b1,
+            b2,
+            intrinsics::vneg(a1),
+            intrinsics::vneg(a2) }
+        , s_{ s0, s1 } {
+    }
+
+    // D is the data type.  It must be the same element type of T or F.
+    // Take care the order of input and output.
+    template<typename D, size_t OCCUPANCY = 0x1f>
+    __attribute__((always_inline)) // required for 1ch speedup (30% faster)
+    void process(D* output, const D* input, size_t frames, size_t stride) {
+        using namespace intrinsics;
+        // For SSE it is possible to vdup F to T if F is scalar.
+        const F b0 = coef_[0];         // b0
+        const F b1 = coef_[1];         // b1
+        const F b2 = coef_[2];         // b2
+        const F negativeA1 = coef_[3]; // -a1
+        const F negativeA2 = coef_[4]; // -a2
+        T s[2] = { s_[0], s_[1] };
+        T xn, yn; // OK to declare temps outside loop rather than at the point of initialization.
+#ifdef USE_DITHER
+        constexpr D DITHER_VALUE = std::numeric_limits<float>::min() * (1 << 24); // use FLOAT
+        T dither = vdupn<T>(DITHER_VALUE); // NEON does not have vector + scalar acceleration.
+#endif
+
+        // Unroll control.  Make sure the constexpr remains constexpr :-).
+        constexpr size_t CHANNELS = sizeof(T) / sizeof(D);
+        constexpr size_t UNROLL_CHANNEL_LOWER_LIMIT = 2;   // below this won't be unrolled.
+        constexpr size_t UNROLL_CHANNEL_UPPER_LIMIT = 16;  // above this won't be unrolled.
+        constexpr size_t UNROLL_LOOPS = (CHANNELS >= UNROLL_CHANNEL_LOWER_LIMIT &&
+                CHANNELS <= UNROLL_CHANNEL_UPPER_LIMIT) ? 2 : 1;
+        size_t remainder = 0;
+        if constexpr (UNROLL_LOOPS > 1) {
+            remainder = frames % UNROLL_LOOPS;
+            frames /= UNROLL_LOOPS;
+        }
+
+        // For this lambda, attribute always_inline must be used to inline past CHANNELS > 4.
+        // The other alternative is to use a MACRO, but that doesn't read as well.
+        const auto KERNEL = [&]() __attribute__((always_inline)) {
+            xn = vld1<T>(input);
+            input += stride;
+#ifdef USE_DITHER
+            xn = vadd(xn, dither);
+            dither = vneg(dither);
+#endif
+
+            yn = s[0];
+            if constexpr (OCCUPANCY >> 0 & 1) {
+                yn = vmla(yn, b0, xn);
+            }
+            vst1(output, yn);
+            output += stride;
+
+            s[0] = s[1];
+            if constexpr (OCCUPANCY >> 3 & 1) {
+                s[0] = vmla(s[0], negativeA1, yn);
+            }
+            if constexpr (OCCUPANCY >> 1 & 1) {
+                s[0] = vmla(s[0], b1, xn);
+            }
+            if constexpr (OCCUPANCY >> 2 & 1) {
+                s[1] = vmul(b2, xn);
+            } else {
+                s[1] = vdupn<T>(0.f);
+            }
+            if constexpr (OCCUPANCY >> 4 & 1) {
+                s[1] = vmla(s[1], negativeA2, yn);
+            }
+        };
+
+        while (frames > 0) {
+            #pragma unroll
+            for (size_t i = 0; i < UNROLL_LOOPS; ++i) {
+                KERNEL();
+            }
+            frames--;
+        }
+        if constexpr (UNROLL_LOOPS > 1) {
+            for (size_t i = 0; i < remainder; ++i) {
+                KERNEL();
+            }
+        }
+        s_[0] = s[0];
+        s_[1] = s[1];
+    }
+};
+
+/**
+ * A state space formulation of filtering converts a n-th order difference equation update
+ * to a first order vector difference equation. For the Biquad filter, the state space form
+ * has improved numerical precision properties with poles near the unit circle as well as
+ * increased speed due to better parallelization of the state update [1][2].
+ *
+ * [1] Raph Levien: (observerable canonical form)
+ * https://github.com/google/music-synthesizer-for-android/blob/master/lab/biquad%20in%20two.ipynb
+ *
+ * [2] Julius O Smith III: (controllable canonical form)
+ * https://ccrma.stanford.edu/~jos/filters/State_Space_Filters.html
+ *
+ * The signal flow is as follows, where for scalar x and y, the matrix D is a scalar d.
+ *
+ *
+ *        +------[ d ]--------------------------+
+ *        |                         S           |
+ *  x ----+--[ B ]--(+)--[ z^-1 ]---+---[ C ]--(+)--- y
+ *                   |              |
+ *                   +----[ A ]-----+
+ *
+ * The 2nd order Biquad IIR coefficients are as follows in observerable canonical form:
+ *
+ * y = [C_1 C_2] | S_1 | + d x
+ *               | S_2 |
+ *
+ *
+ * | S_1 | = | A_11 A_12 | | S_1 | + | B_1 | x
+ * | S_2 |   | A_21 A_22 | | S_2 |   | B_2 |
+ *
+ *
+ * A_11 = -a1
+ * A_12 = 1
+ * A_21 = -a2
+ * A_22 = 0
+ *
+ * B_1 = b1 - b0 * a1
+ * B_2 = b2 - b0 * a2
+ *
+ * C_1 = 1
+ * C_2 = 0
+ *
+ * d = b0
+ *
+ * Implementation details: The state space filter is typically expressed in either observable or
+ * controllable canonical form [3].  We follow the observable form here.
+ * Raph [4] discovered that the single channel Biquad implementation can be further optimized
+ * by doing 2 filter updates at once (improving speed on NEON by about 20%).
+ * Doing 2 updates at once costs 8 multiplies / sample instead of 5 multiples / sample,
+ * but uses a 4 x 4 matrix multiply, exploiting single cycle multiply-add SIMD throughput.
+ *
+ * [3] Mathworks
+ * https://www.mathworks.com/help/control/ug/canonical-state-space-realizations.html
+ * [4] Raph Levien
+ * https://github.com/kysko/music-synthesizer-for-android/blob/master/lab/biquad%20in%20two.ipynb
+ *
+ * The template variables
+ * T is the data type (scalar or vector).
+ * F is the filter coefficient type.  It is either a scalar or vector (matching T).
+ */
+template <typename T, typename F, bool SEPARATE_CHANNEL_OPTIMIZATION = false>
+struct BiquadStateSpace {
+    F coef_[5]; // these are stored as state-space converted.
+    T s_[2]; // delay states
+
+    // These are the coefficient occupancies we optimize for (from b0, b1, b2, a1, a2)
+    // as expressed by a bitmask.  This must include 31.
+    static inline constexpr size_t required_occupancies_[] = {
+        1,  // constant scale
+        3,  // single zero
+        7,  // double zero
+        9,  // single pole
+        11, // first order IIR
+        27, // double pole + single zero
+        31, // second order IIR (full Biquad)
+    };
+
+    // Take care the order of arguments - starts with b's then goes to a's.
+    // The a's are "positive" reference, some filters take negative.
+    BiquadStateSpace(const F& b0, const F& b1, const F& b2, const F& a1, const F& a2,
+            const T& s0 = {}, const T& s1 = {})
+        // : coef_{b0, b1 - b0 * a1, b2 - b0 * a2, -a1, -a2}
+        : coef_{ b0,
+            intrinsics::vsub(b1, intrinsics::vmul(b0, a1)),
+            intrinsics::vsub(b2, intrinsics::vmul(b0, a2)),
+            intrinsics::vneg(a1),
+            intrinsics::vneg(a2) }
+        , s_{s0, s1} {
+    }
+
+    // D is the data type.  It must be the same element type of T or F.
+    // Take care the order of input and output.
+    template<typename D, size_t OCCUPANCY = 0x1f>
+    void process(D* output, const D* input, size_t frames, size_t stride) {
+        using namespace intrinsics;
+        const F b0 = coef_[0];         // b0
+        const F b1ss = coef_[1];       // b1 - b0 * a1,
+        const F b2ss = coef_[2];       // b2 - b0 * a2,
+        const F negativeA1 = coef_[3]; // -a1
+        const F negativeA2 = coef_[4]; // -a2
+        T s[2] = { s_[0], s_[1] };
+        T x, new_s0; // OK to declare temps here rather than at the point of initialization.
+#ifdef USE_DITHER
+        constexpr D DITHER_VALUE = std::numeric_limits<float>::min() * (1 << 24); // use FLOAT
+        T dither = vdupn<T>(DITHER_VALUE); // NEON does not have vector + scalar acceleration.
+#endif
+        constexpr bool b0_present = (OCCUPANCY & 0x1) != 0;
+        constexpr bool a1_present = (OCCUPANCY & 0x8) != 0;
+        constexpr bool a2_present = (OCCUPANCY & 0x10) != 0;
+        constexpr bool b1ss_present = (OCCUPANCY & 0x2) != 0 ||
+                (b0_present && a1_present);
+        constexpr bool b2ss_present = (OCCUPANCY & 0x4) != 0 ||
+                (b0_present && a2_present);
+
+        // Unroll control.  Make sure the constexpr remains constexpr :-).
+        constexpr size_t CHANNELS = sizeof(T) / sizeof(D);
+        constexpr size_t UNROLL_CHANNEL_LOWER_LIMIT = 1;   // below this won't be unrolled.
+        constexpr size_t UNROLL_CHANNEL_UPPER_LIMIT = 16;  // above this won't be unrolled.
+        constexpr size_t UNROLL_LOOPS = (CHANNELS >= UNROLL_CHANNEL_LOWER_LIMIT &&
+                CHANNELS <= UNROLL_CHANNEL_UPPER_LIMIT) ? 2 : 1;
+
+        if constexpr (SEPARATE_CHANNEL_OPTIMIZATION && CHANNELS == 1 && OCCUPANCY >= 11) {
+            // Special acceleration which computes 2 samples at a time.
+            // see reference [4] for computation of this matrix.
+            intrinsics::internal_array_t<T, 4> A[4] = {
+                {b0, b1ss, negativeA1 * b1ss + b2ss, negativeA2 * b1ss},
+                {0, b0, b1ss, b2ss},
+                {1, negativeA1, negativeA2 + negativeA1 * negativeA1, negativeA1 * negativeA2},
+                {0, 1, negativeA1, negativeA2},
+                };
+            intrinsics::internal_array_t<T, 4> y;
+            while (frames > 1) {
+                x = vld1<T>(input);
+                input += stride;
+#ifdef USE_DITHER
+                x = vadd(x, dither);
+                dither = vneg(dither);
+#endif
+                y = vmul(A[0], x);
+
+                x = vld1<T>(input);
+                input += stride;
+#ifdef USE_DITHER
+                x = vadd(x, dither);
+                dither = vneg(dither);
+#endif
+                y = vmla(y, A[1], x);
+                y = vmla(y, A[2], s[0]);
+                y = vmla(y, A[3], s[1]);
+
+                vst1(output, y.v[0]);
+                output += stride;
+
+                vst1(output, y.v[1]);
+                output += stride;
+
+                s[0] = y.v[2];
+                s[1] = y.v[3];
+                frames -= 2;
+            }
+            if (frames == 0) {
+                s_[0] = s[0];
+                s_[1] = s[1];
+                return;
+            }
+        }
+
+        size_t remainder = 0;
+        if constexpr (UNROLL_LOOPS > 1) {
+            remainder = frames % UNROLL_LOOPS;
+            frames /= UNROLL_LOOPS;
+        }
+
+        // For this lambda, attribute always_inline must be used to inline past CHANNELS > 4.
+        // The other alternative is to use a MACRO, but that doesn't read as well.
+        const auto KERNEL = [&]() __attribute__((always_inline)) {
+            x = vld1<T>(input);
+            input += stride;
+#ifdef USE_DITHER
+            x = vadd(x, dither);
+            dither = vneg(dither);
+#endif
+            // vst1(output, vadd(s[0], vmul(b0, x)));
+            // output += stride;
+            // new_s0 = vadd(vadd(vmul(b1ss, x), vmul(negativeA1, s[0])), s[1]);
+            // s[1] = vadd(vmul(b2ss, x), vmul(negativeA2, s[0]));
+
+            if constexpr (b0_present) {
+                vst1(output, vadd(s[0], vmul(b0, x)));
+            } else /* constexpr */ {
+                vst1(output, s[0]);
+            }
+            output += stride;
+            new_s0 = s[1];
+            if constexpr (b1ss_present) {
+                new_s0 = vadd(new_s0, vmul(b1ss, x));
+            }
+            if constexpr (a1_present) {
+                new_s0 = vadd(new_s0, vmul(negativeA1, s[0]));
+            }
+            if constexpr (b2ss_present) {
+                s[1] = vmul(b2ss, x);
+                if constexpr (a2_present) {
+                    s[1] = vadd(s[1], vmul(negativeA2, s[0]));
+                }
+            } else if constexpr (a2_present) {
+                s[1] = vmul(negativeA2, s[0]);
+            }
+            s[0] = new_s0;
+        };
+
+        while (frames > 0) {
+            #pragma unroll
+            for (size_t i = 0; i < UNROLL_LOOPS; ++i) {
+                KERNEL();
+            }
+            frames--;
+        }
+        if constexpr (UNROLL_LOOPS > 1) {
+            for (size_t i = 0; i < remainder; ++i) {
+                KERNEL();
+            }
+        }
+        s_[0] = s[0];
+        s_[1] = s[1];
+    }
+};
+
 namespace details {
+
 // Helper methods for constructing a constexpr array of function pointers.
 // As function pointers are efficient and have no constructor/destructor
 // this is preferred over std::function.
@@ -105,67 +463,6 @@ static inline void setCoefficients(
     }
 }
 
-// For biquad_filter_fast, we template based on whether coef[i] is nonzero - this should be
-// determined in a constexpr fashion for optimization.
-
-// Helper which takes a stride to allow column processing of interleaved audio streams.
-template <size_t OCCUPANCY, bool SAME_COEF_PER_CHANNEL, typename D>
-void biquad_filter_1fast(D *out, const D *in, size_t frames, size_t stride,
-                         size_t channelCount, D *delays, const D *coefs, size_t localStride) {
-#if defined(__i386__) || defined(__x86_x64__)
-    D delta = std::numeric_limits<float>::min() * (1 << 24);
-#endif
-    D b0, b1, b2, negativeA1, negativeA2;
-
-    if constexpr (SAME_COEF_PER_CHANNEL) {
-        b0 = coefs[0];
-        b1 = coefs[1];
-        b2 = coefs[2];
-        negativeA1 = -coefs[3];
-        negativeA2 = -coefs[4];
-    }
-    for (size_t i = 0; i < channelCount; ++i) {
-        if constexpr (!SAME_COEF_PER_CHANNEL) {
-            b0 = coefs[0];
-            b1 = coefs[localStride];
-            b2 = coefs[2 * localStride];
-            negativeA1 = -coefs[3 * localStride];
-            negativeA2 = -coefs[4 * localStride];
-            ++coefs;
-        }
-
-        D s1n1 = delays[0];
-        D s2n1 = delays[localStride];
-        const D *input = &in[i];
-        D *output = &out[i];
-        for (size_t j = frames; j > 0; --j) {
-            // Adding a delta to avoid subnormal exception handling on the x86/x64 platform;
-            // this is not a problem with the ARM platform. The delta will not affect the
-            // precision of the result.
-#if defined(__i386__) || defined(__x86_x64__)
-            const D xn = *input + delta;
-#else
-            const D xn = *input;
-#endif
-            D yn = (OCCUPANCY >> 0 & 1) * b0 * xn + s1n1;
-            s1n1 = (OCCUPANCY >> 1 & 1) * b1 * xn + (OCCUPANCY >> 3 & 1) * negativeA1 * yn + s2n1;
-            s2n1 = (OCCUPANCY >> 2 & 1) * b2 * xn + (OCCUPANCY >> 4 & 1) * negativeA2 * yn;
-
-            input += stride;
-
-            *output = yn;
-            output += stride;
-
-#if defined(__i386__) || defined(__x86_x64__)
-            delta = -delta;
-#endif
-        }
-        delays[0] = s1n1;
-        delays[localStride] = s2n1;
-        ++delays;
-    }
-}
-
 // Helper function to zero channels in the input buffer.
 // This is used for the degenerate coefficient case which results in all zeroes.
 template <typename D>
@@ -180,90 +477,83 @@ void zeroChannels(D *out, size_t frames, size_t stride, size_t channelCount) {
     }
 }
 
-template <size_t OCCUPANCY, bool SAME_COEF_PER_CHANNEL, typename D>
-void biquad_filter_fast(D *out, const D *in, size_t frames, size_t stride,
-        size_t channelCount, D *delays, const D *coefs, size_t localStride) {
-    if constexpr ((OCCUPANCY & 7) == 0) { // all b's are zero, output is zero.
-        zeroChannels(out, frames, stride, channelCount);
-        return;
-    }
-    biquad_filter_1fast<OCCUPANCY, SAME_COEF_PER_CHANNEL>(
-            out, in, frames, stride, channelCount, delays, coefs, localStride);
-}
-
-#ifdef USE_NEON
-
-template <size_t OCCUPANCY, bool SAME_COEF_PER_CHANNEL, typename T, typename F>
-void biquad_filter_neon_impl(F *out, const F *in, size_t frames, size_t stride,
+template <typename ConstOptions,
+        size_t OCCUPANCY, bool SAME_COEF_PER_CHANNEL, typename T, typename F>
+void biquad_filter_func_impl(F *out, const F *in, size_t frames, size_t stride,
         size_t channelCount, F *delays, const F *coefs, size_t localStride) {
     using namespace android::audio_utils::intrinsics;
 
     constexpr size_t elements = sizeof(T) / sizeof(F); // how many float elements in T.
-    T b0, b1, b2, negativeA1, negativeA2;
-    if constexpr (SAME_COEF_PER_CHANNEL) {
-        b0 = vdupn<T>(coefs[0]);
-        b1 = vdupn<T>(coefs[1]);
-        b2 = vdupn<T>(coefs[2]);
-        negativeA1 = vneg(vdupn<T>(coefs[3]));
-        negativeA2 = vneg(vdupn<T>(coefs[4]));
-    }
+    const size_t coefStride = SAME_COEF_PER_CHANNEL ? 1 : localStride;
+    using CoefType = std::conditional_t<SAME_COEF_PER_CHANNEL, F, T>;
+    using KernelType = typename ConstOptions::template FilterType<T, CoefType>;
+
     for (size_t i = 0; i < channelCount; i += elements) {
-        if constexpr (!SAME_COEF_PER_CHANNEL) {
-            b0 = vld1<T>(coefs);
-            b1 = vld1<T>(coefs + localStride);
-            b2 = vld1<T>(coefs + localStride * 2);
-            negativeA1 = vneg(vld1<T>(coefs + localStride * 3));
-            negativeA2 = vneg(vld1<T>(coefs + localStride * 4));
-            coefs += elements;
-        }
         T s1 = vld1<T>(&delays[0]);
         T s2 = vld1<T>(&delays[localStride]);
-        const F *input = &in[i];
-        F *output = &out[i];
-        for (size_t j = frames; j > 0; --j) {
-            T xn = vld1<T>(input);
-            T yn = s1;
 
-            if constexpr (OCCUPANCY >> 0 & 1) {
-                yn = vmla(yn, b0, xn);
-            }
-            s1 = s2;
-            if constexpr (OCCUPANCY >> 3 & 1) {
-                s1 = vmla(s1, negativeA1, yn);
-            }
-            if constexpr (OCCUPANCY >> 1 & 1) {
-                s1 = vmla(s1, b1, xn);
-            }
-            if constexpr (OCCUPANCY >> 2 & 1) {
-                s2 = vmul(b2, xn);
-            } else {
-                s2 = vdupn<T>(0.f);
-            }
-            if constexpr (OCCUPANCY >> 4 & 1) {
-                s2 = vmla(s2, negativeA2, yn);
-            }
-
-            input += stride;
-            vst1(output, yn);
-            output += stride;
-        }
-        vst1(&delays[0], s1);
-        vst1(&delays[localStride], s2);
+        KernelType kernel(
+                vld1<CoefType>(coefs), vld1<CoefType>(coefs + coefStride),
+                vld1<CoefType>(coefs + coefStride * 2), vld1<CoefType>(coefs + coefStride * 3),
+                vld1<CoefType>(coefs + coefStride * 4),
+                s1, s2);
+        if constexpr (!SAME_COEF_PER_CHANNEL) coefs += elements;
+        kernel.template process<F, OCCUPANCY>(&out[i], &in[i], frames, stride);
+        vst1(&delays[0], kernel.s_[0]);
+        vst1(&delays[localStride], kernel.s_[1]);
         delays += elements;
     }
 }
 
+// Find the nearest occupancy mask that includes all the desired bits.
+template <typename T, size_t N>
+static constexpr size_t nearestOccupancy(T occupancy, const T (&occupancies)[N]) {
+    if (occupancy < 32) {
+        for (auto test : occupancies) {
+            if ((occupancy & test) == occupancy) return test;
+        }
+    }
+    return 31;
+}
+
+enum FILTER_OPTION {
+    FILTER_OPTION_SCALAR_ONLY = (1 << 0),
+};
+
+
+/**
+ * DefaultBiquadConstOptions holds the default set of options for customizing
+ * the Biquad filter at compile time.
+ *
+ * Consider inheriting from this structure and overriding the options
+ * desired; this is backward compatible to new options added in the future.
+ */
+struct DefaultBiquadConstOptions {
+
+    // Sets the Biquad filter type.
+    // Can be one of the already defined BiquadDirect2Transpose or BiquadStateSpace
+    // filter kernels; also can be a user defined filter kernel as well.
+    template <typename T, typename F>
+    using FilterType = BiquadStateSpace<T, F, false /* SEPARATE_CHANNEL_OPTIMIZATION */>;
+};
+
 #define BIQUAD_FILTER_CASE(N, ... /* type */) \
             case N: { \
-                biquad_filter_neon_impl<OCCUPANCY, SAME_COEF_PER_CHANNEL, __VA_ARGS__>( \
+                using VectorType = __VA_ARGS__; \
+                biquad_filter_func_impl<ConstOptions, \
+                        nearestOccupancy(OCCUPANCY, \
+                                ConstOptions::template FilterType<VectorType, D> \
+                                            ::required_occupancies_), \
+                        SAME_COEF_PER_CHANNEL, VectorType>( \
                         out + offset, in + offset, frames, stride, remaining, \
                         delays + offset, c, localStride); \
                 goto exit; \
             }
 
-template <size_t OCCUPANCY, bool SAME_COEF_PER_CHANNEL, typename D>
-void biquad_filter_neon(D *out, const D *in, size_t frames, size_t stride,
-        size_t channelCount, D *delays, const D *coefs, size_t localStride) {
+template <typename ConstOptions, size_t OCCUPANCY, bool SAME_COEF_PER_CHANNEL, typename D>
+void biquad_filter_func(D *out, const D *in, size_t frames, size_t stride,
+        size_t channelCount, D *delays, const D *coefs, size_t localStride,
+        FILTER_OPTION filterOptions) {
     if constexpr ((OCCUPANCY & 7) == 0) { // all b's are zero, output is zero.
         zeroChannels(out, frames, stride, channelCount);
         return;
@@ -274,15 +564,32 @@ void biquad_filter_neon(D *out, const D *in, size_t frames, size_t stride,
     // using alt_9_t = struct { struct { float32x4x2_t a; float b; } s; };
     // using alt_15_t = struct { struct { float32x4x2_t a; struct { float v[7]; } b; } s; };
 
+#ifdef USE_NEON
+    // use NEON types to ensure we have the proper intrinsic acceleration.
+    using alt_16_t = float32x4x4_t;
+    using alt_8_t = float32x4x2_t;
+    using alt_4_t = float32x4_t;
+#else
+    // Use C++ types, no NEON needed.
+    using alt_16_t = intrinsics::internal_array_t<float, 16>;
+    using alt_8_t = intrinsics::internal_array_t<float, 8>;
+    using alt_4_t = intrinsics::internal_array_t<float, 4>;
+#endif
+
     for (size_t offset = 0; offset < channelCount; ) {
         size_t remaining = channelCount - offset;
         auto *c = SAME_COEF_PER_CHANNEL ? coefs : coefs + offset;
+        if (filterOptions & FILTER_OPTION_SCALAR_ONLY) goto scalar;
         if constexpr (std::is_same_v<D, float>) {
             switch (remaining) {
             default:
                 if (remaining >= 16) {
                     remaining &= ~15;
-                    biquad_filter_neon_impl<OCCUPANCY, SAME_COEF_PER_CHANNEL, float32x4x4_t>(
+                    biquad_filter_func_impl<ConstOptions,
+                            nearestOccupancy(OCCUPANCY,
+                                    ConstOptions::template FilterType<D, D>
+                                                ::required_occupancies_),
+                            SAME_COEF_PER_CHANNEL, alt_16_t>(
                             out + offset, in + offset, frames, stride, remaining,
                             delays + offset, c, localStride);
                     offset += remaining;
@@ -296,19 +603,14 @@ void biquad_filter_neon(D *out, const D *in, size_t frames, size_t stride,
             BIQUAD_FILTER_CASE(11, intrinsics::internal_array_t<float, 11>)
             BIQUAD_FILTER_CASE(10, intrinsics::internal_array_t<float, 10>)
             BIQUAD_FILTER_CASE(9, intrinsics::internal_array_t<float, 9>)
-            // We choose the NEON intrinsic type over internal_array for 8 to
-            // check if there is any performance difference in benchmark (should be similar).
-            // BIQUAD_FILTER_CASE(8, intrinsics::internal_array_t<float, 8>)
-            BIQUAD_FILTER_CASE(8, float32x4x2_t)
+            BIQUAD_FILTER_CASE(8, alt_8_t)
             BIQUAD_FILTER_CASE(7, intrinsics::internal_array_t<float, 7>)
             BIQUAD_FILTER_CASE(6, intrinsics::internal_array_t<float, 6>)
             BIQUAD_FILTER_CASE(5, intrinsics::internal_array_t<float, 5>)
-            BIQUAD_FILTER_CASE(4, float32x4_t)
-            // We choose the NEON intrinsic type over internal_array for 4 to
-            // check if there is any performance difference in benchmark (should be similar).
-            // BIQUAD_FILTER_CASE(4, intrinsics::internal_array_t<float, 4>)
+            BIQUAD_FILTER_CASE(4, alt_4_t)
             BIQUAD_FILTER_CASE(3, intrinsics::internal_array_t<float, 3>)
             BIQUAD_FILTER_CASE(2, intrinsics::internal_array_t<float, 2>)
+            // BIQUAD_FILTER_CASE(1, BiquadFilterType, intrinsics::internal_array_t<float, 1>)
             }
         } else if constexpr (std::is_same_v<D, double>) {
 #if defined(__aarch64__)
@@ -316,8 +618,12 @@ void biquad_filter_neon(D *out, const D *in, size_t frames, size_t stride,
             default:
                 if (remaining >= 8) {
                     remaining &= ~7;
-                    biquad_filter_neon_impl<OCCUPANCY, SAME_COEF_PER_CHANNEL,
-                              intrinsics::internal_array_t<double, 8>>(
+                    biquad_filter_func_impl<ConstOptions,
+                            nearestOccupancy(OCCUPANCY,
+                                     ConstOptions::template FilterType<D, D>
+                                                 ::required_occupancies_),
+                            SAME_COEF_PER_CHANNEL,
+                            intrinsics::internal_array_t<double, 8>>(
                             out + offset, in + offset, frames, stride, remaining,
                             delays + offset, c, localStride);
                     offset += remaining;
@@ -333,18 +639,20 @@ void biquad_filter_neon(D *out, const D *in, size_t frames, size_t stride,
             };
 #endif
         }
+        scalar:
         // Essentially the code below is scalar, the same as
         // biquad_filter_1fast<OCCUPANCY, SAME_COEF_PER_CHANNEL>,
         // but formulated with NEON intrinsic-like call pattern.
-        biquad_filter_neon_impl<OCCUPANCY, SAME_COEF_PER_CHANNEL, D>(
+        biquad_filter_func_impl<ConstOptions,
+                nearestOccupancy(OCCUPANCY,
+                        ConstOptions::template FilterType<D, D>::required_occupancies_),
+                 SAME_COEF_PER_CHANNEL, D>(
                 out + offset, in + offset, frames, stride, remaining,
                 delays + offset, c, localStride);
         offset += remaining;
     }
     exit:;
 }
-
-#endif // USE_NEON
 
 } // namespace details
 
@@ -404,7 +712,10 @@ void biquad_filter_neon(D *out, const D *in, size_t frames, size_t stride,
  *         are shared between channels, or false if the Biquad coefficients
  *         may differ between channels. The default is true.
  */
-template <typename D = float, bool SAME_COEF_PER_CHANNEL = true>
+
+template <typename D = float,
+        bool SAME_COEF_PER_CHANNEL = true,
+        typename ConstOptions = details::DefaultBiquadConstOptions>
 class BiquadFilter {
 public:
     template <typename T = std::array<D, kBiquadNumCoefs>>
@@ -584,16 +895,14 @@ public:
         }
 
         // Select the proper filtering function from our array.
-        (void)optimized;                // avoid unused variable warning.
-        mFunc = mFilterFast[category];  // default if we don't have processor optimization.
-
-#ifdef USE_NEON
-        /* if constexpr (std::is_same_v<D, float>) */ {
-            if (optimized) {
-                mFunc = mFilterNeon[category];
-            }
+        if (optimized) {
+            mFilterOptions = (details::FILTER_OPTION)
+                    (mFilterOptions & ~details::FILTER_OPTION_SCALAR_ONLY);
+        } else {
+             mFilterOptions = (details::FILTER_OPTION)
+                     (mFilterOptions | details::FILTER_OPTION_SCALAR_ONLY);
         }
-#endif
+        mFunc = mFilterFuncs[category];
     }
 
     /**
@@ -603,7 +912,7 @@ public:
      * \param in      pointer to the input data
      * \param frames  number of audio frames to be processed
      */
-    void process(D* out, const D *in, size_t frames) {
+    void process(D* out, const D* in, size_t frames) {
         process(out, in, frames, mChannelCount);
     }
 
@@ -615,10 +924,10 @@ public:
      * \param frames  number of audio frames to be processed
      * \param stride  the total number of samples associated with a frame, if not channelCount.
      */
-    void process(D* out, const D *in, size_t frames, size_t stride) {
+    void process(D* out, const D* in, size_t frames, size_t stride) {
         assert(stride >= mChannelCount);
         mFunc(out, in, frames, stride, mChannelCount, mDelays.data(),
-                mCoefs.data(), mChannelCount);
+                mCoefs.data(), mChannelCount, mFilterOptions);
     }
 
     /**
@@ -655,7 +964,7 @@ public:
                     auto coefs = mCoefs.data() + (SAME_COEF_PER_CHANNEL ? 0 : fromEnd);
                     auto delays = mDelays.data() + fromEnd;
                     mFunc(inout, inout, 1 /* frames */, 1 /* stride */, i + 1,
-                            delays, coefs, mChannelCount);
+                            delays, coefs, mChannelCount, mFilterOptions);
                 }
 
                 auto delays = mDelays.data() + baseIdx;
@@ -664,13 +973,13 @@ public:
                 // sliding one audio sample at a time.
                 mFunc(inout, inout,
                         frames - channelBlock + 1, 1 /* stride */, channelBlock,
-                        delays, coefs, mChannelCount);
+                        delays, coefs, mChannelCount, mFilterOptions);
 
                 // drain data pipe.
                 for (size_t i = 1; i < channelBlock; ++i) {
                     mFunc(inout + frames - channelBlock + i, inout + frames - channelBlock + i,
                             1 /* frames */, 1 /* stride */, channelBlock - i,
-                            delays, coefs, mChannelCount);
+                            delays, coefs, mChannelCount, mFilterOptions);
                 }
             }
         }
@@ -681,7 +990,7 @@ public:
             auto coefs = mCoefs.data() + (SAME_COEF_PER_CHANNEL ? 0 : fromEnd);
             mFunc(inout, inout,
                     frames, 1 /* stride */, 1 /* channelCount */,
-                    mDelays.data() + fromEnd, coefs, mChannelCount);
+                    mDelays.data() + fromEnd, coefs, mChannelCount, mFilterOptions);
         }
     }
 
@@ -746,121 +1055,58 @@ private:
      */
     std::vector<D> mDelays;
 
-    using filter_func = decltype(details::biquad_filter_fast<0, true, D>);
+    details::FILTER_OPTION mFilterOptions{};
 
-    /**
-     * \var filter_func* mFunc
+    // Consider making a separate delegation class.
+    /*
+     * We store an array of functions based on the occupancy.
      *
-     * The current filter function selected for the channel occupancy of the Biquad.
-     */
-    filter_func *mFunc;
-
-    // Create a functional wrapper to feed "biquad_filter_fast" to
-    // make_functional_array() to populate the array.
-    //
-    // OCCUPANCY is a bitmask corresponding to the presence of nonzero Biquad coefficients
-    // b0 b1 b2 a1 a2  (from lsb to msb)
-    template <size_t OCCUPANCY, bool SC> // note SC == SAME_COEF_PER_CHANNEL
-    struct FuncWrap {
-        template<typename T>
-        static constexpr size_t nearest() {
-            // Combine cases to both improve expected performance and reduce code space.
-            // Some occupancy masks provide worse performance than more occupied masks.
-            constexpr size_t required_occupancies[] = {
-                1,  // constant scale
-                3,  // single zero
-                7,  // double zero
-                9,  // single pole
-                // 11, // first order IIR (unnecessary optimization, close enough to 31).
-                27, // double pole + single zero
-                31, // second order IIR (full Biquad)
-            };
-            if constexpr (OCCUPANCY < 32) {
-                for (auto test : required_occupancies) {
-                    if ((OCCUPANCY & test) == OCCUPANCY) return test;
-                }
-            } else {
-                static_assert(intrinsics::dependent_false_v<T>);
-            }
-            return 0; // never gets here.
-        }
-
-        static void func(D* out, const D *in, size_t frames, size_t stride,
-                size_t channelCount, D *delays, const D *coef, size_t localStride) {
-            constexpr size_t NEAREST_OCCUPANCY = nearest<D>();
-            details::biquad_filter_fast<NEAREST_OCCUPANCY, SC>(
-                    out, in, frames, stride, channelCount, delays, coef, localStride);
-        }
-    };
-
-    /**
-     * \var mFilterFast
-     *
-     * std::array of functions based on coefficient occupancy.
+     * OCCUPANCY is a bitmask corresponding to the presence of nonzero Biquad coefficients
+     * b0 b1 b2 a1 a2  (from lsb to msb)
      *
      *  static inline constexpr std::array<filter_func*, M> mArray = {
-     *     biquad_filter_fast<0>,
-     *     biquad_filter_fast<1>,
-     *     biquad_filter_fast<2>,
+     *     biquad_filter_func<0>,
+     *     biquad_filter_func<1>,
+     *     biquad_filter_func<2>,
      *      ...
-     *     biquad_filter_fast<(1 << kBiquadNumCoefs) - 1>,
+     *     biquad_filter_func<(1 << kBiquadNumCoefs) - 1>,
      *  };
      *
      * Every time the coefficients are changed, we select the processing function from
      * this table.
      */
-    static inline constexpr auto mFilterFast =
-            details::make_functional_array<
-                    FuncWrap, 1 << kBiquadNumCoefs, SAME_COEF_PER_CHANNEL>();
 
-#ifdef USE_NEON
-    // OCCUPANCY is a bitmask corresponding to the presence of nonzero Biquad coefficients
-    // b0 b1 b2 a1 a2  (from lsb to msb)
-
+    // Used to build the functional array.
     template <size_t OCCUPANCY, bool SC> // note SC == SAME_COEF_PER_CHANNEL
-    struct FuncWrapNeon {
-        template<typename T>
-        static constexpr size_t nearest() {
-            // combine cases to both improve expected performance and reduce code space.
-            //
-            // This lists the occupancies we will specialize functions for.
-            constexpr size_t required_occupancies[] = {
-                1,  // constant scale
-                3,  // single zero
-                7,  // double zero
-                9,  // single pole
-                11, // first order IIR
-                27, // double pole + single zero
-                31, // second order IIR (full Biquad)
-            };
-            if constexpr (OCCUPANCY < 32) {
-                for (auto test : required_occupancies) {
-                    if ((OCCUPANCY & test) == OCCUPANCY) return test;
-                }
-            } else {
-                static_assert(intrinsics::dependent_false_v<T>);
-            }
-            return 0; // never gets here.
-        }
-
+    struct FuncWrap {
         static void func(D* out, const D *in, size_t frames, size_t stride,
-                size_t channelCount, D *delays, const D *coef, size_t localStride) {
-            constexpr size_t NEAREST_OCCUPANCY = nearest<D>();
-            details::biquad_filter_neon<NEAREST_OCCUPANCY, SC>(
-                    out, in, frames, stride, channelCount, delays, coef, localStride);
+                size_t channelCount, D *delays, const D *coef, size_t localStride,
+                details::FILTER_OPTION filterOptions) {
+            constexpr size_t NEAREST_OCCUPANCY =
+                details::nearestOccupancy(
+                        OCCUPANCY, ConstOptions::template FilterType<D, D>
+                                               ::required_occupancies_);
+            details::biquad_filter_func<ConstOptions, NEAREST_OCCUPANCY, SC>(
+                    out, in, frames, stride, channelCount, delays, coef, localStride,
+                    filterOptions);
         }
     };
 
-    // Neon optimized array of functions.
-    static inline constexpr auto mFilterNeon =
+    // Vector optimized array of functions.
+    static inline constexpr auto mFilterFuncs =
             details::make_functional_array<
-                    FuncWrapNeon, 1 << kBiquadNumCoefs, SAME_COEF_PER_CHANNEL>();
-#endif // USE_NEON
+                    FuncWrap, 1 << kBiquadNumCoefs, SAME_COEF_PER_CHANNEL>();
 
+    /**
+     * \var filter_func* mFunc
+     *
+     * The current filter function selected for the channel occupancy of the Biquad.
+     * It will be one of mFilterFuncs.
+     */
+    std::decay_t<decltype(mFilterFuncs[0])> mFunc;
 };
 
 } // namespace android::audio_utils
 
+#pragma pop_macro("USE_DITHER")
 #pragma pop_macro("USE_NEON")
-
-#endif  // !ANDROID_AUDIO_UTILS_BIQUAD_FILTER_H

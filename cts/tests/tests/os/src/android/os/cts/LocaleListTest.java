@@ -530,4 +530,40 @@ public class LocaleListTest extends AndroidTestCase {
         assertFalse(LocaleList.isPseudoLocale(ULocale.forLanguageTag("fr-CA")));
         assertFalse(LocaleList.isPseudoLocale((ULocale) null));
     }
+
+    public void testMatchesLanguageAndScript() {
+        assertTrue(LocaleList.matchesLanguageAndScript(Locale.forLanguageTag("fr-Latn-FR"),
+                Locale.forLanguageTag("fr-Latn")));
+        assertTrue(LocaleList.matchesLanguageAndScript(Locale.forLanguageTag("zh-Hans-CN"),
+                Locale.forLanguageTag("zh-Hans")));
+        assertTrue(LocaleList.matchesLanguageAndScript(Locale.forLanguageTag("zh-Hant-TW"),
+                Locale.forLanguageTag("zh-Hant")));
+        assertTrue(LocaleList.matchesLanguageAndScript(Locale.forLanguageTag("en-US"),
+                Locale.forLanguageTag("en-US")));
+        assertTrue(LocaleList.matchesLanguageAndScript(Locale.forLanguageTag("en-US"),
+                Locale.forLanguageTag("en-CA")));
+        assertTrue(LocaleList.matchesLanguageAndScript(Locale.forLanguageTag("ar-NA"),
+                Locale.forLanguageTag("ar-ZA")));
+        assertTrue(LocaleList.matchesLanguageAndScript(Locale.forLanguageTag("zh-CN"),
+                Locale.forLanguageTag("zh")));
+        assertTrue(LocaleList.matchesLanguageAndScript(Locale.forLanguageTag("zh-CN"),
+                Locale.forLanguageTag("zh-Hans")));
+        assertTrue(LocaleList.matchesLanguageAndScript(Locale.forLanguageTag("zh-TW"),
+                Locale.forLanguageTag("zh-Hant")));
+
+        assertFalse(LocaleList.matchesLanguageAndScript(Locale.forLanguageTag("zh-Hant-TW"),
+                Locale.forLanguageTag("zh-Hans")));
+        assertFalse(LocaleList.matchesLanguageAndScript(Locale.forLanguageTag("en-XA"),
+                Locale.forLanguageTag("en-US")));
+        assertFalse(LocaleList.matchesLanguageAndScript(Locale.forLanguageTag("ar-YE"),
+                Locale.forLanguageTag("ar-XB")));
+        assertFalse(LocaleList.matchesLanguageAndScript(Locale.forLanguageTag("en-US"),
+                Locale.forLanguageTag("zh-TW")));
+        assertFalse(LocaleList.matchesLanguageAndScript(Locale.forLanguageTag("zh-TW"),
+                Locale.forLanguageTag("zh")));
+        assertFalse(LocaleList.matchesLanguageAndScript(Locale.forLanguageTag("zh-CN"),
+                Locale.forLanguageTag("zh-Hant")));
+        assertFalse(LocaleList.matchesLanguageAndScript(Locale.forLanguageTag("zh-TW"),
+                Locale.forLanguageTag("zh-Hans")));
+    }
 }

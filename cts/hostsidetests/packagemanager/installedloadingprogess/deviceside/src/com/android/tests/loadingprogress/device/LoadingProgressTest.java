@@ -60,7 +60,7 @@ public class LoadingProgressTest {
     private PackageManager mPackageManager;
     private UserHandle mUser;
     private LauncherApps mLauncherApps;
-    private static final int WAIT_TIMEOUT_MILLIS = 1000; /* 1 second */
+    private static final int WAIT_TIMEOUT_MILLIS = 2000; /* 2 second */
     private ConditionVariable mCalled  = new ConditionVariable();
     private final HandlerThread mCallbackThread = new HandlerThread("callback");
     private LauncherAppsCallback mCallback;

@@ -20,7 +20,7 @@ import com.android.server.wm.traces.common.DeviceStateDump
 import com.android.server.wm.traces.common.WindowManagerConditionsFactory
 import com.android.server.wm.traces.common.WindowManagerConditionsFactory.isLayerTransformFlagSet
 import com.android.server.wm.traces.common.WindowManagerConditionsFactory.isLayerTransformIdentity
-import com.android.server.wm.traces.common.layers.LayerTraceEntry
+import com.android.server.wm.traces.common.layers.BaseLayerTraceEntry
 import com.android.server.wm.traces.common.layers.Transform
 import com.android.server.wm.traces.common.service.PlatformConsts.TYPE_APPLICATION_STARTING
 import com.android.server.wm.traces.common.service.PlatformConsts.TYPE_BASE_APPLICATION
@@ -40,7 +40,7 @@ class AppCloseProcessor(logger: (String) -> Unit) : TransitionProcessor(logger) 
         .isAppTransitionIdle(/* default display */ 0)
     private val wmStateComplete = WindowManagerConditionsFactory.isWMStateComplete()
     private val translatingWindows =
-        HashMap<String, DeviceStateDump<WindowManagerState, LayerTraceEntry>>()
+        HashMap<String, DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>>()
 
     override fun getInitialState(tags: MutableMap<Long, MutableList<Tag>>) =
         RetrieveClosingAppLayerId(tags)
@@ -53,9 +53,9 @@ class AppCloseProcessor(logger: (String) -> Unit) : TransitionProcessor(logger) 
         tags: MutableMap<Long, MutableList<Tag>>
     ) : BaseState(tags) {
         override fun doProcessState(
-            previous: DeviceStateDump<WindowManagerState, LayerTraceEntry>?,
-            current: DeviceStateDump<WindowManagerState, LayerTraceEntry>,
-            next: DeviceStateDump<WindowManagerState, LayerTraceEntry>
+            previous: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>?,
+            current: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>,
+            next: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>
         ): FSMState {
             val isStableState = wmStateIdle.isSatisfied(current) ||
                 wmStateComplete.isSatisfied(current) ||
@@ -98,9 +98,9 @@ class AppCloseProcessor(logger: (String) -> Unit) : TransitionProcessor(logger) 
         private val isTranslating = isLayerTransformFlagSet(layerId, Transform.TRANSLATE_VAL)
 
         override fun doProcessState(
-            previous: DeviceStateDump<WindowManagerState, LayerTraceEntry>?,
-            current: DeviceStateDump<WindowManagerState, LayerTraceEntry>,
-            next: DeviceStateDump<WindowManagerState, LayerTraceEntry>
+            previous: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>?,
+            current: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>,
+            next: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>
         ): FSMState {
             if (previous == null) return this
             val startedTransforming = isTranslating.isSatisfied(current) &&

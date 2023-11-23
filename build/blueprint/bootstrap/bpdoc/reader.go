@@ -83,7 +83,7 @@ func (r *Reader) ModuleType(name string, factory reflect.Value) (*ModuleType, er
 
 // Return the PropertyStruct associated with a property struct type.  The type should be in the
 // format <package path>.<type name>
-func (r *Reader) PropertyStruct(pkgPath, name string, defaults reflect.Value) (*PropertyStruct, error) {
+func (r *Reader) propertyStruct(pkgPath, name string, defaults reflect.Value) (*PropertyStruct, error) {
 	ps := r.getPropertyStruct(pkgPath, name)
 
 	if ps == nil {
@@ -111,6 +111,43 @@ func (r *Reader) PropertyStruct(pkgPath, name string, defaults reflect.Value) (*
 	ps.SetDefaults(defaults)
 
 	return ps, nil
+}
+
+// Return the PropertyStruct associated with a struct type using recursion
+// This method is useful since golang structs created using reflection have an empty PkgPath()
+func (r *Reader) PropertyStruct(pkgPath, name string, defaults reflect.Value) (*PropertyStruct, error) {
+	var props []Property
+
+	// Base case: primitive type
+	if defaults.Kind() != reflect.Struct {
+		props = append(props, Property{Name: name,
+			Type: defaults.Type().String()})
+		return &PropertyStruct{Properties: props}, nil
+	}
+
+	// Base case: use r.propertyStruct if struct has a non empty pkgpath
+	if pkgPath != "" {
+		return r.propertyStruct(pkgPath, name, defaults)
+	}
+
+	numFields := defaults.NumField()
+	for i := 0; i < numFields; i++ {
+		field := defaults.Type().Field(i)
+		// Recurse
+		ps, err := r.PropertyStruct(field.Type.PkgPath(), field.Type.Name(), reflect.New(field.Type).Elem())
+
+		if err != nil {
+			return nil, err
+		}
+		prop := Property{
+			Name:       strings.ToLower(field.Name),
+			Text:       formatText(ps.Text),
+			Type:       field.Type.Name(),
+			Properties: ps.Properties,
+		}
+		props = append(props, prop)
+	}
+	return &PropertyStruct{Properties: props}, nil
 }
 
 func (r *Reader) getModuleTypeDoc(pkgPath, factoryFuncName string) (string, error) {

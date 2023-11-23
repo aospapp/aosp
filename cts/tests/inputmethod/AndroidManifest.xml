@@ -19,55 +19,17 @@
      package="android.view.inputmethod.cts"
      android:targetSandboxVersion="2">
 
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"/>
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     <application android:label="CtsInputMethodTestCases"
          android:multiArch="true"
-         android:supportsRtl="true">
+         android:supportsRtl="true"
+         android:debuggable="true"
+         android:testOnly="true">
 
         <uses-library android:name="android.test.runner"/>
 
-        <activity android:name="android.view.inputmethod.cts.util.TestActivity"
-             android:theme="@style/no_starting_window"
-             android:label="TestActivity"
-             android:configChanges="fontScale|smallestScreenSize|screenSize|screenLayout"
-             android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST"/>
-            </intent-filter>
-        </activity>
-        <activity android:name="android.view.inputmethod.cts.util.TestActivity2"
-                  android:theme="@style/no_starting_window"
-                  android:label="TestActivity2"
-                  android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST"/>
-            </intent-filter>
-        </activity>
-
-        <activity android:name="android.view.inputmethod.cts.util.StateInitializeActivity"
-             android:theme="@style/no_starting_window"
-             android:label="StateInitializeActivity"
-             android:configChanges="fontScale"
-             android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST"/>
-            </intent-filter>
-        </activity>
-
-        <!--
-                      In order to test window-focus-stealing from other process, let this service run in a
-                      separate process. -->
-        <service android:name="android.view.inputmethod.cts.util.WindowFocusStealerService"
-             android:process=":focusstealer"
-             android:exported="false">
-        </service>
-
-        <service android:name="android.view.inputmethod.cts.util.WindowFocusHandleService"
-             android:exported="false">
-        </service>
+        <!-- TestActivity etc are merged from util/AndroidManifest.xml -->
 
     </application>
 

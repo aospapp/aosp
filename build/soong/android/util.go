@@ -65,50 +65,53 @@ func JoinWithSuffix(strs []string, suffix string, separator string) string {
 	return buf.String()
 }
 
-// SortedIntKeys returns the keys of the given integer-keyed map in the ascending order
-// TODO(asmundak): once Go has generics, combine this with SortedStringKeys below.
-func SortedIntKeys(m interface{}) []int {
-	v := reflect.ValueOf(m)
-	if v.Kind() != reflect.Map {
-		panic(fmt.Sprintf("%#v is not a map", m))
-	}
-	keys := v.MapKeys()
-	s := make([]int, 0, len(keys))
-	for _, key := range keys {
-		s = append(s, int(key.Int()))
-	}
-	sort.Ints(s)
-	return s
-}
-
-// SorterStringKeys returns the keys of the given string-keyed map in the ascending order
+// SorterStringKeys returns the keys of the given string-keyed map in the ascending order.
 func SortedStringKeys(m interface{}) []string {
 	v := reflect.ValueOf(m)
 	if v.Kind() != reflect.Map {
 		panic(fmt.Sprintf("%#v is not a map", m))
 	}
-	keys := v.MapKeys()
-	s := make([]string, 0, len(keys))
-	for _, key := range keys {
-		s = append(s, key.String())
+	if v.Len() == 0 {
+		return nil
+	}
+	iter := v.MapRange()
+	s := make([]string, 0, v.Len())
+	for iter.Next() {
+		s = append(s, iter.Key().String())
 	}
 	sort.Strings(s)
 	return s
 }
 
-// SortedStringMapValues returns the values of the string-values map in the ascending order
-func SortedStringMapValues(m interface{}) []string {
+// stringValues returns the values of the given string-valued map in randomized map order.
+func stringValues(m interface{}) []string {
 	v := reflect.ValueOf(m)
 	if v.Kind() != reflect.Map {
 		panic(fmt.Sprintf("%#v is not a map", m))
 	}
-	keys := v.MapKeys()
-	s := make([]string, 0, len(keys))
-	for _, key := range keys {
-		s = append(s, v.MapIndex(key).String())
+	if v.Len() == 0 {
+		return nil
 	}
+	iter := v.MapRange()
+	s := make([]string, 0, v.Len())
+	for iter.Next() {
+		s = append(s, iter.Value().String())
+	}
+	return s
+}
+
+// SortedStringValues returns the values of the given string-valued map in the ascending order.
+func SortedStringValues(m interface{}) []string {
+	s := stringValues(m)
 	sort.Strings(s)
 	return s
+}
+
+// SortedUniqueStringValues returns the values of the given string-valued map in the ascending order
+// with duplicates removed.
+func SortedUniqueStringValues(m interface{}) []string {
+	s := stringValues(m)
+	return SortedUniqueStrings(s)
 }
 
 // IndexList returns the index of the first occurrence of the given string in the list or -1

@@ -51,6 +51,15 @@ prop {
     prop_name: "android.car.number_pre_created_guests"
 }
 
+# Whether the Vehicle HAL should be used for user management tasks.
+prop {
+    api_name: "user_hal_enabled"
+    type: Boolean
+    scope: Internal
+    access: ReadWrite
+    prop_name: "android.car.user_hal_enabled"
+}
+
 # Timeout (in ms) waiting for Vehicle HAL responses for user management requests.
 prop {
     api_name: "user_hal_timeout"

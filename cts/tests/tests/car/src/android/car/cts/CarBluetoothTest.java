@@ -40,6 +40,7 @@ import androidx.test.runner.AndroidJUnit4;
 import com.android.compatibility.common.util.CddTest;
 import com.android.compatibility.common.util.FeatureUtil;
 import com.android.compatibility.common.util.RequiredFeatureRule;
+import com.android.compatibility.common.util.ShellIdentityUtils;
 
 import org.junit.After;
 import org.junit.Before;
@@ -140,9 +141,9 @@ public class CarBluetoothTest {
             // Update the desired state so that we'll signal when we get there
             mDesiredState = desiredState;
             if (desiredState == BluetoothAdapter.STATE_ON) {
-                mBluetoothAdapter.enable();
+                ShellIdentityUtils.invokeWithShellPermissions(() -> mBluetoothAdapter.enable());
             } else {
-                mBluetoothAdapter.disable();
+                ShellIdentityUtils.invokeWithShellPermissions(() -> mBluetoothAdapter.disable());
             }
 
             // Wait until we're reached that desired state

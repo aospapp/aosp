@@ -18,16 +18,26 @@
 #define EMULATOR_CAMERA_HAL_HWL_REQUEST_PROCESSOR_H
 
 #include <condition_variable>
+#include <memory>
 #include <mutex>
 #include <queue>
 #include <thread>
 
 #include "EmulatedLogicalRequestState.h"
 #include "EmulatedSensor.h"
+#include "HandleImporter.h"
+#include "android/frameworks/sensorservice/1.0/ISensorManager.h"
+#include "android/frameworks/sensorservice/1.0/types.h"
 #include "hwl_types.h"
 
 namespace android {
 
+using ::android::frameworks::sensorservice::V1_0::IEventQueue;
+using ::android::frameworks::sensorservice::V1_0::IEventQueueCallback;
+using ::android::hardware::Return;
+using ::android::hardware::Void;
+using android::hardware::camera::common::V1_0::helper::HandleImporter;
+using ::android::hardware::sensors::V1_0::Event;
 using google_camera_hal::HalCameraMetadata;
 using google_camera_hal::HwlPipelineRequest;
 using google_camera_hal::HwlSessionCallback;
@@ -62,10 +72,28 @@ class EmulatedRequestProcessor {
 
   status_t Initialize(std::unique_ptr<HalCameraMetadata> static_meta,
                       PhysicalDeviceMapPtr physical_devices);
+  void InitializeSensorQueue(std::weak_ptr<EmulatedRequestProcessor> processor);
 
   void SetSessionCallback(const HwlSessionCallback& hwl_session_callback);
 
  private:
+  class SensorHandler : public IEventQueueCallback {
+   public:
+    SensorHandler(std::weak_ptr<EmulatedRequestProcessor> processor)
+        : processor_(processor) {
+    }
+
+    // IEventQueueCallback interface
+    Return<void> onEvent(const Event& e) override;
+
+   private:
+    std::weak_ptr<EmulatedRequestProcessor> processor_;
+  };
+
+  int32_t sensor_handle_;
+  sp<IEventQueue> sensor_event_queue_;
+  std::atomic_uint32_t screen_rotation_;
+
   void RequestProcessorLoop();
 
   std::thread request_thread_;

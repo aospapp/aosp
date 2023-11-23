@@ -44,4 +44,9 @@ android_test {
         "mts",
     ],
     platform_apis: true,
+    data: [
+        ":CtsBatterySavingAppTargetApi25",
+        ":CtsBatterySavingAppTargetApiCurrent",
+    ],
+    per_testcase_directory: true,
 }

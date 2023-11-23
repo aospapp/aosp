@@ -28,8 +28,6 @@
 #include <stdio.h>
 #include "psi/psi.h"
 
-#define PSI_MON_FILE_MEMORY "/proc/pressure/memory"
-
 static const char* stall_type_name[] = {
         "some",
         "full",
@@ -41,7 +39,7 @@ int init_psi_monitor(enum psi_stall_type stall_type,
     int res;
     char buf[256];
 
-    fd = TEMP_FAILURE_RETRY(open(PSI_MON_FILE_MEMORY, O_WRONLY | O_CLOEXEC));
+    fd = TEMP_FAILURE_RETRY(open(PSI_PATH_MEMORY, O_WRONLY | O_CLOEXEC));
     if (fd < 0) {
         ALOGE("No kernel psi monitor support (errno=%d)", errno);
         return -1;
@@ -61,7 +59,7 @@ int init_psi_monitor(enum psi_stall_type stall_type,
 
     if (res >= (ssize_t)sizeof(buf)) {
         ALOGE("%s line overflow for psi stall type '%s'",
-            PSI_MON_FILE_MEMORY, stall_type_name[stall_type]);
+            PSI_PATH_MEMORY, stall_type_name[stall_type]);
         errno = EINVAL;
         goto err;
     }
@@ -69,7 +67,7 @@ int init_psi_monitor(enum psi_stall_type stall_type,
     res = TEMP_FAILURE_RETRY(write(fd, buf, strlen(buf) + 1));
     if (res < 0) {
         ALOGE("%s write failed for psi stall type '%s'; errno=%d",
-            PSI_MON_FILE_MEMORY, stall_type_name[stall_type], errno);
+            PSI_PATH_MEMORY, stall_type_name[stall_type], errno);
         goto err;
     }
 
@@ -101,4 +99,18 @@ void destroy_psi_monitor(int fd) {
     if (fd >= 0) {
         close(fd);
     }
+}
+
+int parse_psi_line(char *line, enum psi_stall_type stall_type, struct psi_stats stats[]) {
+    char type_name[5];
+    struct psi_stats *stat = &stats[stall_type];
+
+    if (!line || sscanf(line, "%4s avg10=%f avg60=%f avg300=%f total=%lu",
+        type_name, &stat->avg10, &stat->avg60, &stat->avg300, &stat->total) != 5) {
+        return -1;
+    }
+    if (strcmp(type_name, stall_type_name[stall_type])) {
+        return -1;
+    }
+    return 0;
 }

@@ -38,7 +38,10 @@ MIN_CIRCLE_PTS = 25
 MIN_FOCUS_DIST_TOL = 0.80  # allow charts a little closer than min
 NAME = os.path.splitext(os.path.basename(__file__))[0]
 NUM_STEPS = 10
+OFFSET_LOW_VAL = 10  # number of pixels
 OFFSET_RTOL = 0.15
+OFFSET_RTOL_LOW_OFFSET = 0.20
+OFFSET_RTOL_MIN_FD = 0.30
 RADIUS_RTOL = 0.10
 RADIUS_RTOL_MIN_FD = 0.15
 ZOOM_MAX_THRESH = 10.0
@@ -88,9 +91,9 @@ def get_test_tols_and_cap_size(cam, props, chart_distance, debug):
     # determine if minimum focus distance is less than rig depth
     if (math.isclose(min_fd, 0.0, rel_tol=1E-6) or  # fixed focus
         1.0/min_fd < chart_distance_m*MIN_FOCUS_DIST_TOL):
-      test_tols[focal_l] = RADIUS_RTOL
+      test_tols[focal_l] = (RADIUS_RTOL, OFFSET_RTOL)
     else:
-      test_tols[focal_l] = RADIUS_RTOL_MIN_FD
+      test_tols[focal_l] = (RADIUS_RTOL_MIN_FD, OFFSET_RTOL_MIN_FD)
       logging.debug('loosening RTOL for cam[%s]: '
                     'min focus distance too large.', i)
   # find intersection of formats for max common format
@@ -233,7 +236,7 @@ class ZoomTest(its_base_test.ItsBaseTest):
             cam, props, self.chart_distance, debug)
       else:
         fl = props['android.lens.info.availableFocalLengths'][0]
-        test_tols = {fl: RADIUS_RTOL}
+        test_tols = {fl: (RADIUS_RTOL, OFFSET_RTOL)}
         yuv_size = capture_request_utils.get_largest_yuv_format(props)
         size = [yuv_size['width'], yuv_size['height']]
       logging.debug('capture size: %s', str(size))
@@ -255,22 +258,30 @@ class ZoomTest(its_base_test.ItsBaseTest):
 
         # determine radius tolerance of capture
         cap_fl = cap['metadata']['android.lens.focalLength']
-        radius_tol = test_tols[cap_fl]
+        radius_tol, offset_tol = test_tols[cap_fl]
 
         # convert to [0, 255] images with unsigned integer
         img *= 255
         img = img.astype(np.uint8)
 
         # Find the center circle in img
-        circle = find_center_circle(
-            img, img_name, CIRCLE_COLOR,
-            min_area=MIN_AREA_RATIO * size[0] * size[1] * z * z,
-            debug=debug)
-        if circle_cropped(circle, size):
-          logging.debug('zoom %.2f is too large! Skip further captures', z)
-          break
+        try:
+          circle = find_center_circle(
+              img, img_name, CIRCLE_COLOR,
+              min_area=MIN_AREA_RATIO * size[0] * size[1] * z * z,
+              debug=debug)
+          if circle_cropped(circle, size):
+            logging.debug('zoom %.2f is too large! Skip further captures', z)
+            break
+        except AssertionError as e:
+          if z/z_list[0] >= ZOOM_MAX_THRESH:
+            break
+          else:
+            raise AssertionError(
+                f'No circle was detected for zoom ratio <= {ZOOM_MAX_THRESH}. '
+                'Take pictures according to instructions carefully!') from e
         test_data[i] = {'z': z, 'circle': circle, 'r_tol': radius_tol,
-                        'fl': cap_fl}
+                        'o_tol': offset_tol, 'fl': cap_fl}
 
     # assert some range is tested before circles get too big
     zoom_max_thresh = ZOOM_MAX_THRESH
@@ -307,16 +318,20 @@ class ZoomTest(its_base_test.ItsBaseTest):
       # check relative offset against init vals w/ no focal length change
       if i == 0 or test_data[i-1]['fl'] != data['fl']:  # set init values
         z_init = float(data['z'])
-        offset_init = [data['circle'][0] - size[0]//2,
-                       data['circle'][1] - size[1]//2]
+        offset_init = [(data['circle'][0] - size[0] // 2),
+                       (data['circle'][1] - size[1] // 2)]
       else:  # check
         z_ratio = data['z'] / z_init
         offset_rel = (distance(offset_abs[0], offset_abs[1]) / z_ratio /
                       distance(offset_init[0], offset_init[1]))
         logging.debug('offset_rel: %.3f', offset_rel)
-        if not math.isclose(offset_rel, 1.0, rel_tol=OFFSET_RTOL):
-          raise AssertionError(f"zoom: {data['z']:.2f}, offset(rel): "
-                               f'{offset_rel:.4f}, RTOL: {OFFSET_RTOL}')
+        rel_tol = data['o_tol']
+        if (np.linalg.norm(offset_init) < OFFSET_LOW_VAL and
+            rel_tol == OFFSET_RTOL):
+          rel_tol = OFFSET_RTOL_LOW_OFFSET
+        if not math.isclose(offset_rel, 1.0, rel_tol=rel_tol):
+          raise AssertionError(f"zoom: {data['z']:.2f}, offset(rel to 1): "
+                               f'{offset_rel:.4f}, RTOL: {rel_tol}')
 
 if __name__ == '__main__':
   test_runner.main()

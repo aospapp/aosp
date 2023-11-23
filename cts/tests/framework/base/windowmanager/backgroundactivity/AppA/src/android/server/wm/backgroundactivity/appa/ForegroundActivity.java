@@ -93,7 +93,7 @@ public class ForegroundActivity extends Activity {
         IntentFilter filter = new IntentFilter();
         filter.addAction(ACTION_LAUNCH_BACKGROUND_ACTIVITIES);
         filter.addAction(ACTION_FINISH_ACTIVITY);
-        registerReceiver(mReceiver, filter);
+        registerReceiver(mReceiver, filter, Context.RECEIVER_EXPORTED);
     }
 
     @Override

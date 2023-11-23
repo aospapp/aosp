@@ -20,18 +20,10 @@ import os
 import unittest
 from unittest import mock
 
+from aidegen.lib import common_util
 from aidegen.vscode import vscode_native_project_file_gen
 
-_NATIVE_INCLUDES1 = [
-    'out/soong/.intermediates/android.frameworks.bufhub@1.0_genc++_headers/gen'
-]
-_NATIVE_INCLUDES2 = [
-    'frameworks/native/include',
-    'frameworks/native/libs/ui',
-]
 
-
-# pylint: disable=protected-access
 class VSCodeNativeProjectFileGenUnittests(unittest.TestCase):
     """Unit tests for vscode_native_project_file_gen.py"""
 
@@ -50,30 +42,37 @@ class VSCodeNativeProjectFileGenUnittests(unittest.TestCase):
 
     @mock.patch.object(os.path, 'isdir')
     @mock.patch.object(os.path, 'isfile')
-    def test_create_c_cpp_properties_dict(self, mock_isfile, mock_isdir):
+    @mock.patch.object(common_util, 'get_android_root_dir')
+    def test_create_c_cpp_properties_dict(self, mock_get_root, mock_isfile,
+                                          mock_isdir):
         """Test _create_c_cpp_properties_dict with conditions."""
-        mock_isfile.return_value = True
+        mock_get_root.return_value = '/root'
         mock_isdir.return_value = True
-        includes = set(_NATIVE_INCLUDES1)
-        includes.update(set(_NATIVE_INCLUDES2))
+        includes = ['a/b/includes', 'c/d/includes']
         mod_dir = 'a/b/shared/path/to/be/used2/multiarch'
         ccgen = vscode_native_project_file_gen.VSCodeNativeProjectFileGenerator(
             mod_dir)
         cc_mod_info = mock.Mock()
         cc_mod_info.get_module_includes.return_value = includes
-        data = ccgen._create_c_cpp_properties_dict(cc_mod_info, ['multiarch'])
-        config = vscode_native_project_file_gen._CONFIG
-        include = vscode_native_project_file_gen._INC_PATH
-        compp = vscode_native_project_file_gen._COMPILE_PATH
-        compiler = vscode_native_project_file_gen._COMPILER_PATH
-        res = vscode_native_project_file_gen._make_header_file_paths(includes)
-        self.assertEqual(set(res), set(data[config][0][include]))
-        self.assertEqual(compiler, data[config][0][compp])
 
-        mock_isfile.return_value = False
+        mock_isfile.return_value = True  # Compiler path exists.
         data = ccgen._create_c_cpp_properties_dict(cc_mod_info, ['multiarch'])
-        self.assertEqual(set(res), set(data[config][0][include]))
-        self.assertEqual('', data[config][0][compp])
+        config = data[vscode_native_project_file_gen._CONFIG][0]
+        self.assertCountEqual(
+            ['/root/a/b/includes', '/root/c/d/includes'],
+            config[vscode_native_project_file_gen._INC_PATH])
+        self.assertEqual(
+            vscode_native_project_file_gen._COMPILER_PATH,
+            config[vscode_native_project_file_gen._COMPILE_PATH])
+
+        mock_isfile.return_value = False  # Compiler path doesn't exist.
+        data = ccgen._create_c_cpp_properties_dict(cc_mod_info, ['multiarch'])
+        config = data[vscode_native_project_file_gen._CONFIG][0]
+        self.assertCountEqual(
+            ['/root/a/b/includes', '/root/c/d/includes'],
+            config[vscode_native_project_file_gen._INC_PATH])
+        self.assertEqual('',
+                         config[vscode_native_project_file_gen._COMPILE_PATH])
 
 
 if __name__ == '__main__':

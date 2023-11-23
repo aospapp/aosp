@@ -22,7 +22,7 @@ from acloud.internal import constants
 from acloud.internal.lib import utils
 
 
-class BaseAVDCreate(object):
+class BaseAVDCreate():
     """Base class for all AVD intance creation classes."""
 
     def _CreateAVD(self, avd_spec, no_prompts):
@@ -53,7 +53,7 @@ class BaseAVDCreate(object):
         Example:
             Creating remote AVD instance with the following details:
             Image:
-              aosp/master - aosp_cf_x86_phone-userdebug [1234]
+              aosp/master - aosp_cf_x86_64_phone-userdebug [1234]
             hw config:
               cpu - 2
               ram - 2GB

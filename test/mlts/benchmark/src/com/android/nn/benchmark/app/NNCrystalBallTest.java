@@ -23,6 +23,7 @@ import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import android.util.Log;
 
 /**
  * NNAPI benchmark test.
@@ -41,13 +42,17 @@ import org.junit.runners.Parameterized;
 @RunWith(Parameterized.class)
 public class NNCrystalBallTest extends BenchmarkTestBase {
 
-    public NNCrystalBallTest(TestModels.TestModelEntry model) {
-        super(model);
+    public NNCrystalBallTest(TestModels.TestModelEntry model, String acceleratorName) {
+        super(model, acceleratorName);
     }
 
     private void test(boolean useNnapi, boolean useCompleteInputSet) throws IOException {
         setUseNNApi(useNnapi);
         setCompleteInputSet(useCompleteInputSet);
+        if (useNnapi && mAcceleratorName != null) {
+            Log.i(NNBenchmark.TAG, "Using accelerator " + mAcceleratorName);
+            setNnApiAcceleratorName(mAcceleratorName);
+        }
         enableCompilationCachingBenchmarks();
         TestAction ta = new TestAction(mModel, WARMUP_REPEATABLE_SECONDS,
             useCompleteInputSet ? COMPLETE_SET_TIMEOUT_SECOND : RUNTIME_REPEATABLE_SECONDS);

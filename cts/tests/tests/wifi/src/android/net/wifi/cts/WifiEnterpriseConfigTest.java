@@ -1009,4 +1009,37 @@ public class WifiEnterpriseConfigTest extends WifiJUnit3TestBase {
         config.setDecoratedIdentityPrefix(TEST_DECORATED_IDENTITY_PREFIX);
         assertEquals(TEST_DECORATED_IDENTITY_PREFIX, config.getDecoratedIdentityPrefix());
     }
+
+    // TODO(b/196180536): Wait for T SDK finalization before changing
+    // to `@SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)`
+    @SdkSuppress(minSdkVersion = 31)
+    public void testSetGetTrustOnFirstUse() {
+        if (!hasWifi()) {
+            return;
+        }
+        WifiEnterpriseConfig config = new WifiEnterpriseConfig();
+        assertFalse(config.isTrustOnFirstUseEnabled());
+        config.enableTrustOnFirstUse(true);
+        assertTrue(config.isTrustOnFirstUseEnabled());
+        config.enableTrustOnFirstUse(false);
+        assertFalse(config.isTrustOnFirstUseEnabled());
+    }
+
+    // TODO(b/196180536): Wait for T SDK finalization before changing
+    // to `@SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)`
+    @SdkSuppress(minSdkVersion = 31)
+    public void testHasCaCertificate() {
+        if (!hasWifi()) {
+            return;
+        }
+        WifiEnterpriseConfig config = new WifiEnterpriseConfig();
+        assertFalse(config.hasCaCertificate());
+        config.setCaPath("/tmp/ca.cert");
+        assertTrue(config.hasCaCertificate());
+
+        config = new WifiEnterpriseConfig();
+        assertFalse(config.hasCaCertificate());
+        config.setCaCertificate(FakeKeys.CA_CERT0);
+        assertTrue(config.hasCaCertificate());
+    }
 }

@@ -28,6 +28,11 @@ AWB_XFORM_LENGTH = 9
 NAME = os.path.splitext(os.path.basename(__file__))[0]
 
 
+def assert_is_number(x):
+  if np.isnan(x):
+    raise AssertionError(f'{x} is not a number!')
+
+
 class ThreeATest(its_base_test.ItsBaseTest):
   """Test basic camera 3A behavior.
 
@@ -57,15 +62,22 @@ class ThreeATest(its_base_test.ItsBaseTest):
       logging.debug('AE: sensitivity %d, exposure %dns', s, e)
       logging.debug('AF: distance %.3f', focus)
 
-      assert len(awb_gains) == AWB_GAINS_LENGTH
+      if len(awb_gains) != AWB_GAINS_LENGTH:
+        raise AssertionError(
+            f'AWB gains has unexpected # of terms! {awb_gains}')
       for g in awb_gains:
-        assert not np.isnan(g)
-      assert len(awb_xform) == AWB_XFORM_LENGTH
+        assert_is_number(g)
+      if len(awb_xform) != AWB_XFORM_LENGTH:
+        raise AssertionError(
+            f'AWB transform has unexpected # of terms! {awb_xform}')
       for x in awb_xform:
-        assert not np.isnan(x)
-      assert s > 0
-      assert e > 0
-      assert focus >= 0
+        assert_is_number(x)
+      if s <= 0:
+        raise AssertionError(f'sensitivity {s} <= 0!')
+      if e <= 0:
+        raise AssertionError(f'exposure {e} <= 0!')
+      if focus < 0:
+        raise AssertionError(f'focus distance {focus} < 0!')
 
 if __name__ == '__main__':
   test_runner.main()

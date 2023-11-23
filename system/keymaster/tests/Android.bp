@@ -9,7 +9,6 @@ package {
 
 shared_test_libs = [
     "libbase",
-    "libcppbor_external",
     "libcrypto",
     "libcutils",
     "libhidlbase",
@@ -21,6 +20,7 @@ shared_test_libs = [
 ]
 
 static_test_libs = [
+    "libcppbor_external",
     "libsoftkeymasterdevice",
     "libcppcose_rkp",
 ]
@@ -36,6 +36,10 @@ test_cflags = [
 cc_test {
     name: "keymaster_tests",
     cflags: test_cflags,
+    tidy_timeout_srcs: [
+        "android_keymaster_messages_test.cpp",
+        "authorization_set_test.cpp",
+    ],
     srcs: [
         "gtest_main.cpp",
         "keymaster_configuration_test.cpp",
@@ -51,8 +55,7 @@ cc_test {
         "authorization_set_test.cpp",
         "key_blob_test.cpp",
         "android_keymaster_messages_test.cpp",
-        "android_keymaster_test.cpp",
-        "keymaster_enforcement_test.cpp",
+         "keymaster_enforcement_test.cpp",
         "attestation_record_test.cpp",
         "wrapped_key_test.cpp",
     ],

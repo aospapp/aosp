@@ -131,14 +131,14 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
         std::unique_ptr<LogReaderThread> log_reader(
                 new LogReaderThread(log_buffer.get(), &reader_list, std::move(test_writer), true, 0,
                                     kLogMaskAll, 0, {}, 1, {}));
-        reader_list.reader_threads().emplace_back(std::move(log_reader));
+        reader_list.AddAndRunThread(std::move(log_reader));
     }
 
     // Wait until the reader has finished.
     while (true) {
         usleep(50);
         auto lock = std::unique_lock{logd_lock};
-        if (reader_list.reader_threads().size() == 0) {
+        if (reader_list.running_reader_threads().size() == 0) {
             break;
         }
     }

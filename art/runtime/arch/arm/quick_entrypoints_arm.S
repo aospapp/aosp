@@ -26,7 +26,7 @@
 
 .macro SETUP_SAVE_REFS_AND_ARGS_FRAME rTemp
     SETUP_SAVE_REFS_AND_ARGS_FRAME_REGISTERS_ONLY
-    RUNTIME_CURRENT3 \rTemp                       @ Load Runtime::Current into rTemp.
+    LOAD_RUNTIME_INSTANCE \rTemp                  @ Load Runtime::Current into rTemp.
     @ Load kSaveRefsAndArgs Method* into rTemp.
     ldr \rTemp, [\rTemp, #RUNTIME_SAVE_REFS_AND_ARGS_METHOD_OFFSET]
     str \rTemp, [sp, #0]                          @ Place Method* at bottom of stack.
@@ -50,7 +50,7 @@
     .cfi_adjust_cfa_offset 128
     sub sp, #8                          @ 2 words of space, alignment padding and Method*
     .cfi_adjust_cfa_offset 8
-    RUNTIME_CURRENT1 \rTemp             @ Load Runtime::Current into rTemp.
+    LOAD_RUNTIME_INSTANCE \rTemp        @ Load Runtime::Current into rTemp.
     @ Load kSaveEverything Method* into rTemp.
     ldr \rTemp, [\rTemp, #\runtime_method_offset]
     str \rTemp, [sp, #0]                @ Place Method* at bottom of stack.
@@ -457,8 +457,7 @@ ENTRY art_quick_osr_stub
     .cfi_adjust_cfa_offset -64
     pop    {r4, r5, r6, r7, r8, r9, r10, r11, pc}
 .Losr_entry:
-    .cfi_restore_state
-    .cfi_def_cfa r11, SAVE_SIZE            @ CFA = r11 + SAVE_SIZE
+    CFI_RESTORE_STATE_AND_DEF_CFA r11, SAVE_SIZE  @ CFA = r11 + SAVE_SIZE
     sub sp, sp, r10                        @ Reserve space for callee stack
     sub r10, r10, #4
     str lr, [sp, r10]                      @ Store link register per the compiler ABI
@@ -494,51 +493,25 @@ END art_quick_do_long_jump
 TWO_ARG_REF_DOWNCALL art_quick_handle_fill_data, artHandleFillArrayDataFromCode, RETURN_IF_RESULT_IS_ZERO_OR_DELIVER
 
     /*
-     * Entry from managed code that calls artLockObjectFromCode, may block for GC. r0 holds the
-     * possibly null object to lock.
+     * Entry from managed code that tries to lock the object in a fast path and
+     * calls `artLockObjectFromCode()` for the difficult cases, may block for GC.
+     * r0 holds the possibly null object to lock.
      */
-    .extern artLockObjectFromCode
 ENTRY art_quick_lock_object
-    ldr    r1, [rSELF, #THREAD_ID_OFFSET]
-    cbz    r0, .Lslow_lock
-.Lretry_lock:
-    ldrex  r2, [r0, #MIRROR_OBJECT_LOCK_WORD_OFFSET]
-    eor    r3, r2, r1                 @ Prepare the value to store if unlocked
-                                      @   (thread id, count of 0 and preserved read barrier bits),
-                                      @ or prepare to compare thread id for recursive lock check
-                                      @   (lock_word.ThreadId() ^ self->ThreadId()).
-    ands   ip, r2, #LOCK_WORD_GC_STATE_MASK_SHIFTED_TOGGLED  @ Test the non-gc bits.
-    bne    .Lnot_unlocked             @ Check if unlocked.
-    @ unlocked case - store r3: original lock word plus thread id, preserved read barrier bits.
-    strex  r2, r3, [r0, #MIRROR_OBJECT_LOCK_WORD_OFFSET]
-    cbnz   r2, .Llock_strex_fail      @ If store failed, retry.
-    dmb    ish                        @ Full (LoadLoad|LoadStore) memory barrier.
-    bx lr
-.Lnot_unlocked:  @ r2: original lock word, r1: thread_id, r3: r2 ^ r1
-#if LOCK_WORD_THIN_LOCK_COUNT_SHIFT + LOCK_WORD_THIN_LOCK_COUNT_SIZE != LOCK_WORD_GC_STATE_SHIFT
-#error "Expecting thin lock count and gc state in consecutive bits."
-#endif
-                                      @ Check lock word state and thread id together,
-    bfc    r3, #LOCK_WORD_THIN_LOCK_COUNT_SHIFT, #(LOCK_WORD_THIN_LOCK_COUNT_SIZE + LOCK_WORD_GC_STATE_SIZE)
-    cbnz   r3, .Lslow_lock            @ if either of the top two bits are set, or the lock word's
-                                      @ thread id did not match, go slow path.
-    add    r3, r2, #LOCK_WORD_THIN_LOCK_COUNT_ONE  @ Increment the recursive lock count.
-                                      @ Extract the new thin lock count for overflow check.
-    ubfx   r2, r3, #LOCK_WORD_THIN_LOCK_COUNT_SHIFT, #LOCK_WORD_THIN_LOCK_COUNT_SIZE
-    cbz    r2, .Lslow_lock            @ Zero as the new count indicates overflow, go slow path.
-    strex  r2, r3, [r0, #MIRROR_OBJECT_LOCK_WORD_OFFSET]  @ strex necessary for read barrier bits.
-    cbnz   r2, .Llock_strex_fail      @ If strex failed, retry.
-    bx lr
-.Llock_strex_fail:
-    b      .Lretry_lock               @ retry
-// Note: the slow path is actually the art_quick_lock_object_no_inline (tail call).
+    // Note: the slow path is actually the art_quick_lock_object_no_inline (tail call).
+    LOCK_OBJECT_FAST_PATH r0, r1, r2, r3, .Llock_object_slow, /*can_be_null*/ 1
 END art_quick_lock_object
 
+    /*
+     * Entry from managed code that calls `artLockObjectFromCode()`, may block for GC.
+     * r0 holds the possibly null object to lock.
+     */
+    .extern artLockObjectFromCode
 ENTRY art_quick_lock_object_no_inline
-    // This is also the slow path for art_quick_lock_object. Note that we
-    // need a local label, the assembler complains about target being out of
-    // range if we try to jump to `art_quick_lock_object_no_inline`.
-.Lslow_lock:
+    // This is also the slow path for art_quick_lock_object.
+    // Note that we need a local label as the assembler emits bad instructions
+    // for CBZ/CBNZ if we try to jump to `art_quick_lock_object_no_inline`.
+.Llock_object_slow:
     SETUP_SAVE_REFS_ONLY_FRAME r1     @ save callee saves in case we block
     mov    r1, rSELF                  @ pass Thread::Current
     bl     artLockObjectFromCode      @ (Object* obj, Thread*)
@@ -549,61 +522,26 @@ ENTRY art_quick_lock_object_no_inline
 END art_quick_lock_object_no_inline
 
     /*
-     * Entry from managed code that calls artUnlockObjectFromCode and delivers exception on failure.
-     * r0 holds the possibly null object to lock.
+     * Entry from managed code that tries to unlock the object in a fast path and calls
+     * `artUnlockObjectFromCode()` for the difficult cases and delivers exception on failure.
+     * r0 holds the possibly null object to unlock.
      */
-    .extern artUnlockObjectFromCode
 ENTRY art_quick_unlock_object
-    ldr    r1, [rSELF, #THREAD_ID_OFFSET]
-    cbz    r0, .Lslow_unlock
-.Lretry_unlock:
-#ifndef USE_READ_BARRIER
-    ldr    r2, [r0, #MIRROR_OBJECT_LOCK_WORD_OFFSET]
-#else
-                                      @ Need to use atomic instructions for read barrier.
-    ldrex  r2, [r0, #MIRROR_OBJECT_LOCK_WORD_OFFSET]
-#endif
-    eor    r3, r2, r1                 @ Prepare the value to store if simply locked
-                                      @   (mostly 0s, and preserved read barrier bits),
-                                      @ or prepare to compare thread id for recursive lock check
-                                      @   (lock_word.ThreadId() ^ self->ThreadId()).
-    ands   ip, r3, #LOCK_WORD_GC_STATE_MASK_SHIFTED_TOGGLED  @ Test the non-gc bits.
-    bne    .Lnot_simply_locked        @ Locked recursively or by other thread?
-    @ Transition to unlocked.
-    dmb    ish                        @ Full (LoadStore|StoreStore) memory barrier.
-#ifndef USE_READ_BARRIER
-    str    r3, [r0, #MIRROR_OBJECT_LOCK_WORD_OFFSET]
-#else
-    strex  r2, r3, [r0, #MIRROR_OBJECT_LOCK_WORD_OFFSET]  @ strex necessary for read barrier bits
-    cbnz   r2, .Lunlock_strex_fail    @ If the store failed, retry.
-#endif
-    bx     lr
-.Lnot_simply_locked:  @ r2: original lock word, r1: thread_id, r3: r2 ^ r1
-#if LOCK_WORD_THIN_LOCK_COUNT_SHIFT + LOCK_WORD_THIN_LOCK_COUNT_SIZE != LOCK_WORD_GC_STATE_SHIFT
-#error "Expecting thin lock count and gc state in consecutive bits."
-#endif
-                                      @ Check lock word state and thread id together,
-    bfc    r3, #LOCK_WORD_THIN_LOCK_COUNT_SHIFT, #(LOCK_WORD_THIN_LOCK_COUNT_SIZE + LOCK_WORD_GC_STATE_SIZE)
-    cbnz   r3, .Lslow_unlock          @ if either of the top two bits are set, or the lock word's
-                                      @ thread id did not match, go slow path.
-    sub    r3, r2, #LOCK_WORD_THIN_LOCK_COUNT_ONE  @ Decrement recursive lock count.
-#ifndef USE_READ_BARRIER
-    str    r3, [r0, #MIRROR_OBJECT_LOCK_WORD_OFFSET]
-#else
-    strex  r2, r3, [r0, #MIRROR_OBJECT_LOCK_WORD_OFFSET]  @ strex necessary for read barrier bits.
-    cbnz   r2, .Lunlock_strex_fail    @ If the store failed, retry.
-#endif
-    bx     lr
-.Lunlock_strex_fail:
-    b      .Lretry_unlock             @ retry
-// Note: the slow path is actually the art_quick_unlock_object_no_inline (tail call).
+    // Note: the slow path is actually the art_quick_unlock_object_no_inline (tail call).
+    UNLOCK_OBJECT_FAST_PATH r0, r1, r2, r3, .Lunlock_object_slow, /*can_be_null*/ 1
 END art_quick_unlock_object
 
+    /*
+     * Entry from managed code that calls `artUnlockObjectFromCode()`
+     * and delivers exception on failure.
+     * r0 holds the possibly null object to unlock.
+     */
+    .extern artUnlockObjectFromCode
 ENTRY art_quick_unlock_object_no_inline
-    // This is also the slow path for art_quick_unlock_object. Note that we
-    // need a local label, the assembler complains about target being out of
-    // range if we try to jump to `art_quick_unlock_object_no_inline`.
-.Lslow_unlock:
+    // This is also the slow path for art_quick_unlock_object.
+    // Note that we need a local label as the assembler emits bad instructions
+    // for CBZ/CBNZ if we try to jump to `art_quick_unlock_object_no_inline`.
+.Lunlock_object_slow:
     @ save callee saves in case exception allocation triggers GC
     SETUP_SAVE_REFS_ONLY_FRAME r1
     mov    r1, rSELF                  @ pass Thread::Current
@@ -748,6 +686,7 @@ ENTRY art_quick_aput_obj
     mov r0, r3
     bl artIsAssignableFromCode
     cbz r0, .Lthrow_array_store_exception
+    .cfi_remember_state
     pop {r0-r2, lr}
     .cfi_restore r0
     .cfi_restore r1
@@ -762,8 +701,13 @@ ENTRY art_quick_aput_obj
     strb r3, [r3, r0]
     blx lr
 .Lthrow_array_store_exception:
+    CFI_RESTORE_STATE_AND_DEF_CFA sp, 16
     pop {r0-r2, lr}
-    /* No need to repeat restore cfi directives, the ones above apply here. */
+    .cfi_restore r0
+    .cfi_restore r1
+    .cfi_restore r2
+    .cfi_restore lr
+    .cfi_adjust_cfa_offset -16
     SETUP_SAVE_ALL_CALLEE_SAVES_FRAME r3
     mov r1, r2
     mov r2, rSELF                  @ pass Thread::Current
@@ -842,7 +786,7 @@ ENTRY \name
     RESTORE_SAVE_EVERYTHING_FRAME_KEEP_R0
     REFRESH_MARKING_REGISTER
     bx     lr
-    .cfi_restore_state
+    CFI_RESTORE_STATE_AND_DEF_CFA sp, FRAME_SIZE_SAVE_EVERYTHING
 1:
     DELIVER_PENDING_EXCEPTION_FRAME_READY
 END \name
@@ -1347,10 +1291,11 @@ ENTRY art_quick_test_suspend
     bx     lr
 END art_quick_test_suspend
 
+    .extern artImplicitSuspendFromCode
 ENTRY art_quick_implicit_suspend
     mov    r0, rSELF
     SETUP_SAVE_REFS_ONLY_FRAME r1             @ save callee saves for stack crawl
-    bl     artTestSuspendFromCode             @ (Thread*)
+    bl     artImplicitSuspendFromCode         @ (Thread*)
     RESTORE_SAVE_REFS_ONLY_FRAME
     REFRESH_MARKING_REGISTER
     bx     lr
@@ -1417,12 +1362,14 @@ ENTRY art_quick_resolution_trampoline
     mov     r3, sp                 @ pass SP
     blx     artQuickResolutionTrampoline  @ (Method* called, receiver, Thread*, SP)
     cbz     r0, 1f                 @ is code pointer null? goto exception
+    .cfi_remember_state
     mov     r12, r0
     ldr     r0, [sp, #0]           @ load resolved method in r0
     RESTORE_SAVE_REFS_AND_ARGS_FRAME
     REFRESH_MARKING_REGISTER
     bx      r12                    @ tail-call into actual code
 1:
+    CFI_RESTORE_STATE_AND_DEF_CFA sp, FRAME_SIZE_SAVE_REFS_AND_ARGS
     RESTORE_SAVE_REFS_AND_ARGS_FRAME
     DELIVER_PENDING_EXCEPTION
 END art_quick_resolution_trampoline
@@ -1512,8 +1459,7 @@ ENTRY art_quick_generic_jni_trampoline
     bx lr      // ret
 
     // Undo the unwinding information from above since it doesn't apply below.
-    .cfi_restore_state
-    .cfi_def_cfa r10, FRAME_SIZE_SAVE_REFS_AND_ARGS
+    CFI_RESTORE_STATE_AND_DEF_CFA r10, FRAME_SIZE_SAVE_REFS_AND_ARGS
 .Lexception_in_native:
     ldr ip, [rSELF, #THREAD_TOP_QUICK_FRAME_OFFSET]
     add ip, ip, #-1  // Remove the GenericJNI tag. ADD/SUB writing directly to SP is UNPREDICTABLE.
@@ -1564,6 +1510,7 @@ ENTRY art_quick_instrumentation_entry
     mov   r3, sp         @ pass SP
     blx   artInstrumentationMethodEntryFromCode  @ (Method*, Object*, Thread*, SP)
     cbz   r0, .Ldeliver_instrumentation_entry_exception
+    .cfi_remember_state
                          @ Deliver exception if we got nullptr as function.
     mov   r12, r0        @ r12 holds reference to code
     ldr   r0, [sp, #4]   @ restore r0
@@ -1573,6 +1520,7 @@ ENTRY art_quick_instrumentation_entry
     REFRESH_MARKING_REGISTER
     bx    r12            @ call method with lr set to art_quick_instrumentation_exit
 .Ldeliver_instrumentation_entry_exception:
+    CFI_RESTORE_STATE_AND_DEF_CFA sp, FRAME_SIZE_SAVE_REFS_AND_ARGS
     @ Deliver exception for art_quick_instrumentation_entry placed after
     @ art_quick_instrumentation_exit so that the fallthrough works.
     RESTORE_SAVE_REFS_AND_ARGS_FRAME
@@ -1591,6 +1539,7 @@ ENTRY art_quick_instrumentation_exit
 
     cbz   r0, .Ldo_deliver_instrumentation_exception
                          @ Deliver exception if we got nullptr as function.
+    .cfi_remember_state
     cbnz  r1, .Ldeoptimize
     // Normal return.
     str   r0, [sp, #FRAME_SIZE_SAVE_EVERYTHING - 4]
@@ -1599,6 +1548,7 @@ ENTRY art_quick_instrumentation_exit
     REFRESH_MARKING_REGISTER
     bx lr
 .Ldo_deliver_instrumentation_exception:
+    CFI_RESTORE_STATE_AND_DEF_CFA sp, FRAME_SIZE_SAVE_EVERYTHING
     DELIVER_PENDING_EXCEPTION_FRAME_READY
 .Ldeoptimize:
     str   r1, [sp, #FRAME_SIZE_SAVE_EVERYTHING - 4]
@@ -2525,3 +2475,35 @@ ENTRY art_quick_compile_optimized
     // artCompileOptimized doesn't allow thread suspension.
     blx lr
 END art_quick_compile_optimized
+
+// On entry, method is at the bottom of the stack.
+ENTRY art_quick_method_entry_hook
+    SETUP_SAVE_EVERYTHING_FRAME r0
+    ldr r0, [sp, FRAME_SIZE_SAVE_EVERYTHING] @ pass ArtMethod
+    mov r1, rSELF                            @ pass Thread::Current
+    bl  artMethodEntryHook                   @ (ArtMethod*, Thread*)
+    RESTORE_SAVE_EVERYTHING_FRAME
+    REFRESH_MARKING_REGISTER
+    blx lr
+END art_quick_method_entry_hook
+
+ENTRY art_quick_method_exit_hook
+    SETUP_SAVE_EVERYTHING_FRAME r2
+
+    add r3, sp, #8                            @ store fpr_res pointer, in kSaveEverything frame
+    add r2, sp, #136                          @ store gpr_res pointer, in kSaveEverything frame
+    ldr r1, [sp, #FRAME_SIZE_SAVE_EVERYTHING] @ pass ArtMethod*
+    mov r0, rSELF                             @ pass Thread::Current
+    blx artMethodExitHook                     @ (Thread*, ArtMethod*, gpr_res*, fpr_res*)
+
+    .cfi_remember_state
+    cbnz r0, .Ldo_deliver_instrumentation_exception_exit @ Deliver exception
+
+    // Normal return.
+    RESTORE_SAVE_EVERYTHING_FRAME
+    REFRESH_MARKING_REGISTER
+    blx lr
+.Ldo_deliver_instrumentation_exception_exit:
+    CFI_RESTORE_STATE_AND_DEF_CFA sp, FRAME_SIZE_SAVE_EVERYTHING
+    DELIVER_PENDING_EXCEPTION_FRAME_READY
+END art_quick_method_exit_hook

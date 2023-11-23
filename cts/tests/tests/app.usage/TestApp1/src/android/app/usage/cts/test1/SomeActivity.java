@@ -15,15 +15,37 @@
  */
 package android.app.usage.cts.test1;
 
-import androidx.annotation.Nullable;
+import static android.content.Intent.EXTRA_REMOTE_CALLBACK;
+
 import android.app.Activity;
+import android.content.Intent;
 import android.os.Bundle;
+import android.os.RemoteCallback;
+import android.util.Log;
 import android.view.WindowManager;
 
+import androidx.annotation.Nullable;
+
 public final class SomeActivity extends Activity {
+    private static final String TAG = "SomeActivity";
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        Log.d(TAG, "onCreate(): " + getIntent());
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        final Intent intent = getIntent();
+        Log.d(TAG, "onResume(): " + intent);
+        if (intent.hasExtra(EXTRA_REMOTE_CALLBACK)) {
+            final RemoteCallback remoteCallback = intent.getParcelableExtra(EXTRA_REMOTE_CALLBACK);
+            remoteCallback.sendResult(null);
+        }
     }
 }

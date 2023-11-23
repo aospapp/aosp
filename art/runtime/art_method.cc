@@ -319,7 +319,7 @@ void ArtMethod::Invoke(Thread* self, uint32_t* args, uint32_t args_size, JValue*
 
   if (kIsDebugBuild) {
     self->AssertThreadSuspensionIsAllowable();
-    CHECK_EQ(kRunnable, self->GetState());
+    CHECK_EQ(ThreadState::kRunnable, self->GetState());
     CHECK_STREQ(GetInterfaceMethodIfProxy(kRuntimePointerSize)->GetShorty(), shorty);
   }
 
@@ -391,10 +391,6 @@ void ArtMethod::Invoke(Thread* self, uint32_t* args, uint32_t args_size, JValue*
 
   // Pop transition.
   self->PopManagedStackFragment(fragment);
-}
-
-bool ArtMethod::IsOverridableByDefaultMethod() {
-  return GetDeclaringClass()->IsInterface();
 }
 
 bool ArtMethod::IsSignaturePolymorphic() {
@@ -559,7 +555,8 @@ const OatQuickMethodHeader* ArtMethod::GetOatQuickMethodHeader(uintptr_t pc) {
   if (!class_linker->IsQuickGenericJniStub(existing_entry_point) &&
       !class_linker->IsQuickResolutionStub(existing_entry_point) &&
       !class_linker->IsQuickToInterpreterBridge(existing_entry_point) &&
-      existing_entry_point != GetQuickInstrumentationEntryPoint()) {
+      existing_entry_point != GetQuickInstrumentationEntryPoint() &&
+      existing_entry_point != GetInvokeObsoleteMethodStub()) {
     OatQuickMethodHeader* method_header =
         OatQuickMethodHeader::FromEntryPoint(existing_entry_point);
 
@@ -568,8 +565,7 @@ const OatQuickMethodHeader* ArtMethod::GetOatQuickMethodHeader(uintptr_t pc) {
     }
   }
 
-  if (OatQuickMethodHeader::NterpMethodHeader != nullptr &&
-      OatQuickMethodHeader::NterpMethodHeader->Contains(pc)) {
+  if (OatQuickMethodHeader::IsNterpPc(pc)) {
     return OatQuickMethodHeader::NterpMethodHeader;
   }
 
@@ -696,7 +692,7 @@ void ArtMethod::SetIntrinsic(uint32_t intrinsic) {
     DCHECK_EQ(is_compilable, IsCompilable());
     DCHECK_EQ(must_count_locks, MustCountLocks());
     // Only DCHECK that we have preserved the hidden API access flags if the
-    // original method was not on the whitelist. This is because the core image
+    // original method was not in the SDK list. This is because the core image
     // does not have the access flags set (b/77733081).
     if ((hiddenapi_flags & kAccHiddenapiBits) != kAccPublicApi) {
       DCHECK_EQ(hiddenapi_flags, hiddenapi::GetRuntimeFlags(this)) << PrettyMethod();
@@ -752,7 +748,7 @@ void ArtMethod::CopyFrom(ArtMethod* src, PointerSize image_pointer_size) {
     SetDataPtrSize(nullptr, image_pointer_size);
   }
   // Clear hotness to let the JIT properly decide when to compile this method.
-  hotness_count_ = 0;
+  ResetCounter(runtime->GetJITOptions()->GetWarmupThreshold());
 }
 
 bool ArtMethod::IsImagePointerSize(PointerSize pointer_size) {
@@ -843,12 +839,12 @@ const char* ArtMethod::GetRuntimeMethodName() {
   }
 }
 
-void ArtMethod::SetCodeItem(const dex::CodeItem* code_item) {
+void ArtMethod::SetCodeItem(const dex::CodeItem* code_item, bool is_compact_dex_code_item) {
   DCHECK(HasCodeItem());
   // We mark the lowest bit for the interpreter to know whether it's executing a
   // method in a compact or standard dex file.
   uintptr_t data =
-      reinterpret_cast<uintptr_t>(code_item) | (GetDexFile()->IsCompactDexFile() ? 1 : 0);
+      reinterpret_cast<uintptr_t>(code_item) | (is_compact_dex_code_item ? 1 : 0);
   SetDataPtrSize(reinterpret_cast<void*>(data), kRuntimePointerSize);
 }
 

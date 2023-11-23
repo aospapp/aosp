@@ -18,10 +18,11 @@
 #include "gmock-logging-compat.h"
 
 #include <stdio.h>
-#include <unistd.h>
+#include <optional>
 
 #include <android-base/file.h>
 #include <android-base/logging.h>
+#include <android-base/result-gmock.h>
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 #include <gtest/gtest.h>
@@ -39,13 +40,12 @@ using namespace ::testing;
 using namespace std::literals;
 
 using android::FqInstance;
+using android::base::testing::HasError;
+using android::base::testing::Ok;
+using android::base::testing::WithMessage;
 
-static AssertionResult In(const std::string& sub, const std::string& str) {
-    return (str.find(sub) != std::string::npos ? AssertionSuccess() : AssertionFailure())
-           << "Value is " << str;
-}
-#define EXPECT_IN(sub, str) EXPECT_TRUE(In((sub), (str)))
-#define EXPECT_NOT_IN(sub, str) EXPECT_FALSE(In((sub), (str)))
+#define EXPECT_IN(sub, str) EXPECT_THAT(str, HasSubstr(sub))
+#define EXPECT_NOT_IN(sub, str) EXPECT_THAT(str, Not(HasSubstr(sub)))
 
 namespace android {
 namespace vintf {
@@ -1458,9 +1458,8 @@ TEST_P(KernelTestP, Test) {
     auto runtime = vintfObject->getRuntimeInfo();
     ASSERT_NE(nullptr, matrix);
     ASSERT_NE(nullptr, runtime);
-    std::string fallbackError = kernelFcm == Level::UNSPECIFIED
-        ? "\nOld requirements must not change"
-        : "\nMust not pull unnecessary requirements from new matrices";
+    std::string fallbackError = "Matrix is compatible with kernel info, but it shouldn't. Matrix:\n"
+        + toXml(*matrix) + "\nKernelInfo:\n" + toXml(info);
     std::string error;
     ASSERT_EQ(pass, runtime->checkCompatibility(*matrix, &error))
             << (pass ? error : fallbackError);
@@ -1481,6 +1480,11 @@ std::vector<KernelTestP::ParamType> KernelTestParamValues() {
     ret.emplace_back(matrices, MakeKernelInfo("3.0.0", "C2"), Level{1}, Level{1}, false);
     ret.emplace_back(matrices, MakeKernelInfo("4.0.0", "D2"), Level{1}, Level{1}, false);
     ret.emplace_back(matrices, MakeKernelInfo("2.0.0", "B2"), Level{1}, Level{1}, true);
+
+    // Kernel FCM lower than target FCM
+    ret.emplace_back(matrices, MakeKernelInfo("1.0.0", "A1"), Level{2}, Level{1}, true);
+    ret.emplace_back(matrices, MakeKernelInfo("2.0.0", "B1"), Level{2}, Level{1}, true);
+    ret.emplace_back(matrices, MakeKernelInfo("2.0.0", "B2"), Level{2}, Level{1}, true);
 
     matrices = systemMatrixKernelXmls;
     ret.emplace_back(matrices, MakeKernelInfo("1.0.0", "A1"), Level{1}, Level::UNSPECIFIED, true);
@@ -1516,6 +1520,25 @@ std::vector<KernelTestP::ParamType> KernelTestParamValues() {
     ret.emplace_back(matrices, MakeKernelInfo("6.0.0", "F4"), Level{3}, Level{3}, false);
     ret.emplace_back(matrices, MakeKernelInfo("6.0.0", "F4"), Level{4}, Level{4}, true);
     ret.emplace_back(matrices, MakeKernelInfo("6.0.0", "F4"), Level{5}, Level{5}, false);
+
+    // Kernel FCM lower than target FCM
+    ret.emplace_back(matrices, MakeKernelInfo("1.0.0", "A1"), Level{2}, Level{1}, true);
+    ret.emplace_back(matrices, MakeKernelInfo("2.0.0", "B1"), Level{2}, Level{1}, true);
+    ret.emplace_back(matrices, MakeKernelInfo("2.0.0", "B2"), Level{2}, Level{1}, true);
+    ret.emplace_back(matrices, MakeKernelInfo("3.0.0", "C2"), Level{2}, Level{1}, false);
+    ret.emplace_back(matrices, MakeKernelInfo("3.0.0", "C3"), Level{2}, Level{1}, false);
+    ret.emplace_back(matrices, MakeKernelInfo("4.0.0", "D2"), Level{2}, Level{1}, false);
+    ret.emplace_back(matrices, MakeKernelInfo("4.0.0", "D3"), Level{2}, Level{1}, false);
+    ret.emplace_back(matrices, MakeKernelInfo("5.0.0", "E3"), Level{2}, Level{1}, false);
+    ret.emplace_back(matrices, MakeKernelInfo("5.0.0", "E4"), Level{2}, Level{1}, false);
+    ret.emplace_back(matrices, MakeKernelInfo("6.0.0", "F4"), Level{2}, Level{1}, false);
+    ret.emplace_back(matrices, MakeKernelInfo("6.0.0", "F5"), Level{2}, Level{1}, false);
+    ret.emplace_back(matrices, MakeKernelInfo("7.0.0", "G5"), Level{2}, Level{1}, false);
+
+    ret.emplace_back(matrices, MakeKernelInfo("6.0.0", "F4"), Level{3}, Level{2}, false);
+    ret.emplace_back(matrices, MakeKernelInfo("6.0.0", "F4"), Level{4}, Level{3}, false);
+    ret.emplace_back(matrices, MakeKernelInfo("6.0.0", "F4"), Level{5}, Level{4}, true);
+    // We don't have device FCM 6 in systemMatrixKernelXmls, skip
 
     return ret;
 }
@@ -1870,35 +1893,6 @@ INSTANTIATE_TEST_SUITE_P(OemFcmLevel, OemFcmLevelTest, Combine(Values(1, 2), Boo
     OemFcmLevelTestParamToString);
 // clang-format on
 
-// A matcher that checks if a Result object contains an error message, and the error message
-// contains the given substring.
-class ErrorMessageMatcher {
-   public:
-    ErrorMessageMatcher(const std::string& message) : mMessage(message) {}
-    template <class T>
-    bool MatchAndExplain(const android::base::Result<T>& result,
-                         MatchResultListener* listener) const {
-        if (result.ok()) {
-            *listener << "result is ok";
-            return false;
-        }
-        *listener << "result has error message \"" << result.error().message() << "\"";
-        return result.error().message().find(mMessage) != std::string::npos;
-    }
-    void DescribeTo(std::ostream* os) const {
-        *os << "error message contains \"" << mMessage << "\"";
-    }
-    void DescribeNegationTo(std::ostream* os) const {
-        *os << "error message does not contain \"" << mMessage << "\"";
-    }
-
-   private:
-    std::string mMessage;
-};
-PolymorphicMatcher<ErrorMessageMatcher> HasErrorMessage(const std::string& message) {
-    return MakePolymorphicMatcher(ErrorMessageMatcher(message));
-}
-
 // Common test set up for checking matrices against lib*idlmetadata.
 class CheckMatricesWithHalDefTestBase : public MultiMatrixTest {
     void SetUp() override {
@@ -1934,15 +1928,15 @@ class CheckMatricesWithHalDefTestBase : public MultiMatrixTest {
 class CheckMissingHalsTest : public CheckMatricesWithHalDefTestBase {};
 
 TEST_F(CheckMissingHalsTest, Empty) {
-    EXPECT_RESULT_OK(vintfObject->checkMissingHalsInMatrices({}, {}));
+    EXPECT_THAT(vintfObject->checkMissingHalsInMatrices({}, {}), Ok());
 }
 
 TEST_F(CheckMissingHalsTest, Pass) {
     std::vector<HidlInterfaceMetadata> hidl{{.name = "android.hardware.hidl@1.0::IHidl"}};
     std::vector<AidlInterfaceMetadata> aidl{{.types = {"android.hardware.aidl.IAidl"}}};
-    EXPECT_RESULT_OK(vintfObject->checkMissingHalsInMatrices(hidl, {}));
-    EXPECT_RESULT_OK(vintfObject->checkMissingHalsInMatrices({}, aidl));
-    EXPECT_RESULT_OK(vintfObject->checkMissingHalsInMatrices(hidl, aidl));
+    EXPECT_THAT(vintfObject->checkMissingHalsInMatrices(hidl, {}), Ok());
+    EXPECT_THAT(vintfObject->checkMissingHalsInMatrices({}, aidl), Ok());
+    EXPECT_THAT(vintfObject->checkMissingHalsInMatrices(hidl, aidl), Ok());
 }
 
 TEST_F(CheckMissingHalsTest, FailVendor) {
@@ -1950,21 +1944,21 @@ TEST_F(CheckMissingHalsTest, FailVendor) {
     std::vector<AidlInterfaceMetadata> aidl{{.types = {"vendor.foo.aidl.IAidl"}}};
 
     auto res = vintfObject->checkMissingHalsInMatrices(hidl, {});
-    EXPECT_THAT(res, HasErrorMessage("vendor.foo.hidl@1.0"));
+    EXPECT_THAT(res, HasError(WithMessage(HasSubstr("vendor.foo.hidl@1.0"))));
 
     res = vintfObject->checkMissingHalsInMatrices({}, aidl);
-    EXPECT_THAT(res, HasErrorMessage("vendor.foo.aidl"));
+    EXPECT_THAT(res, HasError(WithMessage(HasSubstr("vendor.foo.aidl"))));
 
     res = vintfObject->checkMissingHalsInMatrices(hidl, aidl);
-    EXPECT_THAT(res, HasErrorMessage("vendor.foo.hidl@1.0"));
-    EXPECT_THAT(res, HasErrorMessage("vendor.foo.aidl"));
+    EXPECT_THAT(res, HasError(WithMessage(HasSubstr("vendor.foo.hidl@1.0"))));
+    EXPECT_THAT(res, HasError(WithMessage(HasSubstr("vendor.foo.aidl"))));
 
     auto predicate = [](const auto& interfaceName) {
         return android::base::StartsWith(interfaceName, "android.hardware");
     };
-    EXPECT_RESULT_OK(vintfObject->checkMissingHalsInMatrices(hidl, {}, predicate));
-    EXPECT_RESULT_OK(vintfObject->checkMissingHalsInMatrices({}, aidl, predicate));
-    EXPECT_RESULT_OK(vintfObject->checkMissingHalsInMatrices(hidl, aidl, predicate));
+    EXPECT_THAT(vintfObject->checkMissingHalsInMatrices(hidl, {}, predicate), Ok());
+    EXPECT_THAT(vintfObject->checkMissingHalsInMatrices({}, aidl, predicate), Ok());
+    EXPECT_THAT(vintfObject->checkMissingHalsInMatrices(hidl, aidl, predicate), Ok());
 }
 
 TEST_F(CheckMissingHalsTest, FailVersion) {
@@ -1972,28 +1966,28 @@ TEST_F(CheckMissingHalsTest, FailVersion) {
     std::vector<AidlInterfaceMetadata> aidl{{.types = {"android.hardware.aidl2.IAidl"}}};
 
     auto res = vintfObject->checkMissingHalsInMatrices(hidl, {});
-    EXPECT_THAT(res, HasErrorMessage("android.hardware.hidl@2.0"));
+    EXPECT_THAT(res, HasError(WithMessage(HasSubstr("android.hardware.hidl@2.0"))));
 
     res = vintfObject->checkMissingHalsInMatrices({}, aidl);
-    EXPECT_THAT(res, HasErrorMessage("android.hardware.aidl2"));
+    EXPECT_THAT(res, HasError(WithMessage(HasSubstr("android.hardware.aidl2"))));
 
     res = vintfObject->checkMissingHalsInMatrices(hidl, aidl);
-    EXPECT_THAT(res, HasErrorMessage("android.hardware.hidl@2.0"));
-    EXPECT_THAT(res, HasErrorMessage("android.hardware.aidl2"));
+    EXPECT_THAT(res, HasError(WithMessage(HasSubstr("android.hardware.hidl@2.0"))));
+    EXPECT_THAT(res, HasError(WithMessage(HasSubstr("android.hardware.aidl2"))));
 
     auto predicate = [](const auto& interfaceName) {
         return android::base::StartsWith(interfaceName, "android.hardware");
     };
 
     res = vintfObject->checkMissingHalsInMatrices(hidl, {}, predicate);
-    EXPECT_THAT(res, HasErrorMessage("android.hardware.hidl@2.0"));
+    EXPECT_THAT(res, HasError(WithMessage(HasSubstr("android.hardware.hidl@2.0"))));
 
     res = vintfObject->checkMissingHalsInMatrices({}, aidl, predicate);
-    EXPECT_THAT(res, HasErrorMessage("android.hardware.aidl2"));
+    EXPECT_THAT(res, HasError(WithMessage(HasSubstr("android.hardware.aidl2"))));
 
     res = vintfObject->checkMissingHalsInMatrices(hidl, aidl, predicate);
-    EXPECT_THAT(res, HasErrorMessage("android.hardware.hidl@2.0"));
-    EXPECT_THAT(res, HasErrorMessage("android.hardware.aidl2"));
+    EXPECT_THAT(res, HasError(WithMessage(HasSubstr("android.hardware.hidl@2.0"))));
+    EXPECT_THAT(res, HasError(WithMessage(HasSubstr("android.hardware.aidl2"))));
 }
 
 // A set of tests on VintfObject::checkMatrixHalsHasDefinition
@@ -2002,26 +1996,339 @@ class CheckMatrixHalsHasDefinitionTest : public CheckMatricesWithHalDefTestBase 
 TEST_F(CheckMatrixHalsHasDefinitionTest, Pass) {
     std::vector<HidlInterfaceMetadata> hidl{{.name = "android.hardware.hidl@1.0::IHidl"}};
     std::vector<AidlInterfaceMetadata> aidl{{.types = {"android.hardware.aidl.IAidl"}}};
-    EXPECT_RESULT_OK(vintfObject->checkMatrixHalsHasDefinition(hidl, aidl));
+    EXPECT_THAT(vintfObject->checkMatrixHalsHasDefinition(hidl, aidl), Ok());
 }
 
 TEST_F(CheckMatrixHalsHasDefinitionTest, FailMissingHidl) {
     std::vector<AidlInterfaceMetadata> aidl{{.types = {"android.hardware.aidl.IAidl"}}};
     auto res = vintfObject->checkMatrixHalsHasDefinition({}, aidl);
-    EXPECT_THAT(res, HasErrorMessage("android.hardware.hidl@1.0::IHidl"));
+    EXPECT_THAT(res, HasError(WithMessage(HasSubstr("android.hardware.hidl@1.0::IHidl"))));
 }
 
 TEST_F(CheckMatrixHalsHasDefinitionTest, FailMissingAidl) {
     std::vector<HidlInterfaceMetadata> hidl{{.name = "android.hardware.hidl@1.0::IHidl"}};
     auto res = vintfObject->checkMatrixHalsHasDefinition(hidl, {});
-    EXPECT_THAT(res, HasErrorMessage("android.hardware.aidl.IAidl"));
+    EXPECT_THAT(res, HasError(WithMessage(HasSubstr("android.hardware.aidl.IAidl"))));
 }
 
 TEST_F(CheckMatrixHalsHasDefinitionTest, FailMissingBoth) {
     auto res = vintfObject->checkMatrixHalsHasDefinition({}, {});
-    EXPECT_THAT(res, HasErrorMessage("android.hardware.hidl@1.0::IHidl"));
-    EXPECT_THAT(res, HasErrorMessage("android.hardware.aidl.IAidl"));
+    EXPECT_THAT(res, HasError(WithMessage(HasSubstr("android.hardware.hidl@1.0::IHidl"))));
+    EXPECT_THAT(res, HasError(WithMessage(HasSubstr("android.hardware.aidl.IAidl"))));
 }
+
+constexpr const char* systemMatrixHealthFormat = R"(
+<compatibility-matrix %s type="framework" level="%s">
+    <hal format="%s" optional="%s">
+        <name>android.hardware.health</name>
+        <version>%s</version>
+        <interface>
+            <name>IHealth</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+</compatibility-matrix>
+)";
+
+constexpr const char* vendorManifestHealthHidlFormat = R"(
+<manifest %s type="device" target-level="%s">
+    <hal format="hidl">
+        <name>android.hardware.health</name>
+        <transport>hwbinder</transport>
+        <fqname>@%s::IHealth/default</fqname>
+    </hal>
+</manifest>
+)";
+
+constexpr const char* vendorManifestHealthAidlFormat = R"(
+<manifest %s type="device" target-level="%s">
+    <hal format="aidl">
+        <name>android.hardware.health</name>
+        <version>%s</version>
+        <fqname>IHealth/default</fqname>
+    </hal>
+</manifest>
+)";
+
+using HealthHalVersion = std::variant<Version /* HIDL */, size_t /* AIDL */>;
+struct VintfObjectHealthHalTestParam {
+    Level targetLevel;
+    HealthHalVersion halVersion;
+    bool expected;
+
+    HalFormat getHalFormat() const {
+        if (std::holds_alternative<Version>(halVersion)) return HalFormat::HIDL;
+        if (std::holds_alternative<size_t>(halVersion)) return HalFormat::AIDL;
+        __builtin_unreachable();
+    }
+};
+std::ostream& operator<<(std::ostream& os, const VintfObjectHealthHalTestParam& param) {
+    os << param.targetLevel << "_" << param.getHalFormat() << "_";
+    switch (param.getHalFormat()) {
+        case HalFormat::HIDL: {
+            const auto& v = std::get<Version>(param.halVersion);
+            os << "v" << v.majorVer << "_" << v.minorVer;
+        } break;
+        case HalFormat::AIDL: {
+            os << "v" << std::get<size_t>(param.halVersion);
+        } break;
+        default:
+            __builtin_unreachable();
+    }
+    return os << "_" << (param.expected ? "ok" : "not_ok");
+}
+
+// Test fixture that provides compatible metadata from the mock device.
+class VintfObjectHealthHalTest : public MultiMatrixTest,
+                                 public WithParamInterface<VintfObjectHealthHalTestParam> {
+   public:
+    virtual void SetUp() {
+        MultiMatrixTest::SetUp();
+        SetUpMockSystemMatrices({
+            android::base::StringPrintf(
+                systemMatrixHealthFormat, kMetaVersionStr.c_str(), to_string(Level::P).c_str(),
+                to_string(HalFormat::HIDL).c_str(), "true", to_string(Version{2, 0}).c_str()),
+            android::base::StringPrintf(
+                systemMatrixHealthFormat, kMetaVersionStr.c_str(), to_string(Level::Q).c_str(),
+                to_string(HalFormat::HIDL).c_str(), "true", to_string(Version{2, 0}).c_str()),
+            android::base::StringPrintf(
+                systemMatrixHealthFormat, kMetaVersionStr.c_str(), to_string(Level::R).c_str(),
+                to_string(HalFormat::HIDL).c_str(), "true", to_string(Version{2, 1}).c_str()),
+            android::base::StringPrintf(
+                systemMatrixHealthFormat, kMetaVersionStr.c_str(), to_string(Level::S).c_str(),
+                to_string(HalFormat::HIDL).c_str(), "true", to_string(Version{2, 1}).c_str()),
+            android::base::StringPrintf(
+                systemMatrixHealthFormat, kMetaVersionStr.c_str(), to_string(Level::T).c_str(),
+                to_string(HalFormat::AIDL).c_str(), "false", to_string(1).c_str()),
+        });
+        switch (GetParam().getHalFormat()) {
+            case HalFormat::HIDL:
+                expectFetchRepeatedly(
+                    kVendorManifest,
+                    android::base::StringPrintf(
+                        vendorManifestHealthHidlFormat, kMetaVersionStr.c_str(),
+                        to_string(GetParam().targetLevel).c_str(),
+                        to_string(std::get<Version>(GetParam().halVersion)).c_str()));
+                break;
+            case HalFormat::AIDL:
+                expectFetchRepeatedly(
+                    kVendorManifest,
+                    android::base::StringPrintf(
+                        vendorManifestHealthAidlFormat, kMetaVersionStr.c_str(),
+                        to_string(GetParam().targetLevel).c_str(),
+                        to_string(std::get<size_t>(GetParam().halVersion)).c_str()));
+                break;
+            default:
+                __builtin_unreachable();
+        }
+    }
+    static std::vector<VintfObjectHealthHalTestParam> GetParams() {
+        std::vector<VintfObjectHealthHalTestParam> ret;
+        for (auto level : {Level::P, Level::Q, Level::R, Level::S, Level::T}) {
+            ret.push_back({level, Version{2, 0}, level < Level::R});
+            ret.push_back({level, Version{2, 1}, level < Level::T});
+            ret.push_back({level, 1, true});
+        }
+        return ret;
+    }
+};
+
+TEST_P(VintfObjectHealthHalTest, Test) {
+    auto manifest = vintfObject->getDeviceHalManifest();
+    ASSERT_NE(nullptr, manifest);
+    std::string deprecatedError;
+    auto deprecation = vintfObject->checkDeprecation({}, &deprecatedError);
+    bool hasHidl =
+        manifest->hasHidlInstance("android.hardware.health", {2, 0}, "IHealth", "default");
+    bool hasAidl = manifest->hasAidlInstance("android.hardware.health", 1, "IHealth", "default");
+    bool hasHal = hasHidl || hasAidl;
+    EXPECT_EQ(GetParam().expected, deprecation == NO_DEPRECATED_HALS && hasHal)
+        << "checkDeprecation() returns " << deprecation << "; hasHidl = " << hasHidl
+        << ", hasAidl = " << hasAidl;
+}
+
+INSTANTIATE_TEST_SUITE_P(VintfObjectHealthHalTest, VintfObjectHealthHalTest,
+                         ::testing::ValuesIn(VintfObjectHealthHalTest::GetParams()),
+                         [](const auto& info) { return to_string(info.param); });
+
+constexpr const char* systemMatrixComposerFormat = R"(
+<compatibility-matrix %s type="framework" level="%s">
+    %s
+</compatibility-matrix>
+)";
+
+constexpr const char* systemMatrixComposerHalFragmentFormat = R"(
+    <hal format="%s" optional="%s">
+        <name>%s</name>
+        <version>%s</version>
+        <interface>
+            <name>IComposer</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+)";
+
+constexpr const char* vendorManifestComposerHidlFormat = R"(
+<manifest %s type="device" target-level="%s">
+    %s
+</manifest>
+)";
+
+constexpr const char* vendorManifestComposerHidlFragmentFormat = R"(
+    <hal format="hidl">
+        <name>android.hardware.graphics.composer</name>
+        <version>%s</version>
+        <transport>hwbinder</transport>
+        <interface>
+            <name>IComposer</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+)";
+
+constexpr const char* vendorManifestComposerAidlFragmentFormat = R"(
+    <hal format="aidl">
+        <name>android.hardware.graphics.composer3</name>
+        <version>%s</version>
+        <interface>
+            <name>IComposer</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+)";
+
+constexpr const char* composerHidlHalName = "android.hardware.graphics.composer";
+constexpr const char* composerAidlHalName = "android.hardware.graphics.composer3";
+
+using ComposerHalVersion = std::variant<Version /* HIDL */, size_t /* AIDL */>;
+struct VintfObjectComposerHalTestParam {
+    Level targetLevel;
+    std::optional<ComposerHalVersion> halVersion;
+    bool expected;
+
+    bool hasHal() const { return halVersion.has_value(); }
+
+    HalFormat getHalFormat() const {
+        if (std::holds_alternative<Version>(*halVersion)) return HalFormat::HIDL;
+        if (std::holds_alternative<size_t>(*halVersion)) return HalFormat::AIDL;
+        __builtin_unreachable();
+    }
+};
+std::ostream& operator<<(std::ostream& os, const VintfObjectComposerHalTestParam& param) {
+    os << param.targetLevel << "_";
+    if (param.hasHal()) {
+        os << param.getHalFormat() << "_";
+        switch (param.getHalFormat()) {
+            case HalFormat::HIDL: {
+                const auto& v = std::get<Version>(*param.halVersion);
+                os << "v" << v.majorVer << "_" << v.minorVer;
+            } break;
+            case HalFormat::AIDL: {
+                os << "v" << std::get<size_t>(*param.halVersion);
+            } break;
+            default:
+                __builtin_unreachable();
+        }
+    } else {
+        os << "no_hal";
+    }
+    return os << "_" << (param.expected ? "ok" : "not_ok");
+}
+
+// Test fixture that provides compatible metadata from the mock device.
+class VintfObjectComposerHalTest : public MultiMatrixTest,
+                                   public WithParamInterface<VintfObjectComposerHalTestParam> {
+   public:
+    virtual void SetUp() {
+        MultiMatrixTest::SetUp();
+
+        const std::string requiresHidl2_1To2_2 = android::base::StringPrintf(
+            systemMatrixComposerHalFragmentFormat, to_string(HalFormat::HIDL).c_str(), "false",
+            composerHidlHalName, to_string(VersionRange{2, 1, 2}).c_str());
+        const std::string requiresHidl2_1To2_3 = android::base::StringPrintf(
+            systemMatrixComposerHalFragmentFormat, to_string(HalFormat::HIDL).c_str(), "false",
+            composerHidlHalName, to_string(VersionRange{2, 1, 3}).c_str());
+        const std::string requiresHidl2_1To2_4 = android::base::StringPrintf(
+            systemMatrixComposerHalFragmentFormat, to_string(HalFormat::HIDL).c_str(), "false",
+            composerHidlHalName, to_string(VersionRange{2, 1, 4}).c_str());
+        const std::string optionalHidl2_1To2_4 = android::base::StringPrintf(
+            systemMatrixComposerHalFragmentFormat, to_string(HalFormat::HIDL).c_str(), "true",
+            composerHidlHalName, to_string(VersionRange{2, 1, 4}).c_str());
+        const std::string optionalAidl1 = android::base::StringPrintf(
+            systemMatrixComposerHalFragmentFormat, to_string(HalFormat::AIDL).c_str(), "true",
+            composerAidlHalName, "1");
+        const std::string optionalHidl2_1To2_4OrAidl1 = optionalHidl2_1To2_4 + optionalAidl1;
+
+        SetUpMockSystemMatrices({
+            android::base::StringPrintf(systemMatrixComposerFormat, kMetaVersionStr.c_str(),
+                                        to_string(Level::P).c_str(), requiresHidl2_1To2_2.c_str()),
+            android::base::StringPrintf(systemMatrixComposerFormat, kMetaVersionStr.c_str(),
+                                        to_string(Level::Q).c_str(), requiresHidl2_1To2_3.c_str()),
+            android::base::StringPrintf(systemMatrixComposerFormat, kMetaVersionStr.c_str(),
+                                        to_string(Level::R).c_str(), requiresHidl2_1To2_4.c_str()),
+            android::base::StringPrintf(systemMatrixComposerFormat, kMetaVersionStr.c_str(),
+                                        to_string(Level::S).c_str(), requiresHidl2_1To2_4.c_str()),
+            android::base::StringPrintf(systemMatrixComposerFormat, kMetaVersionStr.c_str(),
+                                        to_string(Level::T).c_str(),
+                                        optionalHidl2_1To2_4OrAidl1.c_str()),
+        });
+
+        const auto param = GetParam();
+
+        std::string vendorHalFragment;
+        if (param.hasHal()) {
+            switch (param.getHalFormat()) {
+                case HalFormat::HIDL:
+                    vendorHalFragment = android::base::StringPrintf(
+                        vendorManifestComposerHidlFragmentFormat,
+                        to_string(std::get<Version>(*param.halVersion)).c_str());
+                    break;
+                case HalFormat::AIDL:
+                    vendorHalFragment = android::base::StringPrintf(
+                        vendorManifestComposerAidlFragmentFormat,
+                        to_string(std::get<size_t>(*param.halVersion)).c_str());
+                    break;
+                default:
+                    __builtin_unreachable();
+            }
+        } else {
+            vendorHalFragment = "";
+        }
+        expectFetchRepeatedly(kVendorManifest,
+                              android::base::StringPrintf(
+                                  vendorManifestComposerHidlFormat, kMetaVersionStr.c_str(),
+                                  to_string(param.targetLevel).c_str(), vendorHalFragment.c_str()));
+    }
+    static std::vector<VintfObjectComposerHalTestParam> GetParams() {
+        std::vector<VintfObjectComposerHalTestParam> ret;
+        for (auto level : {Level::P, Level::Q, Level::R, Level::S, Level::T}) {
+            ret.push_back({level, std::nullopt, false});
+            ret.push_back({level, ComposerHalVersion{Version{2, 1}}, true});
+            ret.push_back({level, ComposerHalVersion{Version{2, 2}}, true});
+            ret.push_back({level, ComposerHalVersion{Version{2, 3}}, true});
+            ret.push_back({level, ComposerHalVersion{Version{2, 4}}, true});
+            ret.push_back({level, ComposerHalVersion{1}, true});
+        }
+        return ret;
+    }
+};
+
+TEST_P(VintfObjectComposerHalTest, Test) {
+    auto manifest = vintfObject->getDeviceHalManifest();
+    ASSERT_NE(nullptr, manifest);
+    std::string deprecatedError;
+    auto deprecation = vintfObject->checkDeprecation({}, &deprecatedError);
+    bool hasHidl = manifest->hasHidlInstance(composerHidlHalName, {2, 1}, "IComposer", "default");
+    bool hasAidl = manifest->hasAidlInstance(composerAidlHalName, 1, "IComposer", "default");
+    bool hasHal = hasHidl || hasAidl;
+    EXPECT_EQ(GetParam().expected, deprecation == NO_DEPRECATED_HALS && hasHal)
+        << "checkDeprecation() returns " << deprecation << "; hasHidl = " << hasHidl
+        << ", hasAidl = " << hasAidl;
+}
+
+INSTANTIATE_TEST_SUITE_P(VintfObjectComposerHalTest, VintfObjectComposerHalTest,
+                         ::testing::ValuesIn(VintfObjectComposerHalTest::GetParams()),
+                         [](const auto& info) { return to_string(info.param); });
 
 }  // namespace testing
 }  // namespace vintf

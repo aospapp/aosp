@@ -24,15 +24,20 @@
 #include <string>
 
 #include "chre_host/host_protocol_host.h"
-#include "chre_host/log_message_parser_base.h"
+#include "chre_host/log_message_parser.h"
 #include "chre_host/socket_server.h"
+
+#ifdef CHRE_DAEMON_METRIC_ENABLED
+#include <aidl/android/frameworks/stats/IStats.h>
+#include <android/binder_manager.h>
+#endif
 
 namespace android {
 namespace chre {
 
 class ChreDaemonBase {
  public:
-  ChreDaemonBase() : mChreShutdownRequested(false) {}
+  ChreDaemonBase();
   virtual ~ChreDaemonBase() {}
 
   /**
@@ -85,6 +90,12 @@ class ChreDaemonBase {
   //! server is started and is sufficiently high enough so as to not collide
   //! with any clients after the server starts.
   static constexpr uint16_t kHostClientIdDaemon = UINT16_MAX;
+
+  //! Contains the transaction ID and app ID used to preload nanoapps.
+  struct Transaction {
+    uint32_t transactionId;
+    uint64_t nanoappId;
+  };
 
   void setShutdownRequested(bool request) {
     mChreShutdownRequested = request;
@@ -168,6 +179,8 @@ class ChreDaemonBase {
   bool sendTimeSyncWithRetry(size_t numRetries, useconds_t retryDelayUs,
                              bool logOnError);
 
+  bool sendNanConfigurationUpdate(bool nanEnabled);
+
   /**
    * Interface to a callback that is called when the Daemon receives a message.
    *
@@ -195,20 +208,47 @@ class ChreDaemonBase {
   virtual void configureLpma(bool enabled) = 0;
 
   /**
-   * @return logger used by the underlying platform.
+   * Configures the daemon to send NAN enable/disable HAL requests.
    */
-  virtual ChreLogMessageParserBase *getLogger() = 0;
+  virtual void configureNan(bool enabled);
+
+#ifdef CHRE_DAEMON_METRIC_ENABLED
+  /**
+   * Handles a metric log message sent from CHRE
+   */
+  virtual void handleMetricLog(const ::chre::fbs::MetricLogT *metric_msg);
+#endif  // CHRE_DAEMON_METRIC_ENABLED
+
+#ifdef CHRE_DAEMON_METRIC_ENABLED
+  /**
+   * Create and report CHRE vendor atom and send it to stats_client
+   *
+   * @param atom the vendor atom to be reported
+   */
+  virtual void reportMetric(
+      const aidl::android::frameworks::stats::VendorAtom &atom);
+#endif  // CHRE_DAEMON_METRIC_ENABLED
+
+  /**
+   * Returns the CHRE log message parser instance.
+   * @return log message parser instance.
+   */
+  LogMessageParser &getLogger() {
+    return mLogger;
+  }
 
   //! Server used to communicate with daemon clients
   SocketServer mServer;
 
  private:
+  LogMessageParser mLogger;
+
   //! Set to true when we request a graceful shutdown of CHRE
   std::atomic<bool> mChreShutdownRequested;
 
-  //! Contains a set of transaction IDs used to load the preloaded nanoapps.
-  //! The IDs are stored in the order they are sent.
-  std::queue<uint32_t> mPreloadedNanoappPendingTransactionIds;
+  //! Contains a set of transaction IDs and app IDs used to load the preloaded
+  //! nanoapps. The IDs are stored in the order they are sent.
+  std::queue<Transaction> mPreloadedNanoappPendingTransactions;
 
   /**
    * Computes and returns the clock drift between the system clock

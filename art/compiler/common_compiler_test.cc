@@ -149,20 +149,18 @@ const void* CommonCompilerTestImpl::MakeExecutable(ArrayRef<const uint8_t> code,
 void CommonCompilerTestImpl::MakeExecutable(ArtMethod* method,
                                             const CompiledMethod* compiled_method) {
   CHECK(method != nullptr);
+  const void* method_code = nullptr;
   // If the code size is 0 it means the method was skipped due to profile guided compilation.
   if (compiled_method != nullptr && compiled_method->GetQuickCode().size() != 0u) {
     const void* code_ptr = MakeExecutable(compiled_method->GetQuickCode(),
                                           compiled_method->GetVmapTable(),
                                           compiled_method->GetInstructionSet());
-    const void* method_code =
+    method_code =
         CompiledMethod::CodePointer(code_ptr, compiled_method->GetInstructionSet());
     LOG(INFO) << "MakeExecutable " << method->PrettyMethod() << " code=" << method_code;
-    method->SetEntryPointFromQuickCompiledCode(method_code);
-  } else {
-    // No code? You must mean to go into the interpreter.
-    // Or the generic JNI...
-    GetClassLinker()->SetEntryPointsToInterpreter(method);
   }
+  Runtime::Current()->GetInstrumentation()->InitializeMethodsCode(
+      method, /*aot_code=*/ method_code);
 }
 
 void CommonCompilerTestImpl::SetUp() {
@@ -209,8 +207,7 @@ void CommonCompilerTestImpl::OverrideInstructionSetFeatures(InstructionSet instr
 
 void CommonCompilerTestImpl::SetUpRuntimeOptionsImpl() {
   compiler_options_.reset(new CompilerOptions);
-  verification_results_.reset(new VerificationResults(compiler_options_.get()));
-
+  verification_results_.reset(new VerificationResults());
   ApplyInstructionSet();
 }
 
@@ -251,9 +248,6 @@ void CommonCompilerTestImpl::CompileMethod(ArtMethod* method) {
                                              dex_file,
                                              dex_cache);
     } else {
-      verification_results_->AddDexFile(&dex_file);
-      verification_results_->CreateVerifiedMethodFor(
-          MethodReference(&dex_file, method->GetDexMethodIndex()));
       compiled_method = compiler->Compile(method->GetCodeItem(),
                                           method->GetAccessFlags(),
                                           method->GetInvokeType(),

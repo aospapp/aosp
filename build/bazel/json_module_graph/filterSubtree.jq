@@ -1,3 +1,5 @@
+# CMD: Returns modules defined under the directory $arg
+
 include "library";
 
 def isBlueprint($p): .Blueprint | index($p) != null

@@ -24,6 +24,7 @@ import android.content.LocusId;
 import android.os.Binder;
 import android.os.IBinder;
 import android.os.ParcelFileDescriptor;
+import android.os.SystemClock;
 import android.view.contentcapture.ContentCaptureManager;
 import android.view.contentcapture.DataShareRequest;
 import android.view.contentcapture.DataShareWriteAdapter;
@@ -73,6 +74,8 @@ public class DataSharingService extends Service {
                     public void onWrite(ParcelFileDescriptor destination) {
                         if (mShouldAttemptConcurrentRequest) {
                             attemptConcurrentRequest();
+                            // Waiting for the request to arrive at the server
+                            SystemClock.sleep(500);
                         }
                         try (OutputStream outputStream =
                                      new ParcelFileDescriptor.AutoCloseOutputStream(destination)) {

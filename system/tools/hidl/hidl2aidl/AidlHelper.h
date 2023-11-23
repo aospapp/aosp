@@ -63,8 +63,14 @@ enum class AidlBackend { UNKNOWN, NDK, CPP, JAVA };
 struct AidlHelper {
     /* FQName helpers */
     // getAidlName returns the type names
-    // android.hardware.foo@1.0::IBar.Baz -> IBarBaz
-    static std::string getAidlName(const FQName& fqName);
+    // backend == UNKNOWN
+    // android.hardware.foo@1.0::IBar::Baz -> Baz
+    // backend == CPP || backend == NDK
+    // android.hardware.foo@1.0::IBar::Baz -> IBar::Baz
+    // backend == JAVA
+    // android.hardware.foo@1.0::IBar::Baz -> IBar.Baz
+    static std::string getAidlName(const FQName& fqName,
+                                   AidlBackend backend = AidlBackend::UNKNOWN);
 
     // getAidlPackage returns the AIDL package
     // android.hardware.foo@1.x -> android.hardware.foo
@@ -83,21 +89,24 @@ struct AidlHelper {
     static void emitFileHeader(
             Formatter& out, const NamedType& type,
             const std::map<const NamedType*, const ProcessedCompoundType>& processedTypes);
-    static void importLocallyReferencedType(const Type& type, std::set<std::string>* imports);
     static Formatter getFileWithHeader(
             const NamedType& namedType, const Coordinator& coordinator,
             const std::map<const NamedType*, const ProcessedCompoundType>& processedTypes);
 
     /* Methods for Type */
-    static std::string getAidlType(const Type& type, const FQName& relativeTo);
+    static std::string getAidlType(const Type& type, const FQName& relativeTo,
+                                   AidlBackend backend = AidlBackend::UNKNOWN);
 
     /* Methods for NamedType */
     static void emitAidl(
-            const NamedType& namedType, const Coordinator& coordinator,
+            const NamedType& namedType, Formatter& out,
             const std::map<const NamedType*, const ProcessedCompoundType>& processedTypes);
 
+    // Walk through all of the type's parents until we reach the top and return.
+    static const NamedType* getTopLevelType(const NamedType* type);
+
     /* Methods for Interface */
-    static void emitAidl(const Interface& interface, const Coordinator& coordinator,
+    static void emitAidl(const Interface& interface, Formatter& out,
                          const std::map<const NamedType*, const ProcessedCompoundType>&);
     // Returns all methods that would exist in an AIDL equivalent interface
     static std::vector<const Method*> getUserDefinedMethods(Formatter& out,

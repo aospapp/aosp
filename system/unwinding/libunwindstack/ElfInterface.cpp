@@ -21,10 +21,6 @@
 #include <string>
 #include <utility>
 
-#include <7zCrc.h>
-#include <Xz.h>
-#include <XzCrc64.h>
-
 #include <unwindstack/DwarfError.h>
 #include <unwindstack/DwarfSection.h>
 #include <unwindstack/ElfInterface.h>

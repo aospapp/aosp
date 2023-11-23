@@ -17,6 +17,7 @@
 #include "jni_macro_assembler_arm64.h"
 
 #include "entrypoints/quick/quick_entrypoints.h"
+#include "lock_word.h"
 #include "managed_register_arm64.h"
 #include "offsets.h"
 #include "thread.h"
@@ -37,17 +38,26 @@ namespace arm64 {
 #define reg_d(D) Arm64Assembler::reg_d(D)
 #define reg_s(S) Arm64Assembler::reg_s(S)
 
-// The AAPCS64 requires 16-byte alignement. This is the same as the Managed ABI stack alignment.
+// The AAPCS64 requires 16-byte alignment. This is the same as the Managed ABI stack alignment.
 static constexpr size_t kAapcs64StackAlignment = 16u;
 static_assert(kAapcs64StackAlignment == kStackAlignment);
+
+// STP signed offset for W-register can encode any 4-byte aligned offset smaller than this cutoff.
+static constexpr size_t kStpWOffsetCutoff = 256u;
+
+// STP signed offset for X-register can encode any 8-byte aligned offset smaller than this cutoff.
+static constexpr size_t kStpXOffsetCutoff = 512u;
+
+// STP signed offset for S-register can encode any 4-byte aligned offset smaller than this cutoff.
+static constexpr size_t kStpSOffsetCutoff = 256u;
+
+// STP signed offset for D-register can encode any 8-byte aligned offset smaller than this cutoff.
+static constexpr size_t kStpDOffsetCutoff = 512u;
 
 Arm64JNIMacroAssembler::~Arm64JNIMacroAssembler() {
 }
 
 void Arm64JNIMacroAssembler::FinalizeCode() {
-  for (const std::unique_ptr<Arm64Exception>& exception : exception_blocks_) {
-    EmitExceptionPoll(exception.get());
-  }
   ___ FinalizeCode();
 }
 
@@ -74,6 +84,30 @@ void Arm64JNIMacroAssembler::DecreaseFrameSize(size_t adjust) {
     CHECK_ALIGNED(adjust, kStackAlignment);
     AddConstant(SP, adjust);
     cfi().AdjustCFAOffset(-adjust);
+  }
+}
+
+ManagedRegister Arm64JNIMacroAssembler::CoreRegisterWithSize(ManagedRegister m_src, size_t size) {
+  DCHECK(size == 4u || size == 8u) << size;
+  Arm64ManagedRegister src = m_src.AsArm64();
+  // Switch between X and W registers using the `XRegister` and `WRegister` enumerations.
+  static_assert(W0 == static_cast<std::underlying_type_t<XRegister>>(X0));
+  static_assert(W30 == static_cast<std::underlying_type_t<XRegister>>(X30));
+  static_assert(WSP == static_cast<std::underlying_type_t<XRegister>>(SP));
+  static_assert(WZR == static_cast<std::underlying_type_t<XRegister>>(XZR));
+  if (src.IsXRegister()) {
+    if (size == 8u) {
+      return m_src;
+    }
+    auto id = static_cast<std::underlying_type_t<XRegister>>(src.AsXRegister());
+    return Arm64ManagedRegister::FromWRegister(enum_cast<WRegister>(id));
+  } else {
+    CHECK(src.IsWRegister());
+    if (size == 4u) {
+      return m_src;
+    }
+    auto id = static_cast<std::underlying_type_t<WRegister>>(src.AsWRegister());
+    return Arm64ManagedRegister::FromXRegister(enum_cast<XRegister>(id));
   }
 }
 
@@ -132,20 +166,28 @@ void Arm64JNIMacroAssembler::StoreDToOffset(DRegister source, XRegister base, in
 }
 
 void Arm64JNIMacroAssembler::Store(FrameOffset offs, ManagedRegister m_src, size_t size) {
+  Store(Arm64ManagedRegister::FromXRegister(SP), MemberOffset(offs.Int32Value()), m_src, size);
+}
+
+void Arm64JNIMacroAssembler::Store(ManagedRegister m_base,
+                                   MemberOffset offs,
+                                   ManagedRegister m_src,
+                                   size_t size) {
+  Arm64ManagedRegister base = m_base.AsArm64();
   Arm64ManagedRegister src = m_src.AsArm64();
   if (src.IsNoRegister()) {
     CHECK_EQ(0u, size);
   } else if (src.IsWRegister()) {
     CHECK_EQ(4u, size);
-    StoreWToOffset(kStoreWord, src.AsWRegister(), SP, offs.Int32Value());
+    StoreWToOffset(kStoreWord, src.AsWRegister(), base.AsXRegister(), offs.Int32Value());
   } else if (src.IsXRegister()) {
     CHECK_EQ(8u, size);
-    StoreToOffset(src.AsXRegister(), SP, offs.Int32Value());
+    StoreToOffset(src.AsXRegister(), base.AsXRegister(), offs.Int32Value());
   } else if (src.IsSRegister()) {
-    StoreSToOffset(src.AsSRegister(), SP, offs.Int32Value());
+    StoreSToOffset(src.AsSRegister(), base.AsXRegister(), offs.Int32Value());
   } else {
     CHECK(src.IsDRegister()) << src;
-    StoreDToOffset(src.AsDRegister(), SP, offs.Int32Value());
+    StoreDToOffset(src.AsDRegister(), base.AsXRegister(), offs.Int32Value());
   }
 }
 
@@ -280,6 +322,13 @@ void Arm64JNIMacroAssembler::Load(ManagedRegister m_dst, FrameOffset src, size_t
   return Load(m_dst.AsArm64(), SP, src.Int32Value(), size);
 }
 
+void Arm64JNIMacroAssembler::Load(ManagedRegister m_dst,
+                                  ManagedRegister m_base,
+                                  MemberOffset offs,
+                                  size_t size) {
+  return Load(m_dst.AsArm64(), m_base.AsArm64().AsXRegister(), offs.Int32Value(), size);
+}
+
 void Arm64JNIMacroAssembler::LoadFromThread(ManagedRegister m_dst,
                                             ThreadOffset64 src,
                                             size_t size) {
@@ -327,8 +376,12 @@ void Arm64JNIMacroAssembler::LoadRawPtrFromThread(ManagedRegister m_dst, ThreadO
 
 // Copying routines.
 void Arm64JNIMacroAssembler::MoveArguments(ArrayRef<ArgumentLocation> dests,
-                                           ArrayRef<ArgumentLocation> srcs) {
-  DCHECK_EQ(dests.size(), srcs.size());
+                                           ArrayRef<ArgumentLocation> srcs,
+                                           ArrayRef<FrameOffset> refs) {
+  size_t arg_count = dests.size();
+  DCHECK_EQ(arg_count, srcs.size());
+  DCHECK_EQ(arg_count, refs.size());
+
   auto get_mask = [](ManagedRegister reg) -> uint64_t {
     Arm64ManagedRegister arm64_reg = reg.AsArm64();
     if (arm64_reg.IsXRegister()) {
@@ -350,19 +403,38 @@ void Arm64JNIMacroAssembler::MoveArguments(ArrayRef<ArgumentLocation> dests,
       return (UINT64_C(1) << 32u) << fp_reg_number;
     }
   };
+
+  // More than 8 core or FP reg args are very rare, so we do not optimize for
+  // that case by using LDP/STP, except for situations that arise even with low
+  // number of arguments. We use STP for the non-reference spilling which also
+  // covers the initial spill for native reference register args as they are
+  // spilled as raw 32-bit values. We also optimize loading args to registers
+  // with LDP, whether references or not, except for the initial non-null
+  // reference which we do not need to load at all.
+
   // Collect registers to move while storing/copying args to stack slots.
-  // More than 8 core or FP reg args are very rare, so we do not optimize
-  // for that case by using LDP/STP.
-  // TODO: LDP/STP will be useful for normal and @FastNative where we need
-  // to spill even the leading arguments.
+  // Convert processed references to `jobject`.
   uint64_t src_regs = 0u;
   uint64_t dest_regs = 0u;
-  for (size_t i = 0, arg_count = srcs.size(); i != arg_count; ++i) {
+  for (size_t i = 0; i != arg_count; ++i) {
     const ArgumentLocation& src = srcs[i];
     const ArgumentLocation& dest = dests[i];
-    DCHECK_EQ(src.GetSize(), dest.GetSize());
+    const FrameOffset ref = refs[i];
+    if (ref != kInvalidReferenceOffset) {
+      DCHECK_EQ(src.GetSize(), kObjectReferenceSize);
+      DCHECK_EQ(dest.GetSize(), static_cast<size_t>(kArm64PointerSize));
+    } else {
+      DCHECK_EQ(src.GetSize(), dest.GetSize());
+    }
     if (dest.IsRegister()) {
-      if (src.IsRegister() && src.GetRegister().Equals(dest.GetRegister())) {
+      // Note: For references, `Equals()` returns `false` for overlapping W and X registers.
+      if (ref != kInvalidReferenceOffset &&
+          src.IsRegister() &&
+          src.GetRegister().AsArm64().AsOverlappingXRegister() ==
+              dest.GetRegister().AsArm64().AsXRegister()) {
+        // Just convert to `jobject`. No further processing is needed.
+        CreateJObject(dest.GetRegister(), ref, src.GetRegister(), /*null_allowed=*/ i != 0u);
+      } else if (src.IsRegister() && src.GetRegister().Equals(dest.GetRegister())) {
         // Nothing to do.
       } else {
         if (src.IsRegister()) {
@@ -370,9 +442,59 @@ void Arm64JNIMacroAssembler::MoveArguments(ArrayRef<ArgumentLocation> dests,
         }
         dest_regs |= get_mask(dest.GetRegister());
       }
+    } else if (ref != kInvalidReferenceOffset) {
+      if (src.IsRegister()) {
+        // Note: We can clobber `src` here as the register cannot hold more than one argument.
+        ManagedRegister src_x =
+            CoreRegisterWithSize(src.GetRegister(), static_cast<size_t>(kArm64PointerSize));
+        CreateJObject(src_x, ref, src.GetRegister(), /*null_allowed=*/ i != 0u);
+        Store(dest.GetFrameOffset(), src_x, dest.GetSize());
+      } else {
+        CreateJObject(dest.GetFrameOffset(), ref, /*null_allowed=*/ i != 0u);
+      }
     } else {
       if (src.IsRegister()) {
-        Store(dest.GetFrameOffset(), src.GetRegister(), dest.GetSize());
+        static_assert(kStpWOffsetCutoff == kStpSOffsetCutoff);
+        static_assert(kStpXOffsetCutoff == kStpDOffsetCutoff);
+        if (i + 1u != arg_count &&
+            srcs[i + 1u].IsRegister() &&
+            srcs[i + 1u].GetSize() == dest.GetSize() &&
+            src.GetRegister().AsArm64().IsGPRegister() ==
+                srcs[i + 1u].GetRegister().AsArm64().IsGPRegister() &&
+            refs[i + 1u] == kInvalidReferenceOffset &&
+            !dests[i + 1u].IsRegister() &&
+            dests[i + 1u].GetFrameOffset().SizeValue() ==
+                dest.GetFrameOffset().SizeValue() + dest.GetSize() &&
+            IsAlignedParam(dest.GetFrameOffset().SizeValue(), dest.GetSize()) &&
+            dest.GetFrameOffset().SizeValue() <
+                (dest.GetSize() == 8u ? kStpXOffsetCutoff : kStpWOffsetCutoff)) {
+          DCHECK_EQ(dests[i + 1u].GetSize(), dest.GetSize());
+          Arm64ManagedRegister src_reg = src.GetRegister().AsArm64();
+          Arm64ManagedRegister src2_reg = srcs[i + 1u].GetRegister().AsArm64();
+          DCHECK_EQ(dest.GetSize() == 8u, src_reg.IsXRegister() || src_reg.IsDRegister());
+          DCHECK_EQ(dest.GetSize() == 8u, src2_reg.IsXRegister() || src2_reg.IsDRegister());
+          if (src_reg.IsWRegister()) {
+            ___ Stp(reg_w(src_reg.AsWRegister()),
+                    reg_w(src2_reg.AsWRegister()),
+                    MEM_OP(sp, dest.GetFrameOffset().SizeValue()));
+          } else if (src_reg.IsXRegister()) {
+            ___ Stp(reg_x(src_reg.AsXRegister()),
+                    reg_x(src2_reg.AsXRegister()),
+                    MEM_OP(sp, dest.GetFrameOffset().SizeValue()));
+          } else if (src_reg.IsSRegister()) {
+            ___ Stp(reg_s(src_reg.AsSRegister()),
+                    reg_s(src2_reg.AsSRegister()),
+                    MEM_OP(sp, dest.GetFrameOffset().SizeValue()));
+          } else {
+            DCHECK(src_reg.IsDRegister());
+            ___ Stp(reg_d(src_reg.AsDRegister()),
+                    reg_d(src2_reg.AsDRegister()),
+                    MEM_OP(sp, dest.GetFrameOffset().SizeValue()));
+          }
+          ++i;
+        } else {
+          Store(dest.GetFrameOffset(), src.GetRegister(), dest.GetSize());
+        }
       } else {
         Copy(dest.GetFrameOffset(), src.GetFrameOffset(), dest.GetSize());
       }
@@ -382,24 +504,92 @@ void Arm64JNIMacroAssembler::MoveArguments(ArrayRef<ArgumentLocation> dests,
   // There should be no cycles, so this simple algorithm should make progress.
   while (dest_regs != 0u) {
     uint64_t old_dest_regs = dest_regs;
-    for (size_t i = 0, arg_count = srcs.size(); i != arg_count; ++i) {
+    for (size_t i = 0; i != arg_count; ++i) {
       const ArgumentLocation& src = srcs[i];
       const ArgumentLocation& dest = dests[i];
+      const FrameOffset ref = refs[i];
       if (!dest.IsRegister()) {
         continue;  // Stored in first loop above.
       }
-      uint64_t dest_reg_mask = get_mask(dest.GetRegister());
-      if ((dest_reg_mask & dest_regs) == 0u) {
-        continue;  // Equals source, or already filled in one of previous iterations.
-      }
-      if ((dest_reg_mask & src_regs) != 0u) {
-        continue;  // Cannot clobber this register yet.
+      auto can_process = [&](ManagedRegister dest_reg) {
+        uint64_t dest_reg_mask = get_mask(dest_reg);
+        if ((dest_reg_mask & dest_regs) == 0u) {
+          return false;  // Equals source, or already filled in one of previous iterations.
+        }
+        if ((dest_reg_mask & src_regs) != 0u) {
+          return false;  // Cannot clobber this register yet.
+        }
+        return true;
+      };
+      if (!can_process(dest.GetRegister())) {
+        continue;
       }
       if (src.IsRegister()) {
-        Move(dest.GetRegister(), src.GetRegister(), dest.GetSize());
+        if (ref != kInvalidReferenceOffset) {
+          CreateJObject(dest.GetRegister(), ref, src.GetRegister(), /*null_allowed=*/ i != 0u);
+        } else {
+          Move(dest.GetRegister(), src.GetRegister(), dest.GetSize());
+        }
         src_regs &= ~get_mask(src.GetRegister());  // Allow clobbering source register.
+      } else if (i + 1u != arg_count &&
+                 (i != 0u || ref == kInvalidReferenceOffset) &&  // Not for non-null reference.
+                 dests[i + 1u].IsRegister() &&
+                 dest.GetRegister().AsArm64().IsGPRegister() ==
+                     dests[i + 1u].GetRegister().AsArm64().IsGPRegister() &&
+                 !srcs[i + 1u].IsRegister() &&
+                 srcs[i + 1u].GetSize() == src.GetSize() &&
+                 srcs[i + 1u].GetFrameOffset().SizeValue() ==
+                     src.GetFrameOffset().SizeValue() + src.GetSize() &&
+                 IsAlignedParam(src.GetFrameOffset().SizeValue(), src.GetSize()) &&
+                 can_process(dests[i + 1u].GetRegister())) {
+        Arm64ManagedRegister dest_reg = dest.GetRegister().AsArm64();
+        Arm64ManagedRegister dest2_reg = dests[i + 1u].GetRegister().AsArm64();
+        DCHECK(ref == kInvalidReferenceOffset || dest_reg.IsXRegister());
+        DCHECK(refs[i + 1u] == kInvalidReferenceOffset || dest2_reg.IsXRegister());
+        if (dest_reg.IsDRegister()) {
+          DCHECK_EQ(dest.GetSize(), 8u);
+          DCHECK_EQ(dests[i + 1u].GetSize(), 8u);
+          ___ Ldp(reg_d(dest_reg.AsDRegister()),
+                  reg_d(dest2_reg.AsDRegister()),
+                  MEM_OP(sp, src.GetFrameOffset().SizeValue()));
+        } else if (dest_reg.IsSRegister()) {
+          DCHECK_EQ(dest.GetSize(), 4u);
+          DCHECK_EQ(dests[i + 1u].GetSize(), 4u);
+          ___ Ldp(reg_s(dest_reg.AsSRegister()),
+                  reg_s(dest2_reg.AsSRegister()),
+                  MEM_OP(sp, src.GetFrameOffset().SizeValue()));
+        } else if (src.GetSize() == 8u) {
+          DCHECK_EQ(dest.GetSize(), 8u);
+          DCHECK_EQ(dests[i + 1u].GetSize(), 8u);
+          ___ Ldp(reg_x(dest_reg.AsXRegister()),
+                  reg_x(dest2_reg.AsXRegister()),
+                  MEM_OP(sp, src.GetFrameOffset().SizeValue()));
+        } else {
+          DCHECK_EQ(dest.GetSize(), ref != kInvalidReferenceOffset ? 8u : 4u);
+          DCHECK_EQ(dests[i + 1u].GetSize(), refs[i + 1u] != kInvalidReferenceOffset ? 8u : 4u);
+          auto to_w = [](Arm64ManagedRegister reg) {
+            return reg_w(reg.IsXRegister() ? reg.AsOverlappingWRegister() : reg.AsWRegister());
+          };
+          ___ Ldp(to_w(dest_reg), to_w(dest2_reg), MEM_OP(sp, src.GetFrameOffset().SizeValue()));
+          auto to_mr_w = [](Arm64ManagedRegister reg) {
+            return Arm64ManagedRegister::FromWRegister(reg.AsOverlappingWRegister());
+          };
+          if (ref != kInvalidReferenceOffset) {
+            CreateJObject(dest_reg, ref, to_mr_w(dest_reg), /*null_allowed=*/ true);
+          }
+          if (refs[i + 1u] != kInvalidReferenceOffset) {
+            CreateJObject(dest2_reg, refs[i + 1u], to_mr_w(dest2_reg), /*null_allowed=*/ true);
+          }
+        }
+        dest_regs &= ~get_mask(dest2_reg);  // Destination register was filled.
+        ++i;  // Proceed to mark the other destination register as filled.
       } else {
-        Load(dest.GetRegister(), src.GetFrameOffset(), dest.GetSize());
+        if (ref != kInvalidReferenceOffset) {
+          CreateJObject(
+              dest.GetRegister(), ref, ManagedRegister::NoRegister(), /*null_allowed=*/ i != 0u);
+        } else {
+          Load(dest.GetRegister(), src.GetFrameOffset(), dest.GetSize());
+        }
       }
       dest_regs &= ~get_mask(dest.GetRegister());  // Destination register was filled.
     }
@@ -639,15 +829,10 @@ void Arm64JNIMacroAssembler::Call(ManagedRegister m_base, Offset offs) {
   ___ Blr(lr);
 }
 
-void Arm64JNIMacroAssembler::Call(FrameOffset base, Offset offs) {
-  // Call *(*(SP + base) + offset)
-  ___ Ldr(lr, MEM_OP(reg_x(SP), base.Int32Value()));
-  ___ Ldr(lr, MEM_OP(lr, offs.Int32Value()));
+void Arm64JNIMacroAssembler::CallFromThread(ThreadOffset64 offset) {
+  // Call *(TR + offset)
+  ___ Ldr(lr, MEM_OP(reg_x(TR), offset.Int32Value()));
   ___ Blr(lr);
-}
-
-void Arm64JNIMacroAssembler::CallFromThread(ThreadOffset64 offset ATTRIBUTE_UNUSED) {
-  UNIMPLEMENTED(FATAL) << "Unimplemented Call() variant";
 }
 
 void Arm64JNIMacroAssembler::CreateJObject(ManagedRegister m_out_reg,
@@ -656,23 +841,22 @@ void Arm64JNIMacroAssembler::CreateJObject(ManagedRegister m_out_reg,
                                            bool null_allowed) {
   Arm64ManagedRegister out_reg = m_out_reg.AsArm64();
   Arm64ManagedRegister in_reg = m_in_reg.AsArm64();
-  // For now we only hold stale handle scope entries in x registers.
-  CHECK(in_reg.IsNoRegister() || in_reg.IsXRegister()) << in_reg;
+  CHECK(in_reg.IsNoRegister() || in_reg.IsWRegister()) << in_reg;
   CHECK(out_reg.IsXRegister()) << out_reg;
   if (null_allowed) {
+    UseScratchRegisterScope temps(asm_.GetVIXLAssembler());
+    Register scratch = temps.AcquireX();
+
     // Null values get a jobject value null. Otherwise, the jobject is
     // the address of the spilled reference.
     // e.g. out_reg = (in == 0) ? 0 : (SP+spilled_reference_offset)
     if (in_reg.IsNoRegister()) {
-      LoadWFromOffset(kLoadWord, out_reg.AsOverlappingWRegister(), SP,
-                      spilled_reference_offset.Int32Value());
-      in_reg = out_reg;
+      in_reg = Arm64ManagedRegister::FromWRegister(out_reg.AsOverlappingWRegister());
+      LoadWFromOffset(kLoadWord, in_reg.AsWRegister(), SP, spilled_reference_offset.Int32Value());
     }
-    ___ Cmp(reg_w(in_reg.AsOverlappingWRegister()), 0);
-    if (!out_reg.Equals(in_reg)) {
-      LoadImmediate(out_reg.AsXRegister(), 0, eq);
-    }
-    AddConstant(out_reg.AsXRegister(), SP, spilled_reference_offset.Int32Value(), ne);
+    ___ Add(scratch, reg_x(SP), spilled_reference_offset.Int32Value());
+    ___ Cmp(reg_w(in_reg.AsWRegister()), 0);
+    ___ Csel(reg_x(out_reg.AsXRegister()), scratch, xzr, ne);
   } else {
     AddConstant(out_reg.AsXRegister(), SP, spilled_reference_offset.Int32Value(), al);
   }
@@ -698,13 +882,96 @@ void Arm64JNIMacroAssembler::CreateJObject(FrameOffset out_off,
   ___ Str(scratch, MEM_OP(reg_x(SP), out_off.Int32Value()));
 }
 
-void Arm64JNIMacroAssembler::ExceptionPoll(size_t stack_adjust) {
-  CHECK_ALIGNED(stack_adjust, kStackAlignment);
+void Arm64JNIMacroAssembler::TryToTransitionFromRunnableToNative(
+    JNIMacroLabel* label, ArrayRef<const ManagedRegister> scratch_regs ATTRIBUTE_UNUSED) {
+  constexpr uint32_t kNativeStateValue = Thread::StoredThreadStateValue(ThreadState::kNative);
+  constexpr uint32_t kRunnableStateValue = Thread::StoredThreadStateValue(ThreadState::kRunnable);
+  constexpr ThreadOffset64 thread_flags_offset = Thread::ThreadFlagsOffset<kArm64PointerSize>();
+  constexpr ThreadOffset64 thread_held_mutex_mutator_lock_offset =
+      Thread::HeldMutexOffset<kArm64PointerSize>(kMutatorLock);
+
+  UseScratchRegisterScope temps(asm_.GetVIXLAssembler());
+  Register scratch = temps.AcquireW();
+  Register scratch2 = temps.AcquireW();
+
+  // CAS release, old_value = kRunnableStateValue, new_value = kNativeStateValue, no flags.
+  vixl::aarch64::Label retry;
+  ___ Bind(&retry);
+  static_assert(thread_flags_offset.Int32Value() == 0);  // LDXR/STLXR require exact address.
+  ___ Ldxr(scratch, MEM_OP(reg_x(TR)));
+  ___ Mov(scratch2, kNativeStateValue);
+  // If any flags are set, go to the slow path.
+  static_assert(kRunnableStateValue == 0u);
+  ___ Cbnz(scratch, Arm64JNIMacroLabel::Cast(label)->AsArm64());
+  ___ Stlxr(scratch, scratch2, MEM_OP(reg_x(TR)));
+  ___ Cbnz(scratch, &retry);
+
+  // Clear `self->tlsPtr_.held_mutexes[kMutatorLock]`.
+  ___ Str(xzr, MEM_OP(reg_x(TR), thread_held_mutex_mutator_lock_offset.Int32Value()));
+}
+
+void Arm64JNIMacroAssembler::TryToTransitionFromNativeToRunnable(
+    JNIMacroLabel* label,
+    ArrayRef<const ManagedRegister> scratch_regs ATTRIBUTE_UNUSED,
+    ManagedRegister return_reg ATTRIBUTE_UNUSED) {
+  constexpr uint32_t kNativeStateValue = Thread::StoredThreadStateValue(ThreadState::kNative);
+  constexpr uint32_t kRunnableStateValue = Thread::StoredThreadStateValue(ThreadState::kRunnable);
+  constexpr ThreadOffset64 thread_flags_offset = Thread::ThreadFlagsOffset<kArm64PointerSize>();
+  constexpr ThreadOffset64 thread_held_mutex_mutator_lock_offset =
+      Thread::HeldMutexOffset<kArm64PointerSize>(kMutatorLock);
+  constexpr ThreadOffset64 thread_mutator_lock_offset =
+      Thread::MutatorLockOffset<kArm64PointerSize>();
+
+  UseScratchRegisterScope temps(asm_.GetVIXLAssembler());
+  Register scratch = temps.AcquireW();
+  Register scratch2 = temps.AcquireW();
+
+  // CAS acquire, old_value = kNativeStateValue, new_value = kRunnableStateValue, no flags.
+  vixl::aarch64::Label retry;
+  ___ Bind(&retry);
+  static_assert(thread_flags_offset.Int32Value() == 0);  // LDAXR/STXR require exact address.
+  ___ Ldaxr(scratch, MEM_OP(reg_x(TR)));
+  ___ Mov(scratch2, kNativeStateValue);
+  // If any flags are set, or the state is not Native, go to the slow path.
+  // (While the thread can theoretically transition between different Suspended states,
+  // it would be very unexpected to see a state other than Native at this point.)
+  ___ Cmp(scratch, scratch2);
+  ___ B(ne, Arm64JNIMacroLabel::Cast(label)->AsArm64());
+  static_assert(kRunnableStateValue == 0u);
+  ___ Stxr(scratch, wzr, MEM_OP(reg_x(TR)));
+  ___ Cbnz(scratch, &retry);
+
+  // Set `self->tlsPtr_.held_mutexes[kMutatorLock]` to the mutator lock.
+  ___ Ldr(scratch.X(), MEM_OP(reg_x(TR), thread_mutator_lock_offset.Int32Value()));
+  ___ Str(scratch.X(), MEM_OP(reg_x(TR), thread_held_mutex_mutator_lock_offset.Int32Value()));
+}
+
+void Arm64JNIMacroAssembler::SuspendCheck(JNIMacroLabel* label) {
+  UseScratchRegisterScope temps(asm_.GetVIXLAssembler());
+  Register scratch = temps.AcquireW();
+  ___ Ldr(scratch, MEM_OP(reg_x(TR), Thread::ThreadFlagsOffset<kArm64PointerSize>().Int32Value()));
+  ___ Tst(scratch, Thread::SuspendOrCheckpointRequestFlags());
+  ___ B(ne, Arm64JNIMacroLabel::Cast(label)->AsArm64());
+}
+
+void Arm64JNIMacroAssembler::ExceptionPoll(JNIMacroLabel* label) {
   UseScratchRegisterScope temps(asm_.GetVIXLAssembler());
   Register scratch = temps.AcquireX();
-  exception_blocks_.emplace_back(new Arm64Exception(scratch, stack_adjust));
   ___ Ldr(scratch, MEM_OP(reg_x(TR), Thread::ExceptionOffset<kArm64PointerSize>().Int32Value()));
-  ___ Cbnz(scratch, exception_blocks_.back()->Entry());
+  ___ Cbnz(scratch, Arm64JNIMacroLabel::Cast(label)->AsArm64());
+}
+
+void Arm64JNIMacroAssembler::DeliverPendingException() {
+  // Pass exception object as argument.
+  // Don't care about preserving X0 as this won't return.
+  // Note: The scratch register from `ExceptionPoll()` may have been clobbered.
+  ___ Ldr(reg_x(X0), MEM_OP(reg_x(TR), Thread::ExceptionOffset<kArm64PointerSize>().Int32Value()));
+  ___ Ldr(lr,
+          MEM_OP(reg_x(TR),
+                 QUICK_ENTRYPOINT_OFFSET(kArm64PointerSize, pDeliverException).Int32Value()));
+  ___ Blr(lr);
+  // Call should never return.
+  ___ Brk();
 }
 
 std::unique_ptr<JNIMacroLabel> Arm64JNIMacroAssembler::CreateLabel() {
@@ -748,30 +1015,31 @@ void Arm64JNIMacroAssembler::TestGcMarking(JNIMacroLabel* label, JNIMacroUnaryCo
   }
 }
 
+void Arm64JNIMacroAssembler::TestMarkBit(ManagedRegister m_ref,
+                                         JNIMacroLabel* label,
+                                         JNIMacroUnaryCondition cond) {
+  DCHECK(kUseBakerReadBarrier);
+  Register ref = reg_x(m_ref.AsArm64().AsOverlappingXRegister());
+  UseScratchRegisterScope temps(asm_.GetVIXLAssembler());
+  Register scratch = temps.AcquireW();
+  ___ Ldr(scratch, MEM_OP(ref, mirror::Object::MonitorOffset().SizeValue()));
+  static_assert(LockWord::kMarkBitStateSize == 1u);
+  switch (cond) {
+    case JNIMacroUnaryCondition::kZero:
+      ___ Tbz(scratch, LockWord::kMarkBitStateShift, Arm64JNIMacroLabel::Cast(label)->AsArm64());
+      break;
+    case JNIMacroUnaryCondition::kNotZero:
+      ___ Tbnz(scratch, LockWord::kMarkBitStateShift, Arm64JNIMacroLabel::Cast(label)->AsArm64());
+      break;
+    default:
+      LOG(FATAL) << "Not implemented unary condition: " << static_cast<int>(cond);
+      UNREACHABLE();
+  }
+}
+
 void Arm64JNIMacroAssembler::Bind(JNIMacroLabel* label) {
   CHECK(label != nullptr);
   ___ Bind(Arm64JNIMacroLabel::Cast(label)->AsArm64());
-}
-
-void Arm64JNIMacroAssembler::EmitExceptionPoll(Arm64Exception* exception) {
-  UseScratchRegisterScope temps(asm_.GetVIXLAssembler());
-  temps.Exclude(exception->scratch_);
-
-  // Bind exception poll entry.
-  ___ Bind(exception->Entry());
-  if (exception->stack_adjust_ != 0) {  // Fix up the frame.
-    DecreaseFrameSize(exception->stack_adjust_);
-  }
-  // Pass exception object as argument.
-  // Don't care about preserving X0 as this won't return.
-  ___ Mov(reg_x(X0), exception->scratch_);
-  ___ Ldr(lr,
-          MEM_OP(reg_x(TR),
-                 QUICK_ENTRYPOINT_OFFSET(kArm64PointerSize, pDeliverException).Int32Value()));
-
-  ___ Blr(lr);
-  // Call should never return.
-  ___ Brk();
 }
 
 void Arm64JNIMacroAssembler::BuildFrame(size_t frame_size,

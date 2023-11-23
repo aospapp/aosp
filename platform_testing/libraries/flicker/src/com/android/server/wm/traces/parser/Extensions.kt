@@ -25,46 +25,17 @@ import android.util.Log
 import com.android.server.wm.traces.common.DeviceStateDump
 import com.android.server.wm.traces.common.FlickerComponentName
 import com.android.server.wm.traces.common.Rect
-import com.android.server.wm.traces.common.Region
-import com.android.server.wm.traces.common.layers.LayerTraceEntry
+import com.android.server.wm.traces.common.layers.BaseLayerTraceEntry
 import com.android.server.wm.traces.common.windowmanager.WindowManagerState
 
 internal const val LOG_TAG = "AMWM_FLICKER"
-
-fun Region.toAndroidRegion(): android.graphics.Region {
-    return android.graphics.Region(left, top, right, bottom)
-}
 
 fun Rect.toAndroidRect(): android.graphics.Rect {
     return android.graphics.Rect(left, top, right, bottom)
 }
 
-/**
- * Subtracts [other] region from this [this] region
- */
-fun Region.minus(other: Region): android.graphics.Region = minus(other.toAndroidRegion())
-
-/**
- * Subtracts [other] region from this [this] region
- */
-fun Region.minus(other: android.graphics.Region): android.graphics.Region {
-    val thisRegion = this.toAndroidRegion()
-    thisRegion.op(other, android.graphics.Region.Op.XOR)
-    return thisRegion
-}
-
-/**
- * Adds [other] region to this [this] region
- */
-fun Region.plus(other: Region): android.graphics.Region = plus(other.toAndroidRegion())
-
-/**
- * Adds [other] region to this [this] region
- */
-fun Region.plus(other: android.graphics.Region): android.graphics.Region {
-    val thisRegion = this.toAndroidRegion()
-    thisRegion.op(other, android.graphics.Region.Op.XOR)
-    return thisRegion
+fun android.graphics.Rect.toFlickerRect(): Rect {
+    return Rect(left, top, right, bottom)
 }
 
 private fun executeCommand(uiAutomation: UiAutomation, cmd: String): ByteArray {
@@ -108,7 +79,7 @@ fun getCurrentState(
 fun getCurrentStateDump(
     uiAutomation: UiAutomation,
     @WmStateDumpFlags dumpFlags: Int = FLAG_STATE_DUMP_FLAG_WM.or(FLAG_STATE_DUMP_FLAG_LAYERS)
-): DeviceStateDump<WindowManagerState?, LayerTraceEntry?> {
+): DeviceStateDump<WindowManagerState?, BaseLayerTraceEntry?> {
     val currentStateDump = getCurrentState(uiAutomation, dumpFlags)
     val wmTraceData = currentStateDump.first
     val layersTraceData = currentStateDump.second

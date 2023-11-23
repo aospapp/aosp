@@ -72,15 +72,11 @@
 \
   V(AputObject, void, mirror::Array*, int32_t, mirror::Object*) \
 \
-  V(JniMethodStart, uint32_t, Thread*) \
-  V(JniMethodFastStart, uint32_t, Thread*) \
-  V(JniMethodStartSynchronized, uint32_t, jobject, Thread*) \
-  V(JniMethodEnd, void, uint32_t, Thread*) \
-  V(JniMethodFastEnd, void, uint32_t, Thread*) \
-  V(JniMethodEndSynchronized, void, uint32_t, jobject, Thread*) \
-  V(JniMethodEndWithReference, mirror::Object*, jobject, uint32_t, Thread*) \
-  V(JniMethodFastEndWithReference, mirror::Object*, jobject, uint32_t, Thread*) \
-  V(JniMethodEndWithReferenceSynchronized, mirror::Object*, jobject, uint32_t, jobject, Thread*) \
+  V(JniMethodStart, void) \
+  V(JniMethodEnd, void) \
+  V(JniDecodeReferenceResult, mirror::Object*, jobject, Thread*) \
+  V(JniLockObject, void, mirror::Object*) \
+  V(JniUnlockObject, void, mirror::Object*) \
   V(QuickGenericJniTrampoline, void, ArtMethod*) \
 \
   V(LockObject, void, mirror::Object*) \
@@ -174,7 +170,7 @@
   V(UpdateInlineCache, void, void) \
   V(CompileOptimized, void, ArtMethod*, Thread*) \
 \
-  V(ReadBarrierJni, void, mirror::CompressedReference<mirror::Class>*, Thread*) \
+  V(JniReadBarrier, void, ArtMethod*) \
   V(ReadBarrierMarkReg00, mirror::Object*, mirror::Object*) \
   V(ReadBarrierMarkReg01, mirror::Object*, mirror::Object*) \
   V(ReadBarrierMarkReg02, mirror::Object*, mirror::Object*) \
@@ -208,6 +204,8 @@
   V(ReadBarrierSlow, mirror::Object*, mirror::Object*, mirror::Object*, uint32_t) \
   V(ReadBarrierForRootSlow, mirror::Object*, GcRoot<mirror::Object>*) \
 \
+  V(MethodEntryHook, void, ArtMethod*, Thread*) \
+  V(MethodExitHook, int32_t, Thread*, ArtMethod*, uint64_t*, uint64_t*)
 
 #endif  // ART_RUNTIME_ENTRYPOINTS_QUICK_QUICK_ENTRYPOINTS_LIST_H_
 #undef ART_RUNTIME_ENTRYPOINTS_QUICK_QUICK_ENTRYPOINTS_LIST_H_   // #define is only for lint.

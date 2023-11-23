@@ -43,8 +43,8 @@ import androidx.test.rule.ActivityTestRule;
 
 import com.android.compatibility.common.util.CtsTouchUtils;
 import com.android.compatibility.common.util.CtsTouchUtils.EventInjectionListener;
-import com.android.compatibility.common.util.PollingCheck;
 import com.android.compatibility.common.util.WidgetTestUtils;
+import com.android.compatibility.common.util.WindowUtil;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -90,7 +90,7 @@ public class AbsListView_ScrollTest {
 
         final Activity activity = mActivityRule.getActivity();
 
-        PollingCheck.waitFor(() -> activity.hasWindowFocus());
+        WindowUtil.waitForFocus(activity);
 
         mCountriesAdapter = new ArrayAdapter<>(mContext,
                 R.layout.listitemfixed_layout, COUNTRY_LIST);

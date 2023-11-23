@@ -10,7 +10,7 @@ license {
     license_kinds: [
         "SPDX-license-identifier-BSD",
     ],
-    // large-scale-change unable to identify any license_text files
+    license_text: ["LICENSE"],
 }
 
 cc_binary {

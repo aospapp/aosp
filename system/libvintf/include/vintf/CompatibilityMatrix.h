@@ -117,7 +117,10 @@ struct CompatibilityMatrix : public HalGroup<MatrixHal>,
 
     // Combine a set of framework compatibility matrices. For each CompatibilityMatrix in matrices
     // (in the order of level(), where UNSPECIFIED (empty) is treated as deviceLevel)
-    // - If level() < deviceLevel, ignore
+    // - If level() < deviceLevel:
+    //    - If kernelLevel is UNSPECIFIED, ignore
+    //    - If kernelLevel is not UNSPECIFIED and level() < kernelLevel, ignore
+    //    - If kernelLevel is not UNSPECIFIED and level() >= kernelLevel, add kernel()
     // - If level() == UNSPECIFIED or level() == deviceLevel,
     //   - Add as hard requirements. See combineSameFcmVersion
     // - If level() > deviceLevel,
@@ -126,7 +129,7 @@ struct CompatibilityMatrix : public HalGroup<MatrixHal>,
     //     with lower level()
     //   - <sepolicy>, <avb><vbmeta-version> is ignored
     // Return the combined matrix, nullptr if any error (e.g. conflict of information).
-    static std::unique_ptr<CompatibilityMatrix> combine(Level deviceLevel,
+    static std::unique_ptr<CompatibilityMatrix> combine(Level deviceLevel, Level kernelLevel,
                                                         std::vector<CompatibilityMatrix>* matrices,
                                                         std::string* error);
 

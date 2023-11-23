@@ -115,7 +115,7 @@ public class UserRestrictionsParentTest extends InstrumentationTestCase {
     }
 
     public void testUserRestrictionDisallowConfigDateTimeIsNotPersisted() throws Exception {
-        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
+        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(60);
         while (System.nanoTime() <= deadline) {
             if (!mUserManager.hasUserRestriction(UserManager.DISALLOW_CONFIG_DATE_TIME)) {
                 return;

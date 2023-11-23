@@ -61,22 +61,13 @@
     <option name="compatibility:exclude-filter" value="CtsAppTestCases android.app.cts.ActivityKeyboardShortcutsTest#testRequestShowKeyboardShortcuts" />
 
     <!-- b/161837932: Fix MediaPlayerTests that use "too small" resolution -->
-    <option name="compatibility:exclude-filter" value="CtsMediaTestCases android.media.cts.MediaPlayerTest#testOnSubtitleDataListener" />
-    <option name="compatibility:exclude-filter" value="CtsMediaTestCases android.media.cts.MediaPlayerTest#testChangeSubtitleTrack" />
-    <option name="compatibility:exclude-filter" value="CtsMediaTestCases android.media.cts.MediaPlayerTest#testDeselectTrackForSubtitleTracks" />
-    <option name="compatibility:exclude-filter" value="CtsMediaTestCases android.media.cts.MediaPlayerTest#testGetTrackInfoForVideoWithSubtitleTracks" />
-
-    <!-- b/74583365: CtsAppSecurityHostTestCases flaky -->
-    <option name="compatibility:exclude-filter" value="CtsAppSecurityHostTestCases android.appsecurity.cts.AdoptableHostTest#testApps " />
-    <option name="compatibility:exclude-filter" value="CtsAppSecurityHostTestCases android.appsecurity.cts.AdoptableHostTest#testEjected" />
-    <option name="compatibility:exclude-filter" value="CtsAppSecurityHostTestCases android.appsecurity.cts.AdoptableHostTest#testPackageInstaller" />
-    <option name="compatibility:exclude-filter" value="CtsAppSecurityHostTestCases android.appsecurity.cts.AdoptableHostTest#testPrimaryStorage" />
+    <option name="compatibility:exclude-filter" value="CtsMediaPlayerTestCases android.media.player.cts.MediaPlayerTest#testOnSubtitleDataListener" />
+    <option name="compatibility:exclude-filter" value="CtsMediaPlayerTestCases android.media.player.cts.MediaPlayerTest#testChangeSubtitleTrack" />
+    <option name="compatibility:exclude-filter" value="CtsMediaPlayerTestCases android.media.player.cts.MediaPlayerTest#testDeselectTrackForSubtitleTracks" />
+    <option name="compatibility:exclude-filter" value="CtsMediaPlayerTestCases android.media.player.cts.MediaPlayerTest#testGetTrackInfoForVideoWithSubtitleTracks" />
 
     <!-- b/152359655: ResumeOnReboot can't work on GSI -->
     <option name="compatibility:exclude-filter" value="CtsAppSecurityHostTestCases android.appsecurity.cts.ResumeOnRebootHostTest" />
-
-    <!-- b/77175538: CtsViewTestCases failure flaky -->
-    <option name="compatibility:exclude-filter" value="CtsViewTestCases android.view.cts.PixelCopyTest#testWindowProducerCopyToRGBA16F" />
 
     <!-- b/73727333: CtsSystemUiTestCases failure flaky -->
     <option name="compatibility:exclude-filter" value="CtsSystemUiTestCases android.systemui.cts.LightBarTests#testLightNavigationBar" />
@@ -117,18 +108,6 @@
     <option name="compatibility:exclude-filter" value="CtsSecurityTestCases android.security.cts.BannedFilesTest#testNoSu" />
     <option name="compatibility:exclude-filter" value="CtsSecurityTestCases android.security.cts.BannedFilesTest#testNoSuInPath" />
 
-    <!-- b/116170534: CtsMediaTestCases regression (9.0 R4 waiver) -->
-    <option name="compatibility:exclude-filter" value="CtsMediaTestCases android.media.cts.DecoderTest#testH265HDR10StaticMetadata" />
-    <option name="compatibility:exclude-filter" value="CtsMediaTestCases android.media.cts.VolumeShaperTest#testPlayerCornerCase" />
-    <option name="compatibility:exclude-filter" value="CtsMediaTestCases android.media.cts.VolumeShaperTest#testPlayerCornerCase2" />
-    <option name="compatibility:exclude-filter" value="CtsMediaTestCases android.media.cts.VolumeShaperTest#testPlayerCubicMonotonic" />
-    <option name="compatibility:exclude-filter" value="CtsMediaTestCases android.media.cts.VolumeShaperTest#testPlayerDuck" />
-    <option name="compatibility:exclude-filter" value="CtsMediaTestCases android.media.cts.VolumeShaperTest#testPlayerJoin" />
-    <option name="compatibility:exclude-filter" value="CtsMediaTestCases android.media.cts.VolumeShaperTest#testPlayerRamp" />
-    <option name="compatibility:exclude-filter" value="CtsMediaTestCases android.media.cts.VolumeShaperTest#testPlayerRunDuringPauseStop" />
-    <option name="compatibility:exclude-filter" value="CtsMediaTestCases android.media.cts.VolumeShaperTest#testPlayerStepRamp" />
-    <option name="compatibility:exclude-filter" value="CtsMediaTestCases android.media.cts.VolumeShaperTest#testPlayerTwoShapers" />
-
     <!-- b/157286547 CtsIncidentHostTestCases ErrorsTest failure -->
     <option name="compatibility:exclude-filter" value="CtsIncidentHostTestCases com.android.server.cts.ErrorsTest#testNativeCrash" />
 
@@ -143,9 +122,6 @@
     <!-- b/145371681: CtsContentSuggestionsTestCases and CtsAppPredictionServiceTestCases (10_r2 waiver) -->
     <option name="compatibility:exclude-filter" value="CtsAppPredictionServiceTestCases" />
     <option name="compatibility:exclude-filter" value="CtsContentSuggestionsTestCases" />
-
-    <!-- b/143513519: CtsCameraTestCases (10_r3 waiver) -->
-    <option name="compatibility:exclude-filter" value="CtsCameraTestCases android.camera.cts.HeifWriterTest#testHeif"/>
 
     <!-- b/155107044: CtsNetTestCases -->
     <option name="compatibility:exclude-filter" value="CtsNetTestCases android.net.cts.IpSecManagerTest#testInterfaceCountersUdp4"/>
@@ -214,10 +190,6 @@
     <option name="compatibility:exclude-filter" value="CtsNetTestCases android.net.cts.IpSecManagerTest#testAesCbcHmacSha512Tcp4UdpEncap"/>
     <option name="compatibility:exclude-filter" value="CtsNetTestCases android.net.cts.TrafficStatsTest#testTrafficStatsForLocalhost"/>
     <option name="compatibility:exclude-filter" value="CtsNetTestCases android.net.cts.TrafficStatsTest#testValidTotalStats"/>
-
-    <!-- b/150807956: Temporarily disabled due to bad experiment channel -->
-    <option name="compatibility:exclude-filter" value="CtsUiRenderingTestCases android.uirendering.cts.testclasses.LayerTests#testWebViewWithLayerAndComplexClip" />
-    <option name="compatibility:exclude-filter" value="CtsUiRenderingTestCases android.uirendering.cts.testclasses.PathClippingTests#testWebViewClipWithCircle" />
 
     <!-- b/159295445, b/159294948: CtsDevicePolicyManagerTestCases -->
     <option name="compatibility:exclude-filter" value="CtsDevicePolicyManagerTestCases com.android.cts.devicepolicy.MixedDeviceOwnerTest#testDelegatedCertInstallerDeviceIdAttestation" />

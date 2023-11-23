@@ -18,6 +18,7 @@ package com.android.tests.sysfs;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
 import android.platform.test.annotations.RequiresDevice;
 import com.android.tradefed.device.ITestDevice;
@@ -188,9 +189,11 @@ public class KernelApiSysfsTest extends BaseHostJUnit4Test {
         }
     }
 
-    /* Check that /dev/rtc matches CONFIG_RTC_HCTOSYS_DEVICE */
+    /* If RTC is present, check that /dev/rtc matches CONFIG_RTC_HCTOSYS_DEVICE */
     @Test
     public void testRtcHctosys() throws Exception {
+        String[] rtcList = findFiles("/sys/class/rtc", "rtc*");
+        assumeTrue("Device has RTC", rtcList.length != 0);
         String output = getDevice().executeShellCommand(
                 "gzip -dc /proc/config.gz | grep CONFIG_RTC_HCTOSYS_DEVICE");
         Pattern p = Pattern.compile("CONFIG_RTC_HCTOSYS_DEVICE=\"(.*)\"");

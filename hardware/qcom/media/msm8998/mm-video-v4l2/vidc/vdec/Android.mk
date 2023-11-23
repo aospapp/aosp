@@ -31,11 +31,11 @@ TARGETS_THAT_HAVE_VENUS_HEVC := apq8084 msm8994 msm8996
 TARGETS_THAT_SUPPORT_UBWC := msm8996 msm8953 msm8998 sdm660
 TARGETS_THAT_NEED_SW_VDEC := msm8937 msm8909
 
-ifeq ($(call is-board-platform-in-list, $(TARGETS_THAT_USE_HEVC_ADSP_HEAP)),true)
+ifneq (,$(call is-board-platform-in-list2, $(TARGETS_THAT_USE_HEVC_ADSP_HEAP)))
 libmm-vdec-def += -D_HEVC_USE_ADSP_HEAP_
 endif
 
-ifeq ($(call is-board-platform-in-list, $(TARGETS_THAT_HAVE_VENUS_HEVC)),true)
+ifneq (,$(call is-board-platform-in-list2, $(TARGETS_THAT_HAVE_VENUS_HEVC)))
 libmm-vdec-def += -DVENUS_HEVC
 endif
 
@@ -44,7 +44,7 @@ libmm-vdec-def += -DSMOOTH_STREAMING_DISABLED
 libmm-vdec-def += -DH264_PROFILE_LEVEL_CHECK
 endif
 
-ifeq ($(call is-board-platform-in-list, $(TARGETS_THAT_SUPPORT_UBWC)),true)
+ifneq (,$(call is-board-platform-in-list2, $(TARGETS_THAT_SUPPORT_UBWC)))
 libmm-vdec-def += -D_UBWC_
 endif
 
@@ -56,7 +56,7 @@ ifneq (1,$(filter 1,$(shell echo "$$(( $(PLATFORM_SDK_VERSION) >= 18 ))" )))
 libmm-vdec-def += -DANDROID_JELLYBEAN_MR1=1
 endif
 
-ifeq ($(call is-board-platform-in-list, $(MASTER_SIDE_CP_TARGET_LIST)),true)
+ifneq (,$(call is-board-platform-in-list2, $(MASTER_SIDE_CP_TARGET_LIST)))
 libmm-vdec-def += -DMASTER_SIDE_CP
 endif
 
@@ -89,12 +89,12 @@ ifeq ($(TARGET_COMPILE_WITH_MSM_KERNEL),true)
 libmm-vdec-add-dep := $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
 endif
 
-ifeq ($(call is-platform-sdk-version-at-least, 19),true)
+ifeq (T,T)  # TODO: Obsolete, please remove
 # This feature is enabled for Android KK+
 libmm-vdec-def += -DADAPTIVE_PLAYBACK_SUPPORTED
 endif
 
-ifeq ($(call is-platform-sdk-version-at-least, 22),true)
+ifeq (T,T)  # TODO: Obsolete, please remove
 # This feature is enabled for Android LMR1
 libmm-vdec-def += -DFLEXYUV_SUPPORTED
 endif
@@ -149,7 +149,7 @@ include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
 ifneq "$(wildcard $(QCPATH) )" ""
-ifeq ($(call is-board-platform-in-list, $(TARGETS_THAT_NEED_SW_VDEC)),true)
+ifneq (,$(call is-board-platform-in-list2, $(TARGETS_THAT_NEED_SW_VDEC)))
 
 LOCAL_MODULE                  := libOmxSwVdec
 LOCAL_LICENSE_KINDS           := SPDX-license-identifier-BSD

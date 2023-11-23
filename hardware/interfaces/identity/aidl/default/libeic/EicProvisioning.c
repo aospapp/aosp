@@ -15,9 +15,23 @@
  */
 
 #include "EicProvisioning.h"
+#include "EicCommon.h"
+
+#include <inttypes.h>
+
+// Global used for assigning ids for provisioning objects.
+//
+static uint32_t gProvisioningLastIdAssigned = 0;
 
 bool eicProvisioningInit(EicProvisioning* ctx, bool testCredential) {
     eicMemSet(ctx, '\0', sizeof(EicProvisioning));
+
+    if (!eicNextId(&gProvisioningLastIdAssigned)) {
+        eicDebug("Error getting id for object");
+        return false;
+    }
+    ctx->id = gProvisioningLastIdAssigned;
+
     ctx->testCredential = testCredential;
     if (!eicOpsRandom(ctx->storageKey, EIC_AES_128_KEY_SIZE)) {
         return false;
@@ -27,18 +41,18 @@ bool eicProvisioningInit(EicProvisioning* ctx, bool testCredential) {
 }
 
 bool eicProvisioningInitForUpdate(EicProvisioning* ctx, bool testCredential, const char* docType,
-                                  const uint8_t* encryptedCredentialKeys,
+                                  size_t docTypeLength, const uint8_t* encryptedCredentialKeys,
                                   size_t encryptedCredentialKeysSize) {
-    uint8_t credentialKeys[86];
+    uint8_t credentialKeys[EIC_CREDENTIAL_KEYS_CBOR_SIZE_FEATURE_VERSION_202101];
 
     // For feature version 202009 it's 52 bytes long and for feature version 202101 it's 86
     // bytes (the additional data is the ProofOfProvisioning SHA-256). We need
     // to support loading all feature versions.
     //
     bool expectPopSha256 = false;
-    if (encryptedCredentialKeysSize == 52 + 28) {
+    if (encryptedCredentialKeysSize == EIC_CREDENTIAL_KEYS_CBOR_SIZE_FEATURE_VERSION_202009 + 28) {
         /* do nothing */
-    } else if (encryptedCredentialKeysSize == 86 + 28) {
+    } else if (encryptedCredentialKeysSize == EIC_CREDENTIAL_KEYS_CBOR_SIZE_FEATURE_VERSION_202101 + 28) {
         expectPopSha256 = true;
     } else {
         eicDebug("Unexpected size %zd for encryptedCredentialKeys", encryptedCredentialKeysSize);
@@ -46,12 +60,19 @@ bool eicProvisioningInitForUpdate(EicProvisioning* ctx, bool testCredential, con
     }
 
     eicMemSet(ctx, '\0', sizeof(EicProvisioning));
+
+    if (!eicNextId(&gProvisioningLastIdAssigned)) {
+        eicDebug("Error getting id for object");
+        return false;
+    }
+    ctx->id = gProvisioningLastIdAssigned;
+
     ctx->testCredential = testCredential;
 
     if (!eicOpsDecryptAes128Gcm(eicOpsGetHardwareBoundKey(testCredential), encryptedCredentialKeys,
                                 encryptedCredentialKeysSize,
                                 // DocType is the additionalAuthenticatedData
-                                (const uint8_t*)docType, eicStrLen(docType), credentialKeys)) {
+                                (const uint8_t*)docType, docTypeLength, credentialKeys)) {
         eicDebug("Error decrypting CredentialKeys");
         return false;
     }
@@ -95,9 +116,27 @@ bool eicProvisioningInitForUpdate(EicProvisioning* ctx, bool testCredential, con
     return true;
 }
 
+bool eicProvisioningShutdown(EicProvisioning* ctx) {
+    if (ctx->id == 0) {
+        eicDebug("Trying to shut down provsioning with id 0");
+        return false;
+    }
+    eicDebug("Shut down provsioning with id %" PRIu32, ctx->id);
+    eicMemSet(ctx, '\0', sizeof(EicProvisioning));
+    return true;
+}
+
+bool eicProvisioningGetId(EicProvisioning* ctx, uint32_t* outId) {
+    *outId = ctx->id;
+    return true;
+}
+
 bool eicProvisioningCreateCredentialKey(EicProvisioning* ctx, const uint8_t* challenge,
                                         size_t challengeSize, const uint8_t* applicationId,
-                                        size_t applicationIdSize, uint8_t* publicKeyCert,
+                                        size_t applicationIdSize, const uint8_t* attestationKeyBlob,
+                                        size_t attestationKeyBlobSize,
+                                        const uint8_t* attestationKeyCert,
+                                        size_t attestationKeyCertSize, uint8_t* publicKeyCert,
                                         size_t* publicKeyCertSize) {
     if (ctx->isUpdate) {
         eicDebug("Cannot create CredentialKey on update");
@@ -106,7 +145,9 @@ bool eicProvisioningCreateCredentialKey(EicProvisioning* ctx, const uint8_t* cha
 
     if (!eicOpsCreateCredentialKey(ctx->credentialPrivateKey, challenge, challengeSize,
                                    applicationId, applicationIdSize, ctx->testCredential,
-                                   publicKeyCert, publicKeyCertSize)) {
+                                   attestationKeyBlob, attestationKeyBlobSize, attestationKeyCert,
+                                   attestationKeyCertSize, publicKeyCert, publicKeyCertSize)) {
+        eicDebug("Error creating credential key");
         return false;
     }
     return true;
@@ -114,7 +155,7 @@ bool eicProvisioningCreateCredentialKey(EicProvisioning* ctx, const uint8_t* cha
 
 bool eicProvisioningStartPersonalization(EicProvisioning* ctx, int accessControlProfileCount,
                                          const int* entryCounts, size_t numEntryCounts,
-                                         const char* docType,
+                                         const char* docType, size_t docTypeLength,
                                          size_t expectedProofOfProvisioningSize) {
     if (numEntryCounts >= EIC_MAX_NUM_NAMESPACES) {
         return false;
@@ -150,7 +191,7 @@ bool eicProvisioningStartPersonalization(EicProvisioning* ctx, int accessControl
     //  ]
     //
     eicCborAppendArray(&ctx->cbor, 4);
-    eicCborAppendString(&ctx->cbor, "Signature1");
+    eicCborAppendStringZ(&ctx->cbor, "Signature1");
 
     // The COSE Encoded protected headers is just a single field with
     // COSE_LABEL_ALG (1) -> COSE_ALG_ECSDA_256 (-7). For simplicitly we just
@@ -174,8 +215,8 @@ bool eicProvisioningStartPersonalization(EicProvisioning* ctx, int accessControl
     eicCborEnableSecondaryDigesterSha256(&ctx->cbor, &ctx->proofOfProvisioningDigester);
 
     eicCborAppendArray(&ctx->cbor, 5);
-    eicCborAppendString(&ctx->cbor, "ProofOfProvisioning");
-    eicCborAppendString(&ctx->cbor, docType);
+    eicCborAppendStringZ(&ctx->cbor, "ProofOfProvisioning");
+    eicCborAppendString(&ctx->cbor, docType, docTypeLength);
 
     eicCborAppendArray(&ctx->cbor, accessControlProfileCount);
 
@@ -185,12 +226,12 @@ bool eicProvisioningStartPersonalization(EicProvisioning* ctx, int accessControl
 bool eicProvisioningAddAccessControlProfile(EicProvisioning* ctx, int id,
                                             const uint8_t* readerCertificate,
                                             size_t readerCertificateSize,
-                                            bool userAuthenticationRequired, uint64_t timeoutMillis,
-                                            uint64_t secureUserId, uint8_t outMac[28]) {
-    uint8_t cborBuffer[EIC_MAX_CBOR_SIZE_FOR_ACCESS_CONTROL_PROFILE];
+                                            bool userAuthenticationRequired,
+                                            uint64_t timeoutMillis, uint64_t secureUserId,
+                                            uint8_t outMac[28], uint8_t* scratchSpace,
+                                            size_t scratchSpaceSize) {
     EicCbor cborBuilder;
-
-    eicCborInit(&cborBuilder, cborBuffer, EIC_MAX_CBOR_SIZE_FOR_ACCESS_CONTROL_PROFILE);
+    eicCborInit(&cborBuilder, scratchSpace, scratchSpaceSize);
 
     if (!eicCborCalcAccessControl(&cborBuilder, id, readerCertificate, readerCertificateSize,
                                   userAuthenticationRequired, timeoutMillis, secureUserId)) {
@@ -209,7 +250,7 @@ bool eicProvisioningAddAccessControlProfile(EicProvisioning* ctx, int id,
 
     // The ACP CBOR in the provisioning receipt doesn't include secureUserId so build
     // it again.
-    eicCborInit(&cborBuilder, cborBuffer, EIC_MAX_CBOR_SIZE_FOR_ACCESS_CONTROL_PROFILE);
+    eicCborInit(&cborBuilder, scratchSpace, scratchSpaceSize);
     if (!eicCborCalcAccessControl(&cborBuilder, id, readerCertificate, readerCertificateSize,
                                   userAuthenticationRequired, timeoutMillis,
                                   0 /* secureUserId */)) {
@@ -222,9 +263,10 @@ bool eicProvisioningAddAccessControlProfile(EicProvisioning* ctx, int id,
     return true;
 }
 
-bool eicProvisioningBeginAddEntry(EicProvisioning* ctx, const int* accessControlProfileIds,
+bool eicProvisioningBeginAddEntry(EicProvisioning* ctx, const uint8_t* accessControlProfileIds,
                                   size_t numAccessControlProfileIds, const char* nameSpace,
-                                  const char* name, uint64_t entrySize, uint8_t* scratchSpace,
+                                  size_t nameSpaceLength, const char* name, size_t nameLength,
+                                  uint64_t entrySize, uint8_t* scratchSpace,
                                   size_t scratchSpaceSize) {
     uint8_t* additionalDataCbor = scratchSpace;
     const size_t additionalDataCborBufSize = scratchSpaceSize;
@@ -233,9 +275,9 @@ bool eicProvisioningBeginAddEntry(EicProvisioning* ctx, const int* accessControl
     // We'll need to calc and store a digest of additionalData to check that it's the same
     // additionalData being passed in for every eicProvisioningAddEntryValue() call...
     if (!eicCborCalcEntryAdditionalData(accessControlProfileIds, numAccessControlProfileIds,
-                                        nameSpace, name, additionalDataCbor,
-                                        additionalDataCborBufSize, &additionalDataCborSize,
-                                        ctx->additionalDataSha256)) {
+                                        nameSpace, nameSpaceLength, name, nameLength,
+                                        additionalDataCbor, additionalDataCborBufSize,
+                                        &additionalDataCborSize, ctx->additionalDataSha256)) {
         return false;
     }
 
@@ -244,7 +286,7 @@ bool eicProvisioningBeginAddEntry(EicProvisioning* ctx, const int* accessControl
         ctx->curNamespaceNumProcessed = 0;
         // Opens the main map: { * Namespace => [ + Entry ] }
         eicCborAppendMap(&ctx->cbor, ctx->numEntryCounts);
-        eicCborAppendString(&ctx->cbor, nameSpace);
+        eicCborAppendString(&ctx->cbor, nameSpace, nameSpaceLength);
         // Opens the per-namespace array: [ + Entry ]
         eicCborAppendArray(&ctx->cbor, ctx->entryCounts[ctx->curNamespace]);
     }
@@ -252,37 +294,39 @@ bool eicProvisioningBeginAddEntry(EicProvisioning* ctx, const int* accessControl
     if (ctx->curNamespaceNumProcessed == ctx->entryCounts[ctx->curNamespace]) {
         ctx->curNamespace += 1;
         ctx->curNamespaceNumProcessed = 0;
-        eicCborAppendString(&ctx->cbor, nameSpace);
+        eicCborAppendString(&ctx->cbor, nameSpace, nameSpaceLength);
         // Opens the per-namespace array: [ + Entry ]
         eicCborAppendArray(&ctx->cbor, ctx->entryCounts[ctx->curNamespace]);
     }
 
     eicCborAppendMap(&ctx->cbor, 3);
-    eicCborAppendString(&ctx->cbor, "name");
-    eicCborAppendString(&ctx->cbor, name);
+    eicCborAppendStringZ(&ctx->cbor, "name");
+    eicCborAppendString(&ctx->cbor, name, nameLength);
 
     ctx->curEntrySize = entrySize;
     ctx->curEntryNumBytesReceived = 0;
 
-    eicCborAppendString(&ctx->cbor, "value");
+    eicCborAppendStringZ(&ctx->cbor, "value");
 
     ctx->curNamespaceNumProcessed += 1;
     return true;
 }
 
-bool eicProvisioningAddEntryValue(EicProvisioning* ctx, const int* accessControlProfileIds,
+bool eicProvisioningAddEntryValue(EicProvisioning* ctx, const uint8_t* accessControlProfileIds,
                                   size_t numAccessControlProfileIds, const char* nameSpace,
-                                  const char* name, const uint8_t* content, size_t contentSize,
+                                  size_t nameSpaceLength, const char* name, size_t nameLength,
+                                  const uint8_t* content, size_t contentSize,
                                   uint8_t* outEncryptedContent, uint8_t* scratchSpace,
                                   size_t scratchSpaceSize) {
     uint8_t* additionalDataCbor = scratchSpace;
     const size_t additionalDataCborBufSize = scratchSpaceSize;
     size_t additionalDataCborSize;
-
     uint8_t calculatedSha256[EIC_SHA256_DIGEST_SIZE];
+
     if (!eicCborCalcEntryAdditionalData(accessControlProfileIds, numAccessControlProfileIds,
-                                        nameSpace, name, additionalDataCbor,
-                                        additionalDataCborBufSize, &additionalDataCborSize,
+                                        nameSpace, nameSpaceLength, name, nameLength,
+                                        additionalDataCbor, additionalDataCborBufSize,
+                                        &additionalDataCborSize,
                                         calculatedSha256)) {
         return false;
     }
@@ -305,7 +349,7 @@ bool eicProvisioningAddEntryValue(EicProvisioning* ctx, const int* accessControl
     // If done with this entry, close the map
     ctx->curEntryNumBytesReceived += contentSize;
     if (ctx->curEntryNumBytesReceived == ctx->curEntrySize) {
-        eicCborAppendString(&ctx->cbor, "accessControlProfiles");
+        eicCborAppendStringZ(&ctx->cbor, "accessControlProfiles");
         eicCborAppendArray(&ctx->cbor, numAccessControlProfileIds);
         for (size_t n = 0; n < numAccessControlProfileIds; n++) {
             eicCborAppendNumber(&ctx->cbor, accessControlProfileIds[n]);
@@ -337,6 +381,7 @@ bool eicProvisioningFinishAddingEntries(
 }
 
 bool eicProvisioningFinishGetCredentialData(EicProvisioning* ctx, const char* docType,
+                                            size_t docTypeLength,
                                             uint8_t* encryptedCredentialKeys,
                                             size_t* encryptedCredentialKeysSize) {
     EicCbor cbor;
@@ -367,7 +412,7 @@ bool eicProvisioningFinishGetCredentialData(EicProvisioning* ctx, const char* do
     if (!eicOpsEncryptAes128Gcm(
                 eicOpsGetHardwareBoundKey(ctx->testCredential), nonce, cborBuf, cbor.size,
                 // DocType is the additionalAuthenticatedData
-                (const uint8_t*)docType, eicStrLen(docType), encryptedCredentialKeys)) {
+                (const uint8_t*)docType, docTypeLength, encryptedCredentialKeys)) {
         eicDebug("Error encrypting CredentialKeys");
         return false;
     }

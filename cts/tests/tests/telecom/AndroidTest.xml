@@ -30,6 +30,7 @@
         <option name="test-file-name" value="CallScreeningServiceTestApp.apk" />
         <option name="test-file-name" value="CarModeTestApp.apk" />
         <option name="test-file-name" value="CarModeTestAppTwo.apk" />
+        <option name="test-file-name" value="CarModeTestAppSelfManaged.apk" />
         <option name="test-file-name" value="ThirdPtyDialerTestApp.apk" />
         <option name="test-file-name" value="ThirdPtyDialerTestAppTwo.apk" />
     </target_preparer>

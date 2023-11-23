@@ -51,6 +51,10 @@
 
     <!-- Advertise the test suite to media cts. -->
     <!-- TODO:delete after mts-all.xml is ready. -->
-    <option name="compatibility:module-arg" value="CtsMediaTestCases:instrumentation-arg:mts-media:=true" />
+    <option name="compatibility:module-arg" value="CtsMediaCodecTestCases:instrumentation-arg:mts-media:=true" />
+    <option name="compatibility:module-arg" value="CtsMediaDecoderTestCases:instrumentation-arg:mts-media:=true" />
+    <option name="compatibility:module-arg" value="CtsMediaEncoderTestCases:instrumentation-arg:mts-media:=true" />
+    <option name="compatibility:module-arg" value="CtsMediaExtractorTestCases:instrumentation-arg:mts-media:=true" />
+    <option name="compatibility:module-arg" value="CtsMediaMiscTestCases:instrumentation-arg:mts-media:=true" />
+    <option name="compatibility:module-arg" value="CtsMediaPlayerTestCases:instrumentation-arg:mts-media:=true" />
 </configuration>
-

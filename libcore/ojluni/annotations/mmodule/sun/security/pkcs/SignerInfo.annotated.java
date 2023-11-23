@@ -33,13 +33,11 @@ import sun.security.x509.X500Name;
 import java.io.IOException;
 
 @android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
-@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 @libcore.api.Hide
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class SignerInfo implements sun.security.util.DerEncoder {
 
 @android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
-@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 @libcore.api.Hide
 public SignerInfo() { throw new RuntimeException("Stub!"); }
 
@@ -65,7 +63,6 @@ public void derEncode(java.io.OutputStream out) throws java.io.IOException { thr
 public java.security.cert.X509Certificate getCertificate(sun.security.pkcs.PKCS7 block) throws java.io.IOException { throw new RuntimeException("Stub!"); }
 
 @android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
-@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 @libcore.api.Hide
 public java.util.ArrayList<java.security.cert.X509Certificate> getCertificateChain(sun.security.pkcs.PKCS7 block) throws java.io.IOException { throw new RuntimeException("Stub!"); }
 

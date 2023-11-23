@@ -27,34 +27,5 @@ Status LazyTestService::forcePersist(bool persist) {
   return Status::ok();
 }
 
-Status LazyTestService::setCustomActiveServicesCallback() {
-  auto lazyRegistrar = LazyServiceRegistrar::getInstance();
-  lazyRegistrar.setActiveServicesCallback([lazyRegistrar](bool hasClients) mutable -> bool {
-    if (hasClients) {
-      return false;
-    }
-
-    // Unregister all services
-    if (!lazyRegistrar.tryUnregister()) {
-      // Prevent shutdown (test will fail)
-      return true;
-    }
-
-    // Re-register all services
-    lazyRegistrar.reRegister();
-
-    // Unregister again before shutdown
-    if (!lazyRegistrar.tryUnregister()) {
-      // Prevent shutdown (test will fail)
-      return true;
-    }
-
-    exit(EXIT_SUCCESS);
-    // Unreachable
-  });
-
-  return Status::ok();
-}
-
 }  // namespace binder
 }  // namespace android

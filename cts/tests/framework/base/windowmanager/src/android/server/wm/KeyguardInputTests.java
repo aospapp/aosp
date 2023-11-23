@@ -16,7 +16,7 @@
 
 package android.server.wm;
 
-import static android.server.wm.UiDeviceUtils.pressBackButton;
+import static android.server.wm.UiDeviceUtils.pressEnterButton;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -27,15 +27,13 @@ import android.content.ComponentName;
 import android.platform.test.annotations.Presubmit;
 import android.view.KeyEvent;
 
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.rule.ActivityTestRule;
 
-import com.android.compatibility.common.util.PollingCheck;
+import com.android.compatibility.common.util.WindowUtil;
 
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.runner.RunWith;
 
 /**
  * Build/Install/Run:
@@ -54,12 +52,12 @@ public class KeyguardInputTests extends KeyguardTestBase {
         assumeTrue(supportsInsecureLock());
 
         mActivity = mActivityRule.getActivity();
-        PollingCheck.waitFor(mActivity::hasWindowFocus);
+        WindowUtil.waitForFocus(mActivity);
     }
 
     /**
-     * Launch an activity on top of the keyguard, and inject BACK key. Ensure that the BACK key goes
-     * to the activity.
+     * Launch an activity on top of the keyguard, and inject ENTER key. Ensure that the ENTER key
+     * goes to the activity.
      */
     @Test
     public void testReceiveKeysOnTopOfKeyguard() {
@@ -67,8 +65,8 @@ public class KeyguardInputTests extends KeyguardTestBase {
         final ComponentName KEY_EVENT_ACTIVITY = new ComponentName("android.server.wm.cts",
                 "android.server.wm.KeyEventActivity");
         lockScreenSession.gotoKeyguard(KEY_EVENT_ACTIVITY);
-        pressBackButton();
-        assertReceivedKey(KeyEvent.KEYCODE_BACK);
+        pressEnterButton();
+        assertReceivedKey(KeyEvent.KEYCODE_ENTER);
         assertNoMoreEvents();
     }
 

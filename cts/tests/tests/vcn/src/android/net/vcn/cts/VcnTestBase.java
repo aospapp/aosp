@@ -24,6 +24,7 @@ import static android.net.ipsec.ike.SaProposal.INTEGRITY_ALGORITHM_HMAC_SHA2_256
 import static android.net.ipsec.ike.SaProposal.KEY_LEN_AES_128;
 import static android.net.ipsec.ike.SaProposal.PSEUDORANDOM_FUNCTION_AES128_CMAC;
 
+import android.net.InetAddresses;
 import android.net.ipsec.ike.ChildSaProposal;
 import android.net.ipsec.ike.IkeFqdnIdentification;
 import android.net.ipsec.ike.IkeSaProposal;
@@ -31,7 +32,12 @@ import android.net.ipsec.ike.IkeSessionParams;
 import android.net.ipsec.ike.IkeTunnelConnectionParams;
 import android.net.ipsec.ike.TunnelModeChildSessionParams;
 
+import java.net.InetAddress;
+
 public class VcnTestBase {
+    protected static final InetAddress REMOTE_ADDRESS =
+            InetAddresses.parseNumericAddress("192.0.2.1");
+
     protected static IkeTunnelConnectionParams buildTunnelConnectionParams() {
         final IkeSessionParams ikeParams = getIkeSessionParamsBase().build();
         return buildTunnelConnectionParams(ikeParams);
@@ -61,13 +67,12 @@ public class VcnTestBase {
                         .build();
 
         // TODO: b/192610392 Improve VcnManagerTest CTS by adding IPv6 test case.
-        final String serverHostname = "192.0.2.1";
         final String testLocalId = "client.test.ike.android.net";
         final String testRemoteId = "server.test.ike.android.net";
         final byte[] psk = "ikeAndroidPsk".getBytes();
 
         return new IkeSessionParams.Builder()
-                .setServerHostname(serverHostname)
+                .setServerHostname(REMOTE_ADDRESS.getHostAddress())
                 .addSaProposal(ikeProposal)
                 .setLocalIdentification(new IkeFqdnIdentification(testLocalId))
                 .setRemoteIdentification(new IkeFqdnIdentification(testRemoteId))

@@ -92,7 +92,6 @@ enum lmk_state {
 
 #ifdef LMKD_LOG_STATS
 
-#define MEMCG_PROCESS_MEMORY_STAT_PATH "/dev/memcg/apps/uid_%u/pid_%d/memory.stat"
 #define PROC_STAT_FILE_PATH "/proc/%d/stat"
 #define PROC_STAT_BUFFER_SIZE 1024
 #define BYTES_IN_KILOBYTE 1024

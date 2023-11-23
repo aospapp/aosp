@@ -21,7 +21,6 @@ import android.graphics.Rect;
 import android.os.Bundle;
 import android.view.Display;
 import android.view.View;
-import android.view.WindowInsets;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -37,8 +36,6 @@ public final class ImeLayoutInfo {
     private static final String OLD_LAYOUT_KEY = "oldLayout";
     private static final String VIEW_ORIGIN_ON_SCREEN_KEY = "viewOriginOnScreen";
     private static final String DISPLAY_SIZE_KEY = "displaySize";
-    private static final String SYSTEM_WINDOW_INSET_KEY = "systemWindowInset";
-    private static final String STABLE_INSET_KEY = "stableInset";
 
     @NonNull
     private final Rect mNewLayout;
@@ -48,10 +45,6 @@ public final class ImeLayoutInfo {
     private Point mViewOriginOnScreen;
     @Nullable
     private Point mDisplaySize;
-    @Nullable
-    private Rect mSystemWindowInset;
-    @Nullable
-    private Rect mStableInset;
 
     /**
      * Returns the bounding box of the {@link View} passed to
@@ -71,71 +64,12 @@ public final class ImeLayoutInfo {
                 mViewOriginOnScreen.y + mNewLayout.height());
     }
 
-    /**
-     * Returns the screen area in screen coordinates that does not overlap with the system
-     * window inset, which represents the area of a full-screen window that is partially or
-     * fully obscured by the status bar, navigation bar, IME or other system windows.
-     *
-     * <p>May return {@code null} when this information is not yet ready.</p>
-     *
-     * @return Region in screen coordinates. {@code null} when it is not available
-     *
-     * @see WindowInsets#hasSystemWindowInsets()
-     * @see WindowInsets#getSystemWindowInsetBottom()
-     * @see WindowInsets#getSystemWindowInsetLeft()
-     * @see WindowInsets#getSystemWindowInsetRight()
-     * @see WindowInsets#getSystemWindowInsetTop()
-     */
-    @Nullable
-    public Rect getScreenRectWithoutSystemWindowInset() {
-        if (mDisplaySize == null) {
-            return null;
-        }
-        if (mSystemWindowInset == null) {
-            return new Rect(0, 0, mDisplaySize.x, mDisplaySize.y);
-        }
-        return new Rect(mSystemWindowInset.left, mSystemWindowInset.top,
-                mDisplaySize.x - mSystemWindowInset.right,
-                mDisplaySize.y - mSystemWindowInset.bottom);
-    }
-
-    /**
-     * Returns the screen area in screen coordinates that does not overlap with the stable
-     * inset, which represents the area of a full-screen window that <b>may</b> be partially or
-     * fully obscured by the system UI elements.
-     *
-     * <p>May return {@code null} when this information is not yet ready.</p>
-     *
-     * @return Region in screen coordinates. {@code null} when it is not available
-     *
-     * @see WindowInsets#hasStableInsets()
-     * @see WindowInsets#getStableInsetBottom()
-     * @see WindowInsets#getStableInsetLeft()
-     * @see WindowInsets#getStableInsetRight()
-     * @see WindowInsets#getStableInsetTop()
-     */
-    @Nullable
-    public Rect getScreenRectWithoutStableInset() {
-        if (mDisplaySize == null) {
-            return null;
-        }
-        if (mStableInset == null) {
-            return new Rect(0, 0, mDisplaySize.x, mDisplaySize.y);
-        }
-        return new Rect(mStableInset.left, mStableInset.top,
-                mDisplaySize.x - mStableInset.right,
-                mDisplaySize.y - mStableInset.bottom);
-    }
-
     ImeLayoutInfo(@NonNull Rect newLayout, @NonNull Rect oldLayout,
-            @NonNull Point viewOriginOnScreen, @Nullable Point displaySize,
-            @Nullable Rect systemWindowInset, @Nullable Rect stableInset) {
+            @NonNull Point viewOriginOnScreen, @Nullable Point displaySize) {
         mNewLayout = new Rect(newLayout);
         mOldLayout = new Rect(oldLayout);
         mViewOriginOnScreen = new Point(viewOriginOnScreen);
         mDisplaySize = new Point(displaySize);
-        mSystemWindowInset = systemWindowInset;
-        mStableInset = stableInset;
     }
 
     void writeToBundle(@NonNull Bundle bundle) {
@@ -143,8 +77,6 @@ public final class ImeLayoutInfo {
         bundle.putParcelable(OLD_LAYOUT_KEY, mOldLayout);
         bundle.putParcelable(VIEW_ORIGIN_ON_SCREEN_KEY, mViewOriginOnScreen);
         bundle.putParcelable(DISPLAY_SIZE_KEY, mDisplaySize);
-        bundle.putParcelable(SYSTEM_WINDOW_INSET_KEY, mSystemWindowInset);
-        bundle.putParcelable(STABLE_INSET_KEY, mStableInset);
     }
 
     static ImeLayoutInfo readFromBundle(@NonNull Bundle bundle) {
@@ -152,11 +84,8 @@ public final class ImeLayoutInfo {
         final Rect oldLayout = bundle.getParcelable(OLD_LAYOUT_KEY);
         final Point viewOrigin = bundle.getParcelable(VIEW_ORIGIN_ON_SCREEN_KEY);
         final Point displaySize = bundle.getParcelable(DISPLAY_SIZE_KEY);
-        final Rect systemWindowInset = bundle.getParcelable(SYSTEM_WINDOW_INSET_KEY);
-        final Rect stableInset = bundle.getParcelable(STABLE_INSET_KEY);
 
-        return new ImeLayoutInfo(newLayout, oldLayout, viewOrigin, displaySize, systemWindowInset,
-                stableInset);
+        return new ImeLayoutInfo(newLayout, oldLayout, viewOrigin, displaySize);
     }
 
     static ImeLayoutInfo fromLayoutListenerCallback(View v, int left, int top, int right,
@@ -174,25 +103,6 @@ public final class ImeLayoutInfo {
         } else {
             displaySize = null;
         }
-        final WindowInsets windowInsets = v.getRootWindowInsets();
-        final Rect systemWindowInset;
-        if (windowInsets != null && windowInsets.hasSystemWindowInsets()) {
-            systemWindowInset = new Rect(
-                    windowInsets.getSystemWindowInsetLeft(), windowInsets.getSystemWindowInsetTop(),
-                    windowInsets.getSystemWindowInsetRight(),
-                    windowInsets.getSystemWindowInsetBottom());
-        } else {
-            systemWindowInset = null;
-        }
-        final Rect stableInset;
-        if (windowInsets != null && windowInsets.hasStableInsets()) {
-            stableInset = new Rect(
-                    windowInsets.getStableInsetLeft(), windowInsets.getStableInsetTop(),
-                    windowInsets.getStableInsetRight(), windowInsets.getStableInsetBottom());
-        } else {
-            stableInset = null;
-        }
-        return new ImeLayoutInfo(newLayout, oldLayout, viewOrigin, displaySize, systemWindowInset,
-                stableInset);
+        return new ImeLayoutInfo(newLayout, oldLayout, viewOrigin, displaySize);
     }
 }

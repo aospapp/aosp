@@ -32,6 +32,7 @@ message Activity {
   string name = 1;
   bool exported = 2;
   repeated IntentFilter intent_filters = 3;
+  string permission = 4;
 }
 
 message IntentFilter {

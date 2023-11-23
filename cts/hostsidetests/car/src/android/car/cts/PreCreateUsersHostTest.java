@@ -192,6 +192,20 @@ public final class PreCreateUsersHostTest extends CarHostJUnit4TestCase {
                             .that(actualPkgMap.get(pkg))
                             .isEqualTo(refPkgMap.get(pkg)));
         }
+
+        if (!errors.isEmpty()) {
+            // if there are errors, wait for some more time and check again.
+            waitUntilUserPermissionsIsReady(preCreatedUserId);
+            Map<String, List<String>> actualPkgMap2 = getPackagesAndPermissionsForUser(
+                    preCreatedUserId);
+
+            errors = new ArrayList<>();
+            for (String pkg : refPkgMap.keySet()) {
+                addError(errors, () -> assertWithMessage("permissions state mismatch for %s", pkg)
+                        .that(actualPkgMap2.get(pkg))
+                        .isEqualTo(refPkgMap.get(pkg)));
+            }
+        }
         assertWithMessage("found %s error", errors.size()).that(errors).isEmpty();
     }
 
@@ -245,11 +259,11 @@ public final class PreCreateUsersHostTest extends CarHostJUnit4TestCase {
         sleep(napTimeSec * 1_000);
     }
 
-    // TODO(b/170263003): update this method after core framewokr's refactoring for proto
+    // TODO(b/170263003): update this method after core framework's refactoring for proto
     private void waitUntilUserPermissionsIsReady(int userId) throws InterruptedException {
-        int napTimeSec = 20;
-        CLog.i("Sleeping %ds to make permissions for user %d is ready", napTimeSec, userId);
-        sleep(napTimeSec * 1_000);
+        int waitTimeSec = 60;
+        CLog.i("Sleeping %ds to make permissions for user %d is ready", waitTimeSec, userId);
+        sleep(waitTimeSec * 1_000);
     }
 
     private void deletePreCreatedUsers() throws Exception {

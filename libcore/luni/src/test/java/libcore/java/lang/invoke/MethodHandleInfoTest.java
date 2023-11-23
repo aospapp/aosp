@@ -54,6 +54,25 @@ public class MethodHandleInfoTest extends TestCase {
         }
     }
 
+    public void test_constants() {
+        final int [] REF_CONSTANTS = {
+            0,                                     // Not used
+            MethodHandleInfo.REF_getField,         // 1
+            MethodHandleInfo.REF_getStatic,        // 2
+            MethodHandleInfo.REF_putField,         // 3
+            MethodHandleInfo.REF_putStatic,        // 4
+            MethodHandleInfo.REF_invokeVirtual,    // 5
+            MethodHandleInfo.REF_invokeStatic,     // 6
+            MethodHandleInfo.REF_invokeSpecial,    // 7
+            MethodHandleInfo.REF_newInvokeSpecial, // 8
+            MethodHandleInfo.REF_invokeInterface,  // 9
+        };
+        assertEquals(10, REF_CONSTANTS.length);
+        for (int i = 0; i < REF_CONSTANTS.length; ++i) {
+            assertEquals(i, REF_CONSTANTS[i]);
+        }
+    }
+
     public void test_referenceKindToString() {
         assertEquals("getField", referenceKindToString(REF_getField));
         assertEquals("getStatic", referenceKindToString(REF_getStatic));
@@ -76,5 +95,47 @@ public class MethodHandleInfoTest extends TestCase {
             fail();
         } catch (IllegalArgumentException expected) {
         }
+    }
+
+    public void test_refKindIsField() {
+        assertTrue(MethodHandleInfo.refKindIsField(MethodHandleInfo.REF_getField));
+        assertTrue(MethodHandleInfo.refKindIsField(MethodHandleInfo.REF_getStatic));
+        assertTrue(MethodHandleInfo.refKindIsField(MethodHandleInfo.REF_putField));
+        assertTrue(MethodHandleInfo.refKindIsField(MethodHandleInfo.REF_putStatic));
+
+        assertFalse(MethodHandleInfo.refKindIsField(MethodHandleInfo.REF_invokeVirtual));
+        assertFalse(MethodHandleInfo.refKindIsField(MethodHandleInfo.REF_invokeStatic));
+        assertFalse(MethodHandleInfo.refKindIsField(MethodHandleInfo.REF_invokeSpecial));
+        assertFalse(MethodHandleInfo.refKindIsField(MethodHandleInfo.REF_newInvokeSpecial));
+        assertFalse(MethodHandleInfo.refKindIsField(MethodHandleInfo.REF_invokeInterface));
+    }
+
+    public void test_refKindIsValid() {
+        assertTrue(MethodHandleInfo.refKindIsValid(MethodHandleInfo.REF_getField));
+        assertTrue(MethodHandleInfo.refKindIsValid(MethodHandleInfo.REF_getStatic));
+        assertTrue(MethodHandleInfo.refKindIsValid(MethodHandleInfo.REF_putField));
+        assertTrue(MethodHandleInfo.refKindIsValid(MethodHandleInfo.REF_putStatic));
+        assertTrue(MethodHandleInfo.refKindIsValid(MethodHandleInfo.REF_invokeVirtual));
+        assertTrue(MethodHandleInfo.refKindIsValid(MethodHandleInfo.REF_invokeStatic));
+        assertTrue(MethodHandleInfo.refKindIsValid(MethodHandleInfo.REF_invokeSpecial));
+        assertTrue(MethodHandleInfo.refKindIsValid(MethodHandleInfo.REF_newInvokeSpecial));
+        assertTrue(MethodHandleInfo.refKindIsValid(MethodHandleInfo.REF_invokeInterface));
+    }
+
+    public void test_refKindName() {
+        assertEquals("getField", MethodHandleInfo.refKindName(MethodHandleInfo.REF_getField));
+        assertEquals("getStatic", MethodHandleInfo.refKindName(MethodHandleInfo.REF_getStatic));
+        assertEquals("putField", MethodHandleInfo.refKindName(MethodHandleInfo.REF_putField));
+        assertEquals("putStatic", MethodHandleInfo.refKindName(MethodHandleInfo.REF_putStatic));
+        assertEquals("invokeVirtual",
+                     MethodHandleInfo.refKindName(MethodHandleInfo.REF_invokeVirtual));
+        assertEquals("invokeStatic",
+                     MethodHandleInfo.refKindName(MethodHandleInfo.REF_invokeStatic));
+        assertEquals("invokeSpecial",
+                     MethodHandleInfo.refKindName(MethodHandleInfo.REF_invokeSpecial));
+        assertEquals("newInvokeSpecial",
+                     MethodHandleInfo.refKindName(MethodHandleInfo.REF_newInvokeSpecial));
+        assertEquals("invokeInterface",
+                     MethodHandleInfo.refKindName(MethodHandleInfo.REF_invokeInterface));
     }
 }

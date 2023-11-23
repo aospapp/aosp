@@ -24,7 +24,6 @@ import static android.content.Intent.FLAG_ACTIVITY_TASK_ON_HOME;
 import static android.server.wm.CliIntentExtra.extraString;
 import static android.server.wm.UiDeviceUtils.pressBackButton;
 import static android.server.wm.UiDeviceUtils.pressHomeButton;
-import static android.server.wm.UiDeviceUtils.pressSleepButton;
 import static android.server.wm.VirtualDisplayHelper.waitForDefaultDisplayState;
 import static android.server.wm.WindowManagerState.STATE_RESUMED;
 import static android.server.wm.WindowManagerState.STATE_STOPPED;
@@ -327,9 +326,11 @@ public class ActivityVisibilityTests extends ActivityManagerTestBase {
         }
 
         getLaunchActivityBuilder().setTargetActivity(BROADCAST_RECEIVER_ACTIVITY)
+                .setWindowingMode(WINDOWING_MODE_FULLSCREEN)
                 .setIntentFlags(FLAG_ACTIVITY_NEW_TASK).execute();
 
         getLaunchActivityBuilder().setTargetActivity(BROADCAST_RECEIVER_ACTIVITY)
+                .setWindowingMode(WINDOWING_MODE_FULLSCREEN)
                 .setIntentFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_TASK_ON_HOME).execute();
 
         mBroadcastActionTrigger.finishBroadcastReceiverActivity();
@@ -349,30 +350,27 @@ public class ActivityVisibilityTests extends ActivityManagerTestBase {
         }
         // Start LaunchingActivity and BroadcastReceiverActivity in two separate tasks.
         getLaunchActivityBuilder().setTargetActivity(BROADCAST_RECEIVER_ACTIVITY)
+                .setWindowingMode(WINDOWING_MODE_FULLSCREEN)
                 .setIntentFlags(FLAG_ACTIVITY_NEW_TASK).execute();
         waitAndAssertResumedActivity(BROADCAST_RECEIVER_ACTIVITY,"Activity must be resumed");
-        final int taskId1 = mWmState.getTaskByActivity(LAUNCHING_ACTIVITY).mTaskId;
-        final int taskId2 = mWmState.getTaskByActivity(BROADCAST_RECEIVER_ACTIVITY).mTaskId;
+        final int taskId = mWmState.getTaskByActivity(BROADCAST_RECEIVER_ACTIVITY).mTaskId;
 
         try {
-            runWithShellPermission(() -> {
-                mAtm.startSystemLockTaskMode(taskId1);
-                mAtm.startSystemLockTaskMode(taskId2);
-            });
+            runWithShellPermission(() -> mAtm.startSystemLockTaskMode(taskId));
             getLaunchActivityBuilder()
                     .setUseInstrumentation()
                     .setTargetActivity(BROADCAST_RECEIVER_ACTIVITY)
+                    .setWindowingMode(WINDOWING_MODE_FULLSCREEN)
                     .setIntentFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_TASK_ON_HOME).execute();
-            waitAndAssertResumedActivity(BROADCAST_RECEIVER_ACTIVITY,"Activity must be resumed");
-            mBroadcastActionTrigger.finishBroadcastReceiverActivity();
-            mWmState.waitAndAssertActivityRemoved(BROADCAST_RECEIVER_ACTIVITY);
-
-            mWmState.assertHomeActivityVisible(false);
+            mWmState.waitForActivityState(BROADCAST_RECEIVER_ACTIVITY, STATE_RESUMED);
         } finally {
-            runWithShellPermission(() -> {
-                mAtm.stopSystemLockTaskMode();
-            });
+            runWithShellPermission(() -> mAtm.stopSystemLockTaskMode());
         }
+
+        mBroadcastActionTrigger.finishBroadcastReceiverActivity();
+        mWmState.waitAndAssertActivityRemoved(BROADCAST_RECEIVER_ACTIVITY);
+
+        mWmState.assertHomeActivityVisible(false);
     }
 
     @Test

@@ -35,8 +35,8 @@ type versionedPolicyProperties struct {
 	// Output file name. Defaults to {name} if target_policy is set, {version}.cil if mapping is set
 	Stem *string
 
-	// Target sepolicy version. Can be a specific version number (e.g. "30.0" for R) or "current"
-	// (PLATFORM_SEPOLICY_VERSION). Defaults to "current"
+	// Target sepolicy version. Can be a specific version number (e.g. "30.0" for R), "current"
+	// (PLATFORM_SEPOLICY_VERSION), or "vendor" (BOARD_SEPOLICY_VERS). Defaults to "current"
 	Version *string
 
 	// If true, generate mapping file from given base cil file. Cannot be set with target_policy.
@@ -90,6 +90,8 @@ func (m *versionedPolicy) GenerateAndroidBuildActions(ctx android.ModuleContext)
 	version := proptools.StringDefault(m.properties.Version, "current")
 	if version == "current" {
 		version = ctx.DeviceConfig().PlatformSepolicyVersion()
+	} else if version == "vendor" {
+		version = ctx.DeviceConfig().BoardSepolicyVers()
 	}
 
 	var stem string
@@ -151,16 +153,16 @@ func (m *versionedPolicy) GenerateAndroidBuildActions(ctx android.ModuleContext)
 
 	rule.Build("mapping", "Versioning mapping file "+ctx.ModuleName())
 
+	if !m.installable() {
+		m.SkipInstall()
+	}
+
 	m.installSource = out
 	m.installPath = android.PathForModuleInstall(ctx, "etc", "selinux")
 	if subdir := proptools.String(m.properties.Relative_install_path); subdir != "" {
 		m.installPath = m.installPath.Join(ctx, subdir)
 	}
 	ctx.InstallFile(m.installPath, m.installSource.Base(), m.installSource)
-
-	if !m.installable() {
-		m.SkipInstall()
-	}
 }
 
 func (m *versionedPolicy) AndroidMkEntries() []android.AndroidMkEntries {
@@ -170,7 +172,7 @@ func (m *versionedPolicy) AndroidMkEntries() []android.AndroidMkEntries {
 		ExtraEntries: []android.AndroidMkExtraEntriesFunc{
 			func(ctx android.AndroidMkExtraEntriesContext, entries *android.AndroidMkEntries) {
 				entries.SetBool("LOCAL_UNINSTALLABLE_MODULE", !m.installable())
-				entries.SetPath("LOCAL_MODULE_PATH", m.installPath.ToMakePath())
+				entries.SetPath("LOCAL_MODULE_PATH", m.installPath)
 				entries.SetString("LOCAL_INSTALLED_MODULE_STEM", m.installSource.Base())
 			},
 		},

@@ -32,7 +32,9 @@ filegroup {
         "src/android/telephony/ims/cts/ImsUtils.java",
         "src/android/telephony/ims/cts/SipDialogAttributes.java",
         "src/android/telephony/ims/cts/SipMessageUtils.java",
-	    "src/android/telephony/ims/cts/TestAcsClient.java",
+        "src/android/telephony/ims/cts/TestAcsClient.java",
+        "src/android/telephony/ims/cts/TestImsCallSessionImpl.java",
+        "src/android/telephony/ims/cts/ConferenceHelper.java",
     ],
     path: "src/",
 }
@@ -54,6 +56,7 @@ android_test {
         "hamcrest-library",
         "compatibility-device-util-axt",
         "truth-prebuilt",
+        "android.telephony.mockmodem",
     ],
     srcs: [
         "src/**/*.java",
@@ -68,7 +71,7 @@ android_test {
         local_include_dirs: [
             "EmbmsMiddlewareTestApp/aidl/",
             "TestExternalImsServiceApp/aidl/",
-        ]
+        ],
     },
     test_suites: [
         "cts",
@@ -79,12 +82,22 @@ android_test {
         "compatibility-host-telephony-preconditions",
         "cts-tradefed",
     ],
+    data: [
+        ":TestSmsApp22",
+        ":LocationAccessingApp",
+        ":LocationAccessingAppSdk28",
+        ":TestFinancialSmsApp",
+        ":TestSmsRetrieverApp",
+        ":TestSmsApp",
+        ":TestExternalImsServiceApp",
+        ":EmbmsMiddlewareCtsTestApp",
+    ],
+    per_testcase_directory: true,
 }
 
 filegroup {
     name: "cts-telephony-utils",
     srcs: [
         "src/android/telephony/cts/TelephonyUtils.java",
-    ]
+    ],
 }
-

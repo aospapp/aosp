@@ -45,6 +45,13 @@
 
 namespace chromeos_update_engine {
 
+enum class OTAResult {
+  NOT_ATTEMPTED,
+  ROLLED_BACK,
+  UPDATED_NEED_REBOOT,
+  OTA_SUCCESSFUL,
+};
+
 class UpdateAttempterAndroid
     : public ServiceDelegateAndroidInterface,
       public ActionProcessorDelegate,
@@ -89,6 +96,9 @@ class UpdateAttempterAndroid
   void CleanupSuccessfulUpdate(
       std::unique_ptr<CleanupSuccessfulUpdateCallbackInterface> callback,
       brillo::ErrorPtr* error) override;
+  bool setShouldSwitchSlotOnReboot(const std::string& metadata_filename,
+                                   brillo::ErrorPtr* error) override;
+  bool resetShouldSwitchSlotOnReboot(brillo::ErrorPtr* error) override;
 
   // ActionProcessorDelegate methods:
   void ProcessingDone(const ActionProcessor* processor,
@@ -114,8 +124,28 @@ class UpdateAttempterAndroid
   // CleanupPreviousUpdateActionDelegateInterface
   void OnCleanupProgressUpdate(double progress) override;
 
+  // Check the result of an OTA update. Intended to be called after reboot, this
+  // will use prefs on disk to determine if OTA was installed, or rolledback.
+  [[nodiscard]] OTAResult GetOTAUpdateResult() const;
+  // Intended to be called:
+  // 1. When system rebooted and slot switch is attempted
+  // 2. When a new update is started
+  // 3. When user called |ResetStatus()|
+  bool ClearUpdateCompletedMarker();
+
+  void set_update_certificates_path(
+      const std::string& update_certificates_path) {
+    update_certificates_path_ = update_certificates_path;
+  }
+
  private:
   friend class UpdateAttempterAndroidTest;
+
+  // Return |true| only if slot switched successfully after an OTA reboot.
+  // This will return |false| if an downgrade OTA is applied. Because after a
+  // downgrade OTA, we wipe /data, and there's no way for update_engine to
+  // "remember" that a downgrade OTA took place.
+  [[nodiscard]] bool OTARebootSucceeded() const;
 
   // Schedules an event loop callback to start the action processor. This is
   // scheduled asynchronously to unblock the event loop.
@@ -136,10 +166,10 @@ class UpdateAttempterAndroid
 
   // Writes to the processing completed marker. Does nothing if
   // |update_completed_marker_| is empty.
-  bool WriteUpdateCompletedMarker();
+  [[nodiscard]] bool WriteUpdateCompletedMarker();
 
   // Returns whether an update was completed in the current boot.
-  bool UpdateCompletedOnThisBoot();
+  [[nodiscard]] bool UpdateCompletedOnThisBoot();
 
   // Prefs to use for metrics report
   // |kPrefsPayloadAttemptNumber|: number of update attempts for the current
@@ -162,12 +192,16 @@ class UpdateAttempterAndroid
   //   |kPrefsSystemUpdatedMarker|
   void CollectAndReportUpdateMetricsOnUpdateFinished(ErrorCode error_code);
 
+  // This function is called after update_engine is started after device
+  // reboots. If update_engine is restarted w/o device reboot, this function
+  // would not be called.
+
   // Metrics report function to call:
   //   |ReportAbnormallyTerminatedUpdateAttemptMetrics|
   //   |ReportTimeToRebootMetrics|
   // Prefs to update:
   //   |kPrefsBootId|, |kPrefsPreviousVersion|
-  void UpdatePrefsAndReportUpdateMetricsOnReboot();
+  void UpdateStateAfterReboot(OTAResult result);
 
   // Prefs to update:
   //   |kPrefsPayloadAttemptNumber|, |kPrefsUpdateTimestampStart|,
@@ -244,6 +278,9 @@ class UpdateAttempterAndroid
   // Result of previous CleanupPreviousUpdateAction. Nullopt If
   // CleanupPreviousUpdateAction has not been executed.
   std::optional<ErrorCode> cleanup_previous_update_code_{std::nullopt};
+
+  // The path to the zip file with X509 certificates.
+  std::string update_certificates_path_{constants::kUpdateCertificatesPath};
 
   DISALLOW_COPY_AND_ASSIGN(UpdateAttempterAndroid);
 };

@@ -82,13 +82,13 @@ func (v *sepolicyVers) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 	rule.Command().Text("echo").Text(ver).Text(">").Output(out)
 	rule.Build("sepolicy_vers", v.Name())
 
-	v.installPath = android.PathForModuleInstall(ctx, "etc", "selinux")
-	v.installSource = out
-	ctx.InstallFile(v.installPath, v.stem(), v.installSource)
-
 	if !v.installable() {
 		v.SkipInstall()
 	}
+
+	v.installPath = android.PathForModuleInstall(ctx, "etc", "selinux")
+	v.installSource = out
+	ctx.InstallFile(v.installPath, v.stem(), v.installSource)
 }
 
 func (v *sepolicyVers) AndroidMkEntries() []android.AndroidMkEntries {
@@ -97,7 +97,7 @@ func (v *sepolicyVers) AndroidMkEntries() []android.AndroidMkEntries {
 		OutputFile: android.OptionalPathForPath(v.installSource),
 		ExtraEntries: []android.AndroidMkExtraEntriesFunc{
 			func(ctx android.AndroidMkExtraEntriesContext, entries *android.AndroidMkEntries) {
-				entries.SetPath("LOCAL_MODULE_PATH", v.installPath.ToMakePath())
+				entries.SetPath("LOCAL_MODULE_PATH", v.installPath)
 				entries.SetString("LOCAL_INSTALLED_MODULE_STEM", v.stem())
 			},
 		},

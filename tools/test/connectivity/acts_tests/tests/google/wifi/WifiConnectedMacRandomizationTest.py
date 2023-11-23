@@ -21,7 +21,7 @@ import time
 
 import acts.base_test
 import acts.signals as signals
-from acts_contrib.test_utils.tel.tel_test_utils import WIFI_CONFIG_APBAND_2G
+from acts_contrib.test_utils.tel.tel_wifi_utils import WIFI_CONFIG_APBAND_2G
 import acts_contrib.test_utils.wifi.wifi_test_utils as wutils
 import acts.utils as utils
 

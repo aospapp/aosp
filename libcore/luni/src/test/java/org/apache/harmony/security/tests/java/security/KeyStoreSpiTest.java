@@ -220,6 +220,22 @@ public class KeyStoreSpiTest extends TestCase {
         } catch (UnsupportedOperationException expected) {
         }
     }
+
+    public void test_engineProbe() throws IOException {
+        KeyStoreSpi ksSpi = new MyKeyStoreSpi();
+        try {
+            ksSpi.engineProbe(null);
+            fail();
+        } catch (NullPointerException expected) {
+        }
+        InputStream inputStream = new InputStream() {
+            @Override
+            public int read() throws IOException {
+                return 0;
+            }
+        };
+        assertFalse(ksSpi.engineProbe(inputStream));
+    }
 }
 
 // These are "Bad" because they are not expected inner subclasses of the KeyStore class.

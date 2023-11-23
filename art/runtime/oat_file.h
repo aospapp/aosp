@@ -105,6 +105,7 @@ class OatFile {
                        bool executable,
                        bool low_4gb,
                        ArrayRef<const std::string> dex_filenames,
+                       ArrayRef<const int> dex_fds,
                        /*inout*/MemMap* reservation,  // Where to load if not null.
                        /*out*/std::string* error_msg);
   // Helper overload that takes a single dex filename and no reservation.
@@ -121,6 +122,7 @@ class OatFile {
                 executable,
                 low_4gb,
                 ArrayRef<const std::string>(&dex_filename, /*size=*/ 1u),
+                /*dex_fds=*/ ArrayRef<const int>(),  // not currently supported
                 /*reservation=*/ nullptr,
                 error_msg);
   }
@@ -136,7 +138,8 @@ class OatFile {
                 location,
                 executable,
                 low_4gb,
-                ArrayRef<const std::string>(),
+                /*dex_filenames=*/ ArrayRef<const std::string>(),
+                /*dex_fds=*/ ArrayRef<const int>(),  // not currently supported
                 /*reservation=*/ nullptr,
                 error_msg);
   }
@@ -151,6 +154,7 @@ class OatFile {
                        bool executable,
                        bool low_4gb,
                        ArrayRef<const std::string> dex_filenames,
+                       ArrayRef<const int> dex_fds,
                        /*inout*/MemMap* reservation,  // Where to load if not null.
                        /*out*/std::string* error_msg);
 
@@ -193,7 +197,7 @@ class OatFile {
 
   class OatMethod final {
    public:
-    uint32_t GetCodeOffset() const;
+    uint32_t GetCodeOffset() const { return code_offset_; }
 
     const void* GetQuickCode() const;
 
@@ -228,14 +232,6 @@ class OatFile {
     }
 
    private:
-    template<class T>
-    T GetOatPointer(uint32_t offset) const {
-      if (offset == 0) {
-        return nullptr;
-      }
-      return reinterpret_cast<T>(begin_ + offset);
-    }
-
     const uint8_t* begin_;
     uint32_t code_offset_;
 
@@ -383,6 +379,21 @@ class OatFile {
   // Returns whether an image (e.g. app image) is required to safely execute this OAT file.
   bool RequiresImage() const;
 
+  struct BssMappingInfo {
+    const IndexBssMapping* method_bss_mapping = nullptr;
+    const IndexBssMapping* type_bss_mapping = nullptr;
+    const IndexBssMapping* public_type_bss_mapping = nullptr;
+    const IndexBssMapping* package_type_bss_mapping = nullptr;
+    const IndexBssMapping* string_bss_mapping = nullptr;
+  };
+
+  ArrayRef<const BssMappingInfo> GetBcpBssInfo() const {
+    return ArrayRef<const BssMappingInfo>(bcp_bss_info_);
+  }
+
+  // Returns the mapping info of `dex_file` if found in the BcpBssInfo, or nullptr otherwise.
+  const BssMappingInfo* FindBcpMappingInfo(const DexFile* dex_file) const;
+
  protected:
   OatFile(const std::string& filename, bool executable);
 
@@ -430,6 +441,9 @@ class OatFile {
 
   // Owning storage for the OatDexFile objects.
   std::vector<const OatDexFile*> oat_dex_files_storage_;
+
+  // Mapping info for DexFiles in the BCP.
+  std::vector<BssMappingInfo> bcp_bss_info_;
 
   // NOTE: We use a std::string_view as the key type to avoid a memory allocation on every
   // lookup with a const char* key. The std::string_view doesn't own its backing storage,
@@ -547,8 +561,8 @@ class OatDexFile final {
                                            const char* descriptor,
                                            size_t hash);
 
-  // Madvise the dex file based on the state we are moving to.
-  static void MadviseDexFile(const DexFile& dex_file, MadviseState state);
+  // Madvise the dex file for load-time usage.
+  static void MadviseDexFileAtLoad(const DexFile& dex_file);
 
   const TypeLookupTable& GetTypeLookupTable() const {
     return lookup_table_;

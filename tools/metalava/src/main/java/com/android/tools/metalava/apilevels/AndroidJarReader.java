@@ -57,9 +57,10 @@ class AndroidJarReader {
         mCodebase = codebase;
     }
 
-    AndroidJarReader(@NotNull File[] apiLevels, @Nullable Codebase codebase) {
+    AndroidJarReader(@NotNull File[] apiLevels, int firstApiLevel, @Nullable Codebase codebase) {
         mApiLevels = apiLevels;
         mCodebase = codebase;
+        mMinApi = firstApiLevel;
     }
 
     public Api getApi() throws IOException {
@@ -70,8 +71,8 @@ class AndroidJarReader {
                 max = mCodebase.getApiLevel();
             }
 
-            api = new Api(max);
-            for (int apiLevel = 1; apiLevel < mApiLevels.length; apiLevel++) {
+            api = new Api(mMinApi, max);
+            for (int apiLevel = mMinApi; apiLevel < mApiLevels.length; apiLevel++) {
                 File jar = getAndroidJarFile(apiLevel);
                 readJar(api, apiLevel, jar);
             }
@@ -82,7 +83,7 @@ class AndroidJarReader {
                 }
             }
         } else {
-            api = new Api(mCurrentApi);
+            api = new Api(mMinApi, mCurrentApi);
             // Get all the android.jar. They are in platforms-#
             int apiLevel = mMinApi - 1;
             while (true) {

@@ -16,8 +16,7 @@ import time
 from retry import retry
 
 from acts.controllers.utils_lib.commands import shell
-
-_ROUTER_DNS = '8.8.8.8, 4.4.4.4'
+from acts import logger
 
 
 class Error(Exception):
@@ -47,10 +46,12 @@ class DhcpServer(object):
             interface: string, The name of the interface to use.
             working_dir: The directory to work out of.
         """
+        self._log = logger.create_logger(lambda msg: '[DHCP Server|%s] %s' % (
+            interface, msg))
         self._runner = runner
         self._working_dir = working_dir
         self._shell = shell.ShellCommand(runner, working_dir)
-        self._log_file = 'dhcpd_%s.log' % interface
+        self._stdio_log_file = 'dhcpd_%s.log' % interface
         self._config_file = 'dhcpd_%s.conf' % interface
         self._lease_file = 'dhcpd_%s.leases' % interface
         self._pid_file = 'dhcpd_%s.pid' % interface
@@ -71,31 +72,32 @@ class DhcpServer(object):
             config: dhcp_config.DhcpConfig, Configs to start the dhcp server
                     with.
 
-        Returns:
-            True if the daemon could be started. Note that the daemon can still
-            start and not work. Invalid configurations can take a long amount
-            of time to be produced, and because the daemon runs indefinitely
-            it's infeasible to wait on. If you need to check if configs are ok
-            then periodic checks to is_running and logs should be used.
+        Raises:
+            Error: Raised when a dhcp server error is found.
         """
         if self.is_alive():
             self.stop()
 
         self._write_configs(config)
-        self._shell.delete_file(self._log_file)
+        self._shell.delete_file(self._stdio_log_file)
+        self._shell.delete_file(self._pid_file)
         self._shell.touch_file(self._lease_file)
 
         dhcpd_command = '%s -cf "%s" -lf %s -f -pf "%s"' % (
             self.PROGRAM_FILE, self._config_file, self._lease_file,
             self._pid_file)
         base_command = 'cd "%s"; %s' % (self._working_dir, dhcpd_command)
-        job_str = '%s > "%s" 2>&1' % (base_command, self._log_file)
+        job_str = '%s > "%s" 2>&1' % (base_command, self._stdio_log_file)
         self._runner.run_async(job_str)
 
         try:
             self._wait_for_process(timeout=timeout)
             self._wait_for_server(timeout=timeout)
         except:
+            self._log.warn("Failed to start DHCP server.")
+            self._log.info("DHCP configuration:\n" +
+                           config.render_config_file() + "\n")
+            self._log.info("DHCP logs:\n" + self.get_logs() + "\n")
             self.stop()
             raise
 
@@ -117,7 +119,24 @@ class DhcpServer(object):
         Returns:
             A string of the dhcp server logs.
         """
-        return self._shell.read_file(self._log_file)
+        try:
+            # Try reading the PID file. This will fail if the server failed to
+            # start.
+            pid = self._shell.read_file(self._pid_file)
+            # `dhcpd` logs to the syslog, where its messages are interspersed
+            # with all other programs that use the syslog. Log lines contain
+            # `dhcpd[<pid>]`, which we can search for to extract all the logs
+            # from this particular dhcpd instance.
+            # The logs are preferable to the stdio output, since they contain
+            # a superset of the information from stdio, including leases
+            # that the server provides.
+            return self._shell.run(
+                f"grep dhcpd.{pid} /var/log/messages").stdout
+        except Exception:
+            self._log.info(
+                "Failed to read logs from syslog (likely because the server " +
+                "failed to start). Falling back to stdio output.")
+            return self._shell.read_file(self._stdio_log_file)
 
     def _wait_for_process(self, timeout=60):
         """Waits for the process to come up.
@@ -146,7 +165,7 @@ class DhcpServer(object):
         start_time = time.time()
         while time.time() - start_time < timeout:
             success = self._shell.search_file(
-                'Wrote [0-9]* leases to leases file', self._log_file)
+                'Wrote [0-9]* leases to leases file', self._stdio_log_file)
             if success:
                 return
 
@@ -172,7 +191,7 @@ class DhcpServer(object):
         is_dead = not self.is_alive()
 
         no_interface = self._shell.search_file(
-            'Not configured to listen on any interfaces', self._log_file)
+            'Not configured to listen on any interfaces', self._stdio_log_file)
         if no_interface:
             raise NoInterfaceError(
                 'Dhcp does not contain a subnet for any of the networks the'
@@ -183,48 +202,6 @@ class DhcpServer(object):
 
     def _write_configs(self, config):
         """Writes the configs to the dhcp server config file."""
-
         self._shell.delete_file(self._config_file)
-
-        lines = []
-
-        if config.default_lease_time:
-            lines.append('default-lease-time %d;' % config.default_lease_time)
-        if config.max_lease_time:
-            lines.append('max-lease-time %s;' % config.max_lease_time)
-
-        for subnet in config.subnets:
-            address = subnet.network.network_address
-            mask = subnet.network.netmask
-            router = subnet.router
-            start = subnet.start
-            end = subnet.end
-            lease_time = subnet.lease_time
-
-            lines.append('subnet %s netmask %s {' % (address, mask))
-            lines.append('\toption subnet-mask %s;' % mask)
-            lines.append('\toption routers %s;' % router)
-            lines.append('\toption domain-name-servers %s;' % _ROUTER_DNS)
-            lines.append('\trange %s %s;' % (start, end))
-            if lease_time:
-                lines.append('\tdefault-lease-time %d;' % lease_time)
-                lines.append('\tmax-lease-time %d;' % lease_time)
-            lines.append('}')
-
-        for mapping in config.static_mappings:
-            identifier = mapping.identifier
-            fixed_address = mapping.ipv4_address
-            host_fake_name = 'host%s' % identifier.replace(':', '')
-            lease_time = mapping.lease_time
-
-            lines.append('host %s {' % host_fake_name)
-            lines.append('\thardware ethernet %s;' % identifier)
-            lines.append('\tfixed-address %s;' % fixed_address)
-            if lease_time:
-                lines.append('\tdefault-lease-time %d;' % lease_time)
-                lines.append('\tmax-lease-time %d;' % lease_time)
-            lines.append('}')
-
-        config_str = '\n'.join(lines)
-
+        config_str = config.render_config_file()
         self._shell.write_file(self._config_file, config_str)

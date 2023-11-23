@@ -21,7 +21,6 @@ import android.hardware.SensorManager;
 import android.hardware.cts.helpers.SensorCtsHelper;
 import android.hardware.cts.helpers.SensorNotSupportedException;
 import android.hardware.cts.helpers.TestSensorEnvironment;
-import android.hardware.cts.helpers.sensoroperations.DelaySensorOperation;
 import android.hardware.cts.helpers.sensoroperations.ParallelSensorOperation;
 import android.hardware.cts.helpers.sensoroperations.RepeatingSensorOperation;
 import android.hardware.cts.helpers.sensoroperations.SequentialSensorOperation;
@@ -215,6 +214,22 @@ public class SensorIntegrationTests extends SensorTestCase {
         verifySensorReconfigureWhileActive(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR);
     }
 
+    public void testAccelerometerLimitedAxesReconfigureWhileActive() throws Throwable {
+        verifySensorReconfigureWhileActive(Sensor.TYPE_ACCELEROMETER_LIMITED_AXES);
+    }
+
+    public void testAccelerometerLimitedAxesUncalibratedReconfigureWhileActive() throws Throwable {
+        verifySensorReconfigureWhileActive(Sensor.TYPE_ACCELEROMETER_LIMITED_AXES_UNCALIBRATED);
+    }
+
+    public void testGyroscopeLimitedAxesReconfigureWhileActive() throws Throwable {
+        verifySensorReconfigureWhileActive(Sensor.TYPE_GYROSCOPE_LIMITED_AXES);
+    }
+
+    public void testGyroscopeLimitedAxesUncalibratedReconfigureWhileActive() throws Throwable {
+        verifySensorReconfigureWhileActive(Sensor.TYPE_GYROSCOPE_LIMITED_AXES_UNCALIBRATED);
+    }
+
     /**
      * This test focuses on ensuring that an active sensor is able to be reconfigured when a new
      * client requests a different sampling rate.
@@ -331,6 +346,46 @@ public class SensorIntegrationTests extends SensorTestCase {
 
     public void testMagneticFieldMagneticFieldStopping()  throws Throwable {
         verifySensorStoppingInteraction(Sensor.TYPE_MAGNETIC_FIELD, Sensor.TYPE_MAGNETIC_FIELD);
+    }
+
+    public void testAccelerometerLimitedAxesAccelerometerLimitedAxesStopping()  throws Throwable {
+        verifySensorStoppingInteraction(Sensor.TYPE_ACCELEROMETER_LIMITED_AXES,
+                Sensor.TYPE_ACCELEROMETER_LIMITED_AXES);
+    }
+
+    public void testAccelerometerLimitedAxesGyroscopeLimitedAxesStopping()  throws Throwable {
+        verifySensorStoppingInteraction(Sensor.TYPE_ACCELEROMETER_LIMITED_AXES,
+                Sensor.TYPE_GYROSCOPE_LIMITED_AXES);
+    }
+
+    public void testAccelerometerLimitedAxesMagneticFieldStopping()  throws Throwable {
+        verifySensorStoppingInteraction(Sensor.TYPE_ACCELEROMETER_LIMITED_AXES,
+                Sensor.TYPE_MAGNETIC_FIELD);
+    }
+
+    public void testGyroscopeLimitedAxesAccelerometerLimitedAxesStopping()  throws Throwable {
+        verifySensorStoppingInteraction(Sensor.TYPE_GYROSCOPE_LIMITED_AXES,
+                Sensor.TYPE_ACCELEROMETER_LIMITED_AXES);
+    }
+
+    public void testGyroscopeLimitedAxesGyroscopeLimitedAxesStopping()  throws Throwable {
+        verifySensorStoppingInteraction(Sensor.TYPE_GYROSCOPE_LIMITED_AXES,
+                Sensor.TYPE_GYROSCOPE_LIMITED_AXES);
+    }
+
+    public void testGyroscopeLimitedAxesMagneticFieldStopping()  throws Throwable {
+        verifySensorStoppingInteraction(Sensor.TYPE_GYROSCOPE_LIMITED_AXES,
+                Sensor.TYPE_MAGNETIC_FIELD);
+    }
+
+    public void testMagneticFieldAccelerometerLimitedAxesStopping()  throws Throwable {
+        verifySensorStoppingInteraction(Sensor.TYPE_MAGNETIC_FIELD,
+                Sensor.TYPE_ACCELEROMETER_LIMITED_AXES);
+    }
+
+    public void testMagneticFieldGyroscopeLimitedAxesStopping()  throws Throwable {
+        verifySensorStoppingInteraction(Sensor.TYPE_MAGNETIC_FIELD,
+                Sensor.TYPE_GYROSCOPE_LIMITED_AXES);
     }
 
     /**

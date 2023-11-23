@@ -86,6 +86,6 @@ public abstract class DeviceShellCommandExecutor {
      * Converts command line bytes to a String.
      */
     protected static String parseBytesAsString(byte[] result) {
-        return new String(result, 0, result.length, StandardCharsets.ISO_8859_1);
+        return new String(result, 0, result.length, StandardCharsets.UTF_8);
     }
 }

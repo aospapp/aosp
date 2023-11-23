@@ -14,11 +14,13 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-from acts import base_test
+from acts import logger
 from acts import asserts
+import unittest
 from unittest import mock
 import socket
 import time
+from contextlib import closing
 
 # TODO(markdr): Remove this hack after adding zeep to setup.py.
 import sys
@@ -27,17 +29,31 @@ sys.modules['zeep'] = mock.Mock()
 from acts.controllers.rohdeschwarz_lib import contest
 
 
-class ContestTest(base_test.BaseTestClass):
+def find_free_port():
+    """ Helper function to find a free port.
+    https://stackoverflow.com/a/45690594
+    """
+    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
+        s.bind(('', 0))
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        return s.getsockname()[1]
+
+
+class ContestTest(unittest.TestCase):
     """ Unit tests for the contest controller."""
 
     LOCAL_HOST_IP = '127.0.0.1'
+
+    @classmethod
+    def setUpClass(self):
+        self.log = logger.create_tagged_trace_logger('contest_test')
 
     def test_automation_server_end_to_end(self):
         """ End to end test for the Contest object's ability to start an
         Automation Server and respond to the commands sent through the
         socket interface. """
 
-        automation_port = 5555
+        automation_port = find_free_port()
 
         # Instantiate the mock Contest object. This will start a thread in the
         # background running the Automation server.
@@ -65,6 +81,7 @@ class ContestTest(base_test.BaseTestClass):
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.connect((self.LOCAL_HOST_IP, automation_port))
                 s.sendall(b'AtTestcaseStart')
+                s.settimeout(1.0)
                 data = s.recv(1024)
                 asserts.assert_true(data == b'OK\n', "Received OK response.")
 
@@ -138,7 +155,7 @@ class ContestTest(base_test.BaseTestClass):
     # immediately, rather than sleeping.
     @mock.patch('time.sleep')
     # Prevents the controller to try to download the results from the FTP server
-    @mock.patch('acts.controllers.gnssinst_lib.rohdeschwarz.contest'
+    @mock.patch('acts.controllers.rohdeschwarz_lib.contest'
                 '.Contest.pull_test_results')
     def test_execute_testplan_stops_reading_output_on_exit_line(
             self, time_mock, results_func_mock):
@@ -162,16 +179,15 @@ class ContestTest(base_test.BaseTestClass):
 
         with mock.patch('zeep.client.Client') as zeep_client:
             zeep_client.return_value.service.DoGetOutput = service_output
-            controller = contest.Contest(
-                logger=self.log,
-                remote_ip=None,
-                remote_port=None,
-                automation_listen_ip=None,
-                automation_port=None,
-                dut_on_func=None,
-                dut_off_func=None,
-                ftp_usr=None,
-                ftp_pwd=None)
+            controller = contest.Contest(logger=self.log,
+                                         remote_ip=None,
+                                         remote_port=None,
+                                         automation_listen_ip=None,
+                                         automation_port=None,
+                                         dut_on_func=None,
+                                         dut_off_func=None,
+                                         ftp_usr=None,
+                                         ftp_pwd=None)
 
         controller.execute_testplan('TestPlan')
         controller.destroy()
@@ -197,22 +213,22 @@ class ContestTest(base_test.BaseTestClass):
         # An array of what return values. If a value is an Exception, the
         # Exception is raised instead.
         service_output.side_effect = [
-            'Testplan Directory: {}{}\\ \n'.format(
-                contest.Contest.FTP_ROOT, results_directory), 'Exit code: 0\n'
+            'Testplan Directory: {}{}\\ \n'.format(contest.Contest.FTP_ROOT,
+                                                   results_directory),
+            'Exit code: 0\n'
         ]
 
         with mock.patch('zeep.client.Client') as zeep_client:
             zeep_client.return_value.service.DoGetOutput = service_output
-            controller = contest.Contest(
-                logger=self.log,
-                remote_ip=None,
-                remote_port=None,
-                automation_listen_ip=None,
-                automation_port=None,
-                dut_on_func=None,
-                dut_off_func=None,
-                ftp_usr=None,
-                ftp_pwd=None)
+            controller = contest.Contest(logger=self.log,
+                                         remote_ip=None,
+                                         remote_port=None,
+                                         automation_listen_ip=None,
+                                         automation_port=None,
+                                         dut_on_func=None,
+                                         dut_off_func=None,
+                                         ftp_usr=None,
+                                         ftp_pwd=None)
 
         controller.execute_testplan('TestPlan')
 
@@ -245,16 +261,15 @@ class ContestTest(base_test.BaseTestClass):
 
         with mock.patch('zeep.client.Client') as zeep_client:
             zeep_client.return_value.service.DoGetOutput = service_output
-            controller = contest.Contest(
-                logger=self.log,
-                remote_ip=None,
-                remote_port=None,
-                automation_listen_ip=None,
-                automation_port=None,
-                dut_on_func=None,
-                dut_off_func=None,
-                ftp_usr=None,
-                ftp_pwd=None)
+            controller = contest.Contest(logger=self.log,
+                                         remote_ip=None,
+                                         remote_port=None,
+                                         automation_listen_ip=None,
+                                         automation_port=None,
+                                         dut_on_func=None,
+                                         dut_off_func=None,
+                                         ftp_usr=None,
+                                         ftp_pwd=None)
 
         try:
             controller.execute_testplan('TestPlan')
@@ -262,3 +277,7 @@ class ContestTest(base_test.BaseTestClass):
             pass
 
         controller.destroy()
+
+
+if __name__ == '__main__':
+    unittest.main()

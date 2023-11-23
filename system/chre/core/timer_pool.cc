@@ -45,7 +45,26 @@ TimerHandle TimerPool::setSystemTimer(Nanoseconds duration,
   return timerHandle;
 }
 
-TimerHandle TimerPool::setTimer(uint32_t instanceId, Nanoseconds duration,
+uint32_t TimerPool::cancelAllNanoappTimers(const Nanoapp *nanoapp) {
+  CHRE_ASSERT(nanoapp != nullptr);
+  LockGuard<Mutex> lock(mMutex);
+
+  uint32_t numTimersCancelled = 0;
+
+  // Iterate backward as we remove requests from the list.
+  for (int i = static_cast<int>(mTimerRequests.size()) - 1; i >= 0; i--) {
+    size_t iAsSize = static_cast<size_t>(i);
+    const TimerRequest &request = mTimerRequests[iAsSize];
+    if (request.instanceId == nanoapp->getInstanceId()) {
+      numTimersCancelled++;
+      removeTimerRequestLocked(iAsSize);
+    }
+  }
+
+  return numTimersCancelled;
+}
+
+TimerHandle TimerPool::setTimer(uint16_t instanceId, Nanoseconds duration,
                                 const void *cookie,
                                 SystemEventCallbackFunction *systemCallback,
                                 SystemCallbackType callbackType,
@@ -78,7 +97,7 @@ TimerHandle TimerPool::setTimer(uint32_t instanceId, Nanoseconds duration,
   return success ? timerRequest.timerHandle : CHRE_TIMER_INVALID;
 }
 
-bool TimerPool::cancelTimer(uint32_t instanceId, TimerHandle timerHandle) {
+bool TimerPool::cancelTimer(uint16_t instanceId, TimerHandle timerHandle) {
   LockGuard<Mutex> lock(mMutex);
   size_t index;
   bool success = false;
@@ -92,12 +111,6 @@ bool TimerPool::cancelTimer(uint32_t instanceId, TimerHandle timerHandle) {
          timerHandle);
   } else {
     removeTimerRequestLocked(index);
-
-    if (index == 0) {
-      mSystemTimer.cancel();
-      handleExpiredTimersAndScheduleNextLocked();
-    }
-
     success = true;
   }
 
@@ -129,8 +142,8 @@ TimerHandle TimerPool::generateTimerHandleLocked() {
   } else {
     timerHandle = mLastTimerHandle + 1;
     if (timerHandle == CHRE_TIMER_INVALID) {
-      // TODO: Consider that uniqueness checking can be reset when the number of
-      // timer requests reaches zero.
+      // TODO: Consider that uniqueness checking can be reset when the number
+      // of timer requests reaches zero.
       mGenerateTimerHandleMustCheckUniqueness = true;
       timerHandle = generateUniqueTimerHandleLocked();
     }
@@ -164,8 +177,8 @@ bool TimerPool::isNewTimerAllowedLocked(bool isNanoappTimer) const {
   if (isNanoappTimer) {
     allowed = (mNumNanoappTimers < kMaxNanoappTimers);
   } else {  // System timer
-    // We must not allow more system timers than the required amount of reserved
-    // timers for nanoapps.
+    // We must not allow more system timers than the required amount of
+    // reserved timers for nanoapps.
     constexpr size_t kMaxSystemTimers =
         kMaxTimerRequests - kNumReservedNanoappTimers;
     size_t numSystemTimers = mTimerRequests.size() - mNumNanoappTimers;
@@ -209,6 +222,11 @@ void TimerPool::removeTimerRequestLocked(size_t index) {
     mTimerRequests.remove(index);
     if (isNanoappTimer) {
       mNumNanoappTimers--;
+    }
+
+    if (index == 0) {
+      mSystemTimer.cancel();
+      handleExpiredTimersAndScheduleNextLocked();
     }
   }
 }
@@ -254,8 +272,8 @@ bool TimerPool::handleExpiredTimersAndScheduleNextLocked() {
       }
     } else {
       // Update the system timer to reflect the duration until the closest
-      // expiry (mTimerRequests is sorted by expiry, so we just do this for the
-      // first timer found which has not expired yet)
+      // expiry (mTimerRequests is sorted by expiry, so we just do this for
+      // the first timer found which has not expired yet)
       Nanoseconds duration = currentTimerRequest.expirationTime - currentTime;
       mSystemTimer.set(handleSystemTimerCallback, this, duration);
       break;
@@ -265,14 +283,27 @@ bool TimerPool::handleExpiredTimersAndScheduleNextLocked() {
   return handledExpiredTimer;
 }
 
+bool TimerPool::hasNanoappTimers(uint16_t instanceId) {
+  LockGuard<Mutex> lock(mMutex);
+
+  for (size_t i = 0; i < mTimerRequests.size(); i++) {
+    const TimerRequest &request = mTimerRequests[i];
+    if (request.instanceId == instanceId) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void TimerPool::handleSystemTimerCallback(void *timerPoolPtr) {
   auto callback = [](uint16_t /*type*/, void *data, void * /*extraData*/) {
     auto *timerPool = static_cast<TimerPool *>(data);
     if (!timerPool->handleExpiredTimersAndScheduleNext()) {
-      // Means that the system timer invoked our callback before the next timer
-      // expired. Possible in rare race conditions with time removal, but could
-      // indicate a faulty SystemTimer implementation if this happens often. Not
-      // a major problem - we'll just reset the timer to the next expiration.
+      // Means that the system timer invoked our callback before the next
+      // timer expired. Possible in rare race conditions with time removal,
+      // but could indicate a faulty SystemTimer implementation if this
+      // happens often. Not a major problem - we'll just reset the timer to
+      // the next expiration.
       LOGW("Timer callback invoked prior to expiry");
     }
   };

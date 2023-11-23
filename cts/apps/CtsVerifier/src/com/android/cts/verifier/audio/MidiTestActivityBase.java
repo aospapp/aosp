@@ -19,9 +19,9 @@ package com.android.cts.verifier.audio;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
-import android.content.ServiceConnection;
 import android.media.midi.MidiDeviceInfo;
 import android.media.midi.MidiManager;
 import android.os.Bundle;
@@ -32,10 +32,9 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
-import com.android.cts.verifier.audio.midilib.MidiIODevice;
 import com.android.cts.verifier.PassFailButtons;
-import com.android.cts.verifier.R;  // needed to access resource in CTSVerifier project namespace.
-
+import com.android.cts.verifier.R;
+import com.android.cts.verifier.audio.midilib.MidiIODevice;
 import com.android.midi.VerifierMidiEchoService;
 
 import java.util.Timer;
@@ -49,7 +48,7 @@ public abstract class MidiTestActivityBase
         implements View.OnClickListener {
 
     private static final String TAG = "MidiTestActivityBase";
-    private static final boolean DEBUG = false;
+    private static final boolean DEBUG = true;
 
     protected MidiManager mMidiManager;
 
@@ -213,7 +212,13 @@ public abstract class MidiTestActivityBase
             Log.i(TAG, "scanMidiDevices()....");
         }
 
+        // Get the list of all MIDI devices attached
         MidiDeviceInfo[] devInfos = mMidiManager.getDevices();
+        if (DEBUG) {
+            Log.i(TAG, "  numDevices:" + devInfos.length);
+        }
+
+        // Let each module select (if available) the associated device for their type
         mUSBTestModule.scanDevices(devInfos);
         mVirtualTestModule.scanDevices(devInfos);
         mBTTestModule.scanDevices(devInfos);
@@ -321,20 +326,14 @@ public abstract class MidiTestActivityBase
     //
     @Override
     public void onClick(View view) {
-        switch (view.getId()) {
-        case R.id.midiTestUSBInterfaceBtn:
+        int id = view.getId();
+        if (id == R.id.midiTestUSBInterfaceBtn) {
             startWiredLoopbackTest();
-            break;
-
-        case R.id.midiTestVirtInterfaceBtn:
+        } else if (id == R.id.midiTestVirtInterfaceBtn) {
             startVirtualLoopbackTest();
-            break;
-
-        case R.id.midiTestBTInterfaceBtn:
+        } else if (id == R.id.midiTestBTInterfaceBtn) {
             startBTLoopbackTest();
-            break;
-
-        default:
+        } else {
             assert false : "Unhandled button click";
         }
     }
@@ -385,7 +384,7 @@ public abstract class MidiTestActivityBase
         protected boolean             mTestRunning;
 
         // Timeout handling
-        protected static final int    TEST_TIMEOUT_MS = 1000;
+        protected static final int    TEST_TIMEOUT_MS = 5000; // 1000;
         protected final Timer         mTimeoutTimer = new Timer();
 
         public MidiTestModule(int deviceType) {

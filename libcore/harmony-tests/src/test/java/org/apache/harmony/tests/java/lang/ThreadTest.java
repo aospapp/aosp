@@ -154,6 +154,7 @@ public class ThreadTest extends junit.framework.TestCase {
     /**
      * java.lang.Thread#Thread(java.lang.ThreadGroup, java.lang.Runnable)
      */
+    @SuppressWarnings("removal")
     public void test_ConstructorLjava_lang_ThreadGroupLjava_lang_Runnable() {
         // Test for method java.lang.Thread(java.lang.ThreadGroup,
         // java.lang.Runnable)
@@ -258,7 +259,7 @@ public class ThreadTest extends junit.framework.TestCase {
     /**
      * java.lang.Thread#countStackFrames()
      */
-    @SuppressWarnings("deprecation")
+    @SuppressWarnings("removal")
     public void test_countStackFrames() {
         /*
          * Thread.countStackFrames() is unpredictable, so we just test that it

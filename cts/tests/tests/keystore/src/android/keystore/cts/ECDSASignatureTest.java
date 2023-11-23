@@ -16,20 +16,56 @@
 
 package android.keystore.cts;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import android.content.Context;
+import android.keystore.cts.util.ImportedKey;
+import android.keystore.cts.util.TestUtils;
+import android.security.keystore.KeyGenParameterSpec;
+import android.security.keystore.KeyProperties;
 import android.security.keystore.KeyProtection;
-import android.test.AndroidTestCase;
+import android.util.Log;
 
-import android.keystore.cts.R;
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
 
+import com.android.internal.util.HexDump;
+
+import org.bouncycastle.asn1.ASN1Primitive;
+import org.bouncycastle.asn1.ASN1Sequence;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+import java.io.IOException;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
 import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
 import java.security.Security;
 import java.security.Signature;
+import java.security.SignatureException;
+import java.security.spec.ECGenParameterSpec;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.Map;
 
-public class ECDSASignatureTest extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class ECDSASignatureTest {
 
+    private static final String TAG = "ECDSASignatureTest";
+
+    private Context getContext() {
+        return InstrumentationRegistry.getInstrumentation().getTargetContext();
+    }
+
+    @Test
     public void testNONEwithECDSATruncatesInputToFieldSize() throws Exception {
         for (ImportedKey key : importKatKeyPairs("NONEwithECDSA")) {
             try {
@@ -71,6 +107,7 @@ public class ECDSASignatureTest extends AndroidTestCase {
         assertFalse(signature.verify(sigBytes));
     }
 
+    @Test
     public void testNONEwithECDSASupportsMessagesShorterThanFieldSize() throws Exception {
         for (ImportedKey key : importKatKeyPairs("NONEwithECDSA")) {
             try {
@@ -80,6 +117,116 @@ public class ECDSASignatureTest extends AndroidTestCase {
                 throw new RuntimeException("Failed for " + key.getAlias(), e);
             }
         }
+    }
+
+    /* Duplicate nonces can leak the ECDSA private key, even if each nonce is only used once per
+     * keypair. See Brengel & Rossow 2018 ( https://doi.org/10.1007/978-3-030-00470-5_29 ).
+     */
+    @Test
+    public void testECDSANonceReuse() throws Exception {
+        testECDSANonceReuse_Helper(false /* useStrongbox */, "secp224r1");
+        testECDSANonceReuse_Helper(false /* useStrongbox */, "secp256r1");
+        testECDSANonceReuse_Helper(false /* useStrongbox */, "secp384r1");
+        testECDSANonceReuse_Helper(false /* useStrongbox */, "secp521r1");
+
+        if (TestUtils.hasStrongBox(getContext())) {
+            testECDSANonceReuse_Helper(true /* useStrongbox */, "secp256r1");
+        }
+    }
+
+    private void testECDSANonceReuse_Helper(boolean useStrongbox, String curve)
+            throws NoSuchAlgorithmException, NoSuchProviderException,
+                    InvalidAlgorithmParameterException, InvalidKeyException, SignatureException,
+                    IOException {
+        KeyPair kp = generateKeyPairForNonceReuse_Helper(useStrongbox, curve);
+        /* An ECDSA signature is a pair of integers (r,s).
+         *
+         * Let G be the curve base point, let n be the order of G, and let k be a random
+         * per-signature nonce.
+         *
+         * ECDSA defines:
+         *     r := x_coordinate( k x G) mod n
+         *
+         * It follows that if r_1 == r_2 mod n, then k_1 == k_2 mod n. That is, congruent r
+         * values mod n imply a compromised private key.
+         */
+        Map<String, byte[]> rValueStrToSigMap = new HashMap<String, byte[]>();
+        for (byte i = 1; i <= 100; i++) {
+            byte[] message = new byte[] {i};
+            byte[] signature = computeSignatureForNonceReuse_Helper(message, kp);
+            byte[] rValue = extractRValueFromEcdsaSignature_Helper(signature);
+            String rValueStr = HexDump.toHexString(rValue);
+            if (!rValueStrToSigMap.containsKey(rValueStr)) {
+                rValueStrToSigMap.put(rValueStr, signature);
+                continue;
+            }
+            // Duplicate nonces.
+            Log.i(
+                    TAG,
+                    "Found duplicate nonce after "
+                            + Integer.toString(rValueStrToSigMap.size())
+                            + " ECDSA signatures.");
+
+            byte[] otherSig = rValueStrToSigMap.get(rValueStr);
+            String otherSigStr = HexDump.toHexString(otherSig);
+            String currentSigStr = HexDump.toHexString(signature);
+            fail(
+                    "Duplicate ECDSA nonce detected."
+                            + " Curve: " + curve
+                            + " Strongbox: " + Boolean.toString(useStrongbox)
+                            + " Signature 1: "
+                            + otherSigStr
+                            + " Signature 2: "
+                            + currentSigStr);
+        }
+    }
+
+    private KeyPair generateKeyPairForNonceReuse_Helper(boolean useStrongbox,
+            String curve)
+            throws NoSuchAlgorithmException, NoSuchProviderException,
+                    InvalidAlgorithmParameterException {
+        // We use a generated key instead of an imported key since key generation drains the entropy
+        // pool and thus increase the chance of duplicate nonces.
+        KeyPairGenerator generator = KeyPairGenerator.getInstance("EC", "AndroidKeyStore");
+        generator.initialize(
+                new KeyGenParameterSpec.Builder("test1", KeyProperties.PURPOSE_SIGN)
+                        .setAlgorithmParameterSpec(new ECGenParameterSpec(curve))
+                        .setDigests(KeyProperties.DIGEST_NONE, KeyProperties.DIGEST_SHA256)
+                        .setIsStrongBoxBacked(useStrongbox)
+                        .build());
+        KeyPair kp = generator.generateKeyPair();
+        return kp;
+    }
+
+    /**
+     * Extract the R value from the ECDSA signature.
+     *
+     * @param sigBytes ASN.1 encoded ECDSA signature.
+     * @return The r value extracted from the signature.
+     * @throws IOException
+     */
+    private byte[] extractRValueFromEcdsaSignature_Helper(byte[] sigBytes) throws IOException {
+        /* ECDSA Signature format (X9.62 Section 6.5):
+         * ECDSA-Sig-Value ::= SEQUENCE {
+         *      r INTEGER,
+         *      s INTEGER
+         *  }
+         */
+        ASN1Primitive sig1prim = ASN1Primitive.fromByteArray(sigBytes);
+        Enumeration secEnum = ((ASN1Sequence) sig1prim).getObjects();
+        ASN1Primitive seqObj = (ASN1Primitive) secEnum.nextElement();
+        // The first ASN1 object is the r value.
+        byte[] r = seqObj.getEncoded();
+        return r;
+    }
+
+    private byte[] computeSignatureForNonceReuse_Helper(byte[] message, KeyPair keyPair)
+            throws NoSuchAlgorithmException, InvalidKeyException, SignatureException {
+        Signature signature = Signature.getInstance("NONEwithECDSA");
+        signature.initSign(keyPair.getPrivate());
+        signature.update(message);
+        byte[] sigBytes = signature.sign();
+        return sigBytes;
     }
 
     private void assertNONEwithECDSASupportsMessagesShorterThanFieldSize(KeyPair keyPair)

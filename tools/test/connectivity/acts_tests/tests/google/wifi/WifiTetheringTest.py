@@ -24,11 +24,9 @@ from acts import utils
 from acts.controllers import adb
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.tel import tel_defines
-from acts_contrib.test_utils.tel.tel_data_utils import wait_for_cell_data_connection
 from acts_contrib.test_utils.tel.tel_test_utils import get_operator_name
-from acts_contrib.test_utils.tel.tel_test_utils import verify_http_connection
-from acts_contrib.test_utils.tel.tel_test_utils import WIFI_CONFIG_APBAND_2G
-from acts_contrib.test_utils.tel.tel_test_utils import WIFI_CONFIG_APBAND_5G
+from acts_contrib.test_utils.tel.tel_wifi_utils import WIFI_CONFIG_APBAND_2G
+from acts_contrib.test_utils.tel.tel_wifi_utils import WIFI_CONFIG_APBAND_5G
 from acts_contrib.test_utils.net import socket_test_utils as sutils
 from acts_contrib.test_utils.net import arduino_test_utils as dutils
 from acts_contrib.test_utils.net import net_test_utils as nutils

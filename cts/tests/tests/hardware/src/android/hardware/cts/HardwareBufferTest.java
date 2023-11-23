@@ -19,8 +19,11 @@ package android.hardware.cts;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import android.hardware.HardwareBuffer;
+import android.os.Build;
+import android.os.SystemProperties;
 
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
@@ -120,5 +123,33 @@ public class HardwareBufferTest {
                 1, HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE));
         assertFalse(HardwareBuffer.isSupported(1, 1, HardwareBuffer.BLOB,
                 1, HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE | HardwareBuffer.USAGE_GPU_COLOR_OUTPUT));
+    }
+
+    @Test
+    public void testInvalidUsage() {
+        if (SystemProperties.getInt("ro.vendor.build.version.sdk", 0)
+                < Build.VERSION_CODES.TIRAMISU) {
+            // Legacy grallocs may have a mismatch here.
+            return;
+        }
+
+        final int dimen = 100;
+        final long usage = HardwareBuffer.USAGE_CPU_READ_RARELY | (1L << 46);
+        final boolean supported = HardwareBuffer.isSupported(dimen, dimen, HardwareBuffer.RGBA_8888,
+                1, usage);
+
+        try {
+            HardwareBuffer buffer = HardwareBuffer.create(dimen, dimen, HardwareBuffer.RGBA_8888,
+                    1, usage);
+            if (!supported) {
+                fail("Allocation should have failed (isSupported returned false); instead got "
+                        + buffer);
+            }
+        } catch (IllegalArgumentException ex) {
+            if (supported) {
+                fail("Allocation should have succeeded (isSupported returned true)");
+            }
+        }
+
     }
 }

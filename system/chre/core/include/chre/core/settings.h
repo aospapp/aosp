@@ -28,48 +28,70 @@ enum class Setting : uint8_t {
   WIFI_AVAILABLE,
   AIRPLANE_MODE,
   MICROPHONE,
+  BLE_AVAILABLE,
   SETTING_MAX,
 };
 
-enum class SettingState : int8_t { UNKNOWN = -1, ENABLED = 0, DISABLED };
-
 /**
- * Updates the state of a given setting.
- *
- * @param setting The setting to update.
- * @param state The state of the setting.
+ * Stores latest setting state and is responsible for sending setting updates
+ * to nanoapps.
  */
-void postSettingChange(Setting setting, SettingState state);
+class SettingManager {
+ public:
+  SettingManager();
 
-/**
- * Gets the current state of a given setting. Must be called from the context of
- * the main CHRE thread.
- *
- * @param setting The setting to check the current state of.
- *
- * @return The current state of the setting, SETTING_STATE_UNKNOWN if the
- * provided setting is invalid.
- */
-SettingState getSettingState(Setting setting);
+  /**
+   * Updates the state of a given setting.
+   *
+   * @param setting The setting to update.
+   * @param state The state of the setting.
+   */
+  void postSettingChange(Setting setting, bool enabled);
 
-/**
- * Gets the current state of a given setting, but returns the state as an
- * int8_t. The state is guaranteed to be a member of enum chreUserSettingState.
- *
- * @param setting The setting to check the current state of (see
- * CHRE_USER_SETTINGS).
- *
- * @return The current state of the setting (see enum chreUserSettingState)
- */
-int8_t getSettingStateAsInt8(uint8_t setting);
+  /**
+   * Gets the current state of a given setting. Must be called from the context
+   * of the main CHRE thread.
+   *
+   * @param setting The setting to check the current state of.
+   *
+   * @return True if the setting is enabled.
+   */
+  bool getSettingEnabled(Setting setting);
 
-/**
- * Logs the settings related stats in the debug dump. Must be called from the
- * context of the main CHRE thread.
- *
- * @param debugDump The object that is printed into for debug dump logs.
- */
-void logSettingStateToBuffer(DebugDumpWrapper &debugDump);
+  /**
+   * Gets the current state of a given setting, but returns the state as an
+   * int8_t. The state is guaranteed to be a member of enum
+   * chreUserSettingState.
+   *
+   * @param setting The setting to check the current state of (see
+   * CHRE_USER_SETTINGS).
+   *
+   * @return The current state of the setting (see enum chreUserSettingState)
+   */
+  int8_t getSettingStateAsInt8(uint8_t setting);
+
+  /**
+   * Logs the settings related stats in the debug dump. Must be called from the
+   * context of the main CHRE thread.
+   *
+   * @param debugDump The object that is printed into for debug dump logs.
+   */
+  void logStateToBuffer(DebugDumpWrapper &debugDump);
+
+ private:
+  static constexpr size_t kNumSettings =
+      static_cast<size_t>(Setting::SETTING_MAX);
+
+  //! The current state for each setting.
+  bool mSettingStateList[kNumSettings];
+
+  void setSettingState(Setting setting, bool enabled);
+
+  const char *getSettingEnabledString(Setting setting);
+
+  static void settingChangedCallback(uint16_t type, void *data,
+                                     void *extraData);
+};
 
 }  // namespace chre
 

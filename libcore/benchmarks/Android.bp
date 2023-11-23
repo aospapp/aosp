@@ -33,4 +33,29 @@ java_test {
         "caliper-api-target",
         "android.test.base",
     ],
+    errorprone: {
+        javacflags: ["-Xep:EqualsNull:WARN"],
+    },
+}
+
+android_test {
+    name: "LibcoreBenchmarkTests",
+    srcs: [],
+    static_libs: [
+        "androidx.benchmark_benchmark-junit4",
+        "LibcoreBenchmarkTestsLib",
+    ],
+    sdk_version: "current",
+    manifest: "AndroidManifest.xml",
+    test_suites: ["general-tests"],
+}
+
+java_library {
+    name: "LibcoreBenchmarkTestsLib",
+    srcs: ["src_androidx/**/*.java"],
+    static_libs: [
+        "androidx.benchmark_benchmark-junit4",
+    ],
+    sdk_version: "none",
+    system_modules: "core-all-system-modules",
 }

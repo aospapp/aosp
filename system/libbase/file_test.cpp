@@ -333,6 +333,17 @@ TEST(file, Basename) {
   EXPECT_EQ("sh", android::base::Basename("/system/bin/sh"));
   EXPECT_EQ("sh", android::base::Basename("sh"));
   EXPECT_EQ("sh", android::base::Basename("/system/bin/sh/"));
+
+  // Since we've copy & pasted bionic's implementation, copy & paste the tests.
+  EXPECT_EQ(".",   android::base::Basename(""));
+  EXPECT_EQ("lib", android::base::Basename("/usr/lib"));
+  EXPECT_EQ("usr", android::base::Basename("/usr/"));
+  EXPECT_EQ("usr", android::base::Basename("usr"));
+  EXPECT_EQ("/",   android::base::Basename("/"));
+  EXPECT_EQ(".",   android::base::Basename("."));
+  EXPECT_EQ("..",  android::base::Basename(".."));
+  EXPECT_EQ("/",   android::base::Basename("///"));
+  EXPECT_EQ("lib", android::base::Basename("//usr//lib//"));
 }
 
 TEST(file, Dirname) {

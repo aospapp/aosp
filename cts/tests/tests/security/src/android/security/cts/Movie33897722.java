@@ -16,6 +16,8 @@
 
 package android.security.cts;
 
+import static org.junit.Assert.*;
+
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -24,13 +26,20 @@ import android.graphics.Paint;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffXfermode;
 import android.platform.test.annotations.AsbSecurityTest;
-import android.test.AndroidTestCase;
+import com.android.sts.common.util.StsExtraBusinessLogicTestCase;
 
 import java.io.InputStream;
+import org.junit.runner.RunWith;
+import org.junit.Test;
 
 import android.security.cts.R;
 
-public class Movie33897722 extends AndroidTestCase {
+import androidx.test.runner.AndroidJUnit4;
+import org.junit.runner.RunWith;
+import org.junit.Test;
+
+@RunWith(AndroidJUnit4.class)
+public class Movie33897722 extends StsExtraBusinessLogicTestCase {
     /**
      * Verifies that decoding a particular GIF file does not read out out of bounds.
      *
@@ -39,6 +48,7 @@ public class Movie33897722 extends AndroidTestCase {
      * color map, which would be reading memory that we do not control, and may be uninitialized.
      */
     @AsbSecurityTest(cveBugId = 33897722)
+    @Test
     public void test_android_bug_33897722() {
         // The image has a 10 x 10 frame on top of a transparent background. Only test the
         // 10 x 10 frame, since the original bug would never have used uninitialized memory
@@ -47,6 +57,7 @@ public class Movie33897722 extends AndroidTestCase {
     }
 
     @AsbSecurityTest(cveBugId = 37662286)
+    @Test
     public void test_android_bug_37662286() {
         // The image has a background color that is out of range. Arbitrarily test
         // the upper left corner. (Most of the image is transparent.)
@@ -62,7 +73,7 @@ public class Movie33897722 extends AndroidTestCase {
                             int drawWidth, int drawHeight) {
         assertTrue(drawWidth <= screenWidth && drawHeight <= screenHeight);
 
-        InputStream exploitImage = mContext.getResources().openRawResource(resId);
+        InputStream exploitImage = getInstrumentation().getContext().getResources().openRawResource(resId);
         Movie movie = Movie.decodeStream(exploitImage);
         assertNotNull(movie);
         assertEquals(movie.width(), screenWidth);

@@ -13,6 +13,7 @@
 # limitations under the License.
 """Tests for create_common."""
 
+import collections
 import os
 import shutil
 import tempfile
@@ -26,6 +27,9 @@ from acloud.internal.lib import android_build_client
 from acloud.internal.lib import auth
 from acloud.internal.lib import driver_test_lib
 from acloud.internal.lib import utils
+
+
+ExtraFile = collections.namedtuple("ExtraFile", ["source", "target"])
 
 
 class FakeZipFile:
@@ -67,6 +71,34 @@ class CreateCommonTest(driver_test_lib.BaseDriverTest):
         result_dict = create_common.ParseKeyValuePairArgs(args_str)
         self.assertTrue(expected_dict == result_dict)
 
+    def testGetNonEmptyEnvVars(self):
+        """Test GetNonEmptyEnvVars."""
+        with mock.patch.dict("acloud.internal.lib.utils.os.environ",
+                             {"A": "", "B": "b"},
+                             clear=True):
+            self.assertEqual(
+                ["b"], create_common.GetNonEmptyEnvVars("A", "B", "C"))
+
+    def testParseExtraFilesArgs(self):
+        """Test ParseExtraFilesArgs."""
+        expected_result = [ExtraFile(source="local_path", target="gce_path")]
+        files_info = ["local_path,gce_path"]
+        self.assertEqual(expected_result,
+                         create_common.ParseExtraFilesArgs(files_info))
+
+        # Test multiple files
+        expected_result = [ExtraFile(source="local_path1", target="gce_path1"),
+                           ExtraFile(source="local_path2", target="gce_path2")]
+        files_info = ["local_path1,gce_path1",
+                      "local_path2,gce_path2"]
+        self.assertEqual(expected_result,
+                         create_common.ParseExtraFilesArgs(files_info))
+
+        # Test wrong file info format.
+        files_info = ["local_path"]
+        with self.assertRaises(errors.MalformedDictStringError):
+            create_common.ParseExtraFilesArgs(files_info)
+
     def testGetCvdHostPackage(self):
         """test GetCvdHostPackage."""
         # Can't find the cvd host package
@@ -96,6 +128,15 @@ class CreateCommonTest(driver_test_lib.BaseDriverTest):
                 create_common.GetCvdHostPackage(),
                 "/fake_dir2/cvd-host_package.tar.gz")
 
+        # Find cvd host in specified path.
+        package_path = "/tool_dir/cvd-host_package.tar.gz"
+        self.Patch(utils, "GetDistDir", return_value=None)
+        with mock.patch("os.path.exists") as exists:
+            exists.return_value = True
+            self.assertEqual(
+                create_common.GetCvdHostPackage(package_path),
+                "/tool_dir/cvd-host_package.tar.gz")
+
     @mock.patch("acloud.create.create_common.os.path.isfile",
                 side_effect=lambda path: path == "/dir/name")
     @mock.patch("acloud.create.create_common.os.path.isdir",
@@ -111,11 +152,14 @@ class CreateCommonTest(driver_test_lib.BaseDriverTest):
         self.assertEqual("/dir/name",
                          create_common.FindLocalImage("/dir/", "name"))
 
+
+        self.assertIsNone(create_common.FindLocalImage("/dir", "not_exist",
+                                                       raise_error=False))
         with self.assertRaises(errors.GetLocalImageError):
             create_common.FindLocalImage("/dir", "not_exist")
 
         with self.assertRaises(errors.GetLocalImageError):
-            create_common.FindLocalImage("/dir", "name.?")
+            create_common.FindLocalImage("/dir", "name.?", raise_error=False)
 
     @mock.patch.object(utils, "Decompress")
     def testDownloadRemoteArtifact(self, mock_decompress):
@@ -128,10 +172,10 @@ class CreateCommonTest(driver_test_lib.BaseDriverTest):
         self.Patch(auth, "CreateCredentials", return_value=mock.MagicMock())
         avd_spec = mock.MagicMock()
         avd_spec.cfg = mock.MagicMock()
-        avd_spec.remote_image = {"build_target" : "aosp_cf_x86_phone-userdebug",
+        avd_spec.remote_image = {"build_target" : "aosp_cf_x86_64_phone-userdebug",
                                  "build_id": "1234"}
         build_id = "1234"
-        build_target = "aosp_cf_x86_phone-userdebug"
+        build_target = "aosp_cf_x86_64_phone-userdebug"
         checkfile1 = "aosp_cf_x86_phone-img-1234.zip"
         checkfile2 = "cvd-host_package.tar.gz"
         extract_path = "/tmp/1234"

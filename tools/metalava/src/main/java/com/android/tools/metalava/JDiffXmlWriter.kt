@@ -59,7 +59,7 @@ class JDiffXmlWriter(
     override fun visitCodebase(codebase: Codebase) {
         writer.print("<api")
 
-        if (apiName != null && !options.compatOutput) {
+        if (apiName != null) {
             // See JDiff's XMLToAPI#nameAPI
             writer.print(" name=\"")
             writer.print(apiName)
@@ -115,36 +115,6 @@ class JDiffXmlWriter(
         writer.println("\"\n>")
 
         writeInterfaceList(cls)
-
-        if (cls.isEnum() && compatibility.defaultEnumMethods) {
-            writer.println(
-                """
-                <method name="valueOf"
-                 return="${cls.qualifiedName()}"
-                 abstract="false"
-                 native="false"
-                 synchronized="false"
-                 static="true"
-                 final="false"
-                 deprecated="not deprecated"
-                 visibility="public"
-                >
-                <parameter name="null" type="java.lang.String">
-                </parameter>
-                </method>
-                <method name="values"
-                 return="${cls.qualifiedName()}[]"
-                 abstract="false"
-                 native="false"
-                 synchronized="false"
-                 static="true"
-                 final="true"
-                 deprecated="not deprecated"
-                 visibility="public"
-                >
-                </method>""".trimIndent()
-            )
-        }
     }
 
     fun deprecation(item: Item): String {
@@ -190,24 +160,16 @@ class JDiffXmlWriter(
     }
 
     override fun visitField(field: FieldItem) {
-        if (field.isEnumConstant() && compatibility.xmlSkipEnumFields) {
-            return
-        }
-
         val modifiers = field.modifiers
         val initialValue = field.initialValue(true)
         val value = if (initialValue != null) {
-            if (initialValue is Char && compatibility.xmlCharAsInt) {
-                initialValue.toInt().toString()
-            } else {
-                escapeAttributeValue(CodePrinter.constantToSource(initialValue))
-            }
+            XmlUtils.toXmlAttributeValue(CodePrinter.constantToSource(initialValue))
         } else null
 
         writer.print("<field name=\"")
         writer.print(field.name())
         writer.print("\"\n type=\"")
-        writer.print(escapeAttributeValue(formatType(field.type())))
+        writer.print(XmlUtils.toXmlAttributeValue(formatType(field.type())))
         writer.print("\"\n transient=\"")
         writer.print(modifiers.isTransient())
         writer.print("\"\n volatile=\"")
@@ -215,8 +177,6 @@ class JDiffXmlWriter(
         if (value != null) {
             writer.print("\"\n value=\"")
             writer.print(value)
-        } else if (compatibility.xmlShowArrayFieldsAsNull && (field.type().isArray())) {
-            writer.print("\"\n value=\"null")
         }
 
         writer.print("\"\n static=\"")
@@ -242,10 +202,6 @@ class JDiffXmlWriter(
     override fun visitMethod(method: MethodItem) {
         val modifiers = method.modifiers
 
-        if (method.containingClass().isAnnotationType() && compatibility.xmlSkipAnnotationMethods) {
-            return
-        }
-
         // Note - to match doclava we don't write out the type parameter list
         // (method.typeParameterList()) in JDiff files!
 
@@ -253,7 +209,7 @@ class JDiffXmlWriter(
         writer.print(method.name())
         method.returnType()?.let {
             writer.print("\"\n return=\"")
-            writer.print(escapeAttributeValue(formatType(it)))
+            writer.print(XmlUtils.toXmlAttributeValue(formatType(it)))
         }
         writer.print("\"\n abstract=\"")
         writer.print(modifiers.isAbstract())
@@ -277,34 +233,20 @@ class JDiffXmlWriter(
     }
 
     private fun writeSuperClassAttribute(cls: ClassItem) {
-        if (cls.isInterface() && compatibility.extendsForInterfaceSuperClass) {
-            // Written in the interface section instead
-            return
-        }
-
         val superClass = if (preFiltered)
             cls.superClassType()
         else cls.filteredSuperClassType(filterReference)
 
         val superClassString =
             when {
-                cls.isAnnotationType() -> if (compatibility.xmlAnnotationAsObject) {
-                    JAVA_LANG_OBJECT
-                } else {
-                    JAVA_LANG_ANNOTATION
-                }
+                cls.isAnnotationType() -> JAVA_LANG_ANNOTATION
                 superClass != null -> {
                     // doclava seems to include java.lang.Object for classes but not interfaces
                     if (!cls.isClass() && superClass.isJavaLangObject()) {
                         return
                     }
-                    escapeAttributeValue(
-                        formatType(
-                            superClass.toTypeString(
-                                erased = compatibility.omitTypeParametersInInterfaces,
-                                context = superClass.asClass()
-                            )
-                        )
+                    XmlUtils.toXmlAttributeValue(
+                        formatType(superClass.toTypeString(context = superClass.asClass()))
                     )
                 }
                 cls.isEnum() -> JAVA_LANG_ENUM
@@ -320,18 +262,11 @@ class JDiffXmlWriter(
             cls.interfaceTypes().asSequence()
         else cls.filteredInterfaceTypes(filterReference).asSequence()
 
-        if (cls.isInterface() && compatibility.extendsForInterfaceSuperClass) {
-            val superClassType = cls.superClassType()
-            if (superClassType?.isJavaLangObject() == false) {
-                interfaces += superClassType
-            }
-        }
-
         if (interfaces.any()) {
             interfaces.sortedWith(TypeItem.comparator).forEach { item ->
                 writer.print("<implements name=\"")
-                val type = item.toTypeString(erased = compatibility.omitTypeParametersInInterfaces, context = cls)
-                writer.print(escapeAttributeValue(formatType(type)))
+                val type = item.toTypeString(context = cls)
+                writer.print(XmlUtils.toXmlAttributeValue(formatType(type)))
                 writer.println("\">\n</implements>")
             }
         }
@@ -342,7 +277,7 @@ class JDiffXmlWriter(
             // NOTE: We report parameter name as "null" rather than the real name to match
             // doclava's behavior
             writer.print("<parameter name=\"null\" type=\"")
-            writer.print(escapeAttributeValue(formatType(parameter.type())))
+            writer.print(XmlUtils.toXmlAttributeValue(formatType(parameter.type())))
             writer.println("\">")
             writer.println("</parameter>")
         }
@@ -359,31 +294,17 @@ class JDiffXmlWriter(
     private fun writeThrowsList(method: MethodItem) {
         val throws = when {
             preFiltered -> method.throwsTypes().asSequence()
-            compatibility.filterThrowsClasses -> method.filteredThrowsTypes(filterReference).asSequence()
-            else -> method.throwsTypes().asSequence()
+            else -> method.filteredThrowsTypes(filterReference).asSequence()
         }
         if (throws.any()) {
             throws.asSequence().sortedWith(ClassItem.fullNameComparator).forEach { type ->
                 writer.print("<exception name=\"")
-                if (options.compatOutput) {
-                    writer.print(type.simpleName())
-                } else {
-                    writer.print(type.fullName())
-                }
+                writer.print(type.fullName())
                 writer.print("\" type=\"")
                 writer.print(type.qualifiedName())
                 writer.println("\">")
                 writer.println("</exception>")
             }
-        }
-    }
-
-    private fun escapeAttributeValue(s: String): String {
-        val escaped = XmlUtils.toXmlAttributeValue(s)
-        return if (compatibility.xmlEscapeGreaterThan && escaped.contains(">")) {
-            escaped.replace(">", "&gt;")
-        } else {
-            escaped
         }
     }
 }

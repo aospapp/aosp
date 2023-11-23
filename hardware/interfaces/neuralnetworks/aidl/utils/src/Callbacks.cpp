@@ -35,18 +35,20 @@ namespace {
 
 // Converts the results of IDevice::prepareModel* to the NN canonical format. On success, this
 // function returns with a non-null nn::SharedPreparedModel with a feature level of
-// nn::Version::ANDROID_S. On failure, this function returns with the appropriate nn::GeneralError.
+// nn::kVersionFeatureLevel5. On failure, this function returns with the appropriate
+// nn::GeneralError.
 nn::GeneralResult<nn::SharedPreparedModel> prepareModelCallback(
-        ErrorStatus status, const std::shared_ptr<IPreparedModel>& preparedModel) {
-    HANDLE_HAL_STATUS(status) << "model preparation failed with " << toString(status);
-    return NN_TRY(PreparedModel::create(preparedModel));
+        ErrorStatus status, const std::shared_ptr<IPreparedModel>& preparedModel,
+        nn::Version featureLevel) {
+    HANDLE_STATUS_AIDL(status) << "model preparation failed with " << toString(status);
+    return NN_TRY(PreparedModel::create(preparedModel, featureLevel));
 }
 
 }  // namespace
 
 ndk::ScopedAStatus PreparedModelCallback::notify(
         ErrorStatus status, const std::shared_ptr<IPreparedModel>& preparedModel) {
-    mData.put(prepareModelCallback(status, preparedModel));
+    mData.put(prepareModelCallback(status, preparedModel, kFeatureLevel));
     return ndk::ScopedAStatus::ok();
 }
 

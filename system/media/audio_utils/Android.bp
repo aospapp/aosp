@@ -93,6 +93,14 @@ cc_library {
         },
     },
     min_sdk_version: "29",
+    static: {
+        // library has C++ code that we don't allow across module boundaries
+        // a static link avoids that cross-module peril.
+        apex_available: [
+            "com.android.media",
+            "com.android.media.swcodec",
+        ],
+    },
 }
 
 cc_library_static {
@@ -109,6 +117,11 @@ cc_library_static {
 
     srcs: ["fixedfft.cpp"],
     min_sdk_version: "29",
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.media",
+        "com.android.media.swcodec",
+    ],
 }
 
 cc_library_static {
@@ -131,6 +144,10 @@ cc_library_static {
         "roundup.c",
     ],
     min_sdk_version: "29",
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.media",
+    ],
     host_supported: true,
     target: {
         darwin: {

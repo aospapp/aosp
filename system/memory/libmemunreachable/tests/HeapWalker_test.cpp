@@ -25,6 +25,14 @@
 
 namespace android {
 
+static inline uintptr_t UntagAddress(uintptr_t addr) {
+#if defined(__aarch64__)
+  constexpr uintptr_t mask = (static_cast<uintptr_t>(1) << 56) - 1;
+  addr = addr & mask;
+#endif
+  return addr;
+}
+
 class HeapWalkerTest : public ::testing::Test {
  public:
   HeapWalkerTest() : disable_malloc_(), heap_() {}
@@ -113,8 +121,8 @@ TEST_F(HeapWalkerTest, leak) {
   EXPECT_EQ(1U, num_leaks);
   EXPECT_EQ(16U, leaked_bytes);
   ASSERT_EQ(1U, leaked.size());
-  EXPECT_EQ(buffer_begin(buffer2), leaked[0].begin);
-  EXPECT_EQ(buffer_end(buffer2), leaked[0].end);
+  EXPECT_EQ(UntagAddress(buffer_begin(buffer2)), leaked[0].begin);
+  EXPECT_EQ(UntagAddress(buffer_end(buffer2)), leaked[0].end);
 }
 
 TEST_F(HeapWalkerTest, live) {

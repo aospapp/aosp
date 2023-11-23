@@ -21,17 +21,17 @@ import os
 import threading
 import uuid
 
-from acts.base_test import BaseTestClass
 from acts import signals
 from acts.controllers.access_point import setup_ap
 from acts.controllers.ap_lib import hostapd_constants
 from acts_contrib.test_utils.abstract_devices.wlan_device import create_wlan_device
+from acts_contrib.test_utils.abstract_devices.wlan_device_lib.AbstractDeviceWlanDeviceBaseTest import AbstractDeviceWlanDeviceBaseTest
 from acts_contrib.test_utils.fuchsia import utils
 from acts_contrib.test_utils.tel.tel_test_utils import setup_droid_properties
 from acts.utils import rand_ascii_str
 
 
-class DownloadStressTest(BaseTestClass):
+class DownloadStressTest(AbstractDeviceWlanDeviceBaseTest):
     # Default number of test iterations here.
     # Override using parameter in config file.
     # Eg: "download_stress_test_iterations": "10"
@@ -55,24 +55,24 @@ class DownloadStressTest(BaseTestClass):
     def setup_class(self):
         super().setup_class()
         self.ssid = rand_ascii_str(10)
-        self.fd = self.fuchsia_devices[0]
-        self.wlan_device = create_wlan_device(self.fd)
-        self.ap = self.access_points[0]
+        self.dut = create_wlan_device(self.fuchsia_devices[0])
+        self.access_point = self.access_points[0]
         self.num_of_iterations = int(
             self.user_params.get("download_stress_test_iterations",
                                  self.num_of_iterations))
 
-        setup_ap(access_point=self.ap,
+        setup_ap(access_point=self.access_point,
                  profile_name='whirlwind',
                  channel=hostapd_constants.AP_DEFAULT_CHANNEL_2G,
                  ssid=self.ssid)
-        self.wlan_device.associate(self.ssid)
+        self.dut.associate(self.ssid)
 
     def teardown_test(self):
         self.download_threads_result.clear()
-        self.wlan_device.disconnect()
-        self.wlan_device.reset_wifi()
-        self.ap.stop_all_aps()
+        self.dut.disconnect()
+        self.dut.reset_wifi()
+        self.download_ap_logs()
+        self.access_point.stop_all_aps()
 
     def test_download_small(self):
         self.log.info("Downloading small file")
@@ -90,7 +90,7 @@ class DownloadStressTest(BaseTestClass):
     def download_file(self, url):
         self.log.info("Start downloading: %s" % url)
         return utils.http_file_download_by_curl(
-            self.fd,
+            self.dut.device,
             url,
             additional_args='--max-time %d --silent' % self.download_timeout_s)
 

@@ -86,6 +86,19 @@ def GetDeleteArgParser(subparser):
         help="'remote host only' Provide host ssh private key path for logging "
         "in to the host. For exmaple: '--host-ssh-private-key-path "
         "~/.ssh/acloud_rsa'")
+    delete_parser.add_argument(
+        "--oxygen",
+        action="store_true",
+        dest="oxygen",
+        required=False,
+        help=argparse.SUPPRESS)
+    # The ip means server_url in Oxygen proxy api.
+    delete_parser.add_argument(
+        "--ip",
+        type=str,
+        dest="ip",
+        required=False,
+        help=argparse.SUPPRESS)
 
     # TODO(b/118439885): Old arg formats to support transition, delete when
     # transistion is done.

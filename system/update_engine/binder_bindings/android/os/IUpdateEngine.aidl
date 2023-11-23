@@ -44,6 +44,11 @@ interface IUpdateEngine {
   /** @hide */
   void resetStatus();
   /** @hide */
+  void setShouldSwitchSlotOnReboot(in String metadataFilename);
+  /** @hide */
+  void resetShouldSwitchSlotOnReboot();
+
+  /** @hide */
   boolean verifyPayloadApplicable(in String metadataFilename);
   /**
    * Allocate space on userdata partition.

@@ -14,16 +14,18 @@
 // limitations under the License.
 //
 
-#ifndef UPDATE_ENGINE_PAYLOAD_GENERATOR_DELTA_DIFF_UTILS_H_
-#define UPDATE_ENGINE_PAYLOAD_GENERATOR_DELTA_DIFF_UTILS_H_
+#ifndef PAYLOAD_GENERATOR_DELTA_DIFF_UTILS_H_
+#define PAYLOAD_GENERATOR_DELTA_DIFF_UTILS_H_
 
 #include <map>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <brillo/secure_blob.h>
 #include <puffin/puffdiff.h>
 
+#include "payload_generator/deflate_utils.h"
 #include "update_engine/payload_generator/annotated_operation.h"
 #include "update_engine/payload_generator/extent_ranges.h"
 #include "update_engine/payload_generator/payload_generation_config.h"
@@ -32,6 +34,7 @@
 namespace chromeos_update_engine {
 
 namespace diff_utils {
+using File = FilesystemInterface::File;
 
 // Create operations in |aops| to produce all the blocks in the |new_part|
 // partition using the filesystem opened in that PartitionConfig.
@@ -48,7 +51,7 @@ bool DeltaReadPartition(std::vector<AnnotatedOperation>* aops,
                         const PartitionConfig& new_part,
                         ssize_t hard_chunk_blocks,
                         size_t soft_chunk_blocks,
-                        const PayloadVersion& version,
+                        const PayloadGenerationConfig& version,
                         BlobFileWriter* blob_file);
 
 // Create operations in |aops| for identical blocks that moved around in the old
@@ -67,7 +70,7 @@ bool DeltaMovedAndZeroBlocks(std::vector<AnnotatedOperation>* aops,
                              size_t old_num_blocks,
                              size_t new_num_blocks,
                              ssize_t chunk_blocks,
-                             const PayloadVersion& version,
+                             const PayloadGenerationConfig& version,
                              BlobFileWriter* blob_file,
                              ExtentRanges* old_visited_blocks,
                              ExtentRanges* new_visited_blocks,
@@ -84,13 +87,10 @@ bool DeltaMovedAndZeroBlocks(std::vector<AnnotatedOperation>* aops,
 bool DeltaReadFile(std::vector<AnnotatedOperation>* aops,
                    const std::string& old_part,
                    const std::string& new_part,
-                   const std::vector<Extent>& old_extents,
-                   const std::vector<Extent>& new_extents,
-                   const std::vector<puffin::BitExtent>& old_deflates,
-                   const std::vector<puffin::BitExtent>& new_deflates,
-                   const std::string& name,
+                   const File& old_file,
+                   const File& new_file,
                    ssize_t chunk_blocks,
-                   const PayloadVersion& version,
+                   const PayloadGenerationConfig& config,
                    BlobFileWriter* blob_file);
 
 // Reads the blocks |old_extents| from |old_part| (if it exists) and the
@@ -99,18 +99,19 @@ bool DeltaReadFile(std::vector<AnnotatedOperation>* aops,
 // fills in |out_op|. If there's no change in old and new files, it creates a
 // MOVE or SOURCE_COPY operation. If there is a change, the smallest of the
 // operations allowed in the given |version| (REPLACE, REPLACE_BZ, BSDIFF,
-// SOURCE_BSDIFF, or PUFFDIFF) wins.
+// SOURCE_BSDIFF, PUFFDIFF or ZUCCHINI) wins.
 // |new_extents| must not be empty. |old_deflates| and |new_deflates| are all
 // the deflate locations in |old_part| and |new_part|. Returns true on success.
+// TODO(197361113) Move logic to calculate deflates inside puffin.
 bool ReadExtentsToDiff(const std::string& old_part,
                        const std::string& new_part,
                        const std::vector<Extent>& old_extents,
                        const std::vector<Extent>& new_extents,
-                       const std::vector<puffin::BitExtent>& old_deflates,
-                       const std::vector<puffin::BitExtent>& new_deflates,
-                       const PayloadVersion& version,
+                       const File& old_file,
+                       const File& new_file,
+                       const PayloadGenerationConfig& config,
                        brillo::Blob* out_data,
-                       InstallOperation* out_op);
+                       AnnotatedOperation* out_op);
 
 // Generates the best allowed full operation to produce |new_data|. The allowed
 // operations are based on |payload_version|. The operation blob will be stored
@@ -149,8 +150,96 @@ FilesystemInterface::File GetOldFile(
     const std::map<std::string, FilesystemInterface::File>& old_files_map,
     const std::string& new_file_name);
 
+// Read BSDIFF patch data in |data|, compute list of blocks that can be COW_XOR,
+// store these blocks in |aop|.
+bool PopulateXorOps(AnnotatedOperation* aop, const uint8_t* data, size_t size);
+
+inline bool PopulateXorOps(AnnotatedOperation* aop,
+                           const brillo::Blob& patch_data) {
+  return PopulateXorOps(aop, patch_data.data(), patch_data.size());
+}
+
+// A utility class that tries different algorithms and pick the patch with the
+// smallest size.
+
+class BestDiffGenerator {
+ public:
+  BestDiffGenerator(const brillo::Blob& old_data,
+                    const brillo::Blob& new_data,
+                    const std::vector<Extent>& src_extents,
+                    const std::vector<Extent>& dst_extents,
+                    const File& old_file,
+                    const File& new_file,
+                    const PayloadGenerationConfig& config)
+      : old_data_(old_data),
+        new_data_(new_data),
+        src_extents_(src_extents),
+        dst_extents_(dst_extents),
+        old_deflates_(old_file.deflates),
+        new_deflates_(new_file.deflates),
+        old_block_info_(old_file.compressed_file_info),
+        new_block_info_(new_file.compressed_file_info),
+        config_(config) {
+    using std::vector;
+    // Find all deflate positions inside the given extents and then put all
+    // deflates together because we have already read all the extents into
+    // one buffer.
+    vector<puffin::BitExtent> src_deflates;
+    TEST_AND_RETURN(deflate_utils::FindAndCompactDeflates(
+        src_extents_, old_deflates_, &src_deflates));
+
+    vector<puffin::BitExtent> dst_deflates;
+    TEST_AND_RETURN(deflate_utils::FindAndCompactDeflates(
+        dst_extents_, new_deflates_, &dst_deflates));
+    puffin::RemoveEqualBitExtents(
+        old_data_, new_data_, &src_deflates, &dst_deflates);
+    // See crbug.com/915559.
+    if (config.version.minor <= kPuffdiffMinorPayloadVersion) {
+      CHECK(
+          puffin::RemoveDeflatesWithBadDistanceCaches(old_data, &src_deflates));
+
+      CHECK(
+          puffin::RemoveDeflatesWithBadDistanceCaches(new_data, &dst_deflates));
+    }
+    old_deflates_ = std::move(src_deflates);
+    new_deflates_ = std::move(dst_deflates);
+  }
+
+  // Tries different algorithms and compares their patch sizes with the
+  // compressed full operation data in |data_blob|. If the size is smaller,
+  // updates the operation type in |aop| and bytes in |data_blob|.
+  bool GenerateBestDiffOperation(AnnotatedOperation* aop,
+                                 brillo::Blob* data_blob);
+
+  bool GenerateBestDiffOperation(
+      const std::vector<std::pair<InstallOperation_Type, size_t>>&
+          diff_candidates,
+      AnnotatedOperation* aop,
+      brillo::Blob* data_blob);
+
+ private:
+  std::vector<bsdiff::CompressorType> GetUsableCompressorTypes() const;
+  bool TryBsdiffAndUpdateOperation(InstallOperation_Type operation_type,
+                                   AnnotatedOperation* aop,
+                                   brillo::Blob* data_blob);
+  bool TryPuffdiffAndUpdateOperation(AnnotatedOperation* aop,
+                                     brillo::Blob* data_blob);
+  bool TryZucchiniAndUpdateOperation(AnnotatedOperation* aop,
+                                     brillo::Blob* data_blob);
+
+  const brillo::Blob& old_data_;
+  const brillo::Blob& new_data_;
+  const std::vector<Extent>& src_extents_;
+  const std::vector<Extent>& dst_extents_;
+  std::vector<puffin::BitExtent> old_deflates_;
+  std::vector<puffin::BitExtent> new_deflates_;
+  const CompressedFile& old_block_info_;
+  const CompressedFile& new_block_info_;
+  const PayloadGenerationConfig& config_;
+};
+
 }  // namespace diff_utils
 
 }  // namespace chromeos_update_engine
 
-#endif  // UPDATE_ENGINE_PAYLOAD_GENERATOR_DELTA_DIFF_UTILS_H_
+#endif  // PAYLOAD_GENERATOR_DELTA_DIFF_UTILS_H_

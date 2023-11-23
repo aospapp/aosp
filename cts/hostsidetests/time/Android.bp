@@ -24,6 +24,9 @@ java_test_host {
         "cts-statsd-atom-host-test-utils",
         "host_time_shell_utils",
     ],
+    data: [
+        ":CtsFakeTimeZoneProvidersApp",
+    ],
     test_suites: ["general-tests", "cts"],
     test_config: "host/AndroidTest.xml",
 }

@@ -1,10 +1,6 @@
 package {
     // See: http://go/android-license-faq
-    // A large-scale-change added 'default_applicable_licenses' to import
-    // all of the 'license_kinds' from "hardware_google_av_license"
-    // to get the below license kinds:
-    //   SPDX-license-identifier-Apache-2.0
-    default_applicable_licenses: ["hardware_google_av_license"],
+    default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
 filegroup {
@@ -49,6 +45,9 @@ cc_library_shared {
     local_include_dirs: [
         "include",
     ],
+    export_include_dirs: [
+        "include",
+    ],
 
     shared_libs: [
         "libbinder",
@@ -57,9 +56,8 @@ cc_library_shared {
         "libutils",
         "libcodec2_hidl@1.0",
     ],
-
-    export_include_dirs: [
-        "include",
+    export_shared_lib_headers: [
+        "libbinder",
     ],
 
     sanitize: {

@@ -15,6 +15,22 @@
  */
 package com.android.cts.verifier.sensors.sixdof.Activities;
 
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.app.Fragment;
+import android.app.FragmentManager;
+import android.app.FragmentTransaction;
+import android.content.Intent;
+import android.content.pm.ActivityInfo;
+import android.content.res.Configuration;
+import android.content.res.Resources;
+import android.os.Bundle;
+import android.util.Log;
+import android.view.Display;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.Surface;
+
 import com.android.cts.verifier.R;
 import com.android.cts.verifier.sensors.sixdof.Activities.StartActivity.ResultCode;
 import com.android.cts.verifier.sensors.sixdof.Fragments.AccuracyFragment;
@@ -26,8 +42,6 @@ import com.android.cts.verifier.sensors.sixdof.Interfaces.AccuracyListener;
 import com.android.cts.verifier.sensors.sixdof.Interfaces.BaseUiListener;
 import com.android.cts.verifier.sensors.sixdof.Interfaces.ComplexMovementListener;
 import com.android.cts.verifier.sensors.sixdof.Interfaces.RobustnessListener;
-import com.android.cts.verifier.sensors.sixdof.Utils.ReportExporter;
-import com.android.cts.verifier.sensors.sixdof.Utils.TestReport;
 import com.android.cts.verifier.sensors.sixdof.Utils.Exceptions.WaypointAreaCoveredException;
 import com.android.cts.verifier.sensors.sixdof.Utils.Exceptions.WaypointDistanceException;
 import com.android.cts.verifier.sensors.sixdof.Utils.Exceptions.WaypointRingNotEnteredException;
@@ -37,23 +51,9 @@ import com.android.cts.verifier.sensors.sixdof.Utils.Path.PathUtilityClasses.Rin
 import com.android.cts.verifier.sensors.sixdof.Utils.Path.PathUtilityClasses.RotationData;
 import com.android.cts.verifier.sensors.sixdof.Utils.Path.PathUtilityClasses.Waypoint;
 import com.android.cts.verifier.sensors.sixdof.Utils.PoseProvider.PoseProvider;
+import com.android.cts.verifier.sensors.sixdof.Utils.ReportExporter;
 import com.android.cts.verifier.sensors.sixdof.Utils.ResultObjects.ResultObject;
-
-import android.content.Intent;
-import android.content.pm.ActivityInfo;
-import android.content.res.Configuration;
-import android.content.res.Resources;
-import android.os.Bundle;
-import android.app.Fragment;
-import android.app.FragmentManager;
-import android.app.FragmentTransaction;
-import android.app.AlertDialog;
-import android.app.Activity;
-import android.util.Log;
-import android.view.Display;
-import android.view.Menu;
-import android.view.MenuItem;
-import android.view.Surface;
+import com.android.cts.verifier.sensors.sixdof.Utils.TestReport;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -203,27 +203,25 @@ public class TestActivity extends Activity implements BaseUiListener, AccuracyLi
         // Handle action bar item clicks here.
         int id = item.getItemId();
 
-        switch (id) {
-            case R.id.action_save_results:
-                saveResults();
-                return true;
-            case R.id.action_xml:
-                AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        if (id == R.id.action_save_results) {
+            saveResults();
+            return true;
+        } else if (id == R.id.action_xml) {
+            AlertDialog.Builder builder = new AlertDialog.Builder(this);
 
-                try {
-                    builder.setMessage(mDataFragment.getTestReport().getContents())
-                            .setTitle(R.string.results)
-                            .setPositiveButton(R.string.got_it, null);
-                } catch (IOException e) {
-                    Log.e(TAG, e.toString());
-                }
+            try {
+                builder.setMessage(mDataFragment.getTestReport().getContents())
+                        .setTitle(R.string.results)
+                        .setPositiveButton(R.string.got_it, null);
+            } catch (IOException e) {
+                Log.e(TAG, e.toString());
+            }
 
-                AlertDialog dialog = builder.create();
-                dialog.show();
-                return true;
-            default:
-                return super.onOptionsItemSelected(item);
+            AlertDialog dialog = builder.create();
+            dialog.show();
+            return true;
         }
+        return super.onOptionsItemSelected(item);
     }
 
     public void saveResults() {

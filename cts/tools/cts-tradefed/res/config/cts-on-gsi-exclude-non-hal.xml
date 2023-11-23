@@ -64,7 +64,6 @@
     <option name="compatibility:exclude-filter" value="CtsClassLoaderFactoryInMemoryDexClassLoaderTestCases" />
     <option name="compatibility:exclude-filter" value="CtsClassLoaderFactoryPathClassLoaderTestCases" />
     <option name="compatibility:exclude-filter" value="CtsClassloaderSplitsHostTestCases" />
-    <option name="compatibility:exclude-filter" value="CtsCodePathHostTestCases" />
     <option name="compatibility:exclude-filter" value="CtsCompilationTestCases" />
     <option name="compatibility:exclude-filter" value="CtsContactsProviderTestCases" />
     <option name="compatibility:exclude-filter" value="CtsContactsProviderWipe" />
@@ -218,6 +217,7 @@
     <option name="compatibility:exclude-filter" value="CtsPackageInstallAppOpDeniedTestCases" />
     <option name="compatibility:exclude-filter" value="CtsPackageInstallerTapjackingTestCases" />
     <option name="compatibility:exclude-filter" value="CtsPackageInstallTestCases" />
+    <option name="compatibility:exclude-filter" value="CtsPackageSettingHostTestCases" />
     <option name="compatibility:exclude-filter" value="CtsPackageUninstallTestCases" />
     <option name="compatibility:exclude-filter" value="CtsPackageWatchdogTestCases" />
     <option name="compatibility:exclude-filter" value="CtsProtoTestCases" />

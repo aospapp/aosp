@@ -55,6 +55,7 @@ public class AdaptiveIconDrawableTest {
     @Test
     public void testConstructor() {
         new AdaptiveIconDrawable(null, null);
+        new AdaptiveIconDrawable(null, null, null);
     }
 
     @Test
@@ -140,6 +141,21 @@ public class AdaptiveIconDrawableTest {
         AdaptiveIconDrawable iconDrawable = new AdaptiveIconDrawable(null, drawable);
         iconDrawable.setAlpha(128);
         assertEquals(128, iconDrawable.getAlpha());
+    }
+
+    @Test
+    public void testGetMonochrome() {
+        ColorDrawable drawable = new ColorDrawable(Color.RED);
+        AdaptiveIconDrawable iconDrawable = new AdaptiveIconDrawable(null, null, drawable);
+        assertEquals(drawable, iconDrawable.getMonochrome());
+    }
+
+    @Test
+    public void testMonochromeInflated() {
+        Resources r = InstrumentationRegistry.getTargetContext().getResources();
+        AdaptiveIconDrawable iconDrawable = (AdaptiveIconDrawable) r.getDrawable(
+                R.drawable.adaptiveicondrawable);
+        assertNotNull(iconDrawable.getMonochrome());
     }
 
     /**

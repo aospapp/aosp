@@ -287,6 +287,10 @@ static void Addr2line(const std::string& map_src,
 static bool RunCommand(const std::string& cmd) {
   FILE* stream = popen(cmd.c_str(), "r");
   if (stream) {
+    // Consume the stdout until we encounter EOF when the tool exits.
+    // Otherwise the tool would complain to stderr when the stream is closed.
+    char buffer[64];
+    while (fread(buffer, 1, sizeof(buffer), stream) == sizeof(buffer)) {}
     pclose(stream);
     return true;
   } else {
@@ -402,6 +406,10 @@ void DumpNativeStack(std::ostream& os,
         os << "???";
       }
       os << ")";
+      std::string build_id = map->GetBuildId(it->pc);
+      if (!build_id.empty()) {
+        os << " (BuildId: " << build_id << ")";
+      }
     }
     os << std::endl;
     if (try_addr2line && use_addr2line) {

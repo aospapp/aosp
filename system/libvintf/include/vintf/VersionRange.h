@@ -54,7 +54,7 @@ struct VersionRange {
     //     ver == 2.2: false
     //     ver == 2.3: true
     //     ver == 2.7: true
-    //     ver == 2.8: false
+    //     ver == 2.8: true
     inline bool supportedBy(const Version &ver) const {
         return majorVer == ver.majorVer && minMinor <= ver.minorVer;
     }

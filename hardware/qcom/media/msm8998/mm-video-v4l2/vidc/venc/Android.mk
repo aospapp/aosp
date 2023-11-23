@@ -41,19 +41,19 @@ libmm-venc-def += -DMAX_RES_1080P_EBI
 endif
 endif
 
-ifeq ($(call is-board-platform-in-list, $(TARGETS_THAT_SUPPORT_UBWC)),true)
+ifneq (,$(call is-board-platform-in-list2, $(TARGETS_THAT_SUPPORT_UBWC)))
 libmm-venc-def += -D_UBWC_
 endif
 
-ifeq ($(call is-board-platform-in-list, $(TARGETS_THAT_USE_NV21)),true)
+ifneq (,$(call is-board-platform-in-list2, $(TARGETS_THAT_USE_NV21)))
 libmm-venc-def += -D_NV21_
 endif
 
-ifeq ($(call is-board-platform-in-list, $(TARGETS_THAT_SUPPORT_VQZIP)),true)
+ifneq (,$(call is-board-platform-in-list2, $(TARGETS_THAT_SUPPORT_VQZIP)))
 libmm-venc-def += -D_VQZIP_
 endif
 
-ifeq ($(call is-board-platform-in-list, $(TARGETS_THAT_SUPPORT_PQ)),true)
+ifneq (,$(call is-board-platform-in-list2, $(TARGETS_THAT_SUPPORT_PQ)))
 ifneq ($(wildcard vendor/qcom/$(TARGET_BOARD_PLATFORM)/prebuilts/grease/),)
 libmm-venc-def += -D_PQ_
 else
@@ -61,7 +61,7 @@ $(warning "venc: PQ compiled out")
 endif
 endif
 
-ifeq ($(call is-board-platform-in-list, $(TARGETS_THAT_USE_FLAG_MSM8226)),true)
+ifneq (,$(call is-board-platform-in-list2, $(TARGETS_THAT_USE_FLAG_MSM8226)))
 libmm-venc-def += -D_MSM8226_
 endif
 
@@ -71,7 +71,7 @@ endif
 
 libmm-venc-def += -DUSE_NATIVE_HANDLE_SOURCE
 
-ifeq ($(call is-board-platform-in-list, $(MASTER_SIDE_CP_TARGET_LIST)),true)
+ifneq (,$(call is-board-platform-in-list2, $(MASTER_SIDE_CP_TARGET_LIST)))
 libmm-venc-def += -DMASTER_SIDE_CP
 endif
 
@@ -94,7 +94,7 @@ libmm-venc-inc      += frameworks/native/libs/arect/include
 libmm-venc-inc      += $(QCOM_MEDIA_ROOT)/libc2dcolorconvert
 libmm-venc-inc      += $(TARGET_OUT_HEADERS)/libvqzip
 libmm-venc-inc      += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
-ifeq ($(call is-board-platform-in-list, $(TARGETS_THAT_SUPPORT_PQ)),true)
+ifneq (,$(call is-board-platform-in-list2, $(TARGETS_THAT_SUPPORT_PQ)))
 libmm-venc-inc      += $(TARGET_OUT_HEADERS)/libgpustats
 endif
 
@@ -140,7 +140,7 @@ LOCAL_CFLAGS += -Wno-implicit-fallthrough
 
 include $(BUILD_SHARED_LIBRARY)
 
-ifeq ($(call is-board-platform-in-list, $(TARGETS_THAT_NEED_SW_VENC_MPEG4)),true)
+ifneq (,$(call is-board-platform-in-list2, $(TARGETS_THAT_NEED_SW_VENC_MPEG4)))
 # ---------------------------------------------------------------------------------
 # 			Make the Shared library (libOmxSwVencMpeg4)
 # ---------------------------------------------------------------------------------

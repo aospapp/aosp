@@ -51,7 +51,8 @@ public class TaskDescriptionTest {
     private static final String TEST_LABEL = "test-label";
     private static final int TEST_NO_DATA = 0;
     private static final int TEST_RES_DATA = 777;
-    private static final int TEST_COLOR = Color.BLACK;
+    private static final int TEST_COLOR = Color.RED;
+    private static final int NULL_COLOR = 0;
     private static final int WAIT_TIMEOUT_MS = 1000;
     private static final int WAIT_RETRIES = 5;
 
@@ -96,7 +97,29 @@ public class TaskDescriptionTest {
         assertTaskDescription(activity, null, TEST_NO_DATA, null);
     }
 
+    @Test
+    public void testBuilder() {
+        final Activity activity = mTaskDescriptionActivity.launchActivity(null);
+        final TaskDescription td = new TaskDescription.Builder()
+                .setLabel(TEST_LABEL)
+                .setIcon(TEST_RES_DATA)
+                .setPrimaryColor(TEST_COLOR)
+                .setBackgroundColor(TEST_COLOR)
+                .setStatusBarColor(TEST_COLOR)
+                .setNavigationBarColor(TEST_COLOR)
+                .build();
+        activity.setTaskDescription(td);
+        assertTaskDescription(activity, TEST_LABEL, TEST_RES_DATA, null, TEST_COLOR, TEST_COLOR,
+                TEST_COLOR, TEST_COLOR);
+    }
+
     private void assertTaskDescription(Activity activity, String label, int resId, Bitmap bitmap) {
+        assertTaskDescription(activity, label, resId, bitmap, NULL_COLOR, NULL_COLOR, NULL_COLOR,
+                NULL_COLOR);
+    }
+
+    private void assertTaskDescription(Activity activity, String label, int resId, Bitmap bitmap,
+            int primaryColor, int backgroundColor, int statusBarColor, int navigationBarColor) {
         final ActivityManager am = (ActivityManager) activity.getSystemService(ACTIVITY_SERVICE);
         List<RecentTaskInfo> recentsTasks = am.getRecentTasks(1 /* maxNum */, 0 /* flags */);
         if (!recentsTasks.isEmpty()) {
@@ -118,6 +141,18 @@ public class TaskDescriptionTest {
 
                 assertEquals(resId, td.getIconResource());
                 assertEquals(label, td.getLabel());
+                if (primaryColor != NULL_COLOR) {
+                    assertEquals(primaryColor, td.getPrimaryColor());
+                }
+                if (backgroundColor != NULL_COLOR) {
+                    assertEquals(backgroundColor, td.getBackgroundColor());
+                }
+                if (statusBarColor != NULL_COLOR) {
+                    assertEquals(statusBarColor, td.getStatusBarColor());
+                }
+                if (navigationBarColor != NULL_COLOR) {
+                    assertEquals(navigationBarColor, td.getNavigationBarColor());
+                }
                 return;
             }
         }

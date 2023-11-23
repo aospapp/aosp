@@ -65,6 +65,14 @@ using token = yy::parser::token;
 #define YY_DECL int yylex(YYSTYPE* yylval_param, YYLTYPE* yylloc_param,  \
     yyscan_t yyscanner, android::AST* const ast, android::Scope** const scope)
 
+#ifndef YYSTYPE
+#define YYSTYPE yy::parser::semantic_type
+#endif
+
+#ifndef YYLTYPE
+#define YYLTYPE yy::parser::location_type
+#endif
+
 #define YY_USER_ACTION yylloc->step(); yylloc->columns(yyleng);
 
 %}

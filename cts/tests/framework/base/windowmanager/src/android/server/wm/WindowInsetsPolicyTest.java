@@ -17,9 +17,10 @@
 package android.server.wm;
 
 import static android.content.res.Configuration.ORIENTATION_PORTRAIT;
+import static android.provider.Settings.Secure.IMMERSIVE_MODE_CONFIRMATIONS;
 import static android.server.wm.app.Components.LAUNCHING_ACTIVITY;
-import static android.view.Display.DEFAULT_DISPLAY;
 import static android.view.Surface.ROTATION_0;
+import static android.view.Surface.ROTATION_180;
 import static android.view.Surface.ROTATION_90;
 import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
 
@@ -38,6 +39,8 @@ import android.content.pm.PackageManager;
 import android.graphics.Insets;
 import android.os.Bundle;
 import android.platform.test.annotations.Presubmit;
+import android.provider.Settings;
+import android.server.wm.settings.SettingsSession;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
@@ -47,10 +50,11 @@ import android.view.WindowManager.LayoutParams;
 
 import androidx.test.rule.ActivityTestRule;
 
-import com.android.compatibility.common.util.PollingCheck;
+import com.android.compatibility.common.util.WindowUtil;
 
 import org.hamcrest.CustomTypeSafeMatcher;
 import org.hamcrest.Matcher;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
@@ -64,6 +68,8 @@ public class WindowInsetsPolicyTest extends ActivityManagerTestBase {
     private static final String TAG = WindowInsetsPolicyTest.class.getSimpleName();
 
     private ComponentName mTestActivityComponentName;
+
+    private SettingsSession<String> mImmersiveModeConfirmationSetting;
 
     @Rule
     public final ErrorCollector mErrorCollector = new ErrorCollector();
@@ -88,16 +94,23 @@ public class WindowInsetsPolicyTest extends ActivityManagerTestBase {
             new ActivityTestRule<>(ImmersiveFullscreenTestActivity.class,
                     false /* initialTouchMode */, false /* launchActivity */);
 
-    @Rule
-    public final ActivityTestRule<NaturalOrientationTestActivity> mNaturalOrientationTestActivity =
-            new ActivityTestRule<>(NaturalOrientationTestActivity.class,
-                    false /* initialTouchMode */, false /* launchActivity */);
-
     @Before
     @Override
     public void setUp() throws Exception {
         super.setUp();
         mTestActivityComponentName = new ComponentName(mContext, TestActivity.class);
+        mImmersiveModeConfirmationSetting = new SettingsSession<>(
+                Settings.Secure.getUriFor(IMMERSIVE_MODE_CONFIRMATIONS),
+                Settings.Secure::getString, Settings.Secure::putString);
+        mImmersiveModeConfirmationSetting.set("confirmed");
+
+    }
+
+    @After
+    public void tearDown() {
+        if (mImmersiveModeConfirmationSetting != null) {
+            mImmersiveModeConfirmationSetting.close();
+        }
     }
 
     @Test
@@ -129,16 +142,20 @@ public class WindowInsetsPolicyTest extends ActivityManagerTestBase {
         assumeTrue("Skipping test: no split multi-window support",
                 supportsSplitScreenMultiWindow());
 
-        launchAndWait(mNaturalOrientationTestActivity);
-        mWmState.computeState(new ComponentName[] {});
-        final boolean naturalOrientationPortrait =
-                mWmState.getDisplay(DEFAULT_DISPLAY)
-                        .mFullConfiguration.orientation == ORIENTATION_PORTRAIT;
-
-        final RotationSession rotationSession = createManagedRotationSession();
-        rotationSession.set(naturalOrientationPortrait ? ROTATION_90 : ROTATION_0);
-
         final TestActivity activity = launchAndWait(mTestActivity);
+        final int rotation = activity.getDisplay().getRotation();
+        final boolean isPortrait = activity.getResources().getConfiguration()
+                .orientation == ORIENTATION_PORTRAIT;
+        final RotationSession rotationSession = createManagedRotationSession();
+        if (isPortrait) {
+            // Rotate to landscape.
+            rotationSession.set(rotation == ROTATION_0 || rotation == ROTATION_180
+                    ? ROTATION_90 : ROTATION_0);
+        } else {
+            // Keep in landscape.
+            rotationSession.set(rotation);
+        }
+
         mWmState.waitForValidState(mTestActivityComponentName);
         final int taskId = mWmState.getTaskByActivity(mTestActivityComponentName).mTaskId;
         launchActivityInPrimarySplit(LAUNCHING_ACTIVITY);
@@ -260,7 +277,7 @@ public class WindowInsetsPolicyTest extends ActivityManagerTestBase {
 
     private <T extends Activity> T launchAndWait(ActivityTestRule<T> rule) {
         final T activity = rule.launchActivity(null);
-        PollingCheck.waitFor(activity::hasWindowFocus);
+        WindowUtil.waitForFocus(activity);
         return activity;
     }
 

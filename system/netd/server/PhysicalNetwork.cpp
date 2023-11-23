@@ -84,14 +84,20 @@ int PhysicalNetwork::destroySocketsLackingPermission(Permission permission) {
 }
 
 void PhysicalNetwork::invalidateRouteCache(const std::string& interface) {
+    // This method invalidates all socket destination cache entries in the kernel by creating and
+    // removing a low-priority route.
+    // This number is an arbitrary number that need to be higher than any other route created either
+    // by netd or by an IPv6 RouterAdvertisement.
+    int priority = 100000;
+
     for (const auto& dst : { "0.0.0.0/0", "::/0" }) {
         // If any of these operations fail, there's no point in logging because RouteController will
         // have already logged a message. There's also no point returning an error since there's
         // nothing we can do.
         (void)RouteController::addRoute(interface.c_str(), dst, "throw", RouteController::INTERFACE,
-                                        0 /* mtu */);
-        (void) RouteController::removeRoute(interface.c_str(), dst, "throw",
-                                         RouteController::INTERFACE);
+                                        0 /* mtu */, priority);
+        (void)RouteController::removeRoute(interface.c_str(), dst, "throw",
+                                           RouteController::INTERFACE, priority);
     }
 }
 
@@ -158,7 +164,7 @@ int PhysicalNetwork::removeAsDefault() {
     return 0;
 }
 
-int PhysicalNetwork::addUsers(const UidRanges& uidRanges, uint32_t subPriority) {
+int PhysicalNetwork::addUsers(const UidRanges& uidRanges, int32_t subPriority) {
     if (!isValidSubPriority(subPriority) || !canAddUidRanges(uidRanges, subPriority)) {
         return -EINVAL;
     }
@@ -175,7 +181,7 @@ int PhysicalNetwork::addUsers(const UidRanges& uidRanges, uint32_t subPriority) 
     return 0;
 }
 
-int PhysicalNetwork::removeUsers(const UidRanges& uidRanges, uint32_t subPriority) {
+int PhysicalNetwork::removeUsers(const UidRanges& uidRanges, int32_t subPriority) {
     if (!isValidSubPriority(subPriority)) return -EINVAL;
 
     for (const std::string& interface : mInterfaces) {
@@ -230,9 +236,11 @@ int PhysicalNetwork::removeInterface(const std::string& interface) {
     return 0;
 }
 
-bool PhysicalNetwork::isValidSubPriority(uint32_t priority) {
-    return priority >= UidRanges::DEFAULT_SUB_PRIORITY &&
-           priority <= UidRanges::LOWEST_SUB_PRIORITY;
+bool PhysicalNetwork::isValidSubPriority(int32_t priority) {
+    // SUB_PRIORITY_NO_DEFAULT is a special value, see UidRanges.h.
+    return (priority >= UidRanges::SUB_PRIORITY_HIGHEST &&
+            priority <= UidRanges::SUB_PRIORITY_LOWEST) ||
+           priority == UidRanges::SUB_PRIORITY_NO_DEFAULT;
 }
 
 }  // namespace android::net

@@ -35,7 +35,6 @@ import com.android.bedstead.nene.utils.Versions;
 /** APIs related to {@link Settings.Global}. */
 public final class GlobalSettings {
 
-    private static final TestApis sTestApis = new TestApis();
     public static final GlobalSettings sInstance = new GlobalSettings();
 
     private GlobalSettings() {
@@ -48,7 +47,7 @@ public final class GlobalSettings {
     @RequiresApi(Build.VERSION_CODES.S)
     public void putInt(ContentResolver contentResolver, String key, int value) {
         Versions.requireMinimumVersion(Build.VERSION_CODES.S);
-        try (PermissionContext p = sTestApis.permissions().withPermission(
+        try (PermissionContext p = TestApis.permissions().withPermission(
                 INTERACT_ACROSS_USERS_FULL, WRITE_SECURE_SETTINGS)) {
             Settings.Global.putInt(contentResolver, key, value);
         }
@@ -64,12 +63,12 @@ public final class GlobalSettings {
      */
     @SuppressLint("NewApi")
     public void putInt(UserReference user, String key, int value) {
-        if (user.equals(sTestApis.users().instrumented())) {
+        if (user.equals(TestApis.users().instrumented())) {
             putInt(key, value);
             return;
         }
 
-        putInt(sTestApis.context().androidContextAsUser(user).getContentResolver(), key, value);
+        putInt(TestApis.context().androidContextAsUser(user).getContentResolver(), key, value);
     }
 
     /**
@@ -78,9 +77,9 @@ public final class GlobalSettings {
      * <p>See {@link #putInt(ContentResolver, String, int)}
      */
     public void putInt(String key, int value) {
-        try (PermissionContext p = sTestApis.permissions().withPermission(WRITE_SECURE_SETTINGS)) {
+        try (PermissionContext p = TestApis.permissions().withPermission(WRITE_SECURE_SETTINGS)) {
             Settings.Global.putInt(
-                    sTestApis.context().instrumentedContext().getContentResolver(), key, value);
+                    TestApis.context().instrumentedContext().getContentResolver(), key, value);
         }
     }
 
@@ -90,7 +89,7 @@ public final class GlobalSettings {
     @RequiresApi(Build.VERSION_CODES.S)
     public void putString(ContentResolver contentResolver, String key, String value) {
         Versions.requireMinimumVersion(Build.VERSION_CODES.S);
-        try (PermissionContext p = sTestApis.permissions().withPermission(
+        try (PermissionContext p = TestApis.permissions().withPermission(
                 INTERACT_ACROSS_USERS_FULL, WRITE_SECURE_SETTINGS)) {
             Settings.Global.putString(contentResolver, key, value);
         }
@@ -106,12 +105,12 @@ public final class GlobalSettings {
      */
     @SuppressLint("NewApi")
     public void putString(UserReference user, String key, String value) {
-        if (user.equals(sTestApis.users().instrumented())) {
+        if (user.equals(TestApis.users().instrumented())) {
             putString(key, value);
             return;
         }
 
-        putString(sTestApis.context().androidContextAsUser(user).getContentResolver(), key, value);
+        putString(TestApis.context().androidContextAsUser(user).getContentResolver(), key, value);
     }
 
     /**
@@ -120,9 +119,9 @@ public final class GlobalSettings {
      * <p>See {@link #putString(ContentResolver, String, String)}
      */
     public void putString(String key, String value) {
-        try (PermissionContext p = sTestApis.permissions().withPermission(WRITE_SECURE_SETTINGS)) {
+        try (PermissionContext p = TestApis.permissions().withPermission(WRITE_SECURE_SETTINGS)) {
             Settings.Global.putString(
-                    sTestApis.context().instrumentedContext().getContentResolver(), key, value);
+                    TestApis.context().instrumentedContext().getContentResolver(), key, value);
         }
     }
 
@@ -133,7 +132,7 @@ public final class GlobalSettings {
     public int getInt(ContentResolver contentResolver, String key) {
         Versions.requireMinimumVersion(Build.VERSION_CODES.S);
         try (PermissionContext p =
-                     sTestApis.permissions().withPermission(INTERACT_ACROSS_USERS_FULL)) {
+                     TestApis.permissions().withPermission(INTERACT_ACROSS_USERS_FULL)) {
             return getIntInner(contentResolver, key);
         }
     }
@@ -145,7 +144,7 @@ public final class GlobalSettings {
     public int getInt(ContentResolver contentResolver, String key, int defaultValue) {
         Versions.requireMinimumVersion(Build.VERSION_CODES.S);
         try (PermissionContext p =
-                     sTestApis.permissions().withPermission(INTERACT_ACROSS_USERS_FULL)) {
+                     TestApis.permissions().withPermission(INTERACT_ACROSS_USERS_FULL)) {
             return getIntInner(contentResolver, key, defaultValue);
         }
     }
@@ -172,10 +171,10 @@ public final class GlobalSettings {
      */
     @SuppressLint("NewApi")
     public int getInt(UserReference user, String key) {
-        if (user.equals(sTestApis.users().instrumented())) {
+        if (user.equals(TestApis.users().instrumented())) {
             return getInt(key);
         }
-        return getInt(sTestApis.context().androidContextAsUser(user).getContentResolver(), key);
+        return getInt(TestApis.context().androidContextAsUser(user).getContentResolver(), key);
     }
 
     /**
@@ -188,11 +187,11 @@ public final class GlobalSettings {
      */
     @SuppressLint("NewApi")
     public int getInt(UserReference user, String key, int defaultValue) {
-        if (user.equals(sTestApis.users().instrumented())) {
+        if (user.equals(TestApis.users().instrumented())) {
             return getInt(key, defaultValue);
         }
         return getInt(
-                sTestApis.context().androidContextAsUser(user).getContentResolver(),
+                TestApis.context().androidContextAsUser(user).getContentResolver(),
                 key, defaultValue);
     }
 
@@ -202,7 +201,7 @@ public final class GlobalSettings {
      * <p>See {@link #getInt(ContentResolver, String)}
      */
     public int getInt(String key) {
-        return getIntInner(sTestApis.context().instrumentedContext().getContentResolver(), key);
+        return getIntInner(TestApis.context().instrumentedContext().getContentResolver(), key);
     }
 
     /**
@@ -212,7 +211,7 @@ public final class GlobalSettings {
      */
     public int getInt(String key, int defaultValue) {
         return getIntInner(
-                sTestApis.context().instrumentedContext().getContentResolver(), key, defaultValue);
+                TestApis.context().instrumentedContext().getContentResolver(), key, defaultValue);
     }
 
     /**
@@ -222,7 +221,7 @@ public final class GlobalSettings {
     public String getString(ContentResolver contentResolver, String key) {
         Versions.requireMinimumVersion(Build.VERSION_CODES.S);
         try (PermissionContext p =
-                     sTestApis.permissions().withPermission(INTERACT_ACROSS_USERS_FULL)) {
+                     TestApis.permissions().withPermission(INTERACT_ACROSS_USERS_FULL)) {
             return getStringInner(contentResolver, key);
         }
     }
@@ -241,10 +240,10 @@ public final class GlobalSettings {
      */
     @SuppressLint("NewApi")
     public String getString(UserReference user, String key) {
-        if (user.equals(sTestApis.users().instrumented())) {
+        if (user.equals(TestApis.users().instrumented())) {
             return getString(key);
         }
-        return getString(sTestApis.context().androidContextAsUser(user).getContentResolver(), key);
+        return getString(TestApis.context().androidContextAsUser(user).getContentResolver(), key);
     }
 
     /**
@@ -253,7 +252,7 @@ public final class GlobalSettings {
      * <p>See {@link #getString(ContentResolver, String)}
      */
     public String getString(String key) {
-        return getStringInner(sTestApis.context().instrumentedContext().getContentResolver(), key);
+        return getStringInner(TestApis.context().instrumentedContext().getContentResolver(), key);
     }
 
     /**
@@ -266,7 +265,7 @@ public final class GlobalSettings {
     @RequiresApi(Build.VERSION_CODES.S)
     public void reset(ContentResolver contentResolver) {
         Versions.requireMinimumVersion(Build.VERSION_CODES.S);
-        try (PermissionContext p = sTestApis.permissions().withPermission(
+        try (PermissionContext p = TestApis.permissions().withPermission(
                 WRITE_SECURE_SETTINGS, INTERACT_ACROSS_USERS_FULL)) {
             Settings.Global.resetToDefaults(contentResolver, /* tag= */ null);
         }
@@ -282,11 +281,11 @@ public final class GlobalSettings {
      */
     @SuppressLint("NewApi")
     public void reset(UserReference user) {
-        if (user.equals(sTestApis.users().instrumented())) {
+        if (user.equals(TestApis.users().instrumented())) {
             reset();
             return;
         }
-        reset(sTestApis.context().androidContextAsUser(user).getContentResolver());
+        reset(TestApis.context().androidContextAsUser(user).getContentResolver());
     }
 
     /**
@@ -295,9 +294,9 @@ public final class GlobalSettings {
      * See {@link #reset(ContentResolver)}.
      */
     public void reset() {
-        try (PermissionContext p = sTestApis.permissions().withPermission(WRITE_SECURE_SETTINGS)) {
+        try (PermissionContext p = TestApis.permissions().withPermission(WRITE_SECURE_SETTINGS)) {
             Settings.Global.resetToDefaults(
-                    sTestApis.context().instrumentedContext().getContentResolver(),
+                    TestApis.context().instrumentedContext().getContentResolver(),
                     /* tag= */null);
         }
     }

@@ -176,8 +176,8 @@ message AndroidSystemControlResponseMessage {
   // coverage measurement data.
   optional bytes result = 1004;
 
-  repeated bytes stdout = 2001;
-  repeated bytes stderr = 2002;
+  repeated bytes stdout_str = 2001;
+  repeated bytes stderr_str = 2002;
   repeated int32 exit_code = 2003;
 
   // read data and return value from FMQ driver

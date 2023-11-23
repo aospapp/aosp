@@ -32,6 +32,9 @@ public interface ActivityQuery<E extends Queryable> extends Query<ActivityInfo> 
     ClassQuery<E> activityClass();
     BooleanQuery<E> exported();
 
+    /** Query the permission to launch an activity. */
+    StringQuery<E> permission();
+
     /** Query the intent-filters on an activity. */
     SetQuery<E, IntentFilter, IntentFilterQuery<?>> intentFilters();
 }

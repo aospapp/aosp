@@ -27,6 +27,7 @@ import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
 import android.util.AtomicFile;
 import android.util.Log;
+import com.android.security.identity.internal.Util;
 
 import androidx.test.InstrumentationRegistry;
 

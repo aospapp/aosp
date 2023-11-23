@@ -37,15 +37,17 @@ bool LoadKeyToKeyring(key_serial_t keyring_id, const char* desc, const char* dat
     return true;
 }
 
-void LoadKeyFromStdin(key_serial_t keyring_id, const char* keyname) {
+bool LoadKeyFromStdin(key_serial_t keyring_id, const char* keyname) {
     std::string content;
     if (!android::base::ReadFdToString(STDIN_FILENO, &content)) {
         LOG(ERROR) << "Failed to read key from stdin";
-        return;
+        return false;
     }
     if (!LoadKeyToKeyring(keyring_id, keyname, content.c_str(), content.size())) {
         LOG(ERROR) << "Failed to load key from stdin";
+        return false;
     }
+    return true;
 }
 
 void LoadKeyFromFile(key_serial_t keyring_id, const char* keyname, const std::string& path) {
@@ -78,46 +80,4 @@ void LoadKeyFromVerifiedPartitions(key_serial_t keyring_id) {
     // frameworks/base.
     LoadKeyFromDirectory(keyring_id, "fsv_system_", "/system/etc/security/fsverity");
     LoadKeyFromDirectory(keyring_id, "fsv_product_", "/product/etc/security/fsverity");
-}
-
-int main(int argc, const char** argv) {
-    if (argc < 2) {
-        LOG(ERROR) << "Not enough arguments";
-        return -1;
-    }
-
-    key_serial_t keyring_id = android::GetKeyringId(".fs-verity");
-    if (keyring_id < 0) {
-        LOG(ERROR) << "Failed to find .fs-verity keyring id";
-        return -1;
-    }
-
-    const std::string_view command = argv[1];
-
-    if (command == "--load-verified-keys") {
-        LoadKeyFromVerifiedPartitions(keyring_id);
-    } else if (command == "--load-extra-key") {
-        if (argc != 3) {
-            LOG(ERROR) << "--load-extra-key requires <key_name> argument.";
-            return -1;
-        }
-        LoadKeyFromStdin(keyring_id, argv[2]);
-    } else if (command == "--lock") {
-        // Requires files backed by fs-verity to be verified with a key in .fs-verity
-        // keyring.
-        if (!android::base::WriteStringToFile("1", "/proc/sys/fs/verity/require_signatures")) {
-            PLOG(ERROR) << "Failed to enforce fs-verity signature";
-        }
-
-        if (!android::base::GetBoolProperty("ro.debuggable", false)) {
-            if (keyctl_restrict_keyring(keyring_id, nullptr, nullptr) < 0) {
-                PLOG(ERROR) << "Cannot restrict .fs-verity keyring";
-            }
-        }
-    } else {
-        LOG(ERROR) << "Unknown argument(s).";
-        return -1;
-    }
-
-    return 0;
 }

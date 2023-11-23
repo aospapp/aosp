@@ -16,12 +16,12 @@
 
 #pragma once
 
-#include <mutex>
-#include <thread>
-
 #include <android/hardware/thermal/2.0/IThermal.h>
 #include <android/hardware/thermal/2.0/IThermalChangedCallback.h>
 #include <hidl/Status.h>
+
+#include <mutex>
+#include <thread>
 
 #include "thermal-helper.h"
 
@@ -69,8 +69,8 @@ class Thermal : public IThermal {
             const sp<IThermalChangedCallback> &callback, bool filterType, TemperatureType_2_0 type,
             registerThermalChangedCallback_cb _hidl_cb) override;
     Return<void> unregisterThermalChangedCallback(
-        const sp<IThermalChangedCallback> &callback,
-        unregisterThermalChangedCallback_cb _hidl_cb) override;
+            const sp<IThermalChangedCallback> &callback,
+            unregisterThermalChangedCallback_cb _hidl_cb) override;
     Return<void> getCurrentCoolingDevices(bool filterType, CoolingType type,
                                           getCurrentCoolingDevices_cb _hidl_cb) override;
 

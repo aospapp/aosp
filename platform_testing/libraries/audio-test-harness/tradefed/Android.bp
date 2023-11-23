@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 The Android Open Source Project
+ * Copyright (C) 2021 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,13 +15,18 @@
  */
 
 // Contains the Trade Federation extensions for the Audio Test Harness system.
+//
+// Per b/178739059 while the tradefed_java_library_host should be able to
+// automatically copy the JAR to the out/host/<target>/tradefed directory
+// it is currently non-functional. So, we instead use a regular
+// java_library_host and manually copy the JAR with the Android.mk file.
 
 package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
 java_library_host {
-    name: "audiotestharness-testlib",
+    name: "audiotestharness-tradefed-lib",
 
     srcs: [
         "src/main/java/com/android/media/audiotestharness/tradefed/*.java",
@@ -30,21 +35,29 @@ java_library_host {
     libs: [
         "tradefed",
     ],
+
+    static_libs: [
+        "audiotestharness-serverlib",
+        "audiotestharness-configlib",
+        "audiotestharness-commonprotolib-full",
+        "guava",
+    ],
 }
 
 java_test_host {
-    name: "audiotestharness-testlib-tests",
-    test_suites: ["general-tests"],
-
+    name: "audiotestharness-tradefed-lib-tests",
     srcs: [
-        "src/main/java/com/android/media/audiotestharness/tradefed/*.java",
+        "src/test/java/com/android/media/audiotestharness/tradefed/*.java",
     ],
-
     static_libs: [
-        "audiotestharness-testlib",
+        "junit",
+        "audiotestharness-tradefed-lib",
+        "audiotestharness-serverlib",
         "tradefed",
+        "mockito",
+        "objenesis",
+        "guava",
     ],
-
     test_options: {
         unit_test: true,
     },

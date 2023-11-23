@@ -30,8 +30,10 @@ class AnnotationsDifferTest {
 
     @Test
     fun `Write diff`() {
+        options = Options(arrayOf(ARG_CLASS_PATH, DriverTest.getAndroidJar().path))
         val codebase = ApiFile.parseApi(
-            "old.txt", """
+            "old.txt",
+            """
                 package test.pkg {
                   public interface Appendable {
                     method public test.pkg.Appendable append(java.lang.CharSequence?);
@@ -42,34 +44,38 @@ class AnnotationsDifferTest {
                     method public test.pkg.Appendable append(java.lang.CharSequence);
                   }
                 }
-        """.trimIndent(), true
+            """.trimIndent(),
+            true
         )
 
         val codebase2 = ApiFile.parseApi(
-            "new.txt", """
+            "new.txt",
+            """
         package test.pkg {
           public interface Appendable {
             method @androidx.annotation.NonNull public test.pkg.Appendable append(@androidx.annotation.Nullable java.lang.CharSequence);
             method public test.pkg.Appendable append2(java.lang.CharSequence);
           }
         }
-        """.trimIndent(), false
+            """.trimIndent(),
+            false
         )
 
         val apiFile = temporaryFolder.newFile("diff.txt")
-        compatibility = Compatibility(true)
-        options = Options(emptyArray())
+        options = Options(arrayOf(ARG_CLASS_PATH, DriverTest.getAndroidJar().path))
         AnnotationsDiffer(codebase, codebase2).writeDiffSignature(apiFile)
         assertTrue(apiFile.exists())
         val actual = apiFile.readText(UTF_8)
         assertEquals(
             """
+            // Signature format: 2.0
             package test.pkg {
-              public abstract interface Appendable {
-                method public abstract test.pkg.Appendable append2(java.lang.CharSequence);
+              public interface Appendable {
+                method @NonNull public test.pkg.Appendable append2(@Nullable CharSequence);
               }
             }
-        """.trimIndent(), actual.trim()
+            """.trimIndent(),
+            actual.trim()
         )
     }
 }

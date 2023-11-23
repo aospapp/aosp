@@ -21,7 +21,8 @@
     <application android:allowBackup="true"
          android:backupAgent="FullBackupBackupAgent"
          android:label="Android Backup CTS App"
-         android:fullBackupOnly="true">
+         android:fullBackupOnly="true"
+         android:testOnly="true">
         <uses-library android:name="android.test.runner"/>
 
 

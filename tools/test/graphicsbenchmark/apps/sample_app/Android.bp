@@ -43,3 +43,13 @@ cc_library_shared {
     ],
     export_include_dirs: ["src/cpp"],
 }
+
+android_app {
+    name: "GameCoreSampleApp",
+    sdk_version: "26",
+    jni_libs: [
+        "libagq",
+        "libgamecore_sample",
+    ],
+    stl: "c++_shared",
+}

@@ -26,12 +26,12 @@ var buildDir string
 
 func TestBpContainsTestHostPropsThrowsError(t *testing.T) {
 	ctx, _ := createContextAndConfig(t, `
-    csuite_test {
-      name: "plan_name",
-      test_config_template: "test_config.xml.template",
-      data_native_bins: "bin"
-    }
-  `)
+		csuite_test {
+			name: "plan_name",
+			test_config_template: "config_template.xml",
+			data_native_bins: "bin"
+		}
+	`)
 
 	_, errs := ctx.ParseBlueprintsFiles("Android.bp")
 
@@ -40,12 +40,12 @@ func TestBpContainsTestHostPropsThrowsError(t *testing.T) {
 
 func TestBpContainsManifestThrowsError(t *testing.T) {
 	ctx, _ := createContextAndConfig(t, `
-    csuite_test {
-      name: "plan_name",
-      test_config_template: "test_config.xml.template",
-      test_config: "AndroidTest.xml"
-    }
-  `)
+		csuite_test {
+			name: "plan_name",
+			test_config_template: "config_template.xml",
+			test_config: "AndroidTest.xml"
+		}
+	`)
 
 	_, errs := ctx.ParseBlueprintsFiles("Android.bp")
 
@@ -54,10 +54,10 @@ func TestBpContainsManifestThrowsError(t *testing.T) {
 
 func TestBpMissingNameThrowsError(t *testing.T) {
 	ctx, _ := createContextAndConfig(t, `
-    csuite_test {
-      test_config_template: "test_config.xml.template"
-    }
-  `)
+		csuite_test {
+			test_config_template: "config_template.xml"
+		}
+	`)
 
 	_, errs := ctx.ParseBlueprintsFiles("Android.bp")
 
@@ -66,10 +66,10 @@ func TestBpMissingNameThrowsError(t *testing.T) {
 
 func TestBpMissingTemplatePathThrowsError(t *testing.T) {
 	ctx, config := createContextAndConfig(t, `
-    csuite_test {
-      name: "plan_name",
-    }
-  `)
+		csuite_test {
+			name: "plan_name",
+		}
+	`)
 
 	ctx.ParseBlueprintsFiles("Android.bp")
 	_, errs := ctx.PrepareBuildActions(config)
@@ -77,28 +77,69 @@ func TestBpMissingTemplatePathThrowsError(t *testing.T) {
 	android.FailIfNoMatchingErrors(t, `'test_config_template' is missing`, errs)
 }
 
+func TestBpTemplatePathUnexpectedFileExtensionThrowsError(t *testing.T) {
+	ctx, config := createContextAndConfig(t, `
+		csuite_test {
+			name: "plan_name",
+			test_config_template: "config_template.xml.template"
+		}
+	`)
+
+	ctx.ParseBlueprintsFiles("Android.bp")
+	_, errs := ctx.PrepareBuildActions(config)
+
+	android.FailIfNoMatchingErrors(t, `Config template path should ends with .xml`, errs)
+}
+
+func TestBpExtraTemplateUnexpectedFileExtensionThrowsError(t *testing.T) {
+	ctx, config := createContextAndConfig(t, `
+		csuite_test {
+			name: "plan_name",
+			test_config_template: "config_template.xml",
+			extra_test_config_templates: ["another.xml.template"]
+		}
+	`)
+
+	ctx.ParseBlueprintsFiles("Android.bp")
+	_, errs := ctx.PrepareBuildActions(config)
+
+	android.FailIfNoMatchingErrors(t, `Config template path should ends with .xml`, errs)
+}
+
+func TestBpValidExtraTemplateDoesNotThrowError(t *testing.T) {
+	ctx, config := createContextAndConfig(t, `
+		csuite_test {
+			name: "plan_name",
+			test_config_template: "config_template.xml",
+			extra_test_config_templates: ["another.xml"]
+		}
+	`)
+
+	parseBpAndBuild(t, ctx, config)
+}
+
 func TestValidBpMissingPlanIncludeDoesNotThrowError(t *testing.T) {
 	ctx, config := createContextAndConfig(t, `
-    csuite_test {
-      name: "plan_name",
-      test_config_template: "test_config.xml.template"
-    }
-  `)
+		csuite_test {
+			name: "plan_name",
+			test_config_template: "config_template.xml"
+		}
+	`)
 
 	parseBpAndBuild(t, ctx, config)
 }
 
 func TestValidBpMissingPlanIncludeGeneratesPlanXmlWithoutPlaceholders(t *testing.T) {
 	ctx, config := createContextAndConfig(t, `
-    csuite_test {
-      name: "plan_name",
-      test_config_template: "test_config.xml.template"
-    }
-  `)
+		csuite_test {
+			name: "plan_name",
+			test_config_template: "config_template.xml"
+		}
+	`)
 
 	parseBpAndBuild(t, ctx, config)
 
-	module := ctx.ModuleForTests("plan_name", android.BuildOs.String()+"_common")
+	module := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common")
 	content := android.ContentFromFileRuleForTests(t, module.Output("config/plan_name.xml"))
 	if strings.Contains(content, "{") || strings.Contains(content, "}") {
 		t.Errorf("The generated plan name contains a placeholder: %s", content)
@@ -107,15 +148,15 @@ func TestValidBpMissingPlanIncludeGeneratesPlanXmlWithoutPlaceholders(t *testing
 
 func TestGeneratedTestPlanContainsPlanName(t *testing.T) {
 	ctx, config := createContextAndConfig(t, `
-    csuite_test {
-      name: "plan_name",
-      test_config_template: "test_config.xml.template"
-    }
-  `)
+		csuite_test {
+			name: "plan_name",
+			test_config_template: "config_template.xml"
+		}
+	`)
 
 	parseBpAndBuild(t, ctx, config)
 
-	module := ctx.ModuleForTests("plan_name", android.BuildOs.String()+"_common")
+	module := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common")
 	content := android.ContentFromFileRuleForTests(t, module.Output("config/plan_name.xml"))
 	if !strings.Contains(content, "plan_name") {
 		t.Errorf("The plan name is missing from the generated plan: %s", content)
@@ -124,47 +165,100 @@ func TestGeneratedTestPlanContainsPlanName(t *testing.T) {
 
 func TestGeneratedTestPlanContainsTemplatePath(t *testing.T) {
 	ctx, config := createContextAndConfig(t, `
-    csuite_test {
-      name: "plan_name",
-      test_config_template: "test_config.xml.template"
-    }
-  `)
+		csuite_test {
+			name: "plan_name",
+			test_config_template: "config_template.xml"
+		}
+	`)
 
 	parseBpAndBuild(t, ctx, config)
 
-	module := ctx.ModuleForTests("plan_name", android.BuildOs.String()+"_common")
+	module := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common")
 	content := android.ContentFromFileRuleForTests(t, module.Output("config/plan_name.xml"))
-	if !strings.Contains(content, "config/plan_name.xml.template") {
+	if !strings.Contains(content, "config/plan_name/config_template.xml.template") {
 		t.Errorf("The template path is missing from the generated plan: %s", content)
+	}
+}
+
+func TestGeneratedTestPlanContainsExtraTemplatePath(t *testing.T) {
+	ctx, config := createContextAndConfig(t, `
+		csuite_test {
+			name: "plan_name",
+			test_config_template: "config_template.xml",
+			extra_test_config_templates: ["extra.xml"]
+		}
+	`)
+
+	parseBpAndBuild(t, ctx, config)
+
+	module := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common")
+	content := android.ContentFromFileRuleForTests(t, module.Output("config/plan_name.xml"))
+	if !strings.Contains(content, "config/plan_name/extra.xml.template") {
+		t.Errorf("The extra template path is missing from the generated plan: %s", content)
+	}
+	if !strings.Contains(content, "extra-templates") {
+		t.Errorf("The extra-templates param is missing from the generated plan: %s", content)
+	}
+}
+
+func TestGeneratedTestPlanDoesNotContainExtraTemplatePath(t *testing.T) {
+	ctx, config := createContextAndConfig(t, `
+		csuite_test {
+			name: "plan_name",
+			test_config_template: "config_template.xml"
+		}
+	`)
+
+	parseBpAndBuild(t, ctx, config)
+
+	module := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common")
+	content := android.ContentFromFileRuleForTests(t, module.Output("config/plan_name.xml"))
+	if strings.Contains(content, "extra-templates") {
+		t.Errorf("The extra-templates param should not be included in the generated plan: %s", content)
 	}
 }
 
 func TestTemplateFileCopyRuleExists(t *testing.T) {
 	ctx, config := createContextAndConfig(t, `
-    csuite_test {
-      name: "plan_name",
-      test_config_template: "test_config.xml.template"
-    }
-  `)
+		csuite_test {
+			name: "plan_name",
+			test_config_template: "config_template.xml"
+		}
+	`)
 
 	parseBpAndBuild(t, ctx, config)
 
-	params := ctx.ModuleForTests("plan_name", android.BuildOs.String()+"_common").Rule("CSuite")
-	assertFileCopyRuleExists(t, params, "test_config.xml.template", "config/plan_name.xml.template")
+	params := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common").Rule("CSuite")
+	assertFileCopyRuleExists(t, params, "config_template.xml", "config/plan_name/config_template.xml.template")
+}
+
+func TestExtraTemplateFileCopyRuleExists(t *testing.T) {
+	ctx, config := createContextAndConfig(t, `
+		csuite_test {
+			name: "plan_name",
+			test_config_template: "config_template.xml",
+			extra_test_config_templates: ["extra.xml"]
+		}
+	`)
+
+	parseBpAndBuild(t, ctx, config)
+
+	params := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common").Rule("CSuite")
+	assertFileCopyRuleExists(t, params, "config_template.xml", "config/plan_name/extra.xml.template")
 }
 
 func TestGeneratedTestPlanContainsPlanInclude(t *testing.T) {
 	ctx, config := createContextAndConfig(t, `
-    csuite_test {
-      name: "plan_name",
-      test_config_template: "test_config.xml.template",
-      test_plan_include: "include.xml"
-    }
-  `)
+		csuite_test {
+			name: "plan_name",
+			test_config_template: "config_template.xml",
+			test_plan_include: "include.xml"
+		}
+	`)
 
 	parseBpAndBuild(t, ctx, config)
 
-	module := ctx.ModuleForTests("plan_name", android.BuildOs.String()+"_common")
+	module := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common")
 	content := android.ContentFromFileRuleForTests(t, module.Output("config/plan_name.xml"))
 	if !strings.Contains(content, `"includes/plan_name.xml"`) {
 		t.Errorf("The plan include path is missing from the generated plan: %s", content)
@@ -173,16 +267,16 @@ func TestGeneratedTestPlanContainsPlanInclude(t *testing.T) {
 
 func TestPlanIncludeFileCopyRuleExists(t *testing.T) {
 	ctx, config := createContextAndConfig(t, `
-    csuite_test {
-      name: "plan_name",
-      test_config_template: "test_config.xml.template",
-      test_plan_include: "include.xml"
-    }
-  `)
+		csuite_test {
+			name: "plan_name",
+			test_config_template: "config_template.xml",
+			test_plan_include: "include.xml"
+		}
+	`)
 
 	parseBpAndBuild(t, ctx, config)
 
-	params := ctx.ModuleForTests("plan_name", android.BuildOs.String()+"_common").Rule("CSuite")
+	params := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common").Rule("CSuite")
 	assertFileCopyRuleExists(t, params, "include.xml", "config/includes/plan_name.xml")
 }
 

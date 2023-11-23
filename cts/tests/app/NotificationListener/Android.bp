@@ -39,6 +39,5 @@ android_test_helper_app {
         "androidx.test.rules",
         "platform-test-annotations",
     ],
-    platform_apis: true,
     sdk_version: "test_current",
 }

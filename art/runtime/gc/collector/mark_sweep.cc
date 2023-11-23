@@ -177,11 +177,7 @@ void MarkSweep::RunPhases() {
 
 void MarkSweep::ProcessReferences(Thread* self) {
   WriterMutexLock mu(self, *Locks::heap_bitmap_lock_);
-  GetHeap()->GetReferenceProcessor()->ProcessReferences(
-      true,
-      GetTimings(),
-      GetCurrentIteration()->GetClearSoftReferences(),
-      this);
+  GetHeap()->GetReferenceProcessor()->ProcessReferences(self, GetTimings());
 }
 
 void MarkSweep::PausePhase() {
@@ -213,7 +209,9 @@ void MarkSweep::PausePhase() {
   Runtime::Current()->DisallowNewSystemWeaks();
   // Enable the reference processing slow path, needs to be done with mutators paused since there
   // is no lock in the GetReferent fast path.
-  GetHeap()->GetReferenceProcessor()->EnableSlowPath();
+  ReferenceProcessor* rp = GetHeap()->GetReferenceProcessor();
+  rp->Setup(self, this, /*concurrent=*/true, GetCurrentIteration()->GetClearSoftReferences());
+  rp->EnableSlowPath();
 }
 
 void MarkSweep::PreCleanCards() {
@@ -688,7 +686,7 @@ class MarkSweep::MarkStackTask : public Task {
     }
   }
 
-  static const size_t kMaxSize = 1 * KB;
+  static constexpr size_t kMaxSize = 1 * KB;
 
  protected:
   class MarkObjectParallelVisitor {
@@ -1163,7 +1161,9 @@ class MarkSweep::CheckpointMarkThreadRoots : public Closure, public RootVisitor 
     ScopedTrace trace("Marking thread roots");
     // Note: self is not necessarily equal to thread since thread may be suspended.
     Thread* const self = Thread::Current();
-    CHECK(thread == self || thread->IsSuspended() || thread->GetState() == kWaitingPerformingGc)
+    CHECK(thread == self ||
+          thread->IsSuspended() ||
+          thread->GetState() == ThreadState::kWaitingPerformingGc)
         << thread->GetState() << " thread " << thread << " self " << self;
     thread->VisitRoots(this, kVisitRootFlagAllRoots);
     if (revoke_ros_alloc_thread_local_buffers_at_checkpoint_) {
@@ -1197,7 +1197,7 @@ void MarkSweep::MarkRootsCheckpoint(Thread* self,
   Locks::heap_bitmap_lock_->ExclusiveUnlock(self);
   Locks::mutator_lock_->SharedUnlock(self);
   {
-    ScopedThreadStateChange tsc(self, kWaitingForCheckPointsToRun);
+    ScopedThreadStateChange tsc(self, ThreadState::kWaitingForCheckPointsToRun);
     gc_barrier_->Increment(self, barrier_count);
   }
   Locks::mutator_lock_->SharedLock(self);

@@ -40,6 +40,14 @@ logger.addHandler(logging.FileHandler("/dev/null"))
 if sys.version_info.major == 3:
     sys.path.insert(0, os.path.dirname(sysconfig.get_paths()['purelib']))
 
+# (b/219847353) Move googleapiclient to the last position of sys.path when
+#  existed.
+for lib in sys.path:
+    if 'googleapiclient' in lib:
+        sys.path.remove(lib)
+        sys.path.append(lib)
+        break
+
 
 def GetTestModules():
     """Return list of testable modules.

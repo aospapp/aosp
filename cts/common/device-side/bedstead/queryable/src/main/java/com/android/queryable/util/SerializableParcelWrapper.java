@@ -25,7 +25,7 @@ import java.io.ObjectOutputStream;
 import java.io.Serializable;
 
 /** A wrapper around a {@link Parcelable} which makes it {@link Serializable}. */
-public class SerializableParcelWrapper<E extends Parcelable> implements Serializable {
+public class SerializableParcelWrapper<E extends Parcelable> implements Serializable, Parcelable {
 
     private static final long serialVersionUID = 0;
 
@@ -33,6 +33,10 @@ public class SerializableParcelWrapper<E extends Parcelable> implements Serializ
 
     public SerializableParcelWrapper(E parcelable)  {
         mParcelable = parcelable;
+    }
+
+    private SerializableParcelWrapper(Parcel in) {
+        mParcelable = in.readParcelable(SerializableParcelWrapper.class.getClassLoader());
     }
 
     public E get() {
@@ -81,4 +85,25 @@ public class SerializableParcelWrapper<E extends Parcelable> implements Serializ
         outputStream.writeInt(bytes.length);
         outputStream.write(bytes);
     }
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel out, int flags) {
+        out.writeParcelable(mParcelable, flags);
+    }
+
+    public static final Parcelable.Creator<SerializableParcelWrapper> CREATOR =
+            new Parcelable.Creator<SerializableParcelWrapper>() {
+                public SerializableParcelWrapper createFromParcel(Parcel in) {
+                    return new SerializableParcelWrapper(in);
+                }
+
+                public SerializableParcelWrapper[] newArray(int size) {
+                    return new SerializableParcelWrapper[size];
+                }
+    };
 }

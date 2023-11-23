@@ -30,16 +30,13 @@
 namespace android {
 namespace perfmgr {
 
-FileNode::FileNode(std::string name, std::string node_path,
-                   std::vector<RequestGroup> req_sorted,
-                   std::size_t default_val_index, bool reset_on_init,
-                   bool hold_fd)
-    : Node(std::move(name), std::move(node_path), std::move(req_sorted),
-           default_val_index, reset_on_init),
+FileNode::FileNode(std::string name, std::string node_path, std::vector<RequestGroup> req_sorted,
+                   std::size_t default_val_index, bool reset_on_init, bool truncate, bool hold_fd)
+    : Node(std::move(name), std::move(node_path), std::move(req_sorted), default_val_index,
+           reset_on_init),
       hold_fd_(hold_fd),
-      warn_timeout_(
-          android::base::GetBoolProperty("ro.debuggable", false) ? 5ms : 50ms) {
-}
+      truncate_(truncate),
+      warn_timeout_(android::base::GetBoolProperty("ro.debuggable", false) ? 5ms : 50ms) {}
 
 std::chrono::milliseconds FileNode::Update(bool log_error) {
     std::size_t value_index = default_val_index_;
@@ -62,8 +59,11 @@ std::chrono::milliseconds FileNode::Update(bool log_error) {
             ATRACE_BEGIN(tag.c_str());
         }
         android::base::Timer t;
-        fd_.reset(TEMP_FAILURE_RETRY(
-            open(node_path_.c_str(), O_WRONLY | O_CLOEXEC | O_TRUNC)));
+        int flags = O_WRONLY | O_CLOEXEC;
+        if (GetTruncate()) {
+            flags |= O_TRUNC;
+        }
+        fd_.reset(TEMP_FAILURE_RETRY(open(node_path_.c_str(), flags)));
 
         if (fd_ == -1 || !android::base::WriteStringToFd(req_value, fd_)) {
             if (log_error) {
@@ -104,15 +104,26 @@ bool FileNode::GetHoldFd() const {
     return hold_fd_;
 }
 
+bool FileNode::GetTruncate() const {
+    return truncate_;
+}
+
 void FileNode::DumpToFd(int fd) const {
     std::string node_value;
     if (!android::base::ReadFileToString(node_path_, &node_value)) {
         LOG(ERROR) << "Failed to read node path: " << node_path_;
     }
     node_value = android::base::Trim(node_value);
-    std::string buf(android::base::StringPrintf(
-        "%s\t%s\t%zu\t%s\n", name_.c_str(), node_path_.c_str(),
-        current_val_index_, node_value.c_str()));
+    std::string buf(
+            android::base::StringPrintf("Node Name\t"
+                                        "Node Path\t"
+                                        "Current Index\t"
+                                        "Current Value\t"
+                                        "Hold FD\t"
+                                        "Truncate\n"
+                                        "%s\t%s\t%zu\t%s\t%d\t%d\n",
+                                        name_.c_str(), node_path_.c_str(), current_val_index_,
+                                        node_value.c_str(), hold_fd_, truncate_));
     if (!android::base::WriteStringToFd(buf, fd)) {
         LOG(ERROR) << "Failed to dump fd: " << fd;
     }

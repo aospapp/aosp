@@ -39,6 +39,11 @@ public final class NullParcelableRemoteDevicePolicyManager implements Parcelable
     public static <F> NullParcelableRemoteDevicePolicyManager of(
             Bundler bundler, BundlerType type,
             RemoteDevicePolicyManager remoteDevicePolicyManager) {
+
+        if (remoteDevicePolicyManager != null) {
+            throw new IllegalArgumentException("remoteDevicePolicyManager can only be null");
+        }
+
         return new NullParcelableRemoteDevicePolicyManager();
     }
 

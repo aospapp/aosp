@@ -19,9 +19,14 @@ package android.jobscheduler.cts;
 import android.annotation.TargetApi;
 import android.app.job.JobInfo;
 import android.app.job.JobScheduler;
+import android.jobscheduler.MockJobService.TestEnvironment;
+import android.jobscheduler.MockJobService.TestEnvironment.Event;
 import android.provider.DeviceConfig;
 
+import com.android.compatibility.common.util.BatteryUtils;
 import com.android.compatibility.common.util.SystemUtil;
+
+import java.util.List;
 
 /**
  * Tests related to scheduling jobs.
@@ -30,11 +35,15 @@ import com.android.compatibility.common.util.SystemUtil;
 public class JobSchedulingTest extends BaseJobSchedulerTest {
     private static final int MIN_SCHEDULE_QUOTA = 250;
     private static final int JOB_ID = JobSchedulingTest.class.hashCode();
+    // The maximum number of jobs that can run concurrently.
+    private static final int MAX_JOB_CONTEXTS_COUNT = 16;
 
     @Override
     public void tearDown() throws Exception {
         mJobScheduler.cancel(JOB_ID);
         SystemUtil.runShellCommand(getInstrumentation(), "cmd jobscheduler reset-schedule-quota");
+        SystemUtil.runShellCommand(getInstrumentation(), "cmd jobscheduler monitor-battery off");
+        BatteryUtils.runDumpsysBatteryReset();
 
         // The super method should be called at the end.
         super.tearDown();
@@ -126,5 +135,46 @@ public class JobSchedulingTest extends BaseJobSchedulerTest {
         for (int i = 0; i < 500; ++i) {
             assertEquals(JobScheduler.RESULT_SUCCESS, mJobScheduler.schedule(jobInfo));
         }
+    }
+
+    public void testHigherPriorityJobRunsFirst() throws Exception {
+        SystemUtil.runShellCommand(getInstrumentation(), "cmd jobscheduler monitor-battery on");
+
+        setStorageStateLow(true);
+        final int higherPriorityJobId = JOB_ID;
+        final int numMinPriorityJobs = 2 * MAX_JOB_CONTEXTS_COUNT;
+        kTestEnvironment.setExpectedExecutions(1 + numMinPriorityJobs);
+        for (int i = 0; i < numMinPriorityJobs; ++i) {
+            JobInfo job = new JobInfo.Builder(higherPriorityJobId + 1 + i, kJobServiceComponent)
+                    .setPriority(JobInfo.PRIORITY_MIN)
+                    .setRequiresStorageNotLow(true)
+                    .build();
+            mJobScheduler.schedule(job);
+        }
+        // Schedule the higher priority job last since the default sorting is by enqueue time.
+        JobInfo jobMax = new JobInfo.Builder(higherPriorityJobId, kJobServiceComponent)
+                .setPriority(JobInfo.PRIORITY_DEFAULT)
+                .setRequiresStorageNotLow(true)
+                .build();
+        mJobScheduler.schedule(jobMax);
+
+        setStorageStateLow(false);
+        kTestEnvironment.awaitExecution();
+
+        Event jobHigherExecution = new Event(TestEnvironment.Event.EVENT_START_JOB,
+                higherPriorityJobId);
+        List<Event> executedEvents = kTestEnvironment.getExecutedEvents();
+        boolean higherExecutedFirst = false;
+        // Due to racing, we can't just check the very first item in the array. We can however
+        // make sure it was in the first set of jobs to run.
+        for (int i = 0; i < executedEvents.size() && i < MAX_JOB_CONTEXTS_COUNT; ++i) {
+            if (executedEvents.get(i).equals(jobHigherExecution)) {
+                higherExecutedFirst = true;
+                break;
+            }
+        }
+        assertTrue(
+                "Higher priority job (" + higherPriorityJobId + ") didn't run in first batch: "
+                        + executedEvents, higherExecutedFirst);
     }
 }

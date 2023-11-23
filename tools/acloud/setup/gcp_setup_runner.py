@@ -140,7 +140,7 @@ def _InputIsEmpty(input_string):
     return False
 
 
-class GoogleSDKBins(object):
+class GoogleSDKBins():
     """Class to run tools in the Google SDK."""
 
     def __init__(self, google_sdk_folder):
@@ -151,9 +151,8 @@ class GoogleSDKBins(object):
         """
         self.gcloud_command_path = os.path.join(google_sdk_folder, "gcloud")
         self.gsutil_command_path = os.path.join(google_sdk_folder, "gsutil")
-        # TODO(137195528): Remove python2 environment after acloud support python3.
         self._env = os.environ.copy()
-        self._env[_ENV_CLOUDSDK_PYTHON] = "python2"
+        self._env[_ENV_CLOUDSDK_PYTHON] = "python"
 
     def RunGcloud(self, cmd, **kwargs):
         """Run gcloud command.
@@ -184,7 +183,7 @@ class GoogleSDKBins(object):
                                  env=self._env, **kwargs)
 
 
-class GoogleAPIService(object):
+class GoogleAPIService():
     """Class to enable api service in the gcp project."""
 
     def __init__(self, service_name, error_msg, required=False):
@@ -360,7 +359,7 @@ class GcpTaskRunner(base_task_runner.BaseTaskRunner):
         if project_changed:
             logger.info("Your project changed. Start to run setup process.")
             return True
-        elif not self.client_id or not self.client_secret:
+        if not self.client_id or not self.client_secret:
             logger.info("Client ID or client secret is empty. Start to run setup process.")
             return True
         logger.info("Project was unchanged and client ID didn't need to changed.")

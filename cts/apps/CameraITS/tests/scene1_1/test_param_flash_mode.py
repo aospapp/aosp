@@ -108,19 +108,23 @@ class ParamFlashModeTest(its_base_test.ItsBaseTest):
       # Assert state behavior
       logging.debug('Reported modes: %s', str(modes))
       logging.debug('Reported states: %s', str(states))
-      assert modes == list(FLASH_MODES.values()), str(modes)
+      if modes != list(FLASH_MODES.values()):
+        raise AssertionError(f'modes != FLASH_MODES! {modes}')
 
-      e_msg = 'flash state reported[OFF]: %d' % states[FLASH_MODES['OFF']]
-      assert states[FLASH_MODES['OFF']] not in [
-          FLASH_STATES['FIRED'], FLASH_STATES['PARTIAL']], e_msg
+      if states[FLASH_MODES['OFF']] in [
+          FLASH_STATES['FIRED'], FLASH_STATES['PARTIAL']]:
+        raise AssertionError('flash state reported[OFF]: '
+                             f"{states[FLASH_MODES['OFF']]}")
 
-      e_msg = 'flash state reported[SINGLE]: %d' % states[FLASH_MODES['SINGLE']]
-      assert states[FLASH_MODES['SINGLE']] in [
-          FLASH_STATES['FIRED'], FLASH_STATES['PARTIAL']], e_msg
+      if states[FLASH_MODES['SINGLE']] not in [
+          FLASH_STATES['FIRED'], FLASH_STATES['PARTIAL']]:
+        raise AssertionError('flash state reported[SINGLE]: '
+                             f"{states[FLASH_MODES['SINGLE']]}")
 
-      e_msg = 'flash state reported[TORCH]: %d' % states[FLASH_MODES['TORCH']]
-      assert states[FLASH_MODES['TORCH']] in [
-          FLASH_STATES['FIRED'], FLASH_STATES['PARTIAL']], e_msg
+      if states[FLASH_MODES['TORCH']] not in [
+          FLASH_STATES['FIRED'], FLASH_STATES['PARTIAL']]:
+        raise AssertionError('flash state reported[TORCH]: '
+                             f"{states[FLASH_MODES['TORCH']]}")
 
       # Assert image behavior: change between OFF & SINGLE
       logging.debug('Brightness means: %s', str(means))
@@ -128,23 +132,23 @@ class ParamFlashModeTest(its_base_test.ItsBaseTest):
       grad_delta = grads[FLASH_MODES['SINGLE']] - grads[FLASH_MODES['OFF']]
       mean_delta = ((means[FLASH_MODES['SINGLE']] - means[FLASH_MODES['OFF']]) /
                     means[FLASH_MODES['OFF']])
-      e_msg = 'gradient SINGLE-OFF: %.3f, ATOL: %.3f' % (
-          grad_delta, GRADIENT_DELTA)
-      e_msg += ' mean SINGLE:OFF %.3f, ATOL: %.3f' % (
-          mean_delta, Y_RELATIVE_DELTA_FLASH)
-      assert (grad_delta > GRADIENT_DELTA or
-              mean_delta > Y_RELATIVE_DELTA_FLASH), e_msg
+      if not (grad_delta > GRADIENT_DELTA or
+              mean_delta > Y_RELATIVE_DELTA_FLASH):
+        raise AssertionError(f'gradient SINGLE-OFF: {grad_delta:.3f}, '
+                             f'ATOL: {GRADIENT_DELTA}, '
+                             f'mean SINGLE:OFF {mean_delta:.3f}, '
+                             f'ATOL: {Y_RELATIVE_DELTA_FLASH}')
 
       # Assert image behavior: change between OFF & TORCH
       grad_delta = grads[FLASH_MODES['TORCH']] - grads[FLASH_MODES['OFF']]
       mean_delta = ((means[FLASH_MODES['TORCH']] - means[FLASH_MODES['OFF']]) /
                     means[FLASH_MODES['OFF']])
-      e_msg = 'gradient TORCH-OFF: %.3f, ATOL: %.3f' % (
-          grad_delta, GRADIENT_DELTA)
-      e_msg += ' mean TORCH:OFF %.3f, ATOL: %.3f' % (
-          mean_delta, Y_RELATIVE_DELTA_TORCH)
-      assert (grad_delta > GRADIENT_DELTA or
-              mean_delta > Y_RELATIVE_DELTA_TORCH), e_msg
+      if not (grad_delta > GRADIENT_DELTA or
+              mean_delta > Y_RELATIVE_DELTA_TORCH):
+        raise AssertionError(f'gradient TORCH-OFF: {grad_delta:.3f}, '
+                             f'ATOL: {GRADIENT_DELTA}, '
+                             f'mean TORCH:OFF {mean_delta:.3f}, '
+                             f'ATOL: {Y_RELATIVE_DELTA_TORCH}')
 
 if __name__ == '__main__':
   test_runner.main()

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 NXP Semiconductors
+ * Copyright (C) 2019-2021 NXP
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,31 +29,6 @@
  ** Returns          return 0 on success and -1 on fail,
  ******************************************************************************/
 int phNxpNciHal_ioctlIf(long arg, void* p_data);
-
-/*******************************************************************************
- **
- ** Function         phNxpNciHal_savePersistLog
- **
- ** Description      Save persist log with “reason” at available index.
- **
- ** Parameters       uint8_t reason
- **
- ** Returns          returns the  index of saved reason/Log.
- *******************************************************************************/
-uint8_t phNxpNciHal_savePersistLog(uint8_t reason);
-
-/*******************************************************************************
- **
- ** Function         phNxpNciHal_loadPersistLog
- **
- ** Description      If given index is valid, return a log at the given index.
- **
- ** Parameters       uint8_t index
- **
- ** Returns          If index found, return a log as string else
- **                  return a "" string
- *******************************************************************************/
-string phNxpNciHal_loadPersistLog(uint8_t index);
 
 /*******************************************************************************
 **
@@ -128,6 +103,17 @@ bool phNxpNciHal_setNxpTransitConfig(char* transitConfValue);
 int phNxpNciHal_CheckFwRegFlashRequired(uint8_t* fw_update_req,
                                         uint8_t* rf_update_req,
                                         uint8_t skipEEPROMRead);
+
+/******************************************************************************
+ * Function         phNxpNciHal_txNfccClockSetCmd
+ *
+ * Description      This function is called after successful download
+ *                  to apply the clock setting provided in config file
+ *
+ * Returns          void.
+ *
+ ******************************************************************************/
+void phNxpNciHal_txNfccClockSetCmd(void);
 
 /*******************************************************************************
  **

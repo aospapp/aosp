@@ -34,8 +34,8 @@ public class InMemoryDexClassLoaderFactory extends AppComponentFactory {
             ZipFile zipFile = new ZipFile(AppComponentFactoryTest.writeSecondaryApkToDisk(aInfo));
 
             ArrayList<ByteBuffer> dexFiles = new ArrayList<>();
-            for (int dexId = 0;; dexId++) {
-                String zipEntryName = "classes" + (dexId == 0 ? "" : dexId) + ".dex";
+            for (int dexId = 1;; dexId++) {
+                String zipEntryName = "classes" + (dexId == 1 ? "" : dexId) + ".dex";
                 ZipEntry zipEntry = zipFile.getEntry(zipEntryName);
                 if (zipEntry == null) {
                     break;

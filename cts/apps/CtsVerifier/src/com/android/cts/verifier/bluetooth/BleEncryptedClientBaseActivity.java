@@ -16,6 +16,8 @@
 
 package com.android.cts.verifier.bluetooth;
 
+import static com.android.compatibility.common.util.ShellIdentityUtils.invokeWithShellPermissions;
+
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.ProgressDialog;
@@ -46,10 +48,10 @@ public class BleEncryptedClientBaseActivity extends PassFailButtons.Activity {
     private Dialog mDialog;
     private Handler mHandler;
 
-    private final int BLE_WRITE_ENCRIPTED_CHARACTERISTIC = 0;
-    private final int BLE_READ_ENCRIPTED_CHARACTERISTIC = 1;
-    private final int BLE_WRITE_ENCRIPTED_DESCRIPTOR = 2;
-    private final int BLE_READ_ENCRIPTED_DESCRIPTOR = 3;
+    private final int BLE_WRITE_ENCRYPTED_CHARACTERISTIC = 0;
+    private final int BLE_READ_ENCRYPTED_CHARACTERISTIC = 1;
+    private final int BLE_WRITE_ENCRYPTED_DESCRIPTOR = 2;
+    private final int BLE_READ_ENCRYPTED_DESCRIPTOR = 3;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -68,23 +70,28 @@ public class BleEncryptedClientBaseActivity extends PassFailButtons.Activity {
         listView.setOnItemClickListener(new ListView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> adapterView, View view, int position, long id) {
-                Intent intent = new Intent(BleEncryptedClientBaseActivity.this, BleEncryptedClientService.class);
+                Intent intent = new Intent(BleEncryptedClientBaseActivity.this,
+                        BleEncryptedClientService.class);
                 Log.v(getLocalClassName(), "onItemClick()");
                 switch (position) {
-                case BLE_WRITE_ENCRIPTED_CHARACTERISTIC:
-                    intent.setAction(BleEncryptedClientService.ACTION_WRITE_ENCRYPTED_CHARACTERISTIC);
-                    break;
-                case BLE_READ_ENCRIPTED_CHARACTERISTIC:
-                    intent.setAction(BleEncryptedClientService.ACTION_READ_ENCRYPTED_CHARACTERISTIC);
-                    break;
-                case BLE_WRITE_ENCRIPTED_DESCRIPTOR:
-                    intent.setAction(BleEncryptedClientService.ACTION_WRITE_ENCRYPTED_DESCRIPTOR);
-                    break;
-                case BLE_READ_ENCRIPTED_DESCRIPTOR:
-                    intent.setAction(BleEncryptedClientService.ACTION_READ_ENCRYPTED_DESCRIPTOR);
-                    break;
-                default:
-                    return;
+                    case BLE_WRITE_ENCRYPTED_CHARACTERISTIC:
+                        intent.setAction(
+                                BleEncryptedClientService.ACTION_WRITE_ENCRYPTED_CHARACTERISTIC);
+                        break;
+                    case BLE_READ_ENCRYPTED_CHARACTERISTIC:
+                        intent.setAction(
+                                BleEncryptedClientService.ACTION_READ_ENCRYPTED_CHARACTERISTIC);
+                        break;
+                    case BLE_WRITE_ENCRYPTED_DESCRIPTOR:
+                        intent.setAction(
+                                BleEncryptedClientService.ACTION_WRITE_ENCRYPTED_DESCRIPTOR);
+                        break;
+                    case BLE_READ_ENCRYPTED_DESCRIPTOR:
+                        intent.setAction(
+                                BleEncryptedClientService.ACTION_READ_ENCRYPTED_DESCRIPTOR);
+                        break;
+                    default:
+                        return;
                 }
                 startService(intent);
                 showProgressDialog();
@@ -172,77 +179,83 @@ public class BleEncryptedClientBaseActivity extends PassFailButtons.Activity {
         return false;
     }
 
-    public boolean isSecure() { return false; }
+    public boolean isSecure() {
+        return false;
+    }
 
     private BroadcastReceiver mBroadcast = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
             switch (action) {
-            case BleEncryptedClientService.INTENT_BLE_BLUETOOTH_DISABLED:
-                showErrorDialog(getString(R.string.ble_bluetooth_disable_title), getString(R.string.ble_bluetooth_disable_message), true);
-                break;
-            case BleEncryptedClientService.INTENT_BLE_WRITE_ENCRYPTED_CHARACTERISTIC:
-                mTestAdapter.setTestPass(BLE_WRITE_ENCRIPTED_CHARACTERISTIC);
-                mAllPassed |= 0x01;
-                if (!isSecure()) {
+                case BleEncryptedClientService.INTENT_BLE_BLUETOOTH_DISABLED:
+                    showErrorDialog(getString(R.string.ble_bluetooth_disable_title),
+                            getString(R.string.ble_bluetooth_disable_message), true);
+                    break;
+                case BleEncryptedClientService.INTENT_BLE_WRITE_ENCRYPTED_CHARACTERISTIC:
+                    mTestAdapter.setTestPass(BLE_WRITE_ENCRYPTED_CHARACTERISTIC);
+                    mAllPassed |= 0x01;
                     closeDialog();
-                }
-                break;
-            case BleEncryptedClientService.INTENT_BLE_READ_ENCRYPTED_CHARACTERISTIC:
-                mTestAdapter.setTestPass(BLE_READ_ENCRIPTED_CHARACTERISTIC);
-                mAllPassed |= 0x02;
-                if (!isSecure()) {
+                    break;
+                case BleEncryptedClientService.INTENT_BLE_READ_ENCRYPTED_CHARACTERISTIC:
+                    mTestAdapter.setTestPass(BLE_READ_ENCRYPTED_CHARACTERISTIC);
+                    mAllPassed |= 0x02;
                     closeDialog();
-                }
-                break;
-            case BleEncryptedClientService.INTENT_BLE_WRITE_ENCRYPTED_DESCRIPTOR:
-                mTestAdapter.setTestPass(BLE_WRITE_ENCRIPTED_DESCRIPTOR);
-                mAllPassed |= 0x04;
-                if (!isSecure()) {
+                    break;
+                case BleEncryptedClientService.INTENT_BLE_WRITE_ENCRYPTED_DESCRIPTOR:
+                    mTestAdapter.setTestPass(BLE_WRITE_ENCRYPTED_DESCRIPTOR);
+                    mAllPassed |= 0x04;
                     closeDialog();
-                }
-                break;
-            case BleEncryptedClientService.INTENT_BLE_READ_ENCRYPTED_DESCRIPTOR:
-                mTestAdapter.setTestPass(BLE_READ_ENCRIPTED_DESCRIPTOR);
-                mAllPassed |= 0x08;
-                if (!isSecure()) {
+                    break;
+                case BleEncryptedClientService.INTENT_BLE_READ_ENCRYPTED_DESCRIPTOR:
+                    mTestAdapter.setTestPass(BLE_READ_ENCRYPTED_DESCRIPTOR);
+                    mAllPassed |= 0x08;
                     closeDialog();
-                }
-                break;
-            case BleEncryptedClientService.INTENT_BLE_WRITE_NOT_ENCRYPTED_CHARACTERISTIC:
-                showErrorDialog(getString(R.string.ble_encrypted_client_name), getString(R.string.ble_encrypted_client_no_encrypted_characteristic), false);
-                break;
-            case BleEncryptedClientService.INTENT_BLE_READ_NOT_ENCRYPTED_CHARACTERISTIC:
-                showErrorDialog(getString(R.string.ble_encrypted_client_name), getString(R.string.ble_encrypted_client_no_encrypted_characteristic), false);
-                break;
-            case BleEncryptedClientService.INTENT_BLE_WRITE_NOT_ENCRYPTED_DESCRIPTOR:
-                showErrorDialog(getString(R.string.ble_encrypted_client_name), getString(R.string.ble_encrypted_client_no_encrypted_descriptor), false);
-                break;
-            case BleEncryptedClientService.INTENT_BLE_READ_NOT_ENCRYPTED_DESCRIPTOR:
-                showErrorDialog(getString(R.string.ble_encrypted_client_name), getString(R.string.ble_encrypted_client_no_encrypted_descriptor), false);
-                break;
+                    break;
+                case BleEncryptedClientService.INTENT_BLE_WRITE_NOT_ENCRYPTED_CHARACTERISTIC:
+                    showErrorDialog(getString(R.string.ble_encrypted_client_name),
+                            getString(R.string.ble_encrypted_client_no_encrypted_characteristic),
+                            false);
+                    break;
+                case BleEncryptedClientService.INTENT_BLE_READ_NOT_ENCRYPTED_CHARACTERISTIC:
+                    showErrorDialog(getString(R.string.ble_encrypted_client_name),
+                            getString(R.string.ble_encrypted_client_no_encrypted_characteristic),
+                            false);
+                    break;
+                case BleEncryptedClientService.INTENT_BLE_WRITE_NOT_ENCRYPTED_DESCRIPTOR:
+                    showErrorDialog(getString(R.string.ble_encrypted_client_name),
+                            getString(R.string.ble_encrypted_client_no_encrypted_descriptor),
+                            false);
+                    break;
+                case BleEncryptedClientService.INTENT_BLE_READ_NOT_ENCRYPTED_DESCRIPTOR:
+                    showErrorDialog(getString(R.string.ble_encrypted_client_name),
+                            getString(R.string.ble_encrypted_client_no_encrypted_descriptor),
+                            false);
+                    break;
 
-            case BleEncryptedClientService.INTENT_BLE_WRITE_FAIL_ENCRYPTED_CHARACTERISTIC:
-                showErrorDialog(getString(R.string.ble_encrypted_client_name), getString(R.string.ble_encrypted_client_fail_write_encrypted_characteristic), false);
-                break;
-            case BleEncryptedClientService.INTENT_BLE_READ_FAIL_ENCRYPTED_CHARACTERISTIC:
-                showErrorDialog(getString(R.string.ble_encrypted_client_name), getString(R.string.ble_encrypted_client_fail_read_encrypted_characteristic), false);
-                break;
-            case BleEncryptedClientService.INTENT_BLE_WRITE_FAIL_ENCRYPTED_DESCRIPTOR:
-                showErrorDialog(getString(R.string.ble_encrypted_client_name), getString(R.string.ble_encrypted_client_fail_write_encrypted_descriptor), false);
-                break;
-            case BleEncryptedClientService.INTENT_BLE_READ_FAIL_ENCRYPTED_DESCRIPTOR:
-                showErrorDialog(getString(R.string.ble_encrypted_client_name), getString(R.string.ble_encrypted_client_fail_read_encrypted_descriptor), false);
-                break;
+                case BleEncryptedClientService.INTENT_BLE_WRITE_FAIL_ENCRYPTED_CHARACTERISTIC:
+                    showErrorDialog(getString(R.string.ble_encrypted_client_name), getString(
+                                    R.string.ble_encrypted_client_fail_write_encrypted_characteristic),
+                            false);
+                    break;
+                case BleEncryptedClientService.INTENT_BLE_READ_FAIL_ENCRYPTED_CHARACTERISTIC:
+                    showErrorDialog(getString(R.string.ble_encrypted_client_name), getString(
+                                    R.string.ble_encrypted_client_fail_read_encrypted_characteristic),
+                            false);
+                    break;
+                case BleEncryptedClientService.INTENT_BLE_WRITE_FAIL_ENCRYPTED_DESCRIPTOR:
+                    showErrorDialog(getString(R.string.ble_encrypted_client_name), getString(
+                            R.string.ble_encrypted_client_fail_write_encrypted_descriptor), false);
+                    break;
+                case BleEncryptedClientService.INTENT_BLE_READ_FAIL_ENCRYPTED_DESCRIPTOR:
+                    showErrorDialog(getString(R.string.ble_encrypted_client_name),
+                            getString(R.string.ble_encrypted_client_fail_read_encrypted_descriptor),
+                            false);
+                    break;
 
-            case BleEncryptedClientService.ACTION_DISCONNECTED:
-                if (shouldRebootBluetoothAfterTest()) {
-                    mBtPowerSwitcher.executeSwitching();
-                } else {
+                case BleEncryptedClientService.ACTION_DISCONNECTED:
                     closeDialog();
-                }
-                break;
+                    break;
             }
 
             mTestAdapter.notifyDataSetChanged();
@@ -254,6 +267,7 @@ public class BleEncryptedClientBaseActivity extends PassFailButtons.Activity {
 
     private static final long BT_ON_DELAY = 10000;
     private final BluetoothPowerSwitcher mBtPowerSwitcher = new BluetoothPowerSwitcher();
+
     private class BluetoothPowerSwitcher extends BroadcastReceiver {
 
         private boolean mIsSwitching = false;
@@ -261,7 +275,8 @@ public class BleEncryptedClientBaseActivity extends PassFailButtons.Activity {
 
         public void executeSwitching() {
             if (mAdapter == null) {
-                BluetoothManager btMgr = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+                BluetoothManager btMgr = (BluetoothManager) getSystemService(
+                        Context.BLUETOOTH_SERVICE);
                 mAdapter = btMgr.getAdapter();
             }
 
@@ -283,12 +298,8 @@ public class BleEncryptedClientBaseActivity extends PassFailButtons.Activity {
             if (intent.getAction().equals(BluetoothAdapter.ACTION_STATE_CHANGED)) {
                 int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1);
                 if (state == BluetoothAdapter.STATE_OFF) {
-                    mHandler.postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            mAdapter.enable();
-                        }
-                    }, BT_ON_DELAY);
+                    mHandler.postDelayed(() ->
+                            invokeWithShellPermissions(() -> mAdapter.enable()), BT_ON_DELAY);
                 } else if (state == BluetoothAdapter.STATE_ON) {
                     mIsSwitching = false;
                     unregisterReceiver(this);

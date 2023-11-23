@@ -29,7 +29,7 @@ TEST(liblog, convertPrintable_ascii) {
   auto output_size = convertPrintable(nullptr, input, strlen(input));
   EXPECT_EQ(output_size, strlen(input));
 
-  char output[output_size];
+  char output[output_size + 1];
 
   output_size = convertPrintable(output, input, strlen(input));
   EXPECT_EQ(output_size, strlen(input));
@@ -43,7 +43,7 @@ TEST(liblog, convertPrintable_escapes) {
   auto output_size = convertPrintable(nullptr, input, strlen(input));
   EXPECT_EQ(output_size, strlen(expected_output));
 
-  char output[output_size];
+  char output[output_size + 1];
 
   output_size = convertPrintable(output, input, strlen(input));
   EXPECT_EQ(output_size, strlen(expected_output));
@@ -55,7 +55,7 @@ TEST(liblog, convertPrintable_validutf8) {
   auto output_size = convertPrintable(nullptr, input, strlen(input));
   EXPECT_EQ(output_size, strlen(input));
 
-  char output[output_size];
+  char output[output_size + 1];
 
   output_size = convertPrintable(output, input, strlen(input));
   EXPECT_EQ(output_size, strlen(input));
@@ -69,7 +69,7 @@ TEST(liblog, convertPrintable_invalidutf8) {
   auto output_size = convertPrintable(nullptr, input, strlen(input));
   EXPECT_EQ(output_size, strlen(expected_output));
 
-  char output[output_size];
+  char output[output_size + 1];
 
   output_size = convertPrintable(output, input, strlen(input));
   EXPECT_EQ(output_size, strlen(expected_output));
@@ -85,7 +85,7 @@ TEST(liblog, convertPrintable_mixed) {
   auto output_size = convertPrintable(nullptr, input, strlen(input));
   EXPECT_EQ(output_size, strlen(expected_output));
 
-  char output[output_size];
+  char output[output_size + 1];
 
   output_size = convertPrintable(output, input, strlen(input));
   EXPECT_EQ(output_size, strlen(expected_output));

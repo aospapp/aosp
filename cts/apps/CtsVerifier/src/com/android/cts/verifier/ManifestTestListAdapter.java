@@ -19,12 +19,14 @@ package com.android.cts.verifier;
 import static com.android.cts.verifier.TestListActivity.sCurrentDisplayMode;
 import static com.android.cts.verifier.TestListActivity.sInitialLaunch;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
+import android.hardware.SensorPrivacyManager;
 import android.os.Bundle;
 import android.telephony.TelephonyManager;
 import android.util.Log;
@@ -141,6 +143,10 @@ public class ManifestTestListAdapter extends TestListAdapter {
     private static final String CONFIG_HDMI_SOURCE = "config_hdmi_source";
 
     private static final String CONFIG_QUICK_SETTINGS_SUPPORTED = "config_quick_settings_supported";
+
+    private static final String CONFIG_HAS_MIC_TOGGLE = "config_has_mic_toggle";
+
+    private static final String CONFIG_HAS_CAMERA_TOGGLE = "config_has_camera_toggle";
 
     /** The config to represent that a test is only needed to run in the main display mode
      * (i.e. unfolded) */
@@ -480,6 +486,10 @@ public class ManifestTestListAdapter extends TestListAdapter {
                             return false;
                         }
                         break;
+                    case CONFIG_HAS_MIC_TOGGLE:
+                        return isHardwareToggleSupported(SensorPrivacyManager.Sensors.MICROPHONE);
+                    case CONFIG_HAS_CAMERA_TOGGLE:
+                        return isHardwareToggleSupported(SensorPrivacyManager.Sensors.CAMERA);
                     default:
                         break;
                 }
@@ -580,5 +590,17 @@ public class ManifestTestListAdapter extends TestListAdapter {
         } else {
             super.loadTestResults();
         }
+    }
+
+    @SuppressLint("NewApi")
+    private boolean isHardwareToggleSupported(final int sensorType) {
+        boolean isToggleSupported = false;
+        SensorPrivacyManager sensorPrivacyManager = mContext.getSystemService(
+                SensorPrivacyManager.class);
+        if (sensorPrivacyManager != null) {
+            isToggleSupported = sensorPrivacyManager.supportsSensorToggle(
+                    SensorPrivacyManager.TOGGLE_TYPE_HARDWARE, sensorType);
+        }
+        return isToggleSupported;
     }
 }

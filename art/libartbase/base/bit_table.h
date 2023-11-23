@@ -77,11 +77,11 @@ class BitTableBase {
     return table_data_.Subregion(offset, NumColumnBits(column));
   }
 
-  size_t NumRows() const { return num_rows_; }
+  uint32_t NumRows() const { return num_rows_; }
 
   uint32_t NumRowBits() const { return column_offset_[kNumColumns]; }
 
-  constexpr size_t NumColumns() const { return kNumColumns; }
+  constexpr uint32_t NumColumns() const { return kNumColumns; }
 
   uint32_t NumColumnBits(uint32_t column) const {
     return column_offset_[column + 1] - column_offset_[column];
@@ -92,12 +92,12 @@ class BitTableBase {
   bool Equals(const BitTableBase& other) const {
     return num_rows_ == other.num_rows_ &&
         std::equal(column_offset_, column_offset_ + kNumColumns, other.column_offset_) &&
-        BitMemoryRegion::Compare(table_data_, other.table_data_) == 0;
+        BitMemoryRegion::Equals(table_data_, other.table_data_);
   }
 
  protected:
   BitMemoryRegion table_data_;
-  size_t num_rows_ = 0;
+  uint32_t num_rows_ = 0;
   uint16_t column_offset_[kNumColumns + 1] = {};
 };
 
@@ -226,7 +226,7 @@ typename BitTable<Accessor>::const_iterator operator+(
 template<typename Accessor>
 class BitTableRange : public IterationRange<typename BitTable<Accessor>::const_iterator> {
  public:
-  typedef typename BitTable<Accessor>::const_iterator const_iterator;
+  using const_iterator = typename BitTable<Accessor>::const_iterator;
 
   using IterationRange<const_iterator>::IterationRange;
   BitTableRange() : IterationRange<const_iterator>(const_iterator(), const_iterator()) { }
@@ -449,9 +449,10 @@ class BitmapTableBuilder {
 
     // Write table data.
     for (MemoryRegion row : rows_) {
-      BitMemoryRegion src(row);
+      size_t bits_to_copy = std::min(max_num_bits_, row.size_in_bits());
+      BitMemoryRegion src(row, /*bit_offset=*/ 0u, bits_to_copy);
       BitMemoryRegion dst = out.Allocate(max_num_bits_);
-      dst.StoreBits(/* bit_offset */ 0, src, std::min(max_num_bits_, src.size_in_bits()));
+      dst.Subregion(/*bit_offset=*/ 0, bits_to_copy).CopyBits(src);
     }
 
     // Verify the written data.

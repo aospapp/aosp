@@ -96,16 +96,10 @@ public class LoginActivity extends AbstractRootViewActivity {
     @NonNull
     public List<ContentCaptureEvent> assertJustInitialViewsAppeared(@NonNull Session session,
             int additionalEvents) {
+        assertBaseInformation(session);
+
         final LoginActivity activity = this;
         final ContentCaptureSessionId sessionId = session.id;
-        assertRightActivity(session, sessionId, activity);
-
-        // Sanity check
-        assertSessionId(sessionId, activity.mUsernameLabel);
-        assertSessionId(sessionId, activity.mUsername);
-        assertSessionId(sessionId, activity.mPassword);
-        assertSessionId(sessionId, activity.mPasswordLabel);
-
         final List<ContentCaptureEvent> events = session.getEvents();
         Log.v(TAG, "events(" + events.size() + "): " + events);
         // TODO(b/123540067): ideally it should be X so it reflects just the views defined
@@ -135,6 +129,52 @@ public class LoginActivity extends AbstractRootViewActivity {
         assertViewAppeared(events, 9, sessionId, activity.mPassword, rootId);
 
         return events;
+    }
+
+    /**
+     * Asserts the events generated when this activity was launched, up to the
+     * {@code TYPE_INITIAL_VIEW_HIERARCHY_FINISHED} event.
+     */
+    @NonNull
+    public EventsAssertor assertInitialViewsAppeared(@NonNull Session session) {
+        assertBaseInformation(session);
+
+        final LoginActivity activity = this;
+        final ContentCaptureSessionId sessionId = session.id;
+        final List<ContentCaptureEvent> events = session.getEvents();
+        Log.v(TAG, "events(" + events.size() + "): " + events);
+        final AutofillId rootId = activity.getRootView().getAutofillId();
+        final View grandpa1 = activity.getGrandParent();
+        final View grandpa2 = activity.getGrandGrandParent();
+        final View decorView = activity.getDecorView();
+        final View rootView = activity.getRootView();
+
+        EventsAssertor assertor = new EventsAssertor(events);
+        assertor.isAtLeast(MIN_EVENTS)
+                .assertSessionResumed()
+                .assertViewTreeStarted()
+                .assertDecorViewAppeared(decorView)
+                .assertViewAppeared(grandpa2, decorView.getAutofillId())
+                .assertViewAppeared(grandpa1, grandpa2.getAutofillId())
+                .assertViewAppeared(sessionId, rootView, grandpa1.getAutofillId())
+                .assertViewAppeared(sessionId, activity.mUsernameLabel, rootId)
+                .assertViewAppeared(sessionId, activity.mUsername, rootId)
+                .assertViewAppeared(sessionId, activity.mPasswordLabel, rootId)
+                .assertViewAppeared(sessionId, activity.mPassword, rootId)
+                .assertViewTreeFinished();
+
+        return assertor;
+    }
+
+    private void assertBaseInformation(@NonNull Session session) {
+        final LoginActivity activity = this;
+        final ContentCaptureSessionId sessionId = session.id;
+        assertRightActivity(session, sessionId, activity);
+
+        assertSessionId(sessionId, activity.mUsernameLabel);
+        assertSessionId(sessionId, activity.mUsername);
+        assertSessionId(sessionId, activity.mPassword);
+        assertSessionId(sessionId, activity.mPasswordLabel);
     }
 
     /**
@@ -177,6 +217,25 @@ public class LoginActivity extends AbstractRootViewActivity {
         }
 
         assertViewTreeFinished(events, i + 2);
+    }
+
+    /**
+     * Asserts the initial views disappeared after the activity was finished.
+     */
+    public void assertInitialViewsDisappeared(@NonNull EventsAssertor assertor) {
+        final LoginActivity activity = this;
+        final AutofillId rootId = activity.getRootView().getAutofillId();
+        final View decorView = activity.getDecorView();
+        final View grandpa1 = activity.getGrandParent();
+        final View grandpa2 = activity.getGrandGrandParent();
+
+        assertor.assertViewTreeStarted()
+                .assertViewDisappeared(
+                        rootId, grandpa1.getAutofillId(), grandpa2.getAutofillId(),
+                        decorView.getAutofillId(),
+                        activity.mUsernameLabel.getAutofillId(), activity.mUsername.getAutofillId(),
+                        activity.mPasswordLabel.getAutofillId(), activity.mPassword.getAutofillId())
+                .assertViewTreeFinished();
     }
 
     @Override

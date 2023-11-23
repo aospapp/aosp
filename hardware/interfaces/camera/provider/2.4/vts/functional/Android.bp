@@ -26,6 +26,7 @@ package {
 cc_test {
     name: "VtsHalCameraProviderV2_4TargetTest",
     defaults: ["VtsHalTargetTestDefaults"],
+    tidy_timeout_srcs: ["VtsHalCameraProviderV2_4TargetTest.cpp"],
     srcs: ["VtsHalCameraProviderV2_4TargetTest.cpp"],
 
     // TODO(b/64437680): Assume these are always available on the device.
@@ -55,10 +56,17 @@ cc_test {
         "android.hardware.camera.provider@2.6",
         "android.hardware.camera.provider@2.7",
         "android.hardware.graphics.common@1.0",
+        "android.hardware.graphics.mapper@2.0",
+        "android.hardware.graphics.mapper@3.0",
+        "android.hardware.graphics.mapper@4.0",
         "android.hidl.allocator@1.0",
         "libgrallocusage",
         "libhidlmemory",
         "libgralloctypes",
     ],
-    test_suites: ["general-tests", "vts"],
+    test_suites: [
+        "general-tests",
+        "vts",
+    ],
+
 }

@@ -3,7 +3,7 @@ use std::env;
 #[test]
 fn env_log_level() {
     env::set_var("RUST_LOG", "debug");
-    assert_eq!(logger::init(Default::default()), true);
+    assert!(logger::init(Default::default()));
 
     if cfg!(target_os = "android") {
         // android_logger does not read from environment variables

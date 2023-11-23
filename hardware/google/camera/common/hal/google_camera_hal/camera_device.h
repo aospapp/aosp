@@ -62,6 +62,13 @@ class CameraDevice {
   // unchanged after this CameraDevice instance is destroyed.
   status_t SetTorchMode(TorchMode mode);
 
+  // Change the brightness level of the flash unit in Torch mode.
+  // If the torch is OFF and torchStrength > 0, the torch will be turned ON.
+  status_t TurnOnTorchWithStrengthLevel(int32_t torch_strength);
+
+  // Get the flash unit strength level of this camera device.
+  status_t GetTorchStrengthLevel(int32_t& torch_strength) const;
+
   // Create a CameraDeviceSession to handle capture requests. This method will
   // return ALREADY_EXISTS if previous session has not been destroyed.
   // Created CameraDeviceSession remain valid even after this CameraDevice
@@ -103,6 +110,8 @@ class CameraDevice {
   std::vector<GetCaptureSessionFactoryFunc> external_session_factory_entries_;
   // Opened library handles that should be closed on destruction
   std::vector<void*> external_capture_session_lib_handles_;
+  // Stream use cases supported by this camera device
+  std::set<int64_t> stream_use_cases_;
 
   const std::vector<std::string>* configure_streams_libs_ = nullptr;
 };

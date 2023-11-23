@@ -60,6 +60,7 @@ typedef enum {
     WIFI_CHAN_WIDTH_80P80 = 4,
     WIFI_CHAN_WIDTH_5     = 5,
     WIFI_CHAN_WIDTH_10    = 6,
+    WIFI_CHAN_WIDTH_320   = 7,
     WIFI_CHAN_WIDTH_INVALID = -1
 } wifi_channel_width;
 
@@ -140,6 +141,13 @@ typedef enum {
     WLAN_MAC_60_0_BAND = 1 << 3,
 } wlan_mac_band;
 
+/* List of chre nan rtt state */
+typedef enum {
+    CHRE_PREEMPTED = 0,
+    CHRE_UNAVAILABLE = 1,
+    CHRE_AVAILABLE = 2,
+} chre_nan_rtt_state;
+
 typedef struct {
     wifi_channel_width width;
     int center_frequency0;
@@ -154,7 +162,7 @@ typedef struct {
 typedef struct {
     /* Channel frequency in MHz */
     wifi_channel freq;
-    /* Channel operating width (20, 40, 80, 160 etc.) */
+    /* Channel operating width (20, 40, 80, 160, 320 etc.) */
     wifi_channel_width width;
     /* BIT MASK of BIT(WIFI_INTERFACE_*) represented by |wifi_interface_mode|
      * Bitmask does not represent concurrency.
@@ -192,6 +200,14 @@ typedef enum {
    *  P2P GO may be supported by some vendors on the same STA channel.
    */
   WIFI_USABLE_CHANNEL_FILTER_CONCURRENCY  = 1 << 1,
+  /* This Filter queries Wifi channels and bands that are supported for
+   * NAN3.1 Instant communication mode. This filter should only be applied to NAN interface.
+   * If 5G is supported default discovery channel 149/44 is considered,
+   * If 5G is not supported then channel 6 has to be considered.
+   * Based on regulatory domain if channel 149 and 44 are restricted, channel 6 should
+   * be considered for instant communication channel
+   */
+  WIFI_USABLE_CHANNEL_FILTER_NAN_INSTANT_MODE   = 1 << 2,
 } wifi_usable_channel_filter;
 
 typedef enum {
@@ -216,6 +232,50 @@ typedef enum {
     WIFI_ACCESS_CATEGORY_VOICE = 3
 } wifi_access_category;
 
+/* Antenna configuration */
+typedef enum {
+  WIFI_ANTENNA_UNSPECIFIED = 0,
+  WIFI_ANTENNA_1X1         = 1,
+  WIFI_ANTENNA_2X2         = 2,
+  WIFI_ANTENNA_3X3         = 3,
+  WIFI_ANTENNA_4X4         = 4,
+} wifi_antenna_configuration;
+
+/* Wifi Radio configuration */
+typedef struct {
+    /* Operating band */
+    wlan_mac_band band;
+    /* Antenna configuration */
+    wifi_antenna_configuration antenna_cfg;
+} wifi_radio_configuration;
+
+/* WiFi Radio Combination  */
+typedef struct {
+    u32 num_radio_configurations;
+    wifi_radio_configuration radio_configurations[];
+} wifi_radio_combination;
+
+/* WiFi Radio combinations matrix */
+/* For Example in case of a chip which has two radios, where one radio is
+ * capable of 2.4GHz 2X2 only and another radio which is capable of either
+ * 5GHz or 6GHz 2X2, number of possible radio combinations in this case
+ * are 5 and possible combinations are
+ *                            {{{2G 2X2}}, //Standalone 2G
+ *                            {{5G 2X2}}, //Standalone 5G
+ *                            {{6G 2X2}}, //Standalone 6G
+ *                            {{2G 2X2}, {5G 2X2}}, //2G+5G DBS
+ *                            {{2G 2X2}, {6G 2X2}}} //2G+6G DBS
+ * Note: Since this chip doesn’t support 5G+6G simultaneous operation
+ * as there is only one radio which can support both, So it can only
+ * do MCC 5G+6G. This table should not get populated with possible MCC
+ * configurations. This is only for simultaneous radio configurations
+ * (such as Standalone, multi band simultaneous or single band simultaneous).
+ */
+typedef struct {
+    u32 num_radio_combinations;
+    /* Each row represents possible radio combinations */
+    wifi_radio_combination radio_combinations[];
+} wifi_radio_combination_matrix;
 
 /* Initialize/Cleanup */
 
@@ -267,6 +327,7 @@ void wifi_get_error_info(wifi_error err, const char **msg); // return a pointer 
 #define WIFI_FEATURE_SCAN_RAND          (uint64_t)0x2000000   // Support MAC & Probe Sequence Number randomization
 #define WIFI_FEATURE_SET_TX_POWER_LIMIT (uint64_t)0x4000000   // Support Tx Power Limit setting
 #define WIFI_FEATURE_USE_BODY_HEAD_SAR  (uint64_t)0x8000000   // Support Using Body/Head Proximity for SAR
+#define WIFI_FEATURE_DYNAMIC_SET_MAC    (uint64_t)0x10000000  // Support changing MAC address without iface reset(down and up)
 #define WIFI_FEATURE_SET_LATENCY_MODE   (uint64_t)0x40000000  // Support Latency mode setting
 #define WIFI_FEATURE_P2P_RAND_MAC       (uint64_t)0x80000000  // Support P2P MAC randomization
 #define WIFI_FEATURE_INFRA_60G          (uint64_t)0x100000000 // Support for 60GHz Band
@@ -390,6 +451,10 @@ typedef struct {
 typedef struct {
         void (*on_subsystem_restart)(const char* error);
 } wifi_subsystem_restart_handler;
+
+typedef struct {
+        void (*on_chre_nan_rtt_change)(chre_nan_rtt_state state);
+} wifi_chre_handler;
 
 wifi_error wifi_set_iface_event_handler(wifi_request_id id, wifi_interface_handle iface, wifi_event_handler eh);
 wifi_error wifi_reset_iface_event_handler(wifi_request_id id, wifi_interface_handle iface);
@@ -899,6 +964,68 @@ typedef struct {
      * Trigger wifi subsystem restart to reload firmware
      */
     wifi_error (*wifi_trigger_subsystem_restart)(wifi_handle handle);
+
+    /**
+     * Invoked to set that the device is operating in an indoor environment.
+     * @param handle global wifi_handle
+     * @param isIndoor: true if the device is operating in an indoor
+     *        environment, false otherwise.
+     * @return Synchronous wifi_error
+     */
+    wifi_error (*wifi_set_indoor_state)(wifi_handle handle, bool isIndoor);
+
+    /**@brief wifi_get_supported_radio_combinations_matrix
+     *        Request all the possible radio combinations this device can offer.
+     * @param handle global wifi_handle
+     * @param max_size maximum size allocated for filling the wifi_radio_combination_matrix
+     * @param wifi_radio_combination_matrix to return all the possible radio
+     *        combinations.
+     * @param size actual size of wifi_radio_combination_matrix returned from
+     *        lower layer
+     *
+     */
+    wifi_error (*wifi_get_supported_radio_combinations_matrix)(
+        wifi_handle handle, u32 max_size, u32 *size,
+        wifi_radio_combination_matrix *radio_combination_matrix);
+
+    /**@brief wifi_nan_rtt_chre_enable_request
+     *        Request to enable CHRE NAN RTT
+     * @param transaction_id: NAN transaction id
+     * @param wifi_interface_handle
+     * @param NanEnableRequest request message
+     * @return Synchronous wifi_error
+     */
+    wifi_error (*wifi_nan_rtt_chre_enable_request)(transaction_id id,
+                                                   wifi_interface_handle iface,
+                                                   NanEnableRequest* msg);
+
+    /**@brief wifi_nan_rtt_chre_disable_request
+     *        Request to disable CHRE NAN RTT
+     * @param transaction_id: NAN transaction id
+     * @param wifi_interface_handle
+     * @return Synchronous wifi_error
+     */
+    wifi_error (*wifi_nan_rtt_chre_disable_request)(transaction_id id, wifi_interface_handle iface);
+
+    /**@brief wifi_chre_register_handler
+     *        register a handler to get the state of CHR
+     * @param wifi_interface_handle
+     * @param wifi_chre_handler: callback function pointer
+     * @return Synchronous wifi_error
+     */
+    wifi_error (*wifi_chre_register_handler)(wifi_interface_handle iface,
+                                             wifi_chre_handler handler);
+
+    /**@brief wifi_enable_tx_power_limits
+     *        Enable WiFi Tx power limis
+     * @param wifi_interface_handle
+     * @param isEnable : If enable TX limit or not
+     * @return Synchronous wifi_error
+     */
+    wifi_error (*wifi_enable_tx_power_limits) (wifi_interface_handle iface,
+                                               bool isEnable);
+
+
     /*
      * when adding new functions make sure to add stubs in
      * hal_tool.cpp::init_wifi_stub_hal_func_table

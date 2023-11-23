@@ -41,4 +41,8 @@ class TestObjects {
     static {
         START_LISTENING_INTENT.putExtra("d", 'd');
     }
+    public static final Bundle SEGMENT_RESULTS_BUNDLE = new Bundle();
+    static {
+        SEGMENT_RESULTS_BUNDLE.putChar("e", 'e');
+    }
 }

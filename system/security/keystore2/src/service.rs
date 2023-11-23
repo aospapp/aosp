@@ -22,11 +22,11 @@ use crate::permission::{KeyPerm, KeystorePerm};
 use crate::security_level::KeystoreSecurityLevel;
 use crate::utils::{
     check_grant_permission, check_key_permission, check_keystore_permission,
-    key_parameters_to_authorizations, watchdog as wd, Asp,
+    key_parameters_to_authorizations, list_key_entries, uid_to_android_user, watchdog as wd,
 };
 use crate::{
     database::Uuid,
-    globals::{create_thread_local_db, DB, LEGACY_BLOB_LOADER, LEGACY_MIGRATOR},
+    globals::{create_thread_local_db, DB, LEGACY_BLOB_LOADER, LEGACY_IMPORTER, SUPER_KEY},
 };
 use crate::{database::KEYSTORE_UUID, permission};
 use crate::{
@@ -51,7 +51,7 @@ use keystore2_selinux as selinux;
 /// Implementation of the IKeystoreService.
 #[derive(Default)]
 pub struct KeystoreService {
-    i_sec_level_by_uuid: HashMap<Uuid, Asp>,
+    i_sec_level_by_uuid: HashMap<Uuid, Strong<dyn IKeystoreSecurityLevel>>,
     uuid_by_sec_level: HashMap<SecurityLevel, Uuid>,
 }
 
@@ -68,22 +68,20 @@ impl KeystoreService {
         .context(concat!(
             "In KeystoreService::new_native_binder: ",
             "Trying to construct mandatory security level TEE."
-        ))
-        .map(|(dev, uuid)| (Asp::new(dev.as_binder()), uuid))?;
+        ))?;
         result.i_sec_level_by_uuid.insert(uuid, dev);
         result.uuid_by_sec_level.insert(SecurityLevel::TRUSTED_ENVIRONMENT, uuid);
 
         // Strongbox is optional, so we ignore errors and turn the result into an Option.
         if let Ok((dev, uuid)) =
             KeystoreSecurityLevel::new_native_binder(SecurityLevel::STRONGBOX, id_rotation_state)
-                .map(|(dev, uuid)| (Asp::new(dev.as_binder()), uuid))
         {
             result.i_sec_level_by_uuid.insert(uuid, dev);
             result.uuid_by_sec_level.insert(SecurityLevel::STRONGBOX, uuid);
         }
 
         let uuid_by_sec_level = result.uuid_by_sec_level.clone();
-        LEGACY_MIGRATOR
+        LEGACY_IMPORTER
             .set_init(move || {
                 (create_thread_local_db(), uuid_by_sec_level, LEGACY_BLOB_LOADER.clone())
             })
@@ -107,7 +105,7 @@ impl KeystoreService {
 
     fn get_i_sec_level_by_uuid(&self, uuid: &Uuid) -> Result<Strong<dyn IKeystoreSecurityLevel>> {
         if let Some(dev) = self.i_sec_level_by_uuid.get(uuid) {
-            dev.get_interface().context("In get_i_sec_level_by_uuid.")
+            Ok(dev.clone())
         } else {
             Err(error::Error::sys())
                 .context("In get_i_sec_level_by_uuid: KeyMint instance for key not found.")
@@ -123,7 +121,7 @@ impl KeystoreService {
             .get(&sec_level)
             .and_then(|uuid| self.i_sec_level_by_uuid.get(uuid))
         {
-            dev.get_interface().context("In get_security_level.")
+            Ok(dev.clone())
         } else {
             Err(error::Error::Km(ErrorCode::HARDWARE_TYPE_UNAVAILABLE))
                 .context("In get_security_level: No such security level.")
@@ -132,15 +130,19 @@ impl KeystoreService {
 
     fn get_key_entry(&self, key: &KeyDescriptor) -> Result<KeyEntryResponse> {
         let caller_uid = ThreadState::get_calling_uid();
+
+        let super_key =
+            SUPER_KEY.read().unwrap().get_per_boot_key_by_user_id(uid_to_android_user(caller_uid));
+
         let (key_id_guard, mut key_entry) = DB
             .with(|db| {
-                LEGACY_MIGRATOR.with_try_migrate(&key, caller_uid, || {
+                LEGACY_IMPORTER.with_try_import(key, caller_uid, super_key, || {
                     db.borrow_mut().load_key_entry(
-                        &key,
+                        key,
                         KeyType::Client,
                         KeyEntryLoadBits::PUBLIC,
                         caller_uid,
-                        |k, av| check_key_permission(KeyPerm::get_info(), k, &av),
+                        |k, av| check_key_permission(KeyPerm::GetInfo, k, &av),
                     )
                 })
             })
@@ -184,15 +186,18 @@ impl KeystoreService {
         certificate_chain: Option<&[u8]>,
     ) -> Result<()> {
         let caller_uid = ThreadState::get_calling_uid();
+        let super_key =
+            SUPER_KEY.read().unwrap().get_per_boot_key_by_user_id(uid_to_android_user(caller_uid));
+
         DB.with::<_, Result<()>>(|db| {
-            let entry = match LEGACY_MIGRATOR.with_try_migrate(&key, caller_uid, || {
+            let entry = match LEGACY_IMPORTER.with_try_import(key, caller_uid, super_key, || {
                 db.borrow_mut().load_key_entry(
-                    &key,
+                    key,
                     KeyType::Client,
                     KeyEntryLoadBits::NONE,
                     caller_uid,
                     |k, av| {
-                        check_key_permission(KeyPerm::update(), k, &av)
+                        check_key_permission(KeyPerm::Update, k, &av)
                             .context("In update_subcomponent.")
                     },
                 )
@@ -238,7 +243,7 @@ impl KeystoreService {
             };
 
             // Security critical: This must return on failure. Do not remove the `?`;
-            check_key_permission(KeyPerm::rebind(), &key, &None)
+            check_key_permission(KeyPerm::Rebind, &key, &None)
                 .context("Caller does not have permission to insert this certificate.")?;
 
             db.store_new_certificate(
@@ -271,47 +276,32 @@ impl KeystoreService {
         // If the first check fails we check if the caller has the list permission allowing to list
         // any namespace. In that case we also adjust the queried namespace if a specific uid was
         // selected.
-        match check_key_permission(KeyPerm::get_info(), &k, &None) {
-            Err(e) => {
-                if let Some(selinux::Error::PermissionDenied) =
-                    e.root_cause().downcast_ref::<selinux::Error>()
-                {
-                    check_keystore_permission(KeystorePerm::list())
-                        .context("In list_entries: While checking keystore permission.")?;
-                    if namespace != -1 {
-                        k.nspace = namespace;
-                    }
-                } else {
-                    return Err(e).context("In list_entries: While checking key permission.")?;
+        if let Err(e) = check_key_permission(KeyPerm::GetInfo, &k, &None) {
+            if let Some(selinux::Error::PermissionDenied) =
+                e.root_cause().downcast_ref::<selinux::Error>() {
+
+                check_keystore_permission(KeystorePerm::List)
+                    .context("In list_entries: While checking keystore permission.")?;
+                if namespace != -1 {
+                    k.nspace = namespace;
                 }
+            } else {
+                return Err(e).context("In list_entries: While checking key permission.")?;
             }
-            Ok(()) => {}
-        };
+        }
 
-        let mut result = LEGACY_MIGRATOR
-            .list_uid(k.domain, k.nspace)
-            .context("In list_entries: Trying to list legacy keys.")?;
-
-        result.append(
-            &mut DB
-                .with(|db| {
-                    let mut db = db.borrow_mut();
-                    db.list(k.domain, k.nspace, KeyType::Client)
-                })
-                .context("In list_entries: Trying to list keystore database.")?,
-        );
-
-        result.sort_unstable();
-        result.dedup();
-        Ok(result)
+        DB.with(|db| list_key_entries(&mut db.borrow_mut(), k.domain, k.nspace))
     }
 
     fn delete_key(&self, key: &KeyDescriptor) -> Result<()> {
         let caller_uid = ThreadState::get_calling_uid();
+        let super_key =
+            SUPER_KEY.read().unwrap().get_per_boot_key_by_user_id(uid_to_android_user(caller_uid));
+
         DB.with(|db| {
-            LEGACY_MIGRATOR.with_try_migrate(&key, caller_uid, || {
-                db.borrow_mut().unbind_key(&key, KeyType::Client, caller_uid, |k, av| {
-                    check_key_permission(KeyPerm::delete(), k, &av).context("During delete_key.")
+            LEGACY_IMPORTER.with_try_import(key, caller_uid, super_key, || {
+                db.borrow_mut().unbind_key(key, KeyType::Client, caller_uid, |k, av| {
+                    check_key_permission(KeyPerm::Delete, k, &av).context("During delete_key.")
                 })
             })
         })
@@ -326,10 +316,13 @@ impl KeystoreService {
         access_vector: permission::KeyPermSet,
     ) -> Result<KeyDescriptor> {
         let caller_uid = ThreadState::get_calling_uid();
+        let super_key =
+            SUPER_KEY.read().unwrap().get_per_boot_key_by_user_id(uid_to_android_user(caller_uid));
+
         DB.with(|db| {
-            LEGACY_MIGRATOR.with_try_migrate(&key, caller_uid, || {
+            LEGACY_IMPORTER.with_try_import(key, caller_uid, super_key, || {
                 db.borrow_mut().grant(
-                    &key,
+                    key,
                     caller_uid,
                     grantee_uid as u32,
                     access_vector,
@@ -342,8 +335,8 @@ impl KeystoreService {
 
     fn ungrant(&self, key: &KeyDescriptor, grantee_uid: i32) -> Result<()> {
         DB.with(|db| {
-            db.borrow_mut().ungrant(&key, ThreadState::get_calling_uid(), grantee_uid as u32, |k| {
-                check_key_permission(KeyPerm::grant(), k, &None)
+            db.borrow_mut().ungrant(key, ThreadState::get_calling_uid(), grantee_uid as u32, |k| {
+                check_key_permission(KeyPerm::Grant, k, &None)
             })
         })
         .context("In KeystoreService::ungrant.")
@@ -358,13 +351,13 @@ impl IKeystoreService for KeystoreService {
     fn getSecurityLevel(
         &self,
         security_level: SecurityLevel,
-    ) -> binder::public_api::Result<Strong<dyn IKeystoreSecurityLevel>> {
+    ) -> binder::Result<Strong<dyn IKeystoreSecurityLevel>> {
         let _wp = wd::watch_millis_with("IKeystoreService::getSecurityLevel", 500, move || {
             format!("security_level: {}", security_level.0)
         });
         map_or_log_err(self.get_security_level(security_level), Ok)
     }
-    fn getKeyEntry(&self, key: &KeyDescriptor) -> binder::public_api::Result<KeyEntryResponse> {
+    fn getKeyEntry(&self, key: &KeyDescriptor) -> binder::Result<KeyEntryResponse> {
         let _wp = wd::watch_millis("IKeystoreService::get_key_entry", 500);
         map_or_log_err(self.get_key_entry(key), Ok)
     }
@@ -373,19 +366,15 @@ impl IKeystoreService for KeystoreService {
         key: &KeyDescriptor,
         public_cert: Option<&[u8]>,
         certificate_chain: Option<&[u8]>,
-    ) -> binder::public_api::Result<()> {
+    ) -> binder::Result<()> {
         let _wp = wd::watch_millis("IKeystoreService::updateSubcomponent", 500);
         map_or_log_err(self.update_subcomponent(key, public_cert, certificate_chain), Ok)
     }
-    fn listEntries(
-        &self,
-        domain: Domain,
-        namespace: i64,
-    ) -> binder::public_api::Result<Vec<KeyDescriptor>> {
+    fn listEntries(&self, domain: Domain, namespace: i64) -> binder::Result<Vec<KeyDescriptor>> {
         let _wp = wd::watch_millis("IKeystoreService::listEntries", 500);
         map_or_log_err(self.list_entries(domain, namespace), Ok)
     }
-    fn deleteKey(&self, key: &KeyDescriptor) -> binder::public_api::Result<()> {
+    fn deleteKey(&self, key: &KeyDescriptor) -> binder::Result<()> {
         let _wp = wd::watch_millis("IKeystoreService::deleteKey", 500);
         let result = self.delete_key(key);
         log_key_deleted(key, ThreadState::get_calling_uid(), result.is_ok());
@@ -396,11 +385,11 @@ impl IKeystoreService for KeystoreService {
         key: &KeyDescriptor,
         grantee_uid: i32,
         access_vector: i32,
-    ) -> binder::public_api::Result<KeyDescriptor> {
+    ) -> binder::Result<KeyDescriptor> {
         let _wp = wd::watch_millis("IKeystoreService::grant", 500);
         map_or_log_err(self.grant(key, grantee_uid, access_vector.into()), Ok)
     }
-    fn ungrant(&self, key: &KeyDescriptor, grantee_uid: i32) -> binder::public_api::Result<()> {
+    fn ungrant(&self, key: &KeyDescriptor, grantee_uid: i32) -> binder::Result<()> {
         let _wp = wd::watch_millis("IKeystoreService::ungrant", 500);
         map_or_log_err(self.ungrant(key, grantee_uid), Ok)
     }

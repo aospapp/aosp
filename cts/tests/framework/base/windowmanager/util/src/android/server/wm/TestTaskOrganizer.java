@@ -20,7 +20,6 @@ import static android.app.WindowConfiguration.ACTIVITY_TYPE_HOME;
 import static android.app.WindowConfiguration.ACTIVITY_TYPE_RECENTS;
 import static android.app.WindowConfiguration.ACTIVITY_TYPE_STANDARD;
 import static android.app.WindowConfiguration.ACTIVITY_TYPE_UNDEFINED;
-import static android.app.WindowConfiguration.WINDOWING_MODE_FREEFORM;
 import static android.app.WindowConfiguration.WINDOWING_MODE_FULLSCREEN;
 import static android.app.WindowConfiguration.WINDOWING_MODE_MULTI_WINDOW;
 import static android.app.WindowConfiguration.WINDOWING_MODE_UNDEFINED;
@@ -132,6 +131,7 @@ public class TestTaskOrganizer extends TaskOrganizer {
             final WindowContainerTransaction wct = new WindowContainerTransaction();
             wct.setAdjacentRoots(mRootPrimary.getToken(), mRootSecondary.getToken(),
                     true /* moveTogether */);
+            wct.setLaunchAdjacentFlagRoot(mRootSecondary.getToken());
             applyTransaction(wct);
         }
     }

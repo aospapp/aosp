@@ -59,6 +59,9 @@ int main(int argc, char** argv) {
         } else if (argv[1] == "dump-device-mapper"s) {
             int rc = DumpDeviceMapper();
             exit(rc);
+        } else if (argv[1] == "verify-image-maps"s) {
+            android::gsi::GsiService::VerifyImageMaps();
+            exit(0);
         }
     }
 

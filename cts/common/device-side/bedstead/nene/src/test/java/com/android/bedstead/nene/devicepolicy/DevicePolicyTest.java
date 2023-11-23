@@ -40,7 +40,6 @@ import com.android.bedstead.nene.users.UserReference;
 import com.android.bedstead.nene.users.UserType;
 import com.android.bedstead.nene.utils.Versions;
 import com.android.bedstead.testapp.TestApp;
-import com.android.bedstead.testapp.TestAppProvider;
 import com.android.eventlib.premade.EventLibDeviceAdminReceiver;
 
 import org.junit.ClassRule;
@@ -74,7 +73,7 @@ public class DevicePolicyTest {
 
     @BeforeClass
     public static void setupClass() {
-        sTestApp = new TestAppProvider().query()
+        sTestApp = sDeviceState.testApps().query()
                 .wherePackageName().isEqualTo(DEVICE_ADMIN_TESTAPP_PACKAGE_NAME)
                 .get();
 

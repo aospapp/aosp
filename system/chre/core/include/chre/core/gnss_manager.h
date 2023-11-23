@@ -19,6 +19,7 @@
 
 #include <cstdint>
 
+#include "chre/core/api_manager_common.h"
 #include "chre/core/nanoapp.h"
 #include "chre/core/settings.h"
 #include "chre/platform/platform_gnss.h"
@@ -65,6 +66,15 @@ class GnssSession {
   bool removeRequest(Nanoapp *nanoapp, const void *cookie);
 
   /**
+   * Checks if a nanoapp has an open session request.
+   *
+   * @param nanoapp The nanoapp removing the request.
+   *
+   * @return whether the nanoapp has an active request.
+   */
+  bool nanoappHasRequest(Nanoapp *nanoapp) const;
+
+  /**
    * Handles the result of a request to the PlatformGnss to request a change to
    * the session.
    *
@@ -96,9 +106,9 @@ class GnssSession {
    * Invoked when the host notifies CHRE of a settings change.
    *
    * @param setting The setting that changed.
-   * @param state The new setting state.
+   * @param enabled Whether setting is enabled or not.
    */
-  void onSettingChanged(Setting setting, SettingState state);
+  void onSettingChanged(Setting setting, bool enabled);
 
   /**
    * Updates the platform GNSS request according to the current state. It should
@@ -142,14 +152,14 @@ class GnssSession {
 
   //! Internal struct with data needed to log last X session requests
   struct SessionRequestLog {
-    SessionRequestLog(Nanoseconds timestampIn, uint32_t instanceIdIn,
+    SessionRequestLog(Nanoseconds timestampIn, uint16_t instanceIdIn,
                       Milliseconds intervalIn, bool startIn)
         : timestamp(timestampIn),
           instanceId(instanceIdIn),
           interval(intervalIn),
           start(startIn) {}
     Nanoseconds timestamp;
-    uint32_t instanceId;
+    uint16_t instanceId;
     Milliseconds interval;
     bool start;
   };
@@ -158,12 +168,12 @@ class GnssSession {
    * Tracks the state of the GNSS engine.
    */
   struct StateTransition {
-    //! The nanoapp instance ID that prompted the change.
-    uint32_t nanoappInstanceId;
-
     //! The cookie provided to the CHRE API when the nanoapp requested a
     //! change to the state of the GNSS engine.
     const void *cookie;
+
+    //! The nanoapp instance ID that prompted the change.
+    uint16_t nanoappInstanceId;
 
     //! The target state of the GNSS engine.
     bool enable;
@@ -217,6 +227,10 @@ class GnssSession {
   // Allows GnssManager to access constructor.
   friend class GnssManager;
 
+  //! The histogram of error codes for collected errors, the index of this array
+  //! corresponds to the type of the errorcode
+  uint32_t mGnssErrorHistogram[CHRE_ERROR_SIZE] = {0};
+
   /**
    * Constructs a GnssSesson.
    *
@@ -250,7 +264,7 @@ class GnssSession {
    *
    * @return true if the provided instanceId was found.
    */
-  bool nanoappHasRequest(uint32_t instanceId,
+  bool nanoappHasRequest(uint16_t instanceId,
                          size_t *requestIndex = nullptr) const;
 
   /**
@@ -264,7 +278,7 @@ class GnssSession {
    *
    * @return true if the state transition was added to the queue.
    */
-  bool addRequestToQueue(uint32_t instanceId, bool enable,
+  bool addRequestToQueue(uint16_t instanceId, bool enable,
                          Milliseconds minInterval, const void *cookie);
 
   /**
@@ -298,7 +312,7 @@ class GnssSession {
    * @return true if the session request list was updated.
    */
   bool updateRequests(bool enable, Milliseconds minInterval,
-                      uint32_t instanceId);
+                      uint16_t instanceId);
 
   /**
    * Posts the result of a GNSS session add/remove request.
@@ -312,7 +326,7 @@ class GnssSession {
    *
    * @return true if the event was successfully posted.
    */
-  bool postAsyncResultEvent(uint32_t instanceId, bool success, bool enable,
+  bool postAsyncResultEvent(uint16_t instanceId, bool success, bool enable,
                             Milliseconds minInterval, uint8_t errorCode,
                             const void *cookie);
 
@@ -323,7 +337,7 @@ class GnssSession {
    * enqueue one. For parameter details,
    * @see postAsyncResultEvent
    */
-  void postAsyncResultEventFatal(uint32_t instanceId, bool success, bool enable,
+  void postAsyncResultEventFatal(uint16_t instanceId, bool success, bool enable,
                                  Milliseconds minInterval, uint8_t errorCode,
                                  const void *cookie);
 
@@ -361,7 +375,7 @@ class GnssSession {
    * @param interval the interval in milliseconds for request
    * @param start true if the is a start request, false if a stop request
    */
-  void addSessionRequestLog(uint32_t nanoappInstanceId, Milliseconds interval,
+  void addSessionRequestLog(uint16_t nanoappInstanceId, Milliseconds interval,
                             bool start);
 
   /**
@@ -409,9 +423,9 @@ class GnssManager : public NonCopyable {
    * Invoked when the host notifies CHRE of a settings change.
    *
    * @param setting The setting that changed.
-   * @param state The new setting state.
+   * @param enabled Whether setting is enabled or not.
    */
-  void onSettingChanged(Setting setting, SettingState state);
+  void onSettingChanged(Setting setting, bool enabled);
 
   /**
    * Invoked as a result of a requestStateResync() callback from the GNSS PAL.
@@ -443,6 +457,16 @@ class GnssManager : public NonCopyable {
    */
   void logStateToBuffer(DebugDumpWrapper &debugDump) const;
 
+  /**
+   * Disables the location session, the measurement session and the passive
+   * location listener associated to a nanoapp.
+   *
+   * @param nanoapp A non-null pointer to the nanoapp.
+   *
+   * @return The number of subscriptions disabled.
+   */
+  uint32_t disableAllSubscriptions(Nanoapp *nanoapp);
+
  private:
   // Allows GnssSession to access mPlatformGnss.
   friend class GnssSession;
@@ -458,7 +482,7 @@ class GnssManager : public NonCopyable {
 
   //! The list of instance ID of nanoapps that has a passive location listener
   //! request.
-  DynamicVector<uint32_t> mPassiveLocationListenerNanoapps;
+  DynamicVector<uint16_t> mPassiveLocationListenerNanoapps;
 
   //! true if the passive location listener is enabled at the platform.
   bool mPlatformPassiveLocationListenerEnabled;
@@ -471,7 +495,7 @@ class GnssManager : public NonCopyable {
    * @return true if the nanoapp currently has a passive location listener
    * request.
    */
-  bool nanoappHasPassiveLocationListener(uint32_t nanoappInstanceId,
+  bool nanoappHasPassiveLocationListener(uint16_t nanoappInstanceId,
                                          size_t *index = nullptr);
 
   /**

@@ -16,19 +16,21 @@
 
 package android.server.wm.lifecycle;
 
-import static android.content.Intent.FLAG_ACTIVITY_MULTIPLE_TASK;
-import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 import static android.server.wm.app.Components.PipActivity.EXTRA_ENTER_PIP;
-import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_PAUSE;
-import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_RESTART;
-import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_RESUME;
-import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_START;
-import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_STOP;
+import static android.server.wm.lifecycle.LifecycleConstants.ON_PAUSE;
+import static android.server.wm.lifecycle.LifecycleConstants.ON_RESTART;
+import static android.server.wm.lifecycle.LifecycleConstants.ON_RESUME;
+import static android.server.wm.lifecycle.LifecycleConstants.ON_START;
+import static android.server.wm.lifecycle.LifecycleConstants.ON_STOP;
+import static android.server.wm.lifecycle.TransitionVerifier.assertLaunchAndStopSequence;
+import static android.server.wm.lifecycle.TransitionVerifier.assertRestartAndResumeSequence;
+import static android.server.wm.lifecycle.TransitionVerifier.assertRestartAndResumeSubSequence;
+import static android.server.wm.lifecycle.TransitionVerifier.assertResumeToStopSequence;
+import static android.server.wm.lifecycle.TransitionVerifier.assertSequence;
 
 import static org.junit.Assume.assumeTrue;
 
 import android.app.Activity;
-import android.content.pm.PackageManager;
 import android.platform.test.annotations.Presubmit;
 
 import androidx.test.filters.MediumTest;
@@ -36,6 +38,7 @@ import androidx.test.filters.MediumTest;
 import org.junit.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 
 /**
  * Build/Install/Run:
@@ -56,7 +59,7 @@ public class ActivityLifecycleKeyguardTests extends ActivityLifecycleClientTestB
                     .setExpectedState(ON_STOP)
                     .setNoInstance()
                     .launch();
-            LifecycleVerifier.assertLaunchAndStopSequence(FirstActivity.class, getLifecycleLog());
+            assertLaunchAndStopSequence(FirstActivity.class, getTransitionLog());
         }
     }
 
@@ -72,19 +75,17 @@ public class ActivityLifecycleKeyguardTests extends ActivityLifecycleClientTestB
             lockScreenSession.setLockCredential().gotoKeyguard();
             waitAndAssertActivityStates(state(activity, ON_STOP));
 
-            LifecycleVerifier.assertLaunchAndStopSequence(FirstActivity.class, getLifecycleLog());
-            getLifecycleLog().clear();
+            assertLaunchAndStopSequence(FirstActivity.class, getTransitionLog());
+            getTransitionLog().clear();
         } // keyguard hidden
 
         // Verify that activity was resumed
         if (isCar()) {
-            LifecycleVerifier.assertRestartAndResumeSubSequence(FirstActivity.class,
-                    getLifecycleLog());
+            assertRestartAndResumeSubSequence(FirstActivity.class, getTransitionLog());
             waitAndAssertActivityCurrentState(activity.getClass(), ON_RESUME);
         } else {
             waitAndAssertActivityStates(state(activity, ON_RESUME));
-            LifecycleVerifier.assertRestartAndResumeSequence(FirstActivity.class,
-                    getLifecycleLog());
+            assertRestartAndResumeSequence(FirstActivity.class, getTransitionLog());
         }
     }
 
@@ -100,21 +101,21 @@ public class ActivityLifecycleKeyguardTests extends ActivityLifecycleClientTestB
         moveTaskToPrimarySplitScreenAndVerify(firstActivity, secondaryActivity);
 
         // Show and hide lock screen
-        getLifecycleLog().clear();
+        getTransitionLog().clear();
         try (final LockScreenSession lockScreenSession = new LockScreenSession()) {
             lockScreenSession.setLockCredential().gotoKeyguard();
             waitAndAssertActivityStates(state(firstActivity, ON_STOP));
             waitAndAssertActivityStates(state(secondaryActivity, ON_STOP));
 
-            LifecycleVerifier.assertResumeToStopSequence(FirstActivity.class, getLifecycleLog());
-            LifecycleVerifier.assertResumeToStopSequence(SideActivity.class, getLifecycleLog());
-            getLifecycleLog().clear();
+            assertResumeToStopSequence(FirstActivity.class, getTransitionLog());
+            assertResumeToStopSequence(SideActivity.class, getTransitionLog());
+            getTransitionLog().clear();
         } // keyguard hidden
 
         waitAndAssertActivityStates(state(firstActivity, ON_RESUME),
                 state(secondaryActivity, ON_RESUME));
-        LifecycleVerifier.assertRestartAndResumeSequence(FirstActivity.class, getLifecycleLog());
-        LifecycleVerifier.assertRestartAndResumeSequence(SideActivity.class, getLifecycleLog());
+        assertRestartAndResumeSequence(FirstActivity.class, getTransitionLog());
+        assertRestartAndResumeSequence(SideActivity.class, getTransitionLog());
     }
 
     @Test
@@ -129,7 +130,7 @@ public class ActivityLifecycleKeyguardTests extends ActivityLifecycleClientTestB
         final Activity firstActivity = launchActivityAndWait(FirstActivity.class);
 
         // Clear the log before launching to Pip
-        getLifecycleLog().clear();
+        getTransitionLog().clear();
 
         // Launch Pip-capable activity and enter Pip immediately
         new Launcher(PipActivity.class)
@@ -141,23 +142,23 @@ public class ActivityLifecycleKeyguardTests extends ActivityLifecycleClientTestB
         waitAndAssertActivityStates(state(firstActivity, ON_RESUME));
 
         // Show and hide lock screen
-        getLifecycleLog().clear();
+        getTransitionLog().clear();
         try (final LockScreenSession lockScreenSession = new LockScreenSession()) {
             lockScreenSession.setLockCredential().gotoKeyguard();
             waitAndAssertActivityStates(state(firstActivity, ON_STOP));
             waitAndAssertActivityStates(state(PipActivity.class, ON_STOP));
 
-            LifecycleVerifier.assertResumeToStopSequence(FirstActivity.class, getLifecycleLog());
-            LifecycleVerifier.assertSequence(PipActivity.class, getLifecycleLog(),
-                    Arrays.asList(ON_STOP), "keyguardShown");
-            getLifecycleLog().clear();
+            assertResumeToStopSequence(FirstActivity.class, getTransitionLog());
+            assertSequence(PipActivity.class, getTransitionLog(),
+                    Collections.singletonList(ON_STOP), "keyguardShown");
+            getTransitionLog().clear();
         } // keyguard hidden
 
         // Wait and assert lifecycle
         waitAndAssertActivityStates(state(firstActivity, ON_RESUME),
                 state(PipActivity.class, ON_PAUSE));
-        LifecycleVerifier.assertRestartAndResumeSequence(FirstActivity.class, getLifecycleLog());
-        LifecycleVerifier.assertSequence(PipActivity.class, getLifecycleLog(),
+        assertRestartAndResumeSequence(FirstActivity.class, getTransitionLog());
+        assertSequence(PipActivity.class, getTransitionLog(),
                 Arrays.asList(ON_RESTART, ON_START, ON_RESUME, ON_PAUSE), "keyguardGone");
     }
 }

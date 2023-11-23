@@ -17,6 +17,7 @@
 package android.server.wm.overlay;
 
 import android.content.ComponentName;
+import android.os.Bundle;
 import android.server.wm.component.ComponentsBase;
 
 
@@ -49,6 +50,33 @@ public class Components extends ComponentsBase {
 
     public interface ToastActivity {
         ComponentName COMPONENT = component("ToastActivity");
+    }
+
+    public interface TranslucentFloatingActivity {
+        String ACTION_FINISH =
+                "android.server.wm.overlay.TranslucentFloatingActivity.ACTION_FINISH";
+        String EXTRA_FADE_EXIT =
+                "android.server.wm.overlay.TranslucentFloatingActivity.ACTION_FINISH_FADE_EXIT";
+        ComponentName BASE_COMPONENT = component("TranslucentFloatingActivity");
+        static ComponentName getComponent(String packageName) {
+            return new ComponentName(packageName, BASE_COMPONENT.getClassName());
+        }
+    }
+
+    public interface TrampolineActivity {
+        ComponentName BASE_COMPONENT = component("TrampolineActivity");
+        String COMPONENTS_EXTRA = "components_extra";
+
+        static ComponentName getComponent(String packageName) {
+            return new ComponentName(packageName, BASE_COMPONENT.getClassName());
+        }
+
+        static Bundle buildTrampolineExtra(ComponentName... componentNames) {
+            Bundle trampolineTarget = new Bundle();
+            trampolineTarget.putParcelableArray(COMPONENTS_EXTRA, componentNames);
+            return trampolineTarget;
+        }
+
     }
 
     private static ComponentName component(String className) {

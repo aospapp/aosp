@@ -37,6 +37,7 @@ use android_system_keystore2::binder::{
 };
 use keystore2_selinux as selinux;
 use std::cmp::PartialEq;
+use std::ffi::CString;
 
 /// This is the main Keystore error type. It wraps the Keystore `ResponseCode` generated
 /// from AIDL in the `Rc` variant and Keymint `ErrorCode` in the Km variant.
@@ -66,9 +67,14 @@ impl Error {
         Error::Rc(ResponseCode::SYSTEM_ERROR)
     }
 
-    /// Short hand for `Error::Rc(ResponseCode::PERMISSION_DENIED`
+    /// Short hand for `Error::Rc(ResponseCode::PERMISSION_DENIED)`
     pub fn perm() -> Self {
         Error::Rc(ResponseCode::PERMISSION_DENIED)
+    }
+
+    /// Short hand for `Error::Rc(ResponseCode::OUT_OF_KEYS)`
+    pub fn out_of_keys() -> Self {
+        Error::Rc(ResponseCode::OUT_OF_KEYS)
     }
 }
 
@@ -184,6 +190,20 @@ where
     )
 }
 
+/// This function turns an anyhow error into an optional CString.
+/// This is especially useful to add a message string to a service specific error.
+/// If the formatted string was not convertible because it contained a nul byte,
+/// None is returned and a warning is logged.
+pub fn anyhow_error_to_cstring(e: &anyhow::Error) -> Option<CString> {
+    match CString::new(format!("{:?}", e)) {
+        Ok(msg) => Some(msg),
+        Err(_) => {
+            log::warn!("Cannot convert error message to CStr. It contained a nul byte.");
+            None
+        }
+    }
+}
+
 /// This function behaves similar to map_or_log_error, but it does not log the errors, instead
 /// it calls map_err on the error before mapping it to a binder result allowing callers to
 /// log or transform the error before mapping it.
@@ -200,7 +220,10 @@ where
         |e| {
             let e = map_err(e);
             let rc = get_error_code(&e);
-            Err(BinderStatus::new_service_specific_error(rc, None))
+            Err(BinderStatus::new_service_specific_error(
+                rc,
+                anyhow_error_to_cstring(&e).as_deref(),
+            ))
         },
         handle_ok,
     )

@@ -39,4 +39,8 @@ android_test {
     ],
     // Enforce public / test api only
     sdk_version: "test_current",
+    data: [
+        ":CtsProviderApp",
+    ],
+    per_testcase_directory: true,
 }

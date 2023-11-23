@@ -19,13 +19,16 @@ package {
 java_library {
     name: "permission-test-util-lib",
 
-    srcs: ["src/**/*.java"],
+    srcs: [
+        "src/**/*.java",
+        "src/**/*.kt",
+    ],
 
     static_libs: [
         "ub-uiautomator",
         "compatibility-device-util-axt",
-        "androidx.test.ext.junit-nodeps"
-   ],
+        "androidx.test.ext.junit-nodeps",
+    ],
 
     sdk_version: "test_current",
 }

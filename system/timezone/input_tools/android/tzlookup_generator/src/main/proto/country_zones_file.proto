@@ -35,8 +35,8 @@ message Country {
 
 message TimeZoneMapping {
     required string id = 1;
-    optional string aliasId = 2;
-    required string utcOffset = 3;
-    optional bool shownInPicker = 4 [default = true];
-    optional uint32 priority = 5 [default = 1];
+    required string utcOffset = 2;
+    optional bool shownInPicker = 3 [default = true];
+    optional uint32 priority = 4 [default = 1];
+    repeated string alternativeIds = 5;
 }

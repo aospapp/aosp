@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2021 NXP
+ * Copyright (C) 2010-2021 NXP
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,15 +24,8 @@
 #include <phDnldNfc_Cmd.h>
 #include <phDnldNfc_Status.h>
 
-#define PHDNLDNFC_CMDRESP_MAX_BUFF_SIZE                                        \
-  (0x22AU) /* DL Host Frame Buffer Size for all CMD/RSP                        \
-                except pipelined WRITE                                         \
-                Host can be configured to support both 256(0x100) & 554(0x22A) \
-                frame size*/
-#if (PHDNLDNFC_CMDRESP_MAX_BUFF_SIZE > PHNFC_I2C_FRAGMENT_SIZE)
-#undef PHDNLDNFC_CMDRESP_MAX_BUFF_SIZE
-#define PHDNLDNFC_CMDRESP_MAX_BUFF_SIZE (PHNFC_I2C_FRAGMENT_SIZE)
-#endif
+#define PHDNLDNFC_CMDRESP_MAX_BUFF_SIZE_SNXXX (0x22AU)
+#define PHDNLDNFC_CMDRESP_MAX_BUFF_SIZE_PN557 (0x100U)
 
 /* DL Host Short Frame Buffer Size for pipelined WRITE RSP */
 #define PHDNLDNFC_WRITERSP_BUFF_SIZE (0x08U)
@@ -55,11 +48,6 @@
 
 #define PHDNLDNFC_MAX_LOG_SIZE \
   ((PHDNLDNFC_EEPROM_LOG_END_ADDR - PHDNLDNFC_EEPROM_LOG_START_ADDR) + 1)
-
-/* DL Max Payload Size */
-#define PHDNLDNFC_CMDRESP_MAX_PLD_SIZE \
-  ((PHDNLDNFC_CMDRESP_MAX_BUFF_SIZE) - \
-   (PHDNLDNFC_FRAME_HDR_LEN + PHDNLDNFC_FRAME_CRC_LEN))
 
 /*
  * Enum definition contains Download Event Types
@@ -124,6 +112,7 @@ typedef enum phDnldNfc_FwFormat {
   FW_FORMAT_UNKNOWN = 0x00,
   FW_FORMAT_SO = 0x01,
   FW_FORMAT_BIN = 0x02,
+  FW_FORMAT_ARRAY = 0x03,
 } phDnldNfc_FwFormat_t;
 
 /*
@@ -131,9 +120,9 @@ typedef enum phDnldNfc_FwFormat {
  */
 typedef struct phDnldNfc_FrameInfo {
   uint16_t dwSendlength; /* length of the payload  */
-  uint8_t
-      aFrameBuff[PHDNLDNFC_CMDRESP_MAX_BUFF_SIZE]; /* Buffer to store command
-                                                      that needs to be sent*/
+  uint8_t aFrameBuff[PHDNLDNFC_CMDRESP_MAX_BUFF_SIZE_SNXXX]; /* Buffer to store
+                                                          command that needs to
+                                                          be sent*/
 } phDnldNfc_FrameInfo_t,
     *pphDnldNfc_FrameInfo_t; /* pointer to #phDnldNfc_FrameInfo_t */
 
@@ -185,6 +174,7 @@ typedef struct phDnldNfc_DlContext {
       nxp_nfc_fwp; /* Pointer to firmware version from get_version cmd */
   uint32_t nxp_nfc_fwp_len; /* Length of firmware image length */
   uint32_t nxp_nfc_fw_len;  /* Firmware image length */
+  uint16_t nxp_i2c_fragment_len;
   bool_t bResendLastFrame;  /* Flag to resend the last write frame after MEM_BSY
                                status */
   phDnldNfc_Transition_t

@@ -16,6 +16,8 @@
 
 package android.devicepolicy.cts;
 
+import static android.os.UserManager.DISALLOW_MODIFY_ACCOUNTS;
+
 import static com.android.queryable.queries.IntentFilterQuery.intentFilter;
 import static com.android.queryable.queries.ServiceQuery.service;
 
@@ -25,7 +27,6 @@ import static org.junit.Assert.assertThrows;
 
 import android.accounts.Account;
 import android.accounts.AccountManager;
-import android.accounts.AuthenticatorException;
 import android.accounts.OperationCanceledException;
 import android.app.admin.RemoteDevicePolicyManager;
 import android.content.ComponentName;
@@ -38,23 +39,18 @@ import com.android.bedstead.harrier.DeviceState;
 import com.android.bedstead.harrier.annotations.Postsubmit;
 import com.android.bedstead.harrier.annotations.enterprise.CanSetPolicyTest;
 import com.android.bedstead.harrier.annotations.enterprise.CannotSetPolicyTest;
-import com.android.bedstead.harrier.annotations.enterprise.PositivePolicyTest;
+import com.android.bedstead.harrier.annotations.enterprise.PolicyAppliesTest;
 import com.android.bedstead.harrier.policies.AccountManagement;
 import com.android.bedstead.nene.TestApis;
 import com.android.bedstead.nene.utils.Poll;
 import com.android.bedstead.remotedpc.RemotePolicyManager;
 import com.android.bedstead.testapp.TestApp;
 import com.android.bedstead.testapp.TestAppInstance;
-import com.android.bedstead.testapp.TestAppProvider;
 
 import org.junit.Before;
 import org.junit.ClassRule;
-import org.junit.Ignore;
 import org.junit.Rule;
-import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import java.io.IOException;
 
 @RunWith(BedsteadJUnit4.class)
 public final class AccountManagementTest {
@@ -63,8 +59,8 @@ public final class AccountManagementTest {
     public static final DeviceState sDeviceState = new DeviceState();
 
     private static final Context sContext = TestApis.context().instrumentedContext();
-    private static final TestAppProvider sTestAppProvider = new TestAppProvider();
-    private static final TestApp sAccountManagementApp = sTestAppProvider
+
+    private static final TestApp sAccountManagementApp = sDeviceState.testApps()
             .query()
             // TODO(b/198590265) Filter for the correct account type.
             .whereServices().contains(
@@ -91,14 +87,11 @@ public final class AccountManagementTest {
         mAccountManager = sContext.getSystemService(AccountManager.class);
     }
 
-    @Test
-    @Postsubmit(reason = "new test")
-    @PositivePolicyTest(policy = AccountManagement.class)
+    @PolicyAppliesTest(policy = AccountManagement.class)
     public void getAccountTypesWithManagementDisabled_emptyByDefault() {
         assertThat(mDpm.getAccountTypesWithManagementDisabled()).isEmpty();
     }
 
-    @Test
     @Postsubmit(reason = "new test")
     // We don't include non device admin states as passing a null admin is a NullPointerException
     @CannotSetPolicyTest(policy = AccountManagement.class, includeNonDeviceAdminStates = false)
@@ -108,8 +101,6 @@ public final class AccountManagementTest {
                         mAdmin, FAKE_ACCOUNT_TYPE, /* disabled= */ false));
     }
 
-    @Test
-    @Postsubmit(reason = "new test")
     @CanSetPolicyTest(policy = AccountManagement.class, singleTestOnly = true)
     public void setAccountTypesWithManagementDisabled_nullAdmin_throwsException() {
         assertThrows(NullPointerException.class, () ->
@@ -117,9 +108,7 @@ public final class AccountManagementTest {
                         /* admin= */ null, FAKE_ACCOUNT_TYPE, /* disabled= */ false));
     }
 
-    @Test
-    @Postsubmit(reason = "new test")
-    @PositivePolicyTest(policy = AccountManagement.class)
+    @PolicyAppliesTest(policy = AccountManagement.class)
     public void setAccountManagementDisabled_disableAccountType_works() {
         try {
             mDpm.setAccountManagementDisabled(mAdmin, FAKE_ACCOUNT_TYPE, /* disabled= */ true);
@@ -132,9 +121,7 @@ public final class AccountManagementTest {
         }
     }
 
-    @Test
-    @Postsubmit(reason = "new test")
-    @PositivePolicyTest(policy = AccountManagement.class)
+    @PolicyAppliesTest(policy = AccountManagement.class)
     public void setAccountManagementDisabled_addSameAccountTypeTwice_presentOnlyOnce() {
         try {
             mDpm.setAccountManagementDisabled(mAdmin, FAKE_ACCOUNT_TYPE, /* disabled= */ true);
@@ -148,8 +135,6 @@ public final class AccountManagementTest {
         }
     }
 
-    @Test
-    @Postsubmit(reason = "new test")
     @CanSetPolicyTest(policy = AccountManagement.class)
     public void setAccountManagementDisabled_disableThenEnable_noDisabledAccountTypes() {
         mDpm.setAccountManagementDisabled(mAdmin, FAKE_ACCOUNT_TYPE, /* disabled= */ true);
@@ -158,78 +143,59 @@ public final class AccountManagementTest {
         assertThat(mDpm.getAccountTypesWithManagementDisabled()).isEmpty();
     }
 
-    @Ignore("b/197491427")
-    @Test
     @Postsubmit(reason = "new test")
     @CanSetPolicyTest(policy = AccountManagement.class)
     public void addAccount_fromDpcWithAccountManagementDisabled_accountAdded()
-            throws OperationCanceledException, AuthenticatorException, IOException {
+            throws Exception {
         try (TestAppInstance accountAuthenticatorApp = sAccountManagementApp.install()) {
             mDpm.setAccountManagementDisabled(mAdmin, EXISTING_ACCOUNT_TYPE, /* disabled= */ true);
 
             // Management is disabled, but the DO/PO is still allowed to use the APIs
-            // TODO(b/197491427): AccountManager support in TestApp
-            // Do the following steps on the TestApp side:
-            // Bundle result = addAccountWithType(EXISTING_ACCOUNT_TYPE);
+            Bundle result = addAccountWithType(sDeviceState.dpc(), EXISTING_ACCOUNT_TYPE);
 
-            // assertThat(result.getString(AccountManager.KEY_ACCOUNT_TYPE))
-            //        .isEqualTo(EXISTING_ACCOUNT_TYPE);
+            assertThat(result.getString(AccountManager.KEY_ACCOUNT_TYPE))
+                    .isEqualTo(EXISTING_ACCOUNT_TYPE);
         } finally {
             mDpm.setAccountManagementDisabled(mAdmin, EXISTING_ACCOUNT_TYPE, /* disabled= */ false);
-            // TODO(b/197491427): AccountManager support in TestApp
-            // removeAccount(ACCOUNT_WITH_EXISTING_TYPE);
         }
     }
 
-    @Ignore("b/197491427")
-    @Test
     @Postsubmit(reason = "new test")
     @CanSetPolicyTest(policy = AccountManagement.class)
     public void addAccount_fromDpcWithDisallowModifyAccountsRestriction_accountAdded()
-            throws OperationCanceledException, AuthenticatorException, IOException {
+            throws Exception {
         try (TestAppInstance accountAuthenticatorApp = sAccountManagementApp.install()) {
-            mDpm.addUserRestriction(mAdmin, UserManager.DISALLOW_MODIFY_ACCOUNTS);
+            mDpm.addUserRestriction(mAdmin, DISALLOW_MODIFY_ACCOUNTS);
 
             // Management is disabled, but the DO/PO is still allowed to use the APIs
-            // TODO(b/197491427): AccountManager support in TestApp
-            // Do the following steps on the TestApp side:
-            // Bundle result = addAccountWithType(EXISTING_ACCOUNT_TYPE);
+            Bundle result = addAccountWithType(sDeviceState.dpc(), EXISTING_ACCOUNT_TYPE);
 
-            //assertThat(result.getString(AccountManager.KEY_ACCOUNT_TYPE))
-            //        .isEqualTo(EXISTING_ACCOUNT_TYPE);
+            assertThat(result.getString(AccountManager.KEY_ACCOUNT_TYPE))
+                    .isEqualTo(EXISTING_ACCOUNT_TYPE);
         } finally {
-            mDpm.clearUserRestriction(mAdmin, UserManager.DISALLOW_MODIFY_ACCOUNTS);
-            // TODO(b/197491427): AccountManager support in TestApp
-            // removeAccount(ACCOUNT_WITH_EXISTING_TYPE);
+            mDpm.clearUserRestriction(mAdmin, DISALLOW_MODIFY_ACCOUNTS);
         }
     }
 
-    @Ignore("b/197491427")
-    @Test
     @Postsubmit(reason = "new test")
     @CanSetPolicyTest(policy = AccountManagement.class)
     public void removeAccount_fromDpcWithDisallowModifyAccountsRestriction_accountRemoved()
-            throws OperationCanceledException, AuthenticatorException, IOException {
+            throws Exception {
         try (TestAppInstance accountAuthenticatorApp = sAccountManagementApp.install()) {
             mDpm.addUserRestriction(mAdmin, UserManager.DISALLOW_MODIFY_ACCOUNTS);
 
             // Management is disabled, but the DO/PO is still allowed to use the APIs
-            // TODO(b/197491427): AccountManager support in TestApp
-            // Do the following steps on the TestApp side:
-            // addAccountWithType(EXISTING_ACCOUNT_TYPE);
-            // Bundle result = removeAccount(ACCOUNT_WITH_EXISTING_TYPE);
+            addAccountWithType(sDeviceState.dpc(), EXISTING_ACCOUNT_TYPE);
+            Bundle result = removeAccount(sDeviceState.dpc(), ACCOUNT_WITH_EXISTING_TYPE);
 
-            // assertThat(result.getBoolean(AccountManager.KEY_BOOLEAN_RESULT)).isTrue();
+            assertThat(result.getBoolean(AccountManager.KEY_BOOLEAN_RESULT)).isTrue();
         } finally {
             mDpm.clearUserRestriction(mAdmin, UserManager.DISALLOW_MODIFY_ACCOUNTS);
         }
     }
 
-    @Test
-    @Postsubmit(reason = "new test with sleep")
     @CanSetPolicyTest(policy = AccountManagement.class)
-    public void addAccount_withDisallowModifyAccountsRestriction_throwsException()
-            throws OperationCanceledException, AuthenticatorException, IOException {
+    public void addAccount_withDisallowModifyAccountsRestriction_throwsException() {
         try (TestAppInstance accountAuthenticatorApp = sAccountManagementApp.install()) {
             mDpm.addUserRestriction(mAdmin, UserManager.DISALLOW_MODIFY_ACCOUNTS);
 
@@ -240,26 +206,22 @@ public final class AccountManagementTest {
         }
     }
 
-    @Test
-    @Postsubmit(reason = "new test with sleep")
+    @Postsubmit(reason = "new test")
     @CanSetPolicyTest(policy = AccountManagement.class)
     public void removeAccount_withDisallowModifyAccountsRestriction_throwsException()
-            throws OperationCanceledException, AuthenticatorException, IOException,
-            InterruptedException {
+            throws Exception {
         try (TestAppInstance accountAuthenticatorApp = sAccountManagementApp.install()) {
-            addAccountWithType(EXISTING_ACCOUNT_TYPE);
+            addAccountFromInstrumentedAppWithType(EXISTING_ACCOUNT_TYPE);
             mDpm.addUserRestriction(mAdmin, UserManager.DISALLOW_MODIFY_ACCOUNTS);
 
             assertThrows(OperationCanceledException.class, () ->
-                    removeAccount(ACCOUNT_WITH_EXISTING_TYPE));
+                    removeAccountFromInstrumentedApp(ACCOUNT_WITH_EXISTING_TYPE));
         } finally {
             // Account is automatically removed when the test app is removed
             mDpm.clearUserRestriction(mAdmin, UserManager.DISALLOW_MODIFY_ACCOUNTS);
         }
     }
 
-    @Test
-    @Postsubmit(reason = "new test with sleep")
     @CanSetPolicyTest(policy = AccountManagement.class)
     public void addAccount_withAccountManagementDisabled_throwsException() {
         try (TestAppInstance accountAuthenticatorApp = sAccountManagementApp.install()) {
@@ -272,18 +234,16 @@ public final class AccountManagementTest {
         }
     }
 
-    @Test
-    @Postsubmit(reason = "new test with sleep")
+    @Postsubmit(reason = "new test")
     @CanSetPolicyTest(policy = AccountManagement.class)
     public void removeAccount_withAccountManagementDisabled_throwsException()
-            throws OperationCanceledException, AuthenticatorException, IOException,
-            InterruptedException {
+            throws Exception {
         try (TestAppInstance accountAuthenticatorApp = sAccountManagementApp.install()) {
-            addAccountWithType(EXISTING_ACCOUNT_TYPE);
+            addAccountFromInstrumentedAppWithType(EXISTING_ACCOUNT_TYPE);
             mDpm.setAccountManagementDisabled(mAdmin, EXISTING_ACCOUNT_TYPE, /* disabled= */ true);
 
             assertThrows(OperationCanceledException.class, () ->
-                    removeAccount(ACCOUNT_WITH_EXISTING_TYPE));
+                    removeAccountFromInstrumentedApp(ACCOUNT_WITH_EXISTING_TYPE));
         } finally {
             // Account is automatically removed when the test app is removed
             mDpm.setAccountManagementDisabled(mAdmin, EXISTING_ACCOUNT_TYPE, /* disabled= */ false);
@@ -293,9 +253,20 @@ public final class AccountManagementTest {
     /**
      * Blocks until an account of {@code type} is added.
      */
-    // TODO(b/199077745): Remove sleep once AccountManager race condition is fixed
-    private Bundle addAccountWithType(String type) {
+    // TODO(b/199077745): Remove poll once AccountManager race condition is fixed
+    private Bundle addAccountFromInstrumentedAppWithType(String type) {
         return Poll.forValue("created account bundle", () -> addAccountWithTypeOnce(type))
+                .toNotBeNull()
+                .errorOnFail()
+                .await();
+    }
+
+    /**
+     * Blocks until an account of {@code type} is added.
+     */
+    // TODO(b/199077745): Remove poll once AccountManager race condition is fixed
+    private Bundle addAccountWithType(TestAppInstance testApp, String type) {
+        return Poll.forValue("created account bundle", () -> addAccountWithTypeOnce(testApp, type))
                 .toNotBeNull()
                 .errorOnFail()
                 .await();
@@ -312,14 +283,37 @@ public final class AccountManagementTest {
                 /* handler= */ null).getResult();
     }
 
+    private Bundle addAccountWithTypeOnce(TestAppInstance testApp, String type)
+            throws Exception {
+        return testApp.accountManager().addAccount(
+                type,
+                /* authTokenType= */ null,
+                /* requiredFeatures= */ null,
+                /* addAccountOptions= */ null,
+                /* activity= */ null,
+                /* callback= */ null,
+                /* handler= */ null).getResult();
+    }
+
     /**
      * Blocks until {@code account} is removed.
      */
-    // TODO(b/199077745): Remove sleep once AccountManager race condition is fixed
-    private Bundle removeAccount(Account account)
-            throws OperationCanceledException, IOException,
-            InterruptedException, AuthenticatorException {
+    private Bundle removeAccountFromInstrumentedApp(Account account)
+            throws Exception {
         return mAccountManager.removeAccount(
+                account,
+                /* activity= */ null,
+                /* callback= */  null,
+                /* handler= */ null)
+                .getResult();
+    }
+
+    /**
+     * Blocks until {@code account} is removed.
+     */
+    private Bundle removeAccount(TestAppInstance testApp, Account account)
+            throws Exception {
+        return testApp.accountManager().removeAccount(
                 account,
                 /* activity= */ null,
                 /* callback= */  null,

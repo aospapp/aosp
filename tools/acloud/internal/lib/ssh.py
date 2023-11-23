@@ -15,6 +15,7 @@
 from __future__ import print_function
 import logging
 
+import re
 import subprocess
 import sys
 import threading
@@ -25,12 +26,18 @@ from acloud.internal.lib import utils
 
 logger = logging.getLogger(__name__)
 
-_SSH_CMD = ("-i %(rsa_key_file)s "
-            "-q -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no")
+_SSH_CMD = ("-i %(rsa_key_file)s -o LogLevel=ERROR "
+            "-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no")
 _SSH_IDENTITY = "-l %(login_user)s %(ip_addr)s"
 _SSH_CMD_MAX_RETRY = 5
 _SSH_CMD_RETRY_SLEEP = 3
 _CONNECTION_TIMEOUT = 10
+_MAX_REPORTED_ERROR_LINES = 10
+_ERROR_MSG_RE = re.compile(r".*]\s*\"(?:message|response)\"\s:\s\"(?P<content>.*)\"")
+_ERROR_MSG_TO_QUOTE_RE = r"(\\u2019)|(\\u2018)"
+_ERROR_MSG_DEL_STYLE_RE = r"(<style.+\/style>)"
+_ERROR_MSG_DEL_TAGS_RE = (r"(<[\/]*(a|b|p|span|ins|code|title)>)|"
+                          r"(<(a|span|meta|html|!)[^>]*>)")
 
 
 def _SshCallWait(cmd, timeout=None):
@@ -102,7 +109,8 @@ def _SshLogOutput(cmd, timeout=None, show_output=False):
 
     Raises:
         errors.DeviceConnectionError: Failed to connect to the GCE instance.
-        subprocess.CalledProc: The process exited with an error on the instance.
+        subprocess.CalledProcessError: The process exited with an error on the instance.
+        errors.LaunchCVDFail: Happened on launch_cvd with specific pattern of error message.
     """
     # Use "exec" to let cmd to inherit the shell process, instead of having the
     # shell launch a child process which does not get killed.
@@ -126,9 +134,54 @@ def _SshLogOutput(cmd, timeout=None, show_output=False):
         timer.cancel()
     if process.returncode == 255:
         raise errors.DeviceConnectionError(
-            "Failed to send command to instance (%s)" % cmd)
-    elif process.returncode != 0:
+            "Failed to send command to instance (%(ssh_cmd)s)\n"
+            "Error message: %(error_message)s" % {
+                "ssh_cmd": cmd,
+                "error_message": _GetErrorMessage(stdout)}
+        )
+    if process.returncode != 0:
+        if constants.ERROR_MSG_VNC_NOT_SUPPORT in stdout:
+            raise errors.LaunchCVDFail(constants.ERROR_MSG_VNC_NOT_SUPPORT)
+        if constants.ERROR_MSG_WEBRTC_NOT_SUPPORT in stdout:
+            raise errors.LaunchCVDFail(constants.ERROR_MSG_WEBRTC_NOT_SUPPORT)
         raise subprocess.CalledProcessError(process.returncode, cmd)
+
+
+def _GetErrorMessage(stdout):
+    """Get error message.
+
+    Fetch the content of "message" or "response" from the ssh output and filter
+    unused content then log into report. Once the two fields didn't match, to
+    log last _MAX_REPORTED_ERROR_LINES lines into report.
+
+    Args:
+        stdout: String of the ssh output.
+
+    Returns:
+        String of the formatted ssh output.
+    """
+    matches = _ERROR_MSG_RE.finditer(stdout)
+    for match in matches:
+        return _FilterUnusedContent(match.group("content"))
+    split_stdout = stdout.splitlines()[-_MAX_REPORTED_ERROR_LINES::]
+    return "\n".join(split_stdout)
+
+def _FilterUnusedContent(content):
+    """Filter unused content from html.
+
+    Remove the html tags and style from content.
+
+    Args:
+        content: String, html content.
+
+    Returns:
+        String without html style or tags.
+    """
+    content = re.sub(_ERROR_MSG_TO_QUOTE_RE, "'", content)
+    content = re.sub(_ERROR_MSG_DEL_STYLE_RE, "", content, flags=re.DOTALL)
+    content = re.sub(_ERROR_MSG_DEL_TAGS_RE, "", content)
+    content = re.sub(r"\\n", " ", content)
+    return content
 
 
 def ShellCmdWithRetry(cmd, timeout=None, show_output=False,
@@ -147,11 +200,14 @@ def ShellCmdWithRetry(cmd, timeout=None, show_output=False,
         retry: Integer, the retry times.
 
     Raises:
-        errors.DeviceConnectionError: For any non-zero return code of
-                                      remote_cmd.
+        errors.DeviceConnectionError: For any non-zero return code of remote_cmd.
+        errors.LaunchCVDFail: Happened on launch_cvd with specific pattern of error message.
+        subprocess.CalledProcessError: The process exited with an error on the instance.
     """
     utils.RetryExceptionType(
-        exception_types=(errors.DeviceConnectionError, subprocess.CalledProcessError),
+        exception_types=(errors.DeviceConnectionError,
+                         errors.LaunchCVDFail,
+                         subprocess.CalledProcessError),
         max_retries=retry,
         functor=_SshLogOutput,
         sleep_multiplier=_SSH_CMD_RETRY_SLEEP,
@@ -161,7 +217,7 @@ def ShellCmdWithRetry(cmd, timeout=None, show_output=False,
         show_output=show_output)
 
 
-class IP(object):
+class IP():
     """ A class that control the IP address."""
     def __init__(self, external=None, internal=None, ip=None):
         """Init for IP.
@@ -175,7 +231,7 @@ class IP(object):
         self.internal = internal or ip
 
 
-class Ssh(object):
+class Ssh():
     """A class that control the remote instance via the IP address.
 
     Attributes:
@@ -295,13 +351,20 @@ class Ssh(object):
         ssh_timeout = timeout or constants.DEFAULT_SSH_TIMEOUT
         sleep_multiplier = ssh_timeout / sum(range(max_retry + 1))
         logger.debug("Retry with interval time: %s secs", str(sleep_multiplier))
-        utils.RetryExceptionType(
-            exception_types=errors.DeviceConnectionError,
-            max_retries=max_retry,
-            functor=self.CheckSshConnection,
-            sleep_multiplier=sleep_multiplier,
-            retry_backoff_factor=utils.DEFAULT_RETRY_BACKOFF_FACTOR,
-            timeout=_CONNECTION_TIMEOUT)
+        try:
+            utils.RetryExceptionType(
+                exception_types=errors.DeviceConnectionError,
+                max_retries=max_retry,
+                functor=self.CheckSshConnection,
+                sleep_multiplier=sleep_multiplier,
+                retry_backoff_factor=utils.DEFAULT_RETRY_BACKOFF_FACTOR,
+                timeout=_CONNECTION_TIMEOUT)
+        except errors.DeviceConnectionError as ssh_timeout:
+            ssh_cmd = "%s uptime" % self.GetBaseCmd(constants.SSH_BIN)
+            _SshLogOutput(ssh_cmd, timeout=_CONNECTION_TIMEOUT)
+            raise errors.DeviceConnectionError(
+                "Ssh connect timeout.\nYou can try the ssh connect command to "
+                "get detail information: '%s'" % ssh_cmd) from ssh_timeout
 
     def ScpPushFile(self, src_file, dst_file):
         """Scp push file to remote.
@@ -313,6 +376,18 @@ class Ssh(object):
         scp_command = [self.GetBaseCmd(constants.SCP_BIN)]
         scp_command.append(src_file)
         scp_command.append("%s@%s:%s" %(self._user, self._ip, dst_file))
+        ShellCmdWithRetry(" ".join(scp_command))
+
+    def ScpPushFiles(self, src_files, dst_dir):
+        """Push files to one specific folder of remote instance via scp command.
+
+        Args:
+            src_files: The source file path list to be pushed.
+            dst_dir: The destination directory the files to be pushed to.
+        """
+        scp_command = [self.GetBaseCmd(constants.SCP_BIN)]
+        scp_command.extend(src_files)
+        scp_command.append("%s@%s:%s" % (self._user, self._ip, dst_dir))
         ShellCmdWithRetry(" ".join(scp_command))
 
     def ScpPullFile(self, src_file, dst_file):

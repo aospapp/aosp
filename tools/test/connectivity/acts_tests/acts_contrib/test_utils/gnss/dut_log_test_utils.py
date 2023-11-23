@@ -18,12 +18,14 @@ import os
 import time
 import errno
 
+
 DEVICE_CFG_FOLDER = "/data/vendor/radio/diag_logs/cfg/"
 DEVICE_DIAGMDLOG_FOLDER = "/data/vendor/radio/diag_logs/logs/"
 MDLOG_SETTLING_TIME = 2
 MDLOG_PROCESS_KILL_TIME = 3
 NOHUP_CMD = "nohup diag_mdlog -f {} -o {} -s 100 -c &> /dev/null &"
 DEVICE_GPSLOG_FOLDER = '/sdcard/Android/data/com.android.gpstool/files/'
+DEVICE_PIXEL_LOGGER_FOLDER = '/sdcard/Android/data/com.android.pixellogger/files/logs/gps/'
 
 
 def find_device_qxdm_log_mask(ad, maskfile):
@@ -169,9 +171,30 @@ def get_gpstool_logs(ad, local_logpath, keep_logs=True):
     """
 
     gps_log_path = os.path.join(local_logpath, 'GPSLogs')
+    os.makedirs(gps_log_path, exist_ok=True)
     ad.adb.pull("{} {}".format(DEVICE_GPSLOG_FOLDER, gps_log_path))
     ad.log.debug("gpstool logs are pulled from device")
 
     if not keep_logs:
-        ad.adb.shell("rm -rf " + DEVICE_GPSLOG_FOLDER + "*.*")
+        gpstool_log_path = os.path.join(DEVICE_GPSLOG_FOLDER, "*")
+        ad.adb.shell("rm -rf " + gpstool_log_path)
         ad.log.debug("gpstool logs are deleted from device")
+
+def get_pixellogger_bcm_log(ad, local_logpath, keep_logs=True):
+    """
+
+    Pulls BCM Logs from android device
+
+       Args:
+           ad: the target android device, AndroidDevice object
+           local_logpath: Local file path to pull the gpstool logs
+           keep_logs: False, delete log files from the gpstool log path
+    """
+
+    ad.adb.pull("{} {}".format(DEVICE_PIXEL_LOGGER_FOLDER, local_logpath))
+    ad.log.debug("pixellogger logs are pulled from device")
+
+    if not keep_logs:
+        bcm_log_path = os.path.join(DEVICE_PIXEL_LOGGER_FOLDER, "*")
+        ad.adb.shell("rm -rf " + bcm_log_path)
+        ad.log.debug("pixellogger logs are deleted from device")

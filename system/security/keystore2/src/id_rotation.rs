@@ -27,7 +27,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 const ID_ROTATION_PERIOD: Duration = Duration::from_secs(30 * 24 * 60 * 60); // Thirty days.
-static TIMESTAMP_FILE_NAME: &str = &"timestamp";
+static TIMESTAMP_FILE_NAME: &str = "timestamp";
 
 /// The IdRotationState stores the path to the timestamp file for deferred usage. The data
 /// partition is usually not available when Keystore 2.0 starts up. So this object is created
@@ -83,7 +83,7 @@ mod test {
     fn test_had_factory_reset_since_id_rotation() -> Result<()> {
         let temp_dir = TempDir::new("test_had_factory_reset_since_id_rotation_")
             .expect("Failed to create temp dir.");
-        let id_rotation_state = IdRotationState::new(&temp_dir.path());
+        let id_rotation_state = IdRotationState::new(temp_dir.path());
 
         let mut temp_file_path = temp_dir.path().to_owned();
         temp_file_path.push(TIMESTAMP_FILE_NAME);

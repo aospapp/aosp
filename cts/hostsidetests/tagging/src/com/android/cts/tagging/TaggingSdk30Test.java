@@ -21,6 +21,8 @@ import com.google.common.collect.ImmutableSet;
 public class TaggingSdk30Test extends TaggingBaseTest {
     protected static final String TEST_APK = "CtsHostsideTaggingSdk30App.apk";
     protected static final String TEST_PKG = "android.cts.tagging.sdk30";
+    protected static final String TEST_APK2 = "CtsHostsideTaggingSdk30MemtagApp.apk";
+    protected static final String TEST_PKG2 = "android.cts.tagging.sdk30memtag";
     private static final String TEST_RUNNER = "androidx.test.runner.AndroidJUnitRunner";
 
     private static final long NATIVE_MEMTAG_ASYNC_CHANGE_ID = 135772972;
@@ -30,11 +32,13 @@ public class TaggingSdk30Test extends TaggingBaseTest {
     protected void setUp() throws Exception {
         super.setUp();
         installPackage(TEST_APK, true);
+        installPackage(TEST_APK2, true);
     }
 
     @Override
     protected void tearDown() throws Exception {
         uninstallPackage(TEST_PKG, true);
+        uninstallPackage(TEST_PKG2, true);
         super.tearDown();
     }
 
@@ -157,6 +161,42 @@ public class TaggingSdk30Test extends TaggingBaseTest {
         // Note, only Scudo supports heap zero initialization. This test is
         // effectively a no-op on jemalloc devices.
         runDeviceCompatTest(TEST_PKG, ".TaggingTest", "testHeapZeroInitMemtagAsyncActivity",
+                /*enabledChanges*/ ImmutableSet.of(),
+                /*disabledChanges*/ ImmutableSet.of());
+    }
+
+    public void testExportedMemtagSyncService() throws Exception {
+        if (!deviceSupportsMemoryTagging) {
+            return;
+        }
+        runDeviceCompatTest(TEST_PKG, ".TaggingTest", "testExportedMemtagSyncService",
+                /*enabledChanges*/ ImmutableSet.of(),
+                /*disabledChanges*/ ImmutableSet.of());
+    }
+
+    public void testExportedMemtagOffService() throws Exception {
+        if (!deviceSupportsMemoryTagging) {
+            return;
+        }
+        runDeviceCompatTest(TEST_PKG, ".TaggingTest", "testExportedMemtagOffService",
+                /*enabledChanges*/ ImmutableSet.of(),
+                /*disabledChanges*/ ImmutableSet.of());
+    }
+
+    public void testExportedMemtagSyncAppZygoteService() throws Exception {
+        if (!deviceSupportsMemoryTagging) {
+            return;
+        }
+        runDeviceCompatTest(TEST_PKG, ".TaggingTest", "testExportedMemtagSyncAppZygoteService",
+                /*enabledChanges*/ ImmutableSet.of(),
+                /*disabledChanges*/ ImmutableSet.of());
+    }
+
+    public void testExportedMemtagOffAppZygoteService() throws Exception {
+        if (!deviceSupportsMemoryTagging) {
+            return;
+        }
+        runDeviceCompatTest(TEST_PKG, ".TaggingTest", "testExportedMemtagOffAppZygoteService",
                 /*enabledChanges*/ ImmutableSet.of(),
                 /*disabledChanges*/ ImmutableSet.of());
     }

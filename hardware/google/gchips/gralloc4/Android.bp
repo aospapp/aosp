@@ -15,6 +15,13 @@
  * limitations under the License.
  */
 
+soong_namespace {
+	imports: [
+		"hardware/google/graphics/common",
+		"hardware/google/gchips",
+	]
+}
+
 package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
@@ -61,9 +68,9 @@ arm_gralloc_cc_defaults {
 	vendor: true,
 	proprietary: true,
 	cflags: [
-		"-ldl",
 		"-Wundef",
 		"-Werror",
+		"-Wthread-safety",
 		"-DGRALLOC_LIBRARY_BUILD=1",
 		"-DDISABLE_FRAMEBUFFER_HAL=1",
 		"-DGRALLOC_USE_LEGACY_CALCS=0",

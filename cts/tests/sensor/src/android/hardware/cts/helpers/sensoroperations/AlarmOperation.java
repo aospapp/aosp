@@ -85,7 +85,8 @@ public class AlarmOperation extends SensorOperation {
                 acquireWakeLock();
             }
         };
-        mContext.registerReceiver(receiver, intentFilter);
+        mContext.registerReceiver(receiver, intentFilter,
+                Context.RECEIVER_NOT_EXPORTED);
 
         AlarmManager am = (AlarmManager) mContext.getSystemService(Context.ALARM_SERVICE);
         long wakeupTimeMs = (System.currentTimeMillis()

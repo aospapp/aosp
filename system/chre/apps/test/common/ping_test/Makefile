@@ -28,9 +28,7 @@ NANOPB_EXTENSION = nanopb
 
 NANOPB_SRCS += $(NANOAPP_PATH)/../proto/ping_test.proto
 NANOPB_SRCS += $(NANOAPP_PATH)/../proto/chre_test_common.proto
-NANOPB_PROTO_PATH = $(NANOAPP_PATH)/../proto
-NANOPB_INCLUDES = $(NANOPB_PROTO_PATH)
-NANOPB_FLAGS += --proto_path=$(NANOPB_PROTO_PATH)
+NANOPB_INCLUDES = $(NANOAPP_PATH)/../proto
 
 # Source Code ##################################################################
 

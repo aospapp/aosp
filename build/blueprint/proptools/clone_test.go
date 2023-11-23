@@ -84,6 +84,29 @@ var clonePropertiesTestCases = []struct {
 		},
 	},
 	{
+		// Clone map
+		in: &struct{ S map[string]string }{
+			S: map[string]string{"key": "string1"},
+		},
+		out: &struct{ S map[string]string }{
+			S: map[string]string{"key": "string1"},
+		},
+	},
+	{
+		// Clone empty map
+		in: &struct{ S map[string]string }{
+			S: map[string]string{},
+		},
+		out: &struct{ S map[string]string }{
+			S: map[string]string{},
+		},
+	},
+	{
+		// Clone nil map
+		in:  &struct{ S map[string]string }{},
+		out: &struct{ S map[string]string }{},
+	},
+	{
 		// Clone pointer to bool
 		in: &struct{ B1, B2 *bool }{
 			B1: BoolPtr(true),
@@ -284,6 +307,12 @@ func TestCloneProperties(t *testing.T) {
 			t.Errorf("incorrect output")
 			t.Errorf("  expected: %#v", testCase.out)
 			t.Errorf("       got: %#v", got)
+		}
+		if testCase.out == got {
+			t.Errorf("test case %s", testString)
+			t.Errorf("items should be cloned, not the original")
+			t.Errorf("  expected: %s", testCase.out)
+			t.Errorf("       got: %s", got)
 		}
 	}
 }

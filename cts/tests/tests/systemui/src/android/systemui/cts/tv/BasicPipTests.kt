@@ -21,6 +21,7 @@ import android.Manifest.permission.WRITE_DREAM_STATE
 import android.app.WindowConfiguration
 import android.content.pm.PackageManager
 import android.os.ServiceManager
+import android.platform.test.annotations.AppModeFull
 import android.platform.test.annotations.Postsubmit
 import android.server.wm.Condition
 import android.server.wm.WindowManagerState
@@ -47,6 +48,7 @@ import kotlin.test.assertTrue
  * Build/Install/Run:
  * atest CtsSystemUiTestCases:BasicPipTests
  */
+@AppModeFull(reason = "Checks window manager state")
 @Postsubmit
 @Group2
 @RunWith(AndroidJUnit4::class)

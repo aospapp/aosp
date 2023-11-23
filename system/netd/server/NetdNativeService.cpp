@@ -32,6 +32,7 @@
 #include <cutils/properties.h>
 #include <log/log.h>
 #include <netdutils/DumpWriter.h>
+#include <netdutils/Utils.h>
 #include <utils/Errors.h>
 #include <utils/String16.h>
 
@@ -52,12 +53,11 @@
 
 using android::base::StringPrintf;
 using android::base::WriteStringToFile;
-using android::net::NativeNetworkType;
-using android::net::TetherOffloadRuleParcel;
 using android::net::TetherStatsParcel;
 using android::net::UidRangeParcel;
 using android::net::netd::aidl::NativeUidRangeConfig;
 using android::netdutils::DumpWriter;
+using android::netdutils::getIfaceNames;
 using android::netdutils::ScopedIndent;
 using android::os::ParcelFileDescriptor;
 
@@ -66,48 +66,6 @@ namespace net {
 
 namespace {
 const char OPT_SHORT[] = "--short";
-
-// The input permissions should be equivalent that this function would return ok if any of them is
-// granted.
-binder::Status checkAnyPermission(const std::vector<const char*>& permissions) {
-    pid_t pid = IPCThreadState::self()->getCallingPid();
-    uid_t uid = IPCThreadState::self()->getCallingUid();
-
-    // TODO: Do the pure permission check in this function. Have another method
-    // (e.g. checkNetworkStackPermission) to wrap AID_SYSTEM and
-    // AID_NETWORK_STACK uid check.
-    // If the caller is the system UID, don't check permissions.
-    // Otherwise, if the system server's binder thread pool is full, and all the threads are
-    // blocked on a thread that's waiting for us to complete, we deadlock. http://b/69389492
-    //
-    // From a security perspective, there is currently no difference, because:
-    // 1. The system server has the NETWORK_STACK permission, which grants access to all the
-    //    IPCs in this file.
-    // 2. AID_SYSTEM always has all permissions. See ActivityManager#checkComponentPermission.
-    if (uid == AID_SYSTEM) {
-        return binder::Status::ok();
-    }
-    // AID_NETWORK_STACK own MAINLINE_NETWORK_STACK permission, don't IPC to system server to check
-    // MAINLINE_NETWORK_STACK permission. Cross-process(netd, networkstack and system server)
-    // deadlock: http://b/149766727
-    if (uid == AID_NETWORK_STACK) {
-        for (const char* permission : permissions) {
-            if (std::strcmp(permission, PERM_MAINLINE_NETWORK_STACK) == 0) {
-                return binder::Status::ok();
-            }
-        }
-    }
-
-    for (const char* permission : permissions) {
-        if (checkPermission(String16(permission), pid, uid)) {
-            return binder::Status::ok();
-        }
-    }
-
-    auto err = StringPrintf("UID %d / PID %d does not have any of the following permissions: %s",
-                            uid, pid, android::base::Join(permissions, ',').c_str());
-    return binder::Status::fromExceptionCode(binder::Status::EX_SECURITY, err.c_str());
-}
 
 #define ENFORCE_ANY_PERMISSION(...)                                \
     do {                                                           \
@@ -151,13 +109,6 @@ binder::Status asBinderStatus(const base::Result<T> result) {
 
     return binder::Status::fromServiceSpecificError(result.error().code(),
                                                     result.error().message().c_str());
-}
-
-inline binder::Status statusFromErrcode(int ret) {
-    if (ret) {
-        return binder::Status::fromServiceSpecificError(-ret, strerror(-ret));
-    }
-    return binder::Status::ok();
 }
 
 bool contains(const Vector<String16>& words, const String16& word) {
@@ -210,25 +161,12 @@ status_t NetdNativeService::dump(int fd, const Vector<String16> &args) {
       return NO_ERROR;
     }
 
-    if (!args.isEmpty() && args[0] == TrafficController::DUMP_KEYWORD) {
-        dw.blankline();
-        gCtls->trafficCtrl.dump(dw, true);
-        dw.blankline();
-        return NO_ERROR;
-    }
-
     process::dump(dw);
     dw.blankline();
     gCtls->netCtrl.dump(dw);
     dw.blankline();
 
-    gCtls->trafficCtrl.dump(dw, false);
-    dw.blankline();
-
     gCtls->xfrmCtrl.dump(dw);
-    dw.blankline();
-
-    gCtls->clatdCtrl.dump(dw);
     dw.blankline();
 
     gCtls->tetherCtrl.dump(dw);
@@ -270,14 +208,9 @@ binder::Status NetdNativeService::isAlive(bool *alive) {
     return binder::Status::ok();
 }
 
-binder::Status NetdNativeService::firewallReplaceUidChain(const std::string& chainName,
-                                                          bool isAllowlist,
-                                                          const std::vector<int32_t>& uids,
-                                                          bool* ret) {
-    NETD_LOCKING_RPC(gCtls->firewallCtrl.lock, PERM_NETWORK_STACK, PERM_MAINLINE_NETWORK_STACK);
-    int err = gCtls->firewallCtrl.replaceUidChain(chainName, isAllowlist, uids);
-    *ret = (err == 0);
-    return binder::Status::ok();
+binder::Status NetdNativeService::firewallReplaceUidChain(const std::string&, bool,
+                                                          const std::vector<int32_t>&, bool*) {
+    return binder::Status::fromExceptionCode(binder::Status::EX_UNSUPPORTED_OPERATION);
 }
 
 binder::Status NetdNativeService::bandwidthEnableDataSaver(bool enable, bool *ret) {
@@ -319,32 +252,20 @@ binder::Status NetdNativeService::bandwidthSetGlobalAlert(int64_t bytes) {
     return statusFromErrcode(res);
 }
 
-binder::Status NetdNativeService::bandwidthAddNaughtyApp(int32_t uid) {
-    NETD_LOCKING_RPC(gCtls->bandwidthCtrl.lock, PERM_NETWORK_STACK, PERM_MAINLINE_NETWORK_STACK);
-    std::vector<uint32_t> appUids = {static_cast<uint32_t>(abs(uid))};
-    int res = gCtls->bandwidthCtrl.addNaughtyApps(appUids);
-    return statusFromErrcode(res);
+binder::Status NetdNativeService::bandwidthAddNaughtyApp(int32_t) {
+    return binder::Status::fromExceptionCode(binder::Status::EX_UNSUPPORTED_OPERATION);
 }
 
-binder::Status NetdNativeService::bandwidthRemoveNaughtyApp(int32_t uid) {
-    NETD_LOCKING_RPC(gCtls->bandwidthCtrl.lock, PERM_NETWORK_STACK, PERM_MAINLINE_NETWORK_STACK);
-    std::vector<uint32_t> appUids = {static_cast<uint32_t>(abs(uid))};
-    int res = gCtls->bandwidthCtrl.removeNaughtyApps(appUids);
-    return statusFromErrcode(res);
+binder::Status NetdNativeService::bandwidthRemoveNaughtyApp(int32_t) {
+    return binder::Status::fromExceptionCode(binder::Status::EX_UNSUPPORTED_OPERATION);
 }
 
-binder::Status NetdNativeService::bandwidthAddNiceApp(int32_t uid) {
-    NETD_LOCKING_RPC(gCtls->bandwidthCtrl.lock, PERM_NETWORK_STACK, PERM_MAINLINE_NETWORK_STACK);
-    std::vector<uint32_t> appUids = {static_cast<uint32_t>(abs(uid))};
-    int res = gCtls->bandwidthCtrl.addNiceApps(appUids);
-    return statusFromErrcode(res);
+binder::Status NetdNativeService::bandwidthAddNiceApp(int32_t) {
+    return binder::Status::fromExceptionCode(binder::Status::EX_UNSUPPORTED_OPERATION);
 }
 
-binder::Status NetdNativeService::bandwidthRemoveNiceApp(int32_t uid) {
-    NETD_LOCKING_RPC(gCtls->bandwidthCtrl.lock, PERM_NETWORK_STACK, PERM_MAINLINE_NETWORK_STACK);
-    std::vector<uint32_t> appUids = {static_cast<uint32_t>(abs(uid))};
-    int res = gCtls->bandwidthCtrl.removeNiceApps(appUids);
-    return statusFromErrcode(res);
+binder::Status NetdNativeService::bandwidthRemoveNiceApp(int32_t) {
+    return binder::Status::fromExceptionCode(binder::Status::EX_UNSUPPORTED_OPERATION);
 }
 
 // TODO: Remove this function when there are no users. Currently, it is still used by DNS resolver
@@ -362,7 +283,8 @@ binder::Status NetdNativeService::networkCreateVpn(int32_t netId, bool secure) {
     // The value of vpnType does not matter here, because it is not used in AOSP and is only
     // implemented by OEMs. Also, the RPC is going to deprecate. Just pick a value defined in INetd
     // as default.
-    int ret = gCtls->netCtrl.createVirtualNetwork(netId, secure, NativeVpnType::LEGACY);
+    int ret = gCtls->netCtrl.createVirtualNetwork(netId, secure, NativeVpnType::LEGACY,
+                                                  false /* excludeLocalRoutes */);
     return statusFromErrcode(ret);
 }
 
@@ -373,7 +295,8 @@ binder::Status NetdNativeService::networkCreate(const NativeNetworkConfig& confi
         ret = gCtls->netCtrl.createPhysicalNetwork(config.netId,
                                                    convertPermission(config.permission));
     } else if (config.networkType == NativeNetworkType::VIRTUAL) {
-        ret = gCtls->netCtrl.createVirtualNetwork(config.netId, config.secure, config.vpnType);
+        ret = gCtls->netCtrl.createVirtualNetwork(config.netId, config.secure, config.vpnType,
+                                                  config.excludeLocalRoutes);
     }
     return statusFromErrcode(ret);
 }
@@ -402,7 +325,7 @@ binder::Status NetdNativeService::networkAddUidRanges(
     // NetworkController::addUsersToNetwork is thread-safe.
     ENFORCE_NETWORK_STACK_PERMISSIONS();
     int ret = gCtls->netCtrl.addUsersToNetwork(netId, UidRanges(uidRangeArray),
-                                               UidRanges::DEFAULT_SUB_PRIORITY);
+                                               UidRanges::SUB_PRIORITY_HIGHEST);
     return statusFromErrcode(ret);
 }
 
@@ -411,7 +334,7 @@ binder::Status NetdNativeService::networkRemoveUidRanges(
     // NetworkController::removeUsersFromNetwork is thread-safe.
     ENFORCE_NETWORK_STACK_PERMISSIONS();
     int ret = gCtls->netCtrl.removeUsersFromNetwork(netId, UidRanges(uidRangeArray),
-                                                    UidRanges::DEFAULT_SUB_PRIORITY);
+                                                    UidRanges::SUB_PRIORITY_HIGHEST);
     return statusFromErrcode(ret);
 }
 
@@ -786,8 +709,7 @@ binder::Status NetdNativeService::wakeupDelInterface(const std::string& ifName,
 }
 
 binder::Status NetdNativeService::trafficSwapActiveStatsMap() {
-    ENFORCE_NETWORK_STACK_PERMISSIONS();
-    return asBinderStatus(gCtls->trafficCtrl.swapActiveStatsMap());
+    return binder::Status::fromExceptionCode(binder::Status::EX_UNSUPPORTED_OPERATION);
 }
 
 binder::Status NetdNativeService::idletimerAddInterface(const std::string& ifName, int32_t timeout,
@@ -828,17 +750,20 @@ binder::Status NetdNativeService::strictUidCleartextPenalty(int32_t uid, int32_t
     return statusFromErrcode(res);
 }
 
-binder::Status NetdNativeService::clatdStart(const std::string& ifName,
-                                             const std::string& nat64Prefix, std::string* v6Addr) {
+// TODO: remark @deprecated in INetd.aidl.
+binder::Status NetdNativeService::clatdStart(const std::string& /* ifName */,
+                                             const std::string& /* nat64Prefix */,
+                                             std::string* /* v6Addr */) {
     ENFORCE_ANY_PERMISSION(PERM_NETWORK_STACK, PERM_MAINLINE_NETWORK_STACK);
-    int res = gCtls->clatdCtrl.startClatd(ifName.c_str(), nat64Prefix, v6Addr);
-    return statusFromErrcode(res);
+    // deprecated
+    return binder::Status::fromExceptionCode(binder::Status::EX_UNSUPPORTED_OPERATION);
 }
 
-binder::Status NetdNativeService::clatdStop(const std::string& ifName) {
+// TODO: remark @deprecated in INetd.aidl.
+binder::Status NetdNativeService::clatdStop(const std::string& /* ifName */) {
     ENFORCE_ANY_PERMISSION(PERM_NETWORK_STACK, PERM_MAINLINE_NETWORK_STACK);
-    int res = gCtls->clatdCtrl.stopClatd(ifName.c_str());
-    return statusFromErrcode(res);
+    // deprecated
+    return binder::Status::fromExceptionCode(binder::Status::EX_UNSUPPORTED_OPERATION);
 }
 
 binder::Status NetdNativeService::ipfwdEnabled(bool* status) {
@@ -891,7 +816,7 @@ std::string addCurlyBrackets(const std::string& s) {
 
 binder::Status NetdNativeService::interfaceGetList(std::vector<std::string>* interfaceListResult) {
     NETD_LOCKING_RPC(InterfaceController::mutex, PERM_NETWORK_STACK, PERM_MAINLINE_NETWORK_STACK);
-    const auto& ifaceList = InterfaceController::getIfaceNames();
+    const auto& ifaceList = getIfaceNames();
 
     interfaceListResult->clear();
     interfaceListResult->reserve(ifaceList.value().size());
@@ -1180,11 +1105,8 @@ binder::Status NetdNativeService::networkCanProtect(int32_t uid, bool* ret) {
     return binder::Status::ok();
 }
 
-binder::Status NetdNativeService::trafficSetNetPermForUids(int32_t permission,
-                                                           const std::vector<int32_t>& uids) {
-    ENFORCE_NETWORK_STACK_PERMISSIONS();
-    gCtls->trafficCtrl.setPermissionForUids(permission, intsToUids(uids));
-    return binder::Status::ok();
+binder::Status NetdNativeService::trafficSetNetPermForUids(int32_t, const std::vector<int32_t>&) {
+    return binder::Status::fromExceptionCode(binder::Status::EX_UNSUPPORTED_OPERATION);
 }
 
 binder::Status NetdNativeService::firewallSetFirewallType(int32_t firewallType) {
@@ -1204,37 +1126,21 @@ binder::Status NetdNativeService::firewallSetInterfaceRule(const std::string& if
     return statusFromErrcode(res);
 }
 
-binder::Status NetdNativeService::firewallSetUidRule(int32_t childChain, int32_t uid,
-                                                     int32_t firewallRule) {
-    NETD_LOCKING_RPC(gCtls->firewallCtrl.lock, PERM_NETWORK_STACK, PERM_MAINLINE_NETWORK_STACK);
-    auto chain = static_cast<ChildChain>(childChain);
-    auto rule = static_cast<FirewallRule>(firewallRule);
-
-    int res = gCtls->firewallCtrl.setUidRule(chain, uid, rule);
-    return statusFromErrcode(res);
+binder::Status NetdNativeService::firewallSetUidRule(int32_t, int32_t, int32_t) {
+    return binder::Status::fromExceptionCode(binder::Status::EX_UNSUPPORTED_OPERATION);
 }
 
-binder::Status NetdNativeService::firewallEnableChildChain(int32_t childChain, bool enable) {
-    NETD_LOCKING_RPC(gCtls->firewallCtrl.lock, PERM_NETWORK_STACK, PERM_MAINLINE_NETWORK_STACK);
-    auto chain = static_cast<ChildChain>(childChain);
-
-    int res = gCtls->firewallCtrl.enableChildChains(chain, enable);
-    return statusFromErrcode(res);
+binder::Status NetdNativeService::firewallEnableChildChain(int32_t, bool) {
+    return binder::Status::fromExceptionCode(binder::Status::EX_UNSUPPORTED_OPERATION);
 }
 
-binder::Status NetdNativeService::firewallAddUidInterfaceRules(const std::string& ifName,
-                                                               const std::vector<int32_t>& uids) {
-    ENFORCE_NETWORK_STACK_PERMISSIONS();
-
-    return asBinderStatus(gCtls->trafficCtrl.addUidInterfaceRules(
-            RouteController::getIfIndex(ifName.c_str()), uids));
+binder::Status NetdNativeService::firewallAddUidInterfaceRules(const std::string&,
+                                                               const std::vector<int32_t>&) {
+    return binder::Status::fromExceptionCode(binder::Status::EX_UNSUPPORTED_OPERATION);
 }
 
-binder::Status NetdNativeService::firewallRemoveUidInterfaceRules(
-        const std::vector<int32_t>& uids) {
-    ENFORCE_NETWORK_STACK_PERMISSIONS();
-
-    return asBinderStatus(gCtls->trafficCtrl.removeUidInterfaceRules(uids));
+binder::Status NetdNativeService::firewallRemoveUidInterfaceRules(const std::vector<int32_t>&) {
+    return binder::Status::fromExceptionCode(binder::Status::EX_UNSUPPORTED_OPERATION);
 }
 
 binder::Status NetdNativeService::tetherAddForward(const std::string& intIface,

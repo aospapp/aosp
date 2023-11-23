@@ -19,7 +19,6 @@ package {
     default_applicable_licenses: ["system_ca-certificates_license"],
 }
 
-// Added automatically by a large-scale-change
 // See: http://go/android-license-faq
 license {
     name: "system_ca-certificates_license",
@@ -27,7 +26,7 @@ license {
     license_kinds: [
         "legacy_by_exception_only", // by exception only
     ],
-    // large-scale-change unable to identify any license_text files
+    license_text: [],
 }
 
 ca_certificates {

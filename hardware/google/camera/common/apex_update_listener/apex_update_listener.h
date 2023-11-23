@@ -66,7 +66,7 @@ class ApexUpdateListener {
   ApexUpdateListener(Sigil, const std::string& apex_name,
                      const std::string& apex_info_list_file_name,
                      CallbackFunction callback, int fd, int wd,
-                     std::set<Info> last_info);
+                     const std::set<Info>& last_info);
 
   static std::unique_ptr<ApexUpdateListener> Make(
       const std::string& apex_name, CallbackFunction callback,

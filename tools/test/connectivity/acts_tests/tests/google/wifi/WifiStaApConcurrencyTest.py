@@ -23,8 +23,8 @@ from acts import base_test
 from acts.controllers.ap_lib import hostapd_constants
 import acts.signals as signals
 from acts.test_decorators import test_tracker_info
-from acts_contrib.test_utils.tel.tel_test_utils import WIFI_CONFIG_APBAND_2G
-from acts_contrib.test_utils.tel.tel_test_utils import WIFI_CONFIG_APBAND_5G
+from acts_contrib.test_utils.tel.tel_wifi_utils import WIFI_CONFIG_APBAND_2G
+from acts_contrib.test_utils.tel.tel_wifi_utils import WIFI_CONFIG_APBAND_5G
 import acts_contrib.test_utils.wifi.wifi_test_utils as wutils
 from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
 import acts.utils as utils
@@ -229,7 +229,9 @@ class WifiStaApConcurrencyTest(WifiBaseTest):
         asserts.assert_true(self.dut.droid.wifiIsApEnabled(),
                             "SoftAp is not reported as running")
 
-    def start_softap_and_connect_to_wifi_network(self, nw_params, softap_band):
+    def start_softap_and_connect_to_wifi_network(
+            self, nw_params, softap_band,
+            num_of_scan_tries=wutils.DEFAULT_SCAN_TRIES):
         """Test concurrent wifi connection and softap.
 
         This helper method first starts SoftAp and then makes a wifi connection.
@@ -242,9 +244,11 @@ class WifiStaApConcurrencyTest(WifiBaseTest):
         Args:
             nw_params: Params for network STA connection.
             softap_band: Band for the AP.
+            num_of_scan_tries: Number of tries to connect to wifi network
         """
         softap_config = self.start_softap_and_verify(softap_band, False)
-        wutils.connect_to_wifi_network(self.dut, nw_params)
+        wutils.connect_to_wifi_network(
+            self.dut, nw_params, num_of_scan_tries=num_of_scan_tries)
         wutils.verify_11ax_wifi_connection(
             self.dut, self.wifi6_models, "wifi6_ap" in self.user_params)
         self.run_iperf_client((nw_params, self.dut))
@@ -388,8 +392,14 @@ class WifiStaApConcurrencyTest(WifiBaseTest):
     def test_softap_5G_wifi_connection_5G_DFS(self):
         """Test SoftAp on 5G followed by connection to 5G DFS network."""
         self.configure_ap(channel_5g=WIFI_NETWORK_AP_CHANNEL_5G_DFS)
+        # Set scan tries to 10 to fit the 32ms limitation.
+        # SoftAp uses CTS2SELF frame to go offchannel for scan, and max duration
+        # we can set in CTS2SELF frame is 32ms.
+        # Since DUT SAP is enabled and clients are connect to the SAP, firmware
+        # is allocating only 28ms for passive scan in DFS channel for offchannel
+        # scan operation. We need to increase scan tries to get beacons from AP.
         self.start_softap_and_connect_to_wifi_network(
-            self.open_5g, WIFI_CONFIG_APBAND_5G)
+            self.open_5g, WIFI_CONFIG_APBAND_5G, num_of_scan_tries=10)
 
     @test_tracker_info(uuid="5e28e8b5-3faa-4cff-a782-13a796d7f572")
     def test_softap_5G_wifi_connection_2G(self):

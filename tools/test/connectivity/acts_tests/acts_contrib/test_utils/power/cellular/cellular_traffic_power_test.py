@@ -24,8 +24,9 @@ from acts.metrics.loggers.blackbox import BlackboxMetricLogger
 from acts_contrib.test_utils.power import IperfHelper as IPH
 from acts_contrib.test_utils.power import plot_utils
 import acts_contrib.test_utils.power.cellular.cellular_power_base_test as PWCEL
-from acts_contrib.test_utils.tel import tel_test_utils as telutils
-
+from acts_contrib.test_utils.tel.tel_logging_utils import start_adb_tcpdump
+from acts_contrib.test_utils.tel.tel_logging_utils import stop_adb_tcpdump
+from acts_contrib.test_utils.tel.tel_logging_utils import get_tcpdump_log
 
 class PowerTelTrafficTest(PWCEL.PowerCellularLabBaseTest):
     """ Cellular traffic power test.
@@ -204,8 +205,8 @@ class PowerTelTrafficTest(PWCEL.PowerCellularLabBaseTest):
         # Pull TCP logs if enabled
         if self.tcp_dumps:
             self.log.info('Pulling TCP dumps.')
-            telutils.stop_adb_tcpdump(self.dut)
-            telutils.get_tcpdump_log(self.dut)
+            stop_adb_tcpdump(self.dut)
+            get_tcpdump_log(self.dut)
 
         throughput = {}
 
@@ -333,7 +334,7 @@ class PowerTelTrafficTest(PWCEL.PowerCellularLabBaseTest):
         # Enable TCP logger.
         if self.tcp_dumps:
             self.log.info('Enabling TCP logger.')
-            telutils.start_adb_tcpdump(self.dut)
+            start_adb_tcpdump(self.dut)
 
         return iperf_helpers
 

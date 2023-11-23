@@ -44,7 +44,7 @@ where
     loop {
         match rows.next().context("In with_rows_extract_all: Failed to unpack row")? {
             Some(row) => {
-                row_extractor(&row).context("In with_rows_extract_all.")?;
+                row_extractor(row).context("In with_rows_extract_all.")?;
             }
             None => break Ok(()),
         }

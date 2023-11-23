@@ -36,8 +36,10 @@ android_test {
     sdk_version: "test_current",
 
     static_libs: [
+        // androidx.test.runner depends on android.test classes from this library.
+        "android.test.base-minus-junit",
+        "androidx.test.runner",
         "compatibility-device-util-axt",
-        "androidx.test.rules",
         "cts-signature-common",
     ],
 

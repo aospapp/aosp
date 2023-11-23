@@ -26,6 +26,7 @@ using ::aidl::android::hardware::security::keymint::Algorithm;
 using ::aidl::android::hardware::security::keymint::BlockMode;
 using ::aidl::android::hardware::security::keymint::Certificate;
 using ::aidl::android::hardware::security::keymint::Digest;
+using ::aidl::android::hardware::security::keymint::EcCurve;
 using ::aidl::android::hardware::security::keymint::ErrorCode;
 using ::aidl::android::hardware::security::keymint::IKeyMintOperation;
 using ::aidl::android::hardware::security::keymint::KeyCharacteristics;
@@ -53,6 +54,25 @@ static std::vector<uint8_t> generateAESKey(std::shared_ptr<KeyMintDevice> device
     return creationResult.keyBlob;
 }
 
+static bool generateECSingingKey(std::shared_ptr<KeyMintDevice> device) {
+    uint64_t now_ms = (uint64_t)time(nullptr) * 1000;
+
+    auto keyParams = std::vector<KeyParameter>({
+        KMV1::makeKeyParameter(KMV1::TAG_ALGORITHM, Algorithm::EC),
+        KMV1::makeKeyParameter(KMV1::TAG_EC_CURVE, EcCurve::P_256),
+        KMV1::makeKeyParameter(KMV1::TAG_NO_AUTH_REQUIRED, true),
+        KMV1::makeKeyParameter(KMV1::TAG_DIGEST, Digest::SHA_2_256),
+        KMV1::makeKeyParameter(KMV1::TAG_PURPOSE, KeyPurpose::SIGN),
+        KMV1::makeKeyParameter(KMV1::TAG_PURPOSE, KeyPurpose::VERIFY),
+        KMV1::makeKeyParameter(KMV1::TAG_CERTIFICATE_NOT_BEFORE, now_ms - 60 * 60 * 1000),
+        KMV1::makeKeyParameter(KMV1::TAG_CERTIFICATE_NOT_AFTER, now_ms + 60 * 60 * 1000),
+    });
+    KeyCreationResult creationResult;
+    auto status = device->generateKey(keyParams, std::nullopt /* attest_key */, &creationResult);
+    EXPECT_TRUE(status.isOk()) << status.getDescription();
+    return status.isOk();
+}
+
 static std::variant<BeginResult, ScopedAStatus> begin(std::shared_ptr<KeyMintDevice> device,
                                                       bool valid) {
     auto blob = generateAESKey(device);
@@ -69,16 +89,56 @@ static std::variant<BeginResult, ScopedAStatus> begin(std::shared_ptr<KeyMintDev
     return beginResult;
 }
 
+static std::shared_ptr<KMV1::IKeyMintOperation>
+generateAndBeginECDHKeyOperation(std::shared_ptr<KeyMintDevice> device) {
+    uint64_t now_ms = (uint64_t)time(nullptr) * 1000;
+
+    auto keyParams = std::vector<KeyParameter>({
+        KMV1::makeKeyParameter(KMV1::TAG_ALGORITHM, Algorithm::EC),
+        KMV1::makeKeyParameter(KMV1::TAG_EC_CURVE, EcCurve::P_256),
+        KMV1::makeKeyParameter(KMV1::TAG_NO_AUTH_REQUIRED, true),
+        KMV1::makeKeyParameter(KMV1::TAG_DIGEST, Digest::NONE),
+        KMV1::makeKeyParameter(KMV1::TAG_PURPOSE, KeyPurpose::AGREE_KEY),
+        KMV1::makeKeyParameter(KMV1::TAG_CERTIFICATE_NOT_BEFORE, now_ms - 60 * 60 * 1000),
+        KMV1::makeKeyParameter(KMV1::TAG_CERTIFICATE_NOT_AFTER, now_ms + 60 * 60 * 1000),
+    });
+    KeyCreationResult creationResult;
+    auto status = device->generateKey(keyParams, std::nullopt /* attest_key */, &creationResult);
+    EXPECT_TRUE(status.isOk()) << status.getDescription();
+    if (!status.isOk()) {
+        return {};
+    }
+    std::vector<KeyParameter> kps;
+    BeginResult beginResult;
+    auto bstatus = device->begin(KeyPurpose::AGREE_KEY, creationResult.keyBlob, kps,
+                                 HardwareAuthToken(), &beginResult);
+    EXPECT_TRUE(status.isOk()) << status.getDescription();
+    if (status.isOk()) {
+        return beginResult.operation;
+    }
+    return {};
+}
+
 static const int NUM_SLOTS = 2;
 
 TEST(SlotTest, TestSlots) {
     static std::shared_ptr<KeyMintDevice> device =
-        KeyMintDevice::createKeyMintDevice(SecurityLevel::TRUSTED_ENVIRONMENT);
+        KeyMintDevice::getWrappedKeymasterDevice(SecurityLevel::TRUSTED_ENVIRONMENT);
+    ASSERT_NE(device.get(), nullptr);
+
     device->setNumFreeSlots(NUM_SLOTS);
 
     // A begin() that returns a failure should not use a slot.
     auto result = begin(device, false);
     ASSERT_TRUE(std::holds_alternative<ScopedAStatus>(result));
+
+    // Software emulated operations must not leak virtual slots.
+    ASSERT_TRUE(!!generateAndBeginECDHKeyOperation(device));
+
+    // Software emulated operations must not impact virtual slots accounting.
+    // As opposed to the previous call, the software operation is kept alive.
+    auto software_op = generateAndBeginECDHKeyOperation(device);
+    ASSERT_TRUE(!!software_op);
 
     // Fill up all the slots.
     std::vector<std::shared_ptr<IKeyMintOperation>> operations;
@@ -93,6 +153,14 @@ TEST(SlotTest, TestSlots) {
     ASSERT_TRUE(std::holds_alternative<ScopedAStatus>(result));
     ASSERT_EQ(std::get<ScopedAStatus>(result).getServiceSpecificError(),
               static_cast<int32_t>(ErrorCode::TOO_MANY_OPERATIONS));
+
+    // At this point all slots are in use. We should still be able to generate keys which
+    // require an operation slot during generation.
+    ASSERT_TRUE(generateECSingingKey(device));
+
+    // Software emulated operations should work despite having all virtual operation slots
+    // depleted.
+    ASSERT_TRUE(generateAndBeginECDHKeyOperation(device));
 
     // TODO: I'm not sure how to generate a failing update call to test that.
 

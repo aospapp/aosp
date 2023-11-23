@@ -19,12 +19,19 @@ import (
 	"strconv"
 
 	"android/soong/android"
+	"android/soong/bazel"
+
+	"github.com/google/blueprint/proptools"
+)
+
+const (
+	protoTypeDefault = "lite"
 )
 
 func genProto(ctx android.ModuleContext, protoFiles android.Paths, flags android.ProtoFlags) android.Paths {
 	// Shard proto files into groups of 100 to avoid having to recompile all of them if one changes and to avoid
 	// hitting command line length limits.
-	shards := android.ShardPaths(protoFiles, 100)
+	shards := android.ShardPaths(protoFiles, 50)
 
 	srcJarFiles := make(android.Paths, 0, len(shards))
 
@@ -73,13 +80,15 @@ func genProto(ctx android.ModuleContext, protoFiles android.Paths, flags android
 }
 
 func protoDeps(ctx android.BottomUpMutatorContext, p *android.ProtoProperties) {
+	const unspecifiedProtobufPluginType = ""
 	if String(p.Proto.Plugin) == "" {
 		switch String(p.Proto.Type) {
+		case "stream": // does not require additional dependencies
 		case "micro":
 			ctx.AddVariationDependencies(nil, staticLibTag, "libprotobuf-java-micro")
 		case "nano":
 			ctx.AddVariationDependencies(nil, staticLibTag, "libprotobuf-java-nano")
-		case "lite", "":
+		case "lite", unspecifiedProtobufPluginType:
 			ctx.AddVariationDependencies(nil, staticLibTag, "libprotobuf-java-lite")
 		case "full":
 			if ctx.Host() || ctx.BazelConversionMode() {
@@ -102,6 +111,9 @@ func protoFlags(ctx android.ModuleContext, j *CommonProperties, p *android.Proto
 	if String(p.Proto.Plugin) == "" {
 		var typeToPlugin string
 		switch String(p.Proto.Type) {
+		case "stream":
+			flags.proto.OutTypeFlag = "--javastream_out"
+			typeToPlugin = "javastream"
 		case "micro":
 			flags.proto.OutTypeFlag = "--javamicro_out"
 			typeToPlugin = "javamicro"
@@ -128,4 +140,53 @@ func protoFlags(ctx android.ModuleContext, j *CommonProperties, p *android.Proto
 	flags.proto.OutParams = append(flags.proto.OutParams, j.Proto.Output_params...)
 
 	return flags
+}
+
+type protoAttributes struct {
+	Deps bazel.LabelListAttribute
+}
+
+func bp2buildProto(ctx android.Bp2buildMutatorContext, m *Module, protoSrcs bazel.LabelListAttribute) *bazel.Label {
+	protoInfo, ok := android.Bp2buildProtoProperties(ctx, &m.ModuleBase, protoSrcs)
+	if !ok {
+		return nil
+	}
+
+	typ := proptools.StringDefault(protoInfo.Type, protoTypeDefault)
+	var rule_class string
+	suffix := "_java_proto"
+	switch typ {
+	case "nano":
+		suffix += "_nano"
+		rule_class = "java_nano_proto_library"
+	case "micro":
+		suffix += "_micro"
+		rule_class = "java_micro_proto_library"
+	case "lite":
+		suffix += "_lite"
+		rule_class = "java_lite_proto_library"
+	case "stream":
+		suffix += "_stream"
+		rule_class = "java_stream_proto_library"
+	case "full":
+		rule_class = "java_proto_library"
+	default:
+		ctx.PropertyErrorf("proto.type", "cannot handle conversion at this time: %q", typ)
+	}
+
+	protoLabel := bazel.Label{Label: ":" + m.Name() + "_proto"}
+	var protoAttrs protoAttributes
+	protoAttrs.Deps.SetValue(bazel.LabelList{Includes: []bazel.Label{protoLabel}})
+
+	name := m.Name() + suffix
+
+	ctx.CreateBazelTargetModule(
+		bazel.BazelTargetModuleProperties{
+			Rule_class:        rule_class,
+			Bzl_load_location: "//build/bazel/rules/java:proto.bzl",
+		},
+		android.CommonAttributes{Name: name},
+		&protoAttrs)
+
+	return &bazel.Label{Label: ":" + name}
 }

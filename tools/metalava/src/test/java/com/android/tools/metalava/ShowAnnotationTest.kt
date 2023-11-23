@@ -10,7 +10,7 @@ class ShowAnnotationTest : DriverTest() {
     fun `Basic showAnnotation test`() {
         check(
             includeSystemApiAnnotations = true,
-            expectedIssues = "src/test/pkg/Foo.java:17: error: @SystemApi APIs must also be marked @hide: method test.pkg.Foo.method4() [UnhiddenSystemApi]",
+            expectedIssues = "src/test/pkg/Foo.java:18: error: @SystemApi APIs must also be marked @hide: method test.pkg.Foo.method4() [UnhiddenSystemApi]",
             sourceFiles = arrayOf(
                 java(
                     """
@@ -48,7 +48,6 @@ class ShowAnnotationTest : DriverTest() {
 
             extraArguments = arrayOf(
                 ARG_HIDE_PACKAGE, "android.annotation",
-                ARG_HIDE_PACKAGE, "android.support.annotation"
             ),
 
             api = """
@@ -67,7 +66,7 @@ class ShowAnnotationTest : DriverTest() {
         check(
             includeSystemApiAnnotations = true,
             showUnannotated = true,
-            expectedIssues = "src/test/pkg/Foo.java:17: error: @SystemApi APIs must also be marked @hide: method test.pkg.Foo.method4() [UnhiddenSystemApi]",
+            expectedIssues = "src/test/pkg/Foo.java:18: error: @SystemApi APIs must also be marked @hide: method test.pkg.Foo.method4() [UnhiddenSystemApi]",
             sourceFiles = arrayOf(
                 java(
                     """
@@ -105,7 +104,6 @@ class ShowAnnotationTest : DriverTest() {
 
             extraArguments = arrayOf(
                 ARG_HIDE_PACKAGE, "android.annotation",
-                ARG_HIDE_PACKAGE, "android.support.annotation"
             ),
 
             api = """
@@ -165,7 +163,6 @@ class ShowAnnotationTest : DriverTest() {
             extraArguments = arrayOf(
                 ARG_SHOW_ANNOTATION, "android.annotation.TestApi",
                 ARG_HIDE_PACKAGE, "android.annotation",
-                ARG_HIDE_PACKAGE, "android.support.annotation"
             ),
 
             api = """
@@ -245,12 +242,11 @@ class ShowAnnotationTest : DriverTest() {
             ),
             // Empty API: showUnannotated=false
             api = """
-                """.trimIndent(),
+            """.trimIndent(),
             includeSystemApiAnnotations = true,
             extraArguments = arrayOf(
                 ARG_SHOW_ANNOTATION, "android.annotation.TestApi",
                 ARG_HIDE_PACKAGE, "android.annotation",
-                ARG_HIDE_PACKAGE, "android.support.annotation"
             )
         )
     }
@@ -297,7 +293,6 @@ class ShowAnnotationTest : DriverTest() {
             extraArguments = arrayOf(
                 ARG_SHOW_SINGLE_ANNOTATION, "android.annotation.SystemApi",
                 ARG_HIDE_PACKAGE, "android.annotation",
-                ARG_HIDE_PACKAGE, "android.support.annotation"
             ),
 
             api = """
@@ -354,9 +349,9 @@ class ShowAnnotationTest : DriverTest() {
             ),
             showAnnotations = arrayOf("android.annotation.SystemApi"),
             expectedIssues = """
-                src/test/pkg/Class1.java:6: error: Attempting to unhide method test.pkg.Class1.method1(), but surrounding class test.pkg.Class1 is hidden and should also be annotated with @android.annotation.SystemApi [ShowingMemberInHiddenClass]
-                src/test/pkg/Class1.java:10: error: Attempting to unhide class test.pkg.Class1.InnerClass1, but surrounding class test.pkg.Class1 is hidden and should also be annotated with @android.annotation.SystemApi [ShowingMemberInHiddenClass]
-                src/test/pkg/Class2.java:9: error: Attempting to unhide method test.pkg.Class2.InnerClass2.method2(), but surrounding class test.pkg.Class2.InnerClass2 is hidden and should also be annotated with @android.annotation.SystemApi [ShowingMemberInHiddenClass]
+                src/test/pkg/Class1.java:8: error: Attempting to unhide method test.pkg.Class1.method1(), but surrounding class test.pkg.Class1 is hidden and should also be annotated with @android.annotation.SystemApi [ShowingMemberInHiddenClass]
+                src/test/pkg/Class1.java:12: error: Attempting to unhide class test.pkg.Class1.InnerClass1, but surrounding class test.pkg.Class1 is hidden and should also be annotated with @android.annotation.SystemApi [ShowingMemberInHiddenClass]
+                src/test/pkg/Class2.java:11: error: Attempting to unhide method test.pkg.Class2.InnerClass2.method2(), but surrounding class test.pkg.Class2.InnerClass2 is hidden and should also be annotated with @android.annotation.SystemApi [ShowingMemberInHiddenClass]
                 """
         )
     }
@@ -364,6 +359,7 @@ class ShowAnnotationTest : DriverTest() {
     @Test
     fun `showAnnotation with parameters`() {
         check(
+            format = FileFormat.V1,
             sourceFiles = arrayOf(
                 java(
                     """
@@ -405,7 +401,7 @@ class ShowAnnotationTest : DriverTest() {
                   public class Foo {
                     ctor public Foo();
                     method public void method1();
-                    method public void method2();
+                    method @RestrictTo(androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP) public void method2();
                     method public void method4();
                   }
                 }
@@ -618,7 +614,8 @@ class ShowAnnotationTest : DriverTest() {
                     }
                  */
                 base64gzip(
-                    "test.jar", "" +
+                    "test.jar",
+                    "" +
                         "H4sICDVE/F0AA3Rlc3QuamFyAAvwZmYRYeDg4GB4kDrFnwEJcDKwMPi6hjjq" +
                         "evq56f87xcDAzBDgzc4BkmKCKgnAqVkEiOGafR39PN1cg0P0fN0++5457eOt" +
                         "q3eR11tX69yZ85uDDK4YP3hapOflq+Ppe7F0FQtnxAvJI9JREq+WPX++/PmS" +
@@ -692,6 +689,7 @@ class ShowAnnotationTest : DriverTest() {
         // and if a client refers to Class2.FIELD, that resolves to Class*1*.FIELD.
         // - Class3 is (very naturally) hidden even though the super class is visible.
         check(
+            format = FileFormat.V1,
             sourceFiles = arrayOf(
                 java(
                     """
@@ -747,7 +745,7 @@ class ShowAnnotationTest : DriverTest() {
                   public class Class1 {
                     ctor public Class1();
                     method public void member();
-                    field public static final java.lang.String FIELD = "Class1.FIELD";
+                    field public static final String FIELD = "Class1.FIELD";
                   }
                   public class Class2 extends test.pkg.Class1 {
                     ctor public Class2();

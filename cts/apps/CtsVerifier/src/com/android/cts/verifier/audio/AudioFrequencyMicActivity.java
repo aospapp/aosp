@@ -16,35 +16,34 @@
 
 package com.android.cts.verifier.audio;
 
-import com.android.cts.verifier.R;
-
-import com.android.cts.verifier.CtsVerifierReportLog;
-import com.android.cts.verifier.audio.wavelib.*;
-import com.android.compatibility.common.util.ResultType;
-import com.android.compatibility.common.util.ResultUnit;
-
-import android.content.BroadcastReceiver;
-import android.content.Intent;
-import android.content.IntentFilter;
-
 import android.media.AudioFormat;
-import android.media.AudioTrack;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
-
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.os.SystemClock;
-
 import android.util.Log;
-
 import android.view.View;
 import android.view.View.OnClickListener;
-
 import android.widget.Button;
-import android.widget.TextView;
 import android.widget.ProgressBar;
+import android.widget.TextView;
+
+import com.android.compatibility.common.util.ResultType;
+import com.android.compatibility.common.util.ResultUnit;
+import com.android.cts.verifier.CtsVerifierReportLog;
+import com.android.cts.verifier.R;
+import com.android.cts.verifier.audio.wavelib.DspBufferComplex;
+import com.android.cts.verifier.audio.wavelib.DspBufferDouble;
+import com.android.cts.verifier.audio.wavelib.DspBufferMath;
+import com.android.cts.verifier.audio.wavelib.DspFftServer;
+import com.android.cts.verifier.audio.wavelib.DspWindow;
+import com.android.cts.verifier.audio.wavelib.PipeShort;
+import com.android.cts.verifier.audio.soundio.SoundPlayerObject;
+import com.android.cts.verifier.audio.wavelib.*;
+
+import com.android.cts.verifier.audio.wavelib.VectorAverage;
 
 /**
  * Tests Audio built in Microphone response using external speakers and USB reference microphone.
@@ -245,22 +244,16 @@ public class AudioFrequencyMicActivity extends AudioFrequencyActivity implements
         @Override
         public void onClick(View v) {
             int id = v.getId();
-            switch (id) {
-            case R.id.frequency_mic_test_noise_btn:
+            if (id == R.id.frequency_mic_test_noise_btn) {
                 startTest(TEST_NOISE);
-                break;
-            case R.id.frequency_mic_play_noise_btn:
+            } else if (id == R.id.frequency_mic_play_noise_btn) {
                 playerToggleButton(id);
-                break;
-            case R.id.frequency_mic_test_usb_background_btn:
+            } else if (id == R.id.frequency_mic_test_usb_background_btn) {
                 startTest(TEST_USB_BACKGROUND);
-                break;
-            case R.id.frequency_mic_test_usb_noise_btn:
+            } else if (id == R.id.frequency_mic_test_usb_noise_btn) {
                 startTest(TEST_USB_NOISE);
-                break;
-            case R.id.frequency_mic_play_usb_noise_btn:
+            } else if (id == R.id.frequency_mic_play_usb_noise_btn) {
                 playerToggleButton(id);
-                break;
             }
         }
     }

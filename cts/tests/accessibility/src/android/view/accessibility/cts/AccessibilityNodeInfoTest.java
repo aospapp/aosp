@@ -18,7 +18,8 @@ package android.view.accessibility.cts;
 
 import static androidx.test.InstrumentationRegistry.getContext;
 
-import static org.junit.Assert.assertArrayEquals;
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
@@ -42,7 +43,6 @@ import android.text.style.ImageSpan;
 import android.text.style.ReplacementSpan;
 import android.util.ArrayMap;
 import android.view.View;
-import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction;
 import android.view.accessibility.AccessibilityNodeInfo.CollectionInfo;
@@ -113,33 +113,13 @@ public class AccessibilityNodeInfoTest {
     }
 
     /**
-     * Tests if {@link AccessibilityNodeInfo}s are properly reused.
-     */
-    @SmallTest
-    @Test
-    public void testReuse() {
-        AccessibilityEvent firstInfo = AccessibilityEvent.obtain();
-        firstInfo.recycle();
-        AccessibilityEvent secondInfo = AccessibilityEvent.obtain();
-        assertSame("AccessibilityNodeInfo not properly reused", firstInfo, secondInfo);
-    }
-
-    /**
-     * Tests if {@link AccessibilityNodeInfo} are properly recycled.
+     * Tests if {@link AccessibilityNodeInfo} can be acquired through obtain(),
+     * and that recycle() can be called on the returned object.
      */
     @SmallTest
     @Test
     public void testRecycle() {
-        // obtain and populate an node info
-        AccessibilityNodeInfo populatedInfo = AccessibilityNodeInfo.obtain();
-        fullyPopulateAccessibilityNodeInfo(populatedInfo);
-
-        // recycle and obtain the same recycled instance
-        populatedInfo.recycle();
-        AccessibilityNodeInfo recycledInfo = AccessibilityNodeInfo.obtain();
-
-        // check expectations
-        assertAccessibilityNodeInfoCleared(recycledInfo);
+        AccessibilityNodeInfo.obtain().recycle();
     }
 
     /**
@@ -328,6 +308,7 @@ public class AccessibilityNodeInfoTest {
         // Populate 10 fields
         info.setMovementGranularities(AccessibilityNodeInfo.MOVEMENT_GRANULARITY_LINE);
         info.setViewIdResourceName("foo.bar:id/baz");
+        info.setUniqueId("foo.bar:id/baz10");
         info.setDrawingOrder(5);
         info.setAvailableExtraData(
                 Arrays.asList(AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY));
@@ -345,7 +326,10 @@ public class AccessibilityNodeInfoTest {
         info.setRangeInfo(RangeInfo.obtain(RangeInfo.RANGE_TYPE_FLOAT, 0.05f, 1.0f, 0.01f));
         info.setCollectionInfo(
                 CollectionInfo.obtain(2, 2, true, CollectionInfo.SELECTION_MODE_MULTIPLE));
-        info.setCollectionItemInfo(CollectionItemInfo.obtain(1, 2, 3, 4, true, true));
+        info.setCollectionItemInfo(new CollectionItemInfo.Builder().setRowTitle(
+                        "RowTitle").setRowIndex(1)
+                .setRowSpan(2).setColumnTitle("ColumnTitle").setColumnIndex(3).setColumnSpan(4)
+                .setHeading(true).setSelected(true).build());
         info.setParent(new View(getContext()));
         info.setSource(new View(getContext())); // Populates 2 fields: source and window id
         info.setLeashedParent(new MockBinder(), 1); // Populates 2 fields
@@ -383,10 +367,11 @@ public class AccessibilityNodeInfoTest {
         info.setImportantForAccessibility(true);
         info.setScreenReaderFocusable(true);
 
-        // 3 Boolean properties
+        // 4 Boolean properties
         info.setShowingHintText(true);
         info.setHeading(true);
         info.setTextEntryKey(true);
+        info.setTextSelectable(true);
     }
 
     /**
@@ -471,6 +456,8 @@ public class AccessibilityNodeInfoTest {
                 receivedInfo.getMovementGranularities());
         assertEquals("viewId has incorrect value", expectedInfo.getViewIdResourceName(),
                 receivedInfo.getViewIdResourceName());
+        assertEquals("Unique id has incorrect value", expectedInfo.getUniqueId(),
+            receivedInfo.getUniqueId());
         assertEquals("drawing order has incorrect value", expectedInfo.getDrawingOrder(),
                 receivedInfo.getDrawingOrder());
         assertEquals("Extra data flags have incorrect value", expectedInfo.getAvailableExtraData(),
@@ -544,6 +531,9 @@ public class AccessibilityNodeInfoTest {
             assertEquals("CollectionItemInfo#getRowSpan has incorrect value",
                     expectedItemInfo.getRowSpan(),
                     receivedItemInfo.getRowSpan());
+            assertThat(expectedItemInfo.getRowTitle()).isEqualTo(receivedItemInfo.getRowTitle());
+            assertThat(
+                    expectedItemInfo.getColumnTitle()).isEqualTo(receivedItemInfo.getColumnTitle());
         }
 
         // Check 1 field
@@ -620,6 +610,8 @@ public class AccessibilityNodeInfoTest {
                 expectedInfo.isHeading(), receivedInfo.isHeading());
         assertSame("isTextEntryKey has incorrect value",
                 expectedInfo.isTextEntryKey(), receivedInfo.isTextEntryKey());
+        assertSame("isTexSelectable has incorrect value",
+                expectedInfo.isTextSelectable(), receivedInfo.isTextSelectable());
     }
 
     /**
@@ -650,6 +642,7 @@ public class AccessibilityNodeInfoTest {
         assertSame("movementGranularities not properly recycled", 0,
                 info.getMovementGranularities());
         assertNull("viewId not properly recycled", info.getViewIdResourceName());
+        assertNull("Unique id not properly recycled", info.getUniqueId());
         assertEquals(0, info.getDrawingOrder());
         assertTrue(info.getAvailableExtraData().isEmpty());
         assertNull("Pane title not properly recycled", info.getPaneTitle());
@@ -711,6 +704,8 @@ public class AccessibilityNodeInfoTest {
         assertFalse("isShowingHint not properly reset", info.isShowingHintText());
         assertFalse("isHeading not properly reset", info.isHeading());
         assertFalse("isTextEntryKey not properly reset", info.isTextEntryKey());
+        assertFalse("isTextSelectable not properly reset", info.isTextSelectable());
+
     }
 
     private static class MockBinder extends Binder {

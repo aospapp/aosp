@@ -281,9 +281,9 @@ static int path_add_setting(struct audio_route *ar, struct mixer_path *path,
     if (find_ctl_index_in_path(path, setting->ctl_index) != -1) {
         struct mixer_ctl *ctl = index_to_ctl(ar, setting->ctl_index);
 
-        ALOGE("Control '%s' already exists in path '%s'",
+        ALOGW("Control '%s' already exists in path '%s' - Ignore one in the new sub path",
               mixer_ctl_get_name(ctl), path->name);
-        return -1;
+        return -2;
     }
 
     if (!is_supported_ctl_type(setting->type)) {
@@ -387,10 +387,15 @@ static int path_add_path(struct audio_route *ar, struct mixer_path *path,
 {
     unsigned int i;
 
-    for (i = 0; i < sub_path->length; i++)
-        if (path_add_setting(ar, path, &sub_path->setting[i]) < 0)
-            return -1;
-
+    for (i = 0; i < sub_path->length; i++) {
+        int retVal = path_add_setting(ar, path, &sub_path->setting[i]);
+        if (retVal < 0) {
+            if (retVal == -2)
+                continue;
+            else
+                return -1;
+        }
+    }
     return 0;
 }
 

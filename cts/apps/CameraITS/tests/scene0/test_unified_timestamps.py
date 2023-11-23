@@ -63,7 +63,8 @@ class UnifiedTimeStampTest(its_base_test.ItsBaseTest):
       for sensor, existing in sensors.items():
       # Vibrator doesn't generate outputs: b/142653973
         if existing and sensor != 'vibrator':
-          assert events[sensor], '%s sensor has no events!' % sensor
+          if not events[sensor]:
+            raise AssertionError(f'{sensor} has no events!')
           ts_sensor_first[sensor] = events[sensor][0]['time']
           ts_sensor_last[sensor] = events[sensor][-1]['time']
 
@@ -78,8 +79,12 @@ class UnifiedTimeStampTest(its_base_test.ItsBaseTest):
         if existing and sensor != 'vibrator':
           logging.debug('%s timestamps: %d %d', sensor, ts_sensor_first[sensor],
                         ts_sensor_last[sensor])
-          assert ts_image0 < ts_sensor_first[sensor] < ts_image1
-          assert ts_image0 < ts_sensor_last[sensor] < ts_image1
+          if (not ts_image0 < ts_sensor_first[sensor] < ts_image1 or
+              not ts_image0 < ts_sensor_last[sensor] < ts_image1):
+            raise AssertionError(
+                f'{sensor} times not bounded by camera! camera: '
+                f'{ts_image0}:{ts_image1}, {sensor}: '
+                f'{ts_sensor_first[sensor]}:{ts_sensor_last[sensor]}')
 
 
 if __name__ == '__main__':

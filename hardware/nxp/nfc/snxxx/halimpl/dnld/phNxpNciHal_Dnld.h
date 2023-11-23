@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2020 NXP
+ * Copyright (C) 2012-2021 NXP
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,11 +21,10 @@
 
 #define PHLIBNFC_DNLD_CHECKINTEGRITY_OFFSET (0x07)
 
-NFCSTATUS phNxpNciHal_fw_dnld_switch_normal_mode(void* pContext,
-                                                 NFCSTATUS fStatus,
-                                                 void* pInfo);
+NFCSTATUS phNxpNciHal_fw_dnld_switch_normal_mode();
 NFCSTATUS phNxpNciHal_fw_download_seq(uint8_t bClkSrcVal, uint8_t bClkFreqVal,
-                                      uint8_t seq_handler_offset = 0);
+                                      uint8_t seq_handler_offset = 0,
+                                      bool bMinimalFw = false);
 #define STREAM_TO_UINT32(u32, p)                                      \
   {                                                                   \
     (u32) = (((uint32_t)(*(p))) + ((((uint32_t)(*((p) + 1)))) << 8) + \

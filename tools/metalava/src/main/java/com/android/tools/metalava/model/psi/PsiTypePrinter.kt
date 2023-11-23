@@ -17,7 +17,6 @@
 package com.android.tools.metalava.model.psi
 
 import com.android.tools.metalava.JAVA_LANG_OBJECT
-import com.android.tools.metalava.compatibility
 import com.android.tools.metalava.model.AnnotationItem
 import com.android.tools.metalava.model.Codebase
 import com.android.tools.metalava.model.Item
@@ -137,12 +136,16 @@ class PsiTypePrinter(
                 return getCanonicalText(type.wildcard, elementAnnotations)
             is PsiDisjunctionType ->
                 // Based on PsiDisjunctionType.getCanonicalText(true)
-                return StringUtil.join(type.disjunctions, { psiType ->
-                    getCanonicalText(
-                        psiType,
-                        elementAnnotations
-                    )
-                }, " | ")
+                return StringUtil.join(
+                    type.disjunctions,
+                    { psiType ->
+                        getCanonicalText(
+                            psiType,
+                            elementAnnotations
+                        )
+                    },
+                    " | "
+                )
             is PsiIntersectionType -> return getCanonicalText(type.conjuncts[0], elementAnnotations)
             else -> return type.getCanonicalText(true)
         }
@@ -162,10 +165,7 @@ class PsiTypePrinter(
         if (suffix == null) {
             sb.append('?')
         } else {
-            if (suffix == JAVA_LANG_OBJECT &&
-                !compatibility.includeExtendsObjectInWildcard &&
-                type.isExtends
-            ) {
+            if (suffix == JAVA_LANG_OBJECT && type.isExtends) {
                 sb.append('?')
             } else {
                 sb.append(if (type.isExtends) EXTENDS_PREFIX else SUPER_PREFIX)
@@ -430,7 +430,7 @@ class PsiTypePrinter(
         sb.append('<')
         for (i in types.indices) {
             if (i > 0) {
-                sb.append(if (!compatibility.spaceAfterCommaInTypes) "," else ", ")
+                sb.append(",")
             }
 
             val type = types[i]
@@ -521,7 +521,7 @@ class PsiTypePrinter(
 
         if (elementAnnotations != null) {
             for (annotation in elementAnnotations) {
-                val name = mapAnnotation(annotation.qualifiedName())
+                val name = mapAnnotation(annotation.qualifiedName)
                 if (name != null) {
                     sb.append(annotation.toSource()).append(' ')
                     updated = true

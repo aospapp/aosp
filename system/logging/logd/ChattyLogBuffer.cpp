@@ -334,7 +334,7 @@ bool ChattyLogBuffer::Prune(log_id_t id, unsigned long pruneRows, uid_t caller_u
     bool clearAll = pruneRows == ULONG_MAX;
 
     // Region locked?
-    for (const auto& reader_thread : reader_list()->reader_threads()) {
+    for (const auto& reader_thread : reader_list()->running_reader_threads()) {
         if (!reader_thread->IsWatching(id)) {
             continue;
         }

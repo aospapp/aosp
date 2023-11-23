@@ -18,7 +18,6 @@ package com.android.server.wm.flicker.monitor
 
 import androidx.test.uiautomator.UiDevice
 import com.android.server.wm.nano.WindowManagerTraceFileProto
-import com.android.server.wm.flicker.FlickerRunResult
 import com.google.common.truth.Truth
 import org.junit.FixMethodOrder
 import org.junit.Test
@@ -35,10 +34,6 @@ class WindowManagerTraceMonitorTest : TraceMonitorTest<WindowManagerTraceMonitor
         Truth.assertThat(trace.magicNumber)
                 .isEqualTo(WindowManagerTraceFileProto.MAGIC_NUMBER_H.toLong() shl 32
                         or WindowManagerTraceFileProto.MAGIC_NUMBER_L.toLong())
-    }
-
-    override fun getTraceFile(result: FlickerRunResult): Path? {
-        return result.traceFiles.firstOrNull { it.toString().contains("wm_trace") }
     }
 
     @Test

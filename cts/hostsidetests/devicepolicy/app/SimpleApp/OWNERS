@@ -1,2 +1,1 @@
-ctate@google.com
-hackbod@google.com
+include platform/frameworks/base:/services/core/java/com/android/server/am/OWNERS

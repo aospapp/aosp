@@ -15,10 +15,10 @@
  */
 package android.telephony.cts;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
-
-import static com.google.common.truth.Truth.assertThat;
 
 import android.telephony.AccessNetworkConstants;
 import android.telephony.PhysicalChannelConfig;
@@ -27,7 +27,6 @@ import android.telephony.TelephonyManager;
 
 import org.junit.Before;
 import org.junit.Test;
-
 
 public class PhysicalChannelConfigTest {
 
@@ -81,8 +80,7 @@ public class PhysicalChannelConfigTest {
                     .setBand(BAND)
                     .build();
             fail("Physical cell Id: 1008 is over limit");
-        } catch (IllegalArgumentException e) {
-        }
+        } catch (IllegalArgumentException expected) { }
     }
 
     @Test

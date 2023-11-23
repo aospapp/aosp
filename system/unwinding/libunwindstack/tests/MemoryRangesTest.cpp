@@ -20,8 +20,8 @@
 
 #include <gtest/gtest.h>
 
-#include "MemoryFake.h"
 #include "MemoryRange.h"
+#include "utils/MemoryFake.h"
 
 namespace unwindstack {
 
@@ -84,6 +84,12 @@ TEST_F(MemoryRangesTest, read_across_ranges) {
   for (size_t i = 0; i < bytes; i++) {
     ASSERT_EQ(0x37U, dst[i]) << "Failed at byte " << i;
   }
+}
+
+TEST_F(MemoryRangesTest, duplicate_last_addr) {
+  MemoryRanges ranges;
+  ASSERT_TRUE(ranges.Insert(new MemoryRange(nullptr, 0x1000, 0x2000, 0x1000)));
+  ASSERT_FALSE(ranges.Insert(new MemoryRange(nullptr, 0x2000, 0x1000, 0x2000)));
 }
 
 }  // namespace unwindstack

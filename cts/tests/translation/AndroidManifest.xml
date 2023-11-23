@@ -18,8 +18,19 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="android.translation.cts">
 
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
     <application android:label="Translation TestCase">
         <uses-library android:name="android.test.runner"/>
+
+        <!--
+        EmptyActivity uses a transparent theme so that SimpleActivity below it can have its views
+        translated. See UiTranslationManagerTest#testTranslationAfterStartActivityOnSameTask.
+        -->
+        <activity android:name=".EmptyActivity"
+                  android:label="EmptyActivity"
+                  android:exported="true"
+                  android:theme="@style/TransparentTheme">
+        </activity>
 
         <activity android:name=".SimpleActivity"
                   android:label="SimpleActivity"

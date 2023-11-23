@@ -33,6 +33,7 @@ cc_test_library {
         "android_view_cts_ASurfaceControlTest.cpp",
         "android_view_cts_ChoreographerNativeTest.cpp",
         "android_view_cts_InputDeviceKeyLayoutMapTest.cpp",
+        "android_view_cts_InputQueueTest.cpp",
     ],
 
     shared_libs: [

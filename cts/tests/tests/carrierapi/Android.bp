@@ -37,9 +37,12 @@ android_test {
         "android.test.base",
         "android.test.runner",
     ],
-    // This  APK must be signed to match the test SIM's cert whitelist.
-    // While "testkey" is the default, there are different per-device testkeys, so
-    // hard-code the AOSP default key to ensure it is used regardless of build
+    host_required: [
+        "CtsCarrierApiTargetPrep",
+        "cts-tradefed",
+    ],
+    // This APK must be signed to match the test SIM's carrier privilege rules.
+    // Hard-code the CTS SIM's test key to ensure it is used regardless of build
     // environment.
-    certificate: ":aosp-testkey",
+    certificate: ":cts-uicc-2021-testkey",
 }

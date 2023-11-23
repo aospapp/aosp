@@ -82,14 +82,28 @@ filegroup {
     srcs: [":openjdk_java_files"],
 }
 
+// http://b/129765390, http://b/188966706
+// Rewrite links to "platform" or "technotes" folders which are siblings
+// (and thus outside of) {@docRoot}.
+//
+// We have to escape \ as \\ and $ as $$ here because they get resolved by
+// different layers of the build tooling. The arguments are wrapped in '' so
+// that the shell doesn't add yet another level of escaping.
+rewrite_openjdk_doc_links = "sed 's" +
+    "!\\({@docRoot}/\\.\\.\\/\\|[./]\\+\\)\\(\\(platform\\|technotes\\).\\+\\)\">" +
+    "!https://docs.oracle.com/javase/8/docs/\\2\">!' " +
+    "$(in) > $(out)"
+
 // OpenJDK source is not annotated with @hide so we need this separate
 // filegroup for just the parts that contribute to the API.
-filegroup {
+gensrcs {
     name: "core_oj_api_files",
+    cmd: rewrite_openjdk_doc_links,
     srcs: [":openjdk_javadoc_files"],
+    output_extension: "java",
 }
 
-// The source files that go into core-libart.
+// The source files that go into core-libart.l
 filegroup {
     name: "core_libart_java_files",
     visibility: [
@@ -144,6 +158,7 @@ java_defaults {
         javacflags: [
             "-Xep:MissingOverride:OFF", // Ignore missing @Override.
             "-Xep:ConstantOverflow:WARN", // Known constant overflow in SplittableRandom
+            "-Xep:UnicodeInCode:WARN", // XML parser uses line feeds in whitespace
         ],
     },
     min_sdk_version: "31",
@@ -186,7 +201,6 @@ java_library {
     },
 
     java_resources: core_resources,
-    java_version: "1.9",
 
     installable: false,
 
@@ -265,6 +279,7 @@ java_library {
             "java.lang.Object",
             "java.lang.String",
             "java.lang.invoke.MethodHandle",
+            "java.lang.invoke.VarHandle",
             "java.lang.ref.Reference",
             "java.lang.reflect.Proxy",
             "java.util.AbstractMap",
@@ -302,7 +317,6 @@ java_library {
     hostdex: true,
 
     srcs: [":core_libart_java_files"],
-    java_version: "1.9",
 
     sdk_version: "none",
     system_modules: "core-all-system-modules",
@@ -415,7 +429,8 @@ java_library {
 java_library {
     name: "core-lambda-stubs-for-system-modules",
     visibility: [
-        "//libcore/mmodules/core_platform_api",
+        "//art/build/sdk",
+        "//build/soong/java/core-libraries",
     ],
     defaults: ["core_lambda_stubs_defaults"],
     srcs: [
@@ -431,7 +446,8 @@ java_library {
 java_library {
     name: "core-generated-annotation-stubs",
     visibility: [
-        "//libcore/mmodules/core_platform_api",
+        "//art/build/sdk",
+        "//build/soong/java/core-libraries",
     ],
     defaults: ["libcore_java_defaults"],
     srcs: [
@@ -457,6 +473,7 @@ java_library_static {
         "//frameworks/base/location/tests/locationtests",
         "//frameworks/base/core/tests/coretests",
         "//frameworks/base/wifi/tests",
+        "//libcore/luni/src/test/java9compatibility",
         "//packages/modules/Wifi/framework/tests",
     ],
     hostdex: true,
@@ -535,6 +552,11 @@ java_test {
     libs: [
         "junit",
     ],
+    errorprone: {
+        javacflags: [
+            "-Xep:DoNotCall:OFF",
+        ],
+    },
 }
 
 // A filegroup that provides access to a source file for a toolchain test that
@@ -543,6 +565,14 @@ filegroup {
     name: "core-java-9-language-features-source",
     srcs: ["luni/src/main/java/libcore/internal/Java9LanguageFeatures.java"],
     visibility: ["//libcore/luni/src/test/java9language"],
+}
+
+// A filegroup that provides access to a source file for a toolchain test that
+// checks Java 11 language features are handled properly by JarJar.
+filegroup {
+    name: "core-java-11-language-features-source",
+    srcs: ["luni/src/main/java/libcore/internal/Java11LanguageFeatures.java"],
+    visibility: ["//libcore/luni/src/test/java11language"],
 }
 
 genrule {
@@ -615,7 +645,9 @@ java_test {
 
     static_libs: [
         "core-compat-test-rules",
+        "core-java-9-compatibility-tests",
         "core-java-9-language-tests",
+        "core-java-11-language-tests",
         "core-test-rules",
         "core-tests-support",
         "junit-params",
@@ -633,6 +665,7 @@ java_test {
         javacflags: [
             "-Xep:TryFailThrowable:ERROR",
             "-Xep:ComparisonOutOfRange:ERROR",
+            "-Xep:DoNotCall:OFF",
         ],
     },
 
@@ -651,6 +684,7 @@ java_test {
         "luni/src/test/java/libcore/javax/crypto/**/*.java",
         "luni/src/test/java/libcore/javax/net/ssl/**/*.java",
         "luni/src/test/java/libcore/libcore/util/SerializationTester.java",
+        "luni/src/test/java/libcore/sun/security/**/*.java",
         "luni/src/test/java/org/apache/harmony/crypto/**/*.java",
     ],
 
@@ -680,6 +714,7 @@ java_test {
     srcs: [
         "ojluni/src/test/java/**/*.java",
         "ojluni/src/test/javax/**/*.java",
+        "ojluni/src/test/sun/**/*.java",
     ],
     java_resource_dirs: [
         "ojluni/src/test/java",
@@ -717,6 +752,13 @@ java_test {
     // deleting those tests or moving them to a different
     // package.
     patch_module: "java.base",
+
+    errorprone: {
+        javacflags: [
+            "-Xep:AlwaysThrows:OFF",
+            "-Xep:DoNotCall:OFF",
+        ],
+    },
 }
 
 // Builds the core-ojtests-public library. Excludes any private API tests.
@@ -731,6 +773,7 @@ java_test {
     srcs: [
         "ojluni/src/test/java/**/*.java",
         "ojluni/src/test/javax/**/*.java",
+        "ojluni/src/test/sun/**/*.java",
     ],
     // Filter out the following:
     // 1.) DeserializeMethodTest and SerializedLambdaTest, because they depends on stub classes
@@ -761,6 +804,13 @@ java_test {
         "okhttp",
         "testng",
     ],
+
+    errorprone: {
+        javacflags: [
+            "-Xep:AlwaysThrows:OFF",
+            "-Xep:DoNotCall:OFF",
+        ],
+    },
 }
 
 // Exports annotated stubs source files in ojluni/annotations/sdk to make them
@@ -784,7 +834,6 @@ droiddoc_exported_dir {
 droiddoc_exported_dir {
     name: "ojluni-annotated-mmodule-stubs",
     visibility: [
-        "//libcore/mmodules/core_platform_api",
         "//libcore/mmodules/intracoreapi",
     ],
     path: "ojluni/annotations/mmodule",
@@ -816,7 +865,6 @@ droidstubs {
         ":core_oj_api_files",
         ":core_libart_api_files",
     ],
-    java_version: "1.9",
     installable: false,
     sdk_version: "none",
     system_modules: "none",
@@ -851,21 +899,6 @@ java_system_modules {
     ],
 }
 
-// http://b/129765390 Rewrite links to "platform" or "technotes" folders
-// which are siblings (and thus outside of) {@docRoot}.
-//
-// We have to escape \ as \\ and $ as $$ here because they get resolved by
-// different layers of the build tooling. The arguments are wrapped in '' so
-// that the shell doesn't add yet another level of escaping.
-rewrite_openjdk_doc_args = "--replace-documentation " +
-    // packages whose descendants to apply replacement to (all packages from
-    // libcore/ojluni/src/main/java that contribute to documentation).
-    "com.sun:java:javax:jdk.net:sun " +
-    // regex of the string to replace
-    "'(<a\\s+href\\s?=[\\*\\s]*\")(?:(?:\\{@docRoot\\}/\\.\\./)|(?:(?:\\.\\./)+))((?:platform|technotes).+)\">' " +
-    // replacement (with $1, $2 backreferences to the regex groups)
-    "'$$1https://docs.oracle.com/javase/8/docs/$$2\">' "
-
 java_library {
     name: "framework-api-annotations-lib",
     srcs: [":framework-api-annotations"],
@@ -883,7 +916,7 @@ java_sdk_library {
     name: "art.module.public.api",
     visibility: [
         "//art/build/sdk",
-        "//libcore/mmodules/core_platform_api",
+        "//build/soong/java/core-libraries",
         "//frameworks/base",
         "//frameworks/base/api",
     ],
@@ -910,7 +943,6 @@ java_sdk_library {
         "i18n.module.intra.core.api.stubs",
     ],
     stub_only_static_libs: ["notices-for-stubs-jar"],
-    java_version: "1.9",
 
     // Make dex jars for the stubs available for use by hiddenapi processing.
     compile_dex: true,
@@ -927,7 +959,6 @@ java_sdk_library {
 
     api_only: true,
     droiddoc_options: [
-        rewrite_openjdk_doc_args,
         "--force-convert-to-warning-nullability-annotations +*:-android.*:+android.icu.*:-dalvik.* ",
         "--hide-annotation libcore.api.Hide",
     ],
@@ -1014,102 +1045,6 @@ java_system_modules {
     ],
 }
 
-// A stubs target containing the parts of the public SDK API provided by the
-// core library.
-//
-// Don't use this directly, use "sdk_version: core_current".
-java_library {
-    name: "core.current.stubs",
-    visibility: ["//visibility:public"],
-    static_libs: [
-        "art.module.public.api.stubs",
-        "conscrypt.module.public.api.stubs",
-        "i18n.module.public.api.stubs",
-    ],
-    sdk_version: "none",
-    system_modules: "none",
-
-    dist: {
-        targets: [
-            "sdk",
-            "win_sdk",
-        ],
-    },
-}
-
-// Distributed with the SDK for turning into system modules to compile apps
-// against.
-java_library {
-    name: "core-current-stubs-for-system-modules",
-    visibility: ["//development/sdk"],
-    static_libs: [
-        "core.current.stubs",
-        // This one is not on device but it's needed when javac compiles code
-        // containing lambdas.
-        "core-lambda-stubs-for-system-modules",
-        // This one is not on device but it's needed when javac compiles code
-        // containing @Generated annotations produced by some code generation
-        // tools.
-        // See http://b/123891440.
-        "core-generated-annotation-stubs",
-    ],
-    sdk_version: "none",
-    system_modules: "none",
-    dist: {
-        dest: "core-for-system-modules.jar",
-        targets: [
-            "sdk",
-            "win_sdk",
-        ],
-    },
-}
-
-// Used when compiling higher-level code against core.current.stubs.
-java_system_modules {
-    name: "core-current-stubs-system-modules",
-    visibility: ["//visibility:public"],
-    libs: [
-        "core-current-stubs-for-system-modules",
-    ],
-}
-
-// A stubs target containing the parts of the public SDK & @SystemApi(MODULE_LIBRARIES) API
-// provided by the core library.
-//
-// Don't use this directly, use "sdk_version: module_current".
-java_library {
-    name: "core.module_lib.stubs",
-    static_libs: [
-        "art.module.public.api.stubs.module_lib",
-
-        // Replace the following with the module-lib correspondence when Conscrypt or i18N module
-        // provides @SystemApi(MODULE_LIBRARIES). Currently, assume that only ART module provides
-        // @SystemApi(MODULE_LIBRARIES).
-        "conscrypt.module.public.api.stubs",
-        "i18n.module.public.api.stubs",
-    ],
-    sdk_version: "none",
-    system_modules: "none",
-    visibility: ["//visibility:private"],
-}
-
-// Used when compiling higher-level code with sdk_version "module_current"
-java_system_modules {
-    name: "core-module-lib-stubs-system-modules",
-    libs: [
-        "core.module_lib.stubs",
-        // This one is not on device but it's needed when javac compiles code
-        // containing lambdas.
-        "core-lambda-stubs-for-system-modules",
-        // This one is not on device but it's needed when javac compiles code
-        // containing @Generated annotations produced by some code generation
-        // tools.
-        // See http://b/123891440.
-        "core-generated-annotation-stubs",
-    ],
-    visibility: ["//visibility:public"],
-}
-
 // Target for validating nullability annotations for correctness and
 // completeness. To check that there are no nullability errors:
 //   m art-module-public-api-stubs-nullability-validation
@@ -1154,6 +1089,9 @@ java_system_modules {
 // avoid introducing compile time cycles.
 java_library {
     name: "art.module.api.annotations.for.system.modules",
+    visibility: [
+        "//art/libartservice",
+    ],
     srcs: [
         ":api_surface_annotation_files",
     ],
@@ -1177,6 +1115,5 @@ java_library {
     srcs: [
         ":api_surface_annotation_files",
     ],
-    java_version: "1.9",
     sdk_version: "core_current",
 }

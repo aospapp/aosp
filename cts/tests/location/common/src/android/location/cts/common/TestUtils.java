@@ -16,14 +16,17 @@
 
 package android.location.cts.common;
 
+import android.app.UiAutomation;
 import android.content.Context;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.util.Log;
-
+import androidx.test.InstrumentationRegistry;
 import com.android.compatibility.common.util.SystemUtil;
-
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -155,6 +158,64 @@ public class TestUtils {
                 return;
             }
             Thread.sleep(DATA_CONNECTION_CHECK_INTERVAL_MS);
+        }
+    }
+
+    public static List<String> getPackagesWithPermissions(String permission) {
+        UiAutomation uiAnimation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        Context context = InstrumentationRegistry.getTargetContext();
+        PackageManager pm = context.getPackageManager();
+
+        ArrayList<String> packagesWithPermission = new ArrayList<>();
+        List<ApplicationInfo> packages = pm.getInstalledApplications(/*flags=*/0);
+
+        for (ApplicationInfo applicationInfo : packages) {
+            String packageName = applicationInfo.packageName;
+            if (packageName.equals(context.getPackageName())) {
+                // Don't include this test package.
+                continue;
+            }
+
+            if (pm.checkPermission(permission, packageName) == PackageManager.PERMISSION_GRANTED) {
+                final int flags;
+                uiAnimation.adoptShellPermissionIdentity(
+                        "android.permission.GET_RUNTIME_PERMISSIONS");
+                try {
+                    flags = pm.getPermissionFlags(
+                            permission, packageName, android.os.Process.myUserHandle());
+                } finally {
+                    uiAnimation.dropShellPermissionIdentity();
+                }
+
+                final boolean fixed =
+                        (flags
+                                & (PackageManager.FLAG_PERMISSION_USER_FIXED
+                                        | PackageManager.FLAG_PERMISSION_POLICY_FIXED
+                                        | PackageManager.FLAG_PERMISSION_SYSTEM_FIXED))
+                        != 0;
+                if (!fixed) {
+                    packagesWithPermission.add(packageName);
+                }
+            }
+        }
+        return packagesWithPermission;
+    }
+
+    public static List<String> revokePermissions(String permission) {
+        UiAutomation uiAnimation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        List<String> packages = getPackagesWithPermissions(permission);
+        for (String packageWithPermission : packages) {
+            Log.i(TAG, "Revoking permissions from: " + packageWithPermission);
+            uiAnimation.revokeRuntimePermission(packageWithPermission, permission);
+        }
+        return packages;
+    }
+
+    public static void grantLocationPermissions(String permission, List<String> packages) {
+        UiAutomation uiAnimation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        for (String packageToGivePermission : packages) {
+            Log.i(TAG, "Granting permissions (back) to: " + packageToGivePermission);
+            uiAnimation.grantRuntimePermission(packageToGivePermission, permission);
         }
     }
 }

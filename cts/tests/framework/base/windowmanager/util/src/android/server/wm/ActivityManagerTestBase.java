@@ -28,12 +28,14 @@ import static android.content.Intent.ACTION_MAIN;
 import static android.content.Intent.CATEGORY_HOME;
 import static android.content.Intent.FLAG_ACTIVITY_MULTIPLE_TASK;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
+import static android.content.Intent.FLAG_ACTIVITY_NO_USER_ACTION;
 import static android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED;
 import static android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED;
 import static android.content.pm.PackageManager.DONT_KILL_APP;
 import static android.content.pm.PackageManager.FEATURE_ACTIVITIES_ON_SECONDARY_DISPLAYS;
 import static android.content.pm.PackageManager.FEATURE_AUTOMOTIVE;
 import static android.content.pm.PackageManager.FEATURE_EMBEDDED;
+import static android.content.pm.PackageManager.FEATURE_EXPANDED_PICTURE_IN_PICTURE;
 import static android.content.pm.PackageManager.FEATURE_FREEFORM_WINDOW_MANAGEMENT;
 import static android.content.pm.PackageManager.FEATURE_INPUT_METHODS;
 import static android.content.pm.PackageManager.FEATURE_LEANBACK;
@@ -45,6 +47,7 @@ import static android.content.pm.PackageManager.FEATURE_TELEVISION;
 import static android.content.pm.PackageManager.FEATURE_VR_MODE_HIGH_PERFORMANCE;
 import static android.content.pm.PackageManager.FEATURE_WATCH;
 import static android.content.pm.PackageManager.MATCH_DEFAULT_ONLY;
+import static android.os.UserHandle.USER_SYSTEM;
 import static android.server.wm.ActivityLauncher.KEY_ACTIVITY_TYPE;
 import static android.server.wm.ActivityLauncher.KEY_DISPLAY_ID;
 import static android.server.wm.ActivityLauncher.KEY_INTENT_EXTRAS;
@@ -75,6 +78,7 @@ import static android.server.wm.UiDeviceUtils.pressUnlockButton;
 import static android.server.wm.UiDeviceUtils.pressWakeupButton;
 import static android.server.wm.UiDeviceUtils.waitForDeviceIdle;
 import static android.server.wm.WindowManagerState.STATE_RESUMED;
+import static android.server.wm.WindowManagerState.STATE_STOPPED;
 import static android.server.wm.app.Components.BROADCAST_RECEIVER_ACTIVITY;
 import static android.server.wm.app.Components.BroadcastReceiverActivity.ACTION_TRIGGER_BROADCAST;
 import static android.server.wm.app.Components.BroadcastReceiverActivity.EXTRA_BROADCAST_ORIENTATION;
@@ -85,10 +89,13 @@ import static android.server.wm.app.Components.BroadcastReceiverActivity.EXTRA_F
 import static android.server.wm.app.Components.BroadcastReceiverActivity.EXTRA_MOVE_BROADCAST_TO_BACK;
 import static android.server.wm.app.Components.LAUNCHING_ACTIVITY;
 import static android.server.wm.app.Components.LaunchingActivity.KEY_FINISH_BEFORE_LAUNCH;
+import static android.server.wm.app.Components.PipActivity.ACTION_CHANGE_ASPECT_RATIO;
 import static android.server.wm.app.Components.PipActivity.ACTION_EXPAND_PIP;
 import static android.server.wm.app.Components.PipActivity.ACTION_SET_REQUESTED_ORIENTATION;
 import static android.server.wm.app.Components.PipActivity.ACTION_UPDATE_PIP_STATE;
 import static android.server.wm.app.Components.PipActivity.EXTRA_PIP_ORIENTATION;
+import static android.server.wm.app.Components.PipActivity.EXTRA_SET_ASPECT_RATIO_DENOMINATOR;
+import static android.server.wm.app.Components.PipActivity.EXTRA_SET_ASPECT_RATIO_NUMERATOR;
 import static android.server.wm.app.Components.PipActivity.EXTRA_SET_ASPECT_RATIO_WITH_DELAY_DENOMINATOR;
 import static android.server.wm.app.Components.PipActivity.EXTRA_SET_ASPECT_RATIO_WITH_DELAY_NUMERATOR;
 import static android.server.wm.app.Components.PipActivity.EXTRA_SET_PIP_CALLBACK;
@@ -99,12 +106,12 @@ import static android.server.wm.third.Components.THIRD_ACTIVITY;
 import static android.view.Display.DEFAULT_DISPLAY;
 import static android.view.Display.INVALID_DISPLAY;
 import static android.view.Surface.ROTATION_0;
+import static android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
 import static android.view.WindowManager.LayoutParams.TYPE_BASE_APPLICATION;
 
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -154,12 +161,14 @@ import android.server.wm.settings.SettingsSession;
 import android.util.DisplayMetrics;
 import android.util.EventLog;
 import android.util.EventLog.Event;
+import android.util.Size;
 import android.view.Display;
 import android.view.View;
 import android.view.WindowManager;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 
 import com.android.compatibility.common.util.AppOpsUtils;
@@ -177,10 +186,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -213,6 +220,7 @@ public abstract class ActivityManagerTestBase {
         testPackages.add(THIRD_TEST_PACKAGE);
         testPackages.add("android.server.wm.cts");
         testPackages.add("android.server.wm.jetpack");
+        testPackages.add("android.server.wm.jetpack.second");
         TEST_PACKAGES = Collections.unmodifiableList(testPackages);
     }
 
@@ -230,13 +238,15 @@ public abstract class ActivityManagerTestBase {
     private static final int UI_MODE_TYPE_MASK = 0x0f;
     private static final int UI_MODE_TYPE_VR_HEADSET = 0x07;
 
-    static final boolean ENABLE_SHELL_TRANSITIONS =
-            SystemProperties.getBoolean("persist.debug.shell_transit", false);
+    public static final boolean ENABLE_SHELL_TRANSITIONS =
+            SystemProperties.getBoolean("persist.wm.debug.shell_transit", false);
 
     private static Boolean sHasHomeScreen = null;
     private static Boolean sSupportsSystemDecorsOnSecondaryDisplays = null;
     private static Boolean sSupportsInsecureLockScreen = null;
     private static Boolean sIsAssistantOnTop = null;
+    private static Boolean sIsTablet = null;
+    private static Boolean sDismissDreamOnActivityStart = null;
     private static boolean sIllegalTaskStateFound;
 
     protected static final int INVALID_DEVICE_ROTATION = -1;
@@ -321,6 +331,21 @@ public abstract class ActivityManagerTestBase {
 
     protected static String getAmStartCmdOverHome(final ComponentName activityName) {
         return "am start --activity-task-on-home -n " + getActivityName(activityName);
+    }
+
+    protected static String getAmStartCmdWithDismissKeyguardIfInsecure(
+            final ComponentName activityName) {
+        return "am start --dismiss-keyguard-if-insecure -n " + getActivityName(activityName);
+    }
+
+    protected static String getAmStartCmdWithNoUserAction(final ComponentName activityName,
+            final CliIntentExtra... extras) {
+        return appendKeyValuePairs(
+                new StringBuilder("am start -n ")
+                        .append(getActivityName(activityName))
+                        .append(" -f 0x")
+                        .append(toHexString(FLAG_ACTIVITY_NO_USER_ACTION)),
+                extras);
     }
 
     protected WindowManagerStateHelper mWmState = new WindowManagerStateHelper();
@@ -421,6 +446,12 @@ public abstract class ActivityManagerTestBase {
         void requestOrientationForPip(int orientation) {
             mContext.sendBroadcast(createIntentWithAction(ACTION_SET_REQUESTED_ORIENTATION)
                     .putExtra(EXTRA_PIP_ORIENTATION, String.valueOf(orientation)));
+        }
+
+        void changeAspectRatio(int numerator, int denominator) {
+            mContext.sendBroadcast(createIntentWithAction(ACTION_CHANGE_ASPECT_RATIO)
+                    .putExtra(EXTRA_SET_ASPECT_RATIO_NUMERATOR, Integer.toString(numerator))
+                    .putExtra(EXTRA_SET_ASPECT_RATIO_DENOMINATOR, Integer.toString(denominator)));
         }
     }
 
@@ -760,6 +791,12 @@ public abstract class ActivityManagerTestBase {
         return mInstrumentation.getUiAutomation().takeScreenshot();
     }
 
+    protected Bitmap takeScreenshotForBounds(Rect rect) {
+        Bitmap fullBitmap = takeScreenshot();
+        return Bitmap.createBitmap(fullBitmap, rect.left, rect.top,
+                rect.width(), rect.height());
+    }
+
     protected void launchActivity(final ComponentName activityName,
             final CliIntentExtra... extras) {
         launchActivityNoWait(activityName, extras);
@@ -778,6 +815,17 @@ public abstract class ActivityManagerTestBase {
 
     protected void launchActivityWithData(final ComponentName activityName, String data) {
         executeShellCommand(getAmStartCmdWithData(activityName, data));
+        mWmState.waitForValidState(activityName);
+    }
+
+    protected void launchActivityWithDismissKeyguardIfInsecure(final ComponentName activityName) {
+        executeShellCommand(getAmStartCmdWithDismissKeyguardIfInsecure(activityName));
+        mWmState.waitForValidState(activityName);
+    }
+
+    protected void launchActivityWithNoUserAction(final ComponentName activityName,
+            final CliIntentExtra... extras) {
+        executeShellCommand(getAmStartCmdWithNoUserAction(activityName, extras));
         mWmState.waitForValidState(activityName);
     }
 
@@ -997,6 +1045,10 @@ public abstract class ActivityManagerTestBase {
                 || PRETEND_DEVICE_SUPPORTS_PIP;
     }
 
+    protected boolean supportsExpandedPip() {
+        return hasDeviceFeature(FEATURE_EXPANDED_PICTURE_IN_PICTURE);
+    }
+
     protected boolean supportsFreeform() {
         return hasDeviceFeature(FEATURE_FREEFORM_WINDOW_MANAGEMENT)
                 || PRETEND_DEVICE_SUPPORTS_FREEFORM;
@@ -1038,9 +1090,20 @@ public abstract class ActivityManagerTestBase {
         return hasDeviceFeature(FEATURE_TELEVISION);
     }
 
-    protected boolean isTablet() {
-        // Larger than approx 7" tablets
-        return mContext.getResources().getConfiguration().smallestScreenWidthDp >= 600;
+    public static boolean isTablet() {
+        if (sIsTablet == null) {
+            // Use WindowContext with type application overlay to prevent the metrics overridden by
+            // activity bounds. Note that process configuration may still be overridden by
+            // foreground Activity.
+            final Context appContext = ApplicationProvider.getApplicationContext();
+            final Display defaultDisplay = appContext.getSystemService(DisplayManager.class)
+                    .getDisplay(DEFAULT_DISPLAY);
+            final Context windowContext = appContext.createWindowContext(defaultDisplay,
+                    TYPE_APPLICATION_OVERLAY, null /* options */);
+            sIsTablet = windowContext.getResources()
+                    .getConfiguration().smallestScreenWidthDp >= 600;
+        }
+        return sIsTablet;
     }
 
     protected boolean isOperatorTierDevice() {
@@ -1097,6 +1160,21 @@ public abstract class ActivityManagerTestBase {
         mWmState.assertValidity();
         assertTrue(message, mWmState.hasActivityState(activityName, STATE_RESUMED));
         mWmState.assertVisibility(activityName, true /* visible */);
+    }
+
+    /**
+     * Waits and asserts that the activity represented by the given activity name is stopped and
+     * invisible.
+     *
+     * @param activityName the activity name
+     * @param message the error message
+     */
+    public void waitAndAssertStoppedActivity(ComponentName activityName, String message) {
+        mWmState.waitForValidState(activityName);
+        mWmState.waitForActivityState(activityName, STATE_STOPPED);
+        mWmState.assertValidity();
+        assertTrue(message, mWmState.hasActivityState(activityName, STATE_STOPPED));
+        mWmState.assertVisibility(activityName, false /* visible */);
     }
 
     // TODO: Switch to using a feature flag, when available.
@@ -1180,6 +1258,19 @@ public abstract class ActivityManagerTestBase {
                     android.R.bool.config_assistantOnTopOfDream);
         }
         return sIsAssistantOnTop;
+    }
+
+    protected boolean dismissDreamOnActivityStart() {
+        if (sDismissDreamOnActivityStart == null) {
+            try {
+                sDismissDreamOnActivityStart = mContext.getResources().getBoolean(
+                        Resources.getSystem().getIdentifier(
+                                "config_dismissDreamOnActivityStart", "bool", "android"));
+            } catch (Resources.NotFoundException e) {
+                sDismissDreamOnActivityStart = true;
+            }
+        }
+        return sDismissDreamOnActivityStart;
     }
 
     /**
@@ -1302,31 +1393,20 @@ public abstract class ActivityManagerTestBase {
         return mObjectTracker.manage(new FontScaleSession());
     }
 
+    /** Allows requesting orientation in case ignore_orientation_request is set to true. */
+    protected void disableIgnoreOrientationRequest() {
+        mObjectTracker.manage(new IgnoreOrientationRequestSession(false /* enable */));
+    }
+
     /**
      * Test @Rule class that disables screen doze settings before each test method running and
      * restoring to initial values after test method finished.
      */
-    protected static class DisableScreenDozeRule implements TestRule {
+    protected class DisableScreenDozeRule implements TestRule {
+        AmbientDisplayConfiguration mConfig;
 
-        /** Copied from android.provider.Settings.Secure since these keys are hidden. */
-        private static final String[] DOZE_SETTINGS = {
-                "doze_enabled",
-                "doze_always_on",
-                "doze_pulse_on_pick_up",
-                "doze_pulse_on_long_press",
-                "doze_pulse_on_double_tap",
-                "doze_wake_screen_gesture",
-                "doze_wake_display_gesture",
-                "doze_tap_gesture",
-                "doze_quick_pickup_gesture"
-        };
-
-        private String get(String key) {
-            return executeShellCommand("settings get secure " + key).trim();
-        }
-
-        private void put(String key, String value) {
-            executeShellCommand("settings put secure " + key + " " + value);
+        DisableScreenDozeRule() {
+            mConfig = new AmbientDisplayConfiguration(mContext);
         }
 
         @Override
@@ -1334,13 +1414,18 @@ public abstract class ActivityManagerTestBase {
             return new Statement() {
                 @Override
                 public void evaluate() throws Throwable {
-                    final Map<String, String> initialValues = new HashMap<>();
-                    Arrays.stream(DOZE_SETTINGS).forEach(k -> initialValues.put(k, get(k)));
                     try {
-                        Arrays.stream(DOZE_SETTINGS).forEach(k -> put(k, "0"));
+                        SystemUtil.runWithShellPermissionIdentity(() -> {
+                            // disable current doze settings
+                            mConfig.disableDozeSettings(true /* shouldDisableNonUserConfigurable */,
+                                    USER_SYSTEM);
+                        });
                         base.evaluate();
                     } finally {
-                        Arrays.stream(DOZE_SETTINGS).forEach(k -> put(k, initialValues.get(k)));
+                        SystemUtil.runWithShellPermissionIdentity(() -> {
+                            // restore doze settings
+                            mConfig.restoreDozeSettings(USER_SYSTEM);
+                        });
                     }
                 }
             };
@@ -1472,7 +1557,7 @@ public abstract class ActivityManagerTestBase {
             return this;
         }
 
-        LockScreenSession unlockDevice() {
+        public LockScreenSession unlockDevice() {
             // Make sure the unlock button event is send to the default display.
             touchAndCancelOnDisplayCenterSync(DEFAULT_DISPLAY);
 
@@ -2499,7 +2584,8 @@ public abstract class ActivityManagerTestBase {
                 String amStartCmd =
                         (mWindowingMode == -1 || mNewTask)
                                 ? getAmStartCmd(mLaunchingActivity)
-                                : getAmStartCmd(mLaunchingActivity, mWindowingMode);
+                                : getAmStartCmd(mLaunchingActivity, mDisplayId)
+                                        + " --windowingMode " + mWindowingMode;
                 // Use launching activity to launch the target.
                 commandBuilder.append(amStartCmd)
                         .append(" -f 0x20000020");
@@ -2656,5 +2742,107 @@ public abstract class ActivityManagerTestBase {
 
     /** Activity that can handle all config changes. */
     public static class ConfigChangeHandlingActivity extends CommandSession.BasicTestActivity {
+    }
+
+    public static class ReportedDisplayMetrics {
+        private static final String WM_SIZE = "wm size";
+        private static final String WM_DENSITY = "wm density";
+        private static final Pattern PHYSICAL_SIZE =
+                Pattern.compile("Physical size: (\\d+)x(\\d+)");
+        private static final Pattern OVERRIDE_SIZE =
+                Pattern.compile("Override size: (\\d+)x(\\d+)");
+        private static final Pattern PHYSICAL_DENSITY =
+                Pattern.compile("Physical density: (\\d+)");
+        private static final Pattern OVERRIDE_DENSITY =
+                Pattern.compile("Override density: (\\d+)");
+
+        /** The size of the physical display. */
+        @NonNull
+        final Size physicalSize;
+        /** The density of the physical display. */
+        final int physicalDensity;
+
+        /** The pre-existing size override applied to a logical display. */
+        @Nullable
+        final Size overrideSize;
+        /** The pre-existing density override applied to a logical display. */
+        @Nullable
+        final Integer overrideDensity;
+
+        final int mDisplayId;
+
+        /** Get physical and override display metrics from WM for specified display. */
+        public static ReportedDisplayMetrics getDisplayMetrics(int displayId) {
+            return new ReportedDisplayMetrics(executeShellCommand(WM_SIZE + " -d " + displayId)
+                    + executeShellCommand(WM_DENSITY + " -d " + displayId), displayId);
+        }
+
+        public void setDisplayMetrics(final Size size, final int density) {
+            setSize(size);
+            setDensity(density);
+        }
+
+        public void restoreDisplayMetrics() {
+            if (overrideSize != null) {
+                setSize(overrideSize);
+            } else {
+                executeShellCommand(WM_SIZE + " reset -d " + mDisplayId);
+            }
+            if (overrideDensity != null) {
+                setDensity(overrideDensity);
+            } else {
+                executeShellCommand(WM_DENSITY + " reset -d " + mDisplayId);
+            }
+        }
+
+        public void setSize(final Size size) {
+            executeShellCommand(
+                    WM_SIZE + " " + size.getWidth() + "x" + size.getHeight() + " -d " + mDisplayId);
+        }
+
+        public void setDensity(final int density) {
+            executeShellCommand(WM_DENSITY + " " + density + " -d " + mDisplayId);
+        }
+
+        /** Get display size that WM operates with. */
+        public Size getSize() {
+            return overrideSize != null ? overrideSize : physicalSize;
+        }
+
+        /** Get density that WM operates with. */
+        public int getDensity() {
+            return overrideDensity != null ? overrideDensity : physicalDensity;
+        }
+
+        private ReportedDisplayMetrics(final String lines, int displayId) {
+            mDisplayId = displayId;
+            Matcher matcher = PHYSICAL_SIZE.matcher(lines);
+            assertTrue("Physical display size must be reported", matcher.find());
+            log(matcher.group());
+            physicalSize = new Size(
+                    Integer.parseInt(matcher.group(1)), Integer.parseInt(matcher.group(2)));
+
+            matcher = PHYSICAL_DENSITY.matcher(lines);
+            assertTrue("Physical display density must be reported", matcher.find());
+            log(matcher.group());
+            physicalDensity = Integer.parseInt(matcher.group(1));
+
+            matcher = OVERRIDE_SIZE.matcher(lines);
+            if (matcher.find()) {
+                log(matcher.group());
+                overrideSize = new Size(
+                        Integer.parseInt(matcher.group(1)), Integer.parseInt(matcher.group(2)));
+            } else {
+                overrideSize = null;
+            }
+
+            matcher = OVERRIDE_DENSITY.matcher(lines);
+            if (matcher.find()) {
+                log(matcher.group());
+                overrideDensity = Integer.parseInt(matcher.group(1));
+            } else {
+                overrideDensity = null;
+            }
+        }
     }
 }

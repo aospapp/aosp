@@ -64,6 +64,9 @@ $(gamecore_dist_zip) : $(SOONG_ZIP) $(foreach p,$(gamecore_dist_copy_pairs),$(ca
 	$(SOONG_ZIP) -o $@ -C $(dir $@) -f $(dir $@)/gamecore/version.txt \
 	  $(foreach p,$(PRIVATE_COPY_PAIRS),-f $(dir $@)/$(call word-colon,2,$(p)))
 
+$(call declare-1p-container,$(gamecore_dist_zip),tools/test)
+$(call declare-container-license-deps,$(gamecore_dist_zip),$(filter $(OUT_DIR)/%,$(foreach p,$(gamecore_dist_copy_pairs), $(call word-colon,1,$(p)))),$(gamecore_dist_zip):)
+
 .PHONY: gamecore
 gamecore: $(gamecore_dist_host_jar) $(gamecore_dist_test_apk)
 

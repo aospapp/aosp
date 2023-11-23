@@ -36,6 +36,7 @@ import android.content.ComponentName;
 import android.graphics.Rect;
 import android.platform.test.annotations.Presubmit;
 import android.server.wm.WindowManagerState.WindowState;
+import android.util.DisplayMetrics;
 import android.view.DisplayCutout;
 import android.view.WindowMetrics;
 
@@ -117,14 +118,14 @@ public class ManifestLayoutTests extends ActivityManagerTestBase {
         }
         getDisplayAndWindowState(BOTTOM_RIGHT_LAYOUT_ACTIVITY, false);
 
-        final int minWidth = dpToPx(MIN_WIDTH_DP, mDisplay.getDpi());
-        final int minHeight = dpToPx(MIN_HEIGHT_DP, mDisplay.getDpi());
-        final Rect containingRect = mWindowState.getContainingFrame();
+        // Use default density because ActivityInfo.WindowLayout is initialized by that.
+        final int minWidth = dpToPx(MIN_WIDTH_DP, DisplayMetrics.DENSITY_DEVICE_STABLE);
+        final int minHeight = dpToPx(MIN_HEIGHT_DP, DisplayMetrics.DENSITY_DEVICE_STABLE);
+        final Rect parentFrame = mWindowState.getParentFrame();
         final int cutoutSize = getCutoutSizeByHorGravity(GRAVITY_HOR_LEFT);
 
-        assertEquals("Min width is incorrect", minWidth,
-                containingRect.width() + cutoutSize);
-        assertEquals("Min height is incorrect", minHeight, containingRect.height());
+        assertEquals("Min width is incorrect", minWidth, parentFrame.width() + cutoutSize);
+        assertEquals("Min height is incorrect", minHeight, parentFrame.height());
     }
 
     private void testLayout(
@@ -145,7 +146,7 @@ public class ManifestLayoutTests extends ActivityManagerTestBase {
 
         getDisplayAndWindowState(activityName, true);
 
-        final Rect containingRect = mWindowState.getContainingFrame();
+        final Rect parentFrame = mWindowState.getParentFrame();
         final WindowMetrics windowMetrics = mWm.getMaximumWindowMetrics();
         final Rect stableBounds = new Rect(windowMetrics.getBounds());
         stableBounds.inset(windowMetrics.getWindowInsets().getInsetsIgnoringVisibility(
@@ -158,13 +159,13 @@ public class ManifestLayoutTests extends ActivityManagerTestBase {
             expectedWidthPx = (int) (stableBounds.width() * DEFAULT_WIDTH_FRACTION);
             expectedHeightPx = (int) (stableBounds.height() * DEFAULT_HEIGHT_FRACTION);
         } else {
-            final int densityDpi = mDisplay.getDpi();
+            final int densityDpi = DisplayMetrics.DENSITY_DEVICE_STABLE;
             expectedWidthPx = dpToPx(DEFAULT_WIDTH_DP, densityDpi);
             expectedHeightPx = dpToPx(DEFAULT_HEIGHT_DP, densityDpi);
         }
 
         verifyFrameSizeAndPosition(vGravity, hGravity, expectedWidthPx, expectedHeightPx,
-                containingRect, stableBounds);
+                parentFrame, stableBounds);
     }
 
     private void getDisplayAndWindowState(ComponentName activityName, boolean checkFocus)
@@ -194,24 +195,24 @@ public class ManifestLayoutTests extends ActivityManagerTestBase {
 
     private void verifyFrameSizeAndPosition(
             int vGravity, int hGravity, int expectedWidthPx, int expectedHeightPx,
-            Rect containingFrame, Rect parentFrame) {
+            Rect parentFrame, Rect stableBounds) {
         final int cutoutSize = getCutoutSizeByHorGravity(hGravity);
         assertEquals("Width is incorrect",
-                expectedWidthPx, containingFrame.width() + cutoutSize);
-        assertEquals("Height is incorrect", expectedHeightPx, containingFrame.height());
+                expectedWidthPx, parentFrame.width() + cutoutSize);
+        assertEquals("Height is incorrect", expectedHeightPx, parentFrame.height());
 
         if (vGravity == GRAVITY_VER_TOP) {
-            assertEquals("Should be on the top", parentFrame.top, containingFrame.top);
+            assertEquals("Should be on the top", stableBounds.top, parentFrame.top);
         } else if (vGravity == GRAVITY_VER_BOTTOM) {
-            assertEquals("Should be on the bottom", parentFrame.bottom, containingFrame.bottom);
+            assertEquals("Should be on the bottom", stableBounds.bottom, parentFrame.bottom);
         }
 
         if (hGravity == GRAVITY_HOR_LEFT) {
             assertEquals("Should be on the left",
-                    parentFrame.left, containingFrame.left - cutoutSize);
+                    stableBounds.left, parentFrame.left - cutoutSize);
         } else if (hGravity == GRAVITY_HOR_RIGHT){
             assertEquals("Should be on the right",
-                    parentFrame.right, containingFrame.right + cutoutSize);
+                    stableBounds.right, parentFrame.right + cutoutSize);
         }
     }
 

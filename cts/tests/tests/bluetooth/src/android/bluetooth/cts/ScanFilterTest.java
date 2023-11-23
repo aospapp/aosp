@@ -39,6 +39,7 @@ public class ScanFilterTest extends AndroidTestCase {
     private static final String UUID1 = "0000110a-0000-1000-8000-00805f9b34fb";
     private static final String UUID2 = "0000110b-0000-1000-8000-00805f9b34fb";
     private static final String UUID3 = "0000110c-0000-1000-8000-00805f9b34fb";
+    private static final int AD_TYPE_RESOLVABLE_SET_IDENTIFIER = 0x2e;
 
     private ScanResult mScanResult;
     private ScanFilter.Builder mFilterBuilder;
@@ -54,6 +55,7 @@ public class ScanFilterTest extends AndroidTestCase {
                 0x05, (byte) 0xff, (byte) 0xe0, 0x00, 0x02, 0x15, // manufacturer specific data
                 0x05, 0x14, 0x0c, 0x11, 0x0a, 0x11, // 16 bit service solicitation uuids
                 0x03, 0x50, 0x01, 0x02, // an unknown data type won't cause trouble
+                0x07, 0x2E, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06 // resolvable set identifier
         };
 
         BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
@@ -208,6 +210,26 @@ public class ScanFilterTest extends AndroidTestCase {
         assertEquals(nonMatchData, filter.getManufacturerData());
         assertEquals(mask, filter.getManufacturerDataMask());
         assertTrue("partial setManufacturerData filter fails", filter.matches(mScanResult));
+    }
+
+    @SmallTest
+    public void testSetAdvertisingDataTypeWithData() {
+        if (mFilterBuilder == null) return;
+        byte[] adData = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06};
+        byte[] adDataMask = {(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF,
+                (byte) 0xFF};
+        ScanFilter filter = mFilterBuilder.setAdvertisingDataTypeWithData(
+                AD_TYPE_RESOLVABLE_SET_IDENTIFIER, adData, adDataMask).build();
+        assertEquals(AD_TYPE_RESOLVABLE_SET_IDENTIFIER, filter.getAdvertisingDataType());
+        TestUtils.assertArrayEquals(adData, filter.getAdvertisingData());
+        TestUtils.assertArrayEquals(adDataMask, filter.getAdvertisingDataMask());
+        assertTrue("advertising data filter fails", filter.matches(mScanResult));
+        filter = mFilterBuilder.setAdvertisingDataTypeWithData(0x01, adData, adDataMask).build();
+        assertFalse("advertising data filter fails", filter.matches(mScanResult));
+        byte[] nonMatchAdData = {0x01, 0x02, 0x04, 0x04, 0x05, 0x06};
+        filter = mFilterBuilder.setAdvertisingDataTypeWithData(AD_TYPE_RESOLVABLE_SET_IDENTIFIER,
+                nonMatchAdData, adDataMask).build();
+        assertFalse("advertising data filter fails", filter.matches(mScanResult));
     }
 
     @SmallTest

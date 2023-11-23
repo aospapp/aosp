@@ -369,6 +369,30 @@ void UnstartedRuntime::UnstartedClassGetDeclaredField(
   result->SetL(field);
 }
 
+void UnstartedRuntime::UnstartedClassGetDeclaredFields(
+    Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
+  // Special managed code cut-out to allow field lookup in a un-started runtime that'd fail
+  // going the reflective Dex way.
+  ObjPtr<mirror::Class> klass = shadow_frame->GetVRegReference(arg_offset)->AsClass();
+  auto object_array = klass->GetDeclaredFields(self,
+                                               /*public_only=*/ false,
+                                               /*force_resolve=*/ true);
+  if (object_array != nullptr) {
+    result->SetL(object_array);
+  }
+}
+
+void UnstartedRuntime::UnstartedClassGetPublicDeclaredFields(
+    Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
+  ObjPtr<mirror::Class> klass = shadow_frame->GetVRegReference(arg_offset)->AsClass();
+  auto object_array = klass->GetDeclaredFields(self,
+                                               /*public_only=*/ true,
+                                               /*force_resolve=*/ true);
+  if (object_array != nullptr) {
+    result->SetL(object_array);
+  }
+}
+
 // This is required for Enum(Set) code, as that uses reflection to inspect enum classes.
 void UnstartedRuntime::UnstartedClassGetDeclaredMethod(
     Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
@@ -484,13 +508,19 @@ void UnstartedRuntime::UnstartedClassIsAnonymousClass(
   result->SetZ(class_name == nullptr);
 }
 
-static MemMap FindAndExtractEntry(const std::string& jar_file,
+static MemMap FindAndExtractEntry(const std::string& bcp_jar_file,
+                                  int jar_fd,
                                   const char* entry_name,
                                   size_t* size,
                                   std::string* error_msg) {
   CHECK(size != nullptr);
 
-  std::unique_ptr<ZipArchive> zip_archive(ZipArchive::Open(jar_file.c_str(), error_msg));
+  std::unique_ptr<ZipArchive> zip_archive;
+  if (jar_fd >= 0) {
+    zip_archive.reset(ZipArchive::OpenFromOwnedFd(jar_fd, bcp_jar_file.c_str(), error_msg));
+  } else {
+    zip_archive.reset(ZipArchive::Open(bcp_jar_file.c_str(), error_msg));
+  }
   if (zip_archive == nullptr) {
     return MemMap::Invalid();
   }
@@ -498,7 +528,7 @@ static MemMap FindAndExtractEntry(const std::string& jar_file,
   if (zip_entry == nullptr) {
     return MemMap::Invalid();
   }
-  MemMap tmp_map = zip_entry->ExtractToMemMap(jar_file.c_str(), entry_name, error_msg);
+  MemMap tmp_map = zip_entry->ExtractToMemMap(bcp_jar_file.c_str(), entry_name, error_msg);
   if (!tmp_map.IsValid()) {
     return MemMap::Invalid();
   }
@@ -540,12 +570,18 @@ static void GetResourceAsStream(Thread* self,
     return;
   }
 
+  const std::vector<int>& boot_class_path_fds = Runtime::Current()->GetBootClassPathFds();
+  DCHECK(boot_class_path_fds.empty() || boot_class_path_fds.size() == boot_class_path.size());
+
   MemMap mem_map;
   size_t map_size;
   std::string last_error_msg;  // Only store the last message (we could concatenate).
 
-  for (const std::string& jar_file : boot_class_path) {
-    mem_map = FindAndExtractEntry(jar_file, resource_cstr, &map_size, &last_error_msg);
+  bool has_bcp_fds = !boot_class_path_fds.empty();
+  for (size_t i = 0; i < boot_class_path.size(); ++i) {
+    const std::string& jar_file = boot_class_path[i];
+    const int jar_fd = has_bcp_fds ? boot_class_path_fds[i] : -1;
+    mem_map = FindAndExtractEntry(jar_file, jar_fd, resource_cstr, &map_size, &last_error_msg);
     if (mem_map.IsValid()) {
       break;
     }
@@ -1052,9 +1088,9 @@ static ObjPtr<mirror::Object> CreateInstanceOf(Thread* self, const char* class_d
 
 void UnstartedRuntime::UnstartedThreadLocalGet(
     Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset ATTRIBUTE_UNUSED) {
-  if (CheckCallers(shadow_frame, { "sun.misc.FloatingDecimal$BinaryToASCIIBuffer "
-                                       "sun.misc.FloatingDecimal.getBinaryToASCIIBuffer()" })) {
-    result->SetL(CreateInstanceOf(self, "Lsun/misc/FloatingDecimal$BinaryToASCIIBuffer;"));
+  if (CheckCallers(shadow_frame, { "jdk.internal.math.FloatingDecimal$BinaryToASCIIBuffer "
+                                       "jdk.internal.math.FloatingDecimal.getBinaryToASCIIBuffer()" })) {
+    result->SetL(CreateInstanceOf(self, "Ljdk/internal/math/FloatingDecimal$BinaryToASCIIBuffer;"));
   } else {
     AbortTransactionOrFail(self,
                            "ThreadLocal.get() does not support %s",
@@ -1065,14 +1101,14 @@ void UnstartedRuntime::UnstartedThreadLocalGet(
 void UnstartedRuntime::UnstartedThreadCurrentThread(
     Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset ATTRIBUTE_UNUSED) {
   if (CheckCallers(shadow_frame,
-                   { "void java.lang.Thread.init(java.lang.ThreadGroup, java.lang.Runnable, "
-                         "java.lang.String, long, java.security.AccessControlContext)",
-                     "void java.lang.Thread.init(java.lang.ThreadGroup, java.lang.Runnable, "
+                   { "void java.lang.Thread.<init>(java.lang.ThreadGroup, java.lang.Runnable, "
+                         "java.lang.String, long, java.security.AccessControlContext, boolean)",
+                     "void java.lang.Thread.<init>(java.lang.ThreadGroup, java.lang.Runnable, "
                          "java.lang.String, long)",
                      "void java.lang.Thread.<init>()",
                      "void java.util.logging.LogManager$Cleaner.<init>("
                          "java.util.logging.LogManager)" })) {
-    // Whitelist LogManager$Cleaner, which is an unstarted Thread (for a shutdown hook). The
+    // Allow list LogManager$Cleaner, which is an unstarted Thread (for a shutdown hook). The
     // Thread constructor only asks for the current thread to set up defaults and add the
     // thread as unstarted to the ThreadGroup. A faked-up main thread peer is good enough for
     // these purposes.
@@ -1101,14 +1137,14 @@ void UnstartedRuntime::UnstartedThreadGetNativeState(
   if (CheckCallers(shadow_frame,
                    { "java.lang.Thread$State java.lang.Thread.getState()",
                      "java.lang.ThreadGroup java.lang.Thread.getThreadGroup()",
-                     "void java.lang.Thread.init(java.lang.ThreadGroup, java.lang.Runnable, "
-                         "java.lang.String, long, java.security.AccessControlContext)",
-                     "void java.lang.Thread.init(java.lang.ThreadGroup, java.lang.Runnable, "
+                     "void java.lang.Thread.<init>(java.lang.ThreadGroup, java.lang.Runnable, "
+                         "java.lang.String, long, java.security.AccessControlContext, boolean)",
+                     "void java.lang.Thread.<init>(java.lang.ThreadGroup, java.lang.Runnable, "
                          "java.lang.String, long)",
                      "void java.lang.Thread.<init>()",
                      "void java.util.logging.LogManager$Cleaner.<init>("
                          "java.util.logging.LogManager)" })) {
-    // Whitelist reading the state of the "main" thread when creating another (unstarted) thread
+    // Allow list reading the state of the "main" thread when creating another (unstarted) thread
     // for LogManager. Report the thread as "new" (it really only counts that it isn't terminated).
     constexpr int32_t kJavaRunnable = 1;
     result->SetI(kJavaRunnable);
@@ -1143,6 +1179,11 @@ void UnstartedRuntime::UnstartedMathPow(
     Thread* self ATTRIBUTE_UNUSED, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
   result->SetD(pow(shadow_frame->GetVRegDouble(arg_offset),
                    shadow_frame->GetVRegDouble(arg_offset + 2)));
+}
+
+void UnstartedRuntime::UnstartedMathTan(
+    Thread* self ATTRIBUTE_UNUSED, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
+  result->SetD(tan(shadow_frame->GetVRegDouble(arg_offset)));
 }
 
 void UnstartedRuntime::UnstartedObjectHashCode(
@@ -1443,6 +1484,34 @@ void UnstartedRuntime::UnstartedRuntimeAvailableProcessors(
 
 void UnstartedRuntime::UnstartedUnsafeCompareAndSwapLong(
     Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
+  UnstartedJdkUnsafeCompareAndSwapLong(self, shadow_frame, result, arg_offset);
+}
+
+void UnstartedRuntime::UnstartedUnsafeCompareAndSwapObject(
+    Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
+  UnstartedJdkUnsafeCompareAndSwapObject(self, shadow_frame, result, arg_offset);
+}
+
+void UnstartedRuntime::UnstartedUnsafeGetObjectVolatile(
+    Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  UnstartedJdkUnsafeGetObjectVolatile(self, shadow_frame, result, arg_offset);
+}
+
+void UnstartedRuntime::UnstartedUnsafePutObjectVolatile(
+    Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  UnstartedJdkUnsafePutObjectVolatile(self, shadow_frame, result, arg_offset);
+}
+
+void UnstartedRuntime::UnstartedUnsafePutOrderedObject(
+    Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  UnstartedJdkUnsafePutOrderedObject(self, shadow_frame, result, arg_offset);
+}
+
+void UnstartedRuntime::UnstartedJdkUnsafeCompareAndSwapLong(
+    Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
   // Argument 0 is the Unsafe instance, skip.
   mirror::Object* obj = shadow_frame->GetVRegReference(arg_offset + 1);
   if (obj == nullptr) {
@@ -1470,7 +1539,12 @@ void UnstartedRuntime::UnstartedUnsafeCompareAndSwapLong(
   result->SetZ(success ? 1 : 0);
 }
 
-void UnstartedRuntime::UnstartedUnsafeCompareAndSwapObject(
+void UnstartedRuntime::UnstartedJdkUnsafeCompareAndSetLong(
+    Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
+  UnstartedJdkUnsafeCompareAndSwapLong(self, shadow_frame, result, arg_offset);
+}
+
+void UnstartedRuntime::UnstartedJdkUnsafeCompareAndSwapObject(
     Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
   // Argument 0 is the Unsafe instance, skip.
   mirror::Object* obj = shadow_frame->GetVRegReference(arg_offset + 1);
@@ -1520,7 +1594,12 @@ void UnstartedRuntime::UnstartedUnsafeCompareAndSwapObject(
   result->SetZ(success ? 1 : 0);
 }
 
-void UnstartedRuntime::UnstartedUnsafeGetObjectVolatile(
+void UnstartedRuntime::UnstartedJdkUnsafeCompareAndSetObject(
+    Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
+  UnstartedJdkUnsafeCompareAndSwapObject(self, shadow_frame, result, arg_offset);
+}
+
+void UnstartedRuntime::UnstartedJdkUnsafeGetObjectVolatile(
     Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset)
     REQUIRES_SHARED(Locks::mutator_lock_) {
   // Argument 0 is the Unsafe instance, skip.
@@ -1534,7 +1613,7 @@ void UnstartedRuntime::UnstartedUnsafeGetObjectVolatile(
   result->SetL(value);
 }
 
-void UnstartedRuntime::UnstartedUnsafePutObjectVolatile(
+void UnstartedRuntime::UnstartedJdkUnsafePutObjectVolatile(
     Thread* self, ShadowFrame* shadow_frame, JValue* result ATTRIBUTE_UNUSED, size_t arg_offset)
     REQUIRES_SHARED(Locks::mutator_lock_) {
   // Argument 0 is the Unsafe instance, skip.
@@ -1556,7 +1635,7 @@ void UnstartedRuntime::UnstartedUnsafePutObjectVolatile(
   }
 }
 
-void UnstartedRuntime::UnstartedUnsafePutOrderedObject(
+void UnstartedRuntime::UnstartedJdkUnsafePutOrderedObject(
     Thread* self, ShadowFrame* shadow_frame, JValue* result ATTRIBUTE_UNUSED, size_t arg_offset)
     REQUIRES_SHARED(Locks::mutator_lock_) {
   // Argument 0 is the Unsafe instance, skip.
@@ -1889,13 +1968,65 @@ void UnstartedRuntime::UnstartedJNIThrowableNativeFillInStackTrace(
 
 void UnstartedRuntime::UnstartedJNIUnsafeCompareAndSwapInt(
     Thread* self,
+    ArtMethod* method,
+    mirror::Object* receiver,
+    uint32_t* args,
+    JValue* result) {
+  UnstartedJNIJdkUnsafeCompareAndSwapInt(self, method, receiver, args, result);
+}
+
+void UnstartedRuntime::UnstartedJNIUnsafeGetIntVolatile(Thread* self,
+                                                        ArtMethod* method,
+                                                        mirror::Object* receiver,
+                                                        uint32_t* args,
+                                                        JValue* result) {
+  UnstartedJNIJdkUnsafeGetIntVolatile(self, method, receiver, args, result);
+}
+
+void UnstartedRuntime::UnstartedJNIUnsafePutObject(Thread* self,
+                                                   ArtMethod* method,
+                                                   mirror::Object* receiver,
+                                                   uint32_t* args,
+                                                   JValue* result) {
+  UnstartedJNIJdkUnsafePutObject(self, method, receiver, args, result);
+}
+
+void UnstartedRuntime::UnstartedJNIUnsafeGetArrayBaseOffsetForComponentType(
+    Thread* self,
+    ArtMethod* method,
+    mirror::Object* receiver,
+    uint32_t* args,
+    JValue* result) {
+  UnstartedJNIJdkUnsafeGetArrayBaseOffsetForComponentType(self, method, receiver, args, result);
+}
+
+void UnstartedRuntime::UnstartedJNIUnsafeGetArrayIndexScaleForComponentType(
+    Thread* self,
+    ArtMethod* method,
+    mirror::Object* receiver,
+    uint32_t* args,
+    JValue* result) {
+  UnstartedJNIJdkUnsafeGetArrayIndexScaleForComponentType(self, method, receiver, args, result);
+}
+
+void UnstartedRuntime::UnstartedJNIJdkUnsafeAddressSize(
+    Thread* self ATTRIBUTE_UNUSED,
+    ArtMethod* method ATTRIBUTE_UNUSED,
+    mirror::Object* receiver ATTRIBUTE_UNUSED,
+    uint32_t* args ATTRIBUTE_UNUSED,
+    JValue* result) {
+  result->SetI(sizeof(void*));
+}
+
+void UnstartedRuntime::UnstartedJNIJdkUnsafeCompareAndSwapInt(
+    Thread* self,
     ArtMethod* method ATTRIBUTE_UNUSED,
     mirror::Object* receiver ATTRIBUTE_UNUSED,
     uint32_t* args,
     JValue* result) {
   ObjPtr<mirror::Object> obj = reinterpret_cast32<mirror::Object*>(args[0]);
   if (obj == nullptr) {
-    AbortTransactionOrFail(self, "Unsafe.compareAndSwapInt with null object.");
+    AbortTransactionOrFail(self, "Cannot access null object, retry at runtime.");
     return;
   }
   jlong offset = (static_cast<uint64_t>(args[2]) << 32) | args[1];
@@ -1922,7 +2053,16 @@ void UnstartedRuntime::UnstartedJNIUnsafeCompareAndSwapInt(
   result->SetZ(success ? JNI_TRUE : JNI_FALSE);
 }
 
-void UnstartedRuntime::UnstartedJNIUnsafeGetIntVolatile(Thread* self,
+void UnstartedRuntime::UnstartedJNIJdkUnsafeCompareAndSetInt(
+    Thread* self,
+    ArtMethod* method,
+    mirror::Object* receiver,
+    uint32_t* args,
+    JValue* result) {
+  UnstartedJNIJdkUnsafeCompareAndSwapInt(self, method, receiver, args, result);
+}
+
+void UnstartedRuntime::UnstartedJNIJdkUnsafeGetIntVolatile(Thread* self,
                                                         ArtMethod* method ATTRIBUTE_UNUSED,
                                                         mirror::Object* receiver ATTRIBUTE_UNUSED,
                                                         uint32_t* args,
@@ -1937,7 +2077,7 @@ void UnstartedRuntime::UnstartedJNIUnsafeGetIntVolatile(Thread* self,
   result->SetI(obj->GetField32Volatile(MemberOffset(offset)));
 }
 
-void UnstartedRuntime::UnstartedJNIUnsafePutObject(Thread* self,
+void UnstartedRuntime::UnstartedJNIJdkUnsafePutObject(Thread* self,
                                                    ArtMethod* method ATTRIBUTE_UNUSED,
                                                    mirror::Object* receiver ATTRIBUTE_UNUSED,
                                                    uint32_t* args,
@@ -1960,7 +2100,7 @@ void UnstartedRuntime::UnstartedJNIUnsafePutObject(Thread* self,
   }
 }
 
-void UnstartedRuntime::UnstartedJNIUnsafeGetArrayBaseOffsetForComponentType(
+void UnstartedRuntime::UnstartedJNIJdkUnsafeGetArrayBaseOffsetForComponentType(
     Thread* self,
     ArtMethod* method ATTRIBUTE_UNUSED,
     mirror::Object* receiver ATTRIBUTE_UNUSED,
@@ -1975,7 +2115,7 @@ void UnstartedRuntime::UnstartedJNIUnsafeGetArrayBaseOffsetForComponentType(
   result->SetI(mirror::Array::DataOffset(Primitive::ComponentSize(primitive_type)).Int32Value());
 }
 
-void UnstartedRuntime::UnstartedJNIUnsafeGetArrayIndexScaleForComponentType(
+void UnstartedRuntime::UnstartedJNIJdkUnsafeGetArrayIndexScaleForComponentType(
     Thread* self,
     ArtMethod* method ATTRIBUTE_UNUSED,
     mirror::Object* receiver ATTRIBUTE_UNUSED,
@@ -1988,6 +2128,28 @@ void UnstartedRuntime::UnstartedJNIUnsafeGetArrayIndexScaleForComponentType(
   }
   Primitive::Type primitive_type = component->AsClass()->GetPrimitiveType();
   result->SetI(Primitive::ComponentSize(primitive_type));
+}
+
+void UnstartedRuntime::UnstartedJNIFieldGetArtField(
+    Thread* self ATTRIBUTE_UNUSED,
+    ArtMethod* method ATTRIBUTE_UNUSED,
+    mirror::Object* receiver,
+    uint32_t* args ATTRIBUTE_UNUSED,
+    JValue* result) {
+  ObjPtr<mirror::Field> field = ObjPtr<mirror::Field>::DownCast(receiver);
+  ArtField* art_field = field->GetArtField();
+  result->SetJ(reinterpret_cast<int64_t>(art_field));
+}
+
+void UnstartedRuntime::UnstartedJNIFieldGetNameInternal(
+    Thread* self ATTRIBUTE_UNUSED,
+    ArtMethod* method ATTRIBUTE_UNUSED,
+    mirror::Object* receiver,
+    uint32_t* args ATTRIBUTE_UNUSED,
+    JValue* result) {
+  ObjPtr<mirror::Field> field = ObjPtr<mirror::Field>::DownCast(receiver);
+  ArtField* art_field = field->GetArtField();
+  result->SetL(art_field->ResolveNameString());
 }
 
 using InvokeHandler = void(*)(Thread* self,

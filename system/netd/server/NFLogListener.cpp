@@ -35,6 +35,8 @@ namespace net {
 using netdutils::extract;
 using netdutils::findWithDefault;
 using netdutils::makeSlice;
+using netdutils::NetlinkListener;
+using netdutils::NetlinkListenerInterface;
 using netdutils::Slice;
 using netdutils::sSyscalls;
 using netdutils::Status;

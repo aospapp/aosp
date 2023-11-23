@@ -49,6 +49,8 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Optional;
+import java.util.Random;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
@@ -335,7 +337,7 @@ public class TestUtils {
         }
         final PackageManager pm = context.getPackageManager();
         return pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY) &&
-                pm.hasSystemFeature(PackageManager.FEATURE_CONNECTION_SERVICE);
+                pm.hasSystemFeature(PackageManager.FEATURE_TELECOM);
     }
 
     public static String setCallDiagnosticService(Instrumentation instrumentation,
@@ -799,4 +801,47 @@ public class TestUtils {
     public static int deleteContact(ContentResolver contentResolver, Uri deleteUri) {
         return contentResolver.delete(deleteUri, null, null);
     }
+
+    /**
+     * Generates random phone accounts.
+     * @param seed random seed to use for random UUIDs; passed in for determinism.
+     * @param count How many phone accounts to use.
+     * @return Random phone accounts.
+     */
+    public static ArrayList<PhoneAccount> generateRandomPhoneAccounts(long seed, int count,
+            String packageName, String component) {
+        Random random = new Random(seed);
+        ArrayList<PhoneAccount> accounts = new ArrayList<>();
+        for (int ix = 0; ix < count; ix++) {
+            PhoneAccountHandle handle = new PhoneAccountHandle(
+                    new ComponentName(packageName, component), getRandomUuid(random).toString());
+            PhoneAccount acct = new PhoneAccount.Builder(handle, "TelecommTests")
+                    .setAddress(Uri.parse("sip:test@test.com"))
+                    .setSubscriptionAddress(Uri.parse("sip:test@test.com"))
+                    .setCapabilities(PhoneAccount.CAPABILITY_SELF_MANAGED
+                            | PhoneAccount.CAPABILITY_SUPPORTS_VIDEO_CALLING
+                            | PhoneAccount.CAPABILITY_VIDEO_CALLING)
+                    .setHighlightColor(Color.BLUE)
+                    .setShortDescription(TestUtils.SELF_MANAGED_ACCOUNT_LABEL)
+                    .addSupportedUriScheme(PhoneAccount.SCHEME_TEL)
+                    .addSupportedUriScheme(PhoneAccount.SCHEME_SIP)
+                    .setExtras(TestUtils.SELF_MANAGED_ACCOUNT_1_EXTRAS)
+                    .build();
+            accounts.add(acct);
+        }
+        return accounts;
+    }
+
+    /**
+     * Returns a random UUID based on the passed in Random generator.
+     * @param random Random generator.
+     * @return The UUID.
+     */
+    public static UUID getRandomUuid(Random random) {
+        byte[] array = new byte[16];
+        random.nextBytes(array);
+        return UUID.nameUUIDFromBytes(array);
+    }
+
+
 }

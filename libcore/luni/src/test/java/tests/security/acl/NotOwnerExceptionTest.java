@@ -31,6 +31,7 @@ import java.security.acl.NotOwnerException;
  *
  */
 public class NotOwnerExceptionTest extends TestCase {
+    @SuppressWarnings("removal")
     public void testNotOwnerException() {
         assertNotNull(new NotOwnerException());
         assertNull(new NotOwnerException().getMessage());

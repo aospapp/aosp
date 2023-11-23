@@ -29,6 +29,9 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <cinttypes>
+#include <cstdlib>
+#include <new>
 
 #include <chre.h>
 #include "chre/util/nanoapp/assert.h"
@@ -77,4 +80,21 @@ int fprintf(FILE * /*stream*/, const char * /*fmt*/, ...) {
 size_t fwrite(const void * /*ptr*/, size_t /*size*/, size_t /*count*/,
               FILE * /*stream*/) {
   return 0;
+}
+
+void operator delete(void * /*ptr*/) {
+  CHRE_ASSERT(false);
+}
+
+void operator delete(void * /*ptr*/, std::size_t /*sz*/) {
+  CHRE_ASSERT(false);
+}
+
+void operator delete(void * /*ptr*/, std::align_val_t /*al*/) {
+  CHRE_ASSERT(false);
+}
+
+void operator delete(void * /*ptr*/, std::size_t /*sz*/,
+                     std::align_val_t /*al*/) {
+  CHRE_ASSERT(false);
 }

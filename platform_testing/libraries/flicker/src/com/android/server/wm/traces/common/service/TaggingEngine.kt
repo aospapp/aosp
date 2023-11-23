@@ -76,6 +76,6 @@ class TaggingEngine(
             .mapValues { (key, value) -> TagState(key.toString(), value.flatten().toTypedArray()) }
             .values.toTypedArray()
 
-        return TagTrace(tagStates, source = "")
+        return TagTrace(tagStates)
     }
 }

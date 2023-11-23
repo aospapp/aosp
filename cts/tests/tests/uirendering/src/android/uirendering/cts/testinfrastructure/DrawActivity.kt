@@ -82,6 +82,7 @@ class DrawActivity : Activity() {
 
         window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
                 View.SYSTEM_UI_FLAG_FULLSCREEN
+        window.decorView.keepScreenOn = true
         mHandler = RenderSpecHandler()
 
         setContentView(R.layout.test_container)
@@ -119,7 +120,6 @@ class DrawActivity : Activity() {
             } catch (e: InterruptedException) {
                 throw AssertionError(e)
             }
-
         }
         assertNotNull("Timeout waiting for draw", mPositionInfo)
         return mPositionInfo!!

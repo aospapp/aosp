@@ -35,6 +35,9 @@
   <!-- Template for Metadata Reporters -->
   <template-include name="metadata-reporters" default="empty" />
 
+  <!-- Run As Root -->
+  <option name="enable-root" value="true" />
+
   <!-- Default ABI -->
   <option name="compatibility:primary-abi-only" value="true" />
 

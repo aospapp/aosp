@@ -55,6 +55,71 @@ public class EmulatedStackFrameTest extends TestCase {
         assertEquals("foo", reader.nextReference(String.class));
     }
 
+    public void testRandomReaderWriter_allParamTypes() {
+        EmulatedStackFrame stackFrame = EmulatedStackFrame.create(MethodType.methodType(
+                void.class,
+                new Class<?>[] { Integer.class, boolean.class, char.class, short.class, int.class,
+                        long.class, Byte.class, float.class, double.class, String.class }));
+
+        EmulatedStackFrame.StackFrameWriter writer = new EmulatedStackFrame.StackFrameWriter();
+        writer.attach(stackFrame);
+
+        writer.putNextReference(Integer.valueOf(-2), Integer.class);
+        writer.putNextBoolean(true);
+        writer.putNextChar('a');
+        writer.putNextShort((short) 42);
+        writer.putNextInt(43);
+        writer.putNextLong(56);
+        writer.putNextReference(Byte.valueOf((byte) 7), Byte.class);
+        writer.putNextFloat(42.0f);
+        writer.putNextDouble(52.0);
+        writer.putNextReference("foo", String.class);
+
+        EmulatedStackFrame.RandomOrderStackFrameReader reader =
+            new EmulatedStackFrame.RandomOrderStackFrameReader();
+        reader.attach(stackFrame);
+
+        final int parameterCount = stackFrame.getMethodType().parameterCount();
+        for (int i = 0; i < 100; ++i) {
+            int argumentIndex = (i * 13) % parameterCount;
+            reader.moveTo(argumentIndex);
+            switch (argumentIndex) {
+                case 0:
+                    assertEquals(Integer.valueOf(-2), reader.nextReference(Integer.class));
+                    break;
+                case 1:
+                    assertTrue(reader.nextBoolean());
+                    break;
+                case 2:
+                    assertEquals('a', reader.nextChar());
+                    break;
+                case 3:
+                    assertEquals((short) 42, reader.nextShort());
+                    break;
+                case 4:
+                    assertEquals(43, reader.nextInt());
+                    break;
+                case 5:
+                    assertEquals(56, reader.nextLong());
+                    break;
+                case 6:
+                    assertEquals(Byte.valueOf((byte) 7), reader.nextReference(Byte.class));
+                    break;
+                case 7:
+                    assertEquals(42.0f, reader.nextFloat());
+                    break;
+                case 8:
+                    assertEquals(52.0, reader.nextDouble());
+                    break;
+                case 9:
+                    assertEquals("foo", reader.nextReference(String.class));
+                    break;
+                default:
+                    throw new IllegalStateException("Bad index");
+            }
+        }
+    }
+
     public void testReaderWriter_allReturnTypes() {
         EmulatedStackFrame stackFrame = EmulatedStackFrame.create(
                 MethodType.methodType(boolean.class));
@@ -195,7 +260,7 @@ public class EmulatedStackFrameTest extends TestCase {
         } catch (IllegalArgumentException expected) {
         }
 
-        // Should succeeed.
+        // Should succeed.
         assertFalse(reader.nextBoolean());
 
         // The next attempt should fail.
@@ -215,7 +280,7 @@ public class EmulatedStackFrameTest extends TestCase {
         } catch (IllegalArgumentException expected) {
         }
 
-        // Should succeeed.
+        // Should succeed.
         writer.putNextBoolean(true);
 
         // The next attempt should fail.
@@ -224,5 +289,14 @@ public class EmulatedStackFrameTest extends TestCase {
             fail();
         } catch (IllegalArgumentException expected) {
         }
+    }
+
+    public void testGetSetReference() {
+        EmulatedStackFrame stackFrame = EmulatedStackFrame.create(MethodType.methodType(
+            void.class, new Class<?>[] { Integer.class, boolean.class, String.class }));
+        stackFrame.setReference(0, Integer.valueOf(-1));
+        assertEquals(Integer.valueOf(-1), stackFrame.getReference(0, Integer.class));
+        stackFrame.setReference(2, "Hello");
+        assertEquals("Hello", stackFrame.getReference(2, String.class));
     }
 }

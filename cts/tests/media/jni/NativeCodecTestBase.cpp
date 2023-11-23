@@ -207,8 +207,8 @@ bool OutputManager::isPtsStrictlyIncreasing(int64_t lastPts) {
     return result;
 }
 
-void OutputManager::updateChecksum(
-        uint8_t* buf, AMediaCodecBufferInfo* info, int width, int height, int stride) {
+void OutputManager::updateChecksum(uint8_t* buf, AMediaCodecBufferInfo* info, int width, int height,
+                                   int stride, int bytesPerSample) {
     uint8_t flattenInfo[16];
     int pos = 0;
     if (width <= 0 || height <= 0 || stride <= 0) {
@@ -218,15 +218,15 @@ void OutputManager::updateChecksum(
                           info->flags & ~AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM);
     flattenField<int64_t>(flattenInfo, &pos, info->presentationTimeUs);
     crc32value = crc32(crc32value, flattenInfo, pos);
-    if (width > 0 && height > 0 && stride > 0) {
+    if (width > 0 && height > 0 && stride > 0 && bytesPerSample > 0) {
         // Only checksum Y plane
-        std::vector<uint8_t> tmp(width * height, 0u);
+        std::vector<uint8_t> tmp(width * height * bytesPerSample, 0u);
         size_t offset = 0;
         for (int i = 0; i < height; ++i) {
-            memcpy(tmp.data() + (i * width), buf + offset, width);
+            memcpy(tmp.data() + (i * width * bytesPerSample), buf + offset, width * bytesPerSample);
             offset += stride;
         }
-        crc32value = crc32(crc32value, tmp.data(), width * height);
+        crc32value = crc32(crc32value, tmp.data(), width * height * bytesPerSample);
     } else {
         crc32value = crc32(crc32value, buf, info->size);
     }
@@ -342,6 +342,7 @@ CodecTestBase::CodecTestBase(const char* mime) {
     mSaveToMem = false;
     mOutputBuff = nullptr;
     mCodec = nullptr;
+    mBytesPerSample = mIsAudio ? 2 : 1;
 }
 
 CodecTestBase::~CodecTestBase() {

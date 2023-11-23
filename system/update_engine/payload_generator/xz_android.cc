@@ -61,7 +61,6 @@ struct BlobWriterStream : public ISeqOutStream {
                             size_t size) {
     auto* self = static_cast<const BlobWriterStream*>(p);
     const uint8_t* buffer = reinterpret_cast<const uint8_t*>(buf);
-    self->data_->reserve(self->data_->size() + size);
     self->data_->insert(self->data_->end(), buffer, buffer + size);
     return size;
   }

@@ -21,7 +21,7 @@ from acts import asserts
 from acts import utils
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
-from acts_contrib.test_utils.tel.tel_test_utils import disable_qxdm_logger
+from acts_contrib.test_utils.tel.tel_logging_utils import disable_qxdm_logger
 
 WifiEnums = wutils.WifiEnums
 

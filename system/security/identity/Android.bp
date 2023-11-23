@@ -24,7 +24,11 @@ cc_defaults {
 
 cc_binary {
     name: "credstore",
-    defaults: ["identity_defaults"],
+    defaults: [
+        "identity_defaults",
+        "keymint_use_latest_hal_aidl_ndk_shared",
+        "keymint_use_latest_hal_aidl_cpp_static",
+    ],
 
     srcs: [
         "main.cpp",
@@ -33,6 +37,7 @@ cc_binary {
         "WritableCredential.cpp",
         "Credential.cpp",
         "CredentialData.cpp",
+        "Session.cpp",
         "Util.cpp",
     ],
     init_rc: ["credstore.rc"],
@@ -48,14 +53,15 @@ cc_binary {
         "android.hardware.identity-support-lib",
         "libkeymaster4support",
         "libkeystore-attestation-application-id",
-        "android.hardware.security.keymint-V1-ndk_platform",
-        "android.security.authorization-ndk_platform",
+        "android.security.authorization-ndk",
+        "android.security.remoteprovisioning-cpp",
+        "libutilscallstack",
     ],
     static_libs: [
-        "android.hardware.identity-V3-cpp",
+        "android.hardware.identity-V4-cpp",
         "android.hardware.keymaster-V3-cpp",
         "libcppbor_external",
-    ]
+    ],
 }
 
 filegroup {
@@ -75,6 +81,7 @@ filegroup {
         "binder/android/security/identity/AuthKeyParcel.aidl",
         "binder/android/security/identity/SecurityHardwareInfoParcel.aidl",
         "binder/android/security/identity/ICredentialStoreFactory.aidl",
+        "binder/android/security/identity/ISession.aidl",
     ],
     path: "binder",
 }

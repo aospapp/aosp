@@ -25,10 +25,10 @@ import org.junit.Before;
 import org.junit.runner.RunWith;
 
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
-import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
+import com.android.sts.common.tradefed.testtype.StsExtraBusinessLogicHostTestBase;
 
 @RunWith(DeviceJUnit4ClassRunner.class)
-public final class Bug_183963253 extends BaseHostJUnit4Test {
+public final class Bug_183963253 extends StsExtraBusinessLogicHostTestBase {
     private static final String TEST_PKG = "android.security.cts.BUG_183963253";
     private static final String TEST_CLASS = TEST_PKG + "." + "DeviceTest";
     private static final String TEST_APP = "BUG-183963253.apk";

@@ -21,7 +21,6 @@ android_test_helper_app {
     defaults: ["cts_tagging_app_defaults"],
     srcs: ["src/**/*.java"],
     test_suites: [
-        "cts",
         "general-tests",
     ],
     static_libs: ["compatibility-device-util-axt"],

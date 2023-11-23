@@ -14,7 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Avoid D8 merge in the default script since it would reject the class.
 # Use old API level to create DEX file with 035 version. Stricter
 # checking introduced with DEX file version 37 rejects class
 # otherwise (see DexFile::kClassDefinitionOrderEnforcedVersion).
-./default-build "$@" --api-level 13
+${SMALI} -JXmx512m assemble --api 13 --output classes.dex `find smali -name '*.smali'`
+${SOONG_ZIP} -o $TEST_NAME.jar -f classes.dex

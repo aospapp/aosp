@@ -20,6 +20,7 @@
     <option name="compatibility:include-filter" value="PermissionApexTests" />
     <option name="compatibility:include-filter" value="PermissionControllerMockingTests" />
     <option name="compatibility:include-filter" value="PermissionControllerOutOfProcessTests" />
+    <option name="compatibility:include-filter" value="PermissionUiTestCases" />
     <option name="compatibility:include-filter" value="CtsPermissionTestCases android.permission.cts.BackgroundPermissionsTest" />
     <option name="compatibility:include-filter" value="CtsPermissionTestCases android.permission.cts.LocationAccessCheckTest" />
     <option name="compatibility:include-filter" value="CtsPermissionTestCases android.permission.cts.OneTimePermissionTest" />
@@ -38,6 +39,8 @@
     <option name="compatibility:module-arg" value="CtsOsTestCases:exclude-annotation:android.platform.test.annotations.FlakyTest" />
     <option name="compatibility:include-filter" value="CtsRoleTestCases" />
     <option name="compatibility:module-arg" value="CtsRoleTestCases:exclude-annotation:android.platform.test.annotations.FlakyTest" />
+    <option name="compatibility:include-filter" value="CtsSafetyCenterTestCases" />
+    <option name="compatibility:module-arg" value="CtsSafetyCenterTestCases:exclude-annotation:android.platform.test.annotations.FlakyTest" />
     <option name="compatibility:include-filter" value="GtsIncidentManagerTestCases" />
     <option name="compatibility:module-arg" value="GtsIncidentManagerTestCases:exclude-annotation:android.platform.test.annotations.FlakyTest" />
 </configuration>

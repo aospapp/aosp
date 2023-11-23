@@ -33,6 +33,7 @@ func TestRuntimeResourceOverlay(t *testing.T) {
 			name: "foo",
 			certificate: "platform",
 			lineage: "lineage.bin",
+			rotationMinSdkVersion: "32",
 			product_specific: true,
 			static_libs: ["bar"],
 			resource_libs: ["baz"],
@@ -62,6 +63,7 @@ func TestRuntimeResourceOverlay(t *testing.T) {
 	result := android.GroupFixturePreparers(
 		PrepareForTestWithJavaDefaultModules,
 		PrepareForTestWithOverlayBuildComponents,
+		android.FixtureModifyConfig(android.SetKatiEnabledForTests),
 		fs.AddToFixture(),
 	).RunTestWithBp(t, bp)
 
@@ -88,13 +90,14 @@ func TestRuntimeResourceOverlay(t *testing.T) {
 		t.Errorf("Resource lib flag %q missing in aapt2 link flags: %q", resourceLibFlag, aapt2Flags)
 	}
 
-	// Check cert signing flag.
+	// Check cert signing flags.
 	signedApk := m.Output("signed/foo.apk")
-	lineageFlag := signedApk.Args["flags"]
-	expectedLineageFlag := "--lineage lineage.bin"
-	if expectedLineageFlag != lineageFlag {
-		t.Errorf("Incorrect signing lineage flags, expected: %q, got: %q", expectedLineageFlag, lineageFlag)
+	actualCertSigningFlags := signedApk.Args["flags"]
+	expectedCertSigningFlags := "--lineage lineage.bin --rotation-min-sdk-version 32"
+	if expectedCertSigningFlags != actualCertSigningFlags {
+		t.Errorf("Incorrect cert signing flags, expected: %q, got: %q", expectedCertSigningFlags, actualCertSigningFlags)
 	}
+
 	signingFlag := signedApk.Args["certificates"]
 	expected := "build/make/target/product/security/platform.x509.pem build/make/target/product/security/platform.pk8"
 	if expected != signingFlag {
@@ -127,7 +130,10 @@ func TestRuntimeResourceOverlay(t *testing.T) {
 }
 
 func TestRuntimeResourceOverlay_JavaDefaults(t *testing.T) {
-	ctx, config := testJava(t, `
+	result := android.GroupFixturePreparers(
+		PrepareForTestWithJavaDefaultModules,
+		android.FixtureModifyConfig(android.SetKatiEnabledForTests),
+	).RunTestWithBp(t, `
 		java_defaults {
 			name: "rro_defaults",
 			theme: "default_theme",
@@ -148,7 +154,7 @@ func TestRuntimeResourceOverlay_JavaDefaults(t *testing.T) {
 	//
 	// RRO module with defaults
 	//
-	m := ctx.ModuleForTests("foo_with_defaults", "android_common")
+	m := result.ModuleForTests("foo_with_defaults", "android_common")
 
 	// Check AAPT2 link flags.
 	aapt2Flags := strings.Split(m.Output("package-res.apk").Args["flags"], " ")
@@ -159,14 +165,14 @@ func TestRuntimeResourceOverlay_JavaDefaults(t *testing.T) {
 	}
 
 	// Check device location.
-	path := android.AndroidMkEntriesForTest(t, ctx, m.Module())[0].EntryMap["LOCAL_MODULE_PATH"]
+	path := android.AndroidMkEntriesForTest(t, result.TestContext, m.Module())[0].EntryMap["LOCAL_MODULE_PATH"]
 	expectedPath := []string{shared.JoinPath("out/target/product/test_device/product/overlay/default_theme")}
-	android.AssertStringPathsRelativeToTopEquals(t, "LOCAL_MODULE_PATH", config, expectedPath, path)
+	android.AssertStringPathsRelativeToTopEquals(t, "LOCAL_MODULE_PATH", result.Config, expectedPath, path)
 
 	//
 	// RRO module without defaults
 	//
-	m = ctx.ModuleForTests("foo_barebones", "android_common")
+	m = result.ModuleForTests("foo_barebones", "android_common")
 
 	// Check AAPT2 link flags.
 	aapt2Flags = strings.Split(m.Output("package-res.apk").Args["flags"], " ")
@@ -176,9 +182,9 @@ func TestRuntimeResourceOverlay_JavaDefaults(t *testing.T) {
 	}
 
 	// Check device location.
-	path = android.AndroidMkEntriesForTest(t, ctx, m.Module())[0].EntryMap["LOCAL_MODULE_PATH"]
-	expectedPath = []string{shared.JoinPath("out/target/product/test_device/system/overlay")}
-	android.AssertStringPathsRelativeToTopEquals(t, "LOCAL_MODULE_PATH", config, expectedPath, path)
+	path = android.AndroidMkEntriesForTest(t, result.TestContext, m.Module())[0].EntryMap["LOCAL_MODULE_PATH"]
+	expectedPath = []string{shared.JoinPath("out/target/product/test_device/product/overlay")}
+	android.AssertStringPathsRelativeToTopEquals(t, "LOCAL_MODULE_PATH", result.Config, expectedPath, path)
 }
 
 func TestOverrideRuntimeResourceOverlay(t *testing.T) {
@@ -341,5 +347,59 @@ func TestEnforceRRO_propagatesToDependencies(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestRuntimeResourceOverlayPartition(t *testing.T) {
+	bp := `
+		runtime_resource_overlay {
+			name: "device_specific",
+			device_specific: true,
+		}
+		runtime_resource_overlay {
+			name: "soc_specific",
+			soc_specific: true,
+		}
+		runtime_resource_overlay {
+			name: "system_ext_specific",
+			system_ext_specific: true,
+		}
+		runtime_resource_overlay {
+			name: "product_specific",
+			product_specific: true,
+		}
+		runtime_resource_overlay {
+			name: "default"
+		}
+	`
+	testCases := []struct {
+		name         string
+		expectedPath string
+	}{
+		{
+			name:         "device_specific",
+			expectedPath: "out/soong/target/product/test_device/odm/overlay",
+		},
+		{
+			name:         "soc_specific",
+			expectedPath: "out/soong/target/product/test_device/vendor/overlay",
+		},
+		{
+			name:         "system_ext_specific",
+			expectedPath: "out/soong/target/product/test_device/system_ext/overlay",
+		},
+		{
+			name:         "product_specific",
+			expectedPath: "out/soong/target/product/test_device/product/overlay",
+		},
+		{
+			name:         "default",
+			expectedPath: "out/soong/target/product/test_device/product/overlay",
+		},
+	}
+	for _, testCase := range testCases {
+		ctx, _ := testJava(t, bp)
+		mod := ctx.ModuleForTests(testCase.name, "android_common").Module().(*RuntimeResourceOverlay)
+		android.AssertPathRelativeToTopEquals(t, "Install dir is not correct for "+testCase.name, testCase.expectedPath, mod.installDir)
 	}
 }

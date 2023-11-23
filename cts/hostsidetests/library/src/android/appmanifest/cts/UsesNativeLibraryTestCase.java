@@ -133,7 +133,7 @@ public class UsesNativeLibraryTestCase extends BaseHostJUnit4Test {
         // The zip file contains all the tools and files for building a test app on demand. Extract
         // it to the work directory.
         try (ZipFile packageZip = new ZipFile(getTestInformation().getDependencyFile(
-                    "CtsUesNativeLibraryBuildPackage.zip", false))) {
+                    "CtsUseNativeLibraryBuildPackage.zip", false))) {
             mWorkDir = FileUtil.createTempDir("work");
             ZipUtil.extractZip(packageZip, mWorkDir);
 

@@ -22,10 +22,9 @@ from acts import utils
 from acts.base_test import BaseTestClass
 from acts_contrib.test_utils.gnss import gnss_test_utils as gutils
 from acts_contrib.test_utils.wifi import wifi_test_utils as wutils
-from acts_contrib.test_utils.tel import tel_test_utils as tutils
 
 BACKGROUND_LOCATION_PERMISSION = 'android.permission.ACCESS_BACKGROUND_LOCATION'
-APP_CLEAN_UP_TIME = 60
+APP_CLEAN_UP_TIME = 10
 
 class LocationPlatinumTest(BaseTestClass):
     """Location Platinum Tests"""
@@ -45,9 +44,7 @@ class LocationPlatinumTest(BaseTestClass):
             # Hot Start Criteria, a int to define the criteria.
             'hs_criteria',
             # NetworkLocationProvide Criteria, a int to define the criteria.
-            'nlp_criteria',
-            # A list to identify QXDM log path.
-            'qdsp6m_path'
+            'nlp_criteria'
         ]
         self.unpack_userparams(req_param_names=req_params)
 
@@ -58,31 +55,19 @@ class LocationPlatinumTest(BaseTestClass):
             'ws': test_type('Warm Start', self.ws_criteria),
             'hs': test_type('Hot Start', self.hs_criteria)
         }
-        gutils._init_device(self.ad)
-        self.begin_time = utils.get_current_epoch_time()
-        gutils.clear_logd_gnss_qxdm_log(self.ad)
-        tutils.start_qxdm_logger(self.ad, self.begin_time)
-        tutils.start_adb_tcpdump(self.ad)
+        self._init(self.ad)
+
+    def _init(self, ad):
+        gutils.enable_gnss_verbose_logging(ad)
+        if gutils.check_chipset_vendor_by_qualcomm(ad):
+            gutils.disable_xtra_throttle(ad)
 
     def setup_test(self):
         """Prepare device with mobile data, wifi and gps ready for test """
-        if int(self.ad.adb.shell('settings get secure location_mode')) != 3:
-            self.ad.adb.shell('settings put secure location_mode 3')
+        gutils.check_location_service(self.ad)
         if not self.ad.droid.wifiCheckState():
             wutils.wifi_toggle_state(self.ad, True)
             gutils.connect_to_wifi_network(self.ad, self.wifi_network)
-        if int(self.ad.adb.shell('settings get global mobile_data')) != 1:
-            gutils.set_mobile_data(self.ad, True)
-        gutils.grant_location_permission(self.ad, True)
-        self.ad.adb.shell('pm grant com.android.gpstool %s' %
-                          BACKGROUND_LOCATION_PERMISSION)
-
-    def teardown_class(self):
-        tutils.stop_qxdm_logger(self.ad)
-        gutils.get_gnss_qxdm_log(self.ad, self.qdsp6m_path)
-        tutils.stop_adb_tcpdump(self.ad)
-        tutils.get_tcpdump_log(self.ad, 'location_platinum', self.begin_time)
-        self.ad.take_bug_report('location_platinum', self.begin_time)
 
     def get_and_verify_ttff(self, mode):
         """Retrieve ttff with designate mode.
@@ -112,28 +97,28 @@ class LocationPlatinumTest(BaseTestClass):
             '%s TTFF fails to reach designated criteria' % test_type.command)
 
     # Test cases
-    def test_gnss_cold_ttff(self):
+    def test_gnss_cs_ttff(self):
         """
             1. Send intent to GPSTool for cold start test.
             2. Retrieve ttff and validate with target criteria.
         """
         self.get_and_verify_ttff('cs')
 
-    def test_gnss_warm_ttff(self):
+    def test_gnss_ws_ttff(self):
         """
             1. Send intent to GPSTool for warm start test.
             2. Retrieve ttff and validate with target criteria.
         """
         self.get_and_verify_ttff('ws')
 
-    def test_gnss_hot_ttff(self):
+    def test_gnss_hs_ttff(self):
         """
             1. Send intent to GPSTool for hot start test.
             2. Retrieve ttff and validate with target criteria.
         """
         self.get_and_verify_ttff('hs')
 
-    def test_nlp_available_by_wifi(self):
+    def test_nlp_by_wifi(self):
         """
             1. Disable mobile data.
             2. Send intent to GPSTool for NLP.
@@ -145,7 +130,7 @@ class LocationPlatinumTest(BaseTestClass):
                 self.ad, 1, 'wifi', self.nlp_criteria),
             'Fail to get NLP from wifi')
 
-    def test_nlp_available_by_cell(self):
+    def test_nlp_by_cell(self):
         """
             1. Disable wifi.
             2. Send intent to GPSTool for NLP.
@@ -157,7 +142,7 @@ class LocationPlatinumTest(BaseTestClass):
                 self.ad, 1, 'cell', self.nlp_criteria),
             'Fail to get NLP from cell')
 
-    def test_toggle_location_setting_off_on_report_location(self):
+    def test_toggle_location_setting_off_on(self):
         """
             1. Toggle location setting off on.
             2. Open Google Map and ask for location.
@@ -170,7 +155,7 @@ class LocationPlatinumTest(BaseTestClass):
             gutils.check_location_api(self.ad, retries=1),
             'DUT failed to receive location fix')
 
-    def test_toggle_location_setting_off_not_report_location(self):
+    def test_location_setting_off(self):
         """
             1. Toggle location setting off.
             2. Open Google Map and ask for location.
@@ -195,7 +180,7 @@ class LocationPlatinumTest(BaseTestClass):
             gutils.check_location_api(self.ad, retries=1),
             'DUT fail to receive location fix')
 
-    def test_toggle_location_permission_off(self):
+    def test_location_permission_off(self):
         """
             1. Toggle Google Map location permission off.
             2. Open Google Map and ask for location.

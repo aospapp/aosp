@@ -32,6 +32,7 @@
 #include <utils/Vector.h>
 
 #include <atomic>
+#include <map>
 #include <thread>
 
 #include "ExynosHWC.h"
@@ -58,6 +59,7 @@
 
 using HbmState = ::aidl::com::google::hardware::pixel::display::HbmState;
 using LbeState = ::aidl::com::google::hardware::pixel::display::LbeState;
+using PanelCalibrationStatus = ::aidl::com::google::hardware::pixel::display::PanelCalibrationStatus;
 
 using namespace android;
 
@@ -94,50 +96,49 @@ typedef struct update_time_info {
 } update_time_info_t;
 
 enum {
-    GEOMETRY_LAYER_TYPE_CHANGED             = 1ULL << 0,
-    GEOMETRY_LAYER_DATASPACE_CHANGED        = 1ULL << 1,
-    GEOMETRY_LAYER_DISPLAYFRAME_CHANGED     = 1ULL << 2,
-    GEOMETRY_LAYER_SOURCECROP_CHANGED       = 1ULL << 3,
-    GEOMETRY_LAYER_TRANSFORM_CHANGED        = 1ULL << 4,
-    GEOMETRY_LAYER_ZORDER_CHANGED           = 1ULL << 5,
-    GEOMETRY_LAYER_FPS_CHANGED              = 1ULL << 6,
-    GEOMETRY_LAYER_FLAG_CHANGED             = 1ULL << 7,
-    GEOMETRY_LAYER_PRIORITY_CHANGED         = 1ULL << 8,
-    GEOMETRY_LAYER_COMPRESSED_CHANGED       = 1ULL << 9,
-    GEOMETRY_LAYER_BLEND_CHANGED            = 1ULL << 10,
-    GEOMETRY_LAYER_FORMAT_CHANGED           = 1ULL << 11,
-    GEOMETRY_LAYER_DRM_CHANGED              = 1ULL << 12,
-    GEOMETRY_LAYER_IGNORE_CHANGED           = 1ULL << 13,
-    GEOMETRY_LAYER_UNKNOWN_CHANGED          = 1ULL << 14,
-    /* 1ULL << 14 */
-    /* 1ULL << 15 */
-    /* 1ULL << 16 */
+    GEOMETRY_LAYER_TYPE_CHANGED               = 1ULL << 0,
+    GEOMETRY_LAYER_DATASPACE_CHANGED          = 1ULL << 1,
+    GEOMETRY_LAYER_DISPLAYFRAME_CHANGED       = 1ULL << 2,
+    GEOMETRY_LAYER_SOURCECROP_CHANGED         = 1ULL << 3,
+    GEOMETRY_LAYER_TRANSFORM_CHANGED          = 1ULL << 4,
+    GEOMETRY_LAYER_ZORDER_CHANGED             = 1ULL << 5,
+    GEOMETRY_LAYER_FPS_CHANGED                = 1ULL << 6,
+    GEOMETRY_LAYER_FLAG_CHANGED               = 1ULL << 7,
+    GEOMETRY_LAYER_PRIORITY_CHANGED           = 1ULL << 8,
+    GEOMETRY_LAYER_COMPRESSED_CHANGED         = 1ULL << 9,
+    GEOMETRY_LAYER_BLEND_CHANGED              = 1ULL << 10,
+    GEOMETRY_LAYER_FORMAT_CHANGED             = 1ULL << 11,
+    GEOMETRY_LAYER_DRM_CHANGED                = 1ULL << 12,
+    GEOMETRY_LAYER_IGNORE_CHANGED             = 1ULL << 13,
+    GEOMETRY_LAYER_WHITEPOINT_CHANGED         = 1ULL << 14,
+    GEOMETRY_LAYER_FRONT_BUFFER_USAGE_CHANGED = 1ULL << 15,
+    GEOMETRY_LAYER_UNKNOWN_CHANGED            = 1ULL << 16,
     /* 1ULL << 17 */
     /* 1ULL << 18 */
     /* 1ULL << 19 */
-    GEOMETRY_DISPLAY_LAYER_ADDED            = 1ULL << 20,
-    GEOMETRY_DISPLAY_LAYER_REMOVED          = 1ULL << 21,
-    GEOMETRY_DISPLAY_CONFIG_CHANGED         = 1ULL << 22,
-    GEOMETRY_DISPLAY_RESOLUTION_CHANGED     = 1ULL << 23,
-    GEOMETRY_DISPLAY_SINGLEBUF_CHANGED      = 1ULL << 24,
-    GEOMETRY_DISPLAY_FORCE_VALIDATE         = 1ULL << 25,
-    GEOMETRY_DISPLAY_COLOR_MODE_CHANGED     = 1ULL << 26,
-    GEOMETRY_DISPLAY_DYNAMIC_RECOMPOSITION  = 1ULL << 27,
-    GEOMETRY_DISPLAY_POWER_ON               = 1ULL << 28,
-    GEOMETRY_DISPLAY_POWER_OFF              = 1ULL << 29,
-    GEOMETRY_DISPLAY_COLOR_TRANSFORM_CHANGED= 1ULL << 30,
-    GEOMETRY_DISPLAY_DATASPACE_CHANGED      = 1ULL << 31,
+    GEOMETRY_DISPLAY_LAYER_ADDED              = 1ULL << 20,
+    GEOMETRY_DISPLAY_LAYER_REMOVED            = 1ULL << 21,
+    GEOMETRY_DISPLAY_CONFIG_CHANGED           = 1ULL << 22,
+    GEOMETRY_DISPLAY_RESOLUTION_CHANGED       = 1ULL << 23,
+    GEOMETRY_DISPLAY_SINGLEBUF_CHANGED        = 1ULL << 24,
+    GEOMETRY_DISPLAY_FORCE_VALIDATE           = 1ULL << 25,
+    GEOMETRY_DISPLAY_COLOR_MODE_CHANGED       = 1ULL << 26,
+    GEOMETRY_DISPLAY_DYNAMIC_RECOMPOSITION    = 1ULL << 27,
+    GEOMETRY_DISPLAY_POWER_ON                 = 1ULL << 28,
+    GEOMETRY_DISPLAY_POWER_OFF                = 1ULL << 29,
+    GEOMETRY_DISPLAY_COLOR_TRANSFORM_CHANGED  = 1ULL << 30,
+    GEOMETRY_DISPLAY_DATASPACE_CHANGED        = 1ULL << 31,
     /* 1ULL << 32 */
     /* 1ULL << 33 */
     /* 1ULL << 34 */
     /* 1ULL << 35 */
-    GEOMETRY_DEVICE_DISPLAY_ADDED           = 1ULL << 36,
-    GEOMETRY_DEVICE_DISPLAY_REMOVED         = 1ULL << 37,
-    GEOMETRY_DEVICE_CONFIG_CHANGED          = 1ULL << 38,
-    GEOMETRY_DEVICE_DISP_MODE_CHAGED        = 1ULL << 39,
-    GEOMETRY_DEVICE_SCENARIO_CHANGED        = 1ULL << 40,
+    GEOMETRY_DEVICE_DISPLAY_ADDED             = 1ULL << 36,
+    GEOMETRY_DEVICE_DISPLAY_REMOVED           = 1ULL << 37,
+    GEOMETRY_DEVICE_CONFIG_CHANGED            = 1ULL << 38,
+    GEOMETRY_DEVICE_DISP_MODE_CHAGED          = 1ULL << 39,
+    GEOMETRY_DEVICE_SCENARIO_CHANGED          = 1ULL << 40,
 
-    GEOMETRY_ERROR_CASE                     = 1ULL << 63,
+    GEOMETRY_ERROR_CASE                       = 1ULL << 63,
 };
 
 class ExynosDevice;
@@ -184,6 +185,9 @@ class ExynosDevice {
         /** TODO : Array size shuld be checked */
         exynos_callback_info_t mCallbackInfos[HWC2_CALLBACK_SEAMLESS_POSSIBLE + 1];
 
+        std::map<uint32_t, exynos_callback_info_t> mHwc3CallbackInfos;
+        Mutex mDeviceCallbackMutex;
+
         /**
          * Thread variables
          */
@@ -200,7 +204,7 @@ class ExynosDevice {
         uint32_t mDisplayMode;
 
         // Variable for fence tracer
-        hwc_fence_info mFenceInfo[MAX_FD_NUM];
+        std::map<int, HwcFenceInfo> mFenceInfos;
 
         /**
          * This will be initialized with differnt class
@@ -272,8 +276,13 @@ class ExynosDevice {
          */
         int32_t registerCallback (
                 int32_t descriptor, hwc2_callback_data_t callbackData, hwc2_function_pointer_t point);
-
-        void invalidate();
+        bool isCallbackAvailable(int32_t descriptor);
+        void onHotPlug(uint32_t displayId, bool status);
+        void onRefresh();
+        void onVsync(uint32_t displayId, int64_t timestamp);
+        bool onVsync_2_4(uint32_t displayId, int64_t timestamp, uint32_t vsyncPeriod);
+        void onVsyncPeriodTimingChanged(uint32_t displayId,
+                                        hwc_vsync_period_change_timeline_t *timeline);
 
         void setHWCDebug(unsigned int debug);
         uint32_t getHWCDebug();
@@ -294,6 +303,7 @@ class ExynosDevice {
         void checkDynamicRecompositionThread();
         int32_t setDisplayDeviceMode(int32_t display_id, int32_t mode);
         int32_t setPanelGammaTableSource(int32_t display_id, int32_t type, int32_t source);
+        void dump(String8 &result);
 
         class captureReadbackClass {
             public:
@@ -313,6 +323,16 @@ class ExynosDevice {
             mIsWaitingReadbackReqDone = false;
         };
 
+        uint32_t getWindowPlaneNum();
+        uint32_t getSpecialPlaneNum();
+        uint32_t getSpecialPlaneNum(uint32_t displayId);
+        uint32_t getSpecialPlaneId(uint32_t index);
+        uint64_t getSpecialPlaneAttr(uint32_t index);
+
+        int32_t registerHwc3Callback(uint32_t descriptor, hwc2_callback_data_t callbackData,
+                                     hwc2_function_pointer_t point);
+        void onVsyncIdle(hwc2_display_t displayId);
+
     protected:
         void initDeviceInterface(uint32_t interfaceType);
     protected:
@@ -322,6 +342,7 @@ class ExynosDevice {
         Condition mCaptureCondition;
         std::atomic<bool> mIsWaitingReadbackReqDone = false;
         void setVBlankOffDelay(int vblankOffDelay);
+        bool isCallbackRegisteredLocked(int32_t descriptor);
 
     public:
         bool isLbeSupported();
@@ -336,6 +357,8 @@ class ExynosDevice {
         int setRefreshRateThrottle(const int delayMs);
 
         bool isColorCalibratedByDevice();
+
+        PanelCalibrationStatus getPanelCalibrationStatus();
 
     public:
         void enterToTUI() { mIsInTUI = true; };

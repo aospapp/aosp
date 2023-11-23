@@ -79,14 +79,14 @@ LooperBackedEventLoop::~LooperBackedEventLoop() {
 void LooperBackedEventLoop::PostTask(const std::function<void()>& callback) {
   sp<android::MessageHandler> event_loop_callback =
       new EventLoopCallback(callback);
-  looper_->sendMessage(event_loop_callback, NULL);
+  looper_->sendMessage(event_loop_callback, Message());
 }
 
 void LooperBackedEventLoop::PostDelayedTask(
     const std::function<void()>& callback,
     int64_t delay_ms) {
   sp<android::MessageHandler> looper_callback = new EventLoopCallback(callback);
-  looper_->sendMessageDelayed(ms2ns(delay_ms), looper_callback, NULL);
+  looper_->sendMessageDelayed(ms2ns(delay_ms), looper_callback, Message());
 }
 
 bool LooperBackedEventLoop::WatchFileDescriptor(

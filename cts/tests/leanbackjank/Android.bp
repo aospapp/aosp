@@ -36,4 +36,8 @@ android_test {
         "androidx.test.janktesthelper",
     ],
     libs: ["android.test.base"],
+    data: [
+        ":CtsLeanbackJankApp",
+    ],
+    per_testcase_directory: true,
 }

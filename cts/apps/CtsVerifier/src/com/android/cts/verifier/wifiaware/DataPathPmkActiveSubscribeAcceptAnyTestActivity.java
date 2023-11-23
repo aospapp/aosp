@@ -28,6 +28,6 @@ public class DataPathPmkActiveSubscribeAcceptAnyTestActivity extends BaseTestAct
     protected BaseTestCase getTestCase(Context context) {
         return new DataPathInBandTestCase(context, /* isSecurityOpen */ false,
                 /* isPublish */ false, /* isUnsolicited */ false, /* usePmk */ true,
-                /* acceptAny */ false);
+                /* acceptAny */ false, /* forceChannel */false);
     }
 }

@@ -26,6 +26,7 @@ class AndroidKeymaster;
 
 namespace aidl::android::hardware::security::keymint {
 using ::ndk::ScopedAStatus;
+using std::array;
 using std::optional;
 using std::shared_ptr;
 using std::vector;
@@ -73,13 +74,18 @@ class AndroidKeyMintDevice : public BnKeyMintDevice {
                                const optional<TimeStampToken>& timestampToken) override;
     ScopedAStatus earlyBootEnded() override;
 
-    ScopedAStatus convertStorageKeyToEphemeral(const std::vector<uint8_t>& storageKeyBlob,
-                                               std::vector<uint8_t>* ephemeralKeyBlob) override;
+    ScopedAStatus convertStorageKeyToEphemeral(const vector<uint8_t>& storageKeyBlob,
+                                               vector<uint8_t>* ephemeralKeyBlob) override;
 
-    ScopedAStatus
-    getKeyCharacteristics(const std::vector<uint8_t>& keyBlob, const std::vector<uint8_t>& appId,
-                          const std::vector<uint8_t>& appData,
-                          std::vector<KeyCharacteristics>* keyCharacteristics) override;
+    ScopedAStatus getKeyCharacteristics(const vector<uint8_t>& keyBlob,
+                                        const vector<uint8_t>& appId,
+                                        const vector<uint8_t>& appData,
+                                        vector<KeyCharacteristics>* keyCharacteristics) override;
+
+    ScopedAStatus getRootOfTrustChallenge(array<uint8_t, 16>* challenge) override;
+    ScopedAStatus getRootOfTrust(const array<uint8_t, 16>& challenge,
+                                 vector<uint8_t>* rootOfTrust) override;
+    ScopedAStatus sendRootOfTrust(const vector<uint8_t>& rootOfTrust) override;
 
     shared_ptr<::keymaster::AndroidKeymaster>& getKeymasterImpl() { return impl_; }
 
@@ -88,6 +94,6 @@ class AndroidKeyMintDevice : public BnKeyMintDevice {
     SecurityLevel securityLevel_;
 };
 
-IKeyMintDevice* CreateKeyMintDevice(SecurityLevel securityLevel);
+std::shared_ptr<IKeyMintDevice> CreateKeyMintDevice(SecurityLevel securityLevel);
 
 }  // namespace aidl::android::hardware::security::keymint

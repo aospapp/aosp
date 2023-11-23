@@ -27,7 +27,6 @@ import android.platform.test.annotations.AppModeFull;
 import com.android.internal.os.StatsdConfigProto;
 import com.android.os.AtomsProto;
 import com.android.os.StatsLog;
-import com.android.server.notification.SmallHash;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IBuildReceiver;

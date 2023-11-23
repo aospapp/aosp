@@ -28,11 +28,12 @@ RsaKeymaster1KeyFactory::RsaKeymaster1KeyFactory(const SoftwareKeyBlobMaker& blo
                                                  const KeymasterContext& context,
                                                  const Keymaster1Engine* engine)
     : RsaKeyFactory(blob_maker, context), engine_(engine),
-      sign_factory_(new RsaKeymaster1OperationFactory(KM_PURPOSE_SIGN, engine)),
-      decrypt_factory_(new RsaKeymaster1OperationFactory(KM_PURPOSE_DECRYPT, engine)),
+      sign_factory_(new (std::nothrow) RsaKeymaster1OperationFactory(KM_PURPOSE_SIGN, engine)),
+      decrypt_factory_(new (std::nothrow)
+                           RsaKeymaster1OperationFactory(KM_PURPOSE_DECRYPT, engine)),
       // For pubkey ops we can use the normal operation factories.
-      verify_factory_(new RsaVerificationOperationFactory),
-      encrypt_factory_(new RsaEncryptionOperationFactory) {}
+      verify_factory_(new (std::nothrow) RsaVerificationOperationFactory),
+      encrypt_factory_(new (std::nothrow) RsaEncryptionOperationFactory) {}
 
 static bool is_supported(uint32_t digest) {
     return digest == KM_DIGEST_NONE || digest == KM_DIGEST_SHA_2_256;

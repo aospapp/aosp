@@ -26,22 +26,26 @@ class TextModifiersTest {
     @Test
     fun `test equivalentTo()`() {
         val codebase = ApiFile.parseApi(
-            "test", """
+            "test",
+            """
             package androidx.navigation {
               public final class NavDestination {
                 ctor public NavDestination();
               }
             }
-        """.trimIndent(), false
+            """.trimIndent(),
+            false
         )
 
         assertTrue {
             TextModifiers(codebase, flags = DefaultModifierList.PUBLIC).equivalentTo(
-                TextModifiers(codebase, flags = DefaultModifierList.PUBLIC))
+                TextModifiers(codebase, flags = DefaultModifierList.PUBLIC)
+            )
         }
         assertFalse {
             TextModifiers(codebase, flags = DefaultModifierList.PRIVATE).equivalentTo(
-                TextModifiers(codebase, flags = DefaultModifierList.PUBLIC))
+                TextModifiers(codebase, flags = DefaultModifierList.PUBLIC)
+            )
         }
     }
 }

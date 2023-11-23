@@ -18,7 +18,6 @@
 #include <base/logging.h>
 #include <base/strings/string_number_conversions.h>
 #include <brillo/key_value_store.h>
-#include <update_engine/dbus-constants.h>
 
 using brillo::KeyValueStore;
 using std::string;
@@ -39,6 +38,27 @@ const char kNewSize[] = "NEW_SIZE";
 const char kNewVersion[] = "NEW_VERSION";
 const char kProgress[] = "PROGRESS";
 const char kWillPowerwashAfterReboot[] = "WILL_POWERWASH_AFTER_REBOOT";
+
+namespace update_engine {
+const char kUpdateStatusIdle[] = "UPDATE_STATUS_IDLE";
+const char kUpdateStatusCheckingForUpdate[] =
+    "UPDATE_STATUS_CHECKING_FOR_UPDATE";
+const char kUpdateStatusUpdateAvailable[] = "UPDATE_STATUS_UPDATE_AVAILABLE";
+const char kUpdateStatusDownloading[] = "UPDATE_STATUS_DOWNLOADING";
+const char kUpdateStatusVerifying[] = "UPDATE_STATUS_VERIFYING";
+const char kUpdateStatusFinalizing[] = "UPDATE_STATUS_FINALIZING";
+const char kUpdateStatusUpdatedNeedReboot[] =
+    "UPDATE_STATUS_UPDATED_NEED_REBOOT";
+const char kUpdateStatusReportingErrorEvent[] =
+    "UPDATE_STATUS_REPORTING_ERROR_EVENT";
+const char kUpdateStatusAttemptingRollback[] =
+    "UPDATE_STATUS_ATTEMPTING_ROLLBACK";
+const char kUpdateStatusDisabled[] = "UPDATE_STATUS_DISABLED";
+const char kUpdateStatusNeedPermissionToUpdate[] =
+    "UPDATE_STATUS_NEED_PERMISSION_TO_UPDATE";
+const char kUpdateStatusCleanupPreviousUpdate[] =
+    "UPDATE_STATUS_CLEANUP_PREVIOUS_UPDATE";
+}  // namespace update_engine
 
 }  // namespace
 

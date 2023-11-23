@@ -1,4 +1,30 @@
 {
+  "presubmit": [
+    {
+      "name": "CtsAdminPackageInstallerTestCases"
+    },
+    {
+      "name": "CtsPackageInstallTestCases"
+    },
+    {
+      "name": "CtsPackageInstallAppOpDefaultTestCases"
+    },
+    {
+      "name": "CtsPackageInstallAppOpDeniedTestCases"
+    },
+    {
+      "name": "CtsNoPermissionTestCases"
+    },
+    {
+      "name": "CtsNoPermissionTestCases25"
+    },
+    {
+      "name": "CtsPackageInstallerTapjackingTestCases"
+    },
+    {
+      "name": "CtsPackageUninstallTestCases"
+    }
+  ],
   "imports": [
     {
       "path": "cts/tests/tests/packageinstaller/atomicinstall"

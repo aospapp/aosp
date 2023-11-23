@@ -18,6 +18,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sync"
 	"text/template"
 
 	"android/soong/ui/metrics"
@@ -28,16 +29,20 @@ import (
 func SetupOutDir(ctx Context, config Config) {
 	ensureEmptyFileExists(ctx, filepath.Join(config.OutDir(), "Android.mk"))
 	ensureEmptyFileExists(ctx, filepath.Join(config.OutDir(), "CleanSpec.mk"))
-	if !config.SkipKati() {
-		// Run soong_build with Kati for a hybrid build, e.g. running the
-		// AndroidMk singleton and postinstall commands. Communicate this to
-		// soong_build by writing an empty .soong.kati_enabled marker file in the
-		// soong_build output directory for the soong_build primary builder to
-		// know if the user wants to run Kati after.
-		//
-		// This does not preclude running Kati for *product configuration purposes*.
-		ensureEmptyFileExists(ctx, filepath.Join(config.SoongOutDir(), ".soong.kati_enabled"))
+
+	// Potentially write a marker file for whether kati is enabled. This is used by soong_build to
+	// potentially run the AndroidMk singleton and postinstall commands.
+	// Note that the absence of the  file does not not preclude running Kati for product
+	// configuration purposes.
+	katiEnabledMarker := filepath.Join(config.SoongOutDir(), ".soong.kati_enabled")
+	if config.SkipKatiNinja() {
+		os.Remove(katiEnabledMarker)
+		// Note that we can not remove the file for SkipKati builds yet -- some continuous builds
+		// --skip-make builds rely on kati targets being defined.
+	} else if !config.SkipKati() {
+		ensureEmptyFileExists(ctx, katiEnabledMarker)
 	}
+
 	// The ninja_build file is used by our buildbots to understand that the output
 	// can be parsed as ninja output.
 	ensureEmptyFileExists(ctx, filepath.Join(config.OutDir(), "ninja_build"))
@@ -201,6 +206,8 @@ func Build(ctx Context, config Config) {
 		return
 	}
 
+	defer waitForDist(ctx)
+
 	// checkProblematicFiles aborts the build if Android.mk or CleanSpec.mk are found at the root of the tree.
 	checkProblematicFiles(ctx)
 
@@ -234,9 +241,24 @@ func Build(ctx Context, config Config) {
 		ctx.Verboseln("Skipping use of Kati ninja as requested")
 		what = what &^ RunKatiNinja
 	}
+	if config.SkipSoong() {
+		ctx.Verboseln("Skipping use of Soong as requested")
+		what = what &^ RunSoong
+	}
+
 	if config.SkipNinja() {
 		ctx.Verboseln("Skipping Ninja as requested")
 		what = what &^ RunNinja
+	}
+
+	if !config.SoongBuildInvocationNeeded() {
+		// This means that the output of soong_build is not needed and thus it would
+		// run unnecessarily. In addition, if this code wasn't there invocations
+		// with only special-cased target names like "m bp2build" would result in
+		// passing Ninja the empty target list and it would then build the default
+		// targets which is not what the user asked for.
+		what = what &^ RunNinja
+		what = what &^ RunKati
 	}
 
 	if config.StartGoma() {
@@ -245,6 +267,7 @@ func Build(ctx Context, config Config) {
 
 	if config.StartRBE() {
 		startRBE(ctx, config)
+		defer DumpRBEMetrics(ctx, config, filepath.Join(config.LogsDir(), "rbe_metrics.pb"))
 	}
 
 	if what&RunProductConfig != 0 {
@@ -269,11 +292,6 @@ func Build(ctx Context, config Config) {
 
 	if what&RunSoong != 0 {
 		runSoong(ctx, config)
-
-		if config.bazelBuildMode() == generateBuildFiles {
-			// Return early, if we're using Soong as solely the generator of BUILD files.
-			return
-		}
 	}
 
 	if what&RunKati != 0 {
@@ -314,8 +332,18 @@ func Build(ctx Context, config Config) {
 	}
 }
 
+var distWaitGroup sync.WaitGroup
+
+// waitForDist waits for all backgrounded distGzipFile and distFile writes to finish
+func waitForDist(ctx Context) {
+	ctx.BeginTrace("soong_ui", "dist")
+	defer ctx.EndTrace()
+
+	distWaitGroup.Wait()
+}
+
 // distGzipFile writes a compressed copy of src to the distDir if dist is enabled.  Failures
-// are printed but non-fatal.
+// are printed but non-fatal. Uses the distWaitGroup func for backgrounding (optimization).
 func distGzipFile(ctx Context, config Config, src string, subDirs ...string) {
 	if !config.Dist() {
 		return
@@ -328,13 +356,17 @@ func distGzipFile(ctx Context, config Config, src string, subDirs ...string) {
 		ctx.Printf("failed to mkdir %s: %s", destDir, err.Error())
 	}
 
-	if err := gzipFileToDir(src, destDir); err != nil {
-		ctx.Printf("failed to dist %s: %s", filepath.Base(src), err.Error())
-	}
+	distWaitGroup.Add(1)
+	go func() {
+		defer distWaitGroup.Done()
+		if err := gzipFileToDir(src, destDir); err != nil {
+			ctx.Printf("failed to dist %s: %s", filepath.Base(src), err.Error())
+		}
+	}()
 }
 
 // distFile writes a copy of src to the distDir if dist is enabled.  Failures are printed but
-// non-fatal.
+// non-fatal. Uses the distWaitGroup func for backgrounding (optimization).
 func distFile(ctx Context, config Config, src string, subDirs ...string) {
 	if !config.Dist() {
 		return
@@ -347,7 +379,11 @@ func distFile(ctx Context, config Config, src string, subDirs ...string) {
 		ctx.Printf("failed to mkdir %s: %s", destDir, err.Error())
 	}
 
-	if _, err := copyFile(src, filepath.Join(destDir, filepath.Base(src))); err != nil {
-		ctx.Printf("failed to dist %s: %s", filepath.Base(src), err.Error())
-	}
+	distWaitGroup.Add(1)
+	go func() {
+		defer distWaitGroup.Done()
+		if _, err := copyFile(src, filepath.Join(destDir, filepath.Base(src))); err != nil {
+			ctx.Printf("failed to dist %s: %s", filepath.Base(src), err.Error())
+		}
+	}()
 }

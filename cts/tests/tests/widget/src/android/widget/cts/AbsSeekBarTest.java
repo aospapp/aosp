@@ -222,7 +222,7 @@ public class AbsSeekBarTest {
         final int keyProgressIncrement = 2;
         mActivityRule.runOnUiThread(() -> {
             seekBar.setKeyProgressIncrement(keyProgressIncrement);
-            seekBar.setFocusable(true);
+            seekBar.setFocusableInTouchMode(true);
             seekBar.requestFocus();
         });
         PollingCheck.waitFor(1000, seekBar::hasWindowFocus);

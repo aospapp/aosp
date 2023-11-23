@@ -52,14 +52,7 @@ public class SettingsMultiPaneDeepLinkTest {
 
     @Before
     public void setUp() throws Exception {
-        // runOnMainSync or SplitController#isSplitSupported will return wrong value for large
-        // screen devices.
-        InstrumentationRegistry.getInstrumentation().runOnMainSync(new Runnable() {
-            @Override
-            public void run() {
-                mIsSplitSupported = SplitController.getInstance().isSplitSupported();
-            }
-        });
+        mIsSplitSupported = SplitController.getInstance().isSplitSupported();
         mDeepLinkIntentResolveInfo = InstrumentationRegistry.getInstrumentation().getContext()
                 .getPackageManager().resolveActivity(
                 new Intent(Settings.ACTION_SETTINGS_EMBED_DEEP_LINK_ACTIVITY),
@@ -67,6 +60,13 @@ public class SettingsMultiPaneDeepLinkTest {
 
         assumeFalse("Skipping test: The device does not support Activity embedding",
                 !mIsSplitSupported && mDeepLinkIntentResolveInfo == null);
+
+        // TODO(b/214606992): Remove this check once automotive support was implemented.
+        assumeFalse("Skipping test: not supported on automotive yet",
+                mDeepLinkIntentResolveInfo == null
+                        && InstrumentationRegistry.getInstrumentation().getContext()
+                                .getPackageManager()
+                                .hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE));
     }
 
     @Test

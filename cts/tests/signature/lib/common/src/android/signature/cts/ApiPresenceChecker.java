@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
  */
 public class ApiPresenceChecker {
 
-    final ResultObserver resultObserver;
+    protected final ResultObserver resultObserver;
 
     final ClassProvider classProvider;
 
@@ -76,12 +76,12 @@ public class ApiPresenceChecker {
             }
 
             return runtimeClass;
-        } catch (Exception e) {
-            LogHelper.loge("Got exception when checking class compliance", e);
+        } catch (Error|Exception e) {
             resultObserver.notifyFailure(
                     FailureType.CAUGHT_EXCEPTION,
                     classDescription.getAbsoluteClassName(),
-                    "Exception while checking class compliance!");
+                    "Exception while checking class compliance!",
+                    e);
             return null;
         }
     }
@@ -123,12 +123,12 @@ public class ApiPresenceChecker {
                 } else {
                     checkField(classDescription, runtimeClass, field, f);
                 }
-            } catch (Exception e) {
-                LogHelper.loge("Got exception when checking field compliance", e);
+            } catch (Error|Exception e) {
                 resultObserver.notifyFailure(
                         FailureType.CAUGHT_EXCEPTION,
                         field.toReadableString(classDescription.getAbsoluteClassName()),
-                        "Exception while checking field compliance");
+                        "Exception while checking field compliance",
+                        e);
             }
         }
     }
@@ -201,11 +201,12 @@ public class ApiPresenceChecker {
                 } else {
                     checkConstructor(classDescription, runtimeClass, con, c);
                 }
-            } catch (Exception e) {
-                LogHelper.loge("Got exception when checking constructor compliance", e);
-                resultObserver.notifyFailure(FailureType.CAUGHT_EXCEPTION,
+            } catch (Error|Exception e) {
+                resultObserver.notifyFailure(
+                        FailureType.CAUGHT_EXCEPTION,
                         con.toReadableString(classDescription.getAbsoluteClassName()),
-                        "Exception while checking constructor compliance!");
+                        "Exception while checking constructor compliance!",
+                        e);
             }
         }
     }
@@ -245,11 +246,12 @@ public class ApiPresenceChecker {
                 }
                 // Clear the list.
                 mismatchReasons.clear();
-            } catch (Exception e) {
-                LogHelper.loge("Got exception when checking method compliance", e);
-                resultObserver.notifyFailure(FailureType.CAUGHT_EXCEPTION,
+            } catch (Error|Exception e) {
+                resultObserver.notifyFailure(
+                        FailureType.CAUGHT_EXCEPTION,
                         method.toReadableString(classDescription.getAbsoluteClassName()),
-                        "Exception while checking method compliance!");
+                        "Exception while checking method compliance!",
+                        e);
             }
         }
     }

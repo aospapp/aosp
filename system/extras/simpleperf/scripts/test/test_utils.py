@@ -21,11 +21,12 @@ import logging
 from multiprocessing.connection import Connection
 import os
 from pathlib import Path
+import re
 import shutil
 import sys
 import subprocess
 import time
-from typing import List, Optional
+from typing import List, Optional, Tuple, Union
 import unittest
 
 from simpleperf_utils import remove, get_script_dir, AdbHelper, is_windows, bytes_to_str
@@ -108,6 +109,13 @@ class TestHelper:
         return cls.adb.get_property('ro.product.cpu.abilist32').strip().split(',')[0]
 
     @classmethod
+    def get_kernel_version(cls) -> Tuple[int]:
+        output = cls.adb.check_run_and_return_output(['shell', 'uname', '-r'])
+        m = re.search(r'^(\d+)\.(\d+)', output)
+        assert m
+        return (int(m.group(1)), int(m.group(2)))
+
+    @classmethod
     def write_progress(cls, progress: str):
         if cls.progress_conn:
             cls.progress_conn.send(progress)
@@ -145,7 +153,8 @@ class TestBase(unittest.TestCase):
         if status == 'OK':
             remove(self.test_dir)
         TestHelper.write_progress(
-            '%s.%s  %s' % (self.__class__.__name__, self._testMethodName, status))
+            '%s.%s  %s  %.3fs' %
+            (self.__class__.__name__, self._testMethodName, status, time_taken))
         return ret
 
     def run_cmd(self, args: List[str], return_output=False, drop_output=True) -> str:
@@ -180,7 +189,7 @@ class TestBase(unittest.TestCase):
             return output_data
         return ''
 
-    def check_strings_in_file(self, filename, strings):
+    def check_strings_in_file(self, filename, strings: List[Union[str, re.Pattern]]):
         self.check_exist(filename=filename)
         with open(filename, 'r') as fh:
             self.check_strings_in_content(fh.read(), strings)
@@ -191,8 +200,13 @@ class TestBase(unittest.TestCase):
         if dirname:
             self.assertTrue(os.path.isdir(dirname), dirname)
 
-    def check_strings_in_content(self, content, strings):
-        fulfilled = [content.find(s) != -1 for s in strings]
+    def check_strings_in_content(self, content: str, strings: List[Union[str, re.Pattern]]):
+        fulfilled = []
+        for s in strings:
+            if isinstance(s, re.Pattern):
+                fulfilled.append(s.search(content))
+            else:
+                fulfilled.append(s in content)
         self.check_fulfilled_entries(fulfilled, strings)
 
     def check_fulfilled_entries(self, fulfilled, entries):

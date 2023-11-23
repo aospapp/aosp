@@ -32,4 +32,9 @@ android_test {
 
     srcs: ["src/**/*.java"],
     sdk_version: "system_current",
+    data: [
+        ":CtsMatchFlagsSharedUri",
+        ":CtsMatchFlagsUniqueAndSharedUri",
+    ],
+    per_testcase_directory: true,
 }

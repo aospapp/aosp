@@ -44,7 +44,7 @@ class UserActivityEmulator {
         mHeight = Integer.valueOf(sizes[1].trim());
     }
 
-    public void tapScreenCenter() throws DeviceNotAvailableException {
-        mDevice.executeShellCommand(String.format("input tap %d %d", mWidth / 2, mHeight / 2));
+    public void tapScreen() throws DeviceNotAvailableException {
+        mDevice.executeShellCommand(String.format("input tap %d %d", 0, 0));
     }
 }

@@ -35,6 +35,7 @@ android_test_helper_app {
         "testng",
         "androidx.legacy_legacy-support-v4",
         "devicepolicy-deviceside-common",
+        "permission-test-util-lib",
     ],
     min_sdk_version: "27",
     // tag this module as a cts test artifact
@@ -42,7 +43,7 @@ android_test_helper_app {
         "arcts",
         "cts",
         "general-tests",
-        "mts",
+        "mts-permission",
     ],
     platform_apis: true,
 }

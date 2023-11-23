@@ -53,6 +53,9 @@ class PartitionInstaller final {
     static int WipeWritable(const std::string& active_dsu, const std::string& install_dir,
                             const std::string& name);
 
+    // Returns the minimum free space to reserve for /data.
+    static std::optional<uint64_t> GetMinimumFreeSpaceThreshold(const std::string& install_dir);
+
     // Finish a partition installation and release resources.
     // If the installation is incomplete or corrupted, the backing image would
     // be cleaned up and an error code is returned.

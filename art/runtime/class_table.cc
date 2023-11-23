@@ -18,6 +18,7 @@
 
 #include "base/stl_util.h"
 #include "mirror/class-inl.h"
+#include "mirror/string-inl.h"
 #include "oat_file.h"
 
 namespace art {
@@ -30,7 +31,11 @@ ClassTable::ClassTable() : lock_("Class loader classes", kClassLoaderClassesLock
 
 void ClassTable::FreezeSnapshot() {
   WriterMutexLock mu(Thread::Current(), lock_);
-  classes_.push_back(ClassSet());
+  // Propagate the min/max load factor from the old active set.
+  DCHECK(!classes_.empty());
+  const ClassSet& last_set = classes_.back();
+  ClassSet new_set(last_set.GetMinLoadFactor(), last_set.GetMaxLoadFactor());
+  classes_.push_back(std::move(new_set));
 }
 
 ObjPtr<mirror::Class> ClassTable::UpdateClass(const char* descriptor,
@@ -102,7 +107,12 @@ size_t ClassTable::NumReferencedNonZygoteClasses() const {
 ObjPtr<mirror::Class> ClassTable::Lookup(const char* descriptor, size_t hash) {
   DescriptorHashPair pair(descriptor, hash);
   ReaderMutexLock mu(Thread::Current(), lock_);
-  for (ClassSet& class_set : classes_) {
+  // Search from the last table, assuming that apps shall search for their own classes
+  // more often than for boot image classes. For prebuilt boot images, this also helps
+  // by searching the large table from the framework boot image extension compiled as
+  // single-image before the individual small tables from the primary boot image
+  // compiled as multi-image.
+  for (ClassSet& class_set : ReverseRange(classes_)) {
     auto it = class_set.FindWithHash(pair, hash);
     if (it != class_set.end()) {
       return it->Read();
@@ -112,25 +122,12 @@ ObjPtr<mirror::Class> ClassTable::Lookup(const char* descriptor, size_t hash) {
 }
 
 void ClassTable::Insert(ObjPtr<mirror::Class> klass) {
-  InsertWithHash(klass, TableSlot::HashDescriptor(klass));
+  InsertWithHash(klass, klass->DescriptorHash());
 }
 
 void ClassTable::InsertWithHash(ObjPtr<mirror::Class> klass, size_t hash) {
   WriterMutexLock mu(Thread::Current(), lock_);
   classes_.back().InsertWithHash(TableSlot(klass, hash), hash);
-}
-
-bool ClassTable::Remove(const char* descriptor) {
-  DescriptorHashPair pair(descriptor, ComputeModifiedUtf8Hash(descriptor));
-  WriterMutexLock mu(Thread::Current(), lock_);
-  for (ClassSet& class_set : classes_) {
-    auto it = class_set.find(pair);
-    if (it != class_set.end()) {
-      class_set.erase(it);
-      return true;
-    }
-  }
-  return false;
 }
 
 bool ClassTable::InsertStrongRoot(ObjPtr<mirror::Object> obj) {
@@ -176,21 +173,18 @@ size_t ClassTable::ReadFromMemory(uint8_t* ptr) {
 
 void ClassTable::AddClassSet(ClassSet&& set) {
   WriterMutexLock mu(Thread::Current(), lock_);
-  classes_.insert(classes_.begin(), std::move(set));
+  // Insert before the last (unfrozen) table since we add new classes into the back.
+  // Keep the order of previous frozen tables unchanged, so that we can can remember
+  // the number of searched frozen tables and not search them again.
+  // TODO: Make use of this in `ClassLinker::FindClass()`.
+  DCHECK(!classes_.empty());
+  classes_.insert(classes_.end() - 1, std::move(set));
 }
 
 void ClassTable::ClearStrongRoots() {
   WriterMutexLock mu(Thread::Current(), lock_);
   oat_files_.clear();
   strong_roots_.clear();
-}
-
-ClassTable::TableSlot::TableSlot(ObjPtr<mirror::Class> klass)
-    : TableSlot(klass, HashDescriptor(klass)) {}
-
-uint32_t ClassTable::TableSlot::HashDescriptor(ObjPtr<mirror::Class> klass) {
-  std::string temp;
-  return ComputeModifiedUtf8Hash(klass->GetDescriptor(&temp));
 }
 
 }  // namespace art

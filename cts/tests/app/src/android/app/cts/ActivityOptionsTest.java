@@ -16,6 +16,8 @@
 
 package android.app.cts;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import android.app.ActivityOptions;
 import android.os.Bundle;
 import android.test.AndroidTestCase;
@@ -27,5 +29,13 @@ public class ActivityOptionsTest extends AndroidTestCase {
         Bundle bundle = options.toBundle();
 
         assertNotNull(bundle);
+    }
+
+    public void testGetSetPendingIntentBackgroundActivityLaunchAllowed() {
+        ActivityOptions options = ActivityOptions.makeBasic();
+        options.setPendingIntentBackgroundActivityLaunchAllowed(true);
+        assertThat(options.isPendingIntentBackgroundActivityLaunchAllowed()).isTrue();
+        options.setPendingIntentBackgroundActivityLaunchAllowed(false);
+        assertThat(options.isPendingIntentBackgroundActivityLaunchAllowed()).isFalse();
     }
 }

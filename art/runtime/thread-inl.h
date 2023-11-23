@@ -40,27 +40,32 @@ static inline Thread* ThreadForEnv(JNIEnv* env) {
 }
 
 inline void Thread::AllowThreadSuspension() {
-  DCHECK_EQ(Thread::Current(), this);
-  if (UNLIKELY(TestAllFlags())) {
-    CheckSuspend();
-  }
+  CheckSuspend();
   // Invalidate the current thread's object pointers (ObjPtr) to catch possible moving GC bugs due
   // to missing handles.
   PoisonObjectPointers();
 }
 
-inline void Thread::CheckSuspend() {
+inline void Thread::CheckSuspend(bool implicit) {
   DCHECK_EQ(Thread::Current(), this);
-  for (;;) {
-    if (ReadFlag(kCheckpointRequest)) {
-      RunCheckpointFunction();
-    } else if (ReadFlag(kSuspendRequest)) {
-      FullSuspendCheck();
-    } else if (ReadFlag(kEmptyCheckpointRequest)) {
-      RunEmptyCheckpoint();
-    } else {
+  while (true) {
+    StateAndFlags state_and_flags = GetStateAndFlags(std::memory_order_relaxed);
+    if (LIKELY(!state_and_flags.IsAnyOfFlagsSet(SuspendOrCheckpointRequestFlags()))) {
       break;
+    } else if (state_and_flags.IsFlagSet(ThreadFlag::kCheckpointRequest)) {
+      RunCheckpointFunction();
+    } else if (state_and_flags.IsFlagSet(ThreadFlag::kSuspendRequest)) {
+      FullSuspendCheck(implicit);
+      implicit = false;  // We do not need to `MadviseAwayAlternateSignalStack()` anymore.
+    } else {
+      DCHECK(state_and_flags.IsFlagSet(ThreadFlag::kEmptyCheckpointRequest));
+      RunEmptyCheckpoint();
     }
+  }
+  if (implicit) {
+    // For implicit suspend check we want to `madvise()` away
+    // the alternate signal stack to avoid wasting memory.
+    MadviseAwayAlternateSignalStack();
   }
 }
 
@@ -68,14 +73,14 @@ inline void Thread::CheckEmptyCheckpointFromWeakRefAccess(BaseMutex* cond_var_mu
   Thread* self = Thread::Current();
   DCHECK_EQ(self, this);
   for (;;) {
-    if (ReadFlag(kEmptyCheckpointRequest)) {
+    if (ReadFlag(ThreadFlag::kEmptyCheckpointRequest)) {
       RunEmptyCheckpoint();
       // Check we hold only an expected mutex when accessing weak ref.
       if (kIsDebugBuild) {
         for (int i = kLockLevelCount - 1; i >= 0; --i) {
           BaseMutex* held_mutex = self->GetHeldMutex(static_cast<LockLevel>(i));
           if (held_mutex != nullptr &&
-              held_mutex != Locks::mutator_lock_ &&
+              held_mutex != GetMutatorLock() &&
               held_mutex != cond_var_mutex) {
             CHECK(Locks::IsExpectedOnWeakRefAccess(held_mutex))
                 << "Holding unexpected mutex " << held_mutex->GetName()
@@ -92,7 +97,7 @@ inline void Thread::CheckEmptyCheckpointFromWeakRefAccess(BaseMutex* cond_var_mu
 inline void Thread::CheckEmptyCheckpointFromMutex() {
   DCHECK_EQ(Thread::Current(), this);
   for (;;) {
-    if (ReadFlag(kEmptyCheckpointRequest)) {
+    if (ReadFlag(ThreadFlag::kEmptyCheckpointRequest)) {
       RunEmptyCheckpoint();
     } else {
       break;
@@ -103,21 +108,28 @@ inline void Thread::CheckEmptyCheckpointFromMutex() {
 inline ThreadState Thread::SetState(ThreadState new_state) {
   // Should only be used to change between suspended states.
   // Cannot use this code to change into or from Runnable as changing to Runnable should
-  // fail if old_state_and_flags.suspend_request is true and changing from Runnable might
+  // fail if the `ThreadFlag::kSuspendRequest` is set and changing from Runnable might
   // miss passing an active suspend barrier.
-  DCHECK_NE(new_state, kRunnable);
+  DCHECK_NE(new_state, ThreadState::kRunnable);
   if (kIsDebugBuild && this != Thread::Current()) {
     std::string name;
     GetThreadName(name);
     LOG(FATAL) << "Thread \"" << name << "\"(" << this << " != Thread::Current()="
                << Thread::Current() << ") changing state to " << new_state;
   }
-  union StateAndFlags old_state_and_flags;
-  old_state_and_flags.as_int = tls32_.state_and_flags.as_int;
-  CHECK_NE(old_state_and_flags.as_struct.state, kRunnable) << new_state << " " << *this << " "
-      << *Thread::Current();
-  tls32_.state_and_flags.as_struct.state = new_state;
-  return static_cast<ThreadState>(old_state_and_flags.as_struct.state);
+
+  while (true) {
+    StateAndFlags old_state_and_flags = GetStateAndFlags(std::memory_order_relaxed);
+    CHECK_NE(old_state_and_flags.GetState(), ThreadState::kRunnable)
+        << new_state << " " << *this << " " << *Thread::Current();
+    StateAndFlags new_state_and_flags = old_state_and_flags.WithState(new_state);
+    bool done =
+        tls32_.state_and_flags.CompareAndSetWeakRelaxed(old_state_and_flags.GetValue(),
+                                                        new_state_and_flags.GetValue());
+    if (done) {
+      return static_cast<ThreadState>(old_state_and_flags.GetState());
+    }
+  }
 }
 
 inline bool Thread::IsThreadSuspensionAllowable() const {
@@ -150,7 +162,7 @@ inline void Thread::AssertThreadSuspensionIsAllowable(bool check_locks) const {
     if (check_locks) {
       bool bad_mutexes_held = false;
       for (int i = kLockLevelCount - 1; i >= 0; --i) {
-        // We expect no locks except the mutator_lock_. User code suspension lock is OK as long as
+        // We expect no locks except the mutator lock. User code suspension lock is OK as long as
         // we aren't going to be held suspended due to SuspendReason::kForUserCode.
         if (i != kMutatorLock && i != kUserCodeSuspensionLock) {
           BaseMutex* held_mutex = GetHeldMutex(static_cast<LockLevel>(i));
@@ -182,31 +194,28 @@ inline void Thread::AssertThreadSuspensionIsAllowable(bool check_locks) const {
 }
 
 inline void Thread::TransitionToSuspendedAndRunCheckpoints(ThreadState new_state) {
-  DCHECK_NE(new_state, kRunnable);
-  DCHECK_EQ(GetState(), kRunnable);
-  union StateAndFlags old_state_and_flags;
-  union StateAndFlags new_state_and_flags;
+  DCHECK_NE(new_state, ThreadState::kRunnable);
   while (true) {
-    old_state_and_flags.as_int = tls32_.state_and_flags.as_int;
-    if (UNLIKELY((old_state_and_flags.as_struct.flags & kCheckpointRequest) != 0)) {
+    StateAndFlags old_state_and_flags = GetStateAndFlags(std::memory_order_relaxed);
+    DCHECK_EQ(old_state_and_flags.GetState(), ThreadState::kRunnable);
+    if (UNLIKELY(old_state_and_flags.IsFlagSet(ThreadFlag::kCheckpointRequest))) {
       RunCheckpointFunction();
       continue;
     }
-    if (UNLIKELY((old_state_and_flags.as_struct.flags & kEmptyCheckpointRequest) != 0)) {
+    if (UNLIKELY(old_state_and_flags.IsFlagSet(ThreadFlag::kEmptyCheckpointRequest))) {
       RunEmptyCheckpoint();
       continue;
     }
     // Change the state but keep the current flags (kCheckpointRequest is clear).
-    DCHECK_EQ((old_state_and_flags.as_struct.flags & kCheckpointRequest), 0);
-    DCHECK_EQ((old_state_and_flags.as_struct.flags & kEmptyCheckpointRequest), 0);
-    new_state_and_flags.as_struct.flags = old_state_and_flags.as_struct.flags;
-    new_state_and_flags.as_struct.state = new_state;
+    DCHECK(!old_state_and_flags.IsFlagSet(ThreadFlag::kCheckpointRequest));
+    DCHECK(!old_state_and_flags.IsFlagSet(ThreadFlag::kEmptyCheckpointRequest));
+    StateAndFlags new_state_and_flags = old_state_and_flags.WithState(new_state);
 
     // CAS the value, ensuring that prior memory operations are visible to any thread
     // that observes that we are suspended.
     bool done =
-        tls32_.state_and_flags.as_atomic_int.CompareAndSetWeakRelease(old_state_and_flags.as_int,
-                                                                        new_state_and_flags.as_int);
+        tls32_.state_and_flags.CompareAndSetWeakRelease(old_state_and_flags.GetValue(),
+                                                        new_state_and_flags.GetValue());
     if (LIKELY(done)) {
       break;
     }
@@ -215,11 +224,12 @@ inline void Thread::TransitionToSuspendedAndRunCheckpoints(ThreadState new_state
 
 inline void Thread::PassActiveSuspendBarriers() {
   while (true) {
-    uint16_t current_flags = tls32_.state_and_flags.as_struct.flags;
-    if (LIKELY((current_flags &
-                (kCheckpointRequest | kEmptyCheckpointRequest | kActiveSuspendBarrier)) == 0)) {
+    StateAndFlags state_and_flags = GetStateAndFlags(std::memory_order_relaxed);
+    if (LIKELY(!state_and_flags.IsFlagSet(ThreadFlag::kCheckpointRequest) &&
+               !state_and_flags.IsFlagSet(ThreadFlag::kEmptyCheckpointRequest) &&
+               !state_and_flags.IsFlagSet(ThreadFlag::kActiveSuspendBarrier))) {
       break;
-    } else if ((current_flags & kActiveSuspendBarrier) != 0) {
+    } else if (state_and_flags.IsFlagSet(ThreadFlag::kActiveSuspendBarrier)) {
       PassActiveSuspendBarriers(this);
     } else {
       // Impossible
@@ -229,50 +239,61 @@ inline void Thread::PassActiveSuspendBarriers() {
 }
 
 inline void Thread::TransitionFromRunnableToSuspended(ThreadState new_state) {
+  // Note: JNI stubs inline a fast path of this method that transitions to suspended if
+  // there are no flags set and then clears the `held_mutexes[kMutatorLock]` (this comes
+  // from a specialized `BaseMutex::RegisterAsLockedImpl(., kMutatorLock)` inlined from
+  // the `GetMutatorLock()->TransitionFromRunnableToSuspended(this)` below).
+  // Therefore any code added here (other than debug build assertions) should be gated
+  // on some flag being set, so that the JNI stub can take the slow path to get here.
   AssertThreadSuspensionIsAllowable();
   PoisonObjectPointersIfDebug();
   DCHECK_EQ(this, Thread::Current());
   // Change to non-runnable state, thereby appearing suspended to the system.
   TransitionToSuspendedAndRunCheckpoints(new_state);
-  // Mark the release of the share of the mutator_lock_.
-  Locks::mutator_lock_->TransitionFromRunnableToSuspended(this);
+  // Mark the release of the share of the mutator lock.
+  GetMutatorLock()->TransitionFromRunnableToSuspended(this);
   // Once suspended - check the active suspend barrier flag
   PassActiveSuspendBarriers();
 }
 
 inline ThreadState Thread::TransitionFromSuspendedToRunnable() {
-  union StateAndFlags old_state_and_flags;
-  old_state_and_flags.as_int = tls32_.state_and_flags.as_int;
-  int16_t old_state = old_state_and_flags.as_struct.state;
-  DCHECK_NE(static_cast<ThreadState>(old_state), kRunnable);
-  do {
-    Locks::mutator_lock_->AssertNotHeld(this);  // Otherwise we starve GC..
-    old_state_and_flags.as_int = tls32_.state_and_flags.as_int;
-    DCHECK_EQ(old_state_and_flags.as_struct.state, old_state);
-    if (LIKELY(old_state_and_flags.as_struct.flags == 0)) {
-      // Optimize for the return from native code case - this is the fast path.
-      // Atomically change from suspended to runnable if no suspend request pending.
-      union StateAndFlags new_state_and_flags;
-      new_state_and_flags.as_int = old_state_and_flags.as_int;
-      new_state_and_flags.as_struct.state = kRunnable;
-
+  // Note: JNI stubs inline a fast path of this method that transitions to Runnable if
+  // there are no flags set and then stores the mutator lock to `held_mutexes[kMutatorLock]`
+  // (this comes from a specialized `BaseMutex::RegisterAsUnlockedImpl(., kMutatorLock)`
+  // inlined from the `GetMutatorLock()->TransitionFromSuspendedToRunnable(this)` below).
+  // Therefore any code added here (other than debug build assertions) should be gated
+  // on some flag being set, so that the JNI stub can take the slow path to get here.
+  StateAndFlags old_state_and_flags = GetStateAndFlags(std::memory_order_relaxed);
+  ThreadState old_state = old_state_and_flags.GetState();
+  DCHECK_NE(old_state, ThreadState::kRunnable);
+  while (true) {
+    GetMutatorLock()->AssertNotHeld(this);  // Otherwise we starve GC.
+    // Optimize for the return from native code case - this is the fast path.
+    // Atomically change from suspended to runnable if no suspend request pending.
+    constexpr uint32_t kCheckedFlags =
+        SuspendOrCheckpointRequestFlags() |
+        enum_cast<uint32_t>(ThreadFlag::kActiveSuspendBarrier) |
+        FlipFunctionFlags();
+    if (LIKELY(!old_state_and_flags.IsAnyOfFlagsSet(kCheckedFlags))) {
       // CAS the value with a memory barrier.
-      if (LIKELY(tls32_.state_and_flags.as_atomic_int.CompareAndSetWeakAcquire(
-                                                 old_state_and_flags.as_int,
-                                                 new_state_and_flags.as_int))) {
-        // Mark the acquisition of a share of the mutator_lock_.
-        Locks::mutator_lock_->TransitionFromSuspendedToRunnable(this);
+      StateAndFlags new_state_and_flags = old_state_and_flags.WithState(ThreadState::kRunnable);
+      if (LIKELY(tls32_.state_and_flags.CompareAndSetWeakAcquire(old_state_and_flags.GetValue(),
+                                                                 new_state_and_flags.GetValue()))) {
+        // Mark the acquisition of a share of the mutator lock.
+        GetMutatorLock()->TransitionFromSuspendedToRunnable(this);
         break;
       }
-    } else if ((old_state_and_flags.as_struct.flags & kActiveSuspendBarrier) != 0) {
+    } else if (old_state_and_flags.IsFlagSet(ThreadFlag::kActiveSuspendBarrier)) {
       PassActiveSuspendBarriers(this);
-    } else if ((old_state_and_flags.as_struct.flags &
-                (kCheckpointRequest | kEmptyCheckpointRequest)) != 0) {
-      // Impossible
-      LOG(FATAL) << "Transitioning to runnable with checkpoint flag, "
-                 << " flags=" << old_state_and_flags.as_struct.flags
-                 << " state=" << old_state_and_flags.as_struct.state;
-    } else if ((old_state_and_flags.as_struct.flags & kSuspendRequest) != 0) {
+    } else if (UNLIKELY(old_state_and_flags.IsFlagSet(ThreadFlag::kCheckpointRequest) ||
+                        old_state_and_flags.IsFlagSet(ThreadFlag::kEmptyCheckpointRequest))) {
+      // Checkpoint flags should not be set while in suspended state.
+      static_assert(static_cast<std::underlying_type_t<ThreadState>>(ThreadState::kRunnable) == 0u);
+      LOG(FATAL) << "Transitioning to Runnable with checkpoint flag,"
+                 // Note: Keeping unused flags. If they are set, it points to memory corruption.
+                 << " flags=" << old_state_and_flags.WithState(ThreadState::kRunnable).GetValue()
+                 << " state=" << old_state_and_flags.GetState();
+    } else if (old_state_and_flags.IsFlagSet(ThreadFlag::kSuspendRequest)) {
       // Wait while our suspend count is non-zero.
 
       // We pass null to the MutexLock as we may be in a situation where the
@@ -286,21 +307,44 @@ inline ThreadState Thread::TransitionFromSuspendedToRunnable() {
       }
       MutexLock mu(thread_to_pass, *Locks::thread_suspend_count_lock_);
       ScopedTransitioningToRunnable scoped_transitioning_to_runnable(this);
-      old_state_and_flags.as_int = tls32_.state_and_flags.as_int;
-      DCHECK_EQ(old_state_and_flags.as_struct.state, old_state);
-      while ((old_state_and_flags.as_struct.flags & kSuspendRequest) != 0) {
+      // Reload state and flags after locking the mutex.
+      old_state_and_flags = GetStateAndFlags(std::memory_order_relaxed);
+      DCHECK_EQ(old_state, old_state_and_flags.GetState());
+      while (old_state_and_flags.IsFlagSet(ThreadFlag::kSuspendRequest)) {
         // Re-check when Thread::resume_cond_ is notified.
         Thread::resume_cond_->Wait(thread_to_pass);
-        old_state_and_flags.as_int = tls32_.state_and_flags.as_int;
-        DCHECK_EQ(old_state_and_flags.as_struct.state, old_state);
+        // Reload state and flags after waiting.
+        old_state_and_flags = GetStateAndFlags(std::memory_order_relaxed);
+        DCHECK_EQ(old_state, old_state_and_flags.GetState());
       }
       DCHECK_EQ(GetSuspendCount(), 0);
+    } else if (UNLIKELY(old_state_and_flags.IsFlagSet(ThreadFlag::kRunningFlipFunction)) ||
+               UNLIKELY(old_state_and_flags.IsFlagSet(ThreadFlag::kWaitingForFlipFunction))) {
+      // The thread should be suspended while another thread is running the flip function.
+      static_assert(static_cast<std::underlying_type_t<ThreadState>>(ThreadState::kRunnable) == 0u);
+      LOG(FATAL) << "Transitioning to Runnable while another thread is running the flip function,"
+                 // Note: Keeping unused flags. If they are set, it points to memory corruption.
+                 << " flags=" << old_state_and_flags.WithState(ThreadState::kRunnable).GetValue()
+                 << " state=" << old_state_and_flags.GetState();
+    } else {
+      DCHECK(old_state_and_flags.IsFlagSet(ThreadFlag::kPendingFlipFunction));
+      // CAS the value with a memory barrier.
+      // Do not set `ThreadFlag::kRunningFlipFunction` as no other thread can run
+      // the flip function for a thread that is not suspended.
+      StateAndFlags new_state_and_flags = old_state_and_flags.WithState(ThreadState::kRunnable)
+          .WithoutFlag(ThreadFlag::kPendingFlipFunction);
+      if (LIKELY(tls32_.state_and_flags.CompareAndSetWeakAcquire(old_state_and_flags.GetValue(),
+                                                                 new_state_and_flags.GetValue()))) {
+        // Mark the acquisition of a share of the mutator lock.
+        GetMutatorLock()->TransitionFromSuspendedToRunnable(this);
+        // Run the flip function.
+        RunFlipFunction(this, /*notify=*/ false);
+        break;
+      }
     }
-  } while (true);
-  // Run the flip function, if set.
-  Closure* flip_func = GetFlipFunction();
-  if (flip_func != nullptr) {
-    flip_func->Run(this);
+    // Reload state and flags.
+    old_state_and_flags = GetStateAndFlags(std::memory_order_relaxed);
+    DCHECK_EQ(old_state, old_state_and_flags.GetState());
   }
   return static_cast<ThreadState>(old_state);
 }
@@ -328,6 +372,29 @@ inline bool Thread::PushOnThreadLocalAllocationStack(mirror::Object* obj) {
   return false;
 }
 
+inline bool Thread::GetWeakRefAccessEnabled() const {
+  CHECK(kUseReadBarrier);
+  DCHECK(this == Thread::Current());
+  WeakRefAccessState s = tls32_.weak_ref_access_enabled.load(std::memory_order_relaxed);
+  if (LIKELY(s == WeakRefAccessState::kVisiblyEnabled)) {
+    return true;
+  }
+  s = tls32_.weak_ref_access_enabled.load(std::memory_order_acquire);
+  if (s == WeakRefAccessState::kVisiblyEnabled) {
+    return true;
+  } else if (s == WeakRefAccessState::kDisabled) {
+    return false;
+  }
+  DCHECK(s == WeakRefAccessState::kEnabled)
+      << "state = " << static_cast<std::underlying_type_t<WeakRefAccessState>>(s);
+  // The state is only changed back to DISABLED during a checkpoint. Thus no other thread can
+  // change the value concurrently here. No other thread reads the value we store here, so there
+  // is no need for a release store.
+  tls32_.weak_ref_access_enabled.store(WeakRefAccessState::kVisiblyEnabled,
+                                       std::memory_order_relaxed);
+  return true;
+}
+
 inline void Thread::SetThreadLocalAllocationStack(StackReference<mirror::Object>* start,
                                                   StackReference<mirror::Object>* end) {
   DCHECK(Thread::Current() == this) << "Should be called by self";
@@ -344,7 +411,7 @@ inline void Thread::RevokeThreadLocalAllocationStack() {
   if (kIsDebugBuild) {
     // Note: self is not necessarily equal to this thread since thread may be suspended.
     Thread* self = Thread::Current();
-    DCHECK(this == self || IsSuspended() || GetState() == kWaitingPerformingGc)
+    DCHECK(this == self || IsSuspended() || GetState() == ThreadState::kWaitingPerformingGc)
         << GetState() << " thread " << this << " self " << self;
   }
   tlsPtr_.thread_local_alloc_stack_end = nullptr;

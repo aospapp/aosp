@@ -18,7 +18,7 @@ package com.android.server.wm.flicker.service
 
 import android.util.Log
 import com.android.server.wm.flicker.FLICKER_TAG
-import com.android.server.wm.flicker.monitor.TransitionMonitor.Companion.WINSCOPE_EXT
+import com.android.server.wm.flicker.monitor.TraceMonitor.Companion.WINSCOPE_EXT
 import com.android.server.wm.flicker.service.assertors.AssertionData
 import com.android.server.wm.traces.common.errors.ErrorTrace
 import com.android.server.wm.traces.common.layers.LayersTrace
@@ -41,24 +41,24 @@ class FlickerService @JvmOverloads constructor(
      *
      * @param wmTrace Window Manager trace
      * @param layersTrace Surface Flinger trace
-     * @return A list containing all failures
+     * @return A pair with an [ErrorTrace] and a map that associates assertion names with
+     * 0 if it fails and 1 if it passes
      */
     fun process(
         wmTrace: WindowManagerTrace,
         layersTrace: LayersTrace,
-        outputDir: Path,
-        testTag: String
-    ): ErrorTrace {
+        outputDir: Path
+    ): Pair<ErrorTrace, Map<String, Int>> {
         val taggingEngine = TaggingEngine(wmTrace, layersTrace) { Log.v("$FLICKER_TAG-PROC", it) }
         val tagTrace = taggingEngine.run()
-        val tagTraceFile = getFassFilePath(outputDir, testTag, "tag_trace")
+        val tagTraceFile = getFassFilePath(outputDir, "tag_trace")
         tagTrace.writeToFile(tagTraceFile)
 
         val assertionEngine = AssertionEngine(assertions) { Log.v("$FLICKER_TAG-ASSERT", it) }
-        val errorTrace = assertionEngine.analyze(wmTrace, layersTrace, tagTrace)
-        val errorTraceFile = getFassFilePath(outputDir, testTag, "error_trace")
+        val (errorTrace, assertions) = assertionEngine.analyze(wmTrace, layersTrace, tagTrace)
+        val errorTraceFile = getFassFilePath(outputDir, "error_trace")
         errorTrace.writeToFile(errorTraceFile)
-        return errorTrace
+        return errorTrace to assertions
     }
 
     companion object {
@@ -66,11 +66,10 @@ class FlickerService @JvmOverloads constructor(
          * Returns the computed path for the Fass files.
          *
          * @param outputDir the output directory for the trace file
-         * @param testTag the tag to identify the test
          * @param file the name of the trace file
          * @return the path to the trace file
          */
-        internal fun getFassFilePath(outputDir: Path, testTag: String, file: String): Path =
-                outputDir.resolve("${testTag}_$file$WINSCOPE_EXT")
+        internal fun getFassFilePath(outputDir: Path, file: String): Path =
+                outputDir.resolve("$file$WINSCOPE_EXT")
     }
 }

@@ -1,4 +1,4 @@
-package com.android.apifinder
+package com.google.android.apifinder
 
 import com.android.tools.lint.client.api.UElementHandler
 import com.android.tools.lint.detector.api.*

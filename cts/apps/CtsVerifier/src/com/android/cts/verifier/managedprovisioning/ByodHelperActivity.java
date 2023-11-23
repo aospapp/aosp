@@ -16,6 +16,7 @@
 
 package com.android.cts.verifier.managedprovisioning;
 
+import static android.Manifest.permission.POST_NOTIFICATIONS;
 import static android.os.UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES;
 import static android.os.UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES_GLOBALLY;
 
@@ -165,6 +166,7 @@ public class ByodHelperActivity extends Activity
     private static final int REQUEST_VIDEO_CAPTURE_WITH_EXTRA_OUTPUT = 4;
     private static final int REQUEST_VIDEO_CAPTURE_WITHOUT_EXTRA_OUTPUT = 5;
     private static final int REQUEST_AUDIO_CAPTURE = 6;
+    private static final int REQUEST_POST_NOTIFICATIONS = 7;
 
     private static final String ORIGINAL_RESTRICTIONS_NAME = "original restrictions";
 
@@ -188,13 +190,24 @@ public class ByodHelperActivity extends Activity
     private ArrayList<File> mTempFiles = new ArrayList<File>();
 
     private Handler mMainThreadHandler;
+    private int mNextNotificationVisibility;
 
     private void showNotification(int visibility) {
+        mNextNotificationVisibility = visibility;
+
+        if (hasPostNotificationsPermission()) {
+            showNotificationInner();
+        } else {
+            requestPostNotificationsPermission(REQUEST_POST_NOTIFICATIONS);
+        }
+    }
+
+    private void showNotificationInner() {
         final Notification notification = new Notification.Builder(this, NOTIFICATION_CHANNEL_ID)
                 .setSmallIcon(R.drawable.icon)
                 .setContentTitle(getString(R.string.provisioning_byod_notification_title))
                 .setContentText(getString(R.string.provisioning_byod_notification_title))
-                .setVisibility(visibility)
+                .setVisibility(mNextNotificationVisibility)
                 .setAutoCancel(true)
                 .setPublicVersion(createPublicVersionNotification())
                 .build();
@@ -597,10 +610,22 @@ public class ByodHelperActivity extends Activity
                 requestCode);
     }
 
+    private boolean hasPostNotificationsPermission() {
+        return ContextCompat.checkSelfPermission(this, POST_NOTIFICATIONS)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void requestPostNotificationsPermission(int requestCode) {
+        ActivityCompat.requestPermissions(this,
+                new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                requestCode);
+    }
+
     /**
      * Launch the right test based on the request code, after validating the right permission
      * has been granted.
      */
+    @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
             @NonNull int[] grants) {
         // Test that the right permission was granted.
@@ -616,6 +641,14 @@ public class ByodHelperActivity extends Activity
                     return;
                 }
                 break;
+            case REQUEST_POST_NOTIFICATIONS:
+                if (!permissions[0].equals(POST_NOTIFICATIONS)
+                        || grants[0] != PackageManager.PERMISSION_GRANTED) {
+                    Log.e(TAG, "The test needs notifications permission.");
+                    finish();
+                    return;
+                }
+                break;
         }
 
         // Execute the right test.
@@ -626,6 +659,9 @@ public class ByodHelperActivity extends Activity
             case EXECUTE_VIDEO_CAPTURE_WITH_EXTRA_TEST:
             case EXECUTE_VIDEO_CAPTURE_WITHOUT_EXTRA_TEST:
                 startCaptureVideoActivity(requestCode);
+                break;
+            case REQUEST_POST_NOTIFICATIONS:
+                showNotificationInner();
                 break;
             default:
                 Log.e(TAG, "Unknown action.");

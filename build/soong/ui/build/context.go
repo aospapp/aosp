@@ -20,7 +20,7 @@ import (
 
 	"android/soong/ui/logger"
 	"android/soong/ui/metrics"
-	"android/soong/ui/metrics/metrics_proto"
+	soong_metrics_proto "android/soong/ui/metrics/metrics_proto"
 	"android/soong/ui/status"
 	"android/soong/ui/tracer"
 )
@@ -71,9 +71,9 @@ func (c ContextImpl) CompleteTrace(name, desc string, begin, end uint64) {
 		realTime := end - begin
 		c.Metrics.SetTimeMetrics(
 			soong_metrics_proto.PerfInfo{
-				Desc:      &desc,
-				Name:      &name,
-				StartTime: &begin,
-				RealTime:  &realTime})
+				Description: &desc,
+				Name:        &name,
+				StartTime:   &begin,
+				RealTime:    &realTime})
 	}
 }

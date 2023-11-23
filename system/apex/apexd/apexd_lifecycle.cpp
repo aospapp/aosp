@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "apexd"
+#include <chrono>
+#include <thread>
 
 #include "apexd_lifecycle.h"
 
@@ -22,6 +23,8 @@
 #include <android-base/properties.h>
 
 #include "apexd_utils.h"
+
+#define LOG_TAG "apexd"
 
 using android::base::GetProperty;
 using android::base::Result;
@@ -40,29 +43,32 @@ void ApexdLifecycle::WaitForBootStatus(
   while (!boot_completed_) {
     // Check for change in either crashing property or sys.boot_completed
     // Wait for updatable_crashing property change for most of the time
-    // (arbitrary 30s), briefly check if boot has completed successfully,
+    // (arbitrary 10s), briefly check if boot has completed successfully,
     // if not continue waiting for updatable_crashing.
     // We use this strategy so that we can quickly detect if an updatable
     // process is crashing.
     if (WaitForProperty("sys.init.updatable_crashing", "1",
-                        std::chrono::seconds(30))) {
+                        std::chrono::seconds(10))) {
       auto name = GetProperty("sys.init.updatable_crashing_process_name", "");
       LOG(ERROR) << "Native process '" << (name.empty() ? "[unknown]" : name)
                  << "' is crashing. Attempting a revert";
       auto result = revert_fn(name, "");
       if (!result.ok()) {
         LOG(ERROR) << "Revert failed : " << result.error();
-        break;
+        return WaitForBootStatus();
       } else {
-        // This should never be reached, since revert_fn should've rebooted a
-        // device. But if for some reason we end up here, let's reboot it
-        // manually.
-        LOG(ERROR) << "Active sessions were reverted, but reboot wasn't "
-                      "triggered. Rebooting manually";
-        Reboot();
-        return;
+        // This should never be reached, since revert_fn should've rebooted
+        // the device.
+        LOG(FATAL) << "Active sessions were reverted, but reboot wasn't "
+                      "triggered.";
       }
     }
+  }
+}
+
+void ApexdLifecycle::WaitForBootStatus() {
+  while (!boot_completed_) {
+    std::this_thread::sleep_for(std::chrono::seconds(1));
   }
 }
 

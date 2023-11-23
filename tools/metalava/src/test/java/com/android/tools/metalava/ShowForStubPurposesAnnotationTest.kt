@@ -441,7 +441,8 @@ class ShowForStubPurposesAnnotationTest : DriverTest() {
             hideAnnotations = arrayOf(HIDE_ANNOTATION),
             showAnnotations = arrayOf(SYSTEM_API),
             sourceFiles = arrayOf(
-                java("""
+                java(
+                    """
                     package test.pkg;
 
                     @test.annotation.Hide
@@ -452,7 +453,8 @@ class ShowForStubPurposesAnnotationTest : DriverTest() {
                     }
                     """
                 ),
-                java("""
+                java(
+                    """
                     package test.pkg;
 
                     @test.annotation.Hide
@@ -658,7 +660,9 @@ class ShowForStubPurposesAnnotationTest : DriverTest() {
 
             // The methods are missing nullability anotations, the lint shouldn't report for
             // the SystemApi one.
-            sourceFiles = arrayOf(java("""
+            sourceFiles = arrayOf(
+                java(
+                    """
                 package test.pkg;
 
                 @test.annotation.Hide
@@ -672,7 +676,9 @@ class ShowForStubPurposesAnnotationTest : DriverTest() {
                     public Object method2() {
                     }
                 }
-            """)),
+            """
+                )
+            ),
             api = """
                 // Signature format: 2.0
                 package test.pkg {
@@ -684,7 +690,7 @@ class ShowForStubPurposesAnnotationTest : DriverTest() {
             apiLint = "",
             expectedFail = DefaultLintErrorMessage,
             expectedIssues = """
-                src/test/pkg/ModuleClassExtendingPublic.java:9: error: Missing nullability on method `method2` return [MissingNullability] [See https://s.android.com/api-guidelines#annotations]
+                src/test/pkg/ModuleClassExtendingPublic.java:11: error: Missing nullability on method `method2` return [MissingNullability] [See https://s.android.com/api-guidelines#annotations]
                 """
         )
     }

@@ -36,6 +36,7 @@ public interface ISettingsIntelligenceHelper extends IAppHelper {
     public static final String PAGE_ACTION_CONNECTED_CAST = "android.settings.CAST_SETTINGS";
     public static final String PAGE_ACTION_DARK_THEME = "android.settings.DARK_THEME_SETTINGS";
     public static final String PAGE_ACTION_DATA_SAVER = "android.settings.DATA_SAVER_SETTINGS";
+    public static final String PAGE_ACTION_DATE = "android.settings.DATE_SETTINGS";
     public static final String PAGE_ACTION_DIGITAL_WELLBEING =
             "com.google.android.apps.wellbeing/.settings.TopLevelSettingsActivity";
     public static final String PAGE_ACTION_DISPLAY = "android.settings.DISPLAY_SETTINGS";

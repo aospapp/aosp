@@ -26,9 +26,17 @@
 #include <utils/Timers.h>
 #include <utils/Trace.h>
 
+#include <memory>
+
+#include "GrallocSensorBuffer.h"
+
 namespace android {
 
+using ::android::frameworks::sensorservice::V1_0::ISensorManager;
+using ::android::frameworks::sensorservice::V1_0::Result;
 using android::hardware::camera::common::V1_0::helper::HandleImporter;
+using ::android::hardware::sensors::V1_0::SensorInfo;
+using ::android::hardware::sensors::V1_0::SensorType;
 using google_camera_hal::ErrorCode;
 using google_camera_hal::HwlPipelineResult;
 using google_camera_hal::MessageType;
@@ -55,6 +63,12 @@ EmulatedRequestProcessor::~EmulatedRequestProcessor() {
   if (ret != OK) {
     ALOGE("%s: Failed during sensor shutdown %s (%d)", __FUNCTION__,
           strerror(-ret), ret);
+  }
+
+  if (sensor_event_queue_.get() != nullptr) {
+    sensor_event_queue_->disableSensor(sensor_handle_);
+    sensor_event_queue_.clear();
+    sensor_event_queue_ = nullptr;
   }
 }
 
@@ -327,13 +341,14 @@ std::unique_ptr<SensorBuffer> EmulatedRequestProcessor::CreateSensorBuffer(
     uint32_t pipeline_id, HwlPipelineCallback callback,
     StreamBuffer stream_buffer, int32_t override_width,
     int32_t override_height) {
-  auto buffer = std::make_unique<SensorBuffer>(importer_);
+  auto buffer = std::make_unique<GrallocSensorBuffer>(importer_);
 
   auto stream = emulated_stream;
   // Make sure input stream formats are correctly mapped here
   if (stream.is_input) {
-    stream.override_format =
-        EmulatedSensor::OverrideFormat(stream.override_format);
+    stream.override_format = EmulatedSensor::OverrideFormat(
+        stream.override_format,
+        ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_STANDARD);
   }
   if (override_width > 0 && override_height > 0) {
     buffer->width = override_width;
@@ -454,6 +469,13 @@ void EmulatedRequestProcessor::RequestProcessorLoop() {
           if (ret == OK) {
             auto result = request_state_->InitializeLogicalResult(pipeline_id,
                                                                   frame_number);
+            // The screen rotation will be the same for all logical and physical devices
+            uint32_t screen_rotation = screen_rotation_;
+            for (auto it = logical_settings->begin();
+                 it != logical_settings->end(); it++) {
+              it->second.screen_rotation = screen_rotation;
+            }
+
             sensor_->SetCurrentRequest(
                 std::move(logical_settings), std::move(result),
                 std::move(input_buffers), std::move(output_buffers));
@@ -508,6 +530,86 @@ status_t EmulatedRequestProcessor::GetDefaultRequest(
     RequestTemplate type, std::unique_ptr<HalCameraMetadata>* default_settings) {
   std::lock_guard<std::mutex> lock(process_mutex_);
   return request_state_->GetDefaultRequest(type, default_settings);
+}
+
+Return<void> EmulatedRequestProcessor::SensorHandler::onEvent(const Event& e) {
+  auto processor = processor_.lock();
+  if (processor.get() == nullptr) {
+    return Void();
+  }
+
+  if (e.sensorType == SensorType::ACCELEROMETER) {
+    // Heuristic approach for deducing the screen
+    // rotation depending on the reported
+    // accelerometer readings. We switch
+    // the screen rotation when one of the
+    // x/y axis gets close enough to the earth
+    // acceleration.
+    const uint32_t earth_accel = 9;  // Switch threshold [m/s^2]
+    uint32_t x_accel = e.u.vec3.x;
+    uint32_t y_accel = e.u.vec3.y;
+    if (x_accel == earth_accel) {
+      processor->screen_rotation_ = 270;
+    } else if (x_accel == -earth_accel) {
+      processor->screen_rotation_ = 90;
+    } else if (y_accel == -earth_accel) {
+      processor->screen_rotation_ = 180;
+    } else {
+      processor->screen_rotation_ = 0;
+    }
+  } else {
+    ALOGE("%s: unexpected event received type: %d", __func__, e.sensorType);
+  }
+  return Void();
+}
+
+void EmulatedRequestProcessor::InitializeSensorQueue(
+    std::weak_ptr<EmulatedRequestProcessor> processor) {
+  if (sensor_event_queue_.get() != nullptr) {
+    return;
+  }
+
+  sp<ISensorManager> manager = ISensorManager::getService();
+  if (manager == nullptr) {
+    ALOGE("%s: Cannot get ISensorManager", __func__);
+  } else {
+    bool sensor_found = false;
+    manager->getSensorList([&](const auto& list, auto result) {
+      if (result != Result::OK) {
+        ALOGE("%s: Failed to retrieve sensor list!", __func__);
+      } else {
+        for (const SensorInfo& it : list) {
+          if (it.type == SensorType::ACCELEROMETER) {
+            sensor_found = true;
+            sensor_handle_ = it.sensorHandle;
+          }
+        }
+      }
+    });
+    if (sensor_found) {
+      manager->createEventQueue(
+          new SensorHandler(processor), [&](const auto& q, auto result) {
+            if (result != Result::OK) {
+              ALOGE("%s: Cannot create event queue", __func__);
+              return;
+            }
+            sensor_event_queue_ = q;
+          });
+
+      if (sensor_event_queue_.get() != nullptr) {
+        auto res = sensor_event_queue_->enableSensor(
+            sensor_handle_,
+            ns2us(EmulatedSensor::kSupportedFrameDurationRange[0]),
+            0 /*maxBatchReportLatencyUs*/);
+        if (res.isOk()) {
+        } else {
+          ALOGE("%s: Failed to enable sensor", __func__);
+        }
+      } else {
+        ALOGE("%s: Failed to create event queue", __func__);
+      }
+    }
+  }
 }
 
 }  // namespace android

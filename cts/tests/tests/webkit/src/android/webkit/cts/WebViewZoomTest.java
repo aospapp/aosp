@@ -69,7 +69,7 @@ public class WebViewZoomTest extends ActivityInstrumentationTestCase2<WebViewCts
         mOnUiThread = new WebViewOnUiThread(mWebView);
         mOnUiThread.requestFocus();
 
-        new PollingCheck() {
+        new PollingCheck(WebkitUtils.TEST_TIMEOUT_MS) {
             @Override
                 protected boolean check() {
                     return activity.hasWindowFocus();
@@ -108,7 +108,8 @@ public class WebViewZoomTest extends ActivityInstrumentationTestCase2<WebViewCts
     }
 
     private void setUpPage() throws Exception {
-        assertFalse(mWebViewClient.onScaleChangedCalled());
+        assertFalse("onScaleChanged has already been called before page has been setup",
+                mWebViewClient.onScaleChangedCalled());
         assertNull(mWebServer);
         // Pass CtsTestserver.SslMode.TRUST_ANY_CLIENT to make the server serve https URLs yet do
         // not ask client for client authentication.
@@ -261,11 +262,14 @@ public class WebViewZoomTest extends ActivityInstrumentationTestCase2<WebViewCts
         if (!NullWebViewUtils.isWebViewAvailable()) {
             return;
         }
-        assertFalse(mWebViewClient.onScaleChangedCalled());
+        assertFalse("There is an onScaleChanged before we call setUpPage()",
+                mWebViewClient.onScaleChangedCalled());
 
         setUpPage();
 
-        assertFalse(mWebViewClient.onScaleChangedCalled());
+        assertFalse("There is an onScaleChanged left over from setUpPage()",
+                mWebViewClient.onScaleChangedCalled());
+
         assertTrue(mOnUiThread.zoomIn());
         ScaleChangedState state = mWebViewClient.waitForNextScaleChange();
         assertEquals(
@@ -278,7 +282,8 @@ public class WebViewZoomTest extends ActivityInstrumentationTestCase2<WebViewCts
         // that a scale change does *not* happen.
         try {
             Thread.sleep(500);
-            assertFalse(mWebViewClient.onScaleChangedCalled());
+            assertFalse("There is an onScaleChanged left over from previous scale change",
+                    mWebViewClient.onScaleChangedCalled());
             assertEquals(currScale, mOnUiThread.getScale());
         } catch (InterruptedException e) {
             fail("Interrupted");

@@ -20,7 +20,6 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.content.res.XmlResourceParser;
 import android.util.Log;
-import android.view.InputEvent;
 import android.view.KeyEvent;
 
 import org.xmlpull.v1.XmlPullParser;
@@ -79,12 +78,8 @@ public class GlobalKeyMapping {
         }
     }
 
-    public boolean isGlobalKey(InputEvent e) {
-        if (GLOBAL_KEYS.isEmpty() || !(e instanceof KeyEvent)) {
-            return false;
-        }
-        KeyEvent keyEvent = (KeyEvent) e;
-        return GLOBAL_KEYS.contains(keyEvent.getKeyCode());
+    public boolean isGlobalKey(int keyCode) {
+        return GLOBAL_KEYS.contains(keyCode);
     }
 
     /** Ported from com.android.internal.util.XmlUtils */

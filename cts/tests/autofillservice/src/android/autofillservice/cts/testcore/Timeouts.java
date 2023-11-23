@@ -131,6 +131,12 @@ public final class Timeouts {
             "UI_SCREEN_ORIENTATION_TIMEOUT", ONE_TIMEOUT_TO_RULE_THEN_ALL_MS, 2F,
             ONE_TIMEOUT_TO_RULE_THEN_ALL_MS);
 
+    /**
+     * Timeout for changing the mock ime status.
+     */
+    public static final Timeout MOCK_IME_TIMEOUT = new Timeout(
+            "MOCK_IME_TIMEOUT", MOCK_IME_TIMEOUT_MS, 2F, MOCK_IME_TIMEOUT_MS);
+
     private Timeouts() {
         throw new UnsupportedOperationException("contain static methods only");
     }

@@ -22,13 +22,14 @@ import android.platform.test.annotations.AppModeInstant;
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.compatibility.common.util.MeasureRun;
 import com.android.compatibility.common.util.MeasureTime;
-import com.android.compatibility.common.util.MetricsReportLog;
-import com.android.compatibility.common.util.ResultType;
-import com.android.compatibility.common.util.ResultUnit;
 import com.android.compatibility.common.util.Stat;
 import com.android.ddmlib.Log;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Directionality;
+import com.android.tradefed.metrics.proto.MetricMeasurement.DoubleValues;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Measurements;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.IAbiReceiver;
@@ -46,7 +47,6 @@ public class InstallTimeTest extends DeviceTestCase implements IAbiReceiver, IBu
     private IAbi mAbi;
 
     private static final String TAG = "InstallTimeTest";
-    private static final String REPORT_LOG_NAME = "CtsUiHostTestCases";
     static final String PACKAGE = "com.replica.replicaisland";
     static final String APK = "com.replica.replicaisland.apk";
     private static final double OUTLIER_THRESHOLD = 0.1;
@@ -85,10 +85,6 @@ public class InstallTimeTest extends DeviceTestCase implements IAbiReceiver, IBu
     }
 
     private void testInstallTime(boolean instant) throws Exception {
-        String streamName = "test_install_time";
-        MetricsReportLog report = new MetricsReportLog(mBuild, mAbi.getName(),
-                String.format("%s#%s", getClass().getName(), "testInstallTime"), REPORT_LOG_NAME,
-                streamName);
         final int NUMBER_REPEAT = 10;
         final CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mBuild);
         final ITestDevice device = mDevice;
@@ -105,14 +101,26 @@ public class InstallTimeTest extends DeviceTestCase implements IAbiReceiver, IBu
                 device.installPackage(app, false, options);
             }
         });
-        report.addValues("install_time", result, ResultType.LOWER_BETTER, ResultUnit.MS);
+        DoubleValues.Builder valuesBuilder = DoubleValues.newBuilder();
+        for (double r : result) {
+            valuesBuilder.addDoubleValue(r);
+        }
+        Metric.Builder metricsBuilder = Metric.newBuilder();
+        metricsBuilder.setMeasurements(
+                Measurements.newBuilder().setDoubleValues(valuesBuilder))
+                .setDirection(Directionality.DOWN_BETTER)
+                .setUnit("ms");
+        addTestMetric("install_time", metricsBuilder.build());
         Stat.StatResult stat = Stat.getStatWithOutlierRejection(result, OUTLIER_THRESHOLD);
         if (stat.mDataCount != result.length) {
             Log.w(TAG, "rejecting " + (result.length - stat.mDataCount) + " outliers");
         }
-        report.setSummary("install_time_average", stat.mAverage, ResultType.LOWER_BETTER,
-                ResultUnit.MS);
-        report.submit();
+        addTestMetric("install_time_average",
+                Metric.newBuilder()
+                    .setMeasurements(Measurements.newBuilder().setSingleDouble(stat.mAverage))
+                    .setDirection(Directionality.DOWN_BETTER)
+                    .setUnit("ms")
+                    .build());
     }
 
 }

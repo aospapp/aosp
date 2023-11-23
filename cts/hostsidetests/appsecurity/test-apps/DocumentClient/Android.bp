@@ -23,6 +23,7 @@ android_test_helper_app {
     defaults: ["cts_support_defaults"],
     sdk_version: "test_current",
     static_libs: [
+        "androidx.appcompat_appcompat",
         "androidx.test.rules",
         "compatibility-device-util-axt",
         "ctstestrunner-axt",

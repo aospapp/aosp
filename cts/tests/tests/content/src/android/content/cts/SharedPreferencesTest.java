@@ -22,11 +22,10 @@ import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.os.StrictMode;
-import android.os.StrictMode.ViolationInfo;
-import android.os.StrictMode.ViolationLogger;
 import android.preference.PreferenceManager;
 import android.test.AndroidTestCase;
 import android.util.Log;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -56,7 +55,7 @@ public class SharedPreferencesTest extends AndroidTestCase {
         prefs.edit().clear().commit();
         try {
             ApplicationInfo applicationInfo = mContext.getPackageManager().getApplicationInfo(
-                    mContext.getPackageName(), 0);
+                    mContext.getPackageName(), PackageManager.ApplicationInfoFlags.of(0));
             mPrefsFile = new File(applicationInfo.dataDir,
                     "shared_prefs/android.content.cts_preferences.xml");
         } catch (PackageManager.NameNotFoundException e) {

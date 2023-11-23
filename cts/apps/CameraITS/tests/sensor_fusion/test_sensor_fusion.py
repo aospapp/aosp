@@ -28,7 +28,6 @@ from mobly import test_runner
 import numpy as np
 import scipy.spatial
 
-import cv2
 import its_base_test
 import camera_properties_utils
 import capture_request_utils
@@ -37,31 +36,12 @@ import its_session_utils
 import sensor_fusion_utils
 
 _CAM_FRAME_RANGE_MAX = 9.0  # Seconds: max allowed camera frame range.
-_FEATURE_MARGIN = 0.20  # Only take feature points from center 20% so that
-                        # rotation measured has less rolling shutter effect.
-_FEATURE_PTS_MIN = 30  # Min number of feature pts to perform rotation analysis.
-# cv2.goodFeatures to track.
-# 'POSTMASK' is the measurement method in all previous versions of Android.
-# 'POSTMASK' finds best features on entire frame and then masks the features
-# to the vertical center FEATURE_MARGIN for the measurement.
-# 'PREMASK' is a new measurement that is used when FEATURE_PTS_MIN is not
-# found in frame. This finds the best 2*FEATURE_PTS_MIN in the FEATURE_MARGIN
-# part of the frame.
-_CV2_FEATURE_PARAMS_POSTMASK = dict(maxCorners=240,
-                                    qualityLevel=0.3,
-                                    minDistance=7,
-                                    blockSize=7)
-_CV2_FEATURE_PARAMS_PREMASK = dict(maxCorners=2*_FEATURE_PTS_MIN,
-                                   qualityLevel=0.3,
-                                   minDistance=7,
-                                   blockSize=7)
 _GYRO_SAMP_RATE_MIN = 100.0  # Samples/second: min gyro sample rate.
-_CV2_LK_PARAMS = dict(winSize=(15, 15),
-                      maxLevel=2,
-                      criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT,
-                                10, 0.03))  # cv2.calcOpticalFlowPyrLK params.
-
 _NAME = os.path.splitext(os.path.basename(__file__))[0]
+_ARDUINO_ANGLES = (0, 90)
+_ARDUINO_INIT_WAIT_TIME = 3.0  # Seconds to wait for Arduino comm
+_ARDUINO_MOVE_TIME = 2
+_ARDUINO_SERVO_SPEED = 20
 _NUM_ROTATIONS = 10
 _START_FRAME = 1
 _FRAME_DELTA_TOL = 1.5  # 50% margin over nominal FPS of captures
@@ -76,9 +56,6 @@ _RADS_TO_DEGS = 180/math.pi
 # PASS/FAIL thresholds.
 _CORR_DIST_THRESH_MAX = 0.005
 _OFFSET_MS_THRESH_MAX = 1  # mseconds
-_ROTATION_PER_FRAME_MIN = 0.001  # rads/s
-
-# PARAMs from S refactor.
 
 # Set maximum exposure time to reduce motion blur
 # blur = velocity * exp_time * N_pixels / FOV
@@ -88,7 +65,6 @@ _GYRO_INIT_WAIT_TIME = 0.5  # Seconds to wait for gyro to stabilize.
 _GYRO_POST_WAIT_TIME = 0.2  # Seconds to wait to capture some extra gyro data.
 _IMG_SIZE_MAX = 640 * 480  # Maximum image size.
 _NUM_FRAMES_MAX = 300  # fps*test_length should be < this for smooth captures.
-_NUM_GYRO_PTS_TO_AVG = 20  # Number of gyroscope events to average.
 
 
 def _collect_data(cam, fps, w, h, test_length, rot_rig, chart_dist, log_path):
@@ -115,18 +91,22 @@ def _collect_data(cam, fps, w, h, test_length, rot_rig, chart_dist, log_path):
   props = cam.get_camera_properties()
   props = cam.override_with_hidden_physical_camera_props(props)
   camera_properties_utils.skip_unless(
-      camera_properties_utils.sensor_fusion_capable(props))
+      camera_properties_utils.sensor_fusion_capable(props) and
+      cam.get_sensors().get('gyro'))
 
   # Start camera rotation.
   p = multiprocessing.Process(
       target=sensor_fusion_utils.rotation_rig,
-      args=(rot_rig['cntl'], rot_rig['ch'], _NUM_ROTATIONS,))
+      args=(rot_rig['cntl'], rot_rig['ch'], _NUM_ROTATIONS,
+            _ARDUINO_ANGLES, _ARDUINO_SERVO_SPEED, _ARDUINO_MOVE_TIME,))
   p.start()
 
   cam.start_sensor_events()
 
   # Sleep a while for gyro events to stabilize.
   time.sleep(_GYRO_INIT_WAIT_TIME)
+  if rot_rig['cntl'].lower() == 'arduino':
+    time.sleep(_ARDUINO_INIT_WAIT_TIME)
 
   # Capture frames.
   facing = props['android.lens.facing']
@@ -190,51 +170,6 @@ def _collect_data(cam, fps, w, h, test_length, rot_rig, chart_dist, log_path):
   return events, frames
 
 
-def _plot_gyro_events(gyro_events, log_path):
-  """Plot x, y, and z on the gyro events.
-
-  Samples are grouped into NUM_GYRO_PTS_TO_AVG groups and averaged to minimize
-  random spikes in data.
-
-  Args:
-    gyro_events: List of gyroscope events.
-    log_path: Text to location to save data.
-  """
-
-  nevents = (len(gyro_events) // _NUM_GYRO_PTS_TO_AVG) * _NUM_GYRO_PTS_TO_AVG
-  gyro_events = gyro_events[:nevents]
-  times = np.array([(e['time'] - gyro_events[0]['time']) * _NSEC_TO_SEC
-                    for e in gyro_events])
-  x = np.array([e['x'] for e in gyro_events])
-  y = np.array([e['y'] for e in gyro_events])
-  z = np.array([e['z'] for e in gyro_events])
-
-  # Group samples into size-N groups & average each together to minimize random
-  # spikes in data.
-  times = times[_NUM_GYRO_PTS_TO_AVG//2::_NUM_GYRO_PTS_TO_AVG]
-  x = x.reshape(nevents//_NUM_GYRO_PTS_TO_AVG, _NUM_GYRO_PTS_TO_AVG).mean(1)
-  y = y.reshape(nevents//_NUM_GYRO_PTS_TO_AVG, _NUM_GYRO_PTS_TO_AVG).mean(1)
-  z = z.reshape(nevents//_NUM_GYRO_PTS_TO_AVG, _NUM_GYRO_PTS_TO_AVG).mean(1)
-
-  pylab.figure(_NAME)
-  # x & y on same axes
-  pylab.subplot(2, 1, 1)
-  pylab.title(_NAME + ' (mean of %d pts)' % _NUM_GYRO_PTS_TO_AVG)
-  pylab.plot(times, x, 'r', label='x')
-  pylab.plot(times, y, 'g', label='y')
-  pylab.ylabel('gyro x & y movement (rads/s)')
-  pylab.legend()
-
-  # z on separate axes
-  pylab.subplot(2, 1, 2)
-  pylab.plot(times, z, 'b', label='z')
-  pylab.xlabel('time (seconds)')
-  pylab.ylabel('gyro z movement (rads/s)')
-  pylab.legend()
-  matplotlib.pyplot.savefig(
-      '%s_gyro_events.png' % (os.path.join(log_path, _NAME)))
-
-
 def _get_cam_times(cam_events, fps):
   """Get the camera frame times.
 
@@ -266,127 +201,6 @@ def _get_cam_times(cam_events, fps):
     raise AssertionError(f'Rolling shutter not always equal! {readouts}')
   frame_times = starts + (exptimes + readouts) / 2.0
   return frame_times
-
-
-def _procrustes_rotation(x, y):
-  """Performs a Procrustes analysis to conform points in x to y.
-
-  Procrustes analysis determines a linear transformation (translation,
-  reflection, orthogonal rotation and scaling) of the points in y to best
-  conform them to the points in matrix x, using the sum of squared errors
-  as the metric for fit criterion.
-
-  Args:
-    x: Target coordinate matrix
-    y: Input coordinate matrix
-
-  Returns:
-    The rotation component of the transformation that maps x to y.
-  """
-  x0 = (x-x.mean(0)) / np.sqrt(((x-x.mean(0))**2.0).sum())
-  y0 = (y-y.mean(0)) / np.sqrt(((y-y.mean(0))**2.0).sum())
-  u, _, vt = np.linalg.svd(np.dot(x0.T, y0), full_matrices=False)
-  return np.dot(vt.T, u.T)
-
-
-def _get_cam_rotations(frames, facing, h, log_path):
-  """Get the rotations of the camera between each pair of frames.
-
-  Takes N frames and returns N-1 angular displacements corresponding to the
-  rotations between adjacent pairs of frames, in radians.
-  Only takes feature points from center so that rotation measured has less
-  rolling shutter effect.
-  Requires FEATURE_PTS_MIN to have enough data points for accurate measurements.
-  Uses FEATURE_PARAMS for cv2 to identify features in checkerboard images.
-  Ensures camera rotates enough.
-
-  Args:
-    frames: List of N images (as RGB numpy arrays).
-    facing: Direction camera is facing.
-    h: Pixel height of each frame.
-    log_path: Location for data.
-
-  Returns:
-    numpy array of N-1 camera rotation measurements (rad).
-  """
-  gframes = []
-  file_name_stem = os.path.join(log_path, _NAME)
-  for frame in frames:
-    frame = (frame * 255.0).astype(np.uint8)  # cv2 uses [0, 255]
-    gframes.append(cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY))
-  num_frames = len(gframes)
-  logging.debug('num_frames: %d', num_frames)
-
-  # create mask
-  ymin = int(h * (1 - _FEATURE_MARGIN) / 2)
-  ymax = int(h * (1 + _FEATURE_MARGIN) / 2)
-  pre_mask = np.zeros_like(gframes[0])
-  pre_mask[ymin:ymax, :] = 255
-
-  for masking in ['post', 'pre']:  # Do post-masking (original) method 1st
-    logging.debug('Using %s masking method', masking)
-    rots = []
-    for i in range(1, num_frames):
-      j = i - 1
-      gframe0 = gframes[j]
-      gframe1 = gframes[i]
-      if masking == 'post':
-        p0 = cv2.goodFeaturesToTrack(
-            gframe0, mask=None, **_CV2_FEATURE_PARAMS_POSTMASK)
-        post_mask = (p0[:, 0, 1] >= ymin) & (p0[:, 0, 1] <= ymax)
-        p0_filtered = p0[post_mask]
-      else:
-        p0_filtered = cv2.goodFeaturesToTrack(
-            gframe0, mask=pre_mask, **_CV2_FEATURE_PARAMS_PREMASK)
-      num_features = len(p0_filtered)
-      if num_features < _FEATURE_PTS_MIN:
-        for pt in p0_filtered:
-          x, y = pt[0][0], pt[0][1]
-          cv2.circle(frames[j], (x, y), 3, (100, 255, 255), -1)
-        image_processing_utils.write_image(
-            frames[j], f'{file_name_stem}_features{j+_START_FRAME:03d}.png')
-        msg = (f'Not enough features in frame {j+_START_FRAME}. Need at least '
-               f'{_FEATURE_PTS_MIN} features, got {num_features}.')
-        if masking == 'pre':
-          raise AssertionError(msg)
-        else:
-          logging.debug(msg)
-          break
-      else:
-        logging.debug('Number of features in frame %s is %d',
-                      str(j+_START_FRAME).zfill(3), num_features)
-      p1, st, _ = cv2.calcOpticalFlowPyrLK(gframe0, gframe1, p0_filtered, None,
-                                           **_CV2_LK_PARAMS)
-      tform = _procrustes_rotation(p0_filtered[st == 1], p1[st == 1])
-      if facing == camera_properties_utils.LENS_FACING_BACK:
-        rot = -math.atan2(tform[0, 1], tform[0, 0])
-      elif facing == camera_properties_utils.LENS_FACING_FRONT:
-        rot = math.atan2(tform[0, 1], tform[0, 0])
-      else:
-        raise AssertionError(f'Unknown lens facing: {facing}.')
-      rots.append(rot)
-      if i == 1:
-        # Save debug visualization of features that are being
-        # tracked in the first frame.
-        frame = frames[j]
-        for x, y in p0_filtered[st == 1]:
-          cv2.circle(frame, (x, y), 3, (100, 255, 255), -1)
-        image_processing_utils.write_image(
-            frame, f'{file_name_stem}_features{j+_START_FRAME:03d}.png')
-    if i == num_frames-1:
-      logging.debug('Correct num of frames found: %d', i)
-      break  # exit if enough features in all frames
-  if i != num_frames-1:
-    raise AssertionError('Neither method found enough features in all frames')
-
-  rots = np.array(rots)
-  rot_per_frame_max = max(abs(rots))
-  logging.debug('Max rotation: %.4f radians', rot_per_frame_max)
-  if rot_per_frame_max < _ROTATION_PER_FRAME_MIN:
-    raise AssertionError(f'Device not moved enough: {rot_per_frame_max:.3f} '
-                         f'movement. THRESH: {_ROTATION_PER_FRAME_MIN}.')
-
-  return rots
 
 
 def _plot_best_shift(best, coeff, x, y, log_path):
@@ -526,7 +340,7 @@ class SensorFusionTest(its_base_test.ItsBaseTest):
           " smaller values of 'w', 'h', 'fps', or 'test_length'.")
 
     if replay:
-      events, frames, _, h = load_data()
+      events, frames, _, _ = load_data()
     else:
       with its_session_utils.ItsSession(
           device_id=self.dut.serial,
@@ -539,7 +353,7 @@ class SensorFusionTest(its_base_test.ItsBaseTest):
                                        rot_rig, chart_distance, log_path)
     logging.debug('Start frame: %d', _START_FRAME)
 
-    _plot_gyro_events(events['gyro'], log_path)
+    sensor_fusion_utils.plot_gyro_events(events['gyro'], _NAME, log_path)
 
     # Validity check on gyro/camera timestamps
     cam_times = _get_cam_times(
@@ -548,8 +362,9 @@ class SensorFusionTest(its_base_test.ItsBaseTest):
     self._assert_gyro_encompasses_camera(cam_times, gyro_times)
 
     # Compute cam rotation displacement(rads) between pairs of adjacent frames.
-    cam_rots = _get_cam_rotations(
-        frames[_START_FRAME:len(frames)], events['facing'], img_h, log_path)
+    cam_rots = sensor_fusion_utils.get_cam_rotations(
+        frames[_START_FRAME:len(frames)], events['facing'], img_h,
+        os.path.join(log_path, _NAME), _START_FRAME)
     logging.debug('cam_rots: %s', str(cam_rots))
     gyro_rots = sensor_fusion_utils.get_gyro_rotations(
         events['gyro'], cam_times)

@@ -37,3 +37,7 @@ class OtaToolTests(unittest.TestCase):
             ota_tool.OtaTool('').cleanup(obj)
         except:
             self.fail('End is not required and should be a virtual function.')
+
+
+if __name__ == '__main__':
+    unittest.main()

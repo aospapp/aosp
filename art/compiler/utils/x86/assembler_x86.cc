@@ -783,6 +783,43 @@ void X86Assembler::vdivps(XmmRegister dst, XmmRegister src1, XmmRegister src2) {
   EmitXmmRegisterOperand(dst, src2);
 }
 
+void X86Assembler::vfmadd213ss(XmmRegister acc, XmmRegister left, XmmRegister right) {
+  DCHECK(CpuHasAVXorAVX2FeatureFlag());
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  uint8_t ByteZero = 0x00, ByteOne = 0x00, ByteTwo = 0x00;
+  ByteZero = EmitVexPrefixByteZero(/*is_twobyte_form=*/ false);
+  X86ManagedRegister vvvv_reg = X86ManagedRegister::FromXmmRegister(left);
+  ByteOne = EmitVexPrefixByteOne(/*R=*/ false,
+                                 /*X=*/ false,
+                                 /*B=*/ false,
+                                 SET_VEX_M_0F_38);
+  ByteTwo = EmitVexPrefixByteTwo(/*W=*/ false, vvvv_reg, SET_VEX_L_128, SET_VEX_PP_66);
+
+  EmitUint8(ByteZero);
+  EmitUint8(ByteOne);
+  EmitUint8(ByteTwo);
+  EmitUint8(0xA9);
+  EmitXmmRegisterOperand(acc, right);
+}
+
+void X86Assembler::vfmadd213sd(XmmRegister acc, XmmRegister left, XmmRegister right) {
+  DCHECK(CpuHasAVXorAVX2FeatureFlag());
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  uint8_t ByteZero = 0x00, ByteOne = 0x00, ByteTwo = 0x00;
+  ByteZero = EmitVexPrefixByteZero(/*is_twobyte_form=*/ false);
+  X86ManagedRegister vvvv_reg = X86ManagedRegister::FromXmmRegister(left);
+  ByteOne = EmitVexPrefixByteOne(/*R=*/ false,
+                                 /*X=*/ false,
+                                 /*B=*/ false,
+                                 SET_VEX_M_0F_38);
+  ByteTwo = EmitVexPrefixByteTwo(/*W=*/ true, vvvv_reg, SET_VEX_L_128, SET_VEX_PP_66);
+
+  EmitUint8(ByteZero);
+  EmitUint8(ByteOne);
+  EmitUint8(ByteTwo);
+  EmitUint8(0xA9);
+  EmitXmmRegisterOperand(acc, right);
+}
 
 void X86Assembler::movapd(XmmRegister dst, XmmRegister src) {
   if (CpuHasAVXorAVX2FeatureFlag()) {
@@ -2887,9 +2924,22 @@ void X86Assembler::fprem() {
 }
 
 
-void X86Assembler::xchgb(Register reg, const Address& address) {
-  // For testing purpose
-  xchgb(static_cast<ByteRegister>(reg), address);
+bool X86Assembler::try_xchg_eax(Register dst, Register src) {
+  if (src != EAX && dst != EAX) {
+    return false;
+  }
+  if (dst == EAX) {
+    std::swap(src, dst);
+  }
+  EmitUint8(0x90 + dst);
+  return true;
+}
+
+
+void X86Assembler::xchgb(ByteRegister dst, ByteRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x86);
+  EmitRegisterOperand(dst, src);
 }
 
 
@@ -2897,6 +2947,29 @@ void X86Assembler::xchgb(ByteRegister reg, const Address& address) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitUint8(0x86);
   EmitOperand(reg, address);
+}
+
+
+void X86Assembler::xchgb(Register dst, Register src) {
+  xchgb(static_cast<ByteRegister>(dst), static_cast<ByteRegister>(src));
+}
+
+
+void X86Assembler::xchgb(Register reg, const Address& address) {
+  xchgb(static_cast<ByteRegister>(reg), address);
+}
+
+
+void X86Assembler::xchgw(Register dst, Register src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitOperandSizeOverride();
+  if (try_xchg_eax(dst, src)) {
+    // A short version for AX.
+    return;
+  }
+  // General case.
+  EmitUint8(0x87);
+  EmitRegisterOperand(dst, src);
 }
 
 
@@ -2910,6 +2983,11 @@ void X86Assembler::xchgw(Register reg, const Address& address) {
 
 void X86Assembler::xchgl(Register dst, Register src) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  if (try_xchg_eax(dst, src)) {
+    // A short version for EAX.
+    return;
+  }
+  // General case.
   EmitUint8(0x87);
   EmitRegisterOperand(dst, src);
 }
@@ -3657,6 +3735,11 @@ void X86Assembler::rep_movsw() {
   EmitUint8(0xA5);
 }
 
+void X86Assembler::rep_movsl() {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0xF3);
+  EmitUint8(0xA5);
+}
 
 X86Assembler* X86Assembler::lock() {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);

@@ -351,7 +351,17 @@ def run_command(nsjail_command,
     print(' '.join(nsjail_command), file=stdout)
 
   if not dry_run:
-    subprocess.check_call(nsjail_command, stdout=stdout, stderr=stderr)
+    try:
+      subprocess.check_call(nsjail_command, stdout=stdout, stderr=stderr)
+    except subprocess.CalledProcessError as error:
+      if len(error.cmd) > 13:
+        cmd = error.cmd[:6] + ['...elided...'] + error.cmd[-6:]
+      else:
+        cmd = error.cmd
+      msg = 'nsjail command %s failed with return code %d' % (cmd, error.returncode)
+      # Raise from None to avoid exception chaining.
+      raise RuntimeError(msg) from None
+
 
 def parse_args():
   """Parse command line arguments.

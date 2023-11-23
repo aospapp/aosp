@@ -21,6 +21,8 @@ import static android.view.inputmethod.cts.util.TestUtils.runOnMainSync;
 import static com.android.cts.mockime.ImeEventStreamTestUtils.editorMatcher;
 import static com.android.cts.mockime.ImeEventStreamTestUtils.expectEvent;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
@@ -28,8 +30,12 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import android.graphics.Color;
 import android.os.SystemClock;
+import android.view.View;
+import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.SurroundingText;
 import android.view.inputmethod.cts.util.EndToEndImeTestBase;
 import android.view.inputmethod.cts.util.TestActivity;
@@ -194,4 +200,123 @@ public class EditTextImeSupportTest extends EndToEndImeTestBase {
         assertEquals(expected.toString(), actual.toString());
     }
 
+    /**
+     * Test when to see {@link EditorInfo#IME_FLAG_NAVIGATE_NEXT} and
+     * {@link EditorInfo#IME_FLAG_NAVIGATE_PREVIOUS}.
+     *
+     * <p>This is also a regression test for Bug 31099943.</p>
+     */
+    @Test
+    public void testNavigateFlags() throws Exception {
+        try (MockImeSession imeSession = MockImeSession.create(
+                InstrumentationRegistry.getInstrumentation().getContext(),
+                InstrumentationRegistry.getInstrumentation().getUiAutomation(),
+                new ImeSettings.Builder())) {
+            final ImeEventStream stream = imeSession.openEventStream();
+
+            // For a single EditText, there should be no navigate flag
+            verifyNavigateFlags(stream, new Control[]{
+                    Control.FOCUSED_EDIT_TEXT,
+            }, false /* navigateNext */, false /* navigatePrevious */);
+
+            // For two EditText controls, there should be one navigate flag depending on the
+            // geometry.
+            verifyNavigateFlags(stream, new Control[]{
+                    Control.FOCUSED_EDIT_TEXT,
+                    Control.EDIT_TEXT,
+            }, true /* navigateNext */, false /* navigatePrevious */);
+            verifyNavigateFlags(stream, new Control[]{
+                    Control.EDIT_TEXT,
+                    Control.FOCUSED_EDIT_TEXT,
+            }, false /* navigateNext */, true /* navigatePrevious */);
+
+            // Non focusable View controls should be ignored when determining navigation flags.
+            verifyNavigateFlags(stream, new Control[]{
+                    Control.NON_FOCUSABLE_VIEW,
+                    Control.FOCUSED_EDIT_TEXT,
+                    Control.NON_FOCUSABLE_VIEW,
+            }, false /* navigateNext */, false /* navigatePrevious */);
+
+            // Even focusable View controls should be ignored when determining navigation flags if
+            // View#onCheckIsTextEditor() returns false. (Regression test for Bug 31099943)
+            verifyNavigateFlags(stream, new Control[]{
+                    Control.FOCUSABLE_VIEW,
+                    Control.FOCUSED_EDIT_TEXT,
+                    Control.FOCUSABLE_VIEW,
+            }, false /* navigateNext */, false /* navigatePrevious */);
+        }
+    }
+
+    private enum Control {
+        EDIT_TEXT,
+        FOCUSED_EDIT_TEXT,
+        FOCUSABLE_VIEW,
+        NON_FOCUSABLE_VIEW,
+    }
+
+    private void verifyNavigateFlags(@NonNull ImeEventStream stream, @NonNull Control[] controls,
+            boolean navigateNext, boolean navigatePrevious) throws Exception {
+        final String marker = getTestMarker();
+        TestActivity.startSync(activity-> {
+            final LinearLayout layout = new LinearLayout(activity);
+            layout.setOrientation(LinearLayout.VERTICAL);
+            for (Control control : controls) {
+                switch (control) {
+                    case EDIT_TEXT:
+                    case FOCUSED_EDIT_TEXT: {
+                        final boolean focused = (Control.FOCUSED_EDIT_TEXT == control);
+                        final EditText editText = new EditText(activity);
+                        editText.setHint("editText");
+                        layout.addView(editText);
+                        if (focused) {
+                            editText.setPrivateImeOptions(marker);
+                            editText.requestFocus();
+                        }
+                        break;
+                    }
+                    case FOCUSABLE_VIEW:
+                    case NON_FOCUSABLE_VIEW: {
+                        final boolean focusable = (Control.FOCUSABLE_VIEW == control);
+                        final View view = new View(activity);
+                        view.setBackgroundColor(focusable ? Color.YELLOW : Color.RED);
+                        view.setFocusable(focusable);
+                        view.setFocusableInTouchMode(focusable);
+                        view.setLayoutParams(new ViewGroup.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT, 10 /* height */));
+                        layout.addView(view);
+                        break;
+                    }
+                    default:
+                        throw new UnsupportedOperationException("Unknown control=" + control);
+                }
+            }
+            return layout;
+        });
+
+        final ImeEvent startInput = expectEvent(stream,
+                editorMatcher("onStartInput", marker), TIMEOUT);
+        final EditorInfo editorInfo = startInput.getArguments().getParcelable("editorInfo");
+        assertThat(editorInfo).isNotNull();
+        assertThat(editorInfo.imeOptions & EditorInfo.IME_FLAG_NAVIGATE_NEXT)
+                .isEqualTo(navigateNext ? EditorInfo.IME_FLAG_NAVIGATE_NEXT : 0);
+        assertThat(editorInfo.imeOptions & EditorInfo.IME_FLAG_NAVIGATE_PREVIOUS)
+                .isEqualTo(navigatePrevious ? EditorInfo.IME_FLAG_NAVIGATE_PREVIOUS : 0);
+    }
+
+    /**
+     * Regression test for Bug 209958658.
+     */
+    @Test
+    public void testEndBatchEditReturnValue() {
+        EditText editText = new EditText(InstrumentationRegistry.getInstrumentation().getContext());
+        EditorInfo editorInfo = new EditorInfo();
+        InputConnection editableInputConnection = editText.onCreateInputConnection(editorInfo);
+        assertThat(editableInputConnection.beginBatchEdit()).isTrue();
+        assertThat(editableInputConnection.beginBatchEdit()).isTrue();
+        assertThat(editableInputConnection.endBatchEdit()).isTrue();
+        assertThat(editableInputConnection.endBatchEdit()).isFalse();
+
+        // Extra invocations of endBatchEdit() continue to return false.
+        assertThat(editableInputConnection.endBatchEdit()).isFalse();
+    }
 }

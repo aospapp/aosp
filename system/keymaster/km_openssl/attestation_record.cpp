@@ -774,7 +774,8 @@ keymaster_error_t build_auth_list(const AuthorizationSet& auth_list, KM_AUTH_LIS
     if (auth_list.Contains(TAG_ALGORITHM, KM_ALGORITHM_EC) &&  //
         !auth_list.Contains(TAG_EC_CURVE) &&                   //
         auth_list.GetTagValue(TAG_KEY_SIZE, &key_size)) {
-        // This must be a keymaster1 key. It's an EC key with no curve.  Insert the curve.
+        // This must be a keymaster1 key. It's an EC key with no curve.  Insert the curve if we
+        // can unambiguously figure it out.
 
         keymaster_error_t error = EcKeySizeToCurve(key_size, &ec_curve);
         if (error != KM_ERROR_OK) return error;

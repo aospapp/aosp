@@ -57,15 +57,13 @@ public class RecentsRedactionActivity extends DialogTestListActivity {
     // Default listener will use setResult(), which won't work due to activity being in a new task.
     private View.OnClickListener clickListener = target -> {
         final int resultCode;
-        switch (target.getId()) {
-            case R.id.pass_button:
-                resultCode = TestResult.TEST_RESULT_PASSED;
-                break;
-            case R.id.fail_button:
-                resultCode = TestResult.TEST_RESULT_FAILED;
-                break;
-            default:
-                throw new IllegalArgumentException("Unknown id: " + target.getId());
+        int id = target.getId();
+        if (id == R.id.pass_button) {
+            resultCode = TestResult.TEST_RESULT_PASSED;
+        } else if (id == R.id.fail_button) {
+            resultCode = TestResult.TEST_RESULT_FAILED;
+        } else {
+            throw new IllegalArgumentException("Unknown id: " + target.getId());
         }
         Intent resultIntent = TestResult.createResult(RecentsRedactionActivity.this, resultCode,
                 getTestId(), getTestDetails(), getReportLog(), getHistoryCollection());

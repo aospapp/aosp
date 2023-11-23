@@ -15,13 +15,15 @@
  */
 
 #include <android-base/logging.h>
+#include <android/binder_manager.h>
 #include <binder/IPCThreadState.h>
 #include <binder/IServiceManager.h>
 #include <binder/ProcessState.h>
 #include <cutils/native_handle.h>
-#include <fcntl.h>
 #include <hidl/HidlTransportSupport.h>
 #include <hwbinder/ProcessState.h>
+
+#include <fcntl.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -31,9 +33,13 @@
 
 #include "SuspendControlService.h"
 #include "SystemSuspend.h"
+#include "SystemSuspendAidl.h"
+#include "SystemSuspendHidl.h"
 
+using aidl::android::system::suspend::SystemSuspendAidl;
 using android::sp;
 using android::status_t;
+using android::String16;
 using android::base::Socketpair;
 using android::base::unique_fd;
 using android::hardware::configureRpcThreadpool;
@@ -43,6 +49,7 @@ using android::system::suspend::V1_0::SleepTimeConfig;
 using android::system::suspend::V1_0::SuspendControlService;
 using android::system::suspend::V1_0::SuspendControlServiceInternal;
 using android::system::suspend::V1_0::SystemSuspend;
+using android::system::suspend::V1_0::SystemSuspendHidl;
 using namespace std::chrono_literals;
 using namespace ::android::sysprop;
 
@@ -88,7 +95,7 @@ int main() {
         PLOG(ERROR) << "SystemSuspend: Error opening " << kSysKernelWakeupReasons;
     }
     unique_fd suspendTimeFd{TEMP_FAILURE_RETRY(open(kSysKernelSuspendTime, O_CLOEXEC | O_RDONLY))};
-    if (wakeupReasonsFd < 0) {
+    if (suspendTimeFd < 0) {
         PLOG(ERROR) << "SystemSuspend: Error opening " << kSysKernelSuspendTime;
     }
 
@@ -123,15 +130,15 @@ int main() {
     configureRpcThreadpool(1, true /* callerWillJoin */);
 
     sp<SuspendControlService> suspendControl = new SuspendControlService();
-    auto controlStatus = android::defaultServiceManager()->addService(
-        android::String16("suspend_control"), suspendControl);
+    auto controlStatus =
+        android::defaultServiceManager()->addService(String16("suspend_control"), suspendControl);
     if (controlStatus != android::OK) {
         LOG(FATAL) << "Unable to register suspend_control service: " << controlStatus;
     }
 
     sp<SuspendControlServiceInternal> suspendControlInternal = new SuspendControlServiceInternal();
     controlStatus = android::defaultServiceManager()->addService(
-        android::String16("suspend_control_internal"), suspendControlInternal);
+        String16("suspend_control_internal"), suspendControlInternal);
     if (controlStatus != android::OK) {
         LOG(FATAL) << "Unable to register suspend_control_internal service: " << controlStatus;
     }
@@ -145,9 +152,20 @@ int main() {
         std::move(kernelWakelockStatsFd), std::move(wakeupReasonsFd), std::move(suspendTimeFd),
         sleepTimeConfig, suspendControl, suspendControlInternal, true /* mUseSuspendCounter*/);
 
-    status_t status = suspend->registerAsService();
-    if (android::OK != status) {
-        LOG(FATAL) << "Unable to register system-suspend service: " << status;
+    std::shared_ptr<SystemSuspendAidl> suspendAidl =
+        ndk::SharedRefBase::make<SystemSuspendAidl>(suspend.get());
+    const std::string suspendAidlInstance =
+        std::string() + SystemSuspendAidl::descriptor + "/default";
+    auto aidlStatus =
+        AServiceManager_addService(suspendAidl->asBinder().get(), suspendAidlInstance.c_str());
+    CHECK_EQ(aidlStatus, STATUS_OK)
+        << "Unable to register system-suspend AIDL service: " << aidlStatus;
+
+    sp<SystemSuspendHidl> suspendHidl = new SystemSuspendHidl(suspend.get());
+    status_t hidlStatus = suspendHidl->registerAsService();
+    if (android::OK != hidlStatus) {
+        LOG(INFO) << "system-suspend HIDL hal not supported, use the AIDL suspend hal for "
+                     "requesting wakelocks";
     }
 
     joinRpcThreadpool();

@@ -23,6 +23,7 @@ cc_fuzz {
       "libsfntly",
       "libwebp-decode",
       "libwebp-encode",
+      "libwuffs_mirror_release_c",
   ],
 
   target: {
@@ -30,7 +31,7 @@ cc_fuzz {
       shared_libs: [
           "libz",
           "libexpat",
-          "libandroidicu",
+          "libicu",
           "libcutils",
           "libEGL",
           "libGLESv2",

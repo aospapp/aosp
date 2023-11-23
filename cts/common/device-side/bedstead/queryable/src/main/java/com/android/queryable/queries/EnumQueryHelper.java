@@ -16,13 +16,18 @@
 
 package com.android.queryable.queries;
 
+import android.os.Parcel;
+import android.os.Parcelable;
+
 import com.android.queryable.Queryable;
+import com.android.queryable.util.ParcelableUtils;
 
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -31,12 +36,18 @@ public final class EnumQueryHelper <E extends Queryable, F> implements EnumQuery
 
     private static final long serialVersionUID = 1;
 
-    private final E mQuery;
+    private final transient E mQuery;
     private Set<F> mIsEqualTo = null;
     private Set<F> mIsNotEqualTo = null;
 
     public EnumQueryHelper(E query) {
         mQuery = query;
+    }
+
+    private EnumQueryHelper(Parcel in) {
+        mQuery = null;
+        mIsEqualTo = (Set<F>) ParcelableUtils.readSet(in);
+        mIsNotEqualTo = (Set<F>) ParcelableUtils.readSet(in);
     }
 
     @Override
@@ -148,5 +159,41 @@ public final class EnumQueryHelper <E extends Queryable, F> implements EnumQuery
         }
 
         return Queryable.joinQueryStrings(queryStrings);
+    }
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel out, int flags) {
+        ParcelableUtils.writeSet(out, mIsEqualTo);
+        ParcelableUtils.writeSet(out, mIsNotEqualTo);
+    }
+
+    public static final Parcelable.Creator<EnumQueryHelper> CREATOR =
+            new Parcelable.Creator<EnumQueryHelper>() {
+                public EnumQueryHelper createFromParcel(Parcel in) {
+                    return new EnumQueryHelper(in);
+                }
+
+                public EnumQueryHelper[] newArray(int size) {
+                    return new EnumQueryHelper[size];
+                }
+    };
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof EnumQueryHelper)) return false;
+        EnumQueryHelper<?, ?> that = (EnumQueryHelper<?, ?>) o;
+        return Objects.equals(mIsEqualTo, that.mIsEqualTo) && Objects.equals(
+                mIsNotEqualTo, that.mIsNotEqualTo);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(mIsEqualTo, mIsNotEqualTo);
     }
 }

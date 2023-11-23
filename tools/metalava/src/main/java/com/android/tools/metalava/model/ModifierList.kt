@@ -23,7 +23,6 @@ import com.android.tools.metalava.DocLevel.PRIVATE
 import com.android.tools.metalava.DocLevel.PROTECTED
 import com.android.tools.metalava.DocLevel.PUBLIC
 import com.android.tools.metalava.Options
-import com.android.tools.metalava.compatibility
 import com.android.tools.metalava.options
 import java.io.Writer
 
@@ -58,6 +57,8 @@ interface ModifierList {
     fun isSuspend(): Boolean = false
     fun isOperator(): Boolean = false
     fun isInline(): Boolean = false
+    fun isValue(): Boolean = false
+    fun isData(): Boolean = false
     fun isEmpty(): Boolean
 
     fun isPackagePrivate() = !(isPublic() || isProtected() || isPrivate())
@@ -72,7 +73,6 @@ interface ModifierList {
         if (isStatic() != other.isStatic()) return false
         if (isAbstract() != other.isAbstract()) return false
         if (isFinal() != other.isFinal()) { return false }
-        if (compatibility.includeSynchronized && isSynchronized() != other.isSynchronized()) return false
         if (isTransient() != other.isTransient()) return false
         if (isVolatile() != other.isVolatile()) return false
 
@@ -90,6 +90,18 @@ interface ModifierList {
     /** Returns true if this modifier list contains any a Nullable annotation */
     fun isNullable(): Boolean {
         return annotations().any { it.isNullable() }
+    }
+
+    /** Returns true if this modifier list contains any a NonNull annotation */
+    fun isNonNull(): Boolean {
+        return annotations().any { it.isNonNull() }
+    }
+
+    /**
+     * Returns true if this modifier list contains the `@JvmSynthetic` annotation
+     */
+    fun hasJvmSyntheticAnnotation(): Boolean {
+        return annotations().any { it.isJvmSynthetic() }
     }
 
     /**
@@ -166,7 +178,7 @@ interface ModifierList {
             return false
         }
         return annotations().any { annotation ->
-            options.hideMetaAnnotations.contains(annotation.qualifiedName())
+            options.hideMetaAnnotations.contains(annotation.qualifiedName)
         }
     }
 
@@ -175,11 +187,26 @@ interface ModifierList {
         return findAnnotation(qualifiedName) != null
     }
 
-    /** Returns the annotation of the given qualified name if found in this modifier list */
+    /**
+     * Returns the annotation of the given qualified name (or equivalent) if found
+     * in this modifier list
+     */
     fun findAnnotation(qualifiedName: String): AnnotationItem? {
         val mappedName = AnnotationItem.mapName(codebase, qualifiedName)
         return annotations().firstOrNull {
-            mappedName == it.qualifiedName()
+            mappedName == it.qualifiedName
+        }
+    }
+
+    /**
+     * Returns the annotation of the given qualified name if found in this modifier list.
+     * Like [findAnnotation], but where that method translates both the annotations in
+     * the source and the target name to their canonical form (E.g. the androidx name),
+     * this method will look at the original source for the exact name passed in here.
+     */
+    fun findExactAnnotation(qualifiedName: String): AnnotationItem? {
+        return annotations().firstOrNull {
+            qualifiedName == it.originalName
         }
     }
 
@@ -242,7 +269,6 @@ interface ModifierList {
             target: AnnotationTarget,
             // TODO: "deprecated" isn't a modifier; clarify method name
             includeDeprecated: Boolean = false,
-            includeAnnotations: Boolean = true,
             runtimeAnnotationsOnly: Boolean = false,
             skipNullnessAnnotations: Boolean = false,
             omitCommonPackages: Boolean = false,
@@ -272,25 +298,17 @@ interface ModifierList {
                 modifiers
             }
 
-            if (includeAnnotations) {
-                writeAnnotations(
-                    item,
-                    target,
-                    runtimeAnnotationsOnly,
-                    includeDeprecated,
-                    writer,
-                    separateLines,
-                    list,
-                    skipNullnessAnnotations,
-                    omitCommonPackages
-                )
-            } else {
-                // We always include @Deprecated annotation in stub files
-                if (item.deprecated && target.isStubsFile()) {
-                    writer.write("@Deprecated")
-                    writer.write(if (separateLines) "\n" else " ")
-                }
-            }
+            writeAnnotations(
+                item,
+                target,
+                runtimeAnnotationsOnly,
+                includeDeprecated,
+                writer,
+                separateLines,
+                list,
+                skipNullnessAnnotations,
+                omitCommonPackages
+            )
 
             if (item is PackageItem) {
                 // Packages use a modifier list, but only annotations apply
@@ -304,169 +322,96 @@ interface ModifierList {
             val classItem = item as? ClassItem
             val methodItem = item as? MethodItem
 
-            // Order based on the old stubs code: TODO, use Java standard order instead?
-
-            if (compatibility.nonstandardModifierOrder) {
-                val visibilityLevel = list.getVisibilityLevel()
-                if (visibilityLevel != VisibilityLevel.PACKAGE_PRIVATE) {
-                    writer.write(visibilityLevel.javaSourceCodeModifier + " ")
-                }
-
-                if (list.isDefault()) {
-                    writer.write("default ")
-                }
-
-                if (list.isStatic() && (compatibility.staticEnums || classItem == null || !classItem.isEnum())) {
-                    writer.write("static ")
-                }
-
-                if (list.isFinal() &&
-                    // Don't show final on parameters: that's an implementation side detail
-                    item !is ParameterItem &&
-                    (classItem?.isEnum() != true || compatibility.finalInInterfaces) ||
-                    compatibility.forceFinalInEnumValueMethods &&
-                    methodItem?.name() == "values" && methodItem.containingClass().isEnum()
-                ) {
-                    writer.write("final ")
-                }
-
-                if (list.isSealed()) {
-                    writer.write("sealed ")
-                }
-
-                if (list.isSuspend()) {
-                    writer.write("suspend ")
-                }
-
-                if (list.isInline()) {
-                    writer.write("inline ")
-                }
-
-                if (list.isInfix()) {
-                    writer.write("infix ")
-                }
-
-                if (list.isOperator()) {
-                    writer.write("operator ")
-                }
-
-                val isInterface = classItem?.isInterface() == true ||
-                    (methodItem?.containingClass()?.isInterface() == true &&
-                        !list.isDefault() && !list.isStatic())
-
-                if ((compatibility.abstractInInterfaces && isInterface ||
-                        list.isAbstract() &&
-                        (classItem?.isEnum() != true &&
-                            (compatibility.abstractInAnnotations || classItem?.isAnnotationType() != true))) &&
-                    (!isInterface || compatibility.abstractInInterfaces)
-                ) {
-                    writer.write("abstract ")
-                }
-
-                if (list.isNative() && target.isStubsFile()) {
-                    writer.write("native ")
-                }
-
-                if (item.deprecated && includeDeprecated && !target.isStubsFile() && !compatibility.deprecatedAsAnnotation) {
-                    writer.write("deprecated ")
-                }
-
-                if (list.isSynchronized() && (compatibility.includeSynchronized || target.isStubsFile())) {
-                    writer.write("synchronized ")
-                }
-
-                if (list.isTransient()) {
-                    writer.write("transient ")
-                }
-
-                if (list.isVolatile()) {
-                    writer.write("volatile ")
-                }
+            val visibilityLevel = list.getVisibilityLevel()
+            val modifier = if (language == Language.JAVA) {
+                visibilityLevel.javaSourceCodeModifier
             } else {
-                if (item.deprecated && includeDeprecated && !target.isStubsFile() && !compatibility.deprecatedAsAnnotation) {
-                    writer.write("deprecated ")
-                }
+                visibilityLevel.kotlinSourceCodeModifier
+            }
+            if (modifier.isNotEmpty()) {
+                writer.write("$modifier ")
+            }
 
-                val visibilityLevel = list.getVisibilityLevel()
-                val modifier = if (language == Language.JAVA) {
-                    visibilityLevel.javaSourceCodeModifier
-                } else {
-                    visibilityLevel.kotlinSourceCodeModifier
-                }
-                if (modifier.isNotEmpty()) {
-                    writer.write("$modifier ")
-                }
+            val isInterface = classItem?.isInterface() == true ||
+                (
+                    methodItem?.containingClass()?.isInterface() == true &&
+                        !list.isDefault() && !list.isStatic()
+                    )
 
-                val isInterface = classItem?.isInterface() == true ||
-                    (methodItem?.containingClass()?.isInterface() == true &&
-                        !list.isDefault() && !list.isStatic())
+            if (list.isAbstract() &&
+                classItem?.isEnum() != true &&
+                classItem?.isAnnotationType() != true &&
+                !isInterface
+            ) {
+                writer.write("abstract ")
+            }
 
-                if ((compatibility.abstractInInterfaces && isInterface ||
-                        list.isAbstract() &&
-                        (classItem?.isEnum() != true &&
-                            (compatibility.abstractInAnnotations || classItem?.isAnnotationType() != true))) &&
-                    (!isInterface || compatibility.abstractInInterfaces)
-                ) {
-                    writer.write("abstract ")
-                }
+            if (list.isDefault() && item !is ParameterItem) {
+                writer.write("default ")
+            }
 
-                if (list.isDefault() && item !is ParameterItem) {
-                    writer.write("default ")
-                }
+            if (list.isStatic() && (classItem == null || !classItem.isEnum())) {
+                writer.write("static ")
+            }
 
-                if (list.isStatic() && (compatibility.staticEnums || classItem == null || !classItem.isEnum())) {
-                    writer.write("static ")
-                }
+            if (list.isFinal() &&
+                language == Language.JAVA &&
+                // Don't show final on parameters: that's an implementation side detail
+                item !is ParameterItem &&
+                classItem?.isEnum() != true
+            ) {
+                writer.write("final ")
+            } else if (!list.isFinal() && language == Language.KOTLIN) {
+                writer.write("open ")
+            }
 
-                if (list.isFinal() &&
-                    language == Language.JAVA &&
-                    // Don't show final on parameters: that's an implementation side detail
-                    item !is ParameterItem &&
-                    (classItem?.isEnum() != true || compatibility.finalInInterfaces)
-                ) {
-                    writer.write("final ")
-                } else if (!list.isFinal() && language == Language.KOTLIN) {
-                    writer.write("open ")
-                }
+            if (list.isSealed()) {
+                writer.write("sealed ")
+            }
 
-                if (list.isSealed()) {
-                    writer.write("sealed ")
-                }
+            if (list.isSuspend()) {
+                writer.write("suspend ")
+            }
 
-                if (list.isSuspend()) {
-                    writer.write("suspend ")
-                }
+            if (list.isInline()) {
+                writer.write("inline ")
+            }
 
-                if (list.isInline()) {
-                    writer.write("inline ")
-                }
+            if (list.isValue()) {
+                writer.write("value ")
+            }
 
-                if (list.isInfix()) {
-                    writer.write("infix ")
-                }
+            if (list.isInfix()) {
+                writer.write("infix ")
+            }
 
-                if (list.isOperator()) {
-                    writer.write("operator ")
-                }
+            if (list.isOperator()) {
+                writer.write("operator ")
+            }
 
-                if (list.isTransient()) {
-                    writer.write("transient ")
-                }
+            if (list.isTransient()) {
+                writer.write("transient ")
+            }
 
-                if (list.isVolatile()) {
-                    writer.write("volatile ")
-                }
+            if (list.isVolatile()) {
+                writer.write("volatile ")
+            }
 
-                if (list.isSynchronized() && (compatibility.includeSynchronized || target.isStubsFile())) {
-                    writer.write("synchronized ")
-                }
+            if (list.isSynchronized() && target.isStubsFile()) {
+                writer.write("synchronized ")
+            }
 
-                if (list.isNative() && target.isStubsFile()) {
-                    writer.write("native ")
-                }
+            if (list.isNative() && target.isStubsFile()) {
+                writer.write("native ")
+            }
 
-                if (list.isFunctional()) {
-                    writer.write("fun ")
+            if (list.isFunctional()) {
+                writer.write("fun ")
+            }
+
+            if (language == Language.KOTLIN) {
+                if (list.isData()) {
+                    writer.write("data ")
                 }
             }
         }
@@ -485,10 +430,7 @@ interface ModifierList {
             //  if includeDeprecated we want to do it
             //  unless runtimeOnly is false, in which case we'd include it too
             // e.g. emit @Deprecated if includeDeprecated && !runtimeOnly
-            if (item.deprecated &&
-                (compatibility.deprecatedAsAnnotation || target.isStubsFile()) &&
-                (runtimeAnnotationsOnly || includeDeprecated)
-            ) {
+            if (item.deprecated && (runtimeAnnotationsOnly || includeDeprecated)) {
                 writer.write("@Deprecated")
                 writer.write(if (separateLines) "\n" else " ")
             }
@@ -518,7 +460,7 @@ interface ModifierList {
 
             // Ensure stable signature file order
             if (annotations.size > 1) {
-                annotations = annotations.sortedBy { it.qualifiedName() }
+                annotations = annotations.sortedBy { it.qualifiedName }
             }
 
             if (annotations.isNotEmpty()) {
@@ -531,13 +473,13 @@ interface ModifierList {
                     }
 
                     var printAnnotation = annotation
-                    if (!annotation.targets().contains(target)) {
+                    if (!annotation.targets.contains(target)) {
                         continue
                     } else if ((annotation.isNullnessAnnotation())) {
                         if (skipNullnessAnnotations) {
                             continue
                         }
-                    } else if (annotation.qualifiedName() == "java.lang.Deprecated") {
+                    } else if (annotation.qualifiedName == "java.lang.Deprecated") {
                         // Special cased in stubs and signature files: emitted first
                         continue
                     } else if (options.typedefMode == Options.TypedefMode.INLINE) {
@@ -546,11 +488,12 @@ interface ModifierList {
                             printAnnotation = typedef
                         }
                     } else if (options.typedefMode == Options.TypedefMode.REFERENCE &&
-                        annotation.targets() === ANNOTATION_SIGNATURE_ONLY &&
-                        annotation.findTypedefAnnotation() != null) {
+                        annotation.targets === ANNOTATION_SIGNATURE_ONLY &&
+                        annotation.findTypedefAnnotation() != null
+                    ) {
                         // For annotation references, only include the simple name
                         writer.write("@")
-                        writer.write(annotation.resolve()?.simpleName() ?: annotation.qualifiedName()!!)
+                        writer.write(annotation.resolve()?.simpleName() ?: annotation.qualifiedName!!)
                         if (separateLines) {
                             writer.write("\n")
                         } else {
@@ -561,11 +504,11 @@ interface ModifierList {
 
                     // Optionally filter out duplicates
                     if (index > 0 && filterDuplicates) {
-                        val qualifiedName = annotation.qualifiedName()
+                        val qualifiedName = annotation.qualifiedName
                         var found = false
                         for (i in 0 until index) {
                             val prev = annotations[i]
-                            if (prev.qualifiedName() == qualifiedName) {
+                            if (prev.qualifiedName == qualifiedName) {
                                 found = true
                                 break
                             }

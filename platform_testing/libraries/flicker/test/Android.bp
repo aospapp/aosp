@@ -34,6 +34,7 @@ android_test {
     },
     static_libs: [
         "flickerlib",
-        "launcher-aosp-tapl"
+        "launcher-aosp-tapl",
+        "mockito-target-extended-minus-junit4"
     ],
 }

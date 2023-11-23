@@ -62,6 +62,8 @@ const char *camera_metadata_section_names[ANDROID_SECTION_COUNT] = {
                                     = "android.distortionCorrection",
     [ANDROID_HEIC]                 = "android.heic",
     [ANDROID_HEIC_INFO]            = "android.heic.info",
+    [ANDROID_AUTOMOTIVE]           = "android.automotive",
+    [ANDROID_AUTOMOTIVE_LENS]      = "android.automotive.lens",
 };
 
 unsigned int camera_metadata_section_bounds[ANDROID_SECTION_COUNT][2] = {
@@ -126,6 +128,10 @@ unsigned int camera_metadata_section_bounds[ANDROID_SECTION_COUNT][2] = {
                                        ANDROID_HEIC_END },
     [ANDROID_HEIC_INFO]            = { ANDROID_HEIC_INFO_START,
                                        ANDROID_HEIC_INFO_END },
+    [ANDROID_AUTOMOTIVE]           = { ANDROID_AUTOMOTIVE_START,
+                                       ANDROID_AUTOMOTIVE_END },
+    [ANDROID_AUTOMOTIVE_LENS]      = { ANDROID_AUTOMOTIVE_LENS_START,
+                                       ANDROID_AUTOMOTIVE_LENS_END },
 };
 
 static tag_info_t android_color_correction[ANDROID_COLOR_CORRECTION_END -
@@ -295,6 +301,10 @@ static tag_info_t android_flash_info[ANDROID_FLASH_INFO_END -
     { "available",                     TYPE_BYTE   },
     [ ANDROID_FLASH_INFO_CHARGE_DURATION - ANDROID_FLASH_INFO_START ] =
     { "chargeDuration",                TYPE_INT64  },
+    [ ANDROID_FLASH_INFO_STRENGTH_MAXIMUM_LEVEL - ANDROID_FLASH_INFO_START ] =
+    { "strengthMaximumLevel",          TYPE_INT32  },
+    [ ANDROID_FLASH_INFO_STRENGTH_DEFAULT_LEVEL - ANDROID_FLASH_INFO_START ] =
+    { "strengthDefaultLevel",          TYPE_INT32  },
 };
 
 static tag_info_t android_hot_pixel[ANDROID_HOT_PIXEL_END -
@@ -452,6 +462,12 @@ static tag_info_t android_request[ANDROID_REQUEST_END -
     [ ANDROID_REQUEST_CHARACTERISTIC_KEYS_NEEDING_PERMISSION - ANDROID_REQUEST_START ] =
     { "characteristicKeysNeedingPermission",
                                         TYPE_INT32  },
+    [ ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP - ANDROID_REQUEST_START ] =
+    { "availableDynamicRangeProfilesMap",
+                                        TYPE_INT64  },
+    [ ANDROID_REQUEST_RECOMMENDED_TEN_BIT_DYNAMIC_RANGE_PROFILE - ANDROID_REQUEST_START ] =
+    { "recommendedTenBitDynamicRangeProfile",
+                                        TYPE_INT64  },
 };
 
 static tag_info_t android_scaler[ANDROID_SCALER_END -
@@ -518,6 +534,8 @@ static tag_info_t android_scaler[ANDROID_SCALER_END -
                                         TYPE_BYTE   },
     [ ANDROID_SCALER_CROP_REGION_SET - ANDROID_SCALER_START ] =
     { "cropRegionSet",                 TYPE_BYTE   },
+    [ ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES - ANDROID_SCALER_START ] =
+    { "availableStreamUseCases",       TYPE_INT64  },
 };
 
 static tag_info_t android_sensor[ANDROID_SENSOR_END -
@@ -873,6 +891,18 @@ static tag_info_t android_heic_info[ANDROID_HEIC_INFO_END -
     { "maxJpegAppSegmentsCount",       TYPE_BYTE   },
 };
 
+static tag_info_t android_automotive[ANDROID_AUTOMOTIVE_END -
+        ANDROID_AUTOMOTIVE_START] = {
+    [ ANDROID_AUTOMOTIVE_LOCATION - ANDROID_AUTOMOTIVE_START ] =
+    { "location",                      TYPE_BYTE   },
+};
+
+static tag_info_t android_automotive_lens[ANDROID_AUTOMOTIVE_LENS_END -
+        ANDROID_AUTOMOTIVE_LENS_START] = {
+    [ ANDROID_AUTOMOTIVE_LENS_FACING - ANDROID_AUTOMOTIVE_LENS_START ] =
+    { "facing",                        TYPE_BYTE   },
+};
+
 
 tag_info_t *tag_info[ANDROID_SECTION_COUNT] = {
     android_color_correction,
@@ -905,6 +935,8 @@ tag_info_t *tag_info[ANDROID_SECTION_COUNT] = {
     android_distortion_correction,
     android_heic,
     android_heic_info,
+    android_automotive,
+    android_automotive_lens,
 };
 
 static int32_t tag_permission_needed[18] = {
@@ -1409,6 +1441,10 @@ int camera_metadata_enum_snprint(uint32_t tag,
                     msg = "ON";
                     ret = 0;
                     break;
+                case ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_PREVIEW_STABILIZATION:
+                    msg = "PREVIEW_STABILIZATION";
+                    ret = 0;
+                    break;
                 default:
                     msg = "error: enum value out of range";
             }
@@ -1824,6 +1860,12 @@ int camera_metadata_enum_snprint(uint32_t tag,
         case ANDROID_FLASH_INFO_CHARGE_DURATION: {
             break;
         }
+        case ANDROID_FLASH_INFO_STRENGTH_MAXIMUM_LEVEL: {
+            break;
+        }
+        case ANDROID_FLASH_INFO_STRENGTH_DEFAULT_LEVEL: {
+            break;
+        }
 
         case ANDROID_HOT_PIXEL_MODE: {
             switch (value) {
@@ -1967,6 +2009,10 @@ int camera_metadata_enum_snprint(uint32_t tag,
                     break;
                 case ANDROID_LENS_POSE_REFERENCE_UNDEFINED:
                     msg = "UNDEFINED";
+                    ret = 0;
+                    break;
+                case ANDROID_LENS_POSE_REFERENCE_AUTOMOTIVE:
+                    msg = "AUTOMOTIVE";
                     ret = 0;
                     break;
                 default:
@@ -2221,6 +2267,14 @@ int camera_metadata_enum_snprint(uint32_t tag,
                     msg = "REMOSAIC_REPROCESSING";
                     ret = 0;
                     break;
+                case ANDROID_REQUEST_AVAILABLE_CAPABILITIES_DYNAMIC_RANGE_TEN_BIT:
+                    msg = "DYNAMIC_RANGE_TEN_BIT";
+                    ret = 0;
+                    break;
+                case ANDROID_REQUEST_AVAILABLE_CAPABILITIES_STREAM_USE_CASE:
+                    msg = "STREAM_USE_CASE";
+                    ret = 0;
+                    break;
                 default:
                     msg = "error: enum value out of range";
             }
@@ -2242,6 +2296,68 @@ int camera_metadata_enum_snprint(uint32_t tag,
             break;
         }
         case ANDROID_REQUEST_CHARACTERISTIC_KEYS_NEEDING_PERMISSION: {
+            break;
+        }
+        case ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP: {
+            switch (value) {
+                case ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_STANDARD:
+                    msg = "STANDARD";
+                    ret = 0;
+                    break;
+                case ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_HLG10:
+                    msg = "HLG10";
+                    ret = 0;
+                    break;
+                case ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_HDR10:
+                    msg = "HDR10";
+                    ret = 0;
+                    break;
+                case ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_HDR10_PLUS:
+                    msg = "HDR10_PLUS";
+                    ret = 0;
+                    break;
+                case ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_DOLBY_VISION_10B_HDR_REF:
+                    msg = "DOLBY_VISION_10B_HDR_REF";
+                    ret = 0;
+                    break;
+                case ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_DOLBY_VISION_10B_HDR_REF_PO:
+                    msg = "DOLBY_VISION_10B_HDR_REF_PO";
+                    ret = 0;
+                    break;
+                case ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_DOLBY_VISION_10B_HDR_OEM:
+                    msg = "DOLBY_VISION_10B_HDR_OEM";
+                    ret = 0;
+                    break;
+                case ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_DOLBY_VISION_10B_HDR_OEM_PO:
+                    msg = "DOLBY_VISION_10B_HDR_OEM_PO";
+                    ret = 0;
+                    break;
+                case ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_DOLBY_VISION_8B_HDR_REF:
+                    msg = "DOLBY_VISION_8B_HDR_REF";
+                    ret = 0;
+                    break;
+                case ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_DOLBY_VISION_8B_HDR_REF_PO:
+                    msg = "DOLBY_VISION_8B_HDR_REF_PO";
+                    ret = 0;
+                    break;
+                case ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_DOLBY_VISION_8B_HDR_OEM:
+                    msg = "DOLBY_VISION_8B_HDR_OEM";
+                    ret = 0;
+                    break;
+                case ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_DOLBY_VISION_8B_HDR_OEM_PO:
+                    msg = "DOLBY_VISION_8B_HDR_OEM_PO";
+                    ret = 0;
+                    break;
+                case ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_MAX:
+                    msg = "MAX";
+                    ret = 0;
+                    break;
+                default:
+                    msg = "error: enum value out of range";
+            }
+            break;
+        }
+        case ANDROID_REQUEST_RECOMMENDED_TEN_BIT_DYNAMIC_RANGE_PROFILE: {
             break;
         }
 
@@ -2389,6 +2505,14 @@ int camera_metadata_enum_snprint(uint32_t tag,
                     msg = "PUBLIC_END";
                     ret = 0;
                     break;
+                case ANDROID_SCALER_AVAILABLE_RECOMMENDED_STREAM_CONFIGURATIONS_10BIT_OUTPUT:
+                    msg = "10BIT_OUTPUT";
+                    ret = 0;
+                    break;
+                case ANDROID_SCALER_AVAILABLE_RECOMMENDED_STREAM_CONFIGURATIONS_PUBLIC_END_3_8:
+                    msg = "PUBLIC_END_3_8";
+                    ret = 0;
+                    break;
                 case ANDROID_SCALER_AVAILABLE_RECOMMENDED_STREAM_CONFIGURATIONS_VENDOR_START:
                     msg = "VENDOR_START";
                     ret = 0;
@@ -2496,6 +2620,41 @@ int camera_metadata_enum_snprint(uint32_t tag,
                     break;
                 case ANDROID_SCALER_CROP_REGION_SET_TRUE:
                     msg = "TRUE";
+                    ret = 0;
+                    break;
+                default:
+                    msg = "error: enum value out of range";
+            }
+            break;
+        }
+        case ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES: {
+            switch (value) {
+                case ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_DEFAULT:
+                    msg = "DEFAULT";
+                    ret = 0;
+                    break;
+                case ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_PREVIEW:
+                    msg = "PREVIEW";
+                    ret = 0;
+                    break;
+                case ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_STILL_CAPTURE:
+                    msg = "STILL_CAPTURE";
+                    ret = 0;
+                    break;
+                case ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_VIDEO_RECORD:
+                    msg = "VIDEO_RECORD";
+                    ret = 0;
+                    break;
+                case ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_PREVIEW_VIDEO_STILL:
+                    msg = "PREVIEW_VIDEO_STILL";
+                    ret = 0;
+                    break;
+                case ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_VIDEO_CALL:
+                    msg = "VIDEO_CALL";
+                    ret = 0;
+                    break;
+                case ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_VENDOR_START:
+                    msg = "VENDOR_START";
                     ret = 0;
                     break;
                 default:
@@ -3455,6 +3614,126 @@ int camera_metadata_enum_snprint(uint32_t tag,
             break;
         }
 
+        case ANDROID_AUTOMOTIVE_LOCATION: {
+            switch (value) {
+                case ANDROID_AUTOMOTIVE_LOCATION_INTERIOR:
+                    msg = "INTERIOR";
+                    ret = 0;
+                    break;
+                case ANDROID_AUTOMOTIVE_LOCATION_EXTERIOR_OTHER:
+                    msg = "EXTERIOR_OTHER";
+                    ret = 0;
+                    break;
+                case ANDROID_AUTOMOTIVE_LOCATION_EXTERIOR_FRONT:
+                    msg = "EXTERIOR_FRONT";
+                    ret = 0;
+                    break;
+                case ANDROID_AUTOMOTIVE_LOCATION_EXTERIOR_REAR:
+                    msg = "EXTERIOR_REAR";
+                    ret = 0;
+                    break;
+                case ANDROID_AUTOMOTIVE_LOCATION_EXTERIOR_LEFT:
+                    msg = "EXTERIOR_LEFT";
+                    ret = 0;
+                    break;
+                case ANDROID_AUTOMOTIVE_LOCATION_EXTERIOR_RIGHT:
+                    msg = "EXTERIOR_RIGHT";
+                    ret = 0;
+                    break;
+                case ANDROID_AUTOMOTIVE_LOCATION_EXTRA_OTHER:
+                    msg = "EXTRA_OTHER";
+                    ret = 0;
+                    break;
+                case ANDROID_AUTOMOTIVE_LOCATION_EXTRA_FRONT:
+                    msg = "EXTRA_FRONT";
+                    ret = 0;
+                    break;
+                case ANDROID_AUTOMOTIVE_LOCATION_EXTRA_REAR:
+                    msg = "EXTRA_REAR";
+                    ret = 0;
+                    break;
+                case ANDROID_AUTOMOTIVE_LOCATION_EXTRA_LEFT:
+                    msg = "EXTRA_LEFT";
+                    ret = 0;
+                    break;
+                case ANDROID_AUTOMOTIVE_LOCATION_EXTRA_RIGHT:
+                    msg = "EXTRA_RIGHT";
+                    ret = 0;
+                    break;
+                default:
+                    msg = "error: enum value out of range";
+            }
+            break;
+        }
+
+        case ANDROID_AUTOMOTIVE_LENS_FACING: {
+            switch (value) {
+                case ANDROID_AUTOMOTIVE_LENS_FACING_EXTERIOR_OTHER:
+                    msg = "EXTERIOR_OTHER";
+                    ret = 0;
+                    break;
+                case ANDROID_AUTOMOTIVE_LENS_FACING_EXTERIOR_FRONT:
+                    msg = "EXTERIOR_FRONT";
+                    ret = 0;
+                    break;
+                case ANDROID_AUTOMOTIVE_LENS_FACING_EXTERIOR_REAR:
+                    msg = "EXTERIOR_REAR";
+                    ret = 0;
+                    break;
+                case ANDROID_AUTOMOTIVE_LENS_FACING_EXTERIOR_LEFT:
+                    msg = "EXTERIOR_LEFT";
+                    ret = 0;
+                    break;
+                case ANDROID_AUTOMOTIVE_LENS_FACING_EXTERIOR_RIGHT:
+                    msg = "EXTERIOR_RIGHT";
+                    ret = 0;
+                    break;
+                case ANDROID_AUTOMOTIVE_LENS_FACING_INTERIOR_OTHER:
+                    msg = "INTERIOR_OTHER";
+                    ret = 0;
+                    break;
+                case ANDROID_AUTOMOTIVE_LENS_FACING_INTERIOR_SEAT_ROW_1_LEFT:
+                    msg = "INTERIOR_SEAT_ROW_1_LEFT";
+                    ret = 0;
+                    break;
+                case ANDROID_AUTOMOTIVE_LENS_FACING_INTERIOR_SEAT_ROW_1_CENTER:
+                    msg = "INTERIOR_SEAT_ROW_1_CENTER";
+                    ret = 0;
+                    break;
+                case ANDROID_AUTOMOTIVE_LENS_FACING_INTERIOR_SEAT_ROW_1_RIGHT:
+                    msg = "INTERIOR_SEAT_ROW_1_RIGHT";
+                    ret = 0;
+                    break;
+                case ANDROID_AUTOMOTIVE_LENS_FACING_INTERIOR_SEAT_ROW_2_LEFT:
+                    msg = "INTERIOR_SEAT_ROW_2_LEFT";
+                    ret = 0;
+                    break;
+                case ANDROID_AUTOMOTIVE_LENS_FACING_INTERIOR_SEAT_ROW_2_CENTER:
+                    msg = "INTERIOR_SEAT_ROW_2_CENTER";
+                    ret = 0;
+                    break;
+                case ANDROID_AUTOMOTIVE_LENS_FACING_INTERIOR_SEAT_ROW_2_RIGHT:
+                    msg = "INTERIOR_SEAT_ROW_2_RIGHT";
+                    ret = 0;
+                    break;
+                case ANDROID_AUTOMOTIVE_LENS_FACING_INTERIOR_SEAT_ROW_3_LEFT:
+                    msg = "INTERIOR_SEAT_ROW_3_LEFT";
+                    ret = 0;
+                    break;
+                case ANDROID_AUTOMOTIVE_LENS_FACING_INTERIOR_SEAT_ROW_3_CENTER:
+                    msg = "INTERIOR_SEAT_ROW_3_CENTER";
+                    ret = 0;
+                    break;
+                case ANDROID_AUTOMOTIVE_LENS_FACING_INTERIOR_SEAT_ROW_3_RIGHT:
+                    msg = "INTERIOR_SEAT_ROW_3_RIGHT";
+                    ret = 0;
+                    break;
+                default:
+                    msg = "error: enum value out of range";
+            }
+            break;
+        }
+
     }
 
     strncpy(dst, msg, size - 1);
@@ -4065,6 +4344,12 @@ int camera_metadata_enum_value(uint32_t tag,
                     ret = 0;
                     break;
                 }
+                enumName = "PREVIEW_STABILIZATION";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_PREVIEW_STABILIZATION;
+                    ret = 0;
+                    break;
+                }
             break;
         }
         case ANDROID_CONTROL_AE_AVAILABLE_ANTIBANDING_MODES: {
@@ -4515,6 +4800,12 @@ int camera_metadata_enum_value(uint32_t tag,
         case ANDROID_FLASH_INFO_CHARGE_DURATION: {
             break;
         }
+        case ANDROID_FLASH_INFO_STRENGTH_MAXIMUM_LEVEL: {
+            break;
+        }
+        case ANDROID_FLASH_INFO_STRENGTH_DEFAULT_LEVEL: {
+            break;
+        }
 
         case ANDROID_HOT_PIXEL_MODE: {
                 enumName = "OFF";
@@ -4666,6 +4957,12 @@ int camera_metadata_enum_value(uint32_t tag,
                 enumName = "UNDEFINED";
                 if (strncmp(name, enumName, size) == 0) {
                     *value = ANDROID_LENS_POSE_REFERENCE_UNDEFINED;
+                    ret = 0;
+                    break;
+                }
+                enumName = "AUTOMOTIVE";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_LENS_POSE_REFERENCE_AUTOMOTIVE;
                     ret = 0;
                     break;
                 }
@@ -4961,6 +5258,18 @@ int camera_metadata_enum_value(uint32_t tag,
                     ret = 0;
                     break;
                 }
+                enumName = "DYNAMIC_RANGE_TEN_BIT";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_REQUEST_AVAILABLE_CAPABILITIES_DYNAMIC_RANGE_TEN_BIT;
+                    ret = 0;
+                    break;
+                }
+                enumName = "STREAM_USE_CASE";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_REQUEST_AVAILABLE_CAPABILITIES_STREAM_USE_CASE;
+                    ret = 0;
+                    break;
+                }
             break;
         }
         case ANDROID_REQUEST_AVAILABLE_REQUEST_KEYS: {
@@ -4979,6 +5288,90 @@ int camera_metadata_enum_value(uint32_t tag,
             break;
         }
         case ANDROID_REQUEST_CHARACTERISTIC_KEYS_NEEDING_PERMISSION: {
+            break;
+        }
+        case ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP: {
+                enumName = "STANDARD";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_STANDARD;
+                    ret = 0;
+                    break;
+                }
+                enumName = "HLG10";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_HLG10;
+                    ret = 0;
+                    break;
+                }
+                enumName = "HDR10";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_HDR10;
+                    ret = 0;
+                    break;
+                }
+                enumName = "HDR10_PLUS";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_HDR10_PLUS;
+                    ret = 0;
+                    break;
+                }
+                enumName = "DOLBY_VISION_10B_HDR_REF";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_DOLBY_VISION_10B_HDR_REF;
+                    ret = 0;
+                    break;
+                }
+                enumName = "DOLBY_VISION_10B_HDR_REF_PO";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_DOLBY_VISION_10B_HDR_REF_PO;
+                    ret = 0;
+                    break;
+                }
+                enumName = "DOLBY_VISION_10B_HDR_OEM";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_DOLBY_VISION_10B_HDR_OEM;
+                    ret = 0;
+                    break;
+                }
+                enumName = "DOLBY_VISION_10B_HDR_OEM_PO";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_DOLBY_VISION_10B_HDR_OEM_PO;
+                    ret = 0;
+                    break;
+                }
+                enumName = "DOLBY_VISION_8B_HDR_REF";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_DOLBY_VISION_8B_HDR_REF;
+                    ret = 0;
+                    break;
+                }
+                enumName = "DOLBY_VISION_8B_HDR_REF_PO";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_DOLBY_VISION_8B_HDR_REF_PO;
+                    ret = 0;
+                    break;
+                }
+                enumName = "DOLBY_VISION_8B_HDR_OEM";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_DOLBY_VISION_8B_HDR_OEM;
+                    ret = 0;
+                    break;
+                }
+                enumName = "DOLBY_VISION_8B_HDR_OEM_PO";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_DOLBY_VISION_8B_HDR_OEM_PO;
+                    ret = 0;
+                    break;
+                }
+                enumName = "MAX";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_MAX;
+                    ret = 0;
+                    break;
+                }
+            break;
+        }
+        case ANDROID_REQUEST_RECOMMENDED_TEN_BIT_DYNAMIC_RANGE_PROFILE: {
             break;
         }
 
@@ -5157,6 +5550,18 @@ int camera_metadata_enum_value(uint32_t tag,
                     ret = 0;
                     break;
                 }
+                enumName = "10BIT_OUTPUT";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_SCALER_AVAILABLE_RECOMMENDED_STREAM_CONFIGURATIONS_10BIT_OUTPUT;
+                    ret = 0;
+                    break;
+                }
+                enumName = "PUBLIC_END_3_8";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_SCALER_AVAILABLE_RECOMMENDED_STREAM_CONFIGURATIONS_PUBLIC_END_3_8;
+                    ret = 0;
+                    break;
+                }
                 enumName = "VENDOR_START";
                 if (strncmp(name, enumName, size) == 0) {
                     *value = ANDROID_SCALER_AVAILABLE_RECOMMENDED_STREAM_CONFIGURATIONS_VENDOR_START;
@@ -5271,6 +5676,51 @@ int camera_metadata_enum_value(uint32_t tag,
                 enumName = "TRUE";
                 if (strncmp(name, enumName, size) == 0) {
                     *value = ANDROID_SCALER_CROP_REGION_SET_TRUE;
+                    ret = 0;
+                    break;
+                }
+            break;
+        }
+        case ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES: {
+                enumName = "DEFAULT";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_DEFAULT;
+                    ret = 0;
+                    break;
+                }
+                enumName = "PREVIEW";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_PREVIEW;
+                    ret = 0;
+                    break;
+                }
+                enumName = "STILL_CAPTURE";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_STILL_CAPTURE;
+                    ret = 0;
+                    break;
+                }
+                enumName = "VIDEO_RECORD";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_VIDEO_RECORD;
+                    ret = 0;
+                    break;
+                }
+                enumName = "PREVIEW_VIDEO_STILL";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_PREVIEW_VIDEO_STILL;
+                    ret = 0;
+                    break;
+                }
+                enumName = "VIDEO_CALL";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_VIDEO_CALL;
+                    ret = 0;
+                    break;
+                }
+                enumName = "VENDOR_START";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_VENDOR_START;
                     ret = 0;
                     break;
                 }
@@ -6295,6 +6745,170 @@ int camera_metadata_enum_value(uint32_t tag,
             break;
         }
         case ANDROID_HEIC_INFO_MAX_JPEG_APP_SEGMENTS_COUNT: {
+            break;
+        }
+
+        case ANDROID_AUTOMOTIVE_LOCATION: {
+                enumName = "INTERIOR";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_AUTOMOTIVE_LOCATION_INTERIOR;
+                    ret = 0;
+                    break;
+                }
+                enumName = "EXTERIOR_OTHER";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_AUTOMOTIVE_LOCATION_EXTERIOR_OTHER;
+                    ret = 0;
+                    break;
+                }
+                enumName = "EXTERIOR_FRONT";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_AUTOMOTIVE_LOCATION_EXTERIOR_FRONT;
+                    ret = 0;
+                    break;
+                }
+                enumName = "EXTERIOR_REAR";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_AUTOMOTIVE_LOCATION_EXTERIOR_REAR;
+                    ret = 0;
+                    break;
+                }
+                enumName = "EXTERIOR_LEFT";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_AUTOMOTIVE_LOCATION_EXTERIOR_LEFT;
+                    ret = 0;
+                    break;
+                }
+                enumName = "EXTERIOR_RIGHT";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_AUTOMOTIVE_LOCATION_EXTERIOR_RIGHT;
+                    ret = 0;
+                    break;
+                }
+                enumName = "EXTRA_OTHER";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_AUTOMOTIVE_LOCATION_EXTRA_OTHER;
+                    ret = 0;
+                    break;
+                }
+                enumName = "EXTRA_FRONT";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_AUTOMOTIVE_LOCATION_EXTRA_FRONT;
+                    ret = 0;
+                    break;
+                }
+                enumName = "EXTRA_REAR";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_AUTOMOTIVE_LOCATION_EXTRA_REAR;
+                    ret = 0;
+                    break;
+                }
+                enumName = "EXTRA_LEFT";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_AUTOMOTIVE_LOCATION_EXTRA_LEFT;
+                    ret = 0;
+                    break;
+                }
+                enumName = "EXTRA_RIGHT";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_AUTOMOTIVE_LOCATION_EXTRA_RIGHT;
+                    ret = 0;
+                    break;
+                }
+            break;
+        }
+
+        case ANDROID_AUTOMOTIVE_LENS_FACING: {
+                enumName = "EXTERIOR_OTHER";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_AUTOMOTIVE_LENS_FACING_EXTERIOR_OTHER;
+                    ret = 0;
+                    break;
+                }
+                enumName = "EXTERIOR_FRONT";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_AUTOMOTIVE_LENS_FACING_EXTERIOR_FRONT;
+                    ret = 0;
+                    break;
+                }
+                enumName = "EXTERIOR_REAR";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_AUTOMOTIVE_LENS_FACING_EXTERIOR_REAR;
+                    ret = 0;
+                    break;
+                }
+                enumName = "EXTERIOR_LEFT";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_AUTOMOTIVE_LENS_FACING_EXTERIOR_LEFT;
+                    ret = 0;
+                    break;
+                }
+                enumName = "EXTERIOR_RIGHT";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_AUTOMOTIVE_LENS_FACING_EXTERIOR_RIGHT;
+                    ret = 0;
+                    break;
+                }
+                enumName = "INTERIOR_OTHER";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_AUTOMOTIVE_LENS_FACING_INTERIOR_OTHER;
+                    ret = 0;
+                    break;
+                }
+                enumName = "INTERIOR_SEAT_ROW_1_LEFT";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_AUTOMOTIVE_LENS_FACING_INTERIOR_SEAT_ROW_1_LEFT;
+                    ret = 0;
+                    break;
+                }
+                enumName = "INTERIOR_SEAT_ROW_1_CENTER";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_AUTOMOTIVE_LENS_FACING_INTERIOR_SEAT_ROW_1_CENTER;
+                    ret = 0;
+                    break;
+                }
+                enumName = "INTERIOR_SEAT_ROW_1_RIGHT";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_AUTOMOTIVE_LENS_FACING_INTERIOR_SEAT_ROW_1_RIGHT;
+                    ret = 0;
+                    break;
+                }
+                enumName = "INTERIOR_SEAT_ROW_2_LEFT";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_AUTOMOTIVE_LENS_FACING_INTERIOR_SEAT_ROW_2_LEFT;
+                    ret = 0;
+                    break;
+                }
+                enumName = "INTERIOR_SEAT_ROW_2_CENTER";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_AUTOMOTIVE_LENS_FACING_INTERIOR_SEAT_ROW_2_CENTER;
+                    ret = 0;
+                    break;
+                }
+                enumName = "INTERIOR_SEAT_ROW_2_RIGHT";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_AUTOMOTIVE_LENS_FACING_INTERIOR_SEAT_ROW_2_RIGHT;
+                    ret = 0;
+                    break;
+                }
+                enumName = "INTERIOR_SEAT_ROW_3_LEFT";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_AUTOMOTIVE_LENS_FACING_INTERIOR_SEAT_ROW_3_LEFT;
+                    ret = 0;
+                    break;
+                }
+                enumName = "INTERIOR_SEAT_ROW_3_CENTER";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_AUTOMOTIVE_LENS_FACING_INTERIOR_SEAT_ROW_3_CENTER;
+                    ret = 0;
+                    break;
+                }
+                enumName = "INTERIOR_SEAT_ROW_3_RIGHT";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ANDROID_AUTOMOTIVE_LENS_FACING_INTERIOR_SEAT_ROW_3_RIGHT;
+                    ret = 0;
+                    break;
+                }
             break;
         }
 

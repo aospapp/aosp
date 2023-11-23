@@ -77,9 +77,9 @@ class RawSensitivityBurstTest(its_base_test.ItsBaseTest):
           camera_properties_utils.per_frame_control(props) and
           not camera_properties_utils.mono_camera(props))
 
-      # Load chart for scene
+      # Load chart for scene (chart_distance=0 for no chart scaling)
       its_session_utils.load_scene(
-          cam, props, self.scene, self.tablet, self.chart_distance)
+          cam, props, self.scene, self.tablet, chart_distance=0)
 
       # Find sensitivity range and create capture requests
       sens_min, _ = props['android.sensor.info.sensitivityRange']
@@ -130,9 +130,10 @@ class RawSensitivityBurstTest(its_base_test.ItsBaseTest):
 
       # Asserts that each shot is noisier than previous
       for i in x[0:-1]:
-        e_msg = 'variances [i]: %.5f, [i+1]: %.5f, THRESH: %.2f' % (
-            variances[i], variances[i+1], _VAR_THRESH)
-        assert variances[i] < variances[i+1] / _VAR_THRESH, e_msg
+        if variances[i] >= variances[i+1] / _VAR_THRESH:
+          raise AssertionError(
+              f'variances [i]: {variances[i] :.5f}, [i+1]: '
+              f'{variances[i+1]:.5f}, THRESH: {_VAR_THRESH}')
 
 if __name__ == '__main__':
   test_runner.main()

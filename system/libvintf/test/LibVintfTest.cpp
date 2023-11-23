@@ -18,9 +18,11 @@
 
 #include <algorithm>
 #include <functional>
+#include <vector>
 
 #include <android-base/logging.h>
 #include <android-base/parseint.h>
+#include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -35,24 +37,21 @@
 #include "parse_xml_internal.h"
 #include "test_constants.h"
 
+using android::base::StringPrintf;
+using ::testing::Combine;
 using ::testing::ElementsAre;
 using ::testing::Eq;
 using ::testing::HasSubstr;
 using ::testing::Optional;
 using ::testing::Property;
+using ::testing::Range;
 using ::testing::SizeIs;
+using ::testing::TestParamInfo;
 
 namespace android {
 namespace vintf {
 
-static bool In(const std::string& sub, const std::string& str) {
-    return str.find(sub) != std::string::npos;
-}
-#define EXPECT_IN(sub, str) EXPECT_TRUE(In((sub), (str))) << (str);
-
-#ifndef LIBVINTF_TARGET
-#define EXPECT_CONTAINS(str, sub) EXPECT_IN(sub, str);
-#endif
+#define EXPECT_IN(sub, str) EXPECT_THAT(str, HasSubstr(sub))
 
 struct LibVintfTest : public ::testing::Test {
 public:
@@ -2923,6 +2922,129 @@ TEST_F(LibVintfTest, ParsingUpdatableHals) {
     EXPECT_THAT(foo.front()->updatableViaApex(), Optional(Eq("com.android.foo")));
 }
 
+TEST_F(LibVintfTest, ParsingHalsInetTransport) {
+    std::string error;
+
+    HalManifest manifest;
+    std::string manifestXml =
+        "<manifest " + kMetaVersionStr + " type=\"device\">\n"
+        "    <hal format=\"aidl\">\n"
+        "        <name>android.hardware.foo</name>\n"
+        "        <transport ip=\"1.2.3.4\" port=\"12\">inet</transport>\n"
+        "        <interface>\n"
+        "            <name>IFoo</name>\n"
+        "            <instance>default</instance>\n"
+        "        </interface>\n"
+        "    </hal>\n"
+        "</manifest>\n";
+    EXPECT_TRUE(fromXml(&manifest, manifestXml, &error)) << error;
+    EXPECT_EQ(manifestXml, toXml(manifest, SerializeFlags::HALS_NO_FQNAME));
+
+    auto foo = getHals(manifest, "android.hardware.foo");
+    ASSERT_EQ(1u, foo.size());
+    ASSERT_TRUE(foo.front()->ip().has_value());
+    ASSERT_TRUE(foo.front()->port().has_value());
+    EXPECT_EQ("1.2.3.4", *foo.front()->ip());
+    EXPECT_EQ(12, *foo.front()->port());
+}
+
+TEST_F(LibVintfTest, RejectHalsInetTransportNoAttrs) {
+    std::string error;
+
+    HalManifest manifest;
+    std::string manifestXml =
+        "<manifest " + kMetaVersionStr + " type=\"device\">\n"
+        "    <hal format=\"aidl\">\n"
+        "        <name>android.hardware.foo</name>\n"
+        "        <transport>inet</transport>\n"
+        "        <interface>\n"
+        "            <name>IFoo</name>\n"
+        "            <instance>default</instance>\n"
+        "        </interface>\n"
+        "    </hal>\n"
+        "</manifest>\n";
+    EXPECT_FALSE(fromXml(&manifest, manifestXml, &error));
+    EXPECT_IN("Transport inet requires ip and port attributes", error);
+}
+
+TEST_F(LibVintfTest, RejectHalsInetTransportMissingAttrs) {
+    std::string error;
+
+    HalManifest manifest;
+    std::string manifestXml =
+        "<manifest " + kMetaVersionStr + " type=\"device\">\n"
+        "    <hal format=\"aidl\">\n"
+        "        <name>android.hardware.foo</name>\n"
+        "        <transport ip=\"1.2.3.4\">inet</transport>\n"
+        "        <interface>\n"
+        "            <name>IFoo</name>\n"
+        "            <instance>default</instance>\n"
+        "        </interface>\n"
+        "    </hal>\n"
+        "</manifest>\n";
+    EXPECT_FALSE(fromXml(&manifest, manifestXml, &error));
+    EXPECT_IN("Transport inet requires ip and port", error);
+}
+
+TEST_F(LibVintfTest, RejectHalsEmptyTransportWithInetAttrs) {
+    std::string error;
+
+    HalManifest manifest;
+    std::string manifestXml =
+        "<manifest " + kMetaVersionStr + " type=\"device\">\n"
+        "    <hal format=\"aidl\">\n"
+        "        <name>android.hardware.foo</name>\n"
+        "        <transport ip=\"1.2.3.4\" port=\"12\"></transport>\n"
+        "        <interface>\n"
+        "            <name>IFoo</name>\n"
+        "            <instance>default</instance>\n"
+        "        </interface>\n"
+        "    </hal>\n"
+        "</manifest>\n";
+    EXPECT_FALSE(fromXml(&manifest, manifestXml, &error));
+    EXPECT_IN("Transport  requires empty ip and port attributes", error);
+}
+
+TEST_F(LibVintfTest, RejectHidlHalsInetTransport) {
+    std::string error;
+
+    HalManifest manifest;
+    std::string manifestXml =
+        "<manifest " + kMetaVersionStr + " type=\"device\">\n"
+        "    <hal format=\"hidl\">\n"
+        "        <name>android.hardware.foo</name>\n"
+        "        <transport ip=\"1.2.3.4\" port=\"12\">inet</transport>\n"
+        "        <interface>\n"
+        "            <name>IFoo</name>\n"
+        "            <instance>default</instance>\n"
+        "        </interface>\n"
+        "    </hal>\n"
+        "</manifest>\n";
+    EXPECT_FALSE(fromXml(&manifest, manifestXml, &error));
+    EXPECT_IN(
+            "HIDL HAL 'android.hardware.foo' should not have <transport> \"inet\" or ip or port",
+            error);
+}
+
+TEST_F(LibVintfTest, RejectHidlHalsHwbinderInetAttrs) {
+    std::string error;
+
+    HalManifest manifest;
+    std::string manifestXml =
+        "<manifest " + kMetaVersionStr + " type=\"device\">\n"
+        "    <hal format=\"hidl\">\n"
+        "        <name>android.hardware.foo</name>\n"
+        "        <transport ip=\"1.2.3.4\" port=\"12\">hwbinder</transport>\n"
+        "        <interface>\n"
+        "            <name>IFoo</name>\n"
+        "            <instance>default</instance>\n"
+        "        </interface>\n"
+        "    </hal>\n"
+        "</manifest>\n";
+    EXPECT_FALSE(fromXml(&manifest, manifestXml, &error));
+    EXPECT_IN("Transport hwbinder requires empty ip and port attributes", error);
+}
+
 TEST_F(LibVintfTest, SystemSdk) {
     CompatibilityMatrix cm;
     std::string xml;
@@ -3043,8 +3165,8 @@ TEST_F(LibVintfTest, MatrixDetailErrorMsg) {
             "</compatibility-matrix>\n";
         EXPECT_TRUE(fromXml(&cm, xml, &error)) << error;
         EXPECT_FALSE(manifest.checkCompatibility(cm, &error));
-        EXPECT_IN("Manifest level = 103", error)
-        EXPECT_IN("Matrix level = 100", error)
+        EXPECT_IN("Manifest level = 103", error);
+        EXPECT_IN("Matrix level = 100", error);
         EXPECT_IN(
             "android.hardware.foo:\n"
             "    required: \n"
@@ -4096,11 +4218,30 @@ TEST_F(LibVintfTest, GetTransportHidlHalWithFakeAidlVersion) {
                                         "default"));
 }
 
+TEST_F(LibVintfTest, RejectAidlHalsWithUnsupportedTransport) {
+    std::string error;
+    HalManifest manifest;
+    std::string manifestXml =
+        "<manifest " + kMetaVersionStr + R"( type="framework">"
+             <hal format="aidl">
+                 <name>android.system.foo</name>
+                 <transport>hwbinder</transport>
+                 <fqname>IFoo/default</fqname>
+             </hal>
+         </manifest>)";
+    EXPECT_FALSE(fromXml(&manifest, manifestXml, &error));
+    EXPECT_IN("android.system.foo", error);
+    EXPECT_IN("hwbinder", error);
+}
+
 TEST_F(LibVintfTest, GetTransportAidlHalWithDummyTransport) {
     // Check that even if <transport> is specified for AIDL, it is ignored and getHidlTransport
     // will return EMPTY.
+    // This is only supported for libvintf 4.0 and below.
+    constexpr Version kLegacyMetaVersion{4, 0};
+    ASSERT_GE(kMetaVersionAidlInet, kLegacyMetaVersion);
     std::string xml =
-        "<manifest " + kMetaVersionStr + " type=\"framework\">\n"
+        "<manifest version=\"" + to_string(kLegacyMetaVersion) + "\" type=\"framework\">\n"
         "    <hal format=\"aidl\">\n"
         "        <name>android.system.foo</name>\n"
         "        <transport>hwbinder</transport>\n"
@@ -4128,7 +4269,7 @@ TEST_F(LibVintfTest, AidlGetHalNamesAndVersions) {
     EXPECT_TRUE(fromXml(&manifest, xml, &error)) << error;
     auto names = manifest.getHalNamesAndVersions();
     ASSERT_EQ(1u, names.size());
-    EXPECT_EQ("android.system.foo", *names.begin());
+    EXPECT_EQ("android.system.foo@1", *names.begin());
 }
 
 TEST_F(LibVintfTest, ManifestAddAidl) {
@@ -4351,9 +4492,14 @@ struct FrameworkCompatibilityMatrixCombineTest : public LibVintfTest {
     }
     // Access to private methods.
     std::unique_ptr<CompatibilityMatrix> combine(Level deviceLevel,
-                                                 std::vector<CompatibilityMatrix>* matrices,
-                                                 std::string* error) {
-        return CompatibilityMatrix::combine(deviceLevel, matrices, error);
+                                                 std::vector<CompatibilityMatrix>* theMatrices,
+                                                 std::string* errorPtr) {
+        return CompatibilityMatrix::combine(deviceLevel, Level::UNSPECIFIED, theMatrices, errorPtr);
+    }
+    std::unique_ptr<CompatibilityMatrix> combine(Level deviceLevel, Level kernellevel,
+                                                 std::vector<CompatibilityMatrix>* theMatrices,
+                                                 std::string* errorPtr) {
+        return CompatibilityMatrix::combine(deviceLevel, kernellevel, theMatrices, errorPtr);
     }
 
     std::vector<CompatibilityMatrix> matrices;
@@ -4544,6 +4690,94 @@ TEST_F(FrameworkCompatibilityMatrixCombineTest, AidlAndHidlNames) {
     }
 }
 
+// clang-format on
+
+class FcmCombineKernelTest : public FrameworkCompatibilityMatrixCombineTest,
+                             public ::testing::WithParamInterface<std::tuple<size_t, size_t>> {
+   public:
+    static std::string PrintTestParams(const TestParamInfo<FcmCombineKernelTest::ParamType>& info) {
+        auto [deviceLevelNum, kernelLevelNum] = info.param;
+        return "device_" + std::to_string(deviceLevelNum) + "_kernel_" +
+               std::to_string(kernelLevelNum);
+    }
+    static constexpr size_t kMinLevel = 1;
+    static constexpr size_t kMaxLevel = 5;
+};
+
+TEST_P(FcmCombineKernelTest, OlderKernel) {
+    auto [deviceLevelNum, kernelLevelNum] = GetParam();
+
+    std::vector<size_t> levelNums;
+    for (size_t i = kMinLevel; i <= kMaxLevel; ++i) levelNums.push_back(i);
+
+    constexpr auto fmt = R"(
+        <compatibility-matrix %s type="framework" level="%s">
+            <hal format="hidl" optional="false">
+                <name>android.system.foo</name>
+                <version>%zu.0</version>
+                <interface>
+                    <name>IFoo</name>
+                    <instance>default</instance>
+                </interface>
+            </hal>
+            <kernel version="%zu.0.0">
+                <config>
+                    <key>CONFIG_%zu</key>
+                    <value type="tristate">y</value>
+                </config>
+            </kernel>
+        </compatibility-matrix>
+    )";
+    std::string error;
+    std::vector<CompatibilityMatrix> matrices;
+    for (size_t levelNum : levelNums) {
+        auto levelStr = android::vintf::to_string((Level)levelNum);
+        auto xml = StringPrintf(fmt, kMetaVersionStr.c_str(), levelStr.c_str(), levelNum, levelNum,
+                                levelNum);
+        CompatibilityMatrix& matrix = matrices.emplace_back();
+        ASSERT_TRUE(fromXml(&matrix, xml, &error)) << error;
+    }
+    ASSERT_FALSE(matrices.empty());
+
+    auto combined = combine(Level(deviceLevelNum), Level(kernelLevelNum), &matrices, &error);
+    ASSERT_NE(nullptr, combined);
+    auto combinedXml = toXml(*combined);
+
+    // Check that HALs are combined correctly.
+    for (size_t i = kMinLevel; i < deviceLevelNum; ++i)
+        EXPECT_THAT(combinedXml, Not(HasSubstr(StringPrintf("<version>%zu.0</version>", i))));
+
+    for (size_t i = deviceLevelNum; i <= kMaxLevel; ++i)
+        EXPECT_THAT(combinedXml, HasSubstr(StringPrintf("<version>%zu.0</version>", i)));
+
+    // Check that kernels are combined correctly. <kernel> tags from
+    // matrices with level >= min(kernelLevel, deviceLevel) are added.
+    // The "level" tag on <kernel> must also be set properly so that old kernel requirements from
+    // deviceLevel <= x < kernelLevel won't be used.
+    auto hasKernelFrom = std::min(kernelLevelNum, deviceLevelNum);
+    for (size_t i = kMinLevel; i < hasKernelFrom; ++i) {
+        EXPECT_THAT(combinedXml,
+                    Not(HasSubstr(StringPrintf(R"(<kernel version="%zu.0.0" level="%zu")", i, i))));
+        EXPECT_THAT(combinedXml, Not(HasSubstr(StringPrintf("CONFIG_%zu", i))));
+    }
+
+    for (size_t i = hasKernelFrom; i <= kMaxLevel; ++i) {
+        EXPECT_THAT(combinedXml,
+                    HasSubstr(StringPrintf(R"(<kernel version="%zu.0.0" level="%zu")", i, i)));
+        EXPECT_THAT(combinedXml, HasSubstr(StringPrintf("CONFIG_%zu", i)));
+    }
+
+    if (::testing::Test::HasFailure()) ADD_FAILURE() << "Resulting matrix is \n" << combinedXml;
+}
+
+INSTANTIATE_TEST_CASE_P(
+    FrameworkCompatibilityMatrixCombineTest, FcmCombineKernelTest,
+    Combine(Range(FcmCombineKernelTest::kMinLevel, FcmCombineKernelTest::kMaxLevel + 1),
+            Range(FcmCombineKernelTest::kMinLevel, FcmCombineKernelTest::kMaxLevel + 1)),
+    FcmCombineKernelTest::PrintTestParams);
+
+// clang-format off
+
 struct DeviceCompatibilityMatrixCombineTest : public LibVintfTest {
     virtual void SetUp() override {
         matrices.resize(2);
@@ -4551,9 +4785,9 @@ struct DeviceCompatibilityMatrixCombineTest : public LibVintfTest {
         matrices[1].setFileName("compatibility_matrix.2.xml");
     }
     // Access to private methods.
-    std::unique_ptr<CompatibilityMatrix> combine(std::vector<CompatibilityMatrix>* matrices,
-                                                 std::string* error) {
-        return CompatibilityMatrix::combineDeviceMatrices(matrices, error);
+    std::unique_ptr<CompatibilityMatrix> combine(std::vector<CompatibilityMatrix>* theMatrices,
+                                                 std::string* errorPtr) {
+        return CompatibilityMatrix::combineDeviceMatrices(theMatrices, errorPtr);
     }
 
     std::vector<CompatibilityMatrix> matrices;

@@ -281,32 +281,38 @@
   V(0xFF, CONST_METHOD_TYPE, "const-method-type", k21c, kIndexProtoRef, kContinue | kThrow, 0, kVerifyRegA | kVerifyRegBPrototype)
 
 #define DEX_INSTRUCTION_FORMAT_LIST(V) \
-  V(k10x) \
-  V(k12x) \
-  V(k11n) \
-  V(k11x) \
-  V(k10t) \
-  V(k20t) \
-  V(k22x) \
-  V(k21t) \
-  V(k21s) \
-  V(k21h) \
-  V(k21c) \
-  V(k23x) \
-  V(k22b) \
-  V(k22t) \
-  V(k22s) \
-  V(k22c) \
-  V(k32x) \
-  V(k30t) \
-  V(k31t) \
-  V(k31i) \
-  V(k31c) \
-  V(k35c) \
-  V(k3rc) \
-  V(k45cc) \
-  V(k4rcc) \
-  V(k51l)
+  V(10x)  /* op */                                                  \
+  V(12x)  /* op vA, vB */                                           \
+  V(11n)  /* op vA, #+B */                                          \
+  V(11x)  /* op vAA */                                              \
+  V(10t)  /* op +AA */                                              \
+  V(20t)  /* op +AAAA */                                            \
+  V(20bc) /* [opt] op AA, thing@BBBB */                             \
+  V(22x)  /* op vAA, vBBBB */                                       \
+  V(21t)  /* op vAA, +BBBB */                                       \
+  V(21s)  /* op vAA, #+BBBB */                                      \
+  V(21h)  /* op vAA, #+BBBB00000[00000000] */                       \
+  V(21c)  /* op vAA, thing@BBBB */                                  \
+  V(23x)  /* op vAA, vBB, vCC */                                    \
+  V(22b)  /* op vAA, vBB, #+CC */                                   \
+  V(22t)  /* op vA, vB, +CCCC */                                    \
+  V(22s)  /* op vA, vB, #+CCCC */                                   \
+  V(22c)  /* op vA, vB, thing@CCCC */                               \
+  V(22cs) /* [opt] op vA, vB, field offset CCCC */                  \
+  V(30t)  /* op +AAAAAAAA */                                        \
+  V(32x)  /* op vAAAA, vBBBB */                                     \
+  V(31i)  /* op vAA, #+BBBBBBBB */                                  \
+  V(31t)  /* op vAA, +BBBBBBBB */                                   \
+  V(31c)  /* op vAA, string@BBBBBBBB */                             \
+  V(35c)  /* op {vC,vD,vE,vF,vG}, thing@BBBB */                     \
+  V(35ms) /* [opt] invoke-virtual+super */                          \
+  V(3rc)  /* op {vCCCC .. v(CCCC+AA-1)}, thing@BBBB */              \
+  V(3rms) /* [opt] invoke-virtual+super/range */                    \
+  V(35mi) /* [opt] inline invoke */                                 \
+  V(3rmi) /* [opt] inline invoke/range */                           \
+  V(45cc) /* op {vC, vD, vE, vF, vG}, meth@BBBB, proto@HHHH */      \
+  V(4rcc) /* op {VCCCC .. v(CCCC+AA-1)}, meth@BBBB, proto@HHHH */   \
+  V(51l)  /* op vAA, #+BBBBBBBBBBBBBBBB */
 
 #endif  // ART_LIBDEXFILE_DEX_DEX_INSTRUCTION_LIST_H_
 #undef ART_LIBDEXFILE_DEX_DEX_INSTRUCTION_LIST_H_  // the guard in this file is just for cpplint

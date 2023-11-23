@@ -9,3 +9,11 @@ xsd_config {
     package_name: "group",
     gen_writer: true,
 }
+
+xsd_config {
+    name: "xsdc_group_tinyxml_tests",
+    srcs: ["group.xsd"],
+    package_name: "group",
+    gen_writer: true,
+    tinyxml: true,
+}

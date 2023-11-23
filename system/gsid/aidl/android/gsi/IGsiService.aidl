@@ -74,8 +74,10 @@ interface IGsiService {
     boolean commitGsiChunkFromAshmem(long bytes);
 
     /**
-     * Complete a GSI installation and mark it as bootable. The caller is
-     * responsible for rebooting the device as soon as possible.
+     * Mark a completed DSU installation as bootable. The caller is responsible
+     * for rebooting the device as soon as possible.
+     *
+     * Could leave the installation in "disabled" state if failure.
      *
      * @param oneShot       If true, the GSI will boot once and then disable itself.
      *                      It can still be re-enabled again later with setGsiBootable.

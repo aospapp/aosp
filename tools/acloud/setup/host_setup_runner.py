@@ -32,24 +32,20 @@ from acloud.internal import constants
 from acloud.internal.lib import utils
 from acloud.setup import base_task_runner
 from acloud.setup import setup_common
+from acloud.setup import mkcert
 
 
 logger = logging.getLogger(__name__)
 
-# Packages "devscripts" and "equivs" are required for "mk-build-deps".
-_AVD_REQUIRED_PKGS = [
-    "devscripts", "equivs", "libvirt-clients", "libvirt-daemon-system"]
-_BASE_REQUIRED_PKGS = ["ssvnc", "lzop", "python3-tk"]
-_CUTTLEFISH_COMMOM_PKG = "cuttlefish-common"
 _CF_COMMOM_FOLDER = "cf-common"
+
 _LIST_OF_MODULES = ["kvm_intel", "kvm"]
 _UPDATE_APT_GET_CMD = "sudo apt-get update"
 _INSTALL_CUTTLEFISH_COMMOM_CMD = [
     "git clone https://github.com/google/android-cuttlefish.git {git_folder}",
     "cd {git_folder}",
-    "yes | sudo mk-build-deps -i -r -B",
-    "dpkg-buildpackage -uc -us",
-    "sudo apt-get install -y -f ../cuttlefish-common_*_amd64.deb"]
+    "debuild -i -us -uc -b",
+    "sudo dpkg -i ../cuttlefish-common_*_*64.deb || sudo apt-get install -f"]
 
 
 class BasePkgInstaller(base_task_runner.BaseTaskRunner):
@@ -102,7 +98,7 @@ class AvdPkgInstaller(BasePkgInstaller):
     WELCOME_MESSAGE = ("This step will walk you through the required packages "
                        "installation for running Android cuttlefish devices "
                        "on your host.")
-    PACKAGES = _AVD_REQUIRED_PKGS
+    PACKAGES = constants.AVD_REQUIRED_PKGS
 
 
 class HostBasePkgInstaller(BasePkgInstaller):
@@ -111,7 +107,7 @@ class HostBasePkgInstaller(BasePkgInstaller):
     WELCOME_MESSAGE_TITLE = "Install base packages on the host"
     WELCOME_MESSAGE = ("This step will walk you through the base packages "
                        "installation for your host.")
-    PACKAGES = _BASE_REQUIRED_PKGS
+    PACKAGES = constants.BASE_REQUIRED_PKGS
 
 
 class CuttlefishCommonPkgInstaller(base_task_runner.BaseTaskRunner):
@@ -132,7 +128,7 @@ class CuttlefishCommonPkgInstaller(base_task_runner.BaseTaskRunner):
 
         # Any required package is not installed or not up-to-date will need to
         # run installation task.
-        if not setup_common.PackageInstalled(_CUTTLEFISH_COMMOM_PKG):
+        if not setup_common.PackageInstalled(constants.CUTTLEFISH_COMMOM_PKG):
             return True
         return False
 
@@ -154,12 +150,43 @@ class CuttlefishCommonPkgInstaller(base_task_runner.BaseTaskRunner):
         logger.info("Cuttlefish-common package installed now.")
 
 
+class LocalCAHostSetup(base_task_runner.BaseTaskRunner):
+    """Subtask class that setup host for setup local CA."""
+
+    WELCOME_MESSAGE_TITLE = "Local CA Host Environment Setup"
+    WELCOME_MESSAGE = ("This step will walk you through the local CA setup "
+                       "to your host for assuring a secure localhost url "
+                       "connection when launching an AVD over webrtc.")
+
+    def ShouldRun(self):
+        """Check if the local CA is setup or not.
+
+        Returns:
+            Boolean, True if local CA is ready.
+        """
+        if not utils.IsSupportedPlatform():
+            return False
+
+        return not mkcert.IsRootCAReady()
+
+    def _Run(self):
+        """Setup host environment for the local CA."""
+        if not utils.GetUserAnswerYes("\nStart to setup the local CA:\n"
+                                      "\nEnter 'y' to continue, otherwise N or "
+                                      "enter to exit: "):
+            sys.exit(constants.EXIT_BY_USER)
+
+        mkcert.Install()
+        logger.info("The local CA '%s.pem' is installed now.",
+                    constants.SSL_CA_NAME)
+
+
 class CuttlefishHostSetup(base_task_runner.BaseTaskRunner):
     """Subtask class that setup host for cuttlefish."""
 
-    WELCOME_MESSAGE_TITLE = "Host Enviornment Setup"
+    WELCOME_MESSAGE_TITLE = "Host Environment Setup"
     WELCOME_MESSAGE = (
-        "This step will help you to setup enviornment for running Android "
+        "This step will help you to setup environment for running Android "
         "cuttlefish devices on your host. That includes adding user to kvm "
         "related groups and checking required linux modules."
     )

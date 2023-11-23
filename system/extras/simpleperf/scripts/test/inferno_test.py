@@ -16,7 +16,10 @@
 
 import collections
 import json
-from typing import Any, Dict, List
+import os
+import re
+import tempfile
+from typing import Any, Dict, List, Set
 
 from . test_utils import INFERNO_SCRIPT, TestBase, TestHelper
 
@@ -38,3 +41,52 @@ class TestInferno(TestBase):
         # Show original method name with proguard mapping file.
         self.assertIn(original_methodname, self.get_report(
             ['--record_file', testdata_file, '-sc', '--proguard-mapping-file', proguard_mapping_file]))
+
+    def test_trace_offcpu(self):
+        """ Test --trace-offcpu option. """
+        testdata_file = TestHelper.testdata_path('perf_with_trace_offcpu_v2.data')
+        report = self.get_report(['--record_file', testdata_file,
+                                  '-sc', '--trace-offcpu', 'off-cpu'])
+        self.assertIn('Thread 6525 (com.google.samples.apps.sunflower) (42 samples)', report)
+
+    def test_sample_filters(self):
+        def get_threads_for_filter(filter: str) -> Set[int]:
+            report = self.get_report(
+                ['--record_file', TestHelper.testdata_path('perf_display_bitmaps.data'),
+                 '-sc'] + filter.split())
+            threads = set()
+            pattern = re.compile(r'Thread\s+(\d+)\s+')
+            threads = set()
+            for m in re.finditer(pattern, report):
+                threads.add(int(m.group(1)))
+            return threads
+
+        self.assertNotIn(31850, get_threads_for_filter('--exclude-pid 31850'))
+        self.assertIn(31850, get_threads_for_filter('--include-pid 31850'))
+        self.assertNotIn(31881, get_threads_for_filter('--exclude-tid 31881'))
+        self.assertIn(31881, get_threads_for_filter('--include-tid 31881'))
+        self.assertNotIn(31881, get_threads_for_filter(
+            '--exclude-process-name com.example.android.displayingbitmaps'))
+        self.assertIn(31881, get_threads_for_filter(
+            '--include-process-name com.example.android.displayingbitmaps'))
+        self.assertNotIn(31850, get_threads_for_filter(
+            '--exclude-thread-name com.example.android.displayingbitmaps'))
+        self.assertIn(31850, get_threads_for_filter(
+            '--include-thread-name com.example.android.displayingbitmaps'))
+
+        with tempfile.NamedTemporaryFile('w', delete=False) as filter_file:
+            filter_file.write('GLOBAL_BEGIN 684943449406175\nGLOBAL_END 684943449406176')
+            filter_file.flush()
+            threads = get_threads_for_filter('--filter-file ' + filter_file.name)
+            self.assertIn(31881, threads)
+            self.assertNotIn(31850, threads)
+        os.unlink(filter_file.name)
+
+    def test_show_art_frames(self):
+        art_frame_str = 'art::interpreter::DoCall'
+        options = ['--record_file',
+                   TestHelper.testdata_path('perf_with_interpreter_frames.data'), '-sc']
+        report = self.get_report(options)
+        self.assertNotIn(art_frame_str, report)
+        report = self.get_report(options + ['--show-art-frames'])
+        self.assertIn(art_frame_str, report)

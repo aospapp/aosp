@@ -21,11 +21,11 @@ from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.net import connectivity_const as cconst
 from acts_contrib.test_utils.net import connectivity_test_utils as cutils
 from acts_contrib.test_utils.net import net_test_utils as nutils
+from acts_contrib.test_utils.tel.tel_ims_utils import set_wfc_mode
 from acts_contrib.test_utils.net.net_test_utils import start_tcpdump
 from acts_contrib.test_utils.net.net_test_utils import stop_tcpdump
 from acts_contrib.test_utils.tel.tel_defines import WFC_MODE_DISABLED
 from acts_contrib.test_utils.tel.tel_test_utils import get_operator_name
-from acts_contrib.test_utils.tel.tel_test_utils import set_wfc_mode
 from acts_contrib.test_utils.wifi import wifi_test_utils as wutils
 from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
 from scapy.all import rdpcap
@@ -36,6 +36,7 @@ from scapy.all import UDP
 
 RST = 0x04
 SSID = wutils.WifiEnums.SSID_KEY
+
 
 class DnsOverTlsTest(WifiBaseTest):
     """Tests for DNS-over-TLS."""
@@ -48,22 +49,28 @@ class DnsOverTlsTest(WifiBaseTest):
             self.dut_b = self.android_devices[1]
         for ad in self.android_devices:
             ad.droid.setPrivateDnsMode(True)
-            nutils.verify_lte_data_and_tethering_supported(ad)
+            if OPENWRT not in self.user_params:
+                nutils.verify_lte_data_and_tethering_supported(ad)
             set_wfc_mode(self.log, ad, WFC_MODE_DISABLED)
         req_params = ("ping_hosts",)
-        opt_params = ("ipv4_only_network", "ipv4_ipv6_network", "dns_name")
+        opt_params = ("ipv4_only_network", "ipv4_ipv6_network",
+                      "dns_name", "configure_OpenWrt", "wifi_network")
         self.unpack_userparams(req_param_names=req_params,
                                opt_param_names=opt_params)
 
         if OPENWRT in self.user_params:
             self.openwrt = self.access_points[0]
+            if hasattr(self, "configure_OpenWrt") and self.configure_OpenWrt == "skip":
+                self.dut.log.info("Skip configure Wifi interface due to config setup.")
+            else:
+                self.configure_openwrt_ap_and_start(wpa_network=True)
+                self.wifi_network = self.openwrt.get_wifi_network()
             self.private_dns_servers = [self.dns_name]
-            self.configure_openwrt_ap_and_start(wpa_network=True)
             self.openwrt.network_setting.setup_dns_server(self.dns_name)
         else:
-            self.private_dns_servers = [cconst.DNS_GOOGLE,
-                                        cconst.DNS_QUAD9,
-                                        cconst.DNS_CLOUDFLARE]
+            self.private_dns_servers = [cconst.DNS_GOOGLE_HOSTNAME,
+                                        cconst.DNS_QUAD9_HOSTNAME,
+                                        cconst.DNS_CLOUDFLARE_HOSTNAME]
         self.tcpdump_pid = None
 
     def teardown_test(self):
@@ -178,6 +185,42 @@ class DnsOverTlsTest(WifiBaseTest):
 
         # reset wifi
         wutils.reset_wifi(self.dut)
+
+    def _test_invalid_private_dns(self, net, dns_mode, dns_hostname):
+        """Test private DNS with invalid hostname, which should failed the ping.
+
+        :param net: Wi-Fi network to connect to
+        :param dns_mode: private DNS mode
+        :param dns_hostname: private DNS hostname
+        :return:
+        """
+
+        cutils.set_private_dns(self.dut, dns_mode, dns_hostname)
+        if net:
+            wutils.start_wifi_connection_scan_and_ensure_network_found(
+                self.dut, net[SSID])
+            wutils.wifi_connect(
+                self.dut, net, assert_on_fail=False, check_connectivity=False)
+
+        self._start_tcp_dump(self.dut)
+
+        # ping hosts should NOT pass
+        ping_result = False
+        for host in self.ping_hosts:
+            self.log.info("Pinging %s" % host)
+            try:
+                ping_result = self.dut.droid.httpPing(host)
+            except:
+                pass
+            # Ping result should keep negative with invalid DNS,
+            # so once it's positive we should break, and the test should fail
+            if ping_result:
+                break
+
+        pcap_file = self._stop_tcp_dump(self.dut)
+        self._verify_dns_queries_over_tls(pcap_file, True)
+        wutils.reset_wifi(self.dut)
+        return ping_result
 
     @test_tracker_info(uuid="2957e61c-d333-45fb-9ff9-2250c9c8535a")
     def test_private_dns_mode_off_wifi_ipv4_only_network(self):
@@ -477,7 +520,7 @@ class DnsOverTlsTest(WifiBaseTest):
 
         # set private DNS to strict mode
         cutils.set_private_dns(
-            self.dut, cconst.PRIVATE_DNS_MODE_STRICT, cconst.DNS_GOOGLE)
+            self.dut, cconst.PRIVATE_DNS_MODE_STRICT, cconst.DNS_GOOGLE_HOSTNAME)
 
         # connect DUT to wifi network
         wutils.start_wifi_connection_scan_and_ensure_network_found(
@@ -506,9 +549,9 @@ class DnsOverTlsTest(WifiBaseTest):
         pcap_file = self._stop_tcp_dump(self.dut)
 
         # Verify DNS server in link properties
-        asserts.assert_true(cconst.DNS_GOOGLE in wifi_dns_servers,
+        asserts.assert_true(cconst.DNS_GOOGLE_HOSTNAME in wifi_dns_servers,
                             "Hostname not in link properties - wifi network")
-        asserts.assert_true(cconst.DNS_GOOGLE in lte_dns_servers,
+        asserts.assert_true(cconst.DNS_GOOGLE_HOSTNAME in lte_dns_servers,
                             "Hostname not in link properites - cell network")
 
     @test_tracker_info(uuid="525a6f2d-9751-474e-a004-52441091e427")
@@ -532,6 +575,7 @@ class DnsOverTlsTest(WifiBaseTest):
         for host in self.ping_hosts:
             wutils.validate_connection(self.dut, host)
 
+
         # stop tcpdump on device
         pcap_file = self._stop_tcp_dump(self.dut)
 
@@ -540,18 +584,17 @@ class DnsOverTlsTest(WifiBaseTest):
 
     @test_tracker_info(uuid="af6e34f1-3ad5-4ab0-b3b9-53008aa08294")
     def test_private_dns_mode_strict_invalid_hostnames(self):
-        """Verify that invalid hostnames are not saved for strict mode.
+        """Verify that invalid hostnames are not able to ping for strict mode.
 
         Steps:
             1. Set private DNS to strict mode with invalid hostname
             2. Verify that invalid hostname is not saved
         """
         invalid_hostnames = ["!%@&!*", "12093478129", "9.9.9.9", "sdkfjhasdf"]
-        for hostname in invalid_hostnames:
-            cutils.set_private_dns(
-                self.dut, cconst.PRIVATE_DNS_MODE_STRICT, hostname)
-            mode = self.dut.droid.getPrivateDnsMode()
-            specifier = self.dut.droid.getPrivateDnsSpecifier()
-            asserts.assert_true(
-                mode == cconst.PRIVATE_DNS_MODE_STRICT and specifier != hostname,
-                "Able to set invalid private DNS strict mode")
+        for dns_hostname in invalid_hostnames:
+            ping_result = self._test_invalid_private_dns(
+                self.get_wifi_network(False),
+                cconst.PRIVATE_DNS_MODE_STRICT,
+                dns_hostname)
+            asserts.assert_false(ping_result, "Ping success with invalid DNS.")
+

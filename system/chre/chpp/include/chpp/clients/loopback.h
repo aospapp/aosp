@@ -46,7 +46,7 @@ struct ChppLoopbackTestResult {
  * Minimum header length for a loopback packet. Everything afterwards is
  * considered a payload and is looped back.
  */
-#define CHPP_LOOPBACK_HEADER_LEN 2
+#define CHPP_LOOPBACK_HEADER_LEN sizeof(struct ChppAppHeader)
 
 /************************************************
  *  Public functions

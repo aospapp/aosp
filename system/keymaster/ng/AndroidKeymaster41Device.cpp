@@ -35,7 +35,7 @@ inline V41ErrorCode legacy_enum_conversion(const keymaster_error_t value) {
 }  // namespace
 
 IKeymasterDevice* CreateKeymasterDevice(SecurityLevel securityLevel) {
-    return new AndroidKeymaster41Device(securityLevel);
+    return new (std::nothrow) AndroidKeymaster41Device(securityLevel);
 }
 
 Return<V41ErrorCode>

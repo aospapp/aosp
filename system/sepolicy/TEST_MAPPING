@@ -14,6 +14,12 @@
                 }
 
             ]
+        },
+        {
+            "name": "MicrodroidHostTestCases"
+        },
+        {
+            "name": "ComposHostTestCases"
         }
     ]
 }

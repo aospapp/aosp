@@ -24,6 +24,8 @@
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true"/>
         <option name="test-file-name" value="CtsWindowManagerJetpackTestCases.apk"/>
+        <option name="test-file-name" value="CtsWindowManagerJetpackSecondUidApp.apk" />
+        <option name="test-file-name" value="CtsWindowManagerJetpackSignedApp.apk" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest">
         <option name="package" value="android.server.wm.jetpack"/>

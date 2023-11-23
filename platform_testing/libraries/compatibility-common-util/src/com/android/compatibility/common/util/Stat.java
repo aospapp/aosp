@@ -35,12 +35,21 @@ public class Stat {
         public double mMin;
         public double mMax;
         public double mStddev;
+        public double mMedian;
         public int mDataCount;
-        public StatResult(double average, double min, double max, double stddev, int dataCount) {
+
+        public StatResult(
+                double average,
+                double min,
+                double max,
+                double stddev,
+                double median,
+                int dataCount) {
             mAverage = average;
             mMin = min;
             mMax = max;
             mStddev = stddev;
+            mMedian = median;
             mDataCount = dataCount;
         }
     }
@@ -69,7 +78,8 @@ public class Stat {
         }
         double variance = sumOfSquares / (data.length - 1);
         double stddev = Math.sqrt(variance);
-        return new StatResult(average, min, max, stddev, data.length);
+        double median = getMedian(data);
+        return new StatResult(average, min, max, stddev, median, data.length);
     }
 
     /**
@@ -78,15 +88,7 @@ public class Stat {
      * rejectionThreshold should be bigger than 0.0 and be lowerthan 1.0
      */
     public static StatResult getStatWithOutlierRejection(double[] data, double rejectionThreshold) {
-        double[] dataCopied = Arrays.copyOf(data, data.length);
-        Arrays.sort(dataCopied);
-        int medianIndex = dataCopied.length / 2;
-        double median;
-        if (dataCopied.length % 2 == 1) {
-            median = dataCopied[medianIndex];
-        } else {
-            median = (dataCopied[medianIndex - 1] + dataCopied[medianIndex]) / 2.0;
-        }
+        double median = getMedian(data);
         double thresholdMin = median * (1.0 - rejectionThreshold);
         double thresholdMax = median * (1.0 + rejectionThreshold);
 
@@ -100,6 +102,20 @@ public class Stat {
             // TODO report rejected data
         }
         return getStat(Arrays.copyOf(validData, index));
+    }
+
+    /** returns the median value of the passed array */
+    private static double getMedian(double[] data) {
+        double[] dataCopied = Arrays.copyOf(data, data.length);
+        Arrays.sort(dataCopied);
+        int medianIndex = dataCopied.length / 2;
+        double median;
+        if (dataCopied.length % 2 == 1) {
+            median = dataCopied[medianIndex];
+        } else {
+            median = (dataCopied[medianIndex - 1] + dataCopied[medianIndex]) / 2.0;
+        }
+        return median;
     }
 
     /**

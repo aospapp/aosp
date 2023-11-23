@@ -282,7 +282,7 @@ void chppDeinitMatchedClients(struct ChppAppState *context) {
 
 struct ChppAppHeader *chppAllocClientRequest(
     struct ChppClientState *clientState, size_t len) {
-  CHPP_ASSERT(len >= CHPP_APP_MIN_LEN_HEADER_WITH_TRANSACTION);
+  CHPP_ASSERT(len >= sizeof(struct ChppAppHeader));
 
   struct ChppAppHeader *result = chppMalloc(len);
   if (result != NULL) {
@@ -396,7 +396,7 @@ bool chppClientTimestampResponse(struct ChppClientState *clientState,
     }
 
     default: {
-      CHPP_DEBUG_ASSERT(false);
+      CHPP_DEBUG_ASSERT_LOG(false, "Invalid req state");
     }
   }
 
@@ -415,7 +415,7 @@ bool chppSendTimestampedRequestOrFail(struct ChppClientState *clientState,
                                       struct ChppRequestResponseState *rRState,
                                       void *buf, size_t len,
                                       uint64_t timeoutNs) {
-  CHPP_ASSERT(len >= CHPP_APP_MIN_LEN_HEADER_WITH_TRANSACTION);
+  CHPP_ASSERT(len >= sizeof(struct ChppAppHeader));
   if (!chppIsClientApiReady(clientState)) {
     CHPP_FREE_AND_NULLIFY(buf);
     return false;

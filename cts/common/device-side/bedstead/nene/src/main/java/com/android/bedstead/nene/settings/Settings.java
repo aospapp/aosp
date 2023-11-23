@@ -35,4 +35,9 @@ public final class Settings {
         return GlobalSettings.sInstance;
     }
 
+    /** APIs related to {@link android.provider.Settings.System}. */
+    public SystemSettings system() {
+        return SystemSettings.sInstance;
+    }
+
 }

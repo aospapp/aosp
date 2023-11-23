@@ -19,18 +19,25 @@
 #include "GnssMeasurementInterface.h"
 #include <aidl/android/hardware/gnss/BnGnss.h>
 #include <log/log.h>
+#include "DeviceFileReader.h"
+#include "GnssRawMeasurementParser.h"
+#include "GnssReplayUtils.h"
 #include "Utils.h"
 
 namespace aidl::android::hardware::gnss {
 
 using Utils = ::android::hardware::gnss::common::Utils;
+using ReplayUtils = ::android::hardware::gnss::common::ReplayUtils;
+using GnssRawMeasurementParser = ::android::hardware::gnss::common::GnssRawMeasurementParser;
+using DeviceFileReader = ::android::hardware::gnss::common::DeviceFileReader;
 
 std::shared_ptr<IGnssMeasurementCallback> GnssMeasurementInterface::sCallback = nullptr;
 
-GnssMeasurementInterface::GnssMeasurementInterface() : mMinIntervalMillis(1000) {}
+GnssMeasurementInterface::GnssMeasurementInterface()
+    : mIntervalMs(1000), mLocationIntervalMs(1000), mFutures(std::vector<std::future<void>>()) {}
 
 GnssMeasurementInterface::~GnssMeasurementInterface() {
-    stop();
+    waitForStoppingThreads();
 }
 
 ndk::ScopedAStatus GnssMeasurementInterface::setCallback(
@@ -38,8 +45,10 @@ ndk::ScopedAStatus GnssMeasurementInterface::setCallback(
         const bool enableCorrVecOutputs) {
     ALOGD("setCallback: enableFullTracking: %d enableCorrVecOutputs: %d", (int)enableFullTracking,
           (int)enableCorrVecOutputs);
-    std::unique_lock<std::mutex> lock(mMutex);
-    sCallback = callback;
+    {
+        std::unique_lock<std::mutex> lock(mMutex);
+        sCallback = callback;
+    }
 
     if (mIsActive) {
         ALOGW("GnssMeasurement callback already set. Resetting the callback...");
@@ -50,31 +59,85 @@ ndk::ScopedAStatus GnssMeasurementInterface::setCallback(
     return ndk::ScopedAStatus::ok();
 }
 
+ndk::ScopedAStatus GnssMeasurementInterface::setCallbackWithOptions(
+        const std::shared_ptr<IGnssMeasurementCallback>& callback, const Options& options) {
+    ALOGD("setCallbackWithOptions: fullTracking:%d, corrVec:%d, intervalMs:%d",
+          (int)options.enableFullTracking, (int)options.enableCorrVecOutputs, options.intervalMs);
+    {
+        std::unique_lock<std::mutex> lock(mMutex);
+        sCallback = callback;
+    }
+
+    if (mIsActive) {
+        ALOGW("GnssMeasurement callback already set. Resetting the callback...");
+        stop();
+    }
+    mIntervalMs = std::max(options.intervalMs, 1000);
+    start(options.enableCorrVecOutputs);
+
+    return ndk::ScopedAStatus::ok();
+}
+
 ndk::ScopedAStatus GnssMeasurementInterface::close() {
     ALOGD("close");
-    stop();
-    std::unique_lock<std::mutex> lock(mMutex);
-    sCallback = nullptr;
+    if (mIsActive) {
+        stop();
+    }
+    {
+        std::unique_lock<std::mutex> lock(mMutex);
+        sCallback = nullptr;
+    }
+    mIntervalMs = 1000;
     return ndk::ScopedAStatus::ok();
 }
 
 void GnssMeasurementInterface::start(const bool enableCorrVecOutputs) {
     ALOGD("start");
-    mIsActive = true;
-    mThread = std::thread([this, enableCorrVecOutputs]() {
-        while (mIsActive == true) {
-            auto measurement = Utils::getMockMeasurement(enableCorrVecOutputs);
-            this->reportMeasurement(measurement);
 
-            std::this_thread::sleep_for(std::chrono::milliseconds(mMinIntervalMillis));
-        }
+    if (mIsActive) {
+        ALOGD("restarting since measurement has started");
+        stop();
+    }
+    // Wait for stopping previous thread.
+    waitForStoppingThreads();
+
+    mIsActive = true;
+    mThreadBlocker.reset();
+    mThread = std::thread([this, enableCorrVecOutputs]() {
+        int intervalMs;
+        do {
+            if (!mIsActive) {
+                break;
+            }
+            std::string rawMeasurementStr = "";
+            if (ReplayUtils::hasGnssDeviceFile() &&
+                ReplayUtils::isGnssRawMeasurement(
+                        rawMeasurementStr =
+                                DeviceFileReader::Instance().getGnssRawMeasurementData())) {
+                ALOGD("rawMeasurementStr(size: %zu) from device file: %s", rawMeasurementStr.size(),
+                      rawMeasurementStr.c_str());
+                auto measurement =
+                        GnssRawMeasurementParser::getMeasurementFromStrs(rawMeasurementStr);
+                if (measurement != nullptr) {
+                    this->reportMeasurement(*measurement);
+                }
+            } else {
+                auto measurement = Utils::getMockMeasurement(enableCorrVecOutputs);
+                this->reportMeasurement(measurement);
+            }
+            intervalMs =
+                    (mLocationEnabled) ? std::min(mLocationIntervalMs, mIntervalMs) : mIntervalMs;
+        } while (mIsActive && mThreadBlocker.wait_for(std::chrono::milliseconds(intervalMs)));
     });
-    mThread.detach();
 }
 
 void GnssMeasurementInterface::stop() {
     ALOGD("stop");
     mIsActive = false;
+    mThreadBlocker.notify();
+    if (mThread.joinable()) {
+        mFutures.push_back(std::async(std::launch::async, [this] { mThread.join(); }));
+    }
 }
 
 void GnssMeasurementInterface::reportMeasurement(const GnssData& data) {
@@ -89,6 +152,23 @@ void GnssMeasurementInterface::reportMeasurement(const GnssData& data) {
         callbackCopy = sCallback;
     }
     callbackCopy->gnssMeasurementCb(data);
+}
+
+void GnssMeasurementInterface::setLocationInterval(const int intervalMs) {
+    mLocationIntervalMs = intervalMs;
+}
+
+void GnssMeasurementInterface::setLocationEnabled(const bool enabled) {
+    mLocationEnabled = enabled;
+}
+
+void GnssMeasurementInterface::waitForStoppingThreads() {
+    for (auto& future : mFutures) {
+        ALOGD("Stopping previous thread.");
+        future.wait();
+        ALOGD("Done stopping thread.");
+    }
+    mFutures.clear();
 }
 
 }  // namespace aidl::android::hardware::gnss

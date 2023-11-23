@@ -23,56 +23,111 @@ package {
     default_applicable_licenses: ["hardware_interfaces_license"],
 }
 
-cc_library_static {
-    name: "neuralnetworks_utils_hal_aidl",
+cc_defaults {
+    name: "neuralnetworks_utils_hal_aidl_defaults",
     defaults: ["neuralnetworks_utils_defaults"],
-    srcs: ["src/*"],
+    srcs: [
+        // AIDL utils that a driver may depend on.
+        "src/BufferTracker.cpp",
+        "src/Conversions.cpp",
+        "src/HalUtils.cpp",
+        "src/Utils.cpp",
+        "src/ValidateHal.cpp",
+    ],
     local_include_dirs: ["include/nnapi/hal/aidl/"],
     export_include_dirs: ["include"],
     cflags: ["-Wthread-safety"],
     static_libs: [
-        "android.hardware.graphics.common-V2-ndk_platform",
+        "android.hardware.graphics.common-V3-ndk",
         "libaidlcommonsupport",
         "libarect",
         "neuralnetworks_types",
         "neuralnetworks_utils_hal_common",
     ],
     shared_libs: [
-        "android.hardware.neuralnetworks-V1-ndk_platform",
         "libbinder_ndk",
-        "libhidlbase",
-        "libnativewindow",
     ],
+    target: {
+        android: {
+            shared_libs: ["libnativewindow"],
+        },
+    },
+}
+
+// Deprecated. Remove once all modules depending on this are migrated away.
+cc_library_static {
+    name: "neuralnetworks_utils_hal_aidl_v1",
+    defaults: ["neuralnetworks_utils_hal_aidl_defaults"],
+    shared_libs: [
+        "android.hardware.neuralnetworks-V1-ndk",
+    ],
+}
+
+cc_library_static {
+    name: "neuralnetworks_utils_hal_aidl",
+    defaults: ["neuralnetworks_utils_hal_aidl_defaults"],
+    srcs: [
+        // Additional AIDL utils for the runtime.
+        "src/Assertions.cpp",
+        "src/Buffer.cpp",
+        "src/Burst.cpp",
+        "src/Callbacks.cpp",
+        "src/Device.cpp",
+        "src/Execution.cpp",
+        "src/InvalidDevice.cpp",
+        "src/PreparedModel.cpp",
+        "src/ProtectCallback.cpp",
+        "src/Service.cpp",
+    ],
+    shared_libs: [
+        "android.hardware.neuralnetworks-V4-ndk",
+    ],
+    cflags: ["-DNN_AIDL_V4_OR_ABOVE"],
+}
+
+// A cc_defaults that includes the latest non-experimental AIDL utilities and other AIDL libraries
+// that are commonly used together. Modules that always depend on the latest non-experimental
+// AIDL features can include this cc_defaults to avoid managing dependency versions explicitly.
+cc_defaults {
+    name: "neuralnetworks_use_latest_utils_hal_aidl",
+    static_libs: [
+        "android.hardware.common-V2-ndk",
+        "android.hardware.graphics.common-V3-ndk",
+        "android.hardware.neuralnetworks-V4-ndk",
+        "neuralnetworks_utils_hal_aidl",
+    ],
+    cflags: ["-DNN_AIDL_V4_OR_ABOVE"],
 }
 
 cc_test {
     name: "neuralnetworks_utils_hal_aidl_test",
-    defaults: ["neuralnetworks_utils_defaults"],
+    defaults: [
+        "neuralnetworks_use_latest_utils_hal_aidl",
+        "neuralnetworks_utils_defaults",
+    ],
+    tidy_timeout_srcs: [
+        "test/DeviceTest.cpp",
+        "test/PreparedModelTest.cpp",
+    ],
     srcs: [
         "test/*.cpp",
     ],
     static_libs: [
-        "android.hardware.common-V2-ndk_platform",
-        "android.hardware.graphics.common-V2-ndk_platform",
-        "android.hardware.neuralnetworks-V1-ndk_platform",
         "libaidlcommonsupport",
         "libgmock",
-        "libneuralnetworks_common",
         "neuralnetworks_types",
-        "neuralnetworks_utils_hal_aidl",
         "neuralnetworks_utils_hal_common",
     ],
     shared_libs: [
-        "android.hidl.allocator@1.0",
         "libbase",
         "libbinder_ndk",
         "libcutils",
-        "libhidlbase",
-        "libhidlmemory",
-        "liblog",
-        "libnativewindow",
-        "libutils",
     ],
+    target: {
+        android: {
+            shared_libs: ["libnativewindow"],
+        },
+    },
     cflags: [
         /* GMOCK defines functions for printing all MOCK_DEVICE arguments and
          * MockDevice contains a string pointer which triggers a warning in the

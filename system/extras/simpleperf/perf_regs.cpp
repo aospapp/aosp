@@ -144,9 +144,10 @@ std::string GetRegName(size_t regno, ArchType arch) {
       if (reg >= PERF_REG_ARM_R0 && reg <= PERF_REG_ARM_R10) {
         return android::base::StringPrintf("r%d", reg - PERF_REG_ARM_R0);
       }
-      auto it = arm_reg_map.find(reg);
-      CHECK(it != arm_reg_map.end()) << "unknown reg " << reg;
-      return it->second;
+      if (auto it = arm_reg_map.find(reg); it != arm_reg_map.end()) {
+        return it->second;
+      }
+      FALLTHROUGH_INTENDED;
     }
     case ARCH_ARM64: {
       if (reg >= PERF_REG_ARM64_X0 && reg <= PERF_REG_ARM64_X29) {

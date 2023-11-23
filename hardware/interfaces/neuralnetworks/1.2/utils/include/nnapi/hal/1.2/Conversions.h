@@ -37,7 +37,7 @@ GeneralResult<Operand> unvalidatedConvert(const hal::V1_2::Operand& operand);
 GeneralResult<Operand::ExtraParams> unvalidatedConvert(
         const hal::V1_2::Operand::ExtraParams& extraParams);
 GeneralResult<Model> unvalidatedConvert(const hal::V1_2::Model& model);
-GeneralResult<Model::ExtensionNameAndPrefix> unvalidatedConvert(
+GeneralResult<ExtensionNameAndPrefix> unvalidatedConvert(
         const hal::V1_2::Model::ExtensionNameAndPrefix& extensionNameAndPrefix);
 GeneralResult<OutputShape> unvalidatedConvert(const hal::V1_2::OutputShape& outputShape);
 GeneralResult<MeasureTiming> unvalidatedConvert(const hal::V1_2::MeasureTiming& measureTiming);
@@ -45,7 +45,6 @@ GeneralResult<Timing> unvalidatedConvert(const hal::V1_2::Timing& timing);
 GeneralResult<Extension> unvalidatedConvert(const hal::V1_2::Extension& extension);
 GeneralResult<Extension::OperandTypeInformation> unvalidatedConvert(
         const hal::V1_2::Extension::OperandTypeInformation& operandTypeInformation);
-GeneralResult<SharedHandle> unvalidatedConvert(const hardware::hidl_handle& handle);
 
 GeneralResult<DeviceType> convert(const hal::V1_2::DeviceType& deviceType);
 GeneralResult<Capabilities> convert(const hal::V1_2::Capabilities& capabilities);
@@ -79,14 +78,13 @@ nn::GeneralResult<Operand::ExtraParams> unvalidatedConvert(
         const nn::Operand::ExtraParams& extraParams);
 nn::GeneralResult<Model> unvalidatedConvert(const nn::Model& model);
 nn::GeneralResult<Model::ExtensionNameAndPrefix> unvalidatedConvert(
-        const nn::Model::ExtensionNameAndPrefix& extensionNameAndPrefix);
+        const nn::ExtensionNameAndPrefix& extensionNameAndPrefix);
 nn::GeneralResult<OutputShape> unvalidatedConvert(const nn::OutputShape& outputShape);
 nn::GeneralResult<MeasureTiming> unvalidatedConvert(const nn::MeasureTiming& measureTiming);
 nn::GeneralResult<Timing> unvalidatedConvert(const nn::Timing& timing);
 nn::GeneralResult<Extension> unvalidatedConvert(const nn::Extension& extension);
 nn::GeneralResult<Extension::OperandTypeInformation> unvalidatedConvert(
         const nn::Extension::OperandTypeInformation& operandTypeInformation);
-nn::GeneralResult<hidl_handle> unvalidatedConvert(const nn::SharedHandle& handle);
 
 nn::GeneralResult<DeviceType> convert(const nn::DeviceType& deviceType);
 nn::GeneralResult<Capabilities> convert(const nn::Capabilities& capabilities);

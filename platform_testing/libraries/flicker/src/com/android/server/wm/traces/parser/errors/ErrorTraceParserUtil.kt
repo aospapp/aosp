@@ -22,7 +22,6 @@ import com.android.server.wm.traces.common.errors.Error
 import com.android.server.wm.traces.common.errors.ErrorState
 import com.android.server.wm.traces.common.errors.ErrorTrace
 import com.android.server.wm.traces.parser.LOG_TAG
-import java.nio.file.Path
 import kotlin.system.measureTimeMillis
 
 /**
@@ -35,13 +34,11 @@ class ErrorTraceParserUtil {
          * of trace entries, storing the flattened layers into its hierarchical structure.
          *
          * @param data binary proto data
-         * @param source Path to source of data for additional debug information
          */
         @JvmOverloads
         @JvmStatic
         fun parseFromTrace(
-            data: ByteArray,
-            source: Path? = null
+            data: ByteArray
         ): ErrorTrace {
             var fileProto: FlickerErrorTraceProto? = null
             try {
@@ -54,7 +51,7 @@ class ErrorTraceParserUtil {
                 throw RuntimeException(e)
             }
             return fileProto?.let {
-                parseFromTrace(it, source)
+                parseFromTrace(it)
             } ?: error("Unable to read flicker errors trace file")
         }
 
@@ -63,13 +60,11 @@ class ErrorTraceParserUtil {
          * of trace entries, storing the flattened layers into its hierarchical structure.
          *
          * @param proto Parsed proto data
-         * @param source Path to source of data for additional debug information
          */
         @JvmOverloads
         @JvmStatic
         fun parseFromTrace(
-            proto: FlickerErrorTraceProto,
-            source: Path? = null
+            proto: FlickerErrorTraceProto
         ): ErrorTrace {
             val states = mutableListOf<ErrorState>()
             var traceParseTime = 0L
@@ -95,8 +90,7 @@ class ErrorTraceParserUtil {
                 traceParseTime += errorParseTime
             }
             return ErrorTrace(
-                    entries = states.toTypedArray(),
-                    source = source?.toString() ?: ""
+                    entries = states.toTypedArray()
             )
         }
     }

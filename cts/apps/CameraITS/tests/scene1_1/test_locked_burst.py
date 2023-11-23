@@ -102,15 +102,15 @@ class LockedBurstTest(its_base_test.ItsBaseTest):
         logging.debug('%s patch mean spread %.5f. means = %s',
                       plane, spread, str(means))
         for j in range(BURST_LEN):
-          e_msg = '%s frame %d too dark! mean: %.5f, THRESH: %.2f' % (
-              plane, j, min_means, VALUE_THRESH)
-          assert min_means > VALUE_THRESH, e_msg
+          if min_means <= VALUE_THRESH:
+            raise AssertionError(f'{plane} frame {j} too dark! mean: '
+                                 f'{min_means:.5f}, THRESH: {VALUE_THRESH}')
           threshold = SPREAD_THRESH
           if camera_properties_utils.manual_sensor(props):
             threshold = SPREAD_THRESH_MANUAL_SENSOR
-          e_msg = '%s center patch spread: %.5f, THRESH: %.2f' % (
-              plane, spread, threshold)
-          assert spread < threshold, e_msg
+          if spread >= threshold:
+            raise AssertionError(f'{plane} center patch spread: {spread:.5f}, '
+                                 f'THRESH: {threshold:.2f}')
 
 if __name__ == '__main__':
   test_runner.main()

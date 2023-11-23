@@ -25,11 +25,11 @@ import android.bluetooth.BluetoothProfile;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
-
 import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
+
 import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
 
@@ -96,8 +96,15 @@ public class HidDeviceActivity extends PassFailButtons.Activity {
     private BluetoothHidDevice.Callback mCallback = new BluetoothHidDevice.Callback() {
         @Override
         public void onAppStatusChanged(BluetoothDevice pluggedDevice, boolean registered) {
+            super.onAppStatusChanged(pluggedDevice, registered);
             Log.d(TAG, "onAppStatusChanged: pluggedDevice=" + pluggedDevice + " registered="
                     + registered);
+        }
+
+        @Override
+        public void onConnectionStateChanged(BluetoothDevice device, int state) {
+            super.onConnectionStateChanged(device, state);
+            Log.d(TAG, "onConnectionStateChanged: device=" + device + " state=" + state);
         }
     };
 

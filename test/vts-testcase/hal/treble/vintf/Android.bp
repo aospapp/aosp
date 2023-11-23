@@ -44,7 +44,6 @@ cc_defaults {
         "libvintf",
         "libvts_vintf_test_common",
     ],
-    group_static_libs: true,
     srcs: [
         "VtsTrebleVintfTestBase.cpp",
         "utils.cpp",

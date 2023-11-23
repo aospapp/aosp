@@ -17,6 +17,8 @@
 package com.android.queryable.queries;
 
 import android.net.Uri;
+import android.os.Parcel;
+import android.os.Parcelable;
 
 import com.android.queryable.Queryable;
 import com.android.queryable.util.SerializableParcelWrapper;
@@ -24,6 +26,7 @@ import com.android.queryable.util.SerializableParcelWrapper;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /** Implementation of {@link UriQuery}. */
 public final class UriQueryHelper<E extends Queryable>
@@ -31,16 +34,24 @@ public final class UriQueryHelper<E extends Queryable>
 
     private static final long serialVersionUID = 1;
 
-    private final E mQuery;
+    private final transient E mQuery;
     private Uri mEqualsValue;
-    private final StringQueryHelper<E> mStringValue = new StringQueryHelper<>();
+    private final StringQueryHelper<E> mStringValue;
 
     UriQueryHelper() {
         mQuery = (E) this;
+        mStringValue = new StringQueryHelper<>();
     }
 
     public UriQueryHelper(E query) {
         mQuery = query;
+        mStringValue = new StringQueryHelper<>();
+    }
+
+    private UriQueryHelper(Parcel in) {
+        mQuery = null;
+        mEqualsValue = in.readParcelable(UriQueryHelper.class.getClassLoader());
+        mStringValue = in.readParcelable(UriQueryHelper.class.getClassLoader());
     }
 
     @Override
@@ -96,5 +107,41 @@ public final class UriQueryHelper<E extends Queryable>
         }
 
         return Queryable.joinQueryStrings(queryStrings);
+    }
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel out, int flags) {
+        out.writeParcelable(mEqualsValue, flags);
+        out.writeParcelable(mStringValue, flags);
+    }
+
+    public static final Parcelable.Creator<UriQueryHelper> CREATOR =
+            new Parcelable.Creator<UriQueryHelper>() {
+                public UriQueryHelper createFromParcel(Parcel in) {
+                    return new UriQueryHelper(in);
+                }
+
+                public UriQueryHelper[] newArray(int size) {
+                    return new UriQueryHelper[size];
+                }
+    };
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof UriQueryHelper)) return false;
+        UriQueryHelper<?> that = (UriQueryHelper<?>) o;
+        return Objects.equals(mEqualsValue, that.mEqualsValue) && Objects.equals(
+                mStringValue, that.mStringValue);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(mEqualsValue, mStringValue);
     }
 }

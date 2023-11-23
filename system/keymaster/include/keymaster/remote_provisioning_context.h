@@ -34,15 +34,14 @@ class RemoteProvisioningContext {
     virtual std::vector<uint8_t> DeriveBytesFromHbk(const std::string& context,
                                                     size_t numBytes) const = 0;
     virtual std::unique_ptr<cppbor::Map> CreateDeviceInfo() const = 0;
-    virtual std::pair<std::vector<uint8_t>, cppbor::Array> GenerateBcc(bool testMode) const = 0;
-
+    virtual cppcose::ErrMsgOr<std::vector<uint8_t>>
+    BuildProtectedDataPayload(bool testMode,                       //
+                              const std::vector<uint8_t>& macKey,  //
+                              const std::vector<uint8_t>& aad) const = 0;
     // Generate an HMAC-SHA256 over the given input. This is used to verify a given
     // input hasn't changed across multiple calls to the remote provisioning HAL.
     virtual std::optional<cppcose::HmacSha256>
     GenerateHmacSha256(const cppcose::bytevec& input) const = 0;
-
-    std::vector<uint8_t> devicePrivKey_;
-    cppbor::Array bcc_;
 
   private:
     // Uncopyable.

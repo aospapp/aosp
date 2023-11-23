@@ -15,10 +15,12 @@
 package androidmk
 
 import (
-	mkparser "android/soong/androidmk/parser"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
+
+	mkparser "android/soong/androidmk/parser"
 
 	bpparser "github.com/google/blueprint/parser"
 )
@@ -57,6 +59,7 @@ var rewriteProperties = map[string](func(variableAssignmentContext) error){
 	"LOCAL_MODULE_STEM":                    stem,
 	"LOCAL_MODULE_HOST_OS":                 hostOs,
 	"LOCAL_RESOURCE_DIR":                   localizePathList("resource_dirs"),
+	"LOCAL_NOTICE_FILE":                    localizePathList("android_license_files"),
 	"LOCAL_SANITIZE":                       sanitize(""),
 	"LOCAL_SANITIZE_DIAG":                  sanitize("diag."),
 	"LOCAL_STRIP_MODULE":                   strip(),
@@ -65,6 +68,8 @@ var rewriteProperties = map[string](func(variableAssignmentContext) error){
 	"LOCAL_PROGUARD_ENABLED":               proguardEnabled,
 	"LOCAL_MODULE_PATH":                    prebuiltModulePath,
 	"LOCAL_REPLACE_PREBUILT_APK_INSTALLED": prebuiltPreprocessed,
+
+	"LOCAL_DISABLE_AUTO_GENERATE_TEST_CONFIG": invert("auto_gen_config"),
 
 	// composite functions
 	"LOCAL_MODULE_TAGS": includeVariableIf(bpVariable{"tags", bpparser.ListType}, not(valueDumpEquals("optional"))),
@@ -104,12 +109,12 @@ func init() {
 			"LOCAL_NDK_STL_VARIANT":         "stl",
 			"LOCAL_JAR_MANIFEST":            "manifest",
 			"LOCAL_CERTIFICATE":             "certificate",
+			"LOCAL_CERTIFICATE_LINEAGE":     "lineage",
 			"LOCAL_PACKAGE_NAME":            "name",
 			"LOCAL_MODULE_RELATIVE_PATH":    "relative_install_path",
 			"LOCAL_PROTOC_OPTIMIZE_TYPE":    "proto.type",
 			"LOCAL_MODULE_OWNER":            "owner",
 			"LOCAL_RENDERSCRIPT_TARGET_API": "renderscript.target_api",
-			"LOCAL_NOTICE_FILE":             "notice",
 			"LOCAL_JAVA_LANGUAGE_VERSION":   "java_version",
 			"LOCAL_INSTRUMENTATION_FOR":     "instrumentation_for",
 			"LOCAL_MANIFEST_FILE":           "manifest",
@@ -127,6 +132,8 @@ func init() {
 			"LOCAL_STATIC_LIBRARIES":              "static_libs",
 			"LOCAL_WHOLE_STATIC_LIBRARIES":        "whole_static_libs",
 			"LOCAL_SYSTEM_SHARED_LIBRARIES":       "system_shared_libs",
+			"LOCAL_USES_LIBRARIES":                "uses_libs",
+			"LOCAL_OPTIONAL_USES_LIBRARIES":       "optional_uses_libs",
 			"LOCAL_ASFLAGS":                       "asflags",
 			"LOCAL_CLANG_ASFLAGS":                 "clang_asflags",
 			"LOCAL_COMPATIBILITY_SUPPORT_FILES":   "data",
@@ -181,6 +188,13 @@ func init() {
 			"LOCAL_JACK_COVERAGE_EXCLUDE_FILTER": "jacoco.exclude_filter",
 
 			"LOCAL_FULL_LIBS_MANIFEST_FILES": "additional_manifests",
+
+			// will be rewrite later to "license_kinds:" by byfix
+			"LOCAL_LICENSE_KINDS": "android_license_kinds",
+			// will be removed later by byfix
+			// TODO: does this property matter in the license module?
+			"LOCAL_LICENSE_CONDITIONS": "android_license_conditions",
+			"LOCAL_GENERATED_SOURCES":  "generated_sources",
 		})
 
 	addStandardProperties(bpparser.BoolType,
@@ -200,6 +214,7 @@ func init() {
 			"LOCAL_VENDOR_MODULE":              "vendor",
 			"LOCAL_ODM_MODULE":                 "device_specific",
 			"LOCAL_PRODUCT_MODULE":             "product_specific",
+			"LOCAL_PRODUCT_SERVICES_MODULE":    "product_specific",
 			"LOCAL_SYSTEM_EXT_MODULE":          "system_ext_specific",
 			"LOCAL_EXPORT_PACKAGE_RESOURCES":   "export_package_resources",
 			"LOCAL_PRIVILEGED_MODULE":          "privileged",
@@ -218,6 +233,8 @@ func init() {
 			"LOCAL_IS_UNIT_TEST": "unit_test",
 
 			"LOCAL_ENFORCE_USES_LIBRARIES": "enforce_uses_libs",
+
+			"LOCAL_CHECK_ELF_FILES": "check_elf_files",
 		})
 }
 
@@ -607,6 +624,16 @@ func makeBlueprintStringAssignment(file *bpFile, prefix string, suffix string, v
 	return err
 }
 
+// Assigns a given boolean value to a given variable in the result bp file. See
+// setVariable documentation for more information about prefix and name.
+func makeBlueprintBoolAssignment(ctx variableAssignmentContext, prefix, name string, value bool) error {
+	expressionValue, err := stringToBoolValue(strconv.FormatBool(value))
+	if err == nil {
+		err = setVariable(ctx.file, false, prefix, name, expressionValue, true)
+	}
+	return err
+}
+
 // If variable is a literal variable name, return the name, otherwise return ""
 func varLiteralName(variable mkparser.Variable) string {
 	if len(variable.Name.Variables) == 0 {
@@ -631,9 +658,19 @@ func prebuiltModulePath(ctx variableAssignmentContext) error {
 	varname := ""
 	fixed := ""
 	val := ctx.mkvalue
+
 	if len(val.Variables) == 1 && varLiteralName(val.Variables[0]) != "" && len(val.Strings) == 2 && val.Strings[0] == "" {
+		if varLiteralName(val.Variables[0]) == "PRODUCT_OUT" && val.Strings[1] == "/system/priv-app" {
+			return makeBlueprintBoolAssignment(ctx, "", "privileged", true)
+		}
 		fixed = val.Strings[1]
 		varname = val.Variables[0].Name.Strings[0]
+		// TARGET_OUT_OPTIONAL_EXECUTABLES puts the artifact in xbin, which is
+		// deprecated. TARGET_OUT_DATA_APPS install location will be handled
+		// automatically by Soong
+		if varname == "TARGET_OUT_OPTIONAL_EXECUTABLES" || varname == "TARGET_OUT_DATA_APPS" {
+			return nil
+		}
 	} else if len(val.Variables) == 2 && varLiteralName(val.Variables[0]) == "PRODUCT_OUT" && varLiteralName(val.Variables[1]) == "TARGET_COPY_OUT_VENDOR" &&
 		len(val.Strings) == 3 && val.Strings[0] == "" && val.Strings[1] == "/" {
 		fixed = val.Strings[2]

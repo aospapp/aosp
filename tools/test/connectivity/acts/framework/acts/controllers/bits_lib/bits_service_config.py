@@ -62,8 +62,8 @@ class _BitsMonsoonConfig(object):
             raise ValueError('Monsoon voltage can not be undefined. Received '
                              'config was: %s' % monsoon_config)
 
-        self.serial_num = monsoon_config['serial_num']
-        self.monsoon_voltage = monsoon_config['monsoon_voltage']
+        self.serial_num = int(monsoon_config['serial_num'])
+        self.monsoon_voltage = float(monsoon_config['monsoon_voltage'])
 
         self.config_dic = copy.deepcopy(DEFAULT_MONSOON_CONFIG_DICT)
         if float(self.serial_num) >= 20000:

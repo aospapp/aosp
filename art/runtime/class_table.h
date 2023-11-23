@@ -78,9 +78,6 @@ class ClassTable {
       return MaskHash(other) == Hash();
     }
 
-    static uint32_t HashDescriptor(ObjPtr<mirror::Class> klass)
-        REQUIRES_SHARED(Locks::mutator_lock_);
-
     template<ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
     ObjPtr<mirror::Class> Read() const REQUIRES_SHARED(Locks::mutator_lock_);
 
@@ -98,7 +95,7 @@ class ClassTable {
 
     // Data contains the class pointer GcRoot as well as the low bits of the descriptor hash.
     mutable Atomic<uint32_t> data_;
-    static const uint32_t kHashMask = kObjectAlignment - 1;
+    static constexpr uint32_t kHashMask = kObjectAlignment - 1;
   };
 
   using DescriptorHashPair = std::pair<const char*, uint32_t>;
@@ -134,11 +131,11 @@ class ClassTable {
 
   // Hash set that hashes class descriptor, and compares descriptors and class loaders. Results
   // should be compared for a matching class descriptor and class loader.
-  typedef HashSet<TableSlot,
-                  TableSlotEmptyFn,
-                  ClassDescriptorHash,
-                  ClassDescriptorEquals,
-                  TrackingAllocator<TableSlot, kAllocatorTagClassTable>> ClassSet;
+  using ClassSet = HashSet<TableSlot,
+                           TableSlotEmptyFn,
+                           ClassDescriptorHash,
+                           ClassDescriptorEquals,
+                           TrackingAllocator<TableSlot, kAllocatorTagClassTable>>;
 
   ClassTable();
 
@@ -189,11 +186,11 @@ class ClassTable {
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Stops visit if the visitor returns false.
-  template <typename Visitor, ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
+  template <ReadBarrierOption kReadBarrierOption = kWithReadBarrier, typename Visitor>
   bool Visit(Visitor& visitor)
       REQUIRES(!lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
-  template <typename Visitor, ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
+  template <ReadBarrierOption kReadBarrierOption = kWithReadBarrier, typename Visitor>
   bool Visit(const Visitor& visitor)
       REQUIRES(!lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
@@ -214,11 +211,6 @@ class ClassTable {
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   void InsertWithHash(ObjPtr<mirror::Class> klass, size_t hash)
-      REQUIRES(!lock_)
-      REQUIRES_SHARED(Locks::mutator_lock_);
-
-  // Returns true if the class was found and removed, false otherwise.
-  bool Remove(const char* descriptor)
       REQUIRES(!lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
 

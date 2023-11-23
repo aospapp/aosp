@@ -28,9 +28,6 @@ from acts_contrib.test_utils.tel.anritsu_utils import make_ims_call
 from acts_contrib.test_utils.tel.anritsu_utils import tear_down_call
 from acts_contrib.test_utils.tel.anritsu_utils import set_system_model_lte_lte
 from acts_contrib.test_utils.tel.anritsu_utils import set_system_model_lte_wcdma
-from acts_contrib.test_utils.tel.anritsu_utils import set_system_model_lte_gsm
-from acts_contrib.test_utils.tel.anritsu_utils import set_system_model_lte_1x
-from acts_contrib.test_utils.tel.anritsu_utils import set_system_model_lte_evdo
 from acts_contrib.test_utils.tel.anritsu_utils import set_usim_parameters
 from acts_contrib.test_utils.tel.anritsu_utils import set_post_sim_params
 from acts_contrib.test_utils.tel.tel_defines import CALL_TEARDOWN_PHONE
@@ -38,7 +35,6 @@ from acts_contrib.test_utils.tel.tel_defines import RAT_FAMILY_CDMA2000
 from acts_contrib.test_utils.tel.tel_defines import RAT_FAMILY_GSM
 from acts_contrib.test_utils.tel.tel_defines import RAT_FAMILY_LTE
 from acts_contrib.test_utils.tel.tel_defines import RAT_FAMILY_UMTS
-from acts_contrib.test_utils.tel.tel_defines import RAT_1XRTT
 from acts_contrib.test_utils.tel.tel_defines import NETWORK_MODE_CDMA
 from acts_contrib.test_utils.tel.tel_defines import NETWORK_MODE_GSM_ONLY
 from acts_contrib.test_utils.tel.tel_defines import NETWORK_MODE_GSM_UMTS
@@ -46,22 +42,17 @@ from acts_contrib.test_utils.tel.tel_defines import NETWORK_MODE_LTE_CDMA_EVDO
 from acts_contrib.test_utils.tel.tel_defines import NETWORK_MODE_LTE_CDMA_EVDO_GSM_WCDMA
 from acts_contrib.test_utils.tel.tel_defines import NETWORK_MODE_LTE_GSM_WCDMA
 from acts_contrib.test_utils.tel.tel_defines import WAIT_TIME_IN_CALL
-from acts_contrib.test_utils.tel.tel_defines import WAIT_TIME_IN_CALL_FOR_IMS
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_network_rat
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_phones_idle
+from acts_contrib.test_utils.tel.tel_ims_utils import toggle_volte
+from acts_contrib.test_utils.tel.tel_logging_utils import start_qxdm_loggers
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_network_rat
 from acts_contrib.test_utils.tel.tel_test_utils import get_host_ip_address
 from acts_contrib.test_utils.tel.tel_test_utils import toggle_airplane_mode_by_adb
-from acts_contrib.test_utils.tel.tel_test_utils import toggle_volte
-from acts_contrib.test_utils.tel.tel_test_utils import run_multithread_func
 from acts_contrib.test_utils.tel.tel_test_utils import iperf_test_by_adb
 from acts_contrib.test_utils.tel.tel_test_utils import set_preferred_apn_by_adb
-from acts_contrib.test_utils.tel.tel_test_utils import start_qxdm_loggers
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_idle_volte
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_idle_volte
 from acts_contrib.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
 from acts.utils import adb_shell_ping
-from acts.utils import rand_ascii_str
-from acts.controllers import iperf_server
-from acts.utils import exe_cmd
+from acts.libs.utils.multithread import run_multithread_func
 
 DEFAULT_CALL_NUMBER = "+11234567891"
 DEFAULT_PING_DURATION = 5

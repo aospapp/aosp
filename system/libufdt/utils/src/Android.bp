@@ -59,12 +59,8 @@ python_binary_host {
     main: "mkdtboimg.py",
     srcs: ["mkdtboimg.py"],
     version: {
-        py2: {
-            embedded_launcher: true,
-            enabled: true,
-        },
         py3: {
-            enabled: false,
+            embedded_launcher: true,
         },
     },
 }

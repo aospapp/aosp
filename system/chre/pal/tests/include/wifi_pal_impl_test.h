@@ -37,6 +37,12 @@ class PalWifiTest : public ::testing::Test {
   void scanEventCallback(struct chreWifiScanEvent *event);
   void rangingEventCallback(uint8_t errorCode,
                             struct chreWifiRangingEvent *event);
+  void nanServiceIdentifierCallback(uint8_t errorCode, uint32_t subscriptionId);
+  void nanServiceDiscoveryCallback(struct chreWifiNanDiscoveryEvent *event);
+  void nanServiceLostCallback(uint32_t subscriptionId, uint32_t publisherId);
+  void nanServiceTerminatedCallback(uint32_t reason, uint32_t subscriptionId);
+  void nanSubscriptionCanceledCallback(uint8_t errorCode,
+                                       uint32_t subscriptionId);
 
  protected:
   void SetUp() override;
@@ -87,6 +93,11 @@ class PalWifiTest : public ::testing::Test {
 
   //! True if scan monitoring is currently enabled
   bool scanMonitorEnabled_ = false;
+
+  //! The last received service subscription and publisher IDs from the NAN
+  //! engine.
+  chre::Optional<uint32_t> subscriptionId_;
+  chre::Optional<uint32_t> publishId_;
 
   //! Mutex to protect class variables
   chre::Mutex mutex_;

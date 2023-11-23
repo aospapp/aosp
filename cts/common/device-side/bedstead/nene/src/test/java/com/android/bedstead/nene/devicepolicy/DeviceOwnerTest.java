@@ -23,8 +23,11 @@ import android.content.ComponentName;
 import com.android.bedstead.harrier.BedsteadJUnit4;
 import com.android.bedstead.harrier.DeviceState;
 import com.android.bedstead.harrier.annotations.enterprise.EnsureHasDeviceOwner;
+import com.android.bedstead.harrier.annotations.enterprise.EnsureHasNoDpc;
 import com.android.bedstead.nene.TestApis;
 import com.android.bedstead.remotedpc.RemoteDpc;
+import com.android.bedstead.testapp.TestApp;
+import com.android.bedstead.testapp.TestAppInstance;
 
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -40,6 +43,14 @@ public class DeviceOwnerTest {
     public static DeviceState sDeviceState = new DeviceState();
 
     private static final ComponentName DPC_COMPONENT_NAME = RemoteDpc.DPC_COMPONENT_NAME;
+    private static final TestApp sNonTestOnlyDpc = sDeviceState.testApps().query()
+            .whereIsDeviceAdmin().isTrue()
+            .whereTestOnly().isFalse()
+            .get();
+    private static final ComponentName NON_TEST_ONLY_DPC_COMPONENT_NAME = new ComponentName(
+            sNonTestOnlyDpc.packageName(),
+            "com.android.bedstead.testapp.DeviceAdminTestApp.DeviceAdminReceiver"
+    );
 
     private DeviceOwner mDeviceOwner;
 
@@ -68,5 +79,31 @@ public class DeviceOwnerTest {
         mDeviceOwner.remove();
 
         assertThat(TestApis.devicePolicy().getDeviceOwner()).isNull();
+    }
+
+
+    @Test
+    @EnsureHasNoDpc
+    public void remove_nonTestOnlyDpc_removesDeviceOwner() {
+        try (TestAppInstance dpc = sNonTestOnlyDpc.install()) {
+            DeviceOwner deviceOwner = TestApis.devicePolicy()
+                    .setDeviceOwner(NON_TEST_ONLY_DPC_COMPONENT_NAME);
+
+            deviceOwner.remove();
+
+            assertThat(TestApis.devicePolicy().getDeviceOwner()).isNull();
+        }
+    }
+
+    @Test
+    @EnsureHasNoDpc
+    public void setAndRemoveDeviceOwnerRepeatedly_doesNotThrowError() {
+        try (TestAppInstance dpc = sNonTestOnlyDpc.install()) {
+            for (int i = 0; i < 100; i++) {
+                DeviceOwner deviceOwner = TestApis.devicePolicy()
+                        .setDeviceOwner(NON_TEST_ONLY_DPC_COMPONENT_NAME);
+                deviceOwner.remove();
+            }
+        }
     }
 }

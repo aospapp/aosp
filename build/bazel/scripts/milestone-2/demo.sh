@@ -61,7 +61,7 @@ function bazel() {
 # Run the bp2build converter to generate BUILD files into out/soong/bp2build.
 function generate() {
   log "Running the bp2build converter.."
-  GENERATE_BAZEL_FILES=true "${AOSP_ROOT}/build/soong/soong_ui.bash" --make-mode nothing --skip-soong-tests
+  "${AOSP_ROOT}/build/soong/soong_ui.bash" --make-mode --skip-soong-tests bp2build
   log "Successfully generated BUILD files in out/soong/bp2build."
 }
 

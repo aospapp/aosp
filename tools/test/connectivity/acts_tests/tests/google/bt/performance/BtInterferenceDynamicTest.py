@@ -261,9 +261,13 @@ class BtInterferenceDynamicTest(BtInterferenceBaseTest):
         ramp_attenuation(self.attenuator, bt_atten_level)
         self.interference_rssi_mapping_from_attenuation(
             interference_atten_level)
-        [rssi_master, pwl_master, rssi_slave] = self._get_bt_link_metrics()
-        tag_bt = 'bt_signal_level_{}_rssi_{}_dBm'.format(
-            bt_atten_level, rssi_master)
+        [
+            rssi_master, pwl_master, rssi_c0_master, rssi_c1_master,
+            txpw_c0_master, txpw_c1_master, bftx_master, divtx_master
+        ], [rssi_slave] = self._get_bt_link_metrics()
+        rssi_primary = rssi_master.get(self.dut.serial, -127)
+        tag_bt = 'bt_signal_level_{}'.format(
+            bt_atten_level)
         procs_iperf = []
         for obj in self.wifi_int_pairs:
             obj.iperf_server.start()
@@ -313,9 +317,13 @@ class BtInterferenceDynamicTest(BtInterferenceBaseTest):
         ramp_attenuation(self.attenuator, bt_atten_level)
         self.interference_rssi_mapping_from_attenuation(
             interference_atten_level)
-        [rssi_master, pwl_master, rssi_slave] = self._get_bt_link_metrics()
-        tag_bt = 'bt_signal_level_{}_rssi_{}_dBm'.format(
-            bt_atten_level, rssi_master)
+        [
+            rssi_master, pwl_master, rssi_c0_master, rssi_c1_master,
+            txpw_c0_master, txpw_c1_master, bftx_master, divtx_master
+        ], [rssi_slave] = self._get_bt_link_metrics()
+        rssi_primary = rssi_master.get(self.dut.serial, -127)
+        tag_bt = 'bt_signal_level_{}'.format(
+            bt_atten_level)
         procs_iperf = []
         #Start IPERF on all three interference pairs
         for obj in self.wifi_int_pairs:

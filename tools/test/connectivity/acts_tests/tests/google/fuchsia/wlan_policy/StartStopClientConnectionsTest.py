@@ -20,12 +20,14 @@ from acts.controllers.ap_lib import hostapd_constants
 from acts.controllers.ap_lib import hostapd_security
 from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
 from acts.utils import rand_ascii_str
+import time
 
 DISCONNECTED = "Disconnected"
 CONNECTION_STOPPED = "ConnectionStopped"
 CONNECTIONS_ENABLED = "ConnectionsEnabled"
 CONNECTIONS_DISABLED = "ConnectionsDisabled"
 WPA2 = "wpa2"
+UPDATE_TIMEOUT_SEC = 5
 
 
 class StartStopClientConnectionsTest(WifiBaseTest):
@@ -36,6 +38,7 @@ class StartStopClientConnectionsTest(WifiBaseTest):
     * One or more Fuchsia devices
     * One Access Point
     """
+
     def setup_class(self):
         super().setup_class()
         # Start an AP with a hidden network
@@ -88,6 +91,42 @@ class StartStopClientConnectionsTest(WifiBaseTest):
             raise signals.TestFailure(
                 "Failed to get expected connect response")
 
+    def await_state_update(self, fd, desired_state, timeout):
+        """ This function polls the policy client state until it converges to
+            the caller's desired state.
+
+        Args:
+            fd: A FuchsiaDevice
+            desired_state: The expected client policy state.
+            timeout: Number of seconds to wait for the policy state to become
+                     the desired_state.
+        Returns:
+            None assuming the desired state has been reached.
+        Raises:
+            TestFailure if the desired state is not reached by the timeout.
+        """
+        start_time = time.time()
+        curr_state = None
+        while time.time() < start_time + timeout:
+            fd.wlan_policy_lib.wlanSetNewListener()
+            curr_state = fd.wlan_policy_lib.wlanGetUpdate()
+            if curr_state.get("error"):
+                self.log.error("Error occurred getting status update: %s" %
+                               curr_state.get("error"))
+                raise EnvironmentError("Failed to get update")
+
+            if curr_state.get("result") and curr_state.get(
+                    "result") == desired_state:
+                return
+
+            time.sleep(1)
+
+        self.log.error(
+            "Client state did not converge to the expected state in %s "
+            "seconds. Expected update: %s Actual update: %s" %
+            (timeout, desired_state, curr_state))
+        raise signals.TestFailure("Client policy layer is in unexpected state")
+
     def test_stop_client_connections_update(self):
         for fd in self.fuchsia_devices:
             if not fd.wlan_policy_controller.stop_client_connections():
@@ -95,21 +134,8 @@ class StartStopClientConnectionsTest(WifiBaseTest):
 
             # Check that the most recent update says that the device is not
             # connected to anything and client connections are disabled
-            fd.wlan_policy_lib.wlanSetNewListener()
-            result_update = fd.wlan_policy_lib.wlanGetUpdate()
-            if result_update.get("error") != None:
-                self.log.error("Error occurred getting status update: %s" %
-                               result_update.get("error"))
-                raise EnvironmentError("Failed to get update")
-
             expected_update = {"networks": [], "state": CONNECTIONS_DISABLED}
-            if result_update.get("result") != expected_update:
-                self.log.error(
-                    "Most recent status update does not indicate client "
-                    "connections have stopped. Expected update: %s Actual update: %s"
-                    % (expected_update, result_update.get('result')))
-                raise signals.TestFailure(
-                    "Incorrect update after stopping client connections")
+            self.await_state_update(fd, expected_update, UPDATE_TIMEOUT_SEC)
 
     def test_start_client_connections_update(self):
         for fd in self.fuchsia_devices:
@@ -118,21 +144,8 @@ class StartStopClientConnectionsTest(WifiBaseTest):
 
             # Check that the most recent update says that the device is not
             # connected to anything and client connections are disabled
-            fd.wlan_policy_lib.wlanSetNewListener()
-            result_update = fd.wlan_policy_lib.wlanGetUpdate()
-            if result_update.get("error") != None:
-                self.log.error("Error occurred getting status update: %s" %
-                               result_update.get("error"))
-                raise EnvironmentError("Failed to get update")
-
             expected_update = {"networks": [], "state": CONNECTIONS_ENABLED}
-            if result_update.get("result") != expected_update:
-                self.log.error(
-                    "Most recent status update does not indicate client "
-                    "connections are enabled. Expected update: %s\nActual update:"
-                    % (expected_update, result_update))
-                raise signals.TestFailure(
-                    "Incorrect update after starting client connections")
+            self.await_state_update(fd, expected_update, UPDATE_TIMEOUT_SEC)
 
     def test_stop_client_connections_rejects_connections(self):
         # Test that if we turn client connections off, our requests to connect

@@ -29,4 +29,5 @@ interface ITestExternalImsService {
     boolean isRcsFeatureCreated();
     boolean isMmTelFeatureCreated();
     void resetState();
+    boolean isTelephonyBound();
 }

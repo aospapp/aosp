@@ -446,7 +446,7 @@ public class WebViewSslTest extends ActivityInstrumentationTestCase2<WebViewCtsA
         final WebViewCtsActivity activity = getActivity();
         mWebView = activity.getWebView();
         if (mWebView != null) {
-            new PollingCheck() {
+            new PollingCheck(WebkitUtils.TEST_TIMEOUT_MS) {
                 @Override
                     protected boolean check() {
                         return activity.hasWindowFocus();
@@ -561,21 +561,24 @@ public class WebViewSslTest extends ActivityInstrumentationTestCase2<WebViewCtsA
         mOnUiThread.setWebViewClient(webViewClient);
         mOnUiThread.clearSslPreferences();
         mOnUiThread.loadUrlAndWaitForCompletion(url);
-        assertTrue(webViewClient.wasOnReceivedSslErrorCalled());
+        assertTrue("onReceivedSslError should be called",
+                webViewClient.wasOnReceivedSslErrorCalled());
 
         // Load the page again. We expect another call to
         // WebViewClient.onReceivedSslError() since we cleared sslpreferences.
         mOnUiThread.clearSslPreferences();
         webViewClient.resetCallCounts();
         mOnUiThread.loadUrlAndWaitForCompletion(url);
-        assertTrue(webViewClient.wasOnReceivedSslErrorCalled());
+        assertTrue("onReceivedSslError should be called again after clearing SSL preferences",
+                webViewClient.wasOnReceivedSslErrorCalled());
         assertEquals(TestHtmlConstants.HELLO_WORLD_TITLE, mOnUiThread.getTitle());
 
         // Load the page once again, without clearing the sslpreferences.
         // Make sure we do not get the callback.
         webViewClient.resetCallCounts();
         mOnUiThread.loadUrlAndWaitForCompletion(url);
-        assertFalse(webViewClient.wasOnReceivedSslErrorCalled());
+        assertFalse("onReceivedSslError should not be called when SSL preferences are not cleared",
+                webViewClient.wasOnReceivedSslErrorCalled());
         assertEquals(TestHtmlConstants.HELLO_WORLD_TITLE, mOnUiThread.getTitle());
     }
 
@@ -670,14 +673,16 @@ public class WebViewSslTest extends ActivityInstrumentationTestCase2<WebViewCtsA
         mOnUiThread.setWebViewClient(webViewClient);
         mOnUiThread.clearSslPreferences();
         mOnUiThread.loadUrlAndWaitForCompletion(firstUrl);
-        assertTrue(webViewClient.wasOnReceivedSslErrorCalled());
+        assertTrue("onReceivedSslError should be called on loading first page",
+                webViewClient.wasOnReceivedSslErrorCalled());
 
         // Load the second page. We don't expect a call to
         // WebViewClient.onReceivedSslError(), but the page should load.
         webViewClient.resetCallCounts();
         final String sameHostUrl = mWebServer.getAssetUrl(TestHtmlConstants.HTML_URL2);
         mOnUiThread.loadUrlAndWaitForCompletion(sameHostUrl);
-        assertFalse(webViewClient.wasOnReceivedSslErrorCalled());
+        assertFalse("onReceivedSslError should not be called on loading second page",
+                webViewClient.wasOnReceivedSslErrorCalled());
         assertEquals("Second page", mOnUiThread.getTitle());
     }
 
@@ -693,7 +698,8 @@ public class WebViewSslTest extends ActivityInstrumentationTestCase2<WebViewCtsA
         mOnUiThread.setWebViewClient(webViewClient);
         mOnUiThread.clearSslPreferences();
         mOnUiThread.loadUrlAndWaitForCompletion(firstUrl);
-        assertTrue(webViewClient.wasOnReceivedSslErrorCalled());
+        assertTrue("onReceivedSslError should be called when request is sent to localhost",
+                webViewClient.wasOnReceivedSslErrorCalled());
 
         // Load the second page. We expect another call to
         // WebViewClient.onReceivedSslError().
@@ -703,7 +709,8 @@ public class WebViewSslTest extends ActivityInstrumentationTestCase2<WebViewCtsA
         final String differentHostUrl = mWebServer.getAssetUrl(TestHtmlConstants.HTML_URL2).replace(
                 "localhost", "127.0.0.1");
         mOnUiThread.loadUrlAndWaitForCompletion(differentHostUrl);
-        assertTrue(webViewClient.wasOnReceivedSslErrorCalled());
+        assertTrue("onReceivedSslError should be called when request is sent to 127.0.0.1",
+                webViewClient.wasOnReceivedSslErrorCalled());
         assertEquals("Second page", mOnUiThread.getTitle());
     }
 
@@ -955,7 +962,7 @@ public class WebViewSslTest extends ActivityInstrumentationTestCase2<WebViewCtsA
         });
         // Wait until clearclientcertpreferences clears the preferences. Generally this is just a
         // thread hopping.
-        new PollingCheck(WebViewTest.TEST_TIMEOUT) {
+        new PollingCheck(WebkitUtils.TEST_TIMEOUT_MS) {
             @Override
             protected boolean check() {
                 return cleared.get();

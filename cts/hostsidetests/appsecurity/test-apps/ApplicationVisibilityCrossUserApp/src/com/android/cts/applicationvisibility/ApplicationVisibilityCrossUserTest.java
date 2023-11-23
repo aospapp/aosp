@@ -194,6 +194,100 @@ public class ApplicationVisibilityCrossUserTest {
         } catch (SecurityException e) {}
     }
 
+    /**
+     * Tests getting the uid of the installed packages for the current user.
+     **/
+    @Test
+    public void testGetPackageUidVisibility_currentUser() {
+        final PackageManager pm = mContext.getPackageManager();
+        try {
+            pm.getPackageUid(TINY_PKG, 0 /*flags*/);
+            fail("Should have received a NameNotFoundException");
+        } catch (PackageManager.NameNotFoundException e) {
+            // Expected
+        }
+    }
+
+    /**
+     * Tests getting the uid of the installed packages for primary user,
+     * with cross user permission granted.
+     **/
+    @Test
+    public void testGetPackageUidVisibility_anotherUserCrossUserGrant() {
+        final PackageManager pm = mContext.createContextAsUser(UserHandle.of(getTestUser()),
+                0 /*flags*/).getPackageManager();
+        try {
+            pm.getPackageUid(TINY_PKG, MATCH_KNOWN_PACKAGES);
+        } catch (PackageManager.NameNotFoundException e) {
+            fail("Should not receive a NameNotFoundException");
+        }
+    }
+
+    /**
+     * Tests getting the uid of the installed packages for primary user,
+     * with cross user permission revoked.
+     **/
+    @Test
+    public void testGetPackageUidVisibility_anotherUserCrossUserNoGrant()
+            throws PackageManager.NameNotFoundException {
+        final PackageManager pm = mContext.createContextAsUser(UserHandle.of(getTestUser()),
+                0 /*flags*/).getPackageManager();
+        ungrantAcrossUsersPermission();
+        try {
+            pm.getPackageUid(TINY_PKG, MATCH_KNOWN_PACKAGES);
+            fail("Should have received a SecurityException");
+        } catch (SecurityException e) {
+            // Expected
+        }
+    }
+
+    /**
+     * Tests getting the gids of the installed packages for the current user.
+     **/
+    @Test
+    public void testGetPackageGidsVisibility_currentUser() {
+        final PackageManager pm = mContext.getPackageManager();
+        try {
+            pm.getPackageGids(TINY_PKG, 0 /*flags*/);
+            fail("Should have received a NameNotFoundException");
+        } catch (PackageManager.NameNotFoundException e) {
+            // Expected
+        }
+    }
+
+    /**
+     * Tests getting the gids of the installed packages for primary user,
+     * with cross user permission granted.
+     **/
+    @Test
+    public void testGetPackageGidsVisibility_anotherUserCrossUserGrant() {
+        final PackageManager pm = mContext.createContextAsUser(UserHandle.of(getTestUser()),
+                0 /*flags*/).getPackageManager();
+        try {
+            pm.getPackageUid(TINY_PKG, MATCH_KNOWN_PACKAGES);
+        } catch (PackageManager.NameNotFoundException e) {
+            fail("Should not receive a NameNotFoundException");
+        }
+    }
+
+    /**
+     * Tests getting the gids of the installed packages for primary user,
+     * with cross user permission revoked.
+     **/
+    @Test
+    public void testGetPackageGidsVisibility_anotherUserCrossUserNoGrant()
+            throws PackageManager.NameNotFoundException {
+        final PackageManager pm = mContext.createContextAsUser(UserHandle.of(getTestUser()),
+                0 /*flags*/).getPackageManager();
+        ungrantAcrossUsersPermission();
+        try {
+            pm.getPackageUid(TINY_PKG, MATCH_KNOWN_PACKAGES);
+            fail("Should have received a SecurityException");
+        } catch (SecurityException e) {
+            // Expected
+        }
+    }
+
     private boolean isAppInPackageList(String packageName,
             List<PackageInfo> packageList) {
         for (PackageInfo pkgInfo : packageList) {

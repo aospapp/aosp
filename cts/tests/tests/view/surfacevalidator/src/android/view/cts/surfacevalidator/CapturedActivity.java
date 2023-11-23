@@ -261,6 +261,8 @@ public class CapturedActivity extends Activity {
                     (FrameLayout) findViewById(android.R.id.content));
         });
 
+        animationTestCase.waitForReady();
+
         mHandler.postDelayed(() -> {
             Log.d(TAG, "Starting capture");
 
@@ -397,6 +399,10 @@ public class CapturedActivity extends Activity {
             mSettingsSession.close();
             mSettingsSession = null;
         }
+    }
+
+    public boolean isOnWatch() {
+        return mOnWatch;
     }
 
 }

@@ -280,12 +280,12 @@ public class NearbyDevicesRenouncePermissionTest {
 
     private void enableTestMode() {
         runShellCommandOrThrow("dumpsys activity service"
-                + " com.android.bluetooth/.btservice.AdapterService set-test-mode enabled");
+                + " com.android.bluetooth.btservice.AdapterService set-test-mode enabled");
     }
 
     private void disableTestMode() {
         runShellCommandOrThrow("dumpsys activity service"
-                + " com.android.bluetooth/.btservice.AdapterService set-test-mode disabled");
+                + " com.android.bluetooth.btservice.AdapterService set-test-mode disabled");
     }
 
 }

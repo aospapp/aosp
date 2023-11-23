@@ -16,12 +16,12 @@
 
 package com.android.queryable.util;
 
+import static com.android.bedstead.nene.utils.ParcelTest.parcelAndUnparcel;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import android.os.Bundle;
 import android.os.Parcelable;
-
-import com.android.queryable.util.SerializableParcelWrapper;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -47,7 +47,8 @@ public class SerializableParcelWrapperTest {
                 = new SerializableParcelWrapper<>(mBundle);
 
         byte[] serializedBytes = serialize(serializableParcelWrapper);
-        SerializableParcelWrapper<Bundle> unserializedWrapper = deserialize(serializedBytes, Bundle.class);
+        SerializableParcelWrapper<Bundle> unserializedWrapper =
+                deserialize(serializedBytes, Bundle.class);
 
         assertThat(unserializedWrapper.get().getString(KEY))
                 .isEqualTo(serializableParcelWrapper.get().getString(KEY));
@@ -102,5 +103,18 @@ public class SerializableParcelWrapperTest {
                 = new SerializableParcelWrapper<>(mBundle);
 
         assertThat(serializableParcelWrapper.hashCode()).isEqualTo(mBundle.hashCode());
+    }
+
+    @Test
+    public void parcel_parcelsCorrectly() {
+        mBundle.putString(KEY, STRING_VALUE);
+        SerializableParcelWrapper<Bundle> serializableParcelWrapper =
+                new SerializableParcelWrapper<>(mBundle);
+
+        SerializableParcelWrapper<Bundle> unParceled =
+                parcelAndUnparcel(SerializableParcelWrapper.class, serializableParcelWrapper);
+
+        assertThat(unParceled.get().getString(KEY))
+                .isEqualTo(serializableParcelWrapper.get().getString(KEY));
     }
 }

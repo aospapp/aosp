@@ -56,8 +56,12 @@ class YuvPlusDngTest(its_base_test.ItsBaseTest):
       req = capture_request_utils.auto_capture_request()
       max_dng_size = capture_request_utils.get_available_output_sizes(
           'raw', props)[0]
-      w, h = capture_request_utils.get_available_output_sizes(
-          'yuv', props, MAX_IMG_SIZE, max_dng_size)[0]
+      if capture_request_utils.is_common_aspect_ratio(max_dng_size):
+        w, h = capture_request_utils.get_available_output_sizes(
+            'yuv', props, MAX_IMG_SIZE, max_dng_size)[0]
+      else:
+        w, h = capture_request_utils.get_available_output_sizes(
+            'yuv', props, max_size=MAX_IMG_SIZE)[0]
       out_surfaces = [{'format': 'dng'},
                       {'format': 'yuv', 'width': w, 'height': h}]
       cap_dng, cap_yuv = cam.do_capture(req, out_surfaces)

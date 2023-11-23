@@ -62,4 +62,7 @@ public class AES256GCMNoPaddingCipherTest extends AESGCMNoPaddingCipherTestBase 
     protected byte[] getKatCiphertextWhenKatAadPresent() {
         return KAT_CIPHERTEXT_WITH_AAD.clone();
     }
+
+    @Override
+    protected boolean isStrongbox() { return false; }
 }

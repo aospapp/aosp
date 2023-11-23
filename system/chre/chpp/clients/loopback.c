@@ -124,9 +124,9 @@ bool chppDispatchLoopbackServiceResponse(struct ChppAppState *context,
     }
   }
 
-  CHPP_LOGI("Loopback client RX response. Error code=0x%" PRIx16
-            ", response len=%" PRIuSIZE ", request len=%" PRIuSIZE
-            ", first err=%" PRIuSIZE ", total err=%" PRIuSIZE,
+  CHPP_LOGI("Loopback client RX err=0x%" PRIx16 " len=%" PRIuSIZE
+            " req len=%" PRIuSIZE " first err=%" PRIuSIZE
+            " total err=%" PRIuSIZE,
             context->loopbackClientContext->testResult.error,
             context->loopbackClientContext->testResult.responseLen,
             context->loopbackClientContext->testResult.requestLen,
@@ -146,67 +146,70 @@ bool chppDispatchLoopbackServiceResponse(struct ChppAppState *context,
 struct ChppLoopbackTestResult chppRunLoopbackTest(struct ChppAppState *context,
                                                   const uint8_t *buf,
                                                   size_t len) {
-  CHPP_LOGI("Loopback test. payload len=%" PRIuSIZE ", request len=%" PRIuSIZE,
-            len, len + CHPP_LOOPBACK_HEADER_LEN);
+  CHPP_LOGI("Loopback client TX len=%" PRIuSIZE,
+            len + CHPP_LOOPBACK_HEADER_LEN);
 
-  if (!chppWaitForDiscoveryComplete(context, 0 /* timeoutMs */)) {
-    static const struct ChppLoopbackTestResult result = {
-        .error = CHPP_APP_ERROR_NOT_READY,
-    };
-    return result;
-  }
-
-  CHPP_NOT_NULL(context->loopbackClientContext);
-  if (context->loopbackClientContext->testResult.error ==
-      CHPP_APP_ERROR_BLOCKED) {
-    CHPP_LOGE("Loopback test cannot be run while another is in progress");
-    CHPP_DEBUG_ASSERT(false);
-
+  struct ChppLoopbackTestResult result;
+  if (context == NULL) {
+    CHPP_LOGE("Cannot run loopback test with null app");
+    result.error = CHPP_APP_ERROR_UNSUPPORTED;
+  } else if (!chppWaitForDiscoveryComplete(context, 0 /* timeoutMs */)) {
+    result.error = CHPP_APP_ERROR_NOT_READY;
   } else {
-    context->loopbackClientContext->testResult.error = CHPP_APP_ERROR_BLOCKED;
-    context->loopbackClientContext->testResult.requestLen =
-        len + CHPP_LOOPBACK_HEADER_LEN;
-    context->loopbackClientContext->testResult.responseLen = 0;
-    context->loopbackClientContext->testResult.firstError = 0;
-    context->loopbackClientContext->testResult.byteErrors = 0;
-    context->loopbackClientContext->testResult.rttNs = 0;
-    context->loopbackClientContext->runLoopbackTest.requestTimeNs =
-        CHPP_TIME_NONE;
-    context->loopbackClientContext->runLoopbackTest.responseTimeNs =
-        CHPP_TIME_NONE;
-
-    if (len == 0) {
-      CHPP_LOGE("Loopback payload too short (0)");
-      context->loopbackClientContext->testResult.error =
-          CHPP_APP_ERROR_INVALID_LENGTH;
+    CHPP_NOT_NULL(context->loopbackClientContext);
+    if (context->loopbackClientContext->testResult.error ==
+        CHPP_APP_ERROR_BLOCKED) {
+      CHPP_DEBUG_ASSERT_LOG(false, "Another loopback in progress");
 
     } else {
-      uint8_t *loopbackRequest = (uint8_t *)chppAllocClientRequest(
-          &context->loopbackClientContext->client,
-          context->loopbackClientContext->testResult.requestLen);
+      context->loopbackClientContext->testResult.error = CHPP_APP_ERROR_BLOCKED;
+      context->loopbackClientContext->testResult.requestLen =
+          len + CHPP_LOOPBACK_HEADER_LEN;
+      context->loopbackClientContext->testResult.responseLen = 0;
+      context->loopbackClientContext->testResult.firstError = 0;
+      context->loopbackClientContext->testResult.byteErrors = 0;
+      context->loopbackClientContext->testResult.rttNs = 0;
+      context->loopbackClientContext->runLoopbackTest.requestTimeNs =
+          CHPP_TIME_NONE;
+      context->loopbackClientContext->runLoopbackTest.responseTimeNs =
+          CHPP_TIME_NONE;
 
-      if (loopbackRequest == NULL) {
-        // OOM
-        context->loopbackClientContext->testResult.requestLen = 0;
-        context->loopbackClientContext->testResult.error = CHPP_APP_ERROR_OOM;
-        CHPP_LOG_OOM();
+      if (len == 0) {
+        CHPP_LOGE("Loopback payload=0!");
+        context->loopbackClientContext->testResult.error =
+            CHPP_APP_ERROR_INVALID_LENGTH;
 
       } else {
-        context->loopbackClientContext->loopbackData = buf;
-        memcpy(&loopbackRequest[CHPP_LOOPBACK_HEADER_LEN], buf, len);
+        uint8_t *loopbackRequest = (uint8_t *)chppAllocClientRequest(
+            &context->loopbackClientContext->client,
+            context->loopbackClientContext->testResult.requestLen);
 
-        if (!chppSendTimestampedRequestAndWaitTimeout(
-                &context->loopbackClientContext->client,
-                &context->loopbackClientContext->runLoopbackTest,
-                loopbackRequest,
-                context->loopbackClientContext->testResult.requestLen,
-                CHPP_NSEC_PER_SEC /* 1s */)) {
-          context->loopbackClientContext->testResult.error =
-              CHPP_APP_ERROR_UNSPECIFIED;
-        }  // else {context->loopbackClientContext->testResult is now populated}
+        if (loopbackRequest == NULL) {
+          // OOM
+          context->loopbackClientContext->testResult.requestLen = 0;
+          context->loopbackClientContext->testResult.error = CHPP_APP_ERROR_OOM;
+          CHPP_LOG_OOM();
+
+        } else {
+          context->loopbackClientContext->loopbackData = buf;
+          memcpy(&loopbackRequest[CHPP_LOOPBACK_HEADER_LEN], buf, len);
+
+          if (!chppSendTimestampedRequestAndWaitTimeout(
+                  &context->loopbackClientContext->client,
+                  &context->loopbackClientContext->runLoopbackTest,
+                  loopbackRequest,
+                  context->loopbackClientContext->testResult.requestLen,
+                  CHPP_NSEC_PER_SEC /* 1s */)) {
+            context->loopbackClientContext->testResult.error =
+                CHPP_APP_ERROR_UNSPECIFIED;
+          }  // else {context->loopbackClientContext->testResult is now
+             // populated}
+        }
       }
     }
+
+    result = context->loopbackClientContext->testResult;
   }
 
-  return context->loopbackClientContext->testResult;
+  return result;
 }

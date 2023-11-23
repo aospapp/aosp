@@ -16,6 +16,8 @@
 
 package com.android.bedstead.nene.utils;
 
+import android.util.Log;
+
 import com.android.bedstead.nene.exceptions.NeneException;
 import com.android.bedstead.nene.exceptions.PollValueFailedException;
 
@@ -34,6 +36,8 @@ import java.util.function.Function;
  * @param <E> return type of logic
  */
 public final class Retry<E> {
+
+    private static final String LOG_TAG = "Retry";
 
     private final Poll<E> mPoll;
 
@@ -86,6 +90,7 @@ public final class Retry<E> {
             return mPoll.await();
         } catch (PollValueFailedException e) {
             // We know there will be an exception cause because we aren't validating the value
+            Log.e(LOG_TAG, "Failure in retries", e);
             throw e.getCause();
         }
     }

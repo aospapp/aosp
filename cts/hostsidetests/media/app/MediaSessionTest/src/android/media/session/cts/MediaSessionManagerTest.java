@@ -18,25 +18,35 @@ package android.media.session.cts;
 
 import static android.media.cts.MediaSessionTestHelperConstants.MEDIA_SESSION_TEST_HELPER_PKG;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import android.content.ComponentName;
 import android.content.Context;
 import android.media.session.MediaController;
+import android.media.session.MediaSession;
 import android.media.session.MediaSessionManager.RemoteUserInfo;
 import android.media.session.MediaSessionManager;
+import android.media.session.PlaybackState;
 import android.os.Process;
 import android.service.notification.NotificationListenerService;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.SmallTest;
 
+import com.android.compatibility.common.util.MediaUtils;
+
 import org.junit.Before;
 import org.junit.Test;
 
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Tests {@link MediaSessionManager} with the multi-user environment.
@@ -45,6 +55,10 @@ import java.util.List;
  */
 @SmallTest
 public class MediaSessionManagerTest extends NotificationListenerService {
+    private static final String TAG = "MediaSessionManagerTest";
+    private static final int TIMEOUT_MS = 3000;
+    private static final int WAIT_MS = 500;
+
     private Context mContext;
     private MediaSessionManager mMediaSessionManager;
     private ComponentName mComponentName;
@@ -118,5 +132,94 @@ public class MediaSessionManagerTest extends NotificationListenerService {
         RemoteUserInfo userInfo = new RemoteUserInfo(
                 mContext.getPackageName(), Process.myPid(), Process.myUid());
         assertFalse(mMediaSessionManager.isTrustedForMediaControl(userInfo));
+    }
+
+    /**
+     * Tests adding/removing {@link MediaSessionManager.OnMediaKeyEventSessionChangedListener}.
+     */
+    @Test
+    public void testOnMediaKeyEventSessionChangedListener() throws Exception {
+        MediaKeyEventSessionListener keyEventSessionListener = new MediaKeyEventSessionListener();
+        mMediaSessionManager.addOnMediaKeyEventSessionChangedListener(
+                Executors.newSingleThreadExecutor(), keyEventSessionListener);
+
+        MediaSession session = createMediaKeySession();
+        assertTrue(keyEventSessionListener.mCountDownLatch
+                .await(TIMEOUT_MS, TimeUnit.MILLISECONDS));
+
+        assertEquals(session.getSessionToken(), keyEventSessionListener.mSessionToken);
+        assertEquals(session.getSessionToken(),
+                mMediaSessionManager.getMediaKeyEventSession());
+        assertEquals(mContext.getPackageName(),
+                mMediaSessionManager.getMediaKeyEventSessionPackageName());
+
+        mMediaSessionManager.removeOnMediaKeyEventSessionChangedListener(keyEventSessionListener);
+        keyEventSessionListener.resetCountDownLatch();
+
+        session.release();
+        // This shouldn't be called because the callback is removed
+        assertFalse(keyEventSessionListener.mCountDownLatch.await(WAIT_MS, TimeUnit.MILLISECONDS));
+    }
+
+    /**
+     * Tests {@link MediaSessionManager.OnMediaKeyEventSessionChangedListener} is called when
+     * the current media key session is released.
+     */
+    @Test
+    public void testOnMediaKeyEventSessionChangedListener_whenSessionIsReleased() throws Exception {
+        MediaSession.Token previousMediaKeyEventSessionToken =
+                mMediaSessionManager.getMediaKeyEventSession();
+
+        MediaKeyEventSessionListener keyEventSessionListener = new MediaKeyEventSessionListener();
+        mMediaSessionManager.addOnMediaKeyEventSessionChangedListener(
+                Executors.newSingleThreadExecutor(), keyEventSessionListener);
+
+        MediaSession session = createMediaKeySession();
+        assertTrue(keyEventSessionListener.mCountDownLatch
+                .await(TIMEOUT_MS, TimeUnit.MILLISECONDS));
+
+        // Check that this is called when the session is released.
+        keyEventSessionListener.resetCountDownLatch();
+        session.release();
+        assertTrue(keyEventSessionListener.mCountDownLatch
+                .await(TIMEOUT_MS, TimeUnit.MILLISECONDS));
+        assertNull(keyEventSessionListener.mSessionToken);
+        assertNull(mMediaSessionManager.getMediaKeyEventSession());
+        assertEquals("", mMediaSessionManager.getMediaKeyEventSessionPackageName());
+    }
+
+    private MediaSession createMediaKeySession() {
+        MediaSession session = new MediaSession(mContext, TAG);
+        session.setFlags(MediaSession.FLAG_HANDLES_MEDIA_BUTTONS
+                | MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS);
+        PlaybackState state = new PlaybackState.Builder()
+                .setState(PlaybackState.STATE_PLAYING, 0, 1.0f).build();
+        // Fake the media session service so this session can take the media key events.
+        session.setPlaybackState(state);
+        session.setActive(true);
+        Utils.assertMediaPlaybackStarted(mContext);
+
+        return session;
+    }
+
+    private class MediaKeyEventSessionListener
+            implements MediaSessionManager.OnMediaKeyEventSessionChangedListener {
+        CountDownLatch mCountDownLatch;
+        MediaSession.Token mSessionToken;
+
+        MediaKeyEventSessionListener() {
+            mCountDownLatch = new CountDownLatch(1);
+        }
+
+        void resetCountDownLatch() {
+            mCountDownLatch = new CountDownLatch(1);
+        }
+
+        @Override
+        public void onMediaKeyEventSessionChanged(String packageName,
+                MediaSession.Token sessionToken) {
+            mSessionToken = sessionToken;
+            mCountDownLatch.countDown();
+        }
     }
 }

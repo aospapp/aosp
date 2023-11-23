@@ -13,6 +13,7 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
+import os
 import time
 
 from acts import asserts
@@ -40,6 +41,8 @@ RADVD_PREFIX = 'fd00::/64'
 REPORTING_SPEED_UNITS = 'Mbps'
 
 RVR_GRAPH_SUMMARY_FILE = 'rvr_summary.html'
+
+DAD_TIMEOUT_SEC = 30
 
 
 def create_rvr_graph(test_name, graph_path, graph_data):
@@ -107,6 +110,7 @@ class WlanRvrTest(AbstractDeviceWlanDeviceBaseTest):
     * One attenuator
     * One Linux iPerf Server
     """
+
     def __init__(self, controllers):
         WifiBaseTest.__init__(self, controllers)
         self.rvr_graph_summary = []
@@ -157,7 +161,6 @@ class WlanRvrTest(AbstractDeviceWlanDeviceBaseTest):
             'debug_post_traffic_cmd', None))
 
         self.router_adv_daemon = None
-        self.check_if_has_private_local_ipv6_address = True
 
         if self.ending_attn == 'auto':
             self.use_auto_end = True
@@ -176,7 +179,11 @@ class WlanRvrTest(AbstractDeviceWlanDeviceBaseTest):
             self.attenuators, 'attenuator_ports_wifi_5g')
 
         self.iperf_server = self.iperf_servers[0]
-        self.dut_iperf_client = self.iperf_clients[0]
+
+        if hasattr(self, "iperf_clients") and self.iperf_clients:
+            self.dut_iperf_client = self.iperf_clients[0]
+        else:
+            self.dut_iperf_client = self.dut.create_iperf_client()
 
         self.access_point.stop_all_aps()
 
@@ -207,6 +214,8 @@ class WlanRvrTest(AbstractDeviceWlanDeviceBaseTest):
                           'to Exception')
             self.log.info(e)
 
+        super().teardown_class()
+
     def on_fail(self, test_name, begin_time):
         super().on_fail(test_name, begin_time)
         self.cleanup_tests()
@@ -218,6 +227,11 @@ class WlanRvrTest(AbstractDeviceWlanDeviceBaseTest):
         """
 
         if self.router_adv_daemon:
+            output_path = context.get_current_context().get_base_output_path()
+            full_output_path = os.path.join(output_path, "radvd_log.txt")
+            radvd_log_file = open(full_output_path, 'w')
+            radvd_log_file.write(self.router_adv_daemon.pull_logs())
+            radvd_log_file.close()
             self.router_adv_daemon.stop()
         if hasattr(self, "android_devices"):
             for ad in self.android_devices:
@@ -228,7 +242,86 @@ class WlanRvrTest(AbstractDeviceWlanDeviceBaseTest):
         self.dut.turn_location_off_and_scan_toggle_off()
         self.dut.disconnect()
         self.dut.reset_wifi()
+        self.download_ap_logs()
         self.access_point.stop_all_aps()
+
+    def _wait_for_ipv4_addrs(self):
+        """Wait for an IPv4 addresses to become available on the DUT and iperf
+        server.
+
+        Returns:
+           A string containing the private IPv4 address of the iperf server.
+
+        Raises:
+            TestFailure: If unable to acquire a IPv4 address.
+        """
+        ip_address_checker_counter = 0
+        ip_address_checker_max_attempts = 3
+        while ip_address_checker_counter < ip_address_checker_max_attempts:
+            self.iperf_server.renew_test_interface_ip_address()
+            iperf_server_ip_addresses = (
+                self.iperf_server.get_interface_ip_addresses(
+                    self.iperf_server.test_interface))
+            dut_ip_addresses = self.dut.get_interface_ip_addresses(
+                self.dut_iperf_client.test_interface)
+
+            self.log.info(
+                'IPerf server IP info: {}'.format(iperf_server_ip_addresses))
+            self.log.info('DUT IP info: {}'.format(dut_ip_addresses))
+
+            if not iperf_server_ip_addresses['ipv4_private']:
+                self.log.warn('Unable to get the iperf server IPv4 '
+                              'address. Retrying...')
+                ip_address_checker_counter += 1
+                time.sleep(1)
+                continue
+
+            if dut_ip_addresses['ipv4_private']:
+                return iperf_server_ip_addresses['ipv4_private'][0]
+
+            self.log.warn('Unable to get the DUT IPv4 address starting at '
+                          'attenuation "{}". Retrying...'.format(
+                              self.starting_attn))
+            ip_address_checker_counter += 1
+            time.sleep(1)
+
+        asserts.fail(
+            'IPv4 addresses are not available on both the DUT and iperf server.'
+        )
+
+    def _wait_for_dad(self, device, test_interface):
+        """Wait for Duplicate Address Detection to resolve so that an
+        private-local IPv6 address is available for test.
+
+        Args:
+            device: implementor of get_interface_ip_addresses
+            test_interface: name of interface that DAD is operating on
+
+        Returns:
+            A string containing the private-local IPv6 address of the device.
+
+        Raises:
+            TestFailure: If unable to acquire an IPv6 address.
+        """
+        now = time.time()
+        start = now
+        elapsed = now - start
+
+        while elapsed < DAD_TIMEOUT_SEC:
+            addrs = device.get_interface_ip_addresses(test_interface)
+            now = time.time()
+            elapsed = now - start
+            if addrs['ipv6_private_local']:
+                # DAD has completed
+                addr = addrs['ipv6_private_local'][0]
+                self.log.info('DAD resolved with "{}" after {}s'.format(
+                    addr, elapsed))
+                return addr
+            time.sleep(1)
+        else:
+            asserts.fail(
+                'Unable to acquire a private-local IPv6 address for testing '
+                'after {}s'.format(elapsed))
 
     def run_rvr(self,
                 ssid,
@@ -251,7 +344,6 @@ class WlanRvrTest(AbstractDeviceWlanDeviceBaseTest):
         """
         throughput = []
         relative_attn = []
-        self.check_if_has_private_local_ipv6_address = True
         if band == '2g':
             rvr_attenuators = self.attenuators_2g
         elif band == '5g':
@@ -259,7 +351,7 @@ class WlanRvrTest(AbstractDeviceWlanDeviceBaseTest):
         else:
             raise ValueError('Invalid WLAN band specified: %s' % band)
         if ip_version == 6:
-            ravdvd_config = RadvdConfig(
+            radvd_config = RadvdConfig(
                 prefix=RADVD_PREFIX,
                 adv_send_advert=radvd_constants.ADV_SEND_ADVERT_ON,
                 adv_on_link=radvd_constants.ADV_ON_LINK_ON,
@@ -267,7 +359,7 @@ class WlanRvrTest(AbstractDeviceWlanDeviceBaseTest):
             self.router_adv_daemon = Radvd(
                 self.access_point.ssh,
                 self.access_point.interfaces.get_bridge_interface()[0])
-            self.router_adv_daemon.start(ravdvd_config)
+            self.router_adv_daemon.start(radvd_config)
 
         for rvr_loop_counter in range(0, self.debug_loop_count):
             for rvr_attenuator in rvr_attenuators:
@@ -286,66 +378,27 @@ class WlanRvrTest(AbstractDeviceWlanDeviceBaseTest):
                     break
                 else:
                     associate_counter += 1
-            if associate_counter == associate_max_attempts:
+            else:
                 asserts.fail('Unable to associate at starting '
                              'attenuation: %s' % self.starting_attn)
 
-            ip_address_checker_counter = 0
-            ip_address_checker_max_attempts = 3
-            while ip_address_checker_counter < ip_address_checker_max_attempts:
+            if ip_version == 4:
+                iperf_server_ip_address = self._wait_for_ipv4_addrs()
+            elif ip_version == 6:
                 self.iperf_server.renew_test_interface_ip_address()
-                iperf_server_ip_addresses = (
-                    self.iperf_server.get_interface_ip_addresses(
-                        self.iperf_server.test_interface))
-                dut_ip_addresses = self.dut.get_interface_ip_addresses(
-                    self.dut_iperf_client.test_interface)
-                self.log.info('IPerf server IP info: %s' %
-                              iperf_server_ip_addresses)
-                self.log.info('DUT IP info: %s' % dut_ip_addresses)
-                if ip_version == 4:
-                    if iperf_server_ip_addresses['ipv4_private']:
-                        iperf_server_ip_address = (
-                            iperf_server_ip_addresses['ipv4_private'][0])
-                    if not dut_ip_addresses['ipv4_private']:
-                        self.log.warn('Unable to get IPv4 address at starting '
-                                      'attenuation: %s Retrying.' %
-                                      self.starting_attn)
-                        ip_address_checker_counter += 1
-                        time.sleep(1)
-                    else:
-                        break
-                elif ip_version == 6:
-                    if iperf_server_ip_addresses['ipv6_private_local']:
-                        iperf_server_ip_address = (
-                            iperf_server_ip_addresses['ipv6_private_local'][0])
-                    else:
-                        self.check_if_has_private_local_ipv6_address = False
-                        iperf_server_ip_address = (
-                            '%s%%%s' %
-                            (iperf_server_ip_addresses['ipv6_link_local'][0],
-                             self.dut_iperf_client.test_interface))
-                    if self.check_if_has_private_local_ipv6_address:
-                        if not dut_ip_addresses['ipv6_private_local']:
-                            self.log.warn('Unable to get IPv6 address at '
-                                          'starting attenuation: %s' %
-                                          self.starting_attn)
-                            ip_address_checker_counter += 1
-                            time.sleep(1)
-                        else:
-                            break
-                    else:
-                        break
-                else:
-                    raise ValueError('Invalid IP version: %s' % ip_version)
-            if ip_address_checker_counter == ip_address_checker_max_attempts:
-                if self.dut.can_ping(iperf_server_ip_address):
-                    self.log.error('IPerf server is pingable. Continuing with '
-                                   'test.  The missing IP address information '
-                                   'should be marked as a bug.')
-                else:
-                    asserts.fail('DUT was unable to get IPv%s address and '
-                                 'could not ping the IPerf server.' %
-                                 str(ip_version))
+                self.log.info('Waiting for iperf server to complete Duplicate '
+                              'Address Detection...')
+                iperf_server_ip_address = self._wait_for_dad(
+                    self.iperf_server, self.iperf_server.test_interface)
+
+                self.log.info('Waiting for DUT to complete Duplicate Address '
+                              'Detection for "{}"...'.format(
+                                  self.dut_iperf_client.test_interface))
+                _ = self._wait_for_dad(self.dut,
+                                       self.dut_iperf_client.test_interface)
+            else:
+                raise ValueError('Invalid IP version: {}'.format(ip_version))
+
             throughput, relative_attn = (self.rvr_loop(
                 traffic_dir,
                 rvr_attenuators,
@@ -472,19 +525,13 @@ class WlanRvrTest(AbstractDeviceWlanDeviceBaseTest):
                     self.log.info('DUT has the following IPv4 address: "%s"' %
                                   dut_ip_addresses['ipv4_private'][0])
             elif ip_version == 6:
-                if self.check_if_has_private_local_ipv6_address:
-                    if not dut_ip_addresses['ipv6_private_local']:
-                        self.log.info(
-                            'DUT does not have an IPv6 address. '
-                            'Traffic attempt to be run if the server '
-                            'is pingable.')
-                    else:
-                        self.log.info(
-                            'DUT has the following IPv6 address: "%s"' %
-                            dut_ip_addresses['ipv6_private_local'][0])
+                if not dut_ip_addresses['ipv6_private_local']:
+                    self.log.info('DUT does not have an IPv6 address. '
+                                  'Traffic attempt to be run if the server '
+                                  'is pingable.')
                 else:
                     self.log.info('DUT has the following IPv6 address: "%s"' %
-                                  dut_ip_addresses['ipv6_link_local'][0])
+                                  dut_ip_addresses['ipv6_private_local'][0])
             server_pingable = self.dut.can_ping(iperf_server_ip_address)
             if not server_pingable:
                 self.log.info('Iperf server "%s" is not pingable. Marking '

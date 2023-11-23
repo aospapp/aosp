@@ -48,26 +48,6 @@
         <option name="device-listeners" value="org.conscrypt.ConscryptInstrumentationListener" />
         <option name="instrumentation-arg" key="conscrypt_sslsocket_implementation" value="engine" />
     </test>
-    <!-- Re-run a subset of tests using Conscrypt's file-descriptor based implementation to ensure
-         there are no regressions in this implementation before it is fully deprecated.
-
-         Expectations for these tests are the same as above, only timeout and SSLSocket
-         implementation are different.
-    -->
-    <test class="com.android.compatibility.testtype.LibcoreTest" >
-        <option name="package" value="android.libcore.cts" />
-        <option name="include-filter" value="libcore.javax.net.ssl" />
-        <option name="include-filter" value="com.android.org.conscrypt.javax.net.ssl" />
-        <option name="include-filter" value="org.apache.harmony.tests.javax.net.ssl" />
-        <option name="instrumentation-arg" key="filter"
-                value="com.android.cts.core.runner.ExpectationBasedFilter" />
-        <option name="core-expectation" value="/knownfailures.txt" />
-        <option name="virtual-device-core-expectation" value="/virtualdeviceknownfailures.txt" />
-        <option name="runtime-hint" value="5m"/>
-        <option name="hidden-api-checks" value="false"/>
-        <option name="device-listeners" value="org.conscrypt.ConscryptInstrumentationListener" />
-        <option name="instrumentation-arg" key="conscrypt_sslsocket_implementation" value="fd" />
-    </test>
 
     <object type="module_controller" class="com.android.tradefed.testtype.suite.module.TestFailureModuleController">
         <option name="screenshot-on-failure" value="false" />
@@ -81,4 +61,7 @@
         <!-- ART Mainline Module (external (AOSP) version). -->
         <option name="mainline-module-package-name" value="com.android.art" />
     </object>
+
+    <!-- Only run tests if the device under test is SDK version 31 (Android 12) or above. -->
+    <object type="module_controller" class="com.android.tradefed.testtype.suite.module.Sdk31ModuleController" />
 </configuration>

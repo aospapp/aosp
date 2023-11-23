@@ -36,10 +36,10 @@ import android.provider.MediaStore;
 import android.provider.MediaStore.Audio;
 import android.provider.MediaStore.Audio.Media;
 import android.provider.MediaStore.Files.FileColumns;
-import android.provider.MediaStore.MediaColumns;
 import android.provider.cts.ProviderTestUtils;
 import android.provider.cts.R;
 import android.provider.cts.media.MediaStoreAudioTestHelper.Audio1;
+import android.provider.cts.media.MediaStoreAudioTestHelper.Audio7;
 import android.provider.cts.media.MediaStoreUtils.PendingParams;
 import android.provider.cts.media.MediaStoreUtils.PendingSession;
 import android.util.Log;
@@ -157,7 +157,6 @@ public class MediaStore_Audio_MediaTest {
             assertEquals(Audio1.IS_MUSIC, c.getInt(c.getColumnIndex(Media.IS_MUSIC)));
             assertEquals(Audio1.IS_NOTIFICATION, c.getInt(c.getColumnIndex(Media.IS_NOTIFICATION)));
             assertEquals(Audio1.IS_RINGTONE, c.getInt(c.getColumnIndex(Media.IS_RINGTONE)));
-            assertEquals(Audio1.IS_RECORDING, c.getInt(c.getColumnIndex(Media.IS_RECORDING)));
             assertEquals(Audio1.TRACK, c.getInt(c.getColumnIndex(Media.TRACK)));
             assertEquals(Audio1.YEAR, c.getInt(c.getColumnIndex(Media.YEAR)));
             String titleKey = c.getString(c.getColumnIndex(Media.TITLE_KEY));
@@ -183,6 +182,41 @@ public class MediaStore_Audio_MediaTest {
             // delete
             int result = mContentResolver.delete(uri, null, null);
             assertEquals(1, result);
+        }
+    }
+
+    /**
+     * The test case checks below behaviors:
+     * 1. The IS_RECORDING column is in Audio table in MediaStore's database since S OS. Insert with
+     *    IS_RECORDING column doesn't fail and we can query the result with IS_RECORDING column.
+     * 2. Validate IS_RECORDING is correctly set for database row.
+     */
+    @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.S)
+    public void testStoreNotAudioRecordingMedia() {
+        Audio7 audio7 = Audio7.getInstance();
+        ContentValues values = audio7.getContentValues(mVolumeName);
+        //insert
+        Uri mediaUri = Media.getContentUri(mVolumeName);
+        Uri uri = mContentResolver.insert(mediaUri, values);
+        assertNotNull(uri);
+
+        try (Cursor c = mContentResolver.query(uri, null, null, null, null)) {
+            assertEquals(1, c.getCount());
+            c.moveToFirst();
+            long id = c.getLong(c.getColumnIndex(Media._ID));
+            assertTrue(id > 0);
+            String expected = audio7.getContentValues(mVolumeName).getAsString(Media.DATA);
+            assertEquals(expected, c.getString(c.getColumnIndex(Media.DATA)));
+            assertEquals(Audio7.MIME_TYPE, c.getString(c.getColumnIndex(Media.MIME_TYPE)));
+            assertEquals(Audio7.IS_ALARM, c.getInt(c.getColumnIndex(Media.IS_ALARM)));
+            assertEquals(Audio7.IS_MUSIC, c.getInt(c.getColumnIndex(Media.IS_MUSIC)));
+            assertEquals(Audio7.IS_NOTIFICATION, c.getInt(c.getColumnIndex(Media.IS_NOTIFICATION)));
+            assertEquals(Audio7.IS_RINGTONE, c.getInt(c.getColumnIndex(Media.IS_RINGTONE)));
+            assertEquals(Audio7.IS_RECORDING, c.getInt(c.getColumnIndex(Media.IS_RECORDING)));
+        } finally {
+            // delete
+            mContentResolver.delete(uri, null, null);
         }
     }
 

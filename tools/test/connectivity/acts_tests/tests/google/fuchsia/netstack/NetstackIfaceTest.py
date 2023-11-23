@@ -33,7 +33,6 @@ class NetstackIfaceTest(BaseTestClass):
                 "NetstackFuchsiaTest Init: Not enough fuchsia devices.")
         self.log.info("Running testbed setup with one fuchsia devices")
         self.dut = self.fuchsia_devices[0]
-        self.dut.netstack_lib.init()
 
     def _enable_all_interfaces(self):
         interfaces = self.dut.netstack_lib.netstackListInterfaces()
@@ -76,44 +75,6 @@ class NetstackIfaceTest(BaseTestClass):
         self.log.info("Interfaces found: {}".format(interfaces.get('result')))
         raise signals.TestPass("Success")
 
-    def test_get_interface_by_id(self):
-        """Tests getting interface information by id on all interfaces.
-
-        Steps:
-        1. Call ListInterfaces FIDL api.
-        2. For each interface in the list, call GetInterfaceInfo FIDL api.
-
-        Expected Result:
-        There were no errors in each GetInterfaceInfo call.
-
-        Returns:
-          signals.TestPass if no errors
-          signals.TestFailure if there are any errors during the test.
-
-        TAGS: Netstack
-        Priority: 1
-        """
-        interfaces = self.dut.netstack_lib.netstackListInterfaces()
-        if interfaces.get('error') is not None:
-            raise signals.TestFailure("Failed with {}".format(
-                interfaces.get('error')))
-        for item in interfaces.get("result"):
-            identifier = item.get('id')
-            interface_info_result = self.dut.netstack_lib.getInterfaceInfo(
-                identifier)
-            if interface_info_result.get('error') is not None:
-                raise signals.TestFailure(
-                    "Get interfaces info failed with {}".format(
-                        interface_info_result.get('error')))
-            else:
-                result = interface_info_result.get('result')
-                if result is None:
-                    raise signals.TestFailure(
-                        "Interface info returned None: {}".format(result))
-                self.log.info("Interface {} info: {}".format(
-                    identifier, result))
-        raise signals.TestPass("Success")
-
     def test_toggle_wlan_interface(self):
         """Test toggling the wlan interface if it exists.
 
@@ -131,43 +92,60 @@ class NetstackIfaceTest(BaseTestClass):
         Returns:
           signals.TestPass if no errors
           signals.TestFailure if there are any errors during the test.
+          signals.TestSkip if there are no wlan interfaces.
 
         TAGS: Netstack
         Priority: 1
         """
-        interfaces = self.dut.netstack_lib.netstackListInterfaces()
-        for item in interfaces.get('result'):
-            # Find the WLAN interface
-            if "wlan" in item.get('name'):
-                identifier = item.get('id')
-                # Disable the interface by ID.
-                result = self.dut.netstack_lib.disableInterface(identifier)
-                if result.get('error') is not None:
-                    raise signals.TestFailure(
-                        "Unable to disable wlan interface: {}".format(
-                            result.get('error')))
 
-                # Check the current state of the interface.
-                interface_info_result = self.dut.netstack_lib.getInterfaceInfo(
-                    identifier)
-                interface_info = interface_info_result.get('result')
+        def get_wlan_interfaces():
+            result = self.dut.netstack_lib.netstackListInterfaces()
+            if (error := result.get('error')):
+                raise signals.TestFailure(
+                    f'unable to list interfaces: {error}')
+            return [
+                interface for interface in result.get('result')
+                if 'wlan' in interface.get('name')
+            ]
 
-                if len(interface_info.get('ipv4_addresses')) > 0:
-                    raise signals.TestFailure(
-                        "No Ipv4 Address should be present: {}".format(
-                            interface_info))
+        def get_ids(interfaces):
+            return [get_id(interface) for interface in interfaces]
 
-                # TODO (35981): Verify other values when interface down.
+        wlan_interfaces = get_wlan_interfaces()
+        if not wlan_interfaces:
+            raise signals.TestSkip('no wlan interface found')
+        interface_ids = get_ids(wlan_interfaces)
 
-                # Re-enable the interface
-                result = self.dut.netstack_lib.enableInterface(identifier)
-                if result.get('error') is not None:
-                    raise signals.TestFailure(
-                        "Unable to enable wlan interface: {}".format(
-                            result.get('error')))
+        # Disable the interfaces.
+        for identifier in interface_ids:
+            result = self.dut.netstack_lib.disableInterface(identifier)
+            if (error := result.get('error')):
+                raise signals.TestFailure(
+                    f'failed to disable wlan interface {identifier}: {error}')
 
-                # TODO (35981): Verify other values when interface up.
+        # Retrieve the interfaces again.
+        disabled_wlan_interfaces = get_wlan_interfaces()
+        disabled_interface_ids = get_ids(wlan_interfaces)
 
-                raise signals.TestPass("Success")
+        if not disabled_interface_ids == interface_ids:
+            raise signals.TestFailure(
+                f'disabled interface IDs do not match original interface IDs: original={interface_ids} disabled={disabled_interface_ids}'
+            )
 
-        raise signals.TestSkip("No WLAN interface found.")
+        # Check the current state of the interfaces.
+        for interface in disabled_interfaces:
+            if len(interface_info.get('ipv4_addresses')) > 0:
+                raise signals.TestFailure(
+                    f'no Ipv4 Address should be present: {interface}')
+
+            # TODO (35981): Verify other values when interface down.
+
+        # Re-enable the interfaces.
+        for identifier in disabled_interface_ids:
+            result = self.dut.netstack_lib.enableInterface(identifier)
+            if (error := result.get('error')):
+                raise signals.TestFailure(
+                    f'failed to enable wlan interface {identifier}: {error}')
+
+        # TODO (35981): Verify other values when interface up.
+        raise signals.TestPass("Success")

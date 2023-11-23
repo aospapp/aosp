@@ -51,7 +51,6 @@ func testForDanglingRules(ctx Context, config Config) {
 	executable := config.PrebuiltBuildTool("ninja")
 
 	commonArgs := []string{}
-	commonArgs = append(commonArgs, config.NinjaArgs()...)
 	commonArgs = append(commonArgs, "-f", config.CombinedNinjaFile())
 	args := append(commonArgs, "-t", "targets", "rule")
 
@@ -64,8 +63,6 @@ func testForDanglingRules(ctx Context, config Config) {
 	cmd.StartOrFatal()
 
 	outDir := config.OutDir()
-	bootstrapDir := filepath.Join(outDir, "soong", ".bootstrap")
-	miniBootstrapDir := filepath.Join(outDir, "soong", ".minibootstrap")
 	modulePathsDir := filepath.Join(outDir, ".module_paths")
 	variablesFilePath := filepath.Join(outDir, "soong", "soong.variables")
 
@@ -79,6 +76,9 @@ func testForDanglingRules(ctx Context, config Config) {
 	// out/build_date.txt is considered a "source file"
 	buildDatetimeFilePath := filepath.Join(outDir, "build_date.txt")
 
+	// bpglob is built explicitly using Microfactory
+	bpglob := filepath.Join(config.SoongOutDir(), "bpglob")
+
 	danglingRules := make(map[string]bool)
 
 	scanner := bufio.NewScanner(stdout)
@@ -88,12 +88,11 @@ func testForDanglingRules(ctx Context, config Config) {
 			// Leaf node is not in the out directory.
 			continue
 		}
-		if strings.HasPrefix(line, bootstrapDir) ||
-			strings.HasPrefix(line, miniBootstrapDir) ||
-			strings.HasPrefix(line, modulePathsDir) ||
+		if strings.HasPrefix(line, modulePathsDir) ||
 			line == variablesFilePath ||
 			line == dexpreoptConfigFilePath ||
-			line == buildDatetimeFilePath {
+			line == buildDatetimeFilePath ||
+			line == bpglob {
 			// Leaf node is in one of Soong's bootstrap directories, which do not have
 			// full build rules in the primary build.ninja file.
 			continue

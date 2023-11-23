@@ -16,6 +16,8 @@
 
 package android.appsecurity.cts.v3rotationtests;
 
+import static org.junit.Assert.assertArrayEquals;
+
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.Signature;
@@ -116,6 +118,51 @@ public class V3RotationTest extends AndroidTestCase {
                     + "99c63011022100d260fb1d1f176cf9b7fa60098bfd24319f4905a3e5fda1"
                     + "00a6fe1a2ab19ff09e";
 
+    private static final String EC_P256_THIRD_CERT_HEX =
+            "3082016e30820115a0030201020209008394f5cad16a89a7300a06082a86"
+                    + "48ce3d04030230143112301006035504030c0965632d703235365f32301e"
+                    + "170d3138303731343030303532365a170d3238303731313030303532365a"
+                    + "30143112301006035504030c0965632d703235365f333059301306072a86"
+                    + "48ce3d020106082a8648ce3d03010703420004f31e62430e9db6fc5928d9"
+                    + "75fc4e47419bacfcb2e07c89299e6cd7e344dd21adfd308d58cb49a1a2a3"
+                    + "fecacceea4862069f30be1643bcc255040d8089dfb3743a350304e301d06"
+                    + "03551d0e041604146f8d0828b13efaf577fc86b0e99fa3e54bcbcff0301f"
+                    + "0603551d230418301680147991d92b0208fc448bf506d4efc9fff428cb5e"
+                    + "5f300c0603551d13040530030101ff300a06082a8648ce3d040302034700"
+                    + "30440220256bdaa2784c273e4cc291a595a46779dee9de9044dc9f7ab820"
+                    + "309567df9fe902201a4ad8c69891b5a8c47434fe9540ed1f4979b5fad348"
+                    + "3f3fa04d5677355a579e";
+
+    private static final String EC_P256_FOURTH_CERT_HEX =
+            "3082017b30820120a00302010202146c8cb8a818433c1e6431fb16fb3ae0"
+                    + "fb5ad60aa7300a06082a8648ce3d04030230143112301006035504030c09"
+                    + "65632d703235365f33301e170d3230303531333139313532385a170d3330"
+                    + "303531313139313532385a30143112301006035504030c0965632d703235"
+                    + "365f343059301306072a8648ce3d020106082a8648ce3d03010703420004"
+                    + "db4a60031e79ad49cb759007d6855d4469b91c8bab065434f2fba971ade7"
+                    + "e4d19599a0f67b5e708cfda7543e5630c3769d37e093640d7c768a15144c"
+                    + "d0e5dcf4a350304e301d0603551d0e041604146e78970332554336b6ee89"
+                    + "24eaa70230e393f678301f0603551d230418301680146f8d0828b13efaf5"
+                    + "77fc86b0e99fa3e54bcbcff0300c0603551d13040530030101ff300a0608"
+                    + "2a8648ce3d0403020349003046022100ce786e79ec7547446082e9caf910"
+                    + "614ff80758f9819fb0f148695067abe0fcd4022100a4881e332ddec2116a"
+                    + "d2b59cf891d0f331ff7e27e77b7c6206c7988d9b539330";
+
+    private static final String EC_P256_FIFTH_CERT_HEX =
+            "3082017930820120a003020102021450e1ee31d9f9259eadd3514a988dfa"
+                    + "4bf0e7153a300a06082a8648ce3d04030230143112301006035504030c09"
+                    + "65632d703235365f34301e170d3232303331353031303530385a170d3332"
+                    + "303331323031303530385a30143112301006035504030c0965632d703235"
+                    + "365f353059301306072a8648ce3d020106082a8648ce3d03010703420004"
+                    + "75703c54a432df580e86848817b491ee028324257dc31e891fc4af93d9bd"
+                    + "4bf026b39c7a145213753c344c2a12056ce7ccc21b40be8f9fad28639dca"
+                    + "dbe63b4ea350304e301d0603551d0e04160414e8cc32db6a21f86c75f3c1"
+                    + "96c0b199885498b73b301f0603551d230418301680146e78970332554336"
+                    + "b6ee8924eaa70230e393f678300c0603551d13040530030101ff300a0608"
+                    + "2a8648ce3d040302034700304402202ded97f7ddcd3229ad26783436186f"
+                    + "1e74247a4422baf99f1eeb715dfe7e895502207814248b1b7742f3009602"
+                    + "bdc96f66529884fc605a070ff25c84648c8fccb44b";
+
     public void testHasPerm() throws Exception {
         PackageManager pm = getContext().getPackageManager();
         assertTrue(PERMISSION_NAME + " not granted to " + COMPANION_PKG,
@@ -199,6 +246,28 @@ public class V3RotationTest extends AndroidTestCase {
                 EC_P256_SECOND_CERT_HEX);
     }
 
+    public void testGetSigningCertificateHistoryReturnsSignersInOrder() throws Exception {
+        // The test package used for this should be signed with five keys in the signing lineage,
+        // and the signatures returned from SigningInfo#getSigningCertificateHistory should be
+        // returned in their rotated order.
+        final String[] expectedSignatures = new String[]{
+                EC_P256_FIRST_CERT_HEX,
+                EC_P256_SECOND_CERT_HEX,
+                EC_P256_THIRD_CERT_HEX,
+                EC_P256_FOURTH_CERT_HEX,
+                EC_P256_FIFTH_CERT_HEX,
+        };
+
+        PackageManager pm = getContext().getPackageManager();
+        PackageInfo pi = pm.getPackageInfo(PKG, PackageManager.GET_SIGNING_CERTIFICATES);
+        assertNotNull("Failed to get signatures in PackageInfo of " + PKG,
+                pi.signingInfo);
+        String[] actualSignatures = Arrays.stream(pi.signingInfo.getSigningCertificateHistory())
+                .map(Signature::toCharsString)
+                .toArray(String[]::new);
+        assertArrayEquals(expectedSignatures, actualSignatures);
+    }
+
     public void testHasSigningCertificate() throws Exception {
         // make sure that hasSigningCertificate() reports that both certificates in the signing
         // history are present
@@ -249,6 +318,36 @@ public class V3RotationTest extends AndroidTestCase {
         byte[] secondCertBytes = computeSha256DigestBytes(fromHexToByteArray(SECOND_CERT_HEX));
         assertTrue("Current signing certificate not found for " + PKG,
                 pm.hasSigningCertificate(uid, secondCertBytes, PackageManager.CERT_INPUT_SHA256));
+    }
+
+    public void testUsingOriginalSigner() throws Exception {
+        // Verifies the platform only recognized the original signing key during installation.
+        PackageManager pm = getContext().getPackageManager();
+        PackageInfo pi = pm.getPackageInfo(PKG, PackageManager.GET_SIGNING_CERTIFICATES);
+        assertFalse(
+                "APK is expected to use the original signing key, but past signing certificates "
+                        + "were reported",
+                pi.signingInfo.hasPastSigningCertificates());
+        assertExpectedSignatures(pi.signingInfo.getApkContentsSigners(), EC_P256_FIRST_CERT_HEX);
+        byte[] secondCertBytes = fromHexToByteArray(EC_P256_SECOND_CERT_HEX);
+        assertFalse("APK is not expected to have the rotated key in its signing lineage",
+                pm.hasSigningCertificate(PKG, secondCertBytes, PackageManager.CERT_INPUT_RAW_X509));
+    }
+
+    public void testUsingRotatedSigner() throws Exception {
+        // Verifies the platform recognized the rotated signing key during installation.
+        PackageManager pm = getContext().getPackageManager();
+        PackageInfo pi = pm.getPackageInfo(PKG, PackageManager.GET_SIGNING_CERTIFICATES);
+        assertTrue(
+                "APK is expected to be signed with the rotated signing key, but past signing "
+                        + "certificates were not reported",
+                pi.signingInfo.hasPastSigningCertificates());
+        assertExpectedSignatures(pi.signingInfo.getApkContentsSigners(), EC_P256_SECOND_CERT_HEX);
+        assertExpectedSignatures(pi.signingInfo.getSigningCertificateHistory(),
+                EC_P256_FIRST_CERT_HEX, EC_P256_SECOND_CERT_HEX);
+        byte[] firstCertBytes = fromHexToByteArray(EC_P256_FIRST_CERT_HEX);
+        assertTrue("APK is expected to have the original key in its signing lineage",
+                pm.hasSigningCertificate(PKG, firstCertBytes, PackageManager.CERT_INPUT_RAW_X509));
     }
 
     private  static byte[] fromHexToByteArray(String str) {

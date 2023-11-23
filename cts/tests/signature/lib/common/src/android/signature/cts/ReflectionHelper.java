@@ -31,6 +31,7 @@ import java.lang.reflect.TypeVariable;
 import java.lang.reflect.WildcardType;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -277,6 +278,24 @@ public class ReflectionHelper {
         }
 
         return null;
+    }
+
+    /**
+     * Checks if the two types of methods are the same.
+     *
+     * @param jDiffMethod the jDiffMethod to compare
+     * @param reflectedMethod the reflected method to compare
+     * @return true, if both methods are the same
+     */
+    static boolean matches(JDiffClassDescription.JDiffMethod jDiffMethod,
+            Method reflectedMethod) {
+        // If the method names aren't equal, the methods can't match.
+        if (!jDiffMethod.mName.equals(reflectedMethod.getName())) {
+            return false;
+        }
+
+        Map<Method, String> ignoredReasons = new HashMap<>();
+        return matchesSignature(jDiffMethod, reflectedMethod, ignoredReasons);
     }
 
     /**

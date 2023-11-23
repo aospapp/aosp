@@ -16,6 +16,7 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="com.android.test.notificationtrampoline">
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application>
         <service
             android:name=".NotificationTrampolineTestService"
@@ -23,5 +24,16 @@
         <activity
             android:name=".NotificationTrampolineTestService$TargetActivity"
             android:exported="true" />
+        <activity
+            android:name=".BrowserActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="http"/>
+                <data android:scheme="https"/>
+            </intent-filter>
+        </activity>
     </application>
 </manifest>

@@ -19,22 +19,12 @@ package libcore.icu;
 import android.compat.annotation.ChangeId;
 import android.compat.annotation.EnabledAfter;
 import android.compat.annotation.UnsupportedAppUsage;
-import android.compat.Compatibility;
 import android.icu.text.DateFormatSymbols;
-import android.icu.text.DecimalFormat;
-import android.icu.text.DecimalFormatSymbols;
-import android.icu.text.NumberFormat;
-import android.icu.text.NumberingSystem;
 import android.icu.util.Calendar;
 import android.icu.util.GregorianCalendar;
-import android.icu.util.ULocale;
-
-import com.android.icu.text.ExtendedDecimalFormatSymbols;
-import com.android.icu.util.ExtendedCalendar;
 
 import dalvik.system.VMRuntime;
 
-import java.text.DateFormat;
 import java.util.HashMap;
 import java.util.Locale;
 import libcore.util.Objects;
@@ -87,6 +77,7 @@ public final class LocaleData {
     @EnabledAfter(targetSdkVersion=29 /* Android Q */)
     public static final long USE_REAL_ROOT_LOCALE = 159047832L;
 
+    // TODO(http://b/217881004): Replace this with a LRU cache.
     // A cache for the locale-specific data.
     private static final HashMap<String, LocaleData> localeDataCache = new HashMap<String, LocaleData>();
     static {
@@ -127,22 +118,14 @@ public final class LocaleData {
     public String[] shortStandAloneWeekdayNames; // "Sun", ...
     public String[] tinyStandAloneWeekdayNames; // "S", ...
 
-    // today and tomorrow is only kept for @UnsupportedAppUsage.
+    // zeroDigit, today and tomorrow is only kept for @UnsupportedAppUsage.
     // Their value is hard-coded, not localized.
     @UnsupportedAppUsage
     public String today; // "Today".
     @UnsupportedAppUsage
     public String tomorrow; // "Tomorrow".
-
-    public String fullTimeFormat;
-    public String longTimeFormat;
-    public String mediumTimeFormat;
-    public String shortTimeFormat;
-
-    public String fullDateFormat;
-    public String longDateFormat;
-    public String mediumDateFormat;
-    public String shortDateFormat;
+    @UnsupportedAppUsage
+    public char zeroDigit; // '0'
 
     // timeFormat_hm and timeFormat_Hm are only kept for @UnsupportedAppUsage.
     // Their value is hard-coded, not localized.
@@ -151,32 +134,10 @@ public final class LocaleData {
     @UnsupportedAppUsage
     public String timeFormat_Hm;
 
-    // Used by DecimalFormatSymbols.
-    @UnsupportedAppUsage
-    public char zeroDigit;
-    public char decimalSeparator;
-    public char groupingSeparator;
-    public char patternSeparator;
-    public String percent;
-    public String perMill;
-    public char monetarySeparator;
-    public String minusSign;
-    public String exponentSeparator;
-    public String infinity;
-    public String NaN;
-
-    // Used by DecimalFormat and NumberFormat.
-    public String numberPattern;
-    public String integerPattern;
-    public String currencyPattern;
-    public String percentPattern;
-
-    private final Locale mLocale;
-
-    private LocaleData(Locale locale) {
-        mLocale = locale;
+    private LocaleData() {
         today = "Today";
         tomorrow = "Tomorrow";
+        zeroDigit = '0';
         timeFormat_hm = "h:mm a";
         timeFormat_Hm = "HH:mm";
     }
@@ -246,104 +207,16 @@ public final class LocaleData {
         return Objects.toString(this);
     }
 
-    public String getDateFormat(int style) {
-        switch (style) {
-        case DateFormat.SHORT:
-            return shortDateFormat;
-        case DateFormat.MEDIUM:
-            return mediumDateFormat;
-        case DateFormat.LONG:
-            return longDateFormat;
-        case DateFormat.FULL:
-            return fullDateFormat;
-        }
-        throw new AssertionError();
-    }
-
-    public String getTimeFormat(int style) {
-        // Do not cache ICU.getTimePattern() return value in the LocaleData instance
-        // because most users do not enable this setting, hurts performance in critical path,
-        // e.g. b/161846393, and ICU.getBestDateTimePattern will cache it in  ICU.CACHED_PATTERNS
-        // on demand.
-        switch (style) {
-        case DateFormat.SHORT:
-            if (DateFormat.is24Hour == null) {
-                return shortTimeFormat;
-            } else {
-                return ICU.getTimePattern(mLocale, DateFormat.is24Hour, false);
-            }
-        case DateFormat.MEDIUM:
-            if (DateFormat.is24Hour == null) {
-                return mediumTimeFormat;
-            } else {
-                return ICU.getTimePattern(mLocale, DateFormat.is24Hour, true);
-            }
-        case DateFormat.LONG:
-            // CLDR doesn't really have anything we can use to obey the 12-/24-hour preference.
-            return longTimeFormat;
-        case DateFormat.FULL:
-            // CLDR doesn't really have anything we can use to obey the 12-/24-hour preference.
-            return fullTimeFormat;
-        }
-        throw new AssertionError();
-    }
-
     /*
      * This method is made public for testing
      */
     public static LocaleData initLocaleData(Locale locale) {
-        LocaleData localeData = new LocaleData(locale);
+        LocaleData localeData = new LocaleData();
 
-        localeData.initializeDateTimePatterns(locale);
         localeData.initializeDateFormatData(locale);
-        localeData.initializeDecimalFormatData(locale);
         localeData.initializeCalendarData(locale);
 
-        // Libcore localizes pattern separator while ICU doesn't. http://b/112080617
-        initializePatternSeparator(localeData, locale);
-
-        // Fix up a couple of patterns.
-        if (localeData.fullTimeFormat != null) {
-            // There are some full time format patterns in ICU that use the pattern character 'v'.
-            // Java doesn't accept this, so we replace it with 'z' which has about the same result
-            // as 'v', the timezone name.
-            // 'v' -> "PT", 'z' -> "PST", v is the generic timezone and z the standard tz
-            // "vvvv" -> "Pacific Time", "zzzz" -> "Pacific Standard Time"
-            localeData.fullTimeFormat = localeData.fullTimeFormat.replace('v', 'z');
-        }
-        if (localeData.numberPattern != null) {
-            // The number pattern might contain positive and negative subpatterns. Arabic, for
-            // example, might look like "#,##0.###;#,##0.###-" because the minus sign should be
-            // written last. Macedonian supposedly looks something like "#,##0.###;(#,##0.###)".
-            // (The negative subpattern is optional, though, and not present in most locales.)
-            // By only swallowing '#'es and ','s after the '.', we ensure that we don't
-            // accidentally eat too much.
-            localeData.integerPattern = localeData.numberPattern.replaceAll("\\.[#,]*", "");
-        }
         return localeData;
-    }
-
-    // Libcore localizes pattern separator while ICU doesn't. http://b/112080617
-    private static void initializePatternSeparator(LocaleData localeData, Locale locale) {
-        ULocale uLocale = ULocale.forLocale(locale);
-        NumberingSystem ns = NumberingSystem.getInstance(uLocale);
-        // A numbering system could be numeric or algorithmic. DecimalFormat can only use
-        // a numeric and decimal-based (radix == 10) system. Fallback to a Latin, a known numeric
-        // and decimal-based if the default numbering system isn't. All locales should have data
-        // for Latin numbering system after locale data fallback. See Numbering system section
-        // in Unicode Technical Standard #35 for more details.
-        if (ns == null || ns.getRadix() != 10 || ns.isAlgorithmic()) {
-            ns = NumberingSystem.LATIN;
-        }
-        String patternSeparator = ExtendedDecimalFormatSymbols.getInstance(uLocale, ns)
-                .getLocalizedPatternSeparator();
-
-        if (patternSeparator == null || patternSeparator.isEmpty()) {
-            patternSeparator = ";";
-        }
-
-        // Pattern separator in libcore supports single java character only.
-        localeData.patternSeparator = patternSeparator.charAt(0);
     }
 
     private void initializeDateFormatData(Locale locale) {
@@ -375,65 +248,10 @@ public final class LocaleData {
 
     }
 
-    private void initializeDecimalFormatData(Locale locale) {
-        DecimalFormatSymbols dfs = DecimalFormatSymbols.getInstance(locale);
-
-        decimalSeparator = dfs.getDecimalSeparator();
-        groupingSeparator = dfs.getGroupingSeparator();
-        patternSeparator = dfs.getPatternSeparator();
-        percent = dfs.getPercentString();
-        perMill = dfs.getPerMillString();
-        monetarySeparator = dfs.getMonetaryDecimalSeparator();
-        minusSign = dfs.getMinusSignString();
-        exponentSeparator = dfs.getExponentSeparator();
-        infinity = dfs.getInfinity();
-        NaN = dfs.getNaN();
-        zeroDigit = dfs.getZeroDigit();
-
-        DecimalFormat df = (DecimalFormat) NumberFormat
-            .getInstance(locale, NumberFormat.NUMBERSTYLE);
-        numberPattern = df.toPattern();
-
-        df = (DecimalFormat) NumberFormat.getInstance(locale, NumberFormat.CURRENCYSTYLE);
-        currencyPattern = df.toPattern();
-
-        df = (DecimalFormat) NumberFormat.getInstance(locale, NumberFormat.PERCENTSTYLE);
-        percentPattern = df.toPattern();
-
-    }
-
     private void initializeCalendarData(Locale locale) {
         Calendar calendar = Calendar.getInstance(locale);
 
         firstDayOfWeek = calendar.getFirstDayOfWeek();
         minimalDaysInFirstWeek = calendar.getMinimalDaysInFirstWeek();
-    }
-
-    private void initializeDateTimePatterns(Locale locale) {
-        // libcore's java.text supports Gregorian calendar only.
-        ExtendedCalendar extendedCalendar = ICU.getExtendedCalendar(locale, "gregorian");
-
-        fullTimeFormat = getDateTimeFormatString(extendedCalendar,
-            android.icu.text.DateFormat.NONE, android.icu.text.DateFormat.FULL);
-        longTimeFormat = getDateTimeFormatString(extendedCalendar,
-            android.icu.text.DateFormat.NONE, android.icu.text.DateFormat.LONG);
-        mediumTimeFormat = getDateTimeFormatString(extendedCalendar,
-            android.icu.text.DateFormat.NONE, android.icu.text.DateFormat. MEDIUM);
-        shortTimeFormat = getDateTimeFormatString(extendedCalendar,
-            android.icu.text.DateFormat.NONE, android.icu.text.DateFormat.SHORT);
-        fullDateFormat = getDateTimeFormatString(extendedCalendar,
-            android.icu.text.DateFormat.FULL, android.icu.text.DateFormat.NONE);
-        longDateFormat = getDateTimeFormatString(extendedCalendar,
-            android.icu.text.DateFormat.LONG, android.icu.text.DateFormat.NONE);
-        mediumDateFormat = getDateTimeFormatString(extendedCalendar,
-            android.icu.text.DateFormat.MEDIUM, android.icu.text.DateFormat.NONE);
-        shortDateFormat = getDateTimeFormatString(extendedCalendar,
-            android.icu.text.DateFormat.SHORT, android.icu.text.DateFormat.NONE);
-    }
-
-    private static String getDateTimeFormatString(ExtendedCalendar extendedCalendar,
-            int dateStyle, int timeStyle) {
-        return ICU.transformIcuDateTimePattern_forJavaText(
-                extendedCalendar.getDateTimePattern(dateStyle, timeStyle));
     }
 }

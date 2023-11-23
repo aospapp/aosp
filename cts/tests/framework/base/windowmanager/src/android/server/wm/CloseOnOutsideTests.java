@@ -16,17 +16,17 @@
 
 package android.server.wm;
 
+import static android.server.wm.ActivityManagerTestBase.createFullscreenActivityScenarioRule;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
-import android.app.ActivityOptions;
 import android.app.Instrumentation;
-import android.app.WindowConfiguration;
 import android.util.DisplayMetrics;
 
 import androidx.test.InstrumentationRegistry;
-import androidx.test.runner.AndroidJUnit4;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.ShellUtils;
 
@@ -43,18 +43,13 @@ public class CloseOnOutsideTests {
 
     @Rule
     public final ActivityScenarioRule<CloseOnOutsideTestActivity> mScenarioRule =
-            new ActivityScenarioRule<>(CloseOnOutsideTestActivity.class);
+            createFullscreenActivityScenarioRule(CloseOnOutsideTestActivity.class);
 
     private CloseOnOutsideTestActivity mTestActivity;
 
     @Before
     public void setup() {
-        ActivityOptions options = ActivityOptions.makeBasic();
-        options.setLaunchWindowingMode(WindowConfiguration.WINDOWING_MODE_FULLSCREEN);
-        mScenarioRule.getScenario().launch(CloseOnOutsideTestActivity.class, options.toBundle())
-            .onActivity(activity -> {
-                mTestActivity = activity;
-            });
+        mScenarioRule.getScenario().onActivity(activity -> mTestActivity = activity);
     }
 
     @Test

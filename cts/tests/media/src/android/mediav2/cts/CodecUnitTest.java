@@ -23,6 +23,7 @@ import android.media.MediaFormat;
 import android.os.Bundle;
 import android.util.Pair;
 
+import androidx.test.filters.SdkSuppress;
 import androidx.test.filters.SmallTest;
 
 import org.junit.After;
@@ -49,6 +50,10 @@ public class CodecUnitTest {
     static final long STALL_TIME_MS = 1000;
 
     @SmallTest
+    // Following tests were added in Android R and are not limited to c2.android.* codecs.
+    // Hence limit the tests to Android R and above and also annotate as NonMediaMainlineTest
+    @SdkSuppress(minSdkVersion = 30)
+    @NonMediaMainlineTest
     public static class TestApi extends CodecTestBase {
         @Rule
         public Timeout timeout = new Timeout(PER_TEST_TIMEOUT_MS, TimeUnit.MILLISECONDS);
@@ -1964,6 +1969,10 @@ public class CodecUnitTest {
     }
 
     @SmallTest
+    // Following tests were added in Android R and are not limited to c2.android.* codecs.
+    // Hence limit the tests to Android R and above and also annotate as NonMediaMainlineTest
+    @SdkSuppress(minSdkVersion = 30)
+    @NonMediaMainlineTest
     public static class TestApiNative {
         @Rule
         public Timeout timeout = new Timeout(PER_TEST_TIMEOUT_MS, TimeUnit.MILLISECONDS);

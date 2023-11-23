@@ -20,6 +20,10 @@
 package hidl2aidl.test;
 @VintfStability
 parcelable Outer {
-  hidl2aidl.test.OuterInner inner;
+  hidl2aidl.test.Outer.Inner inner;
   int a;
+  @VintfStability
+  parcelable Inner {
+    byte a;
+  }
 }

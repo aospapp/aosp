@@ -31,16 +31,19 @@ class KeystoreHmacKey {
     using KeyDescriptor = ::android::system::keystore2::KeyDescriptor;
 
   public:
-    KeystoreHmacKey();
+    KeystoreHmacKey(const android::String16& keyAlias, int64_t keyNspace, int keyBootLevel);
     android::base::Result<void> initialize(android::sp<IKeystoreService> service,
                                            android::sp<IKeystoreSecurityLevel> securityLevel);
     android::base::Result<std::string> sign(const std::string& message) const;
     android::base::Result<void> verify(const std::string& message,
                                        const std::string& signature) const;
+    android::base::Result<void> deleteKey() const;
 
   private:
     android::base::Result<void> createKey();
     KeyDescriptor mDescriptor;
     android::sp<IKeystoreService> mService;
     android::sp<IKeystoreSecurityLevel> mSecurityLevel;
+
+    int mKeyBootLevel;
 };

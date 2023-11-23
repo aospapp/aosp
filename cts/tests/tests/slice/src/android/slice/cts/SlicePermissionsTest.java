@@ -14,7 +14,6 @@
 
 package android.slice.cts;
 
-import android.content.pm.PackageManager;
 import static android.content.pm.PackageManager.PERMISSION_DENIED;
 import static android.content.pm.PackageManager.PERMISSION_GRANTED;
 
@@ -22,8 +21,12 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assume.assumeFalse;
 
 import android.app.slice.SliceManager;
+import android.app.slice.SliceProvider;
 import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.os.Process;
 
@@ -34,6 +37,8 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.util.List;
 
 @RunWith(AndroidJUnit4.class)
 public class SlicePermissionsTest {
@@ -171,6 +176,14 @@ public class SlicePermissionsTest {
         // Revoked because parent was revoked
         assertEquals(PERMISSION_DENIED,
                 mSliceManager.checkSlicePermission(uri, mTestPid, mTestUid));
+    }
+
+    @Test
+    public void testPermissionIntent() {
+        Intent intent = SliceProvider.createPermissionIntent(mContext, BASE_URI, mTestPkg);
+        PackageManager pm = mContext.getPackageManager();
+        List<ResolveInfo> activities = pm.queryIntentActivities(intent, 0);
+        assertEquals(1, activities.size());
     }
 
     @Test

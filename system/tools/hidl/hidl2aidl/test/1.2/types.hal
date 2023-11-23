@@ -56,6 +56,10 @@ safe_union SafeUnionBar {
     bitfield<FooFlag> g;
     @1.1::Value h;
     uint16_t i;
+    vec<int8_t> j;
+    vec<@1.1::Value> k;
+    int8_t[2] l;
+    float m;
 };
 
 struct ArrayFoo {
@@ -63,6 +67,8 @@ struct ArrayFoo {
     uint32_t[12] b;
     @1.1::Value[12] c;
     string[2] d;
+    int8_t[0] e;
+    int8_t[@1.1::Value:E + 1] f;
 };
 
 struct VectorFoo {

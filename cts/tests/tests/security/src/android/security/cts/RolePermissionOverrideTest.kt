@@ -21,12 +21,12 @@ import android.content.pm.PackageManager
 import android.os.Process
 import android.platform.test.annotations.AsbSecurityTest
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
 import com.android.compatibility.common.util.SystemUtil.callWithShellPermissionIdentity
 import com.android.compatibility.common.util.SystemUtil.runShellCommand
 import com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity
 import com.android.compatibility.common.util.mainline.MainlineModule
 import com.android.compatibility.common.util.mainline.ModuleDetector
+import com.android.sts.common.util.StsExtraBusinessLogicTestCase
 import com.google.common.truth.Truth.assertThat
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
@@ -39,12 +39,13 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
-class RolePermissionOverrideTest {
-    private val instrumentation = InstrumentationRegistry.getInstrumentation()
-    private val context = instrumentation.targetContext
+class RolePermissionOverrideTest : StsExtraBusinessLogicTestCase {
+    private val context = getInstrumentation().targetContext
     private val packageManager = context.packageManager
     private val roleManager = context.getSystemService(RoleManager::class.java)
     private val user = Process.myUserHandle()
+
+    constructor() : super()
 
     @Before
     fun setUp() {

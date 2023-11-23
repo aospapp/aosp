@@ -20,28 +20,34 @@
 import time
 from acts import signals
 from acts.test_decorators import test_tracker_info
+from acts.libs.utils.multithread import multithread_func
 from acts_contrib.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
 from acts_contrib.test_utils.tel.tel_defines import CALL_CAPABILITY_MERGE_CONFERENCE
 from acts_contrib.test_utils.tel.tel_defines import CALL_CAPABILITY_SWAP_CONFERENCE
 from acts_contrib.test_utils.tel.tel_defines import CALL_STATE_ACTIVE
-from acts_contrib.test_utils.tel.tel_defines import CALL_STATE_HOLDING
 from acts_contrib.test_utils.tel.tel_defines import CAPABILITY_CONFERENCE
 from acts_contrib.test_utils.tel.tel_defines import PHONE_TYPE_CDMA
-from acts_contrib.test_utils.tel.tel_defines import PHONE_TYPE_GSM
 from acts_contrib.test_utils.tel.tel_defines import WAIT_TIME_IN_CALL
 from acts_contrib.test_utils.tel.tel_defines import WFC_MODE_WIFI_ONLY
 from acts_contrib.test_utils.tel.tel_defines import WFC_MODE_WIFI_PREFERRED
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_phones_idle
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_3g
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_voice_2g
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_voice_3g
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_csfb
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_iwlan
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_voice_general
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_volte
+from acts_contrib.test_utils.tel.tel_ss_utils import three_phone_call_forwarding_short_seq
+from acts_contrib.test_utils.tel.tel_ss_utils import three_phone_call_waiting_short_seq
 from acts_contrib.test_utils.tel.tel_subscription_utils import get_outgoing_voice_sub_id
-from acts_contrib.test_utils.tel.tel_test_utils import call_reject
-from acts_contrib.test_utils.tel.tel_test_utils import call_setup_teardown
 from acts_contrib.test_utils.tel.tel_test_utils import get_phone_number
-from acts_contrib.test_utils.tel.tel_test_utils import hangup_call
-from acts_contrib.test_utils.tel.tel_test_utils import multithread_func
+from acts_contrib.test_utils.tel.tel_test_utils import install_dialer_apk
 from acts_contrib.test_utils.tel.tel_test_utils import num_active_calls
 from acts_contrib.test_utils.tel.tel_test_utils import verify_incall_state
-from acts_contrib.test_utils.tel.tel_test_utils import wait_and_answer_call
 from acts_contrib.test_utils.tel.tel_test_utils import get_capability_for_subscription
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_phones_idle
+from acts_contrib.test_utils.tel.tel_voice_utils import call_reject
+from acts_contrib.test_utils.tel.tel_voice_utils import call_setup_teardown
 from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_1x
 from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_2g
 from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_3g
@@ -49,34 +55,21 @@ from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_csfb
 from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_iwlan
 from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_volte
 from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_wcdma
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_3g
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_voice_2g
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_voice_3g
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_csfb
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_iwlan
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_voice_general
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_volte
 from acts_contrib.test_utils.tel.tel_voice_utils import swap_calls
-from acts_contrib.test_utils.tel.tel_voice_utils import three_phone_call_forwarding_short_seq
-from acts_contrib.test_utils.tel.tel_voice_utils import three_phone_call_waiting_short_seq
+from acts_contrib.test_utils.tel.tel_voice_utils import wait_and_answer_call
 from acts_contrib.test_utils.tel.tel_voice_conf_utils import _get_expected_call_state
 from acts_contrib.test_utils.tel.tel_voice_conf_utils import _hangup_call
-from acts_contrib.test_utils.tel.tel_voice_conf_utils import \
-    _test_ims_conference_merge_drop_first_call_from_host
-from acts_contrib.test_utils.tel.tel_voice_conf_utils import \
-    _test_ims_conference_merge_drop_first_call_from_participant
-from acts_contrib.test_utils.tel.tel_voice_conf_utils import \
-    _test_ims_conference_merge_drop_second_call_from_host
-from acts_contrib.test_utils.tel.tel_voice_conf_utils import \
-    _test_ims_conference_merge_drop_second_call_from_participant
+from acts_contrib.test_utils.tel.tel_voice_conf_utils import _test_ims_conference_merge_drop_first_call_from_host
+from acts_contrib.test_utils.tel.tel_voice_conf_utils import _test_ims_conference_merge_drop_first_call_from_participant
+from acts_contrib.test_utils.tel.tel_voice_conf_utils import _test_ims_conference_merge_drop_second_call_from_host
+from acts_contrib.test_utils.tel.tel_voice_conf_utils import _test_ims_conference_merge_drop_second_call_from_participant
 from acts_contrib.test_utils.tel.tel_voice_conf_utils import _test_call_mo_mo_add_swap_x
 from acts_contrib.test_utils.tel.tel_voice_conf_utils import _test_call_mo_mt_add_swap_x
 from acts_contrib.test_utils.tel.tel_voice_conf_utils import _test_call_mt_mt_add_swap_x
 from acts_contrib.test_utils.tel.tel_voice_conf_utils import _three_phone_call_mo_add_mo
 from acts_contrib.test_utils.tel.tel_voice_conf_utils import _three_phone_call_mo_add_mt
-from acts_contrib.test_utils.tel.tel_voice_conf_utils import _three_phone_call_mt_add_mt
 from acts_contrib.test_utils.tel.tel_voice_conf_utils import _three_phone_hangup_call_verify_call_state
-
+from acts_contrib.test_utils.tel.tel_voice_conf_utils import _test_wcdma_conference_merge_drop
 
 class TelLiveVoiceConfTest(TelephonyBaseTest):
     def setup_class(self):
@@ -89,6 +82,15 @@ class TelLiveVoiceConfTest(TelephonyBaseTest):
                 "Conference call is not supported, abort test.")
             raise signals.TestAbortClass(
                 "Conference call is not supported, abort test.")
+
+        self.dialer_util = self.user_params.get("dialer_apk", None)
+        if isinstance(self.dialer_util, list):
+            self.dialer_util = self.dialer_util[0]
+
+        if self.dialer_util:
+            ads = self.android_devices
+            for ad in ads:
+                install_dialer_apk(ad, self.dialer_util)
 
     def teardown_test(self):
         ensure_phones_idle(self.log, self.android_devices)
@@ -437,78 +439,7 @@ class TelLiveVoiceConfTest(TelephonyBaseTest):
             return False
         return True
 
-
-    def _test_wcdma_conference_merge_drop(self, call_ab_id, call_ac_id):
-        """Test conference merge and drop in WCDMA/CSFB_WCDMA call.
-
-        PhoneA in WCDMA (or CSFB_WCDMA) call with PhoneB.
-        PhoneA in WCDMA (or CSFB_WCDMA) call with PhoneC.
-        Merge calls to conference on PhoneA.
-        Hangup on PhoneC, check call continues between AB.
-        Hangup on PhoneB, check A ends.
-
-        Args:
-            call_ab_id: call id for call_AB on PhoneA.
-            call_ac_id: call id for call_AC on PhoneA.
-
-        Returns:
-            True if succeed;
-            False if failed.
-        """
-        ads = self.android_devices
-
-        self.log.info("Step4: Merge to Conf Call and verify Conf Call.")
-        ads[0].droid.telecomCallJoinCallsInConf(call_ab_id, call_ac_id)
-        time.sleep(WAIT_TIME_IN_CALL)
-        calls = ads[0].droid.telecomCallGetCallIds()
-        ads[0].log.info("Calls in PhoneA %s", calls)
-        if num_active_calls(self.log, ads[0]) != 3:
-            ads[0].log.error("Total number of call ids is not 3.")
-            return False
-        call_conf_id = None
-        for call_id in calls:
-            if call_id != call_ab_id and call_id != call_ac_id:
-                call_conf_id = call_id
-        if not call_conf_id:
-            self.log.error("Merge call fail, no new conference call id.")
-            return False
-        if not verify_incall_state(self.log, [ads[0], ads[1], ads[2]], True):
-            return False
-
-        # Check if Conf Call is currently active
-        if ads[0].droid.telecomCallGetCallState(
-                call_conf_id) != CALL_STATE_ACTIVE:
-            ads[0].log.error(
-                "Call_id: %s, state: %s, expected: STATE_ACTIVE", call_conf_id,
-                ads[0].droid.telecomCallGetCallState(call_conf_id))
-            return False
-
-        self.log.info("Step5: End call on PhoneC and verify call continues.")
-        if not _hangup_call(self.log, ads[2], "PhoneC"):
-            return False
-        time.sleep(WAIT_TIME_IN_CALL)
-        calls = ads[0].droid.telecomCallGetCallIds()
-        ads[0].log.info("Calls in PhoneA %s", calls)
-        if num_active_calls(self.log, ads[0]) != 1:
-            return False
-        if not verify_incall_state(self.log, [ads[0], ads[1]], True):
-            return False
-        if not verify_incall_state(self.log, [ads[2]], False):
-            return False
-
-        self.log.info("Step6: End call on PhoneB and verify PhoneA end.")
-        if not _hangup_call(self.log, ads[1], "PhoneB"):
-            return False
-        time.sleep(WAIT_TIME_IN_CALL)
-        if not verify_incall_state(self.log, [ads[0], ads[1], ads[2]], False):
-            return False
-        return True
-
-
-
     """ Tests Begin """
-
-
     @TelephonyBaseTest.tel_test_wrap
     @test_tracker_info(uuid="3cd45972-3862-4956-9504-7fefacdd5ca6")
     def test_wcdma_mo_mo_add_merge_drop(self):
@@ -537,7 +468,7 @@ class TelLiveVoiceConfTest(TelephonyBaseTest):
         if call_ab_id is None or call_ac_id is None:
             return False
 
-        return self._test_wcdma_conference_merge_drop(call_ab_id, call_ac_id)
+        return _test_wcdma_conference_merge_drop(self.log, ads, call_ab_id, call_ac_id)
 
 
     @TelephonyBaseTest.tel_test_wrap
@@ -568,7 +499,7 @@ class TelLiveVoiceConfTest(TelephonyBaseTest):
         if call_ab_id is None or call_ac_id is None:
             return False
 
-        return self._test_wcdma_conference_merge_drop(call_ab_id, call_ac_id)
+        return _test_wcdma_conference_merge_drop(self.log, ads, call_ab_id, call_ac_id)
 
 
     @TelephonyBaseTest.tel_test_wrap
@@ -6641,7 +6572,7 @@ class TelLiveVoiceConfTest(TelephonyBaseTest):
         if call_ab_id is None or call_ac_id is None:
             return False
 
-        return self._test_wcdma_conference_merge_drop(call_ab_id, call_ac_id)
+        return _test_wcdma_conference_merge_drop(self.log, ads, call_ab_id, call_ac_id)
 
 
     @TelephonyBaseTest.tel_test_wrap
@@ -6671,7 +6602,7 @@ class TelLiveVoiceConfTest(TelephonyBaseTest):
         if call_ab_id is None or call_ac_id is None:
             return False
 
-        return self._test_wcdma_conference_merge_drop(call_ab_id, call_ac_id)
+        return _test_wcdma_conference_merge_drop(self.log, ads, call_ab_id, call_ac_id)
 
 
     @TelephonyBaseTest.tel_test_wrap
@@ -6700,7 +6631,7 @@ class TelLiveVoiceConfTest(TelephonyBaseTest):
         if call_ab_id is None or call_ac_id is None:
             return False
 
-        return self._test_wcdma_conference_merge_drop(call_ab_id, call_ac_id)
+        return _test_wcdma_conference_merge_drop(self.log, ads, call_ab_id, call_ac_id)
 
 
     @TelephonyBaseTest.tel_test_wrap
@@ -6730,7 +6661,7 @@ class TelLiveVoiceConfTest(TelephonyBaseTest):
         if call_ab_id is None or call_ac_id is None:
             return False
 
-        return self._test_wcdma_conference_merge_drop(call_ab_id, call_ac_id)
+        return _test_wcdma_conference_merge_drop(self.log, ads, call_ab_id, call_ac_id)
 
 
     @TelephonyBaseTest.tel_test_wrap
@@ -6759,7 +6690,7 @@ class TelLiveVoiceConfTest(TelephonyBaseTest):
         if call_ab_id is None or call_ac_id is None:
             return False
 
-        return self._test_wcdma_conference_merge_drop(call_ab_id, call_ac_id)
+        return _test_wcdma_conference_merge_drop(self.log, ads, call_ab_id, call_ac_id)
 
 
     @TelephonyBaseTest.tel_test_wrap
@@ -6789,7 +6720,7 @@ class TelLiveVoiceConfTest(TelephonyBaseTest):
         if call_ab_id is None or call_ac_id is None:
             return False
 
-        return self._test_wcdma_conference_merge_drop(call_ab_id, call_ac_id)
+        return _test_wcdma_conference_merge_drop(self.log, ads, call_ab_id, call_ac_id)
 
 
     @TelephonyBaseTest.tel_test_wrap
@@ -6819,7 +6750,7 @@ class TelLiveVoiceConfTest(TelephonyBaseTest):
         if call_ab_id is None or call_ac_id is None:
             return False
 
-        return self._test_wcdma_conference_merge_drop(call_ab_id, call_ac_id)
+        return _test_wcdma_conference_merge_drop(self.log, ads, call_ab_id, call_ac_id)
 
 
     @TelephonyBaseTest.tel_test_wrap
@@ -6849,7 +6780,7 @@ class TelLiveVoiceConfTest(TelephonyBaseTest):
         if call_ab_id is None or call_ac_id is None:
             return False
 
-        return self._test_wcdma_conference_merge_drop(call_ab_id, call_ac_id)
+        return _test_wcdma_conference_merge_drop(self.log, ads, call_ab_id, call_ac_id)
 
 
     @TelephonyBaseTest.tel_test_wrap
@@ -6878,7 +6809,7 @@ class TelLiveVoiceConfTest(TelephonyBaseTest):
         if call_ab_id is None or call_ac_id is None:
             return False
 
-        return self._test_wcdma_conference_merge_drop(call_ab_id, call_ac_id)
+        return _test_wcdma_conference_merge_drop(self.log, ads, call_ab_id, call_ac_id)
 
 
     @TelephonyBaseTest.tel_test_wrap
@@ -6908,7 +6839,7 @@ class TelLiveVoiceConfTest(TelephonyBaseTest):
         if call_ab_id is None or call_ac_id is None:
             return False
 
-        return self._test_wcdma_conference_merge_drop(call_ab_id, call_ac_id)
+        return _test_wcdma_conference_merge_drop(self.log, ads, call_ab_id, call_ac_id)
 
 
     @TelephonyBaseTest.tel_test_wrap
@@ -11415,12 +11346,58 @@ class TelLiveVoiceConfTest(TelephonyBaseTest):
 
 
     @TelephonyBaseTest.tel_test_wrap
+    @test_tracker_info(uuid="f4990e20-4a40-4238-9a2a-a75d9be3d354")
+    def test_volte_call_forwarding_unconditional(self):
+
+        ads = self.android_devices
+
+        tasks = [(phone_setup_volte, (self.log, ads[0])),
+                 (phone_setup_voice_general, (self.log, ads[1])),
+                 (phone_setup_voice_general, (self.log, ads[2]))]
+        if not multithread_func(self.log, tasks):
+            self.log.error("Phone Failed to Set Up Properly.")
+            return False
+
+        return three_phone_call_forwarding_short_seq(
+            self.log,
+            ads[0],
+            None,
+            None,
+            ads[1],
+            ads[2],
+            call_forwarding_type="unconditional")
+
+
+    @TelephonyBaseTest.tel_test_wrap
     @test_tracker_info(uuid="26b85c3f-5a38-465a-a6e3-dfd03c6ea315")
     def test_call_forwarding_busy(self):
 
         ads = self.android_devices
 
         tasks = [(phone_setup_voice_general, (self.log, ads[0])),
+                 (phone_setup_voice_general, (self.log, ads[1])),
+                 (phone_setup_voice_general, (self.log, ads[2]))]
+        if not multithread_func(self.log, tasks):
+            self.log.error("Phone Failed to Set Up Properly.")
+            return False
+
+        return three_phone_call_forwarding_short_seq(
+            self.log,
+            ads[0],
+            None,
+            None,
+            ads[1],
+            ads[2],
+            call_forwarding_type="busy")
+
+
+    @TelephonyBaseTest.tel_test_wrap
+    @test_tracker_info(uuid="26b85c3f-5a38-465a-a6e3-dfd03c6ea315")
+    def test_volte_call_forwarding_busy(self):
+
+        ads = self.android_devices
+
+        tasks = [(phone_setup_volte, (self.log, ads[0])),
                  (phone_setup_voice_general, (self.log, ads[1])),
                  (phone_setup_voice_general, (self.log, ads[2]))]
         if not multithread_func(self.log, tasks):
@@ -11461,12 +11438,58 @@ class TelLiveVoiceConfTest(TelephonyBaseTest):
 
 
     @TelephonyBaseTest.tel_test_wrap
+    @test_tracker_info(uuid="96638a39-efe2-40e2-afb6-6a97f87c4af5")
+    def test_volte_call_forwarding_not_answered(self):
+
+        ads = self.android_devices
+
+        tasks = [(phone_setup_volte, (self.log, ads[0])),
+                 (phone_setup_voice_general, (self.log, ads[1])),
+                 (phone_setup_voice_general, (self.log, ads[2]))]
+        if not multithread_func(self.log, tasks):
+            self.log.error("Phone Failed to Set Up Properly.")
+            return False
+
+        return three_phone_call_forwarding_short_seq(
+            self.log,
+            ads[0],
+            None,
+            None,
+            ads[1],
+            ads[2],
+            call_forwarding_type="not_answered")
+
+
+    @TelephonyBaseTest.tel_test_wrap
     @test_tracker_info(uuid="a13e586a-3345-49d8-9e84-ca33bd3fbd7d")
     def test_call_forwarding_not_reachable(self):
 
         ads = self.android_devices
 
         tasks = [(phone_setup_voice_general, (self.log, ads[0])),
+                 (phone_setup_voice_general, (self.log, ads[1])),
+                 (phone_setup_voice_general, (self.log, ads[2]))]
+        if not multithread_func(self.log, tasks):
+            self.log.error("Phone Failed to Set Up Properly.")
+            return False
+
+        return three_phone_call_forwarding_short_seq(
+            self.log,
+            ads[0],
+            None,
+            None,
+            ads[1],
+            ads[2],
+            call_forwarding_type="not_reachable")
+
+
+    @TelephonyBaseTest.tel_test_wrap
+    @test_tracker_info(uuid="a13e586a-3345-49d8-9e84-ca33bd3fbd7d")
+    def test_volte_call_forwarding_not_reachable(self):
+
+        ads = self.android_devices
+
+        tasks = [(phone_setup_volte, (self.log, ads[0])),
                  (phone_setup_voice_general, (self.log, ads[1])),
                  (phone_setup_voice_general, (self.log, ads[2]))]
         if not multithread_func(self.log, tasks):
@@ -11492,6 +11515,50 @@ class TelLiveVoiceConfTest(TelephonyBaseTest):
         ads = self.android_devices
 
         tasks = [(phone_setup_voice_general, (self.log, ads[0])),
+                 (phone_setup_voice_general, (self.log, ads[1])),
+                 (phone_setup_voice_general, (self.log, ads[2]))]
+        if not multithread_func(self.log, tasks):
+            self.log.error("Phone Failed to Set Up Properly.")
+            return False
+
+        return three_phone_call_waiting_short_seq(
+            self.log,
+            ads[0],
+            None,
+            None,
+            ads[1],
+            ads[2],
+            call_waiting=True,
+            scenario=1)
+
+
+    @TelephonyBaseTest.tel_test_wrap
+    @test_tracker_info(uuid="e9a6027b-7dd1-4dca-a700-e4d42c9c947d")
+    def test_volte_call_waiting_scenario_1(self):
+        """Tests that the call waiting function is workable by scenario 1.
+
+        Initial Condition:
+            (1) Network Type:
+                - DUT: LTE, VoLTE ON.
+                - Caller1: LTE/3G.
+
+        Execution Criteria:
+            (1) Enable call waiting on DUT.
+            (2) Let caller1 make the first MO call to DUT and let DUT answer the
+            call.
+            (3) Let caller2 make the second MO call to DUT. Do NOT answer the
+            call and keep the call alerting.
+            (4) End the first call by caller1.
+            (5) Let DUT answer the second call.
+            (6) End the second call by caller2.
+
+        Pass Criteria:
+            (2)(5) All the call can be made/answered correctly.
+            (4)(6) All the call can be released correctly.
+        """
+        ads = self.android_devices
+
+        tasks = [(phone_setup_volte, (self.log, ads[0])),
                  (phone_setup_voice_general, (self.log, ads[1])),
                  (phone_setup_voice_general, (self.log, ads[2]))]
         if not multithread_func(self.log, tasks):

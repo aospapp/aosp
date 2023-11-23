@@ -28,8 +28,14 @@ bool RsaKey::EvpToInternal(const EVP_PKEY* pkey) {
     return rsa_key_.get() != nullptr;
 }
 
-bool RsaKey::InternalToEvp(EVP_PKEY* pkey) const {
-    return EVP_PKEY_set1_RSA(pkey, rsa_key_.get()) == 1;
+EVP_PKEY_Ptr RsaKey::InternalToEvp() const {
+    EVP_PKEY_Ptr pkey(EVP_PKEY_new());
+    if (pkey.get() != nullptr) {
+        if (EVP_PKEY_set1_RSA(pkey.get(), rsa_key_.get()) != 1) {
+            return {};
+        }
+    }
+    return pkey;
 }
 
 bool RsaKey::SupportedMode(keymaster_purpose_t purpose, keymaster_padding_t padding) {

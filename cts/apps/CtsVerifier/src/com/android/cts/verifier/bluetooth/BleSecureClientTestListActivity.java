@@ -18,6 +18,7 @@ package com.android.cts.verifier.bluetooth;
 
 import android.bluetooth.BluetoothAdapter;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.SystemProperties;
 
@@ -39,6 +40,13 @@ public class BleSecureClientTestListActivity extends PassFailButtons.TestListAct
 
         BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
         List<String> disabledTest = new ArrayList<String>();
+
+        // Temporarily disable this test (b/235763737).
+        disabledTest.add(
+                "com.android.cts.verifier.bluetooth.BleSecureConnectionPriorityClientTestActivity");
+        disabledTest.add(
+                "com.android.cts.verifier.bluetooth.BleSecureEncryptedClientTestActivity");
+
         if (adapter == null || !adapter.isOffloadedFilteringSupported()) {
             disabledTest.add(
                     "com.android.cts.verifier.bluetooth.BleAdvertiserHardwareScanFilterActivity.");
@@ -47,7 +55,7 @@ public class BleSecureClientTestListActivity extends PassFailButtons.TestListAct
         // RPA is optional on TVs already released before Android 11
         boolean isTv = getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK);
         int firstSdk = SystemProperties.getInt("ro.product.first_api_level", 0);
-        if (isTv && (firstSdk <= 29)) {
+        if (isTv && (firstSdk <= Build.VERSION_CODES.Q)) {
             disabledTest.add(
                     "com.android.cts.verifier.bluetooth.BleSecureConnectionPriorityClientTestActivity");
             disabledTest.add(

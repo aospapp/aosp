@@ -15,7 +15,6 @@
 package aidl
 
 import (
-	"android/soong/android"
 	"strings"
 )
 
@@ -44,22 +43,6 @@ func concat(sstrs ...[]string) []string {
 		ret = append(ret, v...)
 	}
 	return ret
-}
-
-// baseDir is the directory where the package name starts. e.g. For an AIDL fil
-// mymodule/aidl_src/com/android/IFoo.aidl, baseDir is mymodule/aidl_src given that the package name is
-// com.android. The build system however don't know the package name without actually reading the AIDL file.
-// Therefore, we rely on the user to correctly set the base directory via following two methods:
-// 1) via the 'path' property of filegroup or
-// 2) via `local_include_dir' of the aidl_interface module.
-func getBaseDir(ctx android.ModuleContext, src android.Path, aidlRoot android.Path) string {
-	// By default, we try to get 1) by reading Rel() of the input path.
-	baseDir := strings.TrimSuffix(src.String(), src.Rel())
-	// However, if 2) is set and it's more specific (i.e. deeper) than 1), we use 2).
-	if strings.HasPrefix(aidlRoot.String(), baseDir) {
-		baseDir = aidlRoot.String()
-	}
-	return baseDir
 }
 
 func fixRustName(name string) string {

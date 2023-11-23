@@ -16,6 +16,7 @@
 
 package com.android.queryable.queries;
 
+import static com.android.bedstead.nene.utils.ParcelTest.assertParcelsCorrectly;
 import static com.android.queryable.queries.IntentFilterQuery.intentFilter;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -111,5 +112,17 @@ public class ServiceQueryHelperTest {
         );
 
         assertThat(serviceQueryHelper.matches(INTENT_FILTER_SERVICE_INFO)).isFalse();
+    }
+
+    @Test
+    public void parcel_parcelsCorrectly() {
+        ServiceQueryHelper<Queryable> serviceQueryHelper = new ServiceQueryHelper<>(mQuery);
+
+        serviceQueryHelper.serviceClass().className().isEqualTo("");
+        serviceQueryHelper.intentFilters().contains(
+                intentFilter().actions().doesNotContain("action")
+        );
+
+        assertParcelsCorrectly(ServiceQueryHelper.class, serviceQueryHelper);
     }
 }

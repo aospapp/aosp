@@ -41,6 +41,7 @@ import android.app.Instrumentation;
 import android.content.ContentResolver;
 import android.content.Intent;
 import android.graphics.Color;
+import android.graphics.Insets;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.hardware.input.InputManager;
@@ -73,12 +74,11 @@ import org.junit.Test;
 import java.util.ArrayList;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeoutException;
 
 /**
  * Ensure moving windows and tapping is done synchronously.
@@ -143,14 +143,16 @@ public class WindowInputTests {
 
         final WindowMetrics windowMetrics = wm.getCurrentWindowMetrics();
         final WindowInsets windowInsets = windowMetrics.getWindowInsets();
-        final Rect windowBounds = new Rect(windowMetrics.getBounds());
-        windowBounds.inset(windowInsets.getInsetsIgnoringVisibility(p.getFitInsetsTypes()));
+        final Rect selectBounds = new Rect(windowMetrics.getBounds());
+        final Insets insets = windowInsets.getInsetsIgnoringVisibility(p.getFitInsetsTypes());
+        selectBounds.inset(0, 0, insets.left + insets.right + p.width,
+                insets.top + insets.bottom + p.height);
 
         // Move the window to a random location in the window and attempt to tap on view multiple
         // times.
         final Point locationInWindow = new Point();
         for (int i = 0; i < TOTAL_NUMBER_OF_CLICKS; i++) {
-            selectRandomLocationInWindow(windowBounds, locationInWindow);
+            selectRandomLocationInWindow(selectBounds, locationInWindow);
             mActivityRule.runOnUiThread(() -> {
                 p.x = locationInWindow.x;
                 p.y = locationInWindow.y;
@@ -171,7 +173,8 @@ public class WindowInputTests {
                         new Point(viewOnScreenXY[0] + vW / 2, viewOnScreenXY[1] + vH / 2);
                 final Rect realBounds = new Rect(viewOnScreenXY[0], viewOnScreenXY[1],
                         viewOnScreenXY[0] + vW, viewOnScreenXY[1] + vH);
-                final Rect requestedBounds = new Rect(p.x, p.y, p.x + p.width, p.y + p.height);
+                final Rect requestedBounds = new Rect(p.x + insets.left, p.y + insets.top,
+                        p.x + insets.left + p.width, p.y + insets.top + p.height);
                 dumpWindows("Dumping windows due to failure");
                 fail("Tap #" + i + " on " + tapPosition + " failed; realBounds=" + realBounds
                         + " requestedBounds=" + requestedBounds);
@@ -728,9 +731,10 @@ public class WindowInputTests {
         eventHover.setSource(InputDevice.SOURCE_MOUSE);
         try {
             mInstrumentation.sendPointerSync(eventHover);
-            fail("Not allowed to inject event to the window from another process.");
-        } catch (SecurityException e) {
-            // Should not be allowed to inject event to the window from another process.
+            fail("Not allowed to inject to windows owned by another uid from Instrumentation.");
+        } catch (RuntimeException e) {
+            // Should not be allowed to inject event to a window owned by another uid from the
+            // Instrumentation class.
         }
     }
 
@@ -752,8 +756,16 @@ public class WindowInputTests {
 
         final ExecutorService executor = Executors.newSingleThreadExecutor();
         boolean[] securityExceptionCaught = new boolean[1];
+        Exception[] illegalArgumentException = new Exception[1];
         executor.execute(() -> {
-            mInstrumentation.sendPointerSync(eventDown);
+            try {
+                mInstrumentation.sendPointerSync(eventDown);
+            } catch (IllegalArgumentException e) {
+                // InputManagerService throws IllegalArgumentException when input target mismatch.
+                // Store the exception, and raise test failure later to avoid cts thread crash.
+                illegalArgumentException[0] = e;
+                return;
+            }
             for (int i = 0; i < 20; i++) {
                 final long eventTime = SystemClock.uptimeMillis();
                 final MotionEvent eventMove = MotionEvent.obtain(
@@ -762,8 +774,13 @@ public class WindowInputTests {
                     mInstrumentation.sendPointerSync(eventMove);
                 } catch (SecurityException e) {
                     securityExceptionCaught[0] = true;
+                    return;
+                } catch (IllegalArgumentException e) {
+                    illegalArgumentException[0] = e;
+                    return;
                 }
             }
+
         });
 
         // Launch another activity, should not crash the process.
@@ -778,6 +795,11 @@ public class WindowInputTests {
             // Fail the test here instead of in the executor lambda,
             // so the failure is thrown in the test thread.
             fail("Should be allowed to inject event.");
+        }
+
+        if (illegalArgumentException[0] != null) {
+            fail("Failed to inject event due to input target mismatch: "
+                    + illegalArgumentException[0].getMessage());
         }
     }
 

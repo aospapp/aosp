@@ -16,6 +16,7 @@
 
 package libcore.java.net;
 
+import java.io.FileDescriptor;
 import java.lang.reflect.Field;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -217,6 +218,21 @@ public class DatagramSocketTest extends TestCaseWithRules {
       InetAddress newPacketAddr = p.getAddress();
       assertTrue(packetAddr.isLoopbackAddress());
       assertSame(packetAddr, newPacketAddr);
+    }
+  }
+
+  public void testGetFileDescriptor$() throws Exception {
+    final int port = 9999;
+
+    try(DatagramSocket s = new DatagramSocket()) {
+        s.connect(InetAddress.getLocalHost(), port);
+
+        FileDescriptor fd = s.getFileDescriptor$();
+        assertTrue(fd.valid());
+
+        s.disconnect();
+        fd = s.getFileDescriptor$();
+        assertTrue(fd.valid());
     }
   }
 }

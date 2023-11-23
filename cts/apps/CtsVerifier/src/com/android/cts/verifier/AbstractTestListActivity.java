@@ -21,6 +21,7 @@ import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Rect;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
@@ -45,6 +46,8 @@ public abstract class AbstractTestListActivity extends ListActivity {
     protected float mCoornidateY;
     // Whether test case was executed through automation.
     protected boolean mIsAutomated;
+
+    protected final String mTag = getClass().getSimpleName();
 
     protected void setTestListAdapter(TestListAdapter adapter) {
         mAdapter = adapter;
@@ -128,6 +131,8 @@ public abstract class AbstractTestListActivity extends ListActivity {
     /** Override this in subclasses instead of onListItemClick */
     protected void handleItemClick(ListView listView, View view, int position, long id) {
         Intent intent = getIntent(position);
+        Log.i(mTag, "Launching activity with " + IntentDrivenTestActivity.toString(this, intent));
+
         startActivityForResult(intent, LAUNCH_TEST_REQUEST_CODE);
     }
 

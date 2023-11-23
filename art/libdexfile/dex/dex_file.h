@@ -307,6 +307,7 @@ class DexFile {
 
   // Returns the type descriptor string of a type id.
   const char* GetTypeDescriptor(const dex::TypeId& type_id) const;
+  std::string_view GetTypeDescriptorView(const dex::TypeId& type_id) const;
 
   // Looks up a type for the given string index
   const dex::TypeId* FindTypeId(dex::StringIndex string_idx) const;
@@ -354,9 +355,11 @@ class DexFile {
 
   // Returns the class descriptor string of a field id.
   const char* GetFieldTypeDescriptor(const dex::FieldId& field_id) const;
+  std::string_view GetFieldTypeDescriptorView(const dex::FieldId& field_id) const;
 
   // Returns the name of a field id.
   const char* GetFieldName(const dex::FieldId& field_id) const;
+  std::string_view GetFieldNameView(const dex::FieldId& field_id) const;
 
   // Returns the number of method identifiers in the .dex file.
   size_t NumMethodIds() const {
@@ -404,6 +407,8 @@ class DexFile {
   const char* GetMethodName(const dex::MethodId& method_id, uint32_t* utf_length) const;
   const char* GetMethodName(uint32_t idx) const;
   const char* GetMethodName(uint32_t idx, uint32_t* utf_length) const;
+  std::string_view GetMethodNameView(const dex::MethodId& method_id) const;
+  std::string_view GetMethodNameView(uint32_t idx) const;
 
   // Returns the shorty of a method by its index.
   const char* GetMethodShorty(uint32_t idx) const;
@@ -505,6 +510,7 @@ class DexFile {
 
   // Returns the short form method descriptor for the given prototype.
   const char* GetShorty(dex::ProtoIndex proto_idx) const;
+  std::string_view GetShortyView(const dex::ProtoId& proto_id) const;
 
   const dex::TypeList* GetProtoParameters(const dex::ProtoId& proto_id) const {
     return DataPointer<dex::TypeList>(proto_id.parameters_off_);

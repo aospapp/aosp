@@ -20,6 +20,7 @@ package {
 
 cc_test {
     name: "vts_test_binary_bow_module",
+    tidy_timeout_srcs: ["BowTest.cpp"],
     srcs: ["BowTest.cpp"],
     shared_libs: [
         "libcutils",

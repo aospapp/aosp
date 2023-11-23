@@ -212,7 +212,7 @@ def _get_java_toolchain():
 
 def _get_host_tools_path(tool_name=None):
   # This script is located at e.g.
-  # out/soong/host/linux-x86/bin/shared_libs_repack/shared_libs_repack.py.
+  # out/host/linux-x86/bin/shared_libs_repack/shared_libs_repack.py.
   # Find the host tools dir by going up two directories.
   dirname = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
   if tool_name:

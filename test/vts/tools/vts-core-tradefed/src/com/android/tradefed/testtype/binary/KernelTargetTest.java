@@ -34,6 +34,8 @@ import java.util.concurrent.TimeUnit;
 public class KernelTargetTest extends ExecutableTargetTest {
     @Option(name = "ignore-binary-check", description = "Ignore the binary check in findBinary().")
     private boolean mIgnoreBinaryCheck = false;
+    @Option(name = "exit-code-skip", description = "Exit code for skipped tests.")
+    private int mExitCodeSkip = 32;
 
     @Override
     public String findBinary(String binary) throws DeviceNotAvailableException {
@@ -51,8 +53,7 @@ public class KernelTargetTest extends ExecutableTargetTest {
      */
     protected void checkCommandResult(
             CommandResult result, ITestInvocationListener listener, TestDescription description) {
-        int exitCodeTCONF = 32;
-        if (result.getExitCode() == exitCodeTCONF) {
+        if (result.getExitCode() == mExitCodeSkip) {
             listener.testIgnored(description);
         } else {
             super.checkCommandResult(result, listener, description);

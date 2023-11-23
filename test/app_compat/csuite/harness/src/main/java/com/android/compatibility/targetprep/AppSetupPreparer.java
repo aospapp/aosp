@@ -19,19 +19,23 @@ package com.android.compatibility.targetprep;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import com.android.csuite.core.SystemPackageUninstaller;
-import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.TestInformation;
+import com.android.tradefed.log.ITestLogger;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.result.FileInputStreamSource;
+import com.android.tradefed.result.ITestLoggerReceiver;
+import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.targetprep.BuildError;
 import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.targetprep.TestAppInstallSetup;
 import com.android.tradefed.util.AaptParser.AaptVersion;
+import com.android.tradefed.util.ZipUtil;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.SimpleTimeLimiter;
@@ -39,6 +43,7 @@ import com.google.common.util.concurrent.TimeLimiter;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
 
 import java.io.File;
+import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -46,7 +51,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /** A Tradefed preparer that downloads and installs an app on the target device. */
-public final class AppSetupPreparer implements ITargetPreparer {
+public final class AppSetupPreparer implements ITargetPreparer, ITestLoggerReceiver {
 
     @VisibleForTesting
     static final String OPTION_WAIT_FOR_DEVICE_AVAILABLE_SECONDS =
@@ -62,6 +67,11 @@ public final class AppSetupPreparer implements ITargetPreparer {
     @VisibleForTesting static final String OPTION_MAX_RETRY = "max-retry";
     @VisibleForTesting static final String OPTION_AAPT_VERSION = "aapt-version";
     @VisibleForTesting static final String OPTION_INCREMENTAL_INSTALL = "incremental";
+    @VisibleForTesting static final String OPTION_INCREMENTAL_FILTER = "incremental-block-filter";
+    @VisibleForTesting static final String OPTION_SAVE_APKS = "save-apks";
+
+    @VisibleForTesting
+    static final String OPTION_INCREMENTAL_TIMEOUT_SECS = "incremental-install-timeout-secs";
 
     @Option(name = "package-name", description = "Package name of testing app.")
     private String mPackageName;
@@ -85,6 +95,16 @@ public final class AppSetupPreparer implements ITargetPreparer {
             name = OPTION_INCREMENTAL_INSTALL,
             description = "Enable packages to be installed incrementally.")
     private boolean mIncrementalInstallation = false;
+
+    @Option(
+            name = OPTION_INCREMENTAL_FILTER,
+            description = "Specify percentage of blocks to filter.")
+    private double mBlockFilterPercentage = 0.0;
+
+    @Option(
+            name = OPTION_INCREMENTAL_TIMEOUT_SECS,
+            description = "Specify timeout of incremental installation.")
+    private int mIncrementalTimeout = 1800;
 
     @Option(name = OPTION_MAX_RETRY, description = "Max number of retries upon TargetSetupError.")
     private int mMaxRetry = 0;
@@ -112,10 +132,16 @@ public final class AppSetupPreparer implements ITargetPreparer {
                             + "be applied to each retry attempt.")
     private long mSetupOnceTimeoutMillis = TimeUnit.MINUTES.toMillis(10);
 
+    @Option(
+            name = OPTION_SAVE_APKS,
+            description = "Whether to save the input APKs into test output.")
+    private boolean mSaveApks = false;
+
     private final TestAppInstallSetup mTestAppInstallSetup;
     private final Sleeper mSleeper;
     private final TimeLimiter mTimeLimiter =
             SimpleTimeLimiter.create(Executors.newCachedThreadPool());
+    private ITestLogger mTestLogger;
 
     public AppSetupPreparer() {
         this(new TestAppInstallSetup(), Sleepers.DefaultSleeper.INSTANCE);
@@ -129,13 +155,34 @@ public final class AppSetupPreparer implements ITargetPreparer {
 
     /** {@inheritDoc} */
     @Override
-    public void setUp(ITestDevice device, IBuildInfo buildInfo)
+    public void setUp(TestInformation testInfo)
             throws DeviceNotAvailableException, BuildError, TargetSetupError {
         checkArgumentNonNegative(mMaxRetry, OPTION_MAX_RETRY);
         checkArgumentNonNegative(
                 mExponentialBackoffMultiplierSeconds,
                 OPTION_EXPONENTIAL_BACKOFF_MULTIPLIER_SECONDS);
         checkArgumentNonNegative(mSetupOnceTimeoutMillis, OPTION_SETUP_TIMEOUT_MILLIS);
+
+        if (mSaveApks) {
+            mTestFiles.forEach(
+                    path -> {
+                        if (!path.exists()) {
+                            CLog.w(
+                                    "Skipping saving %s as the path might be a relative path.",
+                                    path);
+                            return;
+                        }
+                        try {
+                            File outputZip = ZipUtil.createZip(path);
+                            mTestLogger.testLog(
+                                    mPackageName + "-input_apk-" + path.getName(),
+                                    LogDataType.ZIP,
+                                    new FileInputStreamSource(outputZip));
+                        } catch (IOException e) {
+                            CLog.e("Failed to zip the output directory: " + e);
+                        }
+                    });
+        }
 
         int runCount = 0;
         while (true) {
@@ -147,25 +194,27 @@ public final class AppSetupPreparer implements ITargetPreparer {
                         mTimeLimiter.newProxy(
                                 new ITargetPreparer() {
                                     @Override
-                                    public void setUp(ITestDevice device, IBuildInfo buildInfo)
+                                    public void setUp(TestInformation testInfo)
                                             throws DeviceNotAvailableException, BuildError,
                                                     TargetSetupError {
-                                        setUpOnce(device, buildInfo);
+                                        setUpOnce(testInfo);
                                     }
                                 },
                                 ITargetPreparer.class,
                                 mSetupOnceTimeoutMillis,
                                 TimeUnit.MILLISECONDS);
-                handler.setUp(device, buildInfo);
+                handler.setUp(testInfo);
 
                 break;
             } catch (TargetSetupError e) {
                 currentException = e;
             } catch (UncheckedTimeoutException e) {
-                currentException = new TargetSetupError(e.getMessage(), e);
+                currentException =
+                        new TargetSetupError(
+                                e.getMessage(), e, testInfo.getDevice().getDeviceDescriptor());
             }
 
-            waitForDeviceAvailable(device);
+            waitForDeviceAvailable(testInfo.getDevice());
             if (runCount > mMaxRetry) {
                 throw currentException;
             }
@@ -177,27 +226,34 @@ public final class AppSetupPreparer implements ITargetPreparer {
                                 (int) Math.pow(mExponentialBackoffMultiplierSeconds, runCount)));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                throw new TargetSetupError(e.getMessage(), e);
+                throw new TargetSetupError(
+                        e.getMessage(), e, testInfo.getDevice().getDeviceDescriptor());
             }
         }
     }
 
-    private void setUpOnce(ITestDevice device, IBuildInfo buildInfo)
+    private void setUpOnce(TestInformation testInfo)
             throws DeviceNotAvailableException, BuildError, TargetSetupError {
         mTestAppInstallSetup.setAaptVersion(mAaptVersion);
 
         try {
             OptionSetter setter = new OptionSetter(mTestAppInstallSetup);
             setter.setOptionValue("incremental", String.valueOf(mIncrementalInstallation));
+            setter.setOptionValue(
+                    "incremental-block-filter", String.valueOf(mBlockFilterPercentage));
+            setter.setOptionValue(
+                    "incremental-install-timeout-secs", String.valueOf(mIncrementalTimeout));
         } catch (ConfigurationException e) {
-            throw new TargetSetupError(e.getMessage(), e);
+            throw new TargetSetupError(
+                    e.getMessage(), e, testInfo.getDevice().getDeviceDescriptor());
         }
 
         if (mPackageName != null) {
-            SystemPackageUninstaller.uninstallPackage(mPackageName, device);
+            SystemPackageUninstaller.uninstallPackage(mPackageName, testInfo.getDevice());
         }
 
         for (File testFile : mTestFiles) {
+            CLog.d("Adding apk path %s for installation.", testFile);
             mTestAppInstallSetup.addTestFile(testFile);
         }
 
@@ -205,7 +261,7 @@ public final class AppSetupPreparer implements ITargetPreparer {
             mTestAppInstallSetup.addInstallArg(installArg);
         }
 
-        mTestAppInstallSetup.setUp(device, buildInfo);
+        mTestAppInstallSetup.setUp(testInfo);
     }
 
     /** {@inheritDoc} */
@@ -231,7 +287,7 @@ public final class AppSetupPreparer implements ITargetPreparer {
         void sleep(Duration duration) throws InterruptedException;
     }
 
-    static class Sleepers {
+    private static class Sleepers {
         enum DefaultSleeper implements Sleeper {
             INSTANCE;
 
@@ -242,5 +298,10 @@ public final class AppSetupPreparer implements ITargetPreparer {
         }
 
         private Sleepers() {}
+    }
+
+    @Override
+    public void setTestLogger(ITestLogger testLogger) {
+        mTestLogger = testLogger;
     }
 }

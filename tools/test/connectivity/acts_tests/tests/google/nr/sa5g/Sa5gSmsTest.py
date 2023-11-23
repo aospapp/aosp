@@ -20,7 +20,7 @@
 import time
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_phones_idle
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_phones_idle
 from acts_contrib.test_utils.tel.tel_5g_test_utils import disable_apm_mode_both_devices
 from acts_contrib.test_utils.tel.tel_5g_test_utils import provision_device_for_5g
 from acts_contrib.test_utils.tel.tel_5g_test_utils import provision_both_devices_for_volte
@@ -57,13 +57,13 @@ class Sa5gSmsTest(TelephonyBaseTest):
             False if failed.
         """
         ads = self.android_devices
-        if not provision_device_for_5g(self.log, ads, sa_5g=True):
+        if not provision_device_for_5g(self.log, ads, nr_type='sa'):
             return False
 
         if not _sms_test_mo(self.log, ads):
             return False
 
-        if not verify_5g_attach_for_both_devices(self.log, ads, True):
+        if not verify_5g_attach_for_both_devices(self.log, ads, nr_type='sa'):
             return False
 
         self.log.info("PASS - SMS test over 5G SA validated")
@@ -90,7 +90,7 @@ class Sa5gSmsTest(TelephonyBaseTest):
         if not disable_apm_mode_both_devices(self.log, ads):
             return False
 
-        if not provision_device_for_5g(self.log, ads, sa_5g=True):
+        if not provision_device_for_5g(self.log, ads, nr_type='sa'):
             return False
 
         return _long_sms_test_mo(self.log, ads)

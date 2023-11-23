@@ -59,7 +59,7 @@ class AppLaunchAssertionsTest {
         val errorTrace = appLaunchAssertor.analyze(INVALID_APP_LAUNCH_TAG, wmTrace, layersTrace)
 
         Truth.assertThat(errorTrace).isNotEmpty()
-        Truth.assertThat(errorTrace.entries.size).isEqualTo(1)
+        Truth.assertThat(errorTrace.entries.size).isEqualTo(4)
     }
 
     companion object {

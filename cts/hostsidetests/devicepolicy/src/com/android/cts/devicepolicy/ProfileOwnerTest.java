@@ -15,12 +15,9 @@
  */
 package com.android.cts.devicepolicy;
 
-import static com.android.cts.devicepolicy.DeviceAdminFeaturesCheckerRule.FEATURE_BACKUP;
-
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.android.cts.devicepolicy.DeviceAdminFeaturesCheckerRule.RequiresAdditionalFeatures;
 import com.android.cts.devicepolicy.DeviceAdminFeaturesCheckerRule.RequiresProfileOwnerSupport;
 import com.android.tradefed.log.LogUtil.CLog;
 
@@ -69,13 +66,6 @@ public class ProfileOwnerTest extends BaseDevicePolicyTest {
     @Test
     public void testAppUsageObserver() throws Exception {
         executeProfileOwnerTest("AppUsageObserverTest");
-    }
-
-    // The backup service cannot be enabled if the backup feature is not supported.
-    @RequiresAdditionalFeatures({FEATURE_BACKUP})
-    @Test
-    public void testBackupServiceEnabling() throws Exception {
-        executeProfileOwnerTest("BackupServicePoliciesTest");
     }
 
     @Test

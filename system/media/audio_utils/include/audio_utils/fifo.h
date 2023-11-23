@@ -18,6 +18,7 @@
 #define ANDROID_AUDIO_FIFO_H
 
 #include <stdlib.h>
+#include <sys/types.h>
 #include <audio_utils/fifo_index.h>
 
 #ifndef __cplusplus

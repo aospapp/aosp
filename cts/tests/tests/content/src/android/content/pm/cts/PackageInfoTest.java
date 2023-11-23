@@ -43,12 +43,16 @@ public class PackageInfoTest extends AndroidTestCase {
     protected void setUp() throws Exception {
         super.setUp();
         mPackageManager = getContext().getPackageManager();
-        mPackageInfo = mPackageManager.getPackageInfo(PACKAGE_NAME, PackageManager.GET_ACTIVITIES
-                | PackageManager.GET_GIDS | PackageManager.GET_CONFIGURATIONS
-                | PackageManager.GET_INSTRUMENTATION | PackageManager.GET_PERMISSIONS
-                | PackageManager.GET_PROVIDERS | PackageManager.GET_RECEIVERS
-                | PackageManager.GET_SERVICES | PackageManager.GET_ATTRIBUTIONS
-                | PackageManager.GET_SIGNATURES | PackageManager.GET_UNINSTALLED_PACKAGES);
+        mPackageInfo = mPackageManager.getPackageInfo(PACKAGE_NAME,
+                PackageManager.PackageInfoFlags.of(
+                        PackageManager.GET_ACTIVITIES | PackageManager.GET_GIDS
+                                | PackageManager.GET_CONFIGURATIONS
+                                | PackageManager.GET_INSTRUMENTATION
+                                | PackageManager.GET_PERMISSIONS
+                                | PackageManager.GET_PROVIDERS | PackageManager.GET_RECEIVERS
+                                | PackageManager.GET_SERVICES | PackageManager.GET_ATTRIBUTIONS
+                                | PackageManager.GET_SIGNATURES
+                                | PackageManager.GET_UNINSTALLED_PACKAGES));
     }
 
     public void testPackageInfoOp() {

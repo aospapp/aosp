@@ -35,4 +35,8 @@ android_test {
     srcs: ["src/**/*.java"],
     resource_dirs: ["res"],
     sdk_version: "test_current",
+    data: [
+        ":CtsVoiceRecognitionService",
+    ],
+    per_testcase_directory: true,
 }

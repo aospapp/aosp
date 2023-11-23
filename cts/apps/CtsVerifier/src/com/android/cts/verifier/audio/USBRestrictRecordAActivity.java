@@ -16,7 +16,7 @@
 
 package com.android.cts.verifier.audio;
 
-import android.app.Activity;
+import android.Manifest;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -26,18 +26,17 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
-import android.Manifest;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.android.cts.verifier.PassFailButtons;
+import com.android.cts.verifier.R;
+
 import java.util.Collection;
 import java.util.HashMap;
-
-import com.android.cts.verifier.PassFailButtons;
-import com.android.cts.verifier.R;  // needed to access resource in CTSVerifier project namespace.
 
 /*
  * This tests the USB Restrict Record functionality for the explicit USB device open case
@@ -113,10 +112,8 @@ public class USBRestrictRecordAActivity extends PassFailButtons.Activity {
         @Override
         public void onClick(View view) {
             int id = view.getId();
-            switch (id) {
-                case R.id.test_button:
-                    connectUSB(mContext);
-                    break;
+            if (id == R.id.test_button) {
+                connectUSB(mContext);
             }
         }
     }

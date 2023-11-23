@@ -3,6 +3,7 @@
   "version": 290000000,
   "provideNativeLibs": [],
   "requireNativeLibs": [
+    ":sphal",
     "libbinder_ndk.so",
     "libc.so",
     "libcgrouprc.so",

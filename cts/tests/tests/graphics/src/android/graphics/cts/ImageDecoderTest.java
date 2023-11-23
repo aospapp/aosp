@@ -23,6 +23,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
 import android.content.ContentResolver;
 import android.content.Context;
@@ -43,8 +44,11 @@ import android.graphics.Rect;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.NinePatchDrawable;
+import android.media.MediaCodecInfo;
+import android.media.MediaCodecList;
 import android.media.MediaFormat;
 import android.net.Uri;
+import android.os.Build;
 import android.util.DisplayMetrics;
 import android.util.Size;
 import android.util.TypedValue;
@@ -52,7 +56,9 @@ import android.util.TypedValue;
 import androidx.core.content.FileProvider;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.LargeTest;
+import androidx.test.filters.RequiresDevice;
 
+import com.android.compatibility.common.util.ApiLevelUtil;
 import com.android.compatibility.common.util.BitmapUtils;
 import com.android.compatibility.common.util.MediaUtils;
 
@@ -234,6 +240,50 @@ public class ImageDecoderTest {
             resId -> getAsFileUri(resId),
             resId -> getAsContentUri(resId),
     };
+
+    @Test
+    @RequiresDevice
+    public void testDecode10BitHeif() {
+        assumeTrue(
+            "Test needs Android T.", ApiLevelUtil.isFirstApiAtLeast(Build.VERSION_CODES.TIRAMISU));
+        assumeTrue("No 10-bit HEVC decoder, skip the test.", has10BitHEVCDecoder());
+
+        try {
+            ImageDecoder.Source src = ImageDecoder
+                .createSource(getResources(), R.raw.heifimage_10bit);
+            assertNotNull(src);
+            Bitmap bm = ImageDecoder.decodeBitmap(src, (decoder, info, source) -> {
+                decoder.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE);
+            });
+            assertNotNull(bm);
+            assertEquals(4096, bm.getWidth());
+            assertEquals(3072, bm.getHeight());
+            assertEquals(Bitmap.Config.RGBA_1010102, bm.getConfig());
+        } catch (IOException e) {
+            fail("Failed with exception " + e);
+        }
+    }
+
+    @Test
+    @RequiresDevice
+    public void testDecode10BitHeifWithLowRam() {
+        assumeTrue("No 10-bit HEVC decoder, skip the test.", has10BitHEVCDecoder());
+
+        ImageDecoder.Source src = ImageDecoder.createSource(getResources(), R.raw.heifimage_10bit);
+        assertNotNull(src);
+        try {
+            Bitmap bm = ImageDecoder.decodeBitmap(src, (decoder, info, source) -> {
+                decoder.setMemorySizePolicy(ImageDecoder.MEMORY_POLICY_LOW_RAM);
+                decoder.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE);
+            });
+            assertNotNull(bm);
+            assertEquals(4096, bm.getWidth());
+            assertEquals(3072, bm.getHeight());
+            assertEquals(Bitmap.Config.RGB_565, bm.getConfig());
+        } catch (IOException e) {
+            fail("Failed with exception " + e);
+        }
+    }
 
     @Test
     @Parameters(method = "getRecords")
@@ -2719,5 +2769,20 @@ public class ImageDecoderTest {
     public void testBadCallable() throws IOException {
         ImageDecoder.Source src = ImageDecoder.createSource(() -> null);
         ImageDecoder.decodeDrawable(src);
+    }
+
+    private static boolean has10BitHEVCDecoder() {
+        MediaFormat format = new MediaFormat();
+        format.setString(MediaFormat.KEY_MIME, "video/hevc");
+        format.setInteger(
+            MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10);
+        format.setInteger(
+            MediaFormat.KEY_LEVEL, MediaCodecInfo.CodecProfileLevel.HEVCMainTierLevel5);
+
+        MediaCodecList mcl = new MediaCodecList(MediaCodecList.ALL_CODECS);
+        if (mcl.findDecoderForFormat(format) == null) {
+            return false;
+        }
+        return true;
     }
 }

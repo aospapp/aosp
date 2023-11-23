@@ -27,15 +27,6 @@ import acloud.create.goldfish_local_image_local_instance as instance_module
 class GoldfishLocalImageLocalInstance(unittest.TestCase):
     """Test GoldfishLocalImageLocalInstance methods."""
 
-    _EXPECTED_DEVICES_IN_REPORT = [
-        {
-            "instance_name": "local-goldfish-instance",
-            "ip": "127.0.0.1:5555",
-            "adb_port": 5555,
-            "device_serial": "unittest"
-        }
-    ]
-
     def setUp(self):
         self._goldfish = instance_module.GoldfishLocalImageLocalInstance()
         self._temp_dir = tempfile.mkdtemp()
@@ -69,6 +60,21 @@ class GoldfishLocalImageLocalInstance(unittest.TestCase):
         with open(path, "w") as _:
             pass
 
+    def _MockMixWithSystemImage(self, output_dir, *_args):
+        """Mock goldfish_utils.MixWithSystemImage."""
+        self.assertEqual(os.path.join(self._instance_dir, "mix_disk"),
+                         output_dir)
+        output_path = os.path.join(output_dir, "mixed_disk.img")
+        self._CreateEmptyFile(output_path)
+        return output_path
+
+    def _MockMixWithBootImage(self, output_dir, *_args):
+        """Mock goldfish_utils.MixWithBootImage."""
+        self.assertEqual(os.path.join(self._instance_dir, "mix_kernel"),
+                         output_dir)
+        return (os.path.join(output_dir, "kernel"),
+                os.path.join(output_dir, "ramdisk"))
+
     def _MockPopen(self, *_args, **_kwargs):
         self._emulator_is_running = True
         return self._mock_proc
@@ -87,7 +93,8 @@ class GoldfishLocalImageLocalInstance(unittest.TestCase):
 
         raise ValueError("Unexpected arguments " + str(args))
 
-    def _SetUpMocks(self, mock_popen, mock_utils, mock_instance):
+    def _SetUpMocks(self, mock_popen, mock_utils, mock_instance,
+                    mock_gf_utils):
         mock_utils.IsSupportedPlatform.return_value = True
 
         mock_adb_tools = mock.Mock(side_effect=self._MockEmuCommand)
@@ -107,6 +114,31 @@ class GoldfishLocalImageLocalInstance(unittest.TestCase):
 
         mock_popen.side_effect = self._MockPopen
 
+        mock_gf_utils.SYSTEM_QEMU_IMAGE_NAME = "system-qemu.img"
+        mock_gf_utils.MixWithSystemImage.side_effect = (
+            self._MockMixWithSystemImage)
+        mock_gf_utils.MixWithBootImage.side_effect = self._MockMixWithBootImage
+        mock_gf_utils.ConvertAvdSpecToArgs.return_value = ["-gpu", "auto"]
+
+    def _CreateMockAvdSpec(self, local_instance_id, autoconnect=True,
+                           boot_timeout_secs=None,
+                           local_instance_dir=None, local_kernel_image=None,
+                           local_system_image=None, local_tool_dirs=None):
+        """Return a mock avd_spec.AvdSpec with needed attributes."""
+        attr_dict = {
+            "autoconnect": autoconnect,
+            "boot_timeout_secs": boot_timeout_secs,
+            "flavor": "phone",
+            "local_image_dir": self._image_dir,
+            "local_instance_id": local_instance_id,
+            "local_instance_dir": local_instance_dir,
+            "local_kernel_image": local_kernel_image,
+            "local_system_image": local_system_image,
+            "local_tool_dirs": local_tool_dirs or [],
+        }
+        mock_avd_spec = mock.Mock(spec=list(attr_dict), **attr_dict)
+        return mock_avd_spec
+
     def _GetExpectedEmulatorArgs(self, *extra_args):
         cmd = [
             self._emulator_path, "-verbose", "-show-kernel", "-read-only",
@@ -114,10 +146,28 @@ class GoldfishLocalImageLocalInstance(unittest.TestCase):
             "-logcat-output",
             os.path.join(self._instance_dir, "logcat.txt"),
             "-stdouterr-file",
-            os.path.join(self._instance_dir, "stdouterr.txt")
+            os.path.join(self._instance_dir, "kernel.log"),
+            "-gpu", "auto"
         ]
         cmd.extend(extra_args)
         return cmd
+
+    def _GetExpectedDevicesInReport(self):
+        logcat_path = os.path.join(self._instance_dir, "logcat.txt")
+        stdouterr_path = os.path.join(self._instance_dir, "kernel.log")
+        return [
+            {
+                "instance_name": "local-goldfish-instance",
+                "ip": "127.0.0.1:5555",
+                "adb_port": 5555,
+                "device_serial": "unittest",
+                "logs": [
+                    {"path": logcat_path, "type": "LOGCAT"},
+                    {"path": stdouterr_path, "type": "KERNEL_LOG"}
+                ]
+            }
+        ]
+
 
     # pylint: disable=protected-access
     @mock.patch("acloud.create.goldfish_local_image_local_instance.instance."
@@ -125,10 +175,12 @@ class GoldfishLocalImageLocalInstance(unittest.TestCase):
     @mock.patch("acloud.create.goldfish_local_image_local_instance.utils")
     @mock.patch("acloud.create.goldfish_local_image_local_instance."
                 "subprocess.Popen")
-    def testCreateAVDInBuildEnvironment(self, mock_popen, mock_utils,
-                                        mock_instance):
+    @mock.patch("acloud.create.goldfish_local_image_local_instance."
+                "goldfish_utils")
+    def testCreateAVDInBuildEnvironment(self, mock_gf_utils, mock_popen,
+                                        mock_utils, mock_instance):
         """Test _CreateAVD with build environment variables and files."""
-        self._SetUpMocks(mock_popen, mock_utils, mock_instance)
+        self._SetUpMocks(mock_popen, mock_utils, mock_instance, mock_gf_utils)
 
         self._CreateEmptyFile(os.path.join(self._image_dir,
                                            "system-qemu.img"))
@@ -138,15 +190,8 @@ class GoldfishLocalImageLocalInstance(unittest.TestCase):
         mock_environ = {"ANDROID_EMULATOR_PREBUILTS":
                         os.path.join(self._tool_dir, "emulator")}
 
-        mock_avd_spec = mock.Mock(flavor="phone",
-                                  boot_timeout_secs=100,
-                                  gpu=None,
-                                  autoconnect=True,
-                                  local_instance_id=1,
-                                  local_instance_dir=None,
-                                  local_image_dir=self._image_dir,
-                                  local_system_image=None,
-                                  local_tool_dirs=[])
+        mock_avd_spec = self._CreateMockAvdSpec(local_instance_id=1,
+                                                boot_timeout_secs=100)
 
         # Test deleting an existing instance.
         self._emulator_is_running = True
@@ -157,7 +202,7 @@ class GoldfishLocalImageLocalInstance(unittest.TestCase):
             report = self._goldfish._CreateAVD(mock_avd_spec, no_prompts=False)
 
         self.assertEqual(report.data.get("devices"),
-                         self._EXPECTED_DEVICES_IN_REPORT)
+                         self._GetExpectedDevicesInReport())
 
         self._mock_lock.Lock.assert_called_once()
         self._mock_lock.SetInUse.assert_called_once_with(True)
@@ -179,10 +224,12 @@ class GoldfishLocalImageLocalInstance(unittest.TestCase):
     @mock.patch("acloud.create.goldfish_local_image_local_instance.utils")
     @mock.patch("acloud.create.goldfish_local_image_local_instance."
                 "subprocess.Popen")
-    def testCreateAVDFromSdkRepository(self, mock_popen,
+    @mock.patch("acloud.create.goldfish_local_image_local_instance."
+                "goldfish_utils")
+    def testCreateAVDFromSdkRepository(self, mock_gf_utils, mock_popen,
                                        mock_utils, mock_instance):
         """Test _CreateAVD with SDK repository files."""
-        self._SetUpMocks(mock_popen, mock_utils, mock_instance)
+        self._SetUpMocks(mock_popen, mock_utils, mock_instance, mock_gf_utils)
 
         self._CreateEmptyFile(os.path.join(self._image_dir, "x86",
                                            "system.img"))
@@ -192,15 +239,10 @@ class GoldfishLocalImageLocalInstance(unittest.TestCase):
         instance_dir = os.path.join(self._temp_dir, "local_instance_dir")
         os.mkdir(instance_dir)
 
-        mock_avd_spec = mock.Mock(flavor="phone",
-                                  boot_timeout_secs=None,
-                                  gpu=None,
-                                  autoconnect=True,
-                                  local_instance_id=2,
-                                  local_instance_dir=instance_dir,
-                                  local_image_dir=self._image_dir,
-                                  local_system_image=None,
-                                  local_tool_dirs=[self._tool_dir])
+        mock_avd_spec = self._CreateMockAvdSpec(
+            local_instance_id=2,
+            local_instance_dir=instance_dir,
+            local_tool_dirs=[self._tool_dir])
 
         with mock.patch.dict("acloud.create."
                              "goldfish_local_image_local_instance.os.environ",
@@ -208,7 +250,7 @@ class GoldfishLocalImageLocalInstance(unittest.TestCase):
             report = self._goldfish._CreateAVD(mock_avd_spec, no_prompts=True)
 
         self.assertEqual(report.data.get("devices"),
-                         self._EXPECTED_DEVICES_IN_REPORT)
+                         self._GetExpectedDevicesInReport())
 
         self._mock_lock.Lock.assert_called_once()
         self._mock_lock.SetInUse.assert_called_once_with(True)
@@ -234,24 +276,20 @@ class GoldfishLocalImageLocalInstance(unittest.TestCase):
     @mock.patch("acloud.create.goldfish_local_image_local_instance.utils")
     @mock.patch("acloud.create.goldfish_local_image_local_instance."
                 "subprocess.Popen")
-    def testCreateAVDTimeout(self, mock_popen, mock_utils, mock_instance):
+    @mock.patch("acloud.create.goldfish_local_image_local_instance."
+                "goldfish_utils")
+    def testCreateAVDTimeout(self, mock_gf_utils, mock_popen, mock_utils, mock_instance):
         """Test _CreateAVD with SDK repository files and timeout error."""
-        self._SetUpMocks(mock_popen, mock_utils, mock_instance)
+        self._SetUpMocks(mock_popen, mock_utils, mock_instance, mock_gf_utils)
         mock_utils.PollAndWait.side_effect = errors.DeviceBootTimeoutError(
             "timeout")
 
         self._CreateEmptyFile(os.path.join(self._image_dir, "system.img"))
         self._CreateEmptyFile(os.path.join(self._image_dir, "build.prop"))
 
-        mock_avd_spec = mock.Mock(flavor="phone",
-                                  boot_timeout_secs=None,
-                                  gpu=None,
-                                  autoconnect=True,
-                                  local_instance_id=2,
-                                  local_instance_dir=None,
-                                  local_image_dir=self._image_dir,
-                                  local_system_image=None,
-                                  local_tool_dirs=[self._tool_dir])
+        mock_avd_spec = self._CreateMockAvdSpec(
+            local_instance_id=2,
+            local_tool_dirs=[self._tool_dir])
 
         with mock.patch.dict("acloud.create."
                              "goldfish_local_image_local_instance.os.environ",
@@ -263,7 +301,7 @@ class GoldfishLocalImageLocalInstance(unittest.TestCase):
         self._mock_lock.Unlock.assert_called_once()
 
         self.assertEqual(report.data.get("devices_failing_boot"),
-                         self._EXPECTED_DEVICES_IN_REPORT)
+                         self._GetExpectedDevicesInReport())
         self.assertEqual(report.errors, ["timeout"])
 
     # pylint: disable=protected-access
@@ -272,20 +310,16 @@ class GoldfishLocalImageLocalInstance(unittest.TestCase):
     @mock.patch("acloud.create.goldfish_local_image_local_instance.utils")
     @mock.patch("acloud.create.goldfish_local_image_local_instance."
                 "subprocess.Popen")
-    def testCreateAVDWithoutReport(self, mock_popen, mock_utils,
+    @mock.patch("acloud.create.goldfish_local_image_local_instance."
+                "goldfish_utils")
+    def testCreateAVDWithoutReport(self, mock_gf_utils, mock_popen, mock_utils,
                                    mock_instance):
         """Test _CreateAVD with SDK repository files and no report."""
-        self._SetUpMocks(mock_popen, mock_utils, mock_instance)
+        self._SetUpMocks(mock_popen, mock_utils, mock_instance, mock_gf_utils)
 
-        mock_avd_spec = mock.Mock(flavor="phone",
-                                  boot_timeout_secs=None,
-                                  gpu=None,
-                                  autoconnect=True,
-                                  local_instance_id=0,
-                                  local_instance_dir=None,
-                                  local_image_dir=self._image_dir,
-                                  local_system_image=None,
-                                  local_tool_dirs=[self._tool_dir])
+        mock_avd_spec = self._CreateMockAvdSpec(
+            local_instance_id=0,
+            local_tool_dirs=[self._tool_dir])
 
         with mock.patch.dict("acloud.create."
                              "goldfish_local_image_local_instance.os.environ",
@@ -305,32 +339,23 @@ class GoldfishLocalImageLocalInstance(unittest.TestCase):
     @mock.patch("acloud.create.goldfish_local_image_local_instance."
                 "subprocess.Popen")
     @mock.patch("acloud.create.goldfish_local_image_local_instance.ota_tools")
-    def testCreateAVDWithMixedImages(self, mock_ota_tools, mock_popen,
-                                     mock_utils, mock_instance):
+    @mock.patch("acloud.create.goldfish_local_image_local_instance."
+                "goldfish_utils")
+    def testCreateAVDWithMixedImages(self, mock_gf_utils, mock_ota_tools,
+                                     mock_popen, mock_utils, mock_instance):
         """Test _CreateAVD with mixed images and SDK repository files."""
-        mock_ota_tools.FindOtaTools.return_value = self._tool_dir
-        mock_ota_tools_object = mock.Mock()
-        mock_ota_tools.OtaTools.return_value = mock_ota_tools_object
-        mock_ota_tools_object.MkCombinedImg.side_effect = (
-            lambda out_path, _conf, _get_img: self._CreateEmptyFile(out_path))
+        self._SetUpMocks(mock_popen, mock_utils, mock_instance, mock_gf_utils)
 
-        self._SetUpMocks(mock_popen, mock_utils, mock_instance)
-
-        self._CreateEmptyFile(os.path.join(self._image_dir, "x86",
-                                           "system.img"))
+        system_image_path = os.path.join(self._image_dir, "x86", "system.img")
+        self._CreateEmptyFile(system_image_path)
         self._CreateEmptyFile(os.path.join(self._image_dir, "x86", "system",
                                            "build.prop"))
 
-        mock_avd_spec = mock.Mock(flavor="phone",
-                                  boot_timeout_secs=None,
-                                  gpu="auto",
-                                  autoconnect=False,
-                                  local_instance_id=3,
-                                  local_instance_dir=None,
-                                  local_image_dir=self._image_dir,
-                                  local_system_image=os.path.join(
-                                      self._image_dir, "x86", "system.img"),
-                                  local_tool_dirs=[self._tool_dir])
+        mock_avd_spec = self._CreateMockAvdSpec(
+            local_instance_id=3,
+            autoconnect=False,
+            local_system_image=system_image_path,
+            local_tool_dirs=[self._tool_dir])
 
         with mock.patch.dict("acloud.create."
                              "goldfish_local_image_local_instance.os.environ",
@@ -338,32 +363,24 @@ class GoldfishLocalImageLocalInstance(unittest.TestCase):
             report = self._goldfish._CreateAVD(mock_avd_spec, no_prompts=True)
 
         self.assertEqual(report.data.get("devices"),
-                         self._EXPECTED_DEVICES_IN_REPORT)
+                         self._GetExpectedDevicesInReport())
 
         mock_instance.assert_called_once_with(3, avd_flavor="phone")
 
         self.assertTrue(os.path.isdir(self._instance_dir))
 
-        mock_ota_tools.FindOtaTools.assert_called_once()
-        mock_ota_tools.OtaTools.assert_called_with(self._tool_dir)
+        mock_ota_tools.FindOtaTools.assert_called_once_with([self._tool_dir])
 
-        mock_ota_tools_object.BuildSuperImage.assert_called_once()
-        self.assertEqual(mock_ota_tools_object.BuildSuperImage.call_args[0][1],
-                         os.path.join(self._image_dir, "x86", "misc_info.txt"))
-
-        mock_ota_tools_object.MakeDisabledVbmetaImage.assert_called_once()
-
-        mock_ota_tools_object.MkCombinedImg.assert_called_once()
-        self.assertEqual(
-            mock_ota_tools_object.MkCombinedImg.call_args[0][1],
-            os.path.join(self._image_dir, "x86", "system-qemu-config.txt"))
+        mock_gf_utils.MixWithSystemImage.assert_called_once_with(
+            mock.ANY, os.path.join(self._image_dir, "x86"), system_image_path,
+            mock_ota_tools.FindOtaTools.return_value)
 
         mock_utils.SetExecutable.assert_called_with(self._emulator_path)
         mock_popen.assert_called_once()
         self.assertEqual(
             mock_popen.call_args[0][0],
             self._GetExpectedEmulatorArgs(
-                "-gpu", "auto", "-no-window", "-qemu", "-append",
+                "-no-window", "-qemu", "-append",
                 "androidboot.verifiedbootstate=orange"))
         self._mock_proc.poll.assert_called()
 
@@ -374,36 +391,127 @@ class GoldfishLocalImageLocalInstance(unittest.TestCase):
     @mock.patch("acloud.create.goldfish_local_image_local_instance."
                 "subprocess.Popen")
     @mock.patch("acloud.create.goldfish_local_image_local_instance.ota_tools")
-    def testCreateAVDWithMixedImageDirs(self, mock_ota_tools, mock_popen,
-                                     mock_utils, mock_instance):
+    @mock.patch("acloud.create.goldfish_local_image_local_instance."
+                "goldfish_utils")
+    def testCreateAVDWithBootImage(self, mock_gf_utils, mock_ota_tools,
+                                   mock_popen, mock_utils, mock_instance):
+        """Test _CreateAVD with a boot image and SDK repository files."""
+        self._SetUpMocks(mock_popen, mock_utils, mock_instance, mock_gf_utils)
+
+        image_subdir = os.path.join(self._image_dir, "x86")
+        boot_image_path = os.path.join(self._temp_dir, "kernel_images",
+                                       "boot-5.10.img")
+        self._CreateEmptyFile(boot_image_path)
+        self._CreateEmptyFile(os.path.join(image_subdir, "system.img"))
+        self._CreateEmptyFile(os.path.join(image_subdir, "build.prop"))
+
+        mock_avd_spec = self._CreateMockAvdSpec(
+            local_instance_id=3,
+            local_kernel_image=os.path.dirname(boot_image_path),
+            local_tool_dirs=[self._tool_dir])
+
+        with mock.patch.dict("acloud.create."
+                             "goldfish_local_image_local_instance.os.environ",
+                             dict(), clear=True):
+            report = self._goldfish._CreateAVD(mock_avd_spec, no_prompts=True)
+
+        self.assertEqual(report.data.get("devices"),
+                         self._GetExpectedDevicesInReport())
+
+        mock_gf_utils.MixWithBootImage.assert_called_once_with(
+            mock.ANY, os.path.join(image_subdir), boot_image_path,
+            mock_ota_tools.FindOtaTools.return_value)
+
+        mock_popen.assert_called_once()
+        self.assertEqual(
+            mock_popen.call_args[0][0],
+            self._GetExpectedEmulatorArgs(
+                "-kernel",
+                os.path.join(self._instance_dir, "mix_kernel", "kernel"),
+                "-ramdisk",
+                os.path.join(self._instance_dir, "mix_kernel", "ramdisk")))
+
+    # pylint: disable=protected-access
+    @mock.patch("acloud.create.goldfish_local_image_local_instance.instance."
+                "LocalGoldfishInstance")
+    @mock.patch("acloud.create.goldfish_local_image_local_instance.utils")
+    @mock.patch("acloud.create.goldfish_local_image_local_instance."
+                "subprocess.Popen")
+    @mock.patch("acloud.create.goldfish_local_image_local_instance.ota_tools")
+    @mock.patch("acloud.create.goldfish_local_image_local_instance."
+                "goldfish_utils")
+    def testCreateAVDWithKernelImages(self, mock_gf_utils, mock_ota_tools,
+                                      mock_popen, mock_utils, mock_instance):
+        """Test _CreateAVD with kernel images and SDK repository files."""
+        self._SetUpMocks(mock_popen, mock_utils, mock_instance, mock_gf_utils)
+
+        kernel_subdir = os.path.join(self._temp_dir, "kernel_images", "x86")
+        kernel_image_path = os.path.join(kernel_subdir, "kernel-ranchu")
+        ramdisk_image_path = os.path.join(kernel_subdir, "ramdisk.img")
+        mock_gf_utils.FindKernelImages.return_value = (kernel_image_path,
+                                                       ramdisk_image_path)
+
+        os.makedirs(kernel_subdir)
+        self._CreateEmptyFile(os.path.join(self._image_dir, "x86",
+                                           "system.img"))
+        self._CreateEmptyFile(os.path.join(self._image_dir, "x86",
+                                           "build.prop"))
+
+        mock_avd_spec = self._CreateMockAvdSpec(
+            local_instance_id=3,
+            local_kernel_image=os.path.dirname(kernel_subdir),
+            local_tool_dirs=[self._tool_dir])
+
+        with mock.patch.dict("acloud.create."
+                             "goldfish_local_image_local_instance.os.environ",
+                             dict(), clear=True):
+            report = self._goldfish._CreateAVD(mock_avd_spec, no_prompts=True)
+
+        self.assertEqual(report.data.get("devices"),
+                         self._GetExpectedDevicesInReport())
+
+        mock_ota_tools.FindOtaTools.assert_not_called()
+        mock_gf_utils.FindKernelImages.assert_called_once_with(kernel_subdir)
+
+        mock_popen.assert_called_once()
+        self.assertEqual(
+            mock_popen.call_args[0][0],
+            self._GetExpectedEmulatorArgs(
+                "-kernel", kernel_image_path,
+                "-ramdisk", ramdisk_image_path))
+
+    # pylint: disable=protected-access
+    @mock.patch("acloud.create.goldfish_local_image_local_instance.instance."
+                "LocalGoldfishInstance")
+    @mock.patch("acloud.create.goldfish_local_image_local_instance.utils")
+    @mock.patch("acloud.create.goldfish_local_image_local_instance."
+                "subprocess.Popen")
+    @mock.patch("acloud.create.goldfish_local_image_local_instance.ota_tools")
+    @mock.patch("acloud.create.goldfish_local_image_local_instance."
+                "goldfish_utils")
+    def testCreateAVDWithMixedImageDirs(self, mock_gf_utils, mock_ota_tools,
+                                        mock_popen, mock_utils, mock_instance):
         """Test _CreateAVD with mixed images in build environment."""
-        mock_ota_tools.FindOtaTools.return_value = self._tool_dir
-        mock_ota_tools_object = mock.Mock()
-        mock_ota_tools.OtaTools.return_value = mock_ota_tools_object
-        mock_ota_tools_object.MkCombinedImg.side_effect = (
-            lambda out_path, _conf, _get_img: self._CreateEmptyFile(out_path))
+        self._SetUpMocks(mock_popen, mock_utils, mock_instance, mock_gf_utils)
 
-        self._SetUpMocks(mock_popen, mock_utils, mock_instance)
-
+        system_image_path = os.path.join(self._image_dir, "system.img")
+        self._CreateEmptyFile(system_image_path)
         self._CreateEmptyFile(os.path.join(self._image_dir,
                                            "system-qemu.img"))
-        self._CreateEmptyFile(os.path.join(self._image_dir,
-                                           "system.img"))
         self._CreateEmptyFile(os.path.join(self._image_dir, "system",
                                            "build.prop"))
 
         mock_environ = {"ANDROID_EMULATOR_PREBUILTS":
-                        os.path.join(self._tool_dir, "emulator")}
+                        os.path.join(self._tool_dir, "emulator"),
+                        "ANDROID_HOST_OUT":
+                        os.path.join(self._tool_dir, "host"),
+                        "ANDROID_SOONG_HOST_OUT":
+                        os.path.join(self._tool_dir, "soong")}
 
-        mock_avd_spec = mock.Mock(flavor="phone",
-                                  boot_timeout_secs=None,
-                                  gpu="auto",
-                                  autoconnect=False,
-                                  local_instance_id=3,
-                                  local_instance_dir=None,
-                                  local_image_dir=self._image_dir,
-                                  local_system_image=self._image_dir,
-                                  local_tool_dirs=[])
+        mock_avd_spec = self._CreateMockAvdSpec(
+            local_instance_id=3,
+            autoconnect=False,
+            local_system_image=self._image_dir)
 
         with mock.patch.dict("acloud.create."
                              "goldfish_local_image_local_instance.os.environ",
@@ -411,32 +519,26 @@ class GoldfishLocalImageLocalInstance(unittest.TestCase):
             report = self._goldfish._CreateAVD(mock_avd_spec, no_prompts=True)
 
         self.assertEqual(report.data.get("devices"),
-                         self._EXPECTED_DEVICES_IN_REPORT)
+                         self._GetExpectedDevicesInReport())
 
         mock_instance.assert_called_once_with(3, avd_flavor="phone")
 
         self.assertTrue(os.path.isdir(self._instance_dir))
 
-        mock_ota_tools.FindOtaTools.assert_called_once()
-        mock_ota_tools.OtaTools.assert_called_with(self._tool_dir)
+        mock_ota_tools.FindOtaTools.assert_called_once_with([
+            os.path.join(self._tool_dir, "soong"),
+            os.path.join(self._tool_dir, "host")])
 
-        mock_ota_tools_object.BuildSuperImage.assert_called_once()
-        self.assertEqual(mock_ota_tools_object.BuildSuperImage.call_args[0][1],
-                         os.path.join(self._image_dir, "misc_info.txt"))
-
-        mock_ota_tools_object.MakeDisabledVbmetaImage.assert_called_once()
-
-        mock_ota_tools_object.MkCombinedImg.assert_called_once()
-        self.assertEqual(
-            mock_ota_tools_object.MkCombinedImg.call_args[0][1],
-            os.path.join(self._image_dir, "system-qemu-config.txt"))
+        mock_gf_utils.MixWithSystemImage.assert_called_once_with(
+            mock.ANY, self._image_dir, system_image_path,
+            mock_ota_tools.FindOtaTools.return_value)
 
         mock_utils.SetExecutable.assert_called_with(self._emulator_path)
         mock_popen.assert_called_once()
         self.assertEqual(
             mock_popen.call_args[0][0],
             self._GetExpectedEmulatorArgs(
-                "-gpu", "auto", "-no-window", "-qemu", "-append",
+                "-no-window", "-qemu", "-append",
                 "androidboot.verifiedbootstate=orange"))
         self._mock_proc.poll.assert_called()
 

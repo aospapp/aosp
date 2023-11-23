@@ -167,6 +167,21 @@ status_t CameraDevice::Initialize(
     return res;
   }
 
+  std::unique_ptr<HalCameraMetadata> static_metadata;
+  res = camera_device_hwl_->GetCameraCharacteristics(&static_metadata);
+  if (res != OK) {
+    ALOGE("%s: Getting camera characteristics failed: %s(%d)", __FUNCTION__,
+          strerror(-res), res);
+    return res;
+  }
+
+  res = utils::GetStreamUseCases(static_metadata.get(), &stream_use_cases_);
+  if (res != OK) {
+    ALOGE("%s: Getting stream use cases failed: %s(%d)", __FUNCTION__,
+          strerror(-res), res);
+    return res;
+  }
+
   return OK;
 }
 
@@ -208,6 +223,23 @@ status_t CameraDevice::SetTorchMode(TorchMode mode) {
   return camera_device_hwl_->SetTorchMode(mode);
 }
 
+status_t CameraDevice::TurnOnTorchWithStrengthLevel(int32_t torch_strength) {
+  ATRACE_CALL();
+  return camera_device_hwl_->TurnOnTorchWithStrengthLevel(torch_strength);
+}
+
+status_t CameraDevice::GetTorchStrengthLevel(int32_t& torch_strength) const {
+  ATRACE_CALL();
+  status_t res = camera_device_hwl_->GetTorchStrengthLevel(torch_strength);
+  if (res != OK) {
+    ALOGE("%s: GetTorchStrengthLevel() failed: %s (%d).", __FUNCTION__,
+          strerror(-res), res);
+    return res;
+  }
+
+  return res;
+}
+
 status_t CameraDevice::DumpState(int fd) {
   ATRACE_CALL();
   return camera_device_hwl_->DumpState(fd);
@@ -247,6 +279,10 @@ status_t CameraDevice::CreateCameraDeviceSession(
 
 bool CameraDevice::IsStreamCombinationSupported(
     const StreamConfiguration& stream_config) {
+  if (!utils::IsStreamUseCaseSupported(stream_config, stream_use_cases_)) {
+    return false;
+  }
+
   bool supported =
       camera_device_hwl_->IsStreamCombinationSupported(stream_config);
   if (!supported) {
@@ -307,10 +343,7 @@ CameraDevice::~CameraDevice() {
 
 std::unique_ptr<google::camera_common::Profiler> CameraDevice::GetProfiler(
     uint32_t camera_id, int option) {
-  if (option & google::camera_common::Profiler::SetPropFlag::kCustomProfiler) {
-    return camera_device_hwl_->GetProfiler(camera_id, option);
-  }
-  return nullptr;
+  return camera_device_hwl_->GetProfiler(camera_id, option);
 }
 
 }  // namespace google_camera_hal

@@ -177,6 +177,38 @@ public class SurfaceViewSyncTest {
         return makeInfinite(ObjectAnimator.ofPropertyValuesHolder(view, pvhX, pvhY));
     };
 
+    private static AnimationFactory sFixedSizeWithViewSizeAnimationFactory = view -> {
+        ValueAnimator anim = ValueAnimator.ofInt(0, 100);
+        anim.addUpdateListener(valueAnimator -> {
+            ViewGroup.LayoutParams layoutParams = view.getLayoutParams();
+            layoutParams.width++;
+            if (layoutParams.height++ > 1500) {
+                layoutParams.height = 320;
+                layoutParams.width = 240;
+            }
+            view.setLayoutParams(layoutParams);
+
+            if ((Integer) valueAnimator.getAnimatedValue() % 3 == 0) {
+                ((SurfaceView) view).getHolder().setFixedSize(320, 240);
+            } else if ((Integer) valueAnimator.getAnimatedValue() % 7 == 0) {
+                ((SurfaceView) view).getHolder().setFixedSize(1280, 960);
+            }
+        });
+        return makeInfinite(anim);
+    };
+
+    private static AnimationFactory sFixedSizeAnimationFactory = view -> {
+        ValueAnimator anim = ValueAnimator.ofInt(0, 100);
+        anim.addUpdateListener(valueAnimator -> {
+            if ((Integer) valueAnimator.getAnimatedValue() % 2 == 0) {
+                ((SurfaceView) view).getHolder().setFixedSize(320, 240);
+            } else {
+                ((SurfaceView) view).getHolder().setFixedSize(1280, 960);
+            }
+        });
+        return makeInfinite(anim);
+    };
+
     private AnimationFactory sTranslateAnimationFactory = view -> {
         PropertyValuesHolder pvhX = PropertyValuesHolder.ofFloat(View.TRANSLATION_X, 10f, 30f);
         PropertyValuesHolder pvhY = PropertyValuesHolder.ofFloat(View.TRANSLATION_Y, 10f, 30f);
@@ -255,6 +287,43 @@ public class SurfaceViewSyncTest {
                 sGreenSurfaceViewFactory,
                 new FrameLayout.LayoutParams(640, 480, Gravity.LEFT | Gravity.TOP),
                 sBigScaleAnimationFactory,
+                new PixelChecker() {
+                    @Override
+                    public boolean checkPixels(int blackishPixelCount, int width, int height) {
+                        return blackishPixelCount == 0;
+                    }
+                }), mName);
+    }
+
+
+    /**
+     * Change requested surface size and SurfaceView size and verify buffers always fill to
+     * SurfaceView size. b/190449942
+     */
+    @Test
+    public void testSurfaceViewFixedSizeWithViewSizeChanges() throws Throwable {
+        mActivity.verifyTest(new AnimationTestCase(
+                sVideoViewFactory,
+                new FrameLayout.LayoutParams(640, 480, Gravity.LEFT | Gravity.TOP),
+                sFixedSizeWithViewSizeAnimationFactory,
+                new PixelChecker() {
+                    @Override
+                    public boolean checkPixels(int blackishPixelCount, int width, int height) {
+                        return blackishPixelCount == 0;
+                    }
+                }), mName);
+    }
+
+    /**
+     * Change requested surface size and verify buffers always fill to SurfaceView size.
+     * b/194458377
+     */
+    @Test
+    public void testSurfaceViewFixedSizeChanges() throws Throwable {
+        mActivity.verifyTest(new AnimationTestCase(
+                sVideoViewFactory,
+                new FrameLayout.LayoutParams(640, 480, Gravity.LEFT | Gravity.TOP),
+                sFixedSizeAnimationFactory,
                 new PixelChecker() {
                     @Override
                     public boolean checkPixels(int blackishPixelCount, int width, int height) {

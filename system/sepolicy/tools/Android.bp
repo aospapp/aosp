@@ -59,8 +59,14 @@ cc_binary_host {
     srcs: ["version_policy.c"],
 }
 
-cc_prebuilt_binary {
-    name: "insertkeys.py",
+python_binary_host {
+    name: "insertkeys",
     srcs: ["insertkeys.py"],
-    host_supported: true,
+}
+
+python_binary_host {
+    name: "sepolicy_generate_compat",
+    srcs: ["sepolicy_generate_compat.py"],
+    libs: ["mini_cil_parser", "pysepolwrap"],
+    data: [":libsepolwrap"],
 }

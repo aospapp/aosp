@@ -1,3 +1,8 @@
+type pixelstats_vendor, domain;
+
+type pixelstats_vendor_exec, exec_type, vendor_file_type, file_type;
+init_daemon_domain(pixelstats_vendor)
+
 # UeventListener
 r_dir_file(pixelstats_vendor, sysfs_batteryinfo)
 allow pixelstats_vendor sysfs_batteryinfo:file w_file_perms;

@@ -21,13 +21,15 @@
 package(default_visibility=["//visibility:public"])
 
 _TF_JARS = glob(["{prebuilts_dir_name}/host/tradefed/*.jar"])
+_ATEST_TF_JAR_SRC = ["{prebuilts_dir_name}/host/framework/atest-tradefed.jar"]
+_ATEST_TF_JAR_DEST = ["atest-tradefed.jar"]
 _TF_JARNAMES = [
     f.replace("{prebuilts_dir_name}/host/tradefed/", "") for f in _TF_JARS
 ]
 
 genrule(name="tradefed_lib_soong_import",
-        srcs=_TF_JARS,
-        outs=_TF_JARNAMES,
+        srcs=_TF_JARS + _ATEST_TF_JAR_SRC,
+        outs=_TF_JARNAMES + _ATEST_TF_JAR_DEST,
         cmd="cp -t $(RULEDIR) $(SRCS)")
 
 java_import(name="tradefed_lib", jars=[":tradefed_lib_soong_import"])
@@ -37,6 +39,13 @@ genrule(name="script_help",
             "{prebuilts_dir_name}/host/bin/script_help.sh",
         ],
         outs=["script_help.sh"],
+        cmd="cp -t $(RULEDIR) $<")
+
+genrule(name="atest_script_help",
+        srcs=[
+            "{prebuilts_dir_name}/host/bin/atest_script_help.sh"
+        ],
+        outs=["atest_script_help.sh"],
         cmd="cp -t $(RULEDIR) $<")
 
 genrule(
@@ -55,8 +64,8 @@ genrule(
 genrule(
     name="atest_tradefed",
     srcs=[
-        ":script_help", ":tradefed_lib",
-        "{prebuilts_dir_name}/host/bin/atest_tradefed.sh"
+        ":tradefed_lib", ":atest_script_help",
+        "{prebuilts_dir_name}/host/bin/atest_tradefed.sh",
     ],
     outs=["atest_tradefed.sh"],
     cmd=

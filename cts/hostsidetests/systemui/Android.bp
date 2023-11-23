@@ -29,10 +29,16 @@ java_test_host {
 
     static_libs: [
         "cts-statsd-atom-host-test-utils",
+        "platformprotos",
+        "CompatChangeGatingTestBase",
     ],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
         "general-tests",
     ],
+    data: [
+        ":CtsSystemUiDeviceApp",
+    ],
+    per_testcase_directory: true,
 }

@@ -19,13 +19,4 @@ package {
 python_binary_host {
     name: "switcher4",
     srcs: ["switcher4.py",],
-
-    version: {
-        py2: {
-            enabled: true,
-        },
-        py3: {
-            enabled: false,
-        },
-    },
 }

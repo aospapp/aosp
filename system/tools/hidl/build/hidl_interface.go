@@ -16,9 +16,7 @@ package hidl
 
 import (
 	"fmt"
-	"sort"
 	"strings"
-	"sync"
 
 	"github.com/google/blueprint"
 	"github.com/google/blueprint/proptools"
@@ -36,7 +34,6 @@ var (
 	pctx = android.NewPackageContext("android/hidl")
 
 	hidl             = pctx.HostBinToolVariable("hidl", "hidl-gen")
-	vtsc             = pctx.HostBinToolVariable("vtsc", "vtsc")
 	hidlLint         = pctx.HostBinToolVariable("lint", "hidl-lint")
 	soong_zip        = pctx.HostBinToolVariable("soong_zip", "soong_zip")
 	intermediatesDir = pctx.IntermediatesPathVariable("intermediatesDir", "")
@@ -58,12 +55,6 @@ var (
 		CommandDeps: []string{"${hidl}", "${soong_zip}"},
 		Description: "HIDL ${language}: ${in} => srcs.srcjar",
 	}, "depfile", "fqName", "genDir", "language", "options")
-
-	vtsRule = pctx.StaticRule("vtsRule", blueprint.RuleParams{
-		Command:     "rm -rf ${genDir} && ${vtsc} -m${mode} -t${type} ${inputDir}/${packagePath} ${genDir}/${packagePath}",
-		CommandDeps: []string{"${vtsc}"},
-		Description: "VTS ${mode} ${type}: ${in} => ${out}",
-	}, "mode", "type", "inputDir", "genDir", "packagePath")
 
 	lintRule = pctx.StaticRule("lintRule", blueprint.RuleParams{
 		Command:     "rm -f ${output} && touch ${output} && ${lint} -j -e -R -p . ${options} ${fqName} > ${output}",
@@ -105,7 +96,6 @@ func init() {
 	android.RegisterModuleType("prebuilt_hidl_interfaces", prebuiltHidlInterfaceFactory)
 	android.RegisterModuleType("hidl_interface", hidlInterfaceFactory)
 	android.RegisterSingletonType("all_hidl_lints", allHidlLintsFactory)
-	android.RegisterMakeVarsProvider(pctx, makeVarsProvider)
 	android.RegisterModuleType("hidl_interfaces_metadata", hidlInterfacesMetadataSingletonFactory)
 	pctx.Import("android/soong/android")
 }
@@ -256,13 +246,6 @@ func (g *hidlGenRule) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 		}
 	}
 
-	if g.properties.Language == "vts" && isVtsSpecPackage(ctx.ModuleName()) {
-		vtsList := vtsList(ctx.AConfig())
-		vtsListMutex.Lock()
-		*vtsList = append(*vtsList, g.genOutputs.Paths()...)
-		vtsListMutex.Unlock()
-	}
-
 	var extraOptions []string // including roots
 	var currentPath android.OptionalPath
 	ctx.VisitDirectDeps(func(dep android.Module) {
@@ -371,83 +354,6 @@ func hidlGenFactory() android.Module {
 	return g
 }
 
-type vtscProperties struct {
-	Mode        string
-	Type        string
-	SpecName    string // e.g. foo-vts.spec
-	Outputs     []string
-	PackagePath string // e.g. android/hardware/foo/1.0/
-}
-
-type vtscRule struct {
-	android.ModuleBase
-
-	properties vtscProperties
-
-	genOutputDir android.Path
-	genInputDir  android.Path
-	genInputs    android.Paths
-	genOutputs   android.WritablePaths
-}
-
-var _ android.SourceFileProducer = (*vtscRule)(nil)
-var _ genrule.SourceFileGenerator = (*vtscRule)(nil)
-
-func (g *vtscRule) GenerateAndroidBuildActions(ctx android.ModuleContext) {
-	g.genOutputDir = android.PathForModuleGen(ctx)
-
-	ctx.VisitDirectDeps(func(dep android.Module) {
-		if specs, ok := dep.(*hidlGenRule); ok {
-			g.genInputDir = specs.genOutputDir
-			g.genInputs = specs.genOutputs.Paths()
-		}
-	})
-
-	for _, output := range g.properties.Outputs {
-		g.genOutputs = append(g.genOutputs, android.PathForModuleGen(ctx, output))
-	}
-
-	ctx.ModuleBuild(pctx, android.ModuleBuildParams{
-		Rule:    vtsRule,
-		Inputs:  g.genInputs,
-		Outputs: g.genOutputs,
-		Args: map[string]string{
-			"mode":        g.properties.Mode,
-			"type":        g.properties.Type,
-			"inputDir":    g.genInputDir.String(),
-			"genDir":      g.genOutputDir.String(),
-			"packagePath": g.properties.PackagePath,
-		},
-	})
-}
-
-func (g *vtscRule) GeneratedSourceFiles() android.Paths {
-	return g.genOutputs.Paths()
-}
-
-func (g *vtscRule) Srcs() android.Paths {
-	return g.genOutputs.Paths()
-}
-
-func (g *vtscRule) GeneratedDeps() android.Paths {
-	return g.genOutputs.Paths()
-}
-
-func (g *vtscRule) GeneratedHeaderDirs() android.Paths {
-	return android.Paths{g.genOutputDir}
-}
-
-func (g *vtscRule) DepsMutator(ctx android.BottomUpMutatorContext) {
-	ctx.AddDependency(ctx.Module(), nil, g.properties.SpecName)
-}
-
-func vtscFactory() android.Module {
-	g := &vtscRule{}
-	g.AddProperties(&g.properties)
-	android.InitAndroidModule(g)
-	return g
-}
-
 type prebuiltHidlInterfaceProperties struct {
 	// List of interfaces to consider valid, e.g. "vendor.foo.bar@1.0::IFoo" for typo checking
 	// between init.rc, VINTF, and elsewhere. Note that inheritance properties will not be
@@ -514,7 +420,7 @@ type hidlInterfaceProperties struct {
 	// "//apex_available:platform" refers to non-APEX partitions like "system.img"
 	//
 	// Note, this only applies to C++ libs, Java libs, and Java constant libs. It
-	// does  not apply to VTS targets/adapter targets/fuzzers since these components
+	// does  not apply to VTS targets targets/fuzzers since these components
 	// should not be shipped on device.
 	Apex_available []string
 
@@ -634,11 +540,6 @@ This corresponds to the "-r%s:<some path>" option that would be passed into hidl
 	// explicitly true if not specified to give early warning to devs
 	shouldGenerateJava := proptools.BoolDefault(i.properties.Gen_java, true)
 	shouldGenerateJavaConstants := i.properties.Gen_java_constants
-	shouldGenerateVts := shouldGenerateLibrary && proptools.BoolDefault(i.properties.Gen_vts, true)
-
-	// To generate VTS, hidl_interface must have a core variant.
-	// A module with 'product_specific: true' does not create a core variant.
-	shouldGenerateVts = shouldGenerateVts && !mctx.ProductSpecific()
 
 	var productAvailable *bool
 	if !mctx.ProductSpecific() {
@@ -648,11 +549,6 @@ This corresponds to the "-r%s:<some path>" option that would be passed into hidl
 	var vendorAvailable *bool
 	if !proptools.Bool(i.properties.Odm_available) {
 		vendorAvailable = proptools.BoolPtr(true)
-	}
-
-	var libraryIfExists []string
-	if shouldGenerateLibrary {
-		libraryIfExists = []string{name.string()}
 	}
 
 	// TODO(b/69002743): remove filegroups
@@ -775,176 +671,6 @@ This corresponds to the "-r%s:<some path>" option that would be passed into hidl
 	}
 
 	mctx.CreateModule(hidlGenFactory, &nameProperties{
-		Name: proptools.StringPtr(name.adapterHelperSourcesName()),
-	}, &hidlGenProperties{
-		Language:   "c++-adapter-sources",
-		FqName:     name.string(),
-		Root:       i.properties.Root,
-		Interfaces: i.properties.Interfaces,
-		Inputs:     i.properties.Srcs,
-		Outputs:    wrap(name.dir()+"A", concat(interfaces, types), ".cpp"),
-	})
-	mctx.CreateModule(hidlGenFactory, &nameProperties{
-		Name: proptools.StringPtr(name.adapterHelperHeadersName()),
-	}, &hidlGenProperties{
-		Language:   "c++-adapter-headers",
-		FqName:     name.string(),
-		Root:       i.properties.Root,
-		Interfaces: i.properties.Interfaces,
-		Inputs:     i.properties.Srcs,
-		Outputs:    wrap(name.dir()+"A", concat(interfaces, types), ".h"),
-	})
-
-	mctx.CreateModule(cc.LibraryFactory, &ccProperties{
-		Name:              proptools.StringPtr(name.adapterHelperName()),
-		Vendor_available:  vendorAvailable,
-		Odm_available:     i.properties.Odm_available,
-		Product_available: productAvailable,
-		Defaults:          []string{"hidl-module-defaults"},
-		Generated_sources: []string{name.adapterHelperSourcesName()},
-		Generated_headers: []string{name.adapterHelperHeadersName()},
-		Shared_libs: []string{
-			"libbase",
-			"libcutils",
-			"libhidlbase",
-			"liblog",
-			"libutils",
-		},
-		Static_libs: concat([]string{
-			"libhidladapter",
-		}, wrap("", dependencies, "-adapter-helper"), cppDependencies, libraryIfExists),
-		Export_shared_lib_headers: []string{
-			"libhidlbase",
-		},
-		Export_static_lib_headers: concat([]string{
-			"libhidladapter",
-		}, wrap("", dependencies, "-adapter-helper"), cppDependencies, libraryIfExists),
-		Export_generated_headers: []string{name.adapterHelperHeadersName()},
-		Group_static_libs:        proptools.BoolPtr(true),
-	})
-	mctx.CreateModule(hidlGenFactory, &nameProperties{
-		Name: proptools.StringPtr(name.adapterSourcesName()),
-	}, &hidlGenProperties{
-		Language:   "c++-adapter-main",
-		FqName:     name.string(),
-		Root:       i.properties.Root,
-		Interfaces: i.properties.Interfaces,
-		Inputs:     i.properties.Srcs,
-		Outputs:    []string{"main.cpp"},
-	})
-	mctx.CreateModule(cc.TestFactory, &ccProperties{
-		Name:              proptools.StringPtr(name.adapterName()),
-		Generated_sources: []string{name.adapterSourcesName()},
-		Shared_libs: []string{
-			"libbase",
-			"libcutils",
-			"libhidlbase",
-			"liblog",
-			"libutils",
-		},
-		Static_libs: concat([]string{
-			"libhidladapter",
-			name.adapterHelperName(),
-		}, wrap("", dependencies, "-adapter-helper"), cppDependencies, libraryIfExists),
-		Group_static_libs: proptools.BoolPtr(true),
-	})
-
-	if shouldGenerateVts {
-		vtsSpecs := concat(wrap(name.dir(), interfaces, ".vts"), wrap(name.dir(), types, ".vts"))
-
-		mctx.CreateModule(hidlGenFactory, &nameProperties{
-			Name: proptools.StringPtr(name.vtsSpecName()),
-		}, &hidlGenProperties{
-			Language:   "vts",
-			FqName:     name.string(),
-			Root:       i.properties.Root,
-			Interfaces: i.properties.Interfaces,
-			Inputs:     i.properties.Srcs,
-			Outputs:    vtsSpecs,
-		})
-
-		mctx.CreateModule(vtscFactory, &nameProperties{
-			Name: proptools.StringPtr(name.vtsDriverSourcesName()),
-		}, &vtscProperties{
-			Mode:        "DRIVER",
-			Type:        "SOURCE",
-			SpecName:    name.vtsSpecName(),
-			Outputs:     wrap("", vtsSpecs, ".cpp"),
-			PackagePath: name.dir(),
-		})
-		mctx.CreateModule(vtscFactory, &nameProperties{
-			Name: proptools.StringPtr(name.vtsDriverHeadersName()),
-		}, &vtscProperties{
-			Mode:        "DRIVER",
-			Type:        "HEADER",
-			SpecName:    name.vtsSpecName(),
-			Outputs:     wrap("", vtsSpecs, ".h"),
-			PackagePath: name.dir(),
-		})
-		mctx.CreateModule(cc.LibraryFactory, &ccProperties{
-			Name:                      proptools.StringPtr(name.vtsDriverName()),
-			Defaults:                  []string{"VtsHalDriverDefaults"},
-			Generated_sources:         []string{name.vtsDriverSourcesName()},
-			Generated_headers:         []string{name.vtsDriverHeadersName()},
-			Export_generated_headers:  []string{name.vtsDriverHeadersName()},
-			Shared_libs:               wrap("", cppDependencies, "-vts.driver"),
-			Export_shared_lib_headers: wrap("", cppDependencies, "-vts.driver"),
-			Static_libs:               concat(cppDependencies, libraryIfExists),
-
-			// TODO(b/126244142)
-			Cflags: []string{"-Wno-unused-variable"},
-		})
-
-		mctx.CreateModule(vtscFactory, &nameProperties{
-			Name: proptools.StringPtr(name.vtsProfilerSourcesName()),
-		}, &vtscProperties{
-			Mode:        "PROFILER",
-			Type:        "SOURCE",
-			SpecName:    name.vtsSpecName(),
-			Outputs:     wrap("", vtsSpecs, ".cpp"),
-			PackagePath: name.dir(),
-		})
-		mctx.CreateModule(vtscFactory, &nameProperties{
-			Name: proptools.StringPtr(name.vtsProfilerHeadersName()),
-		}, &vtscProperties{
-			Mode:        "PROFILER",
-			Type:        "HEADER",
-			SpecName:    name.vtsSpecName(),
-			Outputs:     wrap("", vtsSpecs, ".h"),
-			PackagePath: name.dir(),
-		})
-		mctx.CreateModule(cc.LibraryFactory, &ccProperties{
-			Name:                      proptools.StringPtr(name.vtsProfilerName()),
-			Defaults:                  []string{"VtsHalProfilerDefaults"},
-			Generated_sources:         []string{name.vtsProfilerSourcesName()},
-			Generated_headers:         []string{name.vtsProfilerHeadersName()},
-			Export_generated_headers:  []string{name.vtsProfilerHeadersName()},
-			Shared_libs:               wrap("", cppDependencies, "-vts.profiler"),
-			Export_shared_lib_headers: wrap("", cppDependencies, "-vts.profiler"),
-			Static_libs:               concat(cppDependencies, libraryIfExists),
-
-			// TODO(b/126244142)
-			Cflags: []string{"-Wno-unused-variable"},
-		})
-
-		specDependencies := append(cppDependencies, name.string())
-		mctx.CreateModule(cc.FuzzFactory, &ccProperties{
-			Name:        proptools.StringPtr(name.vtsFuzzerName()),
-			Defaults:    []string{"vts_proto_fuzzer_default"},
-			Shared_libs: []string{name.vtsDriverName()},
-			Cflags: []string{
-				"-DSTATIC_TARGET_FQ_NAME=" + name.string(),
-				"-DSTATIC_SPEC_DATA=" + strings.Join(specDependencies, ":"),
-			},
-		}, &fuzzProperties{
-			Data: wrap(":", specDependencies, "-vts.spec"),
-			Fuzz_config: &fuzzConfig{
-				Fuzz_on_haiku_device: proptools.BoolPtr(isFuzzerEnabled(name.vtsFuzzerName())),
-			},
-		})
-	}
-
-	mctx.CreateModule(hidlGenFactory, &nameProperties{
 		Name: proptools.StringPtr(name.lintName()),
 	}, &hidlGenProperties{
 		Language:   "lint",
@@ -998,59 +724,68 @@ func hidlInterfaceFactory() android.Module {
 }
 
 var minSdkVersion = map[string]string{
-	"android.frameworks.bufferhub@1.0":          "29",
-	"android.hardware.audio.common@5.0":         "30",
-	"android.hardware.bluetooth.a2dp@1.0":       "30",
-	"android.hardware.bluetooth.audio@2.0":      "30",
-	"android.hardware.bluetooth@1.0":            "30",
-	"android.hardware.bluetooth@1.1":            "30",
-	"android.hardware.cas.native@1.0":           "29",
-	"android.hardware.cas@1.0":                  "29",
-	"android.hardware.graphics.allocator@2.0":   "29",
-	"android.hardware.graphics.allocator@3.0":   "29",
-	"android.hardware.graphics.allocator@4.0":   "29",
-	"android.hardware.graphics.bufferqueue@1.0": "29",
-	"android.hardware.graphics.bufferqueue@2.0": "29",
-	"android.hardware.graphics.common@1.0":      "29",
-	"android.hardware.graphics.common@1.1":      "29",
-	"android.hardware.graphics.common@1.2":      "29",
-	"android.hardware.graphics.mapper@2.0":      "29",
-	"android.hardware.graphics.mapper@2.1":      "29",
-	"android.hardware.graphics.mapper@3.0":      "29",
-	"android.hardware.graphics.mapper@4.0":      "29",
-	"android.hardware.media.bufferpool@2.0":     "29",
-	"android.hardware.media.c2@1.0":             "29",
-	"android.hardware.media.c2@1.1":             "29",
-	"android.hardware.media.c2@1.2":             "29",
-	"android.hardware.media.omx@1.0":            "29",
-	"android.hardware.media@1.0":                "29",
-	"android.hardware.neuralnetworks@1.0":       "30",
-	"android.hardware.neuralnetworks@1.1":       "30",
-	"android.hardware.neuralnetworks@1.2":       "30",
-	"android.hardware.neuralnetworks@1.3":       "30",
-	"android.hardware.wifi@1.0":                 "30",
-	"android.hardware.wifi@1.1":                 "30",
-	"android.hardware.wifi@1.2":                 "30",
-	"android.hardware.wifi@1.3":                 "30",
-	"android.hardware.wifi@1.4":                 "30",
-	"android.hardware.wifi@1.5":                 "30",
-	"android.hardware.wifi.hostapd@1.0":         "30",
-	"android.hardware.wifi.hostapd@1.1":         "30",
-	"android.hardware.wifi.hostapd@1.2":         "30",
-	"android.hardware.wifi.hostapd@1.3":         "30",
-	"android.hardware.wifi.supplicant@1.0":      "30",
-	"android.hardware.wifi.supplicant@1.1":      "30",
-	"android.hardware.wifi.supplicant@1.2":      "30",
-	"android.hardware.wifi.supplicant@1.3":      "30",
-	"android.hardware.wifi.supplicant@1.4":      "30",
-	"android.hidl.allocator@1.0":                "29",
-	"android.hidl.manager@1.0":                  "30",
-	"android.hidl.manager@1.1":                  "30",
-	"android.hidl.manager@1.2":                  "30",
-	"android.hidl.memory.token@1.0":             "29",
-	"android.hidl.memory@1.0":                   "29",
-	"android.hidl.safe_union@1.0":               "29",
-	"android.hidl.token@1.0":                    "29",
+	"android.frameworks.bufferhub@1.0":             "29",
+	"android.hardware.audio.common@5.0":            "30",
+	"android.hardware.audio.common@6.0":            "31",
+	"android.hardware.automotive.audiocontrol@1.0": "31",
+	"android.hardware.automotive.audiocontrol@2.0": "31",
+	"android.hardware.automotive.vehicle@2.0":      "31",
+	"android.hardware.bluetooth.a2dp@1.0":          "30",
+	"android.hardware.bluetooth.audio@2.0":         "30",
+	"android.hardware.bluetooth.audio@2.1":         "30",
+	"android.hardware.bluetooth.audio@2.2":         "30",
+	"android.hardware.bluetooth@1.0":               "30",
+	"android.hardware.bluetooth@1.1":               "30",
+	"android.hardware.cas.native@1.0":              "29",
+	"android.hardware.cas@1.0":                     "29",
+	"android.hardware.graphics.allocator@2.0":      "29",
+	"android.hardware.graphics.allocator@3.0":      "29",
+	"android.hardware.graphics.allocator@4.0":      "29",
+	"android.hardware.graphics.bufferqueue@1.0":    "29",
+	"android.hardware.graphics.bufferqueue@2.0":    "29",
+	"android.hardware.graphics.common@1.0":         "29",
+	"android.hardware.graphics.common@1.1":         "29",
+	"android.hardware.graphics.common@1.2":         "29",
+	"android.hardware.graphics.mapper@2.0":         "29",
+	"android.hardware.graphics.mapper@2.1":         "29",
+	"android.hardware.graphics.mapper@3.0":         "29",
+	"android.hardware.graphics.mapper@4.0":         "29",
+	"android.hardware.health@1.0":                  "31",
+	"android.hardware.health@2.0":                  "31",
+	"android.hardware.media.bufferpool@2.0":        "29",
+	"android.hardware.media.c2@1.0":                "29",
+	"android.hardware.media.c2@1.1":                "29",
+	"android.hardware.media.c2@1.2":                "29",
+	"android.hardware.media.omx@1.0":               "29",
+	"android.hardware.media@1.0":                   "29",
+	"android.hardware.neuralnetworks@1.0":          "30",
+	"android.hardware.neuralnetworks@1.1":          "30",
+	"android.hardware.neuralnetworks@1.2":          "30",
+	"android.hardware.neuralnetworks@1.3":          "30",
+	"android.hardware.wifi@1.0":                    "30",
+	"android.hardware.wifi@1.1":                    "30",
+	"android.hardware.wifi@1.2":                    "30",
+	"android.hardware.wifi@1.3":                    "30",
+	"android.hardware.wifi@1.4":                    "30",
+	"android.hardware.wifi@1.5":                    "30",
+	"android.hardware.wifi@1.6":                    "30",
+	"android.hardware.wifi.hostapd@1.0":            "30",
+	"android.hardware.wifi.hostapd@1.1":            "30",
+	"android.hardware.wifi.hostapd@1.2":            "30",
+	"android.hardware.wifi.hostapd@1.3":            "30",
+	"android.hardware.wifi.supplicant@1.0":         "30",
+	"android.hardware.wifi.supplicant@1.1":         "30",
+	"android.hardware.wifi.supplicant@1.2":         "30",
+	"android.hardware.wifi.supplicant@1.3":         "30",
+	"android.hardware.wifi.supplicant@1.4":         "30",
+	"android.hidl.allocator@1.0":                   "29",
+	"android.hidl.manager@1.0":                     "30",
+	"android.hidl.manager@1.1":                     "30",
+	"android.hidl.manager@1.2":                     "30",
+	"android.hidl.memory.token@1.0":                "29",
+	"android.hidl.memory@1.0":                      "29",
+	"android.hidl.safe_union@1.0":                  "29",
+	"android.hidl.token@1.0":                       "29",
 }
 
 func getMinSdkVersion(name string) *string {
@@ -1119,40 +854,6 @@ func isFuzzerEnabled(name string) bool {
 	return false
 }
 
-// TODO(b/126383715): centralize this logic/support filtering in core VTS build
-var coreVtsSpecs = []string{
-	"android.frameworks.",
-	"android.hardware.",
-	"android.hidl.",
-	"android.system.",
-}
-
-func isVtsSpecPackage(name string) bool {
-	for _, pkgname := range coreVtsSpecs {
-		if strings.HasPrefix(name, pkgname) {
-			return true
-		}
-	}
-	return false
-}
-
-var vtsListKey = android.NewOnceKey("vtsList")
-
-func vtsList(config android.Config) *android.Paths {
-	return config.Once(vtsListKey, func() interface{} {
-		return &android.Paths{}
-	}).(*android.Paths)
-}
-
-var vtsListMutex sync.Mutex
-
-func makeVarsProvider(ctx android.MakeVarsContext) {
-	vtsList := vtsList(ctx.Config()).Strings()
-	sort.Strings(vtsList)
-
-	ctx.Strict("VTS_SPEC_FILE_LIST", strings.Join(vtsList, " "))
-}
-
 func canInterfaceExist(name string) bool {
 	if strings.HasPrefix(name, "android.") {
 		return allAospHidlInterfaces[name]
@@ -1182,6 +883,7 @@ var allAospHidlInterfaces = map[string]bool{
 	"android.hardware.audio@5.0":                        true,
 	"android.hardware.audio@6.0":                        true,
 	"android.hardware.audio@7.0":                        true,
+	"android.hardware.audio@7.1":                        true,
 	"android.hardware.audio.common@2.0":                 true,
 	"android.hardware.audio.common@4.0":                 true,
 	"android.hardware.audio.common@5.0":                 true,
@@ -1209,6 +911,7 @@ var allAospHidlInterfaces = map[string]bool{
 	"android.hardware.bluetooth.a2dp@1.0":               true,
 	"android.hardware.bluetooth.audio@2.0":              true,
 	"android.hardware.bluetooth.audio@2.1":              true,
+	"android.hardware.bluetooth.audio@2.2":              true,
 	"android.hardware.boot@1.0":                         true,
 	"android.hardware.boot@1.1":                         true,
 	"android.hardware.boot@1.2":                         true,
@@ -1223,11 +926,15 @@ var allAospHidlInterfaces = map[string]bool{
 	"android.hardware.camera.device@3.5":                true,
 	"android.hardware.camera.device@3.6":                true,
 	"android.hardware.camera.device@3.7":                true,
+	"android.hardware.camera.device@3.8":                true,
 	"android.hardware.camera.metadata@3.2":              true,
 	"android.hardware.camera.metadata@3.3":              true,
 	"android.hardware.camera.metadata@3.4":              true,
 	"android.hardware.camera.metadata@3.5":              true,
 	"android.hardware.camera.metadata@3.6":              true,
+        // TODO: Remove metadata@3.8 after AIDL migration b/196432585
+	"android.hardware.camera.metadata@3.7":              true,
+	"android.hardware.camera.metadata@3.8":              true,
 	"android.hardware.camera.provider@2.4":              true,
 	"android.hardware.camera.provider@2.5":              true,
 	"android.hardware.camera.provider@2.6":              true,
@@ -1340,6 +1047,7 @@ var allAospHidlInterfaces = map[string]bool{
 	"android.hardware.tests.inheritance@1.0":            true,
 	"android.hardware.tests.lazy@1.0":                   true,
 	"android.hardware.tests.lazy@1.1":                   true,
+	"android.hardware.tests.lazy_cb@1.0":                true,
 	"android.hardware.tests.libhwbinder@1.0":            true,
 	"android.hardware.tests.memory@1.0":                 true,
 	"android.hardware.tests.memory@2.0":                 true,
@@ -1378,6 +1086,7 @@ var allAospHidlInterfaces = map[string]bool{
 	"android.hardware.wifi@1.3":                         true,
 	"android.hardware.wifi@1.4":                         true,
 	"android.hardware.wifi@1.5":                         true,
+	"android.hardware.wifi@1.6":                         true,
 	"android.hardware.wifi.hostapd@1.0":                 true,
 	"android.hardware.wifi.hostapd@1.1":                 true,
 	"android.hardware.wifi.hostapd@1.2":                 true,

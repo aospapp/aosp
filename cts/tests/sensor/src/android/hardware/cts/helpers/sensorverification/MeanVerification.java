@@ -16,14 +16,14 @@
 
 package android.hardware.cts.helpers.sensorverification;
 
-import junit.framework.Assert;
-
+import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorManager;
 import android.hardware.cts.helpers.SensorCtsHelper;
 import android.hardware.cts.helpers.SensorStats;
 import android.hardware.cts.helpers.TestSensorEnvironment;
-import android.content.pm.PackageManager;
+
+import junit.framework.Assert;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -201,6 +201,98 @@ public class MeanVerification extends AbstractMeanVerification {
                                                         Float.MAX_VALUE,
                                                         Float.MAX_VALUE,
                                                         Float.MAX_VALUE}));
+        // Limited axes gyroscope should be 0 for a static device.
+        DEFAULTS.put(Sensor.TYPE_ACCELEROMETER_LIMITED_AXES,
+                new ExpectedValuesAndThresholds(
+                        new float[]{0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f},
+                        new float[]{Float.MAX_VALUE,
+                                    Float.MAX_VALUE,
+                                    Float.MAX_VALUE,
+                                    1.0f,
+                                    1.0f,
+                                    1.0f},
+                        new float[]{Float.MAX_VALUE,
+                                    Float.MAX_VALUE,
+                                    Float.MAX_VALUE,
+                                    0.0f,
+                                    0.0f,
+                                    0.0f}));
+        // Uncalibrated limited axes gyroscope should be 0 for a static device.
+        DEFAULTS.put(Sensor.TYPE_ACCELEROMETER_LIMITED_AXES_UNCALIBRATED,
+                new ExpectedValuesAndThresholds(
+                    new float[]{0.0f,
+                                0.0f,
+                                0.0f,
+                                0.0f,
+                                0.0f,
+                                0.0f,
+                                0.0f,
+                                0.0f,
+                                0.0f},
+                    new float[]{Float.MAX_VALUE,
+                                Float.MAX_VALUE,
+                                Float.MAX_VALUE,
+                                Float.MAX_VALUE,
+                                Float.MAX_VALUE,
+                                Float.MAX_VALUE,
+                                1.0f,
+                                1.0f,
+                                1.0f},
+                    new float[]{Float.MAX_VALUE,
+                                Float.MAX_VALUE,
+                                Float.MAX_VALUE,
+                                Float.MAX_VALUE,
+                                Float.MAX_VALUE,
+                                Float.MAX_VALUE,
+                                0.0f,
+                                0.0f,
+                                0.0f}));
+        // Limited axes gyroscope should be 0 for a static device.
+        DEFAULTS.put(Sensor.TYPE_GYROSCOPE_LIMITED_AXES,
+                new ExpectedValuesAndThresholds(
+                    new float[]{0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f},
+                    new float[]{Float.MAX_VALUE,
+                                Float.MAX_VALUE,
+                                Float.MAX_VALUE,
+                                1.0f,
+                                1.0f,
+                                1.0f},
+                    new float[]{Float.MAX_VALUE,
+                                Float.MAX_VALUE,
+                                Float.MAX_VALUE,
+                                0.0f,
+                                0.0f,
+                                0.0f}));
+        // Uncalibrated limited axes gyroscope should be 0 for a static device.
+        DEFAULTS.put(Sensor.TYPE_GYROSCOPE_LIMITED_AXES_UNCALIBRATED,
+                new ExpectedValuesAndThresholds(
+                    new float[]{0.0f,
+                                0.0f,
+                                0.0f,
+                                0.0f,
+                                0.0f,
+                                0.0f,
+                                0.0f,
+                                0.0f,
+                                0.0f},
+                    new float[]{Float.MAX_VALUE,
+                                Float.MAX_VALUE,
+                                Float.MAX_VALUE,
+                                Float.MAX_VALUE,
+                                Float.MAX_VALUE,
+                                Float.MAX_VALUE,
+                                1.0f,
+                                1.0f,
+                                1.0f},
+                    new float[]{Float.MAX_VALUE,
+                                Float.MAX_VALUE,
+                                Float.MAX_VALUE,
+                                Float.MAX_VALUE,
+                                Float.MAX_VALUE,
+                                Float.MAX_VALUE,
+                                0.0f,
+                                0.0f,
+                                0.0f}));
     }
 
     @SuppressWarnings("deprecation")
@@ -215,6 +307,56 @@ public class MeanVerification extends AbstractMeanVerification {
                         new float[]{0.0f, 0.0f, SensorManager.STANDARD_GRAVITY},
                         new float[]{1.95f, 1.95f, 1.95f} /* m / s^2 */,
                         new float[]{1.95f, 1.95f, 1.95f} /* m / s^2 */));
+        defaults.put(Sensor.TYPE_ACCELEROMETER_UNCALIBRATED,
+                new ExpectedValuesAndThresholds(
+                        new float[]{0.0f, 0.0f, SensorManager.STANDARD_GRAVITY, 0.0f, 0.0f, 0.0f},
+                        new float[]{1.95f,
+                                    1.95f,
+                                    1.95f,
+                                    Float.MAX_VALUE,
+                                    Float.MAX_VALUE,
+                                    Float.MAX_VALUE},
+                        new float[]{1.95f,
+                                    1.95f,
+                                    1.95f,
+                                    Float.MAX_VALUE,
+                                    Float.MAX_VALUE,
+                                    Float.MAX_VALUE}));
+
+        defaults.put(Sensor.TYPE_ACCELEROMETER_LIMITED_AXES,
+                new ExpectedValuesAndThresholds(
+                        new float[]{0.0f, 0.0f, SensorManager.STANDARD_GRAVITY, 0.0f, 0.0f, 0.0f},
+                        new float[]{1.95f, 1.95f, 1.95f, 1.0f, 1.0f, 1.0f},
+                        new float[]{1.95f, 1.95f, 1.95f, 0.0f, 0.0f, 0.0f}));
+        defaults.put(Sensor.TYPE_ACCELEROMETER_LIMITED_AXES_UNCALIBRATED,
+                new ExpectedValuesAndThresholds(
+                        new float[]{0.0f,
+                                    0.0f,
+                                    SensorManager.STANDARD_GRAVITY,
+                                    0.0f,
+                                    0.0f,
+                                    0.0f,
+                                    0.0f,
+                                    0.0f,
+                                    0.0f},
+                        new float[]{1.95f,
+                                    1.95f,
+                                    1.95f,
+                                    Float.MAX_VALUE,
+                                    Float.MAX_VALUE,
+                                    Float.MAX_VALUE,
+                                    1.0f,
+                                    1.0f,
+                                    1.0f},
+                        new float[]{1.95f,
+                                    1.95f,
+                                    1.95f,
+                                    Float.MAX_VALUE,
+                                    Float.MAX_VALUE,
+                                    Float.MAX_VALUE,
+                                    0.0f,
+                                    0.0f,
+                                    0.0f}));
     }
 
     private static final class ExpectedValuesAndThresholds {

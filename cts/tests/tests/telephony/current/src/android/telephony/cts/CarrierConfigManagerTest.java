@@ -35,7 +35,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-
+import static org.junit.Assume.assumeTrue;
 
 import android.app.UiAutomation;
 import android.content.BroadcastReceiver;
@@ -70,7 +70,6 @@ public class CarrierConfigManagerTest {
     private CarrierConfigManager mConfigManager;
     private TelephonyManager mTelephonyManager;
     private SubscriptionManager mSubscriptionManager;
-    private PackageManager mPackageManager;
 
     // Use a long timeout to accommodate devices with lower amounts of memory, as it will take
     // longer for these devices to receive the broadcast (b/161963269). It is expected that all
@@ -80,6 +79,8 @@ public class CarrierConfigManagerTest {
 
     @Before
     public void setUp() throws Exception {
+        assumeTrue(getContext().getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_TELEPHONY_SUBSCRIPTION));
         mTelephonyManager = (TelephonyManager)
                 getContext().getSystemService(Context.TELEPHONY_SERVICE);
         mConfigManager = (CarrierConfigManager)
@@ -87,7 +88,6 @@ public class CarrierConfigManagerTest {
         mSubscriptionManager =
                 (SubscriptionManager)
                         getContext().getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE);
-        mPackageManager = getContext().getPackageManager();
     }
 
     @After
@@ -174,6 +174,14 @@ public class CarrierConfigManagerTest {
             assertEquals("KEY_CARRIER_USSD_METHOD_INT doesn't match static default.",
                     config.getInt(CarrierConfigManager.KEY_CARRIER_USSD_METHOD_INT),
                             CarrierConfigManager.USSD_OVER_CS_PREFERRED);
+            assertEquals("KEY_USAGE_SETTING_INT doesn't match static default.",
+                    config.getInt(CarrierConfigManager.KEY_CELLULAR_USAGE_SETTING_INT),
+                            SubscriptionManager.USAGE_SETTING_UNKNOWN);
+            assertEquals("KEY_ENABLE_CROSS_SIM_CALLING_ON_OPPORTUNISTIC_DATA_BOOL"
+                    + " doesn't match static default.",
+                    config.getBoolean(
+                      CarrierConfigManager.KEY_ENABLE_CROSS_SIM_CALLING_ON_OPPORTUNISTIC_DATA_BOOL),
+                      false);
         }
 
         // These key should return default values if not customized.
@@ -204,9 +212,6 @@ public class CarrierConfigManagerTest {
     @Test
     @AsbSecurityTest(cveBugId = 73136824)
     public void testRevokePermission() {
-        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
-            return;
-        }
         PersistableBundle config;
 
         try {
@@ -369,6 +374,14 @@ public class CarrierConfigManagerTest {
             assertTrue(config.containsKey(CarrierConfigManager.Wifi.KEY_HOTSPOT_MAX_CLIENT_COUNT));
             assertFalse(config.containsKey(KEY_CARRIER_VOLTE_PROVISIONED_BOOL));
             assertFalse(config.containsKey(CarrierConfigManager.Gps.KEY_SUPL_ES_STRING));
+        }
+
+        config = mConfigManager.getConfigByComponentForSubId(
+                CarrierConfigManager.ImsVoice.KEY_PREFIX,
+                SubscriptionManager.getDefaultSubscriptionId());
+        if (config != null) {
+            assertTrue(config.containsKey(
+                    CarrierConfigManager.ImsVoice.KEY_AMRWB_PAYLOAD_DESCRIPTION_BUNDLE));
         }
     }
 }

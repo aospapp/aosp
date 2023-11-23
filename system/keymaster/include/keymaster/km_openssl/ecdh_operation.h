@@ -48,6 +48,16 @@ class EcdhOperation : public Operation {
     EVP_PKEY_Ptr ecdh_key_;
 };
 
+class X25519Operation : public EcdhOperation {
+  public:
+    X25519Operation(AuthorizationSet&& hw_enforced, AuthorizationSet&& sw_enforced, EVP_PKEY* key)
+        : EcdhOperation(move(hw_enforced), move(sw_enforced), key) {}
+
+    keymaster_error_t Finish(const AuthorizationSet& additional_params, const Buffer& input,
+                             const Buffer& signature, AuthorizationSet* output_params,
+                             Buffer* output) override;
+};
+
 class EcdhOperationFactory : public OperationFactory {
   private:
     KeyType registry_key() const override { return KeyType(KM_ALGORITHM_EC, KM_PURPOSE_AGREE_KEY); }

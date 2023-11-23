@@ -31,6 +31,7 @@ import android.autofillservice.cts.testcore.CannedAugmentedFillResponse;
 import android.autofillservice.cts.testcore.CannedFillResponse;
 import android.autofillservice.cts.testcore.CtsAugmentedAutofillService.AugmentedFillRequest;
 import android.autofillservice.cts.testcore.Helper;
+import android.autofillservice.cts.testcore.InlineUiBot;
 import android.autofillservice.cts.testcore.InstrumentedAutoFillService.FillRequest;
 import android.support.test.uiautomator.UiObject2;
 import android.util.Log;
@@ -41,6 +42,7 @@ import android.view.autofill.AutofillValue;
 import androidx.test.filters.FlakyTest;
 
 import org.junit.Test;
+import org.junit.rules.TestRule;
 
 @FlakyTest(bugId = 162372863)
 public class InlineAugmentedWebViewActivityTest extends
@@ -68,6 +70,11 @@ public class InlineAugmentedWebViewActivityTest extends
                 mActivity = getActivity();
             }
         };
+    }
+
+    @Override
+    public TestRule getMainTestRule() {
+        return InlineUiBot.annotateRule(super.getMainTestRule());
     }
 
     @Test

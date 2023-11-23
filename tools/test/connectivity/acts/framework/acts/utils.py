@@ -46,6 +46,9 @@ from acts.libs.proc import job
 # the file names we output fits within the limit.
 MAX_FILENAME_LEN = 255
 
+# All Fuchsia devices use this suffix for link-local mDNS host names.
+FUCHSIA_MDNS_TYPE = '_fuchsia._udp.local.'
+
 
 class ActsUtilsError(Exception):
     """Generic error raised for exceptions in ACTS utils."""
@@ -558,6 +561,7 @@ def timeout(sec):
     Raises:
         TimeoutError is raised when time out happens.
     """
+
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -970,6 +974,22 @@ def adb_shell_ping(ad,
         return False
 
 
+def zip_directory(zip_name, src_dir):
+    """Compress a directory to a .zip file.
+
+    This implementation is thread-safe.
+
+    Args:
+        zip_name: str, name of the generated archive
+        src_dir: str, path to the source directory
+    """
+    with zipfile.ZipFile(zip_name, 'w', zipfile.ZIP_DEFLATED) as zip:
+        for root, dirs, files in os.walk(src_dir):
+            for file in files:
+                path = os.path.join(root, file)
+                zip.write(path, os.path.relpath(path, src_dir))
+
+
 def unzip_maintain_permissions(zip_path, extract_location):
     """Unzip a .zip file while maintaining permissions.
 
@@ -1286,6 +1306,7 @@ class SuppressLogOutput(object):
     """Context manager used to suppress all logging output for the specified
     logger and level(s).
     """
+
     def __init__(self, logger=logging.getLogger(), log_levels=None):
         """Create a SuppressLogOutput context manager
 
@@ -1318,6 +1339,7 @@ class BlockingTimer(object):
     """Context manager used to block until a specified amount of time has
      elapsed.
      """
+
     def __init__(self, secs):
         """Initializes a BlockingTimer
 
@@ -1418,7 +1440,6 @@ def get_interface_ip_addresses(comm_channel, interface):
         ifconfig_output = comm_channel.run('ifconfig %s' % interface).stdout
     elif type(comm_channel) is FuchsiaDevice:
         all_interfaces_and_addresses = []
-        comm_channel.netstack_lib.init()
         interfaces = comm_channel.netstack_lib.netstackListInterfaces()
         if interfaces.get('error') is not None:
             raise ActsUtilsError('Failed with {}'.format(
@@ -1497,14 +1518,6 @@ def get_interface_based_on_ip(comm_channel, desired_ip_address):
     all_ips_and_interfaces = comm_channel.run(
         '(ip -o -4 addr show; ip -o -6 addr show) | '
         'awk \'{print $2" "$4}\'').stdout
-    #ipv4_addresses = comm_channel.run(
-    #    'ip -o -4 addr show| awk \'{print $2": "$4}\'').stdout
-    #ipv6_addresses = comm_channel._ssh_session.run(
-    #    'ip -o -6 addr show| awk \'{print $2": "$4}\'').stdout
-    #if desired_ip_address in ipv4_addresses:
-    #    ip_addresses_to_search = ipv4_addresses
-    #elif desired_ip_address in ipv6_addresses:
-    #    ip_addresses_to_search = ipv6_addresses
     for ip_address_and_interface in all_ips_and_interfaces.split('\n'):
         if desired_ip_address in ip_address_and_interface:
             return ip_address_and_interface.split()[1][:-1]
@@ -1551,7 +1564,7 @@ def get_ping_command(dest_ip,
     if os_type == 'Darwin':
         if is_valid_ipv6_address(dest_ip):
             # ping6 on MacOS doesn't support timeout
-            logging.warn(
+            logging.debug(
                 'Ignoring timeout, as ping6 on MacOS does not support it.')
             timeout_flag = []
         else:
@@ -1681,7 +1694,7 @@ def ping(comm_channel,
 
 def can_ping(comm_channel,
              dest_ip,
-             count=1,
+             count=3,
              interval=1000,
              timeout=1000,
              size=56,
@@ -1749,48 +1762,104 @@ def mac_address_list_to_str(mac_addr_list):
 
 
 def get_fuchsia_mdns_ipv6_address(device_mdns_name):
-    """Gets the ipv6 link local address from a fuchsia device over mdns
+    """Finds the IPv6 link-local address of a Fuchsia device matching a mDNS
+    name.
 
     Args:
-        device_mdns_name: name of fuchsia device, ie gig-clone-sugar-slash
+        device_mdns_name: name of Fuchsia device (e.g. gig-clone-sugar-slash)
 
     Returns:
-        string, ipv6 link local address
+        string, IPv6 link-local address
     """
     if not device_mdns_name:
         return None
-    mdns_type = '_fuchsia._udp.local.'
-    interface_list = psutil.net_if_addrs()
-    for interface in interface_list:
-        interface_ipv6_link_local = \
-            get_interface_ip_addresses(job, interface)['ipv6_link_local']
-        if 'fe80::1' in interface_ipv6_link_local:
-            logging.info('Removing IPv6 loopback IP from %s interface list.'
-                         '  Not modifying actual system IP addresses.' %
-                         interface)
-            # This is needed as the Zeroconf library crashes if you try to
-            # instantiate it on a IPv6 loopback IP address.
-            interface_ipv6_link_local.remove('fe80::1')
 
-        if interface_ipv6_link_local:
-            zeroconf = Zeroconf(ip_version=IPVersion.V6Only,
-                                interfaces=interface_ipv6_link_local)
-            device_records = (zeroconf.get_service_info(
-                mdns_type, device_mdns_name + '.' + mdns_type))
-            if device_records:
-                for device_ip_address in device_records.parsed_addresses():
-                    device_ip_address = ipaddress.ip_address(device_ip_address)
-                    if (device_ip_address.version == 6
-                            and device_ip_address.is_link_local):
-                        if ping(job,
-                                dest_ip='%s%%%s' %
-                                (str(device_ip_address),
-                                 interface))['exit_status'] == 0:
+    interfaces = psutil.net_if_addrs()
+    for interface in interfaces:
+        for addr in interfaces[interface]:
+            address = addr.address.split('%')[0]
+            if addr.family == socket.AF_INET6 and ipaddress.ip_address(
+                    address).is_link_local and address != 'fe80::1':
+                logging.info('Sending mDNS query for device "%s" using "%s"' %
+                             (device_mdns_name, addr.address))
+                try:
+                    zeroconf = Zeroconf(ip_version=IPVersion.V6Only,
+                                        interfaces=[address])
+                except RuntimeError as e:
+                    if 'No adapter found for IP address' in e.args[0]:
+                        # Most likely, a device went offline and its control
+                        # interface was deleted. This is acceptable since the
+                        # device that went offline isn't guaranteed to be the
+                        # device we're searching for.
+                        logging.warning('No adapter found for "%s"' % address)
+                        continue
+                    raise
+
+                device_records = zeroconf.get_service_info(
+                    FUCHSIA_MDNS_TYPE,
+                    device_mdns_name + '.' + FUCHSIA_MDNS_TYPE)
+
+                if device_records:
+                    for device_address in device_records.parsed_addresses():
+                        device_ip_address = ipaddress.ip_address(
+                            device_address)
+                        scoped_address = '%s%%%s' % (device_address, interface)
+                        if (device_ip_address.version == 6
+                                and device_ip_address.is_link_local
+                                and can_ping(job, dest_ip=scoped_address)):
+                            logging.info('Found device "%s" at "%s"' %
+                                         (device_mdns_name, scoped_address))
                             zeroconf.close()
                             del zeroconf
-                            return ('%s%%%s' %
-                                    (str(device_ip_address), interface))
-            zeroconf.close()
-            del zeroconf
-    logging.error('Unable to get ip address for %s' % device_mdns_name)
+                            return scoped_address
+
+                zeroconf.close()
+                del zeroconf
+
+    logging.error('Unable to find IP address for device "%s"' %
+                  device_mdns_name)
     return None
+
+
+def get_device(devices, device_type):
+    """Finds a unique device with the specified "device_type" attribute from a
+    list. If none is found, defaults to the first device in the list.
+
+    Example:
+        get_device(android_devices, device_type="DUT")
+        get_device(fuchsia_devices, device_type="DUT")
+        get_device(android_devices + fuchsia_devices, device_type="DUT")
+
+    Args:
+        devices: A list of device controller objects.
+        device_type: (string) Type of device to find, specified by the
+            "device_type" attribute.
+
+    Returns:
+        The matching device controller object, or the first device in the list
+        if not found.
+
+    Raises:
+        ValueError is raised if none or more than one device is
+        matched.
+    """
+    if not devices:
+        raise ValueError('No devices available')
+
+    matches = [
+        d for d in devices
+        if hasattr(d, 'device_type') and d.device_type == device_type
+    ]
+
+    if len(matches) == 0:
+        # No matches for the specified "device_type", use the first device
+        # declared.
+        return devices[0]
+    if len(matches) > 1:
+        # Specifing multiple devices with the same "device_type" is a
+        # configuration error.
+        raise ValueError(
+            'More than one device matching "device_type" == "{}"'.format(
+                device_type))
+
+    return matches[0]

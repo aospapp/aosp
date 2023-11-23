@@ -37,9 +37,9 @@ import com.android.bedstead.harrier.annotations.enterprise.CanSetPolicyTest;
 import com.android.bedstead.harrier.policies.CreateAndManageUser;
 import com.android.bedstead.nene.TestApis;
 
+import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Rule;
-import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(BedsteadJUnit4.class)
@@ -51,7 +51,11 @@ public final class CreateAndManageUserTest {
     @Rule
     public static final DeviceState sDeviceState = new DeviceState();
 
-    @Test
+    @Before
+    public void setUp() {
+        sDeviceState.requireCanSupportAdditionalUser();
+    }
+
     @Postsubmit(reason = "new test")
     @CanSetPolicyTest(policy = CreateAndManageUser.class)
     public void createAndManageUser_returnUserHandle() {
@@ -65,7 +69,6 @@ public final class CreateAndManageUserTest {
         }
     }
 
-    @Test
     @Postsubmit(reason = "new test")
     @CanSetPolicyTest(policy = CreateAndManageUser.class)
     public void createAndManageUser_lowStorage_throwOperationException() {

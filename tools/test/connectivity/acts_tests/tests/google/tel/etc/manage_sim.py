@@ -67,9 +67,9 @@ def get_active_sim_list(verbose_warnings=False):
                     'operator'] = tel_lookup_tables.operator_name_from_plmn_id(
                         plmn_id)
             except KeyError:
-                if vebose_warnings:
+                if verbose_warnings:
                     print('Unknown Operator {}'.format(
-                        droid.telephonyGetSimOperator()))
+                        droid.telephonyGetSimOperatorForSubscription(sub_id)))
                 current['operator'] = ''
 
             # TODO: add actual capability determination to replace the defaults
@@ -83,8 +83,17 @@ def get_active_sim_list(verbose_warnings=False):
                         iccid))
                 current['phone_num'] = ''
             else:
-                current['phone_num'] = tel_test_utils.phone_number_formatter(
-                    phone_num, tel_defines.PHONE_NUMBER_STRING_FORMAT_11_DIGIT)
+                # No need to set phone number formatter for South Korea carriers
+                if (current['operator'] == tel_defines.CARRIER_SKT or
+                    current['operator'] == tel_defines.CARRIER_KT or
+                    current['operator'] == tel_defines.CARRIER_LG_UPLUS):
+                    current['phone_num'] = \
+                        tel_test_utils.phone_number_formatter(phone_num)
+                else:
+                    current['phone_num'] = \
+                        tel_test_utils.phone_number_formatter(
+                            phone_num,
+                            tel_defines.PHONE_NUMBER_STRING_FORMAT_11_DIGIT)
     return active_list
 
 

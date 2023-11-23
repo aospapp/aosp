@@ -24,11 +24,11 @@ import android.telephony.cts.embmstestapp.CtsStreamingService;
 import android.telephony.mbms.MbmsErrors;
 import android.telephony.mbms.StreamingServiceInfo;
 
+import org.junit.Test;
+
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-
-import org.junit.Test;
 
 public class MbmsStreamingSessionTest extends MbmsStreamingTestBase {
     @Test
@@ -50,6 +50,11 @@ public class MbmsStreamingSessionTest extends MbmsStreamingTestBase {
         // Make sure we got the streaming services
         List<StreamingServiceInfo> serviceInfos =
                 (List<StreamingServiceInfo>) mCallback.waitOnStreamingServicesUpdated().arg1;
+        if (!CtsStreamingService.STREAMING_SERVICE_INFO.equals(serviceInfos.get(0))) {
+            mStreamingSession.requestUpdateStreamingServices(testClasses);
+            serviceInfos =
+                    (List<StreamingServiceInfo>) mCallback.waitOnStreamingServicesUpdated().arg1;
+        }
         assertEquals(CtsStreamingService.STREAMING_SERVICE_INFO, serviceInfos.get(0));
         assertEquals(0, mCallback.getNumErrorCalls());
 

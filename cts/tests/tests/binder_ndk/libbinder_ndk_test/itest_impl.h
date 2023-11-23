@@ -24,6 +24,7 @@
 #include <condition_variable>
 #include <mutex>
 
+#include "legacy_binder.h"
 #include "utilities.h"
 
 using ::aidl::test_package::Bar;
@@ -176,7 +177,7 @@ class MyTest : public ::aidl::test_package::BnTest,
   ::ndk::ScopedAStatus RepeatFd(
       const ::ndk::ScopedFileDescriptor& in_value,
       ::ndk::ScopedFileDescriptor* _aidl_return) override {
-    _aidl_return->set(dup(in_value.get()));
+    *_aidl_return = in_value.dup();
     return ::ndk::ScopedAStatus(AStatus_newOk());
   }
 
@@ -311,6 +312,23 @@ class MyTest : public ::aidl::test_package::BnTest,
     return ::ndk::ScopedAStatus(AStatus_newOk());
   }
 
+  ::ndk::ScopedAStatus RepeatBinderArray(const std::vector<::ndk::SpAIBinder>& in_value,
+                                         std::vector<::ndk::SpAIBinder>* out_repeated,
+                                         std::vector<::ndk::SpAIBinder>* _aidl_return) override {
+    *out_repeated = in_value;
+    *_aidl_return = in_value;
+    return ::ndk::ScopedAStatus(AStatus_newOk());
+  }
+
+  ::ndk::ScopedAStatus RepeatInterfaceArray(
+      const std::vector<std::shared_ptr<IEmpty>>& in_value,
+      std::vector<std::shared_ptr<IEmpty>>* out_repeated,
+      std::vector<std::shared_ptr<IEmpty>>* _aidl_return) override {
+    *out_repeated = in_value;
+    *_aidl_return = in_value;
+    return ::ndk::ScopedAStatus(AStatus_newOk());
+  }
+
   ::ndk::ScopedAStatus Repeat2StringList(const std::vector<std::string>& in_input,
                                          std::vector<std::string>* out_repeated,
                                          std::vector<std::string>* _aidl_return) override {
@@ -407,6 +425,18 @@ class MyTest : public ::aidl::test_package::BnTest,
     *_aidl_return = in_value;
     return ::ndk::ScopedAStatus(AStatus_newOk());
   }
+  ::ndk::ScopedAStatus RepeatNullableBinderArray(
+      const std::optional<std::vector<::ndk::SpAIBinder>>& in_value,
+      std::optional<std::vector<::ndk::SpAIBinder>>* _aidl_return) override {
+    *_aidl_return = in_value;
+    return ::ndk::ScopedAStatus(AStatus_newOk());
+  }
+  ::ndk::ScopedAStatus RepeatNullableInterfaceArray(
+      const std::optional<std::vector<std::shared_ptr<IEmpty>>>& in_value,
+      std::optional<std::vector<std::shared_ptr<IEmpty>>>* _aidl_return) override {
+    *_aidl_return = in_value;
+    return ::ndk::ScopedAStatus(AStatus_newOk());
+  }
   ::ndk::ScopedAStatus DoubleRepeatNullableStringArray(
       const std::optional<std::vector<std::optional<std::string>>>& in_value,
       std::optional<std::vector<std::optional<std::string>>>* out_repeated,
@@ -449,6 +479,11 @@ class MyTest : public ::aidl::test_package::BnTest,
 #endif
     };
     *_aidl_return = SharedRefBase::make<MyCompatTest>()->asBinder();
+    return ::ndk::ScopedAStatus(AStatus_newOk());
+  }
+
+  ::ndk::ScopedAStatus getLegacyBinderTest(::ndk::SpAIBinder* _aidl_return) {
+    *_aidl_return = ::ndk::SpAIBinder(AIBinder_new(kLegacyBinderClass, nullptr));
     return ::ndk::ScopedAStatus(AStatus_newOk());
   }
 

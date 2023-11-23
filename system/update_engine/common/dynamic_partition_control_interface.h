@@ -73,6 +73,8 @@ class DynamicPartitionControlInterface {
   // DOES NOT tell you if VABC is used for current OTA update. For that, use
   // UpdateUsesSnapshotCompression.
   virtual FeatureFlag GetVirtualAbCompressionFeatureFlag() = 0;
+  // Return the feature flag for Virtual AB Compression XOR
+  virtual FeatureFlag GetVirtualAbCompressionXorFeatureFlag() = 0;
 
   // Attempt to optimize |operation|.
   // If successful, |optimized| contains an operation with extents that
@@ -167,7 +169,7 @@ class DynamicPartitionControlInterface {
       bool is_append = false) = 0;
   // Open a general purpose FD capable to reading and writing to COW. Note that
   // writes must be block aligned.
-  virtual FileDescriptorPtr OpenCowFd(
+  virtual std::unique_ptr<FileDescriptor> OpenCowFd(
       const std::string& unsuffixed_partition_name,
       const std::optional<std::string>&,
       bool is_append = false) = 0;

@@ -20,7 +20,7 @@ ifeq ($(BOARD_HAVE_BLUETOOTH_QCOM),true)
 
 include $(CLEAR_VARS)
 
-BDROID_DIR:= system/bt
+BDROID_DIR:= packages/modules/Bluetooth/system
 
 LOCAL_SRC_FILES := \
         src/bt_vendor_qcom.c \
@@ -48,7 +48,7 @@ endif
 LOCAL_C_INCLUDES += \
         $(LOCAL_PATH)/include \
         external/bluetooth/bluedroid/hci/include \
-        system/bt/hci/include \
+        packages/modules/Bluetooth/system/hci/include \
         $(TARGET_OUT_HEADERS)/bt/hci_qcomm_init
 
 ifeq ($(BOARD_HAS_QCA_BT_AR3002), true)

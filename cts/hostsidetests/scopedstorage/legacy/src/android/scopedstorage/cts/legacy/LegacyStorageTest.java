@@ -23,7 +23,9 @@ import static android.scopedstorage.cts.lib.TestUtils.STR_DATA2;
 import static android.scopedstorage.cts.lib.TestUtils.allowAppOpsToUid;
 import static android.scopedstorage.cts.lib.TestUtils.assertCanRenameDirectory;
 import static android.scopedstorage.cts.lib.TestUtils.assertCanRenameFile;
+import static android.scopedstorage.cts.lib.TestUtils.assertCantInsertToOtherPrivateAppDirectories;
 import static android.scopedstorage.cts.lib.TestUtils.assertCantRenameFile;
+import static android.scopedstorage.cts.lib.TestUtils.assertCantUpdateToOtherPrivateAppDirectories;
 import static android.scopedstorage.cts.lib.TestUtils.assertDirectoryContains;
 import static android.scopedstorage.cts.lib.TestUtils.assertFileContent;
 import static android.scopedstorage.cts.lib.TestUtils.canOpenFileAs;
@@ -31,6 +33,7 @@ import static android.scopedstorage.cts.lib.TestUtils.checkPermission;
 import static android.scopedstorage.cts.lib.TestUtils.createFileAs;
 import static android.scopedstorage.cts.lib.TestUtils.createImageEntryAs;
 import static android.scopedstorage.cts.lib.TestUtils.deleteFileAsNoThrow;
+import static android.scopedstorage.cts.lib.TestUtils.deleteRecursively;
 import static android.scopedstorage.cts.lib.TestUtils.deleteWithMediaProviderNoThrow;
 import static android.scopedstorage.cts.lib.TestUtils.denyAppOpsToUid;
 import static android.scopedstorage.cts.lib.TestUtils.executeShellCommand;
@@ -38,6 +41,7 @@ import static android.scopedstorage.cts.lib.TestUtils.getAndroidMediaDir;
 import static android.scopedstorage.cts.lib.TestUtils.getContentResolver;
 import static android.scopedstorage.cts.lib.TestUtils.getDcimDir;
 import static android.scopedstorage.cts.lib.TestUtils.getExternalFilesDir;
+import static android.scopedstorage.cts.lib.TestUtils.getExternalStorageDir;
 import static android.scopedstorage.cts.lib.TestUtils.getFileOwnerPackageFromDatabase;
 import static android.scopedstorage.cts.lib.TestUtils.getFileRowIdFromDatabase;
 import static android.scopedstorage.cts.lib.TestUtils.getImageContentUri;
@@ -46,9 +50,13 @@ import static android.scopedstorage.cts.lib.TestUtils.insertFile;
 import static android.scopedstorage.cts.lib.TestUtils.insertFileFromExternalMedia;
 import static android.scopedstorage.cts.lib.TestUtils.listAs;
 import static android.scopedstorage.cts.lib.TestUtils.pollForExternalStorageState;
+import static android.scopedstorage.cts.lib.TestUtils.pollForManageExternalStorageAllowed;
 import static android.scopedstorage.cts.lib.TestUtils.pollForPermission;
 import static android.scopedstorage.cts.lib.TestUtils.resetDefaultExternalStorageVolume;
+import static android.scopedstorage.cts.lib.TestUtils.setAppOpsModeForUid;
 import static android.scopedstorage.cts.lib.TestUtils.setupDefaultDirectories;
+import static android.scopedstorage.cts.lib.TestUtils.trashFileAndAssert;
+import static android.scopedstorage.cts.lib.TestUtils.untrashFileAndAssert;
 import static android.scopedstorage.cts.lib.TestUtils.updateFile;
 import static android.scopedstorage.cts.lib.TestUtils.verifyInsertFromExternalMediaDirViaData_allowed;
 import static android.scopedstorage.cts.lib.TestUtils.verifyInsertFromExternalMediaDirViaRelativePath_allowed;
@@ -59,6 +67,7 @@ import static android.scopedstorage.cts.lib.TestUtils.verifyUpdateToExternalPriv
 import static androidx.test.InstrumentationRegistry.getContext;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
@@ -126,11 +135,13 @@ public class LegacyStorageTest {
      * test runs.
      */
     static final String NONCE = String.valueOf(System.nanoTime());
-    static final String CONTENT_PROVIDER_URL = "content://android.tradefed.contentprovider";
+    static final String TEST_DIRECTORY_NAME = "ScopedStorageTestDirectory" + NONCE;
 
     static final String IMAGE_FILE_NAME = "LegacyStorageTest_file_" + NONCE + ".jpg";
     static final String VIDEO_FILE_NAME = "LegacyStorageTest_file_" + NONCE + ".mp4";
     static final String NONMEDIA_FILE_NAME = "LegacyStorageTest_file_" + NONCE + ".pdf";
+
+    static final String CONTENT_PROVIDER_URL = "content://android.tradefed.contentprovider";
 
     // The following apps are installed before the tests are run via a target_preparer.
     // See test config for details.
@@ -341,7 +352,7 @@ public class LegacyStorageTest {
         try {
             assertThat(newDir.mkdir()).isFalse();
         } finally {
-            newDir.delete();
+            deleteRecursively(newDir);
         }
     }
 
@@ -426,8 +437,25 @@ public class LegacyStorageTest {
 
             pdfFile1.delete();
             pdfFile2.delete();
-            nonMediaDir1.delete();
-            nonMediaDir2.delete();
+            deleteRecursively(nonMediaDir1);
+            deleteRecursively(nonMediaDir2);
+        }
+    }
+
+    @Test
+    public void testCanTrashOtherAndroidMediaFiles_hasRW() throws Exception {
+        final File otherVideoFile = new File(getAndroidMediaDir(),
+                String.format("%s/%s", APP_B_NO_PERMS.getPackageName(), VIDEO_FILE_NAME));
+        try {
+            assertThat(createFileAs(APP_B_NO_PERMS, otherVideoFile.getAbsolutePath())).isTrue();
+
+            final Uri otherVideoUri = MediaStore.scanFile(getContentResolver(), otherVideoFile);
+            assertNotNull(otherVideoUri);
+
+            trashFileAndAssert(otherVideoUri);
+            untrashFileAndAssert(otherVideoUri);
+        } finally {
+            otherVideoFile.delete();
         }
     }
 
@@ -521,8 +549,8 @@ public class LegacyStorageTest {
             // UNIQUE constraint error.
             TestUtils.renameWithMediaProvider(directoryOldPath, directoryNewPath);
         } finally {
-            directoryOldPath.delete();
-            directoryNewPath.delete();
+            deleteRecursively(directoryOldPath);
+            deleteRecursively(directoryNewPath);
         }
     }
 
@@ -698,7 +726,7 @@ public class LegacyStorageTest {
             imageInNoMediaDir.delete();
             renamedImageInDCIM.delete();
             noMediaFile.delete();
-            directoryNoMedia.delete();
+            deleteRecursively(directoryNoMedia);
         }
     }
 
@@ -852,6 +880,41 @@ public class LegacyStorageTest {
         }
     }
 
+    /**
+     * (b/205673506): Test that legacy System Gallery can update() media file's releative_path to a
+     * non default top level directory.
+     */
+    @Test
+    public void testLegacySystemGalleryCanUpdateToExistingDirectory() throws Exception {
+        pollForPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE, /*granted*/ true);
+        final File imageFile = new File(getPicturesDir(), IMAGE_FILE_NAME);
+        // Top level non default directory
+        final File topLevelTestDirectory = new File(getExternalStorageDir(), TEST_DIRECTORY_NAME);
+        final File imageFileInTopLevelDir = new File(topLevelTestDirectory, IMAGE_FILE_NAME);
+        try {
+            assertThat(imageFile.createNewFile()).isTrue();
+            final Uri imageUri = MediaStore.scanFile(getContentResolver(), imageFile);
+            assertThat(imageUri).isNotNull();
+
+            topLevelTestDirectory.mkdirs();
+            assertThat(topLevelTestDirectory.exists()).isTrue();
+
+            allowAppOpsToUid(Process.myUid(), SYSTEM_GALERY_APPOPS);
+
+            ContentValues values = new ContentValues();
+            values.put(MediaStore.MediaColumns.RELATIVE_PATH, topLevelTestDirectory.getName());
+            final int result = getContentResolver().update(imageUri, values, Bundle.EMPTY);
+            assertWithMessage("Result of update() from DCIM -> top level test directory")
+                    .that(result).isEqualTo(1);
+            assertThat(imageFileInTopLevelDir.exists()).isTrue();
+        } finally {
+            imageFile.delete();
+            imageFileInTopLevelDir.delete();
+            deleteRecursively(topLevelTestDirectory);
+            denyAppOpsToUid(Process.myUid(), SYSTEM_GALERY_APPOPS);
+        }
+    }
+
     @Test
     public void testLegacySystemGalleryWithoutWESCannotRename() throws Exception {
         pollForPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE, /*granted*/ false);
@@ -939,6 +1002,82 @@ public class LegacyStorageTest {
     }
 
     /**
+     * Tests that legacy apps cannot insert in other app private directory
+     */
+    @Test
+    public void testCantInsertFilesInOtherAppPrivateDir_hasRW() throws Exception {
+        pollForPermission(Manifest.permission.READ_EXTERNAL_STORAGE, /* granted */ true);
+        pollForPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE, /* granted */ true);
+
+        assertCantInsertToOtherPrivateAppDirectories(IMAGE_FILE_NAME,
+                /* respectDataContentValue */ true, APP_B_NO_PERMS, THIS_PACKAGE_NAME);
+    }
+
+    /**
+     * Tests that legacy apps cannot update in other app private directory
+     */
+    @Test
+    public void testCantUpdateFilesInOtherAppPrivateDir_hasRW() throws Exception {
+        pollForPermission(Manifest.permission.READ_EXTERNAL_STORAGE, /* granted */ true);
+        pollForPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE, /* granted */ true);
+
+        TestUtils.assertCantUpdateToOtherPrivateAppDirectories(IMAGE_FILE_NAME,
+                /* respectDataContentValue */ true, APP_B_NO_PERMS, THIS_PACKAGE_NAME);
+    }
+
+    /**
+     * Tests that legacy apps with MANAGE_EXTERNAL_STORAGE cannot insert in other app private
+     * directory
+     */
+    @Test
+    public void testCantInsertFilesInOtherAppPrivateDir_hasMES() throws Exception {
+        pollForManageExternalStorageAllowed();
+        assertCantInsertToOtherPrivateAppDirectories(IMAGE_FILE_NAME,
+                /* respectDataContentValue */ true, APP_B_NO_PERMS, THIS_PACKAGE_NAME);
+    }
+
+    /**
+     * Tests that legacy apps with MANAGE_EXTERNAL_STORAGE cannot update in other app private
+     * directory
+     */
+    @Test
+    public void testCantUpdateFilesInOtherAppPrivateDir_hasMES() throws Exception {
+        pollForManageExternalStorageAllowed();
+        assertCantUpdateToOtherPrivateAppDirectories(IMAGE_FILE_NAME,
+                /* respectDataContentValue */ true, APP_B_NO_PERMS, THIS_PACKAGE_NAME);
+    }
+
+    /**
+     * Tests that legacy System Gallery apps cannot insert in other app private directory
+     */
+    @Test
+    public void testCantInsertFilesInOtherAppPrivateDir_hasSystemGallery() throws Exception {
+        int uid = Process.myUid();
+        try {
+            setAppOpsModeForUid(uid, AppOpsManager.MODE_ALLOWED, SYSTEM_GALERY_APPOPS);
+            assertCantInsertToOtherPrivateAppDirectories(IMAGE_FILE_NAME,
+                    /* respectDataContentValue */ true, APP_B_NO_PERMS, THIS_PACKAGE_NAME);
+        } finally {
+            setAppOpsModeForUid(uid, AppOpsManager.MODE_ERRORED, SYSTEM_GALERY_APPOPS);
+        }
+    }
+
+    /**
+     * Tests that legacy System Gallery apps cannot update in other app private directory
+     */
+    @Test
+    public void testCantUpdateFilesInOtherAppPrivateDir_hasSystemGallery() throws Exception {
+        int uid = Process.myUid();
+        try {
+            setAppOpsModeForUid(uid, AppOpsManager.MODE_ALLOWED, SYSTEM_GALERY_APPOPS);
+            assertCantUpdateToOtherPrivateAppDirectories(IMAGE_FILE_NAME,
+                    /* respectDataContentValue */ true, APP_B_NO_PERMS, THIS_PACKAGE_NAME);
+        } finally {
+            setAppOpsModeForUid(uid, AppOpsManager.MODE_ERRORED, SYSTEM_GALERY_APPOPS);
+        }
+    }
+
+    /**
      * Make sure inserting files from app private directories in legacy apps is allowed via DATA.
      */
     @Test
@@ -947,7 +1086,7 @@ public class LegacyStorageTest {
 
         ContentValues values = new ContentValues();
         final String androidObbDir =
-                getContext().getObbDir().toString() + "/" + System.currentTimeMillis();
+                TestUtils.getExternalObbDir().toString() + "/" + System.currentTimeMillis();
         values.put(MediaStore.MediaColumns.DATA, androidObbDir);
         insertFile(values);
 
@@ -981,7 +1120,7 @@ public class LegacyStorageTest {
         assertNotEquals(0, updateFile(uri, values));
 
         final String androidObbDir =
-                getContext().getObbDir().toString() + "/" + System.currentTimeMillis();
+                TestUtils.getExternalObbDir().toString() + "/" + System.currentTimeMillis();
         values.put(MediaStore.MediaColumns.DATA, androidObbDir);
         assertNotEquals(0, updateFile(uri, values));
 

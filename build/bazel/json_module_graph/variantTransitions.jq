@@ -1,3 +1,5 @@
+# CMD: Groups outgoing dependency edges by the differences in variants 
+
 include "library";
 
 # This filters out modules with "interesting" deps

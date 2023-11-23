@@ -16,18 +16,24 @@
 
 #define LOG_TAG "BatteryDefender"
 
-#include <pixelhealth/BatteryDefender.h>
-
 #include <android-base/file.h>
 #include <android-base/logging.h>
 #include <android-base/parsebool.h>
 #include <android-base/parseint.h>
 #include <android-base/properties.h>
-
+#include <cutils/klog.h>
+#include <dirent.h>
+#include <pixelhealth/BatteryDefender.h>
+#include <pixelhealth/HealthHelper.h>
+#include <stdio.h>
+#include <sys/types.h>
 #include <time.h>
 #include <utils/Timers.h>
 
-#include <cutils/klog.h>
+#include <unordered_map>
+
+using aidl::android::hardware::health::BatteryHealth;
+using aidl::android::hardware::health::HealthInfo;
 
 namespace hardware {
 namespace google {
@@ -38,13 +44,14 @@ BatteryDefender::BatteryDefender(const std::string pathWirelessPresent,
                                  const std::string pathChargeLevelStart,
                                  const std::string pathChargeLevelStop,
                                  const int32_t timeToActivateSecs,
-                                 const int32_t timeToClearTimerSecs)
+                                 const int32_t timeToClearTimerSecs, const bool useTypeC)
 
     : mPathWirelessPresent(pathWirelessPresent),
       kPathChargeLevelStart(pathChargeLevelStart),
       kPathChargeLevelStop(pathChargeLevelStop),
       kTimeToActivateSecs(timeToActivateSecs),
-      kTimeToClearTimerSecs(timeToClearTimerSecs) {
+      kTimeToClearTimerSecs(timeToClearTimerSecs),
+      kUseTypeC(useTypeC) {
     mTimePreviousSecs = getTime();
 }
 
@@ -83,7 +90,7 @@ void BatteryDefender::removeLineEndings(std::string *str) {
     str->erase(std::remove(str->begin(), str->end(), '\r'), str->end());
 }
 
-int BatteryDefender::readFileToInt(const std::string &path) {
+int BatteryDefender::readFileToInt(const std::string &path, const bool silent) {
     std::string buffer;
     int value = 0;  // default
 
@@ -92,7 +99,9 @@ int BatteryDefender::readFileToInt(const std::string &path) {
     }
 
     if (!android::base::ReadFileToString(path, &buffer)) {
-        LOG(ERROR) << "Failed to read " << path;
+        if (silent == false) {
+            LOG(ERROR) << "Failed to read " << path;
+        }
     } else {
         removeLineEndings(&buffer);
         if (!android::base::ParseInt(buffer, &value)) {
@@ -159,14 +168,61 @@ void BatteryDefender::writeChargeLevelsToFile(const int vendorStart, const int v
     }
 }
 
+bool BatteryDefender::isTypeCSink(const std::string &path) {
+    std::string buffer;
+
+    if (!android::base::ReadFileToString(path, &buffer)) {
+        LOG(ERROR) << "Failed to read " << path;
+    }
+
+    return (buffer.find("[sink]") != std::string::npos);
+}
+
+bool BatteryDefender::isWiredPresent(void) {
+    // Default to USB "present" if type C is not used.
+    if (!kUseTypeC) {
+        return readFileToInt(kPathUSBChargerPresent) != 0;
+    }
+
+    DIR *dp = opendir(kTypeCPath.c_str());
+    if (dp == NULL) {
+        LOG(ERROR) << "Failed to read " << kTypeCPath;
+        return false;
+    }
+
+    struct dirent *ep;
+    std::unordered_map<std::string, bool> names;
+    while ((ep = readdir(dp))) {
+        if (ep->d_type == DT_LNK) {
+            if (std::string::npos != std::string(ep->d_name).find("-partner")) {
+                std::string portName = std::strtok(ep->d_name, "-");
+                std::string path = kTypeCPath + portName + "/power_role";
+                if (isTypeCSink(path)) {
+                    closedir(dp);
+                    return true;
+                }
+            }
+        }
+    }
+    closedir(dp);
+
+    return false;
+}
+
+bool BatteryDefender::isDockPresent(void) {
+    return readFileToInt(kPathDOCKChargerPresent, true) != 0;
+}
+
 bool BatteryDefender::isChargePowerAvailable(void) {
     // USB presence is an indicator of power availability
-    const bool chargerPresentWired = readFileToInt(kPathUSBChargerPresent) != 0;
+    const bool chargerPresentWired = isWiredPresent();
     const bool chargerPresentWireless = readFileToInt(mPathWirelessPresent) != 0;
-    mIsUsbPresent = chargerPresentWired;
+    const bool chargerPresentDock = isDockPresent();
+    mIsWiredPresent = chargerPresentWired;
     mIsWirelessPresent = chargerPresentWireless;
+    mIsDockPresent = chargerPresentDock;
 
-    return chargerPresentWired || chargerPresentWireless;
+    return chargerPresentWired || chargerPresentWireless || chargerPresentDock;
 }
 
 bool BatteryDefender::isDefaultChargeLevel(const int start, const int stop) {
@@ -213,14 +269,13 @@ int32_t BatteryDefender::getTimeToActivate(void) {
     }
 }
 
-void BatteryDefender::stateMachine_runAction(const state_E state,
-                                             const struct android::BatteryProperties *props) {
+void BatteryDefender::stateMachine_runAction(const state_E state, const HealthInfo &health_info) {
     switch (state) {
         case STATE_INIT:
             loadPersistentStorage();
-            if (props->chargerUsbOnline || props->chargerAcOnline) {
-                mWasAcOnline = props->chargerAcOnline;
-                mWasUsbOnline = props->chargerUsbOnline;
+            if (health_info.chargerUsbOnline || health_info.chargerAcOnline) {
+                mWasAcOnline = health_info.chargerAcOnline;
+                mWasUsbOnline = health_info.chargerUsbOnline;
             }
             break;
 
@@ -234,7 +289,7 @@ void BatteryDefender::stateMachine_runAction(const state_E state,
 
             const int triggerLevel = android::base::GetIntProperty(
                     kPropBatteryDefenderCtrlTriggerSOC, kChargeHighCapacityLevel, 0, 100);
-            if (props->batteryLevel >= triggerLevel) {
+            if (health_info.batteryLevel >= triggerLevel) {
                 mHasReachedHighCapacityLevel = true;
             }
         } break;
@@ -345,13 +400,14 @@ void BatteryDefender::stateMachine_firstAction(const state_E state) {
     }
 }
 
-void BatteryDefender::updateDefenderProperties(struct android::BatteryProperties *props) {
+void BatteryDefender::updateDefenderProperties(
+        aidl::android::hardware::health::HealthInfo *health_info) {
     /**
      * Override the OVERHEAT flag for UI updates to settings.
      * Also, force AC/USB online if active and still connected to power.
      */
     if (mCurrentState == STATE_ACTIVE) {
-        props->batteryHealth = android::BATTERY_HEALTH_OVERHEAT;
+        health_info->batteryHealth = BatteryHealth::OVERHEAT;
     }
 
     /**
@@ -360,32 +416,40 @@ void BatteryDefender::updateDefenderProperties(struct android::BatteryProperties
      * may disable the adapter.
      * Note; only override "online" if necessary (all "online"s are false).
      */
-    if (props->chargerUsbOnline == false && props->chargerAcOnline == false) {
+    if (health_info->chargerUsbOnline == false && health_info->chargerAcOnline == false) {
         /* Override if the USB is connected and a battery defender is active */
-        if (mIsUsbPresent && props->batteryHealth == android::BATTERY_HEALTH_OVERHEAT) {
+        if (mIsWiredPresent && health_info->batteryHealth == BatteryHealth::OVERHEAT) {
             if (mWasAcOnline) {
-                props->chargerAcOnline = true;
+                health_info->chargerAcOnline = true;
             }
             if (mWasUsbOnline) {
-                props->chargerUsbOnline = true;
+                health_info->chargerUsbOnline = true;
             }
         }
     } else {
         /* One of these booleans will always be true if updated here */
-        mWasAcOnline = props->chargerAcOnline;
-        mWasUsbOnline = props->chargerUsbOnline;
+        mWasAcOnline = health_info->chargerAcOnline;
+        mWasUsbOnline = health_info->chargerUsbOnline;
     }
 
     /* Do the same as above for wireless adapters */
-    if (props->chargerWirelessOnline == false) {
-        if (mIsWirelessPresent && props->batteryHealth == android::BATTERY_HEALTH_OVERHEAT) {
-            props->chargerWirelessOnline = true;
+    if (health_info->chargerWirelessOnline == false) {
+        if (mIsWirelessPresent && health_info->batteryHealth == BatteryHealth::OVERHEAT) {
+            health_info->chargerWirelessOnline = true;
+        }
+    }
+
+    /* Do the same as above for dock adapters */
+    if (health_info->chargerDockOnline == false) {
+        /* Override if the USB is connected and a battery defender is active */
+        if (mIsDockPresent && health_info->batteryHealth == BatteryHealth::OVERHEAT) {
+            health_info->chargerDockOnline = true;
         }
     }
 }
 
-void BatteryDefender::update(struct android::BatteryProperties *props) {
-    if (!props) {
+void BatteryDefender::update(HealthInfo *health_info) {
+    if (!health_info) {
         return;
     }
 
@@ -399,7 +463,7 @@ void BatteryDefender::update(struct android::BatteryProperties *props) {
     mTimeBetweenUpdateCalls = getDeltaTimeSeconds(&mTimePreviousSecs);
 
     // Run state machine
-    stateMachine_runAction(mCurrentState, props);
+    stateMachine_runAction(mCurrentState, *health_info);
     const state_E nextState = stateMachine_getNextState(mCurrentState);
     if (nextState != mCurrentState) {
         stateMachine_firstAction(nextState);
@@ -407,7 +471,7 @@ void BatteryDefender::update(struct android::BatteryProperties *props) {
     mCurrentState = nextState;
 
     // Verify/update battery defender battery properties
-    updateDefenderProperties(props); /* May override battery properties */
+    updateDefenderProperties(health_info); /* May override battery properties */
 
     // Store outputs
     writeTimeToFile(kPathPersistChargerPresentTime, mTimeChargerPresentSecs,
@@ -415,6 +479,21 @@ void BatteryDefender::update(struct android::BatteryProperties *props) {
     writeTimeToFile(kPathPersistDefenderActiveTime, mTimeActiveSecs, &mTimeActiveSecsPrevious);
     writeChargeLevelsToFile(chargeLevelVendorStart, chargeLevelVendorStop);
     android::base::SetProperty(kPropBatteryDefenderState, kStateStringMap[mCurrentState]);
+}
+
+void BatteryDefender::update(struct android::BatteryProperties *props) {
+    if (!props) {
+        return;
+    }
+    HealthInfo health_info = ToHealthInfo(props);
+    update(&health_info);
+    // Propagate the changes to props
+    props->chargerAcOnline = health_info.chargerAcOnline;
+    props->chargerUsbOnline = health_info.chargerUsbOnline;
+    props->chargerWirelessOnline = health_info.chargerWirelessOnline;
+    props->chargerDockOnline = health_info.chargerDockOnline;
+    props->batteryHealth = static_cast<int>(health_info.batteryHealth);
+    // update() doesn't change other fields.
 }
 
 }  // namespace health

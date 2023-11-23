@@ -50,6 +50,21 @@
  */
 #define MAX_PLANES 3
 
+/*
+ * Maximum number of fds in a private_handle_t.
+ */
+#define MAX_FDS 4
+
+/*
+ * One fd is reserved for metadata dmabuf.
+ */
+#define MAX_BUFFER_FDS MAX_FDS - 1
+
+/*
+ * In the worst case, there will be one plane per fd.
+ */
+static_assert(MAX_BUFFER_FDS == MAX_PLANES, "MAX_PLANES and MAX_BUFFER_FDS defines do not match");
+
 #ifdef __cplusplus
 #define DEFAULT_INITIALIZER(x) = x
 #else
@@ -119,6 +134,13 @@ struct private_handle_t;
 #ifdef __cplusplus
 struct private_handle_t : public native_handle
 {
+private:
+	/* Having a default constructor makes sure that we zero out the padding
+	 * which prevents data leak. */
+	private_handle_t() = default;
+
+public:
+
 #else
 struct private_handle_t
 {
@@ -148,13 +170,16 @@ struct private_handle_t
 	 * DO NOT MOVE THIS ELEMENT!
 	 */
 	union {
-		int fds[5];
+		int fds[MAX_FDS];
 	};
 
 	// ints
 	int magic DEFAULT_INITIALIZER(sMagic);
 	int flags DEFAULT_INITIALIZER(0);
 
+	/*
+	 * Number of dmabuf fds, NOT including the metadata fd
+	 */
 	int fd_count DEFAULT_INITIALIZER(1);
 
 	/*
@@ -208,14 +233,11 @@ struct private_handle_t
 	uint64_t backing_store_id DEFAULT_INITIALIZER(0x0);
 	int cpu_read DEFAULT_INITIALIZER(0);               /**< Buffer is locked for CPU read when non-zero. */
 	int cpu_write DEFAULT_INITIALIZER(0);              /**< Buffer is locked for CPU write when non-zero. */
-	int allocating_pid DEFAULT_INITIALIZER(0);
-	int remote_pid DEFAULT_INITIALIZER(-1);
-	int ref_count DEFAULT_INITIALIZER(0);
 	// locally mapped shared attribute area
 
-	int ion_handles[3];
-	uint64_t bases[3];
-	uint64_t alloc_sizes[3];
+	int ion_handles[MAX_BUFFER_FDS];
+	uint64_t bases[MAX_BUFFER_FDS];
+	uint64_t alloc_sizes[MAX_BUFFER_FDS];
 
 	void *attr_base __attribute__((aligned (8))) DEFAULT_INITIALIZER(nullptr);
 	off_t offset    __attribute__((aligned (8))) DEFAULT_INITIALIZER(0);
@@ -240,25 +262,24 @@ struct private_handle_t
 
 	private_handle_t(
 		int _flags,
-		uint64_t _alloc_sizes[3],
+		uint64_t _alloc_sizes[MAX_BUFFER_FDS],
 		uint64_t _consumer_usage, uint64_t _producer_usage,
-		int _fds[5], int _fd_count,
+		int _fds[MAX_FDS], int _fd_count,
 		int _req_format, uint64_t _alloc_format,
 		int _width, int _height, int _stride,
 		uint64_t _layer_count, plane_info_t _plane_info[MAX_PLANES])
-	    : flags(_flags)
-	    , fd_count(_fd_count)
-	    , width(_width)
-	    , height(_height)
-	    , req_format(_req_format)
-	    , producer_usage(_producer_usage)
-	    , consumer_usage(_consumer_usage)
-	    , stride(_stride)
-	    , alloc_format(_alloc_format)
-	    , layer_count(_layer_count)
-	    , allocating_pid(getpid())
-	    , ref_count(1)
+	    : private_handle_t()
 	{
+		flags = _flags;
+		fd_count = _fd_count;
+		width = _width;
+		height = _height;
+		req_format = _req_format;
+		producer_usage = _producer_usage;
+		consumer_usage = _consumer_usage;
+		stride = _stride;
+		alloc_format = _alloc_format;
+		layer_count = _layer_count;
 		version = sizeof(native_handle);
 		set_numfds(fd_count);
 		memcpy(plane_info, _plane_info, sizeof(plane_info_t) * MAX_PLANES);
@@ -321,8 +342,8 @@ struct private_handle_t
 
 	int get_share_attr_fd_index() const
 	{
-		/* share_attr can be at idx 1 to 4 */
-		if (fd_count <= 0 || fd_count > 4)
+		/* share_attr can be at idx 1 to MAX_FDS */
+		if (fd_count <= 0 || fd_count > MAX_FDS)
 			return -1;
 
 		return fd_count;
@@ -362,7 +383,7 @@ struct private_handle_t
 	{
 		ALOGE("[%s] "
 			"numInts(%d) numFds(%d) fd_count(%d) "
-			"fd(%d %d %d %d %d) "
+			"fd(%d %d %d %d) "
 			"flags(%d) "
 			"wh(%d %d) "
 			"req_format(%#x) alloc_format(%#" PRIx64 ") "
@@ -378,7 +399,7 @@ struct private_handle_t
 			"\n",
 			str,
 			numInts, numFds, fd_count,
-			fds[0], fds[1], fds[2], fds[3], fds[4],
+			fds[0], fds[1], fds[2], fds[3],
 			flags,
 			width, height,
 			req_format, alloc_format,

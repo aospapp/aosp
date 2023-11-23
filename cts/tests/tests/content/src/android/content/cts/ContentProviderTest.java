@@ -34,15 +34,19 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.pm.ProviderInfo;
+import android.content.res.AssetFileDescriptor;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
 import android.os.Binder;
+import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
 import android.os.UserHandle;
 import android.platform.test.annotations.AppModeFull;
 import android.provider.MediaStore;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.test.core.app.ApplicationProvider;
 
 import com.android.bedstead.harrier.BedsteadJUnit4;
@@ -56,9 +60,14 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 
 /**
  * Test {@link ContentProvider}.
@@ -226,13 +235,12 @@ public class ContentProviderTest {
 
     @Test
     public void testOpenFileHelper() throws IOException {
-
         // create a temporary File
         sContext.openFileOutput(TEST_FILE_NAME, Context.MODE_PRIVATE).close();
         File file = sContext.getFileStreamPath(TEST_FILE_NAME);
         assertTrue(file.exists());
 
-        ContentProvider cp = new OpenFileContentProvider(file.getAbsolutePath(), TEST_DB_NAME);
+        ContentProvider cp = new OpenFilePipeContentProvider(file.getAbsolutePath(), TEST_DB_NAME);
 
         Uri uri = Uri.parse("content://test");
         assertNotNull(cp.openFile(uri, "r"));
@@ -259,6 +267,42 @@ public class ContentProviderTest {
             fail("Should always throw FileNotFoundException!");
         } catch (FileNotFoundException e) {
         }
+    }
+
+    private static void assertAssetFileContents(AssetFileDescriptor assetFileDescriptor,
+            String message) throws IOException {
+        assertNotNull(assetFileDescriptor);
+        try (DataInputStream dis = new DataInputStream(
+                new FileInputStream(assetFileDescriptor.getFileDescriptor()))) {
+            assertEquals(message, dis.readUTF());
+        }
+    }
+
+    @Test
+    public void testOpenPipeHelper() throws IOException {
+        // create a temporary File
+        sContext.openFileOutput(TEST_FILE_NAME, Context.MODE_PRIVATE).close();
+        File file = sContext.getFileStreamPath(TEST_FILE_NAME);
+        assertTrue(file.exists());
+
+        ContentProvider cp = new OpenFilePipeContentProvider(file.getAbsolutePath(), TEST_DB_NAME);
+
+        Uri uri = Uri.parse("content://test");
+        assertAssetFileContents(cp.openAssetFile(uri, "r"), "OK");
+
+        uri = Uri.parse("content://test");
+        assertAssetFileContents(cp.openAssetFile(uri, "wrong"),
+                "java.lang.IllegalArgumentException: Bad mode: wrong");
+
+        // delete the temporary file
+        file.delete();
+
+        uri = Uri.parse("content://test");
+        assertAssetFileContents(cp.openAssetFile(uri, "r"),
+                "java.io.FileNotFoundException: open failed: ENOENT (No such file or directory)");
+
+        assertAssetFileContents(cp.openAssetFile((Uri) null, "r"),
+                "java.io.FileNotFoundException: open failed: ENOENT (No such file or directory)");
     }
 
     @Test
@@ -440,12 +484,14 @@ public class ContentProviderTest {
     }
 
     /**
-     * This provider implements openFile() using ContentProvider.openFileHelper().
+     * This provider implements openFile/openAssetFile() using
+     * ContentProvider.openFileHelper/openPipeHelper().
      */
-    private class OpenFileContentProvider extends ContentProvider {
+    private class OpenFilePipeContentProvider extends ContentProvider implements
+            ContentProvider.PipeDataWriter<String> {
         private SQLiteDatabase mDb;
 
-        OpenFileContentProvider(String fileName, String dbName) {
+        OpenFilePipeContentProvider(String fileName, String dbName) {
             // delete the database if it already exists
             sContext.deleteDatabase(dbName);
             mDb = sContext.openOrCreateDatabase(dbName, Context.MODE_PRIVATE, null);
@@ -487,6 +533,30 @@ public class ContentProviderTest {
         @Override
         public ParcelFileDescriptor openFile(Uri uri, String mode) throws FileNotFoundException {
             return openFileHelper(uri, mode);
+        }
+
+        @Override
+        public AssetFileDescriptor openAssetFile(Uri uri, String mode)
+                throws FileNotFoundException {
+            return new AssetFileDescriptor(openPipeHelper(uri, "text/html", null,
+                    mode, this), 0,
+                    AssetFileDescriptor.UNKNOWN_LENGTH);
+        }
+
+        @Override
+        public void writeDataToPipe(@NonNull ParcelFileDescriptor output, @NonNull Uri uri,
+                @NonNull String mimeType, @Nullable Bundle opts, @Nullable String args) {
+            try (DataOutputStream dos = new DataOutputStream(
+                    new FileOutputStream(output.getFileDescriptor()))) {
+                try (InputStream is = new FileInputStream(
+                        openFile(uri, args).getFileDescriptor())) {
+                    dos.writeUTF("OK");
+                } catch (Throwable t) {
+                    dos.writeUTF(t.toString());
+                }
+            } catch (IOException ignored) {
+
+            }
         }
     }
 }

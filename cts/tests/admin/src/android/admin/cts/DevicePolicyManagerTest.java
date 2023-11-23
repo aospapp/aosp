@@ -31,7 +31,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
-import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.ResolveInfo;
 import android.os.Build;
 import android.os.Process;
@@ -695,32 +694,6 @@ public class DevicePolicyManagerTest extends AndroidTestCase {
         } catch (SecurityException e) {
             assertProfileOwnerMessage(e.getMessage());
         }
-    }
-
-    public void testSetUninstallBlocked_failIfNotProfileOwner() {
-        if (!mDeviceAdmin) {
-            Log.w(TAG, "Skipping testSetUninstallBlocked_failIfNotProfileOwner");
-            return;
-        }
-        try {
-            mDevicePolicyManager.setUninstallBlocked(mComponent,
-                    "android.admin.cts", true);
-            fail("did not throw expected SecurityException");
-        } catch (SecurityException e) {
-            assertProfileOwnerMessage(e.getMessage());
-        }
-    }
-
-    public void testSetUninstallBlocked_succeedForNotInstalledApps() {
-        if (!mDeviceAdmin) {
-            Log.w(TAG, "Skipping testSetUninstallBlocked_succeedForNotInstalledApps");
-            return;
-        }
-        ComponentName profileOwner = DeviceAdminInfoTest.getProfileOwnerComponent();
-        mDevicePolicyManager.setUninstallBlocked(profileOwner,
-                "android.admin.not.installed", true);
-        assertFalse(mDevicePolicyManager.isUninstallBlocked(profileOwner,
-              "android.admin.not.installed"));
     }
 
     public void testSetPermittedAccessibilityServices_failIfNotProfileOwner() {

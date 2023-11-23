@@ -16,21 +16,15 @@
 
 package com.android.cts.verifier.audio;
 
-import com.android.cts.verifier.R;
-
 import android.content.Context;
-
 import android.media.AudioDeviceCallback;
 import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
-
 import android.os.Bundle;
-
 import android.view.View;
-import android.view.View.OnClickListener;
-
-import android.widget.Button;
 import android.widget.TextView;
+
+import com.android.cts.verifier.R;
 
 /**
  * Tests Audio Device Connection events for output by prompting the user to insert/remove a
@@ -41,13 +35,24 @@ public class AudioInputDeviceNotificationsActivity extends AudioWiredDeviceBaseA
 
     TextView mConnectView;
     TextView mDisconnectView;
-    Button mClearMsgsBtn;
+    TextView mInfoView;
+
+    boolean mHandledInitialAddedMessage = false;
+    boolean mConnectReceived = false;
+    boolean mDisconnectReceived = false;
 
     private class TestAudioDeviceCallback extends AudioDeviceCallback {
         public void onAudioDevicesAdded(AudioDeviceInfo[] addedDevices) {
+            // we will get this message when we setup the handler, so ignore the first one.
+            if (!mHandledInitialAddedMessage) {
+                mHandledInitialAddedMessage = true;
+                return;
+            }
             if (addedDevices.length != 0) {
                 mConnectView.setText(
                     mContext.getResources().getString(R.string.audio_dev_notification_connectMsg));
+                mConnectReceived = true;
+                getPassButton().setEnabled(mConnectReceived && mDisconnectReceived);
             }
         }
 
@@ -56,13 +61,10 @@ public class AudioInputDeviceNotificationsActivity extends AudioWiredDeviceBaseA
                 mDisconnectView.setText(
                     mContext.getResources().getString(
                         R.string.audio_dev_notification_disconnectMsg));
+                mDisconnectReceived = true;
+                getPassButton().setEnabled(mConnectReceived && mDisconnectReceived);
             }
         }
-    }
-
-    @Override
-    protected void enableTestButtons(boolean enabled) {
-        // Nothing to do.
     }
 
     @Override
@@ -72,19 +74,23 @@ public class AudioInputDeviceNotificationsActivity extends AudioWiredDeviceBaseA
 
         mContext = this;
 
-        mConnectView = (TextView)findViewById(R.id.audio_dev_notification_connect_msg);
-        mDisconnectView = (TextView)findViewById(R.id.audio_dev_notification_disconnect_msg);
+        mConnectView = (TextView) findViewById(R.id.audio_dev_notification_connect_msg);
+        mDisconnectView = (TextView) findViewById(R.id.audio_dev_notification_disconnect_msg);
 
-        ((TextView)findViewById(R.id.info_text)).setText(mContext.getResources().getString(
-                R.string.audio_in_devices_notification_instructions));
+        mInfoView = (TextView) findViewById(R.id.info_text);
+        mInfoView.setText(mContext.getResources().getString(
+                R.string.audio_devices_notification_instructions));
 
-        mClearMsgsBtn = (Button)findViewById(R.id.audio_dev_notification_connect_clearmsgs_btn);
-        mClearMsgsBtn.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                mConnectView.setText("");
-                mDisconnectView.setText("");
-            }
-        });
+        findViewById(R.id.audio_dev_notification_connect_clearmsgs_btn)
+                .setOnClickListener(new View.OnClickListener() {
+                    public void onClick(View v) {
+                        mConnectView.setText("");
+                        mConnectReceived = false;
+                        mDisconnectView.setText("");
+                        mDisconnectReceived = false;
+                        calculatePass();
+                    }
+                });
 
         AudioManager audioManager = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
         audioManager.registerAudioDeviceCallback(new TestAudioDeviceCallback(), null);
@@ -92,6 +98,21 @@ public class AudioInputDeviceNotificationsActivity extends AudioWiredDeviceBaseA
         // "Honor System" buttons
         super.setup();
 
+        setInfoResources(R.string.audio_in_devices_notifications_test,
+                R.string.audio_in_devices_infotext, -1);
         setPassFailButtonClickListeners();
+
+        calculatePass();
+    }
+
+    @Override
+    protected void enableTestButtons(boolean enabled) {
+        mInfoView.setVisibility(enabled ? View.VISIBLE : View.INVISIBLE);
+    }
+
+    @Override
+    protected void calculatePass() {
+        getPassButton().setEnabled(!mSupportsWiredPeripheral
+                || (mConnectReceived && mDisconnectReceived));
     }
 }

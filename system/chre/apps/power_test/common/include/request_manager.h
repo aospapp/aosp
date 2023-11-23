@@ -23,6 +23,7 @@
 #include "chre/util/singleton.h"
 #include "chre/util/time.h"
 #include "common.h"
+#include "generated/chre_power_test_generated.h"
 
 namespace chre {
 
@@ -34,9 +35,8 @@ class RequestManager {
    * Processes a message from the host, performing the requested action(s).
    *
    * @param hostMessage the message data received from the host AP
-   * @return whether the message was processed successfully
    */
-  bool handleMessageFromHost(const chreMessageFromHostData &hostMessage);
+  void handleMessageFromHost(const chreMessageFromHostData &hostMessage);
 
   /**
    * Handles a timer event using the cookie to determine what action should be
@@ -46,6 +46,25 @@ class RequestManager {
    *     action should be performed when the timer fires
    */
   void handleTimerEvent(const void *cookie) const;
+
+  /**
+   * Handles an event indicating the result of starting a NAN subscription.
+   */
+  void handleNanIdResult(const struct chreWifiNanIdentifierEvent *event);
+
+  /**
+   * Requests NAN ranging using the provided discovery event to populate a NAN
+   * RTT config.
+   */
+  void requestNanRanging(const struct chreWifiNanDiscoveryEvent *event);
+
+  /**
+   * Responds to a host request indicating whether the request was successfully
+   * executed.
+   *
+   * @param success whether the nanoapp successfully fulfilled a request
+   */
+  void sendResponseMessageToHost(bool success);
 
  private:
   //! Indicates the source that initially set up the timer.
@@ -63,6 +82,9 @@ class RequestManager {
   uint8_t mWifiScanType = CHRE_WIFI_SCAN_TYPE_NO_PREFERENCE;
   uint8_t mWifiRadioChain = CHRE_WIFI_RADIO_CHAIN_PREF_DEFAULT;
   uint8_t mWifiChannelSet = CHRE_WIFI_CHANNEL_SET_NON_DFS;
+
+  //! The most recent host endpoint ID that communicated with the nanoapp.
+  uint16_t mLastHostEndpointId = CHRE_HOST_ENDPOINT_UNSPECIFIED;
 
   /**
    * Enables or disables break-it mode. When enabled, requests WiFi / GNSS /
@@ -161,6 +183,22 @@ class RequestManager {
    * @return whether the request was successful
    */
   bool requestAllSensors(bool enable) const;
+
+  /**
+   * Requests a WiFi NAN subscription using the provided params.
+   *
+   * @param msg Message from the host containing the appropriate WiFi NAN params
+   * @return whether the request is successful.
+   */
+  bool requestWifiNanSub(const power_test::WifiNanSubMessage *msg);
+
+  /**
+   * Cancels an existing WiFi NAN subscription.
+   *
+   * @param subscriptionId Previous ID provided from a started subscription
+   * @return whether the request is successful.
+   */
+  bool cancelWifiNanSub(uint32_t subscriptionId);
 };
 
 }  // namespace chre

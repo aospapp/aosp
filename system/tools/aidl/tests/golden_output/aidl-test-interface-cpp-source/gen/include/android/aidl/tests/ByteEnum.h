@@ -6,17 +6,19 @@
 #include <string>
 
 namespace android {
-
 namespace aidl {
-
 namespace tests {
-
 enum class ByteEnum : int8_t {
   FOO = 1,
   BAR = 2,
   BAZ = 3,
 };
-
+}  // namespace tests
+}  // namespace aidl
+}  // namespace android
+namespace android {
+namespace aidl {
+namespace tests {
 [[nodiscard]] static inline std::string toString(ByteEnum val) {
   switch(val) {
   case ByteEnum::FOO:
@@ -29,16 +31,11 @@ enum class ByteEnum : int8_t {
     return std::to_string(static_cast<int8_t>(val));
   }
 }
-
 }  // namespace tests
-
 }  // namespace aidl
-
 }  // namespace android
 namespace android {
-
 namespace internal {
-
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wc++17-extensions"
 template <>
@@ -48,7 +45,5 @@ constexpr inline std::array<::android::aidl::tests::ByteEnum, 3> enum_values<::a
   ::android::aidl::tests::ByteEnum::BAZ,
 };
 #pragma clang diagnostic pop
-
 }  // namespace internal
-
 }  // namespace android

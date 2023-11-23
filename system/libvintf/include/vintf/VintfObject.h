@@ -28,22 +28,23 @@
 #include <android-base/result.h>
 #include <hidl/metadata.h>
 
-#include "CheckFlags.h"
-#include "CompatibilityMatrix.h"
-#include "FileSystem.h"
-#include "HalManifest.h"
-#include "Level.h"
-#include "ObjectFactory.h"
-#include "PropertyFetcher.h"
-#include "RuntimeInfo.h"
+#include <vintf/CheckFlags.h>
+#include <vintf/CompatibilityMatrix.h>
+#include <vintf/FileSystem.h>
+#include <vintf/HalManifest.h>
+#include <vintf/Level.h>
+#include <vintf/ObjectFactory.h>
+#include <vintf/PropertyFetcher.h>
+#include <vintf/RuntimeInfo.h>
 
 namespace android {
 namespace vintf {
 
+class VintfObject;
+
 namespace details {
 class CheckVintfUtils;
 class FmOnlyVintfObject;
-class VintfObjectAfterUpdate;
 
 template <typename T>
 struct LockedSharedPtr {
@@ -57,10 +58,40 @@ struct LockedRuntimeInfoCache {
     std::mutex mutex;
     RuntimeInfo::FetchFlags fetchedFlags = RuntimeInfo::FetchFlag::NONE;
 };
+
+/**
+ * DO NOT USE outside of libvintf. This is an implementation detail. Use VintfObject::Builder
+ * instead.
+ *
+ * A builder of VintfObject. If a dependency is not specified, the default behavior is used.
+ * - FileSystem fetch from "/" for target and fetch no files for host
+ * - ObjectFactory<RuntimeInfo> fetches default RuntimeInfo for target and nothing for host
+ * - PropertyFetcher fetches properties for target and nothing for host
+ */
+class VintfObjectBuilder {
+   public:
+    VintfObjectBuilder(std::unique_ptr<VintfObject>&& object) : mObject(std::move(object)) {}
+    ~VintfObjectBuilder();
+    VintfObjectBuilder& setFileSystem(std::unique_ptr<FileSystem>&&);
+    VintfObjectBuilder& setRuntimeInfoFactory(std::unique_ptr<ObjectFactory<RuntimeInfo>>&&);
+    VintfObjectBuilder& setPropertyFetcher(std::unique_ptr<PropertyFetcher>&&);
+
+    template <typename VintfObjectType = VintfObject>
+    std::unique_ptr<VintfObjectType> build() {
+        return std::unique_ptr<VintfObjectType>(
+            static_cast<VintfObjectType*>(buildInternal().release()));
+    }
+
+   private:
+    std::unique_ptr<VintfObject> buildInternal();
+    std::unique_ptr<VintfObject> mObject;
+};
+
 }  // namespace details
 
 namespace testing {
 class VintfObjectTestBase;
+class VintfObjectRecoveryTest;
 class VintfObjectRuntimeInfoTest;
 class VintfObjectCompatibleTest;
 }  // namespace testing
@@ -256,11 +287,12 @@ class VintfObject {
 
     // Expose functions for testing and recovery
     friend class testing::VintfObjectTestBase;
+    friend class testing::VintfObjectRecoveryTest;
     friend class testing::VintfObjectRuntimeInfoTest;
     friend class testing::VintfObjectCompatibleTest;
 
     // Expose functions to simulate dependency injection.
-    friend class details::VintfObjectAfterUpdate;
+    friend class details::VintfObjectBuilder;
     friend class details::CheckVintfUtils;
     friend class details::FmOnlyVintfObject;
 
@@ -311,15 +343,16 @@ class VintfObject {
     static std::shared_ptr<const RuntimeInfo> GetRuntimeInfo(
         RuntimeInfo::FetchFlags flags = RuntimeInfo::FetchFlag::ALL);
 
-   private:
+   protected:
     status_t getCombinedFrameworkMatrix(const std::shared_ptr<const HalManifest>& deviceManifest,
-                                        CompatibilityMatrix* out, std::string* error = nullptr);
+                                        Level kernelLevel, CompatibilityMatrix* out,
+                                        std::string* error = nullptr);
     status_t getAllFrameworkMatrixLevels(std::vector<CompatibilityMatrix>* out,
                                          std::string* error = nullptr);
     status_t getOneMatrix(const std::string& path, CompatibilityMatrix* out,
                           std::string* error = nullptr);
     status_t addDirectoryManifests(const std::string& directory, HalManifest* manifests,
-                                   std::string* error = nullptr);
+                                   bool ignoreSchemaType, std::string* error);
     status_t fetchDeviceHalManifest(HalManifest* out, std::string* error = nullptr);
     status_t fetchDeviceMatrix(CompatibilityMatrix* out, std::string* error = nullptr);
     status_t fetchOdmHalManifest(HalManifest* out, std::string* error = nullptr);
@@ -355,26 +388,14 @@ class VintfObject {
         const ListInstances& listInstances);
 
    public:
-    /**
-     * Builder of VintfObject. If a dependency is not specified, the default behavior is used.
-     * - FileSystem fetch from "/" for target and fetch no files for host
-     * - ObjectFactory<RuntimeInfo> fetches default RuntimeInfo for target and nothing for host
-     * - PropertyFetcher fetches properties for target and nothing for host
-     */
-    class Builder {
+    /** Builder of VintfObject. See VintfObjectBuilder for details. */
+    class Builder : public details::VintfObjectBuilder {
        public:
         Builder();
-        Builder& setFileSystem(std::unique_ptr<FileSystem>&&);
-        Builder& setRuntimeInfoFactory(std::unique_ptr<ObjectFactory<RuntimeInfo>>&&);
-        Builder& setPropertyFetcher(std::unique_ptr<PropertyFetcher>&&);
-        std::unique_ptr<VintfObject> build();
-
-       private:
-        std::unique_ptr<VintfObject> mObject;
     };
 
-   private:
-    /* Empty VintfObject without any dependencies. Used by Builder. */
+   protected:
+    /* Empty VintfObject without any dependencies. Used by Builder and subclasses. */
     VintfObject() = default;
 };
 

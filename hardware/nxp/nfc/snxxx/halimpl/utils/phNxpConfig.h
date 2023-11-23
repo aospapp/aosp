@@ -20,7 +20,7 @@
  *
  *  The original Work has been changed by NXP.
  *
- *  Copyright 2013-2021 NXP
+ *  Copyright (C) 2013-2021 NXP
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ int isNxpConfigModified();
 int updateNxpConfigTimestamp();
 int updateNxpRfConfigTimestamp();
 void setNxpRfConfigPath(const char* name);
-void setNxpFwConfigPath(const char* name);
+void setNxpFwConfigPath();
 
 #ifdef __cplusplus
 };
@@ -174,8 +174,6 @@ extern char Fw_Lib_Path[256];
 #define NAME_NXP_GUARD_TIMER_VALUE "NXP_GUARD_TIMER_VALUE"
 #define NAME_NXP_PROP_RESET_EMVCO_CMD "NXP_PROP_RESET_EMVCO_CMD"
 #define NAME_NFA_CONFIG_FORMAT "NFA_CONFIG_FORMAT"
-#define NAME_NXP_CORE_PWR_OFF_AUTONOMOUS_ENABLE \
-  "NXP_CORE_PWR_OFF_AUTONOMOUS_ENABLE"
 #define NAME_NXP_DISCONNECT_TAG_IN_SCRN_OFF "NXP_DISCONNECT_TAG_IN_SCRN_OFF"
 #define NAME_NXP_ENABLE_DISABLE_LOGS "NXP_ENABLE_DISABLE_LOGS"
 #define NAME_NXP_RDR_DISABLE_ENABLE_LPCD "NXP_RDR_DISABLE_ENABLE_LPCD"
@@ -185,6 +183,16 @@ extern char Fw_Lib_Path[256];
 #define NAME_NXP_T4T_NDEF_NFCEE_AID "NXP_T4T_NDEF_NFCEE_AID"
 #define NAME_NXP_NON_STD_CARD_TIMEDIFF "NXP_NON_STD_CARD_TIMEDIFF"
 #define NAME_NXP_SRD_TIMEOUT "NXP_SRD_TIMEOUT"
+#define NAME_NXP_UICC_ETSI_SUPPORT "NXP_UICC_ETSI_SUPPORT"
+#define NAME_NXP_MINIMAL_FW_VERSION "NXP_MINIMAL_FW_VERSION"
+#define NAME_NXP_NFCC_RECOVERY_SUPPORT "NXP_NFCC_RECOVERY_SUPPORT"
+#define NAME_NXP_P2P_DISC_NTF_TIMEOUT "NXP_P2P_DISC_NTF_TIMEOUT"
+#define NAME_NXP_RESTART_RF_FOR_NFCEE_RECOVERY \
+  "NXP_RESTART_RF_FOR_NFCEE_RECOVERY"
+#define NAME_NXP_PROP_CE_ACTION_NTF "NXP_PROP_CE_ACTION_NTF"
+#define NAME_NXP_AGC_DEBUG_ENABLE "NXP_AGC_DEBUG_ENABLE"
+#define NAME_NXP_EXTENDED_FIELD_DETECT_MODE "NXP_EXTENDED_FIELD_DETECT_MODE"
+#define NAME_NXP_MIFARE_NACK_TO_RATS_ENABLE "NXP_MIFARE_NACK_TO_RATS_ENABLE"
 #endif
 /* default configuration */
 #define default_storage_location "/data/vendor/nfc"

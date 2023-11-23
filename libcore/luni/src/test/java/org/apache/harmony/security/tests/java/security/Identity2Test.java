@@ -31,7 +31,7 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import org.apache.harmony.security.tests.java.security.IdentityScope2Test.IdentityScopeSubclass;
 
-@SuppressWarnings("deprecation")
+@SuppressWarnings("removal")
 public class Identity2Test extends junit.framework.TestCase {
 
     private static PublicKey PUB_KEY;

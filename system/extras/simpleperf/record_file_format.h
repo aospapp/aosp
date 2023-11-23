@@ -67,7 +67,7 @@ meta_info feature section:
     simpleperf_version,
 
 debug_unwind feature section:
-  message DebugUnwindSection from record_file.proto
+  message DebugUnwindFeature from record_file.proto
 
 debug_unwind_file feature section:
   data for file 1
@@ -75,6 +75,13 @@ debug_unwind_file feature section:
   ...
 
   The file list is stored in debug_unwind feature section.
+
+file2 feature section (used to replace file feature section):
+  uint32_t file_msg1_size;
+  FileFeature file_msg1;  // FileFeature from record_file.proto
+  uint32_t file_msg2_size;
+  FileFeature file_msg2;
+  ...
 */
 
 namespace simpleperf {
@@ -108,6 +115,7 @@ enum {
   FEAT_META_INFO,
   FEAT_DEBUG_UNWIND,
   FEAT_DEBUG_UNWIND_FILE,
+  FEAT_FILE2,
   FEAT_MAX_NUM = 256,
 };
 

@@ -25,6 +25,9 @@ import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketAddress;
 import java.net.SocketException;
+import java.net.SocketOption;
+import java.net.SocketOptions;
+import java.net.StandardSocketOptions;
 import libcore.junit.junit3.TestCaseWithRules;
 import libcore.junit.util.ResourceLeakageDetector;
 import org.junit.Rule;
@@ -54,9 +57,34 @@ public class DatagramSocketImplTest extends TestCaseWithRules {
         // disconnect
         impl.test_disconnect();
     }
+
+    /**
+     * API test for {@link DatagramSocketImpl#setOption(SocketOption, Object)}.
+     */
+    public void testSetOption() throws IOException {
+        // The value isn't sent to the kernel, because the mock intercepts the value in this test.
+        MockDatagramSocketImpl impl = new MockDatagramSocketImpl();
+        setAndAssertOption(impl, StandardSocketOptions.SO_SNDBUF,
+                SocketOptions.SO_SNDBUF, 1);
+        setAndAssertOption(impl, StandardSocketOptions.SO_RCVBUF,
+                SocketOptions.SO_RCVBUF, 2);
+        setAndAssertOption(impl, StandardSocketOptions.SO_REUSEADDR,
+                SocketOptions.SO_REUSEADDR, true);
+        setAndAssertOption(impl, StandardSocketOptions.IP_TOS,
+                SocketOptions.IP_TOS, 3);
+    }
+
+    private static void setAndAssertOption(MockDatagramSocketImpl sockImpl, SocketOption option,
+            int optionInt,  Object value) throws IOException {
+        sockImpl.setSuperOption(option, value);
+        assertEquals(sockImpl.optionInt, optionInt);
+        assertEquals(sockImpl.optionValue, value);
+    }
 }
 
 class MockDatagramSocketImpl extends DatagramSocketImpl {
+    int optionInt;
+    Object optionValue;
 
     @Override
     public FileDescriptor getFileDescriptor() {
@@ -135,8 +163,14 @@ class MockDatagramSocketImpl extends DatagramSocketImpl {
 
     }
 
+    @Override
     public void setOption(int optID, Object val) throws SocketException {
-        // empty
+        this.optionInt = optID;
+        this.optionValue = val;
+    }
+
+    public void setSuperOption(SocketOption option, Object value) throws IOException {
+        super.setOption(option, value);
     }
 
     @Override

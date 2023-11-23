@@ -23,7 +23,6 @@ import com.android.server.wm.traces.common.tags.TagState
 import com.android.server.wm.traces.common.tags.TagTrace
 import com.android.server.wm.traces.common.tags.Transition
 import com.android.server.wm.traces.parser.LOG_TAG
-import java.nio.file.Path
 import kotlin.system.measureTimeMillis
 
 /**
@@ -36,13 +35,11 @@ class TagTraceParserUtil {
          * of trace entries, storing the flattened layers into its hierarchical structure.
          *
          * @param data binary proto data
-         * @param source Path to source of data for additional debug information
          */
         @JvmOverloads
         @JvmStatic
         fun parseFromTrace(
-            data: ByteArray,
-            source: Path? = null
+            data: ByteArray
         ): TagTrace {
             var fileProto: FlickerTagTraceProto? = null
             try {
@@ -64,13 +61,11 @@ class TagTraceParserUtil {
          * of trace entries, storing the flattened layers into its hierarchical structure.
          *
          * @param proto Parsed proto data
-         * @param source Path to source of data for additional debug informationy
          */
         @JvmOverloads
         @JvmStatic
         fun parseFromTrace(
-            proto: FlickerTagTraceProto,
-            source: Path? = null
+            proto: FlickerTagTraceProto
         ): TagTrace {
             val states = mutableListOf<TagState>()
             var traceParseTime = 0L
@@ -96,8 +91,7 @@ class TagTraceParserUtil {
                 traceParseTime += tagParseTime
             }
             return TagTrace(
-                    entries = states.toTypedArray(),
-                    source = source?.toString() ?: ""
+                    entries = states.toTypedArray()
             )
         }
     }

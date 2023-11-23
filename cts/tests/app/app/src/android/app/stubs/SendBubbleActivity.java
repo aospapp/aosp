@@ -16,8 +16,6 @@
 
 package android.app.stubs;
 
-import static android.app.stubs.BubbledActivity.EXTRA_LOCUS_ID;
-
 import android.app.Activity;
 import android.app.Notification;
 import android.app.Notification.BubbleMetadata;
@@ -32,13 +30,12 @@ import android.os.Bundle;
 import android.os.SystemClock;
 
 /**
- * Used by NotificationManagerTest for testing policy around bubbles, this activity is able to
+ * Used by NotificationManagerBubbleTest for testing policy around bubbles, this activity is able to
  * send a bubble.
  */
 public class SendBubbleActivity extends Activity {
-    final String TAG = SendBubbleActivity.class.getSimpleName();
 
-    // Should be same as what NotificationManagerTest is using
+    // Should be same as what NotificationManagerBubbleTest is using
     private static final String NOTIFICATION_CHANNEL_ID = "NotificationManagerTest";
     private static final String SHARE_SHORTCUT_ID = "shareShortcut";
 
@@ -55,23 +52,6 @@ public class SendBubbleActivity extends Activity {
 
         Intent i = new Intent(BUBBLE_ACTIVITY_OPENED);
         sendBroadcast(i);
-    }
-
-    public void startBubbleActivity(int id) {
-        startBubbleActivity(id, true /* addLocusId */);
-    }
-
-    /**
-     * Starts the same activity that is in the bubble produced by this activity.
-     */
-    public void startBubbleActivity(int id, boolean addLocusId) {
-        final Intent intent = new Intent(getApplicationContext(), BubbledActivity.class);
-        // Clear any previous instance of this activity
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
-        if (addLocusId) {
-            intent.putExtra(EXTRA_LOCUS_ID, String.valueOf(id));
-        }
-        startActivity(intent);
     }
 
     /**

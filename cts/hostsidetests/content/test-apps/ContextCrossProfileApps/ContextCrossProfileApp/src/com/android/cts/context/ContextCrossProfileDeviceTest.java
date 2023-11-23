@@ -220,7 +220,23 @@ public class ContextCrossProfileDeviceTest {
     }
 
     @Test
-    public void testBindServiceAsUser_differentProfileGroup_withInteractAcrossUsersPermission_throwsException() {
+    public void testBindServiceAsUser_differentProfileGroup_samePackage_withAcrossUsersPermission_bindsService() {
+        final Context context = InstrumentationRegistry.getContext();
+        final UiAutomation uiAutomation =
+                InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        int otherUserId = getTestUser();
+        UserHandle otherUserHandle = UserHandle.of(otherUserId);
+        uiAutomation.adoptShellPermissionIdentity(INTERACT_ACROSS_USERS_PERMISSION);
+        Intent bindIntent = new Intent();
+        bindIntent.setComponent(TEST_SERVICE_IN_SAME_PKG_COMPONENT_NAME);
+
+        assertThat(context.bindServiceAsUser(
+                bindIntent, new ContextCrossProfileTestConnection(), Context.BIND_AUTO_CREATE,
+                otherUserHandle)).isTrue();
+    }
+
+    @Test
+    public void testBindServiceAsUser_differentProfileGroup_differentPackage_withAcrossUsersPermission_throwsException() {
         final Context context = InstrumentationRegistry.getContext();
         final UiAutomation uiAutomation =
                 InstrumentationRegistry.getInstrumentation().getUiAutomation();
@@ -229,7 +245,7 @@ public class ContextCrossProfileDeviceTest {
         uiAutomation.adoptShellPermissionIdentity(INTERACT_ACROSS_USERS_PERMISSION);
         try {
             Intent bindIntent = new Intent();
-            bindIntent.setComponent(TEST_SERVICE_IN_SAME_PKG_COMPONENT_NAME);
+            bindIntent.setComponent(TEST_SERVICE_IN_DIFFERENT_PKG_COMPONENT_NAME);
 
             context.bindServiceAsUser(
                     bindIntent, new ContextCrossProfileTestConnection(), Context.BIND_AUTO_CREATE,

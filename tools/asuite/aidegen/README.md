@@ -5,7 +5,7 @@ Java or C/C++project in popular IDE environment. Developers no longer need to ma
 configure an IntelliJ project, such as all the project dependencies. It's a
 **command line tool** that offers the following features:
 
-*   Configure Android Studio of IntelliJ project files with the relevant module
+*   Configure Android Studio or IntelliJ project files with the relevant module
     dependencies resolved.
 
 *   Launch IDE for a specified sub-project or build target, i.e. frameworks/base
@@ -13,7 +13,7 @@ configure an IntelliJ project, such as all the project dependencies. It's a
 
 *   Launch IDE for specified folder(s) which contains build targets, i.e. cts.
 
-*   Auto configure JDK and Android coding style for Intellij.
+*   Auto configure JDK and Android coding style for IntelliJ.
 
 ## 1. Prerequisites:
 
@@ -23,7 +23,7 @@ configure an IntelliJ project, such as all the project dependencies. It's a
 *   Setup Android development environment.
 
 ```
-$ source build/envsetup.sh && lunch <TARGE>
+$ source build/envsetup.sh && lunch <TARGET>
 ```
 
 ## 2. Basic Usage:
@@ -52,6 +52,17 @@ skip build time:
 ```
 $ aidegen Settings framework -s
 ```
+
+### Example 4: Launch IDE with native module
+
+Example to generate and launch CLion project:
+
+```
+$ aidegen <module> -i c
+```
+The native projects will be launched in CLion and you have to select,
+**Tools > CMake > Change Project Root**
+Change project root to the source directory: the relative path which is the directory shown in CLion’s project view. For example, if frameworks/base/media is your project, please change project root directly to frameworks/base/media.
 
 ## 3. Optional arguments:
 
@@ -90,7 +101,7 @@ A2: Re-run AIDEGen after repo sync.
 
 ## 6. Hint:
 
-1. In Intellij, uses [File] > [Invalidate Caches / Restart...] to force
+1. In IntelliJ, uses [File] > [Invalidate Caches / Restart...] to force
        project panel updated when your IDE didn't sync.
 
 2. If you run aidegen on a remote desktop, make sure there is no IntelliJ

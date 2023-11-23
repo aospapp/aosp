@@ -83,10 +83,14 @@ function symlink_directory() {
 function create_mock_soong {
   copy_directory build/blueprint
   copy_directory build/soong
+  copy_directory build/make/tools/rbcrun
 
   symlink_directory prebuilts/go
   symlink_directory prebuilts/build-tools
+  symlink_directory prebuilts/clang/host
+  symlink_directory external/go-cmp
   symlink_directory external/golang-protobuf
+  symlink_directory external/starlark-go
 
   touch "$MOCK_TOP/Android.bp"
 }
@@ -104,7 +108,7 @@ function setup() {
 }
 
 function run_soong() {
-  build/soong/soong_ui.bash --make-mode --skip-ninja --skip-make --skip-soong-tests "$@"
+  build/soong/soong_ui.bash --make-mode --skip-ninja --skip-config --soong-only --skip-soong-tests "$@"
 }
 
 function create_mock_bazel() {
@@ -112,8 +116,10 @@ function create_mock_bazel() {
 
   symlink_directory prebuilts/bazel
   symlink_directory prebuilts/jdk
+  symlink_directory external/bazel-skylib
 
   symlink_file WORKSPACE
+  symlink_file BUILD
   symlink_file tools/bazel
 }
 
@@ -121,8 +127,8 @@ run_bazel() {
   tools/bazel "$@"
 }
 
-run_bp2build() {
-  GENERATE_BAZEL_FILES=true build/soong/soong_ui.bash --make-mode --skip-ninja --skip-make --skip-soong-tests nothing
+run_ninja() {
+  build/soong/soong_ui.bash --make-mode --skip-config --soong-only --skip-soong-tests "$@"
 }
 
 info "Starting Soong integration test suite $(basename $0)"

@@ -34,11 +34,11 @@ func (mod *Module) OdmAvailable() bool {
 }
 
 func (mod *Module) ProductAvailable() bool {
-	return false
+	return Bool(mod.VendorProperties.Product_available)
 }
 
 func (mod *Module) RamdiskAvailable() bool {
-	return false
+	return Bool(mod.Properties.Ramdisk_available)
 }
 
 func (mod *Module) VendorRamdiskAvailable() bool {
@@ -50,7 +50,7 @@ func (mod *Module) AndroidModuleBase() *android.ModuleBase {
 }
 
 func (mod *Module) RecoveryAvailable() bool {
-	return false
+	return Bool(mod.Properties.Recovery_available)
 }
 
 func (mod *Module) ExtraVariants() []string {
@@ -62,9 +62,7 @@ func (mod *Module) AppendExtraVariant(extraVariant string) {
 }
 
 func (mod *Module) SetRamdiskVariantNeeded(b bool) {
-	if b {
-		panic("Setting ramdisk variant needed for Rust module is unsupported: " + mod.BaseModuleName())
-	}
+	mod.Properties.RamdiskVariantNeeded = b
 }
 
 func (mod *Module) SetVendorRamdiskVariantNeeded(b bool) {
@@ -72,9 +70,7 @@ func (mod *Module) SetVendorRamdiskVariantNeeded(b bool) {
 }
 
 func (mod *Module) SetRecoveryVariantNeeded(b bool) {
-	if b {
-		panic("Setting recovery variant needed for Rust module is unsupported: " + mod.BaseModuleName())
-	}
+	mod.Properties.RecoveryVariantNeeded = b
 }
 
 func (mod *Module) SetCoreVariantNeeded(b bool) {
@@ -82,7 +78,12 @@ func (mod *Module) SetCoreVariantNeeded(b bool) {
 }
 
 func (mod *Module) SnapshotVersion(mctx android.BaseModuleContext) string {
-	panic("Rust modules do not support snapshotting: " + mod.BaseModuleName())
+	if snapshot, ok := mod.compiler.(cc.SnapshotInterface); ok {
+		return snapshot.Version()
+	} else {
+		mctx.ModuleErrorf("version is unknown for snapshot prebuilt")
+		return ""
+	}
 }
 
 func (mod *Module) VendorRamdiskVariantNeeded(ctx android.BaseModuleContext) bool {
@@ -94,7 +95,7 @@ func (mod *Module) CoreVariantNeeded(ctx android.BaseModuleContext) bool {
 }
 
 func (mod *Module) RamdiskVariantNeeded(android.BaseModuleContext) bool {
-	return mod.InRamdisk()
+	return mod.Properties.RamdiskVariantNeeded
 }
 
 func (mod *Module) DebugRamdiskVariantNeeded(ctx android.BaseModuleContext) bool {
@@ -102,7 +103,7 @@ func (mod *Module) DebugRamdiskVariantNeeded(ctx android.BaseModuleContext) bool
 }
 
 func (mod *Module) RecoveryVariantNeeded(android.BaseModuleContext) bool {
-	return mod.InRecovery()
+	return mod.Properties.RecoveryVariantNeeded
 }
 
 func (mod *Module) ExtraImageVariations(android.BaseModuleContext) []string {
@@ -110,7 +111,9 @@ func (mod *Module) ExtraImageVariations(android.BaseModuleContext) []string {
 }
 
 func (mod *Module) IsSnapshotPrebuilt() bool {
-	// Rust does not support prebuilts in its snapshots
+	if p, ok := mod.compiler.(cc.SnapshotInterface); ok {
+		return p.IsSnapshotPrebuilt()
+	}
 	return false
 }
 
@@ -133,12 +136,21 @@ func (c *Module) VendorVariantToOdm() bool {
 }
 
 func (ctx *moduleContext) ProductSpecific() bool {
-	return false
+	return ctx.ModuleContext.ProductSpecific() || ctx.RustModule().productSpecificModuleContext()
+}
+
+func (c *Module) productSpecificModuleContext() bool {
+	// Additionally check if this module is inProduct() that means it is a "product" variant of a
+	// module. As well as product specific modules, product variants must be installed to /product.
+	return c.InProduct()
 }
 
 func (mod *Module) InRecovery() bool {
-	// TODO(b/165791368)
-	return false
+	return mod.ModuleBase.InRecovery() || mod.ModuleBase.InstallInRecovery()
+}
+
+func (mod *Module) InRamdisk() bool {
+	return mod.ModuleBase.InRamdisk() || mod.ModuleBase.InstallInRamdisk()
 }
 
 func (mod *Module) InVendorRamdisk() bool {
@@ -159,6 +171,11 @@ func (mod *Module) OnlyInVendorRamdisk() bool {
 	return false
 }
 
+func (mod *Module) OnlyInProduct() bool {
+	//TODO(b/165791368)
+	return false
+}
+
 // Returns true when this module is configured to have core and vendor variants.
 func (mod *Module) HasVendorVariant() bool {
 	return Bool(mod.VendorProperties.Vendor_available) || Bool(mod.VendorProperties.Odm_available)
@@ -174,7 +191,7 @@ func (mod *Module) HasNonSystemVariants() bool {
 }
 
 func (mod *Module) InProduct() bool {
-	return false
+	return mod.Properties.ImageVariationPrefix == cc.ProductVariationPrefix
 }
 
 // Returns true if the module is "vendor" variant. Usually these modules are installed in /vendor
@@ -185,6 +202,8 @@ func (mod *Module) InVendor() bool {
 func (mod *Module) SetImageVariation(ctx android.BaseModuleContext, variant string, module android.Module) {
 	m := module.(*Module)
 	if variant == android.VendorRamdiskVariation {
+		m.MakeAsPlatform()
+	} else if variant == android.RecoveryVariation {
 		m.MakeAsPlatform()
 	} else if strings.HasPrefix(variant, cc.VendorVariationPrefix) {
 		m.Properties.ImageVariationPrefix = cc.VendorVariationPrefix
@@ -197,15 +216,17 @@ func (mod *Module) SetImageVariation(ctx android.BaseModuleContext, variant stri
 			m.Properties.HideFromMake = true
 			m.HideFromMake()
 		}
+	} else if strings.HasPrefix(variant, cc.ProductVariationPrefix) {
+		m.Properties.ImageVariationPrefix = cc.ProductVariationPrefix
+		m.Properties.VndkVersion = strings.TrimPrefix(variant, cc.ProductVariationPrefix)
 	}
 }
 
 func (mod *Module) ImageMutatorBegin(mctx android.BaseModuleContext) {
 	// Rust does not support installing to the product image yet.
-	if Bool(mod.VendorProperties.Product_available) {
-		mctx.PropertyErrorf("product_available",
-			"Rust modules do not yet support being available to the product image")
-	} else if mctx.ProductSpecific() {
+	vendorSpecific := mctx.SocSpecific() || mctx.DeviceSpecific()
+
+	if mctx.ProductSpecific() {
 		mctx.PropertyErrorf("product_specific",
 			"Rust modules do not yet support installing to the product image.")
 	} else if Bool(mod.VendorProperties.Double_loadable) {
@@ -217,11 +238,10 @@ func (mod *Module) ImageMutatorBegin(mctx android.BaseModuleContext) {
 			mctx.PropertyErrorf("vendor_ramdisk_available", "cannot be set for rust_ffi or rust_ffi_shared modules.")
 		}
 	}
-	vendorSpecific := mctx.SocSpecific() || mctx.DeviceSpecific()
 	if vendorSpecific {
-		mctx.PropertyErrorf("vendor or soc_specific",
-			"Rust modules do not yet support soc-specific modules")
-
+		if lib, ok := mod.compiler.(libraryInterface); ok && lib.buildDylib() {
+			mctx.PropertyErrorf("vendor", "Vendor-only dylibs are not yet supported, use rust_library_rlib.")
+		}
 	}
 
 	cc.MutateImage(mctx, mod)

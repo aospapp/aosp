@@ -106,7 +106,7 @@ enum class StreamRotation : uint32_t {
 };
 
 // See the definition of
-// ::android::hardware::camera::device::V3_7::Stream;
+// ::android::hardware::camera::device::V3_8::Stream;
 struct Stream {
   int32_t id = -1;
   StreamType stream_type = StreamType::kOutput;
@@ -122,6 +122,11 @@ struct Stream {
   int32_t group_id = -1;
   bool used_in_max_resolution_mode = false;
   bool used_in_default_resolution_mode = true;
+  camera_metadata_enum_android_request_available_dynamic_range_profiles_map
+      dynamic_profile =
+          ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_STANDARD;
+  camera_metadata_enum_android_scaler_available_stream_use_cases use_case =
+      ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_DEFAULT;
 };
 
 // See the definition of
@@ -132,7 +137,7 @@ enum class StreamConfigurationMode : uint32_t {
 };
 
 // See the definition of
-// ::android::hardware::camera::device::V3_7::StreamConfiguration;
+// ::android::hardware::camera::device::V3_8::StreamConfiguration;
 struct StreamConfiguration {
   std::vector<Stream> streams;
   StreamConfigurationMode operation_mode;
@@ -253,14 +258,15 @@ struct ErrorMessage {
 };
 
 // See the definition of
-// ::android::hardware::camera::device::V3_2::ShutterMsg
+// ::android::hardware::camera::device::V3_8::ShutterMsg
 struct ShutterMessage {
   uint32_t frame_number = 0;
   uint64_t timestamp_ns = 0;
+  uint64_t readout_timestamp_ns = 0;
 };
 
 // See the definition of
-// ::android::hardware::camera::device::V3_2::NotifyMsg
+// ::android::hardware::camera::device::V3_8::NotifyMsg
 struct NotifyMessage {
   MessageType type = MessageType::kError;
 

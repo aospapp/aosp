@@ -1,18 +1,14 @@
 #include <android/aidl/tests/unions/UnionInUnion.h>
 
 namespace android {
-
 namespace aidl {
-
 namespace tests {
-
 namespace unions {
-
 ::android::status_t UnionInUnion::readFromParcel(const ::android::Parcel* _aidl_parcel) {
   ::android::status_t _aidl_ret_status;
   int32_t _aidl_tag;
   if ((_aidl_ret_status = _aidl_parcel->readInt32(&_aidl_tag)) != ::android::OK) return _aidl_ret_status;
-  switch (_aidl_tag) {
+  switch (static_cast<Tag>(_aidl_tag)) {
   case first: {
     ::android::aidl::tests::unions::EnumUnion _aidl_value;
     if ((_aidl_ret_status = _aidl_parcel->readParcelable(&_aidl_value)) != ::android::OK) return _aidl_ret_status;
@@ -36,9 +32,8 @@ namespace unions {
   }
   return ::android::BAD_VALUE;
 }
-
 ::android::status_t UnionInUnion::writeToParcel(::android::Parcel* _aidl_parcel) const {
-  ::android::status_t _aidl_ret_status = _aidl_parcel->writeInt32(getTag());
+  ::android::status_t _aidl_ret_status = _aidl_parcel->writeInt32(static_cast<int32_t>(getTag()));
   if (_aidl_ret_status != ::android::OK) return _aidl_ret_status;
   switch (getTag()) {
   case first: return _aidl_parcel->writeParcelable(get<first>());
@@ -46,11 +41,7 @@ namespace unions {
   }
   __assert2(__FILE__, __LINE__, __PRETTY_FUNCTION__, "can't reach here");
 }
-
 }  // namespace unions
-
 }  // namespace tests
-
 }  // namespace aidl
-
 }  // namespace android

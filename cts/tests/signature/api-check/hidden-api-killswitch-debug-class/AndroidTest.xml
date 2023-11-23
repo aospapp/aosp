@@ -26,9 +26,10 @@
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.signature.cts.api.killswitch_debug_class" />
-        <option name="runner" value="repackaged.android.test.InstrumentationTestRunner" />
+        <option name="runner" value="androidx.test.runner.AndroidJUnitRunner" />
         <option name="class" value="android.signature.cts.api.DebugClassKillswitchTest" />
         <option name="runtime-hint" value="60s" />
+        <option name="shell-timeout" value="20m" />
     </test>
 
     <!-- Controller that will skip the module if a native bridge situation is detected -->

@@ -16,7 +16,6 @@
 
 package com.android.tools.metalava.model.text
 
-import com.android.tools.metalava.compatibility
 import com.android.tools.metalava.model.ClassItem
 import com.android.tools.metalava.model.Item
 import com.android.tools.metalava.model.MethodItem
@@ -37,7 +36,9 @@ open class TextMethodItem(
 ) : TextMemberItem(
     codebase, name, containingClass, position,
     modifiers = modifiers
-), MethodItem, TypeParameterListOwner {
+),
+    MethodItem,
+    TypeParameterListOwner {
     init {
         @Suppress("LeakingThis")
         modifiers.setOwner(this)
@@ -108,6 +109,8 @@ open class TextMethodItem(
         return list
     }
 
+    override fun findMainDocumentation(): String = documentation
+
     override fun findPredicateSuperMethod(predicate: Predicate<Item>): MethodItem? = null
 
     private var typeParameterList: TypeParameterList = TypeParameterList.NONE
@@ -149,7 +152,7 @@ open class TextMethodItem(
         if (targetContainingClass.docOnly) {
             duplicated.docOnly = true
         }
-        if (targetContainingClass.deprecated && compatibility.propagateDeprecatedMembers) {
+        if (targetContainingClass.deprecated) {
             duplicated.deprecated = true
         }
 

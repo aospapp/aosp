@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"android/soong/android"
+	"android/soong/bazel"
 
 	"github.com/google/blueprint/proptools"
 )
@@ -37,6 +38,7 @@ func registerApexKeyBuildComponents(ctx android.RegistrationContext) {
 
 type apexKey struct {
 	android.ModuleBase
+	android.BazelModuleBase
 
 	properties apexKeyProperties
 
@@ -61,6 +63,7 @@ func ApexKeyFactory() android.Module {
 	module := &apexKey{}
 	module.AddProperties(&module.properties)
 	android.InitAndroidArchModule(module, android.HostAndDeviceDefault, android.MultilibCommon)
+	android.InitBazelModule(module)
 	return module
 }
 
@@ -118,13 +121,18 @@ func (s *apexKeysText) GenerateBuildActions(ctx android.SingletonContext) {
 		containerCertificate string
 		containerPrivateKey  string
 		partition            string
+		signTool             string
 	}
 	toString := func(e apexKeyEntry) string {
-		format := "name=%q public_key=%q private_key=%q container_certificate=%q container_private_key=%q partition=%q\n"
+		signTool := ""
+		if e.signTool != "" {
+			signTool = fmt.Sprintf(" sign_tool=%q", e.signTool)
+		}
+		format := "name=%q public_key=%q private_key=%q container_certificate=%q container_private_key=%q partition=%q%s\n"
 		if e.presigned {
-			return fmt.Sprintf(format, e.name, "PRESIGNED", "PRESIGNED", "PRESIGNED", "PRESIGNED", e.partition)
+			return fmt.Sprintf(format, e.name, "PRESIGNED", "PRESIGNED", "PRESIGNED", "PRESIGNED", e.partition, signTool)
 		} else {
-			return fmt.Sprintf(format, e.name, e.publicKey, e.privateKey, e.containerCertificate, e.containerPrivateKey, e.partition)
+			return fmt.Sprintf(format, e.name, e.publicKey, e.privateKey, e.containerCertificate, e.containerPrivateKey, e.partition, signTool)
 		}
 	}
 
@@ -140,6 +148,7 @@ func (s *apexKeysText) GenerateBuildActions(ctx android.SingletonContext) {
 				containerCertificate: pem.String(),
 				containerPrivateKey:  key.String(),
 				partition:            m.PartitionTag(ctx.DeviceConfig()),
+				signTool:             proptools.String(m.properties.Custom_sign_tool),
 			}
 		}
 	})
@@ -189,4 +198,40 @@ func apexKeysTextFactory() android.Singleton {
 
 func (s *apexKeysText) MakeVars(ctx android.MakeVarsContext) {
 	ctx.Strict("SOONG_APEX_KEYS_FILE", s.output.String())
+}
+
+// For Bazel / bp2build
+
+type bazelApexKeyAttributes struct {
+	Public_key  bazel.LabelAttribute
+	Private_key bazel.LabelAttribute
+}
+
+// ConvertWithBp2build performs conversion apexKey for bp2build
+func (m *apexKey) ConvertWithBp2build(ctx android.TopDownMutatorContext) {
+	apexKeyBp2BuildInternal(ctx, m)
+}
+
+func apexKeyBp2BuildInternal(ctx android.TopDownMutatorContext, module *apexKey) {
+	var privateKeyLabelAttribute bazel.LabelAttribute
+	if module.properties.Private_key != nil {
+		privateKeyLabelAttribute.SetValue(android.BazelLabelForModuleSrcSingle(ctx, *module.properties.Private_key))
+	}
+
+	var publicKeyLabelAttribute bazel.LabelAttribute
+	if module.properties.Public_key != nil {
+		publicKeyLabelAttribute.SetValue(android.BazelLabelForModuleSrcSingle(ctx, *module.properties.Public_key))
+	}
+
+	attrs := &bazelApexKeyAttributes{
+		Private_key: privateKeyLabelAttribute,
+		Public_key:  publicKeyLabelAttribute,
+	}
+
+	props := bazel.BazelTargetModuleProperties{
+		Rule_class:        "apex_key",
+		Bzl_load_location: "//build/bazel/rules:apex_key.bzl",
+	}
+
+	ctx.CreateBazelTargetModule(props, android.CommonAttributes{Name: module.Name()}, attrs)
 }

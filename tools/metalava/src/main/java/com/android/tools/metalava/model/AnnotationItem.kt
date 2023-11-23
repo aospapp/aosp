@@ -29,13 +29,11 @@ import com.android.tools.metalava.ANDROIDX_NONNULL
 import com.android.tools.metalava.ANDROIDX_NULLABLE
 import com.android.tools.metalava.ANDROID_NONNULL
 import com.android.tools.metalava.ANDROID_NULLABLE
-import com.android.tools.metalava.ANDROID_SUPPORT_ANNOTATION_PREFIX
-import com.android.tools.metalava.Compatibility
+import com.android.tools.metalava.ApiPredicate
 import com.android.tools.metalava.JAVA_LANG_PREFIX
 import com.android.tools.metalava.Options
 import com.android.tools.metalava.RECENTLY_NONNULL
 import com.android.tools.metalava.RECENTLY_NULLABLE
-import com.android.tools.metalava.ApiPredicate
 import com.android.tools.metalava.model.psi.PsiBasedCodebase
 import com.android.tools.metalava.options
 import com.intellij.psi.PsiCallExpression
@@ -56,14 +54,18 @@ fun isNonNullAnnotation(qualifiedName: String): Boolean {
         qualifiedName.endsWith("Nonnull")
 }
 
+fun isJvmSyntheticAnnotation(qualifiedName: String): Boolean {
+    return qualifiedName == "kotlin.jvm.JvmSynthetic"
+}
+
 interface AnnotationItem {
     val codebase: Codebase
 
     /** Fully qualified name of the annotation */
-    fun qualifiedName(): String?
+    val qualifiedName: String?
 
     /** Fully qualified name of the annotation (prior to name mapping) */
-    fun originalName(): String?
+    val originalName: String?
 
     /** Generates source code for this annotation (using fully qualified names) */
     fun toSource(
@@ -72,10 +74,10 @@ interface AnnotationItem {
     ): String
 
     /** The applicable targets for this annotation */
-    fun targets(): Set<AnnotationTarget>
+    val targets: Set<AnnotationTarget>
 
     /** Attributes of the annotation (may be empty) */
-    fun attributes(): List<AnnotationAttribute>
+    val attributes: List<AnnotationAttribute>
 
     /** True if this annotation represents @Nullable or @NonNull (or some synonymous annotation) */
     fun isNullnessAnnotation(): Boolean {
@@ -84,26 +86,33 @@ interface AnnotationItem {
 
     /** True if this annotation represents @Nullable (or some synonymous annotation) */
     fun isNullable(): Boolean {
-        return isNullableAnnotation(qualifiedName() ?: return false)
+        return isNullableAnnotation(qualifiedName ?: return false)
     }
 
     /** True if this annotation represents @NonNull (or some synonymous annotation) */
     fun isNonNull(): Boolean {
-        return isNonNullAnnotation(qualifiedName() ?: return false)
+        return isNonNullAnnotation(qualifiedName ?: return false)
+    }
+
+    /** True if this annotation represents @JvmSynthetic */
+    fun isJvmSynthetic(): Boolean {
+        return isJvmSyntheticAnnotation(qualifiedName ?: return false)
     }
 
     /** True if this annotation represents @IntDef, @LongDef or @StringDef */
     fun isTypeDefAnnotation(): Boolean {
-        val name = qualifiedName() ?: return false
+        val name = qualifiedName ?: return false
         if (!(name.endsWith("Def"))) {
             return false
         }
-        return (INT_DEF_ANNOTATION.isEquals(name) ||
-            STRING_DEF_ANNOTATION.isEquals(name) ||
-            LONG_DEF_ANNOTATION.isEquals(name) ||
-            ANDROID_INT_DEF == name ||
-            ANDROID_STRING_DEF == name ||
-            ANDROID_LONG_DEF == name)
+        return (
+            INT_DEF_ANNOTATION.isEquals(name) ||
+                STRING_DEF_ANNOTATION.isEquals(name) ||
+                LONG_DEF_ANNOTATION.isEquals(name) ||
+                ANDROID_INT_DEF == name ||
+                ANDROID_STRING_DEF == name ||
+                ANDROID_LONG_DEF == name
+            )
     }
 
     /**
@@ -111,7 +120,7 @@ interface AnnotationItem {
      * The parameter name should be the default attribute or "value".
      */
     fun isParameterName(): Boolean {
-        return qualifiedName()?.endsWith(".ParameterName") ?: return false
+        return qualifiedName?.endsWith(".ParameterName") ?: return false
     }
 
     /**
@@ -119,30 +128,30 @@ interface AnnotationItem {
      * The default value should be the default attribute or "value".
      */
     fun isDefaultValue(): Boolean {
-        return qualifiedName()?.endsWith(".DefaultValue") ?: return false
+        return qualifiedName?.endsWith(".DefaultValue") ?: return false
     }
 
     /** Returns the given named attribute if specified */
     fun findAttribute(name: String?): AnnotationAttribute? {
         val actualName = name ?: ATTR_VALUE
-        return attributes().firstOrNull { it.name == actualName }
+        return attributes.firstOrNull { it.name == actualName }
     }
 
     /** Find the class declaration for the given annotation */
     fun resolve(): ClassItem? {
-        return codebase.findClass(qualifiedName() ?: return null)
+        return codebase.findClass(qualifiedName ?: return null)
     }
 
     /** If this annotation has a typedef annotation associated with it, return it */
     fun findTypedefAnnotation(): AnnotationItem? {
-        val className = originalName() ?: return null
+        val className = originalName ?: return null
         return codebase.findClass(className)?.modifiers?.annotations()?.firstOrNull { it.isTypeDefAnnotation() }
     }
 
     /** Returns the retention of this annotation */
     val retention: AnnotationRetention
         get() {
-            val name = qualifiedName()
+            val name = qualifiedName
             if (name != null) {
                 val cls = codebase.findClass(name) ?: (codebase as? PsiBasedCodebase)?.findOrCreateClass(name)
                 if (cls != null) {
@@ -158,8 +167,7 @@ interface AnnotationItem {
     companion object {
         /** The simple name of an annotation, which is the annotation name (not qualified name) prefixed by @ */
         fun simpleName(item: AnnotationItem): String {
-            val qualifiedName = item.qualifiedName() ?: return ""
-            return "@${qualifiedName.substring(qualifiedName.lastIndexOf('.') + 1)}"
+            return item.qualifiedName?.let { "@${it.substringAfterLast('.')}" }.orEmpty()
         }
 
         /**
@@ -181,83 +189,47 @@ interface AnnotationItem {
             }
             when (qualifiedName) {
                 // Resource annotations
-                "android.support.annotation.AnimRes",
                 "android.annotation.AnimRes" -> return "androidx.annotation.AnimRes"
-                "android.support.annotation.AnimatorRes",
                 "android.annotation.AnimatorRes" -> return "androidx.annotation.AnimatorRes"
-                "android.support.annotation.AnyRes",
                 "android.annotation.AnyRes" -> return "androidx.annotation.AnyRes"
-                "android.support.annotation.ArrayRes",
                 "android.annotation.ArrayRes" -> return "androidx.annotation.ArrayRes"
-                "android.support.annotation.AttrRes",
                 "android.annotation.AttrRes" -> return "androidx.annotation.AttrRes"
-                "android.support.annotation.BoolRes",
                 "android.annotation.BoolRes" -> return "androidx.annotation.BoolRes"
-                "android.support.annotation.ColorRes",
                 "android.annotation.ColorRes" -> return "androidx.annotation.ColorRes"
-                "android.support.annotation.DimenRes",
                 "android.annotation.DimenRes" -> return "androidx.annotation.DimenRes"
-                "android.support.annotation.DrawableRes",
                 "android.annotation.DrawableRes" -> return "androidx.annotation.DrawableRes"
-                "android.support.annotation.FontRes",
                 "android.annotation.FontRes" -> return "androidx.annotation.FontRes"
-                "android.support.annotation.FractionRes",
                 "android.annotation.FractionRes" -> return "androidx.annotation.FractionRes"
-                "android.support.annotation.IdRes",
                 "android.annotation.IdRes" -> return "androidx.annotation.IdRes"
-                "android.support.annotation.IntegerRes",
                 "android.annotation.IntegerRes" -> return "androidx.annotation.IntegerRes"
-                "android.support.annotation.InterpolatorRes",
                 "android.annotation.InterpolatorRes" -> return "androidx.annotation.InterpolatorRes"
-                "android.support.annotation.LayoutRes",
                 "android.annotation.LayoutRes" -> return "androidx.annotation.LayoutRes"
-                "android.support.annotation.MenuRes",
                 "android.annotation.MenuRes" -> return "androidx.annotation.MenuRes"
-                "android.support.annotation.PluralsRes",
                 "android.annotation.PluralsRes" -> return "androidx.annotation.PluralsRes"
-                "android.support.annotation.RawRes",
                 "android.annotation.RawRes" -> return "androidx.annotation.RawRes"
-                "android.support.annotation.StringRes",
                 "android.annotation.StringRes" -> return "androidx.annotation.StringRes"
-                "android.support.annotation.StyleRes",
                 "android.annotation.StyleRes" -> return "androidx.annotation.StyleRes"
-                "android.support.annotation.StyleableRes",
                 "android.annotation.StyleableRes" -> return "androidx.annotation.StyleableRes"
-                "android.support.annotation.TransitionRes",
                 "android.annotation.TransitionRes" -> return "androidx.annotation.TransitionRes"
-                "android.support.annotation.XmlRes",
                 "android.annotation.XmlRes" -> return "androidx.annotation.XmlRes"
 
                 // Threading
-                "android.support.annotation.AnyThread",
                 "android.annotation.AnyThread" -> return "androidx.annotation.AnyThread"
-                "android.support.annotation.BinderThread",
                 "android.annotation.BinderThread" -> return "androidx.annotation.BinderThread"
-                "android.support.annotation.MainThread",
                 "android.annotation.MainThread" -> return "androidx.annotation.MainThread"
-                "android.support.annotation.UiThread",
                 "android.annotation.UiThread" -> return "androidx.annotation.UiThread"
-                "android.support.annotation.WorkerThread",
                 "android.annotation.WorkerThread" -> return "androidx.annotation.WorkerThread"
 
                 // Colors
-                "android.support.annotation.ColorInt",
                 "android.annotation.ColorInt" -> return "androidx.annotation.ColorInt"
-                "android.support.annotation.ColorLong",
                 "android.annotation.ColorLong" -> return "androidx.annotation.ColorLong"
-                "android.support.annotation.HalfFloat",
                 "android.annotation.HalfFloat" -> return "androidx.annotation.HalfFloat"
 
                 // Ranges and sizes
-                "android.support.annotation.FloatRange",
                 "android.annotation.FloatRange" -> return "androidx.annotation.FloatRange"
-                "android.support.annotation.IntRange",
                 "android.annotation.IntRange" -> return "androidx.annotation.IntRange"
-                "android.support.annotation.Size",
                 "android.annotation.Size" -> return "androidx.annotation.Size"
-                "android.support.annotation.Px",
                 "android.annotation.Px" -> return "androidx.annotation.Px"
-                "android.support.annotation.Dimension",
                 "android.annotation.Dimension" -> return "androidx.annotation.Dimension"
 
                 // Null
@@ -267,22 +239,17 @@ interface AnnotationItem {
 
                 ANDROIDX_NULLABLE,
                 ANDROID_NULLABLE,
-                "android.support.annotation.Nullable",
                 "libcore.util.Nullable",
                 "org.jetbrains.annotations.Nullable" -> return nullableAnnotationName(target)
 
                 ANDROIDX_NONNULL,
                 ANDROID_NONNULL,
-                "android.support.annotation.NonNull",
                 "libcore.util.NonNull",
                 "org.jetbrains.annotations.NotNull" -> return nonNullAnnotationName(target)
 
                 // Typedefs
-                "android.support.annotation.IntDef",
                 "android.annotation.IntDef" -> return "androidx.annotation.IntDef"
-                "android.support.annotation.StringDef",
                 "android.annotation.StringDef" -> return "androidx.annotation.StringDef"
-                "android.support.annotation.LongDef",
                 "android.annotation.LongDef" -> return "androidx.annotation.LongDef"
 
                 // Context Types
@@ -291,11 +258,10 @@ interface AnnotationItem {
                 "android.annotation.NonUiContext" -> return "androidx.annotation.NonUiContext"
 
                 // Misc
-                "android.support.annotation.CallSuper",
+                "android.annotation.DeprecatedForSdk" -> return "java.lang.Deprecated"
                 "android.annotation.CallSuper" -> return "androidx.annotation.CallSuper"
-                "android.support.annotation.CheckResult",
                 "android.annotation.CheckResult" -> return "androidx.annotation.CheckResult"
-                "android.support.annotation.RequiresPermission",
+                "android.annotation.Discouraged" -> return "androidx.annotation.Discouraged"
                 "android.annotation.RequiresPermission" -> return "androidx.annotation.RequiresPermission"
                 "android.annotation.RequiresPermission.Read" -> return "androidx.annotation.RequiresPermission.Read"
                 "android.annotation.RequiresPermission.Write" -> return "androidx.annotation.RequiresPermission.Write"
@@ -353,7 +319,7 @@ interface AnnotationItem {
                         isNullableAnnotation(qualifiedName) -> nullableAnnotationName(target)
                         isNonNullAnnotation(qualifiedName) -> nonNullAnnotationName(target)
 
-                        // Support library annotations are all included, as is the built-in stuff like @Retention
+                        // AndroidX annotations are all included, as is the built-in stuff like @Retention
                         qualifiedName.startsWith(ANDROIDX_ANNOTATION_PREFIX) -> return qualifiedName
                         qualifiedName.startsWith(JAVA_LANG_PREFIX) -> return qualifiedName
 
@@ -365,15 +331,6 @@ interface AnnotationItem {
                             } else {
                                 null
                             }
-                        }
-
-                        qualifiedName.startsWith(ANDROID_SUPPORT_ANNOTATION_PREFIX) -> {
-                            return mapName(
-                                codebase,
-                                ANDROIDX_ANNOTATION_PREFIX + qualifiedName.substring(ANDROID_SUPPORT_ANNOTATION_PREFIX.length),
-                                filter,
-                                target
-                            )
                         }
 
                         else -> {
@@ -404,7 +361,8 @@ interface AnnotationItem {
 
         private val TYPEDEF_ANNOTATION_TARGETS =
             if (options.typedefMode == Options.TypedefMode.INLINE ||
-                options.typedefMode == Options.TypedefMode.NONE) // just here for compatibility purposes
+                options.typedefMode == Options.TypedefMode.NONE
+            ) // just here for compatibility purposes
                 ANNOTATION_EXTERNAL
             else
                 ANNOTATION_EXTERNAL_ONLY
@@ -414,7 +372,7 @@ interface AnnotationItem {
             annotation: AnnotationItem,
             classFinder: (String) -> ClassItem?
         ): Set<AnnotationTarget> {
-            val qualifiedName = annotation.qualifiedName() ?: return NO_ANNOTATION_TARGETS
+            val qualifiedName = annotation.qualifiedName ?: return NO_ANNOTATION_TARGETS
             if (options.passThroughAnnotations.contains(qualifiedName)) {
                 return ANNOTATION_IN_ALL_STUBS
             }
@@ -423,19 +381,21 @@ interface AnnotationItem {
                 // The typedef annotations are special: they should not be in the signature
                 // files, but we want to include them in the external annotations file such that tools
                 // can enforce them.
-                "android.support.annotation.IntDef",
                 "android.annotation.IntDef",
                 "androidx.annotation.IntDef",
-                "android.support.annotation.StringDef",
                 "android.annotation.StringDef",
                 "androidx.annotation.StringDef",
-                "android.support.annotation.LongDef",
                 "android.annotation.LongDef",
                 "androidx.annotation.LongDef" -> return TYPEDEF_ANNOTATION_TARGETS
 
                 // Not directly API relevant
                 "android.view.ViewDebug.ExportedProperty",
                 "android.view.ViewDebug.CapturedViewProperty" -> return ANNOTATION_STUBS_ONLY
+
+                // Retained in the sdk/jar stub source code so that SdkConstant files can be extracted
+                // from those. This is useful for modularizing the main SDK stubs without having to
+                // add a separate module SDK artifact for sdk constants.
+                "android.annotation.SdkConstant" -> return ANNOTATION_SDK_STUBS_ONLY
 
                 // Skip known annotations that we (a) never want in external annotations and (b) we are
                 // specially overwriting anyway in the stubs (and which are (c) not API significant)
@@ -451,6 +411,7 @@ interface AnnotationItem {
 
                 // TODO(aurimas): consider using annotation directly instead of modifiers
                 "kotlin.Deprecated" -> return NO_ANNOTATION_TARGETS // tracked separately as a pseudo-modifier
+                "android.annotation.DeprecatedForSdk",
                 "java.lang.Deprecated", // tracked separately as a pseudo-modifier
 
                 // Below this when-statement we perform the correct lookup: check API predicate, and check
@@ -552,8 +513,7 @@ interface AnnotationItem {
 
         /**
          * Given a "full" annotation name, shortens it by removing redundant package names.
-         * This is intended to be used by the [Compatibility.omitCommonPackages] flag
-         * to reduce clutter in signature files.
+         * This is intended to be used to reduce clutter in signature files.
          *
          * For example, this method will convert `@androidx.annotation.Nullable` to just
          * `@Nullable`, and `@androidx.annotation.IntRange(from=20)` to `IntRange(from=20)`.
@@ -563,9 +523,6 @@ interface AnnotationItem {
                 source == "@java.lang.Deprecated" -> "@Deprecated"
                 source.startsWith("android.annotation.", 1) -> {
                     "@" + source.substring("@android.annotation.".length)
-                }
-                source.startsWith(ANDROID_SUPPORT_ANNOTATION_PREFIX, 1) -> {
-                    "@" + source.substring("@android.support.annotation.".length)
                 }
                 source.startsWith(ANDROIDX_ANNOTATION_PREFIX, 1) -> {
                     "@" + source.substring("@androidx.annotation.".length)
@@ -581,7 +538,7 @@ interface AnnotationItem {
         fun unshortenAnnotation(source: String): String {
             return when {
                 source == "@Deprecated" -> "@java.lang.Deprecated"
-                // These 3 annotations are in the android.annotation. package, not android.support.annotation
+                // These 3 annotations are in the android.annotation. package, not androidx.annotation
                 source.startsWith("@SystemService") ||
                     source.startsWith("@TargetApi") ||
                     source.startsWith("@SuppressLint") ->
@@ -643,8 +600,10 @@ interface AnnotationItem {
                         nullable = false
                     }
                 }
-            } else if (item.synthetic && (item is MethodItem && item.isEnumSyntheticMethod() ||
-                    item is ParameterItem && item.containingMethod().isEnumSyntheticMethod())
+            } else if (item.synthetic && (
+                item is MethodItem && item.isEnumSyntheticMethod() ||
+                    item is ParameterItem && item.containingMethod().isEnumSyntheticMethod()
+                )
             ) {
                 // Workaround the fact that the Kotlin synthetic enum methods
                 // do not have nullness information
@@ -672,15 +631,8 @@ interface AnnotationItem {
 
 /** Default implementation of an annotation item */
 abstract class DefaultAnnotationItem(override val codebase: Codebase) : AnnotationItem {
-    protected var targets: Set<AnnotationTarget>? = null
-
-    override fun targets(): Set<AnnotationTarget> {
-        if (targets == null) {
-            targets = AnnotationItem.computeTargets(this) { className ->
-                codebase.findClass(className)
-            }
-        }
-        return targets!!
+    override val targets: Set<AnnotationTarget> by lazy {
+        AnnotationItem.computeTargets(this, codebase::findClass)
     }
 }
 
@@ -843,7 +795,8 @@ abstract class DefaultAnnotationValue : AnnotationAttributeValue {
     override fun toString(): String = toSource()
 }
 
-class DefaultAnnotationSingleAttributeValue(override val valueSource: String) : DefaultAnnotationValue(),
+class DefaultAnnotationSingleAttributeValue(override val valueSource: String) :
+    DefaultAnnotationValue(),
     AnnotationSingleAttributeValue {
     @Suppress("IMPLICIT_CAST_TO_ANY")
     override val value = when {
@@ -867,7 +820,8 @@ class DefaultAnnotationSingleAttributeValue(override val valueSource: String) : 
     override fun toSource() = valueSource
 }
 
-class DefaultAnnotationArrayAttributeValue(val value: String) : DefaultAnnotationValue(),
+class DefaultAnnotationArrayAttributeValue(val value: String) :
+    DefaultAnnotationValue(),
     AnnotationArrayAttributeValue {
     init {
         assert(value.startsWith("{") && value.endsWith("}")) { value }

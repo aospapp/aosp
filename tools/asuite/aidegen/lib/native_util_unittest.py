@@ -24,6 +24,7 @@ from aidegen import unittest_constants
 from aidegen.lib import common_util
 from aidegen.lib import native_module_info
 from aidegen.lib import native_util
+from aidegen.lib import project_info
 
 
 # pylint: disable=protected-access
@@ -201,7 +202,7 @@ class AidegenNativeUtilUnittests(unittest.TestCase):
         mock_print.mock_reset()
         mock_get_rust.mock_reset()
         mock_is_file.return_value = True
-        crates = [{native_util._ROOT_MODULE_KEY: 'a/b/rust/src'}]
+        crates = [{native_util._ROOT_MODULE: 'a/b/rust/src'}]
         mock_get_dict.return_value = {native_util._CRATES_KEY: crates}
         mock_get_root.return_value = 'a/b'
         native_util._filter_out_rust_projects(['a/b/rust'])
@@ -210,18 +211,57 @@ class AidegenNativeUtilUnittests(unittest.TestCase):
         self.assertTrue(mock_get_rust.called)
         mock_get_rust.assert_called_with(['a/b/rust'], crates, 'a/b')
 
+    @mock.patch.object(project_info, 'batch_build_dependencies')
     @mock.patch.object(common_util, 'is_source_under_relative_path')
     @mock.patch('os.path.isdir')
-    def test_get_rust_targets(self, mock_is_dir, mock_is_under):
+    def test_get_rust_targets(self, mock_is_dir, mock_is_under, mock_rebuilds):
         """Test _get_rust_targets with conditions."""
         mock_is_dir.return_value = True
         mock_is_under.return_value = True
+        display_name = 'rust_module'
+        mod_info = [
+            {
+                native_util._DISPLAY_NAME: display_name,
+                native_util._ROOT_MODULE: 'a/b/rust/src'
+            }
+        ]
         targets = ['a/b/rust']
         self.assertEqual(
             targets,
-            native_util._get_rust_targets(
-                targets, [{native_util._ROOT_MODULE_KEY: 'a/b/rust/src'}],
-                'a/b'))
+            native_util._get_rust_targets(targets, mod_info, 'a/b'))
+        mock_rebuilds.assert_called_with({display_name})
+
+    def test_get_relative_path(self):
+        """Test _get_relative_path with conditions."""
+        root = common_util.get_android_root_dir()
+        cwd = os.getcwd()
+        rel_target = os.path.relpath(cwd, root)
+        self.assertEqual(rel_target, native_util._get_relative_path('.', root))
+
+        root = 'a/b'
+        target = 'a/b/rust'
+        rel_target = 'rust'
+        self.assertEqual(
+            rel_target, native_util._get_relative_path(target, root))
+
+    def test_is_target_relative_module(self):
+        """Test _is_target_relative_module with conditions."""
+        path = 'a/b'
+        target = 'a/b'
+        self.assertTrue(
+            native_util._is_target_relative_module(path, target))
+
+        path = 'a/b/c'
+        self.assertTrue(
+            native_util._is_target_relative_module(path, target))
+
+        path = 'out/a/b/c'
+        self.assertTrue(
+            native_util._is_target_relative_module(path, target))
+
+        target = 'a/bc'
+        self.assertFalse(
+            native_util._is_target_relative_module(path, target))
 
 
 if __name__ == '__main__':

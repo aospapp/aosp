@@ -35,9 +35,11 @@ android_test {
         "truth-prebuilt",
         "guava",
         "junit",
+        "Harrier",
         "CtsMockInputMethodLib",
         "hamcrest-library",
         "modules-utils-build_system",
+        "platformprotosnano",
     ],
     jni_uses_platform_apis: true,
     jni_libs: [
@@ -61,7 +63,7 @@ android_test {
     test_suites: [
         "cts",
         "general-tests",
-        "mts",
+        "mts-permission",
         "sts",
     ],
     sdk_version: "test_current",
@@ -72,4 +74,11 @@ android_test {
     // Do not compress minijail policy files.
     aaptflags: ["-0 .policy"],
     min_sdk_version: "29",
+    data: [
+        ":CtsAutoRevokeQApp",
+        ":CtsAutoRevokeSApp",
+        ":CtsAutoRevokeRApp",
+        ":CtsCompanionTestApp",
+    ],
+    per_testcase_directory: true,
 }

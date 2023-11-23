@@ -26,8 +26,6 @@
 #include "data_type-inl.h"
 #include "dead_code_elimination.h"
 #include "dex/inline_method_analyser.h"
-#include "dex/verification_results.h"
-#include "dex/verified_method.h"
 #include "driver/compiler_options.h"
 #include "driver/dex_compilation_unit.h"
 #include "instruction_simplifier.h"
@@ -46,6 +44,7 @@
 #include "ssa_builder.h"
 #include "ssa_phi_elimination.h"
 #include "thread.h"
+#include "verifier/verifier_compiler_binding.h"
 
 namespace art {
 
@@ -64,6 +63,11 @@ static constexpr size_t kMaximumNumberOfCumulatedDexRegisters = 32;
 // Limit recursive call inlining, which do not benefit from too
 // much inlining compared to code locality.
 static constexpr size_t kMaximumNumberOfRecursiveCalls = 4;
+
+// Limit recursive polymorphic call inlining to prevent code bloat, since it can quickly get out of
+// hand in the presence of multiple Wrapper classes. We set this to 0 to disallow polymorphic
+// recursive calls at all.
+static constexpr size_t kMaximumNumberOfPolymorphicRecursiveCalls = 0;
 
 // Controls the use of inline caches in AOT mode.
 static constexpr bool kUseAOTInlineCaches = true;
@@ -136,7 +140,8 @@ bool HInliner::Run() {
     return false;
   }
 
-  bool didInline = false;
+  bool did_inline = false;
+  bool did_set_always_throws = false;
 
   // Initialize the number of instructions for the method being compiled. Recursive calls
   // to HInliner::Run have already updated the instruction count.
@@ -177,8 +182,8 @@ bool HInliner::Run() {
               call->GetMethodReference().PrettyMethod(/* with_signature= */ false);
           // Tests prevent inlining by having $noinline$ in their method names.
           if (callee_name.find("$noinline$") == std::string::npos) {
-            if (TryInline(call)) {
-              didInline = true;
+            if (TryInline(call, &did_set_always_throws)) {
+              did_inline = true;
             } else if (honor_inline_directives) {
               bool should_have_inlined = (callee_name.find("$inline$") != std::string::npos);
               CHECK(!should_have_inlined) << "Could not inline " << callee_name;
@@ -187,8 +192,8 @@ bool HInliner::Run() {
         } else {
           DCHECK(!honor_inline_directives);
           // Normal case: try to inline.
-          if (TryInline(call)) {
-            didInline = true;
+          if (TryInline(call, &did_set_always_throws)) {
+            did_inline = true;
           }
         }
       }
@@ -196,7 +201,7 @@ bool HInliner::Run() {
     }
   }
 
-  return didInline;
+  return did_inline || did_set_always_throws;
 }
 
 static bool IsMethodOrDeclaringClassFinal(ArtMethod* method)
@@ -380,30 +385,29 @@ ArtMethod* HInliner::FindMethodFromCHA(ArtMethod* resolved_method) {
   return single_impl;
 }
 
-static bool IsMethodUnverified(const CompilerOptions& compiler_options, ArtMethod* method)
+static bool IsMethodVerified(ArtMethod* method)
     REQUIRES_SHARED(Locks::mutator_lock_) {
-  if (!method->GetDeclaringClass()->IsVerified()) {
-    if (compiler_options.IsJitCompiler()) {
-      // We're at runtime, we know this is cold code if the class
-      // is not verified, so don't bother analyzing.
-      return true;
-    }
-    uint16_t class_def_idx = method->GetDeclaringClass()->GetDexClassDefIndex();
-    if (!compiler_options.IsMethodVerifiedWithoutFailures(method->GetDexMethodIndex(),
-                                                          class_def_idx,
-                                                          *method->GetDexFile())) {
-      // Method has soft or hard failures, don't analyze.
+  if (method->GetDeclaringClass()->IsVerified()) {
+    return true;
+  }
+  // For AOT, we check if the class has a verification status that allows us to
+  // inline / analyze.
+  // At runtime, we know this is cold code if the class is not verified, so don't
+  // bother analyzing.
+  if (Runtime::Current()->IsAotCompiler()) {
+    if (method->GetDeclaringClass()->IsVerifiedNeedsAccessChecks() ||
+        method->GetDeclaringClass()->ShouldVerifyAtRuntime()) {
       return true;
     }
   }
   return false;
 }
 
-static bool AlwaysThrows(const CompilerOptions& compiler_options, ArtMethod* method)
+static bool AlwaysThrows(ArtMethod* method)
     REQUIRES_SHARED(Locks::mutator_lock_) {
   DCHECK(method != nullptr);
   // Skip non-compilable and unverified methods.
-  if (!method->IsCompilable() || IsMethodUnverified(compiler_options, method)) {
+  if (!method->IsCompilable() || !IsMethodVerified(method)) {
     return false;
   }
   // Skip native methods, methods with try blocks, and methods that are too large.
@@ -432,7 +436,7 @@ static bool AlwaysThrows(const CompilerOptions& compiler_options, ArtMethod* met
   return throw_seen;
 }
 
-bool HInliner::TryInline(HInvoke* invoke_instruction) {
+bool HInliner::TryInline(HInvoke* invoke_instruction, /*inout*/ bool* did_set_always_throws) {
   MaybeRecordStat(stats_, MethodCompilationStat::kTryInline);
 
   // Don't bother to move further if we know the method is unresolved or the invocation is
@@ -471,6 +475,9 @@ bool HInliner::TryInline(HInvoke* invoke_instruction) {
                                       /* do_rtp= */ true);
     if (result) {
       MaybeRecordStat(stats_, MethodCompilationStat::kInlinedInvokeVirtualOrInterface);
+      if (outermost_graph_ == graph_) {
+        MaybeRecordStat(stats_, MethodCompilationStat::kInlinedLastInvokeVirtualOrInterface);
+      }
     } else {
       HInvoke* invoke_to_analyze = nullptr;
       if (TryDevirtualize(invoke_instruction, actual_method, &invoke_to_analyze)) {
@@ -482,8 +489,9 @@ bool HInliner::TryInline(HInvoke* invoke_instruction) {
       }
       // Set always throws property for non-inlined method call with single
       // target.
-      if (AlwaysThrows(codegen_->GetCompilerOptions(), actual_method)) {
+      if (AlwaysThrows(actual_method)) {
         invoke_to_analyze->SetAlwaysThrows(true);
+        *did_set_always_throws = true;
       }
     }
     return result;
@@ -620,9 +628,7 @@ HInliner::InlineCacheType HInliner::GetInlineCacheJIT(
   ArtMethod* caller = graph_->GetArtMethod();
   // Under JIT, we should always know the caller.
   DCHECK(caller != nullptr);
-  ScopedProfilingInfoUse spiu(Runtime::Current()->GetJit(), caller, Thread::Current());
-  ProfilingInfo* profiling_info = spiu.GetProfilingInfo();
-
+  ProfilingInfo* profiling_info = graph_->GetProfilingInfo();
   if (profiling_info == nullptr) {
     return kInlineCacheNoData;
   }
@@ -722,6 +728,13 @@ static ArtMethod* ResolveMethodFromInlineCache(Handle<mirror::Class> klass,
     if (!resolved_method->GetDeclaringClass()->IsAssignableFrom(klass.Get())) {
       return nullptr;
     }
+
+    // Also check whether the type in the inline cache is an interface or an
+    // abstract class. We only expect concrete classes in inline caches, so this
+    // means the class was changed.
+    if (klass->IsAbstract() || klass->IsInterface()) {
+      return nullptr;
+    }
   }
 
   if (invoke_instruction->IsInvokeInterface()) {
@@ -747,7 +760,7 @@ bool HInliner::TryInlineMonomorphicCall(
   dex::TypeIndex class_index = FindClassIndexIn(
       GetMonomorphicType(classes), caller_compilation_unit_);
   if (!class_index.IsValid()) {
-    LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedDexCache)
+    LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedDexCacheInaccessibleToCaller)
         << "Call to " << ArtMethod::PrettyMethod(invoke_instruction->GetResolvedMethod())
         << " from inline cache is not inlined because its class is not"
         << " accessible to the caller";
@@ -804,6 +817,11 @@ void HInliner::AddCHAGuard(HInstruction* invoke_instruction,
                            HBasicBlock* bb_cursor) {
   HShouldDeoptimizeFlag* deopt_flag = new (graph_->GetAllocator())
       HShouldDeoptimizeFlag(graph_->GetAllocator(), dex_pc);
+  // ShouldDeoptimizeFlag is used to perform a deoptimization because of a CHA
+  // invalidation or for debugging reasons. It is OK to just check for non-zero
+  // value here instead of the specific CHA value. When a debugging deopt is
+  // requested we deoptimize before we execute any code and hence we shouldn't
+  // see that case here.
   HInstruction* compare = new (graph_->GetAllocator()) HNotEqual(
       deopt_flag, graph_->GetIntConstant(0, dex_pc));
   HInstruction* deopt = new (graph_->GetAllocator()) HDeoptimize(
@@ -941,8 +959,26 @@ bool HInliner::TryInlinePolymorphicCall(
 
     dex::TypeIndex class_index = FindClassIndexIn(handle.Get(), caller_compilation_unit_);
     HInstruction* return_replacement = nullptr;
-    LOG_NOTE() << "Try inline polymorphic call to " << method->PrettyMethod();
-    if (!class_index.IsValid() ||
+
+    // In monomorphic cases when UseOnlyPolymorphicInliningWithNoDeopt() is true, we call
+    // `TryInlinePolymorphicCall` even though we are monomorphic.
+    const bool actually_monomorphic = number_of_types == 1;
+    DCHECK_IMPLIES(actually_monomorphic, UseOnlyPolymorphicInliningWithNoDeopt());
+
+    // We only want to limit recursive polymorphic cases, not monomorphic ones.
+    const bool too_many_polymorphic_recursive_calls =
+        !actually_monomorphic &&
+        CountRecursiveCallsOf(method) > kMaximumNumberOfPolymorphicRecursiveCalls;
+    if (too_many_polymorphic_recursive_calls) {
+      LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedPolymorphicRecursiveBudget)
+          << "Method " << method->PrettyMethod()
+          << " is not inlined because it has reached its polymorphic recursive call budget.";
+    } else if (class_index.IsValid()) {
+      LOG_NOTE() << "Try inline polymorphic call to " << method->PrettyMethod();
+    }
+
+    if (too_many_polymorphic_recursive_calls ||
+        !class_index.IsValid() ||
         !TryBuildAndInline(invoke_instruction,
                            method,
                            ReferenceTypeInfo::Create(handle, /* is_exact= */ true),
@@ -1329,13 +1365,13 @@ bool HInliner::IsInliningAllowed(ArtMethod* method, const CodeItemDataAccessor& 
   }
 
   if (!method->IsCompilable()) {
-    LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedNotVerified)
+    LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedNotCompilable)
         << "Method " << method->PrettyMethod()
         << " has soft failures un-handled by the compiler, so it cannot be inlined";
     return false;
   }
 
-  if (IsMethodUnverified(codegen_->GetCompilerOptions(), method)) {
+  if (!IsMethodVerified(method)) {
     LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedNotVerified)
         << "Method " << method->PrettyMethod()
         << " couldn't be verified, so it cannot be inlined";
@@ -1361,7 +1397,7 @@ bool HInliner::IsInliningSupported(const HInvoke* invoke_instruction,
   }
 
   if (accessor.TriesSize() != 0) {
-    LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedTryCatch)
+    LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedTryCatchCallee)
         << "Method " << method->PrettyMethod() << " is not inlined because of try block";
     return false;
   }
@@ -1370,7 +1406,7 @@ bool HInliner::IsInliningSupported(const HInvoke* invoke_instruction,
       invoke_instruction->AsInvokeStaticOrDirect()->IsStaticWithImplicitClinitCheck()) {
     // Case of a static method that cannot be inlined because it implicitly
     // requires an initialization check of its declaring class.
-    LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedDexCache)
+    LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedDexCacheClinitCheck)
         << "Method " << method->PrettyMethod()
         << " is not inlined because it is static and requires a clinit"
         << " check that cannot be emitted due to Dex cache limitations";
@@ -1478,6 +1514,9 @@ bool HInliner::TryBuildAndInline(HInvoke* invoke_instruction,
 
   LOG_SUCCESS() << method->PrettyMethod();
   MaybeRecordStat(stats_, MethodCompilationStat::kInlinedInvoke);
+  if (outermost_graph_ == graph_) {
+    MaybeRecordStat(stats_, MethodCompilationStat::kInlinedLastInvoke);
+  }
   return true;
 }
 
@@ -1514,14 +1553,19 @@ bool HInliner::TryPatternSubstitution(HInvoke* invoke_instruction,
       *return_replacement = GetInvokeInputForArgVRegIndex(invoke_instruction,
                                                           inline_method.d.return_data.arg);
       break;
-    case kInlineOpNonWideConst:
-      if (method->GetShorty()[0] == 'L') {
+    case kInlineOpNonWideConst: {
+      char shorty0 = method->GetShorty()[0];
+      if (shorty0 == 'L') {
         DCHECK_EQ(inline_method.d.data, 0u);
         *return_replacement = graph_->GetNullConstant();
+      } else if (shorty0 == 'F') {
+        *return_replacement = graph_->GetFloatConstant(
+            bit_cast<float, int32_t>(static_cast<int32_t>(inline_method.d.data)));
       } else {
         *return_replacement = graph_->GetIntConstant(static_cast<int32_t>(inline_method.d.data));
       }
       break;
+    }
     case kInlineOpIGet: {
       const InlineIGetIPutData& data = inline_method.d.ifield_data;
       if (data.method_is_static || data.object_arg != 0u) {
@@ -1685,18 +1729,38 @@ static inline Handle<T> NewHandleIfDifferent(ObjPtr<T> object, Handle<T> hint, H
   return (object != hint.Get()) ? graph->GetHandleCache()->NewHandle(object) : hint;
 }
 
-static bool CanEncodeInlinedMethodInStackMap(const DexFile& caller_dex_file, ArtMethod* callee)
+static bool CanEncodeInlinedMethodInStackMap(const DexFile& outer_dex_file,
+                                             ArtMethod* callee,
+                                             const CodeGenerator* codegen,
+                                             bool* out_needs_bss_check)
     REQUIRES_SHARED(Locks::mutator_lock_) {
   if (!Runtime::Current()->IsAotCompiler()) {
     // JIT can always encode methods in stack maps.
     return true;
   }
-  if (IsSameDexFile(caller_dex_file, *callee->GetDexFile())) {
+
+  const DexFile* dex_file = callee->GetDexFile();
+  if (IsSameDexFile(outer_dex_file, *dex_file)) {
     return true;
   }
-  // TODO(ngeoffray): Support more AOT cases for inlining:
-  // - methods in multidex
-  // - methods in boot image for on-device non-PIC compilation.
+
+  // Inline across dexfiles if the callee's DexFile is:
+  // 1) in the bootclasspath, or
+  if (callee->GetDeclaringClass()->IsBootStrapClassLoaded()) {
+    // In multi-image, each BCP DexFile has their own OatWriter. Since they don't cooperate with
+    // each other, we request the BSS check for them.
+    // TODO(solanes, 154012332): Add .bss support for BCP multi-image.
+    *out_needs_bss_check = codegen->GetCompilerOptions().IsMultiImage();
+    return true;
+  }
+
+  // 2) is a non-BCP dexfile with the OatFile we are compiling.
+  if (codegen->GetCompilerOptions().WithinOatFile(dex_file)) {
+    return true;
+  }
+
+  // TODO(solanes): Support more AOT cases for inlining:
+  // - methods in class loader context's DexFiles
   return false;
 }
 
@@ -1774,7 +1838,7 @@ bool HInliner::CanInlineBody(const HGraph* callee_graph,
     if (predecessor->GetLastInstruction()->IsThrow()) {
       if (target_block->IsTryBlock()) {
         // TODO(ngeoffray): Support adding HTryBoundary in Hgraph::InlineInto.
-        LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedTryCatch)
+        LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedTryCatchCaller)
             << "Method " << resolved_method->PrettyMethod()
             << " could not be inlined because one branch always throws and"
             << " caller is in a try/catch block";
@@ -1806,6 +1870,11 @@ bool HInliner::CanInlineBody(const HGraph* callee_graph,
     return false;
   }
 
+  const bool too_many_registers =
+      total_number_of_dex_registers_ > kMaximumNumberOfCumulatedDexRegisters;
+  bool needs_bss_check = false;
+  const bool can_encode_in_stack_map = CanEncodeInlinedMethodInStackMap(
+      *outer_compilation_unit_.GetDexFile(), resolved_method, codegen_, &needs_bss_check);
   size_t number_of_instructions = 0;
   // Skip the entry block, it does not contain instructions that prevent inlining.
   for (HBasicBlock* block : callee_graph->GetReversePostOrderSkipEntryBlock()) {
@@ -1840,24 +1909,22 @@ bool HInliner::CanInlineBody(const HGraph* callee_graph,
         return false;
       }
       HInstruction* current = instr_it.Current();
-      if (current->NeedsEnvironment() &&
-          (total_number_of_dex_registers_ > kMaximumNumberOfCumulatedDexRegisters)) {
-        LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedEnvironmentBudget)
-            << "Method " << resolved_method->PrettyMethod()
-            << " is not inlined because its caller has reached"
-            << " its environment budget limit.";
-        return false;
-      }
+      if (current->NeedsEnvironment()) {
+        if (too_many_registers) {
+          LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedEnvironmentBudget)
+              << "Method " << resolved_method->PrettyMethod()
+              << " is not inlined because its caller has reached"
+              << " its environment budget limit.";
+          return false;
+        }
 
-      if (current->NeedsEnvironment() &&
-          !CanEncodeInlinedMethodInStackMap(*caller_compilation_unit_.GetDexFile(),
-                                            resolved_method)) {
-        LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedStackMaps)
-            << "Method " << resolved_method->PrettyMethod()
-            << " could not be inlined because " << current->DebugName()
-            << " needs an environment, is in a different dex file"
-            << ", and cannot be encoded in the stack maps.";
-        return false;
+        if (!can_encode_in_stack_map) {
+          LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedStackMaps)
+              << "Method " << resolved_method->PrettyMethod() << " could not be inlined because "
+              << current->DebugName() << " needs an environment, is in a different dex file"
+              << ", and cannot be encoded in the stack maps.";
+          return false;
+        }
       }
 
       if (current->IsUnresolvedStaticFieldGet() ||
@@ -1869,6 +1936,22 @@ bool HInliner::CanInlineBody(const HGraph* callee_graph,
             << "Method " << resolved_method->PrettyMethod()
             << " could not be inlined because it is using an unresolved"
             << " entrypoint";
+        return false;
+      }
+
+      // We currently don't have support for inlining across dex files if we are:
+      // 1) In AoT,
+      // 2) cross-dex inlining,
+      // 3) the callee is a BCP DexFile,
+      // 4) we are compiling multi image, and
+      // 5) have an instruction that needs a bss entry, which will always be
+      // 5)b) an instruction that needs an environment.
+      // 1) - 4) are encoded in `needs_bss_check` (see CanEncodeInlinedMethodInStackMap).
+      if (needs_bss_check && current->NeedsBss()) {
+        DCHECK(current->NeedsEnvironment());
+        LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedBss)
+            << "Method " << resolved_method->PrettyMethod()
+            << " could not be inlined because it needs a BSS check";
         return false;
       }
     }
@@ -1939,6 +2022,11 @@ bool HInliner::TryBuildAndInlineHelper(HInvoke* invoke_instruction,
       graph_->GetCompilationKind(),
       /* start_instruction_id= */ caller_instruction_counter);
   callee_graph->SetArtMethod(resolved_method);
+
+  ScopedProfilingInfoUse spiu(Runtime::Current()->GetJit(), resolved_method, Thread::Current());
+  if (Runtime::Current()->GetJit() != nullptr) {
+    callee_graph->SetProfilingInfo(spiu.GetProfilingInfo());
+  }
 
   // When they are needed, allocate `inline_stats_` on the Arena instead
   // of on the stack, as Clang might produce a stack frame too large

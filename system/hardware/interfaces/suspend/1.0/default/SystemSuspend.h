@@ -19,9 +19,8 @@
 
 #include <android-base/result.h>
 #include <android-base/unique_fd.h>
-#include <android/system/suspend/1.0/ISystemSuspend.h>
 #include <android/system/suspend/internal/SuspendInfo.h>
-#include <hidl/HidlTransportSupport.h>
+#include <utils/RefBase.h>
 
 #include <atomic>
 #include <condition_variable>
@@ -39,9 +38,6 @@ namespace V1_0 {
 
 using ::android::base::Result;
 using ::android::base::unique_fd;
-using ::android::hardware::hidl_string;
-using ::android::hardware::interfacesEqual;
-using ::android::hardware::Return;
 using ::android::system::suspend::internal::SuspendInfo;
 
 using namespace std::chrono_literals;
@@ -76,23 +72,7 @@ struct SleepTimeConfig {
 
 std::string readFd(int fd);
 
-class WakeLock : public IWakeLock {
-   public:
-    WakeLock(SystemSuspend* systemSuspend, const std::string& name, int pid);
-    ~WakeLock();
-
-    Return<void> release();
-
-   private:
-    inline void releaseOnce();
-    std::once_flag mReleased;
-
-    SystemSuspend* mSystemSuspend;
-    std::string mName;
-    int mPid;
-};
-
-class SystemSuspend : public ISystemSuspend {
+class SystemSuspend : public RefBase {
    public:
     SystemSuspend(unique_fd wakeupCountFd, unique_fd stateFd, unique_fd suspendStatsFd,
                   size_t maxStatsEntries, unique_fd kernelWakelockStatsFd,
@@ -101,15 +81,16 @@ class SystemSuspend : public ISystemSuspend {
                   const sp<SuspendControlService>& controlService,
                   const sp<SuspendControlServiceInternal>& controlServiceInternal,
                   bool useSuspendCounter = true);
-    Return<sp<IWakeLock>> acquireWakeLock(WakeLockType type, const hidl_string& name) override;
     void incSuspendCounter(const std::string& name);
     void decSuspendCounter(const std::string& name);
-    bool enableAutosuspend();
+    bool enableAutosuspend(const sp<IBinder>& token);
+    void disableAutosuspend();
     bool forceSuspend();
 
     const WakeupList& getWakeupList() const;
     const WakeLockEntryList& getStatsList() const;
-    void updateWakeLockStatOnRelease(const std::string& name, int pid, TimestampType timeNow);
+    void updateWakeLockStatOnAcquire(const std::string& name, int pid);
+    void updateWakeLockStatOnRelease(const std::string& name, int pid);
     void updateStatsNow();
     Result<SuspendStats> getSuspendStats();
     void getSuspendInfo(SuspendInfo* info);
@@ -117,10 +98,13 @@ class SystemSuspend : public ISystemSuspend {
     unique_fd reopenFileUsingFd(const int fd, int permission);
 
    private:
-    void initAutosuspend();
+    ~SystemSuspend(void) override;
+    void initAutosuspendLocked();
+    void disableAutosuspendLocked();
+    bool hasAliveAutosuspendTokenLocked();
 
-    std::mutex mCounterLock;
-    std::condition_variable mCounterCondVar;
+    std::mutex mAutosuspendLock;
+    std::condition_variable mAutosuspendCondVar;
     uint32_t mSuspendCounter;
     unique_fd mWakeupCountFd;
     unique_fd mStateFd;
@@ -154,7 +138,9 @@ class SystemSuspend : public ISystemSuspend {
     unique_fd mWakeUnlockFd;
     unique_fd mWakeupReasonsFd;
 
-    std::atomic_flag mAutosuspendEnabled = ATOMIC_FLAG_INIT;
+    std::atomic<bool> mAutosuspendEnabled{false};
+    std::atomic<bool> mAutosuspendThreadCreated{false};
+    std::vector<sp<IBinder>> mDisableAutosuspendTokens;
 };
 
 }  // namespace V1_0

@@ -66,19 +66,16 @@ class SuspendControlService : public BnSuspendControlService,
     }
 };
 
-class SuspendControlServiceInternal : public BnSuspendControlServiceInternal,
-                                      public virtual IBinder::DeathRecipient {
+class SuspendControlServiceInternal : public BnSuspendControlServiceInternal {
    public:
     SuspendControlServiceInternal() = default;
     ~SuspendControlServiceInternal() override = default;
 
-    binder::Status enableAutosuspend(bool* _aidl_return) override;
+    binder::Status enableAutosuspend(const sp<IBinder>& token, bool* _aidl_return) override;
     binder::Status forceSuspend(bool* _aidl_return) override;
     binder::Status getSuspendStats(SuspendInfo* _aidl_return) override;
     binder::Status getWakeLockStats(std::vector<WakeLockInfo>* _aidl_return) override;
     binder::Status getWakeupStats(std::vector<WakeupInfo>* _aidl_return) override;
-
-    void binderDied([[maybe_unused]] const wp<IBinder>& who) override {}
 
     void setSuspendService(const wp<SystemSuspend>& suspend);
     status_t dump(int fd, const Vector<String16>& args) override;

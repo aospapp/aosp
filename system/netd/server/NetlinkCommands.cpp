@@ -84,6 +84,11 @@ int recvNetlinkAck(int sock) {
 // Returns -errno if there was an error or if the kernel reported an error.
 OPTNONE int sendNetlinkRequest(uint16_t action, uint16_t flags, iovec* iov, int iovlen,
                                const NetlinkDumpCallback* callback) {
+    int sock = openNetlinkSocket(NETLINK_ROUTE);
+    if (sock < 0) {
+        return sock;
+    }
+
     nlmsghdr nlmsg = {
         .nlmsg_type = action,
         .nlmsg_flags = flags,
@@ -94,14 +99,11 @@ OPTNONE int sendNetlinkRequest(uint16_t action, uint16_t flags, iovec* iov, int 
         nlmsg.nlmsg_len += iov[i].iov_len;
     }
 
-    int sock = openNetlinkSocket(NETLINK_ROUTE);
-    if (sock < 0) {
-        return sock;
-    }
-
+    ssize_t writevRet = writev(sock, iov, iovlen);
+    // Don't let pointers to the stack escape.
+    iov[0] = {nullptr, 0};
     int ret = 0;
-
-    if (writev(sock, iov, iovlen) == -1) {
+    if (writevRet == -1) {
         ret = -errno;
         ALOGE("netlink socket connect/writev failed (%s)", strerror(-ret));
         close(sock);

@@ -16,12 +16,6 @@
 
 package com.android.cts.verifier.audio;
 
-import com.android.cts.verifier.CtsVerifierReportLog;
-import com.android.cts.verifier.R;
-import com.android.cts.verifier.audio.wavelib.*;
-import com.android.compatibility.common.util.ResultType;
-import com.android.compatibility.common.util.ResultUnit;
-
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
@@ -33,8 +27,21 @@ import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
-import android.widget.TextView;
 import android.widget.ProgressBar;
+import android.widget.TextView;
+
+import com.android.compatibility.common.util.ResultType;
+import com.android.compatibility.common.util.ResultUnit;
+import com.android.cts.verifier.audio.soundio.SoundPlayerObject;
+import com.android.cts.verifier.CtsVerifierReportLog;
+import com.android.cts.verifier.R;
+import com.android.cts.verifier.audio.wavelib.DspBufferComplex;
+import com.android.cts.verifier.audio.wavelib.DspBufferDouble;
+import com.android.cts.verifier.audio.wavelib.DspBufferMath;
+import com.android.cts.verifier.audio.wavelib.DspFftServer;
+import com.android.cts.verifier.audio.wavelib.DspWindow;
+import com.android.cts.verifier.audio.wavelib.PipeShort;
+import com.android.cts.verifier.audio.wavelib.VectorAverage;
 
 /**
  * Tests Audio Device roundtrip latency by using a loopback plug.
@@ -94,32 +101,28 @@ public class AudioFrequencyLineActivity extends AudioFrequencyActivity implement
     private class OnBtnClickListener implements OnClickListener {
         @Override
         public void onClick(View v) {
-            switch (v.getId()) {
-                case R.id.audio_frequency_line_plug_ready_btn:
-                    Log.i(TAG, "audio loopback plug ready");
-                    //enable all the other views.
-                    enableLayout(R.id.audio_frequency_line_layout,true);
-                    setMaxLevel();
-                    testMaxLevel();
-                    break;
-                case R.id.audio_frequency_line_test_btn:
-                    Log.i(TAG, "audio loopback test");
-                    startAudioTest();
-                    break;
-                case R.id.audio_wired_yes:
-                    Log.i(TAG, "User confirms wired Port existence");
-                    mLoopbackPlugReady.setEnabled(true);
-                    recordHeasetPortFound(true);
-                    mWiredPortYes.setEnabled(false);
-                    mWiredPortNo.setEnabled(false);
-                    break;
-                case R.id.audio_wired_no:
-                    Log.i(TAG, "User denies wired Port existence");
-                    recordHeasetPortFound(false);
-                    getPassButton().setEnabled(true);
-                    mWiredPortYes.setEnabled(false);
-                    mWiredPortNo.setEnabled(false);
-                    break;
+            int id = v.getId();
+            if (id == R.id.audio_frequency_line_plug_ready_btn) {
+                Log.i(TAG, "audio loopback plug ready");
+                //enable all the other views.
+                enableLayout(R.id.audio_frequency_line_layout, true);
+                setMaxLevel();
+                testMaxLevel();
+            } else if (id == R.id.audio_frequency_line_test_btn) {
+                Log.i(TAG, "audio loopback test");
+                startAudioTest();
+            } else if (id == R.id.audio_wired_yes) {
+                Log.i(TAG, "User confirms wired Port existence");
+                mLoopbackPlugReady.setEnabled(true);
+                recordHeasetPortFound(true);
+                mWiredPortYes.setEnabled(false);
+                mWiredPortNo.setEnabled(false);
+            } else if (id == R.id.audio_wired_no) {
+                Log.i(TAG, "User denies wired Port existence");
+                recordHeasetPortFound(false);
+                getPassButton().setEnabled(true);
+                mWiredPortYes.setEnabled(false);
+                mWiredPortNo.setEnabled(false);
             }
         }
     }

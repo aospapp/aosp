@@ -38,6 +38,7 @@
 #include <utility>
 #include <vector>
 
+#include <android-base/strings.h>
 #include <base/callback.h>
 #include <base/files/file_path.h>
 #include <base/files/file_util.h>
@@ -63,7 +64,6 @@ using base::Time;
 using base::TimeDelta;
 using std::min;
 using std::numeric_limits;
-using std::pair;
 using std::string;
 using std::vector;
 
@@ -181,7 +181,7 @@ bool PWriteAll(int fd, const void* buf, size_t count, off_t offset) {
   return true;
 }
 
-bool WriteAll(const FileDescriptorPtr& fd, const void* buf, size_t count) {
+bool WriteAll(FileDescriptor* fd, const void* buf, size_t count) {
   const char* c_buf = static_cast<const char*>(buf);
   ssize_t bytes_written = 0;
   while (bytes_written < static_cast<ssize_t>(count)) {
@@ -218,7 +218,7 @@ bool PReadAll(
   return true;
 }
 
-bool ReadAll(const FileDescriptorPtr& fd,
+bool ReadAll(FileDescriptor* fd,
              void* buf,
              size_t count,
              off_t offset,
@@ -239,7 +239,7 @@ bool ReadAll(const FileDescriptorPtr& fd,
   return true;
 }
 
-bool PReadAll(const FileDescriptorPtr& fd,
+bool PReadAll(FileDescriptor* fd,
               void* buf,
               size_t count,
               off_t offset,
@@ -397,6 +397,19 @@ off_t FileSize(const string& path) {
   return size;
 }
 
+bool SendFile(int out_fd, int in_fd, size_t count) {
+  off64_t offset = lseek(in_fd, 0, SEEK_CUR);
+  TEST_AND_RETURN_FALSE_ERRNO(offset >= 0);
+  constexpr size_t BUFFER_SIZE = 4096;
+  while (count > 0) {
+    const auto bytes_written =
+        sendfile(out_fd, in_fd, &offset, std::min(count, BUFFER_SIZE));
+    TEST_AND_RETURN_FALSE_ERRNO(bytes_written > 0);
+    count -= bytes_written;
+  }
+  return true;
+}
+
 void HexDumpArray(const uint8_t* const arr, const size_t length) {
   LOG(INFO) << "Logging array of length: " << length;
   const unsigned int bytes_per_line = 16;
@@ -477,12 +490,6 @@ string MakePartitionName(const string& disk_name, int partition_num) {
   return partition_name;
 }
 
-string ErrnoNumberAsString(int err) {
-  char buf[100];
-  buf[0] = '\0';
-  return strerror_r(err, buf, sizeof(buf));
-}
-
 bool FileExists(const char* path) {
   struct stat stbuf;
   return 0 == lstat(path, &stbuf);
@@ -555,7 +562,7 @@ bool MountFilesystem(const string& device,
                      const string& fs_mount_options) {
   vector<const char*> fstypes;
   if (type.empty()) {
-    fstypes = {"ext2", "ext3", "ext4", "squashfs"};
+    fstypes = {"ext2", "ext3", "ext4", "squashfs", "erofs"};
   } else {
     fstypes = {type.c_str()};
   }
@@ -892,21 +899,66 @@ bool GetMinorVersion(const brillo::KeyValueStore& store,
   return false;
 }
 
-bool ReadExtents(const string& path,
+bool ReadExtents(const std::string& path,
+                 const google::protobuf::RepeatedPtrField<Extent>& extents,
+                 brillo::Blob* out_data,
+                 size_t block_size) {
+  return ReadExtents(path,
+                     {extents.begin(), extents.end()},
+                     out_data,
+                     utils::BlocksInExtents(extents) * block_size,
+                     block_size);
+}
+
+bool WriteExtents(const std::string& path,
+                  const google::protobuf::RepeatedPtrField<Extent>& extents,
+                  const brillo::Blob& data,
+                  size_t block_size) {
+  EintrSafeFileDescriptor fd;
+  TEST_AND_RETURN_FALSE(fd.Open(path.c_str(), O_RDWR));
+  size_t bytes_written = 0;
+  for (const auto& ext : extents) {
+    TEST_AND_RETURN_FALSE_ERRNO(
+        fd.Seek(ext.start_block() * block_size, SEEK_SET));
+    TEST_AND_RETURN_FALSE_ERRNO(
+        fd.Write(data.data() + bytes_written, ext.num_blocks() * block_size));
+    bytes_written += ext.num_blocks() * block_size;
+  }
+  return true;
+}
+bool ReadExtents(const std::string& path,
+                 const vector<Extent>& extents,
+                 brillo::Blob* out_data,
+                 ssize_t out_data_size,
+                 size_t block_size) {
+  FileDescriptorPtr fd = std::make_shared<EintrSafeFileDescriptor>();
+  fd->Open(path.c_str(), O_RDONLY);
+  return ReadExtents(fd, extents, out_data, out_data_size, block_size);
+}
+
+bool ReadExtents(FileDescriptorPtr fd,
+                 const google::protobuf::RepeatedPtrField<Extent>& extents,
+                 brillo::Blob* out_data,
+                 size_t block_size) {
+  return ReadExtents(fd,
+                     {extents.begin(), extents.end()},
+                     out_data,
+                     utils::BlocksInExtents(extents) * block_size,
+                     block_size);
+}
+
+bool ReadExtents(FileDescriptorPtr fd,
                  const vector<Extent>& extents,
                  brillo::Blob* out_data,
                  ssize_t out_data_size,
                  size_t block_size) {
   brillo::Blob data(out_data_size);
   ssize_t bytes_read = 0;
-  int fd = open(path.c_str(), O_RDONLY);
-  TEST_AND_RETURN_FALSE_ERRNO(fd >= 0);
-  ScopedFdCloser fd_closer(&fd);
 
   for (const Extent& extent : extents) {
     ssize_t bytes_read_this_iteration = 0;
     ssize_t bytes = extent.num_blocks() * block_size;
-    TEST_AND_RETURN_FALSE(bytes_read + bytes <= out_data_size);
+    TEST_LE(bytes_read + bytes, out_data_size);
     TEST_AND_RETURN_FALSE(utils::PReadAll(fd,
                                           &data[bytes_read],
                                           bytes,
@@ -1010,16 +1062,16 @@ string GetExclusionName(const string& str_to_convert) {
   return base::NumberToString(base::StringPieceHash()(str_to_convert));
 }
 
-static bool ParseTimestamp(const std::string& str, int64_t* out) {
-  if (!base::StringToInt64(str, out)) {
+static bool ParseTimestamp(std::string_view str, int64_t* out) {
+  if (!base::StringToInt64(base::StringPiece(str.data(), str.size()), out)) {
     LOG(WARNING) << "Invalid timestamp: " << str;
     return false;
   }
   return true;
 }
 
-ErrorCode IsTimestampNewer(const std::string& old_version,
-                           const std::string& new_version) {
+ErrorCode IsTimestampNewer(const std::string_view old_version,
+                           const std::string_view new_version) {
   if (old_version.empty() || new_version.empty()) {
     LOG(WARNING)
         << "One of old/new timestamp is empty, permit update anyway. Old: "
@@ -1040,6 +1092,40 @@ ErrorCode IsTimestampNewer(const std::string& old_version,
   return ErrorCode::kSuccess;
 }
 
+std::unique_ptr<android::base::MappedFile> GetReadonlyZeroBlock(size_t size) {
+  android::base::unique_fd fd{HANDLE_EINTR(open("/dev/zero", O_RDONLY))};
+  return android::base::MappedFile::FromFd(fd, 0, size, PROT_READ);
+}
+
+std::string_view GetReadonlyZeroString(size_t size) {
+  // Reserve 512MB of Virtual Address Space. No actual memory will be used.
+  static auto zero_block = GetReadonlyZeroBlock(1024 * 1024 * 512);
+  if (size > zero_block->size()) {
+    auto larger_block = GetReadonlyZeroBlock(size);
+    zero_block = std::move(larger_block);
+  }
+  return {zero_block->data(), size};
+}
+
 }  // namespace utils
+
+std::string HexEncode(const brillo::Blob& blob) noexcept {
+  return base::HexEncode(blob.data(), blob.size());
+}
+
+std::string HexEncode(const std::string_view blob) noexcept {
+  return base::HexEncode(blob.data(), blob.size());
+}
+
+[[nodiscard]] std::string_view ToStringView(
+    const std::vector<unsigned char>& blob) noexcept {
+  return std::string_view{reinterpret_cast<const char*>(blob.data()),
+                          blob.size()};
+}
+
+[[nodiscard]] std::string_view ToStringView(const void* data,
+                                            size_t size) noexcept {
+  return std::string_view(reinterpret_cast<const char*>(data), size);
+}
 
 }  // namespace chromeos_update_engine

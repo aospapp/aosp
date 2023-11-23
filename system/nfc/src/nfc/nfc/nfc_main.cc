@@ -148,7 +148,7 @@ static std::string nfc_hal_event_name(uint8_t event) {
       return "HAL_NFC_RELEASE_CONTROL_EVT";
     case HAL_NFC_ERROR_EVT:
       return "HAL_NFC_ERROR_EVT";
-    case (uint32_t)NfcEvent::HCI_NETWORK_RESET:
+    case HAL_HCI_NETWORK_RESET:
       return "HCI_NETWORK_RESET";
     default:
       return "???? UNKNOWN EVENT";
@@ -526,7 +526,7 @@ void nfc_main_handle_hal_evt(tNFC_HAL_EVT_MSG* p_msg) {
           }
           break;
 
-        case (uint32_t)NfcEvent::HCI_NETWORK_RESET:
+        case HAL_HCI_NETWORK_RESET:
           delete_stack_non_volatile_store(true);
           break;
 
@@ -630,7 +630,7 @@ static void nfc_main_hal_cback(uint8_t event, tHAL_NFC_STATUS status) {
     case HAL_NFC_REQUEST_CONTROL_EVT:
     case HAL_NFC_RELEASE_CONTROL_EVT:
     case HAL_NFC_ERROR_EVT:
-    case (uint32_t)NfcEvent::HCI_NETWORK_RESET:
+    case HAL_HCI_NETWORK_RESET:
       nfc_main_post_hal_evt(event, status);
       break;
 
@@ -785,6 +785,8 @@ void NFC_Init(tHAL_NFC_ENTRY* p_hal_entry_tbl) {
   nfc_cb.nci_ctrl_size = NCI_CTRL_INIT_SIZE;
   nfc_cb.reassembly = true;
   nfc_cb.nci_version = NCI_VERSION_UNKNOWN;
+  GKI_init_timer_list(&nfc_cb.timer_queue);
+  GKI_init_timer_list(&nfc_cb.quick_timer_queue);
   rw_init();
   ce_init();
   llcp_init();

@@ -13,26 +13,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <cutils/uevent.h>
-#include <dirent.h>
-#include <linux/genetlink.h>
-#include <linux/netlink.h>
-#include <linux/thermal.h>
-#include <netlink/genl/ctrl.h>
-#include <netlink/genl/genl.h>
-#include <sys/inotify.h>
-#include <sys/resource.h>
-#include <sys/types.h>
-#include <chrono>
-#include <fstream>
+
+#define ATRACE_TAG (ATRACE_TAG_THERMAL | ATRACE_TAG_HAL)
+
+#include "thermal_watcher.h"
 
 #include <android-base/file.h>
 #include <android-base/logging.h>
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
+#include <cutils/uevent.h>
+#include <dirent.h>
+#include <linux/netlink.h>
+#include <linux/thermal.h>
+#include <sys/inotify.h>
+#include <sys/resource.h>
+#include <sys/types.h>
+#include <utils/Trace.h>
+
+#include <chrono>
+#include <fstream>
 
 #include "thermal-helper.h"
-#include "thermal_watcher.h"
 
 namespace android {
 namespace hardware {
@@ -507,6 +509,7 @@ bool ThermalWatcher::threadLoop() {
 
     if (time_elapsed_ms < sleep_ms_ &&
         looper_->pollOnce(sleep_ms_.count(), &fd, nullptr, nullptr) >= 0) {
+        ATRACE_NAME("ThermalWatcher::threadLoop - receive event");
         if (fd != uevent_fd_.get() && fd != thermal_genl_fd_.get()) {
             return true;
         } else if (fd == thermal_genl_fd_.get()) {

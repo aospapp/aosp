@@ -57,9 +57,9 @@ void ExpectBlocksInRange(const vector<Extent>& extents, uint64_t total_blocks) {
   }
 }
 
-}  // namespace
-
 class Ext2FilesystemTest : public ::testing::Test {};
+
+}  // namespace
 
 TEST_F(Ext2FilesystemTest, InvalidFilesystem) {
   ScopedTempFile fs_filename_{"Ext2FilesystemTest-XXXXXX"};

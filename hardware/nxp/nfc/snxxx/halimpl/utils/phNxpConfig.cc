@@ -18,9 +18,7 @@
 
 /******************************************************************************
  *
- *  The original Work has been changed by NXP Semiconductors.
- *
- *  Copyright 2013-2021 NXP
+ *  The original Work has been changed by NXP.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -34,19 +32,23 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  *
+ *  Copyright 2013-2021 NXP
+ *
  ******************************************************************************/
 
 #include <android-base/properties.h>
+#include <errno.h>
 #include <log/log.h>
+#include <phDnldNfc_Internal.h>
+#include <phNxpConfig.h>
+#include <phNxpLog.h>
 #include <stdio.h>
 #include <sys/stat.h>
+
 #include <list>
 #include <string>
 #include <vector>
 
-#include <errno.h>
-#include <phNxpConfig.h>
-#include <phNxpLog.h>
 #include "sparse_crc32.h"
 #if GENERIC_TARGET
 const char alternative_config_path[] = "/data/vendor/nfc/";
@@ -82,7 +84,12 @@ const char config_timestamp_path[] =
 /*const char default_nxp_config_path[] =
         "/vendor/etc/libnfc-nxp.conf";*/
 char nxp_rf_config_path[256] = "/system/vendor/libnfc-nxp_RF.conf";
+#if (defined(__arm64__) || defined(__aarch64__) || defined(_M_ARM64))
 char Fw_Lib_Path[256] = "/vendor/lib64/libsn100u_fw.so";
+#else
+char Fw_Lib_Path[256] = "/vendor/lib/libsn100u_fw.so";
+#endif
+
 const char transit_config_path[] = "/data/vendor/nfc/libnfc-nxpTransit.conf";
 void readOptionalConfig(const char* optional);
 
@@ -744,7 +751,8 @@ bool CNfcConfig::isAllowed(const char* name) {
       (token.find("NXP_RF_CONF_BLK") != std::string::npos) ||
       (token.find("NXP_CN_TRANSIT_BLK_NUM_CHECK_ENABLE") !=
        std::string::npos) ||
-      (token.find("NXP_FWD_FUNCTIONALITY_ENABLE") != std::string::npos))
+      (token.find("NXP_FWD_FUNCTIONALITY_ENABLE") != std::string::npos) ||
+      (token.find("NXP_MIFARE_NACK_TO_RATS_ENABLE") != std::string::npos))
 
   {
     stat = true;
@@ -1001,7 +1009,7 @@ extern "C" int GetNxpNumValue(const char* name, void* pValue,
   unsigned long v = pParam->numValue();
   if (v == 0 && pParam->str_len() > 0 && pParam->str_len() < 4) {
     const unsigned char* p = (const unsigned char*)pParam->str_value();
-    for (unsigned int i = 0; i < pParam->str_len(); ++i) {
+    for (size_t i = 0; i < pParam->str_len(); ++i) {
       v *= 256;
       v += *p++;
     }
@@ -1046,9 +1054,19 @@ extern "C" void setNxpRfConfigPath(const char* name) {
 ** Returns:     none
 **
 *******************************************************************************/
-extern "C" void setNxpFwConfigPath(const char* name) {
+extern "C" void setNxpFwConfigPath() {
+  unsigned long fwType = FW_FORMAT_SO;
+  if (GetNxpNumValue(NAME_NXP_FW_TYPE, &fwType, sizeof(fwType))) {
+    NXPLOG_FWDNLD_D("firmware type from conf file: %lu", fwType);
+  }
+
   memset(Fw_Lib_Path, 0, sizeof(Fw_Lib_Path));
-  strlcpy(Fw_Lib_Path, name, sizeof(Fw_Lib_Path));
+  if (fwType == FW_FORMAT_BIN) {
+    strlcpy(Fw_Lib_Path, nfcFL._FW_BIN_PATH.c_str(), sizeof(Fw_Lib_Path));
+  } else {
+    strlcpy(Fw_Lib_Path, nfcFL._FW_LIB_PATH.c_str(), sizeof(Fw_Lib_Path));
+  }
+
   ALOGD("Fw_Lib_Path=%s", Fw_Lib_Path);
 }
 

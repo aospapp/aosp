@@ -34,6 +34,8 @@ import org.junit.runners.JUnit4;
 public final class ActivityResumedEventTest {
 
     private static final Context sContext = TestApis.context().instrumentedContext();
+    private static final int TASK_ID = 1;
+    private static final int DIFFERENT_TASK_ID = 2;
 
     private static final String ACTIVITY_CLASS_NAME = ActivityContext.class.getName();
     private static final ActivityInfo ACTIVITY_INFO = new ActivityInfo();
@@ -73,6 +75,38 @@ public final class ActivityResumedEventTest {
                         .whereActivity().activityClass().className().isEqualTo(ACTIVITY_CLASS_NAME);
 
         assertThat(eventLogs.poll().activity().className()).isEqualTo(ACTIVITY_CLASS_NAME);
+    }
+
+    @Test
+    public void whereTaskId_works() throws Exception {
+        ActivityContext.runWithContext((activity) ->
+                ActivityResumedEvent.logger(activity, ACTIVITY_INFO)
+                        .setTaskId(TASK_ID)
+                        .log());
+
+        EventLogs<ActivityResumedEvent> eventLogs =
+                ActivityResumedEvent.queryPackage(sContext.getPackageName())
+                        .whereTaskId().isEqualTo(TASK_ID);
+
+        assertThat(eventLogs.poll().taskId()).isEqualTo(TASK_ID);
+    }
+
+    @Test
+    public void whereTaskId_skipsNonMatching() throws Exception {
+        ActivityContext.runWithContext((activity) -> {
+            ActivityResumedEvent.logger(activity, ACTIVITY_INFO)
+                    .setTaskId(DIFFERENT_TASK_ID)
+                    .log();
+            ActivityResumedEvent.logger(activity, ACTIVITY_INFO)
+                    .setTaskId(TASK_ID)
+                    .log();
+        });
+
+        EventLogs<ActivityResumedEvent> eventLogs =
+                ActivityResumedEvent.queryPackage(sContext.getPackageName())
+                        .whereTaskId().isEqualTo(TASK_ID);
+
+        assertThat(eventLogs.poll().taskId()).isEqualTo(TASK_ID);
     }
 
 }

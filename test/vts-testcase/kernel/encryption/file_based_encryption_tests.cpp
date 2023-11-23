@@ -60,9 +60,11 @@
 #include <fcntl.h>
 #include <gtest/gtest.h>
 #include <limits.h>
+#include <linux/f2fs.h>
 #include <linux/fiemap.h>
 #include <linux/fs.h>
 #include <linux/fscrypt.h>
+#include <lz4.h>
 #include <openssl/evp.h>
 #include <openssl/hkdf.h>
 #include <openssl/siphash.h>
@@ -73,12 +75,14 @@
 
 #include "vts_kernel_encryption.h"
 
-#ifndef F2FS_IOCTL_MAGIC
-#define F2FS_IOCTL_MAGIC 0xf5
-#endif
-#ifndef F2FS_IOC_SET_PIN_FILE
-#define F2FS_IOC_SET_PIN_FILE _IOW(F2FS_IOCTL_MAGIC, 13, __u32)
-#endif
+/* These values are missing from <linux/f2fs.h> */
+enum f2fs_compress_algorithm {
+  F2FS_COMPRESS_LZO,
+  F2FS_COMPRESS_LZ4,
+  F2FS_COMPRESS_ZSTD,
+  F2FS_COMPRESS_LZORLE,
+  F2FS_COMPRESS_MAX,
+};
 
 namespace android {
 namespace kernel {
@@ -308,6 +312,7 @@ static bool ReadRawDataOfFile(int fd, const std::string &blk_device,
 static bool WriteTestFile(const std::vector<uint8_t> &plaintext,
                           const std::string &path,
                           const std::string &blk_device,
+                          const struct f2fs_comp_option *compress_options,
                           std::vector<uint8_t> *ciphertext) {
   GTEST_LOG_(INFO) << "Creating test file " << path << " containing "
                    << plaintext.size() << " bytes of data";
@@ -317,15 +322,106 @@ static bool WriteTestFile(const std::vector<uint8_t> &plaintext,
     ADD_FAILURE() << "Failed to create " << path << Errno();
     return false;
   }
+
+  if (compress_options != nullptr) {
+    if (ioctl(fd, F2FS_IOC_SET_COMPRESS_OPTION, compress_options) != 0) {
+      ADD_FAILURE() << "Error setting compression options on " << path
+                    << Errno();
+      return false;
+    }
+  }
+
   if (!android::base::WriteFully(fd, plaintext.data(), plaintext.size())) {
     ADD_FAILURE() << "Error writing to " << path << Errno();
     return false;
+  }
+
+  if (compress_options != nullptr) {
+    // With compress_mode=user, files in a compressed directory inherit the
+    // compression flag but aren't actually compressed unless
+    // F2FS_IOC_COMPRESS_FILE is called.  The ioctl compresses existing data
+    // only, so it must be called *after* writing the data.  With
+    // compress_mode=fs, the ioctl is unnecessary and fails with EOPNOTSUPP.
+    if (ioctl(fd, F2FS_IOC_COMPRESS_FILE, NULL) != 0 && errno != EOPNOTSUPP) {
+      ADD_FAILURE() << "F2FS_IOC_COMPRESS_FILE failed on " << path << Errno();
+      return false;
+    }
   }
 
   GTEST_LOG_(INFO) << "Reading the raw ciphertext of " << path << " from disk";
   if (!ReadRawDataOfFile(fd, blk_device, plaintext.size(), ciphertext)) {
     ADD_FAILURE() << "Failed to read the raw ciphertext of " << path;
     return false;
+  }
+  return true;
+}
+
+// See MakeSomeCompressibleClusters() for explanation.
+static bool IsCompressibleCluster(int cluster_num) {
+  return cluster_num % 2 == 0;
+}
+
+// Given some random data that will be written to the test file, modifies every
+// other compression cluster to be compressible by at least 1 filesystem block.
+//
+// This testing strategy is adapted from the xfstest "f2fs/002".  We use some
+// compressible clusters and some incompressible clusters because we want to
+// test that the encryption works correctly with both.  We also don't make the
+// data *too* compressible, since we want to have enough compressed blocks in
+// each cluster to see the IVs being incremented.
+static bool MakeSomeCompressibleClusters(std::vector<uint8_t> &bytes,
+                                         int log_cluster_size) {
+  int cluster_bytes = kFilesystemBlockSize << log_cluster_size;
+  if (bytes.size() % cluster_bytes != 0) {
+    ADD_FAILURE() << "Test file size (" << bytes.size()
+                  << " bytes) is not divisible by compression cluster size ("
+                  << cluster_bytes << " bytes)";
+    return false;
+  }
+  int num_clusters = bytes.size() / cluster_bytes;
+  for (int i = 0; i < num_clusters; i++) {
+    if (IsCompressibleCluster(i)) {
+      memset(&bytes[i * cluster_bytes], 0, 2 * kFilesystemBlockSize);
+    }
+  }
+  return true;
+}
+
+// On-disk format of an f2fs compressed cluster
+struct f2fs_compressed_cluster {
+  __le32 clen;
+  __le32 reserved[5];
+  uint8_t cdata[];
+} __attribute__((packed));
+
+static bool DecompressLZ4Cluster(const uint8_t *in, uint8_t *out,
+                                 int cluster_bytes) {
+  const struct f2fs_compressed_cluster *cluster =
+      reinterpret_cast<const struct f2fs_compressed_cluster *>(in);
+  uint32_t clen = __le32_to_cpu(cluster->clen);
+
+  if (clen > cluster_bytes - kFilesystemBlockSize - sizeof(*cluster)) {
+    ADD_FAILURE() << "Invalid compressed cluster (bad compressed size)";
+    return false;
+  }
+  if (LZ4_decompress_safe(reinterpret_cast<const char *>(cluster->cdata),
+                          reinterpret_cast<char *>(out), clen,
+                          cluster_bytes) != cluster_bytes) {
+    ADD_FAILURE() << "Invalid compressed cluster (LZ4 decompression error)";
+    return false;
+  }
+
+  // As long as we're here, do a regression test for kernel commit 7fa6d59816e7
+  // ("f2fs: fix leaking uninitialized memory in compressed clusters").
+  // Note that if this fails, we can still continue with the rest of the test.
+  size_t full_clen = offsetof(struct f2fs_compressed_cluster, cdata[clen]);
+  if (full_clen % kFilesystemBlockSize != 0) {
+    size_t remainder =
+        kFilesystemBlockSize - (full_clen % kFilesystemBlockSize);
+    std::vector<uint8_t> zeroes(remainder, 0);
+    std::vector<uint8_t> actual(&cluster->cdata[clen],
+                                &cluster->cdata[clen + remainder]);
+    EXPECT_EQ(zeroes, actual);
   }
   return true;
 }
@@ -349,7 +445,9 @@ class FBEPolicyTest : public ::testing::Test {
   int GetSkipFlagsForInoBasedEncryption();
   bool SetEncryptionPolicy(int contents_mode, int filenames_mode, int flags,
                            int skip_flags);
-  bool GenerateTestFile(TestFileInfo *info);
+  bool GenerateTestFile(
+      TestFileInfo *info,
+      const struct f2fs_comp_option *compress_options = nullptr);
   bool VerifyKeyIdentifier(const std::vector<uint8_t> &master_key);
   bool DerivePerModeEncryptionKey(const std::vector<uint8_t> &master_key,
                                   int mode, FscryptHkdfContext context,
@@ -362,6 +460,8 @@ class FBEPolicyTest : public ::testing::Test {
                         const TestFileInfo &file_info);
   void TestEmmcOptimizedDunWraparound(const std::vector<uint8_t> &master_key,
                                       const std::vector<uint8_t> &enc_key);
+  bool EnableF2fsCompressionOnTestDir();
+  bool F2fsCompressOptionsSupported(const struct f2fs_comp_option &opts);
   struct fscrypt_key_specifier master_key_specifier_;
   bool skip_test_ = false;
   bool key_added_ = false;
@@ -568,12 +668,18 @@ bool FBEPolicyTest::SetEncryptionPolicy(int contents_mode, int filenames_mode,
 // Generates some test data, writes it to a file in the test directory, and
 // returns in |info| the file's plaintext, the file's raw ciphertext read from
 // disk, and other information about the file.
-bool FBEPolicyTest::GenerateTestFile(TestFileInfo *info) {
+bool FBEPolicyTest::GenerateTestFile(
+    TestFileInfo *info, const struct f2fs_comp_option *compress_options) {
   info->plaintext.resize(kTestFileBytes);
   RandomBytesForTesting(info->plaintext);
 
+  if (compress_options != nullptr &&
+      !MakeSomeCompressibleClusters(info->plaintext,
+                                    compress_options->log_cluster_size))
+    return false;
+
   if (!WriteTestFile(info->plaintext, kTestFile, fs_info_.raw_blk_device,
-                     &info->actual_ciphertext))
+                     compress_options, &info->actual_ciphertext))
     return false;
 
   android::base::unique_fd fd(open(kTestFile, O_RDONLY | O_CLOEXEC));
@@ -1011,6 +1117,242 @@ TEST_F(FBEPolicyTest, TestHwWrappedKeyCorruption) {
   }
 }
 
+bool FBEPolicyTest::EnableF2fsCompressionOnTestDir() {
+  android::base::unique_fd fd(open(kTestDir, O_RDONLY | O_CLOEXEC));
+  if (fd < 0) {
+    ADD_FAILURE() << "Failed to open " << kTestDir << Errno();
+    return false;
+  }
+
+  int flags;
+  if (ioctl(fd, FS_IOC_GETFLAGS, &flags) != 0) {
+    ADD_FAILURE() << "Unexpected error getting flags of " << kTestDir
+                  << Errno();
+    return false;
+  }
+  flags |= FS_COMPR_FL;
+  if (ioctl(fd, FS_IOC_SETFLAGS, &flags) != 0) {
+    if (errno == EOPNOTSUPP) {
+      GTEST_LOG_(INFO)
+          << "Skipping test because f2fs compression is not supported on "
+          << kTestMountpoint;
+      return false;
+    }
+    ADD_FAILURE() << "Unexpected error enabling compression on " << kTestDir
+                  << Errno();
+    return false;
+  }
+  return true;
+}
+
+static std::string F2fsCompressAlgorithmName(int algorithm) {
+  switch (algorithm) {
+    case F2FS_COMPRESS_LZO:
+      return "LZO";
+    case F2FS_COMPRESS_LZ4:
+      return "LZ4";
+    case F2FS_COMPRESS_ZSTD:
+      return "ZSTD";
+    case F2FS_COMPRESS_LZORLE:
+      return "LZORLE";
+    default:
+      return android::base::StringPrintf("%d", algorithm);
+  }
+}
+
+bool FBEPolicyTest::F2fsCompressOptionsSupported(
+    const struct f2fs_comp_option &opts) {
+  android::base::unique_fd fd(open(kTestFile, O_WRONLY | O_CREAT, 0600));
+
+  if (ioctl(fd, F2FS_IOC_SET_COMPRESS_OPTION, &opts) != 0) {
+    if (errno == ENOTTY || errno == EOPNOTSUPP) {
+      GTEST_LOG_(INFO) << "Skipping test because kernel doesn't support "
+                          "F2FS_IOC_SET_COMPRESS_OPTION on "
+                       << kTestMountpoint;
+      return false;
+    }
+    ADD_FAILURE() << "Unexpected error from F2FS_IOC_SET_COMPRESS_OPTION"
+                  << Errno();
+    return false;
+  }
+  // Unsupported compression algorithms aren't detected until the file is
+  // reopened.
+  fd.reset(open(kTestFile, O_WRONLY));
+  if (fd < 0) {
+    if (errno == EOPNOTSUPP || errno == ENOPKG) {
+      GTEST_LOG_(INFO) << "Skipping test because kernel doesn't support "
+                       << F2fsCompressAlgorithmName(opts.algorithm)
+                       << " compression";
+      return false;
+    }
+    ADD_FAILURE() << "Unexpected error when reopening file after "
+                     "F2FS_IOC_SET_COMPRESS_OPTION"
+                  << Errno();
+    return false;
+  }
+  unlink(kTestFile);
+  return true;
+}
+
+// Tests that encryption is done correctly on compressed files.
+//
+// This works by creating a compressed+encrypted file, then decrypting the
+// file's on-disk data, then decompressing it, then comparing the result to the
+// original data.  We don't do it the other way around (compress+encrypt the
+// original data and compare to the on-disk data) because different
+// implementations of a compression algorithm can produce different results.
+//
+// This is adapted from the xfstest "f2fs/002"; see there for some more details.
+//
+// This test will skip itself if any of the following is true:
+//   - f2fs compression isn't enabled on /data
+//   - f2fs compression isn't enabled in the kernel (CONFIG_F2FS_FS_COMPRESSION)
+//   - The kernel doesn't support the needed algorithm (CONFIG_F2FS_FS_LZ4)
+//   - The kernel doesn't support the F2FS_IOC_SET_COMPRESS_OPTION ioctl
+//
+// Note, this test will be flaky if the kernel is missing commit 093f0bac32b
+// ("f2fs: change fiemap way in printing compression chunk").
+TEST_F(FBEPolicyTest, TestF2fsCompression) {
+  if (skip_test_) return;
+
+  // Currently, only f2fs supports compression+encryption.
+  if (fs_info_.type != "f2fs") {
+    GTEST_LOG_(INFO) << "Skipping test because device uses " << fs_info_.type
+                     << ", not f2fs";
+    return;
+  }
+
+  // Enable compression and encryption on the test directory.  Afterwards, both
+  // of these features will be inherited by any file created in this directory.
+  //
+  // If compression is not supported, skip the test.  Use the default encryption
+  // settings, which should always be supported.
+  if (!EnableF2fsCompressionOnTestDir()) return;
+  auto master_key = GenerateTestKey(kFscryptMasterKeySize);
+  ASSERT_TRUE(SetMasterKey(master_key));
+  ASSERT_TRUE(SetEncryptionPolicy(FSCRYPT_MODE_AES_256_XTS,
+                                  FSCRYPT_MODE_AES_256_CTS, 0, 0));
+
+  // This test will use LZ4 compression with a cluster size of 2^2 = 4 blocks.
+  // Check that this setting is supported.
+  //
+  // Note that the precise choice of algorithm and cluster size isn't too
+  // important for this test.  We just (somewhat arbitrarily) chose a setting
+  // which is commonly used and for which a decompression library is available.
+  const int log_cluster_size = 2;
+  const int cluster_bytes = kFilesystemBlockSize << log_cluster_size;
+  struct f2fs_comp_option comp_opt;
+  memset(&comp_opt, 0, sizeof(comp_opt));
+  comp_opt.algorithm = F2FS_COMPRESS_LZ4;
+  comp_opt.log_cluster_size = log_cluster_size;
+  if (!F2fsCompressOptionsSupported(comp_opt)) return;
+
+  // Generate the test file and retrieve its on-disk data.  Note: despite being
+  // compressed, the on-disk data here will still be |kTestFileBytes| long.
+  // This is because FS_IOC_FIEMAP doesn't natively support compression, and the
+  // way that f2fs handles it on compressed files results in us reading extra
+  // blocks appended to the compressed clusters.  It works out in the end
+  // though, since these extra blocks get ignored during decompression.
+  TestFileInfo file_info;
+  ASSERT_TRUE(GenerateTestFile(&file_info, &comp_opt));
+
+  GTEST_LOG_(INFO) << "Decrypting the blocks of the compressed file";
+  std::vector<uint8_t> enc_key(kAes256XtsKeySize);
+  ASSERT_TRUE(DerivePerFileEncryptionKey(master_key, file_info.nonce, enc_key));
+  std::vector<uint8_t> decrypted_data(kTestFileBytes);
+  FscryptIV iv;
+  memset(&iv, 0, sizeof(iv));
+  ASSERT_EQ(0, kTestFileBytes % kFilesystemBlockSize);
+  for (int i = 0; i < kTestFileBytes; i += kFilesystemBlockSize) {
+    int block_num = i / kFilesystemBlockSize;
+    int cluster_num = i / cluster_bytes;
+
+    // In compressed clusters, IVs start at 1 higher than the expected value.
+    // Fortunately, due to the compression there is no overlap...
+    if (IsCompressibleCluster(cluster_num)) block_num++;
+
+    iv.lblk_num = __cpu_to_le32(block_num);
+    ASSERT_TRUE(Aes256XtsCipher().Decrypt(
+        enc_key, iv.bytes, &file_info.actual_ciphertext[i], &decrypted_data[i],
+        kFilesystemBlockSize));
+  }
+
+  GTEST_LOG_(INFO) << "Decompressing the decrypted blocks of the file";
+  std::vector<uint8_t> decompressed_data(kTestFileBytes);
+  ASSERT_EQ(0, kTestFileBytes % cluster_bytes);
+  for (int i = 0; i < kTestFileBytes; i += cluster_bytes) {
+    int cluster_num = i / cluster_bytes;
+    if (IsCompressibleCluster(cluster_num)) {
+      // We had filled this cluster with compressible data, so it should have
+      // been stored compressed.
+      ASSERT_TRUE(DecompressLZ4Cluster(&decrypted_data[i],
+                                       &decompressed_data[i], cluster_bytes));
+    } else {
+      // We had filled this cluster with random data, so it should have been
+      // incompressible and thus stored uncompressed.
+      memcpy(&decompressed_data[i], &decrypted_data[i], cluster_bytes);
+    }
+  }
+
+  // Finally do the actual test.  The data we got after decryption+decompression
+  // should match the original file contents.
+  GTEST_LOG_(INFO) << "Comparing the result to the original data";
+  ASSERT_EQ(file_info.plaintext, decompressed_data);
+}
+
+static bool DeviceUsesFBE() {
+  if (android::base::GetProperty("ro.crypto.type", "") == "file") return true;
+  // FBE has been required since Android Q.
+  int first_api_level;
+  if (!GetFirstApiLevel(&first_api_level)) return true;
+  if (first_api_level >= __ANDROID_API_Q__) {
+    ADD_FAILURE() << "File-based encryption is required";
+  } else {
+    GTEST_LOG_(INFO)
+        << "Skipping test because device doesn't use file-based encryption";
+  }
+  return false;
+}
+
+// Retrieves the encryption key specifier used in the file-based encryption
+// policy of |dir|.  This isn't the key itself, but rather a "name" for the key.
+// If the key specifier cannot be retrieved, e.g. due to the directory being
+// unencrypted, then false is returned and a failure is added.
+static bool GetKeyUsedByDir(const std::string &dir,
+                            std::string *key_specifier) {
+  android::base::unique_fd fd(open(dir.c_str(), O_RDONLY));
+  if (fd < 0) {
+    ADD_FAILURE() << "Failed to open " << dir << Errno();
+    return false;
+  }
+  struct fscrypt_get_policy_ex_arg arg = {.policy_size = sizeof(arg.policy)};
+  int res = ioctl(fd, FS_IOC_GET_ENCRYPTION_POLICY_EX, &arg);
+  if (res != 0 && errno == ENOTTY) {
+    // Handle old kernels that don't support FS_IOC_GET_ENCRYPTION_POLICY_EX.
+    res = ioctl(fd, FS_IOC_GET_ENCRYPTION_POLICY, &arg.policy.v1);
+  }
+  if (res != 0) {
+    if (errno == ENODATA) {
+      ADD_FAILURE() << "Directory " << dir << " is not encrypted!";
+    } else {
+      ADD_FAILURE() << "Failed to get encryption policy of " << dir << Errno();
+    }
+    return false;
+  }
+  switch (arg.policy.version) {
+    case FSCRYPT_POLICY_V1:
+      *key_specifier = BytesToHex(arg.policy.v1.master_key_descriptor);
+      return true;
+    case FSCRYPT_POLICY_V2:
+      *key_specifier = BytesToHex(arg.policy.v2.master_key_identifier);
+      return true;
+    default:
+      ADD_FAILURE() << dir << " uses unknown encryption policy version ("
+                    << arg.policy.version << ")";
+      return false;
+  }
+}
+
 // Tests that if the device uses FBE, then the ciphertext for file contents in
 // encrypted directories seems to be random.
 //
@@ -1021,26 +1363,18 @@ TEST(FBETest, TestFileContentsRandomness) {
   constexpr const char *path_1 = "/data/local/tmp/vts-test-file-1";
   constexpr const char *path_2 = "/data/local/tmp/vts-test-file-2";
 
-  if (android::base::GetProperty("ro.crypto.type", "") != "file") {
-    // FBE has been required since Android Q.
-    int first_api_level;
-    ASSERT_TRUE(GetFirstApiLevel(&first_api_level));
-    ASSERT_LE(first_api_level, __ANDROID_API_P__)
-        << "File-based encryption is required";
-    GTEST_LOG_(INFO)
-        << "Skipping test because device doesn't use file-based encryption";
-    return;
-  }
+  if (!DeviceUsesFBE()) return;
+
   FilesystemInfo fs_info;
   ASSERT_TRUE(GetFilesystemInfo("/data", &fs_info));
 
   std::vector<uint8_t> zeroes(kTestFileBytes, 0);
   std::vector<uint8_t> ciphertext_1;
   std::vector<uint8_t> ciphertext_2;
-  ASSERT_TRUE(
-      WriteTestFile(zeroes, path_1, fs_info.raw_blk_device, &ciphertext_1));
-  ASSERT_TRUE(
-      WriteTestFile(zeroes, path_2, fs_info.raw_blk_device, &ciphertext_2));
+  ASSERT_TRUE(WriteTestFile(zeroes, path_1, fs_info.raw_blk_device, nullptr,
+                            &ciphertext_1));
+  ASSERT_TRUE(WriteTestFile(zeroes, path_2, fs_info.raw_blk_device, nullptr,
+                            &ciphertext_2));
 
   GTEST_LOG_(INFO) << "Verifying randomness of ciphertext";
 
@@ -1059,6 +1393,33 @@ TEST(FBETest, TestFileContentsRandomness) {
 
   ASSERT_EQ(unlink(path_1), 0);
   ASSERT_EQ(unlink(path_2), 0);
+}
+
+// Tests that all of user 0's directories that should be encrypted actually are,
+// and that user 0's CE and DE keys are different.
+TEST(FBETest, TestUserDirectoryPolicies) {
+  if (!DeviceUsesFBE()) return;
+
+  std::string user0_ce_key, user0_de_key;
+  EXPECT_TRUE(GetKeyUsedByDir("/data/user/0", &user0_ce_key));
+  EXPECT_TRUE(GetKeyUsedByDir("/data/user_de/0", &user0_de_key));
+  EXPECT_NE(user0_ce_key, user0_de_key) << "CE and DE keys must differ";
+
+  // Check the CE directories other than /data/user/0.
+  for (const std::string &dir : {"/data/media/0", "/data/misc_ce/0",
+                                 "/data/system_ce/0", "/data/vendor_ce/0"}) {
+    std::string key;
+    EXPECT_TRUE(GetKeyUsedByDir(dir, &key));
+    EXPECT_EQ(key, user0_ce_key) << dir << " must be encrypted with CE key";
+  }
+
+  // Check the DE directories other than /data/user_de/0.
+  for (const std::string &dir :
+       {"/data/misc_de/0", "/data/system_de/0", "/data/vendor_de/0"}) {
+    std::string key;
+    EXPECT_TRUE(GetKeyUsedByDir(dir, &key));
+    EXPECT_EQ(key, user0_de_key) << dir << " must be encrypted with DE key";
+  }
 }
 
 }  // namespace kernel

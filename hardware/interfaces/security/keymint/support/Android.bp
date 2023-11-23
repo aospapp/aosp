@@ -25,6 +25,7 @@ package {
 
 cc_library {
     name: "libkeymint_support",
+    vendor_available: true,
     cflags: [
         "-Wall",
         "-Wextra",
@@ -39,11 +40,14 @@ cc_library {
     export_include_dirs: [
         "include",
     ],
+    defaults: [
+        "keymint_use_latest_hal_aidl_ndk_shared",
+    ],
     shared_libs: [
-        "android.hardware.security.keymint-V1-ndk_platform",
         "libbase",
         "libcrypto",
         "libutils",
+        "libhardware",
     ],
 }
 
@@ -56,11 +60,15 @@ cc_library {
     export_include_dirs: [
         "include",
     ],
+    defaults: [
+        "keymint_use_latest_hal_aidl_ndk_shared",
+    ],
     shared_libs: [
         "libbase",
         "libcppbor_external",
         "libcppcose_rkp",
         "libcrypto",
+        "libkeymaster_portable",
         "libjsoncpp",
     ],
 }
@@ -71,6 +79,9 @@ cc_test {
     static_libs: [
         "libgmock",
         "libgtest_main",
+    ],
+    defaults: [
+        "keymint_use_latest_hal_aidl_ndk_shared",
     ],
     shared_libs: [
         "libbase",

@@ -22,7 +22,7 @@ package {
 
 java_library {
     name: "tagging-common-devicesidelib",
-    srcs: ["src/**/Utils.java"],
+    srcs: ["src/**/*.java"],
     sdk_version: "current",
 }
 
@@ -34,17 +34,8 @@ cc_test_library {
         "-Werror",
     ],
     header_libs: ["jni_headers"],
+    shared_libs: ["liblog"],
     sdk_version: "current",
     stl: "libc++",
     gtest: false,
-}
-
-android_test_helper_app {
-    name: "DeviceKernelHelpers",
-    defaults: ["cts_tagging_app_defaults"],
-    test_suites: [
-        "cts",
-        "general-tests",
-    ],
-    srcs: ["src/**/DeviceKernelHelpers.java"],
 }

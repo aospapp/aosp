@@ -17,11 +17,14 @@
 package com.android.queryable.queries;
 
 import android.content.IntentFilter;
+import android.os.Parcel;
+import android.os.Parcelable;
 
 import com.android.queryable.Queryable;
 
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -31,7 +34,7 @@ import java.util.Set;
  */
 public class IntentFilterQueryHelper<E extends Queryable> implements IntentFilterQuery<E> {
 
-    private final E mQuery;
+    private final transient E mQuery;
     private final SetQueryHelper<E, String, StringQuery<?>> mActionsQueryHelper;
     private final SetQueryHelper<E, String, StringQuery<?>> mCategoriesQueryHelper;
 
@@ -45,6 +48,12 @@ public class IntentFilterQueryHelper<E extends Queryable> implements IntentFilte
         mQuery = query;
         mActionsQueryHelper = new SetQueryHelper<>(query);
         mCategoriesQueryHelper = new SetQueryHelper<>(query);
+    }
+
+    private IntentFilterQueryHelper(Parcel in) {
+        mQuery = null;
+        mActionsQueryHelper = in.readParcelable(IntentFilterQueryHelper.class.getClassLoader());
+        mCategoriesQueryHelper = in.readParcelable(IntentFilterQueryHelper.class.getClassLoader());
     }
 
     @Override
@@ -88,5 +97,41 @@ public class IntentFilterQueryHelper<E extends Queryable> implements IntentFilte
                 mActionsQueryHelper.describeQuery(fieldName + ".actions"),
                 mCategoriesQueryHelper.describeQuery(fieldName + ".categories")
         );
+    }
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel out, int flags) {
+        out.writeParcelable(mActionsQueryHelper, flags);
+        out.writeParcelable(mCategoriesQueryHelper, flags);
+    }
+
+    public static final Parcelable.Creator<IntentFilterQueryHelper> CREATOR =
+            new Parcelable.Creator<IntentFilterQueryHelper>() {
+                public IntentFilterQueryHelper createFromParcel(Parcel in) {
+                    return new IntentFilterQueryHelper(in);
+                }
+
+                public IntentFilterQueryHelper[] newArray(int size) {
+                    return new IntentFilterQueryHelper[size];
+                }
+    };
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof IntentFilterQueryHelper)) return false;
+        IntentFilterQueryHelper<?> that = (IntentFilterQueryHelper<?>) o;
+        return Objects.equals(mActionsQueryHelper, that.mActionsQueryHelper)
+                && Objects.equals(mCategoriesQueryHelper, that.mCategoriesQueryHelper);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(mActionsQueryHelper, mCategoriesQueryHelper);
     }
 }

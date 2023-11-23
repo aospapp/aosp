@@ -15,28 +15,41 @@
 package build
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
 
-	"android/soong/shared"
-	"github.com/google/blueprint/deptools"
-
+	"android/soong/ui/metrics"
 	soong_metrics_proto "android/soong/ui/metrics/metrics_proto"
+	"android/soong/ui/status"
+
+	"android/soong/shared"
+
 	"github.com/google/blueprint"
 	"github.com/google/blueprint/bootstrap"
-
-	"github.com/golang/protobuf/proto"
+	"github.com/google/blueprint/deptools"
 	"github.com/google/blueprint/microfactory"
 
-	"android/soong/ui/metrics"
-	"android/soong/ui/status"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
 	availableEnvFile = "soong.environment.available"
 	usedEnvFile      = "soong.environment.used"
+
+	soongBuildTag      = "build"
+	bp2buildTag        = "bp2build"
+	jsonModuleGraphTag = "modulegraph"
+	queryviewTag       = "queryview"
+	soongDocsTag       = "soong_docs"
+
+	// bootstrapEpoch is used to determine if an incremental build is incompatible with the current
+	// version of bootstrap and needs cleaning before continuing the build.  Increment this for
+	// incompatible changes, for example when moving the location of the bpglob binary that is
+	// executed during bootstrap before the primary builder has had a chance to update the path.
+	bootstrapEpoch = 1
 )
 
 func writeEnvironmentFile(ctx Context, envFile string, envDeps map[string]string) error {
@@ -71,110 +84,274 @@ func writeEnvironmentFile(ctx Context, envFile string, envDeps map[string]string
 // A tiny struct used to tell Blueprint that it's in bootstrap mode. It would
 // probably be nicer to use a flag in bootstrap.Args instead.
 type BlueprintConfig struct {
-	srcDir           string
-	buildDir         string
-	ninjaBuildDir    string
-	debugCompilation bool
+	toolDir                   string
+	soongOutDir               string
+	outDir                    string
+	runGoTests                bool
+	debugCompilation          bool
+	subninjas                 []string
+	primaryBuilderInvocations []bootstrap.PrimaryBuilderInvocation
 }
 
-func (c BlueprintConfig) SrcDir() string {
-	return "."
+func (c BlueprintConfig) HostToolDir() string {
+	return c.toolDir
 }
 
-func (c BlueprintConfig) BuildDir() string {
-	return c.buildDir
+func (c BlueprintConfig) SoongOutDir() string {
+	return c.soongOutDir
 }
 
-func (c BlueprintConfig) NinjaBuildDir() string {
-	return c.ninjaBuildDir
+func (c BlueprintConfig) OutDir() string {
+	return c.outDir
+}
+
+func (c BlueprintConfig) RunGoTests() bool {
+	return c.runGoTests
 }
 
 func (c BlueprintConfig) DebugCompilation() bool {
 	return c.debugCompilation
 }
 
-func environmentArgs(config Config, suffix string) []string {
+func (c BlueprintConfig) Subninjas() []string {
+	return c.subninjas
+}
+
+func (c BlueprintConfig) PrimaryBuilderInvocations() []bootstrap.PrimaryBuilderInvocation {
+	return c.primaryBuilderInvocations
+}
+
+func environmentArgs(config Config, tag string) []string {
 	return []string{
 		"--available_env", shared.JoinPath(config.SoongOutDir(), availableEnvFile),
-		"--used_env", shared.JoinPath(config.SoongOutDir(), usedEnvFile+suffix),
+		"--used_env", config.UsedEnvFile(tag),
 	}
 }
-func bootstrapBlueprint(ctx Context, config Config, integratedBp2Build bool) {
+
+func writeEmptyFile(ctx Context, path string) {
+	err := os.MkdirAll(filepath.Dir(path), 0777)
+	if err != nil {
+		ctx.Fatalf("Failed to create parent directories of empty file '%s': %s", path, err)
+	}
+
+	if exists, err := fileExists(path); err != nil {
+		ctx.Fatalf("Failed to check if file '%s' exists: %s", path, err)
+	} else if !exists {
+		err = ioutil.WriteFile(path, nil, 0666)
+		if err != nil {
+			ctx.Fatalf("Failed to create empty file '%s': %s", path, err)
+		}
+	}
+}
+
+func fileExists(path string) (bool, error) {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func primaryBuilderInvocation(
+	config Config,
+	name string,
+	output string,
+	specificArgs []string,
+	description string) bootstrap.PrimaryBuilderInvocation {
+	commonArgs := make([]string, 0, 0)
+
+	if !config.skipSoongTests {
+		commonArgs = append(commonArgs, "-t")
+	}
+
+	commonArgs = append(commonArgs, "-l", filepath.Join(config.FileListDir(), "Android.bp.list"))
+	invocationEnv := make(map[string]string)
+	debugMode := os.Getenv("SOONG_DELVE") != ""
+
+	if debugMode {
+		commonArgs = append(commonArgs, "--delve_listen", os.Getenv("SOONG_DELVE"))
+		commonArgs = append(commonArgs, "--delve_path", shared.ResolveDelveBinary())
+		// GODEBUG=asyncpreemptoff=1 disables the preemption of goroutines. This
+		// is useful because the preemption happens by sending SIGURG to the OS
+		// thread hosting the goroutine in question and each signal results in
+		// work that needs to be done by Delve; it uses ptrace to debug the Go
+		// process and the tracer process must deal with every signal (it is not
+		// possible to selectively ignore SIGURG). This makes debugging slower,
+		// sometimes by an order of magnitude depending on luck.
+		// The original reason for adding async preemption to Go is here:
+		// https://github.com/golang/proposal/blob/master/design/24543-non-cooperative-preemption.md
+		invocationEnv["GODEBUG"] = "asyncpreemptoff=1"
+	}
+
+	allArgs := make([]string, 0, 0)
+	allArgs = append(allArgs, specificArgs...)
+	allArgs = append(allArgs,
+		"--globListDir", name,
+		"--globFile", config.NamedGlobFile(name))
+
+	allArgs = append(allArgs, commonArgs...)
+	allArgs = append(allArgs, environmentArgs(config, name)...)
+	allArgs = append(allArgs, "Android.bp")
+
+	return bootstrap.PrimaryBuilderInvocation{
+		Inputs:      []string{"Android.bp"},
+		Outputs:     []string{output},
+		Args:        allArgs,
+		Description: description,
+		// NB: Changing the value of this environment variable will not result in a
+		// rebuild. The bootstrap Ninja file will change, but apparently Ninja does
+		// not consider changing the pool specified in a statement a change that's
+		// worth rebuilding for.
+		Console: os.Getenv("SOONG_UNBUFFERED_OUTPUT") == "1",
+		Env:     invocationEnv,
+	}
+}
+
+// bootstrapEpochCleanup deletes files used by bootstrap during incremental builds across
+// incompatible changes.  Incompatible changes are marked by incrementing the bootstrapEpoch
+// constant.  A tree is considered out of date for the current epoch of the
+// .soong.bootstrap.epoch.<epoch> file doesn't exist.
+func bootstrapEpochCleanup(ctx Context, config Config) {
+	epochFile := fmt.Sprintf(".soong.bootstrap.epoch.%d", bootstrapEpoch)
+	epochPath := filepath.Join(config.SoongOutDir(), epochFile)
+	if exists, err := fileExists(epochPath); err != nil {
+		ctx.Fatalf("failed to check if bootstrap epoch file %q exists: %q", epochPath, err)
+	} else if !exists {
+		// The tree is out of date for the current epoch, delete files used by bootstrap
+		// and force the primary builder to rerun.
+		os.Remove(filepath.Join(config.SoongOutDir(), "build.ninja"))
+		for _, globFile := range bootstrapGlobFileList(config) {
+			os.Remove(globFile)
+		}
+
+		// Mark the tree as up to date with the current epoch by writing the epoch marker file.
+		writeEmptyFile(ctx, epochPath)
+	}
+}
+
+func bootstrapGlobFileList(config Config) []string {
+	return []string{
+		config.NamedGlobFile(soongBuildTag),
+		config.NamedGlobFile(bp2buildTag),
+		config.NamedGlobFile(jsonModuleGraphTag),
+		config.NamedGlobFile(queryviewTag),
+		config.NamedGlobFile(soongDocsTag),
+	}
+}
+
+func bootstrapBlueprint(ctx Context, config Config) {
 	ctx.BeginTrace(metrics.RunSoong, "blueprint bootstrap")
 	defer ctx.EndTrace()
 
-	var args bootstrap.Args
+	// Clean up some files for incremental builds across incompatible changes.
+	bootstrapEpochCleanup(ctx, config)
 
-	mainNinjaFile := shared.JoinPath(config.SoongOutDir(), "build.ninja")
-	globFile := shared.JoinPath(config.SoongOutDir(), ".bootstrap/soong-build-globs.ninja")
-	bootstrapGlobFile := shared.JoinPath(config.SoongOutDir(), ".bootstrap/build-globs.ninja")
-	bootstrapDepFile := shared.JoinPath(config.SoongOutDir(), ".bootstrap/build.ninja.d")
-
-	args.RunGoTests = !config.skipSoongTests
-	args.UseValidations = true // Use validations to depend on tests
-	args.BuildDir = config.SoongOutDir()
-	args.NinjaBuildDir = config.OutDir()
-	args.TopFile = "Android.bp"
-	args.ModuleListFile = filepath.Join(config.FileListDir(), "Android.bp.list")
-	args.OutFile = shared.JoinPath(config.SoongOutDir(), ".bootstrap/build.ninja")
-	args.GlobFile = globFile
-	args.GeneratingPrimaryBuilder = true
-	args.EmptyNinjaFile = config.EmptyNinjaFile()
-
-	args.DelveListen = os.Getenv("SOONG_DELVE")
-	if args.DelveListen != "" {
-		args.DelvePath = shared.ResolveDelveBinary()
+	mainSoongBuildExtraArgs := []string{"-o", config.SoongNinjaFile()}
+	if config.EmptyNinjaFile() {
+		mainSoongBuildExtraArgs = append(mainSoongBuildExtraArgs, "--empty-ninja-file")
 	}
 
-	commonArgs := bootstrap.PrimaryBuilderExtraFlags(args, bootstrapGlobFile, mainNinjaFile)
-	bp2BuildMarkerFile := shared.JoinPath(config.SoongOutDir(), ".bootstrap/bp2build_workspace_marker")
-	mainSoongBuildInputs := []string{"Android.bp"}
+	mainSoongBuildInvocation := primaryBuilderInvocation(
+		config,
+		soongBuildTag,
+		config.SoongNinjaFile(),
+		mainSoongBuildExtraArgs,
+		fmt.Sprintf("analyzing Android.bp files and generating ninja file at %s", config.SoongNinjaFile()),
+	)
 
-	if integratedBp2Build {
-		mainSoongBuildInputs = append(mainSoongBuildInputs, bp2BuildMarkerFile)
+	if config.bazelBuildMode() == mixedBuild {
+		// Mixed builds call Bazel from soong_build and they therefore need the
+		// Bazel workspace to be available. Make that so by adding a dependency on
+		// the bp2build marker file to the action that invokes soong_build .
+		mainSoongBuildInvocation.Inputs = append(mainSoongBuildInvocation.Inputs,
+			config.Bp2BuildMarkerFile())
 	}
 
-	soongBuildArgs := make([]string, 0)
-	soongBuildArgs = append(soongBuildArgs, commonArgs...)
-	soongBuildArgs = append(soongBuildArgs, environmentArgs(config, "")...)
-	soongBuildArgs = append(soongBuildArgs, "Android.bp")
+	bp2buildInvocation := primaryBuilderInvocation(
+		config,
+		bp2buildTag,
+		config.Bp2BuildMarkerFile(),
+		[]string{
+			"--bp2build_marker", config.Bp2BuildMarkerFile(),
+		},
+		fmt.Sprintf("converting Android.bp files to BUILD files at %s/bp2build", config.SoongOutDir()),
+	)
 
-	mainSoongBuildInvocation := bootstrap.PrimaryBuilderInvocation{
-		Inputs:  mainSoongBuildInputs,
-		Outputs: []string{mainNinjaFile},
-		Args:    soongBuildArgs,
+	jsonModuleGraphInvocation := primaryBuilderInvocation(
+		config,
+		jsonModuleGraphTag,
+		config.ModuleGraphFile(),
+		[]string{
+			"--module_graph_file", config.ModuleGraphFile(),
+			"--module_actions_file", config.ModuleActionsFile(),
+		},
+		fmt.Sprintf("generating the Soong module graph at %s", config.ModuleGraphFile()),
+	)
+
+	queryviewDir := filepath.Join(config.SoongOutDir(), "queryview")
+	queryviewInvocation := primaryBuilderInvocation(
+		config,
+		queryviewTag,
+		config.QueryviewMarkerFile(),
+		[]string{
+			"--bazel_queryview_dir", queryviewDir,
+		},
+		fmt.Sprintf("generating the Soong module graph as a Bazel workspace at %s", queryviewDir),
+	)
+
+	soongDocsInvocation := primaryBuilderInvocation(
+		config,
+		soongDocsTag,
+		config.SoongDocsHtml(),
+		[]string{
+			"--soong_docs", config.SoongDocsHtml(),
+		},
+		fmt.Sprintf("generating Soong docs at %s", config.SoongDocsHtml()),
+	)
+
+	globFiles := []string{
+		config.NamedGlobFile(soongBuildTag),
+		config.NamedGlobFile(bp2buildTag),
+		config.NamedGlobFile(jsonModuleGraphTag),
+		config.NamedGlobFile(queryviewTag),
+		config.NamedGlobFile(soongDocsTag),
 	}
 
-	if integratedBp2Build {
-		bp2buildArgs := []string{"--bp2build_marker", bp2BuildMarkerFile}
-		bp2buildArgs = append(bp2buildArgs, commonArgs...)
-		bp2buildArgs = append(bp2buildArgs, environmentArgs(config, ".bp2build")...)
-		bp2buildArgs = append(bp2buildArgs, "Android.bp")
-
-		bp2buildInvocation := bootstrap.PrimaryBuilderInvocation{
-			Inputs:  []string{"Android.bp"},
-			Outputs: []string{bp2BuildMarkerFile},
-			Args:    bp2buildArgs,
-		}
-		args.PrimaryBuilderInvocations = []bootstrap.PrimaryBuilderInvocation{
-			bp2buildInvocation,
-			mainSoongBuildInvocation,
-		}
-	} else {
-		args.PrimaryBuilderInvocations = []bootstrap.PrimaryBuilderInvocation{mainSoongBuildInvocation}
+	// The glob .ninja files are subninja'd. However, they are generated during
+	// the build itself so we write an empty file if the file does not exist yet
+	// so that the subninja doesn't fail on clean builds
+	for _, globFile := range bootstrapGlobFileList(config) {
+		writeEmptyFile(ctx, globFile)
 	}
+
+	var blueprintArgs bootstrap.Args
+
+	blueprintArgs.ModuleListFile = filepath.Join(config.FileListDir(), "Android.bp.list")
+	blueprintArgs.OutFile = shared.JoinPath(config.SoongOutDir(), "bootstrap.ninja")
+	blueprintArgs.EmptyNinjaFile = false
 
 	blueprintCtx := blueprint.NewContext()
 	blueprintCtx.SetIgnoreUnknownModuleTypes(true)
 	blueprintConfig := BlueprintConfig{
-		srcDir:           os.Getenv("TOP"),
-		buildDir:         config.SoongOutDir(),
-		ninjaBuildDir:    config.OutDir(),
+		soongOutDir: config.SoongOutDir(),
+		toolDir:     config.HostToolDir(),
+		outDir:      config.OutDir(),
+		runGoTests:  !config.skipSoongTests,
+		// If we want to debug soong_build, we need to compile it for debugging
 		debugCompilation: os.Getenv("SOONG_DELVE") != "",
+		subninjas:        globFiles,
+		primaryBuilderInvocations: []bootstrap.PrimaryBuilderInvocation{
+			mainSoongBuildInvocation,
+			bp2buildInvocation,
+			jsonModuleGraphInvocation,
+			queryviewInvocation,
+			soongDocsInvocation},
 	}
 
-	bootstrapDeps := bootstrap.RunBlueprint(args, blueprintCtx, blueprintConfig)
-	err := deptools.WriteDepFile(bootstrapDepFile, args.OutFile, bootstrapDeps)
+	bootstrapDeps := bootstrap.RunBlueprint(blueprintArgs, bootstrap.DoEverything, blueprintCtx, blueprintConfig)
+	bootstrapDepFile := shared.JoinPath(config.SoongOutDir(), "bootstrap.ninja.d")
+	err := deptools.WriteDepFile(bootstrapDepFile, blueprintArgs.OutFile, bootstrapDeps)
 	if err != nil {
 		ctx.Fatalf("Error writing depfile '%s': %s", bootstrapDepFile, err)
 	}
@@ -185,6 +362,7 @@ func checkEnvironmentFile(currentEnv *Environment, envFile string) {
 		v, _ := currentEnv.Get(k)
 		return v
 	}
+
 	if stale, _ := shared.StaleEnvFile(envFile, getenv); stale {
 		os.Remove(envFile)
 	}
@@ -200,18 +378,11 @@ func runSoong(ctx Context, config Config) {
 	// unused variables were changed?
 	envFile := filepath.Join(config.SoongOutDir(), availableEnvFile)
 
-	for _, n := range []string{".bootstrap", ".minibootstrap"} {
-		dir := filepath.Join(config.SoongOutDir(), n)
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			ctx.Fatalf("Cannot mkdir " + dir)
-		}
-	}
-
 	buildMode := config.bazelBuildMode()
-	integratedBp2Build := (buildMode == mixedBuild) || (buildMode == generateBuildFiles)
+	integratedBp2Build := buildMode == mixedBuild
 
 	// This is done unconditionally, but does not take a measurable amount of time
-	bootstrapBlueprint(ctx, config, integratedBp2Build)
+	bootstrapBlueprint(ctx, config)
 
 	soongBuildEnv := config.Environment().Copy()
 	soongBuildEnv.Set("TOP", os.Getenv("TOP"))
@@ -221,6 +392,7 @@ func runSoong(ctx Context, config Config) {
 	soongBuildEnv.Set("BAZEL_OUTPUT_BASE", filepath.Join(config.BazelOutDir(), "output"))
 	soongBuildEnv.Set("BAZEL_WORKSPACE", absPath(ctx, "."))
 	soongBuildEnv.Set("BAZEL_METRICS_DIR", config.BazelMetricsDir())
+	soongBuildEnv.Set("LOG_DIR", config.LogsDir())
 
 	// For Soong bootstrapping tests
 	if os.Getenv("ALLOW_MISSING_DEPENDENCIES") == "true" {
@@ -236,31 +408,29 @@ func runSoong(ctx Context, config Config) {
 		ctx.BeginTrace(metrics.RunSoong, "environment check")
 		defer ctx.EndTrace()
 
-		soongBuildEnvFile := filepath.Join(config.SoongOutDir(), usedEnvFile)
-		checkEnvironmentFile(soongBuildEnv, soongBuildEnvFile)
+		checkEnvironmentFile(soongBuildEnv, config.UsedEnvFile(soongBuildTag))
 
-		if integratedBp2Build {
-			bp2buildEnvFile := filepath.Join(config.SoongOutDir(), usedEnvFile+".bp2build")
-			checkEnvironmentFile(soongBuildEnv, bp2buildEnvFile)
+		if integratedBp2Build || config.Bp2Build() {
+			checkEnvironmentFile(soongBuildEnv, config.UsedEnvFile(bp2buildTag))
+		}
+
+		if config.JsonModuleGraph() {
+			checkEnvironmentFile(soongBuildEnv, config.UsedEnvFile(jsonModuleGraphTag))
+		}
+
+		if config.Queryview() {
+			checkEnvironmentFile(soongBuildEnv, config.UsedEnvFile(queryviewTag))
+		}
+
+		if config.SoongDocs() {
+			checkEnvironmentFile(soongBuildEnv, config.UsedEnvFile(soongDocsTag))
 		}
 	}()
 
-	var cfg microfactory.Config
-	cfg.Map("github.com/google/blueprint", "build/blueprint")
+	runMicrofactory(ctx, config, "bpglob", "github.com/google/blueprint/bootstrap/bpglob",
+		map[string]string{"github.com/google/blueprint": "build/blueprint"})
 
-	cfg.TrimPath = absPath(ctx, ".")
-
-	func() {
-		ctx.BeginTrace(metrics.RunSoong, "bpglob")
-		defer ctx.EndTrace()
-
-		bpglob := filepath.Join(config.SoongOutDir(), ".minibootstrap/bpglob")
-		if _, err := microfactory.Build(&cfg, bpglob, "github.com/google/blueprint/bootstrap/bpglob"); err != nil {
-			ctx.Fatalln("Failed to build bpglob:", err)
-		}
-	}()
-
-	ninja := func(name, file string) {
+	ninja := func(name, ninjaFile string, targets ...string) {
 		ctx.BeginTrace(metrics.RunSoong, name)
 		defer ctx.EndTrace()
 
@@ -268,8 +438,7 @@ func runSoong(ctx Context, config Config) {
 		nr := status.NewNinjaReader(ctx, ctx.Status.StartTool(), fifo)
 		defer nr.Close()
 
-		cmd := Command(ctx, config, "soong "+name,
-			config.PrebuiltBuildTool("ninja"),
+		ninjaArgs := []string{
 			"-d", "keepdepfile",
 			"-d", "stats",
 			"-o", "usesphonyoutputs=yes",
@@ -279,7 +448,12 @@ func runSoong(ctx Context, config Config) {
 			"-w", "missingoutfile=err",
 			"-j", strconv.Itoa(config.Parallel()),
 			"--frontend_file", fifo,
-			"-f", filepath.Join(config.SoongOutDir(), file))
+			"-f", filepath.Join(config.SoongOutDir(), ninjaFile),
+		}
+
+		ninjaArgs = append(ninjaArgs, targets...)
+		cmd := Command(ctx, config, "soong "+name,
+			config.PrebuiltBuildTool("ninja"), ninjaArgs...)
 
 		var ninjaEnv Environment
 
@@ -291,8 +465,31 @@ func runSoong(ctx Context, config Config) {
 		cmd.Sandbox = soongSandbox
 		cmd.RunAndStreamOrFatal()
 	}
-	// This build generates <builddir>/build.ninja, which is used later by build/soong/ui/build/build.go#Build().
-	ninja("bootstrap", ".bootstrap/build.ninja")
+
+	targets := make([]string, 0, 0)
+
+	if config.JsonModuleGraph() {
+		targets = append(targets, config.ModuleGraphFile())
+	}
+
+	if config.Bp2Build() {
+		targets = append(targets, config.Bp2BuildMarkerFile())
+	}
+
+	if config.Queryview() {
+		targets = append(targets, config.QueryviewMarkerFile())
+	}
+
+	if config.SoongDocs() {
+		targets = append(targets, config.SoongDocsHtml())
+	}
+
+	if config.SoongBuildInvocationNeeded() {
+		// This build generates <builddir>/build.ninja, which is used later by build/soong/ui/build/build.go#Build().
+		targets = append(targets, config.SoongNinjaFile())
+	}
+
+	ninja("bootstrap", "bootstrap.ninja", targets...)
 
 	var soongBuildMetrics *soong_metrics_proto.SoongBuildMetrics
 	if shouldCollectBuildSoongMetrics(config) {
@@ -310,15 +507,37 @@ func runSoong(ctx Context, config Config) {
 	if shouldCollectBuildSoongMetrics(config) && ctx.Metrics != nil {
 		ctx.Metrics.SetSoongBuildMetrics(soongBuildMetrics)
 	}
+	if config.JsonModuleGraph() {
+		distGzipFile(ctx, config, config.ModuleGraphFile(), "soong")
+	}
+}
+
+func runMicrofactory(ctx Context, config Config, name string, pkg string, mapping map[string]string) {
+	ctx.BeginTrace(metrics.RunSoong, name)
+	defer ctx.EndTrace()
+	cfg := microfactory.Config{TrimPath: absPath(ctx, ".")}
+	for pkgPrefix, pathPrefix := range mapping {
+		cfg.Map(pkgPrefix, pathPrefix)
+	}
+
+	exePath := filepath.Join(config.SoongOutDir(), name)
+	dir := filepath.Dir(exePath)
+	if err := os.MkdirAll(dir, 0777); err != nil {
+		ctx.Fatalf("cannot create %s: %s", dir, err)
+	}
+	if _, err := microfactory.Build(&cfg, exePath, pkg); err != nil {
+		ctx.Fatalf("failed to build %s: %s", name, err)
+	}
 }
 
 func shouldCollectBuildSoongMetrics(config Config) bool {
-	// Do not collect metrics protobuf if the soong_build binary ran as the bp2build converter.
-	return config.bazelBuildMode() != generateBuildFiles
+	// Do not collect metrics protobuf if the soong_build binary ran as the
+	// bp2build converter or the JSON graph dump.
+	return config.SoongBuildInvocationNeeded()
 }
 
 func loadSoongBuildMetrics(ctx Context, config Config) *soong_metrics_proto.SoongBuildMetrics {
-	soongBuildMetricsFile := filepath.Join(config.OutDir(), "soong", "soong_build_metrics.pb")
+	soongBuildMetricsFile := filepath.Join(config.LogsDir(), "soong_build_metrics.pb")
 	buf, err := ioutil.ReadFile(soongBuildMetricsFile)
 	if err != nil {
 		ctx.Fatalf("Failed to load %s: %s", soongBuildMetricsFile, err)

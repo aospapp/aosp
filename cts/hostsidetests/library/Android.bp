@@ -30,7 +30,7 @@ java_test_host {
         "compatibility-host-util",
     ],
     java_resource_dirs: ["res"],
-    data: [":CtsUesNativeLibraryBuildPackage"],
+    data: [":CtsUseNativeLibraryBuildPackage"],
 }
 
 // Note that this app is built as a java library. The actual app is built
@@ -69,7 +69,7 @@ java_library {
 // directory is manually searched in the cmd, while dependencies to them are
 // created using the `required` property.
 genrule {
-    name: "CtsUesNativeLibraryBuildPackage",
+    name: "CtsUseNativeLibraryBuildPackage",
     // srcs, tools, required are all "essentially" inputs of the zip
     // (except for soong_zip which is actually the tool)
     srcs: [
@@ -89,7 +89,7 @@ genrule {
         "signapk",
         "libconscrypt_openjdk_jni",
     ],
-    out: ["CtsUesNativeLibraryBuildPackage.zip"],
+    out: ["CtsUseNativeLibraryBuildPackage.zip"],
     // Copied from system/apex/apexer/Android.bp
     cmd: "HOST_OUT_BIN=$$(dirname $(location soong_zip)) && " +
          "HOST_SOONG_OUT=$$(dirname $$(dirname $$HOST_OUT_BIN)) && " +

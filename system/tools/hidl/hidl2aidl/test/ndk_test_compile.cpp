@@ -22,13 +22,10 @@
 #include <aidl/hidl2aidl/test/BpBar.h>
 #include <aidl/hidl2aidl/test/BpFoo.h>
 #include <aidl/hidl2aidl/test/IBar.h>
-#include <aidl/hidl2aidl/test/IBarInner.h>
 #include <aidl/hidl2aidl/test/IFoo.h>
-#include <aidl/hidl2aidl/test/IFooBigStruct.h>
 #include <aidl/hidl2aidl/test/OnlyIn10.h>
 #include <aidl/hidl2aidl/test/OnlyIn11.h>
 #include <aidl/hidl2aidl/test/Outer.h>
-#include <aidl/hidl2aidl/test/OuterInner.h>
 #include <aidl/hidl2aidl/test/OverrideMe.h>
 #include <aidl/hidl2aidl/test/Value.h>
 #include <aidl/hidl2aidl/test2/BnFoo.h>
@@ -47,7 +44,7 @@ void testIBar(const std::shared_ptr<aidl::hidl2aidl::test::IBar>& bar) {
     std::string out;
     ndk::ScopedAStatus status1 = bar->someBar(std::string(), 3, &out);
     (void)status1;
-    aidl::hidl2aidl::test::IBarInner inner;
+    aidl::hidl2aidl::test::IBar::Inner inner;
     inner.a = 3;
     ndk::ScopedAStatus status2 = bar->extraMethod(inner);
     (void)status2;

@@ -24,6 +24,8 @@ import android.test.suitebuilder.annotation.LargeTest;
 
 import androidx.test.InstrumentationRegistry;
 
+import com.android.nn.benchmark.app.AcceleratorSpecificTestSupport;
+import com.android.nn.benchmark.core.NNTestBase;
 import com.android.nn.benchmark.core.NnApiDelegationFailure;
 import com.android.nn.benchmark.core.TestModels;
 
@@ -46,7 +48,7 @@ import java.util.stream.IntStream;
 @RunWith(Parameterized.class)
 public class NNClientEarlyTerminationTest extends
         ActivityInstrumentationTestCase2<NNParallelTestActivity> implements
-        AcceleratorSpecificTestSupport {
+    AcceleratorSpecificTestSupport {
 
     private static final String TAG = "NNClientEarlyTermination";
     private static final Duration MAX_SEPARATE_PROCESS_EXECUTION_TIME = Duration.ofSeconds(70);
@@ -127,11 +129,11 @@ public class NNClientEarlyTerminationTest extends
     }
 
     private Intent compileSupportedModelsOnNThreadsFor(int threadCount, Duration testDuration)
-            throws NnApiDelegationFailure {
+        throws NnApiDelegationFailure {
         Intent intent = new Intent();
         intent.putExtra(
-                NNParallelTestActivity.EXTRA_TEST_LIST, IntStream.range(0,
-                        TestModels.modelsList().size()).toArray());
+            NNParallelTestActivity.EXTRA_TEST_LIST, IntStream.range(0,
+                TestModels.modelsList().size()).toArray());
         intent.putExtra(NNParallelTestActivity.EXTRA_THREAD_COUNT, threadCount);
         intent.putExtra(NNParallelTestActivity.EXTRA_TEST_DURATION_MILLIS, testDuration.toMillis());
         intent.putExtra(NNParallelTestActivity.EXTRA_RUN_IN_SEPARATE_PROCESS, true);
@@ -139,6 +141,10 @@ public class NNClientEarlyTerminationTest extends
         intent.putExtra(NNParallelTestActivity.EXTRA_ACCELERATOR_NAME, mAcceleratorName);
         intent.putExtra(NNParallelTestActivity.EXTRA_IGNORE_UNSUPPORTED_MODELS, true);
         intent.putExtra(NNParallelTestActivity.EXTRA_RUN_MODEL_COMPILATION_ONLY, true);
+        intent.putExtra(NNParallelTestActivity.EXTRA_USE_NNAPI_SL,
+            NNTestBase.shouldUseNnApiSupportLibrary());
+        intent.putExtra(NNParallelTestActivity.EXTRA_EXTRACT_NNAPI_SL,
+            NNTestBase.shouldExtractNnApiSupportLibrary());
         return intent;
     }
 }

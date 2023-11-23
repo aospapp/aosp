@@ -162,6 +162,8 @@ abstract class MediaPlayerStressTest extends InstrumentationTestCase {
             }
         }
 
+        Preconditions.assertTestFileExists(mediaName);
+
         File playbackOutput = new File(WorkDir.getTopDir(), "PlaybackTestResult.txt");
         Writer output = new BufferedWriter(new FileWriter(playbackOutput, true));
 

@@ -36,7 +36,7 @@ ${DISTRO_TOOLS_DIR}/create-distro.py \
     -iana_version ${IANA_VERSION} \
     -revision 1 \
     -tzdata ${TEST_DIR}/output_data/iana/tzdata \
-    -icu ${TEST_DIR}/output_data/icu_overlay/icu_tzdata.dat \
+    -icu_dir ${TEST_DIR}/output_data/icu_overlay \
     -tzlookup ${TEST_DIR}/output_data/android/tzlookup.xml \
     -telephonylookup ${TEST_DIR}/output_data/android/telephonylookup.xml \
     -output_distro_dir ${TEST_DIR}/output_data/distro \
@@ -56,7 +56,7 @@ ${DISTRO_TOOLS_DIR}/create-distro.py \
     -iana_version ${IANA_VERSION} \
     -revision 1 \
     -tzdata ${TEST_DIR}/output_data/iana/tzdata \
-    -icu ${TEST_DIR}/output_data/icu_overlay/icu_tzdata.dat \
+    -icu_dir ${TEST_DIR}/output_data/icu_overlay \
     -tzlookup ${TEST_DIR}/output_data/android/tzlookup.xml \
     -telephonylookup ${TEST_DIR}/output_data/android/telephonylookup.xml \
     -output_distro_dir ${TEST_DIR}/output_data/distro \
@@ -81,7 +81,7 @@ ${DISTRO_TOOLS_DIR}/create-distro.py \
     -iana_version ${IANA_VERSION} \
     -revision 1 \
     -tzdata ${TEST_DIR}/output_data/iana/tzdata \
-    -icu ${TEST_DIR}/output_data/icu_overlay/icu_tzdata.dat \
+    -icu_dir ${TEST_DIR}/output_data/icu_overlay \
     -tzlookup ${TEST_DIR}/output_data/android/tzlookup.xml \
     -telephonylookup ${TEST_DIR}/output_data/android/telephonylookup.xml \
     -output_distro_dir ${TEST_DIR}/output_data/distro \

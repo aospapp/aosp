@@ -65,20 +65,23 @@ public class BytesTransferredTest extends DeviceTestCase implements IBuildReceiv
         mCtsBuild = buildInfo;
     }
 
-    // TODO: inline the contents of doTestUsageBytesTransferEnable
     public void testDataUsageBytesTransfer() throws Throwable {
-        final boolean oldSubtypeCombined = getNetworkStatsCombinedSubTypeEnabled();
+        doTestMobileBytesTransferThat(Atom.DATA_USAGE_BYTES_TRANSFER_FIELD_NUMBER, /*isUidAtom=*/
+                false, (atom) -> {
+                    final AtomsProto.DataUsageBytesTransfer data =
+                            atom.getDataUsageBytesTransfer();
+                    final boolean ratTypeGreaterThanUnknown =
+                            (data.getRatType() > NetworkTypeEnum.NETWORK_TYPE_UNKNOWN_VALUE);
 
-        doTestDataUsageBytesTransferEnabled(true);
-
-        // Remove old configs from disk and clear any pending statsd reports to clear history.
-        ConfigUtils.removeConfig(getDevice());
-        ReportUtils.clearReports(getDevice());
-
-        doTestDataUsageBytesTransferEnabled(false);
-
-        // Restore to original default value.
-        setNetworkStatsCombinedSubTypeEnabled(oldSubtypeCombined);
+                    if (ratTypeGreaterThanUnknown) {
+                        // Assert that subscription info is valid.
+                        assertSubscriptionInfo(data);
+                        // DataUsageBytesTransferred atom does not report app uid.
+                        return new TransferredBytes(data.getRxBytes(), data.getTxBytes(),
+                                data.getRxPackets(), data.getTxPackets(), /*appUid=*/-1);
+                    }
+                    return null;
+                });
     }
 
     public void testMobileBytesTransfer() throws Throwable {
@@ -152,32 +155,6 @@ public class BytesTransferredTest extends DeviceTestCase implements IBuildReceiv
         TransferredBytes accept(S s) throws T;
     }
 
-    private void doTestDataUsageBytesTransferEnabled(boolean enable) throws Throwable {
-        // Set value to enable/disable combine subtype.
-        setNetworkStatsCombinedSubTypeEnabled(enable);
-
-        doTestMobileBytesTransferThat(Atom.DATA_USAGE_BYTES_TRANSFER_FIELD_NUMBER, /*isUidAtom=*/
-                false, (atom) -> {
-                    final AtomsProto.DataUsageBytesTransfer data =
-                            atom.getDataUsageBytesTransfer();
-                    final boolean ratTypeEqualsToUnknown =
-                            (data.getRatType() == NetworkTypeEnum.NETWORK_TYPE_UNKNOWN_VALUE);
-                    final boolean ratTypeGreaterThanUnknown =
-                            (data.getRatType() > NetworkTypeEnum.NETWORK_TYPE_UNKNOWN_VALUE);
-
-                    if ((data.getState() == 1) // NetworkStats.SET_FOREGROUND
-                            && ((enable && ratTypeEqualsToUnknown)
-                            || (!enable && ratTypeGreaterThanUnknown))) {
-                        // Assert that subscription info is valid.
-                        assertSubscriptionInfo(data);
-                        // DataUsageBytesTransferred atom does not report app uid.
-                        return new TransferredBytes(data.getRxBytes(), data.getTxBytes(),
-                                data.getRxPackets(), data.getTxPackets(), /*appUid=*/-1);
-                    }
-                    return null;
-                });
-    }
-
     private void doTestMobileBytesTransferThat(int atomId, boolean isUidAtom,
             ThrowingPredicate<Atom, Exception> p)
             throws Throwable {
@@ -197,10 +174,10 @@ public class BytesTransferredTest extends DeviceTestCase implements IBuildReceiv
                 "testGenerateMobileTraffic");
         Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
         // Force poll NetworkStatsService to get most updated network stats from lower layer.
-        DeviceUtils.runActivity(getDevice(), DeviceUtils.STATSD_ATOM_TEST_PKG,
-                "PollNetworkStatsActivity",
-                /*actionKey=*/null, /*actionValue=*/null);
+        DeviceUtils.runDeviceTests(getDevice(), DeviceUtils.STATSD_ATOM_TEST_PKG, ".AtomTests",
+                "testForcePollNetworkStats");
         Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+
         // Trigger atom pull.
         AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
         Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
@@ -244,16 +221,5 @@ public class BytesTransferredTest extends DeviceTestCase implements IBuildReceiv
         assertThat(data.getSimMcc()).matches("^\\d{3}$");
         assertThat(data.getSimMnc()).matches("^\\d{2,3}$");
         assertThat(data.getCarrierId()).isNotEqualTo(-1); // TelephonyManager#UNKNOWN_CARRIER_ID
-    }
-
-    private boolean getNetworkStatsCombinedSubTypeEnabled() throws Exception {
-        final String output = getDevice().executeShellCommand(
-                "settings get global netstats_combine_subtype_enabled").trim();
-        return output.equals("1");
-    }
-
-    private void setNetworkStatsCombinedSubTypeEnabled(boolean enable) throws Exception {
-        getDevice().executeShellCommand("settings put global netstats_combine_subtype_enabled "
-                + (enable ? "1" : "0"));
     }
 }

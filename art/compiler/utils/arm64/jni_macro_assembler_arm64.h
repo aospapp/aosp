@@ -43,8 +43,7 @@ namespace arm64 {
 class Arm64JNIMacroAssembler final : public JNIMacroAssemblerFwd<Arm64Assembler, PointerSize::k64> {
  public:
   explicit Arm64JNIMacroAssembler(ArenaAllocator* allocator)
-      : JNIMacroAssemblerFwd(allocator),
-        exception_blocks_(allocator->Adapter(kArenaAllocAssembler)) {}
+      : JNIMacroAssemblerFwd(allocator) {}
 
   ~Arm64JNIMacroAssembler();
 
@@ -64,8 +63,11 @@ class Arm64JNIMacroAssembler final : public JNIMacroAssemblerFwd<Arm64Assembler,
   void IncreaseFrameSize(size_t adjust) override;
   void DecreaseFrameSize(size_t adjust) override;
 
+  ManagedRegister CoreRegisterWithSize(ManagedRegister src, size_t size) override;
+
   // Store routines.
   void Store(FrameOffset offs, ManagedRegister src, size_t size) override;
+  void Store(ManagedRegister base, MemberOffset offs, ManagedRegister src, size_t size) override;
   void StoreRef(FrameOffset dest, ManagedRegister src) override;
   void StoreRawPtr(FrameOffset dest, ManagedRegister src) override;
   void StoreImmediateToFrame(FrameOffset dest, uint32_t imm) override;
@@ -75,6 +77,7 @@ class Arm64JNIMacroAssembler final : public JNIMacroAssemblerFwd<Arm64Assembler,
 
   // Load routines.
   void Load(ManagedRegister dest, FrameOffset src, size_t size) override;
+  void Load(ManagedRegister dest, ManagedRegister base, MemberOffset offs, size_t size) override;
   void LoadFromThread(ManagedRegister dest, ThreadOffset64 src, size_t size) override;
   void LoadRef(ManagedRegister dest, FrameOffset src) override;
   void LoadRef(ManagedRegister dest,
@@ -85,7 +88,9 @@ class Arm64JNIMacroAssembler final : public JNIMacroAssemblerFwd<Arm64Assembler,
   void LoadRawPtrFromThread(ManagedRegister dest, ThreadOffset64 offs) override;
 
   // Copying routines.
-  void MoveArguments(ArrayRef<ArgumentLocation> dests, ArrayRef<ArgumentLocation> srcs) override;
+  void MoveArguments(ArrayRef<ArgumentLocation> dests,
+                     ArrayRef<ArgumentLocation> srcs,
+                     ArrayRef<FrameOffset> refs) override;
   void Move(ManagedRegister dest, ManagedRegister src, size_t size) override;
   void CopyRawPtrFromThread(FrameOffset fr_offs, ThreadOffset64 thr_offs) override;
   void CopyRawPtrToThread(ThreadOffset64 thr_offs, FrameOffset fr_offs, ManagedRegister scratch)
@@ -160,12 +165,29 @@ class Arm64JNIMacroAssembler final : public JNIMacroAssemblerFwd<Arm64Assembler,
 
   // Call to address held at [base+offset].
   void Call(ManagedRegister base, Offset offset) override;
-  void Call(FrameOffset base, Offset offset) override;
   void CallFromThread(ThreadOffset64 offset) override;
 
+  // Generate fast-path for transition to Native. Go to `label` if any thread flag is set.
+  // The implementation can use `scratch_regs` which should be callee save core registers
+  // (already saved before this call) and must preserve all argument registers.
+  void TryToTransitionFromRunnableToNative(
+      JNIMacroLabel* label, ArrayRef<const ManagedRegister> scratch_regs) override;
+
+  // Generate fast-path for transition to Runnable. Go to `label` if any thread flag is set.
+  // The implementation can use `scratch_regs` which should be core argument registers
+  // not used as return registers and it must preserve the `return_reg` if any.
+  void TryToTransitionFromNativeToRunnable(JNIMacroLabel* label,
+                                           ArrayRef<const ManagedRegister> scratch_regs,
+                                           ManagedRegister return_reg) override;
+
+  // Generate suspend check and branch to `label` if there is a pending suspend request.
+  void SuspendCheck(JNIMacroLabel* label) override;
+
   // Generate code to check if Thread::Current()->exception_ is non-null
-  // and branch to a ExceptionSlowPath if it is.
-  void ExceptionPoll(size_t stack_adjust) override;
+  // and branch to the `label` if it is.
+  void ExceptionPoll(JNIMacroLabel* label) override;
+  // Deliver pending exception.
+  void DeliverPendingException() override;
 
   // Create a new label that can be used with Jump/Bind calls.
   std::unique_ptr<JNIMacroLabel> CreateLabel() override;
@@ -173,32 +195,12 @@ class Arm64JNIMacroAssembler final : public JNIMacroAssemblerFwd<Arm64Assembler,
   void Jump(JNIMacroLabel* label) override;
   // Emit a conditional jump to the label by applying a unary condition test to the GC marking flag.
   void TestGcMarking(JNIMacroLabel* label, JNIMacroUnaryCondition cond) override;
+  // Emit a conditional jump to the label by applying a unary condition test to object's mark bit.
+  void TestMarkBit(ManagedRegister ref, JNIMacroLabel* label, JNIMacroUnaryCondition cond) override;
   // Code at this offset will serve as the target for the Jump call.
   void Bind(JNIMacroLabel* label) override;
 
  private:
-  class Arm64Exception {
-   public:
-    Arm64Exception(vixl::aarch64::Register scratch, size_t stack_adjust)
-        : scratch_(scratch), stack_adjust_(stack_adjust) {}
-
-    vixl::aarch64::Label* Entry() { return &exception_entry_; }
-
-    // Register used for passing Thread::Current()->exception_ .
-    const vixl::aarch64::Register scratch_;
-
-    // Stack adjust for ExceptionPool.
-    const size_t stack_adjust_;
-
-    vixl::aarch64::Label exception_entry_;
-
-   private:
-    DISALLOW_COPY_AND_ASSIGN(Arm64Exception);
-  };
-
-  // Emits Exception block.
-  void EmitExceptionPoll(Arm64Exception *exception);
-
   void StoreWToOffset(StoreOperandType type,
                       WRegister source,
                       XRegister base,
@@ -225,9 +227,6 @@ class Arm64JNIMacroAssembler final : public JNIMacroAssemblerFwd<Arm64Assembler,
                    XRegister rn,
                    int32_t value,
                    vixl::aarch64::Condition cond = vixl::aarch64::al);
-
-  // List of exception blocks to generate at the end of the code cache.
-  ArenaVector<std::unique_ptr<Arm64Exception>> exception_blocks_;
 };
 
 class Arm64JNIMacroLabel final

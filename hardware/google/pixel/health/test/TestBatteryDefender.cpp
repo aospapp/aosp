@@ -129,7 +129,9 @@ const char *kPropBatteryDefenderCtrlTriggerSOC = "vendor.battery.defender.ctrl.t
 
 class BatteryDefenderTest : public ::testing::Test {
   public:
-    BatteryDefenderTest() : defender(kPathWirelessChargerPresent) {}
+    BatteryDefenderTest()
+        : defender(kPathWirelessChargerPresent, DEFAULT_START_LEVEL_PATH, DEFAULT_STOP_LEVEL_PATH,
+                   DEFAULT_TIME_TO_ACTIVATE_SECONDS, DEFAULT_TIME_TO_CLEAR_SECONDS, false) {}
 
     void SetUp() {
         mock = &mockFixture;

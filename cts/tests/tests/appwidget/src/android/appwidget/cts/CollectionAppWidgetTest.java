@@ -18,8 +18,8 @@ package android.appwidget.cts;
 import static android.appwidget.cts.provider.CollectionAppWidgetProvider.BROADCAST_ACTION;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
@@ -58,6 +58,7 @@ import com.android.compatibility.common.util.PollingCheck;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -446,6 +447,7 @@ public class CollectionAppWidgetTest extends AppWidgetTestCase {
     }
 
     @Test
+    @Ignore("b/204025905")
     public void testSetScrollPosition() {
         if (!mHasAppWidgets) {
             return;

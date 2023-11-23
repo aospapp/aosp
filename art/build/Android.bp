@@ -28,23 +28,28 @@ bootstrap_go_package {
 }
 
 art_clang_tidy_errors = [
-    "android-cloexec-dup",
     "android-cloexec-open",
-    "bugprone-argument-comment",
     "bugprone-lambda-function-name",
     "bugprone-unused-raii", // Protect scoped things like MutexLock.
-    "bugprone-unused-return-value",
     "bugprone-virtual-near-miss",
     "modernize-use-bool-literals",
+    "performance-implicit-conversion-in-loop",
+    "performance-unnecessary-copy-initialization",
+]
+
+art_clang_tidy_allowed = [
+    // Many files have these warnings. Move them to art_clang_tidy_errors
+    // when all files are free of these warnings.
+    "android-cloexec-dup",
+    "bugprone-argument-comment",
+    "bugprone-unused-return-value",
+    "misc-unused-using-decls",
     "modernize-use-nullptr",
     "modernize-use-using",
     "performance-faster-string-find",
     "performance-for-range-copy",
-    "performance-implicit-conversion-in-loop",
     "performance-noexcept-move-constructor",
-    "performance-unnecessary-copy-initialization",
     "performance-unnecessary-value-param",
-    "misc-unused-using-decls",
 ]
 
 art_clang_tidy_disabled = [
@@ -69,6 +74,8 @@ soong_config_module_type_import {
         "art_module_art_global_defaults",
         "art_module_cc_defaults",
         "art_module_java_defaults",
+        "art_module_genrule_defaults",
+        "art_module_prebuilt_defaults",
     ],
 }
 
@@ -171,11 +178,6 @@ art_module_art_global_defaults {
                 // "-marm",
                 // "-mapcs",
             ],
-            header_libs: [
-                // We optimize Thread::Current() with a direct TLS access. This requires access to a
-                //  platform specific Bionic header.
-                "bionic_libc_platform_headers",
-            ],
         },
         linux: {
             cflags: [
@@ -185,11 +187,6 @@ art_module_art_global_defaults {
             ],
         },
         linux_bionic: {
-            header_libs: [
-                // We optimize Thread::Current() with a direct TLS access. This requires access to a
-                //  platform specific Bionic header.
-                "bionic_libc_platform_headers",
-            ],
             strip: {
                 // Do not strip art libs when building for linux-bionic.
                 // Otherwise we can't get any symbols out of crashes.
@@ -211,13 +208,23 @@ art_module_art_global_defaults {
                 // Bug: 15446488. We don't omit the frame pointer to work around
                 // clang/libunwind bugs that cause SEGVs in run-test-004-ThreadStress.
                 "-fno-omit-frame-pointer",
-                // The build assumes that all our x86/x86_64 hosts (such as buildbots and developer
-                // desktops) support at least sse4.2/popcount. This firstly implies that the ART
-                // runtime binary itself may exploit these features. Secondly, this implies that
-                // the ART runtime passes these feature flags to dex2oat and JIT by calling the
-                // method InstructionSetFeatures::FromCppDefines(). Since invoking dex2oat directly
-                // does not pick up these flags, cross-compiling from a x86/x86_64 host to a
-                // x86/x86_64 target should not be affected.
+            ],
+        },
+        // The build assumes that all our x86/x86_64 hosts (such as buildbots and developer
+        // desktops) support at least sse4.2/popcount. This firstly implies that the ART
+        // runtime binary itself may exploit these features. Secondly, this implies that
+        // the ART runtime passes these feature flags to dex2oat and JIT by calling the
+        // method InstructionSetFeatures::FromCppDefines(). Since invoking dex2oat directly
+        // does not pick up these flags, cross-compiling from a x86/x86_64 host to a
+        // x86/x86_64 target should not be affected.
+        linux_x86: {
+            cflags: [
+                "-msse4.2",
+                "-mpopcnt",
+            ],
+        },
+        linux_x86_64: {
+            cflags: [
                 "-msse4.2",
                 "-mpopcnt",
             ],
@@ -239,7 +246,8 @@ art_module_art_global_defaults {
         },
     },
 
-    tidy_checks: art_clang_tidy_errors + art_clang_tidy_disabled,
+    tidy_checks: art_clang_tidy_errors + art_clang_tidy_allowed + art_clang_tidy_disabled,
+
     tidy_checks_as_errors: art_clang_tidy_errors,
 
     tidy_flags: [
@@ -257,7 +265,7 @@ art_module_art_global_defaults {
         "-extra-arg=-Wno-unreachable-code",
     ],
 
-    min_sdk_version: "S",
+    min_sdk_version: "31",
 }
 
 // Used to generate binaries that can be backed by transparent hugepages.
@@ -273,38 +281,9 @@ cc_defaults {
     },
 }
 
-cc_defaults {
-    name: "art_pgo_defaults",
-    visibility: ["//art:__subpackages__"],
-    pgo: {
-        sampling: true,
-    },
-    target: {
-        android_arm64: {
-            pgo: {
-                profile_file: "art/art_arm_arm64.profdata",
-            },
-        },
-        android_arm: {
-            pgo: {
-                profile_file: "art/art_arm_arm64.profdata",
-            },
-        },
-        android_x86_64: {
-            pgo: {
-                profile_file: "art/art_x86_x86_64.profdata",
-            },
-        },
-        android_x86: {
-            pgo: {
-                profile_file: "art/art_x86_x86_64.profdata",
-            },
-        },
-    },
-}
-
 art_debug_defaults {
     name: "art_debug_defaults",
+    defaults: ["art_defaults"],
     visibility: ["//art:__subpackages__"],
     cflags: [
         "-DDYNAMIC_ANNOTATIONS_ENABLED=1",
@@ -323,60 +302,6 @@ art_debug_defaults {
         },
         host: {
             cflags: ["-Wno-frame-larger-than="],
-        },
-    },
-
-    min_sdk_version: "S",
-}
-
-// Use this to enable a cc_* module only when building ART from sources.
-// TODO(b/172480617): Clean up when sources are gone from the platform tree and
-// we no longer need to support sources present when prebuilts are used.
-art_module_cc_defaults {
-    name: "art_module_source_build_defaults",
-    defaults_visibility: [
-        "//art:__subpackages__",
-        "//libcore:__subpackages__",
-        "//libnativehelper:__subpackages__",
-    ],
-
-    enabled: false,
-    soong_config_variables: {
-        source_build: {
-            enabled: true,
-        },
-    },
-    target: {
-        windows: {
-            // Windows is disabled by default, but if we set enabled:true
-            // globally above we need to disable it explicitly.
-            enabled: false,
-        },
-    },
-}
-
-// Use this to enable a java_* module only when building ART from sources.
-// TODO(b/172480617): Clean up when sources are gone from the platform tree and
-// we no longer need to support sources present when prebuilts are used.
-art_module_java_defaults {
-    name: "art_module_source_build_java_defaults",
-    defaults_visibility: [
-        "//art:__subpackages__",
-        "//libcore:__subpackages__",
-        "//libnativehelper:__subpackages__",
-    ],
-
-    enabled: false,
-    soong_config_variables: {
-        source_build: {
-            enabled: true,
-        },
-    },
-    target: {
-        windows: {
-            // Windows is disabled by default, but if we set enabled:true
-            // globally above we need to disable it explicitly.
-            enabled: false,
         },
     },
 }
@@ -421,6 +346,93 @@ java_library {
     target: {
         hostdex: {
             required: ["libicu_jni"],
+        },
+    },
+}
+
+// Defaults for different module types to enable them only when building ART
+// from sources. TODO(b/172480617): Clean up when sources are gone from the
+// platform tree and we no longer need to support sources present when prebuilts
+// are used.
+
+art_module_cc_defaults {
+    name: "art_module_source_build_defaults",
+    defaults_visibility: [
+        "//art:__subpackages__",
+        "//libcore:__subpackages__",
+        "//libnativehelper:__subpackages__",
+    ],
+    enabled: false,
+    soong_config_variables: {
+        source_build: {
+            enabled: true,
+        },
+    },
+    target: {
+        windows: {
+            // Windows is disabled by default, but if we set enabled:true
+            // globally above we need to disable it explicitly.
+            enabled: false,
+        },
+    },
+}
+
+art_module_java_defaults {
+    name: "art_module_source_build_java_defaults",
+    defaults_visibility: [
+        "//art:__subpackages__",
+        "//libcore:__subpackages__",
+        "//libnativehelper:__subpackages__",
+    ],
+    enabled: false,
+    soong_config_variables: {
+        source_build: {
+            enabled: true,
+        },
+    },
+    target: {
+        windows: {
+            enabled: false,
+        },
+    },
+}
+
+art_module_genrule_defaults {
+    name: "art_module_source_build_genrule_defaults",
+    defaults_visibility: [
+        "//art:__subpackages__",
+        "//libcore:__subpackages__",
+        "//libnativehelper:__subpackages__",
+    ],
+    enabled: false,
+    soong_config_variables: {
+        source_build: {
+            enabled: true,
+        },
+    },
+    target: {
+        windows: {
+            enabled: false,
+        },
+    },
+}
+
+art_module_prebuilt_defaults {
+    name: "art_module_source_build_prebuilt_defaults",
+    defaults_visibility: [
+        "//art:__subpackages__",
+        "//libcore:__subpackages__",
+        "//libnativehelper:__subpackages__",
+    ],
+    enabled: false,
+    soong_config_variables: {
+        source_build: {
+            enabled: true,
+        },
+    },
+    target: {
+        windows: {
+            enabled: false,
         },
     },
 }

@@ -17,6 +17,7 @@
 #ifndef _EXYNOSLAYER_H
 #define _EXYNOSLAYER_H
 
+#include <aidl/android/hardware/graphics/composer3/Composition.h>
 #include <hardware/hwcomposer2.h>
 #include <log/log.h>
 #include <system/graphics.h>
@@ -38,6 +39,7 @@
 
 using namespace android;
 using namespace vendor::graphics;
+using ::aidl::android::hardware::graphics::composer3::Composition;
 
 class ExynosMPP;
 
@@ -65,12 +67,14 @@ typedef struct pre_processed_layer_info
     hwc_frect_t sourceCrop;
     hwc_rect_t displayFrame;
     int interlacedType;
+    float sdrDimRatio;
     /* SBWC exception */
     bool mUsePrivateFormat = false;
     uint32_t mPrivateFormat = 0;
 } pre_processed_layer_info_t;
 
 enum {
+    HWC2_COMPOSITION_DISPLAY_DECORATION = toUnderlying(Composition::DISPLAY_DECORATION),
     /*add after hwc2_composition_t, margin number here*/
     HWC2_COMPOSITION_EXYNOS = 32,
 };
@@ -207,6 +211,11 @@ class ExynosLayer : public ExynosMPPSource {
         hwc_region_t mVisibleRegionScreen;
 
         /**
+         *
+         */
+        hwc_rect_t mBlockingRect;
+
+        /**
          * Z-Order
          */
         uint32_t mZOrder;
@@ -221,6 +230,11 @@ class ExynosLayer : public ExynosMPPSource {
         android_dataspace mDataSpace; // android_dataspace_t
 
         pre_processed_layer_info mPreprocessedInfo;
+
+        /**
+         * layer brightness, normalized to current display brightness
+         */
+        float mBrightness = 1.0;
 
         /**
          * user defined flag
@@ -414,6 +428,29 @@ class ExynosLayer : public ExynosMPPSource {
         int32_t setLayerGenericMetadata(hwc2_layer_t __unused layer,
                 uint32_t __unused keyLength, const char* __unused key,
                 bool __unused mandatory, uint32_t __unused valueLength, const uint8_t* __unused value);
+
+        /**
+         * setLayerBrightness(float brightness);
+         *
+         * Sets the desired brightness for the layer. This is intended to be used for instance when
+         * presenting an SDR layer alongside HDR content. The HDR content will be presented at the
+         * display brightness in nits, and accordingly SDR content shall be dimmed according to the
+         * provided brightness ratio.
+         *
+         * @param brightness normalized to current display brightness.
+         */
+        int32_t setLayerBrightness(float brightness);
+
+        /**
+         * Specifies a region of the layer that is transparent and may be skipped
+         * by the DPU, e.g. using a blocking region, in order to save power. This
+         * is only a hint, so the composition of the layer must look the same
+         * whether or not this region is skipped.
+         *
+         * The region is in screen space and must not exceed the dimensions of
+         * the screen.
+         */
+        int32_t setLayerBlockingRegion(const std::vector<hwc_rect_t>& blockingRegion);
 
         void resetValidateData();
         virtual void dump(String8& result);

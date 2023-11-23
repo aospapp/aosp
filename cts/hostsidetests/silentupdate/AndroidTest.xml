@@ -31,6 +31,7 @@
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
         <!-- Push the test APK so we can test self-update -->
         <option name="push" value="CtsSilentUpdateTestCases.apk->/data/local/tmp/silentupdatetest/CtsSilentUpdateTestCases.apk" />
+        <option name="push" value="CtsSilentUpdateTestCases_mdpi-v4.apk->/data/local/tmp/silentupdatetest/CtsSilentUpdateTestCases_mdpi-v4.apk" />
     </target_preparer>
     <test class="com.android.compatibility.common.tradefed.testtype.JarHostTest" >
         <option name="jar" value="CtsSilentUpdateHostTestCases.jar" />

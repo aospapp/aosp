@@ -25,6 +25,9 @@ cc_test {
     defaults: ["libvintf-defaults"],
     host_supported: true,
     gtest: false,
+    tidy_timeout_srcs: [
+        "LibVintfTest.cpp",
+    ],
     srcs: [
         "AssembleVintfTest.cpp",
         "LibVintfTest.cpp",
@@ -73,6 +76,9 @@ cc_test {
     defaults: ["libvintf-defaults"],
     host_supported: true,
     native_coverage: true,
+    tidy_timeout_srcs: [
+        "vintf_object_tests.cpp",
+    ],
     srcs: [
         "RuntimeInfo-fake.cpp",
         "vintf_object_tests.cpp",
@@ -123,5 +129,25 @@ cc_test_host {
     ],
     srcs: [
         "VintfFmTest.cpp",
+    ],
+}
+
+cc_test_host {
+    name: "vintf_object_recovery_test",
+    defaults: [
+        "libvintf-defaults",
+        "libvintf_static_user_defaults",
+    ],
+    static_libs: [
+        "libgmock",
+        "libvintf",
+        "libutils",
+    ],
+    header_libs: [
+        "libvintf_local_headers",
+    ],
+    srcs: [
+        "RuntimeInfo-fake.cpp",
+        "VintfObjectRecoveryTest.cpp",
     ],
 }

@@ -18,7 +18,7 @@ package com.android.server.wm.traces.common.service.processors
 
 import com.android.server.wm.traces.common.DeviceStateDump
 import com.android.server.wm.traces.common.WindowManagerConditionsFactory.isLayerTransformFlagSet
-import com.android.server.wm.traces.common.layers.LayerTraceEntry
+import com.android.server.wm.traces.common.layers.BaseLayerTraceEntry
 import com.android.server.wm.traces.common.layers.Transform
 import com.android.server.wm.traces.common.tags.Tag
 import com.android.server.wm.traces.common.tags.Transition
@@ -31,7 +31,7 @@ import com.android.server.wm.traces.common.windowmanager.WindowManagerState
 class PipResizeProcessor(logger: (String) -> Unit) : TransitionProcessor(logger) {
     override val transition = Transition.PIP_RESIZE
     private val scalingWindows =
-        HashMap<String, DeviceStateDump<WindowManagerState, LayerTraceEntry>>()
+        HashMap<String, DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>>()
 
     override fun getInitialState(tags: MutableMap<Long, MutableList<Tag>>) =
         WaitUntilAppStopsAnimatingYetStillPinned(tags)
@@ -40,9 +40,9 @@ class PipResizeProcessor(logger: (String) -> Unit) : TransitionProcessor(logger)
         tags: MutableMap<Long, MutableList<Tag>>
     ) : BaseState(tags) {
         override fun doProcessState(
-            previous: DeviceStateDump<WindowManagerState, LayerTraceEntry>?,
-            current: DeviceStateDump<WindowManagerState, LayerTraceEntry>,
-            next: DeviceStateDump<WindowManagerState, LayerTraceEntry>
+            previous: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>?,
+            current: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>,
+            next: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>
         ): FSMState {
             val currPinnedWindow = current.wmState.pinnedWindows.firstOrNull() ?: return this
             previous?.wmState?.pinnedWindows?.firstOrNull() ?: return this
