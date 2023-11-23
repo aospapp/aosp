@@ -23,8 +23,8 @@ import static android.net.netlink.StructNlMsgHdr.NLM_F_REQUEST;
 
 import android.system.OsConstants;
 
-import java.net.InetAddress;
 import java.net.Inet6Address;
+import java.net.InetAddress;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
@@ -48,23 +48,6 @@ public class RtNetlinkNeighborMessage extends NetlinkMessage {
     public static final short NDA_IFINDEX   = 8;
     public static final short NDA_MASTER    = 9;
 
-    private static StructNlAttr findNextAttrOfType(short attrType, ByteBuffer byteBuffer) {
-        while (byteBuffer != null && byteBuffer.remaining() > 0) {
-            final StructNlAttr nlAttr = StructNlAttr.peek(byteBuffer);
-            if (nlAttr == null) {
-                break;
-            }
-            if (nlAttr.nla_type == attrType) {
-                return StructNlAttr.parse(byteBuffer);
-            }
-            if (byteBuffer.remaining() < nlAttr.getAlignedLength()) {
-                break;
-            }
-            byteBuffer.position(byteBuffer.position() + nlAttr.getAlignedLength());
-        }
-        return null;
-    }
-
     public static RtNetlinkNeighborMessage parse(StructNlMsgHdr header, ByteBuffer byteBuffer) {
         final RtNetlinkNeighborMessage neighMsg = new RtNetlinkNeighborMessage(header);
 
@@ -75,25 +58,25 @@ public class RtNetlinkNeighborMessage extends NetlinkMessage {
 
         // Some of these are message-type dependent, and not always present.
         final int baseOffset = byteBuffer.position();
-        StructNlAttr nlAttr = findNextAttrOfType(NDA_DST, byteBuffer);
+        StructNlAttr nlAttr = StructNlAttr.findNextAttrOfType(NDA_DST, byteBuffer);
         if (nlAttr != null) {
             neighMsg.mDestination = nlAttr.getValueAsInetAddress();
         }
 
         byteBuffer.position(baseOffset);
-        nlAttr = findNextAttrOfType(NDA_LLADDR, byteBuffer);
+        nlAttr = StructNlAttr.findNextAttrOfType(NDA_LLADDR, byteBuffer);
         if (nlAttr != null) {
             neighMsg.mLinkLayerAddr = nlAttr.nla_value;
         }
 
         byteBuffer.position(baseOffset);
-        nlAttr = findNextAttrOfType(NDA_PROBES, byteBuffer);
+        nlAttr = StructNlAttr.findNextAttrOfType(NDA_PROBES, byteBuffer);
         if (nlAttr != null) {
             neighMsg.mNumProbes = nlAttr.getValueAsInt(0);
         }
 
         byteBuffer.position(baseOffset);
-        nlAttr = findNextAttrOfType(NDA_CACHEINFO, byteBuffer);
+        nlAttr = StructNlAttr.findNextAttrOfType(NDA_CACHEINFO, byteBuffer);
         if (nlAttr != null) {
             neighMsg.mCacheInfo = StructNdaCacheInfo.parse(nlAttr.getValueAsByteBuffer());
         }
@@ -234,7 +217,8 @@ public class RtNetlinkNeighborMessage extends NetlinkMessage {
     public String toString() {
         final String ipLiteral = (mDestination == null) ? "" : mDestination.getHostAddress();
         return "RtNetlinkNeighborMessage{ "
-                + "nlmsghdr{" + (mHeader == null ? "" : mHeader.toString()) + "}, "
+                + "nlmsghdr{"
+                + (mHeader == null ? "" : mHeader.toString(OsConstants.NETLINK_ROUTE)) + "}, "
                 + "ndmsg{" + (mNdmsg == null ? "" : mNdmsg.toString()) + "}, "
                 + "destination{" + ipLiteral + "} "
                 + "linklayeraddr{" + NetlinkConstants.hexify(mLinkLayerAddr) + "} "

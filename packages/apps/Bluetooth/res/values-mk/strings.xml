@@ -18,8 +18,8 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"Пристапи кон управувач за преземања."</string>
     <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"Овозможува апликацијата да пристапи до менаџерот на BluetoothShare и да го користи за пренос на датотеки."</string>
-    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"Пристап на Bluetooth уред од белата листа."</string>
-    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"Овозможува апликацијата привремено да го стави Bluetooth уредот на белата листа, со што му овозможува на уредот да испрати датотека до овој уред без потврда на корисникот."</string>
+    <string name="permlab_bluetoothAcceptlist" msgid="2647575807648622053">"Пристап до уредот со Bluetooth на белата листа."</string>
+    <string name="permdesc_bluetoothAcceptlist" msgid="2406423665674766442">"Дозволува апликацијата привремено да стави на белата листа уред со Bluetooth на којшто ќе му овозможи испраќање датотеки до овој уред без потврда од корисникот."</string>
     <string name="bt_share_picker_label" msgid="6268100924487046932">"Bluetooth"</string>
     <string name="unknown_device" msgid="9221903979877041009">"Непознат уред"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"Непознат"</string>
@@ -37,7 +37,7 @@
     <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"Во ред"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"Времето истече додека се прифаќаше дојдовната датотека од „<xliff:g id="SENDER">%1$s</xliff:g>“."</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"Дојдовна датотека"</string>
-    <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="SENDER">%1$s</xliff:g> е подготвен за испраќање на <xliff:g id="FILE">%2$s</xliff:g>"</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="6237487486781004992">"<xliff:g id="SENDER">%1$s</xliff:g> е подготвен да испрати датотека: <xliff:g id="FILE">%2$s</xliff:g>"</string>
     <string name="notification_receiving" msgid="4674648179652543984">"Сподели преку Bluetooth: Се прима <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="notification_received" msgid="3324588019186687985">"Сподели преку Bluetooth: Примена <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="notification_received_fail" msgid="3619350997285714746">"Сподели преку Bluetooth: Датотеката <xliff:g id="FILE">%1$s</xliff:g> не е примена."</string>
@@ -83,8 +83,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"Се испраќа датотека до „<xliff:g id="RECIPIENT">%1$s</xliff:g>“"</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"Се испраќаат <xliff:g id="NUMBER">%1$s</xliff:g> датотеки до „<xliff:g id="RECIPIENT">%2$s</xliff:g>“"</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"Испраќањето на датотеката до „<xliff:g id="RECIPIENT">%1$s</xliff:g>“ запре"</string>
-    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"Нема доволно простор во USB-меморијата за да се зачува датотеката од „<xliff:g id="SENDER">%1$s</xliff:g>’"</string>
-    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"Нема доволно простор на SD-картичката за да се зачува датотеката од „<xliff:g id="SENDER">%1$s</xliff:g>“"</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="5354343190503952837">"Нема доволно простор на USB-меморијата за да се зачува датотеката."</string>
+    <string name="bt_sm_2_1_default" msgid="2497541206648973852">"Нема доволно простор на SD-картичката за да се зачува датотеката."</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"Потребен простор: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"Се обработуваат премногу барања. Обидете се повторно подоцна."</string>
     <string name="status_pending" msgid="2503691772030877944">"Преносот на датотека сè уште не е започнат."</string>

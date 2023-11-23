@@ -1,7 +1,18 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "packages_apps_CellBroadcastReceiver_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: [
+        "packages_apps_CellBroadcastReceiver_license",
+    ],
+}
+
 apex_defaults {
     name: "com.android.cellbroadcast-defaults",
     updatable: true,
-    min_sdk_version: "R",
+    min_sdk_version: "30",
 
     manifest: "apex_manifest.json",
 
@@ -10,6 +21,9 @@ apex_defaults {
 
     key: "com.android.cellbroadcast.key",
     certificate: ":com.android.cellbroadcast.certificate",
+    // Indicates that pre-installed version of this apex can be compressed.
+    // Whether it actually will be compressed is controlled on per-device basis.
+    compressible: true,
 }
 
 apex_key {

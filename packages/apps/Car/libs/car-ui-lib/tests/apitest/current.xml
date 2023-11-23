@@ -1,17 +1,23 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<!--This file is AUTO GENERATED, DO NOT EDIT MANUALLY.-->
+<!-- THIS FILE WAS AUTO GENERATED, DO NOT EDIT MANUALLY. -->
 <resources>
+  <public type="array" name="car_ui_ime_wide_screen_allowed_package_list"/>
   <public type="attr" name="CarUiToolbarStyle"/>
   <public type="attr" name="carUiPreferenceStyle"/>
   <public type="attr" name="carUiRecyclerViewStyle"/>
+  <public type="attr" name="preferenceStyle"/>
   <public type="attr" name="state_ux_restricted"/>
-  <public type="bool" name="car_ui_enable_focus_area_background_highlight"/>
-  <public type="bool" name="car_ui_enable_focus_area_foreground_highlight"/>
+  <public type="bool" name="car_ui_alert_dialog_force_dismiss_button"/>
+  <public type="bool" name="car_ui_escrow_check_components_automatically"/>
+  <public type="bool" name="car_ui_ime_wide_screen_aligned_left"/>
+  <public type="bool" name="car_ui_ime_wide_screen_allow_app_hide_content_area"/>
   <public type="bool" name="car_ui_list_item_single_line_title"/>
+  <public type="bool" name="car_ui_preference_list_instant_change_callback"/>
   <public type="bool" name="car_ui_preference_list_show_full_screen"/>
   <public type="bool" name="car_ui_preference_show_chevron"/>
   <public type="bool" name="car_ui_scrollbar_enable"/>
   <public type="bool" name="car_ui_toolbar_logo_fills_nav_icon_space"/>
+  <public type="bool" name="car_ui_toolbar_menuitem_individual_click_listeners"/>
   <public type="bool" name="car_ui_toolbar_nav_icon_reserve_space"/>
   <public type="bool" name="car_ui_toolbar_show_logo"/>
   <public type="bool" name="car_ui_toolbar_tab_flexible_layout"/>
@@ -19,12 +25,18 @@
   <public type="color" name="car_ui_activity_background_color"/>
   <public type="color" name="car_ui_color_accent"/>
   <public type="color" name="car_ui_dialog_icon_color"/>
+  <public type="color" name="car_ui_ime_wide_screen_description_color"/>
+  <public type="color" name="car_ui_ime_wide_screen_description_title_color"/>
+  <public type="color" name="car_ui_ime_wide_screen_divider_color"/>
+  <public type="color" name="car_ui_ime_wide_screen_error_text_color"/>
+  <public type="color" name="car_ui_ime_wide_screen_search_item_sub_title_color"/>
+  <public type="color" name="car_ui_ime_wide_screen_search_item_title_color"/>
   <public type="color" name="car_ui_list_item_divider"/>
   <public type="color" name="car_ui_preference_icon_color"/>
   <public type="color" name="car_ui_preference_two_action_divider_color"/>
   <public type="color" name="car_ui_recyclerview_divider_color"/>
   <public type="color" name="car_ui_ripple_color"/>
-  <public type="color" name="car_ui_rotary_focus_color"/>
+  <public type="color" name="car_ui_scrollbar_arrow"/>
   <public type="color" name="car_ui_scrollbar_thumb"/>
   <public type="color" name="car_ui_text_color_hint"/>
   <public type="color" name="car_ui_text_color_primary"/>
@@ -36,6 +48,10 @@
   <public type="color" name="car_ui_toolbar_tab_item_selector"/>
   <public type="color" name="car_ui_toolbar_tab_selected_color"/>
   <public type="color" name="car_ui_toolbar_tab_unselected_color"/>
+  <public type="dimen" name="car_ui_app_styled_dialog_height"/>
+  <public type="dimen" name="car_ui_app_styled_dialog_position_x"/>
+  <public type="dimen" name="car_ui_app_styled_dialog_position_y"/>
+  <public type="dimen" name="car_ui_app_styled_dialog_width"/>
   <public type="dimen" name="car_ui_body1_size"/>
   <public type="dimen" name="car_ui_body2_size"/>
   <public type="dimen" name="car_ui_body3_size"/>
@@ -49,14 +65,42 @@
   <public type="dimen" name="car_ui_dialog_title_margin"/>
   <public type="dimen" name="car_ui_divider_width"/>
   <public type="dimen" name="car_ui_header_list_item_text_start_margin"/>
+  <public type="dimen" name="car_ui_ime_wide_screen_action_button_height"/>
+  <public type="dimen" name="car_ui_ime_wide_screen_action_button_margin_bottom"/>
+  <public type="dimen" name="car_ui_ime_wide_screen_action_button_margin_left"/>
+  <public type="dimen" name="car_ui_ime_wide_screen_action_button_text_size"/>
+  <public type="dimen" name="car_ui_ime_wide_screen_description_padding_top"/>
+  <public type="dimen" name="car_ui_ime_wide_screen_description_text_size"/>
+  <public type="dimen" name="car_ui_ime_wide_screen_description_title_margin_top"/>
+  <public type="dimen" name="car_ui_ime_wide_screen_description_title_padding_left"/>
+  <public type="dimen" name="car_ui_ime_wide_screen_description_title_text_size"/>
+  <public type="dimen" name="car_ui_ime_wide_screen_divider_width"/>
+  <public type="dimen" name="car_ui_ime_wide_screen_error_text_padding_start"/>
+  <public type="dimen" name="car_ui_ime_wide_screen_error_text_size"/>
+  <public type="dimen" name="car_ui_ime_wide_screen_input_area_height"/>
+  <public type="dimen" name="car_ui_ime_wide_screen_input_area_padding_end"/>
+  <public type="dimen" name="car_ui_ime_wide_screen_input_area_padding_top"/>
+  <public type="dimen" name="car_ui_ime_wide_screen_input_edit_text_padding_left"/>
+  <public type="dimen" name="car_ui_ime_wide_screen_input_edit_text_padding_right"/>
+  <public type="dimen" name="car_ui_ime_wide_screen_input_edit_text_size"/>
+  <public type="dimen" name="car_ui_ime_wide_screen_input_padding_start"/>
+  <public type="dimen" name="car_ui_ime_wide_screen_keyboard_area_padding_bottom"/>
+  <public type="dimen" name="car_ui_ime_wide_screen_keyboard_area_padding_end"/>
+  <public type="dimen" name="car_ui_ime_wide_screen_keyboard_area_padding_start"/>
+  <public type="dimen" name="car_ui_ime_wide_screen_keyboard_width"/>
+  <public type="dimen" name="car_ui_ime_wide_screen_recycler_view_padding_top"/>
+  <public type="dimen" name="car_ui_ime_wide_search_item_icon_size"/>
+  <public type="dimen" name="car_ui_ime_wide_search_item_secondary_image_padding_left"/>
+  <public type="dimen" name="car_ui_ime_wide_search_item_sub_title_padding_left"/>
+  <public type="dimen" name="car_ui_ime_wide_search_item_sub_title_padding_top"/>
+  <public type="dimen" name="car_ui_ime_wide_search_item_sub_title_text_size"/>
+  <public type="dimen" name="car_ui_ime_wide_search_item_title_padding_left"/>
+  <public type="dimen" name="car_ui_ime_wide_search_item_title_padding_top"/>
+  <public type="dimen" name="car_ui_ime_wide_search_item_title_text_size"/>
   <public type="dimen" name="car_ui_list_item_action_divider_height"/>
   <public type="dimen" name="car_ui_list_item_action_divider_width"/>
   <public type="dimen" name="car_ui_list_item_avatar_icon_height"/>
   <public type="dimen" name="car_ui_list_item_avatar_icon_width"/>
-  <public type="dimen" name="car_ui_list_item_check_box_end_inset"/>
-  <public type="dimen" name="car_ui_list_item_check_box_height"/>
-  <public type="dimen" name="car_ui_list_item_check_box_icon_container_width"/>
-  <public type="dimen" name="car_ui_list_item_check_box_start_inset"/>
   <public type="dimen" name="car_ui_list_item_content_icon_height"/>
   <public type="dimen" name="car_ui_list_item_content_icon_width"/>
   <public type="dimen" name="car_ui_list_item_end_inset"/>
@@ -65,10 +109,6 @@
   <public type="dimen" name="car_ui_list_item_height"/>
   <public type="dimen" name="car_ui_list_item_icon_container_width"/>
   <public type="dimen" name="car_ui_list_item_icon_size"/>
-  <public type="dimen" name="car_ui_list_item_radio_button_end_inset"/>
-  <public type="dimen" name="car_ui_list_item_radio_button_height"/>
-  <public type="dimen" name="car_ui_list_item_radio_button_icon_container_width"/>
-  <public type="dimen" name="car_ui_list_item_radio_button_start_inset"/>
   <public type="dimen" name="car_ui_list_item_start_inset"/>
   <public type="dimen" name="car_ui_list_item_supplemental_icon_size"/>
   <public type="dimen" name="car_ui_list_item_text_no_icon_start_margin"/>
@@ -81,6 +121,8 @@
   <public type="dimen" name="car_ui_padding_4"/>
   <public type="dimen" name="car_ui_padding_5"/>
   <public type="dimen" name="car_ui_padding_6"/>
+  <public type="dimen" name="car_ui_padding_7"/>
+  <public type="dimen" name="car_ui_padding_8"/>
   <public type="dimen" name="car_ui_preference_category_icon_margin_end"/>
   <public type="dimen" name="car_ui_preference_category_icon_size"/>
   <public type="dimen" name="car_ui_preference_category_min_height"/>
@@ -108,6 +150,7 @@
   <public type="dimen" name="car_ui_scrollbar_deceleration_times_divisor"/>
   <public type="dimen" name="car_ui_scrollbar_margin"/>
   <public type="dimen" name="car_ui_scrollbar_milliseconds_per_inch"/>
+  <public type="dimen" name="car_ui_scrollbar_min_thumb_height"/>
   <public type="dimen" name="car_ui_scrollbar_padding_bottom"/>
   <public type="dimen" name="car_ui_scrollbar_padding_top"/>
   <public type="dimen" name="car_ui_scrollbar_separator_margin"/>
@@ -150,23 +193,31 @@
   <public type="dimen" name="wrap_content"/>
   <public type="drawable" name="car_ui_activity_background"/>
   <public type="drawable" name="car_ui_divider"/>
-  <public type="drawable" name="car_ui_focus_area_background_highlight"/>
-  <public type="drawable" name="car_ui_focus_area_foreground_highlight"/>
   <public type="drawable" name="car_ui_icon_add"/>
   <public type="drawable" name="car_ui_icon_arrow_back"/>
+  <public type="drawable" name="car_ui_icon_chevron"/>
   <public type="drawable" name="car_ui_icon_close"/>
   <public type="drawable" name="car_ui_icon_delete"/>
   <public type="drawable" name="car_ui_icon_down"/>
   <public type="drawable" name="car_ui_icon_edit"/>
+  <public type="drawable" name="car_ui_icon_error"/>
+  <public type="drawable" name="car_ui_icon_lock"/>
   <public type="drawable" name="car_ui_icon_overflow_menu"/>
   <public type="drawable" name="car_ui_icon_save"/>
   <public type="drawable" name="car_ui_icon_search"/>
   <public type="drawable" name="car_ui_icon_search_nav_icon"/>
   <public type="drawable" name="car_ui_icon_settings"/>
+  <public type="drawable" name="car_ui_ime_wide_screen_background"/>
+  <public type="drawable" name="car_ui_ime_wide_screen_content_area_background"/>
+  <public type="drawable" name="car_ui_ime_wide_screen_input_area_background"/>
+  <public type="drawable" name="car_ui_ime_wide_screen_input_area_tint_color"/>
+  <public type="drawable" name="car_ui_ime_wide_screen_input_area_tint_error_color"/>
+  <public type="drawable" name="car_ui_ime_wide_screen_no_content_background"/>
   <public type="drawable" name="car_ui_list_header_background"/>
   <public type="drawable" name="car_ui_list_item_avatar_icon_outline"/>
   <public type="drawable" name="car_ui_list_item_background"/>
   <public type="drawable" name="car_ui_list_item_divider"/>
+  <public type="drawable" name="car_ui_list_limiting_message_background"/>
   <public type="drawable" name="car_ui_preference_icon_chevron"/>
   <public type="drawable" name="car_ui_preference_icon_chevron_disabled"/>
   <public type="drawable" name="car_ui_preference_icon_chevron_enabled"/>
@@ -181,27 +232,51 @@
   <public type="drawable" name="car_ui_toolbar_menu_item_icon_ripple"/>
   <public type="drawable" name="car_ui_toolbar_search_close_icon"/>
   <public type="drawable" name="car_ui_toolbar_search_search_icon"/>
-  <public type="id" name="action_container"/>
-  <public type="id" name="action_container_touch_interceptor"/>
-  <public type="id" name="action_divider"/>
   <public type="id" name="action_widget_container"/>
-  <public type="id" name="avatar_icon"/>
-  <public type="id" name="body"/>
   <public type="id" name="car_ui_alert_icon"/>
   <public type="id" name="car_ui_alert_subtitle"/>
   <public type="id" name="car_ui_alert_title"/>
-  <public type="id" name="car_ui_check_box_end_guideline"/>
-  <public type="id" name="car_ui_check_box_start_guideline"/>
+  <public type="id" name="car_ui_base_layout_content_container"/>
+  <public type="id" name="car_ui_closeKeyboard"/>
+  <public type="id" name="car_ui_component_reference"/>
+  <public type="id" name="car_ui_contentAreaAutomotive"/>
+  <public type="id" name="car_ui_divider"/>
+  <public type="id" name="car_ui_first_action_container"/>
+  <public type="id" name="car_ui_focus_area"/>
+  <public type="id" name="car_ui_fullscreenArea"/>
+  <public type="id" name="car_ui_imeWideScreenInputArea"/>
+  <public type="id" name="car_ui_ime_carboard_area"/>
+  <public type="id" name="car_ui_ime_surface"/>
+  <public type="id" name="car_ui_inputExtractActionAutomotive"/>
+  <public type="id" name="car_ui_inputExtractEditTextContainer"/>
+  <public type="id" name="car_ui_list_item_action_container"/>
+  <public type="id" name="car_ui_list_item_action_container_touch_interceptor"/>
+  <public type="id" name="car_ui_list_item_action_divider"/>
+  <public type="id" name="car_ui_list_item_avatar_icon"/>
+  <public type="id" name="car_ui_list_item_body"/>
+  <public type="id" name="car_ui_list_item_checkbox_widget"/>
+  <public type="id" name="car_ui_list_item_content_icon"/>
   <public type="id" name="car_ui_list_item_end_guideline"/>
+  <public type="id" name="car_ui_list_item_icon"/>
+  <public type="id" name="car_ui_list_item_icon_container"/>
+  <public type="id" name="car_ui_list_item_radio_button_widget"/>
+  <public type="id" name="car_ui_list_item_reduced_touch_interceptor"/>
   <public type="id" name="car_ui_list_item_start_guideline"/>
-  <public type="id" name="car_ui_preference_fragment_container"/>
+  <public type="id" name="car_ui_list_item_supplemental_icon"/>
+  <public type="id" name="car_ui_list_item_switch_widget"/>
+  <public type="id" name="car_ui_list_item_title"/>
+  <public type="id" name="car_ui_list_item_touch_interceptor"/>
+  <public type="id" name="car_ui_list_limiting_message"/>
+  <public type="id" name="car_ui_preference_container_without_widget"/>
   <public type="id" name="car_ui_recycler_view"/>
   <public type="id" name="car_ui_scroll_bar"/>
   <public type="id" name="car_ui_scrollbar_page_down"/>
   <public type="id" name="car_ui_scrollbar_page_up"/>
   <public type="id" name="car_ui_scrollbar_thumb"/>
   <public type="id" name="car_ui_scrollbar_track"/>
-  <public type="id" name="car_ui_toolbar"/>
+  <public type="id" name="car_ui_second_action_container"/>
+  <public type="id" name="car_ui_secondary_action"/>
+  <public type="id" name="car_ui_secondary_action_concrete"/>
   <public type="id" name="car_ui_toolbar_background"/>
   <public type="id" name="car_ui_toolbar_bottom_guideline"/>
   <public type="id" name="car_ui_toolbar_bottom_styleable"/>
@@ -232,20 +307,19 @@
   <public type="id" name="car_ui_toolbar_title_logo"/>
   <public type="id" name="car_ui_toolbar_title_logo_container"/>
   <public type="id" name="car_ui_toolbar_top_guideline"/>
-  <public type="id" name="check_box_container"/>
-  <public type="id" name="checkbox"/>
-  <public type="id" name="checkbox_widget"/>
+  <public type="id" name="car_ui_wideScreenClearData"/>
+  <public type="id" name="car_ui_wideScreenDescription"/>
+  <public type="id" name="car_ui_wideScreenDescriptionTitle"/>
+  <public type="id" name="car_ui_wideScreenError"/>
+  <public type="id" name="car_ui_wideScreenErrorMessage"/>
+  <public type="id" name="car_ui_wideScreenExtractedTextIcon"/>
+  <public type="id" name="car_ui_wideScreenInputArea"/>
+  <public type="id" name="car_ui_wideScreenSearchResultList"/>
   <public type="id" name="container"/>
-  <public type="id" name="content"/>
-  <public type="id" name="content_icon"/>
-  <public type="id" name="icon"/>
-  <public type="id" name="icon_container"/>
   <public type="id" name="list"/>
   <public type="id" name="nested_recycler_view_layout"/>
   <public type="id" name="radio_button"/>
-  <public type="id" name="radio_button_widget"/>
   <public type="id" name="recycler_view"/>
-  <public type="id" name="reduced_touch_interceptor"/>
   <public type="id" name="search"/>
   <public type="id" name="seek_bar"/>
   <public type="id" name="seek_bar_text_left"/>
@@ -254,14 +328,8 @@
   <public type="id" name="seekbar"/>
   <public type="id" name="seekbar_value"/>
   <public type="id" name="spinner"/>
-  <public type="id" name="supplemental_icon"/>
-  <public type="id" name="switch_widget"/>
-  <public type="id" name="text"/>
   <public type="id" name="textbox"/>
-  <public type="id" name="title"/>
   <public type="id" name="title_template"/>
-  <public type="id" name="toolbar"/>
-  <public type="id" name="touch_interceptor"/>
   <public type="integer" name="car_ui_default_max_string_length"/>
   <public type="integer" name="car_ui_scrollbar_longpress_initial_delay"/>
   <public type="integer" name="car_ui_scrollbar_longpress_repeat_interval"/>
@@ -270,19 +338,22 @@
   <public type="layout" name="car_ui_alert_dialog_title_with_subtitle"/>
   <public type="layout" name="car_ui_base_layout"/>
   <public type="layout" name="car_ui_base_layout_toolbar"/>
-  <public type="layout" name="car_ui_base_layout_toolbar_legacy"/>
-  <public type="layout" name="car_ui_check_box_list_item"/>
   <public type="layout" name="car_ui_header_list_item"/>
+  <public type="layout" name="car_ui_ims_wide_screen_input_view"/>
   <public type="layout" name="car_ui_list_item"/>
+  <public type="layout" name="car_ui_list_item_compact"/>
+  <public type="layout" name="car_ui_list_limiting_message"/>
   <public type="layout" name="car_ui_list_preference"/>
-  <public type="layout" name="car_ui_list_preference_with_toolbar"/>
   <public type="layout" name="car_ui_preference"/>
   <public type="layout" name="car_ui_preference_category"/>
   <public type="layout" name="car_ui_preference_chevron"/>
   <public type="layout" name="car_ui_preference_dialog_edittext"/>
   <public type="layout" name="car_ui_preference_dropdown"/>
   <public type="layout" name="car_ui_preference_fragment"/>
-  <public type="layout" name="car_ui_preference_fragment_with_toolbar"/>
+  <public type="layout" name="car_ui_preference_two_action_icon"/>
+  <public type="layout" name="car_ui_preference_two_action_switch"/>
+  <public type="layout" name="car_ui_preference_two_action_text"/>
+  <public type="layout" name="car_ui_preference_two_action_text_borderless"/>
   <public type="layout" name="car_ui_preference_widget_checkbox"/>
   <public type="layout" name="car_ui_preference_widget_seekbar"/>
   <public type="layout" name="car_ui_preference_widget_switch"/>
@@ -293,6 +364,7 @@
   <public type="layout" name="car_ui_seekbar_dialog"/>
   <public type="layout" name="car_ui_toolbar"/>
   <public type="layout" name="car_ui_toolbar_menu_item"/>
+  <public type="layout" name="car_ui_toolbar_menu_item_primary"/>
   <public type="layout" name="car_ui_toolbar_search_view"/>
   <public type="layout" name="car_ui_toolbar_tab_item"/>
   <public type="layout" name="car_ui_toolbar_tab_item_flexible"/>
@@ -300,10 +372,12 @@
   <public type="layout" name="car_ui_toolbar_tab_item_layout_flexible"/>
   <public type="layout" name="car_ui_toolbar_two_row"/>
   <public type="layout" name="car_ui_two_action_preference"/>
+  <public type="raw" name="car_ui_keep"/>
   <public type="string" name="car_ui_alert_dialog_default_button"/>
   <public type="string" name="car_ui_dialog_preference_negative"/>
   <public type="string" name="car_ui_dialog_preference_positive"/>
   <public type="string" name="car_ui_ellipsis"/>
+  <public type="string" name="car_ui_ime_wide_screen_system_property_name"/>
   <public type="string" name="car_ui_installer_process_name"/>
   <public type="string" name="car_ui_preference_switch_off"/>
   <public type="string" name="car_ui_preference_switch_on"/>
@@ -311,13 +385,14 @@
   <public type="string" name="car_ui_scrollbar_component"/>
   <public type="string" name="car_ui_scrollbar_page_down_button"/>
   <public type="string" name="car_ui_scrollbar_page_up_button"/>
+  <public type="string" name="car_ui_scrolling_limited_message"/>
+  <public type="string" name="car_ui_shared_library_package_system_property_name"/>
   <public type="string" name="car_ui_toolbar_default_search_hint"/>
   <public type="string" name="car_ui_toolbar_menu_item_overflow_title"/>
   <public type="string" name="car_ui_toolbar_menu_item_search_title"/>
   <public type="string" name="car_ui_toolbar_menu_item_settings_title"/>
   <public type="string" name="car_ui_toolbar_nav_icon_content_description"/>
   <public type="style" name="CarUiPreferenceTheme"/>
-  <public type="style" name="CarUiPreferenceTheme.WithToolbar"/>
   <public type="style" name="Preference.CarUi"/>
   <public type="style" name="Preference.CarUi.Category"/>
   <public type="style" name="Preference.CarUi.CheckBoxPreference"/>
@@ -337,7 +412,6 @@
   <public type="style" name="Preference.CarUi.SeekBarPreference"/>
   <public type="style" name="Preference.CarUi.SwitchPreference"/>
   <public type="style" name="PreferenceFragment.CarUi"/>
-  <public type="style" name="PreferenceFragment.CarUi.WithToolbar"/>
   <public type="style" name="PreferenceFragmentList.CarUi"/>
   <public type="style" name="TextAppearance.CarUi"/>
   <public type="style" name="TextAppearance.CarUi.AlertDialog.Subtitle"/>

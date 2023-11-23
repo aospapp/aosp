@@ -18,7 +18,7 @@ package android.net.ip;
 
 import static android.system.OsConstants.AF_INET6;
 
-import static com.android.server.util.NetworkStackConstants.ICMPV6_ROUTER_ADVERTISEMENT;
+import static com.android.net.module.util.NetworkStackConstants.ICMPV6_ROUTER_ADVERTISEMENT;
 
 import android.app.AlarmManager;
 import android.content.Context;
@@ -114,6 +114,7 @@ public class IpClientLinkObserver implements NetworkObserver {
     private DnsServerRepository mDnsServerRepository;
     private final AlarmManager mAlarmManager;
     private final Configuration mConfig;
+    private final Handler mHandler;
 
     private final MyNetlinkMonitor mNetlinkMonitor;
 
@@ -127,11 +128,16 @@ public class IpClientLinkObserver implements NetworkObserver {
         mLinkProperties = new LinkProperties();
         mLinkProperties.setInterfaceName(mInterfaceName);
         mConfig = config;
+        mHandler = h;
         mInterfaceLinkState = true; // Assume up by default
         mDnsServerRepository = new DnsServerRepository(config.minRdnssLifetime);
         mAlarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         mNetlinkMonitor = new MyNetlinkMonitor(h, log, mTag);
-        h.post(mNetlinkMonitor::start);
+        mHandler.post(mNetlinkMonitor::start);
+    }
+
+    public void shutdown() {
+        mHandler.post(mNetlinkMonitor::stop);
     }
 
     private void maybeLog(String operation, String iface, LinkAddress address) {

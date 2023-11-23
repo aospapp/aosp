@@ -85,6 +85,7 @@ public class AidRoutingManager {
         String offHostSE;
         int route;
         int aidInfo;
+        int power;
     }
 
     public AidRoutingManager() {
@@ -168,9 +169,9 @@ public class AidRoutingManager {
 
             NfcService.getInstance().unrouteAids(aid);
         }
-        if(NfcService.getInstance().getNciVersion() != NfcService.getInstance().NCI_VERSION_1_0) {
-          // unRoute EmptyAid
-          NfcService.getInstance().unrouteAids("");
+        if (NfcService.getInstance().getNciVersion() >= NfcService.getInstance().NCI_VERSION_2_0) {
+            // unRoute EmptyAid
+            NfcService.getInstance().unrouteAids("");
         }
     }
 
@@ -334,25 +335,62 @@ public class AidRoutingManager {
                  }
               }
 
-              if(mDefaultRoute != mDefaultIsoDepRoute) {
-                if(NfcService.getInstance().getNciVersion() != NfcService.getInstance().NCI_VERSION_1_0) {
-                  String emptyAid = "";
-                  AidEntry entry = new AidEntry();
-                  entry.route = mDefaultRoute;
-                  if(mDefaultRoute==ROUTE_HOST) {
-                    entry.isOnHost = true;
-                  } else{
-                    entry.isOnHost = false;
-                   }
-                  entry.aidInfo = RegisteredAidCache.AID_ROUTE_QUAL_PREFIX;
-                  aidRoutingTableCache.put(emptyAid, entry);
-                  if (DBG) Log.d(TAG, "Add emptyAid into AidRoutingTable");
-                }
+              // register default route in below cases:
+              // 1. mDefaultRoute is different with mDefaultIsoDepRoute
+              // 2. mDefaultRoute and mDefaultIsoDepRoute all equal to ROUTE_HOST
+              //    , which is used for screen off HCE scenarios
+              if (mDefaultRoute != mDefaultIsoDepRoute || mDefaultIsoDepRoute == ROUTE_HOST) {
+                  if (NfcService.getInstance().getNciVersion()
+                          >= NfcService.getInstance().NCI_VERSION_2_0) {
+                      String emptyAid = "";
+                      AidEntry entry = new AidEntry();
+                      int default_route_power_state;
+                      entry.route = mDefaultRoute;
+                      if (mDefaultRoute == ROUTE_HOST) {
+                          entry.isOnHost = true;
+                          default_route_power_state = RegisteredAidCache.POWER_STATE_SWITCH_ON
+                                  | RegisteredAidCache.POWER_STATE_SCREEN_ON_LOCKED;
+                          Set<String> aidsForDefaultRoute = mAidRoutingTable.get(mDefaultRoute);
+                          if (aidsForDefaultRoute != null) {
+                              for (String aid : aidsForDefaultRoute) {
+                                  default_route_power_state |= aidMap.get(aid).power;
+                              }
+                          }
+                      } else {
+                          entry.isOnHost = false;
+                          default_route_power_state = RegisteredAidCache.POWER_STATE_ALL;
+                      }
+                      entry.aidInfo = RegisteredAidCache.AID_ROUTE_QUAL_PREFIX;
+                      entry.power = default_route_power_state;
+
+                      aidRoutingTableCache.put(emptyAid, entry);
+                      if (DBG) Log.d(TAG, "Add emptyAid into AidRoutingTable");
+                  }
               }
 
-              if( calculateAidRouteSize(aidRoutingTableCache) <= mMaxAidRoutingTableSize) {
-                aidRouteResolved = true;
-                break;
+              // Register additional offhost AIDs when their support power states are
+              // differernt from the default route entry
+              if (mDefaultRoute != ROUTE_HOST) {
+                  int default_route_power_state = RegisteredAidCache.POWER_STATE_ALL;
+                  if (NfcService.getInstance().getNciVersion()
+                          < NfcService.getInstance().NCI_VERSION_2_0) {
+                      default_route_power_state =
+                              RegisteredAidCache.POWER_STATE_ALL_NCI_VERSION_1_0;
+                  }
+
+                  Set<String> aidsForDefaultRoute = mAidRoutingTable.get(mDefaultRoute);
+                  if (aidsForDefaultRoute != null) {
+                      for (String aid : aidsForDefaultRoute) {
+                          if (aidMap.get(aid).power != default_route_power_state) {
+                              aidRoutingTableCache.put(aid, aidMap.get(aid));
+                          }
+                      }
+                  }
+              }
+
+              if (calculateAidRouteSize(aidRoutingTableCache) <= mMaxAidRoutingTableSize) {
+                  aidRouteResolved = true;
+                  break;
               }
           }
 
@@ -375,9 +413,13 @@ public class AidRoutingManager {
                 int route = aidEntry.getValue().route;
                 int aidType = aidEntry.getValue().aidInfo;
                 String aid = aidEntry.getKey();
-                if (DBG) Log.d (TAG, "commit aid:"+aid+"route:"+route+"aidtype:"+aidType);
+                int power = aidEntry.getValue().power;
+                if (DBG) {
+                    Log.d(TAG, "commit aid:" + aid + ",route:" + route
+                        + ",aidtype:" + aidType + ", power state:" + power);
+                }
 
-                NfcService.getInstance().routeAids(aid, route, aidType);
+                NfcService.getInstance().routeAids(aid, route, aidType, power);
             }
         }
 

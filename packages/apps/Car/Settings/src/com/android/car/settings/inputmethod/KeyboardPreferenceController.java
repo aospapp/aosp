@@ -45,10 +45,8 @@ public class KeyboardPreferenceController extends PreferenceController<Preferenc
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
         mPackageManager = context.getPackageManager();
-        mDevicePolicyManager =
-                (DevicePolicyManager) context.getSystemService(Context.DEVICE_POLICY_SERVICE);
-        mInputMethodManager =
-                (InputMethodManager) context.getSystemService(Context.INPUT_METHOD_SERVICE);
+        mDevicePolicyManager = context.getSystemService(DevicePolicyManager.class);
+        mInputMethodManager = context.getSystemService(InputMethodManager.class);
     }
 
     @Override

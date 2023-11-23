@@ -38,12 +38,16 @@ public class VehiclePropertyIdsTest extends AndroidTestCase {
             new ArrayList<>(
                 Arrays.asList(
                     "DISABLED_OPTIONAL_FEATURES",
+                    "EVS_SERVICE_REQUEST",
+                    "HW_CUSTOM_INPUT",
                     "HW_ROTARY_INPUT",
                     "SUPPORT_CUSTOMIZE_VENDOR_PERMISSION"));
     private static final List<Integer> MISSING_VEHICLE_PROPERTY_ID_VALUES =
             new ArrayList<>(
                 Arrays.asList(
                     /*DISABLED_OPTIONAL_FEATURES=*/286265094,
+                    /*EVS_SERVICE_REQUEST=*/289476368,
+                    /*HW_CUSTOM_INPUT=*/289475120,
                     /*HW_ROTARY_INPUT=*/289475104,
                     /*SUPPORT_CUSTOMIZE_VENDOR_PERMISSION=*/287313669));
 
@@ -140,6 +144,8 @@ public class VehiclePropertyIdsTest extends AndroidTestCase {
                 VehiclePropertyIds.toString(VehiclePropertyIds.RANGE_REMAINING));
         assertEquals("TIRE_PRESSURE",
                 VehiclePropertyIds.toString(VehiclePropertyIds.TIRE_PRESSURE));
+        assertEquals("CRITICALLY_LOW_TIRE_PRESSURE",
+                VehiclePropertyIds.toString(VehiclePropertyIds.CRITICALLY_LOW_TIRE_PRESSURE));
         assertEquals("GEAR_SELECTION",
                 VehiclePropertyIds.toString(VehiclePropertyIds.GEAR_SELECTION));
         assertEquals("CURRENT_GEAR", VehiclePropertyIds.toString(VehiclePropertyIds.CURRENT_GEAR));
@@ -165,6 +171,8 @@ public class VehiclePropertyIdsTest extends AndroidTestCase {
                 VehiclePropertyIds.toString(VehiclePropertyIds.HVAC_TEMPERATURE_CURRENT));
         assertEquals("HVAC_TEMPERATURE_SET",
                 VehiclePropertyIds.toString(VehiclePropertyIds.HVAC_TEMPERATURE_SET));
+        assertEquals("HVAC_TEMPERATURE_VALUE_SUGGESTION",
+                VehiclePropertyIds.toString(VehiclePropertyIds.HVAC_TEMPERATURE_VALUE_SUGGESTION));
         assertEquals("HVAC_DEFROSTER",
                 VehiclePropertyIds.toString(VehiclePropertyIds.HVAC_DEFROSTER));
         assertEquals("HVAC_AC_ON", VehiclePropertyIds.toString(VehiclePropertyIds.HVAC_AC_ON));
@@ -324,12 +332,22 @@ public class VehiclePropertyIdsTest extends AndroidTestCase {
                 VehiclePropertyIds.toString(VehiclePropertyIds.READING_LIGHTS_SWITCH));
         assertEquals("VEHICLE_SPEED_DISPLAY_UNITS",
                 VehiclePropertyIds.toString(VehiclePropertyIds.VEHICLE_SPEED_DISPLAY_UNITS));
+        assertEquals("ELECTRONIC_TOLL_COLLECTION_CARD_STATUS",
+                VehiclePropertyIds.toString(
+                        VehiclePropertyIds.ELECTRONIC_TOLL_COLLECTION_CARD_STATUS));
+        assertEquals("ELECTRONIC_TOLL_COLLECTION_CARD_TYPE",
+                VehiclePropertyIds.toString(
+                        VehiclePropertyIds.ELECTRONIC_TOLL_COLLECTION_CARD_TYPE));
         assertEquals("INITIAL_USER_INFO",
                 VehiclePropertyIds.toString(VehiclePropertyIds.INITIAL_USER_INFO));
         assertEquals("SWITCH_USER", VehiclePropertyIds.toString(VehiclePropertyIds.SWITCH_USER));
         assertEquals("USER_IDENTIFICATION_ASSOCIATION",
                 VehiclePropertyIds.toString(VehiclePropertyIds.USER_IDENTIFICATION_ASSOCIATION));
         assertEquals("0x3", VehiclePropertyIds.toString(3));
+        // Properties in S
+        assertEquals("EPOCH_TIME", VehiclePropertyIds.toString(VehiclePropertyIds.EPOCH_TIME));
+        assertEquals("STORAGE_ENCRYPTION_BINDING_SEED",
+                VehiclePropertyIds.toString(VehiclePropertyIds.STORAGE_ENCRYPTION_BINDING_SEED));
     }
 
     private static List<Integer> getListOfConstantValues(Class clazz) {

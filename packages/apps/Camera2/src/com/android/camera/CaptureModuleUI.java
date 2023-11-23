@@ -94,6 +94,13 @@ public class CaptureModuleUI implements PreviewStatusListener.PreviewAreaChanged
     }
 
     /**
+     * Getter for the camera activity this UI is drawn into
+     */
+    public CameraActivity getActivity() {
+        return mActivity;
+    }
+
+    /**
      * Getter for the width of the visible area of the preview.
      */
     public int getPreviewAreaWidth() {

@@ -384,7 +384,7 @@ public class CarAppFocusManagerTest extends CarApiTestBase {
     }
 
     private void assertEventThread() {
-        assertThat(Thread.currentThread()).isSameAs(mEventThread);
+        assertThat(Thread.currentThread()).isSameInstanceAs(mEventThread);
     }
 
     private static final class LooperThread extends Thread {

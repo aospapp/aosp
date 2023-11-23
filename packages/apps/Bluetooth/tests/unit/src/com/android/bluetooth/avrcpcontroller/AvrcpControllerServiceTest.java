@@ -15,6 +15,9 @@
  */
 package com.android.bluetooth.avrcpcontroller;
 
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doReturn;
+
 import android.bluetooth.BluetoothAdapter;
 import android.content.Context;
 
@@ -56,6 +59,7 @@ public class AvrcpControllerServiceTest {
                         .getBoolean(R.bool.profile_supported_avrcp_controller));
         MockitoAnnotations.initMocks(this);
         TestUtils.setAdapterService(mAdapterService);
+        doReturn(true, false).when(mAdapterService).isStartedProfile(anyString());
         TestUtils.startService(mServiceRule, AvrcpControllerService.class);
         mService = AvrcpControllerService.getAvrcpControllerService();
         Assert.assertNotNull(mService);

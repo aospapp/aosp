@@ -68,7 +68,6 @@ public class AccountSyncDetailsPreferenceController extends
      * sync.
      */
     private final Map<String, SyncPreference> mSyncPreferences = new ArrayMap<>();
-    private boolean mIsStarted = false;
     private Account mAccount;
     private UserHandle mUserHandle;
     private AuthenticatorHelper mAuthenticatorHelper;
@@ -77,7 +76,7 @@ public class AccountSyncDetailsPreferenceController extends
             which -> ThreadUtils.postOnMainThread(() -> {
                 // The observer call may occur even if the fragment hasn't been started, so
                 // only force an update if the fragment hasn't been stopped.
-                if (mIsStarted) {
+                if (isStarted()) {
                     forceUpdateSyncCategory();
                 }
             });
@@ -137,7 +136,6 @@ public class AccountSyncDetailsPreferenceController extends
      */
     @Override
     protected void onStartInternal() {
-        mIsStarted = true;
         mAuthenticatorHelper.listenToAccountUpdates();
 
         mStatusChangeListenerHandle = ContentResolver.addStatusChangeListener(
@@ -151,7 +149,6 @@ public class AccountSyncDetailsPreferenceController extends
      */
     @Override
     protected void onStopInternal() {
-        mIsStarted = false;
         mAuthenticatorHelper.stopListeningToAccountUpdates();
         if (mStatusChangeListenerHandle != null) {
             ContentResolver.removeStatusChangeListener(mStatusChangeListenerHandle);

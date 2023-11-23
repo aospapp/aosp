@@ -16,6 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="missing_rename_error" msgid="9098952207447981103">"আপনাকে নতুন করে এর নাম দিতে হবে"</string>
+    <string name="add_folder_name_error" msgid="6014615052491406810">"আপনাকে ফোল্ডারের নাম যোগ করতে হবে"</string>
     <string name="files_label" msgid="771781190045103748">"Files"</string>
     <string name="downloads_label" msgid="5462789470049501103">"ডাউনলোড"</string>
     <!-- no translation found for app_label (8089292432455111409) -->
@@ -27,7 +29,7 @@
     <string name="menu_create_dir" msgid="2413624798689091042">"নতুন ফোল্ডার"</string>
     <string name="menu_grid" msgid="1453636521731880680">"গ্রিড দৃশ্য"</string>
     <string name="menu_list" msgid="6714267452146410402">"তালিকা দৃশ্য"</string>
-    <string name="menu_search" msgid="1876699106790719849">"খুঁজুন"</string>
+    <string name="menu_search" msgid="1876699106790719849">"সার্চ"</string>
     <string name="menu_settings" msgid="6520844520117939047">"সঞ্চয়স্থানের সেটিংস"</string>
     <string name="menu_open" msgid="9092138100049759315">"খুলুন"</string>
     <string name="menu_open_with" msgid="5507647065467520229">"এর মাধ্যমে খুলুন"</string>
@@ -227,7 +229,7 @@
       <item quantity="one"><xliff:g id="COUNT_1">%1$d</xliff:g>টি আইটেম মুছবেন?</item>
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g>টি আইটেম মুছবেন?</item>
     </plurals>
-    <string name="images_shortcut_label" msgid="2545168016070493574">"ছবিগুলি"</string>
+    <string name="images_shortcut_label" msgid="2545168016070493574">"Images"</string>
     <string name="archive_loading_failed" msgid="7243436722828766996">"ব্রাউজ করার জন্য আর্কাইভ খোলা গেল না৷ হয় ফাইলটি ক্ষতিগ্রস্ত বা কোনো অসমর্থিত বিন্যাসে রয়েছে৷"</string>
     <string name="name_conflict" msgid="28407269328862986">"এই নামে আগেই আর একটি ফাইল আছে।"</string>
     <string name="authentication_required" msgid="8030880723643436099">"এই সংগ্রহটি দেখার জন্য <xliff:g id="NAME">%1$s</xliff:g> এ সাইন-ইন করুন"</string>
@@ -248,13 +250,13 @@
     <string name="root_info_header_app" msgid="2125422047558420885">"<xliff:g id="LABEL">%1$s</xliff:g>-এ সেভ করা ফাইলগুলি"</string>
     <string name="root_info_header_app_with_summary" msgid="3223302581236069702">"<xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g>-এ সেভ করা ফাইলগুলি"</string>
     <string name="root_info_header_image_recent" msgid="7494373563753926014">"সাম্প্রতিক ছবি"</string>
-    <string name="root_info_header_image_global_search" msgid="7307009823489854697">"ছবি"</string>
+    <string name="root_info_header_image_global_search" msgid="7307009823489854697">"Images"</string>
     <string name="root_info_header_image_downloads" msgid="7072252612657612307">"ডাউনলোড ফোল্ডারে ছবি"</string>
     <string name="root_info_header_image_storage" msgid="5086740886360075930">"<xliff:g id="DEVICE">%1$s</xliff:g>-এর ছবি"</string>
     <string name="root_info_header_image_folder" msgid="5980430877636279667">"<xliff:g id="FOLDER">%1$s</xliff:g>-এ ছবি"</string>
     <string name="root_info_header_image_app" msgid="4858114210851525359">"<xliff:g id="LABEL">%1$s</xliff:g>-এর ছবি"</string>
     <string name="root_info_header_image_app_with_summary" msgid="6404842960923224778">"<xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g>-এর ছবি"</string>
-    <string name="chip_title_images" msgid="7838299046109841015">"ছবি"</string>
+    <string name="chip_title_images" msgid="7838299046109841015">"Images"</string>
     <string name="chip_title_audio" msgid="1032801828748235436">"অডিও"</string>
     <string name="chip_title_videos" msgid="7011260091979776447">"ভিডিও"</string>
     <string name="chip_title_documents" msgid="7432457563000753983">"ডকুমেন্ট"</string>
@@ -275,7 +277,9 @@
     <string name="search_bar_hint" msgid="4517366509897977321">"এই ফোনে খুঁজুন"</string>
     <string name="delete_search_history" msgid="2202015025607694515">"সার্চের ইতিহাস মুছুন <xliff:g id="TEXT">%1$s</xliff:g>"</string>
     <string name="personal_tab" msgid="3878576287868528503">"ব্যক্তিগত"</string>
-    <string name="work_tab" msgid="7265359366883747413">"অফিস ডিরেকটরি"</string>
+    <string name="work_tab" msgid="7265359366883747413">"অফিস"</string>
     <string name="a11y_work" msgid="7504431382825242153">"অফিসের প্রোফাইল"</string>
     <string name="drag_from_another_app" msgid="8310249276199969905">"অন্য অ্যাপ থেকে ফাইল সরাতে পারবেন না।"</string>
+    <string name="grid_mode_showing" msgid="2803166871485028508">"গ্রিড মোডে দেখানো হচ্ছে।"</string>
+    <string name="list_mode_showing" msgid="1225413902295895166">"তালিকা মোডে দেখানো হচ্ছে।"</string>
 </resources>

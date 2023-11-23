@@ -16,6 +16,8 @@
 
 package com.android.car.rotaryplayground;
 
+import static com.android.car.rotaryplayground.DirectManipulationHandler.setDirectManipulationHandler;
+
 import android.os.Bundle;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
@@ -55,7 +57,7 @@ public class RotaryDirectManipulationWidgets extends Fragment {
         View view = inflater.inflate(R.layout.rotary_direct_manipulation, container, false);
 
         DirectManipulationView dmv = view.findViewById(R.id.direct_manipulation_view);
-        registerDirectManipulationHandler(dmv,
+        setDirectManipulationHandler(dmv,
                 new DirectManipulationHandler.Builder(mDirectManipulationMode)
                         .setNudgeHandler(new DirectManipulationView.NudgeHandler())
                         .setRotationHandler(new DirectManipulationView.RotationHandler())
@@ -63,7 +65,7 @@ public class RotaryDirectManipulationWidgets extends Fragment {
 
 
         TimePicker spinnerTimePicker = view.findViewById(R.id.spinner_time_picker);
-        registerDirectManipulationHandler(spinnerTimePicker,
+        setDirectManipulationHandler(spinnerTimePicker,
                 new DirectManipulationHandler.Builder(mDirectManipulationMode)
                         .setNudgeHandler(new TimePickerNudgeHandler())
                         .build());
@@ -71,11 +73,15 @@ public class RotaryDirectManipulationWidgets extends Fragment {
         DirectManipulationHandler numberPickerListener =
                 new DirectManipulationHandler.Builder(mDirectManipulationMode)
                         .setNudgeHandler(new NumberPickerNudgeHandler())
+                        .setBackHandler((v, keyCode, event) -> {
+                            spinnerTimePicker.requestFocus();
+                            return true;
+                        })
                         .setRotationHandler((v, motionEvent) -> {
-                            float scroll = motionEvent.getAxisValue(MotionEvent.AXIS_SCROLL);
                             View focusedView = v.findFocus();
                             if (focusedView instanceof NumberPicker) {
                                 NumberPicker numberPicker = (NumberPicker) focusedView;
+                                float scroll = motionEvent.getAxisValue(MotionEvent.AXIS_SCROLL);
                                 numberPicker.setValue(numberPicker.getValue() + Math.round(scroll));
                                 return true;
                             }
@@ -86,10 +92,10 @@ public class RotaryDirectManipulationWidgets extends Fragment {
         List<NumberPicker> numberPickers = new ArrayList<>();
         getNumberPickerDescendants(numberPickers, spinnerTimePicker);
         for (int i = 0; i < numberPickers.size(); i++) {
-            registerDirectManipulationHandler(numberPickers.get(i), numberPickerListener);
+            setDirectManipulationHandler(numberPickers.get(i), numberPickerListener);
         }
 
-        registerDirectManipulationHandler(view.findViewById(R.id.clock_time_picker),
+        setDirectManipulationHandler(view.findViewById(R.id.clock_time_picker),
                 new DirectManipulationHandler.Builder(
                         mDirectManipulationMode)
                         // TODO(pardis): fix the behavior here. It does not nudge as expected.
@@ -103,13 +109,13 @@ public class RotaryDirectManipulationWidgets extends Fragment {
                         })
                         .build());
 
-        registerDirectManipulationHandler(
+        setDirectManipulationHandler(
                 view.findViewById(R.id.seek_bar),
                 new DirectManipulationHandler.Builder(mDirectManipulationMode)
                         .setRotationHandler(new DelegateToA11yScrollRotationHandler())
                         .build());
 
-        registerDirectManipulationHandler(
+        setDirectManipulationHandler(
                 view.findViewById(R.id.radial_time_picker),
                 new DirectManipulationHandler.Builder(mDirectManipulationMode)
                         .setRotationHandler(new DelegateToA11yScrollRotationHandler())
@@ -126,23 +132,6 @@ public class RotaryDirectManipulationWidgets extends Fragment {
             mDirectManipulationMode.disable();
         }
         super.onPause();
-    }
-
-    /**
-     * Register the given {@link DirectManipulationHandler} as both the
-     * {@link View.OnKeyListener} and {@link View.OnGenericMotionListener} for the given
-     * {@link View}.
-     * <p>
-     * Handles a {@link Nullable} {@link View} so that it can be used directly with the output of
-     * methods such as {@code findViewById}.
-     */
-    private void registerDirectManipulationHandler(@Nullable View view,
-            DirectManipulationHandler handler) {
-        if (view == null) {
-            return;
-        }
-        view.setOnKeyListener(handler);
-        view.setOnGenericMotionListener(handler);
     }
 
     /**
@@ -211,8 +200,7 @@ public class RotaryDirectManipulationWidgets extends Fragment {
         }
 
         @Override
-        public boolean onKey(View v, int keyCode, KeyEvent event) {
-            boolean isActionUp = event.getAction() == KeyEvent.ACTION_UP;
+        public boolean onKey(View view, int keyCode, KeyEvent event) {
             switch (keyCode) {
                 case KeyEvent.KEYCODE_DPAD_UP:
                 case KeyEvent.KEYCODE_DPAD_DOWN:
@@ -220,10 +208,10 @@ public class RotaryDirectManipulationWidgets extends Fragment {
                     return true;
                 case KeyEvent.KEYCODE_DPAD_LEFT:
                 case KeyEvent.KEYCODE_DPAD_RIGHT:
-                    if (isActionUp) {
+                    if (event.getAction() == KeyEvent.ACTION_UP) {
                         int direction = KEYCODE_TO_DIRECTION_MAP.get(keyCode);
-                        View nextView = v.focusSearch(direction);
-                        if (areInTheSameTimePicker(v, nextView)) {
+                        View nextView = view.focusSearch(direction);
+                        if (areInTheSameTimePicker(view, nextView)) {
                             nextView.requestFocus(direction);
                         }
                     }
@@ -239,6 +227,9 @@ public class RotaryDirectManipulationWidgets extends Fragment {
             }
             TimePicker view1Ancestor = getTimePickerAncestor(view1);
             TimePicker view2Ancestor = getTimePickerAncestor(view2);
+            if (view1Ancestor == null || view2Ancestor == null) {
+                return false;
+            }
             return view1Ancestor == view2Ancestor;
         }
 
@@ -291,7 +282,6 @@ public class RotaryDirectManipulationWidgets extends Fragment {
             if (!(view instanceof TimePicker)) {
                 return false;
             }
-            boolean isActionUp = keyEvent.getAction() == KeyEvent.ACTION_UP;
             switch (keyCode) {
                 case KeyEvent.KEYCODE_DPAD_UP:
                 case KeyEvent.KEYCODE_DPAD_DOWN:
@@ -302,7 +292,7 @@ public class RotaryDirectManipulationWidgets extends Fragment {
                     return true;
                 case KeyEvent.KEYCODE_DPAD_LEFT:
                 case KeyEvent.KEYCODE_DPAD_RIGHT:
-                    if (isActionUp) {
+                    if (keyEvent.getAction() == KeyEvent.ACTION_UP) {
                         TimePicker timePicker = (TimePicker) view;
                         List<NumberPicker> numberPickers = new ArrayList<>();
                         getNumberPickerDescendants(numberPickers, timePicker);

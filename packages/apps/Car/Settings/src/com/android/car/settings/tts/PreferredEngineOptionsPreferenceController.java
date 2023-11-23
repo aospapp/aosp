@@ -25,6 +25,7 @@ import android.speech.tts.TextToSpeech;
 import android.speech.tts.TtsEngines;
 import android.text.TextUtils;
 
+import androidx.annotation.VisibleForTesting;
 import androidx.preference.PreferenceGroup;
 
 import com.android.car.settings.R;
@@ -41,14 +42,12 @@ public class PreferredEngineOptionsPreferenceController extends
 
     private final TtsEngines mEnginesHelper;
     private String mPreviousEngine;
-    private boolean mIsStarted;
     private TextToSpeech mTts;
 
     public PreferredEngineOptionsPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mEnginesHelper = new TtsEngines(getContext());
-        mIsStarted = false;
+        mEnginesHelper = createEnginesHelper();
     }
 
     @Override
@@ -62,7 +61,7 @@ public class PreferredEngineOptionsPreferenceController extends
      */
     @Override
     protected void onCreateInternal() {
-        mTts = new TextToSpeech(getContext(), /* listener= */ null);
+        mTts = createTts(/* listener= */ null, /* engine= */ null);
 
         for (TextToSpeech.EngineInfo engine : mEnginesHelper.getEngines()) {
             CarUiPreference preference = new CarUiPreference(getContext());
@@ -72,7 +71,7 @@ public class PreferredEngineOptionsPreferenceController extends
             preference.setOnPreferenceClickListener(pref -> {
                 TextToSpeech.EngineInfo current = mEnginesHelper.getEngineInfo(
                         mTts.getCurrentEngine());
-                if (TextUtils.equals(engine.label, current.label)) {
+                if (areEnginesEqual(current, engine)) {
                     return false;
                 }
                 updateDefaultEngine(engine.name);
@@ -80,18 +79,6 @@ public class PreferredEngineOptionsPreferenceController extends
             });
             getPreference().addPreference(preference);
         }
-    }
-
-    /** Note that the preference controller was started. */
-    @Override
-    protected void onStartInternal() {
-        mIsStarted = true;
-    }
-
-    /** Note that the preference controller was stopped. */
-    @Override
-    protected void onStopInternal() {
-        mIsStarted = false;
     }
 
     /** Cleans up the TTS object and clears the preferences representing the TTS engines. */
@@ -108,12 +95,22 @@ public class PreferredEngineOptionsPreferenceController extends
         TextToSpeech.EngineInfo current = mEnginesHelper.getEngineInfo(mTts.getCurrentEngine());
         for (int i = 0; i < preference.getPreferenceCount(); i++) {
             CarUiPreference pref = (CarUiPreference) preference.getPreference(i);
-            if (pref.getTitle().equals(current.label)) {
+            if (areEnginesEqual(current, pref.getKey(), pref.getTitle())) {
                 pref.setSummary(R.string.text_to_speech_current_engine);
             } else {
                 pref.setSummary("");
             }
         }
+    }
+
+    private boolean areEnginesEqual(TextToSpeech.EngineInfo engine1,
+            TextToSpeech.EngineInfo engine2) {
+        return areEnginesEqual(engine1, engine2.name, engine2.label);
+    }
+
+    private boolean areEnginesEqual(TextToSpeech.EngineInfo engine, CharSequence name,
+            CharSequence label) {
+        return TextUtils.equals(engine.name, name) && TextUtils.equals(engine.label, label);
     }
 
     private void updateDefaultEngine(String engineName) {
@@ -136,8 +133,8 @@ public class PreferredEngineOptionsPreferenceController extends
         // Step 3 is continued on #onUpdateEngine (below) which is called when
         // the app binds successfully to the engine.
         LOG.i("Updating engine : Attempting to connect to engine: " + engineName);
-        mTts = new TextToSpeech(getContext(), status -> {
-            if (mIsStarted) {
+        mTts = createTts(status -> {
+            if (isStarted()) {
                 onUpdateEngine(status);
                 refreshUi();
             }
@@ -150,7 +147,8 @@ public class PreferredEngineOptionsPreferenceController extends
      * for the engine if we successfully bound to it, or revert to the previous engine if we
      * didn't.
      */
-    private void onUpdateEngine(int status) {
+    @VisibleForTesting
+    void onUpdateEngine(int status) {
         if (status == TextToSpeech.SUCCESS) {
             LOG.d("Updating engine: Successfully bound to the engine: "
                     + mTts.getCurrentEngine());
@@ -161,9 +159,19 @@ public class PreferredEngineOptionsPreferenceController extends
             if (mPreviousEngine != null) {
                 // This is guaranteed to at least bind, since mPreviousEngine would be
                 // null if the previous bind to this engine failed.
-                mTts = new TextToSpeech(getContext(), /* listener= */ null, mPreviousEngine);
+                mTts = createTts(/* listener= */ null, mPreviousEngine);
             }
             mPreviousEngine = null;
         }
+    }
+
+    @VisibleForTesting
+    TtsEngines createEnginesHelper() {
+        return new TtsEngines(getContext());
+    }
+
+    @VisibleForTesting
+    TextToSpeech createTts(TextToSpeech.OnInitListener listener, String engine) {
+        return new TextToSpeech(getContext(), listener, engine);
     }
 }

@@ -130,7 +130,7 @@ public class NativeNfcManager implements DeviceHost {
     public native boolean sendRawFrame(byte[] data);
 
     @Override
-    public native boolean routeAid(byte[] aid, int route, int aidInfo);
+    public native boolean routeAid(byte[] aid, int route, int aidInfo, int power);
 
     @Override
     public native boolean unrouteAid(byte[] aid);
@@ -392,6 +392,18 @@ public class NativeNfcManager implements DeviceHost {
     @Override
     public native String getNfaStorageDir();
 
+    private native void doStartStopPolling(boolean start);
+    @Override
+    public void startStopPolling(boolean start) {
+        doStartStopPolling(start);
+    }
+
+    private native void doSetNfceePowerAndLinkCtrl(boolean enable);
+    @Override
+    public void setNfceePowerAndLinkCtrl(boolean enable) {
+        doSetNfceePowerAndLinkCtrl(enable);
+    }
+
     /**
      * Notifies Ndef Message (TODO: rename into notifyTargetDiscovered)
      */
@@ -446,5 +458,9 @@ public class NativeNfcManager implements DeviceHost {
 
     private void notifyEeUpdated() {
         mListener.onEeUpdated();
+    }
+
+    private void notifyHwErrorReported() {
+        mListener.onHwErrorReported();
     }
 }

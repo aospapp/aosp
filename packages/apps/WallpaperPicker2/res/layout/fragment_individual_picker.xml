@@ -19,25 +19,35 @@
     android:layout_height="match_parent"
     android:fitsSystemWindows="false">
 
-    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@color/individual_picker_background_color"
         android:orientation="vertical">
+
+        <include
+            android:id="@+id/header_bar"
+            layout="@layout/section_header" />
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/wallpaper_grid"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:clipToPadding="false"
-            android:fitsSystemWindows="true"
-            android:paddingHorizontal="@dimen/grid_edge_space"
-            android:paddingTop="@dimen/grid_padding"
+            android:paddingTop="@dimen/wallpaper_grid_padding_top"
             android:scrollbarSize="@dimen/grid_padding"
             android:scrollbarStyle="outsideOverlay"
-            android:scrollbarThumbVertical="@color/scrollbar_thumb_color_dark"
+            android:scrollbarThumbVertical="?android:textColorTertiary"
             android:scrollbars="vertical" />
 
     </LinearLayout>
+
+    <androidx.core.widget.ContentLoadingProgressBar
+        android:id="@+id/loading_indicator"
+        style="@android:style/Widget.DeviceDefault.ProgressBar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="75dp"
+        android:layout_gravity="center_horizontal|top"
+        android:indeterminate="true"/>
 
 </FrameLayout>

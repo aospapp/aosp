@@ -198,7 +198,6 @@ public class NetworkStackNotifier {
         // Don't show the notification when SSID is unknown to prevent sending something vague to
         // the user.
         final boolean hasSsid = !TextUtils.isEmpty(getSsid(networkStatus));
-
         final CaptivePortalDataShim capportData = getCaptivePortalData(networkStatus);
         final boolean showVenueInfo = capportData != null && capportData.getVenueInfoUrl() != null
                 // Only show venue info on validated networks, to prevent misuse of the notification
@@ -235,7 +234,14 @@ public class NetworkStackNotifier {
             // channel even if the notification contains venue info: the "venue info" notification
             // then doubles as a "connected" notification.
             final String channel = showValidated ? CHANNEL_CONNECTED : CHANNEL_VENUE_INFO;
-            builder = getNotificationBuilder(channel, networkStatus, res, getSsid(networkStatus))
+
+            // If the venue friendly name is available (in Passpoint use-case), display it.
+            // Otherwise, display the SSID.
+            final CharSequence friendlyName = capportData.getVenueFriendlyName();
+            final CharSequence venueDisplayName = TextUtils.isEmpty(friendlyName)
+                    ? getSsid(networkStatus) : friendlyName;
+
+            builder = getNotificationBuilder(channel, networkStatus, res, venueDisplayName)
                     .setContentText(res.getString(R.string.tap_for_info))
                     .setContentIntent(mDependencies.getActivityPendingIntent(
                             getContextAsUser(mContext, UserHandle.CURRENT),
@@ -278,9 +284,9 @@ public class NetworkStackNotifier {
 
     private Notification.Builder getNotificationBuilder(@NonNull String channelId,
             @NonNull TrackedNetworkStatus networkStatus, @NonNull Resources res,
-            @NonNull String ssid) {
+            @NonNull CharSequence networkIdentifier) {
         return new Notification.Builder(mContext, channelId)
-                .setContentTitle(ssid)
+                .setContentTitle(networkIdentifier)
                 .setSmallIcon(R.drawable.icon_wifi);
     }
 

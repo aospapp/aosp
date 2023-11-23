@@ -50,7 +50,7 @@
     <string name="invalid_certificate_message" msgid="3508065546083182733">"ဤဖိုင်ကို <xliff:g id="CERTIFICATE_USAGE">%1$s</xliff:g>အဖြစ် သုံး၍မရပါ"</string>
     <string name="certificate" msgid="8790577925509962529">"အသိအမှတ်ပြုလက်မှတ်"</string>
     <string name="ca_certificate" msgid="7397198551290322945">"CA လက်မှတ်"</string>
-    <string name="user_certificate" msgid="514888069820553128">"VPN အက်ပ် သုံးစွဲသူ လက်မှတ်"</string>
+    <string name="user_certificate" msgid="514888069820553128">"VPN အက်ပ်သုံးသူလက်မှတ်"</string>
     <string name="wifi_certificate" msgid="5356595832360140989">"Wi‑Fi လက်မှတ်"</string>
     <string name="ca_cert_is_added" msgid="2847081843756291802">"CA လက်မှတ် ထည့်သွင်းပြီးပါပြီ"</string>
     <string name="user_cert_is_added" msgid="3088794616560630823">"အသုံးပြုသူ အသိအမှတ်ပြုလက်မှတ် ထည့်သွင်းပြီးပါပြီ"</string>
@@ -82,7 +82,7 @@
     <string name="install_done_title" msgid="4822989918460334497">"အထောက်အထားများ သွင်းယူပြီး၏"</string>
     <string name="install_done" msgid="1522718684172097080">"သိမ်းဆည်းထားသော ဝိုင်ဖိုင်ကွန်ယက်များသို့ <xliff:g id="NAME">%1$s</xliff:g> အထောက်အထားများ ထည့်ပြီး၏။"</string>
     <string name="done_label" msgid="5597425930652904250">"ပြီးပါပြီ"</string>
-    <string name="wifi_installer_detail" msgid="63879632832701669">"<xliff:g id="NAME">%1$s</xliff:g> မှတဆင့် ရနိုင်သော ကွန်ယက်များအား ချိတ်ဆက်ရန် ဝိုင်ဖိုင်အထောက်အထားများ သွင်းယူပါ"</string>
+    <string name="wifi_installer_detail" msgid="63879632832701669">"<xliff:g id="NAME">%1$s</xliff:g> မှတစ်ဆင့် ရနိုင်သော ကွန်ယက်များအား ချိတ်ဆက်ရန် ဝိုင်ဖိုင်အထောက်အထားများ သွင်းယူပါ"</string>
     <string name="wifi_installer_download_error" msgid="5429453090956277692">"ဒေါင်းလုပ်ရယူထားသော ဖိုင်များတွင် ပြဿနာရှိပြီး သွင်းယူမရနိုင်ပါ။ ဖိုင်အား မှန်ကန်သောနေရာမှ ဒေါင်းလုပ်ရယူထားကြောင်း သေချာပါစေ။"</string>
     <string name="wifi_installer_fail" msgid="894483173306576331">"Wi-Fi  အထောက်အထားများအား သွင်းယွင်းနိုင်ခြင်းမရှိပါ။ ဖိုင်အား ထပ်မံ၍ ဒေါင်းလုပ်ရယူပါ။"</string>
     <string name="wifi_installer_fail_no_wifi_title" msgid="8358191074828840533">"ထည့်သွင်းခြင်း ပယ်ဖျက်လိုက်ပါပြီ"</string>

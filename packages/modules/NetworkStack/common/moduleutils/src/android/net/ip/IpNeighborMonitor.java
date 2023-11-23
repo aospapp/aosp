@@ -105,7 +105,7 @@ public class IpNeighborMonitor extends NetlinkMonitor {
         public String toString() {
             final StringJoiner j = new StringJoiner(",", "NeighborEvent{", "}");
             return j.add("@" + elapsedMs)
-                    .add(stringForNlMsgType(msgType))
+                    .add(stringForNlMsgType(msgType, NETLINK_ROUTE))
                     .add("if=" + ifindex)
                     .add(ip.getHostAddress())
                     .add(StructNdMsg.stringForNudState(nudState))

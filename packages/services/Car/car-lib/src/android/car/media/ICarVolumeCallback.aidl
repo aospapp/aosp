@@ -30,6 +30,13 @@ oneway interface ICarVolumeCallback {
     void onGroupVolumeChanged(int zoneId, int groupId, int flags);
 
     /**
+     * This is called whenever a group mute state is changed.
+     * The changed-to mute state is not included, the caller is encouraged to
+     * get the current group mute state via CarAudioManager.
+     */
+    void onGroupMuteChanged(int zoneId, int groupId, int flags);
+
+    /**
      * This is called whenever the master mute state is changed.
      * The changed-to master mute state is not included, the caller is encouraged to
      * get the current master mute state via AudioManager.

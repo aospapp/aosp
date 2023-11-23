@@ -35,20 +35,26 @@ import static android.net.ipsec.ike.exceptions.IkeProtocolException.ERROR_TYPE_T
 import static android.net.ipsec.ike.exceptions.IkeProtocolException.ERROR_TYPE_UNSUPPORTED_CRITICAL_PAYLOAD;
 
 import android.annotation.IntDef;
+import android.net.ipsec.ike.exceptions.AuthenticationFailedException;
+import android.net.ipsec.ike.exceptions.ChildSaNotFoundException;
+import android.net.ipsec.ike.exceptions.FailedCpRequiredException;
 import android.net.ipsec.ike.exceptions.IkeProtocolException;
+import android.net.ipsec.ike.exceptions.InternalAddressFailureException;
+import android.net.ipsec.ike.exceptions.InvalidIkeSpiException;
+import android.net.ipsec.ike.exceptions.InvalidKeException;
+import android.net.ipsec.ike.exceptions.InvalidMajorVersionException;
+import android.net.ipsec.ike.exceptions.InvalidMessageIdException;
+import android.net.ipsec.ike.exceptions.InvalidSelectorsException;
+import android.net.ipsec.ike.exceptions.InvalidSyntaxException;
+import android.net.ipsec.ike.exceptions.NoAdditionalSasException;
+import android.net.ipsec.ike.exceptions.NoValidProposalChosenException;
+import android.net.ipsec.ike.exceptions.SinglePairRequiredException;
+import android.net.ipsec.ike.exceptions.TemporaryFailureException;
+import android.net.ipsec.ike.exceptions.TsUnacceptableException;
+import android.net.ipsec.ike.exceptions.UnrecognizedIkeProtocolException;
+import android.net.ipsec.ike.exceptions.UnsupportedCriticalPayloadException;
 import android.util.ArraySet;
 import android.util.SparseArray;
-
-import com.android.internal.net.ipsec.ike.exceptions.AuthenticationFailedException;
-import com.android.internal.net.ipsec.ike.exceptions.InvalidKeException;
-import com.android.internal.net.ipsec.ike.exceptions.InvalidMajorVersionException;
-import com.android.internal.net.ipsec.ike.exceptions.InvalidMessageIdException;
-import com.android.internal.net.ipsec.ike.exceptions.InvalidSyntaxException;
-import com.android.internal.net.ipsec.ike.exceptions.NoValidProposalChosenException;
-import com.android.internal.net.ipsec.ike.exceptions.TemporaryFailureException;
-import com.android.internal.net.ipsec.ike.exceptions.TsUnacceptableException;
-import com.android.internal.net.ipsec.ike.exceptions.UnrecognizedIkeProtocolException;
-import com.android.internal.net.ipsec.ike.exceptions.UnsupportedCriticalPayloadException;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -114,6 +120,11 @@ public final class IkeNotifyPayload extends IkeInformationalPayload {
      */
     public static final int NOTIFY_TYPE_NAT_DETECTION_DESTINATION_IP = 16389;
     /**
+     * Might be sent by the IKE responder in an IKE_SA_INIT response, to prevent DoS Attacks. If
+     * receiving it, IKE client MUST retry IKE_SA_INIT request with the same associated data.
+     */
+    public static final int NOTIFY_TYPE_COOKIE = 16390;
+    /**
      * Indicates a willingness by its sender to use transport mode rather than tunnel mode on this
      * Child SA. Only allowed in the request/response for negotiating a Child SA.
      */
@@ -128,6 +139,23 @@ public final class IkeNotifyPayload extends IkeInformationalPayload {
      * being negotiated. Only allowed in the request/response for negotiating a Child SA.
      */
     public static final int NOTIFY_TYPE_ESP_TFC_PADDING_NOT_SUPPORTED = 16394;
+    /**
+     * Indicates that the sender supports MOBIKE functionality for the IKE Session. Only allowed in
+     * the request/response of IKE_AUTH exchange.
+     */
+    public static final int NOTIFY_TYPE_MOBIKE_SUPPORTED = 16396;
+    /**
+     * Used for notifying the Responder that an address change has occurred during a MOBIKE-enabled
+     * IKE Session. Only allowed in Informational exchanges sent after the IKE_AUTH exchange has
+     * finished.
+     */
+    public static final int NOTIFY_TYPE_UPDATE_SA_ADDRESSES = 16400;
+
+    /**
+     * Used in any INFORMATIONAL request for return routability check purposes when performing
+     * MOBIKE.
+     */
+    public static final int NOTIFY_TYPE_COOKIE2 = 16401;
 
     /** Indicates that the sender prefers to use only eap based authentication */
     public static final int NOTIFY_TYPE_EAP_ONLY_AUTHENTICATION = 16417;
@@ -147,6 +175,12 @@ public final class IkeNotifyPayload extends IkeInformationalPayload {
     private static final int ERROR_NOTIFY_TYPE_MAX = 16383;
 
     private static final String NAT_DETECTION_DIGEST_ALGORITHM = "SHA-1";
+
+    private static final int COOKIE_DATA_LEN_MIN = 1;
+    private static final int COOKIE_DATA_LEN_MAX = 64;
+
+    private static final int COOKIE2_DATA_LEN_MIN = 8;
+    private static final int COOKIE2_DATA_LEN_MAX = 64;
 
     private static final Set<Integer> VALID_NOTIFY_TYPES_FOR_EXISTING_CHILD_SA;
     private static final Set<Integer> VALID_NOTIFY_TYPES_FOR_NEW_CHILD_SA;
@@ -203,10 +237,14 @@ public final class IkeNotifyPayload extends IkeInformationalPayload {
         NOTIFY_TYPE_TO_STRING.put(NOTIFY_TYPE_NAT_DETECTION_SOURCE_IP, "NAT detection source IP");
         NOTIFY_TYPE_TO_STRING.put(
                 NOTIFY_TYPE_NAT_DETECTION_DESTINATION_IP, "NAT detection destination IP");
+        NOTIFY_TYPE_TO_STRING.put(NOTIFY_TYPE_COOKIE, "COOKIE");
         NOTIFY_TYPE_TO_STRING.put(NOTIFY_TYPE_USE_TRANSPORT_MODE, "Use transport mode");
         NOTIFY_TYPE_TO_STRING.put(NOTIFY_TYPE_REKEY_SA, "Rekey SA");
         NOTIFY_TYPE_TO_STRING.put(
                 NOTIFY_TYPE_ESP_TFC_PADDING_NOT_SUPPORTED, "ESP TCP Padding not supported");
+        NOTIFY_TYPE_TO_STRING.put(NOTIFY_TYPE_MOBIKE_SUPPORTED, "MOBIKE supported");
+        NOTIFY_TYPE_TO_STRING.put(NOTIFY_TYPE_UPDATE_SA_ADDRESSES, "UPDATE_SA_ADDRESSES");
+        NOTIFY_TYPE_TO_STRING.put(NOTIFY_TYPE_COOKIE2, "COOKIE2");
         NOTIFY_TYPE_TO_STRING.put(
                 NOTIFY_TYPE_IKEV2_FRAGMENTATION_SUPPORTED, "Fragmentation supported");
         NOTIFY_TYPE_TO_STRING.put(
@@ -317,6 +355,35 @@ public final class IkeNotifyPayload extends IkeInformationalPayload {
             throw new ProviderException(
                     "Failed to obtain algorithm :" + NAT_DETECTION_DIGEST_ALGORITHM, e);
         }
+    }
+
+    private static IkeNotifyPayload handleCookieAndGenerateCopy(
+            IkeNotifyPayload cookie2Notify, int minLen, int maxLen) throws InvalidSyntaxException {
+        byte[] notifyData = cookie2Notify.notifyData;
+        if (notifyData.length < minLen || notifyData.length > maxLen) {
+            String cookieType =
+                    cookie2Notify.notifyType == NOTIFY_TYPE_COOKIE2 ? "COOKIE2" : "COOKIE";
+            throw new InvalidSyntaxException(
+                    "Invalid "
+                            + cookieType
+                            + " notification data with length "
+                            + notifyData.length);
+        }
+
+        return new IkeNotifyPayload(cookie2Notify.notifyType, notifyData);
+    }
+
+    /** Validate inbound Cookie in IKE_INIT response and build a Cookie notify payload in request */
+    public static IkeNotifyPayload handleCookieAndGenerateCopy(IkeNotifyPayload cookieNotify)
+            throws InvalidSyntaxException {
+        return handleCookieAndGenerateCopy(cookieNotify, COOKIE_DATA_LEN_MIN, COOKIE_DATA_LEN_MAX);
+    }
+
+    /** Validate inbound Cookie2 request and build a response Cookie2 notify payload */
+    public static IkeNotifyPayload handleCookie2AndGenerateCopy(IkeNotifyPayload cookie2Notify)
+            throws InvalidSyntaxException {
+        return handleCookieAndGenerateCopy(
+                cookie2Notify, COOKIE2_DATA_LEN_MIN, COOKIE2_DATA_LEN_MAX);
     }
 
     /**
@@ -438,6 +505,8 @@ public final class IkeNotifyPayload extends IkeInformationalPayload {
             switch (notifyType) {
                 case ERROR_TYPE_UNSUPPORTED_CRITICAL_PAYLOAD:
                     return new UnsupportedCriticalPayloadException(notifyData);
+                case ERROR_TYPE_INVALID_IKE_SPI:
+                    return new InvalidIkeSpiException(notifyData);
                 case ERROR_TYPE_INVALID_MAJOR_VERSION:
                     return new InvalidMajorVersionException(notifyData);
                 case ERROR_TYPE_INVALID_SYNTAX:
@@ -450,10 +519,22 @@ public final class IkeNotifyPayload extends IkeInformationalPayload {
                     return new InvalidKeException(notifyData);
                 case ERROR_TYPE_AUTHENTICATION_FAILED:
                     return new AuthenticationFailedException(notifyData);
+                case ERROR_TYPE_SINGLE_PAIR_REQUIRED:
+                    return new SinglePairRequiredException(notifyData);
+                case ERROR_TYPE_NO_ADDITIONAL_SAS:
+                    return new NoAdditionalSasException(notifyData);
+                case ERROR_TYPE_INTERNAL_ADDRESS_FAILURE:
+                    return new InternalAddressFailureException(notifyData);
+                case ERROR_TYPE_FAILED_CP_REQUIRED:
+                    return new FailedCpRequiredException(notifyData);
                 case ERROR_TYPE_TS_UNACCEPTABLE:
                     return new TsUnacceptableException(notifyData);
+                case ERROR_TYPE_INVALID_SELECTORS:
+                    return new InvalidSelectorsException(spi, notifyData);
                 case ERROR_TYPE_TEMPORARY_FAILURE:
                     return new TemporaryFailureException(notifyData);
+                case ERROR_TYPE_CHILD_SA_NOT_FOUND:
+                    return new ChildSaNotFoundException(spi, notifyData);
                 default:
                     return new UnrecognizedIkeProtocolException(notifyType, notifyData);
             }

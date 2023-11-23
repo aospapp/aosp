@@ -18,6 +18,7 @@ package android.net;
 
 import android.net.StaticIpConfiguration;
 
+@JavaDerive(toString=true)
 parcelable DhcpResultsParcelable {
     StaticIpConfiguration baseConfiguration;
     int leaseDuration;

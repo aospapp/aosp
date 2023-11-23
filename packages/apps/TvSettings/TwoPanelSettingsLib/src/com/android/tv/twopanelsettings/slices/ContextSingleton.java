@@ -71,4 +71,17 @@ public class ContextSingleton {
             mGivenFullSliceAccess = true;
         }
     }
+
+    /**
+     *  Grant full access to specific package.
+     */
+    public void grantFullAccess(Context ctx, String uri, String packageName) {
+        if (!mGivenFullSliceAccess) {
+            // Uri cannot be null here as SliceManagerService calls notifyChange(uri, null) in
+            // grantPermissionFromUser.
+            ctx.getSystemService(SliceManager.class).grantPermissionFromUser(
+                    Uri.parse(uri), packageName, true);
+            mGivenFullSliceAccess = true;
+        }
+    }
 }

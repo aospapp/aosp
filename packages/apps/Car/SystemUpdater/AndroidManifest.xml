@@ -31,6 +31,7 @@
             android:theme="@style/SystemUpdaterTheme">
         <activity
             android:name="com.android.car.systemupdater.SystemUpdaterActivity"
+            android:exported="true"
             android:label="@string/title">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -46,6 +47,8 @@
                        android:resource="@string/title" />
             <meta-data android:name="com.android.settings.icon"
                        android:resource="@drawable/ic_system_update_alt_black_48dp" />
+            <meta-data android:name="com.android.settings.icon_tintable"
+                       android:value="true" />
             <meta-data android:name="com.android.settings.category"
                        android:value="com.android.settings.category.ia.system" />
         </activity>

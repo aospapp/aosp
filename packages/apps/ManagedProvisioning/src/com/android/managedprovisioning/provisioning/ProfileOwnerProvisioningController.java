@@ -16,85 +16,53 @@
 
 package com.android.managedprovisioning.provisioning;
 
-import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE;
-
 import android.content.Context;
-import android.os.UserManager;
 
 import com.android.managedprovisioning.R;
-import com.android.managedprovisioning.common.ProvisionLogger;
 import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.task.AbstractProvisioningTask;
-import com.android.managedprovisioning.task.CopyAccountToUserTask;
-import com.android.managedprovisioning.task.CreateManagedProfileTask;
-import com.android.managedprovisioning.task.DeleteNonRequiredAppsTask;
-import com.android.managedprovisioning.task.DisableInstallShortcutListenersTask;
-import com.android.managedprovisioning.task.InstallExistingPackageTask;
-import com.android.managedprovisioning.task.ManagedProfileSettingsTask;
-import com.android.managedprovisioning.task.SetDevicePolicyTask;
-import com.android.managedprovisioning.task.StartManagedProfileTask;
+import com.android.managedprovisioning.task.CreateAndProvisionManagedProfileTask;
 
 /**
  * Controller for Profile Owner provisioning.
  */
-// TODO: Consider splitting this controller into one for managed profile and one for user owner
 public class ProfileOwnerProvisioningController extends AbstractProvisioningController {
-    private final int mParentUserId;
+    /**
+     * Instantiates a new {@link ProfileOwnerProvisioningController} instance and creates the
+     * relevant tasks.
+     *
+     * @return the newly created instance
+     */
+    static ProfileOwnerProvisioningController createInstance(
+            Context context,
+            ProvisioningParams params,
+            int userId,
+            ProvisioningControllerCallback callback) {
+        ProfileOwnerProvisioningController controller =
+                new ProfileOwnerProvisioningController(context, params, userId, callback);
+        controller.setUpTasks();
+        return controller;
+    }
 
-    public ProfileOwnerProvisioningController(
+    private ProfileOwnerProvisioningController(
             Context context,
             ProvisioningParams params,
             int userId,
             ProvisioningControllerCallback callback) {
         super(context, params, userId, callback);
-        mParentUserId = userId;
     }
 
     protected void setUpTasks() {
-        if (ACTION_PROVISION_MANAGED_PROFILE.equals(mParams.provisioningAction)) {
-            setUpTasksManagedProfile();
-        } else {
-            setUpTasksManagedUser();
-        }
-    }
-
-    private void setUpTasksManagedProfile() {
-        addTasks(
-                new CreateManagedProfileTask(mContext, mParams, this),
-                new InstallExistingPackageTask(mParams.inferDeviceAdminPackageName(), mContext,
-                        mParams, this),
-                new SetDevicePolicyTask(mContext, mParams, this),
-                new ManagedProfileSettingsTask(mContext, mParams, this),
-                new DisableInstallShortcutListenersTask(mContext, mParams, this),
-                new StartManagedProfileTask(mContext, mParams, this),
-                new CopyAccountToUserTask(mParentUserId, mContext, mParams, this));
-    }
-
-    private void setUpTasksManagedUser() {
-        addTasks(
-                new DeleteNonRequiredAppsTask(true /* new profile */, mContext, mParams, this),
-                new InstallExistingPackageTask(mParams.inferDeviceAdminPackageName(), mContext,
-                        mParams, this),
-                new SetDevicePolicyTask(mContext, mParams, this));
+        addTasks(new CreateAndProvisionManagedProfileTask(mContext, mParams, this));
     }
 
     @Override
     public synchronized void onSuccess(AbstractProvisioningTask task) {
-        if (task instanceof CreateManagedProfileTask) {
+        if (task instanceof CreateAndProvisionManagedProfileTask) {
             // If the task was creating a managed profile, store the profile id
-            mUserId = ((CreateManagedProfileTask) task).getProfileUserId();
+            mUserId = ((CreateAndProvisionManagedProfileTask) task).getProfileUserId();
         }
         super.onSuccess(task);
-    }
-
-    @Override
-    protected void performCleanup() {
-        if (ACTION_PROVISION_MANAGED_PROFILE.equals(mParams.provisioningAction)
-                && mCurrentTaskIndex != 0) {
-            ProvisionLogger.logd("Removing managed profile");
-            UserManager um = mContext.getSystemService(UserManager.class);
-            um.removeUserEvenWhenDisallowed(mUserId);
-        }
     }
 
     @Override protected int getErrorTitle() {

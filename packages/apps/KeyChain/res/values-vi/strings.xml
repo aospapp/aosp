@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"Bạn có thể cài đặt chứng chỉ từ tệp PKCS#12 với tiện ích mở rộng %1$s hoặc %2$s nằm trong bộ nhớ ngoài."</string>
     <string name="allow_button" msgid="3030990695030371561">"Chọn"</string>
     <string name="deny_button" msgid="3766539809121892584">"Từ chối"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"Đang tải chứng chỉ..."</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"%s đang tìm chứng chỉ…"</string>
 </resources>

@@ -16,6 +16,10 @@
 
 // Build the Experimental Car service.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 experimentalcar_service_sources = ["src/**/*.java"]
 
 android_app {
@@ -42,8 +46,6 @@ android_app {
       "car-service-common-util-static-lib",
       "car-experimental-api-static-lib",
     ],
-
-    required: ["privapp_whitelist_com.android.experimentalcar"],
 
     // Disable build in PDK, missing aidl import breaks build
     product_variables: {

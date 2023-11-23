@@ -16,8 +16,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:theme="@style/Theme.AppCompat.DayNight.NoActionBar">
+    android:orientation="vertical">
 
     <TextView
         android:id="@+id/start_rotation_dialog_subhead"
@@ -49,6 +48,7 @@
             android:layout_marginEnd="@dimen/start_rotation_dialog_checkbox_margin_right"
             android:layout_marginRight="@dimen/start_rotation_dialog_checkbox_margin_right"
             android:minHeight="@dimen/start_rotation_dialog_checkbox_min_height"
+            android:buttonTint="?android:attr/colorAccent"
             android:text="@string/start_rotation_dialog_wifi_only_option_message"
             android:textSize="@dimen/abc_text_size_body_1_material"/>
 

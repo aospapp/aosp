@@ -22,9 +22,13 @@ import android.text.TextUtils;
 
 import androidx.annotation.StringRes;
 import androidx.lifecycle.LiveData;
-import androidx.preference.PreferenceManager;
 
 import com.android.car.dialer.log.L;
+
+import dagger.assisted.Assisted;
+import dagger.assisted.AssistedFactory;
+import dagger.assisted.AssistedInject;
+import dagger.hilt.android.qualifiers.ApplicationContext;
 
 /**
  * Provides SharedPreferences.
@@ -38,19 +42,17 @@ public class SharedPreferencesLiveData extends LiveData<SharedPreferences> {
     private final SharedPreferences.OnSharedPreferenceChangeListener
             mOnSharedPreferenceChangeListener;
 
-    public SharedPreferencesLiveData(Context context, String key) {
-        mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
-        mKey = key;
+    @AssistedInject
+    SharedPreferencesLiveData(@ApplicationContext Context context,
+            SharedPreferences sharedPreferences, @Assisted @StringRes int keyId) {
+        mSharedPreferences = sharedPreferences;
+        mKey = context.getString(keyId);
 
-        mOnSharedPreferenceChangeListener = (sharedPreferences, k) -> {
+        mOnSharedPreferenceChangeListener = (preferences, k) -> {
             if (TextUtils.equals(k, mKey)) {
                 updateSharedPreferences();
             }
         };
-    }
-
-    public SharedPreferencesLiveData(Context context, @StringRes int key) {
-        this(context, context.getString(key));
     }
 
     @Override
@@ -76,5 +78,15 @@ public class SharedPreferencesLiveData extends LiveData<SharedPreferences> {
      */
     public String getKey() {
         return mKey;
+    }
+
+    /**
+     * Factory to create {@link SharedPreferencesLiveData} instances via the {@link AssistedInject}
+     * constructor.
+     */
+    @AssistedFactory
+    public interface Factory {
+        /** Creates a {@link SharedPreferencesLiveData} instance for the given key. */
+        SharedPreferencesLiveData create(@StringRes int keyId);
     }
 }

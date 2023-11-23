@@ -16,24 +16,27 @@
 
 package com.android.tv.settings.accessibility;
 
+import android.app.admin.DevicePolicyManager;
 import android.app.tvsettings.TvSettingsEnums;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.UserHandle;
 import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceScreen;
-import androidx.preference.SwitchPreference;
-import androidx.preference.TwoStatePreference;
 
-import com.android.internal.logging.nano.MetricsProto;
+import com.android.settingslib.RestrictedLockUtils.EnforcedAdmin;
+import com.android.settingslib.RestrictedLockUtilsInternal;
+import com.android.settingslib.RestrictedSwitchPreference;
 import com.android.settingslib.accessibility.AccessibilityUtils;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
 
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -46,7 +49,7 @@ public class AccessibilityServiceFragment extends SettingsPreferenceFragment imp
     private static final String ARG_SETTINGS_ACTIVITY_NAME = "settingsActivityName";
     private static final String ARG_LABEL = "label";
 
-    private TwoStatePreference mEnablePref;
+    private RestrictedSwitchPreference mEnablePref;
 
     /**
      * Put args in bundle
@@ -71,7 +74,7 @@ public class AccessibilityServiceFragment extends SettingsPreferenceFragment imp
                 getPreferenceManager().createPreferenceScreen(themedContext);
         screen.setTitle(getArguments().getString(ARG_LABEL));
 
-        mEnablePref = new SwitchPreference(themedContext);
+        mEnablePref = new RestrictedSwitchPreference(themedContext);
         mEnablePref.setTitle(R.string.system_accessibility_status);
         mEnablePref.setFragment(AccessibilityServiceConfirmationFragment.class.getName());
         screen.addPreference(mEnablePref);
@@ -93,7 +96,7 @@ public class AccessibilityServiceFragment extends SettingsPreferenceFragment imp
 
     @Override
     public boolean onPreferenceTreeClick(Preference preference) {
-        if (preference == mEnablePref) {
+        if (preference == mEnablePref && !mEnablePref.isDisabledByAdmin()) {
             // Prepare confirmation dialog and reverts switch until result comes back.
             updateEnablePref();
             // Pass to super to launch confirmation dialog.
@@ -115,6 +118,26 @@ public class AccessibilityServiceFragment extends SettingsPreferenceFragment imp
         AccessibilityServiceConfirmationFragment.prepareArgs(mEnablePref.getExtras(),
                 new ComponentName(packageName, serviceName),
                 getArguments().getString(ARG_LABEL), !enabled);
+
+        DevicePolicyManager dpm = getContext().getSystemService(DevicePolicyManager.class);
+        final List<String> permittedServices = dpm.getPermittedAccessibilityServices(
+                UserHandle.myUserId());
+        final boolean serviceAllowed = permittedServices == null
+                || permittedServices.contains(packageName);
+
+        if (serviceAllowed || enabled) {
+            mEnablePref.setEnabled(true);
+        } else {
+            // Disable accessibility service that are not permitted.
+            final EnforcedAdmin admin =
+                    RestrictedLockUtilsInternal.checkIfAccessibilityServiceDisallowed(
+                            getContext(), packageName, UserHandle.myUserId());
+            if (admin != null) {
+                mEnablePref.setDisabledByAdmin(admin);
+            } else {
+                mEnablePref.setEnabled(false);
+            }
+        }
     }
 
     @Override
@@ -130,11 +153,6 @@ public class AccessibilityServiceFragment extends SettingsPreferenceFragment imp
         if (mEnablePref != null) {
             mEnablePref.setChecked(enabling);
         }
-    }
-
-    @Override
-    public int getMetricsCategory() {
-        return MetricsProto.MetricsEvent.ACCESSIBILITY_SERVICE;
     }
 
     @Override

@@ -51,6 +51,9 @@ abstract class AbstractSessionStateMachine extends StateMachine {
     @VisibleForTesting
     static final int CMD_LOCAL_REQUEST_REKEY_CHILD = CMD_CHILD_LOCAL_REQUEST_BASE + 3;
 
+    @VisibleForTesting
+    static final int CMD_LOCAL_REQUEST_REKEY_CHILD_MOBIKE = CMD_CHILD_LOCAL_REQUEST_BASE + 4;
+
     /** Timeout commands. */
     protected static final int CMD_TIMEOUT_BASE = CMD_SHARED_BASE + CMD_CATEGORY_SIZE;
     /** Timeout when the remote side fails to send a Rekey-Delete request. */
@@ -71,6 +74,7 @@ abstract class AbstractSessionStateMachine extends StateMachine {
         SHARED_CMD_TO_STR.put(CMD_LOCAL_REQUEST_CREATE_CHILD, "Create Child");
         SHARED_CMD_TO_STR.put(CMD_LOCAL_REQUEST_DELETE_CHILD, "Delete Child");
         SHARED_CMD_TO_STR.put(CMD_LOCAL_REQUEST_REKEY_CHILD, "Rekey Child");
+        SHARED_CMD_TO_STR.put(CMD_LOCAL_REQUEST_REKEY_CHILD_MOBIKE, "Rekey Child (MOBIKE)");
         SHARED_CMD_TO_STR.put(TIMEOUT_REKEY_REMOTE_DELETE, "Timout rekey remote delete");
         SHARED_CMD_TO_STR.put(CMD_FORCE_TRANSITION, "Force transition");
     }

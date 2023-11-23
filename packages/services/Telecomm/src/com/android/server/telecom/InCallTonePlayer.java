@@ -162,6 +162,8 @@ public class InCallTonePlayer extends Thread {
     public static final int TONE_UNOBTAINABLE_NUMBER = 12;
     public static final int TONE_VOICE_PRIVACY = 13;
     public static final int TONE_VIDEO_UPGRADE = 14;
+    public static final int TONE_RTT_REQUEST = 15;
+    public static final int TONE_IN_CALL_QUALITY_NOTIFICATION = 16;
 
     private static final int TONE_RESOURCE_ID_UNDEFINED = -1;
 
@@ -329,11 +331,21 @@ public class InCallTonePlayer extends Thread {
                     // TODO: fill in.
                     throw new IllegalStateException("Voice privacy tone NYI.");
                 case TONE_VIDEO_UPGRADE:
+                case TONE_RTT_REQUEST:
                     // Similar to the call waiting tone, but does not repeat.
                     toneType = ToneGenerator.TONE_SUP_CALL_WAITING;
                     toneVolume = RELATIVE_VOLUME_HIPRI;
                     toneLengthMillis = 4000;
                     mediaResourceId = TONE_RESOURCE_ID_UNDEFINED;
+                    break;
+                case TONE_IN_CALL_QUALITY_NOTIFICATION:
+                    // Don't use tone generator
+                    toneType = ToneGenerator.TONE_UNKNOWN;
+                    toneVolume = RELATIVE_VOLUME_UNDEFINED;
+                    toneLengthMillis = 0;
+
+                    // Use a tone resource file for a more rich, full-bodied tone experience.
+                    mediaResourceId = R.raw.InCallQualityNotification;
                     break;
                 default:
                     throw new IllegalStateException("Bad toneId: " + mToneId);
@@ -427,7 +439,7 @@ public class InCallTonePlayer extends Thread {
                 @Override
                 public void onCompletion(MediaPlayer mp) {
                     Log.i(this, "playMediaTone: toneResourceId=%d completed.", toneResourceId);
-                    synchronized (this) {
+                    synchronized (InCallTonePlayer.this) {
                         mState = STATE_OFF;
                     }
                     mToneMediaPlayer.release();

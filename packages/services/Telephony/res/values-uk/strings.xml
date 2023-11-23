@@ -50,6 +50,7 @@
     <string name="voice_number_setting_primary_user_only" msgid="3394706575741912843">"Налаштування голосової пошти може змінювати лише основний користувач."</string>
     <string name="puk_unlocked" msgid="4627340655215746511">"Вашу SIM-карту розблоковано. Ваш телефон розблоковується..."</string>
     <string name="label_ndp" msgid="7617392683877410341">"Розбл. PIN-код мережі SIM"</string>
+    <string name="label_phoneid" msgid="8775611434123577808">"Заблокована SIM-карта оператора"</string>
     <string name="sim_ndp_unlock_text" msgid="7737338355451978338">"Розблок."</string>
     <string name="sim_ndp_dismiss_text" msgid="89667342248929777">"Відхилити"</string>
     <string name="requesting_unlock" msgid="930512210309437741">"Запитув. розблок. мережі..."</string>
@@ -123,6 +124,13 @@
     <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"Переадресація на <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfnrc_disabled" msgid="739289696796917683">"Вимкнено"</string>
     <string name="disable_cfnrc_forbidden" msgid="775348748084726890">"Ваш оператор не підтримує вимкнення переадресації викликів, коли телефон недосяжний."</string>
+    <string name="registration_cf_forbidden" msgid="4386482610771190420">"Ваш оператор не підтримує переадресацію викликів."</string>
+    <string name="cdma_call_waiting" msgid="4565070960879673216">"Увімкнути паралельний виклик?"</string>
+    <string name="enable_cdma_call_waiting_setting" msgid="5906811747921744307">"Під час дзвінків ви отримуватимете сповіщення про інші вхідні виклики"</string>
+    <string name="enable_cdma_cw" msgid="811047045863422232">"Увімкнути"</string>
+    <string name="disable_cdma_cw" msgid="7119290446496301734">"Скасувати"</string>
+    <string name="cdma_call_waiting_in_ims_on" msgid="6390979414188659218">"Паралельний виклик CDMA на платформі IMS увімкнено"</string>
+    <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"Паралельний виклик CDMA на платформі IMS вимкнено"</string>
     <string name="updating_title" msgid="6130548922615719689">"Налаштування викликів"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"Налаштування викликів може змінювати лише адміністратор."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"Налаштування (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -286,6 +294,9 @@
     <string name="limited_sim_function_notification_title" msgid="612715399099846281">"Обмежені функції SIM-карти"</string>
     <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"Виклики та сервіси даних оператора <xliff:g id="CARRIER_NAME">%1$s</xliff:g> може бути заблоковано, коли ви використовуєте <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>."</string>
     <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"Коли працює інша SIM-карта, виклики й сервіси даних <xliff:g id="CARRIER_NAME">%1$s</xliff:g> може бути заблоковано."</string>
+    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"Знайдено та вилучено облікові записи SIP, що не підтримуються"</string>
+    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"Платформа Android більше не підтримує виклики SIP.\nНаявні облікові записи SIP (<xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g>) вилучено. \nПеревірте налаштування для викликів за умовчанням в обліковому записі."</string>
+    <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"Перейти в налаштування"</string>
     <string name="data_usage_title" msgid="8438592133893837464">"Використання трафіку додатками"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"<xliff:g id="ID_1">%1$s</xliff:g> мобільного трафіку використано в період <xliff:g id="ID_2">%2$s</xliff:g>"</string>
     <string name="advanced_options_title" msgid="9208195294513520934">"Додатково"</string>
@@ -504,6 +515,7 @@
     <string name="puk2_requested" msgid="6992374450720307514">"Неправильний пароль. SIM-карту заблоковано. Введіть PUK2-код."</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"PUK2-код назавжди заблоковано."</string>
     <string name="pin2_attempts" msgid="5625178102026453023">\n"У вас залишилося стільки спроб: <xliff:g id="NUMBER">%d</xliff:g>."</string>
+    <string name="puk2_locked" msgid="6497760825455461057">"Заблоковано кодом PUK2. Щоб розблокувати, зв’яжіться з оператором."</string>
     <string name="pin2_unblocked" msgid="4481107908727789303">"PIN2-код більше не заблоковано"</string>
     <string name="pin2_error_exception" msgid="8116103864600823641">"Помилка мережі або SIM-карти"</string>
     <string name="doneButton" msgid="7371209609238460207">"Готово"</string>
@@ -525,6 +537,7 @@
     <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"Щоб зателефонувати, увімкніть мобільну мережу, вимкніть режим польоту або режим економії заряду."</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"Щоб зателефонувати, вимкніть режим польоту."</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"Щоб зателефонувати, вимкніть режим польоту або під’єднайтеся до бездротової мережі."</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"Телефон занадто нагрівся"</b>\n\n"Не вдалося завершити виклик. Зачекайте, доки телефон охолоне, і повторіть спробу.\n\nЕкстрені виклики доступні."</string>
     <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"Щоб зателефонувати на звичайний номер, вимкніть режим екстрених викликів."</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"Не зареєстровано в мережі."</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"Мобільна мережа недоступна."</string>
@@ -873,7 +886,6 @@
     <string name="radio_info_dds" msgid="1122593144425697126">"Субідентифікатор SIM-карти для даних за умовчанням:"</string>
     <string name="radio_info_dl_kbps" msgid="2382922659525318726">"Пропускна спроможність DL (кбіт/с):"</string>
     <string name="radio_info_ul_kbps" msgid="2102225400904799036">"Пропускна спроможність UL (кбіт/с):"</string>
-    <string name="radio_info_signal_location_label" msgid="6188435197086550049">"Геодані телефона (більше не підтримуються):"</string>
     <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"Конфігурація фізичного каналу LTE:"</string>
     <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"Частота оновлення даних про мобільний зв\'язок:"</string>
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"Усі дані про показники мобільного зв\'язку:"</string>
@@ -904,6 +916,11 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Оновити"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"Увімк./вимк. перевірку DNS"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"Інформація/налаштування OEM"</string>
+    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC доступно:"</string>
+    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR обмежено:"</string>
+    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR доступно:"</string>
+    <string name="radio_info_nr_state" msgid="1337571996788535356">"Статус NR:"</string>
+    <string name="radio_info_nr_frequency" msgid="1201156032796584128">"Частота NR:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Установити режим радіодіапазону"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Завантаження списку діапазонів частот…"</string>
     <string name="band_mode_set" msgid="6657819412803771421">"Установити"</string>
@@ -913,4 +930,7 @@
     <string name="phone_info_label" product="default" msgid="1784175881556791433">"Інформація про телефон"</string>
     <string name="carrier_provisioning" msgid="2668065041869578376">"Інформація про ініціалізацію оператора"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"Запустити ініціалізацію оператора"</string>
+    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"Сигнал Bluetooth заслабкий. Спробуйте переключитися на гучний зв\'язок."</string>
+    <string name="call_quality_notification_name" msgid="3476828289553948830">"Сповіщення про якість виклику"</string>
+    <string name="notification_channel_sip_account" msgid="1261816025156179637">"Облікові записи SIP, що не підтримуються"</string>
 </resources>

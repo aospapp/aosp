@@ -34,6 +34,7 @@ import android.os.HandlerThread;
 import android.telephony.TelephonyManager;
 
 import com.android.cellbroadcastreceiver.CellBroadcastAlertAudio;
+import com.android.cellbroadcastreceiver.CellBroadcastSettings;
 
 import org.junit.After;
 import org.junit.Before;
@@ -101,7 +102,7 @@ public class CellBroadcastAlertAudioTest extends
         MockitoAnnotations.initMocks(this);
         doReturn(mConfiguration).when(mResources).getConfiguration();
         doReturn(mDevices).when(mMockedAudioManager).getDevices(anyInt());
-
+        enablePreference(CellBroadcastSettings.KEY_ENABLE_ALERT_VIBRATE);
     }
 
     @After
@@ -164,7 +165,7 @@ public class CellBroadcastAlertAudioTest extends
         verify(mMockedAudioManager).getRingerMode();
         verify(mMockedVibrator).vibrate(any(), any());
         verify(mMockedTelephonyManager, atLeastOnce()).getCallState();
-        verify(mMockedAudioManager).requestAudioFocus(any(), anyInt(), anyInt());
+        verify(mMockedAudioManager).requestAudioFocus(any(), any(), anyInt(), anyInt());
         verify(mMockedAudioManager).getDevices(anyInt());
         verify(mMockedAudioManager).setStreamVolume(anyInt(), eq(TEST_MAX_VOLUME), anyInt());
         phoneStateListenerHandler.quit();

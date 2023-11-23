@@ -50,7 +50,7 @@ public class ThemeBundleThumbAsset extends Asset {
 
     @Override
     public void decodeBitmapRegion(Rect rect, int targetWidth, int targetHeight,
-            BitmapReceiver receiver) {
+            boolean shouldAdjustForRtl, BitmapReceiver receiver) {
 
     }
 

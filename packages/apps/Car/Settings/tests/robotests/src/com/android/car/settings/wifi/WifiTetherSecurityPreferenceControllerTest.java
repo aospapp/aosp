@@ -18,6 +18,9 @@ package com.android.car.settings.wifi;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.net.wifi.SoftApConfiguration;
@@ -51,12 +54,14 @@ public class WifiTetherSecurityPreferenceControllerTest {
     @Before
     public void setup() {
         mContext = RuntimeEnvironment.application;
-        mCarWifiManager = new CarWifiManager(mContext);
+        mCarWifiManager = new CarWifiManager(mContext, mock(Lifecycle.class));
         mPreference = new ListPreference(mContext);
         mControllerHelper =
                 new PreferenceControllerTestHelper<WifiTetherSecurityPreferenceController>(mContext,
                         WifiTetherSecurityPreferenceController.class, mPreference);
         mController = mControllerHelper.getController();
+        when(mControllerHelper.getMockFragmentController().getSettingsLifecycle())
+                .thenReturn(mock(Lifecycle.class));
     }
 
     @After

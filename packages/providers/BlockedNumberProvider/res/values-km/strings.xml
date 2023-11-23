@@ -16,5 +16,5 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="3836152623003881586">"កន្លែង​​ផ្ទុក​លេខ​​បាន​ទប់ស្កាត់"</string>
+    <string name="app_label" msgid="3836152623003881586">"កន្លែង​​ផ្ទុក​លេខ​​ដែលបាន​ទប់ស្កាត់"</string>
 </resources>

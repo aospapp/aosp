@@ -158,16 +158,6 @@ public class RenameDocumentFragment extends DialogFragment {
     }
 
     /**
-     * Validates if string is a proper document name.
-     * Checks if string is not empty. More rules might be added later.
-     * @param docName string representing document name
-     * @returns true if string is a valid name.
-     **/
-    private boolean isValidDocumentName(String docName) {
-        return !docName.isEmpty();
-    }
-
-    /**
      * Fills text field with the file name and selects the name without extension.
      *
      * @param editText text field to be filled
@@ -193,17 +183,13 @@ public class RenameDocumentFragment extends DialogFragment {
 
         if (newDisplayName.equals(mDocument.displayName)) {
             mDialog.dismiss();
-        } else if (!isValidDocumentName(newDisplayName)) {
-            Log.w(TAG, "Failed to rename file - invalid name:" + newDisplayName);
-            mRenameInputWrapper.setError(getContext().getString(R.string.rename_error));
-            Metrics.logRenameFileError();
-        } else if (activity.getInjector().getModel().hasFileWithName(newDisplayName)){
+        } else if (newDisplayName.isEmpty()) {
+            mRenameInputWrapper.setError(getContext().getString(R.string.missing_rename_error));
+        } else if (activity.getInjector().getModel().hasFileWithName(newDisplayName)) {
             mRenameInputWrapper.setError(getContext().getString(R.string.name_conflict));
             selectFileName(mEditText);
-            Metrics.logRenameFileError();
         } else {
             new RenameDocumentsTask(activity, newDisplayName).execute(mDocument);
-
             if (mDialog != null) {
                 mDialog.dismiss();
             }

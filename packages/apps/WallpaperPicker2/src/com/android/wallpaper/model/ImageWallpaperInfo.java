@@ -73,6 +73,7 @@ public class ImageWallpaperInfo extends WallpaperInfo {
     }
 
     protected ImageWallpaperInfo(Parcel in) {
+        super(in);
         mUri = Uri.parse(in.readString());
     }
 
@@ -174,6 +175,7 @@ public class ImageWallpaperInfo extends WallpaperInfo {
 
     @Override
     public void writeToParcel(Parcel parcel, int i) {
+        super.writeToParcel(parcel, i);
         parcel.writeString(mUri.toString());
     }
 }

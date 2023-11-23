@@ -403,6 +403,20 @@ public class ImsConferenceController {
         conferenceHostConnection.setVideoPauseSupported(connection.getVideoPauseSupported());
         conferenceHostConnection.setManageImsConferenceCallSupported(
                 connection.isManageImsConferenceCallSupported());
+        // WARNING: do not try to copy the video provider from connection to
+        // conferenceHostConnection here.  In connection.cloneConnection, part of the clone
+        // process is to set the original connection so it's already set:
+        // conferenceHostConnection.setVideoProvider(connection.getVideoProvider());
+        // There is a subtle concurrency issue here where at the time of merge, the
+        // TelephonyConnection potentially has the WRONG video provider set on it (compared to
+        // the ImsPhoneConnection (ie original connection) which has the correct one.
+        // If you follow the logic in ImsPhoneCallTracker#onCallMerged through, what happens is the
+        // new post-merge video provider is set on the ImsPhoneConnection.  That informs it's
+        // listeners (e.g. TelephonyConnection) via a handler.  We immediately change the multiparty
+        // start of the host connection and ImsPhoneCallTracker starts the setup we are
+        // performing here.  When cloning TelephonyConnection, we get the right VideoProvider
+        // because it is copied from the originalConnection, not using the potentially stale value
+        // in the TelephonyConnection.
 
         PhoneAccountHandle phoneAccountHandle = null;
 

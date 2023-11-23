@@ -26,6 +26,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.RelativeLayout;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
@@ -45,7 +46,6 @@ import java.util.List;
 public class CarNotificationActionsView extends RelativeLayout implements
         PreprocessingManager.CallStateListener {
 
-    private static final String TAG = "CarNotificationAction";
     // Maximum 3 actions
     // https://developer.android.com/reference/android/app/Notification.Builder.html#addAction
     @VisibleForTesting
@@ -56,48 +56,52 @@ public class CarNotificationActionsView extends RelativeLayout implements
     static final int SECOND_MESSAGE_ACTION_BUTTON_INDEX = 1;
 
     private final List<Button> mActionButtons = new ArrayList<>();
+    private final Context mContext;
+    private final CarAssistUtils mCarAssistUtils;
 
     private boolean mIsCategoryCall;
     private boolean mIsInCall;
-    private Context mContext;
 
     public CarNotificationActionsView(Context context) {
-        super(context);
-        PreprocessingManager.getInstance(context).addCallStateListener(this::onCallStateChanged);
-        init(/* attrs= */ null);
+        this(context, /* attrs= */ null);
     }
 
     public CarNotificationActionsView(Context context, AttributeSet attrs) {
-        super(context, attrs);
-        mContext = context;
-        init(attrs);
+        this(context, attrs, /* defStyleAttr= */ 0);
     }
 
     public CarNotificationActionsView(Context context, AttributeSet attrs, int defStyleAttr) {
-        super(context, attrs, defStyleAttr);
-        mContext = context;
-        init(attrs);
+        this(context, attrs, defStyleAttr, /* defStyleRes= */ 0);
     }
 
-    public CarNotificationActionsView(Context context, AttributeSet attrs, int defStyleAttr,
-            int defStyleRes) {
+    public CarNotificationActionsView(
+            Context context, AttributeSet attrs, int defStyleAttr, int defStyleRes) {
+        this(context, attrs, defStyleAttr, defStyleRes, new CarAssistUtils(context));
+    }
+
+    @VisibleForTesting
+    CarNotificationActionsView(Context context, AttributeSet attrs, int defStyleAttr,
+            int defStyleRes, @NonNull CarAssistUtils carAssistUtils) {
         super(context, attrs, defStyleAttr, defStyleRes);
+
         mContext = context;
+        mCarAssistUtils = carAssistUtils;
         init(attrs);
     }
 
     private void init(@Nullable AttributeSet attrs) {
         if (attrs != null) {
             TypedArray attributes =
-                    getContext().obtainStyledAttributes(attrs, R.styleable.CarNotificationActionsView);
+                    mContext.obtainStyledAttributes(attrs, R.styleable.CarNotificationActionsView);
             mIsCategoryCall =
                     attributes.getBoolean(R.styleable.CarNotificationActionsView_categoryCall,
-                            /* default value= */false);
+                            /* defaultValue= */ false);
             attributes.recycle();
         }
-        PreprocessingManager.getInstance(getContext()).addCallStateListener(
-                this::onCallStateChanged);
-        inflate(getContext(), R.layout.car_notification_actions_view, /* root= */ this);
+
+        PreprocessingManager.getInstance(mContext).addCallStateListener(this);
+
+        inflate(mContext, R.layout.car_notification_actions_view, /* root= */ this);
     }
 
     /**
@@ -107,7 +111,6 @@ public class CarNotificationActionsView extends RelativeLayout implements
      * @param alertEntry          the notification that contains the actions.
      */
     public void bind(NotificationClickHandlerFactory clickHandlerFactory, AlertEntry alertEntry) {
-
         Notification notification = alertEntry.getNotification();
         Notification.Action[] actions = notification.actions;
         if (actions == null || actions.length == 0) {
@@ -116,7 +119,11 @@ public class CarNotificationActionsView extends RelativeLayout implements
 
         if (CarAssistUtils.isCarCompatibleMessagingNotification(
                 alertEntry.getStatusBarNotification())) {
-            createPlayButton(clickHandlerFactory, alertEntry);
+            boolean canPlayMessage = mCarAssistUtils.hasActiveAssistant()
+                    || mCarAssistUtils.isFallbackAssistantEnabled();
+            if (canPlayMessage) {
+                createPlayButton(clickHandlerFactory, alertEntry);
+            }
             createMuteButton(clickHandlerFactory, alertEntry);
             return;
         }
@@ -160,8 +167,7 @@ public class CarNotificationActionsView extends RelativeLayout implements
             button.setText(null);
             button.setOnClickListener(null);
         }
-        PreprocessingManager.getInstance(getContext()).removeCallStateListener(
-                this::onCallStateChanged);
+        PreprocessingManager.getInstance(getContext()).removeCallStateListener(this);
     }
 
     @Override

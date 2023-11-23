@@ -16,6 +16,7 @@
 
 package android.net;
 
+@JavaDerive(toString=true)
 parcelable InformationElementParcelable {
     int id;
     byte[] payload;

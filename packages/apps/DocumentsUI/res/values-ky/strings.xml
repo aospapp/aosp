@@ -16,6 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="missing_rename_error" msgid="9098952207447981103">"Мунун аталышын өзгөртүшүңүз керек"</string>
+    <string name="add_folder_name_error" msgid="6014615052491406810">"Папканын аталышын жазышыңыз керек"</string>
     <string name="files_label" msgid="771781190045103748">"Файлдар"</string>
     <string name="downloads_label" msgid="5462789470049501103">"Жүктөлүп алынган нерселер"</string>
     <!-- no translation found for app_label (8089292432455111409) -->
@@ -45,7 +47,7 @@
     <string name="menu_extract" msgid="8171946945982532262">"Төмөнкүгө чыгаруу…"</string>
     <string name="menu_rename" msgid="1883113442688817554">"Аталышын өзгөртүү"</string>
     <string name="menu_inspect" msgid="7279855349299446224">"Маалымат алуу"</string>
-    <string name="menu_show_hidden_files" msgid="5140676344684492769">"Жашырылган файлдар көрсөтүлсүн"</string>
+    <string name="menu_show_hidden_files" msgid="5140676344684492769">"Жашырылган файлдар көрүнсүн"</string>
     <string name="menu_hide_hidden_files" msgid="5654495713350153702">"Жашырылган файлдар көрүнбөсүн"</string>
     <string name="menu_view_in_owner" msgid="7228948660557554770">"<xliff:g id="SOURCE">%1$s</xliff:g> аркылуу көрүү"</string>
     <string name="menu_new_window" msgid="2947837751796109126">"Жаңы терезе"</string>
@@ -278,4 +280,6 @@
     <string name="work_tab" msgid="7265359366883747413">"Жумуш"</string>
     <string name="a11y_work" msgid="7504431382825242153">"Жумуш"</string>
     <string name="drag_from_another_app" msgid="8310249276199969905">"Башка колдонмодогу файлдарды жылдырууга болбойт."</string>
+    <string name="grid_mode_showing" msgid="2803166871485028508">"Торчо режиминде көрсөтүлүүдө."</string>
+    <string name="list_mode_showing" msgid="1225413902295895166">"Тизме режиминде көрсөтүлүүдө."</string>
 </resources>

@@ -285,7 +285,7 @@ public class CarPropertyTest extends E2eCarTestBase {
      * Check only vendor properties have vendor permissions.
      */
     @Test
-    public void checkPropertyPermission() {
+    public void checkVendorPropertyPermission() {
         CarPropertyManager propMgr = (CarPropertyManager) mCar.getCarManager(Car.PROPERTY_SERVICE);
         List<CarPropertyConfig> configs = propMgr.getPropertyList();
         for (CarPropertyConfig cfg : configs) {
@@ -301,6 +301,39 @@ public class CarPropertyTest extends E2eCarTestBase {
                         || !VENDOR_PERMISSIONS.contains(readPermission));
                 Assert.assertTrue(writePermission == null
                         || !VENDOR_PERMISSIONS.contains(writePermission));
+            }
+        }
+    }
+
+    /**
+     * Check system properties' permissions.
+     */
+    @Test
+    public void checkSystemPropertyPermission() {
+        CarPropertyManager propMgr = (CarPropertyManager) mCar.getCarManager(Car.PROPERTY_SERVICE);
+        List<CarPropertyConfig> configs = propMgr.getPropertyList();
+        for (CarPropertyConfig cfg : configs) {
+            if ((cfg.getPropertyId() & VehiclePropertyGroup.MASK) == VehiclePropertyGroup.SYSTEM) {
+                String readPermission = propMgr.getReadPermission(cfg.getPropertyId());
+                String writePermission = propMgr.getWritePermission(cfg.getPropertyId());
+                int accessModel = cfg.getAccess();
+                switch (accessModel) {
+                    case CarPropertyConfig.VEHICLE_PROPERTY_ACCESS_NONE:
+                        Assert.assertTrue(readPermission == null && writePermission == null);
+                        break;
+                    case CarPropertyConfig.VEHICLE_PROPERTY_ACCESS_READ_WRITE:
+                        Assert.assertTrue(readPermission != null && writePermission != null);
+                        break;
+                    case CarPropertyConfig.VEHICLE_PROPERTY_ACCESS_WRITE:
+                        Assert.assertTrue(readPermission == null && writePermission != null);
+                        break;
+                    case CarPropertyConfig.VEHICLE_PROPERTY_ACCESS_READ:
+                        Assert.assertTrue(readPermission != null && writePermission == null);
+                        break;
+                    default:
+                        Assert.fail(String.format("PropertyId: %d has an invalid access model: %d",
+                                cfg.getPropertyId(), accessModel));
+                }
             }
         }
     }

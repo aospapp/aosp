@@ -22,10 +22,7 @@ import android.car.VehiclePropertyIds;
 import android.car.VehicleUnit;
 import android.car.hardware.CarPropertyConfig;
 import android.car.hardware.property.CarPropertyManager;
-import android.content.ComponentName;
 import android.content.Context;
-import android.content.ServiceConnection;
-import android.os.IBinder;
 import android.util.ArraySet;
 
 import com.android.car.settings.common.Logger;
@@ -38,24 +35,6 @@ public class CarUnitsManager {
     private static final Logger LOG = new Logger(CarUnitsManager.class);
     private static final int AREA_ID = 0;
 
-    private final ServiceConnection mServiceConnection = new ServiceConnection() {
-        @Override
-        public void onServiceConnected(ComponentName name, IBinder service) {
-            try {
-                mCarPropertyManager =
-                        (CarPropertyManager) mCar.getCarManager(Car.PROPERTY_SERVICE);
-                mCarServiceListener.handleServiceConnected(mCarPropertyManager);
-            } catch (CarNotConnectedException e) {
-                LOG.e("Car is not connected!", e);
-            }
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName name) {
-            mCarServiceListener.handleServiceDisconnected();
-        }
-    };
-
     private Context mContext;
     private Car mCar;
     private CarPropertyManager mCarPropertyManager;
@@ -63,7 +42,9 @@ public class CarUnitsManager {
 
     public CarUnitsManager(Context context) {
         mContext = context;
-        mCar = Car.createCar(mContext, mServiceConnection);
+        mCar = Car.createCar(mContext);
+        mCarPropertyManager =
+                (CarPropertyManager) mCar.getCarManager(Car.PROPERTY_SERVICE);
     }
 
     /**
@@ -72,6 +53,7 @@ public class CarUnitsManager {
      */
     public void registerCarServiceListener(OnCarServiceListener listener) {
         mCarServiceListener = listener;
+        mCarServiceListener.handleServiceConnected(mCarPropertyManager);
     }
 
     /**
@@ -82,12 +64,11 @@ public class CarUnitsManager {
         mCarServiceListener = null;
     }
 
-    protected void connect() {
-        mCar.connect();
-    }
-
     protected void disconnect() {
         mCar.disconnect();
+        if (mCarServiceListener != null) {
+            mCarServiceListener.handleServiceDisconnected();
+        }
     }
 
     protected boolean isPropertyAvailable(int propertyId) {

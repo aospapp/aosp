@@ -33,6 +33,7 @@ public class CurrentWallpaperAssetV16 extends Asset {
     private static final boolean FILTER_SCALED_BITMAP = true;
 
     private Context mApplicationContext;
+    private Drawable mCurrentWallpaperDrawable;
 
     public CurrentWallpaperAssetV16(Context context) {
         mApplicationContext = context.getApplicationContext();
@@ -40,7 +41,7 @@ public class CurrentWallpaperAssetV16 extends Asset {
 
     @Override
     public void decodeBitmapRegion(Rect rect, int targetWidth, int targetHeight,
-                                   BitmapReceiver receiver) {
+            boolean shouldAdjustForRtl, BitmapReceiver receiver) {
         receiver.onBitmapDecoded(null);
     }
 
@@ -62,17 +63,19 @@ public class CurrentWallpaperAssetV16 extends Asset {
         task.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
 
-    private Drawable getCurrentWallpaperDrawable() {
-        WallpaperManager wallpaperManager = WallpaperManager.getInstance(mApplicationContext);
-        Drawable drawable;
-        try {
-            drawable = wallpaperManager.getDrawable();
-        } catch (java.lang.SecurityException e) {
-            // Work around Samsung bug where SecurityException is thrown if device is still using its
-            // default wallpaper.
-            drawable = wallpaperManager.getBuiltInDrawable();
+    private synchronized Drawable getCurrentWallpaperDrawable() {
+        if (mCurrentWallpaperDrawable != null) {
+            return mCurrentWallpaperDrawable;
         }
-        return drawable;
+        WallpaperManager wallpaperManager = WallpaperManager.getInstance(mApplicationContext);
+        try {
+            mCurrentWallpaperDrawable = wallpaperManager.getDrawable();
+        } catch (java.lang.SecurityException e) {
+            // Work around Samsung bug where SecurityException is thrown if device is still using
+            // its default wallpaper.
+            mCurrentWallpaperDrawable = wallpaperManager.getBuiltInDrawable();
+        }
+        return mCurrentWallpaperDrawable;
     }
 
     /**

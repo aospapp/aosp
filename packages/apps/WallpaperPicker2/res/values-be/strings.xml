@@ -32,10 +32,10 @@
     <string name="home_screen_message" msgid="106444102822522813">"Галоўны экран"</string>
     <string name="lock_screen_message" msgid="1534506081955058013">"Экран блакіроўкі"</string>
     <string name="home_and_lock_short_label" msgid="2937922943541927983">"Стандартна"</string>
-    <string name="set_wallpaper_dialog_message" msgid="6114951028768599417">"Усталяваць як шпалеры"</string>
+    <string name="set_wallpaper_dialog_message" msgid="2110475703996853076">"Задаць у якасці шпалер"</string>
     <string name="set_wallpaper_home_screen_destination" msgid="7315594722013109354">"Галоўны экран"</string>
     <string name="set_wallpaper_lock_screen_destination" msgid="6224685559375417945">"Экран блакіроўкі"</string>
-    <string name="set_wallpaper_both_destination" msgid="6967226064958263939">"Галоўны экран і экран блакіроўкі"</string>
+    <string name="set_wallpaper_both_destination" msgid="233216830256235288">"Галоўны экран і экран блакіроўкі"</string>
     <string name="no_backup_image_wallpaper_label" msgid="6316627676107284851">"Рэгулярная змена шпалер"</string>
     <string name="permission_needed_explanation" msgid="139166837541426823">"Каб паглядзець бягучыя шпалеры тут, дайце праграме \"<xliff:g id="APP_NAME">%1$s</xliff:g>\" доступ да сховішча прылады."</string>
     <string name="permission_needed_explanation_go_to_settings" msgid="3923551582092599609">"Каб паглядзець бягучыя шпалеры тут, дайце праграме \"Шпалеры\" доступ да сховішча прылады.\n\nЗакрыць доступ можна, перайшоўшы ў \"Налады &gt; Праграмы &gt; Шпалеры &gt; Дазволы\"."</string>
@@ -66,8 +66,6 @@
     <string name="refresh_daily_wallpaper_content_description" msgid="4362142658237147583">"Абнавіць шпалеры на кожны дзень"</string>
     <string name="refreshing_daily_wallpaper_dialog_message" msgid="1975910873362855761">"Абнаўленне шпалер на кожны дзень…"</string>
     <string name="refresh_daily_wallpaper_failed_message" msgid="4749879993812557166">"Не атрымалася абнавіць шпалеры на кожны дзень. Спраўдзіце падключэнне да сеткі і паўтарыце спробу."</string>
-    <string name="collapse_attribution_panel" msgid="4367971404848122275">"Згарнуць панэль інфармацыі пра шпалеры"</string>
-    <string name="expand_attribution_panel" msgid="6975094181456095915">"Разгарнуць панэль інфармацыі пра шпалеры"</string>
     <string name="on_device_wallpapers_category_title" msgid="805819102071369004">"Шпалеры на прыладзе"</string>
     <string name="on_device_wallpapers_category_title_desktop" msgid="316919420410065369">"На прыладзе"</string>
     <string name="on_device_wallpaper_title" msgid="5262564748034629524">"Шпалеры Android"</string>
@@ -80,4 +78,24 @@
     <string name="center_crop_wallpaper_position" msgid="1681980019815343348">"Запоўніць"</string>
     <string name="stretch_wallpaper_position" msgid="5002680983147456935">"Расцягнуць"</string>
     <string name="preview" msgid="1774602101743861071">"Перадпрагляд"</string>
+    <string name="tab_info" msgid="818614080690111416">"Інфармацыя"</string>
+    <string name="tab_customize" msgid="2533745409174959960">"Наладка"</string>
+    <string name="configure_wallpaper" msgid="849882179182976621">"Налады…"</string>
+    <string name="delete_live_wallpaper" msgid="589212696102662329">"Выдаліць"</string>
+    <string name="delete_wallpaper_confirmation" msgid="33790318361863778">"Выдаліць гэтыя шпалеры з тэлефона?"</string>
+    <string name="bottom_action_bar_back" msgid="8237013112999946725">"Назад"</string>
+    <string name="bottom_action_bar_edit" msgid="1214742990893082138">"Змяніць"</string>
+    <string name="bottom_action_bar_download" msgid="3983122338076389421">"Спампаваць"</string>
+    <string name="bottom_action_bar_slideshow_wallpaper" msgid="509770525179533154">"Паказаць шпалеры як слайд-шоу"</string>
+    <string name="bottom_action_bar_apply" msgid="2983308349819178932">"Ужыць"</string>
+    <string name="accessibility_preview_pager" msgid="1839869637405028575">"Старонка <xliff:g id="ID_1">%1$d</xliff:g> з <xliff:g id="ID_2">%2$d</xliff:g>"</string>
+    <string name="next_page_content_description" msgid="6268461446679584152">"Далей"</string>
+    <string name="previous_page_content_description" msgid="1138597031571078429">"Назад"</string>
+    <string name="wallpaper_title" msgid="6754214682228331092">"Шпалеры"</string>
+    <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"Перадпрагляд шпалер"</string>
+    <string name="collection_not_exist_msg" msgid="3504852962885064842">"Калекцыя не існуе"</string>
+    <string name="hide_ui_preview_text" msgid="6766076482511252295">"Схаваць перадпрагляд UI"</string>
+    <string name="show_ui_preview_text" msgid="5993063062417070806">"Паказаць перадпрагляд UI"</string>
+    <string name="wallpaper_picker_entry_title" msgid="5185793991582084891">"Змяніць шпалеры"</string>
+    <string name="lockscreen_wallpaper_preview_card_content_description" msgid="2244890820627302245">"Перадпрагляд шпалер экрана блакіроўкі"</string>
 </resources>

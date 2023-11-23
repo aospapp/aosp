@@ -118,13 +118,12 @@ public class SetupPassthroughActivity extends Activity {
             setupIntent.putExtras(extras);
             try {
                 ComponentName callingActivity = getCallingActivity();
-                if (callingActivity != null
-                        && !callingActivity.getPackageName().equals(CommonConstants.BASE_PACKAGE)) {
-                    Log.w(
-                            TAG,
-                            "Calling activity "
-                                    + callingActivity.getPackageName()
-                                    + " is not trusted. Not forwarding intent.");
+                if (callingActivity == null
+                        || !callingActivity.getPackageName().equals(CommonConstants.BASE_PACKAGE)) {
+                   String name =
+                        callingActivity == null ? "null" : callingActivity.getPackageName();
+                    Log.w(TAG,
+                            "Calling activity " + name + " is not trusted. Not forwarding intent.");
                     finish();
                     return;
                 }

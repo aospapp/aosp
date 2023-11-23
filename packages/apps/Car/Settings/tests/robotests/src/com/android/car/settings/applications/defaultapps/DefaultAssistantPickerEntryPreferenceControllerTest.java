@@ -27,11 +27,11 @@ import android.content.pm.ServiceInfo;
 import android.os.UserHandle;
 import android.provider.Settings;
 
-import com.android.car.settings.common.ButtonPreference;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
 import com.android.car.settings.testutils.ShadowApplicationPackageManager;
 import com.android.car.settings.testutils.ShadowSecureSettings;
 import com.android.car.settings.testutils.ShadowVoiceInteractionServiceInfo;
+import com.android.car.ui.preference.CarUiTwoActionIconPreference;
 import com.android.settingslib.applications.DefaultAppInfo;
 
 import org.junit.After;
@@ -58,7 +58,7 @@ public class DefaultAssistantPickerEntryPreferenceControllerTest {
     private final int mUserId = UserHandle.myUserId();
 
     private Context mContext;
-    private ButtonPreference mButtonPreference;
+    private CarUiTwoActionIconPreference mButtonPreference;
     private DefaultAssistantPickerEntryPreferenceController mController;
     private PreferenceControllerTestHelper<DefaultAssistantPickerEntryPreferenceController>
             mControllerHelper;
@@ -68,7 +68,7 @@ public class DefaultAssistantPickerEntryPreferenceControllerTest {
         MockitoAnnotations.initMocks(this);
 
         mContext = RuntimeEnvironment.application;
-        mButtonPreference = new ButtonPreference(mContext);
+        mButtonPreference = new CarUiTwoActionIconPreference(mContext);
         mControllerHelper = new PreferenceControllerTestHelper<>(mContext,
                 DefaultAssistantPickerEntryPreferenceController.class, mButtonPreference);
         mController = mControllerHelper.getController();

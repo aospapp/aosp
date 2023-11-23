@@ -34,7 +34,7 @@ public final class Views {
     }
 
     /*
-     * Dummy View object with (x, y) coordinates
+     * Mock View object with (x, y) coordinates
      */
     public static View createTestView(float x, float y) {
         View view = createTestView();

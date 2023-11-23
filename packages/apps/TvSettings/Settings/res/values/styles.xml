@@ -19,12 +19,12 @@
 
     <style name="SettingsStyle.TextAppearanceMedium" parent="@android:style/TextAppearance.Holo.Medium">
         <item name="android:textSize">14sp</item>
-        <item name="android:fontFamily">sans-serif-light</item>
+        <item name="android:fontFamily">@string/font_sans_serif_light</item>
     </style>
 
     <style name="SettingsStyle.TextAppearanceLarge" parent="@android:style/TextAppearance.Holo.Large">
         <item name="android:textSize">34sp</item>
-        <item name="android:fontFamily">sans-serif-light</item>
+        <item name="android:fontFamily">@string/font_sans_serif_light</item>
     </style>
 
     <style name="SettingsWindowAnimationStyle" parent="@android:style/Animation.Activity">
@@ -37,6 +37,9 @@
     <style name="SetupWindowAnimationStyle" parent="SettingsWindowAnimationStyle">
         <item name="android:activityCloseExitAnimation">@null</item>
     </style>
+
+    <!-- The primary theme used in AndroidManifest allowing overlay. -->
+    <style name="TvSettingsActivityTheme" parent="Theme.Settings.Transparent" />
 
     <!-- Default Settings theme -->
     <style name="Theme.Settings" parent="@style/Theme.Leanback">
@@ -52,7 +55,7 @@
 
     <!-- Settings theme for connectivity -->
     <style name="Theme.SettingsConnectivity" parent="@style/Theme.Settings">
-        <item name="guidedStepTheme">@style/Theme.Setup.GuidedStep</item>
+        <item name="guidedStepTheme">@style/GuidedStepFragmentThemeTwoPanel</item>
     </style>
 
     <style name="Theme.Setup" parent="@style/Theme.Settings">
@@ -89,8 +92,12 @@
         <item name="android:textSize">@dimen/text_size_description</item>
     </style>
 
+    <style name="BluetoothActionTitleStyle" parent="Widget.Leanback.GuidanceTitleStyle">
+        <item name="android:maxLines">3</item>
+    </style>
+
     <style name="HintText">
-        <item name="android:fontFamily">sans-serif-thin</item>
+        <item name="android:fontFamily">@string/font_sans_serif_thin</item>
         <item name="android:textColor">@color/add_accessory_hint_text_color</item>
         <item name="android:textSize">16sp</item>
     </style>
@@ -109,7 +116,7 @@
     <style name="Canvas.Text.Dialog.Content" />
 
     <style name="Canvas.Text.Dialog.Content.Title">
-        <item name="android:fontFamily">sans-serif-light</item>
+        <item name="android:fontFamily">@string/font_sans_serif_light</item>
         <item name="android:paddingBottom">@dimen/content_fragment_title_text_bottom_padding</item>
         <item name="android:paddingTop">@dimen/content_fragment_title_text_top_padding</item>
         <item name="android:textColor">@color/content_title_text_color</item>
@@ -117,13 +124,13 @@
     </style>
 
     <style name="Canvas.Text.Dialog.Content.Breadcrumb">
-        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="android:fontFamily">@string/font_sans_serif_condensed</item>
         <item name="android:textColor">@color/content_breadcrumb_text_color</item>
         <item name="android:textSize">@dimen/content_fragment_breadcrumb_text_size</item>
     </style>
 
     <style name="Canvas.Text.Dialog.Content.Description">
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@string/font_sans_serif</item>
         <item name="android:gravity">end</item>
         <item name="android:textColor">@color/content_description_text_color</item>
         <item name="android:textSize">@dimen/content_fragment_description_text_size</item>
@@ -139,14 +146,14 @@
     </style>
 
     <style name="Canvas.Text.Dialog.List.Title">
-        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="android:fontFamily">@string/font_sans_serif_condensed</item>
         <item name="android:alpha">@dimen/list_item_unselected_text_alpha</item>
         <item name="android:textSize">@dimen/list_item_title_font_size</item>
         <item name="android:textColor">@color/list_item_unselected_text_color</item>
     </style>
 
     <style name="Canvas.Text.Dialog.List.Description">
-        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="android:fontFamily">@string/font_sans_serif_condensed</item>
         <item name="android:alpha">@dimen/list_item_unselected_text_alpha</item>
         <item name="android:textSize">@dimen/list_item_description_font_size</item>
         <item name="android:textColor">@color/list_item_unselected_text_color</item>
@@ -183,25 +190,25 @@
     <style name="Setup.Action" />
 
     <style name="Setup.Description.Title">
-        <item name="android:fontFamily">sans-serif-light</item>
+        <item name="android:fontFamily">@string/font_sans_serif_light</item>
         <item name="android:textColor">?android:attr/textColorPrimary</item>
         <item name="android:textSize">36sp</item>
     </style>
 
     <style name="Setup.Description.Description">
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@string/font_sans_serif</item>
         <item name="android:textSize">@dimen/setup_description_text_size</item>
         <item name="android:textColor">?android:attr/textColorPrimary</item>
     </style>
 
     <style name="Setup.Action.ListItem">
-        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="android:fontFamily">@string/font_sans_serif_condensed</item>
         <item name="android:textColor">@color/setup_list_item</item>
         <item name="android:textSize">@dimen/setup_list_item_text_size</item>
     </style>
 
     <style name="Setup.Action.TextInput">
-        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="android:fontFamily">@string/font_sans_serif_condensed</item>
         <item name="android:background">@drawable/setup_text_input_underline</item>
         <item name="android:textCursorDrawable">@drawable/setup_text_input_cursor</item>
         <item name="android:textColor">@color/setup_list_item_focused</item>
@@ -209,7 +216,7 @@
     </style>
 
     <style name="Setup.ProgressTitle">
-        <item name="android:fontFamily">sans-serif-light</item>
+        <item name="android:fontFamily">@string/font_sans_serif_light</item>
         <item name="android:textColor">@color/activity_progress_text</item>
         <item name="android:textSize">@dimen/activity_progress_title_text_size</item>
     </style>
@@ -259,7 +266,7 @@
         <item name="android:gravity">start|center_vertical</item>
         <item name="android:layout_gravity">start|center_vertical</item>
         <item name="android:singleLine">true</item>
-        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="android:fontFamily">@string/font_sans_serif_condensed</item>
         <item name="android:textSize">@dimen/setup_list_item_text_size</item>
         <item name="android:textColor">@color/setup_list_item</item>
     </style>
@@ -269,7 +276,7 @@
         <item name="android:paddingEnd">@dimen/setup_guidance_padding_end</item>
     </style>
 
-    <style name="Setup.GuidanceTitleStyle" parent="Widget.Leanback.GuidanceTitleStyle">
+    <style name="Setup.GuidanceTitleStyle">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:gravity">start|bottom</item>
@@ -277,9 +284,9 @@
         <item name="android:textAppearance">@style/Setup.Description.Title</item>
     </style>
 
-    <style name="Setup.GuidanceDescriptionStyle" parent="Widget.Leanback.GuidanceDescriptionStyle">
+    <style name="Setup.GuidanceDescriptionStyle">
         <item name="android:textColor">@color/setup_primary_text_color</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@string/font_sans_serif</item>
         <item name="android:textSize">@dimen/setup_description_text_size</item>
     </style>
 
@@ -290,5 +297,125 @@
     <style name="TextAppearance.DialogMessage"
            parent="@*android:style/TextAppearance.DeviceDefault.Body1">
         <item name="android:textSize">16sp</item>
+    </style>
+
+    <style name="GuidedActionsListStyleTwoPanel" parent="Widget.Leanback.GuidedActionsListStyle">
+        <item name="android:layout_width">@dimen/guided_actions_list_width_two_panel</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:layout_alignParentStart">true</item>
+        <item name="android:layout_alignParentTop">true</item>
+        <item name="android:verticalSpacing">@dimen/guided_actions_list_vertical_spacing_two_panel</item>
+        <item name="android:paddingStart">0dp</item>
+        <item name="android:paddingEnd">0dp</item>
+        <item name="android:paddingTop">@dimen/guided_actions_vertical_offset</item>
+        <item name="android:paddingBottom">@dimen/guided_actions_vertical_offset_bottom</item>
+        <item name="android:clipToPadding">false</item>
+    </style>
+
+    <style name="GuidedActionItemContainerStyleTwoPanel" parent="Widget.Leanback.GuidedActionItemContainerStyle">
+        <item name="android:background">@drawable/preference_item_background</item>
+        <item name="android:layout_gravity">start|top</item>
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">@dimen/guided_action_height_two_panel</item>
+        <item name="android:paddingTop">@dimen/guided_action_top_bottom_padding</item>
+        <item name="android:paddingBottom">@dimen/guided_action_top_bottom_padding</item>
+        <item name="android:paddingStart">@dimen/guided_action_start_end_padding</item>
+        <item name="android:paddingEnd">@dimen/guided_action_start_end_padding</item>
+        <item name="android:clipToPadding">false</item>
+        <item name="android:clipChildren">false</item>
+    </style>
+
+    <style name="GuidedActionItemContentStyle" parent="Widget.Leanback.GuidedActionItemContentStyle">
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_gravity">start|center_vertical</item>
+        <item name="android:duplicateParentState">true</item>
+        <item name="android:elevation">@dimen/guided_action_content_elevation</item>
+        <item name="android:paddingStart">0dp</item>
+        <item name="android:paddingEnd">0dp</item>
+    </style>
+
+    <style name="GuidedActionItemTitleStyle" parent="Widget.Leanback.GuidedActionItemTitleStyle">
+        <item name="android:duplicateParentState">true</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:focusable">true</item>
+        <item name="android:focusableInTouchMode">true</item>
+        <item name="android:inputType">textNoSuggestions</item>
+        <item name="android:gravity">start|center_vertical</item>
+        <item name="android:singleLine">true</item>
+        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="android:textSize">@dimen/guided_action_text_size</item>
+        <item name="android:textColor">?android:attr/textColorPrimary</item>
+    </style>
+
+    <style name="GuidedActionItemTitleStyleTwoPanel" parent="Widget.Leanback.GuidedActionItemTitleStyle">
+        <item name="android:duplicateParentState">true</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:focusable">true</item>
+        <item name="android:focusableInTouchMode">true</item>
+        <item name="android:inputType">textNoSuggestions</item>
+        <item name="android:gravity">start|center_vertical</item>
+        <item name="android:singleLine">false</item>
+        <item name="android:maxLines">3</item>
+        <item name="android:fontFamily">@string/preference_category_text_font</item>
+        <item name="android:textSize">@dimen/guided_action_text_size_two_panel</item>
+        <item name="android:textColor">@color/tp_preference_item_primary_text_color_selector</item>
+    </style>
+
+    <style name="GuidedActionIconStyle" parent="@style/Widget.Leanback.GuidedActionItemIconStyle">
+        <item name="android:layout_width">@dimen/guided_action_icon_width</item>
+        <item name="android:layout_height">@dimen/guided_action_icon_height</item>
+        <item name="android:layout_gravity">center_vertical</item>
+        <item name="android:visibility">visible</item>
+        <item name="android:layout_marginEnd">@dimen/guided_action_icon_margin_end</item>
+    </style>
+
+    <style name="GuidedActionItemDescriptionStyleTwoPanel" parent="Widget.Leanback.GuidedActionItemDescriptionStyle">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textColor">@color/tp_preference_item_secondary_text_color_selector</item>
+        <item name="android:textSize">@dimen/guided_action_description_text_size_two_panel</item>
+        <item name="android:duplicateParentState">true</item>
+        <item name="android:focusable">true</item>
+        <item name="android:focusableInTouchMode">true</item>
+    </style>
+
+    <style name="GuidedActionItemCheckmarkStyle" parent="Widget.Leanback.GuidedActionItemCheckmarkStyle">
+        <item name="android:visibility">gone</item>
+    </style>
+
+    <style name="GuidedActionItemChevronStyle" parent="Widget.Leanback.GuidedActionItemChevronStyle">
+        <item name="android:visibility">gone</item>
+    </style>
+
+    <style name="GuidanceContainerStyleTwoPanel">
+        <item name="android:layout_marginStart">@dimen/guidance_group_margin_start_two_panel</item>
+        <item name="android:layout_marginEnd">@dimen/guidance_group_margin_end_two_panel</item>
+    </style>
+
+    <style name="GuidanceTitleStyle">
+        <item name="android:gravity">start</item>
+        <item name="android:maxLines">4</item>
+        <item name="android:lineSpacingMultiplier">@dimen/setup_title_line_spacing_multiplier</item>
+        <item name="android:fontFamily">@string/font_sans_serif</item>
+        <item name="android:textColor">?android:attr/textColorPrimary</item>
+        <item name="android:textSize">36sp</item>
+
+    </style>
+
+    <style name="GuidanceDescriptionStyle">
+        <item name="android:gravity">start</item>
+        <item name="android:lineSpacingMultiplier">@dimen/setup_description_line_spacing_multiplier</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textColor">?android:attr/textColorPrimary</item>
+        <item name="android:textSize">14sp</item>
+    </style>
+
+    <style name="GuidanceIconStyle">
+        <item name="android:layout_marginBottom">@dimen/guidance_icon_margin_bottom_two_panel</item>
+        <item name="android:layout_height">48dp</item>
+        <item name="android:layout_width">48dp</item>
+        <item name="android:visibility">visible</item>
     </style>
 </resources>

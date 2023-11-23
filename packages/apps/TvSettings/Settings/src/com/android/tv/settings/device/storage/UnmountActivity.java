@@ -16,8 +16,6 @@
 
 package com.android.tv.settings.device.storage;
 
-import android.app.Activity;
-import android.app.Fragment;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -32,7 +30,9 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.leanback.app.GuidedStepFragment;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentActivity;
+import androidx.leanback.app.GuidedStepSupportFragment;
 import androidx.leanback.widget.GuidanceStylist;
 import androidx.leanback.widget.GuidedAction;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
@@ -42,7 +42,7 @@ import com.android.tv.settings.dialog.ProgressDialogFragment;
 
 import java.util.List;
 
-public class UnmountActivity extends Activity {
+public class UnmountActivity extends FragmentActivity {
 
     private static final String TAG = "UnmountActivity";
 
@@ -83,7 +83,7 @@ public class UnmountActivity extends Activity {
 
             if (volumeInfo.getType() == VolumeInfo.TYPE_PRIVATE) {
                 final Fragment fragment = UnmountPrivateStepFragment.newInstance(mUnmountVolumeId);
-                getFragmentManager().beginTransaction()
+                getSupportFragmentManager().beginTransaction()
                         .replace(android.R.id.content, fragment)
                         .commit();
             } else {
@@ -102,7 +102,7 @@ public class UnmountActivity extends Activity {
 
     public void onRequestUnmount() {
         final Fragment fragment = UnmountProgressFragment.newInstance(mUnmountVolumeDesc);
-        getFragmentManager().beginTransaction()
+        getSupportFragmentManager().beginTransaction()
                 .replace(android.R.id.content, fragment)
                 .commit();
         // Post this so that it will presumably run after onResume, if we're calling from onCreate()
@@ -149,7 +149,7 @@ public class UnmountActivity extends Activity {
         }
     }
 
-    public static class UnmountPrivateStepFragment extends GuidedStepFragment {
+    public static class UnmountPrivateStepFragment extends GuidedStepSupportFragment {
 
         private static final int ACTION_ID_UNMOUNT = 1;
 

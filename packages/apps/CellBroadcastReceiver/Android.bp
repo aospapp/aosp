@@ -1,7 +1,27 @@
 // Copyright 2011 The Android Open Source Project
+package {
+    default_applicable_licenses: [
+        "packages_apps_CellBroadcastReceiver_license",
+    ],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "packages_apps_CellBroadcastReceiver_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
 java_defaults {
     name: "CellBroadcastCommon",
-    min_sdk_version: "29",
+    min_sdk_version: "30",
+    target_sdk_version: "31",
     sdk_version: "system_current",
     privileged: true,
     srcs: [
@@ -17,12 +37,19 @@ java_defaults {
         "androidx.preference_preference",
         "androidx.appcompat_appcompat",
         "androidx.legacy_legacy-preference-v14",
+        "SettingsLibSettingsTheme",
+        "SettingsLibCollapsingToolbarBaseActivity",
+        "SettingsLibMainSwitchPreference",
+        "modules-utils-build_system",
     ],
     optimize: {
        proguard_flags_files: ["proguard.flags"],
     },
     resource_dirs: ["res"],
     plugins: ["java_api_finder"],
+    lint: {
+        strict_updatability_linting: true,
+    },
 }
 
 android_app {

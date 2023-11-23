@@ -34,16 +34,9 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content">
 
-            <include layout="@layout/directory_header"/>
+            <include layout="@layout/directory_header" />
 
         </androidx.core.widget.NestedScrollView>
-
-        <View
-            android:id="@+id/toolbar_background_layout"
-            android:layout_width="match_parent"
-            android:layout_height="@dimen/action_bar_space_height"
-            android:background="?android:attr/colorBackground"
-            app:layout_collapseMode="pin"/>
 
         <androidx.appcompat.widget.Toolbar
             android:id="@+id/toolbar"
@@ -53,7 +46,7 @@
             android:background="?android:attr/colorBackground"
             android:theme="?actionBarTheme"
             android:popupTheme="?actionBarPopupTheme"
-            android:elevation="3dp"
+            android:elevation="@dimen/search_bar_elevation"
             app:collapseContentDescription="@string/button_back"
             app:titleTextAppearance="@style/ToolbarTitle"
             app:layout_collapseMode="pin">
@@ -64,7 +57,7 @@
                 android:layout_height="?android:attr/actionBarSize"
                 android:gravity="center_vertical"
                 android:text="@string/search_bar_hint"
-                android:textAppearance="@style/SearchBarTitle"/>
+                android:textAppearance="@style/SearchBarTitle" />
 
         </androidx.appcompat.widget.Toolbar>
 

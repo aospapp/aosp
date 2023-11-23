@@ -60,6 +60,7 @@
     <style name="DialpadPrimaryButton">
         <item name="android:layout_width">@dimen/fab_button_size</item>
         <item name="android:layout_height">@dimen/fab_button_size</item>
+        <item name="android:background">@drawable/dialer_ripple_background</item>
         <item name="android:elevation">@dimen/call_fab_elevation</item>
         <item name="android:scaleType">center</item>
     </style>
@@ -75,10 +76,10 @@
     <!-- In-call styling for everything except short landscape screens -->
     <style name="TextAppearance.InCallUserTitle" parent="TextAppearance.Display2"/>
     <style name="TextAppearance.InCallUserPhoneNumber" parent="TextAppearance.Body1">
-        <item name="android:textColor">#B8FFFFFF</item>
+        <item name="android:textColor">?android:attr/textColorSecondary</item>
     </style>
     <style name="TextAppearance.InCallState" parent="TextAppearance.Body1">
-        <item name="android:textColor">#B8FFFFFF</item>
+        <item name="android:textColor">?android:attr/textColorSecondary</item>
     </style>
 
     <!-- Call history -->
@@ -86,7 +87,7 @@
     <!-- Customized text color for missed calls can be added here -->
     <style name="TextAppearance.CallLogTitleMissedCall" parent="TextAppearance.Body1"/>
     <style name="TextAppearance.CallLogSubtitle" parent="TextAppearance.Body3">
-        <item name="android:textColor">@color/secondary_text_color</item>
+        <item name="android:textColor">?android:attr/textColorSecondary</item>
     </style>
     <style name="TextAppearance.CallLogCallCountDefault" parent="TextAppearance.CallLogSubtitle"/>
     <!-- Customized text color for missed calls can be added here -->
@@ -99,7 +100,7 @@
     <style name="TextAppearance.ContactDetailsTitle" parent="TextAppearance.Display2"/>
     <style name="TextAppearance.ContactDetailsListTitle" parent="TextAppearance.Body1"/>
     <style name="TextAppearance.ContactDetailsListSubtitle" parent="TextAppearance.Body3">
-        <item name="android:textColor">@color/secondary_text_color</item>
+        <item name="android:textColor">?android:attr/textColorSecondary</item>
     </style>
     <style name="TextAppearance.DefaultNumberLabel" parent="TextAppearance.Body3">
         <item name="android:textColor">@*android:color/accent_device_default_light</item>
@@ -107,15 +108,20 @@
 
     <!-- Contact results -->
     <style name="TextAppearance.ContactResultTitle" parent="TextAppearance.Body1">
-        <item name="android:textColor">@color/primary_text_selector</item>
+        <item name="android:textColor">?android:attr/textColorPrimary</item>
+    </style>
+
+    <!-- Dialpad type down list query special style -->
+    <style name="TextAppearance.TypeDownListSpan" parent="TextAppearance.Body3">
+        <item name="android:textStyle">bold</item>
     </style>
 
     <!-- Add to favorite flow dialog -->
     <style name="TextAppearance.AddFavoriteNumberTitle" parent="TextAppearance.Body1">
-        <item name="android:textColor">@color/primary_text_selector</item>
+        <item name="android:textColor">?android:attr/textColorPrimary</item>
     </style>
     <style name="TextAppearance.AddFavoriteNumberSubtitle" parent="TextAppearance.Body3">
-        <item name="android:textColor">@color/primary_text_selector</item>
+        <item name="android:textColor">?android:attr/textColorPrimary</item>
     </style>
 
     <!-- Subheader -->

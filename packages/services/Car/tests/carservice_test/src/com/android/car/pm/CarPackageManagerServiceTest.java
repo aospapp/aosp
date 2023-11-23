@@ -16,9 +16,16 @@
 
 package com.android.car.pm;
 
-import static junit.framework.Assert.assertEquals;
-import static junit.framework.Assert.assertTrue;
+import static com.android.dx.mockito.inline.extended.ExtendedMockito.doReturn;
 
+import static com.google.common.truth.Truth.assertThat;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
+
+import android.app.ActivityManager;
+import android.car.test.mocks.AbstractExtendedMockitoTestCase;
 import android.content.Context;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -26,15 +33,11 @@ import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.car.CarUxRestrictionsManagerService;
 import com.android.car.SystemActivityMonitoringService;
-import com.android.car.user.CarUserService;
 
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnit;
-import org.mockito.junit.MockitoRule;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -44,26 +47,25 @@ import java.util.Set;
  * Tests for {@link CarPackageManagerService}.
  */
 @RunWith(AndroidJUnit4.class)
-public class CarPackageManagerServiceTest {
+public class CarPackageManagerServiceTest extends AbstractExtendedMockitoTestCase{
     CarPackageManagerService mService;
-
-    @Rule
-    public final MockitoRule rule = MockitoJUnit.rule();
 
     private Context mContext;
     @Mock
     private CarUxRestrictionsManagerService mMockUxrService;
     @Mock
     private SystemActivityMonitoringService mMockSamService;
-    @Mock
-    private CarUserService mMockUserService;
+
+    @Override
+    protected void onSessionBuilder(CustomMockitoSessionBuilder builder) {
+        builder.spyStatic(ActivityManager.class);
+    }
 
     @Before
     public void setUp() {
         mContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
 
-        mService = new CarPackageManagerService(mContext, mMockUxrService, mMockSamService,
-                mMockUserService);
+        mService = new CarPackageManagerService(mContext, mMockUxrService, mMockSamService);
     }
 
     @Test
@@ -73,8 +75,7 @@ public class CarPackageManagerServiceTest {
 
         mService.parseConfigList(config, map);
 
-        assertTrue(map.get("com.android.test").size() == 1);
-        assertEquals(".TestActivity", map.get("com.android.test").iterator().next());
+        assertThat(map.get("com.android.test")).containsExactly(".TestActivity");
     }
 
     @Test
@@ -84,7 +85,7 @@ public class CarPackageManagerServiceTest {
 
         mService.parseConfigList(config, map);
 
-        assertTrue(map.get("com.android.test").size() == 0);
+        assertThat(map.get("com.android.test")).isEmpty();
     }
 
     @Test
@@ -94,9 +95,7 @@ public class CarPackageManagerServiceTest {
 
         mService.parseConfigList(config, map);
 
-        assertTrue(map.get("com.android.test").size() == 2);
-        assertTrue(map.get("com.android.test").contains(".TestActivity0"));
-        assertTrue(map.get("com.android.test").contains(".TestActivity1"));
+        assertThat(map.get("com.android.test")).containsExactly(".TestActivity0", ".TestActivity1");
     }
 
     @Test
@@ -106,6 +105,36 @@ public class CarPackageManagerServiceTest {
 
         mService.parseConfigList(config, map);
 
-        assertTrue(map.get("com.android.test").size() == 0);
+        assertThat(map.get("com.android.test")).isEmpty();
+    }
+
+    @Test
+    public void test_checkQueryPermission_noPermission() {
+        mockQueryPermission(false);
+
+        assertThat(mService.callerCanQueryPackage("blah")).isFalse();
+    }
+
+    @Test
+    public void test_checkQueryPermission_correctPermission() {
+        mockQueryPermission(true);
+
+        assertThat(mService.callerCanQueryPackage("blah")).isTrue();
+    }
+
+    @Test
+    public void test_checkQueryPermission_samePackage() {
+        mockQueryPermission(false);
+
+        assertThat(mService.callerCanQueryPackage("com.android.car.test")).isTrue();
+    }
+
+    private void mockQueryPermission(boolean granted) {
+        int result = android.content.pm.PackageManager.PERMISSION_DENIED;
+        if (granted) {
+            result = android.content.pm.PackageManager.PERMISSION_GRANTED;
+        }
+        doReturn(result).when(() -> ActivityManager.checkComponentPermission(any(), anyInt(),
+                anyInt(), anyBoolean()));
     }
 }

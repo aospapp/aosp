@@ -17,20 +17,20 @@
 package com.android.tv.settings.name;
 
 import android.annotation.Nullable;
-import android.app.Activity;
 import android.os.Bundle;
 
-import androidx.leanback.app.GuidedStepFragment;
+import androidx.fragment.app.FragmentActivity;
+import androidx.leanback.app.GuidedStepSupportFragment;
 
 /**
  * Entry activity for settings suggestions.
  */
-public class DeviceNameSuggestionActivity extends Activity {
+public class DeviceNameSuggestionActivity extends FragmentActivity {
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (savedInstanceState == null) {
-            GuidedStepFragment.addAsRoot(this, DeviceNameSetFragment.newInstance(),
+            GuidedStepSupportFragment.addAsRoot(this, DeviceNameSetFragment.newInstance(),
                     android.R.id.content);
         }
     }

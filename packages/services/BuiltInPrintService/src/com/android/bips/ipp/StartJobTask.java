@@ -50,7 +50,9 @@ class StartJobTask extends AsyncTask<Void, Void, Integer> {
 
     private static final String MIME_TYPE_PDF = "application/pdf";
 
+    // see wprint_df_types.h for enum values
     private static final int MEDIA_TYPE_PLAIN = 0;
+    private static final int MEDIA_TYPE_AUTO = 98;
     // Unused but present
     //    private static final int MEDIA_TYPE_PHOTO = 1;
     //    private static final int MEDIA_TYPE_PHOTO_GLOSSY = 2;
@@ -224,13 +226,15 @@ class StartJobTask extends AsyncTask<Void, Void, Integer> {
 
     private int getMediaType() {
         int mediaType = MEDIA_TYPE_PLAIN;
-
-        if (mDocInfo.getContentType() == PrintDocumentInfo.CONTENT_TYPE_PHOTO) {
-            // Select the best (highest #) supported type for photos
-            for (int supportedType : mCapabilities.supportedMediaTypes) {
-                if (supportedType > mediaType) {
-                    mediaType = supportedType;
-                }
+        for (int supportedType : mCapabilities.supportedMediaTypes) {
+            if (supportedType == MEDIA_TYPE_AUTO) {
+                // if auto media is supported, use that and break out of the loop
+                mediaType = MEDIA_TYPE_AUTO;
+                break;
+            } else if (mDocInfo.getContentType() == PrintDocumentInfo.CONTENT_TYPE_PHOTO
+                    && supportedType > mediaType) {
+                // Select the best (highest #) supported type for photos
+                mediaType = supportedType;
             }
         }
         return mediaType;

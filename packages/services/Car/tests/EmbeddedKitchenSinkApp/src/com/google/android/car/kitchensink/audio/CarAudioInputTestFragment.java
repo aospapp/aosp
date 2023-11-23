@@ -39,6 +39,7 @@ import com.google.android.material.tabs.TabLayout;
 import java.util.List;
 
 public class CarAudioInputTestFragment extends Fragment {
+
     private static final String TAG = "CAR.AUDIO.INPUT.KS";
     private static final boolean DEBUG = true;
 
@@ -50,7 +51,7 @@ public class CarAudioInputTestFragment extends Fragment {
     private AudioManager mAudioManager;
     private CarAudioManager mCarAudioManager;
     private TabLayout mZonesTabLayout;
-    private CarAudioZoneInputTabAdapter mInputAudioZoneAdapter;
+    private CarAudioZoneTabAdapter mInputAudioZoneAdapter;
     private ViewPager mViewPager;
 
     private void connectCar() {
@@ -88,9 +89,9 @@ public class CarAudioInputTestFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         Log.i(TAG, "onViewCreated ");
         mZonesTabLayout = view.findViewById(R.id.zones_input_tab);
-        mViewPager = (ViewPager) view.findViewById(R.id.zones_input_view_pager);
+        mViewPager = view.findViewById(R.id.zones_input_view_pager);
 
-        mInputAudioZoneAdapter = new CarAudioZoneInputTabAdapter(getChildFragmentManager());
+        mInputAudioZoneAdapter = new CarAudioZoneTabAdapter(getChildFragmentManager());
         mViewPager.setAdapter(mInputAudioZoneAdapter);
         initInputInfo();
         mZonesTabLayout.setupWithViewPager(mViewPager);
@@ -108,7 +109,8 @@ public class CarAudioInputTestFragment extends Fragment {
     }
 
     private void initInputInfo() {
-        if (!mCarAudioManager.isDynamicRoutingEnabled()) {
+        if (!mCarAudioManager.isAudioFeatureEnabled(
+                CarAudioManager.AUDIO_FEATURE_DYNAMIC_ROUTING)) {
             return;
         }
         List<Integer> audioZoneList = mCarAudioManager.getAudioZoneIds();
@@ -134,5 +136,9 @@ public class CarAudioInputTestFragment extends Fragment {
 
         mZonesTabLayout.addTab(mZonesTabLayout.newTab().setText(title));
         mInputAudioZoneAdapter.addFragment(fragment, title);
+    }
+
+    static String getAudioInputLogTag(Class clazz) {
+        return TAG + clazz.getSimpleName();
     }
 }

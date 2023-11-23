@@ -344,9 +344,11 @@ public class SearchFragment extends Fragment implements SearchView.OnQueryTextLi
         final Activity activity = getActivity();
         if (activity != null) {
             View view = activity.getCurrentFocus();
-            InputMethodManager imm = (InputMethodManager)
-                    activity.getSystemService(Context.INPUT_METHOD_SERVICE);
-            imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
+            if (view != null) {
+                InputMethodManager imm = (InputMethodManager)
+                        activity.getSystemService(Context.INPUT_METHOD_SERVICE);
+                imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
+            }
         }
 
         if (mResultsRecyclerView != null) {

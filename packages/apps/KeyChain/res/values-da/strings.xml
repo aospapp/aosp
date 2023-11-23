@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"Du kan installere certifikater fra en PKCS#12-fil med en %1$s- eller en %2$s-udvidelse, der er placeret på et eksternt lager."</string>
     <string name="allow_button" msgid="3030990695030371561">"Vælg"</string>
     <string name="deny_button" msgid="3766539809121892584">"Afvis"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"Indlæser certifikater..."</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"%s indlæser et certifikat…"</string>
 </resources>

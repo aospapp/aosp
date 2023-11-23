@@ -16,6 +16,8 @@
 package com.android.wallpaper.module;
 
 import android.content.Context;
+import android.content.Intent;
+import android.net.Uri;
 
 import androidx.fragment.app.Fragment;
 
@@ -69,10 +71,11 @@ public interface Injector {
     WallpaperRotationRefresher getWallpaperRotationRefresher();
 
     Fragment getPreviewFragment(
-        Context context,
-        WallpaperInfo wallpaperInfo,
-        @PreviewMode int mode,
-        boolean testingModeEnabled);
+            Context context,
+            WallpaperInfo wallpaperInfo,
+            @PreviewMode int mode,
+            boolean viewAsHome,
+            boolean testingModeEnabled);
 
     PackageStatusNotifier getPackageStatusNotifier(Context context);
 
@@ -81,4 +84,10 @@ public interface Injector {
     LiveWallpaperInfoFactory getLiveWallpaperInfoFactory(Context context);
 
     DrawableLayerResolver getDrawableLayerResolver();
+
+    Intent getDeepLinkRedirectIntent(Context context, Uri uri);
+
+    String getDownloadableIntentAction();
+
+    CustomizationSections getCustomizationSections();
 }

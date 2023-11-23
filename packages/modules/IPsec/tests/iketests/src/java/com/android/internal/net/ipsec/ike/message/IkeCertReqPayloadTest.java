@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.ipsec.ike.message;
+package com.android.internal.net.ipsec.test.ike.message;
 
-import static com.android.internal.net.ipsec.ike.message.IkeCertPayload.CERTIFICATE_ENCODING_X509_CERT_SIGNATURE;
+import static com.android.internal.net.ipsec.test.ike.message.IkeCertPayload.CERTIFICATE_ENCODING_X509_CERT_SIGNATURE;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;

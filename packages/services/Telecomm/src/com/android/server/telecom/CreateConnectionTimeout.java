@@ -69,7 +69,7 @@ final class CreateConnectionTimeout extends Runnable {
         }
 
         // Timeout is only supported for SIM call managers that are set by the carrier.
-        if (!Objects.equals(connectionManager.getComponentName(),
+        if (connectionManager != null && !Objects.equals(connectionManager.getComponentName(),
                 mPhoneAccountRegistrar.getSystemSimCallManagerComponent())) {
             Log.d(this, "isTimeoutNeededForCall, not a system sim call manager");
             return false;

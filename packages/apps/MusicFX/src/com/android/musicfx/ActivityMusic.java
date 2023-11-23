@@ -30,8 +30,12 @@ import android.content.DialogInterface;
 import android.content.DialogInterface.OnCancelListener;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.media.AudioAttributes;
+import android.media.AudioDeviceInfo;
 import android.media.AudioFormat;
 import android.media.AudioManager;
+import android.media.AudioManager.AudioPlaybackCallback;
+import android.media.AudioPlaybackConfiguration;
 import android.media.audiofx.AudioEffect;
 import android.media.audiofx.AudioEffect.Descriptor;
 import android.media.audiofx.Virtualizer;
@@ -61,8 +65,11 @@ import android.widget.Toast;
 
 import java.util.Formatter;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -199,42 +206,56 @@ public class ActivityMusic extends Activity implements OnSeekBarChangeListener {
      */
     private int mAudioSession = AudioEffect.ERROR_BAD_VALUE;
 
-    // Broadcast receiver to handle wired and Bluetooth A2dp headset events
-    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+    // Audio Playback monitoring Callback to determine if a headset is used for music playback
+    private final AudioPlaybackCallback mMyAudioPlaybackCallback = new AudioPlaybackCallback() {
         @Override
-        public void onReceive(final Context context, final Intent intent) {
-            final String action = intent.getAction();
-            final boolean isHeadsetOnPrev = mIsHeadsetOn;
-            final AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
-            if (action.equals(Intent.ACTION_HEADSET_PLUG)) {
-                mIsHeadsetOn = (intent.getIntExtra("state", 0) == 1)
-                        || audioManager.isBluetoothA2dpOn();
-            } else if (action.equals(BluetoothDevice.ACTION_ACL_CONNECTED)) {
-                final int deviceClass = ((BluetoothDevice) intent
-                        .getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)).getBluetoothClass()
-                        .getDeviceClass();
-                if ((deviceClass == BluetoothClass.Device.AUDIO_VIDEO_HEADPHONES)
-                        || (deviceClass == BluetoothClass.Device.AUDIO_VIDEO_WEARABLE_HEADSET)) {
-                    mIsHeadsetOn = true;
-                }
-            } else if (action.equals(AudioManager.ACTION_AUDIO_BECOMING_NOISY)) {
-                mIsHeadsetOn = audioManager.isBluetoothA2dpOn() || audioManager.isWiredHeadsetOn();
-            } else if (action.equals(BluetoothDevice.ACTION_ACL_DISCONNECTED)) {
-                final int deviceClass = ((BluetoothDevice) intent
-                        .getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)).getBluetoothClass()
-                        .getDeviceClass();
-                if ((deviceClass == BluetoothClass.Device.AUDIO_VIDEO_HEADPHONES)
-                        || (deviceClass == BluetoothClass.Device.AUDIO_VIDEO_WEARABLE_HEADSET)) {
-                    mIsHeadsetOn = audioManager.isWiredHeadsetOn();
-                }
-            }
-            if (isHeadsetOnPrev != mIsHeadsetOn) {
+        public void onPlaybackConfigChanged(List<AudioPlaybackConfiguration> configs) {
+            boolean isHeadsetOn = isHeadsetUsedForMedia(configs);
+            if (isHeadsetOn != mIsHeadsetOn) {
+                mIsHeadsetOn = isHeadsetOn;
                 updateUIHeadset();
             }
         }
     };
 
-    /*
+    private static boolean isConfigForMedia(AudioPlaybackConfiguration apc) {
+        AudioAttributes attr = apc.getAudioAttributes();
+        if (attr.getUsage() == AudioAttributes.USAGE_MEDIA
+                || attr.getUsage() == AudioAttributes.USAGE_GAME
+                || attr.getUsage() == AudioAttributes.USAGE_UNKNOWN) {
+            return true;
+        }
+        return false;
+    }
+
+    public static final Set<Integer> HEADSET_DEVICE_TYPES = new HashSet<>();
+    static {
+        HEADSET_DEVICE_TYPES.add(AudioDeviceInfo.TYPE_WIRED_HEADSET);
+        HEADSET_DEVICE_TYPES.add(AudioDeviceInfo.TYPE_WIRED_HEADPHONES);
+        HEADSET_DEVICE_TYPES.add(AudioDeviceInfo.TYPE_BLUETOOTH_A2DP);
+        HEADSET_DEVICE_TYPES.add(AudioDeviceInfo.TYPE_BLUETOOTH_SCO);
+        HEADSET_DEVICE_TYPES.add(AudioDeviceInfo.TYPE_USB_HEADSET);
+        HEADSET_DEVICE_TYPES.add(AudioDeviceInfo.TYPE_HEARING_AID);
+        HEADSET_DEVICE_TYPES.add(AudioDeviceInfo.TYPE_BLE_HEADSET);
+    }
+
+    private static boolean isConfigForHeadset(AudioPlaybackConfiguration apc) {
+        AudioDeviceInfo device = apc.getAudioDeviceInfo();
+        if (device == null) {
+            return false;
+        }
+        return HEADSET_DEVICE_TYPES.contains(device.getType());
+    }
+
+    private static boolean isHeadsetUsedForMedia(List<AudioPlaybackConfiguration> configs) {
+        for (AudioPlaybackConfiguration config : configs) {
+            if (config.isActive() && isConfigForMedia(config) && isConfigForHeadset(config)) {
+                return true;
+            }
+        }
+        return false;
+    }
+        /*
      * Declares and initializes all objects and widgets in the layouts and the CheckBox and SeekBar
      * onchange methods on creation.
      *
@@ -483,7 +504,6 @@ public class ActivityMusic extends Activity implements OnSeekBarChangeListener {
                     ActionBar.LayoutParams.WRAP_CONTENT,
                     Gravity.CENTER_VERTICAL | Gravity.RIGHT));
             ab.setDisplayOptions(ActionBar.DISPLAY_SHOW_TITLE | ActionBar.DISPLAY_SHOW_CUSTOM);
-
         } else {
             viewGroup.setVisibility(View.GONE);
             ((TextView) findViewById(R.id.noEffectsTextView)).setVisibility(View.VISIBLE);
@@ -501,18 +521,11 @@ public class ActivityMusic extends Activity implements OnSeekBarChangeListener {
         super.onResume();
         if ((mVirtualizerSupported) || (mBassBoostSupported) || (mEqualizerSupported)
                 || (mPresetReverbSupported)) {
-            // Listen for broadcast intents that might affect the onscreen UI for headset.
-            final IntentFilter intentFilter = new IntentFilter(Intent.ACTION_HEADSET_PLUG);
-            intentFilter.addAction(BluetoothDevice.ACTION_ACL_CONNECTED);
-            intentFilter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);
-            intentFilter.addAction(AudioManager.ACTION_AUDIO_BECOMING_NOISY);
-            registerReceiver(mReceiver, intentFilter);
-
-            // Check if wired or Bluetooth headset is connected/on
-            final AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
-            mIsHeadsetOn = (audioManager.isWiredHeadsetOn() || audioManager.isBluetoothA2dpOn());
+            // Monitor active playback configurations used for media and playing on a headset.
+            final AudioManager audioManager = (AudioManager) getSystemService(AudioManager.class);
+            audioManager.registerAudioPlaybackCallback(mMyAudioPlaybackCallback, null);
+            mIsHeadsetOn = isHeadsetUsedForMedia(audioManager.getActivePlaybackConfigurations());
             Log.v(TAG, "onResume: mIsHeadsetOn : " + mIsHeadsetOn);
-
             // Update UI
             updateUI();
         }
@@ -527,11 +540,12 @@ public class ActivityMusic extends Activity implements OnSeekBarChangeListener {
     protected void onPause() {
         super.onPause();
 
-        // Unregister for broadcast intents. (These affect the visible UI,
+        // Stop monitoring active playback configurations. (These affect the visible UI,
         // so we only care about them while we're in the foreground.)
         if ((mVirtualizerSupported) || (mBassBoostSupported) || (mEqualizerSupported)
                 || (mPresetReverbSupported)) {
-            unregisterReceiver(mReceiver);
+            final AudioManager audioManager = (AudioManager) getSystemService(AudioManager.class);
+            audioManager.unregisterAudioPlaybackCallback(mMyAudioPlaybackCallback);
         }
     }
 

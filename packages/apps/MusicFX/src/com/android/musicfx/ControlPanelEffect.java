@@ -140,10 +140,10 @@ public class ControlPanelEffect {
     private final static Object mEQInitLock = new Object();
 
     /**
-     * Default int argument used in methods to see that the arg is a dummy. Used for method
+     * Default int argument used in methods to see that the arg is unused. Used for method
      * overloading.
      */
-    private final static int DUMMY_ARGUMENT = -1;
+    private final static int UNUSED_ARGUMENT = -1;
 
     /**
      * Inits effects preferences for the given context and package name in the control panel. If
@@ -188,7 +188,7 @@ public class ControlPanelEffect {
                             virtualizerEffect.getStrengthSupported());
                 } finally {
                     if (virtualizerEffect != null) {
-                        Log.d(TAG, "Releasing dummy Virtualizer effect");
+                        Log.d(TAG, "Releasing placeholder Virtualizer effect");
                         virtualizerEffect.release();
                     }
                     mediaPlayer.release();
@@ -205,14 +205,14 @@ public class ControlPanelEffect {
 
             // Equalizer
             synchronized (mEQInitLock) {
-                // If EQ is not initialized already create "dummy" audio session created by
+                // If EQ is not initialized already create "placeholder" audio session created by
                 // MediaPlayer and create effect on it to retrieve the invariable EQ properties
                 if (!mIsEQInitialized) {
                     final MediaPlayer mediaPlayer = new MediaPlayer();
                     final int session = mediaPlayer.getAudioSessionId();
                     Equalizer equalizerEffect = null;
                     try {
-                        Log.d(TAG, "Creating dummy EQ effect on session " + session);
+                        Log.d(TAG, "Creating placeholder EQ effect on session " + session);
                         equalizerEffect = new Equalizer(PRIORITY, session);
 
                         mEQBandLevelRange = equalizerEffect.getBandLevelRange();
@@ -244,7 +244,7 @@ public class ControlPanelEffect {
                         Log.e(TAG, "Equalizer: " + e);
                     } finally {
                         if (equalizerEffect != null) {
-                            Log.d(TAG, "Releasing dummy EQ effect");
+                            Log.d(TAG, "Releasing placeholder EQ effect");
                             equalizerEffect.release();
                         }
                         mediaPlayer.release();
@@ -255,7 +255,7 @@ public class ControlPanelEffect {
                                     + " to flat response");
                             mEQPresetOpenSLESBandLevel = new short[mEQNumPresets][mEQNumBands];
                             for (short preset = 0; preset < mEQNumPresets; preset++) {
-                                // Init preset names to a dummy name
+                                // Init preset names to a placeholder name
                                 mEQPresetNames[preset] = prefs.getString(
                                         Key.eq_preset_name.toString() + preset,
                                         EQUALIZER_PRESET_NAME_DEFAULT + preset);
@@ -587,8 +587,8 @@ public class ControlPanelEffect {
                 }
                     // Equalizer
                 case eq_band_level: {
-                    if (arg1 == DUMMY_ARGUMENT) {
-                        throw new IllegalArgumentException("Dummy arg passed.");
+                    if (arg1 == UNUSED_ARGUMENT) {
+                        throw new IllegalArgumentException("Unused arg passed.");
                     }
                     final short band = (short) arg1;
                     strKey = strKey + band;
@@ -650,8 +650,8 @@ public class ControlPanelEffect {
                 case eq_preset_user_band_level_default:
                     // Fall through
                 case eq_preset_ci_extreme_band_level: {
-                    if (arg1 == DUMMY_ARGUMENT) {
-                        throw new IllegalArgumentException("Dummy arg passed.");
+                    if (arg1 == UNUSED_ARGUMENT) {
+                        throw new IllegalArgumentException("Unused arg passed.");
                     }
                     final short band = (short) arg1;
                     strKey = strKey + band;
@@ -687,8 +687,8 @@ public class ControlPanelEffect {
 
                 // Equalizer
                 case eq_band_level: {
-                    if (arg1 == DUMMY_ARGUMENT) {
-                        throw new IllegalArgumentException("Dummy arg passed.");
+                    if (arg1 == UNUSED_ARGUMENT) {
+                        throw new IllegalArgumentException("Unused arg passed.");
                     }
                     final short band = (short) arg1;
                     strKey = strKey + band;
@@ -736,8 +736,8 @@ public class ControlPanelEffect {
                 case eq_preset_user_band_level_default:
                     // Fall through
                 case eq_preset_ci_extreme_band_level: {
-                    if (arg1 == DUMMY_ARGUMENT) {
-                        throw new IllegalArgumentException("Dummy arg passed.");
+                    if (arg1 == UNUSED_ARGUMENT) {
+                        throw new IllegalArgumentException("Unused arg passed.");
                     }
                     final short band = (short) arg1;
                     strKey = strKey + band;
@@ -774,7 +774,7 @@ public class ControlPanelEffect {
      */
     public static void setParameterInt(final Context context, final String packageName,
             final int audioSession, final Key key, final int arg) {
-        setParameterInt(context, packageName, audioSession, key, arg, DUMMY_ARGUMENT);
+        setParameterInt(context, packageName, audioSession, key, arg, UNUSED_ARGUMENT);
     }
 
     /**

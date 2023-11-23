@@ -39,10 +39,10 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.android.car.settings.R;
 import com.android.car.settings.common.BaseFragment;
 import com.android.car.settings.common.CarSettingActivities;
-import com.android.car.settings.users.UserIconProvider;
-import com.android.car.settings.users.UserSwitcherActivity;
+import com.android.car.settings.profiles.ProfileIconProvider;
+import com.android.car.settings.profiles.ProfileSwitcherActivity;
 import com.android.car.ui.toolbar.MenuItem;
-import com.android.car.ui.toolbar.Toolbar;
+import com.android.car.ui.toolbar.NavButtonMode;
 
 import java.util.Arrays;
 import java.util.List;
@@ -56,11 +56,11 @@ public class QuickSettingFragment extends BaseFragment {
     private static final long BUILD_INFO_REFRESH_TIME_MS = TimeUnit.SECONDS.toMillis(5);
 
     private UserManager mUserManager;
-    private UserIconProvider mUserIconProvider;
+    private ProfileIconProvider mProfileIconProvider;
     private QuickSettingGridAdapter mGridAdapter;
     private RecyclerView mListView;
     private MenuItem mFullSettingsBtn;
-    private MenuItem mUserSwitcherBtn;
+    private MenuItem mProfileSwitcherBtn;
     private TextView mBuildInfo;
 
     private ActivityResultLauncher<Intent> mStartForResult = registerForActivityResult(
@@ -83,15 +83,15 @@ public class QuickSettingFragment extends BaseFragment {
         mUserManager = UserManager.get(getContext());
         Activity activity = requireActivity();
 
-        mUserIconProvider = new UserIconProvider();
-        mListView = activity.findViewById(R.id.list);
+        mProfileIconProvider = new ProfileIconProvider();
+        mListView = activity.findViewById(R.id.quick_settings_list);
         mGridAdapter = new QuickSettingGridAdapter(activity);
         mListView.setLayoutManager(mGridAdapter.getGridLayoutManager());
 
-        setupUserButton(activity);
+        setupProfileButton(activity);
 
         mGridAdapter
-                .addTile(new WifiTile(activity, mGridAdapter, getFragmentHost()))
+                .addTile(new WifiTile(activity, mGridAdapter, getLifecycle()))
                 .addTile(new BluetoothTile(activity, mGridAdapter, getFragmentHost()))
                 .addTile(new DayNightTile(activity, mGridAdapter, getFragmentHost()))
                 .addTile(new CelluarTile(activity, mGridAdapter, getFragmentHost()))
@@ -101,38 +101,33 @@ public class QuickSettingFragment extends BaseFragment {
 
 
     @Override
-    protected Toolbar.NavButtonMode getToolbarNavButtonStyle() {
-        return Toolbar.NavButtonMode.CLOSE;
-    }
-
-    @Override
-    protected Toolbar.State getToolbarState() {
+    protected NavButtonMode getToolbarNavButtonStyle() {
         if (getContext().getResources().getBoolean(R.bool.config_is_quick_settings_root)
                 && !getContext().getResources()
                 .getBoolean(R.bool.config_show_settings_root_exit_icon)) {
-            return Toolbar.State.HOME;
+            return NavButtonMode.DISABLED;
         } else {
-            return Toolbar.State.SUBPAGE;
+            return NavButtonMode.CLOSE;
         }
     }
 
     @Override
     public List<MenuItem> getToolbarMenuItems() {
-        return Arrays.asList(mUserSwitcherBtn, mFullSettingsBtn);
+        return Arrays.asList(mProfileSwitcherBtn, mFullSettingsBtn);
     }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        mUserSwitcherBtn = new MenuItem.Builder(getContext())
+        mProfileSwitcherBtn = new MenuItem.Builder(getContext())
                 .setTitle(getString(R.string.user_switch))
                 .setOnClickListener(i ->
                         mStartForResult.launch(
-                                new Intent(getContext(), UserSwitcherActivity.class)))
-                .setIcon(R.drawable.ic_user)
+                                new Intent(getContext(), ProfileSwitcherActivity.class)))
+                .setIcon(R.drawable.ic_profile)
                 .setShowIconAndTitle(true)
-                .setVisible(showUserSwitcher())
+                .setVisible(showProfileSwitcher())
                 .setTinted(false)
                 .build();
         mFullSettingsBtn = new MenuItem.Builder(getContext())
@@ -199,14 +194,14 @@ public class QuickSettingFragment extends BaseFragment {
         mGridAdapter.stop();
     }
 
-    private void setupUserButton(Context context) {
+    private void setupProfileButton(Context context) {
         UserInfo currentUserInfo = mUserManager.getUserInfo(ActivityManager.getCurrentUser());
-        Drawable userIcon = mUserIconProvider.getRoundedUserIcon(currentUserInfo, context);
-        mUserSwitcherBtn.setIcon(userIcon);
-        mUserSwitcherBtn.setTitle(currentUserInfo.name);
+        Drawable profileIcon = mProfileIconProvider.getDrawableWithBadge(context, currentUserInfo);
+        mProfileSwitcherBtn.setIcon(profileIcon);
+        mProfileSwitcherBtn.setTitle(currentUserInfo.name);
     }
 
-    private boolean showUserSwitcher() {
+    private boolean showProfileSwitcher() {
         return !UserManager.isDeviceInDemoMode(getContext())
                 && UserManager.supportsMultipleUsers()
                 && !UserManager.get(getContext()).hasUserRestriction(

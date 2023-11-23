@@ -32,7 +32,6 @@ import static android.support.v4.media.session.PlaybackStateCompat.STATE_ERROR;
 import androidx.annotation.Nullable;
 
 import android.app.PendingIntent;
-import android.content.Context;
 import android.content.Intent;
 import android.media.AudioFocusRequest;
 import android.media.AudioManager;
@@ -40,6 +39,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
+import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -59,7 +59,7 @@ public class TmaPlayer extends MediaSessionCompat.Callback {
 
     private static final String TAG = "TmaPlayer";
 
-    private final Context mContext;
+    private final TmaBrowser mBrowser;
     private final TmaPrefs mPrefs;
     private final TmaLibrary mLibrary;
     private final AudioManager mAudioManager;
@@ -78,10 +78,10 @@ public class TmaPlayer extends MediaSessionCompat.Callback {
     private TmaMediaItem mActiveItem;
     private int mNextEventIndex = -1;
 
-    TmaPlayer(Context context, TmaLibrary library, AudioManager audioManager, Handler handler,
+    TmaPlayer(TmaBrowser browser, TmaLibrary library, AudioManager audioManager, Handler handler,
             MediaSessionCompat session) {
-        mContext = context;
-        mPrefs = TmaPrefs.getInstance(mContext);
+        mBrowser = browser;
+        mPrefs = TmaPrefs.getInstance(mBrowser);
         mLibrary = library;
         mAudioManager = audioManager;
         mHandler = handler;
@@ -101,9 +101,10 @@ public class TmaPlayer extends MediaSessionCompat.Callback {
                 .setActions(addActions(ACTION_PAUSE));
         if (ResolutionIntent.PREFS.equals(event.mResolutionIntent)) {
             Intent prefsIntent = new Intent();
-            prefsIntent.setClass(mContext, TmaPrefsActivity.class);
+            prefsIntent.setClass(mBrowser, TmaPrefsActivity.class);
             prefsIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            PendingIntent pendingIntent = PendingIntent.getActivity(mContext, 0, prefsIntent, 0);
+            PendingIntent pendingIntent = PendingIntent.getActivity(mBrowser, 0, prefsIntent,
+                    PendingIntent.FLAG_IMMUTABLE);
 
             Bundle extras = new Bundle();
             extras.putString(MediaKeys.ERROR_RESOLUTION_ACTION_LABEL, event.mActionLabel);
@@ -119,7 +120,7 @@ public class TmaPlayer extends MediaSessionCompat.Callback {
     private void setActiveItemState(PlaybackStateCompat.Builder state) {
         if (mActiveItem != null) {
             for (TmaCustomAction action : mActiveItem.mCustomActions) {
-                String name = mContext.getResources().getString(action.mNameId);
+                String name = mBrowser.getResources().getString(action.mNameId);
                 state.addCustomAction(action.mId, name, action.mIcon);
             }
             state.setActiveQueueItemId(mActiveItem.getQueueId());
@@ -249,14 +250,14 @@ public class TmaPlayer extends MediaSessionCompat.Callback {
                 mActiveItem.mHearts--;
                 toast("" + mActiveItem.mHearts);
             } else if (TmaCustomAction.REQUEST_LOCATION.mId.equals(action)) {
-                mContext.startService(new Intent(mContext, TmaForegroundService.class));
+                mBrowser.startService(new Intent(mBrowser, TmaForegroundService.class));
             }
         }
     }
 
     /** Note: this is for quick feedback implementation, media apps should avoid toasts... */
     private void toast(String message) {
-        Toast.makeText(mContext, message, Toast.LENGTH_LONG).show();
+        Toast.makeText(mBrowser, message, Toast.LENGTH_LONG).show();
     }
 
     private boolean audioFocusGranted() {
@@ -268,6 +269,9 @@ public class TmaPlayer extends MediaSessionCompat.Callback {
 
         TmaMediaEvent event = mActiveItem.mMediaEvents.get(mNextEventIndex);
         event.maybeThrow();
+        if (!TextUtils.isEmpty(event.mMediaItemIdToToggle)) {
+            mBrowser.toggleItem(mLibrary.getMediaItemById(event.mMediaItemIdToToggle));
+        }
 
         if (event.premiumAccountRequired() &&
                 TmaAccountType.PAID.equals(mPrefs.mAccountType.getValue())) {

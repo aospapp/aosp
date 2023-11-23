@@ -14,23 +14,23 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.eap.message.mschapv2;
+package com.android.internal.net.eap.test.message.mschapv2;
 
-import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2PacketDefinitions.EAP_MSCHAP_V2_CHALLENGE_RESPONSE;
-import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2PacketDefinitions.ID_INT;
-import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2PacketDefinitions.NT_RESPONSE_BYTES;
-import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2PacketDefinitions.PEER_CHALLENGE_BYTES;
-import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2PacketDefinitions.PEER_NAME_BYTES;
-import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2PacketDefinitions.SHORT_CHALLENGE_BYTES;
-import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2PacketDefinitions.SHORT_NT_RESPONSE;
-import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2TypeData.EAP_MSCHAP_V2_RESPONSE;
+import static com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2PacketDefinitions.EAP_MSCHAP_V2_CHALLENGE_RESPONSE;
+import static com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2PacketDefinitions.ID_INT;
+import static com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2PacketDefinitions.NT_RESPONSE_BYTES;
+import static com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2PacketDefinitions.PEER_CHALLENGE_BYTES;
+import static com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2PacketDefinitions.PEER_NAME_BYTES;
+import static com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2PacketDefinitions.SHORT_CHALLENGE_BYTES;
+import static com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2PacketDefinitions.SHORT_NT_RESPONSE;
+import static com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2TypeData.EAP_MSCHAP_V2_RESPONSE;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
-import com.android.internal.net.eap.exceptions.mschapv2.EapMsChapV2ParsingException;
-import com.android.internal.net.eap.message.mschapv2.EapMsChapV2TypeData.EapMsChapV2ChallengeResponse;
+import com.android.internal.net.eap.test.exceptions.mschapv2.EapMsChapV2ParsingException;
+import com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2TypeData.EapMsChapV2ChallengeResponse;
 
 import org.junit.Test;
 

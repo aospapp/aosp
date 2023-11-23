@@ -21,21 +21,21 @@
     <!-- no translation found for app_name (8773648973927541493) -->
     <skip />
     <string name="select_wallpaper_label" msgid="6989581259339646085">"فئات الخلفيات"</string>
-    <string name="set_wallpaper_button_text" msgid="4426286890442731310">"تعيين كخلفية"</string>
+    <string name="set_wallpaper_button_text" msgid="4426286890442731310">"ضبط كصورة خلفية"</string>
     <string name="set_wallpaper_progress_message" msgid="7986528287618716715">"جارٍ تعيين الخلفية…"</string>
     <string name="try_again" msgid="8278874823700921234">"إعادة المحاولة"</string>
     <string name="set_wallpaper_error_message" msgid="6819986999041085130">"يتعذّر تعيين الخلفية."</string>
     <string name="load_wallpaper_error_message" msgid="7913278480467707374">"يتعذّر تحميل الخلفية. قد تكون الصورة تالفة أو غير متاحة."</string>
     <string name="static_wallpaper_presentation_mode_message" msgid="417940227049360906">"الخلفية المختارة حاليًا"</string>
     <string name="rotating_wallpaper_presentation_mode_message" msgid="3361676041605733288">"خلفية يومية"</string>
-    <string name="wallpaper_destination_both" msgid="1124197176741944063">"الشاشة الرئيسية وشاشة التأمين"</string>
+    <string name="wallpaper_destination_both" msgid="1124197176741944063">"الشاشة الرئيسية وشاشة القفل"</string>
     <string name="home_screen_message" msgid="106444102822522813">"الشاشة الرئيسية"</string>
-    <string name="lock_screen_message" msgid="1534506081955058013">"شاشة التأمين"</string>
-    <string name="home_and_lock_short_label" msgid="2937922943541927983">"الشاشة الرئيسية وشاشة التأمين"</string>
-    <string name="set_wallpaper_dialog_message" msgid="6114951028768599417">"تعيين كخلفية"</string>
+    <string name="lock_screen_message" msgid="1534506081955058013">"شاشة القفل"</string>
+    <string name="home_and_lock_short_label" msgid="2937922943541927983">"الشاشة الرئيسية وشاشة القفل"</string>
+    <string name="set_wallpaper_dialog_message" msgid="2110475703996853076">"ضبط كخلفية"</string>
     <string name="set_wallpaper_home_screen_destination" msgid="7315594722013109354">"الشاشة الرئيسية"</string>
-    <string name="set_wallpaper_lock_screen_destination" msgid="6224685559375417945">"شاشة التأمين"</string>
-    <string name="set_wallpaper_both_destination" msgid="6967226064958263939">"الشاشة الرئيسية وشاشة التأمين"</string>
+    <string name="set_wallpaper_lock_screen_destination" msgid="6224685559375417945">"شاشة القفل"</string>
+    <string name="set_wallpaper_both_destination" msgid="233216830256235288">"الشاشة الرئيسية وشاشة القفل"</string>
     <string name="no_backup_image_wallpaper_label" msgid="6316627676107284851">"خلفية الصور التي يتم عرضها بالتناوب"</string>
     <string name="permission_needed_explanation" msgid="139166837541426823">"لعرض الخلفية الحالية هنا، يحتاج تطبيق <xliff:g id="APP_NAME">%1$s</xliff:g> إلى الوصول إلى مساحة تخزين الجهاز."</string>
     <string name="permission_needed_explanation_go_to_settings" msgid="3923551582092599609">"لعرض الخلفية الحالية هنا، يحتاج تطبيق \"الخلفيات\" إلى الدخول إلى مساحة تخزين جهازك.\n\nلتغيير هذا الإعداد، انتقل إلى \"منطقة الأذونات\" في المعلومات التي يقدّمها تطبيق \"الخلفيات\"."</string>
@@ -54,20 +54,18 @@
     <string name="next_wallpaper" msgid="3911873152952596232">"الخلفية التالية"</string>
     <string name="wallpaper_disabled_message" msgid="7309484130562148185">"تم إيقاف إمكانية تعيين خلفية على هذا الجهاز."</string>
     <string name="wallpaper_disabled_by_administrator_message" msgid="1551430406714747884">"أوقف مشرف الجهاز إمكانية تعيين خلفية."</string>
-    <string name="wallpaper_set_successfully_message" msgid="2958998799111688578">"تم تعيين الخلفية بنجاح."</string>
+    <string name="wallpaper_set_successfully_message" msgid="2958998799111688578">"تم ضبط الخلفية بنجاح."</string>
     <string name="wallpapers_unavailable_offline_message" msgid="8136405438621689532">"يلزمك الاتصال بالإنترنت للاطّلاع على الخلفيات. يُرجى الاتصال وإعادة المحاولة."</string>
     <string name="currently_set_home_wallpaper_thumbnail" msgid="4022381436821898917">"صورة مصغَّرة لخلفية الشاشة الرئيسية المعيَّنة حاليًا"</string>
-    <string name="currently_set_lock_wallpaper_thumbnail" msgid="2094209303934569997">"صورة مصغَّرة لخلفية شاشة التأمين المعيَّنة حاليًا"</string>
+    <string name="currently_set_lock_wallpaper_thumbnail" msgid="2094209303934569997">"صورة مصغَّرة لخلفية شاشة القفل المعيَّنة حاليًا"</string>
     <string name="currently_set_wallpaper_thumbnail" msgid="8651887838745545107">"صورة مصغَّرة لخلفية الشاشة المعيَّنة حاليًا"</string>
     <string name="wallpaper_thumbnail" msgid="569931475923605974">"صورة مصغَّرة للخلفية"</string>
     <string name="explore_home_screen" msgid="8756346794535765482">"استكشاف خلفية الشاشة الرئيسية"</string>
-    <string name="explore_lock_screen" msgid="268938342103703665">"استكشاف خلفية شاشة التأمين"</string>
-    <string name="refresh_daily_wallpaper_home_content_description" msgid="2770445044556164259">"تحديث خلفية الشاشة الرئيسية اليومية"</string>
-    <string name="refresh_daily_wallpaper_content_description" msgid="4362142658237147583">"تحديث الخلفية اليومية"</string>
-    <string name="refreshing_daily_wallpaper_dialog_message" msgid="1975910873362855761">"جارٍ تحديث الخلفية اليومية…"</string>
-    <string name="refresh_daily_wallpaper_failed_message" msgid="4749879993812557166">"تعذّر تحديث الخلفية اليومية. يُرجى التحقق من اتصالك بالشبكة وإعادة المحاولة."</string>
-    <string name="collapse_attribution_panel" msgid="4367971404848122275">"تصغير لوحة معلومات الخلفية"</string>
-    <string name="expand_attribution_panel" msgid="6975094181456095915">"توسيع لوحة معلومات الخلفية"</string>
+    <string name="explore_lock_screen" msgid="268938342103703665">"استكشاف خلفية شاشة القفل"</string>
+    <string name="refresh_daily_wallpaper_home_content_description" msgid="2770445044556164259">"إعادة تحميل خلفية الشاشة الرئيسية اليومية"</string>
+    <string name="refresh_daily_wallpaper_content_description" msgid="4362142658237147583">"إعادة تحميل الخلفية اليومية"</string>
+    <string name="refreshing_daily_wallpaper_dialog_message" msgid="1975910873362855761">"تجري إعادة تحميل الخلفية اليومية…"</string>
+    <string name="refresh_daily_wallpaper_failed_message" msgid="4749879993812557166">"تعذّرت إعادة تحميل الخلفية اليومية. يُرجى التحقق من اتصالك بالشبكة وإعادة المحاولة."</string>
     <string name="on_device_wallpapers_category_title" msgid="805819102071369004">"خلفيات على الجهاز"</string>
     <string name="on_device_wallpapers_category_title_desktop" msgid="316919420410065369">"على الجهاز"</string>
     <string name="on_device_wallpaper_title" msgid="5262564748034629524">"‏خلفية Android"</string>
@@ -80,4 +78,24 @@
     <string name="center_crop_wallpaper_position" msgid="1681980019815343348">"توسيط مع اقتصاص المساحة الزائدة"</string>
     <string name="stretch_wallpaper_position" msgid="5002680983147456935">"توسيع للعرض بملء الشاشة"</string>
     <string name="preview" msgid="1774602101743861071">"معاينة"</string>
+    <string name="tab_info" msgid="818614080690111416">"معلومات"</string>
+    <string name="tab_customize" msgid="2533745409174959960">"تخصيص"</string>
+    <string name="configure_wallpaper" msgid="849882179182976621">"الإعدادات…"</string>
+    <string name="delete_live_wallpaper" msgid="589212696102662329">"حذف"</string>
+    <string name="delete_wallpaper_confirmation" msgid="33790318361863778">"هل تريد حذف هذه الخلفية من هاتفك؟"</string>
+    <string name="bottom_action_bar_back" msgid="8237013112999946725">"رجوع"</string>
+    <string name="bottom_action_bar_edit" msgid="1214742990893082138">"تعديل"</string>
+    <string name="bottom_action_bar_download" msgid="3983122338076389421">"تنزيل"</string>
+    <string name="bottom_action_bar_slideshow_wallpaper" msgid="509770525179533154">"خلفية عرض الشرائح"</string>
+    <string name="bottom_action_bar_apply" msgid="2983308349819178932">"تطبيق"</string>
+    <string name="accessibility_preview_pager" msgid="1839869637405028575">"الصفحة <xliff:g id="ID_1">%1$d</xliff:g> من <xliff:g id="ID_2">%2$d</xliff:g>"</string>
+    <string name="next_page_content_description" msgid="6268461446679584152">"الصفحة التالية"</string>
+    <string name="previous_page_content_description" msgid="1138597031571078429">"الصفحة السابقة"</string>
+    <string name="wallpaper_title" msgid="6754214682228331092">"الخلفية"</string>
+    <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"معاينة عرض الشرائح"</string>
+    <string name="collection_not_exist_msg" msgid="3504852962885064842">"المجموعة غير متوفرة."</string>
+    <string name="hide_ui_preview_text" msgid="6766076482511252295">"إخفاء معاينة واجهة المستخدم"</string>
+    <string name="show_ui_preview_text" msgid="5993063062417070806">"عرض معاينة واجهة المستخدم"</string>
+    <string name="wallpaper_picker_entry_title" msgid="5185793991582084891">"تغيير الخلفية"</string>
+    <string name="lockscreen_wallpaper_preview_card_content_description" msgid="2244890820627302245">"معاينة خلفية شاشة القفل"</string>
 </resources>

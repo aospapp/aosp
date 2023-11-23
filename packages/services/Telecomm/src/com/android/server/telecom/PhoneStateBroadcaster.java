@@ -17,8 +17,16 @@
 package com.android.server.telecom;
 
 import android.telecom.Log;
+import android.telephony.PhoneNumberUtils;
+import android.telephony.SubscriptionInfo;
+import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.telephony.TelephonyRegistryManager;
+import android.telephony.emergency.EmergencyNumber;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Send a {@link TelephonyManager#ACTION_PHONE_STATE_CHANGED} broadcast when the call state
@@ -52,6 +60,10 @@ final class PhoneStateBroadcaster extends CallsManagerListenerBase {
             return;
         }
         updateStates(call);
+
+        if (call.isEmergencyCall() && !call.isIncoming()) {
+            sendOutgoingEmergencyCallEvent(call);
+        }
     }
 
     @Override
@@ -111,6 +123,40 @@ final class PhoneStateBroadcaster extends CallsManagerListenerBase {
         if (mRegistry != null) {
             mRegistry.notifyCallStateChangedForAllSubscriptions(phoneState, callHandle);
             Log.i(this, "Broadcasted state change: %s", mCurrentState);
+        }
+    }
+
+    private void sendOutgoingEmergencyCallEvent(Call call) {
+        TelephonyManager tm = mCallsManager.getContext().getSystemService(TelephonyManager.class);
+        String strippedNumber =
+                PhoneNumberUtils.stripSeparators(call.getHandle().getSchemeSpecificPart());
+        Optional<EmergencyNumber> emergencyNumber;
+        try {
+            emergencyNumber = tm.getEmergencyNumberList().values().stream()
+                    .flatMap(List::stream)
+                    .filter(numberObj -> Objects.equals(numberObj.getNumber(), strippedNumber))
+                    .findFirst();
+        } catch (IllegalStateException ie) {
+            emergencyNumber = Optional.empty();
+        } catch (RuntimeException r) {
+            emergencyNumber = Optional.empty();
+        }
+
+        int subscriptionId = tm.getSubscriptionId(call.getTargetPhoneAccount());
+        SubscriptionManager subscriptionManager =
+                mCallsManager.getContext().getSystemService(SubscriptionManager.class);
+        int simSlotIndex = SubscriptionManager.DEFAULT_PHONE_INDEX;
+        if (subscriptionManager != null) {
+            SubscriptionInfo subInfo =
+                    subscriptionManager.getActiveSubscriptionInfo(subscriptionId);
+            if (subInfo != null) {
+                simSlotIndex = subInfo.getSimSlotIndex();
+            }
+        }
+
+        if (emergencyNumber.isPresent()) {
+            mRegistry.notifyOutgoingEmergencyCall(
+                    simSlotIndex, subscriptionId, emergencyNumber.get());
         }
     }
 }

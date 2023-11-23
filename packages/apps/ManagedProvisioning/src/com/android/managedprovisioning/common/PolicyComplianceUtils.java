@@ -18,15 +18,21 @@ package com.android.managedprovisioning.common;
 
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE;
 
-import android.annotation.Nullable;
+import static com.android.managedprovisioning.provisioning.Constants.EXTRA_PROVISIONING_COLOR_PALETTE;
+
 import android.app.Activity;
 import android.app.admin.DevicePolicyManager;
+import android.content.Context;
 import android.content.Intent;
 import android.os.UserHandle;
 
-import com.android.managedprovisioning.analytics.MetricsWriterFactory;
 import com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker;
 import com.android.managedprovisioning.model.ProvisioningParams;
+
+import com.google.android.setupcompat.util.WizardManagerHelper;
+
+import java.util.HashMap;
+import java.util.function.BiConsumer;
 
 /**
  * Class containing utility methods for starting up a DPC during Setup Wizard.
@@ -34,12 +40,11 @@ import com.android.managedprovisioning.model.ProvisioningParams;
 public class PolicyComplianceUtils {
 
     /**
-     * Returns whether the DPC handles the policy compliance activity.
+     * Returns whether the DPC handles the policy compliance activity on a given user.
      */
-    public boolean isPolicyComplianceActivityResolvable(Activity parentActivity,
-            ProvisioningParams params, @Nullable String category, Utils utils) {
-        return getPolicyComplianceIntentIfResolvable(parentActivity, params, category, utils) !=
-                null;
+    public boolean isPolicyComplianceActivityResolvableForUser(
+            Context context, ProvisioningParams params, Utils utils, UserHandle userHandle) {
+        return getPolicyComplianceIntentIfResolvable(context, params, utils, userHandle) != null;
     }
 
     /**
@@ -47,56 +52,91 @@ public class PolicyComplianceUtils {
      * activity was started.
      */
     public boolean startPolicyComplianceActivityForResultIfResolved(Activity parentActivity,
-            ProvisioningParams params, @Nullable String category, int requestCode, Utils utils,
+            ProvisioningParams params, int requestCode, Utils utils,
+            ProvisioningAnalyticsTracker provisioningAnalyticsTracker,
+            TransitionHelper transitionHelper) {
+        return startPolicyComplianceActivityIfResolvedInternal(parentActivity, params, utils,
+                provisioningAnalyticsTracker, (Intent intent, UserHandle userHandle) -> {
+                    if (parentActivity.getIntent() != null) {
+                        WizardManagerHelper.copyWizardManagerExtras(
+                                parentActivity.getIntent(), intent);
+                    }
+                    transitionHelper.startActivityForResultAsUserWithTransition(
+                            parentActivity, intent, requestCode, userHandle);
+                });
+    }
+
+    /**
+     * Starts the policy compliance activity if it can be resolved, and returns whether the
+     * activity was started.
+     */
+    public boolean startPolicyComplianceActivityIfResolved(Context context,
+            ProvisioningParams params, Utils utils,
             ProvisioningAnalyticsTracker provisioningAnalyticsTracker) {
-        final UserHandle userHandle = getPolicyComplianceUserHandle(parentActivity, params, utils);
+        return startPolicyComplianceActivityIfResolvedInternal(
+                context,
+                params,
+                utils,
+                provisioningAnalyticsTracker,
+                context::startActivityAsUser);
+    }
+
+    private boolean startPolicyComplianceActivityIfResolvedInternal(
+            Context context, ProvisioningParams params, Utils utils,
+            ProvisioningAnalyticsTracker provisioningAnalyticsTracker,
+            BiConsumer<Intent, UserHandle> startActivityFunc) {
+        final UserHandle userHandle = getPolicyComplianceUserHandle(context, params, utils);
         final Intent policyComplianceIntent = getPolicyComplianceIntentIfResolvable(
-                parentActivity, params, category, utils);
+                context, params, utils, userHandle);
 
         if (policyComplianceIntent != null) {
-            parentActivity.startActivityForResultAsUser(
-                    policyComplianceIntent, requestCode, userHandle);
-            // Override the animation to avoid the transition jumping back and forth (b/149463287).
-            parentActivity.overridePendingTransition(/* enterAnim = */ 0, /* exitAnim= */ 0);
-            provisioningAnalyticsTracker.logDpcSetupStarted(parentActivity,
-                    policyComplianceIntent.getAction());
+            startActivityFunc.accept(policyComplianceIntent, userHandle);
+            ProvisionLogger.logd(
+                    "The DPC POLICY_COMPLIANCE handler was launched on user " + userHandle);
+            provisioningAnalyticsTracker.logDpcSetupStarted(
+                    context, policyComplianceIntent.getAction());
             return true;
         }
 
         return false;
     }
 
-    private Intent getPolicyComplianceIntentIfResolvable(Activity parentActivity,
-            ProvisioningParams params, @Nullable String category, Utils utils) {
-        final UserHandle userHandle = getPolicyComplianceUserHandle(parentActivity, params, utils);
-        final Intent policyComplianceIntent = getPolicyComplianceIntent(params, category);
-
-        final boolean intentResolvable = utils.canResolveIntentAsUser(parentActivity,
+    private Intent getPolicyComplianceIntentIfResolvable(Context context,
+            ProvisioningParams params, Utils utils, UserHandle userHandle) {
+        final Intent policyComplianceIntent = getPolicyComplianceIntent(params, context);
+        final boolean intentResolvable = utils.canResolveIntentAsUser(context,
                 policyComplianceIntent, userHandle.getIdentifier());
-
+        // Calling startActivity() from outside of an Activity context requires
+        // the FLAG_ACTIVITY_NEW_TASK flag.
+        if (!(context instanceof Activity)) {
+            policyComplianceIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        }
         return intentResolvable ? policyComplianceIntent : null;
     }
 
-    private Intent getPolicyComplianceIntent(ProvisioningParams params, @Nullable String category) {
+    private Intent getPolicyComplianceIntent(
+            ProvisioningParams params, Context context) {
         final String adminPackage = params.inferDeviceAdminPackageName();
-
         final Intent policyComplianceIntent =
                 new Intent(DevicePolicyManager.ACTION_ADMIN_POLICY_COMPLIANCE);
-        if (category != null) {
-            policyComplianceIntent.addCategory(category);
-        }
         policyComplianceIntent.putExtra(
                 DevicePolicyManager.EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE,
                 params.adminExtrasBundle);
+        // TODO(b/192254845): Remove EXTRA_PROVISIONING_COLOR_PALETTE when framework
+        //  fix available
+        HashMap<Integer, Integer> colorPaletteMap =
+                new ColorPaletteHelper().createColorPaletteMap(
+                        context,
+                        new ManagedProvisioningSharedPreferences(context));
+        policyComplianceIntent.putExtra(EXTRA_PROVISIONING_COLOR_PALETTE, colorPaletteMap);
         policyComplianceIntent.setPackage(adminPackage);
-
         return policyComplianceIntent;
     }
 
-    private UserHandle getPolicyComplianceUserHandle(Activity parentActivity,
+    private UserHandle getPolicyComplianceUserHandle(Context context,
             ProvisioningParams params, Utils utils) {
         return params.provisioningAction.equals(ACTION_PROVISION_MANAGED_PROFILE)
-                ? utils.getManagedProfile(parentActivity)
+                ? utils.getManagedProfile(context)
                 : UserHandle.of(UserHandle.myUserId());
     }
 }

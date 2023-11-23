@@ -16,12 +16,18 @@
 
 package com.android.server.util;
 
+import static android.Manifest.permission.NETWORK_SETTINGS;
+import static android.content.pm.PackageManager.PERMISSION_GRANTED;
 import static android.os.Binder.getCallingPid;
 import static android.os.Binder.getCallingUid;
 
+import android.content.Context;
+import android.content.pm.PackageManager;
 import android.os.Process;
+import android.os.SystemProperties;
 import android.os.UserHandle;
 
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -29,6 +35,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public final class PermissionUtil {
     private static final AtomicInteger sSystemPid = new AtomicInteger(-1);
+
+    private static volatile int sTestUid = Process.INVALID_UID;
 
     /**
      * Check that the caller is allowed to communicate with the network stack.
@@ -41,8 +49,9 @@ public final class PermissionUtil {
             return;
         }
 
-        if (caller != Process.myUid() && // apps with NETWORK_STACK_UID
-                UserHandle.getAppId(caller) != Process.BLUETOOTH_UID) {
+        if (caller != Process.myUid() // apps with NETWORK_STACK_UID
+                && UserHandle.getAppId(caller) != Process.BLUETOOTH_UID
+                && !isTestUid(caller)) {
             throw new SecurityException("Invalid caller: " + caller);
         }
     }
@@ -67,6 +76,42 @@ public final class PermissionUtil {
         }
     }
 
+    private static boolean isTestUid(int uid) {
+        return uid == sTestUid;
+    }
+
+    /**
+     * Set a test uid that is allowed to call the NetworkStack. Pass in -1 to reset.
+     *
+     * <p>The UID must have a package with NETWORK_SETTINGS permissions when it is allowed.
+     */
+    public static void setTestUid(Context context, int uid) {
+        if (!isDebuggableBuild()) {
+            throw new SecurityException("Cannot set test UID on non-debuggable builds");
+        }
+        if (getCallingUid() != Process.ROOT_UID) {
+            throw new SecurityException("Only root can set the test UID");
+        }
+
+        if (uid == Process.INVALID_UID) {
+            sTestUid = uid;
+            return;
+        }
+
+        final PackageManager pm = context.getPackageManager();
+        final String[] packages = pm.getPackagesForUid(uid);
+        if (packages == null) {
+            throw new SecurityException("No package in uid " + uid);
+        }
+        final boolean hasPermission = Arrays.stream(packages).anyMatch(
+                p -> pm.checkPermission(NETWORK_SETTINGS, p) == PERMISSION_GRANTED);
+        if (!hasPermission) {
+            throw new SecurityException(
+                    "The uid must have a package with NETWORK_SETTINGS permissions");
+        }
+        sTestUid = uid;
+    }
+
     /**
      * Check that the caller is allowed to dump the network stack, e.g. dumpsys.
      * @throws SecurityException The caller is not allowed to dump the network stack.
@@ -77,6 +122,14 @@ public final class PermissionUtil {
                 && caller != Process.SHELL_UID) {
             throw new SecurityException("No dump permissions for caller: " + caller);
         }
+    }
+
+    /**
+     * @see android.os.Build.IS_DEBUGGABLE
+     */
+    public static boolean isDebuggableBuild() {
+        // TODO: consider adding Build.IS_DEBUGGABLE to @SystemApi
+        return SystemProperties.getInt("ro.debuggable", 0) == 1;
     }
 
     private PermissionUtil() {

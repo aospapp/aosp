@@ -36,7 +36,7 @@
     <string name="callFailed_powerOff" msgid="2212239757387143765">"రేడియో ఆఫ్‌లో ఉంది"</string>
     <string name="callFailed_simError" msgid="510948380244092037">"సిమ్ లేదు లేదా సిమ్ లోపం"</string>
     <string name="callFailed_outOfService" msgid="2917536349269880601">"సెల్యులార్ నెట్‌వర్క్ అందుబాటులో లేదు"</string>
-    <string name="callFailed_fdn_only" msgid="584249308311672690">"FDN ద్వారా అవుట్‌గోయింగ్ కాల్‌లు పరిమితం చేయబడ్డాయి."</string>
+    <string name="callFailed_fdn_only" msgid="584249308311672690">"FDN ద్వారా అవుట్‌గోయింగ్ కాల్స్‌ పరిమితం చేయబడ్డాయి."</string>
     <string name="callFailed_dialToUssd" msgid="6794913139176808973">"కాల్ USSD అభ్యర్థనకు మార్చబడింది"</string>
     <string name="callFailed_dialToSs" msgid="6749473185855000519">"కాల్ SS అభ్యర్థనకు మార్చబడింది"</string>
     <string name="callFailed_dialToDial" msgid="391531243214210803">"వేరే నంబర్‌కు మార్చబడింది"</string>
@@ -45,13 +45,13 @@
     <string name="callFailed_dialVideoToUssd" msgid="4479951468674677111">"వీడియో కాల్ USSD అభ్యర్థనకు మార్చబడింది"</string>
     <string name="callFailed_dialVideoToDial" msgid="160029277192677751">"సాధారణ కాల్‌కు మార్చబడింది"</string>
     <string name="callFailed_dialVideoToDialVideo" msgid="3976695729414283836">"వేరే నంబర్‌కు మార్చబడింది"</string>
-    <string name="callFailed_cb_enabled" msgid="3555984829657638323">"కాల్ బేరింగ్ ఆన్‌లో ఉన్నప్పుడు అవుట్‌గోయింగ్ కాల్‌లు చేయలేరు."</string>
-    <string name="callFailed_dsac_restricted" msgid="4073547013432506074">"కాల్‌లు ప్రాప్యత నియంత్రణ ద్వారా నియంత్రించబడ్డాయి."</string>
-    <string name="callFailed_dsac_restricted_emergency" msgid="3271861683273124458">"అత్యవసర కాల్‌లు ప్రాప్యత నియంత్రణ ద్వారా నియంత్రించబడ్డాయి."</string>
-    <string name="callFailed_dsac_restricted_normal" msgid="2812267231481193715">"సాధారణ కాల్‌లు ప్రాప్యత నియంత్రణ ద్వారా నియంత్రించబడ్డాయి."</string>
+    <string name="callFailed_cb_enabled" msgid="3555984829657638323">"కాల్ బేరింగ్ ఆన్‌లో ఉన్నప్పుడు అవుట్‌గోయింగ్ కాల్స్‌ చేయలేరు."</string>
+    <string name="callFailed_dsac_restricted" msgid="4073547013432506074">"కాల్స్‌ ప్రాప్యత నియంత్రణ ద్వారా నియంత్రించబడ్డాయి."</string>
+    <string name="callFailed_dsac_restricted_emergency" msgid="3271861683273124458">"అత్యవసర కాల్స్‌ ప్రాప్యత నియంత్రణ ద్వారా నియంత్రించబడ్డాయి."</string>
+    <string name="callFailed_dsac_restricted_normal" msgid="2812267231481193715">"సాధారణ కాల్స్‌ ప్రాప్యత నియంత్రణ ద్వారా నియంత్రించబడ్డాయి."</string>
     <string name="callFailed_unobtainable_number" msgid="2048455732432022283">"నంబర్ చెల్లదు"</string>
     <string name="incall_error_missing_voicemail_number" msgid="4519524908114719666">"వాయిస్‌మెయిల్ నంబర్ తెలియదు."</string>
-    <string name="callFailed_video_call_tty_enabled" msgid="5419496275850000361">"TTY ప్రారంభించినప్పుడు వీడియో కాల్‌లను చేయలేరు."</string>
+    <string name="callFailed_video_call_tty_enabled" msgid="5419496275850000361">"TTY ప్రారంభించినప్పుడు వీడియో కాల్స్‌ను చేయలేరు."</string>
     <string name="callEnded_pulled" msgid="4824518546417807865">"కాల్ మరో పరికరానికి బదిలీ చేయబడింది."</string>
     <string name="ringtone_silent" msgid="1173111569760233645">"ఏదీ వద్దు"</string>
     <string name="ringtone_unknown" msgid="3036191370493284036">"తెలియని రింగ్‌టోన్"</string>

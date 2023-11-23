@@ -20,8 +20,15 @@
 
 #include <android-base/logging.h>
 
+#include "Experiments.h"
+
 namespace android {
 namespace net {
+
+DnsTlsQueryMap::DnsTlsQueryMap() {
+    mMaxTries = Experiments::getInstance()->getFlag("dot_maxtries", kMaxTries);
+    if (mMaxTries < 1) mMaxTries = 1;
+}
 
 std::unique_ptr<DnsTlsQueryMap::QueryFuture> DnsTlsQueryMap::recordQuery(
         const netdutils::Slice query) {
@@ -67,7 +74,7 @@ void DnsTlsQueryMap::cleanup() {
     std::lock_guard guard(mLock);
     for (auto it = mQueries.begin(); it != mQueries.end();) {
         auto& p = it->second;
-        if (p.tries >= kMaxTries) {
+        if (p.tries >= mMaxTries) {
             expire(&p);
             it = mQueries.erase(it);
         } else {

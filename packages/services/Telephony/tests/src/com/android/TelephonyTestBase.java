@@ -27,6 +27,7 @@ import com.android.internal.telephony.PhoneConfigurationManager;
 import org.mockito.MockitoAnnotations;
 
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -56,6 +57,21 @@ public class TelephonyTestBase {
     public void tearDown() throws Exception {
         // Ensure there are no static references to handlers after test completes.
         PhoneConfigurationManager.unregisterAllMultiSimConfigChangeRegistrants();
+    }
+
+    protected final boolean waitForExecutorAction(Executor executor, long timeoutMillis) {
+        final CountDownLatch lock = new CountDownLatch(1);
+        executor.execute(() -> {
+            lock.countDown();
+        });
+        while (lock.getCount() > 0) {
+            try {
+                return lock.await(timeoutMillis, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                // do nothing
+            }
+        }
+        return true;
     }
 
     protected final void waitForHandlerAction(Handler h, long timeoutMillis) {

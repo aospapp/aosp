@@ -12,14 +12,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["packages_modules_ExtServices_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "packages_modules_ExtServices_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
 android_library {
     name: "ExtServices-core",
     srcs: [
-        "src/**/*.java",
+        "java/src/**/*.java",
     ],
     sdk_version: "system_current",
+    min_sdk_version: "30",
     resource_dirs: [
-        "res",
+        "java/res",
     ],
 
     manifest: "AndroidManifest.xml",
@@ -32,31 +50,30 @@ android_library {
     ],
 
     plugins: ["java_api_finder"],
+    lint: {
+        strict_updatability_linting: true,
+    },
 }
 
 android_app {
     name: "ExtServices",
     sdk_version: "system_current",
+    min_sdk_version: "30",
     certificate: "platform",
     optimize: {
+        optimize: true,
+        proguard_compatibility: false,
         proguard_flags_files: ["proguard.proguard"],
     },
     privileged: true,
     static_libs: [
         "ExtServices-core",
     ],
-    jni_libs: ["libtextclassifier"],
+    jni_libs: ["libtextclassifier", "libextservices_jni"],
     use_embedded_native_libs: true,
     apex_available: [
         "//apex_available:platform",
         "com.android.extservices",
         "test_com.android.extservices",
-    ],
-    min_sdk_version: "current",
-    required: [
-        "libtextclassifier_annotator_en_model",
-        "libtextclassifier_annotator_universal_model",
-        "libtextclassifier_actions_suggestions_universal_model",
-        "libtextclassifier_lang_id_model",
     ],
 }

@@ -47,7 +47,7 @@ public abstract class BluetoothScanningDevicesGroupPreferenceController extends
 
     private final BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
     private final AlwaysDiscoverable mAlwaysDiscoverable;
-    private boolean mIsScanningEnabled;
+    private boolean mIsScanningEnabled = true;
 
     public BluetoothScanningDevicesGroupPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
@@ -81,7 +81,7 @@ public abstract class BluetoothScanningDevicesGroupPreferenceController extends
     @Override
     protected void updateState(PreferenceGroup preferenceGroup) {
         super.updateState(preferenceGroup);
-        if (shouldEnableScanning()) {
+        if (shouldEnableScanning() && mIsScanningEnabled) {
             enableScanning();
         } else {
             disableScanning();

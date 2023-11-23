@@ -24,7 +24,6 @@ import static com.android.customization.model.ResourceConstants.OVERLAY_CATEGORY
 import static com.android.customization.model.ResourceConstants.OVERLAY_CATEGORY_ICON_THEMEPICKER;
 import static com.android.customization.model.ResourceConstants.OVERLAY_CATEGORY_SHAPE;
 
-import android.graphics.Point;
 import android.provider.Settings;
 import android.text.TextUtils;
 
@@ -35,13 +34,6 @@ import com.android.customization.model.CustomizationManager;
 import com.android.customization.model.ResourceConstants;
 import com.android.customization.model.theme.custom.CustomTheme;
 import com.android.customization.module.ThemesUserEventLogger;
-import com.android.wallpaper.R;
-import com.android.wallpaper.asset.Asset;
-import com.android.wallpaper.model.LiveWallpaperInfo;
-import com.android.wallpaper.model.WallpaperInfo;
-import com.android.wallpaper.module.WallpaperPersister.SetWallpaperCallback;
-import com.android.wallpaper.module.WallpaperSetter;
-import com.android.wallpaper.util.WallpaperCropUtils;
 
 import org.json.JSONObject;
 
@@ -51,7 +43,7 @@ import java.util.Set;
 
 public class ThemeManager implements CustomizationManager<ThemeBundle> {
 
-    private static final Set<String> THEME_CATEGORIES = new HashSet<>();
+    public static final Set<String> THEME_CATEGORIES = new HashSet<>();
     static {
         THEME_CATEGORIES.add(OVERLAY_CATEGORY_COLOR);
         THEME_CATEGORIES.add(OVERLAY_CATEGORY_FONT);
@@ -61,25 +53,22 @@ public class ThemeManager implements CustomizationManager<ThemeBundle> {
         THEME_CATEGORIES.add(OVERLAY_CATEGORY_ICON_SYSUI);
         THEME_CATEGORIES.add(OVERLAY_CATEGORY_ICON_LAUNCHER);
         THEME_CATEGORIES.add(OVERLAY_CATEGORY_ICON_THEMEPICKER);
-    };
-
+    }
 
     private final ThemeBundleProvider mProvider;
     private final OverlayManagerCompat mOverlayManagerCompat;
 
-    private final WallpaperSetter mWallpaperSetter;
     protected final FragmentActivity mActivity;
     private final ThemesUserEventLogger mEventLogger;
 
     private Map<String, String> mCurrentOverlays;
 
     public ThemeManager(ThemeBundleProvider provider, FragmentActivity activity,
-            WallpaperSetter wallpaperSetter, OverlayManagerCompat overlayManagerCompat,
+            OverlayManagerCompat overlayManagerCompat,
             ThemesUserEventLogger logger) {
         mProvider = provider;
         mActivity = activity;
         mOverlayManagerCompat = overlayManagerCompat;
-        mWallpaperSetter = wallpaperSetter;
         mEventLogger = logger;
     }
 
@@ -90,67 +79,7 @@ public class ThemeManager implements CustomizationManager<ThemeBundle> {
 
     @Override
     public void apply(ThemeBundle theme, Callback callback) {
-        // Set wallpaper
-        if (theme.shouldUseThemeWallpaper()) {
-            mWallpaperSetter.requestDestination(mActivity, mActivity.getSupportFragmentManager(),
-                    R.string.set_theme_wallpaper_dialog_message,
-                    destination -> applyWallpaper(
-                            theme,
-                            destination,
-                            createSetWallpaperCallback(theme, callback)),
-                    theme.getWallpaperInfo() instanceof LiveWallpaperInfo);
-
-        } else {
-            applyOverlays(theme, callback);
-        }
-    }
-
-    private SetWallpaperCallback createSetWallpaperCallback(ThemeBundle theme, Callback callback) {
-        return new SetWallpaperCallback() {
-            @Override
-            public void onSuccess(WallpaperInfo wallpaperInfo) {
-                applyWallpaperOptions(theme);
-                applyOverlays(theme, callback);
-            }
-
-            @Override
-            public void onError(@Nullable Throwable throwable) {
-                callback.onError(throwable);
-            }
-        };
-    }
-
-    protected void applyWallpaperOptions(ThemeBundle theme) {
-        //Do nothing.
-    }
-
-    private void applyWallpaper(ThemeBundle theme, int destination,
-            SetWallpaperCallback callback) {
-        Point defaultCropSurfaceSize = WallpaperCropUtils.getDefaultCropSurfaceSize(
-                mActivity.getResources(),
-                mActivity.getWindowManager().getDefaultDisplay());
-        Asset wallpaperAsset = theme.getWallpaperInfo().getAsset(mActivity);
-        if (wallpaperAsset != null) {
-            wallpaperAsset.decodeRawDimensions(mActivity,
-                    dimensions -> {
-                        float scale = 1f;
-                        // Calculate scale to fit the screen height
-                        if (dimensions != null && dimensions.y > 0) {
-                            scale = (float) defaultCropSurfaceSize.y / dimensions.y;
-                        }
-                        mWallpaperSetter.setCurrentWallpaper(mActivity,
-                                theme.getWallpaperInfo(),
-                                wallpaperAsset,
-                                destination,
-                                scale, null, callback);
-                    });
-        } else {
-            mWallpaperSetter.setCurrentWallpaper(mActivity,
-                    theme.getWallpaperInfo(),
-                    null,
-                    destination,
-                    1f, null, callback);
-        }
+        applyOverlays(theme, callback);
     }
 
     private void applyOverlays(ThemeBundle theme, Callback callback) {

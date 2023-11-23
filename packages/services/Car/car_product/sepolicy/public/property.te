@@ -1,1 +1,1 @@
-type car_bootuser_prop, property_type;
+product_internal_prop(car_bootuser_prop)

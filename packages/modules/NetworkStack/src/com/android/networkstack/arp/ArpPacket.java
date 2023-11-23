@@ -19,12 +19,12 @@ package com.android.networkstack.arp;
 import static android.system.OsConstants.ETH_P_ARP;
 import static android.system.OsConstants.ETH_P_IP;
 
-import static com.android.server.util.NetworkStackConstants.ARP_ETHER_IPV4_LEN;
-import static com.android.server.util.NetworkStackConstants.ARP_HWTYPE_ETHER;
-import static com.android.server.util.NetworkStackConstants.ARP_REPLY;
-import static com.android.server.util.NetworkStackConstants.ARP_REQUEST;
-import static com.android.server.util.NetworkStackConstants.ETHER_ADDR_LEN;
-import static com.android.server.util.NetworkStackConstants.IPV4_ADDR_LEN;
+import static com.android.net.module.util.NetworkStackConstants.ARP_ETHER_IPV4_LEN;
+import static com.android.net.module.util.NetworkStackConstants.ARP_HWTYPE_ETHER;
+import static com.android.net.module.util.NetworkStackConstants.ARP_REPLY;
+import static com.android.net.module.util.NetworkStackConstants.ARP_REQUEST;
+import static com.android.net.module.util.NetworkStackConstants.ETHER_ADDR_LEN;
+import static com.android.net.module.util.NetworkStackConstants.IPV4_ADDR_LEN;
 
 import android.net.MacAddress;
 

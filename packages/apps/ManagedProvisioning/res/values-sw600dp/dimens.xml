@@ -32,7 +32,4 @@
 
     <!-- Pre-provisioning -->
     <dimen name="intro_margin">@dimen/spacer_40</dimen>
-
-    <dimen name="terms_screen_margin">@dimen/spacer_0</dimen>
-    <dimen name="terms_screen_padding">@dimen/spacer_64</dimen>
 </resources>

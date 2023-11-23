@@ -71,7 +71,11 @@
     <string name="accept" msgid="4426153292469698134">"સ્વીકારો"</string>
     <string name="reject" msgid="24751635160440693">"નકારો"</string>
     <string name="connections" msgid="8895413761760117180">"કનેક્શન"</string>
+    <string name="wifi_direct_problem" msgid="8995174986718516990">"ડિફૉલ્ટ પ્રિન્ટ સેવા Wi-Fi Direct પ્રિન્ટર શોધી શકતી નથી"</string>
+    <string name="disable_wifi_direct" msgid="4824677957241687577">"Wi-Fi Direct બંધ કરો"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"ડિફૉલ્ટ પ્રિન્ટ સેવાને નજીકના ડિવાઇસ શોઘવા સ્થાન માટેની પરવાનગીની જરૂર છે."</string>
     <string name="fix" msgid="7784394272611365393">"પરવાનગીનો રિવ્યૂ કરો"</string>
+    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"ડિફૉલ્ટ પ્રિન્ટ સેવાને નજીકના ડિવાઇસ શોધવા માટે, સ્થાન સેવાઓ ચાલુ કરવાની જરૂર છે."</string>
+    <string name="enable_location" msgid="3627841004298863140">"સ્થાન સેવા ચાલુ કરો"</string>
     <string name="print" msgid="7851318072404916362">"પ્રિન્ટ કરો"</string>
 </resources>

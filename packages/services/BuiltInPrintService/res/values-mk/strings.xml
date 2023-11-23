@@ -54,8 +54,8 @@
     <string name="searching" msgid="2114018057619514587">"Се пребарува…"</string>
     <string name="connect_hint_text" msgid="587112503851044234">"Може ќе треба да ја одобрите врскава на контролната табла на вашиот печатач"</string>
     <string name="connecting_to" msgid="2665161014972086194">"Се поврзува со <xliff:g id="PRINTER">%1$s</xliff:g>"</string>
-    <string name="failed_printer_connection" msgid="4196305972749960362">"Не можеше да се поврзе со печатачот"</string>
-    <string name="failed_connection" msgid="8068661997318286575">"Не можеше да се поврзе со <xliff:g id="PRINTER">%1$s</xliff:g>"</string>
+    <string name="failed_printer_connection" msgid="4196305972749960362">"Не може да се поврзе со печатачот"</string>
+    <string name="failed_connection" msgid="8068661997318286575">"Не може да се поврзе со <xliff:g id="PRINTER">%1$s</xliff:g>"</string>
     <string name="saved_printers" msgid="4567534965213125526">"Зачувани печатачи"</string>
     <string name="forget" msgid="892068061425802502">"Избриши го"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Се поврзува преку Wi-Fi Direct"</string>
@@ -71,7 +71,11 @@
     <string name="accept" msgid="4426153292469698134">"Прифати"</string>
     <string name="reject" msgid="24751635160440693">"Одбиј"</string>
     <string name="connections" msgid="8895413761760117180">"Поврзувања"</string>
+    <string name="wifi_direct_problem" msgid="8995174986718516990">"Услугата за стандардно печатење не може да ги најде печатачите со Wi-Fi Direct"</string>
+    <string name="disable_wifi_direct" msgid="4824677957241687577">"Оневозможи Wi-Fi Direct"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Услугата за стандардно печатење има потреба од дозвола за локација за да најде уреди во близина."</string>
     <string name="fix" msgid="7784394272611365393">"Прикажи ја дозволата"</string>
+    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"Услугата за стандардно печатење бара да бидат овозможени услугите според локација за да најде уреди во близина."</string>
+    <string name="enable_location" msgid="3627841004298863140">"Овозможи локација"</string>
     <string name="print" msgid="7851318072404916362">"Печати"</string>
 </resources>

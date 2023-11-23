@@ -112,6 +112,22 @@ class NetworkStackNotifierTest {
         }
     }
 
+    private val mTestCapportVenueUrlWithFriendlyNameLp by lazy {
+        LinkProperties().apply {
+            captivePortalData = CaptivePortalData.Builder()
+                    .setCaptive(false)
+                    .setVenueInfoUrl(Uri.parse(TEST_VENUE_INFO_URL))
+                    .build()
+            val networkShim = NetworkInformationShimImpl.newInstance()
+            val captivePortalDataShim = networkShim.getCaptivePortalData(this)
+
+            if (captivePortalDataShim != null) {
+                networkShim.setCaptivePortalData(this, captivePortalDataShim
+                        .withVenueFriendlyName(TEST_NETWORK_FRIENDLY_NAME))
+            }
+        }
+    }
+
     private val TEST_NETWORK = Network(42)
     private val TEST_NETWORK_TAG = TEST_NETWORK.networkHandle.toString()
     private val TEST_SSID = "TestSsid"
@@ -125,6 +141,7 @@ class NetworkStackNotifierTest {
 
     private val TEST_VENUE_INFO_URL = "https://testvenue.example.com/info"
     private val EMPTY_CAPPORT_LP = LinkProperties()
+    private val TEST_NETWORK_FRIENDLY_NAME = "Network Friendly Name"
 
     @Before
     fun setUp() {
@@ -331,6 +348,28 @@ class NetworkStackNotifierTest {
         mLooper.processAllMessages()
 
         verify(mNm, never()).notify(eq(TEST_NETWORK_TAG), anyInt(), any())
+    }
+
+    @Test
+    fun testConnectedVenueInfoWithFriendlyNameNotification() {
+        // Venue info (CaptivePortalData) with friendly name is not available for API <= R
+        assumeTrue(NetworkInformationShimImpl.useApiAboveR())
+        mNotifier.notifyCaptivePortalValidationPending(TEST_NETWORK)
+        onLinkPropertiesChanged(mTestCapportVenueUrlWithFriendlyNameLp)
+        onDefaultNetworkAvailable(TEST_NETWORK)
+        val capabilities = NetworkCapabilities(VALIDATED_CAPABILITIES).setSSID(TEST_SSID)
+        onCapabilitiesChanged(capabilities)
+
+        mLooper.processAllMessages()
+
+        verifyConnectedNotification(timeout = 0)
+        verifyVenueInfoIntent(mIntentCaptor.value)
+        verify(mResources).getString(R.string.tap_for_info)
+        verify(mNm).notify(eq(TEST_NETWORK_TAG), mNoteIdCaptor.capture(), mNoteCaptor.capture())
+        val note = mNoteCaptor.value
+        assertEquals(TEST_NETWORK_FRIENDLY_NAME, note.extras
+                .getCharSequence(Notification.EXTRA_TITLE))
+        verifyCanceledNotificationAfterDefaultNetworkLost()
     }
 
     private fun verifyVenueInfoIntent(intent: Intent) {

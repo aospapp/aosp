@@ -31,6 +31,8 @@ import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
 
+import java.io.FileDescriptor;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -167,5 +169,25 @@ public class DefaultCellBroadcastService extends CellBroadcastService {
             buf[bufIndex++] = HEX_DIGITS[b & 0x0F];
         }
         return new String(buf);
+    }
+
+    @Override
+    protected void dump(FileDescriptor fd, PrintWriter writer, String[] args) {
+        writer.println("DefaultCellBroadcastService:");
+        if (mGsmCellBroadcastHandler != null) {
+            mGsmCellBroadcastHandler.dump(fd, writer, args);
+        } else {
+            writer.println("  mGsmCellBroadcastHandler is null");
+        }
+        if (mCdmaCellBroadcastHandler != null) {
+            mCdmaCellBroadcastHandler.dump(fd, writer, args);
+        } else {
+            writer.println("  mCdmaCellBroadcastHandler is null");
+        }
+        if (mCdmaScpHandler != null) {
+            mCdmaScpHandler.dump(fd, writer, args);
+        } else {
+            writer.println("  mCdmaScpHandler is null");
+        }
     }
 }

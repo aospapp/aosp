@@ -19,13 +19,6 @@
               android:layout_height="wrap_content"
               android:orientation="vertical">
 
-    <TextView
-        android:id="@+id/option_label"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:layout_marginBottom="@dimen/theme_option_label_margin"
-        android:textAppearance="@style/OptionTitleTextAppearance"/>
     <FrameLayout
         android:id="@+id/option_tile"
         android:layout_width="@dimen/option_tile_width"
@@ -33,6 +26,7 @@
         android:layout_gravity="center_horizontal"
         android:paddingHorizontal="@dimen/option_tile_padding_horizontal"
         android:paddingVertical="@dimen/option_tile_padding_vertical"
+        android:layout_marginHorizontal="@dimen/component_options_margin_horizontal"
         android:background="@drawable/option_border">
         <TextView
             android:id="@+id/thumbnail_text"

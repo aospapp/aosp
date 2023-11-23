@@ -14,34 +14,33 @@
      limitations under the License.
 -->
 
-<manifest
-        xmlns:android="http://schemas.android.com/apk/res/android"
-        package="com.android.car.linkviewer">
-    <application
-            android:allowBackup="true"
-            android:icon="@drawable/ic_app_icon"
-            android:label="@string/app_name"
-            android:supportsRtl="true"
-            android:theme="@style/AppTheme">
-        <activity android:name=".LinkViewerActivity">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+     package="com.android.car.linkviewer">
+    <application android:allowBackup="true"
+         android:icon="@drawable/ic_app_icon"
+         android:label="@string/app_name"
+         android:supportsRtl="true"
+         android:theme="@style/AppTheme">
+        <activity android:name=".LinkViewerActivity"
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
             </intent-filter>
             <!-- Catch intents which do not specify a MIME type -->
             <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="http" />
-                <data android:scheme="https" />
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="http"/>
+                <data android:scheme="https"/>
             </intent-filter>
             <!-- Catch intents which do specify a MIME type -->
             <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="http" />
-                <data android:scheme="https" />
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="http"/>
+                <data android:scheme="https"/>
                 <data android:mimeType="text/html"/>
                 <data android:mimeType="text/plain"/>
                 <data android:mimeType="application/xhtml+xml"/>

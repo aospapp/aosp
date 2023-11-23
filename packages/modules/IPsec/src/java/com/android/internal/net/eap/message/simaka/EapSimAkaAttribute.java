@@ -23,6 +23,7 @@ import com.android.internal.net.eap.exceptions.simaka.EapSimAkaInvalidAtPaddingE
 import com.android.internal.net.eap.exceptions.simaka.EapSimAkaInvalidAttributeException;
 import com.android.internal.net.eap.exceptions.simaka.EapSimInvalidAtRandException;
 
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -131,6 +132,64 @@ public abstract class EapSimAkaAttribute {
      * @param byteBuffer the ByteBuffer that this instance will be written to
      */
     public abstract void encode(ByteBuffer byteBuffer);
+
+    /**
+     * EapSimAkaReservedBytesAttribute represents any EAP-SIM/AKA attribute that is of the format:
+     *
+     * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+     * |  Attribute Type (1B)  |  Length (1B)  |  Reserved (2B)  |
+     * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+     * |  Value...
+     * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+     *
+     * <p>Note: This Attribute type ignores (but preserves) the Reserved bytes. This is needed for
+     * calculating MACs in EAP-SIM/AKA.
+     */
+    protected abstract static class EapSimAkaReservedBytesAttribute extends EapSimAkaAttribute {
+        protected static final int RESERVED_BYTES_LEN = 2;
+
+        @VisibleForTesting public final byte[] reservedBytes = new byte[RESERVED_BYTES_LEN];
+
+        protected EapSimAkaReservedBytesAttribute(
+                int attributeType, int lengthInBytes, ByteBuffer buffer)
+                throws EapSimAkaInvalidAttributeException {
+            super(attributeType, lengthInBytes);
+
+            try {
+                buffer.get(reservedBytes);
+            } catch (BufferUnderflowException e) {
+                throw new EapSimAkaInvalidAttributeException("Invalid attribute length", e);
+            }
+        }
+
+        protected EapSimAkaReservedBytesAttribute(int attributeType, int lengthInBytes)
+                throws EapSimAkaInvalidAttributeException {
+            super(attributeType, lengthInBytes);
+        }
+
+        protected EapSimAkaReservedBytesAttribute(
+                int attributeType, int lengthInBytes, byte[] reservedBytes)
+                throws EapSimAkaInvalidAttributeException {
+            this(attributeType, lengthInBytes);
+
+            if (reservedBytes.length != RESERVED_BYTES_LEN) {
+                throw new EapSimAkaInvalidAttributeException("Invalid attribute length");
+            }
+            System.arraycopy(
+                    reservedBytes,
+                    0 /* srcPos */,
+                    this.reservedBytes,
+                    0 /* destPos */,
+                    RESERVED_BYTES_LEN);
+        }
+
+        @Override
+        public void encode(ByteBuffer buffer) {
+            encodeAttributeHeader(buffer);
+
+            buffer.put(reservedBytes);
+        }
+    }
 
     protected void encodeAttributeHeader(ByteBuffer byteBuffer) {
         byteBuffer.put((byte) attributeType);
@@ -286,9 +345,8 @@ public abstract class EapSimAkaAttribute {
     /**
      * AtNonceMt represents the AT_NONCE_MT attribute defined in RFC 4186#10.4
      */
-    public static class AtNonceMt extends EapSimAkaAttribute {
+    public static class AtNonceMt extends EapSimAkaReservedBytesAttribute {
         private static final int LENGTH = 5 * LENGTH_SCALING;
-        private static final int RESERVED_BYTES = 2;
 
         public static final int NONCE_MT_LENGTH = 16;
 
@@ -296,13 +354,11 @@ public abstract class EapSimAkaAttribute {
 
         public AtNonceMt(int lengthInBytes, ByteBuffer byteBuffer)
                 throws EapSimAkaInvalidAttributeException {
-            super(EAP_AT_NONCE_MT, LENGTH);
+            super(EAP_AT_NONCE_MT, LENGTH, byteBuffer);
             if (lengthInBytes != LENGTH) {
                 throw new EapSimAkaInvalidAttributeException("Invalid Length specified");
             }
 
-            // next two bytes are reserved (RFC 4186 Section 10.4)
-            byteBuffer.get(new byte[RESERVED_BYTES]);
             byteBuffer.get(nonceMt);
         }
 
@@ -318,37 +374,27 @@ public abstract class EapSimAkaAttribute {
 
         @Override
         public void encode(ByteBuffer byteBuffer) {
-            encodeAttributeHeader(byteBuffer);
-            byteBuffer.put(new byte[RESERVED_BYTES]);
+            super.encode(byteBuffer);
+
             byteBuffer.put(nonceMt);
         }
     }
 
-    private abstract static class AtIdReq extends EapSimAkaAttribute {
+    private abstract static class AtIdReq extends EapSimAkaReservedBytesAttribute {
         private static final int ATTR_LENGTH = LENGTH_SCALING;
-        private static final int RESERVED_BYTES = 2;
 
         protected AtIdReq(int lengthInBytes, int attributeType, ByteBuffer byteBuffer)
                 throws EapSimAkaInvalidAttributeException {
-            super(attributeType, ATTR_LENGTH);
+            super(attributeType, ATTR_LENGTH, byteBuffer);
 
             if (lengthInBytes != ATTR_LENGTH) {
                 throw new EapSimAkaInvalidAttributeException("Invalid Length specified");
             }
-
-            // next two bytes are reserved (RFC 4186 Section 10.5-10.7)
-            byteBuffer.get(new byte[RESERVED_BYTES]);
         }
 
         @VisibleForTesting
         protected AtIdReq(int attributeType) throws EapSimAkaInvalidAttributeException {
             super(attributeType, ATTR_LENGTH);
-        }
-
-        @Override
-        public void encode(ByteBuffer byteBuffer) {
-            encodeAttributeHeader(byteBuffer);
-            byteBuffer.put(new byte[RESERVED_BYTES]);
         }
     }
 
@@ -454,9 +500,8 @@ public abstract class EapSimAkaAttribute {
     /**
      * AtRandSim represents the AT_RAND attribute for EAP-SIM defined in RFC 4186#10.9
      */
-    public static class AtRandSim extends EapSimAkaAttribute {
+    public static class AtRandSim extends EapSimAkaReservedBytesAttribute {
         private static final int RAND_LENGTH = 16;
-        private static final int RESERVED_BYTES = 2;
         private static final int MIN_RANDS = 2;
         private static final int MAX_RANDS = 3;
 
@@ -464,10 +509,7 @@ public abstract class EapSimAkaAttribute {
 
         public AtRandSim(int lengthInBytes, ByteBuffer byteBuffer)
                 throws EapSimAkaInvalidAttributeException {
-            super(EAP_AT_RAND, lengthInBytes);
-
-            // next two bytes are reserved (RFC 4186 Section 10.9)
-            byteBuffer.get(new byte[RESERVED_BYTES]);
+            super(EAP_AT_RAND, lengthInBytes, byteBuffer);
 
             int numRands = (lengthInBytes - MIN_ATTR_LENGTH) / RAND_LENGTH;
             if (!isValidNumRands(numRands)) {
@@ -510,8 +552,7 @@ public abstract class EapSimAkaAttribute {
 
         @Override
         public void encode(ByteBuffer byteBuffer) {
-            encodeAttributeHeader(byteBuffer);
-            byteBuffer.put(new byte[RESERVED_BYTES]);
+            super.encode(byteBuffer);
 
             for (byte[] rand : rands) {
                 byteBuffer.put(rand);
@@ -522,23 +563,19 @@ public abstract class EapSimAkaAttribute {
     /**
      * AtRandAka represents the AT_RAND attribute for EAP-AKA defined in RFC 4187#10.6
      */
-    public static class AtRandAka extends EapSimAkaAttribute {
+    public static class AtRandAka extends EapSimAkaReservedBytesAttribute {
         private static final int ATTR_LENGTH = 5 * LENGTH_SCALING;
         private static final int RAND_LENGTH = 16;
-        private static final int RESERVED_BYTES = 2;
 
         public final byte[] rand = new byte[RAND_LENGTH];
 
         public AtRandAka(int lengthInBytes, ByteBuffer byteBuffer)
                 throws EapSimAkaInvalidAttributeException {
-            super(EAP_AT_RAND, lengthInBytes);
+            super(EAP_AT_RAND, lengthInBytes, byteBuffer);
 
             if (lengthInBytes != ATTR_LENGTH) {
                 throw new EapSimAkaInvalidAttributeException("Length must be 20B");
             }
-
-            // next two bytes are reserved (RFC 4187#10.6)
-            byteBuffer.get(new byte[RESERVED_BYTES]);
 
             byteBuffer.get(rand);
         }
@@ -557,8 +594,8 @@ public abstract class EapSimAkaAttribute {
 
         @Override
         public void encode(ByteBuffer byteBuffer) {
-            encodeAttributeHeader(byteBuffer);
-            byteBuffer.put(new byte[RESERVED_BYTES]);
+            super.encode(byteBuffer);
+
             byteBuffer.put(rand);
         }
     }
@@ -598,9 +635,8 @@ public abstract class EapSimAkaAttribute {
     /**
      * AtMac represents the AT_MAC attribute defined in RFC 4186#10.14 and RFC 4187#10.15
      */
-    public static class AtMac extends EapSimAkaAttribute {
+    public static class AtMac extends EapSimAkaReservedBytesAttribute {
         private static final int ATTR_LENGTH = 5 * LENGTH_SCALING;
-        private static final int RESERVED_BYTES = 2;
 
         public static final int MAC_LENGTH = 4 * LENGTH_SCALING;
 
@@ -608,40 +644,51 @@ public abstract class EapSimAkaAttribute {
 
         public AtMac(int lengthInBytes, ByteBuffer byteBuffer)
                 throws EapSimAkaInvalidAttributeException {
-            super(EAP_AT_MAC, lengthInBytes);
+            super(EAP_AT_MAC, lengthInBytes, byteBuffer);
 
             if (lengthInBytes != ATTR_LENGTH) {
                 throw new EapSimAkaInvalidAttributeException("Invalid Length specified");
             }
 
-            // next two bytes are reserved (RFC 4186 Section 10.14)
-            byteBuffer.get(new byte[RESERVED_BYTES]);
-
             mac = new byte[MAC_LENGTH];
             byteBuffer.get(mac);
         }
 
-        // Used for calculating MACs. Per RFC 4186 Section 10.14, the MAC should be calculated over
-        // the entire packet, with the value field of the MAC attribute set to zero.
+        // Constructs an AtMac with an empty MAC and empty RESERVED bytes. Should only be used for
+        // calculating MACs in outbound messages.
         public AtMac() throws EapSimAkaInvalidAttributeException {
-            super(EAP_AT_MAC, ATTR_LENGTH);
-            mac = new byte[MAC_LENGTH];
+            this(new byte[MAC_LENGTH]);
         }
 
         public AtMac(byte[] mac) throws EapSimAkaInvalidAttributeException {
-            super(EAP_AT_MAC, ATTR_LENGTH);
-            this.mac = mac;
+            this(new byte[RESERVED_BYTES_LEN], mac);
+        }
+
+        @VisibleForTesting
+        public AtMac(byte[] reservedBytes, byte[] mac) throws EapSimAkaInvalidAttributeException {
+            super(EAP_AT_MAC, ATTR_LENGTH, reservedBytes);
 
             if (mac.length != MAC_LENGTH) {
                 throw new EapSimAkaInvalidAttributeException("Invalid length for MAC");
             }
+            this.mac = mac;
         }
 
         @Override
         public void encode(ByteBuffer byteBuffer) {
-            encodeAttributeHeader(byteBuffer);
-            byteBuffer.put(new byte[RESERVED_BYTES]);
+            super.encode(byteBuffer);
+
             byteBuffer.put(mac);
+        }
+
+        /**
+         * Returns a copy of this AtMac with the MAC cleared (and the reserved bytes preserved).
+         *
+         * <p>Per RFC 4186 Section 10.14, the MAC should be calculated over the entire packet, with
+         * the value field of the MAC attribute set to zero.
+         */
+        public AtMac getAtMacWithMacCleared() throws EapSimAkaInvalidAttributeException {
+            return new AtMac(reservedBytes, new byte[MAC_LENGTH]);
         }
     }
 
@@ -712,23 +759,20 @@ public abstract class EapSimAkaAttribute {
      *
      * <p>This Nonce is generated by the server and used for fast re-authentication only.
      */
-    public static class AtNonceS extends EapSimAkaAttribute {
+    public static class AtNonceS extends EapSimAkaReservedBytesAttribute {
         private static final int ATTR_LENGTH = 5 * LENGTH_SCALING;
         private static final int NONCE_S_LENGTH = 4 * LENGTH_SCALING;
-        private static final int RESERVED_BYTES = 2;
 
         public final byte[] nonceS = new byte[NONCE_S_LENGTH];
 
         public AtNonceS(int lengthInBytes, ByteBuffer byteBuffer)
                 throws EapSimAkaInvalidAttributeException {
-            super(EAP_AT_NONCE_S, lengthInBytes);
+            super(EAP_AT_NONCE_S, lengthInBytes, byteBuffer);
 
             if (lengthInBytes != ATTR_LENGTH) {
                 throw new EapSimAkaInvalidAttributeException("Invalid Length specified");
             }
 
-            // next two bytes are reserved (RFC 4186 Section 10.17)
-            byteBuffer.get(new byte[RESERVED_BYTES]);
             byteBuffer.get(nonceS);
         }
 
@@ -745,8 +789,8 @@ public abstract class EapSimAkaAttribute {
 
         @Override
         public void encode(ByteBuffer byteBuffer) {
-            encodeAttributeHeader(byteBuffer);
-            byteBuffer.put(new byte[RESERVED_BYTES]);
+            super.encode(byteBuffer);
+
             byteBuffer.put(nonceS);
         }
     }
@@ -888,23 +932,19 @@ public abstract class EapSimAkaAttribute {
     /**
      * AtAutn represents the AT_AUTN attribute defined in RFC 4187#10.7
      */
-    public static class AtAutn extends EapSimAkaAttribute {
+    public static class AtAutn extends EapSimAkaReservedBytesAttribute {
         private static final int ATTR_LENGTH = 5 * LENGTH_SCALING;
         private static final int AUTN_LENGTH = 16;
-        private static final int RESERVED_BYTES = 2;
 
         public final byte[] autn = new byte[AUTN_LENGTH];
 
         public AtAutn(int lengthInBytes, ByteBuffer byteBuffer)
                 throws EapSimAkaInvalidAttributeException {
-            super(EAP_AT_AUTN, lengthInBytes);
+            super(EAP_AT_AUTN, lengthInBytes, byteBuffer);
 
             if (lengthInBytes != ATTR_LENGTH) {
                 throw new EapSimAkaInvalidAttributeException("Length must be 20B");
             }
-
-            // next two bytes are reserved (RFC 4187#10.7)
-            byteBuffer.get(new byte[RESERVED_BYTES]);
 
             byteBuffer.get(autn);
         }
@@ -922,8 +962,8 @@ public abstract class EapSimAkaAttribute {
 
         @Override
         public void encode(ByteBuffer byteBuffer) {
-            encodeAttributeHeader(byteBuffer);
-            byteBuffer.put(new byte[RESERVED_BYTES]);
+            super.encode(byteBuffer);
+
             byteBuffer.put(autn);
         }
     }

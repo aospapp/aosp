@@ -17,7 +17,7 @@
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/container"
+    android:id="@+id/item_container"
     android:layout_width="match_parent"
     android:layout_height="@dimen/media_browse_list_item_height"
     android:paddingStart="@dimen/media_browse_list_item_icon_margin_start"

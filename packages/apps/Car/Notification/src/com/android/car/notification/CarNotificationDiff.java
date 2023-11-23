@@ -22,6 +22,8 @@ import android.os.Bundle;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.DiffUtil;
 
+import com.android.car.ui.recyclerview.ContentLimitingAdapter;
+
 import java.util.List;
 import java.util.Objects;
 
@@ -42,26 +44,29 @@ class CarNotificationDiff extends DiffUtil.Callback {
     private final Context mContext;
     private final List<NotificationGroup> mOldList;
     private final List<NotificationGroup> mNewList;
+    private final int mMaxItems;
 
-    CarNotificationDiff(
-            Context context,
-            @NonNull
-            List<NotificationGroup> oldList,
-            @NonNull
-            List<NotificationGroup> newList) {
+    CarNotificationDiff(Context context, @NonNull List<NotificationGroup> oldList,
+            @NonNull List<NotificationGroup> newList) {
+        this(context, oldList, newList, ContentLimitingAdapter.UNLIMITED);
+    }
+
+    CarNotificationDiff(Context context, @NonNull List<NotificationGroup> oldList,
+            @NonNull List<NotificationGroup> newList, int maxItems) {
         mContext = context;
         mOldList = oldList;
         mNewList = newList;
+        mMaxItems = maxItems;
     }
 
     @Override
     public int getOldListSize() {
-        return mOldList.size();
+        return getContentLimitedListSize(mOldList.size());
     }
 
     @Override
     public int getNewListSize() {
-        return mNewList.size();
+        return getContentLimitedListSize(mNewList.size());
     }
 
     @Override
@@ -200,7 +205,7 @@ class CarNotificationDiff extends DiffUtil.Callback {
                 || !Objects.equals(oldNotification.contentIntent, newNotification.contentIntent)
                 || !Objects.equals(oldNotification.deleteIntent, newNotification.deleteIntent)
                 || !Objects.equals(
-                        oldNotification.fullScreenIntent, newNotification.fullScreenIntent)
+                oldNotification.fullScreenIntent, newNotification.fullScreenIntent)
                 || !Objects.deepEquals(oldNotification.actions, newNotification.actions)) {
             return false;
         }
@@ -232,5 +237,14 @@ class CarNotificationDiff extends DiffUtil.Callback {
         }
 
         return true;
+    }
+
+    private int getContentLimitedListSize(int listSize) {
+        if (mMaxItems != ContentLimitingAdapter.UNLIMITED) {
+            // Add one to mMaxItems to account for the scrolling limited message that is added by
+            // the ContentLimitingAdapter.
+            return Math.min(listSize, mMaxItems + 1);
+        }
+        return listSize;
     }
 }

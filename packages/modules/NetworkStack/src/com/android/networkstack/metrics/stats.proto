@@ -19,7 +19,7 @@ option java_multiple_files = true;
 
 package com.android.networkstack.metrics;
 
-import "frameworks/base/core/proto/android/stats/connectivity/network_stack.proto";
+import "frameworks/proto_logging/stats/enums/stats/connectivity/network_stack.proto";
 
 message CapportApiData {
     // The TTL of the network connection provided by captive portal

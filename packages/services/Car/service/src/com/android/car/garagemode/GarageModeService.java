@@ -18,19 +18,16 @@ package com.android.car.garagemode;
 
 import android.content.Context;
 import android.os.Looper;
+import android.util.IndentingPrintWriter;
 
 import com.android.car.CarServiceBase;
 import com.android.internal.annotations.VisibleForTesting;
-
-import java.io.PrintWriter;
-import java.util.List;
 
 /**
  * Main service container for car Garage Mode.
  * Garage Mode enables idle time in cars.
  */
 public class GarageModeService implements CarServiceBase {
-    private static final Logger LOG = new Logger("Service");
 
     private final Context mContext;
     private final Controller mController;
@@ -67,13 +64,10 @@ public class GarageModeService implements CarServiceBase {
      * @param writer Where to dump the information
      */
     @Override
-    public void dump(PrintWriter writer) {
+    public void dump(IndentingPrintWriter writer) {
         boolean isActive = mController.isGarageModeActive();
         writer.println("GarageModeInProgress " + isActive);
-        List<String> status = mController.dump();
-        for (int idx = 0; idx < status.size(); idx++) {
-            writer.println(status.get(idx));
-        }
+        mController.dump(writer);
     }
 
     /**

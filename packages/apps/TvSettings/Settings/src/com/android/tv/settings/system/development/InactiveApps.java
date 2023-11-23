@@ -27,7 +27,6 @@ import androidx.annotation.Keep;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceScreen;
 
-import com.android.internal.logging.nano.MetricsProto;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
 
@@ -96,10 +95,5 @@ public class InactiveApps extends SettingsPreferenceFragment implements
         mUsageStats.setAppInactive(packageName, !mUsageStats.isAppInactive(packageName));
         updateSummary(preference);
         return false;
-    }
-
-    @Override
-    public int getMetricsCategory() {
-        return MetricsProto.MetricsEvent.FUELGAUGE_INACTIVE_APPS;
     }
 }

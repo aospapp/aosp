@@ -53,10 +53,15 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.os.UserManager;
 
+import com.android.car.CarLocalServices;
 import com.android.car.CarMediaService;
 import com.android.car.R;
+import com.android.car.power.CarPowerManagementService;
+import com.android.car.systeminterface.SystemInterface;
 import com.android.car.user.CarUserService;
+import com.android.internal.app.IVoiceInteractionManagerService;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
@@ -84,6 +89,9 @@ public class CarMediaServiceTest extends AbstractExtendedMockitoTestCase {
     @Mock private UserManager mUserManager;
     @Mock private PackageManager mPackageManager;
     @Mock private MediaSessionManager mMediaSessionManager;
+    @Mock private SystemInterface mMockSystemInterface;
+    @Mock private IVoiceInteractionManagerService mMockVoiceService;
+    @Mock private CarPowerManagementService mMockCarPowerManagementService;
 
     private CarMediaService mCarMediaService;
 
@@ -106,6 +114,13 @@ public class CarMediaServiceTest extends AbstractExtendedMockitoTestCase {
         doReturn(mMediaSessionManager).when(mContext).getSystemService(MediaSessionManager.class);
 
         mCarMediaService = new CarMediaService(mContext, mUserService);
+        CarLocalServices.addService(CarPowerManagementService.class,
+                mMockCarPowerManagementService);
+    }
+
+    @After
+    public void tearDown() {
+        CarLocalServices.removeServiceForTest(CarPowerManagementService.class);
     }
 
     @Test
@@ -324,11 +339,11 @@ public class CarMediaServiceTest extends AbstractExtendedMockitoTestCase {
 
         doAnswer(invocation -> {
             MediaSessionManager.OnActiveSessionsChangedListener callback =
-                    invocation.getArgument(0);
+                    invocation.getArgument(3);
             callback.onActiveSessionsChanged(controllers);
             return null;
-        }).when(mMediaSessionManager).addOnActiveSessionsChangedListener(any(
-                MediaSessionManager.OnActiveSessionsChangedListener.class), any(), anyInt(), any());
+        }).when(mMediaSessionManager).addOnActiveSessionsChangedListener(any(), any(), any(),
+                any(MediaSessionManager.OnActiveSessionsChangedListener.class));
     }
 
     // This method sets up PackageManager queries to return mocked media components if specified

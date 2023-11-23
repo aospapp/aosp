@@ -32,10 +32,10 @@
     <string name="home_screen_message" msgid="106444102822522813">"होम स्क्रीन"</string>
     <string name="lock_screen_message" msgid="1534506081955058013">"लॉक स्‍क्रीन"</string>
     <string name="home_and_lock_short_label" msgid="2937922943541927983">"होम स्क्रीन और लॉक स्क्रीन पर"</string>
-    <string name="set_wallpaper_dialog_message" msgid="6114951028768599417">"वॉलपेपर सेट करें"</string>
+    <string name="set_wallpaper_dialog_message" msgid="2110475703996853076">"वॉलपेपर सेट करें"</string>
     <string name="set_wallpaper_home_screen_destination" msgid="7315594722013109354">"होम स्क्रीन"</string>
     <string name="set_wallpaper_lock_screen_destination" msgid="6224685559375417945">"लॉक स्‍क्रीन"</string>
-    <string name="set_wallpaper_both_destination" msgid="6967226064958263939">"होम स्क्रीन और लॉक स्क्रीन"</string>
+    <string name="set_wallpaper_both_destination" msgid="233216830256235288">"होम और लॉक स्क्रीन"</string>
     <string name="no_backup_image_wallpaper_label" msgid="6316627676107284851">"तय समय के बाद बदलने वाला इमेज वॉलपेपर"</string>
     <string name="permission_needed_explanation" msgid="139166837541426823">"यहां पर मौजूदा वॉलपेपर दिखाने के लिए, <xliff:g id="APP_NAME">%1$s</xliff:g> को आपके डिवाइस की मेमोरी का ऐक्सेस चाहिए."</string>
     <string name="permission_needed_explanation_go_to_settings" msgid="3923551582092599609">"यहां पर मौजूदा वॉलपेपर दिखाने के लिए, वॉलपेपर को आपके डिवाइस की मेमोरी का ऐक्सेस चाहिए. \n\nवॉलपेपर ऐप्लिकेशन की जानकारी के मंज़ूरी वाले विकल्प पर जाकर आप यह सेटिंग बदल सकते हैं."</string>
@@ -66,8 +66,6 @@
     <string name="refresh_daily_wallpaper_content_description" msgid="4362142658237147583">"रोज़ बदलने वाला वॉलपेपर रीफ़्रेश करें"</string>
     <string name="refreshing_daily_wallpaper_dialog_message" msgid="1975910873362855761">"रोज़ बदलने वाला वॉलपेपर रीफ़्रेश हो रहा है…"</string>
     <string name="refresh_daily_wallpaper_failed_message" msgid="4749879993812557166">"रोज़ बदलने वाला वॉलपेपर रीफ़्रेश नहीं हो पा रहा है. कृपया अपना इंटरनेट कनेक्शन जाँचें और फिर से कोशिश करें."</string>
-    <string name="collapse_attribution_panel" msgid="4367971404848122275">"वॉलपेपर सूचना पैनल को छोटा करें"</string>
-    <string name="expand_attribution_panel" msgid="6975094181456095915">"वॉलपेपर सूचना पैनल को बड़ा करें"</string>
     <string name="on_device_wallpapers_category_title" msgid="805819102071369004">"डिवाइस पर पहले से मौजूद वॉलपेपर"</string>
     <string name="on_device_wallpapers_category_title_desktop" msgid="316919420410065369">"डिवाइस पर मौजूद वॉलपेपर"</string>
     <string name="on_device_wallpaper_title" msgid="5262564748034629524">"Android वॉलपेपर"</string>
@@ -80,4 +78,24 @@
     <string name="center_crop_wallpaper_position" msgid="1681980019815343348">"बीच का हिस्सा रखें"</string>
     <string name="stretch_wallpaper_position" msgid="5002680983147456935">"स्क्रीन के हिसाब से खींचें"</string>
     <string name="preview" msgid="1774602101743861071">"झलक"</string>
+    <string name="tab_info" msgid="818614080690111416">"जानकारी"</string>
+    <string name="tab_customize" msgid="2533745409174959960">"पसंद के मुताबिक बनाएं"</string>
+    <string name="configure_wallpaper" msgid="849882179182976621">"सेटिंग…"</string>
+    <string name="delete_live_wallpaper" msgid="589212696102662329">"मिटाएं"</string>
+    <string name="delete_wallpaper_confirmation" msgid="33790318361863778">"क्या आप अपने फ़ोन से यह वॉलपेपर मिटाना चाहते हैं?"</string>
+    <string name="bottom_action_bar_back" msgid="8237013112999946725">"वापस जाएं"</string>
+    <string name="bottom_action_bar_edit" msgid="1214742990893082138">"बदलाव करें"</string>
+    <string name="bottom_action_bar_download" msgid="3983122338076389421">"डाउनलोड करें"</string>
+    <string name="bottom_action_bar_slideshow_wallpaper" msgid="509770525179533154">"वॉलपेपर का स्लाइड शो देखें"</string>
+    <string name="bottom_action_bar_apply" msgid="2983308349819178932">"लागू करें"</string>
+    <string name="accessibility_preview_pager" msgid="1839869637405028575">"पेज <xliff:g id="ID_2">%2$d</xliff:g> का <xliff:g id="ID_1">%1$d</xliff:g>"</string>
+    <string name="next_page_content_description" msgid="6268461446679584152">"आगे बढ़ें"</string>
+    <string name="previous_page_content_description" msgid="1138597031571078429">"पीछे जाएं"</string>
+    <string name="wallpaper_title" msgid="6754214682228331092">"वॉलपेपर"</string>
+    <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"वॉलपेपर की झलक देखें"</string>
+    <string name="collection_not_exist_msg" msgid="3504852962885064842">"वॉलपेपर का संग्रह मौजूद नहीं है"</string>
+    <string name="hide_ui_preview_text" msgid="6766076482511252295">"यूज़र इंटरफ़ेस की झलक छिपाएं"</string>
+    <string name="show_ui_preview_text" msgid="5993063062417070806">"यूज़र इंटरफ़ेस की झलक दिखाएं"</string>
+    <string name="wallpaper_picker_entry_title" msgid="5185793991582084891">"वॉलपेपर बदलें"</string>
+    <string name="lockscreen_wallpaper_preview_card_content_description" msgid="2244890820627302245">"लॉकस्क्रीन पर दिखने वाले वॉलपेपर की झलक"</string>
 </resources>

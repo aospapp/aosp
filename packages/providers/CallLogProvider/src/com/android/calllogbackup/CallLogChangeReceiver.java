@@ -37,16 +37,8 @@ public class CallLogChangeReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         if (ACTION_CALL_LOG_CHANGE.equals(intent.getAction())) {
-
-            if (CallLogBackupAgent.shouldPreventBackup(context)) {
-                // User is not full-backup-data aware so we skip calllog backup until they are.
-                if (VDBG) {
-                    Log.v(TAG, "Skipping call log backup due to lack of full-data check.");
-                }
-            } else {
-                BackupManager bm = new BackupManager(context);
-                bm.dataChanged();
-            }
+            BackupManager bm = new BackupManager(context);
+            bm.dataChanged();
         }
     }
 

@@ -22,5 +22,5 @@
     android:key="@string/psk_choose_new_admin">
     <com.android.car.settings.common.LogicalPreferenceGroup
         android:key="@string/pk_choose_new_admin"
-        settings:controller="com.android.car.settings.users.ChooseNewAdminPreferenceController"/>
+        settings:controller="com.android.car.settings.profiles.ChooseNewAdminPreferenceController"/>
 </PreferenceScreen>

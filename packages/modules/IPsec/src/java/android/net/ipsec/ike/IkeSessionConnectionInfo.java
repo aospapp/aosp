@@ -17,21 +17,17 @@
 package android.net.ipsec.ike;
 
 import android.annotation.NonNull;
-import android.annotation.SystemApi;
 import android.net.Network;
 
 import java.net.InetAddress;
 import java.util.Objects;
 
 /**
- * IkeSessionConnectionInfo represents the connection information of a {@link IkeSession}.
+ * IkeSessionConnectionInfo represents the connection information of an {@link IkeSession}.
  *
  * <p>Connection information includes IP addresses of both the IKE client and server and the network
  * being used.
- *
- * @hide
  */
-@SystemApi
 public final class IkeSessionConnectionInfo {
     private final InetAddress mLocalAddress;
     private final InetAddress mRemoteAddress;
@@ -40,10 +36,14 @@ public final class IkeSessionConnectionInfo {
     /**
      * Construct an instance of {@link IkeSessionConnectionInfo}.
      *
-     * @hide
+     * <p>Except for testing, IKE library users normally do not instantiate {@link
+     * IkeSessionConnectionInfo} themselves but instead get a reference via {@link
+     * IkeSessionConfiguration} or {@link IkeSessionCallback}
      */
     public IkeSessionConnectionInfo(
-            InetAddress localAddress, InetAddress remoteAddress, Network network) {
+            @NonNull InetAddress localAddress,
+            @NonNull InetAddress remoteAddress,
+            @NonNull Network network) {
         Objects.requireNonNull(localAddress, "localAddress not provided");
         Objects.requireNonNull(remoteAddress, "remoteAddress not provided");
         Objects.requireNonNull(network, "network not provided");

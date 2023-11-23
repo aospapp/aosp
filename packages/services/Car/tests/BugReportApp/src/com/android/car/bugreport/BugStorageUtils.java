@@ -23,6 +23,7 @@ import static com.android.car.bugreport.BugStorageProvider.COLUMN_STATUS;
 import static com.android.car.bugreport.BugStorageProvider.COLUMN_STATUS_MESSAGE;
 import static com.android.car.bugreport.BugStorageProvider.COLUMN_TIMESTAMP;
 import static com.android.car.bugreport.BugStorageProvider.COLUMN_TITLE;
+import static com.android.car.bugreport.BugStorageProvider.COLUMN_TTL_POINTS;
 import static com.android.car.bugreport.BugStorageProvider.COLUMN_TYPE;
 import static com.android.car.bugreport.BugStorageProvider.COLUMN_USERNAME;
 
@@ -36,14 +37,15 @@ import android.net.Uri;
 import android.util.Log;
 
 import com.google.api.client.auth.oauth2.TokenResponseException;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -65,6 +67,19 @@ final class BugStorageUtils {
     private static final String INVALID_GRANT = "invalid_grant";
 
     private static final DateFormat TIMESTAMP_FORMAT = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss");
+
+    /**
+     * List of {@link Status}-es that will be expired after certain period by
+     * {@link ExpireOldBugReportsJob}.
+     */
+    private static final ImmutableList<Integer> EXPIRATION_STATUSES = ImmutableList.of(
+            Status.STATUS_WRITE_FAILED.getValue(),
+            Status.STATUS_UPLOAD_PENDING.getValue(),
+            Status.STATUS_UPLOAD_FAILED.getValue(),
+            Status.STATUS_PENDING_USER_ACTION.getValue(),
+            Status.STATUS_MOVE_FAILED.getValue(),
+            Status.STATUS_MOVE_IN_PROGRESS.getValue(),
+            Status.STATUS_AUDIO_PENDING.getValue());
 
     /**
      * Creates a new {@link Status#STATUS_WRITE_PENDING} bug report record in a local sqlite
@@ -167,6 +182,17 @@ final class BugStorageUtils {
     }
 
     /**
+     * Deletes the associated zip file from disk and then sets status {@link Status#STATUS_EXPIRED}.
+     *
+     * @return true if succeeded.
+     */
+    static boolean expireBugReport(@NonNull Context context, int bugReportId) {
+        ContentResolver r = context.getContentResolver();
+        return r.delete(BugStorageProvider.buildUriWithSegment(
+                bugReportId, BugStorageProvider.URL_SEGMENT_EXPIRE), null, null) == 1;
+    }
+
+    /**
      * Returns all the bugreports that are waiting to be uploaded.
      */
     @NonNull
@@ -184,6 +210,35 @@ final class BugStorageUtils {
     @NonNull
     public static List<MetaBugReport> getAllBugReportsDescending(@NonNull Context context) {
         return getBugreports(context, null, null, COLUMN_ID + " DESC");
+    }
+
+    /**
+     * Returns list of bugreports with zip files (with the best possible guess).
+     *
+     * @param context A context.
+     * @param ttlPointsReachedZero if true it returns bugreports with
+     *                             {@link BugStorageProvider#COLUMN_TTL_POINTS} equal 0; if false
+     *                             {@link BugStorageProvider#COLUMN_TTL_POINTS} more than 0.
+     */
+    @NonNull
+    static List<MetaBugReport> getUnexpiredBugReportsWithZipFile(
+            @NonNull Context context, boolean ttlPointsReachedZero) {
+        // Number of question marks should be the same as the size of EXPIRATION_STATUSES.
+        String selection = COLUMN_STATUS + " IN (?, ?, ?, ?, ?, ?, ?)";
+        Preconditions.checkState(EXPIRATION_STATUSES.size() == 7, "Invalid EXPIRATION_STATUSES");
+        if (ttlPointsReachedZero) {
+            selection += " AND " + COLUMN_TTL_POINTS + " = 0";
+        } else {
+            selection += " AND " + COLUMN_TTL_POINTS + " > 0";
+        }
+        String[] selectionArgs = EXPIRATION_STATUSES.stream()
+                .map(i -> Integer.toString(i)).toArray(String[]::new);
+        return getBugreports(context, selection, selectionArgs, null);
+    }
+
+    /** Return true if bugreport with given status can be expired. */
+    static boolean canBugReportBeExpired(int status) {
+        return EXPIRATION_STATUSES.contains(status);
     }
 
     /** Returns {@link MetaBugReport} for given bugreport id. */
@@ -211,7 +266,8 @@ final class BugStorageUtils {
                 COLUMN_FILEPATH,
                 COLUMN_STATUS,
                 COLUMN_STATUS_MESSAGE,
-                COLUMN_TYPE};
+                COLUMN_TYPE,
+                COLUMN_TTL_POINTS};
         ContentResolver r = context.getContentResolver();
         Cursor c = r.query(BugStorageProvider.BUGREPORT_CONTENT_URI, projection,
                 selection, selectionArgs, order);
@@ -231,6 +287,7 @@ final class BugStorageUtils {
                     .setStatus(getInt(c, COLUMN_STATUS))
                     .setStatusMessage(getString(c, COLUMN_STATUS_MESSAGE))
                     .setType(getInt(c, COLUMN_TYPE))
+                    .setTtlPoints(getInt(c, COLUMN_TTL_POINTS))
                     .build();
             bugReports.add(meta);
             c.moveToNext();
@@ -288,22 +345,6 @@ final class BugStorageUtils {
      */
     public static void setUploadRetry(Context context, MetaBugReport bugReport, String msg) {
         setBugReportStatus(context, bugReport, Status.STATUS_UPLOAD_PENDING, msg);
-    }
-
-    /**
-     * Sets {@link MetaBugReport} status {@link Status#STATUS_EXPIRED}.
-     * Deletes the associated zip file from disk.
-     *
-     * @return true if succeeded.
-     */
-    static boolean expireBugReport(@NonNull Context context,
-            @NonNull MetaBugReport metaBugReport, @NonNull Instant expiredAt) {
-        metaBugReport = setBugReportStatus(
-                context, metaBugReport, Status.STATUS_EXPIRED, "Expired on " + expiredAt);
-        if (metaBugReport.getStatus() != Status.STATUS_EXPIRED.getValue()) {
-            return false;
-        }
-        return deleteBugReportFiles(context, metaBugReport.getId());
     }
 
     /** Gets the root cause of the error. */

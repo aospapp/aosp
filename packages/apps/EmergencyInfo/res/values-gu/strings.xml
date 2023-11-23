@@ -94,7 +94,7 @@
     <string name="remove_contact" msgid="6934983445723096759">"<xliff:g id="CONTACT_NAME">%1$s</xliff:g> ને કટોકટીના સંપર્કોમાંથી દૂર કરીએ?"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"સંપર્ક દૂર કરો"</string>
     <string name="fail_add_contact" msgid="6511490846952942291">"સંપર્ક માહિતી યોગ્ય રીતે વાંચવામાં અસમર્થ"</string>
-    <string name="remove" msgid="1243949503772376064">"દૂર કરો"</string>
+    <string name="remove" msgid="1243949503772376064">"કાઢી નાખો"</string>
     <string name="cancel" msgid="7401575239009060939">"રદ કરો"</string>
     <string name="ok" msgid="163967937451981024">"ઓકે"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>

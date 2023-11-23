@@ -26,12 +26,12 @@ import androidx.annotation.CallSuper;
 import androidx.annotation.VisibleForTesting;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceGroup;
-import androidx.preference.SwitchPreference;
 
 import com.android.car.settings.R;
 import com.android.car.settings.applications.specialaccess.AppStateAppOpsBridge.PermissionState;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
+import com.android.car.ui.preference.CarUiSwitchPreference;
 import com.android.settingslib.applications.ApplicationsState;
 import com.android.settingslib.applications.ApplicationsState.AppEntry;
 import com.android.settingslib.applications.ApplicationsState.AppFilter;
@@ -198,7 +198,7 @@ public class AppOpsPreferenceController extends PreferenceController<PreferenceG
         return filterObj;
     }
 
-    private static class AppOpPreference extends SwitchPreference {
+    private static class AppOpPreference extends CarUiSwitchPreference {
 
         private final AppEntry mEntry;
 

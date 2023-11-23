@@ -20,13 +20,13 @@
 #include <android-base/logging.h>
 #include <android-base/parseint.h>
 #include <android-base/properties.h>
+#include <android-base/result.h>
 #include <android-base/stringprintf.h>
 #include <android-base/unique_fd.h>
 #include <android/multinetwork.h>  // ResNsendFlags
 #include <arpa/inet.h>
 #include <arpa/nameser.h>
 #include <binder/ProcessState.h>
-#include <bpf/BpfUtils.h>
 #include <cutils/sockets.h>
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
@@ -52,27 +52,46 @@
 #include <iterator>
 #include <numeric>
 #include <thread>
+#include <unordered_set>
 
 #include <DnsProxydProtocol.h>  // NETID_USE_LOCAL_NAMESERVERS
 #include <aidl/android/net/IDnsResolver.h>
 #include <android/binder_manager.h>
 #include <android/binder_process.h>
+#include <bpf/BpfUtils.h>
+#include <util.h>  // getApiLevel
 #include "NetdClient.h"
 #include "ResolverStats.h"
 #include "netid_client.h"  // NETID_UNSET
 #include "params.h"        // MAXNS
-#include "test_utils.h"
+#include "stats.h"         // RCODE_TIMEOUT
 #include "tests/dns_metrics_listener/dns_metrics_listener.h"
 #include "tests/dns_responder/dns_responder.h"
 #include "tests/dns_responder/dns_responder_client_ndk.h"
 #include "tests/dns_responder/dns_tls_certificate.h"
 #include "tests/dns_responder/dns_tls_frontend.h"
 #include "tests/resolv_test_utils.h"
+#include "tests/tun_forwarder.h"
+#include "tests/unsolicited_listener/unsolicited_event_listener.h"
 
 // Valid VPN netId range is 100 ~ 65535
 constexpr int TEST_VPN_NETID = 65502;
 constexpr int MAXPACKET = (8 * 1024);
 
+const std::string kSortNameserversFlag("persist.device_config.netd_native.sort_nameservers");
+const std::string kDotConnectTimeoutMsFlag(
+        "persist.device_config.netd_native.dot_connect_timeout_ms");
+const std::string kDotAsyncHandshakeFlag("persist.device_config.netd_native.dot_async_handshake");
+const std::string kDotMaxretriesFlag("persist.device_config.netd_native.dot_maxtries");
+const std::string kDotRevalidationThresholdFlag(
+        "persist.device_config.netd_native.dot_revalidation_threshold");
+const std::string kDotXportUnusableThresholdFlag(
+        "persist.device_config.netd_native.dot_xport_unusable_threshold");
+const std::string kDotQueryTimeoutMsFlag("persist.device_config.netd_native.dot_query_timeout_ms");
+const std::string kDotValidationLatencyFactorFlag(
+        "persist.device_config.netd_native.dot_validation_latency_factor");
+const std::string kDotValidationLatencyOffsetMsFlag(
+        "persist.device_config.netd_native.dot_validation_latency_offset_ms");
 // Semi-public Bionic hook used by the NDK (frameworks/base/native/android/net.c)
 // Tested here for convenience.
 extern "C" int android_getaddrinfofornet(const char* hostname, const char* servname,
@@ -83,12 +102,23 @@ using namespace std::chrono_literals;
 
 using aidl::android::net::IDnsResolver;
 using aidl::android::net::INetd;
+using aidl::android::net::ResolverOptionsParcel;
 using aidl::android::net::ResolverParamsParcel;
+using aidl::android::net::metrics::INetdEventListener;
+using aidl::android::net::resolv::aidl::DnsHealthEventParcel;
+using aidl::android::net::resolv::aidl::IDnsResolverUnsolicitedEventListener;
+using aidl::android::net::resolv::aidl::Nat64PrefixEventParcel;
+using aidl::android::net::resolv::aidl::PrivateDnsValidationEventParcel;
+using android::base::Error;
+using android::base::GetProperty;
 using android::base::ParseInt;
+using android::base::Result;
 using android::base::StringPrintf;
 using android::base::unique_fd;
 using android::net::ResolverStats;
+using android::net::TunForwarder;
 using android::net::metrics::DnsMetricsListener;
+using android::net::resolv::aidl::UnsolicitedEventListener;
 using android::netdutils::enableSockopt;
 using android::netdutils::makeSlice;
 using android::netdutils::ResponseCode;
@@ -142,6 +172,21 @@ struct NameserverStats {
     int internal_errors = 0;
 };
 
+class ScopedSystemProperties {
+  public:
+    ScopedSystemProperties(const std::string& key, const std::string& value) : mStoredKey(key) {
+        mStoredValue = android::base::GetProperty(key, "");
+        android::base::SetProperty(key, value);
+    }
+    ~ScopedSystemProperties() { android::base::SetProperty(mStoredKey, mStoredValue); }
+
+  private:
+    std::string mStoredKey;
+    std::string mStoredValue;
+};
+
+const bool isAtLeastR = (getApiLevel() >= 30);
+
 }  // namespace
 
 class ResolverTest : public ::testing::Test {
@@ -155,8 +200,8 @@ class ResolverTest : public ::testing::Test {
         // service.
 
         AIBinder* binder = AServiceManager_getService("dnsresolver");
-        ndk::SpAIBinder resolvBinder = ndk::SpAIBinder(binder);
-        auto resolvService = aidl::android::net::IDnsResolver::fromBinder(resolvBinder);
+        sResolvBinder = ndk::SpAIBinder(binder);
+        auto resolvService = aidl::android::net::IDnsResolver::fromBinder(sResolvBinder);
         ASSERT_NE(nullptr, resolvService.get());
 
         // Subscribe the death recipient to the service IDnsResolver for detecting Netd death.
@@ -176,6 +221,12 @@ class ResolverTest : public ::testing::Test {
                 TEST_NETID /*monitor specific network*/);
         ASSERT_TRUE(resolvService->registerEventListener(sDnsMetricsListener).isOk());
 
+        // Subscribe the unsolicited event listener for verifying unsolicited event contents.
+        sUnsolicitedEventListener = ndk::SharedRefBase::make<UnsolicitedEventListener>(
+                TEST_NETID /*monitor specific network*/);
+        ASSERT_TRUE(
+                resolvService->registerUnsolicitedEventListener(sUnsolicitedEventListener).isOk());
+
         // Start the binder thread pool for listening DNS metrics events and receiving death
         // recipient.
         ABinderProcess_startThreadPool();
@@ -186,6 +237,9 @@ class ResolverTest : public ::testing::Test {
     void SetUp() {
         mDnsClient.SetUp();
         sDnsMetricsListener->reset();
+        sUnsolicitedEventListener->reset();
+        mIsResolverOptionIPCSupported =
+                DnsResponderClient::isRemoteVersionSupported(mDnsClient.resolvService(), 9);
     }
 
     void TearDown() {
@@ -219,18 +273,67 @@ class ResolverTest : public ::testing::Test {
 
     bool WaitForNat64Prefix(ExpectNat64PrefixStatus status,
                             std::chrono::milliseconds timeout = std::chrono::milliseconds(1000)) {
-        return sDnsMetricsListener->waitForNat64Prefix(status, timeout);
+        return sDnsMetricsListener->waitForNat64Prefix(status, timeout) &&
+               sUnsolicitedEventListener->waitForNat64Prefix(
+                       status == EXPECT_FOUND
+                               ? IDnsResolverUnsolicitedEventListener::PREFIX_OPERATION_ADDED
+                               : IDnsResolverUnsolicitedEventListener::PREFIX_OPERATION_REMOVED,
+                       timeout);
     }
 
     bool WaitForPrivateDnsValidation(std::string serverAddr, bool validated) {
-        return sDnsMetricsListener->waitForPrivateDnsValidation(serverAddr, validated);
+        return sDnsMetricsListener->waitForPrivateDnsValidation(serverAddr, validated) &&
+               sUnsolicitedEventListener->waitForPrivateDnsValidation(
+                       serverAddr,
+                       validated ? IDnsResolverUnsolicitedEventListener::VALIDATION_RESULT_SUCCESS
+                                 : IDnsResolverUnsolicitedEventListener::VALIDATION_RESULT_FAILURE);
     }
 
     bool hasUncaughtPrivateDnsValidation(const std::string& serverAddr) {
-        return sDnsMetricsListener->findValidationRecord(serverAddr);
+        return sDnsMetricsListener->findValidationRecord(serverAddr) &&
+               sUnsolicitedEventListener->findValidationRecord(serverAddr);
     }
 
-    bool expectStatsFromGetResolverInfo(const std::vector<NameserverStats>& nameserversStats) {
+    void ExpectDnsEvent(int32_t eventType, int32_t returnCode, const std::string& hostname,
+                        const std::vector<std::string>& ipAddresses) {
+        const DnsMetricsListener::DnsEvent expect = {
+                TEST_NETID, eventType,   returnCode,
+                hostname,   ipAddresses, static_cast<int32_t>(ipAddresses.size())};
+        do {
+            // Blocking call until timeout.
+            const auto dnsEvent = sDnsMetricsListener->popDnsEvent();
+            ASSERT_TRUE(dnsEvent.has_value()) << "Expected DnsEvent " << expect;
+            if (dnsEvent.value() == expect) break;
+            LOG(INFO) << "Skip unexpected DnsEvent: " << dnsEvent.value();
+        } while (true);
+
+        while (returnCode == 0 || returnCode == RCODE_TIMEOUT) {
+            // Blocking call until timeout.
+            Result<int> result = sUnsolicitedEventListener->popDnsHealthResult();
+            ASSERT_TRUE(result.ok()) << "Expected dns health result is " << returnCode;
+            if ((returnCode == 0 &&
+                 result.value() == IDnsResolverUnsolicitedEventListener::DNS_HEALTH_RESULT_OK) ||
+                (returnCode == RCODE_TIMEOUT &&
+                 result.value() ==
+                         IDnsResolverUnsolicitedEventListener::DNS_HEALTH_RESULT_TIMEOUT)) {
+                break;
+            }
+            LOG(INFO) << "Skip unexpected dns health result:" << result.value();
+        }
+    }
+
+    enum class StatsCmp { LE, EQ };
+
+    bool expectStatsNotGreaterThan(const std::vector<NameserverStats>& nameserversStats) {
+        return expectStatsFromGetResolverInfo(nameserversStats, StatsCmp::LE);
+    }
+
+    bool expectStatsEqualTo(const std::vector<NameserverStats>& nameserversStats) {
+        return expectStatsFromGetResolverInfo(nameserversStats, StatsCmp::EQ);
+    }
+
+    bool expectStatsFromGetResolverInfo(const std::vector<NameserverStats>& nameserversStats,
+                                        const StatsCmp cmp) {
         std::vector<std::string> res_servers;
         std::vector<std::string> res_domains;
         std::vector<std::string> res_tls_servers;
@@ -269,10 +372,23 @@ class ResolverTest : public ::testing::Test {
 
             // The check excludes rtt_avg, last_sample_time, and usable since they will be obsolete
             // after |res_stats| is retrieved from NetConfig.dnsStats rather than NetConfig.nsstats.
-            EXPECT_EQ(res_stats[index].successes, stats.successes);
-            EXPECT_EQ(res_stats[index].errors, stats.errors);
-            EXPECT_EQ(res_stats[index].timeouts, stats.timeouts);
-            EXPECT_EQ(res_stats[index].internal_errors, stats.internal_errors);
+            switch (cmp) {
+                case StatsCmp::EQ:
+                    EXPECT_EQ(res_stats[index].successes, stats.successes);
+                    EXPECT_EQ(res_stats[index].errors, stats.errors);
+                    EXPECT_EQ(res_stats[index].timeouts, stats.timeouts);
+                    EXPECT_EQ(res_stats[index].internal_errors, stats.internal_errors);
+                    break;
+                case StatsCmp::LE:
+                    EXPECT_LE(res_stats[index].successes, stats.successes);
+                    EXPECT_LE(res_stats[index].errors, stats.errors);
+                    EXPECT_LE(res_stats[index].timeouts, stats.timeouts);
+                    EXPECT_LE(res_stats[index].internal_errors, stats.internal_errors);
+                    break;
+                default:
+                    ADD_FAILURE() << "Unknown comparator " << static_cast<int>(cmp);
+                    return false;
+            }
         }
 
         return true;
@@ -291,6 +407,8 @@ class ResolverTest : public ::testing::Test {
 
     DnsResponderClient mDnsClient;
 
+    bool mIsResolverOptionIPCSupported = false;
+
     // Use a shared static DNS listener for all tests to avoid registering lots of listeners
     // which may be released late until process terminated. Currently, registered DNS listener
     // is removed by binder death notification which is fired when the process hosting an
@@ -301,14 +419,22 @@ class ResolverTest : public ::testing::Test {
     static std::shared_ptr<DnsMetricsListener>
             sDnsMetricsListener;  // Initialized in SetUpTestSuite.
 
+    inline static std::shared_ptr<UnsolicitedEventListener>
+            sUnsolicitedEventListener;  // Initialized in SetUpTestSuite.
+
     // Use a shared static death recipient to monitor the service death. The static death
     // recipient could monitor the death not only during the test but also between tests.
     static AIBinder_DeathRecipient* sResolvDeathRecipient;  // Initialized in SetUpTestSuite.
+
+    // The linked AIBinder_DeathRecipient will be automatically unlinked if the binder is deleted.
+    // The binder needs to be retained throughout tests.
+    static ndk::SpAIBinder sResolvBinder;
 };
 
 // Initialize static member of class.
 std::shared_ptr<DnsMetricsListener> ResolverTest::sDnsMetricsListener;
 AIBinder_DeathRecipient* ResolverTest::sResolvDeathRecipient;
+ndk::SpAIBinder ResolverTest::sResolvBinder;
 
 TEST_F(ResolverTest, GetHostByName) {
     constexpr char nonexistent_host_name[] = "nonexistent.example.com.";
@@ -321,7 +447,7 @@ TEST_F(ResolverTest, GetHostByName) {
     result = gethostbyname("nonexistent");
     EXPECT_EQ(1U, GetNumQueriesForType(dns, ns_type::ns_t_a, nonexistent_host_name));
     ASSERT_TRUE(result == nullptr);
-    ASSERT_EQ(HOST_NOT_FOUND, h_errno);
+    EXPECT_EQ(HOST_NOT_FOUND, h_errno);
 
     dns.clearQueries();
     result = gethostbyname("hello");
@@ -331,6 +457,19 @@ TEST_F(ResolverTest, GetHostByName) {
     ASSERT_FALSE(result->h_addr_list[0] == nullptr);
     EXPECT_EQ("1.2.3.3", ToString(result));
     EXPECT_TRUE(result->h_addr_list[1] == nullptr);
+}
+
+TEST_F(ResolverTest, GetHostByName_NULL) {
+    // Most libc implementations would just crash on gethostbyname(NULL). Instead, Bionic
+    // serializes the null argument over dnsproxyd, causing the server-side to crash!
+    // This is a regression test.
+    const char* const testcases[] = {nullptr, "", "^"};
+    for (const char* name : testcases) {
+        SCOPED_TRACE(fmt::format("gethostbyname({})", name ? name : "NULL"));
+        const hostent* result = gethostbyname(name);
+        EXPECT_TRUE(result == nullptr);
+        EXPECT_EQ(HOST_NOT_FOUND, h_errno);
+    }
 }
 
 TEST_F(ResolverTest, GetHostByName_cnames) {
@@ -412,7 +551,7 @@ TEST_F(ResolverTest, GetHostByName_localhost) {
     constexpr char name_ip6_dot[] = "ip6-localhost.";
     constexpr char name_ip6_fqdn[] = "ip6-localhost.example.com.";
 
-    // Add a dummy nameserver which shouldn't receive any queries
+    // Add a no-op nameserver which shouldn't receive any queries
     test::DNSResponder dns;
     StartDns(dns, {});
     ASSERT_TRUE(mDnsClient.SetResolversForNetwork());
@@ -461,7 +600,7 @@ TEST_F(ResolverTest, GetHostByName_localhost) {
 }
 
 TEST_F(ResolverTest, GetHostByName_numeric) {
-    // Add a dummy nameserver which shouldn't receive any queries
+    // Add a no-op nameserver which shouldn't receive any queries
     test::DNSResponder dns;
     StartDns(dns, {});
     ASSERT_TRUE(mDnsClient.SetResolversForNetwork());
@@ -642,7 +781,7 @@ TEST_F(ResolverTest, GetAddrInfoV4) {
 }
 
 TEST_F(ResolverTest, GetAddrInfo_localhost) {
-    // Add a dummy nameserver which shouldn't receive any queries
+    // Add a no-op nameserver which shouldn't receive any queries
     test::DNSResponder dns;
     StartDns(dns, {});
     ASSERT_TRUE(mDnsClient.SetResolversForNetwork());
@@ -832,6 +971,51 @@ TEST_F(ResolverTest, GetAddrInfo_cnamesIllegalRdata) {
     EXPECT_TRUE(result == nullptr);
 }
 
+TEST_F(ResolverTest, GetAddrInfoForCaseInSensitiveDomains) {
+    test::DNSResponder dns;
+    const char* host_name = "howdy.example.com.";
+    const char* host_name2 = "HOWDY.example.com.";
+    const std::vector<DnsRecord> records = {
+            {host_name, ns_type::ns_t_a, "1.2.3.4"},
+            {host_name, ns_type::ns_t_aaaa, "::1.2.3.4"},
+            {host_name2, ns_type::ns_t_a, "1.2.3.5"},
+            {host_name2, ns_type::ns_t_aaaa, "::1.2.3.5"},
+    };
+    StartDns(dns, records);
+    ASSERT_TRUE(mDnsClient.SetResolversForNetwork());
+
+    ScopedAddrinfo hostname_result = safe_getaddrinfo("howdy", nullptr, nullptr);
+    EXPECT_TRUE(hostname_result != nullptr);
+    const size_t hostname1_count_after_first_query = GetNumQueries(dns, host_name);
+    EXPECT_LE(1U, hostname1_count_after_first_query);
+    // Could be A or AAAA
+    std::string hostname_result_str = ToString(hostname_result);
+    EXPECT_TRUE(hostname_result_str == "1.2.3.4" || hostname_result_str == "::1.2.3.4");
+
+    // Verify that the name is cached.
+    ScopedAddrinfo hostname2_result = safe_getaddrinfo("HOWDY", nullptr, nullptr);
+    EXPECT_TRUE(hostname2_result != nullptr);
+    const size_t hostname1_count_after_second_query = GetNumQueries(dns, host_name);
+    EXPECT_LE(1U, hostname1_count_after_second_query);
+
+    // verify that there is no change in num of queries for howdy.example.com
+    EXPECT_EQ(hostname1_count_after_first_query, hostname1_count_after_second_query);
+
+    // Number of queries for HOWDY.example.com would be >= 1 if domain names
+    // are considered case-sensitive, else number of queries should be 0.
+    const size_t hostname2_count = GetNumQueries(dns, host_name2);
+    EXPECT_EQ(0U,hostname2_count);
+    std::string hostname2_result_str = ToString(hostname2_result);
+    EXPECT_TRUE(hostname2_result_str == "1.2.3.4" || hostname2_result_str == "::1.2.3.4");
+
+    // verify that the result is still the same address even though
+    // mixed-case string is not in the DNS
+    ScopedAddrinfo result = safe_getaddrinfo("HowDY", nullptr, nullptr);
+    EXPECT_TRUE(result != nullptr);
+    std::string result_str = ToString(result);
+    EXPECT_TRUE(result_str == "1.2.3.4" || result_str == "::1.2.3.4");
+}
+
 TEST_F(ResolverTest, MultidomainResolution) {
     constexpr char host_name[] = "nihao.example2.com.";
     std::vector<std::string> searchDomains = {"example1.com", "example2.com", "example3.com"};
@@ -953,6 +1137,7 @@ TEST_F(ResolverTest, GetAddrInfoV6_nonresponsive) {
     EXPECT_TRUE(result != nullptr);
     EXPECT_EQ(1U, GetNumQueries(dns0, host_name1));
     EXPECT_EQ(1U, GetNumQueries(dns1, host_name1));
+    ExpectDnsEvent(INetdEventListener::EVENT_GETADDRINFO, 0, host_name1, {"2001:db8::6"});
 
     // Now make dns1 also ignore 100% requests... The resolve should alternate
     // queries between the nameservers and fail
@@ -962,6 +1147,7 @@ TEST_F(ResolverTest, GetAddrInfoV6_nonresponsive) {
     EXPECT_EQ(nullptr, result2);
     EXPECT_EQ(1U, GetNumQueries(dns0, host_name2));
     EXPECT_EQ(1U, GetNumQueries(dns1, host_name2));
+    ExpectDnsEvent(INetdEventListener::EVENT_GETADDRINFO, RCODE_TIMEOUT, host_name2, {});
 }
 
 TEST_F(ResolverTest, GetAddrInfoV6_concurrent) {
@@ -1021,36 +1207,64 @@ TEST_F(ResolverTest, SkipBadServersDueToInternalError) {
     constexpr char listen_addr1[] = "fe80::1";
     constexpr char listen_addr2[] = "255.255.255.255";
     constexpr char listen_addr3[] = "127.0.0.3";
-
+    int counter = 0;  // To generate unique hostnames.
     test::DNSResponder dns(listen_addr3);
     ASSERT_TRUE(dns.startServer());
 
-    ResolverParamsParcel parcel = DnsResponderClient::GetDefaultResolverParamsParcel();
-    parcel.servers = {listen_addr1, listen_addr2, listen_addr3};
+    ResolverParamsParcel setupParams = DnsResponderClient::GetDefaultResolverParamsParcel();
+    setupParams.servers = {listen_addr1, listen_addr2, listen_addr3};
+    setupParams.minSamples = 2;  // Recognize bad servers in two attempts when sorting not enabled.
 
-    // Bad servers can be distinguished after two attempts.
-    parcel.minSamples = 2;
-    ASSERT_TRUE(mDnsClient.SetResolversFromParcel(parcel));
+    ResolverParamsParcel cleanupParams = DnsResponderClient::GetDefaultResolverParamsParcel();
+    cleanupParams.servers.clear();
+    cleanupParams.tlsServers.clear();
 
-    // Start querying five times.
-    for (int i = 0; i < 5; i++) {
-        std::string hostName = StringPrintf("hello%d.com.", i);
-        dns.addMapping(hostName, ns_type::ns_t_a, "1.2.3.4");
-        const addrinfo hints = {.ai_family = AF_INET, .ai_socktype = SOCK_DGRAM};
-        EXPECT_TRUE(safe_getaddrinfo(hostName.c_str(), nullptr, &hints) != nullptr);
+    for (const auto& sortNameserversFlag : {"" /* unset */, "0" /* off */, "1" /* on */}) {
+        SCOPED_TRACE(fmt::format("sortNameversFlag_{}", sortNameserversFlag));
+        ScopedSystemProperties scopedSystemProperties(kSortNameserversFlag, sortNameserversFlag);
+
+        // Re-setup test network to make experiment flag take effect.
+        resetNetwork();
+
+        ASSERT_TRUE(mDnsClient.SetResolversFromParcel(setupParams));
+
+        // Start sending synchronized querying.
+        for (int i = 0; i < 100; i++) {
+            std::string hostName = StringPrintf("hello%d.com.", counter++);
+            dns.addMapping(hostName, ns_type::ns_t_a, "1.2.3.4");
+            const addrinfo hints = {.ai_family = AF_INET, .ai_socktype = SOCK_DGRAM};
+            EXPECT_TRUE(safe_getaddrinfo(hostName.c_str(), nullptr, &hints) != nullptr);
+        }
+
+        const std::vector<NameserverStats> targetStats = {
+                NameserverStats(listen_addr1).setInternalErrors(5),
+                NameserverStats(listen_addr2).setInternalErrors(5),
+                NameserverStats(listen_addr3).setSuccesses(setupParams.maxSamples),
+        };
+        EXPECT_TRUE(expectStatsNotGreaterThan(targetStats));
+
+        // Also verify the number of queries received in the server because res_stats.successes has
+        // a maximum.
+        EXPECT_EQ(dns.queries().size(), 100U);
+
+        // Reset the state.
+        ASSERT_TRUE(mDnsClient.SetResolversFromParcel(cleanupParams));
+        dns.clearQueries();
     }
-
-    const std::vector<NameserverStats> expectedCleartextDnsStats = {
-            NameserverStats(listen_addr1).setInternalErrors(2),
-            NameserverStats(listen_addr2).setInternalErrors(2),
-            NameserverStats(listen_addr3).setSuccesses(5),
-    };
-    EXPECT_TRUE(expectStatsFromGetResolverInfo(expectedCleartextDnsStats));
 }
 
 TEST_F(ResolverTest, SkipBadServersDueToTimeout) {
     constexpr char listen_addr1[] = "127.0.0.3";
     constexpr char listen_addr2[] = "127.0.0.4";
+    int counter = 0;  // To generate unique hostnames.
+
+    ResolverParamsParcel setupParams = DnsResponderClient::GetDefaultResolverParamsParcel();
+    setupParams.servers = {listen_addr1, listen_addr2};
+    setupParams.minSamples = 2;  // Recognize bad servers in two attempts when sorting not enabled.
+
+    ResolverParamsParcel cleanupParams = DnsResponderClient::GetDefaultResolverParamsParcel();
+    cleanupParams.servers.clear();
+    cleanupParams.tlsServers.clear();
 
     // Set dns1 non-responsive and dns2 workable.
     test::DNSResponder dns1(listen_addr1, test::kDefaultListenService, static_cast<ns_rcode>(-1));
@@ -1059,29 +1273,41 @@ TEST_F(ResolverTest, SkipBadServersDueToTimeout) {
     ASSERT_TRUE(dns1.startServer());
     ASSERT_TRUE(dns2.startServer());
 
-    ResolverParamsParcel parcel = DnsResponderClient::GetDefaultResolverParamsParcel();
-    parcel.servers = {listen_addr1, listen_addr2};
+    for (const auto& sortNameserversFlag : {"" /* unset */, "0" /* off */, "1" /* on */}) {
+        SCOPED_TRACE(fmt::format("sortNameversFlag_{}", sortNameserversFlag));
+        ScopedSystemProperties scopedSystemProperties(kSortNameserversFlag, sortNameserversFlag);
 
-    // Bad servers can be distinguished after two attempts.
-    parcel.minSamples = 2;
-    ASSERT_TRUE(mDnsClient.SetResolversFromParcel(parcel));
+        // Re-setup test network to make experiment flag take effect.
+        resetNetwork();
 
-    // Start querying five times.
-    for (int i = 0; i < 5; i++) {
-        std::string hostName = StringPrintf("hello%d.com.", i);
-        dns1.addMapping(hostName, ns_type::ns_t_a, "1.2.3.4");
-        dns2.addMapping(hostName, ns_type::ns_t_a, "1.2.3.5");
-        const addrinfo hints = {.ai_family = AF_INET, .ai_socktype = SOCK_DGRAM};
-        EXPECT_TRUE(safe_getaddrinfo(hostName.c_str(), nullptr, &hints) != nullptr);
+        ASSERT_TRUE(mDnsClient.SetResolversFromParcel(setupParams));
+
+        // Start sending synchronized querying.
+        for (int i = 0; i < 100; i++) {
+            std::string hostName = StringPrintf("hello%d.com.", counter++);
+            dns1.addMapping(hostName, ns_type::ns_t_a, "1.2.3.4");
+            dns2.addMapping(hostName, ns_type::ns_t_a, "1.2.3.5");
+            const addrinfo hints = {.ai_family = AF_INET, .ai_socktype = SOCK_DGRAM};
+            EXPECT_TRUE(safe_getaddrinfo(hostName.c_str(), nullptr, &hints) != nullptr);
+        }
+
+        const std::vector<NameserverStats> targetStats = {
+                NameserverStats(listen_addr1).setTimeouts(5),
+                NameserverStats(listen_addr2).setSuccesses(setupParams.maxSamples),
+        };
+        EXPECT_TRUE(expectStatsNotGreaterThan(targetStats));
+
+        // Also verify the number of queries received in the server because res_stats.successes has
+        // an upper bound.
+        EXPECT_GT(dns1.queries().size(), 0U);
+        EXPECT_LT(dns1.queries().size(), 5U);
+        EXPECT_EQ(dns2.queries().size(), 100U);
+
+        // Reset the state.
+        ASSERT_TRUE(mDnsClient.SetResolversFromParcel(cleanupParams));
+        dns1.clearQueries();
+        dns2.clearQueries();
     }
-
-    const std::vector<NameserverStats> expectedCleartextDnsStats = {
-            NameserverStats(listen_addr1).setTimeouts(2),
-            NameserverStats(listen_addr2).setSuccesses(5),
-    };
-    EXPECT_TRUE(expectStatsFromGetResolverInfo(expectedCleartextDnsStats));
-    EXPECT_EQ(dns1.queries().size(), 2U);
-    EXPECT_EQ(dns2.queries().size(), 5U);
 }
 
 TEST_F(ResolverTest, GetAddrInfoFromCustTable_InvalidInput) {
@@ -1094,8 +1320,18 @@ TEST_F(ResolverTest, GetAddrInfoFromCustTable_InvalidInput) {
     test::DNSResponder dns;
     StartDns(dns, {});
     auto resolverParams = DnsResponderClient::GetDefaultResolverParamsParcel();
-    resolverParams.resolverOptions.hosts = invalidCustHosts;
+
+    ResolverOptionsParcel resolverOptions;
+    resolverOptions.hosts = invalidCustHosts;
+    if (!mIsResolverOptionIPCSupported) {
+        resolverParams.resolverOptions = resolverOptions;
+    }
     ASSERT_TRUE(mDnsClient.resolvService()->setResolverConfiguration(resolverParams).isOk());
+    if (mIsResolverOptionIPCSupported) {
+        ASSERT_TRUE(mDnsClient.resolvService()
+                            ->setResolverOptions(resolverParams.netId, resolverOptions)
+                            .isOk());
+    }
     for (const auto& hostname : {hostnameNoip, hostnameInvalidip}) {
         // The query won't get data from customized table because of invalid customized table
         // and DNSResponder also has no records. hostnameNoip has never registered and
@@ -1169,8 +1405,18 @@ TEST_F(ResolverTest, GetAddrInfoFromCustTable) {
         StartDns(dns, config.dnsserverHosts);
 
         auto resolverParams = DnsResponderClient::GetDefaultResolverParamsParcel();
-        resolverParams.resolverOptions.hosts = config.customizedHosts;
+        ResolverOptionsParcel resolverOptions;
+        resolverOptions.hosts = config.customizedHosts;
+        if (!mIsResolverOptionIPCSupported) {
+            resolverParams.resolverOptions = resolverOptions;
+        }
         ASSERT_TRUE(mDnsClient.resolvService()->setResolverConfiguration(resolverParams).isOk());
+
+        if (mIsResolverOptionIPCSupported) {
+            ASSERT_TRUE(mDnsClient.resolvService()
+                                ->setResolverOptions(resolverParams.netId, resolverOptions)
+                                .isOk());
+        }
         const addrinfo hints = {.ai_family = AF_UNSPEC, .ai_socktype = SOCK_STREAM};
         ScopedAddrinfo result = safe_getaddrinfo(config.name.c_str(), nullptr, &hints);
         if (config.customizedHosts.empty() && config.dnsserverHosts.empty()) {
@@ -1205,16 +1451,34 @@ TEST_F(ResolverTest, GetAddrInfoFromCustTable_Modify) {
     StartDns(dns, dnsSvHostV4V6);
     auto resolverParams = DnsResponderClient::GetDefaultResolverParamsParcel();
 
-    resolverParams.resolverOptions.hosts = custHostV4V6;
+    ResolverOptionsParcel resolverOptions;
+    resolverOptions.hosts = custHostV4V6;
+    if (!mIsResolverOptionIPCSupported) {
+        resolverParams.resolverOptions = resolverOptions;
+    }
     ASSERT_TRUE(mDnsClient.resolvService()->setResolverConfiguration(resolverParams).isOk());
+
+    if (mIsResolverOptionIPCSupported) {
+        ASSERT_TRUE(mDnsClient.resolvService()
+                            ->setResolverOptions(resolverParams.netId, resolverOptions)
+                            .isOk());
+    }
+
     const addrinfo hints = {.ai_family = AF_UNSPEC, .ai_socktype = SOCK_STREAM};
     ScopedAddrinfo result = safe_getaddrinfo(hostnameV4V6, nullptr, &hints);
     ASSERT_TRUE(result != nullptr);
     EXPECT_THAT(ToStrings(result), testing::UnorderedElementsAreArray({custAddrV4, custAddrV6}));
     EXPECT_EQ(0U, GetNumQueries(dns, hostnameV4V6));
 
-    resolverParams.resolverOptions.hosts = {};
-    ASSERT_TRUE(mDnsClient.resolvService()->setResolverConfiguration(resolverParams).isOk());
+    resolverOptions.hosts = {};
+    if (!mIsResolverOptionIPCSupported) {
+        resolverParams.resolverOptions = resolverOptions;
+        ASSERT_TRUE(mDnsClient.resolvService()->setResolverConfiguration(resolverParams).isOk());
+    } else {
+        ASSERT_TRUE(mDnsClient.resolvService()
+                            ->setResolverOptions(resolverParams.netId, resolverOptions)
+                            .isOk());
+    }
     result = safe_getaddrinfo(hostnameV4V6, nullptr, &hints);
     ASSERT_TRUE(result != nullptr);
     EXPECT_THAT(ToStrings(result), testing::UnorderedElementsAreArray({dnsSvAddrV4, dnsSvAddrV6}));
@@ -1467,7 +1731,7 @@ TEST_F(ResolverTest, ResolverStats) {
             NameserverStats(listen_addr2).setErrors(1),
             NameserverStats(listen_addr3).setSuccesses(1),
     };
-    EXPECT_TRUE(expectStatsFromGetResolverInfo(expectedCleartextDnsStats));
+    EXPECT_TRUE(expectStatsEqualTo(expectedCleartextDnsStats));
 }
 
 TEST_F(ResolverTest, AlwaysUseLatestSetupParamsInLookups) {
@@ -1525,7 +1789,7 @@ TEST_F(ResolverTest, AlwaysUseLatestSetupParamsInLookups) {
             NameserverStats(listen_addr2),
             NameserverStats(listen_addr3).setSuccesses(1),
     };
-    EXPECT_TRUE(expectStatsFromGetResolverInfo(expectedCleartextDnsStats));
+    EXPECT_TRUE(expectStatsEqualTo(expectedCleartextDnsStats));
 }
 
 // Test what happens if the specified TLS server is nonexistent.
@@ -1951,12 +2215,7 @@ int getAsyncResponse(int fd, int* rcode, uint8_t* buf, int bufLen) {
     ret = poll(wait_fd, 1, -1);
     revents = wait_fd[0].revents;
     if (revents & POLLIN) {
-        int n = resNetworkResult(fd, rcode, buf, bufLen);
-        // Verify that resNetworkResult() closed the fd
-        char dummy;
-        EXPECT_EQ(-1, read(fd, &dummy, sizeof dummy));
-        EXPECT_EQ(EBADF, errno);
-        return n;
+        return resNetworkResult(fd, rcode, buf, bufLen);
     }
     return -1;
 }
@@ -2170,6 +2429,12 @@ TEST_F(ResolverTest, Async_EmptyAnswer) {
     res = getAsyncResponse(fd1, &rcode, buf, MAXPACKET);
     EXPECT_GT(res, 0);
     EXPECT_EQ("::1.2.3.4", toString(buf, res, AF_INET6));
+
+    // Trailing dot is removed. Is it intended?
+    ExpectDnsEvent(INetdEventListener::EVENT_RES_NSEND, 0, "howdy.example.com", {"::1.2.3.4"});
+    ExpectDnsEvent(INetdEventListener::EVENT_RES_NSEND, RCODE_TIMEOUT, "howdy.example.com", {});
+    ExpectDnsEvent(INetdEventListener::EVENT_RES_NSEND, RCODE_TIMEOUT, "howdy.example.com", {});
+    ExpectDnsEvent(INetdEventListener::EVENT_RES_NSEND, 0, "howdy.example.com", {"1.2.3.4"});
 }
 
 TEST_F(ResolverTest, Async_MalformedQuery) {
@@ -2452,6 +2717,8 @@ TEST_F(ResolverTest, Async_NoRetryFlag) {
     // expect no response
     expectAnswersNotValid(fd1, -ETIMEDOUT);
     expectAnswersNotValid(fd2, -ETIMEDOUT);
+    ExpectDnsEvent(INetdEventListener::EVENT_RES_NSEND, RCODE_TIMEOUT, "howdy.example.com", {});
+    ExpectDnsEvent(INetdEventListener::EVENT_RES_NSEND, RCODE_TIMEOUT, "howdy.example.com", {});
 
     // No retry case, expect total 2 queries. The server is selected randomly.
     EXPECT_EQ(2U, GetNumQueries(dns0, host_name) + GetNumQueries(dns1, host_name));
@@ -2468,6 +2735,8 @@ TEST_F(ResolverTest, Async_NoRetryFlag) {
     // expect no response
     expectAnswersNotValid(fd1, -ETIMEDOUT);
     expectAnswersNotValid(fd2, -ETIMEDOUT);
+    ExpectDnsEvent(INetdEventListener::EVENT_RES_NSEND, RCODE_TIMEOUT, "howdy.example.com", {});
+    ExpectDnsEvent(INetdEventListener::EVENT_RES_NSEND, RCODE_TIMEOUT, "howdy.example.com", {});
 
     // Retry case, expect 4 queries
     EXPECT_EQ(4U, GetNumQueries(dns0, host_name));
@@ -2707,10 +2976,13 @@ TEST_F(ResolverTest, BrokenEdns) {
                 ASSERT_FALSE(h_result->h_addr_list[0] == nullptr);
                 EXPECT_EQ(ADDR4, ToString(h_result));
                 EXPECT_TRUE(h_result->h_addr_list[1] == nullptr);
+                ExpectDnsEvent(INetdEventListener::EVENT_GETHOSTBYNAME, 0, host_name, {ADDR4});
             } else {
                 EXPECT_EQ(0U, GetNumQueriesForType(dns, ns_type::ns_t_a, host_name));
                 ASSERT_TRUE(h_result == nullptr);
                 ASSERT_EQ(HOST_NOT_FOUND, h_errno);
+                int returnCode = (config.edns == Edns::DROP) ? RCODE_TIMEOUT : EAI_FAIL;
+                ExpectDnsEvent(INetdEventListener::EVENT_GETHOSTBYNAME, returnCode, host_name, {});
             }
         } else if (config.method == GETADDRINFO) {
             ScopedAddrinfo ai_result;
@@ -2721,9 +2993,12 @@ TEST_F(ResolverTest, BrokenEdns) {
                 EXPECT_EQ(1U, GetNumQueries(dns, host_name));
                 const std::string result_str = ToString(ai_result);
                 EXPECT_EQ(ADDR4, result_str);
+                ExpectDnsEvent(INetdEventListener::EVENT_GETADDRINFO, 0, host_name, {ADDR4});
             } else {
                 EXPECT_TRUE(ai_result == nullptr);
                 EXPECT_EQ(0U, GetNumQueries(dns, host_name));
+                int returnCode = (config.edns == Edns::DROP) ? RCODE_TIMEOUT : EAI_FAIL;
+                ExpectDnsEvent(INetdEventListener::EVENT_GETADDRINFO, returnCode, host_name, {});
             }
         } else {
             FAIL() << "Unsupported query method: " << config.method;
@@ -3830,6 +4105,7 @@ TEST_F(ResolverTest, SetAndClearNat64Prefix) {
     EXPECT_TRUE(WaitForNat64Prefix(EXPECT_NOT_FOUND));
 
     EXPECT_EQ(0, sDnsMetricsListener->getUnexpectedNat64PrefixUpdates());
+    EXPECT_EQ(0, sUnsolicitedEventListener->getUnexpectedNat64PrefixUpdates());
 }
 
 namespace {
@@ -3912,7 +4188,17 @@ void expectDnsNetIdIsDefaultNetwork(INetd* netdService) {
 }
 
 void expectDnsNetIdWithVpn(INetd* netdService, unsigned vpnNetId, unsigned expectedNetId) {
-    EXPECT_TRUE(netdService->networkCreateVpn(vpnNetId, false /* secure */).isOk());
+    if (DnsResponderClient::isRemoteVersionSupported(netdService, 6)) {
+        const auto& config = DnsResponderClient::makeNativeNetworkConfig(
+                vpnNetId, NativeNetworkType::VIRTUAL, INetd::PERMISSION_NONE, /*secure=*/false);
+        EXPECT_TRUE(netdService->networkCreate(config).isOk());
+    } else {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        EXPECT_TRUE(netdService->networkCreateVpn(vpnNetId, false /* secure */).isOk());
+#pragma clang diagnostic pop
+    }
+
     uid_t uid = getuid();
     // Add uid to VPN
     EXPECT_TRUE(netdService->networkAddUidRanges(vpnNetId, {makeUidRangeParcel(uid, uid)}).isOk());
@@ -3978,10 +4264,7 @@ TEST_F(ResolverTest, getDnsNetId) {
 }
 
 TEST_F(ResolverTest, BlockDnsQueryWithUidRule) {
-    // This test relies on blocking traffic on loopback, which xt_qtaguid does not do.
-    // See aosp/358413 and b/34444781 for why.
     SKIP_IF_BPF_NOT_SUPPORTED;
-
     constexpr char listen_addr1[] = "127.0.0.4";
     constexpr char listen_addr2[] = "::1";
     constexpr char host_name[] = "howdy.example.com.";
@@ -4008,19 +4291,78 @@ TEST_F(ResolverTest, BlockDnsQueryWithUidRule) {
     EXPECT_TRUE(fd1 != -1);
     EXPECT_TRUE(fd2 != -1);
 
-    uint8_t buf[MAXPACKET] = {};
+    uint8_t buf1[MAXPACKET] = {};
+    uint8_t buf2[MAXPACKET] = {};
     int rcode;
-    int res = getAsyncResponse(fd2, &rcode, buf, MAXPACKET);
-    EXPECT_EQ(-ECONNREFUSED, res);
+    int res2 = getAsyncResponse(fd2, &rcode, buf2, MAXPACKET);
+    int res1 = getAsyncResponse(fd1, &rcode, buf1, MAXPACKET);
+    // If API level >= 30 (R+), these queries should be blocked.
+    if (isAtLeastR) {
+        EXPECT_EQ(res2, -ECONNREFUSED);
+        EXPECT_EQ(res1, -ECONNREFUSED);
+        ExpectDnsEvent(INetdEventListener::EVENT_RES_NSEND, EAI_SYSTEM, "howdy.example.com", {});
+        ExpectDnsEvent(INetdEventListener::EVENT_RES_NSEND, EAI_SYSTEM, "howdy.example.com", {});
+    } else {
+        EXPECT_GT(res2, 0);
+        EXPECT_EQ("::1.2.3.4", toString(buf2, res2, AF_INET6));
+        EXPECT_GT(res1, 0);
+        EXPECT_EQ("1.2.3.4", toString(buf1, res1, AF_INET));
+        // To avoid flaky test, do not evaluate DnsEvent since event order is not guaranteed.
+    }
+}
 
-    memset(buf, 0, MAXPACKET);
-    res = getAsyncResponse(fd1, &rcode, buf, MAXPACKET);
-    EXPECT_EQ(-ECONNREFUSED, res);
+TEST_F(ResolverTest, GetAddrinfo_BlockDnsQueryWithUidRule) {
+    SKIP_IF_BPF_NOT_SUPPORTED;
+    constexpr char listen_addr1[] = "127.0.0.4";
+    constexpr char listen_addr2[] = "::1";
+    constexpr char host_name[] = "howdy.example.com.";
+    const std::vector<DnsRecord> records = {
+            {host_name, ns_type::ns_t_a, "1.2.3.4"},
+            {host_name, ns_type::ns_t_aaaa, "::1.2.3.4"},
+    };
+    test::DNSResponder dns1(listen_addr1);
+    test::DNSResponder dns2(listen_addr2);
+    StartDns(dns1, records);
+    StartDns(dns2, records);
+
+    std::vector<std::string> servers = {listen_addr1, listen_addr2};
+    ASSERT_TRUE(mDnsClient.SetResolversForNetwork(servers, kDefaultSearchDomains, kDefaultParams));
+
+    const addrinfo hints = {.ai_family = AF_UNSPEC, .ai_socktype = SOCK_DGRAM};
+
+    static struct {
+        const char* hname;
+        const int expectedErrorCode;
+    } kTestData[] = {
+            {host_name, EAI_NODATA},
+            // To test the query with search domain.
+            {"howdy", EAI_AGAIN},
+    };
+
+    INetd* netdService = mDnsClient.netdService();
+    for (auto& td : kTestData) {
+        SCOPED_TRACE(td.hname);
+        ScopeBlockedUIDRule scopeBlockUidRule(netdService, TEST_UID);
+        // If API level >= 30 (R+), these queries should be blocked.
+        if (isAtLeastR) {
+            addrinfo* result = nullptr;
+            // getaddrinfo() in bionic would convert all errors to EAI_NODATA
+            // except EAI_SYSTEM.
+            EXPECT_EQ(EAI_NODATA, getaddrinfo(td.hname, nullptr, &hints, &result));
+            ExpectDnsEvent(INetdEventListener::EVENT_GETADDRINFO, td.expectedErrorCode, td.hname,
+                           {});
+        } else {
+            ScopedAddrinfo result = safe_getaddrinfo(td.hname, nullptr, &hints);
+            EXPECT_NE(nullptr, result);
+            EXPECT_THAT(ToStrings(result),
+                        testing::UnorderedElementsAreArray({"1.2.3.4", "::1.2.3.4"}));
+            // To avoid flaky test, do not evaluate DnsEvent since event order is not guaranteed.
+        }
+    }
 }
 
 TEST_F(ResolverTest, EnforceDnsUid) {
     SKIP_IF_BPF_NOT_SUPPORTED;
-
     constexpr char listen_addr1[] = "127.0.0.4";
     constexpr char listen_addr2[] = "::1";
     constexpr char host_name[] = "howdy.example.com.";
@@ -4041,25 +4383,42 @@ TEST_F(ResolverTest, EnforceDnsUid) {
     ASSERT_TRUE(mDnsClient.resolvService()->setResolverConfiguration(parcel).isOk());
 
     uint8_t buf[MAXPACKET] = {};
+    uint8_t buf2[MAXPACKET] = {};
     int rcode;
     {
         ScopeBlockedUIDRule scopeBlockUidRule(netdService, TEST_UID);
         // Dns Queries should be blocked
-        int fd1 = resNetworkQuery(TEST_NETID, host_name, ns_c_in, ns_t_a, 0);
-        int fd2 = resNetworkQuery(TEST_NETID, host_name, ns_c_in, ns_t_aaaa, 0);
+        const int fd1 = resNetworkQuery(TEST_NETID, host_name, ns_c_in, ns_t_a, 0);
+        const int fd2 = resNetworkQuery(TEST_NETID, host_name, ns_c_in, ns_t_aaaa, 0);
         EXPECT_TRUE(fd1 != -1);
         EXPECT_TRUE(fd2 != -1);
 
-        int res = getAsyncResponse(fd2, &rcode, buf, MAXPACKET);
-        EXPECT_EQ(-ECONNREFUSED, res);
-
-        memset(buf, 0, MAXPACKET);
-        res = getAsyncResponse(fd1, &rcode, buf, MAXPACKET);
-        EXPECT_EQ(-ECONNREFUSED, res);
+        const int res2 = getAsyncResponse(fd2, &rcode, buf2, MAXPACKET);
+        const int res1 = getAsyncResponse(fd1, &rcode, buf, MAXPACKET);
+        // If API level >= 30 (R+), the query should be blocked.
+        if (isAtLeastR) {
+            EXPECT_EQ(res2, -ECONNREFUSED);
+            EXPECT_EQ(res1, -ECONNREFUSED);
+        } else {
+            EXPECT_GT(res2, 0);
+            EXPECT_EQ("::1.2.3.4", toString(buf2, res2, AF_INET6));
+            EXPECT_GT(res1, 0);
+            EXPECT_EQ("1.2.3.4", toString(buf, res1, AF_INET));
+        }
     }
 
-    parcel.resolverOptions.enforceDnsUid = true;
-    ASSERT_TRUE(mDnsClient.resolvService()->setResolverConfiguration(parcel).isOk());
+    memset(buf, 0, MAXPACKET);
+    ResolverOptionsParcel resolverOptions;
+    resolverOptions.enforceDnsUid = true;
+    if (!mIsResolverOptionIPCSupported) {
+        parcel.resolverOptions = resolverOptions;
+        ASSERT_TRUE(mDnsClient.resolvService()->setResolverConfiguration(parcel).isOk());
+    } else {
+        ASSERT_TRUE(mDnsClient.resolvService()
+                            ->setResolverOptions(parcel.netId, resolverOptions)
+                            .isOk());
+    }
+
     {
         ScopeBlockedUIDRule scopeBlockUidRule(netdService, TEST_UID);
         // Dns Queries should NOT be blocked
@@ -4083,29 +4442,7 @@ TEST_F(ResolverTest, EnforceDnsUid) {
     }
 }
 
-namespace {
-
-const std::string kDotConnectTimeoutMsFlag(
-        "persist.device_config.netd_native.dot_connect_timeout_ms");
-
-class ScopedSystemProperties {
-  public:
-    explicit ScopedSystemProperties(const std::string& key, const std::string& value)
-        : mStoredKey(key) {
-        mStoredValue = android::base::GetProperty(key, "");
-        android::base::SetProperty(key, value);
-    }
-    ~ScopedSystemProperties() { android::base::SetProperty(mStoredKey, mStoredValue); }
-
-  private:
-    std::string mStoredKey;
-    std::string mStoredValue;
-};
-
-}  // namespace
-
 TEST_F(ResolverTest, ConnectTlsServerTimeout) {
-    constexpr int expectedTimeout = 1000;
     constexpr char hostname1[] = "query1.example.com.";
     constexpr char hostname2[] = "query2.example.com.";
     const std::vector<DnsRecord> records = {
@@ -4113,53 +4450,490 @@ TEST_F(ResolverTest, ConnectTlsServerTimeout) {
             {hostname2, ns_type::ns_t_a, "1.2.3.5"},
     };
 
-    test::DNSResponder dns;
-    StartDns(dns, records);
-    test::DnsTlsFrontend tls;
-    ASSERT_TRUE(tls.startServer());
+    static const struct TestConfig {
+        bool asyncHandshake;
+        int maxRetries;
 
-    // The resolver will adjust the timeout value to 1000ms since the value is too small.
-    ScopedSystemProperties scopedSystemProperties(kDotConnectTimeoutMsFlag, "100");
+        // if asyncHandshake:
+        //   expectedTimeout = Min(DotQueryTimeoutMs, dotConnectTimeoutMs * maxRetries)
+        // otherwise:
+        //   expectedTimeout = dotConnectTimeoutMs
+        int expectedTimeout;
+    } testConfigs[] = {
+            // Test mis-configured dot_maxtries flag.
+            {false, 0, 1000}, {true, 0, 1000},
 
-    // Set up resolver to opportunistic mode with the default configuration.
-    const ResolverParamsParcel parcel = DnsResponderClient::GetDefaultResolverParamsParcel();
-    ASSERT_TRUE(mDnsClient.SetResolversFromParcel(parcel));
-    EXPECT_TRUE(WaitForPrivateDnsValidation(tls.listen_address(), true));
-    EXPECT_TRUE(tls.waitForQueries(1));
-    tls.clearQueries();
-    dns.clearQueries();
+            {false, 1, 1000}, {false, 3, 1000}, {true, 1, 1000}, {true, 3, 3000},
+    };
 
-    // The server becomes unresponsive to the handshake request.
-    tls.setHangOnHandshakeForTesting(true);
+    for (const auto& config : testConfigs) {
+        SCOPED_TRACE(fmt::format("testConfig: [{}, {}]", config.asyncHandshake, config.maxRetries));
 
-    // Expect the things happening in getaddrinfo():
-    //   1. Connect to the private DNS server.
-    //   2. SSL handshake times out.
-    //   3. Fallback to UDP transport, and then get the answer.
-    const addrinfo hints = {.ai_family = AF_INET, .ai_socktype = SOCK_DGRAM};
-    auto [result, timeTakenMs] = safe_getaddrinfo_time_taken(hostname1, nullptr, hints);
+        // Because a DnsTlsTransport lasts at least 5 minutes in spite of network
+        // destroyed, let the resolver creates an unique DnsTlsTransport every time
+        // so that the DnsTlsTransport won't interfere the other tests.
+        const std::string addr = getUniqueIPv4Address();
+        test::DNSResponder dns(addr);
+        StartDns(dns, records);
+        test::DnsTlsFrontend tls(addr, "853", addr, "53");
+        ASSERT_TRUE(tls.startServer());
 
-    EXPECT_NE(nullptr, result);
-    EXPECT_EQ(0, tls.queries());
-    EXPECT_EQ(1U, GetNumQueries(dns, hostname1));
-    EXPECT_EQ(records.at(0).addr, ToString(result));
+        // The resolver will adjust the timeout value to 1000ms since the value is too small.
+        ScopedSystemProperties sp1(kDotConnectTimeoutMsFlag, "100");
 
-    // A loose upper bound is set by adding 2000ms buffer time. Theoretically, getaddrinfo()
-    // should just take a bit more than expetTimeout milliseconds.
-    EXPECT_GE(timeTakenMs, expectedTimeout);
-    EXPECT_LE(timeTakenMs, expectedTimeout + 2000);
+        // Infinite timeout.
+        ScopedSystemProperties sp2(kDotQueryTimeoutMsFlag, "-1");
 
-    // Set the server to be responsive. Verify that the resolver will attempt to reconnect
-    // to the server and then get the result within the timeout.
-    tls.setHangOnHandshakeForTesting(false);
-    std::tie(result, timeTakenMs) = safe_getaddrinfo_time_taken(hostname2, nullptr, hints);
+        ScopedSystemProperties sp3(kDotAsyncHandshakeFlag, config.asyncHandshake ? "1" : "0");
+        ScopedSystemProperties sp4(kDotMaxretriesFlag, std::to_string(config.maxRetries));
+        resetNetwork();
 
-    EXPECT_NE(nullptr, result);
-    EXPECT_TRUE(tls.waitForQueries(1));
-    EXPECT_EQ(1U, GetNumQueries(dns, hostname2));
-    EXPECT_EQ(records.at(1).addr, ToString(result));
+        // Set up resolver to opportunistic mode.
+        auto parcel = DnsResponderClient::GetDefaultResolverParamsParcel();
+        parcel.servers = {addr};
+        parcel.tlsServers = {addr};
+        ASSERT_TRUE(mDnsClient.SetResolversFromParcel(parcel));
+        EXPECT_TRUE(WaitForPrivateDnsValidation(tls.listen_address(), true));
+        EXPECT_TRUE(tls.waitForQueries(1));
+        tls.clearQueries();
+        dns.clearQueries();
 
-    EXPECT_LE(timeTakenMs, expectedTimeout);
+        // The server becomes unresponsive to the handshake request.
+        tls.setHangOnHandshakeForTesting(true);
+
+        // Expect the things happening in getaddrinfo():
+        //   1. Connect to the private DNS server.
+        //   2. SSL handshake times out.
+        //   3. Fallback to UDP transport, and then get the answer.
+        const addrinfo hints = {.ai_family = AF_INET, .ai_socktype = SOCK_DGRAM};
+        auto [result, timeTakenMs] = safe_getaddrinfo_time_taken(hostname1, nullptr, hints);
+
+        EXPECT_NE(nullptr, result);
+        EXPECT_EQ(0, tls.queries());
+        EXPECT_EQ(1U, GetNumQueries(dns, hostname1));
+        EXPECT_EQ(records.at(0).addr, ToString(result));
+
+        // A loose upper bound is set by adding 1000ms buffer time. Theoretically, getaddrinfo()
+        // should just take a bit more than expetTimeout milliseconds.
+        EXPECT_GE(timeTakenMs, config.expectedTimeout);
+        EXPECT_LE(timeTakenMs, config.expectedTimeout + 1000);
+
+        // Set the server to be responsive. Verify that the resolver will attempt to reconnect
+        // to the server and then get the result within the timeout.
+        tls.setHangOnHandshakeForTesting(false);
+        std::tie(result, timeTakenMs) = safe_getaddrinfo_time_taken(hostname2, nullptr, hints);
+
+        EXPECT_NE(nullptr, result);
+        EXPECT_TRUE(tls.waitForQueries(1));
+        EXPECT_EQ(1U, GetNumQueries(dns, hostname2));
+        EXPECT_EQ(records.at(1).addr, ToString(result));
+
+        EXPECT_LE(timeTakenMs, 200);
+    }
+}
+
+TEST_F(ResolverTest, ConnectTlsServerTimeout_ConcurrentQueries) {
+    constexpr uint32_t cacheFlag = ANDROID_RESOLV_NO_CACHE_LOOKUP;
+    constexpr char hostname[] = "hello.example.com.";
+    const std::vector<DnsRecord> records = {
+            {hostname, ns_type::ns_t_a, "1.2.3.4"},
+    };
+    int testConfigCount = 0;
+
+    static const struct TestConfig {
+        bool asyncHandshake;
+        int dotConnectTimeoutMs;
+        int dotQueryTimeoutMs;
+        int maxRetries;
+        int concurrency;
+
+        // if asyncHandshake:
+        //   expectedTimeout = Min(DotQueryTimeoutMs, dotConnectTimeoutMs * maxRetries)
+        // otherwise:
+        //   expectedTimeout = dotConnectTimeoutMs * concurrency
+        int expectedTimeout;
+    } testConfigs[] = {
+            // clang-format off
+            {false, 1000, 3000, 1, 5,  5000},
+            {false, 1000, 3000, 3, 5,  5000},
+            {false, 2000, 1500, 3, 2,  4000},
+            {true,  1000, 3000, 1, 5,  1000},
+            {true,  2500, 1500, 1, 10, 1500},
+            {true,  1000, 5000, 3, 5,  3000},
+            // clang-format on
+    };
+
+    // Launch query threads. Expected behaviors are:
+    // - when dot_async_handshake is disabled, one of the query threads triggers a
+    //   handshake and then times out. Then same as another query thread, and so forth.
+    // - when dot_async_handshake is enabled, only one handshake is triggered, and then
+    //   all of the query threads time out at the same time.
+    for (const auto& config : testConfigs) {
+        testConfigCount++;
+        ScopedSystemProperties sp1(kDotQueryTimeoutMsFlag,
+                                   std::to_string(config.dotQueryTimeoutMs));
+        ScopedSystemProperties sp2(kDotConnectTimeoutMsFlag,
+                                   std::to_string(config.dotConnectTimeoutMs));
+        ScopedSystemProperties sp3(kDotAsyncHandshakeFlag, config.asyncHandshake ? "1" : "0");
+        ScopedSystemProperties sp4(kDotMaxretriesFlag, std::to_string(config.maxRetries));
+        resetNetwork();
+
+        for (const auto& dnsMode : {"OPPORTUNISTIC", "STRICT"}) {
+            SCOPED_TRACE(fmt::format("testConfig: [{}, {}]", testConfigCount, dnsMode));
+
+            // Because a DnsTlsTransport lasts at least 5 minutes in spite of network
+            // destroyed, let the resolver creates an unique DnsTlsTransport every time
+            // so that the DnsTlsTransport won't interfere the other tests.
+            const std::string addr = getUniqueIPv4Address();
+            test::DNSResponder dns(addr);
+            StartDns(dns, records);
+            test::DnsTlsFrontend tls(addr, "853", addr, "53");
+            ASSERT_TRUE(tls.startServer());
+
+            auto parcel = DnsResponderClient::GetDefaultResolverParamsParcel();
+            parcel.servers = {addr};
+            parcel.tlsServers = {addr};
+            if (dnsMode == "STRICT") parcel.tlsName = kDefaultPrivateDnsHostName;
+            ASSERT_TRUE(mDnsClient.SetResolversFromParcel(parcel));
+            EXPECT_TRUE(WaitForPrivateDnsValidation(tls.listen_address(), true));
+            EXPECT_TRUE(tls.waitForQueries(1));
+
+            // The server becomes unresponsive to the handshake request.
+            tls.setHangOnHandshakeForTesting(true);
+
+            Stopwatch s;
+            std::vector<std::thread> threads(config.concurrency);
+            for (std::thread& thread : threads) {
+                thread = std::thread([&]() {
+                    int fd = resNetworkQuery(TEST_NETID, hostname, ns_c_in, ns_t_a, cacheFlag);
+                    dnsMode == "STRICT" ? expectAnswersNotValid(fd, -ETIMEDOUT)
+                                        : expectAnswersValid(fd, AF_INET, "1.2.3.4");
+                });
+            }
+            for (std::thread& thread : threads) {
+                thread.join();
+            }
+
+            const int timeTakenMs = s.timeTakenUs() / 1000;
+            // A loose upper bound is set by adding 1000ms buffer time. Theoretically, it should
+            // just take a bit more than expetTimeout milliseconds for the result.
+            EXPECT_GE(timeTakenMs, config.expectedTimeout);
+            EXPECT_LE(timeTakenMs, config.expectedTimeout + 1000);
+
+            // Recover the server from being unresponsive and try again.
+            tls.setHangOnHandshakeForTesting(false);
+            int fd = resNetworkQuery(TEST_NETID, hostname, ns_c_in, ns_t_a, cacheFlag);
+            if (dnsMode == "STRICT" && config.asyncHandshake &&
+                config.dotQueryTimeoutMs < (config.dotConnectTimeoutMs * config.maxRetries)) {
+                // In this case, the connection handshake is supposed to be in progress. Queries
+                // sent before the handshake finishes will time out (either due to connect timeout
+                // or query timeout).
+                expectAnswersNotValid(fd, -ETIMEDOUT);
+            } else {
+                expectAnswersValid(fd, AF_INET, "1.2.3.4");
+            }
+        }
+    }
+}
+
+TEST_F(ResolverTest, QueryTlsServerTimeout) {
+    constexpr uint32_t cacheFlag = ANDROID_RESOLV_NO_CACHE_LOOKUP;
+    constexpr int INFINITE_QUERY_TIMEOUT = -1;
+    constexpr int DOT_SERVER_UNRESPONSIVE_TIME_MS = 5000;
+    constexpr char hostname1[] = "query1.example.com.";
+    constexpr char hostname2[] = "query2.example.com.";
+    const std::vector<DnsRecord> records = {
+            {hostname1, ns_type::ns_t_a, "1.2.3.4"},
+            {hostname2, ns_type::ns_t_a, "1.2.3.5"},
+    };
+
+    for (const int queryTimeoutMs : {INFINITE_QUERY_TIMEOUT, 1000}) {
+        for (const auto& dnsMode : {"OPPORTUNISTIC", "STRICT"}) {
+            SCOPED_TRACE(fmt::format("testConfig: [{}] [{}]", dnsMode, queryTimeoutMs));
+
+            const std::string addr = getUniqueIPv4Address();
+            test::DNSResponder dns(addr);
+            StartDns(dns, records);
+            test::DnsTlsFrontend tls(addr, "853", addr, "53");
+            ASSERT_TRUE(tls.startServer());
+
+            ScopedSystemProperties sp(kDotQueryTimeoutMsFlag, std::to_string(queryTimeoutMs));
+            resetNetwork();
+
+            auto parcel = DnsResponderClient::GetDefaultResolverParamsParcel();
+            parcel.servers = {addr};
+            parcel.tlsServers = {addr};
+            if (dnsMode == "STRICT") parcel.tlsName = kDefaultPrivateDnsHostName;
+
+            ASSERT_TRUE(mDnsClient.SetResolversFromParcel(parcel));
+            EXPECT_TRUE(WaitForPrivateDnsValidation(tls.listen_address(), true));
+            EXPECT_TRUE(tls.waitForQueries(1));
+            tls.clearQueries();
+
+            // Set the DoT server to be unresponsive to DNS queries until either it receives
+            // 2 queries or 5s later.
+            tls.setDelayQueries(2);
+            tls.setDelayQueriesTimeout(DOT_SERVER_UNRESPONSIVE_TIME_MS);
+
+            // First query.
+            Stopwatch s;
+            int fd = resNetworkQuery(TEST_NETID, hostname1, ns_c_in, ns_t_a, cacheFlag);
+            if (dnsMode == "STRICT" && queryTimeoutMs != INFINITE_QUERY_TIMEOUT) {
+                expectAnswersNotValid(fd, -ETIMEDOUT);
+            } else {
+                expectAnswersValid(fd, AF_INET, "1.2.3.4");
+            }
+
+            // Besides checking the result of the query, check how much time the
+            // resolver processed the query.
+            int timeTakenMs = s.getTimeAndResetUs() / 1000;
+            const int expectedTimeTakenMs = (queryTimeoutMs == INFINITE_QUERY_TIMEOUT)
+                                                    ? DOT_SERVER_UNRESPONSIVE_TIME_MS
+                                                    : queryTimeoutMs;
+            EXPECT_GE(timeTakenMs, expectedTimeTakenMs);
+            EXPECT_LE(timeTakenMs, expectedTimeTakenMs + 1000);
+
+            // Second query.
+            tls.setDelayQueries(1);
+            fd = resNetworkQuery(TEST_NETID, hostname2, ns_c_in, ns_t_a, cacheFlag);
+            expectAnswersValid(fd, AF_INET, "1.2.3.5");
+
+            // Also check how much time the resolver processed the query.
+            timeTakenMs = s.timeTakenUs() / 1000;
+            EXPECT_LE(timeTakenMs, 500);
+            EXPECT_EQ(2, tls.queries());
+        }
+    }
+}
+
+// Verifies that the DnsResolver re-validates the DoT server when several DNS queries to
+// the server fails in a row.
+TEST_F(ResolverTest, TlsServerRevalidation) {
+    constexpr uint32_t cacheFlag = ANDROID_RESOLV_NO_CACHE_LOOKUP;
+    constexpr int dotXportUnusableThreshold = 10;
+    constexpr int dotQueryTimeoutMs = 1000;
+    constexpr char hostname[] = "hello.example.com.";
+    const std::vector<DnsRecord> records = {
+            {hostname, ns_type::ns_t_a, "1.2.3.4"},
+    };
+
+    static const struct TestConfig {
+        std::string dnsMode;
+        int validationThreshold;
+        int queries;
+
+        // Expected behavior in the DnsResolver.
+        bool expectRevalidationHappen;
+        bool expectDotUnusable;
+    } testConfigs[] = {
+            // clang-format off
+            {"OPPORTUNISTIC", -1,  5, false, false},
+            {"OPPORTUNISTIC", -1, 10, false, false},
+            {"OPPORTUNISTIC",  5,  5,  true, false},
+            {"OPPORTUNISTIC",  5, 10,  true,  true},
+            {"STRICT",        -1,  5, false, false},
+            {"STRICT",        -1, 10, false, false},
+            {"STRICT",         5,  5, false, false},
+            {"STRICT",         5, 10, false, false},
+            // clang-format on
+    };
+
+    for (const auto& config : testConfigs) {
+        SCOPED_TRACE(fmt::format("testConfig: [{}, {}, {}]", config.dnsMode,
+                                 config.validationThreshold, config.queries));
+        const int queries = config.queries;
+        const int delayQueriesTimeout = dotQueryTimeoutMs + 1000;
+
+        ScopedSystemProperties sp1(kDotRevalidationThresholdFlag,
+                                   std::to_string(config.validationThreshold));
+        ScopedSystemProperties sp2(kDotXportUnusableThresholdFlag,
+                                   std::to_string(dotXportUnusableThreshold));
+        ScopedSystemProperties sp3(kDotQueryTimeoutMsFlag, std::to_string(dotQueryTimeoutMs));
+        resetNetwork();
+
+        // This test is sensitive to the number of queries sent in DoT validation.
+        int latencyFactor;
+        int latencyOffsetMs;
+        if (isAtLeastR) {
+            // The feature is enabled by default in R.
+            latencyFactor = std::stoi(GetProperty(kDotValidationLatencyFactorFlag, "3"));
+            latencyOffsetMs = std::stoi(GetProperty(kDotValidationLatencyOffsetMsFlag, "100"));
+        } else {
+            // The feature is disabled by default in Q.
+            latencyFactor = std::stoi(GetProperty(kDotValidationLatencyFactorFlag, "-1"));
+            latencyOffsetMs = std::stoi(GetProperty(kDotValidationLatencyOffsetMsFlag, "-1"));
+        }
+        const bool dotValidationExtraProbes = (config.dnsMode == "OPPORTUNISTIC") &&
+                                              (latencyFactor >= 0 && latencyOffsetMs >= 0 &&
+                                               latencyFactor + latencyOffsetMs != 0);
+
+        const std::string addr = getUniqueIPv4Address();
+        test::DNSResponder dns(addr);
+        StartDns(dns, records);
+        test::DnsTlsFrontend tls(addr, "853", addr, "53");
+        ASSERT_TRUE(tls.startServer());
+
+        auto parcel = DnsResponderClient::GetDefaultResolverParamsParcel();
+        parcel.servers = {addr};
+        parcel.tlsServers = {addr};
+        if (config.dnsMode == "STRICT") parcel.tlsName = kDefaultPrivateDnsHostName;
+        ASSERT_TRUE(mDnsClient.SetResolversFromParcel(parcel));
+        EXPECT_TRUE(WaitForPrivateDnsValidation(tls.listen_address(), true));
+        if (dotValidationExtraProbes) {
+            EXPECT_TRUE(tls.waitForQueries(2));
+        } else {
+            EXPECT_TRUE(tls.waitForQueries(1));
+        }
+        tls.clearQueries();
+        dns.clearQueries();
+
+        // Expect the things happening in order:
+        // 1. Configure the DoT server to postpone |queries + 1| DNS queries.
+        // 2. Send |queries| DNS queries, they will time out in 1 second.
+        // 3. 1 second later, the DoT server still waits for one more DNS query until
+        //    |delayQueriesTimeout| times out.
+        // 4. (opportunistic mode only) Meanwhile, DoT revalidation happens. The DnsResolver
+        //    creates a new connection and sends a query to the DoT server.
+        // 5. 1 second later, |delayQueriesTimeout| times out. The DoT server flushes all of the
+        //    postponed DNS queries, and handles the query which comes from the revalidation.
+        // 6. (opportunistic mode only) The revalidation succeeds.
+        // 7. Send another DNS query, and expect it will succeed.
+        // 8. (opportunistic mode only) If the DoT server has been deemed as unusable, the
+        //    DnsResolver skips trying the DoT server.
+
+        // Step 1.
+        tls.setDelayQueries(queries + 1);
+        tls.setDelayQueriesTimeout(delayQueriesTimeout);
+
+        // Step 2.
+        std::vector<std::thread> threads1(queries);
+        for (std::thread& thread : threads1) {
+            thread = std::thread([&]() {
+                int fd = resNetworkQuery(TEST_NETID, hostname, ns_c_in, ns_t_a, cacheFlag);
+                config.dnsMode == "STRICT" ? expectAnswersNotValid(fd, -ETIMEDOUT)
+                                           : expectAnswersValid(fd, AF_INET, "1.2.3.4");
+            });
+        }
+
+        // Step 3 and 4.
+        for (std::thread& thread : threads1) {
+            thread.join();
+        }
+
+        // Recover the config to make the revalidation can succeed.
+        tls.setDelayQueries(1);
+
+        // Step 5 and 6.
+        int expectedDotQueries = queries;
+        int extraDnsProbe = 0;
+        if (config.expectRevalidationHappen) {
+            EXPECT_TRUE(WaitForPrivateDnsValidation(tls.listen_address(), true));
+            expectedDotQueries++;
+
+            if (dotValidationExtraProbes) {
+                expectedDotQueries++;
+                extraDnsProbe = 1;
+            }
+        }
+
+        // Step 7 and 8.
+        int fd = resNetworkQuery(TEST_NETID, hostname, ns_c_in, ns_t_a, cacheFlag);
+        expectAnswersValid(fd, AF_INET, "1.2.3.4");
+        expectedDotQueries++;
+
+        const int expectedDo53Queries =
+                expectedDotQueries +
+                (config.dnsMode == "OPPORTUNISTIC" ? (queries + extraDnsProbe) : 0);
+
+        if (config.expectDotUnusable) {
+            // A DoT server can be deemed as unusable only in opportunistic mode. When it happens,
+            // the DnsResolver doesn't use the DoT server for a certain period of time.
+            expectedDotQueries--;
+        }
+
+        // This code makes the test more robust to race condition.
+        EXPECT_TRUE(tls.waitForQueries(expectedDotQueries));
+
+        EXPECT_EQ(dns.queries().size(), static_cast<unsigned>(expectedDo53Queries));
+        EXPECT_EQ(tls.queries(), expectedDotQueries);
+    }
+}
+
+// Verifies that private DNS validation fails if DoT server is much slower than cleartext server.
+TEST_F(ResolverTest, TlsServerValidation_UdpProbe) {
+    constexpr char backend_addr[] = "127.0.0.3";
+    test::DNSResponder backend(backend_addr);
+    backend.setResponseDelayMs(200);
+    ASSERT_TRUE(backend.startServer());
+
+    static const struct TestConfig {
+        int latencyFactor;
+        int latencyOffsetMs;
+        bool udpProbeLost;
+        size_t expectedUdpProbes;
+        bool expectedValidationPass;
+    } testConfigs[] = {
+            // clang-format off
+            {-1, -1,  false, 0, true},
+            {0,  0,   false, 0, true},
+            {1,  10,  false, 1, false},
+            {1,  10,  true,  2, false},
+            {5,  300, false, 1, true},
+            {5,  300, true,  2, true},
+            // clang-format on
+    };
+
+    for (const auto& config : testConfigs) {
+        SCOPED_TRACE(fmt::format("testConfig: [{}, {}, {}]", config.latencyFactor,
+                                 config.latencyOffsetMs, config.udpProbeLost));
+
+        const std::string addr = getUniqueIPv4Address();
+        test::DNSResponder dns(addr, "53", static_cast<ns_rcode>(-1));
+        test::DnsTlsFrontend tls(addr, "853", backend_addr, "53");
+        dns.setResponseDelayMs(10);
+        ASSERT_TRUE(dns.startServer());
+        ASSERT_TRUE(tls.startServer());
+
+        ScopedSystemProperties sp1(kDotValidationLatencyFactorFlag,
+                                   std::to_string(config.latencyFactor));
+        ScopedSystemProperties sp2(kDotValidationLatencyOffsetMsFlag,
+                                   std::to_string(config.latencyOffsetMs));
+        resetNetwork();
+
+        std::unique_ptr<std::thread> thread;
+        if (config.udpProbeLost) {
+            thread.reset(new std::thread([&dns]() {
+                // Simulate that the first UDP probe is lost and the second UDP probe succeeds.
+                dns.setResponseProbability(0.0);
+                std::this_thread::sleep_for(std::chrono::seconds(2));
+                dns.setResponseProbability(1.0);
+            }));
+        }
+
+        // Set up opportunistic mode, and wait for the validation complete.
+        auto parcel = DnsResponderClient::GetDefaultResolverParamsParcel();
+        parcel.servers = {addr};
+        parcel.tlsServers = {addr};
+        ASSERT_TRUE(mDnsClient.SetResolversFromParcel(parcel));
+
+        // The timeout of WaitForPrivateDnsValidation is 5 seconds which is still enough for
+        // the testcase of UDP probe lost because the retry of UDP probe happens after 3 seconds.
+        EXPECT_TRUE(
+                WaitForPrivateDnsValidation(tls.listen_address(), config.expectedValidationPass));
+        EXPECT_EQ(dns.queries().size(), config.expectedUdpProbes);
+        dns.clearQueries();
+
+        // Test that Private DNS validation always pass in strict mode.
+        parcel.tlsName = kDefaultPrivateDnsHostName;
+        ASSERT_TRUE(mDnsClient.SetResolversFromParcel(parcel));
+        EXPECT_TRUE(WaitForPrivateDnsValidation(tls.listen_address(), true));
+        EXPECT_EQ(dns.queries().size(), 0U);
+
+        if (thread) {
+            thread->join();
+            thread.reset();
+        }
+    }
 }
 
 TEST_F(ResolverTest, FlushNetworkCache) {
@@ -4320,8 +5094,8 @@ TEST_F(ResolverTest, TruncatedRspMode) {
             // clang-format off
             {std::nullopt,                                      true,  0}, /* mode unset */
             {aidl::android::net::IDnsResolver::TC_MODE_DEFAULT, true,  0}, /* default mode */
+            {-666,                                              false, 0}, /* invalid input */
             {aidl::android::net::IDnsResolver::TC_MODE_UDP_TCP, true,  1}, /* alternative mode */
-            {-666,                                              false, 1}, /* invalid input */
             // clang-format on
     };
 
@@ -4330,10 +5104,21 @@ TEST_F(ResolverTest, TruncatedRspMode) {
 
         ResolverParamsParcel parcel = DnsResponderClient::GetDefaultResolverParamsParcel();
         parcel.servers = {listen_addr, listen_addr2};
-        if (config.tcMode) {
-            parcel.resolverOptions.tcMode = config.tcMode.value();
+        ResolverOptionsParcel resolverOptions;
+        if (config.tcMode.has_value()) resolverOptions.tcMode = config.tcMode.value();
+        if (!mIsResolverOptionIPCSupported) {
+            parcel.resolverOptions = resolverOptions;
+            ASSERT_EQ(mDnsClient.resolvService()->setResolverConfiguration(parcel).isOk(),
+                      config.ret);
+        } else {
+            ASSERT_TRUE(mDnsClient.resolvService()->setResolverConfiguration(parcel).isOk());
         }
-        ASSERT_EQ(mDnsClient.resolvService()->setResolverConfiguration(parcel).isOk(), config.ret);
+        if (mIsResolverOptionIPCSupported) {
+            ASSERT_EQ(mDnsClient.resolvService()
+                              ->setResolverOptions(parcel.netId, resolverOptions)
+                              .isOk(),
+                      config.ret);
+        }
 
         const addrinfo hints = {.ai_family = AF_INET, .ai_socktype = SOCK_DGRAM};
         ScopedAddrinfo result = safe_getaddrinfo("hello", nullptr, &hints);
@@ -4349,6 +5134,16 @@ TEST_F(ResolverTest, TruncatedRspMode) {
         dns.clearQueries();
         dns2.clearQueries();
         ASSERT_TRUE(mDnsClient.resolvService()->flushNetworkCache(TEST_NETID).isOk());
+
+        // Clear the stats to make the resolver always choose the same server for the first query.
+        parcel.servers.clear();
+        parcel.tlsServers.clear();
+        if (!mIsResolverOptionIPCSupported) {
+            ASSERT_EQ(mDnsClient.resolvService()->setResolverConfiguration(parcel).isOk(),
+                      config.ret);
+        } else {
+            ASSERT_TRUE(mDnsClient.resolvService()->setResolverConfiguration(parcel).isOk());
+        }
     }
 }
 
@@ -4382,7 +5177,7 @@ TEST_F(ResolverTest, RepeatedSetup_ResolverStatusRemains) {
             NameserverStats(unusable_listen_addr).setInternalErrors(1),
             NameserverStats(listen_addr).setSuccesses(1),
     };
-    EXPECT_TRUE(expectStatsFromGetResolverInfo(expectedCleartextDnsStats));
+    EXPECT_TRUE(expectStatsEqualTo(expectedCleartextDnsStats));
     EXPECT_EQ(GetNumQueries(dns, hostname), 1U);
 
     // The stats is supposed to remain as long as the list of cleartext DNS servers is unchanged.
@@ -4412,12 +5207,12 @@ TEST_F(ResolverTest, RepeatedSetup_ResolverStatusRemains) {
         parcel.tlsServers = config.tlsServers;
         parcel.tlsName = config.tlsName;
         repeatedSetResolversFromParcel(parcel);
-        EXPECT_TRUE(expectStatsFromGetResolverInfo(expectedCleartextDnsStats));
+        EXPECT_TRUE(expectStatsEqualTo(expectedCleartextDnsStats));
 
         // The stats remains when the list of search domains changes.
         parcel.domains.push_back("tmp.domains");
         repeatedSetResolversFromParcel(parcel);
-        EXPECT_TRUE(expectStatsFromGetResolverInfo(expectedCleartextDnsStats));
+        EXPECT_TRUE(expectStatsEqualTo(expectedCleartextDnsStats));
 
         // The stats remains when the parameters change (except maxSamples).
         parcel.sampleValiditySeconds++;
@@ -4426,7 +5221,7 @@ TEST_F(ResolverTest, RepeatedSetup_ResolverStatusRemains) {
         parcel.baseTimeoutMsec++;
         parcel.retryCount++;
         repeatedSetResolversFromParcel(parcel);
-        EXPECT_TRUE(expectStatsFromGetResolverInfo(expectedCleartextDnsStats));
+        EXPECT_TRUE(expectStatsEqualTo(expectedCleartextDnsStats));
     }
 
     // The cache remains.
@@ -4455,6 +5250,7 @@ TEST_F(ResolverTest, RepeatedSetup_NoRedundantPrivateDnsValidation) {
     StartDns(dns2, {});
     test::DnsTlsFrontend workableTls(addr1, "853", addr1, "53");
     test::DnsTlsFrontend unresponsiveTls(addr2, "853", addr2, "53");
+    int validationAttemptsToUnresponsiveTls = 1;
     unresponsiveTls.setHangOnHandshakeForTesting(true);
     ASSERT_TRUE(workableTls.startServer());
     ASSERT_TRUE(unresponsiveTls.startServer());
@@ -4468,7 +5264,9 @@ TEST_F(ResolverTest, RepeatedSetup_NoRedundantPrivateDnsValidation) {
     // Check the validation results.
     EXPECT_TRUE(WaitForPrivateDnsValidation(workableTls.listen_address(), true));
     EXPECT_TRUE(WaitForPrivateDnsValidation(unusable_addr, false));
-    EXPECT_EQ(unresponsiveTls.acceptConnectionsCount(), 1);  // The validation is still in progress.
+
+    // The validation is still in progress.
+    EXPECT_EQ(unresponsiveTls.acceptConnectionsCount(), validationAttemptsToUnresponsiveTls);
 
     static const struct TestConfig {
         std::vector<std::string> tlsServers;
@@ -4498,13 +5296,23 @@ TEST_F(ResolverTest, RepeatedSetup_NoRedundantPrivateDnsValidation) {
             SCOPED_TRACE(serverAddr);
             if (serverAddr == workableTls.listen_address()) {
                 if (dnsModeChanged) {
-                    // In despite of the identical IP address, the server is regarded as a different
+                    // Despite the identical IP address, the server is regarded as a different
                     // server when DnsTlsServer.name is different. The resolver treats it as a
                     // different object and begins the validation process.
                     EXPECT_TRUE(WaitForPrivateDnsValidation(serverAddr, true));
                 }
             } else if (serverAddr == unresponsiveTls.listen_address()) {
-                // No revalidation needed for the server which have been marked as in_progesss.
+                if (dnsModeChanged) {
+                    // Despite the identical IP address, the server is regarded as a different
+                    // server when DnsTlsServer.name is different. The resolver treats it as a
+                    // different object and begins the validation process.
+                    validationAttemptsToUnresponsiveTls++;
+
+                    // This is the limitation from DnsTlsFrontend. DnsTlsFrontend can't operate
+                    // concurrently. As soon as there's another connection request,
+                    // DnsTlsFrontend resets the unique_fd to the new connection.
+                    EXPECT_TRUE(WaitForPrivateDnsValidation(serverAddr, false));
+                }
             } else {
                 // Must be unusable_addr.
                 // In opportunistic mode, when a validation for a private DNS server fails, the
@@ -4531,7 +5339,7 @@ TEST_F(ResolverTest, RepeatedSetup_NoRedundantPrivateDnsValidation) {
             EXPECT_TRUE(WaitForPrivateDnsValidation(unusable_addr, false));
         }
 
-        EXPECT_EQ(unresponsiveTls.acceptConnectionsCount(), 1);
+        EXPECT_EQ(unresponsiveTls.acceptConnectionsCount(), validationAttemptsToUnresponsiveTls);
 
         TlsNameLastTime = config.tlsName;
     }
@@ -4577,17 +5385,18 @@ TEST_F(ResolverTest, RepeatedSetup_KeepChangingPrivateDnsServers) {
             {{addr2}, "", false, false},
             {{addr1}, "", false, true},
             {{addr2}, "", false, true},
-            {{addr1}, kDefaultPrivateDnsHostName, false, true},
-            {{addr2}, kDefaultPrivateDnsHostName, false, true},
+
+            // expectNothingHappenWhenServerUnresponsive is false in the two cases because of the
+            // limitation from DnsTlsFrontend which can't operate concurrently.
+            {{addr1}, kDefaultPrivateDnsHostName, false, false},
+            {{addr2}, kDefaultPrivateDnsHostName, false, false},
             {{addr1}, kDefaultPrivateDnsHostName, true, true},
             {{addr2}, kDefaultPrivateDnsHostName, true, true},
 
-            // There's no new validation to start because there are already two validation threads
-            // running (one is for addr1, the other is for addr2). This is because the comparator
-            // doesn't compare DnsTlsServer.name. Keep the design as-is until it's known to be
-            // harmful.
-            {{addr1}, "", true, true},
-            {{addr2}, "", true, true},
+            // expectNothingHappenWhenServerUnresponsive is true in the two cases because of the
+            // limitation from DnsTlsFrontend which can't operate concurrently.
+            {{addr1}, "", true, false},
+            {{addr2}, "", true, false},
             {{addr1}, "", true, true},
             {{addr2}, "", true, true},
     };
@@ -4636,6 +5445,8 @@ TEST_F(ResolverTest, RepeatedSetup_KeepChangingPrivateDnsServers) {
                     // It's possible that the resolver hasn't yet started to
                     // connect. Wait a while.
                     std::this_thread::sleep_for(100ms);
+                } else {
+                    EXPECT_TRUE(WaitForPrivateDnsValidation(config.tlsServer, false));
                 }
                 const auto condition = [&]() {
                     return tls.acceptConnectionsCount() == connectCountsBefore + expectCountDiff;
@@ -4977,7 +5788,7 @@ TEST_F(ResolverTest, GetAddrInfoParallelLookupTimeout) {
     neverRespondDns.setResponseProbability(0.0);
     StartDns(neverRespondDns, records);
     ScopedSystemProperties scopedSystemProperties(
-            "persist.device_config.netd_native.parallel_lookup", "1");
+            "persist.device_config.netd_native.parallel_lookup_release", "1");
     // The default value of parallel_lookup_sleep_time should be very small
     // that we can ignore in this test case.
     // Re-setup test network to make experiment flag take effect.
@@ -4997,6 +5808,7 @@ TEST_F(ResolverTest, GetAddrInfoParallelLookupTimeout) {
     EXPECT_NEAR(DNS_TIMEOUT_MS, timeTakenMs, TIMING_TOLERANCE_MS)
             << "took time should approximate equal timeout";
     EXPECT_EQ(2U, GetNumQueries(neverRespondDns, host_name));
+    ExpectDnsEvent(INetdEventListener::EVENT_GETADDRINFO, RCODE_TIMEOUT, host_name, {});
 }
 
 TEST_F(ResolverTest, GetAddrInfoParallelLookupSleepTime) {
@@ -5011,7 +5823,7 @@ TEST_F(ResolverTest, GetAddrInfoParallelLookupSleepTime) {
     test::DNSResponder dns(listen_addr);
     StartDns(dns, records);
     ScopedSystemProperties scopedSystemProperties1(
-            "persist.device_config.netd_native.parallel_lookup", "1");
+            "persist.device_config.netd_native.parallel_lookup_release", "1");
     constexpr int PARALLEL_LOOKUP_SLEEP_TIME_MS = 500;
     ScopedSystemProperties scopedSystemProperties2(
             "persist.device_config.netd_native.parallel_lookup_sleep_time",
@@ -5045,10 +5857,7 @@ TEST_F(ResolverTest, GetAddrInfoParallelLookupSleepTime) {
 }
 
 TEST_F(ResolverTest, BlockDnsQueryUidDoesNotLeadToBadServer) {
-    // This test relies on blocking traffic on loopback, which xt_qtaguid does not do.
-    // See aosp/358413 and b/34444781 for why.
     SKIP_IF_BPF_NOT_SUPPORTED;
-
     constexpr char listen_addr1[] = "127.0.0.4";
     constexpr char listen_addr2[] = "::1";
     test::DNSResponder dns1(listen_addr1);
@@ -5066,15 +5875,773 @@ TEST_F(ResolverTest, BlockDnsQueryUidDoesNotLeadToBadServer) {
         for (int i = 0; i < 10; i++) {
             std::string hostName = fmt::format("blocked{}.com", i);
             const addrinfo hints = {.ai_family = AF_INET, .ai_socktype = SOCK_DGRAM};
-            EXPECT_EQ(safe_getaddrinfo(hostName.c_str(), nullptr, &hints), nullptr);
+            // The query result between R+ and Q would be different, but we don't really care
+            // about the result here because this test is only used to ensure blocked uid rule
+            // won't cause bad servers.
+            safe_getaddrinfo(hostName.c_str(), nullptr, &hints);
         }
     }
-    // Since all query packets are blocked, we should not see any stats of them.
-    const std::vector<NameserverStats> expectedEmptyDnsStats = {
-            NameserverStats(listen_addr1),
+    ResolverParamsParcel setupParams = DnsResponderClient::GetDefaultResolverParamsParcel();
+    // If api level >= 30 (R+), expect all query packets to be blocked, hence we should not see any
+    // of their stats show up. Otherwise, all queries should succeed.
+    const std::vector<NameserverStats> expectedDnsStats = {
+            NameserverStats(listen_addr1).setSuccesses(isAtLeastR ? 0 : setupParams.maxSamples),
             NameserverStats(listen_addr2),
     };
-    expectStatsFromGetResolverInfo(expectedEmptyDnsStats);
-    EXPECT_EQ(dns1.queries().size(), 0U);
+    expectStatsEqualTo(expectedDnsStats);
+    // If api level >= 30 (R+), expect server won't receive any queries,
+    // otherwise expect 20 == 10 * (setupParams.domains.size() + 1) queries.
+    EXPECT_EQ(dns1.queries().size(), isAtLeastR ? 0U : 10 * (setupParams.domains.size() + 1));
     EXPECT_EQ(dns2.queries().size(), 0U);
+}
+
+TEST_F(ResolverTest, DnsServerSelection) {
+    test::DNSResponder dns1("127.0.0.3");
+    test::DNSResponder dns2("127.0.0.4");
+    test::DNSResponder dns3("127.0.0.5");
+
+    dns1.setResponseDelayMs(10);
+    dns2.setResponseDelayMs(25);
+    dns3.setResponseDelayMs(50);
+    StartDns(dns1, {{kHelloExampleCom, ns_type::ns_t_a, kHelloExampleComAddrV4}});
+    StartDns(dns2, {{kHelloExampleCom, ns_type::ns_t_a, kHelloExampleComAddrV4}});
+    StartDns(dns3, {{kHelloExampleCom, ns_type::ns_t_a, kHelloExampleComAddrV4}});
+
+    // NOTE: the servers must be sorted alphabetically.
+    std::vector<std::string> serverList = {
+            dns1.listen_address(),
+            dns2.listen_address(),
+            dns3.listen_address(),
+    };
+
+    do {
+        SCOPED_TRACE(fmt::format("testConfig: [{}]", fmt::join(serverList, ", ")));
+        const int queryNum = 50;
+        int64_t accumulatedTime = 0;
+
+        // The flag can be reset any time. It's better to re-setup the flag in each iteration.
+        ScopedSystemProperties scopedSystemProperties(kSortNameserversFlag, "1");
+
+        // Restart the testing network to 1) make the flag take effect and 2) reset the statistics.
+        resetNetwork();
+
+        // DnsServerSelection doesn't apply to private DNS.
+        ResolverParamsParcel setupParams = DnsResponderClient::GetDefaultResolverParamsParcel();
+        setupParams.servers = serverList;
+        setupParams.tlsServers.clear();
+        ASSERT_TRUE(mDnsClient.SetResolversFromParcel(setupParams));
+
+        // DNSResponder doesn't handle queries concurrently, so don't allow more than
+        // one in-flight query.
+        for (int i = 0; i < queryNum; i++) {
+            Stopwatch s;
+            int fd = resNetworkQuery(TEST_NETID, kHelloExampleCom, ns_c_in, ns_t_a,
+                                     ANDROID_RESOLV_NO_CACHE_LOOKUP);
+            expectAnswersValid(fd, AF_INET, kHelloExampleComAddrV4);
+            accumulatedTime += s.timeTakenUs();
+        }
+
+        const int dns1Count = dns1.queries().size();
+        const int dns2Count = dns2.queries().size();
+        const int dns3Count = dns3.queries().size();
+
+        // All of the servers have ever been selected. In addition, the less latency server
+        // is selected more frequently.
+        EXPECT_GT(dns1Count, 0);
+        EXPECT_GT(dns2Count, 0);
+        EXPECT_GT(dns3Count, 0);
+        EXPECT_GE(dns1Count, dns2Count);
+        EXPECT_GE(dns2Count, dns3Count);
+
+        const int averageTime = accumulatedTime / queryNum;
+        LOG(INFO) << "ResolverTest#DnsServerSelection: averageTime " << averageTime << "us";
+
+        dns1.clearQueries();
+        dns2.clearQueries();
+        dns3.clearQueries();
+    } while (std::next_permutation(serverList.begin(), serverList.end()));
+}
+
+TEST_F(ResolverTest, MultipleDotQueriesInOnePacket) {
+    constexpr char hostname1[] = "query1.example.com.";
+    constexpr char hostname2[] = "query2.example.com.";
+    const std::vector<DnsRecord> records = {
+            {hostname1, ns_type::ns_t_a, "1.2.3.4"},
+            {hostname2, ns_type::ns_t_a, "1.2.3.5"},
+    };
+
+    const std::string addr = getUniqueIPv4Address();
+    test::DNSResponder dns(addr);
+    StartDns(dns, records);
+    test::DnsTlsFrontend tls(addr, "853", addr, "53");
+    ASSERT_TRUE(tls.startServer());
+
+    // Set up resolver to strict mode.
+    auto parcel = DnsResponderClient::GetDefaultResolverParamsParcel();
+    parcel.servers = {addr};
+    parcel.tlsServers = {addr};
+    parcel.tlsName = kDefaultPrivateDnsHostName;
+    parcel.caCertificate = kCaCert;
+    ASSERT_TRUE(mDnsClient.SetResolversFromParcel(parcel));
+    EXPECT_TRUE(WaitForPrivateDnsValidation(tls.listen_address(), true));
+    EXPECT_TRUE(tls.waitForQueries(1));
+    tls.clearQueries();
+    dns.clearQueries();
+
+    const auto queryAndCheck = [&](const std::string& hostname,
+                                   const std::vector<DnsRecord>& records) {
+        SCOPED_TRACE(hostname);
+
+        const addrinfo hints = {.ai_family = AF_INET, .ai_socktype = SOCK_DGRAM};
+        auto [result, timeTakenMs] = safe_getaddrinfo_time_taken(hostname.c_str(), nullptr, hints);
+
+        std::vector<std::string> expectedAnswers;
+        for (const auto& r : records) {
+            if (r.host_name == hostname) expectedAnswers.push_back(r.addr);
+        }
+
+        EXPECT_LE(timeTakenMs, 200);
+        ASSERT_NE(result, nullptr);
+        EXPECT_THAT(ToStrings(result), testing::UnorderedElementsAreArray(expectedAnswers));
+    };
+
+    // Set tls to reply DNS responses in one TCP packet and not to close the connection from its
+    // side.
+    tls.setDelayQueries(2);
+    tls.setDelayQueriesTimeout(500);
+    tls.setPassiveClose(true);
+
+    // Start sending DNS requests at the same time.
+    std::array<std::thread, 2> threads;
+    threads[0] = std::thread(queryAndCheck, hostname1, records);
+    threads[1] = std::thread(queryAndCheck, hostname2, records);
+
+    threads[0].join();
+    threads[1].join();
+
+    // Also check no additional queries due to DoT reconnection.
+    EXPECT_EQ(tls.queries(), 2);
+}
+
+// ResolverMultinetworkTest is used to verify multinetwork functionality. Here's how it works:
+// The resolver sends queries to address A, and then there will be a TunForwarder helping forward
+// the packets to address B, which is the address on which the testing server is listening. The
+// answer packets responded from the testing server go through the reverse path back to the
+// resolver.
+//
+// To achieve the that, it needs to set up a interface with routing rules. Tests are not
+// supposed to initiate DNS servers on their own; instead, some utilities are added to the class to
+// help the setup.
+//
+// An example of how to use it:
+// TEST_F() {
+//     ScopedPhysicalNetwork network = CreateScopedPhysicalNetwork(V4);
+//     network.init();
+//
+//     auto dns = network.addIpv4Dns();
+//     StartDns(dns.dnsServer, {});
+//
+//     network.setDnsConfiguration();
+//     network.startTunForwarder();
+//
+//     // Send queries here
+// }
+
+class ResolverMultinetworkTest : public ResolverTest {
+  protected:
+    enum class ConnectivityType { V4, V6, V4V6 };
+    static constexpr int TEST_NETID_BASE = 10000;
+
+    struct DnsServerPair {
+        DnsServerPair(std::shared_ptr<test::DNSResponder> server, std::string addr)
+            : dnsServer(server), dnsAddr(addr) {}
+        std::shared_ptr<test::DNSResponder> dnsServer;
+        std::string dnsAddr;  // The DNS server address used for setResolverConfiguration().
+        // TODO: Add test::DnsTlsFrontend* and std::string for DoT.
+    };
+
+    class ScopedNetwork {
+      public:
+        ScopedNetwork(unsigned netId, ConnectivityType type, INetd* netdSrv,
+                      IDnsResolver* dnsResolvSrv, const char* networkName)
+            : mNetId(netId),
+              mConnectivityType(type),
+              mNetdSrv(netdSrv),
+              mDnsResolvSrv(dnsResolvSrv),
+              mNetworkName(networkName) {
+            mIfname = fmt::format("testtun{}", netId);
+        }
+        virtual ~ScopedNetwork() {
+            if (mNetdSrv != nullptr) mNetdSrv->networkDestroy(mNetId);
+            if (mDnsResolvSrv != nullptr) mDnsResolvSrv->destroyNetworkCache(mNetId);
+        }
+
+        Result<void> init();
+        Result<DnsServerPair> addIpv4Dns() { return addDns(ConnectivityType::V4); }
+        Result<DnsServerPair> addIpv6Dns() { return addDns(ConnectivityType::V6); }
+        bool startTunForwarder() { return mTunForwarder->startForwarding(); }
+        bool setDnsConfiguration() const;
+        bool clearDnsConfiguration() const;
+        unsigned netId() const { return mNetId; }
+        std::string name() const { return mNetworkName; }
+
+      protected:
+        // Subclasses should implement it to decide which network should be create.
+        virtual Result<void> createNetwork() const = 0;
+
+        const unsigned mNetId;
+        const ConnectivityType mConnectivityType;
+        INetd* mNetdSrv;
+        IDnsResolver* mDnsResolvSrv;
+        const std::string mNetworkName;
+        std::string mIfname;
+        std::unique_ptr<TunForwarder> mTunForwarder;
+        std::vector<DnsServerPair> mDnsServerPairs;
+
+      private:
+        Result<DnsServerPair> addDns(ConnectivityType connectivity);
+        // Assuming mNetId is unique during ResolverMultinetworkTest, make the
+        // address based on it to avoid conflicts.
+        std::string makeIpv4AddrString(uint8_t n) const {
+            return StringPrintf("192.168.%u.%u", (mNetId - TEST_NETID_BASE), n);
+        }
+        std::string makeIpv6AddrString(uint8_t n) const {
+            return StringPrintf("2001:db8:%u::%u", (mNetId - TEST_NETID_BASE), n);
+        }
+    };
+
+    class ScopedPhysicalNetwork : public ScopedNetwork {
+      public:
+        ScopedPhysicalNetwork(unsigned netId, const char* networkName)
+            : ScopedNetwork(netId, ConnectivityType::V4V6, nullptr, nullptr, networkName) {}
+        ScopedPhysicalNetwork(unsigned netId, ConnectivityType type, INetd* netdSrv,
+                              IDnsResolver* dnsResolvSrv, const char* name = "Physical")
+            : ScopedNetwork(netId, type, netdSrv, dnsResolvSrv, name) {}
+
+      protected:
+        Result<void> createNetwork() const override {
+            ::ndk::ScopedAStatus r;
+            if (DnsResponderClient::isRemoteVersionSupported(mNetdSrv, 6)) {
+                const auto& config = DnsResponderClient::makeNativeNetworkConfig(
+                        mNetId, NativeNetworkType::PHYSICAL, INetd::PERMISSION_NONE,
+                        /*secure=*/false);
+                r = mNetdSrv->networkCreate(config);
+            } else {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+                r = mNetdSrv->networkCreatePhysical(mNetId, INetd::PERMISSION_NONE);
+#pragma clang diagnostic pop
+            }
+
+            if (!r.isOk()) {
+                return Error() << r.getMessage();
+            }
+            return {};
+        }
+    };
+
+    class ScopedVirtualNetwork : public ScopedNetwork {
+      public:
+        ScopedVirtualNetwork(unsigned netId, ConnectivityType type, INetd* netdSrv,
+                             IDnsResolver* dnsResolvSrv, const char* name, bool isSecure)
+            : ScopedNetwork(netId, type, netdSrv, dnsResolvSrv, name), mIsSecure(isSecure) {}
+        ~ScopedVirtualNetwork() {
+            if (!mVpnIsolationUids.empty()) {
+                const std::vector<int> tmpUids(mVpnIsolationUids.begin(), mVpnIsolationUids.end());
+                mNetdSrv->firewallRemoveUidInterfaceRules(tmpUids);
+            }
+        }
+        // Enable VPN isolation. Ensures that uid can only receive packets on mIfname.
+        Result<void> enableVpnIsolation(int uid) {
+            if (auto r = mNetdSrv->firewallAddUidInterfaceRules(mIfname, {uid}); !r.isOk()) {
+                return Error() << r.getMessage();
+            }
+            mVpnIsolationUids.insert(uid);
+            return {};
+        }
+        Result<void> disableVpnIsolation(int uid) {
+            if (auto r = mNetdSrv->firewallRemoveUidInterfaceRules({static_cast<int>(uid)});
+                !r.isOk()) {
+                return Error() << r.getMessage();
+            }
+            mVpnIsolationUids.erase(uid);
+            return {};
+        }
+        Result<void> addUser(uid_t uid) const { return addUidRange(uid, uid); }
+        Result<void> addUidRange(uid_t from, uid_t to) const {
+            if (auto r = mNetdSrv->networkAddUidRanges(mNetId, {makeUidRangeParcel(from, to)});
+                !r.isOk()) {
+                return Error() << r.getMessage();
+            }
+            return {};
+        }
+
+      protected:
+        Result<void> createNetwork() const override {
+            ::ndk::ScopedAStatus r;
+            if (DnsResponderClient::isRemoteVersionSupported(mNetdSrv, 6)) {
+                const auto& config = DnsResponderClient::makeNativeNetworkConfig(
+                        mNetId, NativeNetworkType::VIRTUAL, INetd::PERMISSION_NONE, mIsSecure);
+                r = mNetdSrv->networkCreate(config);
+            } else {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+                r = mNetdSrv->networkCreateVpn(mNetId, mIsSecure);
+#pragma clang diagnostic pop
+            }
+
+            if (!r.isOk()) {
+                return Error() << r.getMessage();
+            }
+            return {};
+        }
+
+        bool mIsSecure = false;
+        std::unordered_set<int> mVpnIsolationUids;
+    };
+
+    void SetUp() override {
+        ResolverTest::SetUp();
+        ASSERT_NE(mDnsClient.netdService(), nullptr);
+        ASSERT_NE(mDnsClient.resolvService(), nullptr);
+    }
+
+    void TearDown() override {
+        ResolverTest::TearDown();
+        // Restore default network
+        if (mStoredDefaultNetwork >= 0) {
+            mDnsClient.netdService()->networkSetDefault(mStoredDefaultNetwork);
+        }
+    }
+
+    ScopedPhysicalNetwork CreateScopedPhysicalNetwork(ConnectivityType type,
+                                                      const char* name = "Physical") {
+        return {getFreeNetId(), type, mDnsClient.netdService(), mDnsClient.resolvService(), name};
+    }
+    ScopedVirtualNetwork CreateScopedVirtualNetwork(ConnectivityType type, bool isSecure,
+                                                    const char* name = "Virtual") {
+        return {getFreeNetId(), type,    mDnsClient.netdService(), mDnsClient.resolvService(),
+                name,           isSecure};
+    }
+    void StartDns(test::DNSResponder& dns, const std::vector<DnsRecord>& records);
+    void setDefaultNetwork(int netId) {
+        // Save current default network at the first call.
+        std::call_once(defaultNetworkFlag, [&]() {
+            ASSERT_TRUE(mDnsClient.netdService()->networkGetDefault(&mStoredDefaultNetwork).isOk());
+        });
+        ASSERT_TRUE(mDnsClient.netdService()->networkSetDefault(netId).isOk());
+    }
+    unsigned getFreeNetId() {
+        if (mNextNetId == TEST_NETID_BASE + 256) mNextNetId = TEST_NETID_BASE;
+        return mNextNetId++;
+    }
+
+  private:
+    // Use a different netId because this class inherits from the class ResolverTest which
+    // always creates TEST_NETID in setup. It's incremented when CreateScoped{Physical,
+    // Virtual}Network() is called.
+    // Note: 255 is the maximum number of (mNextNetId - TEST_NETID_BASE) here as mNextNetId
+    // is used to create address.
+    unsigned mNextNetId = TEST_NETID_BASE;
+    // Use -1 to represent that default network was not modified because
+    // real netId must be an unsigned value.
+    int mStoredDefaultNetwork = -1;
+    std::once_flag defaultNetworkFlag;
+};
+
+Result<void> ResolverMultinetworkTest::ScopedNetwork::init() {
+    if (mNetdSrv == nullptr || mDnsResolvSrv == nullptr) return Error() << "srv not available";
+    unique_fd ufd = TunForwarder::createTun(mIfname);
+    if (!ufd.ok()) {
+        return Errorf("createTun for {} failed", mIfname);
+    }
+    mTunForwarder = std::make_unique<TunForwarder>(std::move(ufd));
+
+    if (auto r = createNetwork(); !r.ok()) {
+        return r;
+    }
+    if (auto r = mDnsResolvSrv->createNetworkCache(mNetId); !r.isOk()) {
+        return Error() << r.getMessage();
+    }
+    if (auto r = mNetdSrv->networkAddInterface(mNetId, mIfname); !r.isOk()) {
+        return Error() << r.getMessage();
+    }
+
+    if (mConnectivityType == ConnectivityType::V4 || mConnectivityType == ConnectivityType::V4V6) {
+        const std::string v4Addr = makeIpv4AddrString(1);
+        if (auto r = mNetdSrv->interfaceAddAddress(mIfname, v4Addr, 32); !r.isOk()) {
+            return Error() << r.getMessage();
+        }
+        if (auto r = mNetdSrv->networkAddRoute(mNetId, mIfname, "0.0.0.0/0", ""); !r.isOk()) {
+            return Error() << r.getMessage();
+        }
+    }
+    if (mConnectivityType == ConnectivityType::V6 || mConnectivityType == ConnectivityType::V4V6) {
+        const std::string v6Addr = makeIpv6AddrString(1);
+        if (auto r = mNetdSrv->interfaceAddAddress(mIfname, v6Addr, 128); !r.isOk()) {
+            return Error() << r.getMessage();
+        }
+        if (auto r = mNetdSrv->networkAddRoute(mNetId, mIfname, "::/0", ""); !r.isOk()) {
+            return Error() << r.getMessage();
+        }
+    }
+
+    return {};
+}
+
+void ResolverMultinetworkTest::StartDns(test::DNSResponder& dns,
+                                        const std::vector<DnsRecord>& records) {
+    ResolverTest::StartDns(dns, records);
+
+    // Bind the DNSResponder's sockets to the network if specified.
+    if (std::optional<unsigned> netId = dns.getNetwork(); netId.has_value()) {
+        setNetworkForSocket(netId.value(), dns.getUdpSocket());
+        setNetworkForSocket(netId.value(), dns.getTcpSocket());
+    }
+}
+
+Result<ResolverMultinetworkTest::DnsServerPair> ResolverMultinetworkTest::ScopedNetwork::addDns(
+        ConnectivityType type) {
+    const int index = mDnsServerPairs.size();
+    const int prefixLen = (type == ConnectivityType::V4) ? 32 : 128;
+
+    const std::function<std::string(unsigned)> makeIpString =
+            std::bind((type == ConnectivityType::V4) ? &ScopedNetwork::makeIpv4AddrString
+                                                     : &ScopedNetwork::makeIpv6AddrString,
+                      this, std::placeholders::_1);
+
+    std::string src1 = makeIpString(1);            // The address from which the resolver will send.
+    std::string dst1 = makeIpString(
+            index + 100 +
+            (mNetId - TEST_NETID_BASE));           // The address to which the resolver will send.
+    std::string src2 = dst1;                       // The address translated from src1.
+    std::string dst2 = makeIpString(
+            index + 200 + (mNetId - TEST_NETID_BASE));  // The address translated from dst2.
+
+    if (!mTunForwarder->addForwardingRule({src1, dst1}, {src2, dst2}) ||
+        !mTunForwarder->addForwardingRule({dst2, src2}, {dst1, src1})) {
+        return Errorf("Failed to add the rules ({}, {}, {}, {})", src1, dst1, src2, dst2);
+    }
+
+    if (!mNetdSrv->interfaceAddAddress(mIfname, dst2, prefixLen).isOk()) {
+        return Errorf("interfaceAddAddress({}, {}, {}) failed", mIfname, dst2, prefixLen);
+    }
+
+    return mDnsServerPairs.emplace_back(std::make_shared<test::DNSResponder>(mNetId, dst2), dst1);
+}
+
+bool ResolverMultinetworkTest::ScopedNetwork::setDnsConfiguration() const {
+    if (mDnsResolvSrv == nullptr) return false;
+    ResolverParamsParcel parcel = DnsResponderClient::GetDefaultResolverParamsParcel();
+    parcel.tlsServers.clear();
+    parcel.netId = mNetId;
+    parcel.servers.clear();
+    for (const auto& pair : mDnsServerPairs) {
+        parcel.servers.push_back(pair.dnsAddr);
+    }
+    return mDnsResolvSrv->setResolverConfiguration(parcel).isOk();
+}
+
+bool ResolverMultinetworkTest::ScopedNetwork::clearDnsConfiguration() const {
+    if (mDnsResolvSrv == nullptr) return false;
+    return mDnsResolvSrv->destroyNetworkCache(mNetId).isOk() &&
+           mDnsResolvSrv->createNetworkCache(mNetId).isOk();
+}
+
+namespace {
+
+// Convenient wrapper for making getaddrinfo call like framework.
+Result<ScopedAddrinfo> android_getaddrinfofornet_wrapper(const char* name, int netId) {
+    // Use the same parameter as libcore/ojluni/src/main/java/java/net/Inet6AddressImpl.java.
+    static const addrinfo hints = {
+            .ai_flags = AI_ADDRCONFIG,
+            .ai_family = AF_UNSPEC,
+            .ai_socktype = SOCK_STREAM,
+    };
+    addrinfo* result = nullptr;
+    if (int r = android_getaddrinfofornet(name, nullptr, &hints, netId, MARK_UNSET, &result)) {
+        return Error() << r;
+    }
+    return ScopedAddrinfo(result);
+}
+
+void expectDnsWorksForUid(const char* name, unsigned netId, uid_t uid,
+                          const std::vector<std::string>& expectedResult) {
+    ScopedChangeUID scopedChangeUID(uid);
+    auto result = android_getaddrinfofornet_wrapper(name, netId);
+    ASSERT_RESULT_OK(result);
+    ScopedAddrinfo ai_result(std::move(result.value()));
+    std::vector<std::string> result_strs = ToStrings(ai_result);
+    EXPECT_THAT(result_strs, testing::UnorderedElementsAreArray(expectedResult));
+}
+
+}  // namespace
+
+TEST_F(ResolverMultinetworkTest, GetAddrInfo_AI_ADDRCONFIG) {
+    constexpr char host_name[] = "ohayou.example.com.";
+
+    const std::array<ConnectivityType, 3> allTypes = {
+            ConnectivityType::V4,
+            ConnectivityType::V6,
+            ConnectivityType::V4V6,
+    };
+    for (const auto& type : allTypes) {
+        SCOPED_TRACE(StringPrintf("ConnectivityType: %d", type));
+
+        // Create a network.
+        ScopedPhysicalNetwork network = CreateScopedPhysicalNetwork(type);
+        ASSERT_RESULT_OK(network.init());
+
+        // Add a testing DNS server.
+        const Result<DnsServerPair> dnsPair =
+                (type == ConnectivityType::V4) ? network.addIpv4Dns() : network.addIpv6Dns();
+        ASSERT_RESULT_OK(dnsPair);
+        StartDns(*dnsPair->dnsServer, {{host_name, ns_type::ns_t_a, "192.0.2.0"},
+                                       {host_name, ns_type::ns_t_aaaa, "2001:db8:cafe:d00d::31"}});
+
+        // Set up resolver and start forwarding.
+        ASSERT_TRUE(network.setDnsConfiguration());
+        ASSERT_TRUE(network.startTunForwarder());
+
+        auto result = android_getaddrinfofornet_wrapper(host_name, network.netId());
+        ASSERT_RESULT_OK(result);
+        ScopedAddrinfo ai_result(std::move(result.value()));
+        std::vector<std::string> result_strs = ToStrings(ai_result);
+        std::vector<std::string> expectedResult;
+        size_t expectedQueries = 0;
+
+        if (type == ConnectivityType::V6 || type == ConnectivityType::V4V6) {
+            expectedResult.emplace_back("2001:db8:cafe:d00d::31");
+            expectedQueries++;
+        }
+        if (type == ConnectivityType::V4 || type == ConnectivityType::V4V6) {
+            expectedResult.emplace_back("192.0.2.0");
+            expectedQueries++;
+        }
+        EXPECT_THAT(result_strs, testing::UnorderedElementsAreArray(expectedResult));
+        EXPECT_EQ(GetNumQueries(*dnsPair->dnsServer, host_name), expectedQueries);
+    }
+}
+
+TEST_F(ResolverMultinetworkTest, NetworkDestroyedDuringQueryInFlight) {
+    constexpr char host_name[] = "ohayou.example.com.";
+
+    // Create a network and add an ipv4 DNS server.
+    auto network = std::make_unique<ScopedPhysicalNetwork>(getFreeNetId(), ConnectivityType::V4V6,
+                                                           mDnsClient.netdService(),
+                                                           mDnsClient.resolvService());
+    ASSERT_RESULT_OK(network->init());
+    const Result<DnsServerPair> dnsPair = network->addIpv4Dns();
+    ASSERT_RESULT_OK(dnsPair);
+
+    // Set the DNS server unresponsive.
+    dnsPair->dnsServer->setResponseProbability(0.0);
+    dnsPair->dnsServer->setErrorRcode(static_cast<ns_rcode>(-1));
+    StartDns(*dnsPair->dnsServer, {});
+
+    // Set up resolver and start forwarding.
+    ASSERT_TRUE(network->setDnsConfiguration());
+    ASSERT_TRUE(network->startTunForwarder());
+
+    // Expect the things happening in order:
+    // 1. The thread sends the query to the dns server which is unresponsive.
+    // 2. The network is destroyed while the thread is waiting for the response from the dns server.
+    // 3. After the dns server timeout, the thread retries but fails to connect.
+    std::thread lookup([&]() {
+        int fd = resNetworkQuery(network->netId(), host_name, ns_c_in, ns_t_a, 0);
+        EXPECT_TRUE(fd != -1);
+        expectAnswersNotValid(fd, -ETIMEDOUT);
+    });
+
+    // Tear down the network as soon as the dns server receives the query.
+    const auto condition = [&]() { return GetNumQueries(*dnsPair->dnsServer, host_name) == 1U; };
+    EXPECT_TRUE(PollForCondition(condition));
+    network.reset();
+
+    lookup.join();
+}
+
+TEST_F(ResolverMultinetworkTest, OneCachePerNetwork) {
+    SKIP_IF_REMOTE_VERSION_LESS_THAN(mDnsClient.resolvService(), 4);
+    constexpr char host_name[] = "ohayou.example.com.";
+
+    ScopedPhysicalNetwork network1 = CreateScopedPhysicalNetwork(ConnectivityType::V4V6);
+    ScopedPhysicalNetwork network2 = CreateScopedPhysicalNetwork(ConnectivityType::V4V6);
+    ASSERT_RESULT_OK(network1.init());
+    ASSERT_RESULT_OK(network2.init());
+
+    const Result<DnsServerPair> dnsPair1 = network1.addIpv4Dns();
+    const Result<DnsServerPair> dnsPair2 = network2.addIpv4Dns();
+    ASSERT_RESULT_OK(dnsPair1);
+    ASSERT_RESULT_OK(dnsPair2);
+    StartDns(*dnsPair1->dnsServer, {{host_name, ns_type::ns_t_a, "192.0.2.0"}});
+    StartDns(*dnsPair2->dnsServer, {{host_name, ns_type::ns_t_a, "192.0.2.1"}});
+
+    // Set up resolver for network 1 and start forwarding.
+    ASSERT_TRUE(network1.setDnsConfiguration());
+    ASSERT_TRUE(network1.startTunForwarder());
+
+    // Set up resolver for network 2 and start forwarding.
+    ASSERT_TRUE(network2.setDnsConfiguration());
+    ASSERT_TRUE(network2.startTunForwarder());
+
+    // Send the same queries to both networks.
+    int fd1 = resNetworkQuery(network1.netId(), host_name, ns_c_in, ns_t_a, 0);
+    int fd2 = resNetworkQuery(network2.netId(), host_name, ns_c_in, ns_t_a, 0);
+
+    expectAnswersValid(fd1, AF_INET, "192.0.2.0");
+    expectAnswersValid(fd2, AF_INET, "192.0.2.1");
+    EXPECT_EQ(GetNumQueries(*dnsPair1->dnsServer, host_name), 1U);
+    EXPECT_EQ(GetNumQueries(*dnsPair2->dnsServer, host_name), 1U);
+
+    // Flush the cache of network 1, and send the queries again.
+    EXPECT_TRUE(mDnsClient.resolvService()->flushNetworkCache(network1.netId()).isOk());
+    fd1 = resNetworkQuery(network1.netId(), host_name, ns_c_in, ns_t_a, 0);
+    fd2 = resNetworkQuery(network2.netId(), host_name, ns_c_in, ns_t_a, 0);
+
+    expectAnswersValid(fd1, AF_INET, "192.0.2.0");
+    expectAnswersValid(fd2, AF_INET, "192.0.2.1");
+    EXPECT_EQ(GetNumQueries(*dnsPair1->dnsServer, host_name), 2U);
+    EXPECT_EQ(GetNumQueries(*dnsPair2->dnsServer, host_name), 1U);
+}
+
+TEST_F(ResolverMultinetworkTest, DnsWithVpn) {
+    SKIP_IF_BPF_NOT_SUPPORTED;
+    SKIP_IF_REMOTE_VERSION_LESS_THAN(mDnsClient.resolvService(), 4);
+    constexpr char host_name[] = "ohayou.example.com.";
+    constexpr char ipv4_addr[] = "192.0.2.0";
+    constexpr char ipv6_addr[] = "2001:db8:cafe:d00d::31";
+
+    const std::pair<ConnectivityType, std::vector<std::string>> testPairs[] = {
+            {ConnectivityType::V4, {ipv4_addr}},
+            {ConnectivityType::V6, {ipv6_addr}},
+            {ConnectivityType::V4V6, {ipv6_addr, ipv4_addr}},
+    };
+    for (const auto& [type, result] : testPairs) {
+        SCOPED_TRACE(StringPrintf("ConnectivityType: %d", type));
+
+        // Create a network.
+        ScopedPhysicalNetwork underlyingNetwork = CreateScopedPhysicalNetwork(type, "Underlying");
+        ScopedVirtualNetwork bypassableVpnNetwork =
+                CreateScopedVirtualNetwork(type, false, "BypassableVpn");
+        ScopedVirtualNetwork secureVpnNetwork = CreateScopedVirtualNetwork(type, true, "SecureVpn");
+
+        ASSERT_RESULT_OK(underlyingNetwork.init());
+        ASSERT_RESULT_OK(bypassableVpnNetwork.init());
+        ASSERT_RESULT_OK(secureVpnNetwork.init());
+        ASSERT_RESULT_OK(bypassableVpnNetwork.addUser(TEST_UID));
+        ASSERT_RESULT_OK(secureVpnNetwork.addUser(TEST_UID2));
+
+        auto setupDnsFn = [&](std::shared_ptr<test::DNSResponder> dnsServer,
+                              ScopedNetwork* nw) -> void {
+            StartDns(*dnsServer, {{host_name, ns_type::ns_t_a, ipv4_addr},
+                                  {host_name, ns_type::ns_t_aaaa, ipv6_addr}});
+            ASSERT_TRUE(nw->setDnsConfiguration());
+            ASSERT_TRUE(nw->startTunForwarder());
+        };
+        // Add a testing DNS server to networks.
+        const Result<DnsServerPair> underlyingPair = (type == ConnectivityType::V4)
+                                                             ? underlyingNetwork.addIpv4Dns()
+                                                             : underlyingNetwork.addIpv6Dns();
+        ASSERT_RESULT_OK(underlyingPair);
+        const Result<DnsServerPair> bypassableVpnPair = (type == ConnectivityType::V4)
+                                                                ? bypassableVpnNetwork.addIpv4Dns()
+                                                                : bypassableVpnNetwork.addIpv6Dns();
+        ASSERT_RESULT_OK(bypassableVpnPair);
+        const Result<DnsServerPair> secureVpnPair = (type == ConnectivityType::V4)
+                                                            ? secureVpnNetwork.addIpv4Dns()
+                                                            : secureVpnNetwork.addIpv6Dns();
+        ASSERT_RESULT_OK(secureVpnPair);
+        // Set up resolver and start forwarding for networks.
+        setupDnsFn(underlyingPair->dnsServer, &underlyingNetwork);
+        setupDnsFn(bypassableVpnPair->dnsServer, &bypassableVpnNetwork);
+        setupDnsFn(secureVpnPair->dnsServer, &secureVpnNetwork);
+
+        setDefaultNetwork(underlyingNetwork.netId());
+        const unsigned underlyingNetId = underlyingNetwork.netId();
+        const unsigned bypassableVpnNetId = bypassableVpnNetwork.netId();
+        const unsigned secureVpnNetId = secureVpnNetwork.netId();
+        // We've called setNetworkForProcess in SetupOemNetwork, so reset to default first.
+        ScopedSetNetworkForProcess scopedSetNetworkForProcess(NETID_UNSET);
+        auto expectDnsQueryCountsFn = [&](size_t count,
+                                          std::shared_ptr<test::DNSResponder> dnsServer,
+                                          unsigned expectedDnsNetId) -> void {
+            EXPECT_EQ(GetNumQueries(*dnsServer, host_name), count);
+            EXPECT_TRUE(mDnsClient.resolvService()->flushNetworkCache(expectedDnsNetId).isOk());
+            dnsServer->clearQueries();
+            // Give DnsResolver some time to clear cache to avoid race.
+            usleep(5 * 1000);
+        };
+
+        // Create a object to represent default network, do not init it.
+        ScopedPhysicalNetwork defaultNetwork{NETID_UNSET, "Default"};
+
+        // Test VPN with DNS server under 4 different network selection scenarios.
+        // See the test config for the expectation.
+        const struct TestConfig {
+            ScopedNetwork* selectedNetwork;
+            unsigned expectedDnsNetId;
+            std::shared_ptr<test::DNSResponder> expectedDnsServer;
+        } vpnWithDnsServerConfigs[]{
+                // clang-format off
+                // Queries use the bypassable VPN by default.
+                {&defaultNetwork,       bypassableVpnNetId, bypassableVpnPair->dnsServer},
+                // Choosing the underlying network works because the VPN is bypassable.
+                {&underlyingNetwork,    underlyingNetId,    underlyingPair->dnsServer},
+                // Selecting the VPN sends the query on the VPN.
+                {&bypassableVpnNetwork, bypassableVpnNetId, bypassableVpnPair->dnsServer},
+                // TEST_UID does not have access to the secure VPN.
+                {&secureVpnNetwork,     bypassableVpnNetId, bypassableVpnPair->dnsServer},
+                // clang-format on
+        };
+        for (const auto& config : vpnWithDnsServerConfigs) {
+            SCOPED_TRACE(fmt::format("Bypassble VPN with DnsServer, selectedNetwork = {}",
+                                     config.selectedNetwork->name()));
+            expectDnsWorksForUid(host_name, config.selectedNetwork->netId(), TEST_UID, result);
+            expectDnsQueryCountsFn(result.size(), config.expectedDnsServer,
+                                   config.expectedDnsNetId);
+        }
+
+        std::vector<ScopedNetwork*> nwVec{&defaultNetwork, &underlyingNetwork,
+                                          &bypassableVpnNetwork, &secureVpnNetwork};
+        // Test the VPN without DNS server with the same combination as before.
+        ASSERT_TRUE(bypassableVpnNetwork.clearDnsConfiguration());
+        // Test bypassable VPN, TEST_UID
+        for (const auto* selectedNetwork : nwVec) {
+            SCOPED_TRACE(fmt::format("Bypassble VPN without DnsServer, selectedNetwork = {}",
+                                     selectedNetwork->name()));
+            expectDnsWorksForUid(host_name, selectedNetwork->netId(), TEST_UID, result);
+            expectDnsQueryCountsFn(result.size(), underlyingPair->dnsServer, underlyingNetId);
+        }
+
+        // The same test scenario as before plus enableVpnIsolation for secure VPN, TEST_UID2.
+        for (bool enableVpnIsolation : {false, true}) {
+            SCOPED_TRACE(fmt::format("enableVpnIsolation = {}", enableVpnIsolation));
+            if (enableVpnIsolation) {
+                EXPECT_RESULT_OK(secureVpnNetwork.enableVpnIsolation(TEST_UID2));
+            }
+
+            // Test secure VPN without DNS server.
+            ASSERT_TRUE(secureVpnNetwork.clearDnsConfiguration());
+            for (const auto* selectedNetwork : nwVec) {
+                SCOPED_TRACE(fmt::format("Secure VPN without DnsServer, selectedNetwork = {}",
+                                         selectedNetwork->name()));
+                expectDnsWorksForUid(host_name, selectedNetwork->netId(), TEST_UID2, result);
+                expectDnsQueryCountsFn(result.size(), underlyingPair->dnsServer, underlyingNetId);
+            }
+
+            // Test secure VPN with DNS server.
+            ASSERT_TRUE(secureVpnNetwork.setDnsConfiguration());
+            for (const auto* selectedNetwork : nwVec) {
+                SCOPED_TRACE(fmt::format("Secure VPN with DnsServer, selectedNetwork = {}",
+                                         selectedNetwork->name()));
+                expectDnsWorksForUid(host_name, selectedNetwork->netId(), TEST_UID2, result);
+                expectDnsQueryCountsFn(result.size(), secureVpnPair->dnsServer, secureVpnNetId);
+            }
+
+            if (enableVpnIsolation) {
+                EXPECT_RESULT_OK(secureVpnNetwork.disableVpnIsolation(TEST_UID2));
+            }
+        }
+    }
 }

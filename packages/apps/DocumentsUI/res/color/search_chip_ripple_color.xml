@@ -18,15 +18,15 @@
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Selected. -->
     <item android:state_pressed="true" android:state_selected="true"
-          android:alpha="0.16" android:color="?android:colorPrimary"/>
+          android:alpha="0.16" android:color="?android:colorSecondary"/>
     <item android:state_focused="true" android:state_hovered="true" android:state_selected="true"
-          android:alpha="0.16" android:color="?android:colorPrimary"/>
+          android:alpha="0.16" android:color="?android:colorSecondary"/>
     <item android:state_focused="true" android:state_selected="true"
-          android:alpha="0.12" android:color="?android:colorPrimary"/>
+          android:alpha="0.12" android:color="?android:colorSecondary"/>
     <item android:state_hovered="true" android:state_selected="true"
-          android:alpha="0.04" android:color="?android:colorPrimary"/>
+          android:alpha="0.04" android:color="?android:colorSecondary"/>
     <item android:state_selected="true"
-          android:alpha="0.00" android:color="?android:colorPrimary"/>
+          android:alpha="0.00" android:color="?android:colorSecondary"/>
 
     <!-- Unselected. -->
     <item android:state_pressed="true" android:alpha="0.16" android:color="?android:textColorSecondary"/>

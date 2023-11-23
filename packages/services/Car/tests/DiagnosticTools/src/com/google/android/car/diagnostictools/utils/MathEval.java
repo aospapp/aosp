@@ -24,8 +24,8 @@ package com.google.android.car.diagnostictools.utils;
 class MathEval {
 
     /**
-     * This is a sanity check for user generated strings to catch errors once instead of everytime
-     * the data is translated
+     * This is a confidence check for user generated strings to catch errors once instead of every
+     * time the data is translated
      *
      * @param str Translation string to test
      * @return True if the string doesn't or won't fail when processing simple inputs

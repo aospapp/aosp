@@ -20,7 +20,7 @@ import android.os.Bundle;
 
 import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
-import androidx.leanback.app.GuidedStepFragment;
+import androidx.leanback.app.GuidedStepSupportFragment;
 import androidx.leanback.widget.GuidanceStylist;
 import androidx.leanback.widget.GuidedAction;
 
@@ -29,7 +29,7 @@ import com.android.tv.settings.R;
 import java.util.List;
 
 @Keep
-public class InputCustomNameFragment extends GuidedStepFragment {
+public class InputCustomNameFragment extends GuidedStepSupportFragment {
 
     private static final String ARG_CURRENT_NAME = "current_name";
     private static final String ARG_DEFAULT_NAME = "default_name";

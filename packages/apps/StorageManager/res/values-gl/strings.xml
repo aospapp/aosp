@@ -26,7 +26,7 @@
     <string name="deletion_helper_app_summary_never_used" msgid="2695210890063792461">"Non se utilizou no último ano"</string>
     <string name="deletion_helper_app_summary_unknown_used" msgid="8576377054665785558">"Non se sabe cando se utilizou por última vez"</string>
     <string name="deletion_helper_free_button" msgid="1760529213407548661">"Liberar <xliff:g id="FREEABLE">%1$s</xliff:g>"</string>
-    <string name="deletion_helper_photos_title" msgid="2602723121486729972">"Copias de seguranza de fotos e vídeos"</string>
+    <string name="deletion_helper_photos_title" msgid="2602723121486729972">"Fotos e vídeos con copia de seguranza"</string>
     <string name="deletion_helper_photos_age_summary" msgid="1820871709448371984">"De máis de 30 días"</string>
     <!-- no translation found for deletion_helper_photos_summary (3194825464552700889) -->
     <skip />
@@ -39,7 +39,7 @@
     <string name="deletion_helper_clear_dialog_message" msgid="5196490478187120700">"Contido que se eliminará do teu dispositivo: <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g>"</string>
     <string name="deletion_helper_clear_dialog_remove" msgid="863575755467985516">"Liberar espazo"</string>
     <string name="deletion_helper_upsell_title" msgid="8512037674466762017">"Queres xestionar o almacenamento automaticamente?"</string>
-    <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"Actualmente tes <xliff:g id="USED">%1$s</xliff:g> libres. Queres permitir que o xestor de almacenamento elimine o contido con copia de seguranza do teu dispositivo para liberar espazo?"</string>
+    <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"Actualmente tes <xliff:g id="USED">%1$s</xliff:g> libres. Queres permitir que o xestor de almacenamento quite o contido con copia de seguranza do teu dispositivo para liberar espazo?"</string>
     <string name="deletion_helper_upsell_cancel" msgid="7084167642850053889">"Non, grazas"</string>
     <string name="deletion_helper_upsell_activate" msgid="7157360257760895976">"Activar"</string>
     <string name="deletion_helper_apps_group_title" msgid="2578309121350341258">"Aplicacións pouco utilizadas"</string>
@@ -51,17 +51,17 @@
     <string name="automatic_storage_manager_service_label" msgid="648592272375278978">"Xestión automática do almacenamento"</string>
     <string name="automatic_storage_manager_notification_title" product="default" msgid="8480483265300964701">"O teléfono ten pouco espazo restante."</string>
     <string name="automatic_storage_manager_notification_title" product="tablet" msgid="3150907918531844467">"Á tableta quédalle pouco espazo"</string>
-    <string name="automatic_storage_manager_notification_summary" msgid="2267399886362245822">"Permite que o xestor de almacenamento elimine automaticamente as fotos e os vídeos antigos cando o teléfono case está cheo de novo e así liberar espazo."</string>
+    <string name="automatic_storage_manager_notification_summary" msgid="2267399886362245822">"Permite que o xestor de almacenamento quite automaticamente as fotos e os vídeos antigos cando o teléfono case está cheo de novo e así liberar espazo."</string>
     <string name="automatic_storage_manager_cancel_button" msgid="1826365037494962803">"Non, grazas"</string>
     <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"Activar"</string>
-    <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"Copias de seguranza de fotos e vídeos"</string>
+    <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"Fotos e vídeos con copia de seguranza"</string>
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"Buscando elementos…"</string>
     <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"Mostrar todos os elementos"</string>
     <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"Ocultar elementos recentes"</string>
     <string name="deletion_helper_clear_dialog_message_first_time" msgid="686530413183529901">"Contido que se eliminará do teu dispositivo: <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g>"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"Agora o xestor de almacenamento administra o teu espazo"</string>
-    <string name="empty_state_title" msgid="4033285438176545309">"Nada para eliminar"</string>
+    <string name="empty_state_title" msgid="4033285438176545309">"Nada para quitar"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"Revisar elementos recentes"</string>
-    <string name="empty_state_summary" msgid="8439893007424243790">"Non hai ningún ficheiro antigo para eliminar. Para liberar espazo, elimina fotos, vídeos e aplicacións recentes."</string>
+    <string name="empty_state_summary" msgid="8439893007424243790">"Non hai ningún ficheiro antigo para quitar. Para liberar espazo, quita fotos, vídeos e aplicacións recentes."</string>
     <string name="app_requesting_space" msgid="857425181289960167">"A aplicación <xliff:g id="APP">%1$s</xliff:g> precisa <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> de espazo"</string>
 </resources>

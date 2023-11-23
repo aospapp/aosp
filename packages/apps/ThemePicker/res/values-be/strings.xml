@@ -17,18 +17,20 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="6995669566699638946">"Стылі і шпалеры"</string>
+    <string name="app_name" msgid="1647136562008520313">"Шпалеры і стыль"</string>
     <string name="theme_title" msgid="2144932106319405101">"Стыль"</string>
     <string name="clock_title" msgid="2126046720254613991">"Гадзіннік"</string>
-    <string name="grid_title" msgid="2825094404523390773">"Сетка"</string>
-    <string name="wallpaper_title" msgid="6952635398953194544">"Шпалеры"</string>
+    <string name="grid_title" msgid="1688173478777254123">"Сетка праграм"</string>
     <string name="apply_theme_btn" msgid="6293081192321303991">"Ужыць"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"Дакраніцеся, каб рэдагаваць"</string>
-    <string name="keep_my_wallpaper" msgid="8012385376769568517">"Захаваць цяперашнія шпалеры"</string>
+    <string name="keep_my_wallpaper" msgid="8012385376769568517">"Захаваць бягучыя шпалеры"</string>
     <string name="apply_btn" msgid="7965877231041987336">"Ужыць"</string>
-    <string name="accessibility_preview_pager" msgid="3548503287402185430">"Старонка <xliff:g id="ID_1">%1$d</xliff:g> з <xliff:g id="ID_2">%2$d</xliff:g>"</string>
-    <string name="next_page_content_description" msgid="5290226604542300962">"Далей"</string>
-    <string name="previous_page_content_description" msgid="6025726405430262788">"Назад"</string>
+    <string name="theme_preview_card_content_description" msgid="5989222908619535533">"Перадпрагляд стылю"</string>
+    <string name="grid_preview_card_content_description" msgid="8449383777584714842">"Перадпрагляд сеткі"</string>
+    <string name="font_preview_content_description" msgid="128230439293337891">"Перапрагляд шрыфту"</string>
+    <string name="icon_preview_content_description" msgid="7761101284351952890">"Перадпрагляд значка"</string>
+    <string name="color_preview_content_description" msgid="4879120462082058124">"Перадпрагляд колеру"</string>
+    <string name="shape_preview_content_description" msgid="6479487796176550432">"Перадпрагляд фігуры"</string>
     <string name="option_applied_description" msgid="5022305212078053534">"<xliff:g id="ID_1">%1$s</xliff:g>, цяпер ужыта"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"<xliff:g id="ID_1">%1$s</xliff:g>, цяпер ужыта і папярэдне паказана"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"<xliff:g id="ID_1">%1$s</xliff:g>, цяпер папярэдне паказваецца"</string>
@@ -41,12 +43,15 @@
     <string name="preview_name_wallpaper" msgid="1738652462949531828">"Шпалеры"</string>
     <string name="font_card_title" msgid="2343292653502548685">"АБВ • абв • 123"</string>
     <string name="font_card_body" msgid="6790525594503904468">"Дадавайце любімыя шрыфты на кожны экран"</string>
+    <string name="grid_options_title" msgid="7071930966989877023">"Выберыце памер сеткі"</string>
     <string name="grid_title_pattern" msgid="9188866567612607806">"<xliff:g id="ID_1">%1$d</xliff:g>x<xliff:g id="ID_2">%2$d</xliff:g>"</string>
-    <string name="applied_theme_msg" msgid="7348498271552054431">"Стыль ужыты"</string>
-    <string name="applied_clock_msg" msgid="1938218786265793285">"Гадзіннік ужыты"</string>
+    <string name="applied_theme_msg" msgid="3749018706366796244">"Стыль паспяхова зададзены"</string>
+    <string name="applied_clock_msg" msgid="1303338016701443767">"Гадзіннік паспяхова зададзены"</string>
+    <string name="applied_grid_msg" msgid="3250499654436933034">"Сетка паспяхова зададзена"</string>
     <string name="apply_theme_error_msg" msgid="791364062636538317">"Не ўдалося ўжыць стыль"</string>
     <string name="custom_theme_next" msgid="6235420097213197301">"Далей"</string>
     <string name="custom_theme_previous" msgid="4941132112640503022">"Назад"</string>
+    <string name="custom_theme" msgid="1618351922263478163">"Карыстальніцкая"</string>
     <string name="custom_theme_title" msgid="2192300350332693631">"Карыстальніцкі <xliff:g id="ID_1">%1$d</xliff:g>"</string>
     <string name="custom_theme_fragment_title" msgid="6615547284702040280">"Карыстальніцкі стыль"</string>
     <string name="custom_theme_delete" msgid="4744494663184126202">"Выдаліць"</string>
@@ -60,10 +65,22 @@
     <string name="delete_custom_theme_button" msgid="5102462988130208824">"Выдаліць"</string>
     <string name="cancel" msgid="4651030493668562067">"Скасаваць"</string>
     <string name="set_theme_wallpaper_dialog_message" msgid="2179661027350908003">"Задаць шпалеры"</string>
-    <string name="use_style_instead_title" msgid="1578754995763917502">"Выкарыстоўваць <xliff:g id="ID_1">%1$s</xliff:g>?"</string>
-    <string name="use_style_instead_body" msgid="3051937045807471496">"Выбраныя кампаненты супадаюць са стылем пад назвай <xliff:g id="ID_1">%1$s</xliff:g>. Ці хочаце вы выкарыстоўваць <xliff:g id="ID_2">%1$s</xliff:g>?"</string>
-    <string name="use_style_button" msgid="1754493078383627019">"Выкарыстоўваць <xliff:g id="ID_1">%1$s</xliff:g>"</string>
+    <string name="use_style_instead_title" msgid="1578754995763917502">"Выкарыстоўваць стыль \"<xliff:g id="ID_1">%1$s</xliff:g>\"?"</string>
+    <string name="use_style_instead_body" msgid="3051937045807471496">"Выбраныя кампаненты адпавядаюць стылю \"<xliff:g id="ID_1">%1$s</xliff:g>\". Выкарыстоўваць стыль \"<xliff:g id="ID_2">%1$s</xliff:g>\"?"</string>
+    <string name="use_style_button" msgid="1754493078383627019">"Выкарыстоўваць \"<xliff:g id="ID_1">%1$s</xliff:g>\""</string>
     <string name="no_thanks" msgid="7286616980115687627">"Не, дзякуй"</string>
     <string name="clock_preview_content_description" msgid="5460561185905717460">"Папярэдні прагляд гадзінніка <xliff:g id="ID_1">%1$s</xliff:g>"</string>
     <string name="something_went_wrong" msgid="529840112449799117">"Памылка! Нешта пайшло не так."</string>
+    <string name="theme_preview_icons_section_title" msgid="7064768910744000643">"Колер / значкі"</string>
+    <string name="style_info_description" msgid="2612473574431003251">"Перадпрагляд формы і колеру шрыфту, значкоў і праграмы"</string>
+    <string name="accessibility_custom_font_title" msgid="966867359157303705">"Карыстальніцкі шрыфт"</string>
+    <string name="accessibility_custom_icon_title" msgid="5753297905849062296">"Карыстальніцкі значок"</string>
+    <string name="accessibility_custom_color_title" msgid="4124246598886320663">"Карыстальніцкі колер"</string>
+    <string name="accessibility_custom_shape_title" msgid="7708408259374643129">"Карыстальніцкая форма"</string>
+    <string name="accessibility_custom_name_title" msgid="5494460518085463262">"Назва карыстальніцкага стылю"</string>
+    <string name="mode_title" msgid="2394873501427436055">"Цёмная тэма"</string>
+    <string name="mode_disabled_msg" msgid="9196245518435936512">"Часова выключана ў рэжыме эканоміі зараду"</string>
+    <string name="themed_icon_title" msgid="7312460430471956558">"Тэматычныя значкі"</string>
+    <string name="beta_title" msgid="8703819523760746458">"Бэта"</string>
+    <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"Змяніць сетку праграм"</string>
 </resources>

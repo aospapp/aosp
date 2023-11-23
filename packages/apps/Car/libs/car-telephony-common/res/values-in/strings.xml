@@ -25,5 +25,5 @@
     <string name="call_state_call_ended" msgid="1432127342949555464">"Panggilan diakhiri"</string>
     <string name="call_state_call_active" msgid="2769644783657864202">"Terhubung"</string>
     <string name="call_state_call_ringing" msgid="4618803402954375017">"Berdering…"</string>
-    <string name="call_state_call_ending" msgid="5037498349965472247">"Memutus hubungan..."</string>
+    <string name="call_state_call_ending" msgid="5037498349965472247">"Memutus sambungan..."</string>
 </resources>

@@ -18,7 +18,6 @@ package com.android.tv.settings.system;
 
 import static android.os.UserHandle.USER_SYSTEM;
 
-import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -33,6 +32,7 @@ import android.os.UserManager;
 import android.util.Log;
 
 import androidx.annotation.VisibleForTesting;
+import androidx.fragment.app.FragmentActivity;
 
 import com.android.internal.widget.ILockSettings;
 import com.android.internal.widget.LockPatternUtils;
@@ -46,7 +46,7 @@ import java.util.Objects;
 /**
  * Triggered instead of the home screen when user-selected home app isn't encryption aware.
  */
-public class FallbackHome extends Activity implements PinDialogFragment.ResultListener {
+public class FallbackHome extends FragmentActivity implements PinDialogFragment.ResultListener {
 
     private static final String TAG = "FallbackHome";
 
@@ -137,7 +137,7 @@ public class FallbackHome extends Activity implements PinDialogFragment.ResultLi
         RestrictedProfilePinDialogFragment restrictedProfilePinDialogFragment =
                 RestrictedProfilePinDialogFragment.newInstance(
                         PinDialogFragment.PIN_DIALOG_TYPE_ENTER_PIN);
-        restrictedProfilePinDialogFragment.show(getFragmentManager(),
+        restrictedProfilePinDialogFragment.show(getSupportFragmentManager(),
                 PinDialogFragment.DIALOG_TAG);
     }
 

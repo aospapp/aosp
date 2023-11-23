@@ -17,6 +17,11 @@
    public static androidx.core.view.accessibility.AccessibilityNodeInfoCompat obtain();
 }
 
+# This method is marked @hide in DocumentsProvider but we need to implement it for managed mode.
+-keep public class com.android.documentsui.archives.ArchivesProvider {
+   public android.database.Cursor queryChildDocumentsForManage(java.lang.String, java.lang.String[], java.lang.String);
+}
+
 # To prevent class not found exception in org.brotli.dec.Dictionary
 -keep final class org.brotli.dec.DictionaryData
 

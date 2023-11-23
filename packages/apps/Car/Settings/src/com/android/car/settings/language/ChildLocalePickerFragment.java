@@ -19,10 +19,12 @@ package com.android.car.settings.language;
 import android.content.Context;
 import android.os.Bundle;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.XmlRes;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.SettingsFragment;
+import com.android.car.ui.toolbar.ToolbarController;
 import com.android.internal.app.LocaleStore;
 
 import java.util.Locale;
@@ -66,10 +68,10 @@ public class ChildLocalePickerFragment extends SettingsFragment {
     }
 
     @Override
-    public void onActivityCreated(Bundle savedInstanceState) {
-        super.onActivityCreated(savedInstanceState);
+    protected void setupToolbar(@NonNull ToolbarController toolbar) {
+        super.setupToolbar(toolbar);
 
-        getToolbar().setTitle(mParentLocaleInfo.getFullNameNative());
+        toolbar.setTitle(mParentLocaleInfo.getFullNameNative());
     }
 
     @Override

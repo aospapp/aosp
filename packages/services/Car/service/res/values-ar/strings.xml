@@ -16,8 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="car_permission_label" msgid="741004755205554376">"الحصول على معلومات السيارة"</string>
-    <string name="car_permission_desc" msgid="162499818870052725">"الحصول على معلومات عن السيارة"</string>
+    <string name="car_permission_label" msgid="2215078736675564541">"معلومات السيارة"</string>
+    <string name="car_permission_desc" msgid="3584369074931334964">"الوصول إلى معلومات سيارتك."</string>
     <string name="car_permission_label_camera" msgid="3725702064841827180">"الحصول على معلومات حول كاميرا السيارة"</string>
     <string name="car_permission_desc_camera" msgid="917024932164501426">"الوصول إلى الكاميرات في السيارة"</string>
     <string name="car_permission_label_energy" msgid="7409144323527821558">"الحصول على معلومات عن طاقة السيارة"</string>
@@ -62,6 +62,8 @@
     <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="5073596870485006783">"تلقّي بيانات مجموعة الأدوات"</string>
     <string name="car_permission_label_car_ux_restrictions_configuration" msgid="6801393970411049725">"ضبط قيود تجربة المستخدم"</string>
     <string name="car_permission_desc_car_ux_restrictions_configuration" msgid="5711926927484813777">"ضبط قيود تجربة المُستخدِم"</string>
+    <string name="car_permission_label_access_private_display_id" msgid="6712116114341634316">"إذن الوصول لقراءة معرّف الشاشة الخاص"</string>
+    <string name="car_permission_desc_access_private_display_id" msgid="8535974477610944721">"يتيح إذن الوصول هذا قراءة معرّف الشاشة الخاص."</string>
     <string name="car_permission_label_car_handle_usb_aoap_device" msgid="72783989504378036">"التواصل مع جهاز USB في وضع AOAP"</string>
     <string name="car_permission_desc_car_handle_usb_aoap_device" msgid="273505990971317034">"يتيح للتطبيق التواصل مع جهاز في وضع AOAP."</string>
     <string name="car_permission_label_read_car_occupant_awareness_state" msgid="125517953575032758">"الوصول لقراءة Occupant Awareness System"</string>
@@ -91,6 +93,18 @@
     <string name="car_permission_desc_storage_monitoring" msgid="2075712271139671318">"مراقبة استخدام سعة تخزين الفلاش"</string>
     <string name="car_permission_label_driving_state" msgid="7754624599537393650">"الاستماع إلى معلومات عن حالة القيادة"</string>
     <string name="car_permission_desc_driving_state" msgid="2684025262811635737">"يمكنك الاستماع إلى التغيُّرات في حالة \"القيادة\"."</string>
+    <string name="car_permission_label_use_telemetry_service" msgid="948005838683758846">"استخدام خدمة القياس عن بُعد في السيارة"</string>
+    <string name="car_permission_desc_use_telemetry_service" msgid="3633214312435700766">"يجمع التطبيق بيانات الصحة من نظام السيارة."</string>
+    <string name="car_permission_label_use_evs_service" msgid="1729276125209310607">"الاستفادة من خدمة EVS للسيارة"</string>
+    <string name="car_permission_desc_use_evs_service" msgid="2374737642186632816">"الاشتراك في فيديوهات EVS المضمّنة"</string>
+    <string name="car_permission_label_request_evs_activity" msgid="3906551972883482883">"طلب نشاط معاينة خدمة EVS"</string>
+    <string name="car_permission_desc_request_evs_activity" msgid="4582768053649138488">"إرسال طلب إلى النظام لإطلاق نشاط معاينة EVS"</string>
+    <string name="car_permission_label_control_evs_activity" msgid="2030069860204405679">"التحكم بنشاط معاينة EVS"</string>
+    <string name="car_permission_desc_control_evs_activity" msgid="691646545916976346">"التحكم بنشاط معاينة خدمة EVS الخاصة بالنظام"</string>
+    <string name="car_permission_label_use_evs_camera" msgid="3607720208623955067">"استخدام كاميرا EVS"</string>
+    <string name="car_permission_desc_use_evs_camera" msgid="1625845902221003985">"الاشتراك في خدمة بث كاميرا EVS"</string>
+    <string name="car_permission_label_monitor_evs_status" msgid="2091521314159379622">"مراقبة حالة خدمة EVS"</string>
+    <string name="car_permission_desc_monitor_evs_status" msgid="2764278897143573535">"الاستماع إلى تغييرات الحالة لخدمة EVS"</string>
     <string name="car_permission_label_car_engine_detailed" msgid="8911992719173587337">"الحصول على معلومات عن تفاصيل المحرّك"</string>
     <string name="car_permission_desc_car_engine_detailed" msgid="1746863362811347700">"يمكنك الحصول على معلومات تفصيلية عن محرّك السيارة."</string>
     <string name="car_permission_label_car_energy_ports" msgid="8548990315169219454">"الحصول على معلومات عن .باب خزان الوقود ومنفذ الشحن"</string>
@@ -113,6 +127,10 @@
     <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"الوصول إلى معلومات إذن المورّد للسيارة"</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"قراءة معلومات عن حالة الإضاءة الخارجية للسيارة"</string>
     <string name="car_permission_desc_car_exterior_lights" msgid="4038037584100849318">"يمكنك الحصول على معلومات عن حالة الإضاءة الخارجية للسيارة."</string>
+    <string name="car_permission_label_car_epoch_time" msgid="6303397910662625112">"الوصول إلى وقت الحقبة في السيارة"</string>
+    <string name="car_permission_desc_car_epoch_time" msgid="398907082895238558">"الوصول إلى وقت الحقبة في السيارة"</string>
+    <string name="car_permission_label_encryption_binding_seed" msgid="4652180636501144684">"الوصول إلى تشفير المحتوى الأساسي والملزم في السيارة"</string>
+    <string name="car_permission_desc_encryption_binding_seed" msgid="6290944678417286024">"الوصول إلى تشفير المحتوى الأساسي والملزم في السيارة"</string>
     <string name="car_permission_label_control_car_exterior_lights" msgid="101357531386232141">"قراءة معلومات عن الإضاءة الخارجية للسيارة"</string>
     <string name="car_permission_desc_control_car_exterior_lights" msgid="6332252612685264180">"التحكم في الأضواء الخارجية للسيارة"</string>
     <string name="car_permission_label_car_interior_lights" msgid="8506302199784427680">"قراءة معلومات عن الأضواء الداخلية للسيارة"</string>
@@ -141,6 +159,27 @@
     <string name="car_permission_desc_control_car_features" msgid="7646711104530599901">"تفعيل ميزات السيارة أو إيقافها"</string>
     <string name="car_permission_label_use_car_watchdog" msgid="6973938293170413475">"استخدام مراقب نظام السيارة"</string>
     <string name="car_permission_desc_use_car_watchdog" msgid="8244592601805516086">"استخدام مراقب نظام السيارة"</string>
+    <string name="car_permission_label_control_car_watchdog_config" msgid="7002301555689209243">"التحكّم في إعداد مراقب نظام السيارة"</string>
+    <string name="car_permission_desc_control_car_watchdog_config" msgid="2276721198186100781">"تتحكَّم التطبيقات في إعداد مراقب نظام السيارة."</string>
+    <string name="car_permission_label_collect_car_watchdog_metrics" msgid="6868646053065666480">"جمع بيانات مقاييس مراقب نظام السيارة"</string>
+    <string name="car_permission_desc_collect_car_watchdog_metrics" msgid="5712074376194601441">"تجمع التطبيقات بيانات مقاييس مراقب نظام السيارة."</string>
+    <string name="car_permission_label_read_car_power_policy" msgid="4597484321338979324">"قراءة سياسة تشغيل ميزات السيارة"</string>
+    <string name="car_permission_desc_read_car_power_policy" msgid="5430714179790601808">"قراءة سياسة تشغيل ميزات السيارة"</string>
+    <string name="car_permission_label_control_car_power_policy" msgid="6840069695926008330">"التحكّم في سياسة تشغيل ميزات السيارة"</string>
+    <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"التحكُّم في سياسة تشغيل ميزات السيارة"</string>
+    <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"عرض النماذج"</string>
+    <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"عرض النماذج"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"جهازي"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"ضيف"</string>
+    <string name="importance_default" msgid="8587741629268312938">"مدى الأهمية التلقائي"</string>
+    <string name="importance_high" msgid="3141530792377745041">"أهمية عالية"</string>
+    <string name="factory_reset_notification_title" msgid="2530056626309489398">"يجب إعادة الضبط على الإعدادات الأصلية"</string>
+    <string name="factory_reset_notification_text" msgid="6517642677900094724">"سيتم محو كل البيانات المتوفرة في \"نظام الترفيه والمعلومات\". بعد إعادة الضبط، يمكنك إعداد ملف شخصي جديد."</string>
+    <string name="factory_reset_notification_button" msgid="5450535366202106371">"المزيد"</string>
+    <string name="factory_reset_parked_title" msgid="258340498079453871">"إعادة ضبط \"نظام الترفيه والمعلومات\""</string>
+    <string name="factory_reset_parked_text" msgid="910347526834275166">"تلقّى النظام طلبًا لإعادة الضبط على الإعدادات الأصلية ومحو كل البيانات. يمكنك إعادة ضبط النظام الآن أو ستتم إعادة ضبطه عند تشغيل السيارة لاحقًا. وبعد إعادة الضبط، يمكنك إعداد ملف شخصي جديد."</string>
+    <string name="factory_reset_now_button" msgid="1245040835119663310">"إعادة الضبط الآن"</string>
+    <string name="factory_reset_later_button" msgid="2401829720674483843">"إعادة الضبط لاحقًا"</string>
+    <string name="factory_reset_later_text" msgid="5896142140528784784">"سيُعاد ضبط \"نظام الترفيه والمعلومات\" عند تشغيل السيارة لاحقًا."</string>
+    <string name="factory_reset_driving_text" msgid="6702298505761254553">"يجب أن تكون السيارة متوقفة لبدء إعادة الضبط."</string>
 </resources>

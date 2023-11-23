@@ -16,16 +16,23 @@
 
 package com.android.car.settings.security;
 
+import static android.app.Activity.RESULT_OK;
+
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
-import android.os.Bundle;
+import android.content.Intent;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.UserManager;
 
-import androidx.fragment.app.Fragment;
+import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.preference.Preference;
 
 import com.android.car.settings.R;
+import com.android.car.settings.common.ActivityResultCallback;
 import com.android.car.settings.common.FragmentController;
+import com.android.car.settings.common.Logger;
 import com.android.car.settings.common.PreferenceController;
 import com.android.internal.widget.LockscreenCredential;
 
@@ -33,11 +40,18 @@ import com.android.internal.widget.LockscreenCredential;
  * Business Logic for security lock preferences. It can be extended to change which fragment should
  * be opened when clicked.
  */
-public abstract class LockTypeBasePreferenceController extends PreferenceController<Preference> {
+public abstract class LockTypeBasePreferenceController extends PreferenceController<Preference>
+        implements ActivityResultCallback {
 
-    private final UserManager mUserManager;
+    private static final Logger LOG = new Logger(LockTypeBasePreferenceController.class);
+    @VisibleForTesting
+    static final int CHOOSE_LOCK_REQUEST = 90;
+
+    @VisibleForTesting
+    UserManager mUserManager;
     private LockscreenCredential mCurrentPassword;
     private int mCurrentPasswordQuality;
+    private boolean mHasPendingBack = false;
 
     public LockTypeBasePreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
@@ -45,17 +59,16 @@ public abstract class LockTypeBasePreferenceController extends PreferenceControl
         mUserManager = UserManager.get(context);
     }
 
-
     @Override
     protected Class<Preference> getPreferenceType() {
         return Preference.class;
     }
 
     /**
-     * Fragment specified here will be opened when the Preference is clicked. Return null to prevent
-     * navigation.
+     * Intent specified here will determine which activity is started when the Preference is
+     * clicked. Return null to prevent navigation.
      */
-    protected abstract Fragment fragmentToOpen();
+    protected abstract Intent activityToOpen();
 
     /**
      * If the current password quality is one of the values returned by this function, the
@@ -79,7 +92,9 @@ public abstract class LockTypeBasePreferenceController extends PreferenceControl
         return false;
     }
 
-    /** Sets the current password so it can be provided in the bundle in the fragment. */
+    /**
+     * Sets the current password so it can be provided in the bundle in the fragment. The host
+     * fragment is responsible for zeroizing the credentials in memory. */
     public void setCurrentPassword(LockscreenCredential currentPassword) {
         mCurrentPassword = currentPassword;
     }
@@ -101,20 +116,13 @@ public abstract class LockTypeBasePreferenceController extends PreferenceControl
 
     @Override
     protected boolean handlePreferenceClicked(Preference preference) {
-        Fragment fragment = fragmentToOpen();
-        if (fragment != null) {
-            if (mCurrentPassword != null) {
-                Bundle args = fragment.getArguments();
-                if (args == null) {
-                    args = new Bundle();
-                }
-                args.putParcelable(PasswordHelper.EXTRA_CURRENT_SCREEN_LOCK, mCurrentPassword);
-                fragment.setArguments(args);
-            }
-            getFragmentController().launchFragment(fragment);
-            return true;
+        Intent intent = activityToOpen();
+        if (intent == null) {
+            return false;
         }
-        return false;
+        intent.putExtra(PasswordHelper.EXTRA_CURRENT_SCREEN_LOCK, mCurrentPassword);
+        getFragmentController().startActivityForResult(intent, CHOOSE_LOCK_REQUEST, this);
+        return true;
     }
 
     /**
@@ -131,8 +139,35 @@ public abstract class LockTypeBasePreferenceController extends PreferenceControl
     }
 
     @Override
+    protected void onStartInternal() {
+        if (mHasPendingBack) {
+            mHasPendingBack = false;
+
+            // Post the fragment navigation because FragmentManager may still be executing
+            // transactions during onStart.
+            new Handler(Looper.getMainLooper()).post(() -> getFragmentController().goBack());
+        }
+    }
+
+    @Override
     public int getAvailabilityStatus() {
-        return mUserManager.isGuestUser() ? DISABLED_FOR_USER : AVAILABLE;
+        return mUserManager.isGuestUser() ? DISABLED_FOR_PROFILE : AVAILABLE;
+    }
+
+    @Override
+    public void processActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        if (requestCode != CHOOSE_LOCK_REQUEST) {
+            return;
+        }
+        if (resultCode != RESULT_OK) {
+            LOG.d("Lock was not updated. Result code: " + resultCode);
+            return;
+        }
+        if (isStarted()) {
+            getFragmentController().goBack();
+        } else {
+            mHasPendingBack = true;
+        }
     }
 
     private CharSequence getSummary() {

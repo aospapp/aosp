@@ -62,7 +62,8 @@ public class HeadsUpNotificationFragment extends Fragment {
      */
     private Notification createNotification() {
         Intent intent = new Intent(getContext(), RotaryActivity.class);
-        PendingIntent pendingIntent = PendingIntent.getActivity(getContext(), 0, intent, 0);
+        PendingIntent pendingIntent =
+                PendingIntent.getActivity(getContext(), 0, intent, PendingIntent.FLAG_IMMUTABLE);
         return new Notification.Builder(getContext(), NOTIFICATION_CHANNEL_ID)
                 .setContentTitle("Example heads-up notification")
                 .setContentText("Try nudging up to HUN")

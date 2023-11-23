@@ -31,7 +31,7 @@
     <string name="install_ready" msgid="5831701403889581045">"Жаңыртуу орнотууга даяр."</string>
     <string name="install_in_progress" msgid="1447531401625704953">"Орнотулууда…"</string>
     <string name="install_success" msgid="7607370228817982339">"Ийгиликтүү жаңыртылды."</string>
-    <string name="install_failed" msgid="6019321590904856934">"Тутум жаңыртуусу орнотулган жок."</string>
+    <string name="install_failed" msgid="6019321590904856934">"Системанын жаңыртуусу орнотулган жок."</string>
     <string name="rebooting" msgid="2147644401685874548">"Жаңыртылды. Өчүрүлүп күйгүзүлүүдө…"</string>
     <string name="volumes" msgid="9062088000979584509">"Көлөмдөр (%d)"</string>
     <string name="path" msgid="7133964085947968274">"Жол: %s"</string>

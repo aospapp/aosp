@@ -22,6 +22,7 @@ import static com.android.customization.model.ResourceConstants.OVERLAY_CATEGORY
 import static com.android.customization.model.ResourceConstants.PATH_SIZE;
 
 import android.content.Context;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.Resources;
@@ -39,6 +40,7 @@ import androidx.core.graphics.PathParser;
 
 import com.android.customization.model.ResourceConstants;
 import com.android.customization.model.theme.OverlayManagerCompat;
+import com.android.customization.model.theme.ThemeBundle.PreviewInfo.ShapeAppIcon;
 import com.android.customization.model.theme.custom.ThemeComponentOption.ShapeOption;
 import com.android.customization.widget.DynamicAdaptiveIconDrawable;
 import com.android.wallpaper.R;
@@ -71,11 +73,11 @@ public class ShapeOptionsProvider extends ThemeComponentOptionProvider<ShapeOpti
             try {
                 Path path = loadPath(mContext.getPackageManager()
                         .getResourcesForApplication(overlayPackage), overlayPackage);
-                ShapeDrawable shapeDrawable = createShapeDrawable(path);
                 PackageManager pm = mContext.getPackageManager();
                 String label = pm.getApplicationInfo(overlayPackage, 0).loadLabel(pm).toString();
                 mOptions.add(new ShapeOption(overlayPackage, label, path,
-                        loadCornerRadius(overlayPackage), shapeDrawable, getShapedIcons(path)));
+                        loadCornerRadius(overlayPackage), createShapeDrawable(path),
+                        getShapedAppIcons(path)));
             } catch (NameNotFoundException | NotFoundException e) {
                 Log.w(TAG, String.format("Couldn't load shape overlay %s, will skip it",
                         overlayPackage), e);
@@ -86,12 +88,11 @@ public class ShapeOptionsProvider extends ThemeComponentOptionProvider<ShapeOpti
     private void addDefault() {
         Resources system = Resources.getSystem();
         Path path = loadPath(system, ANDROID_PACKAGE);
-        ShapeDrawable shapeDrawable = createShapeDrawable(path);
         mOptions.add(new ShapeOption(null, mContext.getString(R.string.default_theme_title), path,
                 system.getDimensionPixelOffset(
-                    system.getIdentifier(ResourceConstants.CONFIG_CORNERRADIUS,
-                        "dimen", ResourceConstants.ANDROID_PACKAGE)),
-                shapeDrawable, getShapedIcons(path)));
+                        system.getIdentifier(ResourceConstants.CONFIG_CORNERRADIUS,
+                                "dimen", ResourceConstants.ANDROID_PACKAGE)),
+                createShapeDrawable(path), getShapedAppIcons(path)));
     }
 
     private ShapeDrawable createShapeDrawable(Path path) {
@@ -102,22 +103,32 @@ public class ShapeOptionsProvider extends ThemeComponentOptionProvider<ShapeOpti
         return shapeDrawable;
     }
 
-    private List<Drawable> getShapedIcons(Path path) {
-        List<Drawable> icons = new ArrayList<>();
+    private List<ShapeAppIcon> getShapedAppIcons(Path path) {
+        List<ShapeAppIcon> shapedAppIcons = new ArrayList<>();
         for (String packageName : mShapePreviewIconPackages) {
+            Drawable icon = null;
+            CharSequence name = null;
             try {
                 Drawable appIcon = mContext.getPackageManager().getApplicationIcon(packageName);
                 if (appIcon instanceof AdaptiveIconDrawable) {
                     AdaptiveIconDrawable adaptiveIcon = (AdaptiveIconDrawable) appIcon;
-                    icons.add(new DynamicAdaptiveIconDrawable(adaptiveIcon.getBackground(),
-                            adaptiveIcon.getForeground(), path));
+                    icon = new DynamicAdaptiveIconDrawable(adaptiveIcon.getBackground(),
+                            adaptiveIcon.getForeground(), path);
+
+                    ApplicationInfo appInfo = mContext.getPackageManager()
+                            .getApplicationInfo(packageName, /* flag= */ 0);
+                    name = mContext.getPackageManager().getApplicationLabel(appInfo);
                 }
             } catch (NameNotFoundException e) {
                 Log.d(TAG, "Couldn't find app " + packageName
                         + ", won't use it for icon shape preview");
+            } finally {
+                if (icon != null && !TextUtils.isEmpty(name)) {
+                    shapedAppIcons.add(new ShapeAppIcon(icon, name));
+                }
             }
         }
-        return icons;
+        return shapedAppIcons;
     }
 
     private Path loadPath(Resources overlayRes, String packageName) {

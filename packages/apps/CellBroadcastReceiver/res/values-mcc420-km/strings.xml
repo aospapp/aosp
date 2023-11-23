@@ -23,6 +23,6 @@
     <string name="pws_other_message_identifiers" msgid="7907712751421890873">"ការជូនដំណឹង"</string>
     <string name="enable_emergency_alerts_message_title" msgid="5267857032926801433">"ការជូនដំណឹង"</string>
     <string name="enable_emergency_alerts_message_summary" msgid="8961532453478455676">"សកម្មភាព​ដែលណែនាំ​ឱ្យធ្វើ​ដែលអាច​ជួយសង្គ្រោះ​ជីវិត ឬទ្រព្យ​សម្បត្តិ"</string>
-    <string name="cmas_required_monthly_test" msgid="197559096432885563">"ការជូនដំណឹង​សាកល្បង"</string>
+    <string name="cmas_required_monthly_test" msgid="5733131786754331921">"ការជូនដំណឹង​អំពីការធ្វើតេស្ត"</string>
     <string name="cmas_exercise_alert" msgid="7249058541625071454">"សកម្មភាព"</string>
 </resources>

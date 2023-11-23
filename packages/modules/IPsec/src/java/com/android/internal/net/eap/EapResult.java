@@ -16,6 +16,10 @@
 
 package com.android.internal.net.eap;
 
+import static com.android.internal.net.eap.EapAuthenticator.LOG;
+import static com.android.internal.net.eap.statemachine.EapMethodStateMachine.MIN_EMSK_LEN_BYTES;
+import static com.android.internal.net.eap.statemachine.EapMethodStateMachine.MIN_MSK_LEN_BYTES;
+
 import android.annotation.NonNull;
 
 import com.android.internal.annotations.VisibleForTesting;
@@ -34,12 +38,22 @@ public abstract class EapResult {
      * Protocol (EAP)</a>
      */
     public static class EapSuccess extends EapResult {
+        private static final String TAG = EapSuccess.class.getSimpleName();
+
         public final byte[] msk;
         public final byte[] emsk;
 
         public EapSuccess(@NonNull byte[] msk, @NonNull byte[] emsk) {
             if (msk == null || emsk == null) {
                 throw new IllegalArgumentException("msk and emsk must not be null");
+            }
+            if (msk.length < MIN_MSK_LEN_BYTES || emsk.length < MIN_EMSK_LEN_BYTES) {
+                LOG.wtf(
+                        TAG,
+                        "MSK or EMSK does not meet the required key length: MSK="
+                                + LOG.pii(msk)
+                                + " EMSK="
+                                + LOG.pii(emsk));
             }
             this.msk = msk;
             this.emsk = emsk;
@@ -103,7 +117,7 @@ public abstract class EapResult {
          * Constructs an EapError instance for the given cause.
          *
          * @param cause the Exception that caused the EapError to be returned from the
-         *              EapStateMachine
+         *     EapStateMachine
          */
         public EapError(Exception cause) {
             this.cause = cause;

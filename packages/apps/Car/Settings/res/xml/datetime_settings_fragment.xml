@@ -22,12 +22,10 @@
     android:key="@string/psk_datetime_settings">
     <SwitchPreference
         android:key="@string/pk_auto_datetime_switch"
-        android:summary="@string/date_time_auto_summary"
         android:title="@string/date_time_auto"
         settings:controller="com.android.car.settings.datetime.AutoDatetimeTogglePreferenceController"/>
     <SwitchPreference
         android:key="@string/pk_auto_timezone_switch"
-        android:summary="@string/zone_auto_summary"
         android:title="@string/zone_auto"
         settings:controller="com.android.car.settings.datetime.AutoTimeZoneTogglePreferenceController"/>
     <Preference

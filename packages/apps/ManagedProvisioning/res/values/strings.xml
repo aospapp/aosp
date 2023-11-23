@@ -43,9 +43,9 @@
   <!-- Progress text shown when setting up work profile [CHAR LIMIT=NONE] -->
   <string name="setting_up_workspace">Setting up work profile\u2026</string>
   <!-- Text in a pop-up that asks the user to confirm that they allow the mobile device management app to take control of the profile they are creating. [CHAR LIMIT=NONE]-->
-  <string name="admin_has_ability_to_monitor_profile">Your IT admin has the ability to monitor and manage settings, corporate access, apps, permissions, and data associated with this profile, including your network activity, as well as your device\'s location, call history, and contact search history.<xliff:g id="line_break">&lt;br&gt;&lt;br&gt;</xliff:g>Contact your IT admin for more information, including your organization\'s privacy policies.</string>
+  <string name="admin_has_ability_to_monitor_profile">Your IT admin has the ability to monitor and manage settings, corporate access, apps, permissions, and data associated with this profile, including your network activity, as well as your device\'s location, call history, and contact search history.<xliff:g id="line_break">\n\n</xliff:g>Contact your IT admin for more information, including your organization\'s privacy policies.</string>
   <!-- Text in a pop-up that asks the user to confirm that they allow the mobile device management app to take control of the device. [CHAR LIMIT=NONE]-->
-  <string name="admin_has_ability_to_monitor_device">Your IT admin has the ability to monitor and manage settings, corporate access, apps, permissions, and data associated with this device, including your network activity, as well as your device\'s location, call history, and contact search history.<xliff:g id="line_break">&lt;br&gt;&lt;br&gt;</xliff:g>Contact your IT admin for more information, including your organization\'s privacy policies.</string>
+  <string name="admin_has_ability_to_monitor_device">Your IT admin has the ability to monitor and manage settings, corporate access, apps, permissions, and data associated with this device, including your network activity, as well as your device\'s location, call history, and contact search history.<xliff:g id="line_break">\n\n</xliff:g>Contact your IT admin for more information, including your organization\'s privacy policies.</string>
   <!-- Text in a pop-up that asks the user to confirm that theft protection will only be enabled after a password-protected screen lock was chosen. [CHAR LIMIT=NONE]-->
   <string name="theft_protection_disabled_warning">To use theft-protection features, you must have a password-protected screen lock for your device.</string>
   <!-- String telling the user how to get more information about their work profile-->
@@ -62,6 +62,8 @@
   <string name="url_error">This link cannot be displayed.</string>
 
   <!-- 'Terms and conditions' screen -->
+  <!-- Button text for a screen reader. This text describes the back button for a Terms and Conditions page. -->
+  <string name="navigation_button_description">Navigate up</string>
   <!--Toolbar header [CHAR LIMIT=NONE] -->
   <string name="terms">Terms</string>
   <!-- Work profile info terms section heading. [CHAR LIMIT=NONE] -->
@@ -71,9 +73,6 @@
 
   <!-- Default profile name used for the creation of work profiles. [CHAR LIMIT=NONE] -->
   <string name="default_managed_profile_name">Work profile</string>
-
-  <!-- Default name used for the creation of the first meat user on a device with system-user split. [CHAR LIMIT=NONE] -->
-  <string name="default_first_meat_user_name">Primary user</string>
 
   <!-- Title on the dialog that prompts the user to confirm that they really want to delete their existing work profile-->
   <string name="delete_profile_title">Delete existing profile?</string>
@@ -133,24 +132,6 @@
 
   <!-- Title of the work device setup screen. [CHAR LIMIT=NONE] -->
   <string name="setup_work_device">Setting up work device\u2026</string>
-  <!-- Progress text indicating that the setup data is processed. [CHAR LIMIT=45] -->
-  <string name="progress_data_process">Processing setup data\u2026</string>
-  <!-- Progress text indicating that wifi is set up. [CHAR LIMIT=45] -->
-  <string name="progress_connect_to_wifi">Connecting to Wi-Fi\u2026</string>
-  <!-- Progress text indicating that mobile network is being set up. [CHAR LIMIT=45] -->
-  <string name="progress_connect_to_mobile_network">Connecting to mobile network\u2026</string>
-  <!-- Progress text indicating that the device admin package is being downloaded. [CHAR LIMIT=45] -->
-  <string name="progress_download">Downloading the admin app\u2026</string>
-  <!-- Progress text indicating that the device admin package is being installed. [CHAR LIMIT=45] -->
-  <string name="progress_install">Installing the admin app\u2026</string>
-  <!-- TODO: Confirm this string with UX. Progress text indicating that non-required system apps are being deleted. [CHAR LIMIT=45] -->
-  <string name="progress_delete_non_required_apps">Removing non-required system apps\u2026</string>
-  <!-- TODO: Confirm this string with UX. Progress text indicating that finishing touches are being put. [CHAR LIMIT=45] -->
-  <string name="progress_finishing_touches">Putting finishing touches\u2026</string>
-  <!-- Progress text indicating that the device admin package is set as owner. [CHAR LIMIT=45] -->
-  <string name="progress_set_owner">Setting the device owner\u2026</string>
-  <!-- TODO: Confirm this string with UX. Progress text indicating that the progress is being initialized. [CHAR LIMIT=45] -->
-  <string name="progress_initialize">Initializing device\u2026</string>
 
   <!-- Message of the error dialog in case a device does not support encryption, but encryption is necessary. [CHAR LIMIT=NONE] -->
   <string name="device_doesnt_allow_encryption_contact_admin">This device doesn\'t allow encryption, which is needed for setup. For help, contact your IT admin.</string>
@@ -341,19 +322,15 @@
   <string name="setup_provisioning_header">Preparing to set up work device\u2026</string>
   <string name="setup_provisioning_header_description">Setting up admin app</string>
 
-  <!-- Transition screen strings -->
-  <!-- Screen title. This is letting the user know that they're finished setting up their work profile, and they can finish setting up the rest of their phone. [CHAR LIMIT=NONE]-->
-  <string name="set_up_everything_else">Set up everything else</string>
-  <!-- Screen title. This is letting the user know that they're finished setting up their work profile, and they can add a personal account to get their personal apps and content on the phone. [CHAR LIMIT=NONE]-->
-  <string name="now_lets_set_up_everything_else">Add a personal account to get more from your device</string>
-  <!-- Subtext on a screen. This is letting the user know that adding a personal account is an optional step. [CHAR LIMIT=NONE]-->
-  <string name="now_lets_set_up_everything_else_explanation">Now that your work profile is ready, you can also add a personal Google Account to access your apps and content.</string>
-
   <!-- Organization brand screen -->
   <!-- Screen title. This is letting the user know that their organization (e.g. company) owns the device. [CHAR LIMIT=NONE]-->
   <string name="brand_screen_header">This device belongs to your organization</string>
   <!-- Subtext on a screen. This is letting the user know that their organization (e.g. company) will manage their device, and it's introducing the management app that their IT admin will use. [CHAR LIMIT=NONE]-->
   <string name="brand_screen_subheader">The following app will be used to manage and monitor this phone</string>
+  <!-- Screen title. This is letting the user know that the user's account will be managed on their new device. [CHAR LIMIT=NONE]-->
+  <string name="account_management_disclaimer_header">Your account is managed</string>
+  <!-- Subtext on a screen. This is letting the user know that their account will be managed on their new device. [CHAR LIMIT=NONE]-->
+  <string name="account_management_disclaimer_subheader">Your IT admin uses mobile device management to enforce security policies</string>
 
   <!-- Downloading screen -->
   <!-- Screen title. This is letting the user know that they're about to set up their device for work. [CHAR LIMIT=NONE]-->
@@ -382,10 +359,27 @@
   <string name="fully_managed_device_provisioning_step_2_header">This device isn\'t private</string>
   <!-- Screen subtext. This is letting the user know that their IT admin may be able to see their data and activity since the device isn't private. [CHAR LIMIT=NONE]-->
   <string name="fully_managed_device_provisioning_step_2_subheader">Your IT admin may be able to see your data and activity on this device.</string>
+  <!-- Screen subtext title. This is letting the user know that their IT admin may be able to see their data and activity since the device isn't private. [CHAR LIMIT=NONE]-->
+  <string name="fully_managed_device_provisioning_permissions_header">Your activity &amp; data</string>
+  <string name="fully_managed_device_provisioning_permissions_subheader" translatable="false">@string/fully_managed_device_provisioning_step_2_subheader</string>
+  <!-- Screen title. This is letting the user know that their IT admin can control permissions for apps on this device. [CHAR LIMIT=NONE]-->
+  <string name="fully_managed_device_provisioning_permissions_secondary_header">App permissions</string>
+  <!-- Screen subtext. This is letting the user know that their IT admin can control permissions for apps on this device. [CHAR LIMIT=NONE]-->
+  <string name="fully_managed_device_provisioning_permissions_secondary_subheader">Your IT admin can set permissions for apps on this device, such as microphone, camera, and location permissions.</string>
   <!-- In-progress text that's part of a full-screen message. This is letting the user know that their device is being set up. [CHAR LIMIT=NONE]-->
   <string name="fully_managed_device_provisioning_progress_label">Setting up your device\u2026</string>
   <!-- Spoken text for screen readers. This is summarizing the key features of their work device while it's being set up. [CHAR LIMIT=NONE]-->
-  <string name="fully_managed_device_provisioning_summary">Use this device to easily access your work apps. This device isn\'t private, so your IT admin may be able to see your data and activity. To learn more, contact your IT admin.</string>
+  <string name="fully_managed_device_provisioning_summary">Use this device to easily access your work apps. This device isn\'t private, so your IT admin may be able to see your data and activity.</string>
+  <!-- Spoken text for screen readers. This is summarizing the key features of their work device, including their admin's ability to control permissions, while it's being set up. [CHAR LIMIT=NONE]-->
+  <string name="fully_managed_device_with_permission_control_provisioning_summary">Use this device to easily access your work apps. This device isn’t private, so your IT admin may be able to see your activity and data. Your IT admin can also set permissions for apps on this device, such as microphone, camera, and location permissions.</string>
+  <!-- Screen title. This is letting the user know they should return the device to their IT admin if they do not want to finish set-up. [CHAR LIMIT=NONE]-->
+  <string name="fully_managed_device_provisioning_return_device_title">Return this device to your IT admin</string>
+  <!-- Screen subtext. This tells the user they should either go back to the previous screen to complete set-up, or abort set-up by resetting the device. [CHAR LIMIT=NONE]-->
+  <string name="fully_managed_device_provisioning_return_device_subheader">Go back to the previous screen, or reset this device and return it to your IT admin.</string>
+  <!-- Button text. Leads the user to the screen letting them cancel the setup. [CHARLIMIT=40]-->
+  <string name="fully_managed_device_cancel_setup_button">Cancel setup</string>
+  <!-- Button text. The final affirmitive button the user needs to press to actually reset the device. [CHARLIMIT=40]-->
+  <string name="fully_managed_device_reset_and_return_button">Reset &amp; return device</string>
 
   <!-- Work profile on organization-owned device setup screens -->
   <!-- Screen title. This screen lets the user know that their work apps are kept in the work profile, and the work apps are managed by the user's IT admin. [CHAR LIMIT=90]-->
@@ -407,18 +401,15 @@
   <!-- Notification message. This text is letting the user know about a privacy reminder before they start using their new work device, and that their IT admin may be able to see their data and activity on this device. [CHAR LIMIT=NONE]-->
   <string name="fully_managed_device_provisioning_privacy_body">Your IT admin may be able to see your data and activity on this device</string>
 
-  <!-- Common to both work profile and fully managed device setup screens -->
-  <!-- Screen title. This text is letting the user know that their device is ready. "Ready to go" is equivalent to "ready to use." [CHAR LIMIT=NONE]-->
-  <string name="device_provisioning_finished">Your device is ready to go!</string>
-  <string name="done">Done</string>
-
   <!-- Financed device provisioning landing screen -->
   <!-- Screen title in the device setup process. This is reminding the user that this device is provided by a creditor. This means the creditor can control the device, such as locking it if the user doesn't make payments. [CHAR LIMIT=NONE]-->
-  <string name="financed_device_screen_header">This device was purchased on credit from <xliff:g id="creditor_name" example="creditor_name">%1$s</xliff:g></string>
-  <!-- Part of a device setup screen. This screen lets the user know that their device was purchased from a creditor, and the creditor can control parts of the device, such as locking it if the user doesn't make payments. [CHAR LIMIT=NONE]-->
-  <string name="creditor_capabilities_header"><xliff:g id="creditor_name" example="creditor_name">%1$s</xliff:g> can:</string>
-  <!-- Part of a device setup screen. This screen lets the user know that their device was purchased from a creditor, and the creditor can control parts of the device, such as installing their app so the user can make payments. [CHAR LIMIT=NONE]-->
-  <string name="install_creditor_app_description">Install the <xliff:g id="creditor_name" example="creditor_name">%1$s</xliff:g> app so you can make payments for this device</string>
-  <!-- Part of a device setup screen. This screen lets the user know that their device was purchased from a creditor, and the creditor can control parts of the device, such as restricting access if the user doesn't make payments. [CHAR LIMIT=NONE]-->
-  <string name="lock_device_description">Restrict access to this device if you don\'t make payments</string>
+  <string name="financed_device_screen_header">This device is provided by <xliff:g id="creditor_name" example="creditor_name">%s</xliff:g></string>
+  <!-- Section header. This is letting the user know they can make payments for this device. [CHAR LIMIT=NONE]-->
+  <string name="financed_make_payments_subheader_title">Make payments for this device</string>
+  <!-- This text is reminding the user that the app installed by the credit provider can be used to make payments. The first placeholder is the name of the credit provider. The second placeholder is the name of the credit provider's app. [CHAR LIMIT=NONE]-->
+  <string name="financed_make_payments_subheader_description"><xliff:g id="creditor_name" example="creditor_name">%1$s</xliff:g> can install the <xliff:g id="creditor_name" example="creditor_name">%2$s</xliff:g> app so you can make payments for this device.</string>
+  <!-- Section header. This is letting the user know that this device can be restricted. [CHAR LIMIT=NONE]-->
+  <string name="financed_restrict_device_subheader_title">This device can be restricted</string>
+  <!-- This text is letting the user know that the credit provider can restrict this device if the user doesn't make payments. The placeholder is the name of the credit provider. [CHAR LIMIT=NONE]-->
+  <string name="financed_restrict_device_subheader_description"><xliff:g id="creditor_name" example="creditor_name">%1$s</xliff:g> can restrict access to this device if you don\’t make payments.</string>
 </resources>

@@ -104,10 +104,10 @@ final class AoapInterface {
     public static final int AOAP_TIMEOUT_MS = 50;
 
     /**
-     * Set of VID:PID pairs blacklisted through config_AoapIncompatibleDeviceIds. Only
-     * isDeviceBlacklisted() should ever access this variable.
+     * Set of VID:PID pairs denylisted through config_AoapIncompatibleDeviceIds. Only
+     * isDeviceDenylisted() should ever access this variable.
      */
-    private static Set<Pair<Integer, Integer>> sBlacklistedVidPidPairs;
+    private static Set<Pair<Integer, Integer>> sDenylistedVidPidPairs;
 
     private static final String TAG = AoapInterface.class.getSimpleName();
 
@@ -139,7 +139,7 @@ final class AoapInterface {
     }
 
     public static boolean isSupported(Context context, UsbDevice device, UsbDeviceConnection conn) {
-        return !isDeviceBlacklisted(context, device) && getProtocol(conn) >= 1;
+        return !isDeviceDenylisted(context, device) && getProtocol(conn) >= 1;
     }
 
     public static void sendString(UsbDeviceConnection conn, int index, String string)
@@ -166,9 +166,9 @@ final class AoapInterface {
         }
     }
 
-    public static synchronized boolean isDeviceBlacklisted(Context context, UsbDevice device) {
-        if (sBlacklistedVidPidPairs == null) {
-            sBlacklistedVidPidPairs = new HashSet<>();
+    public static synchronized boolean isDeviceDenylisted(Context context, UsbDevice device) {
+        if (sDenylistedVidPidPairs == null) {
+            sDenylistedVidPidPairs = new HashSet<>();
             String[] idPairs =
                 context.getResources().getStringArray(R.array.config_AoapIncompatibleDeviceIds);
             for (String idPair : idPairs) {
@@ -176,7 +176,7 @@ final class AoapInterface {
                 String[] tokens = idPair.split(":");
                 if (tokens.length == 2) {
                     try {
-                        sBlacklistedVidPidPairs.add(Pair.create(Integer.parseInt(tokens[0], 16),
+                        sDenylistedVidPidPairs.add(Pair.create(Integer.parseInt(tokens[0], 16),
                                                                 Integer.parseInt(tokens[1], 16)));
                         success = true;
                     } catch (NumberFormatException e) {
@@ -189,7 +189,7 @@ final class AoapInterface {
             }
         }
 
-        return sBlacklistedVidPidPairs.contains(Pair.create(device.getVendorId(),
+        return sDenylistedVidPidPairs.contains(Pair.create(device.getVendorId(),
                                                             device.getProductId()));
     }
 

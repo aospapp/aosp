@@ -18,6 +18,7 @@ package com.android.server.telecom.tests;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -40,7 +41,9 @@ import android.content.res.Resources;
 import android.location.Country;
 import android.location.CountryDetector;
 import android.location.CountryListener;
+import android.location.Location;
 import android.net.Uri;
+import android.os.Bundle;
 import android.os.Looper;
 import android.os.PersistableBundle;
 import android.os.SystemClock;
@@ -52,6 +55,7 @@ import android.telecom.Connection;
 import android.telecom.DisconnectCause;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
+import android.telecom.TelecomManager;
 import android.telecom.VideoProfile;
 import android.telephony.CarrierConfigManager;
 import android.telephony.PhoneNumberUtils;
@@ -60,6 +64,7 @@ import android.test.suitebuilder.annotation.SmallTest;
 
 import androidx.test.filters.FlakyTest;
 
+import com.android.server.telecom.Analytics;
 import com.android.server.telecom.Call;
 import com.android.server.telecom.CallLogManager;
 import com.android.server.telecom.CallState;
@@ -89,6 +94,7 @@ public class CallLogManagerTest extends TelecomTestCase {
     private PhoneAccountHandle mOtherUserAccountHandle;
     private PhoneAccountHandle mManagedProfileAccountHandle;
     private PhoneAccountHandle mSelfManagedAccountHandle;
+    private Analytics.CallInfo mCallInfo;
 
     private static final Uri TEL_PHONEHANDLE = Uri.parse("tel:5555551234");
 
@@ -148,6 +154,7 @@ public class CallLogManagerTest extends TelecomTestCase {
                 TEST_SELF_MGD_PHONE_ACCOUNT_ID,
                 UserHandle.of(CURRENT_USER_ID)
         );
+        mCallInfo = new Analytics.CallInfo();
 
         // Since we can't mock ContentResolver directly, use a ContentProvider
         when(mContext.getContentResolver()).thenReturn(ContentResolver.wrap(mContentProvider));
@@ -169,7 +176,7 @@ public class CallLogManagerTest extends TelecomTestCase {
         when(userManager.isUserUnlocked(any(UserHandle.class))).thenReturn(true);
         when(userManager.hasUserRestriction(any(String.class), any(UserHandle.class)))
                 .thenReturn(false);
-        when(userManager.getUsers(any(Boolean.class)))
+        when(userManager.getAliveUsers())
                 .thenReturn(Arrays.asList(userInfo, otherUserInfo, managedProfileUserInfo));
         when(userManager.getUserInfo(eq(CURRENT_USER_ID))).thenReturn(userInfo);
         when(userManager.getUserInfo(eq(OTHER_USER_ID))).thenReturn(otherUserInfo);
@@ -816,6 +823,54 @@ public class CallLogManagerTest extends TelecomTestCase {
 
     @SmallTest
     @Test
+    public void testCallComposerElements() {
+        Call fakeCall = makeFakeCall(
+                DisconnectCause.LOCAL, // disconnectCauseCode
+                false, // isConference
+                true, // isIncoming
+                1L, // creationTimeMillis
+                1000L, // ageMillis
+                TEL_PHONEHANDLE, // callHandle
+                mDefaultAccountHandle, // phoneAccountHandle
+                NO_VIDEO_STATE, // callVideoState
+                POST_DIAL_STRING, // postDialDigits
+                VIA_NUMBER_STRING, // viaNumber
+                UserHandle.of(CURRENT_USER_ID)
+        );
+        String subject = "segmentation fault";
+        // =)
+        double lat = 40.649723;
+        double lon = -80.082090;
+        Location location = new Location("");
+        location.setLatitude(lat);
+        location.setLongitude(lon);
+
+        Uri fakeProviderUri = Uri.parse("content://nothing_to_see_here/12345");
+
+        Bundle extras = new Bundle();
+        extras.putInt(TelecomManager.EXTRA_PRIORITY, TelecomManager.PRIORITY_URGENT);
+        extras.putString(TelecomManager.EXTRA_CALL_SUBJECT, subject);
+        extras.putParcelable(TelecomManager.EXTRA_LOCATION, location);
+        extras.putParcelable(TelecomManager.EXTRA_PICTURE_URI, fakeProviderUri);
+        when(fakeCall.getIntentExtras()).thenReturn(extras);
+
+        mCallLogManager.onCallStateChanged(fakeCall, CallState.ACTIVE,
+                CallState.DISCONNECTED);
+        ContentValues locationValues = verifyLocationInsertionWithCapture(CURRENT_USER_ID);
+        assertEquals(lat, locationValues.getAsDouble(CallLog.Locations.LATITUDE), 0);
+        assertEquals(lon, locationValues.getAsDouble(CallLog.Locations.LONGITUDE), 0);
+
+        ContentValues callLogValues = verifyInsertionWithCapture(CURRENT_USER_ID);
+        assertEquals(subject, callLogValues.getAsString(Calls.SUBJECT));
+        assertEquals(fakeProviderUri.toString(),
+                callLogValues.getAsString(Calls.COMPOSER_PHOTO_URI));
+        assertEquals(TelecomManager.PRIORITY_URGENT,
+                (int) callLogValues.getAsInteger(Calls.PRIORITY));
+        assertNotNull(callLogValues.getAsString(Calls.LOCATION));
+    }
+
+    @SmallTest
+    @Test
     public void testDoNotLogConferenceWithNoChildren() {
         Call fakeCall = makeFakeCall(
                 DisconnectCause.LOCAL, // disconnectCauseCode
@@ -973,6 +1028,14 @@ public class CallLogManagerTest extends TelecomTestCase {
         return captor.getValue();
     }
 
+    private ContentValues verifyLocationInsertionWithCapture(int userId) {
+        Uri uri = ContentProvider.maybeAddUserId(CallLog.Locations.CONTENT_URI, userId);
+        ArgumentCaptor<ContentValues> captor = ArgumentCaptor.forClass(ContentValues.class);
+        verify(mContentProvider, timeout(TEST_TIMEOUT_MILLIS).times(1)).insert(
+                eq(uri), captor.capture());
+        return captor.getValue();
+    }
+
     private Call makeFakeCall(int disconnectCauseCode, boolean isConference, boolean isIncoming,
             long creationTimeMillis, long ageMillis, Uri callHandle,
             PhoneAccountHandle phoneAccountHandle, int callVideoState,
@@ -1006,6 +1069,7 @@ public class CallLogManagerTest extends TelecomTestCase {
         when(fakeCall.getParentCall()).thenReturn(null);
         when(fakeCall.hadChildren()).thenReturn(true);
         when(fakeCall.hasProperty(eq(Connection.PROPERTY_REMOTELY_HOSTED))).thenReturn(false);
+        when(fakeCall.getAnalytics()).thenReturn(mCallInfo);
         return fakeCall;
     }
 

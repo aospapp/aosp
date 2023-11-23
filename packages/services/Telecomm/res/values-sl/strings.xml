@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3077225713817780583">"Upravljanje klicev"</string>
+    <string name="telecommAppLabel" product="default" msgid="1825598513414129827">"Telefonski klici"</string>
     <string name="userCallActivityLabel" product="default" msgid="3605391260292846248">"Telefon"</string>
     <string name="unknown" msgid="6993977514360123431">"Neznano"</string>
     <string name="notification_missedCallTitle" msgid="5060387047205532974">"Neodgovorjeni klic"</string>
@@ -57,9 +57,9 @@
     <string name="change_default_dialer_dialog_affirmative" msgid="8604665314757739550">"Nastavi za privzeto"</string>
     <string name="change_default_dialer_dialog_negative" msgid="8648669840052697821">"Prekliči"</string>
     <string name="change_default_dialer_warning_message" msgid="8461963987376916114">"V aplikaciji <xliff:g id="NEW_APP">%s</xliff:g> bo mogoče opravljati klice in nadzirati vse vidike klicev. Kot privzeto aplikacijo za klicanje nastavite samo aplikacije, ki jim zaupate."</string>
-    <string name="change_default_call_screening_dialog_title" msgid="5365787219927262408">"Želite, da je <xliff:g id="NEW_APP">%s</xliff:g> privzeta aplikacija za pregled klicev?"</string>
+    <string name="change_default_call_screening_dialog_title" msgid="5365787219927262408">"Želite, da je <xliff:g id="NEW_APP">%s</xliff:g> privzeta aplikacija za preverjanje klicev?"</string>
     <string name="change_default_call_screening_warning_message_for_disable_old_app" msgid="2039830033533243164">"V aplikaciji <xliff:g id="OLD_APP">%s</xliff:g> ne bo več mogoč predhodni pregled klicev."</string>
-    <string name="change_default_call_screening_warning_message" msgid="9020537562292754269">"V aplikaciji <xliff:g id="NEW_APP">%s</xliff:g> si bo mogoče ogledati podatke o klicateljih, ki niso na vašem seznamu stikov, in bo mogoče blokirati te klice. Kot privzeto aplikacijo za predhodni pregled klicev nastavite samo aplikacije, ki jim zaupate."</string>
+    <string name="change_default_call_screening_warning_message" msgid="9020537562292754269">"V aplikaciji <xliff:g id="NEW_APP">%s</xliff:g> si bo mogoče ogledati podatke o klicateljih, ki niso na vašem seznamu stikov, in bo mogoče blokirati te klice. Kot privzeto aplikacijo za predhodno preverjanje klicev nastavite samo aplikacije, ki jim zaupate."</string>
     <string name="change_default_call_screening_dialog_affirmative" msgid="7162433828280058647">"Nastavi za privzeto"</string>
     <string name="change_default_call_screening_dialog_negative" msgid="1839266125623106342">"Prekliči"</string>
     <string name="blocked_numbers" msgid="8322134197039865180">"Blokirane številke"</string>

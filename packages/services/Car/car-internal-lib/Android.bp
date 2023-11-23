@@ -18,9 +18,16 @@
 // They're not meant to be used by other system apps and hence are not
 // supported.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_library {
-    name: "android.car.internal.event-log-tags",
+    name: "com.android.car.internal.system",
     srcs: [
-        "src/com/android/internal/car/EventLogTags.logtags",
+        "src/com/android/car/internal/SystemConstants.java",
+        "src/com/android/car/internal/ICarServiceHelper.aidl",
+        "src/com/android/car/internal/ICarSystemServerClient.aidl",
+        "src/com/android/car/internal/testing/ExcludeFromCodeCoverageGeneratedReport.java",
     ],
 }

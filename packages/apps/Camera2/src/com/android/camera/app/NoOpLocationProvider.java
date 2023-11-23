@@ -20,7 +20,7 @@ import android.content.Context;
 import android.location.Location;
 
 /**
- * Dummy Location provider to be used when location information shouldn't be provided to the client.
+ * No-op Location provider to be used when location information shouldn't be provided to the client.
  */
 public class NoOpLocationProvider implements LocationProvider {
 

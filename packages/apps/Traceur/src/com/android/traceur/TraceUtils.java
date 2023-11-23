@@ -21,8 +21,12 @@ import android.os.AsyncTask;
 import android.os.FileUtils;
 import android.util.Log;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -53,7 +57,8 @@ public class TraceUtils {
         public String getName();
         public String getOutputExtension();
         public boolean traceStart(Collection<String> tags, int bufferSizeKb, boolean apps,
-            boolean longTrace, int maxLongTraceSizeMb, int maxLongTraceDurationMinutes);
+            boolean attachToBugreport, boolean longTrace, int maxLongTraceSizeMb,
+            int maxLongTraceDurationMinutes);
         public void traceStop();
         public boolean traceDump(File outFile);
         public boolean isTracingOn();
@@ -64,9 +69,10 @@ public class TraceUtils {
     }
 
     public static boolean traceStart(Collection<String> tags, int bufferSizeKb, boolean apps,
-            boolean longTrace, int maxLongTraceSizeMb, int maxLongTraceDurationMinutes) {
+            boolean longTrace, boolean attachToBugreport, int maxLongTraceSizeMb,
+            int maxLongTraceDurationMinutes) {
         return mTraceEngine.traceStart(tags, bufferSizeKb, apps,
-            longTrace, maxLongTraceSizeMb, maxLongTraceDurationMinutes);
+            attachToBugreport, longTrace, maxLongTraceSizeMb, maxLongTraceDurationMinutes);
     }
 
     public static void traceStop() {
@@ -105,13 +111,23 @@ public class TraceUtils {
     }
 
     public static Process exec(String cmd, String tmpdir) throws IOException {
+        return exec(cmd, tmpdir, true);
+    }
+
+    public static Process exec(String cmd, String tmpdir, boolean logOutput) throws IOException {
         String[] cmdarray = {"sh", "-c", cmd};
         String[] envp = {"TMPDIR=" + tmpdir};
         envp = tmpdir == null ? null : envp;
 
         Log.v(TAG, "exec: " + Arrays.toString(envp) + " " + Arrays.toString(cmdarray));
 
-        return RUNTIME.exec(cmdarray, envp);
+        Process process = RUNTIME.exec(cmdarray, envp);
+        new Logger("traceService:stderr", process.getErrorStream());
+        if (logOutput) {
+            new Logger("traceService:stdout", process.getInputStream());
+        }
+
+        return process;
     }
 
     public static String getOutputFilename() {
@@ -139,4 +155,81 @@ public class TraceUtils {
         }.execute();
     }
 
+    /**
+     * Streams data from an InputStream to an OutputStream
+     */
+    static class Streamer {
+        private boolean mDone;
+
+        Streamer(final String tag, final InputStream in, final OutputStream out) {
+            new Thread(tag) {
+                @Override
+                public void run() {
+                    int read;
+                    byte[] buf = new byte[2 << 10];
+                    try {
+                        while ((read = in.read(buf)) != -1) {
+                            out.write(buf, 0, read);
+                        }
+                    } catch (IOException e) {
+                        Log.e(TAG, "Error while streaming " + tag);
+                    } finally {
+                        try {
+                            out.close();
+                        } catch (IOException e) {
+                            // Welp.
+                        }
+                        synchronized (Streamer.this) {
+                            mDone = true;
+                            Streamer.this.notify();
+                        }
+                    }
+                }
+            }.start();
+        }
+
+        synchronized boolean isDone() {
+            return mDone;
+        }
+
+        synchronized void waitForDone() {
+            while (!isDone()) {
+                try {
+                    wait();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        }
+    }
+
+    /**
+     * Streams data from an InputStream to an OutputStream
+     */
+    private static class Logger {
+
+        Logger(final String tag, final InputStream in) {
+            new Thread(tag) {
+                @Override
+                public void run() {
+                    int read;
+                    String line;
+                    BufferedReader r = new BufferedReader(new InputStreamReader(in));
+                    try {
+                        while ((line = r.readLine()) != null) {
+                            Log.e(TAG, tag + ": " + line);
+                        }
+                    } catch (IOException e) {
+                        Log.e(TAG, "Error while streaming " + tag);
+                    } finally {
+                        try {
+                            r.close();
+                        } catch (IOException e) {
+                            // Welp.
+                        }
+                    }
+                }
+            }.start();
+        }
+    }
 }

@@ -11,4 +11,6 @@
     <dimen name="wallet_menu_horizontal_offset">12dp</dimen>
     <dimen name="wallet_menu_padding_vertical">48dp</dimen>
     <dimen name="wallet_card_border_width">1dp</dimen>
+    <dimen name="card_carousel_container_margin_top">28dp</dimen>
+    <item name="card_screen_width_ratio" format="float" type="dimen">0.69</item>
 </resources>

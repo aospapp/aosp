@@ -40,12 +40,11 @@ import android.provider.Settings;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.FragmentActivity;
 
-import com.android.customization.model.CustomizationManager.OptionsFetchedListener;
 import com.android.customization.model.CustomizationManager.Callback;
+import com.android.customization.model.CustomizationManager.OptionsFetchedListener;
 import com.android.customization.model.theme.custom.CustomTheme;
 import com.android.customization.module.ThemesUserEventLogger;
 import com.android.customization.testutils.OverlayManagerMocks;
-import com.android.wallpaper.module.WallpaperSetter;
 
 import org.json.JSONObject;
 import org.junit.After;
@@ -61,7 +60,6 @@ import org.robolectric.RobolectricTestRunner;
 public class ThemeManagerTest {
 
     @Mock OverlayManagerCompat mMockOm;
-    @Mock WallpaperSetter mMockWallpaperSetter;
     @Mock ThemesUserEventLogger mThemesUserEventLogger;
     @Mock ThemeBundleProvider mThemeBundleProvider;
     private OverlayManagerMocks mMockOmHelper;
@@ -75,7 +73,7 @@ public class ThemeManagerTest {
         mActivity = spy(activity);
         mMockOmHelper = new OverlayManagerMocks();
         mMockOmHelper.setUpMock(mMockOm);
-        mThemeManager = new ThemeManager(mThemeBundleProvider, activity, mMockWallpaperSetter,
+        mThemeManager = new ThemeManager(mThemeBundleProvider, activity,
                 mMockOm, mThemesUserEventLogger);
     }
 

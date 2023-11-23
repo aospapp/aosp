@@ -37,7 +37,6 @@ import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
 
-import com.android.internal.logging.nano.MetricsProto;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
 
@@ -626,11 +625,6 @@ public class TextToSpeechFragment extends SettingsPreferenceFragment implements
     public void setCurrentKey(String key) {
         mCurrentEngine = key;
         updateDefaultEngine(mCurrentEngine);
-    }
-
-    @Override
-    public int getMetricsCategory() {
-        return MetricsProto.MetricsEvent.TTS_TEXT_TO_SPEECH;
     }
 
     @Override

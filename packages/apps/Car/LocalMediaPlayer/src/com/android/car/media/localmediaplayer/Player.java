@@ -147,7 +147,8 @@ public class Player extends MediaSession.Callback {
 
     private Notification.Action makeNotificationAction(String action, int iconId, int stringId) {
         PendingIntent intent = PendingIntent.getBroadcast(mContext, REQUEST_CODE,
-                new Intent(action), PendingIntent.FLAG_UPDATE_CURRENT);
+                new Intent(action),
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         Notification.Action notificationAction = new Notification.Action.Builder(iconId,
                 mContext.getString(stringId), intent)
                 .build();
@@ -235,7 +236,8 @@ public class Player extends MediaSession.Callback {
         Intent prefsIntent = new Intent();
         prefsIntent.setClass(mContext, PermissionsActivity.class);
         prefsIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        PendingIntent pendingIntent = PendingIntent.getActivity(mContext, 0, prefsIntent, 0);
+        PendingIntent pendingIntent =
+                PendingIntent.getActivity(mContext, 0, prefsIntent, PendingIntent.FLAG_IMMUTABLE);
 
         Bundle extras = new Bundle();
         extras.putString(Utils.ERROR_RESOLUTION_ACTION_LABEL,

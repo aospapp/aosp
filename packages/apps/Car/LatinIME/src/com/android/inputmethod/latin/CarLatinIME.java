@@ -296,7 +296,7 @@ public class CarLatinIME extends InputMethodService {
                             //loadKeyboard(ALPHA_LAYOUT_XML);
                             break;
                         case KEYCODE_CLOSE_KEYBOARD:
-                            hideWindow();
+                            requestHideSelf(0);
                             break;
                         case KEYCODE_CYCLE_CHAR:
                             CharSequence text = inputConnection.getTextBeforeCursor(1, 0);
@@ -387,7 +387,7 @@ public class CarLatinIME extends InputMethodService {
 
                 @Override
                 public void stopInput() {
-                    hideWindow();
+                    requestHideSelf(0);
                 }
             };
 
@@ -437,7 +437,7 @@ public class CarLatinIME extends InputMethodService {
 
                 @Override
                 public void stopInput() {
-                    hideWindow();
+                    requestHideSelf(0);
                 }
             };
 

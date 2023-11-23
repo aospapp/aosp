@@ -18,5 +18,5 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="owner_name" msgid="3416113395996003764">"司機"</string>
-    <string name="permlab_accessCoarseLocation" msgid="2494909511737161237">"只在前景存取大概位置"</string>
+    <string name="permlab_accessCoarseLocation" msgid="2494909511737161237">"只在前景存取概略位置"</string>
 </resources>

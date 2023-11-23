@@ -17,18 +17,20 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="6995669566699638946">"Format och bakgrunder"</string>
+    <string name="app_name" msgid="1647136562008520313">"Bakgrund och utseende"</string>
     <string name="theme_title" msgid="2144932106319405101">"Format"</string>
     <string name="clock_title" msgid="2126046720254613991">"Klocka"</string>
-    <string name="grid_title" msgid="2825094404523390773">"Rutnät"</string>
-    <string name="wallpaper_title" msgid="6952635398953194544">"Bakgrund"</string>
+    <string name="grid_title" msgid="1688173478777254123">"Apprutnät"</string>
     <string name="apply_theme_btn" msgid="6293081192321303991">"Använd"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"Tryck för att redigera"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"Behåll befintlig bakgrund"</string>
     <string name="apply_btn" msgid="7965877231041987336">"Använd"</string>
-    <string name="accessibility_preview_pager" msgid="3548503287402185430">"Sida <xliff:g id="ID_1">%1$d</xliff:g> av <xliff:g id="ID_2">%2$d</xliff:g>"</string>
-    <string name="next_page_content_description" msgid="5290226604542300962">"Nästa"</string>
-    <string name="previous_page_content_description" msgid="6025726405430262788">"Föregående"</string>
+    <string name="theme_preview_card_content_description" msgid="5989222908619535533">"Förhandsgranska stilen"</string>
+    <string name="grid_preview_card_content_description" msgid="8449383777584714842">"Förhandsgranska rutnätet"</string>
+    <string name="font_preview_content_description" msgid="128230439293337891">"Förhandsgranska teckensnitt"</string>
+    <string name="icon_preview_content_description" msgid="7761101284351952890">"Förhandsgranska ikoner"</string>
+    <string name="color_preview_content_description" msgid="4879120462082058124">"Förhandsgranska färger"</string>
+    <string name="shape_preview_content_description" msgid="6479487796176550432">"Förhandsgranska former"</string>
     <string name="option_applied_description" msgid="5022305212078053534">"<xliff:g id="ID_1">%1$s</xliff:g> tillämpas för närvarande"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"<xliff:g id="ID_1">%1$s</xliff:g> förhandsgranskas och tillämpas just nu"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"<xliff:g id="ID_1">%1$s</xliff:g> förhandsgranskas just nu"</string>
@@ -41,12 +43,15 @@
     <string name="preview_name_wallpaper" msgid="1738652462949531828">"Bakgrund"</string>
     <string name="font_card_title" msgid="2343292653502548685">"ABC • abc • 123"</string>
     <string name="font_card_body" msgid="6790525594503904468">"Lägg till teckensnitt som du gillar på varje skärm"</string>
+    <string name="grid_options_title" msgid="7071930966989877023">"Välj rutnätsstorlek"</string>
     <string name="grid_title_pattern" msgid="9188866567612607806">"<xliff:g id="ID_1">%1$d</xliff:g> x <xliff:g id="ID_2">%2$d</xliff:g>"</string>
-    <string name="applied_theme_msg" msgid="7348498271552054431">"Formatet används"</string>
-    <string name="applied_clock_msg" msgid="1938218786265793285">"Klockan har tillämpats"</string>
+    <string name="applied_theme_msg" msgid="3749018706366796244">"Stilen har angetts"</string>
+    <string name="applied_clock_msg" msgid="1303338016701443767">"Klockan har angetts"</string>
+    <string name="applied_grid_msg" msgid="3250499654436933034">"Rutnätet har angetts"</string>
     <string name="apply_theme_error_msg" msgid="791364062636538317">"Det gick inte att använda formatet"</string>
     <string name="custom_theme_next" msgid="6235420097213197301">"Nästa"</string>
     <string name="custom_theme_previous" msgid="4941132112640503022">"Föregående"</string>
+    <string name="custom_theme" msgid="1618351922263478163">"Anpassat"</string>
     <string name="custom_theme_title" msgid="2192300350332693631">"Anpassad <xliff:g id="ID_1">%1$d</xliff:g>"</string>
     <string name="custom_theme_fragment_title" msgid="6615547284702040280">"Anpassat format"</string>
     <string name="custom_theme_delete" msgid="4744494663184126202">"Radera"</string>
@@ -66,4 +71,16 @@
     <string name="no_thanks" msgid="7286616980115687627">"Nej tack"</string>
     <string name="clock_preview_content_description" msgid="5460561185905717460">"Förhandsvisning av urtavlan <xliff:g id="ID_1">%1$s</xliff:g>"</string>
     <string name="something_went_wrong" msgid="529840112449799117">"Hoppsan! Något gick fel."</string>
+    <string name="theme_preview_icons_section_title" msgid="7064768910744000643">"Färg/ikoner"</string>
+    <string name="style_info_description" msgid="2612473574431003251">"Förhandsgranskning av teckensnitt, ikoner, appform och färg"</string>
+    <string name="accessibility_custom_font_title" msgid="966867359157303705">"Anpassat teckensnitt"</string>
+    <string name="accessibility_custom_icon_title" msgid="5753297905849062296">"Anpassad ikon"</string>
+    <string name="accessibility_custom_color_title" msgid="4124246598886320663">"Anpassad färg"</string>
+    <string name="accessibility_custom_shape_title" msgid="7708408259374643129">"Anpassat område"</string>
+    <string name="accessibility_custom_name_title" msgid="5494460518085463262">"Namn på anpassat format"</string>
+    <string name="mode_title" msgid="2394873501427436055">"Mörkt tema"</string>
+    <string name="mode_disabled_msg" msgid="9196245518435936512">"Tillfälligt inaktiverat i batterisparläge"</string>
+    <string name="themed_icon_title" msgid="7312460430471956558">"Ikoner med tema"</string>
+    <string name="beta_title" msgid="8703819523760746458">"Beta"</string>
+    <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"Ändra rutnät för appar"</string>
 </resources>

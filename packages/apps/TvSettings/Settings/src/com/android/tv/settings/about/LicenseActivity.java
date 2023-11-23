@@ -16,7 +16,6 @@
 
 package com.android.tv.settings.about;
 
-import android.app.Activity;
 import android.app.LoaderManager;
 import android.content.ActivityNotFoundException;
 import android.content.ContentResolver;
@@ -30,6 +29,7 @@ import android.widget.Toast;
 
 import androidx.annotation.VisibleForTesting;
 import androidx.core.content.FileProvider;
+import androidx.fragment.app.FragmentActivity;
 
 import com.android.settingslib.license.LicenseHtmlLoader;
 import com.android.tv.settings.R;
@@ -39,7 +39,7 @@ import java.io.File;
 /**
  * Displays open source NOTICE files.
  */
-public class LicenseActivity extends Activity implements
+public class LicenseActivity extends FragmentActivity implements
             LoaderManager.LoaderCallbacks<File> {
     private static final String TAG = "LicenseActivity";
     private static final String FILE_PROVIDER_AUTHORITY = "com.android.settings.files";

@@ -111,7 +111,7 @@ public class Hash_REF_DO extends BerTlv {
         int index = getValueIndex();
         int length = getValueLength();
 
-        // sanity checks
+        // quick checks
         if (length != 0 && length != SHA1_LEN && length != SHA256_LEN) {
             throw new ParserException("Invalid value length for Hash-REF-DO!");
         }
@@ -139,7 +139,7 @@ public class Hash_REF_DO extends BerTlv {
     @Override
     public void build(ByteArrayOutputStream stream) throws DO_Exception {
 
-        // sanity checks
+        // quick checks
         if (mHash.length != SHA1_LEN && mHash.length != SHA256_LEN && mHash.length != 0) {
             throw new DO_Exception("Hash value must be " + SHA1_LEN + " or " + SHA256_LEN
                     + " bytes in length!");

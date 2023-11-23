@@ -28,8 +28,12 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Aplikasi berikut akan mengelola perangkat Anda:"</string>
     <string name="next" msgid="1004321437324424398">"Berikutnya"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Menyiapkan profil kerja..."</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Admin IT Anda memiliki kemampuan untuk memantau dan mengelola setelan, akses perusahaan, aplikasi, izin, dan data yang terkait dengan profil ini, termasuk aktivitas jaringan, lokasi perangkat, histori panggilan, dan histori penelusuran kontak Anda.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Untuk informasi selengkapnya, termasuk kebijakan privasi organisasi Anda, hubungi admin IT Anda."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Admin IT Anda memiliki kemampuan untuk memantau dan mengelola setelan, akses perusahaan, aplikasi, izin, dan data yang terkait dengan perangkat ini, termasuk aktivitas jaringan, lokasi perangkat, histori panggilan, dan histori penelusuran kontak Anda.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Untuk informasi selengkapnya, termasuk kebijakan privasi organisasi Anda, hubungi admin IT Anda."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Admin IT Anda memiliki kemampuan untuk memantau dan mengelola setelan, akses perusahaan, aplikasi, izin, dan data yang terkait dengan profil ini, termasuk aktivitas jaringan, lokasi perangkat, histori panggilan, dan histori penelusuran kontak Anda.<xliff:g id="LINE_BREAK">
+
+</xliff:g>Untuk informasi selengkapnya, termasuk kebijakan privasi organisasi Anda, hubungi admin IT Anda."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Admin IT Anda memiliki kemampuan untuk memantau dan mengelola setelan, akses perusahaan, aplikasi, izin, dan data yang terkait dengan perangkat ini, termasuk aktivitas jaringan, lokasi perangkat, histori panggilan, dan histori penelusuran kontak Anda.<xliff:g id="LINE_BREAK">
+
+</xliff:g>Untuk informasi selengkapnya, termasuk kebijakan privasi organisasi Anda, hubungi admin IT Anda."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Untuk menggunakan fitur perlindungan dari pencurian, Anda harus memiliki kunci layar yang dilindungi sandi untuk perangkat."</string>
     <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"Hubungi admin IT untuk informasi selengkapnya, termasuk kebijakan privasi organisasi Anda."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Pelajari lebih lanjut"</string>
@@ -37,11 +41,11 @@
     <string name="ok_setup" msgid="4593707675416137504">"Oke"</string>
     <string name="user_consent_msg" msgid="8820951802130353584">"Saya setuju"</string>
     <string name="url_error" msgid="5958494012986243186">"Link tak bisa ditampilkan."</string>
+    <string name="navigation_button_description" msgid="6106309408994461239">"Kembali ke atas"</string>
     <string name="terms" msgid="8295436105384703903">"Persyaratan"</string>
     <string name="work_profile_info" msgid="5433388376309583996">"Info profil kerja"</string>
     <string name="managed_device_info" msgid="1529447646526616811">"Info perangkat yang dikelola"</string>
     <string name="default_managed_profile_name" msgid="5370257687074907055">"Profil kerja"</string>
-    <string name="default_first_meat_user_name" msgid="7540515892748490540">"Pengguna utama"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"Hapus profil yang ada?"</string>
     <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"Anda telah memiliki profil kerja. profil tersebut dikelola menggunakan aplikasi berikut:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"Sebelum melanjutkan, "<a href="#read_this_link">"baca ini"</a>"."</string>
@@ -65,22 +69,13 @@
     <string name="user_setup_incomplete" msgid="6494920045526591079">"Penyiapan Pelanggan Belum Selesai"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"Pengguna perangkat kerja"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"Menyiapkan perangkat kerja…"</string>
-    <string name="progress_data_process" msgid="1707745321954672971">"Memproses data penyiapan..."</string>
-    <string name="progress_connect_to_wifi" msgid="472251154628863539">"Menyambungkan ke Wi-Fi..."</string>
-    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"Menghubungkan ke jaringan seluler…"</string>
-    <string name="progress_download" msgid="3522436271691064624">"Mendownload aplikasi admin..."</string>
-    <string name="progress_install" msgid="2258045670385866183">"Memasang aplikasi admin..."</string>
-    <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"Menghapus aplikasi sistem yang tidak diperlukan..."</string>
-    <string name="progress_finishing_touches" msgid="9037776404089697198">"Menambahkan sentuhan akhir..."</string>
-    <string name="progress_set_owner" msgid="8214062820093757961">"Menyetel pemilik perangkat..."</string>
-    <string name="progress_initialize" msgid="1104643492713424939">"Memulai perangkat..."</string>
     <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"Perangkat ini tidak mengizinkan enkripsi yang diperlukan untuk penyiapan. Hubungi admin IT untuk meminta bantuan."</string>
-    <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"Hentikan penyiapan &amp; setel ulang perangkat?"</string>
+    <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"Hentikan penyiapan &amp; reset perangkat?"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"Tindakan ini akan menyetel ulang perangkat dan membawa Anda kembali ke layar pertama"</string>
     <string name="device_owner_cancel_message" msgid="2529288571742712065">"Berhenti menyiapkan dan hapus data perangkat?"</string>
     <string name="device_owner_cancel_cancel" msgid="1052951540909389275">"Batal"</string>
     <string name="device_owner_error_ok" msgid="2002250763093787051">"Oke"</string>
-    <string name="reset" msgid="6467204151306265796">"Setel ulang"</string>
+    <string name="reset" msgid="6467204151306265796">"Reset"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"Tidak dapat menyiapkan profil"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"Tidak dapat menyiapkan perangkat"</string>
     <string name="something_went_wrong" msgid="3593223774041784329">"Terjadi masalah"</string>
@@ -89,7 +84,7 @@
     <string name="reset_device" msgid="5483853913241939262">"Reset perangkat ini dan coba setel kembali"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"Perangkat sudah disiapkan"</string>
     <string name="error_wifi" msgid="1850288843966836571">"Tidak dapat terhubung ke Wi-Fi"</string>
-    <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"Perangkat telah mengaktifkan perlindungan penyetelan ulang. Hubungi admin IT untuk meminta bantuan."</string>
+    <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"Perangkat telah mengaktifkan perlindungan peresetan. Hubungi admin IT untuk meminta bantuan."</string>
     <string name="frp_clear_progress_title" msgid="8628074089458234965">"Menghapus"</string>
     <string name="frp_clear_progress_text" msgid="1740164332830598827">"Harap tunggu..."</string>
     <string name="error_hash_mismatch" msgid="1145488923243178454">"Tidak dapat menggunakan aplikasi admin karena terjadi error checksum. Harap hubungi admin IT Anda untuk meminta bantuan."</string>
@@ -152,7 +147,7 @@
     <string name="cancel_setup_and_factory_reset_dialog_title" msgid="5416045931532004811">"Selesaikan dan kembalikan ke setelan pabrik?"</string>
     <string name="cancel_setup_and_factory_reset_dialog_msg" msgid="808442439937994485">"Menyelesaikan penyiapan ini akan mengembalikan perangkat ke setelan pabrik dan membawa Anda kembali ke layar pertama."</string>
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"Batal"</string>
-    <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"Setel ulang perangkat"</string>
+    <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"Reset perangkat"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g> dan <xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g>, dan <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
@@ -162,11 +157,10 @@
     <string name="device_owner_description" msgid="168013145812679664">"Perangkat ini akan dijaga agar tetap aman dan dikelola oleh organisasi Anda"</string>
     <string name="setup_provisioning_header" msgid="4282483198266806271">"Bersiap menyiapkan perangkat kerja…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Menyiapkan aplikasi admin"</string>
-    <string name="set_up_everything_else" msgid="4407706086957916501">"Menyiapkan lainnya"</string>
-    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"Tambahkan akun pribadi untuk mendapatkan lebih banyak manfaat dari perangkat"</string>
-    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"Setelah profil kerja siap, Anda juga dapat menambahkan Akun Google pribadi untuk mengakses aplikasi dan konten."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"Perangkat ini milik organisasi"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"Aplikasi berikut akan digunakan untuk mengelola dan memantau ponsel ini"</string>
+    <string name="account_management_disclaimer_header" msgid="8013083414694316564">"Akun Anda dikelola"</string>
+    <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"Admin IT Anda menggunakan pengelolaan perangkat seluler untuk menerapkan kebijakan keamanan"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Menyiapkan perangkat untuk kerja…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Mari siapkan profil kerja Anda"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Aplikasi kerja disimpan dalam profil kerja Anda"</string>
@@ -178,8 +172,16 @@
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Simpan aplikasi kerja di tempat yang mudah Anda akses"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Perangkat ini tidak bersifat pribadi"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"Admin IT mungkin dapat melihat data dan aktivitas Anda di perangkat ini."</string>
+    <string name="fully_managed_device_provisioning_permissions_header" msgid="2852101532084770993">"Aktivitas &amp; data Anda"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_header" msgid="4419374850927705136">"Izin aplikasi"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8328298923037335068">"Admin IT dapat menyetel izin untuk aplikasi di perangkat ini, seperti mikrofon, kamera, dan izin akses lokasi."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Menyiapkan perangkat…"</string>
-    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"Gunakan perangkat ini untuk mengakses aplikasi kerja Anda dengan mudah. Perangkat ini tidak bersifat pribadi, jadi admin IT mungkin dapat melihat data dan aktivitas Anda. Untuk mempelajari lebih lanjut, hubungi admin IT Anda."</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1090645190066781456">"Gunakan perangkat ini untuk mengakses aplikasi kerja Anda dengan mudah. Perangkat ini tidak bersifat pribadi, jadi admin IT mungkin dapat melihat data dan aktivitas Anda."</string>
+    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"Gunakan perangkat ini untuk mengakses aplikasi kerja Anda dengan mudah. Perangkat ini tidak bersifat pribadi, jadi admin IT mungkin dapat melihat aktivitas dan data Anda. Admin IT juga dapat menyetel izin untuk aplikasi di perangkat ini, seperti mikrofon, kamera, dan izin akses lokasi."</string>
+    <string name="fully_managed_device_provisioning_return_device_title" msgid="8500829014794276683">"Kembalikan perangkat ini ke admin IT Anda"</string>
+    <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"Kembali ke layar sebelumnya, atau reset perangkat ini dan kembalikan ke admin IT Anda."</string>
+    <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"Batalkan penyiapan"</string>
+    <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"Reset &amp; kembalikan perangkat"</string>
     <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Aplikasi kerja ada di profil kerja Anda &amp; dikelola admin IT"</string>
     <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Aplikasi pribadi terpisah &amp; tersembunyi dari aplikasi kerja"</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"Admin IT dapat mengontrol perangkat &amp; memblokir aplikasi"</string>
@@ -187,10 +189,9 @@
     <string name="just_a_sec" msgid="6244676028626237220">"Tunggu sebentar…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Pengingat privasi"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"Admin IT mungkin dapat melihat data dan aktivitas Anda di perangkat ini"</string>
-    <string name="device_provisioning_finished" msgid="3981783240592092906">"Perangkat Anda siap digunakan!"</string>
-    <string name="done" msgid="7755227776955952318">"Selesai"</string>
-    <string name="financed_device_screen_header" msgid="7890706080917322376">"Perangkat ini dibeli secara kredit dari <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>"</string>
-    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> dapat:"</string>
-    <string name="install_creditor_app_description" msgid="6159751782301108878">"Menginstal aplikasi <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> sehingga Anda dapat melakukan pembayaran untuk perangkat ini"</string>
-    <string name="lock_device_description" msgid="2940362560732989166">"Membatasi akses ke perangkat ini jika Anda tidak melakukan pembayaran"</string>
+    <string name="financed_device_screen_header" msgid="6875169548352717124">"Perangkat ini disediakan oleh <xliff:g id="CREDITOR_NAME">%s</xliff:g>"</string>
+    <string name="financed_make_payments_subheader_title" msgid="7880606710044254210">"Lakukan pembayaran untuk perangkat ini"</string>
+    <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> dapat menginstal aplikasi <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> sehingga Anda dapat melakukan pembayaran untuk perangkat ini."</string>
+    <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Perangkat ini dapat dibatasi"</string>
+    <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> dapat membatasi akses ke perangkat ini jika Anda tidak melakukan pembayaran."</string>
 </resources>

@@ -17,7 +17,9 @@
 package com.android.car.audio.hal;
 
 import static android.media.AudioAttributes.USAGE_ALARM;
+import static android.media.AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE;
 import static android.media.AudioAttributes.USAGE_MEDIA;
+import static android.media.AudioAttributes.USAGE_NOTIFICATION;
 import static android.media.AudioManager.AUDIOFOCUS_GAIN;
 import static android.media.AudioManager.AUDIOFOCUS_LOSS;
 import static android.media.AudioManager.AUDIOFOCUS_LOSS_TRANSIENT;
@@ -360,6 +362,40 @@ public class HalAudioFocusTest {
 
         verify(mAudioControlWrapper).onAudioFocusChange(USAGE_MEDIA, ZONE_ID, AUDIOFOCUS_LOSS);
         verify(mAudioControlWrapper).onAudioFocusChange(USAGE_ALARM, ZONE_ID, AUDIOFOCUS_LOSS);
+    }
+
+    @Test
+    public void getActiveUsagesForZone_withEmptyStack_getsEmpty()
+            throws Exception {
+        int[] activeContexts = mHalAudioFocus.getActiveUsagesForZone(ZONE_ID);
+
+        assertThat(activeContexts).isEmpty();
+    }
+
+    @Test
+    public void getActiveUsagesForZone_withSingleUsage_getsUsage()
+            throws Exception {
+        whenAnyFocusRequestGranted();
+        mHalAudioFocus.requestAudioFocus(USAGE_MEDIA, ZONE_ID, AUDIOFOCUS_GAIN);
+
+        int[] activeContexts = mHalAudioFocus.getActiveUsagesForZone(ZONE_ID);
+
+        assertThat(activeContexts).asList().containsExactly(USAGE_MEDIA);
+    }
+
+    @Test
+    public void getActiveUsagesForZone_withMultipleUsages_getsUsages()
+            throws Exception {
+        whenAnyFocusRequestGranted();
+        mHalAudioFocus.requestAudioFocus(USAGE_MEDIA, ZONE_ID, AUDIOFOCUS_GAIN);
+        mHalAudioFocus.requestAudioFocus(USAGE_ASSISTANCE_NAVIGATION_GUIDANCE, ZONE_ID,
+                AUDIOFOCUS_GAIN);
+        mHalAudioFocus.requestAudioFocus(USAGE_NOTIFICATION, ZONE_ID, AUDIOFOCUS_GAIN);
+
+        int[] activeContexts = mHalAudioFocus.getActiveUsagesForZone(ZONE_ID);
+
+        assertThat(activeContexts).asList().containsExactly(USAGE_MEDIA,
+                USAGE_ASSISTANCE_NAVIGATION_GUIDANCE, USAGE_NOTIFICATION);
     }
 
     private void whenAnyFocusRequestGranted() {

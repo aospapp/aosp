@@ -41,4 +41,21 @@ public class Test {
     /** @hide */
     public void hiddenMethod() {}
 
+    public static void staticPublicMethod() {}
+
+    /** @hide */
+    @SystemApi
+    public static void staticSystemApiMethod() {}
+
+    /** @hide */
+    @SystemApi(client = SystemApi.Client.MODULE_LIBRARIES)
+    public static void staticModuleLibsApiMethod() {}
+
+    /** @hide */
+    @TestApi
+    public static void staticTestApiMethod() {}
+
+    /** @hide */
+    public static void staticHiddenMethod() {}
+
 }

@@ -17,4 +17,5 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="cmas_presidential_level_alert" msgid="6968323372438785870">"اہم ہنگامی الرٹ"</string>
+    <string name="alerts_header_summary" msgid="8898082819299479687">"آپ کا فون قدرتی آفات کے دوران انخلائی ہدایات جیسے الرٹس آپ کو بھیج سکتا ہے۔ یہ سروس نیشنل ایمرجنسی مینجمنٹ ایجنسی، نیٹ ورک فراہم کنندگان اور آلہ مینوفیکچررز کے درمیان ایک معاونت ہے۔\n\nاگر آپ کے آلہ میں کوئی مسئلہ ہو یا نیٹ ورک کے حالات خراب ہو تو ہو سکتا ہے کہ آپ کو الرٹس موصول نہ ہوں۔"</string>
 </resources>

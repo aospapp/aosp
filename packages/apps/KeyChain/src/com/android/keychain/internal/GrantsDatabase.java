@@ -25,6 +25,9 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.util.Log;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class GrantsDatabase {
     private static final String TAG = "KeyChain";
 
@@ -40,6 +43,13 @@ public class GrantsDatabase {
                     + " WHERE "
                     + GRANTS_GRANTEE_UID
                     + "=? AND "
+                    + GRANTS_ALIAS
+                    + "=?";
+
+    private static final String SELECTION_GRANTEE_UIDS_FOR_ALIAS =
+            "SELECT " + GRANTS_GRANTEE_UID + " FROM "
+                    + TABLE_GRANTS
+                    + " WHERE "
                     + GRANTS_ALIAS
                     + "=?";
 
@@ -182,6 +192,25 @@ public class GrantsDatabase {
                     TABLE_GRANTS,
                     SELECT_GRANTS_BY_UID_AND_ALIAS,
                     new String[] {String.valueOf(uid), alias});
+        }
+    }
+
+    public int[] getGrants(String alias) {
+        final SQLiteDatabase db = mDatabaseHelper.getWritableDatabase();
+        try (Cursor cursor =
+                     db.query(
+                             TABLE_GRANTS,
+                             new String[] {GRANTS_GRANTEE_UID},
+                             SELECTION_GRANTS_BY_ALIAS,
+                             new String[] {alias},
+                             null /* group by */,
+                             null /* having */,
+                             null /* order by */)) {
+            final List<Integer> result = new ArrayList<>();
+            while (cursor.moveToNext()) {
+                result.add(cursor.getInt(0));
+            }
+            return result.stream().mapToInt(Integer::intValue).toArray();
         }
     }
 

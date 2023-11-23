@@ -21,11 +21,11 @@ import android.content.Context;
 
 public class GservicesHelper {
 
-    public static String getBlacklistedResolutionsBack(ContentResolver contentResolver) {
+    public static String getDisallowedlistedResolutionsBack(ContentResolver contentResolver) {
         return "";
     }
 
-    public static String getBlacklistedResolutionsFront(ContentResolver contentResolver) {
+    public static String getDisallowedlistedResolutionsFront(ContentResolver contentResolver) {
         return "";
     }
 

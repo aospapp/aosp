@@ -15,20 +15,20 @@
     limitations under the License.
 -->
 
-<RelativeLayout
+<com.android.car.ui.FocusArea
     xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/settings_content_focus_area"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:gravity="center">
 
     <DatePicker
-        xmlns:android="http://schemas.android.com/apk/res/android"
         android:id="@+id/date_picker"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_centerInParent="true"
-        android:datePickerMode="spinner"
         android:calendarViewShown="false"
+        android:datePickerMode="spinner"
+        android:focusable="true"
         android:scaleX="1.6"
-        android:scaleY="1.6"/>
-
-</RelativeLayout>
+        android:scaleY="1.6" />
+</com.android.car.ui.FocusArea>

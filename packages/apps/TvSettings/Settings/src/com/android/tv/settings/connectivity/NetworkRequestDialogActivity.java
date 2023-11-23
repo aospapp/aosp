@@ -17,9 +17,15 @@
 package com.android.tv.settings.connectivity;
 
 import android.os.Bundle;
+import android.os.UserHandle;
+import android.os.UserManager;
 
 import androidx.annotation.Nullable;
 import androidx.fragment.app.FragmentActivity;
+
+import com.android.settingslib.RestrictedLockUtils;
+import com.android.settingslib.RestrictedLockUtils.EnforcedAdmin;
+import com.android.settingslib.RestrictedLockUtilsInternal;
 
 /**
  * When other applications request to have a wifi connection, framework will bring up this activity
@@ -31,6 +37,17 @@ public class NetworkRequestDialogActivity extends FragmentActivity {
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        final UserManager userManager = UserManager.get(this);
+        if (userManager.hasUserRestriction(UserManager.DISALLOW_CONFIG_WIFI)) {
+            EnforcedAdmin admin = RestrictedLockUtilsInternal.checkIfRestrictionEnforced(this,
+                    UserManager.DISALLOW_CONFIG_WIFI, UserHandle.myUserId());
+            if (admin != null) {
+                RestrictedLockUtils.sendShowAdminSupportDetailsIntent(this, admin);
+            }
+            finish();
+            return;
+        }
 
         final NetworkRequestDialogFragment fragment = NetworkRequestDialogFragment.newInstance();
         fragment.show(getSupportFragmentManager(), "NetworkRequestDialogFragment");

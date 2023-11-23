@@ -16,8 +16,6 @@
 
 package com.android.car.media.common.playback;
 
-import static android.car.media.CarMediaManager.MEDIA_SOURCE_MODE_PLAYBACK;
-
 import static androidx.lifecycle.Transformations.switchMap;
 
 import static com.android.car.arch.common.LiveDataFunctions.dataOf;
@@ -30,6 +28,7 @@ import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
 import android.media.MediaMetadata;
 import android.os.Bundle;
+import android.support.v4.media.MediaBrowserCompat;
 import android.support.v4.media.MediaMetadataCompat;
 import android.support.v4.media.RatingCompat;
 import android.support.v4.media.session.MediaControllerCompat;
@@ -50,6 +49,8 @@ import com.android.car.media.common.CustomPlaybackAction;
 import com.android.car.media.common.MediaConstants;
 import com.android.car.media.common.MediaItemMetadata;
 import com.android.car.media.common.R;
+import com.android.car.media.common.source.MediaBrowserConnector;
+import com.android.car.media.common.source.MediaBrowserConnector.ConnectionStatus;
 import com.android.car.media.common.source.MediaSourceColors;
 import com.android.car.media.common.source.MediaSourceViewModel;
 
@@ -67,7 +68,7 @@ import java.util.stream.Collectors;
  * Observes changes to the provided MediaController to expose playback state and metadata
  * observables.
  * <p>
- * PlaybackViewModel is a singleton tied to the application to provide a single source of truth.
+ * PlaybackViewModel is a "singleton" tied to the application to provide a single source of truth.
  */
 public class PlaybackViewModel extends AndroidViewModel {
     private static final String TAG = "PlaybackViewModel";
@@ -78,15 +79,7 @@ public class PlaybackViewModel extends AndroidViewModel {
 
     private static PlaybackViewModel[] sInstances = new PlaybackViewModel[2];
 
-    /**
-     * Returns the PlaybackViewModel singleton tied to the application.
-     * @deprecated should use get(Application application, int mode) instead
-     */
-    public static PlaybackViewModel get(@NonNull Application application) {
-        return get(application, MEDIA_SOURCE_MODE_PLAYBACK);
-    }
-
-    /** Returns the PlaybackViewModel singleton tied to the application. */
+    /** Returns the PlaybackViewModel "singleton" tied to the application for the given mode. */
     public static PlaybackViewModel get(@NonNull Application application, int mode) {
         if (sInstances[mode] == null) {
             sInstances[mode] = new PlaybackViewModel(application, mode);
@@ -119,12 +112,21 @@ public class PlaybackViewModel extends AndroidViewModel {
      */
     public static final int ACTION_PAUSE = 3;
 
+    /**
+     * Factory for creating dependencies. Can be swapped out for testing.
+     */
+    @VisibleForTesting
+    interface InputFactory {
+        MediaControllerCompat getControllerForBrowser(@NonNull MediaBrowserCompat browser);
+    }
+
+
     /** Needs to be a MediaMetadata because the compat class doesn't implement equals... */
     private static final MediaMetadata EMPTY_MEDIA_METADATA = new MediaMetadata.Builder().build();
 
     private final MediaControllerCallback mMediaControllerCallback = new MediaControllerCallback();
-    private final Observer<MediaControllerCompat> mMediaControllerObserver =
-            mMediaControllerCallback::onMediaControllerChanged;
+    private final Observer<MediaBrowserConnector.BrowsingState> mMediaBrowsingObserver =
+            mMediaControllerCallback::onMediaBrowsingStateChanged;
 
     private final MediaSourceColors.Factory mColorsFactory;
     private final MutableLiveData<MediaSourceColors> mColors = dataOf(null);
@@ -147,15 +149,20 @@ public class PlaybackViewModel extends AndroidViewModel {
                     state -> state == null ? dataOf(new PlaybackProgress(0L, 0L))
                             : new ProgressLiveData(state.mState, state.getMaxProgress()));
 
+    private final InputFactory mInputFactory;
+
     private PlaybackViewModel(Application application, int mode) {
-        this(application, MediaSourceViewModel.get(application, mode).getMediaController());
+        this(application, MediaSourceViewModel.get(application, mode).getBrowsingState(),
+                browser -> new MediaControllerCompat(application, browser.getSessionToken()));
     }
 
     @VisibleForTesting
-    public PlaybackViewModel(Application application, LiveData<MediaControllerCompat> controller) {
+    public PlaybackViewModel(Application application,
+            LiveData<MediaBrowserConnector.BrowsingState> browsingState, InputFactory factory) {
         super(application);
+        mInputFactory =  factory;
         mColorsFactory = new MediaSourceColors.Factory(application);
-        controller.observeForever(mMediaControllerObserver);
+        browsingState.observeForever(mMediaBrowsingObserver);
     }
 
     /**
@@ -231,29 +238,50 @@ public class PlaybackViewModel extends AndroidViewModel {
 
     private class MediaControllerCallback extends MediaControllerCompat.Callback {
 
+        private MediaBrowserConnector.BrowsingState mBrowsingState;
         private MediaControllerCompat mMediaController;
         private MediaMetadataCompat mMediaMetadata;
         private PlaybackStateCompat mPlaybackState;
 
-        void onMediaControllerChanged(MediaControllerCompat controller) {
-            if (mMediaController == controller) {
-                Log.w(TAG, "onMediaControllerChanged noop");
+
+        void onMediaBrowsingStateChanged(MediaBrowserConnector.BrowsingState newBrowsingState) {
+            if (Objects.equals(mBrowsingState, newBrowsingState)) {
+                Log.w(TAG, "onMediaBrowsingStateChanged noop ");
                 return;
             }
 
+            // Reset the old controller if any, unregistering the callback when browsing is
+            // not suspended (crashed).
             if (mMediaController != null) {
-                mMediaController.unregisterCallback(this);
+                switch (newBrowsingState.mConnectionStatus) {
+                    case DISCONNECTING:
+                    case REJECTED:
+                    case CONNECTING:
+                    case CONNECTED:
+                        mMediaController.unregisterCallback(this);
+                        // Fall through
+                    case SUSPENDED:
+                        setMediaController(null);
+                }
             }
 
+            mBrowsingState = newBrowsingState;
+
+            if (mBrowsingState.mConnectionStatus == ConnectionStatus.CONNECTED) {
+                setMediaController(mInputFactory.getControllerForBrowser(mBrowsingState.mBrowser));
+            }
+        }
+
+        private void setMediaController(MediaControllerCompat mediaController) {
             mMediaMetadata = null;
             mPlaybackState = null;
-            mMediaController = controller;
-            mPlaybackControls.setValue(new PlaybackController(controller));
+            mMediaController = mediaController;
+            mPlaybackControls.setValue(new PlaybackController(mediaController));
 
             if (mMediaController != null) {
                 mMediaController.registerCallback(this);
 
-                mColors.setValue(mColorsFactory.extractColors(controller.getPackageName()));
+                mColors.setValue(mColorsFactory.extractColors(mediaController.getPackageName()));
 
                 // The apps don't always send updates so make sure we fetch the most recent values.
                 onMetadataChanged(mMediaController.getMetadata());
@@ -274,7 +302,9 @@ public class PlaybackViewModel extends AndroidViewModel {
         @Override
         public void onSessionDestroyed() {
             Log.w(TAG, "onSessionDestroyed");
-            onMediaControllerChanged(null);
+            // Bypass the unregisterCallback as the controller is dead.
+            // TODO: consider keeping track of orphaned callbacks in case they are resurrected...
+            setMediaController(null);
         }
 
         @Override

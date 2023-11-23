@@ -16,20 +16,15 @@
 
 package com.android.car.calendar.common;
 
-import static com.android.i18n.phonenumbers.PhoneNumberUtil.PhoneNumberFormat.INTERNATIONAL;
-import static com.android.i18n.phonenumbers.PhoneNumberUtil.ValidationResult.IS_POSSIBLE;
-import static com.android.i18n.phonenumbers.PhoneNumberUtil.ValidationResult.IS_POSSIBLE_LOCAL_ONLY;
-import static com.android.i18n.phonenumbers.PhoneNumberUtil.ValidationResult.TOO_LONG;
-
 import static com.google.common.base.Verify.verifyNotNull;
 
 import android.net.Uri;
+import android.telephony.PhoneNumberUtils;
+import android.telephony.TelephonyManager;
 
 import com.android.car.calendar.common.Dialer.NumberAndAccess;
-import com.android.i18n.phonenumbers.NumberParseException;
-import com.android.i18n.phonenumbers.PhoneNumberUtil;
-import com.android.i18n.phonenumbers.Phonenumber;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 
 import java.util.LinkedHashMap;
@@ -45,37 +40,45 @@ import javax.annotation.Nullable;
 public class EventDescriptions {
 
     // Requires a phone number to include only numbers, spaces and dash, optionally a leading "+".
-    // The number must be at least 6 characters.
+    // The number must be at least 6 characters and can contain " " or "-" but end with a digit.
     // The access code must be at least 3 characters.
     // The number and the access to include "pin" or "code" between the numbers.
     private static final Pattern PHONE_PIN_PATTERN =
             Pattern.compile(
-                    "(\\+?[\\d -]{6,})(?:.*\\b(?:PIN|code)\\b.*?([\\d,;#*]{3,}))?",
+                    "(\\+?[\\d -]{6,}\\d)(?:.*\\b(?:PIN|code)\\b.*?([\\d,;#*]{3,}))?",
                     Pattern.CASE_INSENSITIVE);
 
     // Matches numbers in the encoded format "<tel: ... >".
     private static final Pattern TEL_PIN_PATTERN =
             Pattern.compile("<tel:(\\+?[\\d -]{6,})([\\d,;#*]{3,})?>");
 
-    private static final PhoneNumberUtil PHONE_NUMBER_UTIL = PhoneNumberUtil.getInstance();
-
     // Ensure numbers are over 5 digits to reduce false positives.
-    private static final int MIN_NATIONAL_NUMBER = 10_000;
+    private static final int MIN_DIGITS = 5;
 
-    private final Locale mLocale;
+    private final String mCountryIso;
 
-    public EventDescriptions(Locale locale) {
-        mLocale = locale;
+    public EventDescriptions(Locale locale, TelephonyManager telephonyManager) {
+        String networkCountryIso = telephonyManager.getNetworkCountryIso().toUpperCase();
+        if (!Strings.isNullOrEmpty(networkCountryIso)) {
+            mCountryIso = networkCountryIso;
+        } else {
+            mCountryIso = locale.getCountry();
+        }
     }
 
     /** Find conference call data embedded in the description. */
     public List<NumberAndAccess> extractNumberAndPins(String descriptionText) {
         String decoded = Uri.decode(descriptionText);
 
+        // Use a map keyed by number to act like a set and only add a single number.
         Map<String, NumberAndAccess> results = new LinkedHashMap<>();
         addMatchedNumbers(decoded, results, PHONE_PIN_PATTERN);
+
+        // Add the most restrictive precise format last to replace others with the same number.
         addMatchedNumbers(decoded, results, TEL_PIN_PATTERN);
-        return ImmutableList.copyOf(results.values());
+
+        // Reverse order so the most precise format is first.
+        return ImmutableList.copyOf(results.values()).reverse();
     }
 
     private void addMatchedNumbers(
@@ -93,27 +96,18 @@ public class EventDescriptions {
     private NumberAndAccess validNumberAndAccess(Matcher phoneFormatMatcher) {
         String number = verifyNotNull(phoneFormatMatcher.group(1));
         String access = phoneFormatMatcher.group(2);
-        try {
-            Phonenumber.PhoneNumber phoneNumber =
-                    PHONE_NUMBER_UTIL.parse(number, mLocale.getCountry());
-            PhoneNumberUtil.ValidationResult result =
-                    PHONE_NUMBER_UTIL.isPossibleNumberWithReason(phoneNumber);
-            if (isAcceptableResult(result)) {
-                if (phoneNumber.getNationalNumber() < MIN_NATIONAL_NUMBER) {
-                    return null;
-                }
-                String formatted = PHONE_NUMBER_UTIL.format(phoneNumber, INTERNATIONAL);
-                return new NumberAndAccess(formatted, access);
-            }
-        } catch (NumberParseException e) {
-            // Ignore invalid numbers.
-        }
-        return null;
-    }
 
-    private boolean isAcceptableResult(PhoneNumberUtil.ValidationResult result) {
-        // The result can be too long and still valid because the US locale is used by default
-        // which does not accept valid long numbers from other regions.
-        return result == IS_POSSIBLE || result == IS_POSSIBLE_LOCAL_ONLY || result == TOO_LONG;
+        // Ensure that there are a minimum number of digits to reduce false positives.
+        String onlyDigits = number.replaceAll("\\D", "");
+        if (onlyDigits.length() < MIN_DIGITS) {
+            return null;
+        }
+
+        // Keep local numbers in local format which the dialer can make more sense of.
+        String formatted = PhoneNumberUtils.formatNumber(number, mCountryIso);
+        if (formatted == null) {
+            return null;
+        }
+        return new NumberAndAccess(formatted, access);
     }
 }

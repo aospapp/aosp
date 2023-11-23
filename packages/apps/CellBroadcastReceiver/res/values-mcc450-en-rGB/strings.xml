@@ -17,4 +17,5 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="cmas_presidential_level_alert" msgid="6968323372438785870">"Critical emergency alert"</string>
+    <string name="alerts_header_summary" msgid="8898082819299479687">"Your phone can send you alerts, like evacuation instructions, during natural disasters. This service is a collaboration between the National Emergency Management Agency, network providers and device manufacturers.\n\nYou may not get alerts if there’s a problem with your device or if network conditions are poor."</string>
 </resources>

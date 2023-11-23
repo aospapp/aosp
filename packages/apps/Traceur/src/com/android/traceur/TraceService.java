@@ -24,6 +24,7 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.preference.PreferenceManager;
 import android.text.format.DateUtils;
@@ -34,8 +35,13 @@ import java.util.ArrayList;
 import java.util.Collection;
 
 public class TraceService extends IntentService {
-
-    protected static String INTENT_ACTION_FORCE_STOP_TRACING = "com.android.traceur.FORCE_STOP_TRACING";
+    /* Indicates Perfetto has stopped tracing due to either the supplied long trace limitations
+     * or limited storage capacity. */
+    private static String INTENT_ACTION_NOTIFY_SESSION_STOPPED =
+            "com.android.traceur.NOTIFY_SESSION_STOPPED";
+    /* Indicates a Traceur-associated tracing session has been attached to a bug report */
+    private static String INTENT_ACTION_NOTIFY_SESSION_STOLEN =
+            "com.android.traceur.NOTIFY_SESSION_STOLEN";
     private static String INTENT_ACTION_STOP_TRACING = "com.android.traceur.STOP_TRACING";
     private static String INTENT_ACTION_START_TRACING = "com.android.traceur.START_TRACING";
 
@@ -45,6 +51,8 @@ public class TraceService extends IntentService {
     private static String INTENT_EXTRA_LONG_TRACE = "long_trace";
     private static String INTENT_EXTRA_LONG_TRACE_SIZE = "long_trace_size";
     private static String INTENT_EXTRA_LONG_TRACE_DURATION = "long_trace_duration";
+
+    private static String BETTERBUG_PACKAGE_NAME = "com.google.android.apps.internal.betterbug";
 
     private static int TRACE_NOTIFICATION = 1;
     private static int SAVING_TRACE_NOTIFICATION = 2;
@@ -96,21 +104,27 @@ public class TraceService extends IntentService {
                 intent.getIntExtra(INTENT_EXTRA_LONG_TRACE_DURATION,
                     Integer.parseInt(context.getString(R.string.default_long_trace_duration))));
         } else if (intent.getAction().equals(INTENT_ACTION_STOP_TRACING)) {
-            stopTracingInternal(TraceUtils.getOutputFilename(), false);
-        } else if (intent.getAction().equals(INTENT_ACTION_FORCE_STOP_TRACING)) {
-            stopTracingInternal(TraceUtils.getOutputFilename(), true);
+            stopTracingInternal(TraceUtils.getOutputFilename(), false, false);
+        } else if (intent.getAction().equals(INTENT_ACTION_NOTIFY_SESSION_STOPPED)) {
+            stopTracingInternal(TraceUtils.getOutputFilename(), true, false);
+        } else if (intent.getAction().equals(INTENT_ACTION_NOTIFY_SESSION_STOLEN)) {
+            stopTracingInternal("", false, true);
         }
     }
 
     private void startTracingInternal(Collection<String> tags, int bufferSizeKb, boolean appTracing,
             boolean longTrace, int maxLongTraceSizeMb, int maxLongTraceDurationMinutes) {
         Context context = getApplicationContext();
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         Intent stopIntent = new Intent(Receiver.STOP_ACTION,
             null, context, Receiver.class);
         stopIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
 
         String title = context.getString(R.string.trace_is_being_recorded);
         String msg = context.getString(R.string.tap_to_stop_tracing);
+
+        boolean attachToBugreport =
+                prefs.getBoolean(context.getString(R.string.pref_key_attach_to_bugreport), true);
 
         Notification.Builder notification =
             new Notification.Builder(context, Receiver.NOTIFICATION_CHANNEL_TRACING)
@@ -119,9 +133,10 @@ public class TraceService extends IntentService {
                 .setTicker(title)
                 .setContentText(msg)
                 .setContentIntent(
-                    PendingIntent.getBroadcast(context, 0, stopIntent, 0))
+                    PendingIntent.getBroadcast(context, 0, stopIntent, PendingIntent.FLAG_IMMUTABLE))
                 .setOngoing(true)
                 .setLocalOnly(true)
+                .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
                 .setColor(getColor(
                     com.android.internal.R.color.system_notification_accent_color));
 
@@ -132,47 +147,65 @@ public class TraceService extends IntentService {
         startForeground(TRACE_NOTIFICATION, notification.build());
 
         if (TraceUtils.traceStart(tags, bufferSizeKb, appTracing,
-                longTrace, maxLongTraceSizeMb, maxLongTraceDurationMinutes)) {
+                longTrace, attachToBugreport, maxLongTraceSizeMb, maxLongTraceDurationMinutes)) {
             stopForeground(Service.STOP_FOREGROUND_DETACH);
         } else {
             // Starting the trace was unsuccessful, so ensure that tracing
             // is stopped and the preference is reset.
             TraceUtils.traceStop();
-            PreferenceManager.getDefaultSharedPreferences(context)
-                .edit().putBoolean(context.getString(R.string.pref_key_tracing_on),
+            prefs.edit().putBoolean(context.getString(R.string.pref_key_tracing_on),
                         false).commit();
             QsService.updateTile();
             stopForeground(Service.STOP_FOREGROUND_REMOVE);
         }
     }
 
-    private void stopTracingInternal(String outputFilename, boolean forceStop) {
+    private void stopTracingInternal(String outputFilename, boolean forceStop,
+            boolean sessionStolen) {
         Context context = getApplicationContext();
         NotificationManager notificationManager =
             getSystemService(NotificationManager.class);
 
-        Notification.Builder notification =
-            new Notification.Builder(this, Receiver.NOTIFICATION_CHANNEL_OTHER)
-                .setSmallIcon(R.drawable.bugfood_icon)
+        Notification.Builder notification;
+        if (sessionStolen) {
+            notification = getBaseTraceurNotification()
+                .setContentTitle(getString(R.string.attaching_to_report))
+                .setTicker(getString(R.string.attaching_to_report))
+                .setProgress(1, 0, true);
+        } else {
+            notification = getBaseTraceurNotification()
                 .setContentTitle(getString(R.string.saving_trace))
                 .setTicker(getString(R.string.saving_trace))
-                .setLocalOnly(true)
-                .setProgress(1, 0, true)
-                .setColor(getColor(
-                    com.android.internal.R.color.system_notification_accent_color));
-
-        if (context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK)) {
-            notification.extend(new Notification.TvExtender());
+                .setProgress(1, 0, true);
         }
 
         startForeground(SAVING_TRACE_NOTIFICATION, notification.build());
 
         notificationManager.cancel(TRACE_NOTIFICATION);
 
-        File file = TraceUtils.getOutputFile(outputFilename);
+        if (sessionStolen) {
+            Notification.Builder notificationAttached = getBaseTraceurNotification()
+                .setContentTitle(getString(R.string.attached_to_report))
+                .setTicker(getString(R.string.attached_to_report))
+                .setContentText(getString(R.string.attached_to_report_summary))
+                .setAutoCancel(true);
 
-        if (TraceUtils.traceDump(file)) {
-            FileSender.postNotification(getApplicationContext(), file);
+            Intent openIntent =
+                    getPackageManager().getLaunchIntentForPackage(BETTERBUG_PACKAGE_NAME);
+            if (openIntent != null) {
+                notificationAttached.setContentIntent(PendingIntent.getActivity(
+                        context, 0, openIntent, PendingIntent.FLAG_ONE_SHOT
+                                | PendingIntent.FLAG_CANCEL_CURRENT
+                                | PendingIntent.FLAG_IMMUTABLE));
+            }
+
+            NotificationManager.from(context).notify(0, notificationAttached.build());
+        } else {
+            File file = TraceUtils.getOutputFile(outputFilename);
+
+            if (TraceUtils.traceDump(file)) {
+                FileSender.postNotification(getApplicationContext(), file);
+            }
         }
 
         stopForeground(Service.STOP_FOREGROUND_REMOVE);
@@ -180,4 +213,20 @@ public class TraceService extends IntentService {
         TraceUtils.cleanupOlderFiles(MIN_KEEP_COUNT, MIN_KEEP_AGE);
     }
 
+    private Notification.Builder getBaseTraceurNotification() {
+        Context context = getApplicationContext();
+        Notification.Builder notification =
+                new Notification.Builder(this, Receiver.NOTIFICATION_CHANNEL_OTHER)
+                    .setSmallIcon(R.drawable.bugfood_icon)
+                    .setLocalOnly(true)
+                    .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
+                    .setColor(context.getColor(
+                            com.android.internal.R.color.system_notification_accent_color));
+
+        if (context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK)) {
+            notification.extend(new Notification.TvExtender());
+        }
+
+        return notification;
+    }
 }

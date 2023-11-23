@@ -17,4 +17,5 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="cmas_presidential_level_alert" msgid="6968323372438785870">"Amaran kecemasan kritikal"</string>
+    <string name="alerts_header_summary" msgid="8898082819299479687">"Telefon anda boleh menghantar amaran, seperti arahan pemindahan semasa bencana alam berlaku. Perkhidmatan ini merupakan kerjasama antara Agensi Pengurusan Kecemasan Nasional, pembekal rangkaian dan pengilang peranti.\n\nAnda mungkin tidak akan mendapat amaran jika terdapat masalah dengan peranti anda atau jika keadaan rangkaian lemah."</string>
 </resources>

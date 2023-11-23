@@ -16,6 +16,7 @@
 
 package com.android.services.telephony;
 
+import android.annotation.NonNull;
 import android.content.Context;
 import android.graphics.drawable.Icon;
 import android.net.Uri;
@@ -28,6 +29,7 @@ import android.telecom.StatusHints;
 import android.telecom.TelecomManager;
 import android.telecom.VideoProfile;
 import android.telephony.PhoneNumberUtils;
+import android.text.TextUtils;
 import android.util.Pair;
 
 import com.android.ims.internal.ConferenceParticipant;
@@ -268,7 +270,7 @@ public class ImsConference extends TelephonyConferenceBase implements Holdable {
 
                 @Override
                 public void onExtrasChanged(Connection c, Bundle extras) {
-                    Log.v(this, "onExtrasChanged: c=" + c + " Extras=" + extras);
+                    Log.v(this, "onExtrasChanged: c=" + c + " Extras=" + Rlog.pii(LOG_TAG, extras));
                     updateExtras(extras);
                 }
 
@@ -438,6 +440,7 @@ public class ImsConference extends TelephonyConferenceBase implements Holdable {
 
         mTelephonyConnectionService = telephonyConnectionService;
         setConferenceHost(conferenceHost);
+        setVideoProvider(conferenceHost, conferenceHost.getVideoProvider());
 
         int capabilities = Connection.CAPABILITY_MUTE |
                 Connection.CAPABILITY_CONFERENCE_HAS_NO_CHILDREN;
@@ -864,6 +867,16 @@ public class ImsConference extends TelephonyConferenceBase implements Holdable {
 
             mConferenceHostAddress = new Uri[hostAddresses.size()];
             mConferenceHostAddress = hostAddresses.toArray(mConferenceHostAddress);
+            Log.i(this, "setConferenceHost: temp log hosts are "
+                    + Arrays.stream(mConferenceHostAddress)
+                    .map(Uri::toString)
+                    .collect(Collectors.joining(", ")));
+
+            Log.i(this, "setConferenceHost: hosts are "
+                    + Arrays.stream(mConferenceHostAddress)
+                    .map(Uri::getSchemeSpecificPart)
+                    .map(ssp -> Rlog.pii(LOG_TAG, ssp))
+                    .collect(Collectors.joining(", ")));
 
             Log.i(this, "setConferenceHost: hosts are "
                     + Arrays.stream(mConferenceHostAddress)
@@ -1061,7 +1074,12 @@ public class ImsConference extends TelephonyConferenceBase implements Holdable {
 
             // If the conference is empty and we're supposed to do a local disconnect, do so now.
             if (mCarrierConfig.shouldLocalDisconnectEmptyConference()
-                    && oldParticipantCount > 0 && newParticipantCount == 0) {
+                    // If we dropped from > 0 participants to zero
+                    // OR if the conference had a single participant and is emulating a standalone
+                    // call.
+                    && (oldParticipantCount > 0 || !isMultiparty())
+                    // AND the CEP says there is nobody left any more.
+                    && newParticipantCount == 0) {
                 Log.i(this, "handleConferenceParticipantsUpdate: empty conference; "
                         + "local disconnect.");
                 onDisconnect();
@@ -1258,58 +1276,79 @@ public class ImsConference extends TelephonyConferenceBase implements Holdable {
     }
 
     /**
+     * Extracts a phone number from a {@link Uri}.
+     * <p>
+     * Phone numbers can be represented either as a TEL URI or a SIP URI.
+     * For conference event packages, RFC3261 specifies how participants can be identified using a
+     * SIP URI.
+     * A valid SIP uri has the format: sip:user:password@host:port;uri-parameters?headers
+     * Per RFC3261, the "user" can be a telephone number.
+     * For example: sip:1650555121;phone-context=blah.com@host.com
+     * In this case, the phone number is in the user field of the URI, and the parameters can be
+     * ignored.
+     *
+     * A SIP URI can also specify a phone number in a format similar to:
+     * sip:+1-212-555-1212@something.com;user=phone
+     * In this case, the phone number is again in user field and the parameters can be ignored.
+     * We can get the user field in these instances by splitting the string on the @, ;, or :
+     * and looking at the first found item.
+     * @param handle The URI containing a SIP or TEL formatted phone number.
+     * @return extracted phone number.
+     */
+    private static @NonNull String extractPhoneNumber(@NonNull Uri handle) {
+        // Number is always in the scheme specific part, regardless of whether this is a TEL or SIP
+        // URI.
+        String number = handle.getSchemeSpecificPart();
+        // Get anything before the @ for the SIP case.
+        String[] numberParts = number.split("[@;:]");
+
+        if (numberParts.length == 0) {
+            Log.v(LOG_TAG, "extractPhoneNumber(N) : no number in handle");
+            return "";
+        }
+        return numberParts[0];
+    }
+
+    /**
      * Determines if the passed in participant handle is the same as the conference host's handle.
      * Starts with a simple equality check.  However, the handles from a conference event package
      * will be a SIP uri, so we need to pull that apart to look for the participant's phone number.
      *
-     * @param hostHandles The handle(s) of the connection hosting the conference.
+     * @param hostHandles The handle(s) of the connection hosting the conference, typically obtained
+     *                    from P-Associated-Uri entries.
      * @param handle The handle of the conference participant.
      * @return {@code true} if the host's handle matches the participant's handle, {@code false}
      *      otherwise.
      */
-    private boolean isParticipantHost(Uri[] hostHandles, Uri handle) {
+    @VisibleForTesting
+    public static boolean isParticipantHost(Uri[] hostHandles, Uri handle) {
         // If there is no host handle or no participant handle, bail early.
         if (hostHandles == null || hostHandles.length == 0 || handle == null) {
-            Log.v(this, "isParticipantHost(N) : host or participant uri null");
+            Log.v(LOG_TAG, "isParticipantHost(N) : host or participant uri null");
             return false;
         }
 
-        // Conference event package participants are identified using SIP URIs (see RFC3261).
-        // A valid SIP uri has the format: sip:user:password@host:port;uri-parameters?headers
-        // Per RFC3261, the "user" can be a telephone number.
-        // For example: sip:1650555121;phone-context=blah.com@host.com
-        // In this case, the phone number is in the user field of the URI, and the parameters can be
-        // ignored.
-        //
-        // A SIP URI can also specify a phone number in a format similar to:
-        // sip:+1-212-555-1212@something.com;user=phone
-        // In this case, the phone number is again in user field and the parameters can be ignored.
-        // We can get the user field in these instances by splitting the string on the @, ;, or :
-        // and looking at the first found item.
-
-        String number = handle.getSchemeSpecificPart();
-        String numberParts[] = number.split("[@;:]");
-
-        if (numberParts.length == 0) {
-            Log.v(this, "isParticipantHost(N) : no number in participant handle");
+        String number = extractPhoneNumber(handle);
+        // If we couldn't extract the participant's number, then we can't determine if it is the
+        // host or not.
+        if (TextUtils.isEmpty(number)) {
             return false;
         }
-        number = numberParts[0];
 
         for (Uri hostHandle : hostHandles) {
             if (hostHandle == null) {
                 continue;
             }
-            // The host number will be a tel: uri.  Per RFC3966, the part after tel: is the phone
-            // number.
-            String hostNumber = hostHandle.getSchemeSpecificPart();
+            // Similar to the CEP participant data, the host identity in the P-Associated-Uri could
+            // be a SIP URI or a TEL URI.
+            String hostNumber = extractPhoneNumber(hostHandle);
 
             // Use a loose comparison of the phone numbers.  This ensures that numbers that differ
             // by special characters are counted as equal.
             // E.g. +16505551212 would be the same as 16505551212
             boolean isHost = PhoneNumberUtils.compare(hostNumber, number);
 
-            Log.v(this, "isParticipantHost(%s) : host: %s, participant %s", (isHost ? "Y" : "N"),
+            Log.v(LOG_TAG, "isParticipantHost(%s) : host: %s, participant %s", (isHost ? "Y" : "N"),
                     Rlog.pii(LOG_TAG, hostNumber), Rlog.pii(LOG_TAG, number));
 
             if (isHost) {
@@ -1359,9 +1398,12 @@ public class ImsConference extends TelephonyConferenceBase implements Holdable {
             }
 
             if (mConferenceHost.getPhone().getPhoneType() == PhoneConstants.PHONE_TYPE_GSM) {
-                Log.i(this,"handleOriginalConnectionChange : SRVCC to GSM");
                 GsmConnection c = new GsmConnection(originalConnection, getTelecomCallId(),
                         mConferenceHost.getCallDirection());
+                Log.i(this, "handleOriginalConnectionChange : SRVCC to GSM."
+                        + " Created new GsmConnection with objId=" + System.identityHashCode(c)
+                        + " and originalConnection objId="
+                        + System.identityHashCode(originalConnection));
                 // This is a newly created conference connection as a result of SRVCC
                 c.setConferenceSupported(true);
                 c.setTelephonyConnectionProperties(

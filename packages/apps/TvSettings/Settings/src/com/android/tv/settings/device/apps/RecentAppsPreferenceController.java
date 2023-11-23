@@ -170,8 +170,14 @@ public class RecentAppsPreferenceController extends AbstractPreferenceController
             pref.setKey(pkgName);
             pref.setTitle(appEntry.label);
             pref.setIcon(mIconDrawableFactory.getBadgedIcon(appEntry.info));
-            pref.setSummary(StringUtil.formatRelativeTime(mContext,
-                    System.currentTimeMillis() - stat.getLastTimeUsed(), false));
+            // Show empty summary if app last used time is larger than current time. b/183744220
+            if (stat.getLastTimeUsed() > System.currentTimeMillis()) {
+                pref.setSummary("");
+            } else {
+                pref.setSummary(StringUtil.formatRelativeTime(mContext,
+                        System.currentTimeMillis() - stat.getLastTimeUsed(),
+                        false));
+            }
             pref.setOrder(i);
             AppManagementFragment.prepareArgs(pref.getExtras(), pkgName);
             pref.setFragment(AppManagementFragment.class.getName());

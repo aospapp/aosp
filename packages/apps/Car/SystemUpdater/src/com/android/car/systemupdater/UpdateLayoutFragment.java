@@ -279,7 +279,7 @@ public class UpdateLayoutFragment extends Fragment implements UpFragment {
                         context,
                         /* requestCode= */ 0,
                         intent,
-                        PendingIntent.FLAG_UPDATE_CURRENT);
+                        PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
 
         return new Notification.Builder(context, NOTIFICATION_CHANNEL_ID)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)

@@ -53,6 +53,7 @@ public class UserChoiceInfo extends ViewModel {
     private String mConnectedNetwork;
     private boolean mIsPasswordHidden = false;
     private ConnectionFailedStatus mConnectionFailedStatus;
+    private int mEasyConnectNetworkId = -1;
 
     /**
      * Store the page summary into a HashMap.
@@ -224,12 +225,20 @@ public class UserChoiceInfo extends ViewModel {
         return mIsPageVisible.get(page);
     }
 
+    public int getEasyConnectNetworkId() {
+        return mEasyConnectNetworkId;
+    }
+
+    public void setEasyConnectNetworkId(int easyConnectNetworkId) {
+        mEasyConnectNetworkId = easyConnectNetworkId;
+    }
 
     public enum ConnectionFailedStatus {
         AUTHENTICATION,
         REJECTED,
         TIMEOUT,
-        UNKNOWN
+        UNKNOWN,
+        EASY_CONNECT_FAILURE,
     }
 
     @IntDef({

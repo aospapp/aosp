@@ -22,14 +22,14 @@ import android.content.Intent;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.TtsEngines;
 
-import com.android.car.settings.common.ButtonPreference;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.Logger;
 import com.android.car.settings.common.PreferenceController;
+import com.android.car.ui.preference.CarUiTwoActionIconPreference;
 
 /** Business logic to set the summary for the preferred engine entry setting. */
 public class PreferredEngineEntryPreferenceController extends
-        PreferenceController<ButtonPreference> {
+        PreferenceController<CarUiTwoActionIconPreference> {
 
     private static final Logger LOG = new Logger(PreferredEngineEntryPreferenceController.class);
     private TtsEngines mEnginesHelper;
@@ -41,13 +41,13 @@ public class PreferredEngineEntryPreferenceController extends
     }
 
     @Override
-    protected Class<ButtonPreference> getPreferenceType() {
-        return ButtonPreference.class;
+    protected Class<CarUiTwoActionIconPreference> getPreferenceType() {
+        return CarUiTwoActionIconPreference.class;
     }
 
     @Override
     protected void onCreateInternal() {
-        getPreference().setOnButtonClickListener(preference -> {
+        getPreference().setOnSecondaryActionClickListener(() -> {
             TextToSpeech.EngineInfo info = mEnginesHelper.getEngineInfo(
                     mEnginesHelper.getDefaultEngine());
             Intent subSettingsIntent = mEnginesHelper.getSettingsIntent(info.name);
@@ -60,7 +60,7 @@ public class PreferredEngineEntryPreferenceController extends
     }
 
     @Override
-    protected void updateState(ButtonPreference preference) {
+    protected void updateState(CarUiTwoActionIconPreference preference) {
         TextToSpeech.EngineInfo info = mEnginesHelper.getEngineInfo(
                 mEnginesHelper.getDefaultEngine());
         preference.setSummary(info.label);

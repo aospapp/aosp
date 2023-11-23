@@ -28,8 +28,12 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Vaše zariadenie bude spravovať nasledujúca aplikácia:"</string>
     <string name="next" msgid="1004321437324424398">"Ďalej"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Nastavuje sa pracovný profil…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Správca IT môže sledovať a spravovať nastavenia, firemný prístup, aplikácie, povolenia a údaje spojené s týmto zariadením vrátane aktivity v sieti a informácií o polohe zariadenia, histórie hovorov a histórie vyhľadávania kontaktov.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Ak potrebujete ďalšie informácie vrátane informácií o pravidlách ochrany súkromia svojej organizácie, kontaktujte správcu."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Správca IT môže sledovať a spravovať nastavenia, firemný prístup, aplikácie, povolenia a údaje spojené s týmto profilom vrátane aktivity v sieti a informácií o polohe zariadenia, histórie hovorov a histórie vyhľadávania kontaktov.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Ak potrebujete ďalšie informácie vrátane informácií o pravidlách ochrany súkromia svojej organizácie, kontaktujte správcu."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Správca IT môže sledovať a spravovať nastavenia, firemný prístup, aplikácie, povolenia a údaje spojené s týmto zariadením vrátane aktivity v sieti a informácií o polohe zariadenia, histórie hovorov a histórie vyhľadávania kontaktov.<xliff:g id="LINE_BREAK">
+
+</xliff:g>Ak potrebujete ďalšie informácie vrátane informácií o pravidlách ochrany súkromia svojej organizácie, kontaktujte správcu."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Správca IT môže sledovať a spravovať nastavenia, firemný prístup, aplikácie, povolenia a údaje spojené s týmto profilom vrátane aktivity v sieti a informácií o polohe zariadenia, histórie hovorov a histórie vyhľadávania kontaktov.<xliff:g id="LINE_BREAK">
+
+</xliff:g>Ak potrebujete ďalšie informácie vrátane informácií o pravidlách ochrany súkromia svojej organizácie, kontaktujte správcu."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Ak chcete používať funkcie ochrany proti krádeži, musíte mať na zariadení zámku obrazovky chránenú heslom."</string>
     <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"Ďalšie informácie (vrátane pravidiel ochrany súkromia vašej organizácie) vám poskytne správca IT."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Ďalšie informácie"</string>
@@ -37,11 +41,11 @@
     <string name="ok_setup" msgid="4593707675416137504">"OK"</string>
     <string name="user_consent_msg" msgid="8820951802130353584">"Súhlasím"</string>
     <string name="url_error" msgid="5958494012986243186">"Tento odkaz sa nedá zobraziť."</string>
+    <string name="navigation_button_description" msgid="6106309408994461239">"Prejsť hore"</string>
     <string name="terms" msgid="8295436105384703903">"Zmluvné podmienky"</string>
     <string name="work_profile_info" msgid="5433388376309583996">"Informácie o pracovnom profile"</string>
     <string name="managed_device_info" msgid="1529447646526616811">"Informácie o spravovanom zariadení"</string>
     <string name="default_managed_profile_name" msgid="5370257687074907055">"Pracovný profil"</string>
-    <string name="default_first_meat_user_name" msgid="7540515892748490540">"Hlavný používateľ"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"Odstrániť existujúci profil?"</string>
     <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"Už máte pracovný profil. Je spravovaný nasledujúcou aplikáciou:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"Skôr ako budete pokračovať, "<a href="#read_this_link">"prečítajte si tieto informácie"</a>"."</string>
@@ -65,15 +69,6 @@
     <string name="user_setup_incomplete" msgid="6494920045526591079">"Nastavenie používateľa nebolo dokončené"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"Používateľ pracovného zariadenia"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"Nastavuje sa pracovné zariadenie…"</string>
-    <string name="progress_data_process" msgid="1707745321954672971">"Spracovávajú sa údaje nastavenia…"</string>
-    <string name="progress_connect_to_wifi" msgid="472251154628863539">"Pripája sa k sieti Wi‑Fi…"</string>
-    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"Prebieha pripájanie k mobilnej sieti…"</string>
-    <string name="progress_download" msgid="3522436271691064624">"Sťahuje sa aplikácia na správu…"</string>
-    <string name="progress_install" msgid="2258045670385866183">"Inštaluje sa aplikácia na správu…"</string>
-    <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"Odstraňujú sa nepotrebné systémové aplikácie…"</string>
-    <string name="progress_finishing_touches" msgid="9037776404089697198">"Pridávajú sa konečné úpravy…"</string>
-    <string name="progress_set_owner" msgid="8214062820093757961">"Nastavuje sa vlastník zariadenia…"</string>
-    <string name="progress_initialize" msgid="1104643492713424939">"Zariadenie sa inicializuje…"</string>
     <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"Toto zariadenie nepovoľuje šifrovanie. Kontaktujte správcu IT a požiadajte ho o pomoc."</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"Zastaviť nastavovanie a obnoviť zariadenie?"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"Týmto obnovíte zariadenie a prejdete na prvú obrazovku"</string>
@@ -162,11 +157,10 @@
     <string name="device_owner_description" msgid="168013145812679664">"Toto zariadenie bude zabezpečované a spravované vašou organizáciou"</string>
     <string name="setup_provisioning_header" msgid="4282483198266806271">"Pripravuje sa nastavenie pracovného zariadenia…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Nastavuje sa správcovská aplikácia"</string>
-    <string name="set_up_everything_else" msgid="4407706086957916501">"Nastavte všetko ostatné"</string>
-    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"Pridajte osobný účet, aby ste mohli využívať zariadenie naplno"</string>
-    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"Váš pracovný profil je pripravený, takže môžete tiež pridať osobný účet Google na prístup k aplikáciám a obsahu."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"Toto zariadenie patrí vašej organizácii"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"Na spravovanie a sledovanie tohto telefónu sa použije nasledujúca aplikácia"</string>
+    <string name="account_management_disclaimer_header" msgid="8013083414694316564">"Váš účet je spravovaný"</string>
+    <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"Váš správca IT presadzuje pravidlá zabezpečenia pomocou správy mobilných zariadení"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Pripravuje sa na pracovné nastavenie…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Poďme nastaviť váš pracovný profil"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Pracovné aplikácie sú uložené vo vašom pracovnom profile"</string>
@@ -178,8 +172,16 @@
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Majte svoje pracovné aplikácie poruke"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Toto zariadenie nie je súkromné"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"Správca IT si môže zobraziť vaše údaje a aktivitu v tomto zariadení."</string>
+    <string name="fully_managed_device_provisioning_permissions_header" msgid="2852101532084770993">"Vaša aktivita a údaje"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_header" msgid="4419374850927705136">"Povolenia aplikácií"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8328298923037335068">"Správca IT môže nastaviť povolenia pre aplikácie v tomto zariadení, napríklad povolenia na použitie mikrofónu, kamery a polohy."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Zariadenie sa nastavuje…"</string>
-    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"Toto zariadenie vám poskytuje jednoduchý prístup k pracovným aplikáciám. Nie je súkromné, takže správa IT si môže zobraziť vaše údaje a aktivitu. Ďalšie informácie vám poskytne správca IT."</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1090645190066781456">"Toto zariadenie vám poskytuje jednoduchý prístup k pracovným aplikáciám. Nie je súkromné, takže správca IT si môže zobraziť vaše údaje a aktivitu."</string>
+    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"Toto zariadenie vám poskytuje jednoduchý prístup k pracovným aplikáciám. Nie je súkromné, takže správca IT si môže zobraziť vašu aktivitu a údaje. Správca IT môže nastaviť povolenia pre aplikácie v tomto zariadení, napríklad povolenia na použitie mikrofónu, kamery a polohy."</string>
+    <string name="fully_managed_device_provisioning_return_device_title" msgid="8500829014794276683">"Vrátenie zariadenia správcovi IT"</string>
+    <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"Prejdite späť na predchádzajúcu obrazovku alebo toto zariadenie resetujte a vráťte správcovi IT."</string>
+    <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"Zrušiť nastavenie"</string>
+    <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"Resetovať a vrátiť zariadenie"</string>
     <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Prac. ap. sú uložené v prac. profile a ovláda ich správca IT"</string>
     <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Osobné aplikácie sú od pracovných oddelené a nevidno ich"</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"Toto zariadenie ovláda správca IT (môže blokovať aplikácie)"</string>
@@ -187,10 +189,9 @@
     <string name="just_a_sec" msgid="6244676028626237220">"Moment…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Pripomenutie týkajúce sa ochrany súkromia"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"Správca IT si môže zobraziť vaše údaje a aktivitu v tomto zariadení"</string>
-    <string name="device_provisioning_finished" msgid="3981783240592092906">"Zariadenie je pripravené."</string>
-    <string name="done" msgid="7755227776955952318">"Hotovo"</string>
-    <string name="financed_device_screen_header" msgid="7890706080917322376">"Toto zariadenie bolo zakúpené na splátky od veriteľa <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>"</string>
-    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> môže:"</string>
-    <string name="install_creditor_app_description" msgid="6159751782301108878">"Nainštalovať aplikáciu spoločnosti <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>, aby ste mohli splácať toto zariadenie"</string>
-    <string name="lock_device_description" msgid="2940362560732989166">"Obmedziť prístup k tomuto zariadeniu, ak ho nebudete splácať"</string>
+    <string name="financed_device_screen_header" msgid="6875169548352717124">"Toto zariadenie poskytuje <xliff:g id="CREDITOR_NAME">%s</xliff:g>"</string>
+    <string name="financed_make_payments_subheader_title" msgid="7880606710044254210">"Plaťte v tomto zariadení"</string>
+    <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> môže nainštalovať aplikáciu <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g>, aby ste mohli v tomto zariadení platiť"</string>
+    <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Toto zariadenie je možné obmedziť"</string>
+    <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> môže obmedziť prístup k tomuto zariadeniu, ak ním neplatíte"</string>
 </resources>

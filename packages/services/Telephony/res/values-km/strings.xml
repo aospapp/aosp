@@ -50,6 +50,7 @@
     <string name="voice_number_setting_primary_user_only" msgid="3394706575741912843">"មាន​តែ​អ្នក​ប្រើប្រាស់​ចម្បង​ទើប​អាច​កែប្រែ​ការ​កំណត់​សារ​ជា​សំឡេង​បាន។"</string>
     <string name="puk_unlocked" msgid="4627340655215746511">"បាន​ដោះ​សោ​ស៊ីមកាត​របស់​អ្នក។ ទូរស័ព្ទ​របស់​អ្នក​កំពុង​ដោះ​សោ…"</string>
     <string name="label_ndp" msgid="7617392683877410341">"ដោះ​សោ​​កូដ PIN បណ្ដាញ​ស៊ីមកាត"</string>
+    <string name="label_phoneid" msgid="8775611434123577808">"ស៊ីម​ត្រូវ​បាន​ចាក់​សោ​សម្រាប់​ប្រតិបត្តិករ"</string>
     <string name="sim_ndp_unlock_text" msgid="7737338355451978338">"ដោះ​សោ"</string>
     <string name="sim_ndp_dismiss_text" msgid="89667342248929777">"បោះបង់"</string>
     <string name="requesting_unlock" msgid="930512210309437741">"កំពុង​ស្នើ​​ដោះ​សោ​បណ្ដាញ…"</string>
@@ -123,6 +124,13 @@
     <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"បញ្ជូន​បន្ត​ទៅ​ <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfnrc_disabled" msgid="739289696796917683">"បិទ"</string>
     <string name="disable_cfnrc_forbidden" msgid="775348748084726890">"ក្រុមហ៊ុន​បញ្ជូន​របស់​អ្នក​​មិន​គាំទ្រ​ការ​បិទ​ការ​ហៅ​​បញ្ជូន​បន្ត នៅ​ពេល​ទូរស័ព្ទ​របស់​អ្នក​មិន​អាច​ហៅ​ចូល។"</string>
+    <string name="registration_cf_forbidden" msgid="4386482610771190420">"ក្រុមហ៊ុន​សេវា​ទូរសព្ទ​របស់​អ្នក​មិន​ផ្ដល់​ជូន​ការហៅ​បន្ត​ទេ។"</string>
+    <string name="cdma_call_waiting" msgid="4565070960879673216">"បើក​ការរង់ចាំ​ការហៅ​ទូរសព្ទ​ឬ?"</string>
+    <string name="enable_cdma_call_waiting_setting" msgid="5906811747921744307">"ក្នុង​ពេល​ហៅ​ទូរសព្ទ អ្នក​នឹង​ទទួល​បាន​ការជូន​ដំណឹង​អំពី​ការហៅ​ចូល"</string>
+    <string name="enable_cdma_cw" msgid="811047045863422232">"បើក"</string>
+    <string name="disable_cdma_cw" msgid="7119290446496301734">"បោះបង់"</string>
+    <string name="cdma_call_waiting_in_ims_on" msgid="6390979414188659218">"ការរង់ចាំ​ការហៅ ទូរសព្ទ CDMA ក្រោម IMS ត្រូវ​បាន​បើក"</string>
+    <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"ការរង់ចាំ​ការហៅ ទូរសព្ទ CDMA ក្រោម IMS ត្រូវ​បាន​បិទ"</string>
     <string name="updating_title" msgid="6130548922615719689">"កំណត់​ការ​ហៅ"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"ការកំណត់ការហៅអាចផ្លាស់ប្តូរបានដោយអ្នកប្រើដែលមានសិទ្ធិគ្រប់គ្រងតែប៉ុណ្ណោះ។"</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"ការកំណត់ (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -286,6 +294,9 @@
     <string name="limited_sim_function_notification_title" msgid="612715399099846281">"មុខងារ​ស៊ីម​មាន​កម្រិត"</string>
     <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"សេវាកម្ម​ទិន្នន័យ និង​ការហៅ​ទូរសព្ទ​តាម <xliff:g id="CARRIER_NAME">%1$s</xliff:g> អាច​ត្រូវ​បាន​ទប់ស្កាត់ ពេល​ប្រើប្រាស់ <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>។"</string>
     <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"សេវាកម្មទិន្នន័យ និងការហៅទូរសព្ទតាម <xliff:g id="CARRIER_NAME">%1$s</xliff:g> អាចត្រូវបានទប់ស្កាត់ ពេលប្រើស៊ីម​ផ្សេង។"</string>
+    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"បានរកឃើញ និងបានលុប​គណនី SIP ដែលបានបញ្ឈប់"</string>
+    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"ការហៅទូរសព្ទ​តាម SIP មិនអាចប្រើ​ជាមួយប្រព័ន្ធ Android បានទៀតទេ។\nគណនី SIP ដែលមានស្រាប់​របស់អ្នក <xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g> ត្រូវបានលុប។\nសូមបញ្ជាក់​ការកំណត់គណនីនៃ​ការហៅទូរសព្ទ​លំនាំដើមរបស់អ្នក។"</string>
+    <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"ចូលទៅកាន់ការកំណត់"</string>
     <string name="data_usage_title" msgid="8438592133893837464">"ការប្រើប្រាស់​ទិន្នន័យកម្មវិធី"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"បានប្រើទិន្នន័យទូរសព្ទអស់ <xliff:g id="ID_1">%1$s</xliff:g> នៅថ្ងៃទី <xliff:g id="ID_2">%2$s</xliff:g>"</string>
     <string name="advanced_options_title" msgid="9208195294513520934">"កម្រិតខ្ពស់"</string>
@@ -504,6 +515,7 @@
     <string name="puk2_requested" msgid="6992374450720307514">"ពាក្យសម្ងាត់មិនត្រឹមត្រូវ។ ឥឡូវនេះស៊ីមកាតត្រូវបានចាក់សោ។ បញ្ចូល PUK2។"</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"លេខ​កូដ PUK2 ត្រូវ​បាន​​ទប់ស្កាត់​ជា​អចិន្ត្រៃយ៍។"</string>
     <string name="pin2_attempts" msgid="5625178102026453023">\n"អ្នកនៅសល់ការព្យាយាមបញ្ចូល <xliff:g id="NUMBER">%d</xliff:g> ដងទៀត។"</string>
+    <string name="puk2_locked" msgid="6497760825455461057">"បាន​ចាក់​សោ​ដោយ​ប្រើ PUK2។ សូម​ទាក់ទង​ទៅ​ក្រុមហ៊ុនផ្ដល់សេវា ដើម្បី​ដោះ​សោ។"</string>
     <string name="pin2_unblocked" msgid="4481107908727789303">"លេខសម្ងាត់ PIN2 មិនត្រូវបានរារាំងទៀតទេ"</string>
     <string name="pin2_error_exception" msgid="8116103864600823641">"បញ្ហាស៊ីមកាត ឬបណ្ដាញ។"</string>
     <string name="doneButton" msgid="7371209609238460207">"រួចរាល់"</string>
@@ -525,6 +537,7 @@
     <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"បើក​បណ្ដាញ​ទូរសព្ទ​ចល័ត បិទ​មុខងារ​ពេល​ជិះ​យន្តហោះ ឬ​បិទ​មុខងារ​កម្មវិធី​សន្សំថ្ម ដើម្បី​ហៅ​ទូរសព្ទ។"</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"បិទរបៀបយន្តហោះដើម្បីធ្វើការហៅ។"</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"បិទរបៀបយន្តហោះ ឬភ្ជាប់ទៅបណ្តាញឥតខ្សែដើម្បីធ្វើការហៅ។"</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"ទូរសព្ទ​ក្ដៅ​ពេក"</b>\n\n"មិន​អាច​ធ្វើការហៅ​ទូរសព្ទ​នេះ​បាន​ទេ។ សូម​ព្យាយាម​ម្ដង​ទៀត នៅ​ពេល​ទូរសព្ទ​របស់​អ្នក​ចុះ​ត្រជាក់។\n\nអ្នក​នៅ​តែ​អាច​ធ្វើ​ការហៅ​ទៅ​លេខ​សង្គ្រោះ​បន្ទាន់​បាន។"</string>
     <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"ចាកចេញពីរបៀបហៅទៅវិញពេលមានអាសន្នដើម្បីធ្វើការហៅធម្មតា។"</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"មិន​បាន​ចុះ​ឈ្មោះ​នៅ​លើ​បណ្ដាញ។"</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"បណ្ដាញ​​ឧបករណ៍​​ចល័ត​មិន​អាច​ប្រើ​បាន​។"</string>
@@ -564,7 +577,7 @@
     <string name="dialerKeyboardHintText" msgid="1115266533703764049">"ប្រើ​​ក្ដារចុច​ដើម្បី​ចុច​លេខ"</string>
     <string name="onscreenHoldText" msgid="4025348842151665191">"ដាក់ឱ្យរង់ចាំ"</string>
     <string name="onscreenEndCallText" msgid="6138725377654842757">"បញ្ចប់"</string>
-    <string name="onscreenShowDialpadText" msgid="658465753816164079">"បន្ទះ​លេខ"</string>
+    <string name="onscreenShowDialpadText" msgid="658465753816164079">"ផ្ទាំងចុចលេខ"</string>
     <string name="onscreenMuteText" msgid="5470306116733843621">"ស្ងាត់"</string>
     <string name="onscreenAddCallText" msgid="9075675082903611677">"បន្ថែម​ការ​ហៅ"</string>
     <string name="onscreenMergeCallsText" msgid="3692389519611225407">"បញ្ចូល​ការ​ហៅ​រួម​​គ្នា"</string>
@@ -867,7 +880,6 @@
     <string name="radio_info_dds" msgid="1122593144425697126">"លេខសម្គាល់រង​របស់​ស៊ីម​ទិន្នន័យ​លំនាំដើម៖"</string>
     <string name="radio_info_dl_kbps" msgid="2382922659525318726">"កម្រិត​បញ្ជូន DL (kbps) ៖"</string>
     <string name="radio_info_ul_kbps" msgid="2102225400904799036">"កម្រិត​បញ្ជូន UL (kbps) ៖"</string>
-    <string name="radio_info_signal_location_label" msgid="6188435197086550049">"ព័ត៌មាន​ទីតាំង​ទូរសព្ទ​ចល័ត (បានបញ្ឈប់)៖"</string>
     <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"ការកំណត់​រចនាសម្ព័ន្ធបណ្ដាញរូបវ័ន្ត LTE ៖"</string>
     <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"អត្រា​ផ្ទុក​ឡើង​វិញ​នៃ​ព័ត៌មាន​ទូរសព្ទ​ចល័ត៖"</string>
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"ព័ត៌មាន​វាស់​ទូរសព្ទ​ចល័ត​ទាំងអស់៖"</string>
@@ -898,6 +910,11 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"ផ្ទុកឡើងវិញ"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"បិទ/បើកការពិនិត្យ DNS"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"ការ​កំណត់/ព័ត៌មាន​ជាក់លាក់ OEM"</string>
+    <string name="radio_info_endc_available" msgid="4410653375290113436">"មាន EN-DC៖"</string>
+    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR ត្រូវ​បាន​រឹតត្បិត៖"</string>
+    <string name="radio_info_nr_available" msgid="1321318331361249997">"មាន NR៖"</string>
+    <string name="radio_info_nr_state" msgid="1337571996788535356">"ស្ថានភាព NR៖"</string>
+    <string name="radio_info_nr_frequency" msgid="1201156032796584128">"កម្រិត​ញឹកញាប់​នៃ NR៖"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"កំណត់​មុខងារ​កម្រិត​បញ្ជូន​វិទ្យុ"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"កំពុងដំណើរការបញ្ជីក្រុម…"</string>
     <string name="band_mode_set" msgid="6657819412803771421">"កំណត់"</string>
@@ -907,4 +924,7 @@
     <string name="phone_info_label" product="default" msgid="1784175881556791433">"ព័ត៌មាន​ទូរសព្ទ"</string>
     <string name="carrier_provisioning" msgid="2668065041869578376">"ព័ត៌មាន​អំពី​ការផ្តល់​ទិន្នន័យ​របស់​ក្រុមហ៊ុន​សេវា​ទូរសព្ទ"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"នាំ​ឱ្យ​មាន​ការផ្តល់​ទិន្នន័យ​ពី​ក្រុមហ៊ុន​សេវា​ទូរសព្ទ"</string>
+    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"រលកសញ្ញាប៊្លូធូសរបស់អ្នក​មានកម្រិតខ្សោយ។ សូមសាកល្បងប្ដូរ​ទៅឧបករណ៍បំពងសំឡេងទូរសព្ទ។"</string>
+    <string name="call_quality_notification_name" msgid="3476828289553948830">"ការជូនដំណឹង​អំពីគុណភាព​ហៅទូរសព្ទ"</string>
+    <string name="notification_channel_sip_account" msgid="1261816025156179637">"គណនី SIP ដែលបានបញ្ឈប់"</string>
 </resources>

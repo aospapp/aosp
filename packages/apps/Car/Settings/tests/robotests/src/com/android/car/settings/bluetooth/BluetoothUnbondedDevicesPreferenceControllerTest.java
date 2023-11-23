@@ -19,7 +19,7 @@ package com.android.car.settings.bluetooth;
 import static android.content.pm.PackageManager.FEATURE_BLUETOOTH;
 import static android.os.UserManager.DISALLOW_CONFIG_BLUETOOTH;
 
-import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_USER;
+import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -92,7 +92,7 @@ public class BluetoothUnbondedDevicesPreferenceControllerTest {
         Context context = spy(RuntimeEnvironment.application);
         Resources resources = spy(context.getResources());
         when(context.getResources()).thenReturn(resources);
-        when(resources.getIntArray(R.array.config_unbonded_device_filter_whitelist))
+        when(resources.getIntArray(R.array.config_unbonded_device_filter_allowlist))
                 .thenReturn(mUnbondedDeviceFilter);
 
         mLocalBluetoothManager = LocalBluetoothManager.getInstance(context, /* onInitCallback= */
@@ -204,7 +204,7 @@ public class BluetoothUnbondedDevicesPreferenceControllerTest {
                 UserHandle.of(UserHandle.myUserId()), DISALLOW_CONFIG_BLUETOOTH, true);
 
         assertThat(mControllerHelper.getController().getAvailabilityStatus()).isEqualTo(
-                DISABLED_FOR_USER);
+                DISABLED_FOR_PROFILE);
     }
 
     private ShadowBluetoothAdapter getShadowBluetoothAdapter() {

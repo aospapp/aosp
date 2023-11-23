@@ -16,6 +16,7 @@
 
 package com.android.bluetooth.statemachine;
 
+import android.annotation.SuppressLint;
 import android.os.Message;
 
 /**
@@ -23,6 +24,7 @@ import android.os.Message;
  *
  * The class for implementing states in a StateMachine
  */
+@SuppressLint("AndroidFrameworkRequiresPermission")
 public class State implements IState {
 
     /**

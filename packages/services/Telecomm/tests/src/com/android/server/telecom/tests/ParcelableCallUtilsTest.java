@@ -1,13 +1,12 @@
 package com.android.server.telecom.tests;
 
-import static com.android.server.telecom.TelecomSystem.*;
+import static com.android.server.telecom.TelecomSystem.SyncRoot;
 
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertTrue;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import android.content.ComponentName;
@@ -17,6 +16,7 @@ import android.os.SystemClock;
 import android.telecom.Connection;
 import android.telecom.ParcelableCall;
 import android.telecom.PhoneAccountHandle;
+import android.telephony.ims.ImsCallProfile;
 import android.test.suitebuilder.annotation.SmallTest;
 
 import com.android.server.telecom.Call;
@@ -26,7 +26,6 @@ import com.android.server.telecom.ClockProxy;
 import com.android.server.telecom.ParcelableCallUtils;
 import com.android.server.telecom.PhoneAccountRegistrar;
 import com.android.server.telecom.PhoneNumberUtilsAdapter;
-import com.android.server.telecom.TelecomSystem;
 import com.android.server.telecom.ui.ToastFactory;
 
 import org.junit.After;
@@ -98,6 +97,7 @@ public class ParcelableCallUtilsTest extends TelecomTestCase {
 
         Bundle parceledExtras = call.getExtras();
         assertFalse(parceledExtras.containsKey(Connection.EXTRA_SIP_INVITE));
+        assertTrue(parceledExtras.containsKey(ImsCallProfile.EXTRA_IS_BUSINESS_CALL));
         assertFalse(parceledExtras.containsKey("SomeExtra"));
         assertTrue(parceledExtras.containsKey(Connection.EXTRA_CALL_SUBJECT));
     }
@@ -115,6 +115,7 @@ public class ParcelableCallUtilsTest extends TelecomTestCase {
 
         Bundle parceledExtras = call.getExtras();
         assertTrue(parceledExtras.containsKey(Connection.EXTRA_SIP_INVITE));
+        assertTrue(parceledExtras.containsKey(ImsCallProfile.EXTRA_IS_BUSINESS_CALL));
         assertTrue(parceledExtras.containsKey("SomeExtra"));
         assertTrue(parceledExtras.containsKey(Connection.EXTRA_CALL_SUBJECT));
     }
@@ -128,6 +129,7 @@ public class ParcelableCallUtilsTest extends TelecomTestCase {
 
         Bundle parceledExtras = call.getExtras();
         assertTrue(parceledExtras.containsKey(Connection.EXTRA_SIP_INVITE));
+        assertTrue(parceledExtras.containsKey(ImsCallProfile.EXTRA_IS_BUSINESS_CALL));
         assertFalse(parceledExtras.containsKey("SomeExtra"));
         assertFalse(parceledExtras.containsKey(Connection.EXTRA_CALL_SUBJECT));
     }
@@ -141,6 +143,7 @@ public class ParcelableCallUtilsTest extends TelecomTestCase {
 
         Bundle parceledExtras = call.getExtras();
         assertFalse(parceledExtras.containsKey(Connection.EXTRA_SIP_INVITE));
+        assertFalse(parceledExtras.containsKey(ImsCallProfile.EXTRA_IS_BUSINESS_CALL));
         assertFalse(parceledExtras.containsKey("SomeExtra"));
         assertFalse(parceledExtras.containsKey(Connection.EXTRA_CALL_SUBJECT));
     }
@@ -192,6 +195,7 @@ public class ParcelableCallUtilsTest extends TelecomTestCase {
         extras.putString(Connection.EXTRA_SIP_INVITE, "scary data");
         extras.putString("SomeExtra", "Extra Extra");
         extras.putString(Connection.EXTRA_CALL_SUBJECT, "Blah");
+        extras.putBoolean(ImsCallProfile.EXTRA_IS_BUSINESS_CALL, true);
         return extras;
     }
 }

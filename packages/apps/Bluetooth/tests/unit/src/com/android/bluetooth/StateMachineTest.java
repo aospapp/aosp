@@ -85,13 +85,13 @@ public class StateMachineTest {
     /**
      * Tests {@link StateMachine#toString()}.
      */
-    class StateMachineToStringTest extends StateMachine {
+    static class StateMachineToStringTest extends StateMachine {
         StateMachineToStringTest(String name) {
             super(name);
         }
     }
 
-    class ExampleState extends State {
+    static class ExampleState extends State {
         String mName;
 
         ExampleState(String name) {
@@ -195,7 +195,7 @@ public class StateMachineTest {
             }
         }
 
-        private StateMachineQuitTest mThisSm;
+        private final StateMachineQuitTest mThisSm;
         private S1 mS1 = new S1();
     }
 
@@ -298,7 +298,7 @@ public class StateMachineTest {
             }
         }
 
-        private StateMachineQuitNowTest mThisSm;
+        private final StateMachineQuitNowTest mThisSm;
         private S1 mS1 = new S1();
     }
 
@@ -402,14 +402,14 @@ public class StateMachineTest {
             }
         }
 
-        private StateMachineQuitNowAfterStartTest mThisSm;
+        private final StateMachineQuitNowAfterStartTest mThisSm;
         private S1 mS1 = new S1();
     }
 
     /**
      * Test enter/exit can use transitionTo
      */
-    class StateMachineEnterExitTransitionToTest extends StateMachine {
+    static class StateMachineEnterExitTransitionToTest extends StateMachine {
 
         StateMachineEnterExitTransitionToTest(String name) {
             super(name);
@@ -502,7 +502,7 @@ public class StateMachineTest {
             }
         }
 
-        private StateMachineEnterExitTransitionToTest mThisSm;
+        private final StateMachineEnterExitTransitionToTest mThisSm;
         private S1 mS1 = new S1();
         private S2 mS2 = new S2();
         private S3 mS3 = new S3();
@@ -597,7 +597,7 @@ public class StateMachineTest {
     /**
      * Tests that ProcessedMessage works as a circular buffer.
      */
-    class StateMachine0 extends StateMachine {
+    static class StateMachine0 extends StateMachine {
         StateMachine0(String name) {
             super(name);
             mThisSm = this;
@@ -628,7 +628,7 @@ public class StateMachineTest {
             }
         }
 
-        private StateMachine0 mThisSm;
+        private final StateMachine0 mThisSm;
         private S1 mS1 = new S1();
     }
 
@@ -684,7 +684,7 @@ public class StateMachineTest {
      * in state mS1. With the first message it transitions to
      * itself which causes it to be exited and reentered.
      */
-    class StateMachine1 extends StateMachine {
+    static class StateMachine1 extends StateMachine {
         StateMachine1(String name) {
             super(name);
             mThisSm = this;
@@ -729,7 +729,7 @@ public class StateMachineTest {
             }
         }
 
-        private StateMachine1 mThisSm;
+        private final StateMachine1 mThisSm;
         private S1 mS1 = new S1();
 
         private int mEnterCount;
@@ -784,7 +784,7 @@ public class StateMachineTest {
      * mS2 then receives both of the deferred messages first TEST_CMD_1 and
      * then TEST_CMD_2.
      */
-    class StateMachine2 extends StateMachine {
+    static class StateMachine2 extends StateMachine {
         StateMachine2(String name) {
             super(name);
             mThisSm = this;
@@ -835,7 +835,7 @@ public class StateMachineTest {
             }
         }
 
-        private StateMachine2 mThisSm;
+        private final StateMachine2 mThisSm;
         private S1 mS1 = new S1();
         private S2 mS2 = new S2();
 
@@ -891,7 +891,7 @@ public class StateMachineTest {
      * Test that unhandled messages in a child are handled by the parent.
      * When TEST_CMD_2 is received.
      */
-    class StateMachine3 extends StateMachine {
+    static class StateMachine3 extends StateMachine {
         StateMachine3(String name) {
             super(name);
             mThisSm = this;
@@ -918,7 +918,7 @@ public class StateMachineTest {
             }
         }
 
-        class ChildState extends State {
+        static class ChildState extends State {
             @Override
             public boolean processMessage(Message message) {
                 return NOT_HANDLED;
@@ -932,7 +932,7 @@ public class StateMachineTest {
             }
         }
 
-        private StateMachine3 mThisSm;
+        private final StateMachine3 mThisSm;
         private ParentState mParentState = new ParentState();
         private ChildState mChildState = new ChildState();
     }
@@ -977,7 +977,7 @@ public class StateMachineTest {
      * with transition from child 1 to child 2 and child 2
      * lets the parent handle the messages.
      */
-    class StateMachine4 extends StateMachine {
+    static class StateMachine4 extends StateMachine {
         StateMachine4(String name) {
             super(name);
             mThisSm = this;
@@ -1013,7 +1013,7 @@ public class StateMachineTest {
             }
         }
 
-        class ChildState2 extends State {
+        static class ChildState2 extends State {
             @Override
             public boolean processMessage(Message message) {
                 return NOT_HANDLED;
@@ -1027,7 +1027,7 @@ public class StateMachineTest {
             }
         }
 
-        private StateMachine4 mThisSm;
+        private final StateMachine4 mThisSm;
         private ParentState mParentState = new ParentState();
         private ChildState1 mChildState1 = new ChildState1();
         private ChildState2 mChildState2 = new ChildState2();
@@ -1073,7 +1073,7 @@ public class StateMachineTest {
      * Test transition from one child to another of a "complex"
      * hierarchy with two parents and multiple children.
      */
-    class StateMachine5 extends StateMachine {
+    static class StateMachine5 extends StateMachine {
         StateMachine5(String name) {
             super(name);
             mThisSm = this;
@@ -1303,7 +1303,7 @@ public class StateMachineTest {
             }
         }
 
-        private StateMachine5 mThisSm;
+        private final StateMachine5 mThisSm;
         private ParentState1 mParentState1 = new ParentState1();
         private ChildState1 mChildState1 = new ChildState1();
         private ChildState2 mChildState2 = new ChildState2();
@@ -1408,7 +1408,7 @@ public class StateMachineTest {
      * after construction and before any other messages arrive and that
      * sendMessageDelayed works.
      */
-    class StateMachine6 extends StateMachine {
+    static class StateMachine6 extends StateMachine {
         StateMachine6(String name) {
             super(name);
             mThisSm = this;
@@ -1446,7 +1446,7 @@ public class StateMachineTest {
             }
         }
 
-        private StateMachine6 mThisSm;
+        private final StateMachine6 mThisSm;
         private S1 mS1 = new S1();
 
         private long mArrivalTimeMsg1;
@@ -1492,7 +1492,7 @@ public class StateMachineTest {
      * Test that enter is invoked immediately after exit. This validates
      * that enter can be used to send a watch dog message for its state.
      */
-    class StateMachine7 extends StateMachine {
+    static class StateMachine7 extends StateMachine {
         private final int SM7_DELAY_TIME = 250;
 
         StateMachine7(String name) {
@@ -1551,7 +1551,7 @@ public class StateMachineTest {
             }
         }
 
-        private StateMachine7 mThisSm;
+        private final StateMachine7 mThisSm;
         private S1 mS1 = new S1();
         private S2 mS2 = new S2();
 
@@ -1586,7 +1586,7 @@ public class StateMachineTest {
          * without a delay the arrival time difference should always >= to SM7_DELAY_TIME.
          */
         long arrivalTimeDiff = sm7.mArrivalTimeMsg3 - sm7.mArrivalTimeMsg2;
-        long expectedDelay = sm7.SM7_DELAY_TIME - SM7_DELAY_FUDGE;
+        long expectedDelay = (long) sm7.SM7_DELAY_TIME - SM7_DELAY_FUDGE;
         if (sm7.isDbg()) tlog("testStateMachine7: expect " + arrivalTimeDiff
                 + " >= " + expectedDelay);
         Assert.assertTrue(arrivalTimeDiff >= expectedDelay);
@@ -1597,7 +1597,7 @@ public class StateMachineTest {
     /**
      * Test unhandledMessage.
      */
-    class StateMachineUnhandledMessage extends StateMachine {
+    static class StateMachineUnhandledMessage extends StateMachine {
         StateMachineUnhandledMessage(String name) {
             super(name);
             mThisSm = this;
@@ -1631,7 +1631,7 @@ public class StateMachineTest {
             }
         }
 
-        private StateMachineUnhandledMessage mThisSm;
+        private final StateMachineUnhandledMessage mThisSm;
         private int mUnhandledMessageCount;
         private S1 mS1 = new S1();
     }
@@ -1671,7 +1671,7 @@ public class StateMachineTest {
      * will be used to notify testStateMachineSharedThread that the test is
      * complete.
      */
-    class StateMachineSharedThread extends StateMachine {
+    static class StateMachineSharedThread extends StateMachine {
         StateMachineSharedThread(String name, Looper looper, int maxCount) {
             super(name, looper);
             mMaxCount = maxCount;

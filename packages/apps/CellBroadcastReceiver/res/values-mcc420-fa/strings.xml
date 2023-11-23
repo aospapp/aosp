@@ -23,6 +23,6 @@
     <string name="pws_other_message_identifiers" msgid="7907712751421890873">"هشدارها"</string>
     <string name="enable_emergency_alerts_message_title" msgid="5267857032926801433">"هشدارها"</string>
     <string name="enable_emergency_alerts_message_summary" msgid="8961532453478455676">"اقدام‌های توصیه‌شده که می‌تواند جان افراد یا اموال آن‌ها را حفظ کند"</string>
-    <string name="cmas_required_monthly_test" msgid="197559096432885563">"هشدارهای آزمایشی"</string>
+    <string name="cmas_required_monthly_test" msgid="5733131786754331921">"هشدارهای آزمایشی"</string>
     <string name="cmas_exercise_alert" msgid="7249058541625071454">"تمرین"</string>
 </resources>

@@ -23,6 +23,8 @@ LOCAL_COMPATIBILITY_SUITE := xts
 
 # OEM-INSTRUCTION: OEMs should change this
 LOCAL_MODULE := XtsTimeZoneTestCases
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 
 LOCAL_STATIC_JAVA_LIBRARIES := time_zone_data_app_testing
 

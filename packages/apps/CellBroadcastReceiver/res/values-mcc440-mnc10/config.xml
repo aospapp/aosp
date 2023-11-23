@@ -23,4 +23,5 @@
         <item>0x1103:rat=gsm, emergency=true</item>
         <item>0xA400-0xA4FF:rat=gsm, emergency=true</item>
     </string-array>
+    <bool name="allow_testing_mode_on_user_build">true</bool>
 </resources>

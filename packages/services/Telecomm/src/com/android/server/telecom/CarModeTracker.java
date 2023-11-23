@@ -28,7 +28,9 @@ import com.android.internal.util.IndentingPrintWriter;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.PriorityQueue;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -39,30 +41,40 @@ public class CarModeTracker {
      * Data class holding information about apps which have requested to enter car mode.
      */
     private class CarModeApp {
-        private @IntRange(from = 0) int mPriority;
+        private final boolean mAutomotiveProjection;
+        private final @IntRange(from = 0) int mPriority;
         private @NonNull String mPackageName;
 
+        public CarModeApp(@NonNull String packageName) {
+            this(true, 0, packageName);
+        }
+
         public CarModeApp(int priority, @NonNull String packageName) {
+            this(false, priority, packageName);
+        }
+
+        private CarModeApp(boolean automotiveProjection, int priority, @NonNull String packageName) {
+            mAutomotiveProjection = automotiveProjection;
             mPriority = priority;
             mPackageName = Objects.requireNonNull(packageName);
+        }
+
+        public boolean hasSetAutomotiveProjection() {
+            return mAutomotiveProjection;
         }
 
         /**
          * The priority at which the app requested to enter car mode.
          * Will be the same as the one specified when {@link UiModeManager#enableCarMode(int, int)}
-         * was called, or {@link UiModeManager#DEFAULT_PRIORITY} if no priority was specifeid.
+         * was called, or {@link UiModeManager#DEFAULT_PRIORITY} if no priority was specified.
          * @return The priority.
          */
         public int getPriority() {
             return mPriority;
         }
 
-        public void setPriority(int priority) {
-            mPriority = priority;
-        }
-
         /**
-         * @return The package name of the app which requested to enter car mode.
+         * @return The package name of the app which requested to enter car mode/set projection.
          */
         public String getPackageName() {
             return mPackageName;
@@ -71,26 +83,24 @@ public class CarModeTracker {
         public void setPackageName(String packageName) {
             mPackageName = packageName;
         }
-    }
 
-    /**
-     * Comparator used to maintain the car mode priority queue ordering.
-     */
-    private class CarModeAppComparator implements Comparator<CarModeApp> {
-        @Override
-        public int compare(CarModeApp o1, CarModeApp o2) {
-            // highest priority takes precedence.
-            return Integer.compare(o2.getPriority(), o1.getPriority());
+        public String toString() {
+            return String.format("[%s, %s]",
+                    mAutomotiveProjection ? "PROJECTION SET" : mPriority,
+                    mPackageName);
         }
     }
 
     /**
-     * Priority list of apps which have entered or exited car mode, ordered with the highest
-     * priority app at the top of the queue.  Where items have the same priority, they are ordered
-     * by insertion time.
+     * Priority list of apps which have entered or exited car mode, ordered first by whether the app
+     * has set automotive projection, and then by highest priority.  Where items have the same
+     * priority, order is arbitrary, but we only allow one item in the queue per priority.
      */
     private PriorityQueue<CarModeApp> mCarModeApps = new PriorityQueue<>(2,
-            new CarModeAppComparator());
+            // Natural ordering of booleans is False, True. Natural ordering of ints is increasing.
+            Comparator.comparing(CarModeApp::hasSetAutomotiveProjection)
+                    .thenComparing(CarModeApp::getPriority)
+                    .reversed());
 
     private final LocalLog mCarModeChangeLog = new LocalLog(20);
 
@@ -143,6 +153,71 @@ public class CarModeTracker {
         mCarModeApps.removeIf(c -> c.getPriority() == priority);
     }
 
+    public void handleSetAutomotiveProjection(@NonNull String packageName) {
+        Optional<CarModeApp> projectingApp = mCarModeApps.stream()
+                .filter(CarModeApp::hasSetAutomotiveProjection)
+                .findAny();
+        // No app with automotive projection? Easy peasy, just add it.
+        if (!projectingApp.isPresent()) {
+            Log.i(this, "handleSetAutomotiveProjection: %s", packageName);
+            mCarModeChangeLog.log("setAutomotiveProjection: packageName=" + packageName);
+            mCarModeApps.add(new CarModeApp(packageName));
+            return;
+        }
+        // Otherwise an app already has automotive projection set. Is it the same app?
+        if (packageName.equals(projectingApp.get().getPackageName())) {
+            Log.w(this, "handleSetAutomotiveProjection: %s already the automotive projection app",
+                    packageName);
+            return;
+        }
+        // We have a new app for automotive projection. As a shortcut just reuse the same object by
+        // overwriting the package name.
+        Log.i(this, "handleSetAutomotiveProjection: %s replacing %s as automotive projection app",
+                packageName, projectingApp.get().getPackageName());
+        mCarModeChangeLog.log("setAutomotiveProjection: " + packageName + " replaces "
+                + projectingApp.get().getPackageName());
+        projectingApp.get().setPackageName(packageName);
+    }
+
+    public void handleReleaseAutomotiveProjection() {
+        Optional<String> projectingPackage = mCarModeApps.stream()
+                .filter(CarModeApp::hasSetAutomotiveProjection)
+                .map(CarModeApp::getPackageName)
+                .findAny();
+        if (!projectingPackage.isPresent()) {
+            Log.w(this, "handleReleaseAutomotiveProjection: no current automotive projection app");
+            return;
+        }
+        Log.i(this, "handleReleaseAutomotiveProjection: %s", projectingPackage.get());
+        mCarModeChangeLog.log("releaseAutomotiveProjection: packageName="
+                + projectingPackage.get());
+        mCarModeApps.removeIf(CarModeApp::hasSetAutomotiveProjection);
+    }
+
+    /**
+     * Force-removes a package from the car mode tracking list, no matter at which priority.
+     *
+     * This handles the case where packages are disabled or uninstalled. In those case, remove them
+     * from the tracking list so they don't cause a leak.
+     * @param packageName Package name of the app to force-remove
+     */
+    public void forceRemove(@NonNull String packageName) {
+        // We must account for the possibility that the app has set both car mode AND projection.
+        List<CarModeApp> forcedApp = mCarModeApps.stream()
+                .filter(c -> c.getPackageName().equals(packageName))
+                .collect(Collectors.toList());
+        if (forcedApp.isEmpty()) {
+            Log.i(this, "Package %s is not tracked.", packageName);
+            return;
+        }
+        for (CarModeApp app : forcedApp) {
+            String logString = "forceRemove: " + app;
+            Log.i(this, logString);
+            mCarModeChangeLog.log(logString);
+        }
+        mCarModeApps.removeIf(c -> c.getPackageName().equals(packageName));
+    }
+
     /**
      * Retrieves a list of the apps which are currently in car mode, ordered by priority such that
      * the highest priority app is first.
@@ -152,7 +227,7 @@ public class CarModeTracker {
         return mCarModeApps
                 .stream()
                 .sorted(mCarModeApps.comparator())
-                .map(cma -> cma.getPackageName())
+                .map(CarModeApp::getPackageName)
                 .collect(Collectors.toList());
     }
 
@@ -160,7 +235,7 @@ public class CarModeTracker {
         return mCarModeApps
                 .stream()
                 .sorted(mCarModeApps.comparator())
-                .map(cma -> "[" + cma.getPriority() + ", " + cma.getPackageName() + "]")
+                .map(CarModeApp::toString)
                 .collect(Collectors.joining(", "));
     }
 
@@ -193,7 +268,7 @@ public class CarModeTracker {
         pw.increaseIndent();
         for (CarModeApp app : mCarModeApps) {
             pw.print("[");
-            pw.print(app.getPriority());
+            pw.print(app.hasSetAutomotiveProjection() ? "PROJECTION SET" : app.getPriority());
             pw.print("] ");
             pw.println(app.getPackageName());
         }

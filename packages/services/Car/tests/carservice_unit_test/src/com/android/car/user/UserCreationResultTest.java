@@ -15,6 +15,11 @@
  */
 package com.android.car.user;
 
+import static android.car.user.UserCreationResult.STATUS_ANDROID_FAILURE;
+import static android.car.user.UserCreationResult.STATUS_HAL_FAILURE;
+import static android.car.user.UserCreationResult.STATUS_HAL_INTERNAL_FAILURE;
+import static android.car.user.UserCreationResult.STATUS_SUCCESSFUL;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import android.car.user.UserCreationResult;
@@ -25,14 +30,15 @@ public final class UserCreationResultTest {
 
     @Test
     public void testIsSuccess() {
-        assertThat(new UserCreationResult(UserCreationResult.STATUS_SUCCESSFUL, null, null)
-                .isSuccess()).isTrue();
-        assertThat(new UserCreationResult(UserCreationResult.STATUS_HAL_FAILURE, null, null)
-                .isSuccess()).isFalse();
-        assertThat(
-                new UserCreationResult(UserCreationResult.STATUS_HAL_INTERNAL_FAILURE, null, null)
-                        .isSuccess()).isFalse();
-        assertThat(new UserCreationResult(UserCreationResult.STATUS_ANDROID_FAILURE, null, null)
-                .isSuccess()).isFalse();
+        assertThat(new UserCreationResult(STATUS_SUCCESSFUL).isSuccess()).isTrue();
+        assertThat(new UserCreationResult(STATUS_SUCCESSFUL, null, null).isSuccess()).isTrue();
+        assertThat(new UserCreationResult(STATUS_HAL_FAILURE, null, null).isSuccess()).isFalse();
+        assertThat(new UserCreationResult(STATUS_HAL_FAILURE).isSuccess()).isFalse();
+        assertThat(new UserCreationResult(STATUS_HAL_INTERNAL_FAILURE, null, null).isSuccess())
+                .isFalse();
+        assertThat(new UserCreationResult(STATUS_HAL_INTERNAL_FAILURE).isSuccess()).isFalse();
+        assertThat(new UserCreationResult(STATUS_ANDROID_FAILURE, null, null).isSuccess())
+                .isFalse();
+        assertThat(new UserCreationResult(STATUS_ANDROID_FAILURE).isSuccess()).isFalse();
     }
 }

@@ -92,7 +92,7 @@
     <string name="multipleContactDeleteConfirmation" msgid="2970218685653877287">"Kufuta anwani hii kutafuta maelezo kwenye akaunti nyingi."</string>
     <string name="deleteConfirmation" msgid="3727809366015979585">"Je, ungependa kufuta anwani hii?"</string>
     <string name="deleteConfirmation_positive_button" msgid="1604511403421785160">"Futa"</string>
-    <string name="invalidContactMessage" msgid="6204402264821083362">"Mwasiliani hayupo."</string>
+    <string name="invalidContactMessage" msgid="6204402264821083362">"Anwani haipo."</string>
     <string name="createContactShortcutSuccessful_NoName" msgid="532242135930208299">"Anwani imeongezwa kwenye Skrini ya kwanza."</string>
     <string name="createContactShortcutSuccessful" msgid="6980032407920515698">"<xliff:g id="NAME">%s</xliff:g> imeongezwa kwenye Skrini ya kwanza."</string>
     <string name="photoPickerNotFoundText" msgid="6535222297923110991">"Hakuna picha inayopatikana kwenye kifaa."</string>
@@ -164,7 +164,8 @@
     <string name="activity_title_settings" msgid="4004290638426915162">"Mipangilio"</string>
     <string name="menu_settings" msgid="3524924670246877187">"Mipangilio"</string>
     <string name="menu_help" msgid="287801702920372292">"Usaidizi na maoni"</string>
-    <string name="organization_company_and_title" msgid="7197631449041284518">"<xliff:g id="COMPANY_0">%2$s</xliff:g>, <xliff:g id="COMPANY_1">%1$s</xliff:g>"</string>
+    <string name="organization_entry_two_field" msgid="6034934619269052455">"<xliff:g id="FIRST">%1$s</xliff:g> • <xliff:g id="SECOND">%2$s</xliff:g>"</string>
+    <string name="organization_entry_all_field" msgid="6724345890324437167">"<xliff:g id="COMPANY">%1$s</xliff:g> • <xliff:g id="DEPARTMENT">%2$s</xliff:g> • <xliff:g id="TITLE">%3$s</xliff:g>"</string>
     <string name="non_phone_caption" msgid="7343449684187013327">"Nambari ya simu"</string>
     <string name="non_phone_add_to_contacts" msgid="5472784294274676663">"Ongeza kwa anwani"</string>
     <string name="non_phone_close" msgid="2792373584950696532">"Funga"</string>
@@ -324,6 +325,7 @@
     <string name="sms" msgid="4246338112764847384">"Ujumbe wa maandishi"</string>
     <string name="postal_address" msgid="5031809899673855074">"Anwani"</string>
     <string name="ghostData_company" msgid="3873500610390675876">"Kampuni"</string>
+    <string name="ghostData_department" msgid="8610642449404163799">"Idara"</string>
     <string name="ghostData_title" msgid="8584897460662904533">"Jina la heshima"</string>
     <string name="label_notes" msgid="7134226125644463585">"Kidokezo"</string>
     <string name="label_custom_field" msgid="4160584225306364924">"Maalum"</string>
@@ -412,7 +414,7 @@
     <string name="composer_has_no_exportable_contact" msgid="473911071832548562">"Hakuna anwani zinazoweza kuhamishwa."</string>
     <string name="composer_not_initialized" msgid="3861391548605450184">"Kitunzi cha vCard hakikuanza vizuri."</string>
     <string name="exporting_contact_failed_title" msgid="9003659313161289860">"Imeshindwa kuhamisha"</string>
-    <string name="exporting_contact_failed_message" msgid="9198720310560773485">"Data ya mwasiliani haikuhamishwa.\nSababu: \"<xliff:g id="FAIL_REASON">%s</xliff:g>\""</string>
+    <string name="exporting_contact_failed_message" msgid="9198720310560773485">"Data ya anwani halikuhamishwa.\nSababu: \"<xliff:g id="FAIL_REASON">%s</xliff:g>\""</string>
     <string name="importing_vcard_description" msgid="6982207216746936735">"Inaingiza <xliff:g id="NAME">%s</xliff:g>"</string>
     <string name="reading_vcard_failed_title" msgid="1230432142768184978">"Haikuweza kusoma data ya vKadi"</string>
     <string name="importing_vcard_finished_title" msgid="2274644947000264322">"Imemaliza kuleta vCard <xliff:g id="FILENAME">%s</xliff:g>"</string>
@@ -448,7 +450,7 @@
     <string name="share_contacts_failure" msgid="1348777470180064086">"Imeshindwa kushiriki anwani."</string>
     <string name="dialog_export" msgid="3497435010655060068">"Hamisha anwani"</string>
     <string name="dialog_import" msgid="4590232235052756593">"Leta anwani kutoka kwenye"</string>
-    <string name="share_error" msgid="4854612167186185739">"Mwasiliani huyu hawezi kushirikishwa."</string>
+    <string name="share_error" msgid="4854612167186185739">"Anwani hii haiwezi kushirikiwa."</string>
     <string name="no_contact_to_share" msgid="6285287228557175749">"Hakuna anwani za kushiriki."</string>
     <string name="menu_contacts_filter" msgid="5854584270038139275">"Anwani za kuonyesha"</string>
     <string name="activity_title_contacts_filter" msgid="6340531582631006680">"Anwani za kuonyesha"</string>

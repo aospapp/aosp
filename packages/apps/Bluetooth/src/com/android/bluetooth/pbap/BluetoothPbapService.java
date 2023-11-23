@@ -32,11 +32,17 @@
 
 package com.android.bluetooth.pbap;
 
+import static android.Manifest.permission.BLUETOOTH_CONNECT;
+
+import android.annotation.RequiresPermission;
+import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothSocket;
 import android.bluetooth.IBluetoothPbap;
+import android.content.Attributable;
+import android.content.AttributionSource;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -58,6 +64,7 @@ import com.android.bluetooth.R;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.ProfileService;
+import com.android.bluetooth.btservice.storage.DatabaseManager;
 import com.android.bluetooth.sdp.SdpManager;
 import com.android.bluetooth.util.DevicePolicyUtils;
 import com.android.internal.annotations.VisibleForTesting;
@@ -65,6 +72,7 @@ import com.android.internal.annotations.VisibleForTesting;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 
 public class BluetoothPbapService extends ProfileService implements IObexConnectionHandler {
     private static final String TAG = "BluetoothPbapService";
@@ -117,9 +125,6 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
     static final int MSG_RELEASE_WAKE_LOCK = 5005;
     static final int MSG_STATE_MACHINE_DONE = 5006;
 
-    static final String BLUETOOTH_PERM = android.Manifest.permission.BLUETOOTH;
-    private static final String BLUETOOTH_ADMIN_PERM = android.Manifest.permission.BLUETOOTH_ADMIN;
-
     static final int START_LISTENER = 1;
     static final int USER_TIMEOUT = 2;
     static final int SHUTDOWN = 3;
@@ -138,6 +143,7 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
     private static String sLocalPhoneName;
 
     private ObexServerSockets mServerSockets = null;
+    private DatabaseManager mDatabaseManager;
 
     private static final int SDP_PBAP_SERVER_VERSION = 0x0102;
     // PBAP v1.2.3, Sec. 7.1.2: local phonebook and favorites
@@ -364,7 +370,8 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
                     intent.putExtra(BluetoothDevice.EXTRA_DEVICE, stateMachine.getRemoteDevice());
                     intent.putExtra(BluetoothDevice.EXTRA_ACCESS_REQUEST_TYPE,
                             BluetoothDevice.REQUEST_TYPE_PHONEBOOK_ACCESS);
-                    sendBroadcast(intent, BLUETOOTH_ADMIN_PERM);
+                    sendBroadcast(intent, BLUETOOTH_CONNECT,
+                            Utils.getTempAllowlistBroadcastOptions());
                     stateMachine.sendMessage(PbapStateMachine.REJECTED);
                     break;
                 case MSG_ACQUIRE_WAKE_LOCK:
@@ -426,6 +433,7 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
      * {@link BluetoothProfile#STATE_CONNECTING}, {@link BluetoothProfile#STATE_CONNECTED}, or
      * {@link BluetoothProfile#STATE_DISCONNECTING}
      */
+    @RequiresPermission(android.Manifest.permission.BLUETOOTH_PRIVILEGED)
     public int getConnectionState(BluetoothDevice device) {
         enforceCallingOrSelfPermission(
                 BLUETOOTH_PRIVILEGED, "Need BLUETOOTH_PRIVILEGED permission");
@@ -443,7 +451,6 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
     }
 
     List<BluetoothDevice> getConnectedDevices() {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         if (mPbapStateMachineMap == null) {
             return new ArrayList<>();
         }
@@ -453,7 +460,6 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
     }
 
     List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         List<BluetoothDevice> devices = new ArrayList<>();
         if (mPbapStateMachineMap == null || states == null) {
             return devices;
@@ -484,14 +490,18 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
      * @param connectionPolicy is the connection policy to set to for this profile
      * @return true if connectionPolicy is set, false on error
      */
+    @RequiresPermission(android.Manifest.permission.BLUETOOTH_PRIVILEGED)
     public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
         enforceCallingOrSelfPermission(
                 BLUETOOTH_PRIVILEGED, "Need BLUETOOTH_PRIVILEGED permission");
         if (DEBUG) {
             Log.d(TAG, "Saved connectionPolicy " + device + " = " + connectionPolicy);
         }
-        AdapterService.getAdapterService().getDatabase()
-                .setProfileConnectionPolicy(device, BluetoothProfile.PBAP, connectionPolicy);
+
+        if (!mDatabaseManager.setProfileConnectionPolicy(device, BluetoothProfile.PBAP,
+                  connectionPolicy)) {
+            return false;
+        }
         if (connectionPolicy == BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
             disconnect(device);
         }
@@ -514,8 +524,7 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
         if (device == null) {
             throw new IllegalArgumentException("Null device");
         }
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
-        return AdapterService.getAdapterService().getDatabase()
+        return mDatabaseManager
                 .getProfileConnectionPolicy(device, BluetoothProfile.PBAP);
     }
 
@@ -524,7 +533,6 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
      * @param device is the remote bluetooth device
      */
     public void disconnect(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
         synchronized (mPbapStateMachineMap) {
             PbapStateMachine sm = mPbapStateMachineMap.get(device);
             if (sm != null) {
@@ -551,6 +559,9 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
         if (VERBOSE) {
             Log.v(TAG, "start()");
         }
+        mDatabaseManager = Objects.requireNonNull(AdapterService.getAdapterService().getDatabase(),
+            "DatabaseManager cannot be null when PbapService starts");
+
         mContext = this;
         mContactsLoaded = false;
         mHandlerThread = new HandlerThread("PbapHandlerThread");
@@ -648,15 +659,14 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
     private static class PbapBinder extends IBluetoothPbap.Stub implements IProfileServiceBinder {
         private BluetoothPbapService mService;
 
-        private BluetoothPbapService getService() {
-            if (!Utils.checkCaller()) {
-                Log.w(TAG, "not allowed for non-active user");
+        @RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
+        private BluetoothPbapService getService(AttributionSource source) {
+            if (!Utils.checkCallerIsSystemOrActiveUser(TAG)
+                    || !Utils.checkServiceAvailable(mService, TAG)
+                    || !Utils.checkConnectPermissionForDataDelivery(mService, source, TAG)) {
                 return null;
             }
-            if (mService != null && mService.isAvailable()) {
-                return mService;
-            }
-            return null;
+            return mService;
         }
 
         PbapBinder(BluetoothPbapService service) {
@@ -672,11 +682,11 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
         }
 
         @Override
-        public List<BluetoothDevice> getConnectedDevices() {
+        public List<BluetoothDevice> getConnectedDevices(AttributionSource source) {
             if (DEBUG) {
                 Log.d(TAG, "getConnectedDevices");
             }
-            BluetoothPbapService service = getService();
+            BluetoothPbapService service = getService(source);
             if (service == null) {
                 return new ArrayList<>(0);
             }
@@ -684,11 +694,12 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
         }
 
         @Override
-        public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
+        public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states,
+                AttributionSource source) {
             if (DEBUG) {
                 Log.d(TAG, "getDevicesMatchingConnectionStates");
             }
-            BluetoothPbapService service = getService();
+            BluetoothPbapService service = getService(source);
             if (service == null) {
                 return new ArrayList<>(0);
             }
@@ -696,11 +707,12 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
         }
 
         @Override
-        public int getConnectionState(BluetoothDevice device) {
+        public int getConnectionState(BluetoothDevice device, AttributionSource source) {
             if (DEBUG) {
                 Log.d(TAG, "getConnectionState: " + device);
             }
-            BluetoothPbapService service = getService();
+            Attributable.setAttributionSource(device, source);
+            BluetoothPbapService service = getService(source);
             if (service == null) {
                 return BluetoothAdapter.STATE_DISCONNECTED;
             }
@@ -708,12 +720,14 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
         }
 
         @Override
-        public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
+        public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy,
+                AttributionSource source) {
             if (DEBUG) {
                 Log.d(TAG, "setConnectionPolicy for device: " + device + ", policy:"
                         + connectionPolicy);
             }
-            BluetoothPbapService service = getService();
+            Attributable.setAttributionSource(device, source);
+            BluetoothPbapService service = getService(source);
             if (service == null) {
                 return false;
             }
@@ -721,11 +735,12 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
         }
 
         @Override
-        public void disconnect(BluetoothDevice device) {
+        public void disconnect(BluetoothDevice device, AttributionSource source) {
             if (DEBUG) {
                 Log.d(TAG, "disconnect");
             }
-            BluetoothPbapService service = getService();
+            Attributable.setAttributionSource(device, source);
+            BluetoothPbapService service = getService(source);
             if (service == null) {
                 return;
             }
@@ -760,6 +775,7 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
      * @param stateMachine PbapStateMachine which sends the request
      */
     @VisibleForTesting(visibility = VisibleForTesting.Visibility.PACKAGE)
+    @RequiresPermission(android.Manifest.permission.BLUETOOTH_PRIVILEGED)
     public void checkOrGetPhonebookPermission(PbapStateMachine stateMachine) {
         BluetoothDevice device = stateMachine.getRemoteDevice();
         int permission = device.getPhonebookAccessPermission();
@@ -780,7 +796,10 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
                     BluetoothDevice.REQUEST_TYPE_PHONEBOOK_ACCESS);
             intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
             intent.putExtra(BluetoothDevice.EXTRA_PACKAGE_NAME, this.getPackageName());
-            this.sendOrderedBroadcast(intent, BluetoothPbapService.BLUETOOTH_ADMIN_PERM);
+            this.sendOrderedBroadcast(intent, BLUETOOTH_CONNECT,
+                    Utils.getTempAllowlistBroadcastOptions(), null/* resultReceiver */,
+                    null/* scheduler */, Activity.RESULT_OK/* initialCode */, null/* initialData */,
+                    null/* initialExtras */);
             if (VERBOSE) {
                 Log.v(TAG, "waiting for authorization for connection from: " + device);
             }

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <!--
  Copyright (C) 2008 The Android Open Source Project
 
@@ -14,25 +14,32 @@
  See the License for the specific language governing permissions and
  limitations under the License.
  -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="com.android.provision">
 
-    <original-package android:name="com.android.provision" />
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+     package="com.android.provision">
+
+    <original-package android:name="com.android.provision"/>
 
     <!-- For miscellaneous settings -->
-    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
-    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+    <uses-permission android:name="android.permission.WRITE_SETTINGS"/>
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"/>
+
+    <!-- To start the device owner provisioning workflow  -->
+    <uses-permission android:name="android.permission.DISPATCH_PROVISIONING_MESSAGE"/>
+
+    <!-- To factory reset if provisioning failed -->
+    <uses-permission android:name="android.permission.MASTER_CLEAR"/>
 
     <application>
         <activity android:name="DefaultActivity"
-                android:excludeFromRecents="true">
+             android:excludeFromRecents="true"
+             android:exported="true">
             <intent-filter android:priority="1">
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.HOME" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.SETUP_WIZARD" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.HOME"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.SETUP_WIZARD"/>
             </intent-filter>
         </activity>
     </application>
 </manifest>
-

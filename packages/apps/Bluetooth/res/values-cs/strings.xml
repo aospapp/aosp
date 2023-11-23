@@ -18,8 +18,8 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"Získat přístup ke správci stahování."</string>
     <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"Umožňuje aplikaci přistupovat ke Správci sdílení Bluetooth a využívat jej k přenosu souborů."</string>
-    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"Povolit přístup zařízení Bluetooth."</string>
-    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"Umožňuje aplikaci dočasně povolit zařízení Bluetooth, aby tak mohlo odesílat soubory do tohoto zařízení bez potvrzení uživatele."</string>
+    <string name="permlab_bluetoothAcceptlist" msgid="2647575807648622053">"Povolit přístup zařízení Bluetooth."</string>
+    <string name="permdesc_bluetoothAcceptlist" msgid="2406423665674766442">"Umožňuje aplikaci dočasně povolit zařízení Bluetooth, aby tak mohlo odesílat soubory do tohoto zařízení bez potvrzení uživatele."</string>
     <string name="bt_share_picker_label" msgid="6268100924487046932">"Bluetooth"</string>
     <string name="unknown_device" msgid="9221903979877041009">"Neznámé zařízení"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"Neznámé"</string>
@@ -37,7 +37,7 @@
     <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"OK"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"Při příjmu příchozího souboru od uživatele <xliff:g id="SENDER">%1$s</xliff:g> vypršel časový limit."</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"Příchozí soubor"</string>
-    <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="SENDER">%1$s</xliff:g> – odeslání souboru <xliff:g id="FILE">%2$s</xliff:g> je připraveno"</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="6237487486781004992">"<xliff:g id="SENDER">%1$s</xliff:g> může odeslat soubor: <xliff:g id="FILE">%2$s</xliff:g>"</string>
     <string name="notification_receiving" msgid="4674648179652543984">"Sdílení Bluetooth: Příjem souboru <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="notification_received" msgid="3324588019186687985">"Sdílení Bluetooth: Soubor <xliff:g id="FILE">%1$s</xliff:g> byl přijat"</string>
     <string name="notification_received_fail" msgid="3619350997285714746">"Sdílení Bluetooth: Soubor <xliff:g id="FILE">%1$s</xliff:g> nebyl přijat"</string>
@@ -83,8 +83,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"Odesílání souboru uživateli <xliff:g id="RECIPIENT">%1$s</xliff:g>"</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"Odesílání <xliff:g id="NUMBER">%1$s</xliff:g> souborů uživateli <xliff:g id="RECIPIENT">%2$s</xliff:g>"</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"Odesílání souboru uživateli <xliff:g id="RECIPIENT">%1$s</xliff:g> bylo zastaveno"</string>
-    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"Pro uložení souboru od odesílatele <xliff:g id="SENDER">%1$s</xliff:g> není v úložišti USB dost místa."</string>
-    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"Pro uložení souboru od odesílatele <xliff:g id="SENDER">%1$s</xliff:g> není na SD kartě dost místa."</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="5354343190503952837">"Na úložišti USB není dost místa k uložení souboru."</string>
+    <string name="bt_sm_2_1_default" msgid="2497541206648973852">"Na SD kartě není dost místa k uložení souboru."</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"Požadované místo v paměti: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"Je zpracováváno příliš mnoho požadavků. Opakujte akci později."</string>
     <string name="status_pending" msgid="2503691772030877944">"Přenos souborů ještě nebyl zahájen."</string>

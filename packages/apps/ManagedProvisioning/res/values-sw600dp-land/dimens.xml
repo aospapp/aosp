@@ -19,10 +19,4 @@
 <resources>
     <!-- Dialog Fragment text -->
     <dimen name="dialog_fragment_width">356dp</dimen>
-
-    <!--== Provisioning2 ==-->
-
-    <!-- Pre-provisioning -->
-    <dimen name="terms_screen_margin">@dimen/spacer_112</dimen>
-    <dimen name="terms_screen_padding">@dimen/spacer_24</dimen>
 </resources>

@@ -20,7 +20,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
-import androidx.leanback.app.GuidedStepFragment;
+import androidx.leanback.app.GuidedStepSupportFragment;
 import androidx.leanback.widget.BaseGridView;
 import androidx.leanback.widget.FacetProvider;
 import androidx.leanback.widget.GuidanceStylist;
@@ -43,7 +43,7 @@ public class GuidedActionsAlignUtil {
      * viewholder with the new facet when we are creating a GuidedActionStylist.
      */
     private static class SetupViewHolder extends GuidedActionsStylist.ViewHolder implements
-                FacetProvider {
+            FacetProvider {
         SetupViewHolder(View v) {
             super(v);
         }
@@ -57,14 +57,14 @@ public class GuidedActionsAlignUtil {
                 ItemAlignmentFacet.ItemAlignmentDef alignedDef =
                         new ItemAlignmentFacet.ItemAlignmentDef();
                 alignedDef.setItemAlignmentViewId(
-                        androidx.leanback.R.id.guidedactions_item_title);
+                        R.id.guidedactions_item_title);
                 alignedDef.setAlignedToTextViewBaseline(false);
                 alignedDef.setItemAlignmentOffset(0);
                 alignedDef.setItemAlignmentOffsetWithPadding(true);
                 // 50 refers to 50 percent, which refers to mid position of textView.
                 alignedDef.setItemAlignmentOffsetPercent(50);
                 ItemAlignmentFacet f = new ItemAlignmentFacet();
-                f.setAlignmentDefs(new ItemAlignmentDef[] {alignedDef});
+                f.setAlignmentDefs(new ItemAlignmentDef[]{alignedDef});
                 return f;
             }
             return null;
@@ -72,8 +72,8 @@ public class GuidedActionsAlignUtil {
     }
 
     /**
-     * Create a customized GuidedActionsStylist for {@link GuidedStepFragment} used in device name
-     * setup.
+     * Create a customized GuidedActionsStylist for {@link GuidedStepSupportFragment} used in device
+     * name setup.
      */
     public static GuidedActionsStylist createGuidedActionsStylist() {
         return new GuidedActionsStylist() {
@@ -87,8 +87,8 @@ public class GuidedActionsAlignUtil {
     }
 
     /**
-     * Create a customized GuidedActionsStylist {@link GuidedStepFragment} WITHOUT background used
-     * in device name customization input step.
+     * Create a customized GuidedActionsStylist {@link GuidedStepSupportFragment} WITHOUT background
+     * used in device name customization input step.
      */
     public static GuidedActionsStylist createNoBackgroundGuidedActionsStylist() {
         return new GuidedActionsStylist() {
@@ -99,6 +99,7 @@ public class GuidedActionsAlignUtil {
                 v.setBackground(null);
                 return new GuidedActionsAlignUtil.SetupViewHolder(v);
             }
+
             @Override
             public int onProvideItemLayoutId() {
                 return R.layout.device_name_input_item;
@@ -107,10 +108,10 @@ public class GuidedActionsAlignUtil {
     }
 
     /**
-     * Create a customized view for {@link androidx.leanback.app.GuidedStepFragment} used
+     * Create a customized view for {@link GuidedStepSupportFragment} used
      * in device name setup.
      */
-    public static View createView(View view, GuidedStepFragment guidedStepFragment) {
+    public static View createView(View view, GuidedStepSupportFragment guidedStepFragment) {
         // action_fragment_root's padding cannot be set via attributes so we do it programmatically.
         final View actionFragmentRoot = view.findViewById(R.id.action_fragment_root);
         if (actionFragmentRoot != null) {
@@ -131,7 +132,8 @@ public class GuidedActionsAlignUtil {
     }
 
     /**
-     * Create a customized GuidanceStylist for {@link GuidedStepFragment} used in device name setup.
+     * Create a customized GuidanceStylist for {@link GuidedStepSupportFragment} used in device name
+     * setup.
      */
     public static GuidanceStylist createGuidanceStylist() {
         return new GuidanceStylist() {

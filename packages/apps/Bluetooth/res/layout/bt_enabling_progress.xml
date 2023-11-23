@@ -25,21 +25,26 @@
     <LinearLayout
         android:orientation="horizontal"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+        android:baselineAligned="false"
+        android:paddingStart="?android:attr/dialogPreferredPadding"
+        android:paddingTop="@*android:dimen/dialog_padding_top_material"
+        android:paddingEnd="?android:attr/dialogPreferredPadding"
+        android:paddingBottom="@*android:dimen/dialog_padding_top_material">
 
-        <ProgressBar android:id="@+id/progress"
+        <ProgressBar
+            android:id="@+id/progress"
+            style="?android:attr/progressBarStyle"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content" />
+            android:layout_height="wrap_content"
+            android:max="10000"
+            android:layout_marginEnd="?android:attr/dialogPreferredPadding" />
 
         <TextView
             android:id="@+id/progress_info"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginLeft="20dip"
-            android:layout_marginRight="20dip"
-            android:layout_gravity="center_vertical"
-            android:textAppearance="?android:attr/textAppearanceMedium" />
-
+            android:layout_gravity="center_vertical" />
      </LinearLayout>
 
  </ScrollView>

@@ -66,6 +66,7 @@ public class DhcpDiscoverPacket extends DhcpPacket {
         if (mRapidCommit) {
             addTlv(buffer, DHCP_RAPID_COMMIT);
         }
+        addCustomizedClientTlvs(buffer);
         addTlvEnd(buffer);
     }
 }

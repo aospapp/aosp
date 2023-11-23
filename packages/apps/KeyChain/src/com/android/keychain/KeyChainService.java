@@ -18,58 +18,82 @@ package com.android.keychain;
 
 import static android.app.admin.SecurityLog.TAG_CERT_AUTHORITY_INSTALLED;
 import static android.app.admin.SecurityLog.TAG_CERT_AUTHORITY_REMOVED;
+import static android.security.KeyStore.UID_SELF;
 
+import android.Manifest;
+import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.app.AppOpsManager;
 import android.app.BroadcastOptions;
 import android.app.IntentService;
 import android.app.admin.SecurityLog;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.StringParceledListSlice;
+import android.hardware.security.keymint.ErrorCode;
+import android.net.Uri;
 import android.os.Binder;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.Process;
 import android.os.UserHandle;
-import android.security.Credentials;
+import android.security.AppUriAuthenticationPolicy;
+import android.security.CredentialManagementApp;
 import android.security.IKeyChainService;
 import android.security.KeyChain;
-import android.security.KeyStore;
-import android.security.keymaster.KeymasterArguments;
-import android.security.keymaster.KeymasterCertificateChain;
-import android.security.keystore.AttestationUtils;
-import android.security.keystore.DeviceIdAttestationException;
+import android.security.KeyStore2;
 import android.security.keystore.KeyGenParameterSpec;
+import android.security.keystore.KeyProperties;
 import android.security.keystore.ParcelableKeyGenParameterSpec;
 import android.security.keystore.StrongBoxUnavailableException;
+import android.security.keystore2.AndroidKeyStoreLoadStoreParameter;
+import android.system.keystore2.Domain;
+import android.system.keystore2.KeyDescriptor;
+import android.system.keystore2.KeyPermission;
 import android.text.TextUtils;
 import android.util.Base64;
 import android.util.Log;
 
+import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.util.Preconditions;
 import com.android.internal.widget.LockPatternUtils;
 import com.android.keychain.internal.ExistingKeysProvider;
 import com.android.keychain.internal.GrantsDatabase;
 import com.android.org.conscrypt.TrustedCertificateStore;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.security.InvalidAlgorithmParameterException;
+import java.security.Key;
+import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
+import java.security.PrivateKey;
+import java.security.ProviderException;
+import java.security.UnrecoverableKeyException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import javax.security.auth.x500.X500Principal;
@@ -79,21 +103,68 @@ public class KeyChainService extends IntentService {
     private static final String TAG = "KeyChain";
     private static final String CERT_INSTALLER_PACKAGE = "com.android.certinstaller";
     private final Set<Integer> ALLOWED_UIDS = Collections.unmodifiableSet(
-            new HashSet(Arrays.asList(KeyStore.UID_SELF, Process.WIFI_UID)));
+            new HashSet(Arrays.asList(UID_SELF, Process.WIFI_UID)));
+
+    private static final String MSG_NOT_SYSTEM = "Not system package";
+    private static final String MSG_NOT_SYSTEM_OR_CERT_INSTALLER =
+            "Not system or cert installer package";
+    private static final String MSG_NOT_SYSTEM_OR_CRED_MNG_APP =
+            "Not system or credential management app package";
 
     /** created in onCreate(), closed in onDestroy() */
     private GrantsDatabase mGrantsDb;
     private Injector mInjector;
-    private final KeyStore mKeyStore = KeyStore.getInstance();
+    private KeyStore mKeyStore;
+    private KeyChainStateStorage mStateStorage;
+
+    private Object mCredentialManagementAppLock = new Object();
+    @Nullable
+    @GuardedBy("mCredentialManagementAppLock")
+    private CredentialManagementApp mCredentialManagementApp;
 
     public KeyChainService() {
         super(KeyChainService.class.getSimpleName());
         mInjector = new Injector();
     }
 
+    private KeyStore getKeyStore() {
+        try {
+            final KeyStore keystore = mInjector.getKeyStoreInstance();
+            keystore.load(null);
+            return keystore;
+        } catch (KeyStoreException | IOException | NoSuchAlgorithmException
+                | CertificateException e) {
+            Log.e(TAG, "Error opening AndroidKeyStore.", e);
+            throw new RuntimeException("Error opening AndroidKeyStore.", e);
+        }
+    }
+
+    private KeyStore getKeyStore(boolean useWifiNamespace) {
+        if (!useWifiNamespace) {
+            return mKeyStore;
+        }
+        try {
+            final KeyStore keystore = mInjector.getKeyStoreInstance();
+            keystore.load(
+                    new AndroidKeyStoreLoadStoreParameter(
+                            KeyProperties.NAMESPACE_WIFI));
+            return keystore;
+        } catch (IOException | CertificateException | KeyStoreException
+                | NoSuchAlgorithmException e) {
+            Log.e(TAG, "Failed to open AndroidKeyStore for WI-FI namespace.", e);
+            return null;
+        }
+    }
+
     @Override public void onCreate() {
         super.onCreate();
+        mKeyStore = getKeyStore();
         mGrantsDb = new GrantsDatabase(this, new KeyStoreAliasesProvider(mKeyStore));
+        mStateStorage = new KeyChainStateStorage(getDataDir());
+
+        synchronized (mCredentialManagementAppLock) {
+            mCredentialManagementApp = mStateStorage.loadCredentialManagementApp();
+        }
     }
 
     @Override
@@ -112,21 +183,33 @@ public class KeyChainService extends IntentService {
 
         @Override
         public List<String> getExistingKeyAliases() {
-            List<String> aliases = new ArrayList<String>();
-            String[] keyStoreAliases = mKeyStore.list(Credentials.USER_PRIVATE_KEY);
-            if (keyStoreAliases == null) {
-                return aliases;
+            final List<String> keyStoreAliases = new ArrayList<>();
+            try {
+                final Enumeration<String> aliases = mKeyStore.aliases();
+                while (aliases.hasMoreElements()) {
+                    final String alias = aliases.nextElement();
+                    if (!alias.startsWith(LockPatternUtils.SYNTHETIC_PASSWORD_KEY_PREFIX)) {
+                        if (mKeyStore.isKeyEntry(alias)) {
+                            keyStoreAliases.add(alias);
+                        }
+                    }
+                }
+            } catch (KeyStoreException e) {
+                Log.e(TAG, "Error while loading entries from keystore. "
+                        + "List may be empty or incomplete.");
             }
 
-            for (String alias: keyStoreAliases) {
-                Log.w(TAG, "Got Alias from KeyStore: " + alias);
-                String unPrefixedAlias = alias.replaceFirst("^" + Credentials.USER_PRIVATE_KEY, "");
-                if (!unPrefixedAlias.startsWith(LockPatternUtils.SYNTHETIC_PASSWORD_KEY_PREFIX)) {
-                    aliases.add(unPrefixedAlias);
-                }
-            }
-            return aliases;
+            return keyStoreAliases;
         }
+    }
+
+    private KeyDescriptor makeKeyDescriptor(String alias) {
+        final KeyDescriptor key = new KeyDescriptor();
+        key.domain = Domain.APP;
+        key.nspace = KeyProperties.NAMESPACE_APPLICATION;
+        key.alias = alias;
+        key.blob = null;
+        return key;
     }
 
     private final IKeyChainService.Stub mIKeyChainService = new IKeyChainService.Stub() {
@@ -136,28 +219,83 @@ public class KeyChainService extends IntentService {
 
         @Override
         public String requestPrivateKey(String alias) {
-            if (!hasGrant(alias)) {
+            final CallerIdentity caller = getCaller();
+            if (!hasGrant(alias, caller)) {
                 return null;
             }
 
-            final String keystoreAlias = Credentials.USER_PRIVATE_KEY + alias;
-            final int uid = mInjector.getCallingUid();
-            Log.i(TAG, String.format("UID %d will be granted access to %s", uid, keystoreAlias));
-            return mKeyStore.grant(keystoreAlias, uid);
+            final int granteeUid = caller.mUid;
+
+            try {
+                final KeyStore2 keyStore2 = KeyStore2.getInstance();
+                KeyDescriptor grant = keyStore2.grant(makeKeyDescriptor(alias), granteeUid,
+                        KeyPermission.USE | KeyPermission.GET_INFO);
+                return KeyChain.getGrantString(grant);
+            } catch (android.security.KeyStoreException e) {
+                Log.e(TAG, "Failed to grant " + alias + " to uid: " + granteeUid, e);
+                return null;
+            }
+        }
+
+        @Override
+        public String getWifiKeyGrantAsUser(String alias) {
+            Preconditions.checkCallAuthorization(isSystemUid(getCaller()), MSG_NOT_SYSTEM);
+
+            if (!hasGrant(alias, Process.WIFI_UID)) {
+                return null;
+            }
+
+            KeyStore2 keyStore2 = KeyStore2.getInstance();
+            try {
+                KeyDescriptor grant = keyStore2.grant(makeKeyDescriptor(alias),
+                        Process.WIFI_UID, KeyPermission.USE | KeyPermission.GET_INFO);
+                return KeyStore2.makeKeystoreEngineGrantString(grant.nspace);
+            } catch (android.security.KeyStoreException e) {
+                Log.e(TAG, "Failed to grant " + alias + " to uid: " + Process.WIFI_UID, e);
+                return null;
+            }
         }
 
         @Override public byte[] getCertificate(String alias) {
-            if (!hasGrant(alias)) {
+            final CallerIdentity caller = getCaller();
+            if (!hasGrant(alias, caller) && !isSystemUid(caller)) {
                 return null;
             }
-            return mKeyStore.get(Credentials.USER_CERTIFICATE + alias);
+            try {
+                if (!mKeyStore.isCertificateEntry(alias)) {
+                    final Certificate cert = mKeyStore.getCertificate(alias);
+                    if (cert == null) return null;
+                    return cert.getEncoded();
+                } else {
+                    return null;
+                }
+            } catch (KeyStoreException | CertificateEncodingException e) {
+                Log.e(TAG, "Failed to retrieve certificate.", e);
+                return null;
+            }
         }
 
         @Override public byte[] getCaCertificates(String alias) {
-            if (!hasGrant(alias)) {
+            final CallerIdentity caller = getCaller();
+            if (!hasGrant(alias, caller) && !isSystemUid(caller)) {
                 return null;
             }
-            return mKeyStore.get(Credentials.CA_CERTIFICATE + alias);
+            try {
+                if (mKeyStore.isCertificateEntry(alias)) {
+                    return mKeyStore.getCertificate(alias).getEncoded();
+                } else {
+                    final Certificate[] certs = mKeyStore.getCertificateChain(alias);
+                    if (certs == null || certs.length <= 1) return null;
+                    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+                    for (int i = 1; i < certs.length; ++i) {
+                        outputStream.write(certs[i].getEncoded());
+                    }
+                    return outputStream.toByteArray();
+                }
+            } catch (KeyStoreException | CertificateEncodingException | IOException e) {
+                Log.e(TAG, "Failed to retrieve certificate(s) from AndroidKeyStore.", e);
+                return null;
+            }
         }
 
         @Override public boolean isUserSelectable(String alias) {
@@ -167,7 +305,7 @@ public class KeyChainService extends IntentService {
 
         @Override public void setUserSelectable(String alias, boolean isUserSelectable) {
             validateAlias(alias);
-            checkSystemCaller();
+            Preconditions.checkCallAuthorization(isSystemUid(getCaller()), MSG_NOT_SYSTEM);
             Log.i(TAG, String.format("Marking certificate %s as user-selectable: %b", alias,
                     isUserSelectable));
             mGrantsDb.setIsUserSelectable(alias, isUserSelectable);
@@ -175,7 +313,7 @@ public class KeyChainService extends IntentService {
 
         @Override public int generateKeyPair(
                 String algorithm, ParcelableKeyGenParameterSpec parcelableSpec) {
-            checkSystemCaller();
+            Preconditions.checkCallAuthorization(isSystemUid(getCaller()), MSG_NOT_SYSTEM);
             final KeyGenParameterSpec spec = parcelableSpec.getSpec();
             final String alias = spec.getKeystoreAlias();
 
@@ -188,21 +326,9 @@ public class KeyChainService extends IntentService {
             }
             // Validate the alias here to avoid relying on KeyGenParameterSpec c'tor preventing
             // the creation of a KeyGenParameterSpec instance with a non-empty alias.
-            if (TextUtils.isEmpty(alias) || spec.getUid() != KeyStore.UID_SELF) {
+            if (TextUtils.isEmpty(alias) || spec.getUid() != UID_SELF) {
                 Log.e(TAG, "Cannot generate key pair with empty alias or specified uid.");
                 return KeyChain.KEY_GEN_MISSING_ALIAS;
-            }
-
-            if (spec.getAttestationChallenge() != null) {
-                Log.e(TAG, "Key generation request should not include an Attestation challenge.");
-                return KeyChain.KEY_GEN_SUPERFLUOUS_ATTESTATION_CHALLENGE;
-            }
-
-            if (!removeKeyPair(alias)) {
-                Log.e(TAG, "Failed to remove previously-installed alias " + alias);
-                //TODO: Introduce a different error code in R to distinguish the failure to remove
-                // old keys from other failures.
-                return KeyChain.KEY_GEN_FAILURE;
             }
 
             try {
@@ -230,98 +356,58 @@ public class KeyChainService extends IntentService {
             } catch (StrongBoxUnavailableException e) {
                 Log.e(TAG, "StrongBox unavailable.", e);
                 return KeyChain.KEY_GEN_STRONGBOX_UNAVAILABLE;
-            }
-        }
-
-        @Override public int attestKey(
-                String alias, byte[] attestationChallenge,
-                int[] idAttestationFlags,
-                KeymasterCertificateChain attestationChain) {
-            checkSystemCaller();
-            validateAlias(alias);
-
-            if (attestationChallenge == null) {
-                Log.e(TAG, String.format("Missing attestation challenge for alias %s", alias));
-                return KeyChain.KEY_ATTESTATION_MISSING_CHALLENGE;
-            }
-
-            if (Log.isLoggable(TAG, Log.DEBUG)) {
-                Log.d(TAG, String.format("About to attest key alias %s, challenge %s, flags %s",
-                        alias, Base64.encodeToString(attestationChallenge, Base64.NO_WRAP),
-                        Arrays.toString(idAttestationFlags)));
-            }
-
-            KeymasterArguments attestArgs;
-            try {
-                attestArgs = AttestationUtils.prepareAttestationArguments(
-                        mContext, idAttestationFlags, attestationChallenge);
-            } catch (DeviceIdAttestationException e) {
-                Log.e(TAG, "Failed collecting attestation data", e);
-                return KeyChain.KEY_ATTESTATION_CANNOT_COLLECT_DATA;
-            }
-            int errorCode = checkKeyChainStatus(alias, attestationChain, attestArgs);
-            if (errorCode == KeyChain.KEY_ATTESTATION_CANNOT_ATTEST_IDS) {
-                // b/69471841: id attestation might fail due to incorrect provisioning of device
-                try {
-                    attestArgs =
-                            AttestationUtils.prepareAttestationArgumentsIfMisprovisioned(
-                            mContext, idAttestationFlags, attestationChallenge);
-                    if (attestArgs == null) {
-                        return errorCode;
+            } catch (ProviderException e) {
+                Throwable t = e.getCause();
+                if (t instanceof android.security.KeyStoreException) {
+                    if (((android.security.KeyStoreException) t).getErrorCode()
+                            == ErrorCode.CANNOT_ATTEST_IDS) {
+                        return KeyChain.KEY_ATTESTATION_CANNOT_ATTEST_IDS;
                     }
-                } catch (DeviceIdAttestationException e) {
-                    Log.e(TAG, "Failed collecting attestation data "
-                            + "during second attempt on misprovisioned device", e);
-                    return KeyChain.KEY_ATTESTATION_CANNOT_COLLECT_DATA;
                 }
+                Log.e(TAG, "KeyStore error.", e);
+                return KeyChain.KEY_GEN_FAILURE;
             }
-
-            return checkKeyChainStatus(alias, attestationChain, attestArgs);
-        }
-
-        private int checkKeyChainStatus(
-                String alias,
-                KeymasterCertificateChain attestationChain,
-                KeymasterArguments attestArgs) {
-
-            final String keystoreAlias = Credentials.USER_PRIVATE_KEY + alias;
-            final int errorCode = mKeyStore.attestKey(keystoreAlias, attestArgs, attestationChain);
-            if (errorCode != KeyStore.NO_ERROR) {
-                Log.e(TAG, String.format("Failure attesting for key %s: %d", alias, errorCode));
-                if (errorCode == KeyStore.CANNOT_ATTEST_IDS) {
-                    return KeyChain.KEY_ATTESTATION_CANNOT_ATTEST_IDS;
-                } else {
-                    // General failure, cannot discern which.
-                    return KeyChain.KEY_ATTESTATION_FAILURE;
-                }
-            }
-
-            return KeyChain.KEY_ATTESTATION_SUCCESS;
         }
 
         @Override public boolean setKeyPairCertificate(String alias, byte[] userCertificate,
                 byte[] userCertificateChain) {
-            checkSystemCaller();
-            if (!mKeyStore.put(Credentials.USER_CERTIFICATE + alias, userCertificate,
-                        KeyStore.UID_SELF, KeyStore.FLAG_NONE)) {
-                Log.e(TAG, "Failed to import user certificate " + userCertificate);
+            Preconditions.checkCallAuthorization(isSystemUid(getCaller()), MSG_NOT_SYSTEM);
+
+            final PrivateKey privateKey;
+            try {
+                final Key key = mKeyStore.getKey(alias, null);
+                if (! (key instanceof PrivateKey)) {
+                    return false;
+                }
+                privateKey = (PrivateKey) key;
+            } catch (KeyStoreException | NoSuchAlgorithmException | UnrecoverableKeyException e) {
+                Log.e(TAG, "Failed to get private key entry.", e);
                 return false;
             }
 
-            if (userCertificateChain != null && userCertificateChain.length > 0) {
-                if (!mKeyStore.put(Credentials.CA_CERTIFICATE + alias, userCertificateChain,
-                            KeyStore.UID_SELF, KeyStore.FLAG_NONE)) {
-                    Log.e(TAG, "Failed to import certificate chain" + userCertificateChain);
-                    if (!mKeyStore.delete(Credentials.USER_CERTIFICATE + alias)) {
-                        Log.e(TAG, "Failed to clean up key chain after certificate chain"
-                                + " importing failed");
-                    }
-                    return false;
+            final ArrayList<Certificate> certs = new ArrayList<>();
+            try {
+                if (userCertificate != null) {
+                    certs.add(parseCertificate(userCertificate));
                 }
-            } else {
-                if (!mKeyStore.delete(Credentials.CA_CERTIFICATE + alias)) {
-                    Log.e(TAG, "Failed to remove CA certificate chain for alias " + alias);
+                if (userCertificateChain != null) {
+                    certs.addAll(parseCertificates(userCertificateChain));
                 }
+            } catch (CertificateException e) {
+                Log.e(TAG, "Failed to parse user certificate.", e);
+                return false;
+            }
+
+            final Certificate[] certsArray = certs.toArray(new Certificate[0]);
+
+            try {
+                // setKeyEntry with a private key loaded from AndroidKeyStore replaces
+                // the certificate components without touching the private key if
+                // the alias is the same as that of the private key.
+                mKeyStore.setKeyEntry(alias, privateKey, null, certsArray);
+            } catch (KeyStoreException e) {
+                Log.e(TAG, "Failed update key certificates.", e);
+                return false;
             }
 
             if (Log.isLoggable(TAG, Log.DEBUG)) {
@@ -340,14 +426,17 @@ public class KeyChainService extends IntentService {
             }
         }
 
-        private boolean hasGrant(String alias) {
+        private boolean hasGrant(String alias, CallerIdentity caller) {
+            return hasGrant(alias, caller.mUid);
+        }
+
+        private boolean hasGrant(String alias, int targetUid) {
             validateAlias(alias);
 
-            final int callingUid = mInjector.getCallingUid();
-            if (!mGrantsDb.hasGrant(callingUid, alias)) {
+            if (!mGrantsDb.hasGrant(targetUid, alias)) {
                 Log.w(TAG, String.format(
                         "uid %d doesn't have permission to access the requested alias %s",
-                        callingUid, alias));
+                        targetUid, alias));
                 return false;
             }
 
@@ -355,41 +444,56 @@ public class KeyChainService extends IntentService {
         }
 
         @Override public String installCaCertificate(byte[] caCertificate) {
-            checkCertInstallerOrSystemCaller();
+            final CallerIdentity caller = getCaller();
+            Preconditions.checkCallAuthorization(isSystemUid(caller) || isCertInstaller(caller),
+                    MSG_NOT_SYSTEM_OR_CERT_INSTALLER);
             final String alias;
-            String subjectForAudit = null;
+            String subject = null;
+            final boolean isSecurityLoggingEnabled = mInjector.isSecurityLoggingEnabled();
+            final X509Certificate cert;
             try {
-                final X509Certificate cert = parseCertificate(caCertificate);
-                final boolean isSecurityLoggingEnabled = mInjector.isSecurityLoggingEnabled();
+                cert = parseCertificate(caCertificate);
+
                 final boolean isDebugLoggable = Log.isLoggable(TAG, Log.DEBUG);
-                if (isSecurityLoggingEnabled || isDebugLoggable) {
-                    final String subject =
-                            cert.getSubjectX500Principal().getName(X500Principal.CANONICAL);
-                    if (isDebugLoggable) {
-                        Log.d(TAG, String.format("Installing CA certificate: %s", subject));
-                    }
-                    if (isSecurityLoggingEnabled) {
-                        subjectForAudit = subject;
-                    }
+                subject = cert.getSubjectX500Principal().getName(X500Principal.CANONICAL);
+                if (isDebugLoggable) {
+                    Log.d(TAG, String.format("Installing CA certificate: %s", subject));
                 }
+
                 synchronized (mTrustedCertificateStore) {
                     mTrustedCertificateStore.installCertificate(cert);
                     alias = mTrustedCertificateStore.getCertificateAlias(cert);
                 }
             } catch (IOException | CertificateException e) {
                 Log.w(TAG, "Failed installing CA certificate", e);
-                if (subjectForAudit != null) {
+                if (isSecurityLoggingEnabled && subject != null) {
                     mInjector.writeSecurityEvent(
-                            TAG_CERT_AUTHORITY_INSTALLED, 0 /*result*/, subjectForAudit,
+                            TAG_CERT_AUTHORITY_INSTALLED, 0 /*result*/, subject,
                             UserHandle.myUserId());
                 }
                 throw new IllegalStateException(e);
             }
-            if (subjectForAudit != null) {
+            if (isSecurityLoggingEnabled && subject != null) {
                 mInjector.writeSecurityEvent(
-                        TAG_CERT_AUTHORITY_INSTALLED, 1 /*result*/, subjectForAudit,
+                        TAG_CERT_AUTHORITY_INSTALLED, 1 /*result*/, subject,
                         UserHandle.myUserId());
             }
+
+            // If the caller is the cert installer, install the CA certificate into KeyStore.
+            // This is a temporary solution to enable CA certificates to be used as VPN trust
+            // anchors. Ultimately, the user should explicitly choose to install the VPN trust
+            // anchor separately and independently of CA certificates, at which point this code
+            // should be removed.
+            if (CERT_INSTALLER_PACKAGE.equals(caller.mPackageName)) {
+                try {
+                    mKeyStore.setCertificateEntry(String.format("%s %s", subject, alias), cert);
+                } catch(KeyStoreException e) {
+                    Log.e(TAG, String.format(
+                            "Attempted installing %s (subject: %s) to KeyStore. Failed", alias,
+                            subject), e);
+                }
+            }
+
             broadcastLegacyStorageChange();
             broadcastTrustStoreChange();
             return alias;
@@ -403,17 +507,19 @@ public class KeyChainService extends IntentService {
          * @param userCertificateChain The rest of the chain for the client certificate
          * @param alias The alias under which the key pair is installed. It is invalid to pass
          *              {@code KeyChain.KEY_ALIAS_SELECTION_DENIED}.
-         * @param uid Can be only one of two values: Either {@code KeyStore.UID_SELF} to indicate
-         *            installation into the current user's system Keystore instance, or
-         *            {@code Process.WIFI_UID} to indicate installation into the main user's
-         *            WiFi Keystore instance. It is only valid to pass {@code Process.WIFI_UID} to
-         *            the KeyChain service on user 0.
+         * @param uid Can be only one of two values: Either
+         *            {@code android.security.KeyStore.UID_SELF} to indicate installation into the
+         *            current user's system Keystore instance, or {@code Process.WIFI_UID} to
+         *            indicate installation into the main user's WiFi Keystore instance. It is only
+         *            valid to pass {@code Process.WIFI_UID} to the KeyChain service on user 0.
          * @return Whether the operation succeeded or not.
          */
         @Override public boolean installKeyPair(@Nullable byte[] privateKey,
                 @Nullable byte[] userCertificate, @Nullable byte[] userCertificateChain,
                 String alias, int uid) {
-            checkCertInstallerOrSystemCaller();
+            final CallerIdentity caller = getCaller();
+            Preconditions.checkCallAuthorization(isSystemUid(caller) || isCertInstaller(caller),
+                    MSG_NOT_SYSTEM_OR_CERT_INSTALLER);
             if (KeyChain.KEY_ALIAS_SELECTION_DENIED.equals(alias)) {
                 throw new IllegalArgumentException("The alias specified for the key denotes "
                         + "a reserved value and cannot be used to name a key");
@@ -444,42 +550,78 @@ public class KeyChainService extends IntentService {
                                 emptyOrBase64Encoded(userCertificateChain)));
             }
 
-            if (!removeKeyPair(alias)) {
-                return false;
-            }
-            if (privateKey != null && !mKeyStore.importKey(
-                    Credentials.USER_PRIVATE_KEY + alias, privateKey, uid, KeyStore.FLAG_NONE)) {
-                Log.e(TAG, "Failed to import private key " + alias);
-                return false;
-            }
-            if (userCertificate != null &&
-                    !mKeyStore.put(Credentials.USER_CERTIFICATE + alias, userCertificate,
-                        uid, KeyStore.FLAG_NONE)) {
-                Log.e(TAG, "Failed to import user certificate " + userCertificate);
-                if (!mKeyStore.delete(Credentials.USER_PRIVATE_KEY + alias)) {
-                    Log.e(TAG, "Failed to delete private key after certificate importing failed");
+            final ArrayList<Certificate> certs = new ArrayList<>();
+            try {
+                if (userCertificate != null) {
+                    certs.add(parseCertificate(userCertificate));
                 }
+                if (userCertificateChain != null) {
+                    certs.addAll(parseCertificates(userCertificateChain));
+                }
+            } catch (CertificateException e) {
+                Log.e(TAG, "Failed to parse user certificate.", e);
                 return false;
             }
-            if (userCertificateChain != null && userCertificateChain.length > 0) {
-                if (!mKeyStore.put(Credentials.CA_CERTIFICATE + alias, userCertificateChain, uid,
-                        KeyStore.FLAG_NONE)) {
-                    Log.e(TAG, "Failed to import certificate chain" + userCertificateChain);
-                    if (!removeKeyPair(alias)) {
-                        Log.e(TAG, "Failed to clean up key chain after certificate chain"
-                                + " importing failed");
+
+            if (certs.isEmpty()) {
+                Log.e(TAG, "Cannot install private key without public certificate.");
+                return false;
+            }
+
+            final Certificate[] certificates = certs.toArray(new Certificate[0]);
+
+            final PrivateKey privateKey1;
+            try {
+                if (privateKey != null) {
+                    final KeyFactory keyFactory =
+                            KeyFactory.getInstance(certificates[0].getPublicKey().getAlgorithm());
+                    privateKey1 = keyFactory.generatePrivate(new PKCS8EncodedKeySpec(privateKey));
+                } else {
+                    privateKey1 = null;
+                }
+            } catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
+                Log.e(TAG, "Failed to parse private key.", e);
+                return false;
+            }
+
+            KeyStore keystore = getKeyStore(uid == Process.WIFI_UID);
+            if (keystore == null) {
+                return false;
+            }
+
+            try {
+                if (privateKey != null) {
+                    keystore.setKeyEntry(alias, privateKey1, null, certificates);
+                } else {
+                    if (certificates.length > 1) {
+                        Log.e(TAG,
+                                "Cannot install key certificate chain without private key.");
+                        return false;
                     }
-                    return false;
+                    keystore.setCertificateEntry(alias, certificates[0]);
                 }
+            } catch (KeyStoreException e) {
+                Log.e(TAG, "Failed to install key pair.", e);
             }
+
             broadcastKeychainChange();
             broadcastLegacyStorageChange();
             return true;
         }
 
         @Override public boolean removeKeyPair(String alias) {
-            checkCertInstallerOrSystemCaller();
-            if (!Credentials.deleteAllTypesForAlias(mKeyStore, alias)) {
+            final CallerIdentity caller = getCaller();
+            Preconditions.checkCallAuthorization(isSystemUid(caller) || isCertInstaller(caller),
+                    MSG_NOT_SYSTEM_OR_CERT_INSTALLER);
+            return removeKeyPairInternal(alias);
+        }
+
+        private boolean removeKeyPairInternal(String alias) {
+            try {
+                mKeyStore.deleteEntry(alias);
+            } catch (KeyStoreException e) {
+                Log.e(TAG, String.format(
+                        "Failed not remove keystore entry with alias %s", alias));
                 return false;
             }
             Log.w(TAG, String.format(
@@ -490,14 +632,31 @@ public class KeyChainService extends IntentService {
             return true;
         }
 
+        @Override public boolean containsKeyPair(String alias) {
+            Preconditions.checkCallAuthorization(isSystemUid(getCaller()), MSG_NOT_SYSTEM);
+            try {
+                final Key key = mKeyStore.getKey(alias, null);
+                return key instanceof PrivateKey;
+            } catch (UnrecoverableKeyException | NoSuchAlgorithmException | KeyStoreException e) {
+                Log.w("Error while trying to check for key presence.", e);
+                return false;
+            }
+        }
+
         private X509Certificate parseCertificate(byte[] bytes) throws CertificateException {
             CertificateFactory cf = CertificateFactory.getInstance("X.509");
             return (X509Certificate) cf.generateCertificate(new ByteArrayInputStream(bytes));
         }
+        private Collection<X509Certificate> parseCertificates(byte[] bytes)
+                throws CertificateException {
+            final CertificateFactory cf = CertificateFactory.getInstance("X.509");
+            return (Collection<X509Certificate>)
+                    cf.generateCertificates(new ByteArrayInputStream(bytes));
+        }
 
         @Override public boolean reset() {
             // only Settings should be able to reset
-            checkSystemCaller();
+            Preconditions.checkCallAuthorization(isSystemUid(getCaller()), MSG_NOT_SYSTEM);
             mGrantsDb.removeAllAliasesInformation();
             boolean ok = true;
             synchronized (mTrustedCertificateStore) {
@@ -518,7 +677,7 @@ public class KeyChainService extends IntentService {
 
         @Override public boolean deleteCaCertificate(String alias) {
             // only Settings should be able to delete
-            checkSystemCaller();
+            Preconditions.checkCallAuthorization(isSystemUid(getCaller()), MSG_NOT_SYSTEM);
             boolean ok = true;
             Log.i(TAG, String.format("Deleting CA certificate %s", alias));
             synchronized (mTrustedCertificateStore) {
@@ -558,37 +717,58 @@ public class KeyChainService extends IntentService {
             }
         }
 
-        private void checkCertInstallerOrSystemCaller() {
-            final String caller = callingPackage();
-            if (!isCallerWithSystemUid() && !CERT_INSTALLER_PACKAGE.equals(caller)) {
-                throw new SecurityException("Not system or cert installer package: " + caller);
+        private boolean hasManageCredentialManagementAppPermission(CallerIdentity caller) {
+            return mContext.checkPermission(Manifest.permission.MANAGE_CREDENTIAL_MANAGEMENT_APP,
+                    caller.mPid, caller.mUid) == PackageManager.PERMISSION_GRANTED;
+        }
+
+        private boolean isCertInstaller(CallerIdentity caller) {
+            return caller.mPackageName != null
+                    && CERT_INSTALLER_PACKAGE.equals(caller.mPackageName);
+        }
+
+        private boolean isCredentialManagementApp(CallerIdentity caller) {
+            synchronized (mCredentialManagementAppLock) {
+                return mCredentialManagementApp != null && caller.mPackageName != null
+                        && caller.mPackageName.equals(mCredentialManagementApp.getPackageName());
             }
         }
 
-        private void checkSystemCaller() {
-            if (!isCallerWithSystemUid()) {
-                throw new SecurityException("Not system package: " + callingPackage());
-            }
-        }
-
-        private boolean isCallerWithSystemUid() {
-            return UserHandle.isSameApp(mInjector.getCallingUid(), Process.SYSTEM_UID);
-        }
-
-        private String callingPackage() {
-            return getPackageManager().getNameForUid(mInjector.getCallingUid());
+        private boolean isSystemUid(CallerIdentity caller) {
+            return UserHandle.isSameApp(caller.mUid, Process.SYSTEM_UID);
         }
 
         @Override public boolean hasGrant(int uid, String alias) {
-            checkSystemCaller();
+            Preconditions.checkCallAuthorization(isSystemUid(getCaller()), MSG_NOT_SYSTEM);
             return mGrantsDb.hasGrant(uid, alias);
         }
 
-        @Override public void setGrant(int uid, String alias, boolean value) {
-            checkSystemCaller();
-            mGrantsDb.setGrant(uid, alias, value);
-            broadcastPermissionChange(uid, alias, value);
+        @Override public boolean setGrant(int uid, String alias, boolean granted) {
+            Preconditions.checkCallAuthorization(isSystemUid(getCaller()), MSG_NOT_SYSTEM);
+            mGrantsDb.setGrant(uid, alias, granted);
+            if (!granted) {
+                try {
+                    KeyStore2.getInstance().ungrant(makeKeyDescriptor(alias), uid);
+                } catch (android.security.KeyStoreException e) {
+                    Log.e(TAG, "Failed to ungrant " + alias + " to uid: " + uid, e);
+                    return false;
+                }
+            }
+            broadcastPermissionChange(uid, alias, granted);
             broadcastLegacyStorageChange();
+            return true;
+        }
+
+        @Override public int[] getGrants(String alias) {
+            Preconditions.checkCallAuthorization(isSystemUid(getCaller()), MSG_NOT_SYSTEM);
+            try {
+                if (mKeyStore.isKeyEntry(alias)) {
+                    return mGrantsDb.getGrants(alias);
+                }
+            } catch (KeyStoreException e) {
+                Log.w(TAG, "Error while checking if key exists.", e);
+            }
+            throw new IllegalArgumentException("Alias not found: " + alias);
         }
 
         @Override
@@ -655,6 +835,149 @@ public class KeyChainService extends IntentService {
                 }
             }
         }
+
+        @Override
+        public void setCredentialManagementApp(@NonNull String packageName,
+                @NonNull AppUriAuthenticationPolicy authenticationPolicy) {
+            final CallerIdentity caller = getCaller();
+            Preconditions.checkCallAuthorization(isSystemUid(caller)
+                    || hasManageCredentialManagementAppPermission(caller), MSG_NOT_SYSTEM);
+            checkValidAuthenticationPolicy(authenticationPolicy);
+
+            synchronized (mCredentialManagementAppLock) {
+                if (mCredentialManagementApp != null) {
+                    final String existingPackage = mCredentialManagementApp.getPackageName();
+                    if (existingPackage.equals(packageName)) {
+                        // Update existing credential management app's policy
+                        removeOrphanedKeyPairs(authenticationPolicy);
+                    } else {
+                        // Replace existing credential management app
+                        removeOrphanedKeyPairs(null);
+                        setManageCredentialsAppOps(existingPackage, false);
+                    }
+                }
+                setManageCredentialsAppOps(packageName, true);
+                mCredentialManagementApp = new CredentialManagementApp(packageName,
+                        authenticationPolicy);
+                mStateStorage.saveCredentialManagementApp(mCredentialManagementApp);
+            }
+        }
+
+        private void setManageCredentialsAppOps(String packageName, boolean allowed) {
+            try {
+                int mode = allowed ? AppOpsManager.MODE_ALLOWED : AppOpsManager.MODE_DEFAULT;
+                ApplicationInfo appInfo = getPackageManager().getApplicationInfo(packageName, 0);
+                getSystemService(AppOpsManager.class).setMode(AppOpsManager.OP_MANAGE_CREDENTIALS,
+                        appInfo.uid, packageName, mode);
+            } catch (PackageManager.NameNotFoundException e) {
+                Log.e(TAG, "Unable to find info for package: " + packageName);
+            }
+        }
+
+        private void removeOrphanedKeyPairs(
+                @Nullable AppUriAuthenticationPolicy newPolicy) {
+            Set<String> existingAliases = mCredentialManagementApp.getAuthenticationPolicy()
+                    .getAliases();
+            Set<String> newAliases = newPolicy != null ? newPolicy.getAliases() : new HashSet<>();
+
+            // Uninstall all certificates that are no longer included in the new
+            // authentication policy
+            for (String existingAlias : existingAliases) {
+                if (!newAliases.contains(existingAlias)) {
+                    removeKeyPairInternal(existingAlias);
+                }
+            }
+        }
+
+        private void checkValidAuthenticationPolicy(
+                @NonNull AppUriAuthenticationPolicy authenticationPolicy) {
+            if (authenticationPolicy == null
+                    || authenticationPolicy.getAppAndUriMappings().isEmpty()) {
+                throw new IllegalArgumentException("The authentication policy is null or empty");
+            }
+            // Check whether any of the aliases in the policy already exist
+            for (String alias : authenticationPolicy.getAliases()) {
+                if (requestPrivateKey(alias) != null) {
+                    throw new IllegalArgumentException(String.format("The authentication policy "
+                            + "contains an installed alias: %s", alias));
+                }
+            }
+        }
+
+        @Override
+        public boolean hasCredentialManagementApp() {
+            Preconditions.checkCallAuthorization(isSystemUid(getCaller()), MSG_NOT_SYSTEM);
+            synchronized (mCredentialManagementAppLock) {
+                return mCredentialManagementApp != null;
+            }
+        }
+
+        @Nullable
+        @Override
+        public String getCredentialManagementAppPackageName() {
+            Preconditions.checkCallAuthorization(isSystemUid(getCaller()), MSG_NOT_SYSTEM);
+            synchronized (mCredentialManagementAppLock) {
+                return mCredentialManagementApp != null
+                        ? mCredentialManagementApp.getPackageName()
+                        : null;
+            }
+        }
+
+        @Nullable
+        @Override
+        public AppUriAuthenticationPolicy getCredentialManagementAppPolicy() {
+            final CallerIdentity caller = getCaller();
+            Preconditions.checkCallAuthorization(isSystemUid(caller)
+                            || isCredentialManagementApp(caller), MSG_NOT_SYSTEM_OR_CRED_MNG_APP);
+            synchronized (mCredentialManagementAppLock) {
+                return mCredentialManagementApp != null
+                        ? mCredentialManagementApp.getAuthenticationPolicy()
+                        : null;
+            }
+        }
+
+        @Nullable
+        @Override
+        public String getPredefinedAliasForPackageAndUri(@NonNull String packageName,
+                @Nullable Uri uri) {
+            Preconditions.checkCallAuthorization(isSystemUid(getCaller()), MSG_NOT_SYSTEM);
+            synchronized (mCredentialManagementAppLock) {
+                if (mCredentialManagementApp == null || uri == null) {
+                    return null;
+                }
+                Map<Uri, String> urisToAliases = mCredentialManagementApp.getAuthenticationPolicy()
+                        .getAppAndUriMappings().get(packageName);
+                return urisToAliases != null ? urisToAliases.get(uri) : null;
+            }
+        }
+
+        @Override
+        public void removeCredentialManagementApp() {
+            final CallerIdentity caller = getCaller();
+            Preconditions.checkCallAuthorization(isSystemUid(caller)
+                            || isCredentialManagementApp(caller)
+                            || hasManageCredentialManagementAppPermission(caller),
+                    MSG_NOT_SYSTEM_OR_CRED_MNG_APP);
+            synchronized (mCredentialManagementAppLock) {
+                if (mCredentialManagementApp != null) {
+                    // Remove all certificates
+                    removeOrphanedKeyPairs(null);
+                    setManageCredentialsAppOps(mCredentialManagementApp.getPackageName(), false);
+                }
+                mCredentialManagementApp = null;
+                mStateStorage.saveCredentialManagementApp(mCredentialManagementApp);
+            }
+        }
+
+        @Override
+        public boolean isCredentialManagementApp(@NonNull String packageName) {
+            final CallerIdentity caller = getCaller();
+            Preconditions.checkCallAuthorization(isSystemUid(caller)
+                    || isCredentialManagementApp(caller), MSG_NOT_SYSTEM_OR_CRED_MNG_APP);
+            synchronized (mCredentialManagementAppLock) {
+                return packageName.equals(mCredentialManagementApp.getPackageName());
+            }
+        }
     };
 
     @Override public IBinder onBind(Intent intent) {
@@ -711,6 +1034,23 @@ public class KeyChainService extends IntentService {
         return Base64.encodeToString(cert, Base64.NO_WRAP);
     }
 
+    private final class CallerIdentity {
+
+        final int mUid;
+        final int mPid;
+        final String mPackageName;
+
+        CallerIdentity() {
+            mUid = mInjector.getCallingUid();
+            mPid = Binder.getCallingPid();
+            mPackageName = getPackageManager().getNameForUid(mUid);
+        }
+    }
+
+    private CallerIdentity getCaller() {
+        return new CallerIdentity();
+    }
+
     @VisibleForTesting
     void setInjector(Injector injector) {
         mInjector = injector;
@@ -731,6 +1071,10 @@ public class KeyChainService extends IntentService {
 
         public int getCallingUid() {
             return Binder.getCallingUid();
+        }
+
+        public KeyStore getKeyStoreInstance() throws KeyStoreException {
+            return KeyStore.getInstance("AndroidKeyStore");
         }
     }
 }

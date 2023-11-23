@@ -16,9 +16,10 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="public_safety_message" msgid="7237115648380675159">"Мэдээллийн зурвас"</string>
-    <string name="enable_public_safety_messages_title" msgid="4037404034274507696">"Мэдээллийн зурвас"</string>
+    <string name="public_safety_message" msgid="7237115648380675159">"Мэдээллийн мессеж"</string>
+    <string name="enable_public_safety_messages_title" msgid="4037404034274507696">"Мэдээллийн мессеж"</string>
     <string name="cmas_required_monthly_test" msgid="9061179556831144678">"Яаралтай сэрэмжлүүлэг: Туршилтын мессеж"</string>
     <string name="cmas_exercise_alert" msgid="3061507852301643814">"Онцгой байдлын сэрэмжлүүлэг: Сургуулилалт/Сургалтын мессеж"</string>
     <string name="pws_other_message_identifiers" msgid="4992476982074198144">"Онцгой байдлын сэрэмжлүүлэг: Туршилтын мессеж"</string>
+    <string name="button_dismiss" msgid="5823921161712171097">"Нуух"</string>
 </resources>

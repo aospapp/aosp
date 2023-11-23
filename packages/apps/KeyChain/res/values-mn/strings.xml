@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"Та %1$s эсхүл %2$s өргөтгэлтэй гадаад хадгалах санд байрласан PKCS#12 файлаас сертификатуудыг суулгаж болно."</string>
     <string name="allow_button" msgid="3030990695030371561">"Сонгох"</string>
     <string name="deny_button" msgid="3766539809121892584">"Татгалзах"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"Сертификатыг ачаалж байна..."</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"%s сертификатыг шалгаж байна…"</string>
 </resources>

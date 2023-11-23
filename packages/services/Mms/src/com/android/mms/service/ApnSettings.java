@@ -18,13 +18,13 @@ package com.android.mms.service;
 
 import android.content.Context;
 import android.database.Cursor;
-import android.net.NetworkUtils;
 import android.net.Uri;
 import android.provider.Telephony;
 import android.telephony.data.ApnSetting;
 import android.text.TextUtils;
 
 import com.android.mms.service.exception.ApnException;
+import com.android.net.module.util.Inet4AddressUtils;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -102,7 +102,7 @@ public class ApnSettings {
         }
 
         try (Cursor cursor = context.getContentResolver().query(
-                    Uri.withAppendedPath(Telephony.Carriers.CONTENT_URI, "/subId/" + subId),
+                    Uri.withAppendedPath(Telephony.Carriers.SIM_APN_URI, String.valueOf(subId)),
                     APN_PROJECTION,
                     selection,
                     selectionArgs,
@@ -132,7 +132,7 @@ public class ApnSettings {
                 if (TextUtils.isEmpty(mmscUrl)) {
                     continue;
                 }
-                mmscUrl = NetworkUtils.trimV4AddrZeros(mmscUrl);
+                mmscUrl = Inet4AddressUtils.trimAddressZeros(mmscUrl);
                 try {
                     new URI(mmscUrl);
                 } catch (URISyntaxException e) {
@@ -140,7 +140,7 @@ public class ApnSettings {
                 }
                 String proxyAddress = trimWithNullCheck(cursor.getString(COLUMN_MMSPROXY));
                 if (!TextUtils.isEmpty(proxyAddress)) {
-                    proxyAddress = NetworkUtils.trimV4AddrZeros(proxyAddress);
+                    proxyAddress = Inet4AddressUtils.trimAddressZeros(proxyAddress);
                     final String portString =
                             trimWithNullCheck(cursor.getString(COLUMN_MMSPORT));
                     if (!TextUtils.isEmpty(portString)) {

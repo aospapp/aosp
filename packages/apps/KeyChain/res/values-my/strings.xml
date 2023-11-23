@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"အသိအမှတ်ပြုလက်မှတ်များကို ပြင်ပ သိုလှောင်ရာများမှာရှိသော %1$s သို့မဟုတ် %2$s ဖိုင်နောက်ဆက်တွဲပါသော  PKCS#12 ဖိုင် များမှ ထည့်သွင်းနိုင်သည်။"</string>
     <string name="allow_button" msgid="3030990695030371561">"ရွေးရန်"</string>
     <string name="deny_button" msgid="3766539809121892584">"ငြင်းပယ်ရန်"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"အသိ‌အမှတ်ပြုလက်မှတ်များကို ဖွင့်နေသည်..."</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"%s က အသိအမှတ်ပြုလက်မှတ်ကို ရှာဖွေနေသည်…"</string>
 </resources>

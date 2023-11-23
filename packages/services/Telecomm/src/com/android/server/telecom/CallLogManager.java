@@ -16,6 +16,7 @@
 
 package com.android.server.telecom;
 
+import static android.provider.CallLog.Calls.BLOCK_REASON_NOT_BLOCKED;
 import static android.telephony.CarrierConfigManager.KEY_SUPPORT_IMS_CONFERENCE_EVENT_PACKAGE_BOOL;
 
 import android.annotation.Nullable;
@@ -23,25 +24,26 @@ import android.content.Context;
 import android.content.Intent;
 import android.location.Country;
 import android.location.CountryDetector;
+import android.location.Location;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Looper;
 import android.os.UserHandle;
 import android.os.PersistableBundle;
+import android.provider.CallLog;
 import android.provider.CallLog.Calls;
 import android.telecom.Connection;
 import android.telecom.DisconnectCause;
 import android.telecom.Log;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
+import android.telecom.TelecomManager;
 import android.telecom.VideoProfile;
 import android.telephony.CarrierConfigManager;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.SubscriptionManager;
 
-// TODO: Needed for move to system service: import com.android.internal.R;
 import com.android.internal.annotations.VisibleForTesting;
-import android.telecom.CallerInfo;
 import com.android.server.telecom.callfiltering.CallFilteringResult;
 
 import java.util.Arrays;
@@ -65,68 +67,19 @@ public final class CallLogManager extends CallsManagerListenerBase {
      * Parameter object to hold the arguments to add a call in the call log DB.
      */
     private static class AddCallArgs {
-        /**
-         * @param callerInfo Caller details.
-         * @param number The phone number to be logged.
-         * @param presentation Number presentation of the phone number to be logged.
-         * @param callType The type of call (e.g INCOMING_TYPE). @see
-         *     {@link android.provider.CallLog} for the list of values.
-         * @param features The features of the call (e.g. FEATURES_VIDEO). @see
-         *     {@link android.provider.CallLog} for the list of values.
-         * @param creationDate Time when the call was created (milliseconds since epoch).
-         * @param durationInMillis Duration of the call (milliseconds).
-         * @param dataUsage Data usage in bytes, or null if not applicable.
-         * @param isRead Indicates if the entry has been read or not.
-         * @param logCallCompletedListener optional callback called after the call is logged.
-         */
-        public AddCallArgs(Context context, CallerInfo callerInfo, String number,
-                String postDialDigits, String viaNumber, int presentation, int callType,
-                int features, PhoneAccountHandle accountHandle, long creationDate,
-                long durationInMillis, Long dataUsage, UserHandle initiatingUser, boolean isRead,
-                @Nullable LogCallCompletedListener logCallCompletedListener, int callBlockReason,
-                CharSequence callScreeningAppName, String callScreeningComponentName) {
+        public AddCallArgs(Context context, CallLog.AddCallParams params,
+                @Nullable LogCallCompletedListener logCallCompletedListener) {
             this.context = context;
-            this.callerInfo = callerInfo;
-            this.number = number;
-            this.postDialDigits = postDialDigits;
-            this.viaNumber = viaNumber;
-            this.presentation = presentation;
-            this.callType = callType;
-            this.features = features;
-            this.accountHandle = accountHandle;
-            this.timestamp = creationDate;
-            this.durationInSec = (int)(durationInMillis / 1000);
-            this.dataUsage = dataUsage;
-            this.initiatingUser = initiatingUser;
-            this.isRead = isRead;
+            this.params = params;
             this.logCallCompletedListener = logCallCompletedListener;
-            this.callBockReason = callBlockReason;
-            this.callScreeningAppName = callScreeningAppName;
-            this.callScreeningComponentName = callScreeningComponentName;
+
         }
         // Since the members are accessed directly, we don't use the
         // mXxxx notation.
         public final Context context;
-        public final CallerInfo callerInfo;
-        public final String number;
-        public final String postDialDigits;
-        public final String viaNumber;
-        public final int presentation;
-        public final int callType;
-        public final int features;
-        public final PhoneAccountHandle accountHandle;
-        public final long timestamp;
-        public final int durationInSec;
-        public final Long dataUsage;
-        public final UserHandle initiatingUser;
-        public final boolean isRead;
-
+        public final CallLog.AddCallParams params;
         @Nullable
         public final LogCallCompletedListener logCallCompletedListener;
-
-        public final int callBockReason;
-        public final CharSequence callScreeningAppName;
-        public final String callScreeningComponentName;
     }
 
     private static final String TAG = CallLogManager.class.getSimpleName();
@@ -311,106 +264,133 @@ public final class CallLogManager extends CallsManagerListenerBase {
      */
     void logCall(Call call, int callLogType,
         @Nullable LogCallCompletedListener logCallCompletedListener, CallFilteringResult result) {
-        long creationTime;
 
+        CallLog.AddCallParams.AddCallParametersBuilder paramBuilder =
+                new CallLog.AddCallParams.AddCallParametersBuilder();
         if (call.getConnectTimeMillis() != 0
                 && call.getConnectTimeMillis() < call.getCreationTimeMillis()) {
             // If connected time is available, use connected time. The connected time might be
             // earlier than created time since it might come from carrier sent special SMS to
             // notifier user earlier missed call.
-            creationTime = call.getConnectTimeMillis();
+            paramBuilder.setStart(call.getConnectTimeMillis());
         } else {
-            creationTime = call.getCreationTimeMillis();
+            paramBuilder.setStart(call.getCreationTimeMillis());
         }
 
-        final long age = call.getAgeMillis();
+        paramBuilder.setDuration((int) (call.getAgeMillis() / 1000));
 
-        final String logNumber = getLogNumber(call);
+        String logNumber = getLogNumber(call);
+        paramBuilder.setNumber(logNumber);
 
         Log.d(TAG, "logNumber set to: %s", Log.pii(logNumber));
-
-        final PhoneAccountHandle emergencyAccountHandle =
-                TelephonyUtil.getDefaultEmergencyPhoneAccount().getAccountHandle();
 
         String formattedViaNumber = PhoneNumberUtils.formatNumber(call.getViaNumber(),
                 getCountryIso());
         formattedViaNumber = (formattedViaNumber != null) ?
                 formattedViaNumber : call.getViaNumber();
+        paramBuilder.setViaNumber(formattedViaNumber);
 
+        final PhoneAccountHandle emergencyAccountHandle =
+                TelephonyUtil.getDefaultEmergencyPhoneAccount().getAccountHandle();
         PhoneAccountHandle accountHandle = call.getTargetPhoneAccount();
         if (emergencyAccountHandle.equals(accountHandle)) {
             accountHandle = null;
         }
+        paramBuilder.setAccountHandle(accountHandle);
 
-        Long callDataUsage = call.getCallDataUsage() == Call.DATA_USAGE_NOT_SET ? null :
-                call.getCallDataUsage();
+        paramBuilder.setDataUsage(call.getCallDataUsage() == Call.DATA_USAGE_NOT_SET
+                ? Long.MIN_VALUE : call.getCallDataUsage());
 
-        int callFeatures = getCallFeatures(call.getVideoStateHistory(),
+        paramBuilder.setFeatures(getCallFeatures(call.getVideoStateHistory(),
                 call.getDisconnectCause().getCode() == DisconnectCause.CALL_PULLED,
                 call.wasHighDefAudio(), call.wasWifi(),
                 (call.getConnectionProperties() & Connection.PROPERTY_ASSISTED_DIALING) ==
                         Connection.PROPERTY_ASSISTED_DIALING,
                 call.wasEverRttCall(),
-                call.wasVolte());
+                call.wasVolte()));
 
-        if (callLogType == Calls.BLOCKED_TYPE) {
-            logCall(call.getCallerInfo(), logNumber, call.getPostDialDigits(), formattedViaNumber,
-                    call.getHandlePresentation(), callLogType, callFeatures, accountHandle,
-                    creationTime, age, callDataUsage, call.isEmergencyCall(),
-                    call.getInitiatingUser(), call.isSelfManaged(), logCallCompletedListener,
-                    result.mCallBlockReason, result.mCallScreeningAppName,
-                    result.mCallScreeningComponentName);
+        if (result == null) {
+            result = new CallFilteringResult.Builder()
+                    .setCallScreeningAppName(call.getCallScreeningAppName())
+                    .setCallScreeningComponentName(call.getCallScreeningComponentName())
+                    .build();
+        }
+        if (callLogType == Calls.BLOCKED_TYPE || callLogType == Calls.MISSED_TYPE) {
+            paramBuilder.setCallBlockReason(result.mCallBlockReason);
+            paramBuilder.setCallScreeningComponentName(result.mCallScreeningComponentName);
+            paramBuilder.setCallScreeningAppName(result.mCallScreeningAppName);
         } else {
-            logCall(call.getCallerInfo(), logNumber, call.getPostDialDigits(), formattedViaNumber,
-                    call.getHandlePresentation(), callLogType, callFeatures, accountHandle,
-                    creationTime, age, callDataUsage, call.isEmergencyCall(),
-                    call.getInitiatingUser(), call.isSelfManaged(), logCallCompletedListener,
-                    Calls.BLOCK_REASON_NOT_BLOCKED, null /*callScreeningAppName*/,
-                    null /*callScreeningComponentName*/);
+            paramBuilder.setCallBlockReason(BLOCK_REASON_NOT_BLOCKED);
+        }
+
+        PhoneAccount phoneAccount = mPhoneAccountRegistrar.getPhoneAccountUnchecked(accountHandle);
+        UserHandle initiatingUser = call.getInitiatingUser();
+        if (phoneAccount != null &&
+                phoneAccount.hasCapabilities(PhoneAccount.CAPABILITY_MULTI_USER)) {
+            if (initiatingUser != null &&
+                    UserUtil.isManagedProfile(mContext, initiatingUser)) {
+                paramBuilder.setUserToBeInsertedTo(initiatingUser);
+                paramBuilder.setAddForAllUsers(false);
+            } else {
+                paramBuilder.setAddForAllUsers(true);
+            }
+        } else {
+            if (accountHandle == null) {
+                paramBuilder.setAddForAllUsers(true);
+            } else {
+                paramBuilder.setUserToBeInsertedTo(accountHandle.getUserHandle());
+                paramBuilder.setAddForAllUsers(accountHandle.getUserHandle() == null);
+            }
+        }
+        if (call.getIntentExtras() != null) {
+            if (call.getIntentExtras().containsKey(TelecomManager.EXTRA_PRIORITY)) {
+                paramBuilder.setPriority(call.getIntentExtras()
+                        .getInt(TelecomManager.EXTRA_PRIORITY));
+            }
+            if (call.getIntentExtras().containsKey(TelecomManager.EXTRA_CALL_SUBJECT)) {
+                paramBuilder.setSubject(call.getIntentExtras()
+                        .getString(TelecomManager.EXTRA_CALL_SUBJECT));
+            }
+            if (call.getIntentExtras().containsKey(TelecomManager.EXTRA_PICTURE_URI)) {
+                paramBuilder.setPictureUri(call.getIntentExtras()
+                        .getParcelable(TelecomManager.EXTRA_PICTURE_URI));
+            }
+            // The picture uri can end up either in extras or in intent extras due to how these
+            // two bundles are set. For incoming calls they're in extras, but for outgoing calls
+            // they're in intentExtras.
+            if (call.getExtras() != null
+                    && call.getExtras().containsKey(TelecomManager.EXTRA_PICTURE_URI)) {
+                paramBuilder.setPictureUri(call.getExtras()
+                        .getParcelable(TelecomManager.EXTRA_PICTURE_URI));
+            }
+            if (call.getIntentExtras().containsKey(TelecomManager.EXTRA_LOCATION)) {
+                Location l = call.getIntentExtras().getParcelable(TelecomManager.EXTRA_LOCATION);
+                if (l != null) {
+                    paramBuilder.setLatitude(l.getLatitude());
+                    paramBuilder.setLongitude(l.getLongitude());
+                }
+            }
+        }
+
+        paramBuilder.setCallerInfo(call.getCallerInfo());
+        paramBuilder.setPostDialDigits(call.getPostDialDigits());
+        paramBuilder.setPresentation(call.getHandlePresentation());
+        paramBuilder.setCallType(callLogType);
+        paramBuilder.setIsRead(call.isSelfManaged());
+        paramBuilder.setMissedReason(call.getMissedReason());
+
+        sendAddCallBroadcast(callLogType, call.getAgeMillis());
+
+        boolean okayToLog =
+                okayToLogCall(accountHandle, logNumber, call.isEmergencyCall());
+        if (okayToLog) {
+            AddCallArgs args = new AddCallArgs(mContext, paramBuilder.build(),
+                    logCallCompletedListener);
+            logCallAsync(args);
         }
     }
 
-    /**
-     * Inserts a call into the call log, based on the parameters passed in.
-     *
-     * @param callerInfo Caller details.
-     * @param number The number the call was made to or from.
-     * @param postDialDigits The post-dial digits that were dialed after the number,
-     *                       if it was an outgoing call. Otherwise ''.
-     * @param presentation
-     * @param callType The type of call.
-     * @param features The features of the call.
-     * @param start The start time of the call, in milliseconds.
-     * @param duration The duration of the call, in milliseconds.
-     * @param dataUsage The data usage for the call, null if not applicable.
-     * @param isEmergency {@code true} if this is an emergency call, {@code false} otherwise.
-     * @param logCallCompletedListener optional callback called after the call is logged.
-     * @param initiatingUser The user the call was initiated under.
-     * @param isSelfManaged {@code true} if this is a self-managed call, {@code false} otherwise.
-     * @param callBlockReason The reason why the call is blocked.
-     * @param callScreeningAppName The call screening application name which block the call.
-     * @param callScreeningComponentName The call screening component name which block the call.
-     */
-    private void logCall(
-            CallerInfo callerInfo,
-            String number,
-            String postDialDigits,
-            String viaNumber,
-            int presentation,
-            int callType,
-            int features,
-            PhoneAccountHandle accountHandle,
-            long start,
-            long duration,
-            Long dataUsage,
-            boolean isEmergency,
-            UserHandle initiatingUser,
-            boolean isSelfManaged,
-            @Nullable LogCallCompletedListener logCallCompletedListener,
-            int callBlockReason,
-            CharSequence callScreeningAppName,
-            String callScreeningComponentName) {
-
+    boolean okayToLogCall(PhoneAccountHandle accountHandle, String number, boolean isEmergency) {
         // On some devices, to avoid accidental redialing of emergency numbers, we *never* log
         // emergency calls to the Call Log.  (This behavior is set on a per-product basis, based
         // on carrier requirements.)
@@ -425,29 +405,8 @@ public final class CallLogManager extends CallsManagerListenerBase {
         }
 
         // Don't log emergency numbers if the device doesn't allow it.
-        final boolean isOkToLogThisCall = (!isEmergency || okToLogEmergencyNumber)
+        return (!isEmergency || okToLogEmergencyNumber)
                 && !isUnloggableNumber(number, configBundle);
-
-        sendAddCallBroadcast(callType, duration);
-
-        if (isOkToLogThisCall) {
-            Log.d(TAG, "Logging Call log entry: " + callerInfo + ", "
-                    + Log.pii(number) + "," + presentation + ", " + callType
-                    + ", " + start + ", " + duration);
-            boolean isRead = false;
-            if (isSelfManaged) {
-                // Mark self-managed calls are read since they're being handled by their own app.
-                // Their inclusion in the call log is informational only.
-                isRead = true;
-            }
-            AddCallArgs args = new AddCallArgs(mContext, callerInfo, number, postDialDigits,
-                    viaNumber, presentation, callType, features, accountHandle, start, duration,
-                    dataUsage, initiatingUser, isRead, logCallCompletedListener, callBlockReason,
-                    callScreeningAppName, callScreeningComponentName);
-            logCallAsync(args);
-        } else {
-          Log.d(TAG, "Not adding emergency call to call log.");
-        }
     }
 
     private boolean isUnloggableNumber(String callNumber, PersistableBundle carrierConfig) {
@@ -553,7 +512,7 @@ public final class CallLogManager extends CallsManagerListenerBase {
                 mListeners[i] = c.logCallCompletedListener;
                 try {
                     // May block.
-                    result[i] = addCall(c);
+                    result[i] = Calls.addCall(c.context, c.params);
                 } catch (Exception e) {
                     // This is very rare but may happen in legitimate cases.
                     // E.g. If the phone is encrypted and thus write request fails, it may cause
@@ -569,43 +528,13 @@ public final class CallLogManager extends CallsManagerListenerBase {
             return result;
         }
 
-        private Uri addCall(AddCallArgs c) {
-            PhoneAccount phoneAccount = mPhoneAccountRegistrar
-                    .getPhoneAccountUnchecked(c.accountHandle);
-            if (phoneAccount != null &&
-                    phoneAccount.hasCapabilities(PhoneAccount.CAPABILITY_MULTI_USER)) {
-                if (c.initiatingUser != null &&
-                        UserUtil.isManagedProfile(mContext, c.initiatingUser)) {
-                    return addCall(c, c.initiatingUser);
-                } else {
-                    return addCall(c, null);
-                }
-            } else {
-                return addCall(c, c.accountHandle == null ? null : c.accountHandle.getUserHandle());
-            }
-        }
-
-        /**
-         * Insert the call to a specific user or all users except managed profile.
-         * @param c context
-         * @param userToBeInserted user handle of user that the call going be inserted to. null
-         *                         if insert to all users except managed profile.
-         */
-        private Uri addCall(AddCallArgs c, UserHandle userToBeInserted) {
-            return Calls.addCall(c.callerInfo, c.context, c.number, c.postDialDigits, c.viaNumber,
-                    c.presentation, c.callType, c.features, c.accountHandle, c.timestamp,
-                    c.durationInSec, c.dataUsage, userToBeInserted == null,
-                    userToBeInserted, c.isRead, c.callBockReason, c.callScreeningAppName,
-                    c.callScreeningComponentName);
-        }
-
-
         @Override
         protected void onPostExecute(Uri[] result) {
             for (int i = 0; i < result.length; i++) {
                 Uri uri = result[i];
                 /*
-                 Performs a simple sanity check to make sure the call was written in the database.
+                 Performs a simple correctness check to make sure the call was written in the
+                 database.
                  Typically there is only one result per call so it is easy to identify which one
                  failed.
                  */

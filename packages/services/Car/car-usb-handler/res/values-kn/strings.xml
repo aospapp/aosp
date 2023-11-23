@@ -18,8 +18,8 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_name" msgid="6963366455471441257">"ಯುಎಸ್‌ಬಿ ಹಾಂಡ್ಲರ್"</string>
     <string name="usb_saved_devices" msgid="2829442070749964872">"ಉಳಿಸಲಾದ ಸಾಧನಗಳು"</string>
-    <string name="usb_pref_delete_title" msgid="3885061814853467483">"ಯುಎಸ್‌ಬಿ ಡ್ರೈವ್ ಅನ್ನು ನಿರ್ವಹಿಸುವ ಆಪ್ ಅನ್ನು ತೆಗೆ"</string>
-    <string name="usb_pref_delete_message" msgid="5849493572520646218">"ನೀವು ಖಂಡಿತವಾಗಿಯೂ %1$s ಕ್ಕೆ ಪೂರ್ವನಿಯೋಜಿತ ಆಪ್ ಅನ್ನು ಅಳಿಸಲು ಅಳಿಸಲು ಬಯಸುತ್ತೀರಾ?"</string>
+    <string name="usb_pref_delete_title" msgid="3885061814853467483">"ಯುಎಸ್‌ಬಿ ಡ್ರೈವ್ ಅನ್ನು ನಿರ್ವಹಿಸುವ ಆ್ಯಪ್‍‍ ಅನ್ನು ತೆಗೆಯಿರಿ"</string>
+    <string name="usb_pref_delete_message" msgid="5849493572520646218">"ನೀವು ಖಂಡಿತವಾಗಿಯೂ %1$s ಕ್ಕೆ ಪೂರ್ವನಿಯೋಜಿತ ಆ್ಯಪ್‍‍ ಅನ್ನು ಅಳಿಸಲು ಬಯಸುತ್ತೀರಾ?"</string>
     <string name="usb_pref_delete_yes" msgid="7803356145103146036">"ಹೌದು"</string>
     <string name="usb_pref_delete_cancel" msgid="5999791462730255929">"ರದ್ದುಗೊಳಿಸಿ"</string>
     <string name="usb_resolving_handlers" msgid="1943100136172948686">"ಬೆಂಬಲಿತ ಹ್ಯಾಂಡ್‌ಲರ್‌ಗಳನ್ನು ಪಡೆಯುತ್ತಿದ್ದೇವೆ"</string>

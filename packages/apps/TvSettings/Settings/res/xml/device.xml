@@ -86,6 +86,16 @@
         android:key="location"
         android:title="@string/system_location"/>
     <Preference
+        android:key="microphone"
+        android:icon="@drawable/ic_mic_on"
+        android:title="@string/microphone"
+        android:fragment="com.android.tv.settings.privacy.SensorFragment" />
+    <Preference
+        android:key="camera"
+        android:icon="@drawable/ic_camera"
+        android:title="@string/camera"
+        android:fragment="com.android.tv.settings.privacy.SensorFragment" />
+    <Preference
         android:icon="@drawable/ic_timeline"
         android:key="usageAndDiag"
         android:title="@string/system_diagnostic">

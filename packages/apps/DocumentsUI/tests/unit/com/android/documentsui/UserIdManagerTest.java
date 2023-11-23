@@ -157,7 +157,7 @@ public class UserIdManagerTest {
         // Returns the both if there are system and managed users.
         UserId currentUser = UserId.of(systemUser);
         initializeUserIdManager(currentUser, Arrays.asList(systemUser, managedUser1));
-        assertThat(mUserIdManager.getUserIds()).isSameAs(mUserIdManager.getUserIds());
+        assertThat(mUserIdManager.getUserIds()).isSameInstanceAs(mUserIdManager.getUserIds());
     }
 
     @Test

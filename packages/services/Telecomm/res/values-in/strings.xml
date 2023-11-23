@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3077225713817780583">"Pengelolaan Panggilan Telepon"</string>
+    <string name="telecommAppLabel" product="default" msgid="1825598513414129827">"Panggilan Telepon"</string>
     <string name="userCallActivityLabel" product="default" msgid="3605391260292846248">"Telepon"</string>
     <string name="unknown" msgid="6993977514360123431">"Tidak diketahui"</string>
     <string name="notification_missedCallTitle" msgid="5060387047205532974">"Panggilan tak terjawab"</string>
@@ -65,13 +65,13 @@
     <string name="blocked_numbers" msgid="8322134197039865180">"Nomor yang diblokir"</string>
     <string name="blocked_numbers_msg" msgid="2797422132329662697">"Anda tidak akan menerima telepon atau SMS dari nomor yang diblokir."</string>
     <string name="block_number" msgid="3784343046852802722">"Tambahkan nomor"</string>
-    <string name="unblock_dialog_body" msgid="2723393535797217261">"Batalkan pemblokiran <xliff:g id="NUMBER_TO_BLOCK">%1$s</xliff:g>?"</string>
-    <string name="unblock_button" msgid="8732021675729981781">"Batalkan pemblokiran"</string>
+    <string name="unblock_dialog_body" msgid="2723393535797217261">"Berhenti memblokir <xliff:g id="NUMBER_TO_BLOCK">%1$s</xliff:g>?"</string>
+    <string name="unblock_button" msgid="8732021675729981781">"Berhenti memblokir"</string>
     <string name="add_blocked_dialog_body" msgid="8599974422407139255">"Blokir panggilan telepon dan SMS dari"</string>
     <string name="add_blocked_number_hint" msgid="8769422085658041097">"Nomor telepon"</string>
     <string name="block_button" msgid="485080149164258770">"Blokir"</string>
     <string name="non_primary_user" msgid="315564589279622098">"Hanya pemilik perangkat yang dapat melihat dan mengelola nomor yang diblokir."</string>
-    <string name="delete_icon_description" msgid="5335959254954774373">"Bebaskan"</string>
+    <string name="delete_icon_description" msgid="5335959254954774373">"Berhenti memblokir"</string>
     <string name="blocked_numbers_butter_bar_title" msgid="582982373755950791">"Blokir dinonaktifkan sementara"</string>
     <string name="blocked_numbers_butter_bar_body" msgid="1261213114919301485">"Setelah Anda menelepon atau mengirim SMS ke nomor gawat darurat, blokir akan dinonaktifkan agar layanan gawat darurat tersebut dapat menghubungi Anda."</string>
     <string name="blocked_numbers_butter_bar_button" msgid="2704456308072489793">"Aktifkan lagi sekarang"</string>

@@ -28,8 +28,12 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Ši programa tvarkys jūsų įrenginį:"</string>
     <string name="next" msgid="1004321437324424398">"Kitas"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Nustatomas darbo profilis..."</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"IT administratorius gali stebėti ir tvarkyti nustatymus, įmonės prieigą, programas, leidimus ir su šiuo profiliu susijusius duomenis, įskaitant tinklo veiklą bei įrenginio vietovę, skambučių istoriją ir kontaktų paieškos istoriją.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Daugiau informacijos, įskaitant organizacijos privatumo politiką, galite gauti susisiekę su IT administratoriumi."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"IT administratorius gali stebėti ir tvarkyti nustatymus, įmonės prieigą, programas, leidimus ir su šiuo įrenginiu susijusius duomenis, įskaitant tinklo veiklą bei įrenginio vietovę, skambučių istoriją ir kontaktų paieškos istoriją.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Daugiau informacijos, įskaitant organizacijos privatumo politiką, galite gauti susisiekę su IT administratoriumi."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"IT administratorius gali stebėti ir tvarkyti nustatymus, įmonės prieigą, programas, leidimus ir su šiuo profiliu susijusius duomenis, įskaitant tinklo veiklą bei įrenginio vietovę, skambučių istoriją ir kontaktų paieškos istoriją.<xliff:g id="LINE_BREAK">
+
+</xliff:g>Daugiau informacijos, įskaitant organizacijos privatumo politiką, galite gauti susisiekę su IT administratoriumi."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"IT administratorius gali stebėti ir tvarkyti nustatymus, įmonės prieigą, programas, leidimus ir su šiuo įrenginiu susijusius duomenis, įskaitant tinklo veiklą bei įrenginio vietovę, skambučių istoriją ir kontaktų paieškos istoriją.<xliff:g id="LINE_BREAK">
+
+</xliff:g>Daugiau informacijos, įskaitant organizacijos privatumo politiką, galite gauti susisiekę su IT administratoriumi."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Kad galėtumėte naudoti apsaugos nuo vagystės funkcijas, turite nustatyti slaptažodžiu apsaugotą įrenginio ekrano užraktą."</string>
     <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"Susisiekite su IT administratoriumi, jei reikia daugiau informacijos, įskaitant organizacijos privatumo politiką."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Sužinokite daugiau"</string>
@@ -37,11 +41,11 @@
     <string name="ok_setup" msgid="4593707675416137504">"Gerai"</string>
     <string name="user_consent_msg" msgid="8820951802130353584">"Aš sutinku"</string>
     <string name="url_error" msgid="5958494012986243186">"Šios nuorodos negalima pateikti."</string>
+    <string name="navigation_button_description" msgid="6106309408994461239">"Eiti į viršų"</string>
     <string name="terms" msgid="8295436105384703903">"Sąlygos"</string>
     <string name="work_profile_info" msgid="5433388376309583996">"Darbo profilio informacija"</string>
     <string name="managed_device_info" msgid="1529447646526616811">"Tvarkoma įrenginio informacija"</string>
     <string name="default_managed_profile_name" msgid="5370257687074907055">"Darbo profilis"</string>
-    <string name="default_first_meat_user_name" msgid="7540515892748490540">"Pagrindinis naudotojas"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"Ištrinti esamą profilį?"</string>
     <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"Jau turite darbo profilį, kuris tvarkomas naudojant toliau nurodytą programą."</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"Prieš tęsdami "<a href="#read_this_link">"perskaitykite tai"</a>"."</string>
@@ -65,15 +69,6 @@
     <string name="user_setup_incomplete" msgid="6494920045526591079">"Naudotojo sąranka nebaigta"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"Darbo įrenginio naudotojas"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"Nustatomas darbo įrenginys…"</string>
-    <string name="progress_data_process" msgid="1707745321954672971">"Apdorojami sąrankos duomenys..."</string>
-    <string name="progress_connect_to_wifi" msgid="472251154628863539">"Prisijungiama prie „Wi-Fi“..."</string>
-    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"Prisijungiama prie mobiliojo ryšio tinklo…"</string>
-    <string name="progress_download" msgid="3522436271691064624">"Atsisiunčiama administratoriaus programa..."</string>
-    <string name="progress_install" msgid="2258045670385866183">"Diegiama administratoriaus programa..."</string>
-    <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"Šalinamos nebūtinos sistemos programos…"</string>
-    <string name="progress_finishing_touches" msgid="9037776404089697198">"Baigiama…"</string>
-    <string name="progress_set_owner" msgid="8214062820093757961">"Nustatomas įrenginio savininkas..."</string>
-    <string name="progress_initialize" msgid="1104643492713424939">"Inicijuojamas įrenginys…"</string>
     <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"Šiame įrenginyje neleidžiama naudoti šifruotės, kuri reikalinga atliekant sąranką. Jei reikia pagalbos, susisiekite su IT administratoriumi."</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"Sustabdyti sąranką ir atkurti įrenginio gamyklinius nustatymus?"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"Tai atlikus bus atkurti gamykliniai įrenginio duomenys ir jūs būsite nukreipti į pirmąjį ekraną"</string>
@@ -162,11 +157,10 @@
     <string name="device_owner_description" msgid="168013145812679664">"Šį įrenginį saugos ir tvarkys jūsų organizacija"</string>
     <string name="setup_provisioning_header" msgid="4282483198266806271">"Ruošiamasi nustatyti darbo įrenginį…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Administratoriaus programos nustatymas"</string>
-    <string name="set_up_everything_else" msgid="4407706086957916501">"Nustatykite visa kita"</string>
-    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"Pridėkite asmeninę paskyrą, kad galėtumėte išnaudoti daugiau įrenginio galimybių"</string>
-    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"Dabar, kai darbo profilis paruoštas, galite pridėti asmeninę „Google“ paskyrą, kad pasiektumėte programas ir turinį."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"Šis įrenginys priklauso jūsų organizacijai"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"Toliau nurodyta programa bus naudojama šiam telefonui tvarkyti ir stebėti"</string>
+    <string name="account_management_disclaimer_header" msgid="8013083414694316564">"Jūsų paskyra yra valdoma"</string>
+    <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"Jūsų IT administratorius naudoja mobiliųjų įrenginių tavrkymą, kad būtų taikoma saugos politika"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Ruošiama atlikti darbo programų sąranką…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Pirmiausia nustatykime jūsų darbo profilį"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Darbo programos saugomos darbo profilyje"</string>
@@ -178,8 +172,16 @@
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Lengvai pasiekite savo darbo programas"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Šis įrenginys nėra privatus"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"Jūsų IT administratorius gali peržiūrėti jūsų duomenis ir veiklą šiame įrenginyje."</string>
+    <string name="fully_managed_device_provisioning_permissions_header" msgid="2852101532084770993">"Jūsų veikla ir duomenys"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_header" msgid="4419374850927705136">"Programos leidimai"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8328298923037335068">"IT administratorius gali nustatyti programų leidimus šiame įrenginyje, pvz., leidimus pasiekti mikrofoną, fotoaparatą ir vietovės duomenis."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Nustatomas įrenginys…"</string>
-    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"Naudokite šį įrenginį, kad lengvai pasiektumėte darbo programas. Šis įrenginys nėra privatus, todėl IT administratorius gali peržiūrėti jūsų duomenis ir veiklą. Jei norite sužinoti daugiau, susisiekite su savo IT administratoriumi."</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1090645190066781456">"Naudodami šį įrenginį lengvai pasieksite darbo programas. Šis įrenginys nėra privatus, todėl IT administratorius gali peržiūrėti jūsų duomenis ir veiklą."</string>
+    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"Naudodami šį įrenginį lengvai pasieksite darbo programas. Šis įrenginys nėra privatus, todėl IT administratorius gali peržiūrėti jūsų veiklą ir duomenis. IT administratorius taip pat gali nustatyti programų leidimus šiame įrenginyje, pvz., leidimus pasiekti mikrofoną, Fotoaparatą ir vietovės duomenis."</string>
+    <string name="fully_managed_device_provisioning_return_device_title" msgid="8500829014794276683">"Grąžinkite šį įrenginį IT administratoriui"</string>
+    <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"Grįžkite į ankstesnį ekraną arba nustatykite šį įrenginį iš naujo ir grąžinkite jį IT administratoriui."</string>
+    <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"Atšaukti sąranką"</string>
+    <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"Nustatyti įrenginį iš naujo ir grąžinti"</string>
     <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Darbo programos saugomos darbo profilyje ir jas tvarko IT administratorius"</string>
     <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Asmeninės programos laikomos atskirai ir paslėptos nuo darbo programų"</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"IT administratorius gali valdyti šį įrenginį ir blokuoti tam tikras programas"</string>
@@ -187,10 +189,9 @@
     <string name="just_a_sec" msgid="6244676028626237220">"Šiek tiek palaukite…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Privatumo priminimas"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"Jūsų IT administratorius gali peržiūrėti jūsų duomenis ir veiklą šiame įrenginyje"</string>
-    <string name="device_provisioning_finished" msgid="3981783240592092906">"Įrenginys paruoštas!"</string>
-    <string name="done" msgid="7755227776955952318">"Atlikta"</string>
-    <string name="financed_device_screen_header" msgid="7890706080917322376">"Šis įrenginys buvo įsigytas pasinaudojus „<xliff:g id="CREDITOR_NAME">%1$s</xliff:g>“ suteiktu kreditu"</string>
-    <string name="creditor_capabilities_header" msgid="6217362648469323253">"„<xliff:g id="CREDITOR_NAME">%1$s</xliff:g>“ gali atlikti toliau nurodytus veiksmus."</string>
-    <string name="install_creditor_app_description" msgid="6159751782301108878">"Įdiegti „<xliff:g id="CREDITOR_NAME">%1$s</xliff:g>“ programą, kad galėtumėte atlikti mokėjimus šiame įrenginyje"</string>
-    <string name="lock_device_description" msgid="2940362560732989166">"Apriboti prieigą prie šio įrenginio, jei neatliekate mokėjimų"</string>
+    <string name="financed_device_screen_header" msgid="6875169548352717124">"Šį įrenginį teikia „<xliff:g id="CREDITOR_NAME">%s</xliff:g>“"</string>
+    <string name="financed_make_payments_subheader_title" msgid="7880606710044254210">"Mokėjimas šiame įrenginyje"</string>
+    <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"„<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g>“ gali įdiegti programą „<xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g>“, kad galėtumėte atlikti mokėjimus šiame įrenginyje."</string>
+    <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Šiam įrenginiui gali būti taikomi apribojimai"</string>
+    <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"„<xliff:g id="CREDITOR_NAME">%1$s</xliff:g>“ gali apriboti prieigą prie šio įrenginio, jei neatliksite mokėjimų."</string>
 </resources>

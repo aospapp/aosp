@@ -167,7 +167,7 @@ public class CarPropertyConfigTest extends CarPropertyTestBase {
             Integer value = integerConfig.getMinValue(WINDOW_PASSENGER);
         });
 
-        // Type casting from raw CarPropertyConfig should be fine, just sanity check.
+        // Type casting from raw CarPropertyConfig should be fine, just confidence check.
         CarPropertyConfig<?> rawTypeConfig = readFromParcel();
         assertThat(rawTypeConfig.getMinValue(WINDOW_PASSENGER)).isEqualTo(10f);
 

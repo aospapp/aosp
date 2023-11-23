@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"Du kan installera certifikat från en PKCS#12-fil med filändelsen %1$s eller %2$s på en extern lagringsenhet."</string>
     <string name="allow_button" msgid="3030990695030371561">"Välj"</string>
     <string name="deny_button" msgid="3766539809121892584">"Neka"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"Läser in certifikat …"</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"%s söker efter ett certifikat …"</string>
 </resources>

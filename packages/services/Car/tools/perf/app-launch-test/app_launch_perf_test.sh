@@ -73,7 +73,7 @@ function run_app_launch_test() {
     -e class 'android.platform.test.scenario.dial.OpenAppMicrobenchmark,android.platform.test.scenario.googleplay.OpenAppMicrobenchmark,android.platform.test.scenario.maps.OpenAppMicrobenchmark,android.platform.test.scenario.radio.OpenAppMicrobenchmark,android.platform.test.scenario.settings.OpenAppMicrobenchmark'\
     -e favor-shell-commands true -e log false -e suite-timeout_msec 36000000\
     -e durationMs 30000 -e press-home $2 -e newRunListenerMode true\
-    -e timeout_msec 300000 -e drop-cache $3 -e kill-app $4 android.platform.test.scenario/android.support.test.runner.AndroidJUnitRunner"
+    -e timeout_msec 300000 -e drop-cache $3 -e kill-app $4 android.platform.test.scenario/androidx.test.runner.AndroidJUnitRunner"
   # Example output from ${cmd}
   #
   #   INSTRUMENTATION_STATUS: class=android.platform.test.scenario.maps.OpenAppMicrobenchmark

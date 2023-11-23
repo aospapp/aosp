@@ -39,4 +39,5 @@
       <item quantity="one"><xliff:g id="COUNT">%d</xliff:g> નવો સંદેશ</item>
       <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> નવા સંદેશા</item>
     </plurals>
+    <string name="manage_text" msgid="4225197445283791757">"મેનેજ કરો"</string>
 </resources>

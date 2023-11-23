@@ -41,6 +41,6 @@
     <string name="name_not_available">Name not available</string>
 
     <!-- Formats a group conversation's title for a message notification. The format is: <Sender of last message> mdot <Name of the conversation>.-->
-    <string name="group_conversation_title_separator" translatable="false">%1$s&#160;&#8226;&#160;%2$s</string>
+    <string name="group_conversation_title_separator" translatable="false">&#160;&#8226;&#160;</string>
 
 </resources>

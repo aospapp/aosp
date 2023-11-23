@@ -13,7 +13,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="cmas_presidential_level_alert" msgid="3211812107922643307">"Hätätilannehälytys"</string>
+    <string name="cmas_presidential_level_alert" msgid="3211812107922643307">"Vaaratiedote"</string>
     <string name="pws_other_message_identifiers" msgid="7325727748670134223">"Varoitus"</string>
     <string name="cmas_exercise_alert" msgid="8865117243431902282">"Harjoitushälytys"</string>
 </resources>

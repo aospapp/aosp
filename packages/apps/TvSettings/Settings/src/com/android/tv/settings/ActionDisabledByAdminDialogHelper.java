@@ -19,30 +19,25 @@ package com.android.tv.settings;
 import android.annotation.NonNull;
 import android.annotation.UserIdInt;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.res.ColorStateList;
-import android.content.res.TypedArray;
-import android.graphics.drawable.Drawable;
 import android.os.Process;
 import android.os.UserHandle;
 import android.os.UserManager;
-import android.util.IconDrawableFactory;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.VisibleForTesting;
-import android.app.AlertDialog;
 
-import com.android.tv.settings.R;
 import com.android.settingslib.RestrictedLockUtils;
 import com.android.settingslib.RestrictedLockUtils.EnforcedAdmin;
 import com.android.settingslib.RestrictedLockUtilsInternal;
+import com.android.tv.settings.deviceadmin.DeviceAdminAdd;
 
 import java.util.Objects;
 
@@ -83,7 +78,21 @@ public class ActionDisabledByAdminDialogHelper {
         initializeDialogViews(mDialogView, mEnforcedAdmin.component, getEnforcementAdminUserId(),
                 mRestriction);
         builder.setPositiveButton(R.string.okay, null).setView(mDialogView);
+        maybeSetLearnMoreButton(builder);
         return builder;
+    }
+
+    void maybeSetLearnMoreButton(AlertDialog.Builder builder) {
+        // The "Learn more" button appears only if the restriction is enforced by an admin in the
+        // same profile group. Otherwise the admin package and its policies are not accessible to
+        // the current user.
+        final UserManager um = UserManager.get(mActivity.getApplicationContext());
+        if (um.isSameProfileGroup(getEnforcementAdminUserId(mEnforcedAdmin), um.getUserHandle())) {
+            builder.setNeutralButton(R.string.learn_more, (dialog, which) -> {
+                showAdminPolicies(mEnforcedAdmin, mActivity);
+                mActivity.finish();
+            });
+        }
     }
 
     public void updateDialog(String restriction, EnforcedAdmin admin) {
@@ -175,6 +184,18 @@ public class ActionDisabledByAdminDialogHelper {
                 final TextView textView = root.findViewById(R.id.admin_support_msg);
                 textView.setText(supportMessage);
             }
+        }
+    }
+
+    void showAdminPolicies(final EnforcedAdmin enforcedAdmin, final Activity activity) {
+        final Intent intent = new Intent();
+        if (enforcedAdmin.component != null) {
+            intent.setClass(activity, DeviceAdminAdd.class);
+            intent.putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN,
+                    enforcedAdmin.component);
+            intent.putExtra(DeviceAdminAdd.EXTRA_CALLED_FROM_SUPPORT_DIALOG, true);
+            // DeviceAdminAdd class may need to run as managed profile.
+            activity.startActivityAsUser(intent, enforcedAdmin.user);
         }
     }
 }

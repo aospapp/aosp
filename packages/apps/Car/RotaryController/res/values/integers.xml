@@ -25,43 +25,39 @@
     rotate event is smaller than this value, we'll treat the rotation event as 2 rotations. -->
     <integer name="rotation_acceleration_2x_ms">40</integer>
 
-    <!-- Values for FocusHistoryCache, which saves last focused node by FocusArea. -->
-    <!-- Type of FocusHistoryCache. The values are defined in RotaryCache. 1 means the cache
-    is disabled, 2 means entries in the cache will expire after a period of time, and 3 means
-    elements in the cache will never expire as long as RotaryService is alive. -->
-    <integer name="focus_history_cache_type">2</integer>
-    <!-- How many milliseconds before an entry in FocusHistoryCache expires. Must be positive value
-    when focus_history_cache_type is 2. -->
-    <integer name="focus_history_expiration_time_ms">10000</integer>
-    <!-- Size of FocusHistoryCache. -->
-    <integer name="focus_history_cache_size">10</integer>
-
-    <!-- Values for FocusAreaHistoryCache, which saves target FocusArea by source FocusArea and
-    direction. -->
-    <!-- Type of FocusAreaHistoryCache. The values are defined in RotaryCache. 1 means the
-    cache is disabled, 2 means entries in the cache will expire after a period of time, and 3 means
-    elements in the cache will never expire as long as RotaryService is alive. -->
-    <integer name="focus_area_history_cache_type">2</integer>
-    <!-- How many milliseconds before an entry in FocusAreaHistoryCache expires. Must be positive
-    value when focus_history_cache_type is 2. -->
-    <integer name="focus_area_history_expiration_time_ms">10000</integer>
-    <!-- Size of FocusAreaHistoryCache. -->
-    <integer name="focus_area_history_cache_size">5</integer>
-
-    <!-- Values for FocusWindowCache, which saves the last focused node for each window. -->
-    <!-- Type of FocusWindowCache. The values are defined in RotaryCache. 1 means the
-    cache is disabled, 2 means entries in the cache will expire after a period of time, and 3 means
-    elements in the cache will never expire as long as RotaryService is alive. -->
-    <integer name="focus_window_cache_type">2</integer>
-    <!-- How many milliseconds before an entry in FocusWindowCache expires. Must be positive
-    value when focus_window_cache_type is 2. -->
-    <integer name="focus_window_expiration_time_ms">600000</integer>
-    <!-- Size of FocusWindowCache. -->
-    <integer name="focus_window_cache_size">5</integer>
-
     <!-- How many milliseconds to ignore TYPE_VIEW_CLICKED events after performing ACTION_CLICK or
     injecting KEYCODE_DPAD_CENTER. -->
     <integer name="ignore_view_clicked_ms">200</integer>
     <!-- How many milliseconds to wait for TYPE_VIEW_SCROLLED events after scrolling. -->
     <integer name="after_scroll_timeout_ms">200</integer>
+
+    <!-- How many milliseconds to wait for TYPE_VIEW_FOCUSED events after performing ACTION_FOCUS or
+    another actions which changes the focus. When rotating quickly, Android may take a while to send
+    these events so this needs to be fairly long.
+    -->
+    <integer name="after_focus_timeout_ms">60000</integer>
+
+    <!-- How many milliseconds the center button must be held down to trigger a long-press. Zero
+    indicates the system default long-press timeout should be used. -->
+    <integer name="long_press_ms">0</integer>
+
+    <!-- Global actions to perform when the user nudges up, down, left, or right off the edge of the
+         screen. No global action is performed if the relevant element of this array is -1
+         (INVALID_GLOBAL_ACTION). -->
+    <integer-array name="off_screen_nudge_global_actions">
+        <item>-1</item>
+        <item>-1</item>
+        <item>-1</item>
+        <item>-1</item>
+    </integer-array>
+
+    <!-- Key codes of click events to inject when the user nudges up, down, left, or right off the
+         edge of the screen. No event is injected if the relevant element of this array is 0
+         (KEYCODE_UNKNOWN). -->
+    <integer-array name="off_screen_nudge_key_codes">
+        <item>0</item>
+        <item>0</item>
+        <item>0</item>
+        <item>0</item>
+    </integer-array>
 </resources>

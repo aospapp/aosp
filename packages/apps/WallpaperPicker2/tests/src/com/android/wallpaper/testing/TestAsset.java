@@ -62,7 +62,7 @@ public final class TestAsset extends Asset {
 
     @Override
     public void decodeBitmapRegion(Rect unused, int targetWidth, int targetHeight,
-            BitmapReceiver receiver) {
+            boolean shouldAdjustForRtl, BitmapReceiver receiver) {
         receiver.onBitmapDecoded(mBitmap);
     }
 

@@ -21,8 +21,9 @@
     <string name="bugreport_info_quit" msgid="5590138890181142473">"Жабуу"</string>
     <string name="bugreport_info_start" msgid="667324824650830832">"Мүчүлүштүк тууралуу кабарды берип баштоо"</string>
     <string name="bugreport_info_status" msgid="7211044508792815451">"Абалы:"</string>
+    <string name="bugreport_info_expires_soon_notice" msgid="927139313070992675">"Мүчүлүштүктөр жөнүндө кабардын мөөнөтү жакында бүтөт"</string>
     <string name="bugreport_dialog_submit" msgid="2789636252713280633">"Тапшыруу"</string>
-    <string name="bugreport_dialog_cancel" msgid="4741928791364757040">"Жокко чыгаруу"</string>
+    <string name="bugreport_dialog_cancel" msgid="4741928791364757040">"Жок"</string>
     <string name="bugreport_dialog_upload" msgid="2517386929450370781">"Жүктөп берүү"</string>
     <string name="bugreport_dialog_save" msgid="3291363266190644226">"Сактоо"</string>
     <string name="bugreport_dialog_show_bugreports" msgid="6964385141627170297">"Мүчүлүштүк тууралуу кабарларды көрсөтүү"</string>

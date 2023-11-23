@@ -18,8 +18,16 @@
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:settings="http://schemas.android.com/apk/res-auto"
-    android:title="@string/wifi_settings"
+    android:title="@string/wifi_network_detail"
     android:key="@string/psk_wifi_detail">
+    <com.android.car.settings.common.EntityHeaderPreference
+        android:key="@string/pk_wifi_details_header"
+        settings:controller="com.android.car.settings.wifi.details.WifiDetailsHeaderPreferenceController"
+        settings:searchable="false"/>
+    <com.android.car.settings.common.ActionButtonsPreference
+        android:key="@string/pk_wifi_details_action_buttons"
+        settings:controller="com.android.car.settings.wifi.details.WifiDetailsActionButtonsPreferenceController"
+        settings:searchable="false"/>
     <!-- General Details Category -->
     <com.android.car.settings.common.LogicalPreferenceGroup>
         <com.android.car.settings.wifi.details.WifiDetailsPreference
@@ -78,7 +86,7 @@
     <PreferenceCategory
         android:selectable="false"
         android:title="@string/wifi_details_ipv6_address_header">
-        <Preference
+        <com.android.car.ui.preference.CarUiPreference
             android:key="@string/pk_wifi_ipv6"
             android:selectable="false"
             settings:controller="com.android.car.settings.wifi.details.WifiIpv6AddressPreferenceController"

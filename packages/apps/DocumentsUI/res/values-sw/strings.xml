@@ -16,6 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="missing_rename_error" msgid="9098952207447981103">"Unahitaji kubadilisha jina hili"</string>
+    <string name="add_folder_name_error" msgid="6014615052491406810">"Unahitaji kuweka jina la folda"</string>
     <string name="files_label" msgid="771781190045103748">"Faili"</string>
     <string name="downloads_label" msgid="5462789470049501103">"Vipakuliwa"</string>
     <!-- no translation found for app_label (8089292432455111409) -->
@@ -61,7 +63,7 @@
     <string name="button_extract" msgid="1038674453689912247">"Toa"</string>
     <string name="button_move" msgid="8596460499325291272">"Hamisha"</string>
     <string name="button_dismiss" msgid="7235249361023803349">"Ondoa"</string>
-    <string name="button_retry" msgid="4011461781916631389">"Jaribu Tena"</string>
+    <string name="button_retry" msgid="4011461781916631389">"Jaribu tena"</string>
     <string name="button_clear" msgid="5412304437764369441">"Futa"</string>
     <string name="button_show_provider" msgid="6905880493806292753">"Onyesha kwenye programu ya mtoa huduma"</string>
     <string name="button_back" msgid="1888621708934742182">"Nyuma"</string>
@@ -278,4 +280,6 @@
     <string name="work_tab" msgid="7265359366883747413">"Kazini"</string>
     <string name="a11y_work" msgid="7504431382825242153">"Kazi"</string>
     <string name="drag_from_another_app" msgid="8310249276199969905">"Huwezi kuhamisha faili kutoka programu nyingine."</string>
+    <string name="grid_mode_showing" msgid="2803166871485028508">"Kuonyesha katika hali ya gridi."</string>
+    <string name="list_mode_showing" msgid="1225413902295895166">"Kuonyesha katika hali ya orodha."</string>
 </resources>

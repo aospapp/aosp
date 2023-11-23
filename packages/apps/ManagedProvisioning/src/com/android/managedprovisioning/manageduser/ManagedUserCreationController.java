@@ -15,15 +15,19 @@
  */
 package com.android.managedprovisioning.manageduser;
 
+import static java.util.Objects.requireNonNull;
+
 import android.content.Context;
 import android.os.UserHandle;
 
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.managedprovisioning.common.ProvisionLogger;
 import com.android.managedprovisioning.task.nonrequiredapps.SystemAppsSnapshot;
 
 /**
  * After a managed user is created, take a system app snapshot.
  */
+// TODO(b/178711424): move this into the framework.
 public class ManagedUserCreationController {
 
     final private SystemAppsSnapshot mSystemAppsSnapshot;
@@ -40,11 +44,12 @@ public class ManagedUserCreationController {
             SystemAppsSnapshot systemAppsSnapshot) {
         mUserId = userId;
         mLeaveAllSystemAppsEnabled = leaveAllSystemAppsEnabled;
-        mSystemAppsSnapshot = systemAppsSnapshot;
+        mSystemAppsSnapshot = requireNonNull(systemAppsSnapshot);
     }
 
     public void run() {
         if (mUserId == UserHandle.USER_NULL) {
+            ProvisionLogger.loge("Missing userId.");
             return;
         }
         if (!mLeaveAllSystemAppsEnabled) {

@@ -28,8 +28,12 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"L\'application suivante gérera votre appareil :"</string>
     <string name="next" msgid="1004321437324424398">"Suivant"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Configuration du profil professionnel…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Votre administrateur informatique peut surveiller et gérer les paramètres, l\'accès aux contenus de l\'entreprise, les applications, les autorisations et les données associées à ce profil, y compris votre activité réseau, ainsi que les données de localisation, l\'historique des appels et l\'historique des recherches de contacts de votre appareil.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Pour plus d\'informations, y compris sur les règles de confidentialité de votre entreprise, contactez votre administrateur informatique."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Votre administrateur informatique peut surveiller et gérer les paramètres, l\'accès aux contenus de l\'entreprise, les applications, les autorisations et les données associées à cet appareil, y compris votre activité réseau, ainsi que les données de localisation, l\'historique des appels et l\'historique des recherches de contacts de votre appareil.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Pour plus d\'informations, y compris sur les règles de confidentialité de votre entreprise, contactez votre administrateur informatique."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Votre administrateur informatique peut surveiller et gérer les paramètres, l\'accès aux contenus de l\'entreprise, les applications, les autorisations et les données associées à ce profil, y compris votre activité réseau, ainsi que les données de localisation, l\'historique des appels et l\'historique des recherches de contacts de votre appareil.<xliff:g id="LINE_BREAK">
+
+</xliff:g>Pour plus d\'informations, y compris sur les règles de confidentialité de votre entreprise, contactez votre administrateur informatique."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Votre administrateur informatique peut surveiller et gérer les paramètres, l\'accès aux contenus de l\'entreprise, les applications, les autorisations et les données associées à cet appareil, y compris votre activité réseau, ainsi que les données de localisation, l\'historique des appels et l\'historique des recherches de contacts de votre appareil.<xliff:g id="LINE_BREAK">
+
+</xliff:g>Pour plus d\'informations, y compris sur les règles de confidentialité de votre entreprise, contactez votre administrateur informatique."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Pour utiliser les fonctionnalités de protection contre le vol sur votre appareil, vous devez activer le verrouillage de l\'écran protégé par mot de passe sur celui-ci."</string>
     <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"Contactez votre administrateur informatique pour obtenir plus d\'informations, y compris sur les règles de confidentialité de votre organisation."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"En savoir plus"</string>
@@ -37,11 +41,11 @@
     <string name="ok_setup" msgid="4593707675416137504">"OK"</string>
     <string name="user_consent_msg" msgid="8820951802130353584">"J\'accepte"</string>
     <string name="url_error" msgid="5958494012986243186">"Impossible d\'afficher ce lien."</string>
+    <string name="navigation_button_description" msgid="6106309408994461239">"Revenir en arrière"</string>
     <string name="terms" msgid="8295436105384703903">"Conditions d\'utilisation"</string>
     <string name="work_profile_info" msgid="5433388376309583996">"Infos sur le profil professionnel"</string>
     <string name="managed_device_info" msgid="1529447646526616811">"Infos sur l\'appareil géré"</string>
     <string name="default_managed_profile_name" msgid="5370257687074907055">"Profil professionnel"</string>
-    <string name="default_first_meat_user_name" msgid="7540515892748490540">"Utilisateur principal"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"Supprimer le profil existant ?"</string>
     <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"Vous possédez déjà un profil professionnel, qui est géré par l\'application suivante :"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"Avant de continuer, "<a href="#read_this_link">"lisez ces informations"</a>"."</string>
@@ -65,15 +69,6 @@
     <string name="user_setup_incomplete" msgid="6494920045526591079">"Configuration de l\'utilisateur incomplète"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"Utilisateur de l\'appareil professionnel"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"Configuration de l\'appareil professionnel…"</string>
-    <string name="progress_data_process" msgid="1707745321954672971">"Traitement des données de configuration…"</string>
-    <string name="progress_connect_to_wifi" msgid="472251154628863539">"Connexion au réseau Wi-Fi en cours…"</string>
-    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"Connexion au réseau mobile…"</string>
-    <string name="progress_download" msgid="3522436271691064624">"Téléchargement application d\'administration…"</string>
-    <string name="progress_install" msgid="2258045670385866183">"Installation application d\'administration…"</string>
-    <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"Suppression des applis système non requises…"</string>
-    <string name="progress_finishing_touches" msgid="9037776404089697198">"Finalisation du processus…"</string>
-    <string name="progress_set_owner" msgid="8214062820093757961">"Définition du propriétaire de l\'appareil…"</string>
-    <string name="progress_initialize" msgid="1104643492713424939">"Initialisation de l\'appareil…"</string>
     <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"Cet appareil n\'autorise pas le chiffrement nécessaire à la configuration. Contactez votre administrateur informatique pour obtenir de l\'aide."</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"Arrêter la configuration et réinitialiser l\'appareil ?"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"Votre appareil sera réinitialisé, et vous reviendrez au premier écran"</string>
@@ -162,35 +157,41 @@
     <string name="device_owner_description" msgid="168013145812679664">"Cet appareil sera sécurisé et géré par votre organisation"</string>
     <string name="setup_provisioning_header" msgid="4282483198266806271">"Préparation de la configuration de l\'appareil professionnel…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Configuration de l\'application d\'administration"</string>
-    <string name="set_up_everything_else" msgid="4407706086957916501">"Configurez tout le reste"</string>
-    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"Ajouter un compte personnel pour profiter davantage de votre appareil"</string>
-    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"Maintenant que votre profil professionnel est prêt, vous pouvez également ajouter un compte Google personnel pour accéder à vos applications et contenus."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"Cet appareil appartient à votre organisation"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"L\'application suivante sera utilisée pour gérer et surveiller ce téléphone"</string>
+    <string name="account_management_disclaimer_header" msgid="8013083414694316564">"Votre compte est géré"</string>
+    <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"Votre administrateur informatique utilise la gestion des appareils mobiles afin d\'appliquer les règles de sécurité"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Préparation pour la configuration professionnelle…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Configurer votre profil professionnel"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Les applis professionnelles sont dans votre profil professionnel"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Mettez vos applis professionnelles en pause quand vous avez fini de travailler"</string>
     <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"Votre administrateur informatique a accès aux données du profil professionnel"</string>
-    <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Configuration de votre profil professionnel…"</string>
+    <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Configuration de votre profil pro…"</string>
     <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"Les applications professionnelles sont conservées dans votre profil professionnel. Vous pouvez mettre en pause vos applications professionnelles lorsque vous avez fini votre journée. Les données dans votre profil professionnel sont visibles par votre administrateur informatique."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"Configurez votre appareil professionnel"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Gardez vos applications professionnelles à portée de main"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Cet appareil n\'est pas privé"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"Votre administrateur informatique peut voir vos données et votre activité sur cet appareil."</string>
+    <string name="fully_managed_device_provisioning_permissions_header" msgid="2852101532084770993">"Votre activité et vos données"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_header" msgid="4419374850927705136">"Autorisations des applications"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8328298923037335068">"Votre administrateur informatique peut définir des autorisations pour les applis sur cet appareil, par exemple concernant le micro, l\'appareil photo et la position."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Configuration de votre appareil…"</string>
-    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"Utilisez cet appareil pour accéder facilement à vos applications professionnelles. Cet appareil n\'est pas privé. De ce fait, votre administrateur informatique peut voir vos données et votre activité. Pour en savoir plus, contactez ce dernier."</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1090645190066781456">"Utilisez cet appareil pour accéder facilement à vos applications professionnelles. Cet appareil n\'est pas privé. Il est donc possible que votre administrateur informatique puisse voir vos données et votre activité."</string>
+    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"Utilisez cet appareil pour accéder facilement à vos applications professionnelles. Cet appareil n\'est pas privé. Il est donc possible que votre administrateur informatique puisse voir vos données et votre activité. Votre administrateur informatique peut aussi définir des autorisations pour les applis sur cet appareil, par exemple concernant le micro, l\'appareil photo et la position."</string>
+    <string name="fully_managed_device_provisioning_return_device_title" msgid="8500829014794276683">"Retourner cet appareil à votre administrateur informatique"</string>
+    <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"Revenez à l\'écran précédent ou réinitialisez cet appareil et retournez-le à votre administrateur informatique."</string>
+    <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"Annuler la configuration"</string>
+    <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"Réinitialiser et retourner l\'appareil"</string>
     <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Les applis pros sont conservées dans votre profil pro et gérées par votre administrateur"</string>
-    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Les applis personnelles sont distinctes des professionnelles et masquées"</string>
-    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"Votre administrateur informatique peut contrôler cet appareil et bloquer certaines applis."</string>
-    <string name="cope_provisioning_summary" msgid="993014104601034878">"Les applications professionnelles sont conservées dans votre profil professionnel et gérées par votre administrateur informatique. Les applications personnelles sont masquées des applications professionnelles et traitées de façon distincte. Votre administrateur informatique peut contrôler cet appareil et bloquer certaines applications."</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Les applis perso sont distinctes des applis pro et non visibles par celles-ci"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"Votre administrateur informatique peut contrôler cet appareil et bloquer certaines applis"</string>
+    <string name="cope_provisioning_summary" msgid="993014104601034878">"Les applis pro sont conservées dans votre profil pro et gérées par votre administrateur. Les applis perso sont distinctes des applis pro et non visibles par celles-ci. Votre administrateur peut contrôler cet appareil et bloquer certaines applis."</string>
     <string name="just_a_sec" msgid="6244676028626237220">"Un instant…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Rappel concernant les règles de confidentialité"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"Votre administrateur informatique peut voir vos données et votre activité sur cet appareil"</string>
-    <string name="device_provisioning_finished" msgid="3981783240592092906">"Votre appareil est prêt !"</string>
-    <string name="done" msgid="7755227776955952318">"OK"</string>
-    <string name="financed_device_screen_header" msgid="7890706080917322376">"Cet appareil a été acheté à crédit auprès de <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>"</string>
-    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> peut prendre les mesures suivantes :"</string>
-    <string name="install_creditor_app_description" msgid="6159751782301108878">"Installer l\'application <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> afin que vous puissiez effectuer les paiements requis"</string>
-    <string name="lock_device_description" msgid="2940362560732989166">"Restreindre l\'accès à cet appareil si vous n\'effectuez pas les paiements requis"</string>
+    <string name="financed_device_screen_header" msgid="6875169548352717124">"Cet appareil est fourni par <xliff:g id="CREDITOR_NAME">%s</xliff:g>"</string>
+    <string name="financed_make_payments_subheader_title" msgid="7880606710044254210">"Effectuer des paiements pour cet appareil"</string>
+    <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> peut installer l\'appli <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> afin que vous puissiez effectuer des paiements sur cet appareil."</string>
+    <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Cet appareil peut être limité"</string>
+    <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> peut limiter l\'accès à cet appareil si vous n\'effectuez pas de paiements."</string>
 </resources>

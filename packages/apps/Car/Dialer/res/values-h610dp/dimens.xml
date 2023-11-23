@@ -18,16 +18,18 @@
 <resources>
     <!-- Keypad dimensions -->
     <dimen name="keypad_margin_x">@*android:dimen/car_padding_4</dimen>
-    <dimen name="keypad_margin_y">@*android:dimen/car_padding_2</dimen>
-    <dimen name="keypad_margin">@*android:dimen/car_padding_5</dimen>
+    <dimen name="keypad_margin_y">@*android:dimen/car_padding_1</dimen>
 
     <!-- Control bar bottom padding -->
     <dimen name="in_call_controller_bar_margin_bottom">@*android:dimen/car_padding_2</dimen>
 
     <dimen name="type_down_list_item_height">@dimen/list_item_height</dimen>
 
+    <dimen name="fab_button_size">128dp</dimen>
     <dimen name="fab_outline_size">104dp</dimen>
     <dimen name="fab_ripple_radius">52dp</dimen>
+
+    <dimen name="in_call_button_size">128dp</dimen>
 
     <!-- Components -->
     <dimen name="control_bar_height">128dp</dimen>

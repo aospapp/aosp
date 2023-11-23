@@ -147,6 +147,8 @@ public class IpMemoryStoreDatabase {
     /** The SQLite DB helper */
     public static class DbHelper extends SQLiteOpenHelper {
         // Update this whenever changing the schema.
+        // DO NOT CHANGE without solid testing for downgrades, and checking onDowngrade
+        // below: b/171340630
         private static final int SCHEMA_VERSION = 4;
         private static final String DATABASE_FILENAME = "IpMemoryStore.db";
         private static final String TRIGGER_NAME = "delete_cascade_to_private";
@@ -202,6 +204,10 @@ public class IpMemoryStoreDatabase {
             // Downgrades always nuke all data and recreate an empty table.
             db.execSQL(NetworkAttributesContract.DROP_TABLE);
             db.execSQL(PrivateDataContract.DROP_TABLE);
+            // TODO: add test for downgrades. Triggers should already be dropped
+            // when the table is dropped, so this may be a bug.
+            // Note that fixing this code does not affect how older versions
+            // will handle downgrades.
             db.execSQL("DROP TRIGGER " + TRIGGER_NAME);
             onCreate(db);
         }

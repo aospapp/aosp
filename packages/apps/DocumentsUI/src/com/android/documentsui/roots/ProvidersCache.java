@@ -62,6 +62,7 @@ import com.android.documentsui.base.UserId;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
+import com.google.common.util.concurrent.MoreExecutors;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -72,6 +73,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
@@ -90,6 +95,7 @@ public class ProvidersCache implements ProvidersAccess, LookupApplicationName {
         // ArchivesProvider doesn't support any roots.
         add(ArchivesProvider.AUTHORITY);
     }};
+    private static final int FIRST_LOAD_TIMEOUT_MS = 5000;
 
     private final Context mContext;
 
@@ -111,6 +117,7 @@ public class ProvidersCache implements ProvidersAccess, LookupApplicationName {
     private Multimap<UserAuthority, RootInfo> mRoots = ArrayListMultimap.create();
     @GuardedBy("mLock")
     private HashSet<UserAuthority> mStoppedAuthorities = new HashSet<>();
+    private final Semaphore mMultiProviderUpdateTaskSemaphore = new Semaphore(1);
 
     @GuardedBy("mObservedAuthoritiesDetails")
     private final Map<UserAuthority, PackageDetails> mObservedAuthoritiesDetails = new HashMap<>();
@@ -205,13 +212,16 @@ public class ProvidersCache implements ProvidersAccess, LookupApplicationName {
             assert (recentRoot.availableBytes == -1);
         }
 
-        new UpdateTask(forceRefreshAll, null, callback).executeOnExecutor(
+        new MultiProviderUpdateTask(forceRefreshAll, null, callback).executeOnExecutor(
                 AsyncTask.THREAD_POOL_EXECUTOR);
     }
 
     public void updatePackageAsync(UserId userId, String packageName) {
-        new UpdateTask(false, new UserPackage(userId, packageName),
-                /* callback= */ null).executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        new MultiProviderUpdateTask(
+                /* forceRefreshAll= */ false,
+                new UserPackage(userId, packageName),
+                /* callback= */ null)
+                .executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
 
     public void updateAuthorityAsync(UserId userId, String authority) {
@@ -235,7 +245,7 @@ public class ProvidersCache implements ProvidersAccess, LookupApplicationName {
     }
 
     /**
-     * Block until the first {@link UpdateTask} pass has finished.
+     * Block until the first {@link MultiProviderUpdateTask} pass has finished.
      *
      * @return {@code true} if cached roots is ready to roll, otherwise
      * {@code false} if we timed out while waiting.
@@ -243,7 +253,7 @@ public class ProvidersCache implements ProvidersAccess, LookupApplicationName {
     private boolean waitForFirstLoad() {
         boolean success = false;
         try {
-            success = mFirstLoad.await(15, TimeUnit.SECONDS);
+            success = mFirstLoad.await(FIRST_LOAD_TIMEOUT_MS, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
         }
         if (!success) {
@@ -254,7 +264,7 @@ public class ProvidersCache implements ProvidersAccess, LookupApplicationName {
 
     /**
      * Load roots from authorities that are in stopped state. Normal
-     * {@link UpdateTask} passes ignore stopped applications.
+     * {@link MultiProviderUpdateTask} passes ignore stopped applications.
      */
     private void loadStoppedAuthorities() {
         synchronized (mLock) {
@@ -266,7 +276,7 @@ public class ProvidersCache implements ProvidersAccess, LookupApplicationName {
     }
 
     /**
-     * Load roots from a stopped authority. Normal {@link UpdateTask} passes
+     * Load roots from a stopped authority. Normal {@link MultiProviderUpdateTask} passes
      * ignore stopped applications.
      */
     private void loadStoppedAuthority(UserAuthority userAuthority) {
@@ -433,7 +443,7 @@ public class ProvidersCache implements ProvidersAccess, LookupApplicationName {
         waitForFirstLoad();
         loadStoppedAuthorities();
         synchronized (mLock) {
-            return mRoots.values();
+            return new HashSet<>(mRoots.values());
         }
     }
 
@@ -485,15 +495,17 @@ public class ProvidersCache implements ProvidersAccess, LookupApplicationName {
         Log.i(TAG, output.toString());
     }
 
-    private class UpdateTask extends AsyncTask<Void, Void, Void> {
+    private class MultiProviderUpdateTask extends AsyncTask<Void, Void, Void> {
         private final boolean mForceRefreshAll;
         @Nullable
         private final UserPackage mForceRefreshUserPackage;
         @Nullable
         private final Runnable mCallback;
 
-        private final Multimap<UserAuthority, RootInfo> mTaskRoots = ArrayListMultimap.create();
-        private final HashSet<UserAuthority> mTaskStoppedAuthorities = new HashSet<>();
+        @GuardedBy("mLock")
+        private Multimap<UserAuthority, RootInfo> mLocalRoots = ArrayListMultimap.create();
+        @GuardedBy("mLock")
+        private HashSet<UserAuthority> mLocalStoppedAuthorities = new HashSet<>();
 
         /**
          * Create task to update roots cache.
@@ -504,7 +516,9 @@ public class ProvidersCache implements ProvidersAccess, LookupApplicationName {
          *            values for this specific user package should be ignored.
          * @param callback when non-null, it will be invoked after the task is executed.
          */
-        UpdateTask(boolean forceRefreshAll, @Nullable UserPackage forceRefreshUserPackage,
+        MultiProviderUpdateTask(
+                boolean forceRefreshAll,
+                @Nullable UserPackage forceRefreshUserPackage,
                 @Nullable Runnable callback) {
             mForceRefreshAll = forceRefreshAll;
             mForceRefreshUserPackage = forceRefreshUserPackage;
@@ -513,12 +527,25 @@ public class ProvidersCache implements ProvidersAccess, LookupApplicationName {
 
         @Override
         protected Void doInBackground(Void... params) {
+            if (!mMultiProviderUpdateTaskSemaphore.tryAcquire()) {
+                // Abort, since previous update task is still running.
+                return null;
+            }
+
+            int previousPriority = Thread.currentThread().getPriority();
+            Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
+
             final long start = SystemClock.elapsedRealtime();
 
             for (UserId userId : mUserIdManager.getUserIds()) {
                 final RootInfo recents = createOrGetRecentsRoot(userId);
-                mTaskRoots.put(new UserAuthority(recents.userId, recents.authority), recents);
+                synchronized (mLock) {
+                    mLocalRoots.put(new UserAuthority(recents.userId, recents.authority), recents);
+                }
+            }
 
+            List<SingleProviderUpdateTaskInfo> taskInfos = new ArrayList<>();
+            for (UserId userId : mUserIdManager.getUserIds()) {
                 final PackageManager pm = userId.getPackageManager(mContext);
                 // Pick up provider with action string
                 final Intent intent = new Intent(DocumentsContract.PROVIDER_INTERFACE);
@@ -526,25 +553,55 @@ public class ProvidersCache implements ProvidersAccess, LookupApplicationName {
                 for (ResolveInfo info : providers) {
                     ProviderInfo providerInfo = info.providerInfo;
                     if (providerInfo.authority != null) {
-                        handleDocumentsProvider(providerInfo, userId);
+                        taskInfos.add(new SingleProviderUpdateTaskInfo(providerInfo, userId));
                     }
                 }
             }
 
+            if (!taskInfos.isEmpty()) {
+                CountDownLatch updateTaskInternalCountDown = new CountDownLatch(taskInfos.size());
+                ExecutorService executor = MoreExecutors.getExitingExecutorService(
+                        (ThreadPoolExecutor) Executors.newCachedThreadPool());
+                for (SingleProviderUpdateTaskInfo taskInfo: taskInfos) {
+                    executor.submit(() ->
+                            startSingleProviderUpdateTask(
+                                    taskInfo.providerInfo,
+                                    taskInfo.userId,
+                                    updateTaskInternalCountDown));
+                }
+
+                // Block until all SingleProviderUpdateTask threads finish executing.
+                // Use a shorter timeout for first load since it could block picker UI.
+                long timeoutMs = mFirstLoadDone ? 15000 : FIRST_LOAD_TIMEOUT_MS;
+                boolean success = false;
+                try {
+                    success = updateTaskInternalCountDown.await(timeoutMs, TimeUnit.MILLISECONDS);
+                } catch (InterruptedException e) {
+                }
+                if (!success) {
+                    Log.w(TAG, "Timeout executing update task!");
+                }
+            }
+
             final long delta = SystemClock.elapsedRealtime() - start;
-            if (VERBOSE) Log.v(TAG,
-                    "Update found " + mTaskRoots.size() + " roots in " + delta + "ms");
             synchronized (mLock) {
                 mFirstLoadDone = true;
                 if (mBootCompletedResult != null) {
                     mBootCompletedResult.finish();
                     mBootCompletedResult = null;
                 }
-                mRoots = mTaskRoots;
-                mStoppedAuthorities = mTaskStoppedAuthorities;
+                mRoots = mLocalRoots;
+                mStoppedAuthorities = mLocalStoppedAuthorities;
             }
+            if (VERBOSE) {
+                Log.v(TAG, "Update found " + mLocalRoots.size() + " roots in " + delta + "ms");
+            }
+
             mFirstLoad.countDown();
             LocalBroadcastManager.getInstance(mContext).sendBroadcast(new Intent(BROADCAST_ACTION));
+            mMultiProviderUpdateTaskSemaphore.release();
+
+            Thread.currentThread().setPriority(previousPriority);
             return null;
         }
 
@@ -555,6 +612,17 @@ public class ProvidersCache implements ProvidersAccess, LookupApplicationName {
             }
         }
 
+        private void startSingleProviderUpdateTask(
+                ProviderInfo providerInfo,
+                UserId userId,
+                CountDownLatch updateCountDown) {
+            int previousPriority = Thread.currentThread().getPriority();
+            Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
+            handleDocumentsProvider(providerInfo, userId);
+            updateCountDown.countDown();
+            Thread.currentThread().setPriority(previousPriority);
+        }
+
         private void handleDocumentsProvider(ProviderInfo info, UserId userId) {
             UserAuthority userAuthority = new UserAuthority(userId, info.authority);
             // Ignore stopped packages for now; we might query them
@@ -563,16 +631,20 @@ public class ProvidersCache implements ProvidersAccess, LookupApplicationName {
                 if (VERBOSE) {
                     Log.v(TAG, "Ignoring stopped authority " + info.authority + ", user " + userId);
                 }
-                mTaskStoppedAuthorities.add(userAuthority);
+                synchronized (mLock) {
+                    mLocalStoppedAuthorities.add(userAuthority);
+                }
                 return;
             }
 
             final boolean forceRefresh = mForceRefreshAll
-                    || Objects.equals(new UserPackage(userId, info.packageName),
-                    mForceRefreshUserPackage);
-            mTaskRoots.putAll(userAuthority, loadRootsForAuthority(userAuthority, forceRefresh));
+                    || Objects.equals(
+                    new UserPackage(userId, info.packageName), mForceRefreshUserPackage);
+            synchronized (mLock) {
+                mLocalRoots.putAll(userAuthority,
+                        loadRootsForAuthority(userAuthority, forceRefresh));
+            }
         }
-
     }
 
     private static class UserAuthority {
@@ -608,6 +680,16 @@ public class ProvidersCache implements ProvidersAccess, LookupApplicationName {
         @Override
         public int hashCode() {
             return Objects.hash(userId, authority);
+        }
+    }
+
+    private static class SingleProviderUpdateTaskInfo {
+        private final ProviderInfo providerInfo;
+        private final UserId userId;
+
+        SingleProviderUpdateTaskInfo(ProviderInfo providerInfo, UserId userId) {
+            this.providerInfo = providerInfo;
+            this.userId = userId;
         }
     }
 

@@ -16,7 +16,10 @@
 
 package com.android.mms.service;
 
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
@@ -26,6 +29,10 @@ import android.net.TelephonyNetworkSpecifier;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.DeviceConfig;
+import android.telephony.SubscriptionManager;
+import android.telephony.TelephonyManager;
+
+import com.android.internal.telephony.PhoneConstants;
 
 import com.android.mms.service.exception.MmsNetworkException;
 
@@ -76,6 +83,59 @@ public class MmsNetworkManager {
 
     // The SIM ID which we use to connect
     private final int mSubId;
+
+    // The current Phone ID for this MmsNetworkManager
+    private int mPhoneId;
+
+    // If ACTION_SIM_CARD_STATE_CHANGED intent receiver is registered
+    private boolean mReceiverRegistered;
+
+    /**
+     * This receiver listens to ACTION_SIM_CARD_STATE_CHANGED after starting a new NetworkRequest.
+     * If ACTION_SIM_CARD_STATE_CHANGED with SIM_STATE_ABSENT for a SIM card corresponding to the
+     * current NetworkRequest is received, it just releases the NetworkRequest without waiting for
+     * timeout.
+     */
+    private final BroadcastReceiver mReceiver =
+            new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    final int simState =
+                            intent.getIntExtra(
+                                    TelephonyManager.EXTRA_SIM_STATE,
+                                    TelephonyManager.SIM_STATE_UNKNOWN);
+                    final int phoneId =
+                            intent.getIntExtra(
+                                    PhoneConstants.PHONE_KEY,
+                                    SubscriptionManager.INVALID_PHONE_INDEX);
+                    LogUtil.i("MmsNetworkManager: received ACTION_SIM_CARD_STATE_CHANGED"
+                            + ", state=" + simStateString(simState) + ", phoneId=" + phoneId);
+
+                    if (mPhoneId == phoneId && simState == TelephonyManager.SIM_STATE_ABSENT) {
+                        synchronized (MmsNetworkManager.this) {
+                            releaseRequestLocked(mNetworkCallback);
+                            MmsNetworkManager.this.notifyAll();
+                        }
+                    }
+                }
+            };
+
+    private static String simStateString(int state) {
+        switch (state) {
+            case TelephonyManager.SIM_STATE_UNKNOWN:
+                return "UNKNOWN";
+            case TelephonyManager.SIM_STATE_ABSENT:
+                return "ABSENT";
+            case TelephonyManager.SIM_STATE_CARD_IO_ERROR:
+                return "CARD_IO_ERROR";
+            case TelephonyManager.SIM_STATE_CARD_RESTRICTED:
+                return "CARD_RESTRICTED";
+            case TelephonyManager.SIM_STATE_PRESENT:
+                return "PRESENT";
+            default:
+                return "INVALID";
+        }
+    }
 
     /**
      * Network callback for our network request
@@ -160,26 +220,44 @@ public class MmsNetworkManager {
             }
             // Not available, so start a new request if not done yet
             if (mNetworkCallback == null) {
+                mPhoneId = SubscriptionManager.getPhoneId(mSubId);
+                if (mPhoneId == SubscriptionManager.INVALID_PHONE_INDEX
+                        || mPhoneId == SubscriptionManager.DEFAULT_PHONE_INDEX) {
+                    throw new MmsNetworkException("Invalid Phone Id: " + mPhoneId);
+                }
+
                 LogUtil.d(requestId, "MmsNetworkManager: start new network request");
                 startNewNetworkRequestLocked(networkRequestTimeoutMillis);
+
+                // Register a receiver to listen to ACTION_SIM_CARD_STATE_CHANGED
+                mContext.registerReceiver(
+                        mReceiver,
+                        new IntentFilter(TelephonyManager.ACTION_SIM_CARD_STATE_CHANGED));
+                mReceiverRegistered = true;
             }
             try {
                 this.wait(networkRequestTimeoutMillis + ADDITIONAL_NETWORK_ACQUIRE_TIMEOUT_MILLIS);
             } catch (InterruptedException e) {
                 LogUtil.w(requestId, "MmsNetworkManager: acquire network wait interrupted");
             }
+
+            if (mReceiverRegistered) {
+                // Unregister the receiver.
+                mContext.unregisterReceiver(mReceiver);
+                mReceiverRegistered = false;
+            }
+
             if (mNetwork != null) {
                 // Success
                 return;
             }
 
-            // Timed out
-            LogUtil.e(requestId,
-                    "MmsNetworkManager: timed out with networkRequestTimeoutMillis="
-                            + networkRequestTimeoutMillis
-                            + " and ADDITIONAL_NETWORK_ACQUIRE_TIMEOUT_MILLIS="
-                            + ADDITIONAL_NETWORK_ACQUIRE_TIMEOUT_MILLIS);
-            if (mNetworkCallback != null) {
+            if (mNetworkCallback != null) { // Timed out
+                LogUtil.e(requestId,
+                        "MmsNetworkManager: timed out with networkRequestTimeoutMillis="
+                                + networkRequestTimeoutMillis
+                                + " and ADDITIONAL_NETWORK_ACQUIRE_TIMEOUT_MILLIS="
+                                + ADDITIONAL_NETWORK_ACQUIRE_TIMEOUT_MILLIS);
                 // Release the network request and wake up all the MmsRequests for fast-fail
                 // together.
                 // TODO: Start new network request for remaining MmsRequests?
@@ -187,7 +265,7 @@ public class MmsNetworkManager {
                 this.notifyAll();
             }
 
-            throw new MmsNetworkException("Acquiring network timed out");
+            throw new MmsNetworkException("Acquiring network failed");
         }
     }
 

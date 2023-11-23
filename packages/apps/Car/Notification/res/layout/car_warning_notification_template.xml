@@ -59,15 +59,26 @@
                     android:layout_height="wrap_content"
                     android:layout_below="@id/notification_header"
                     android:layout_marginBottom="@dimen/card_body_margin_bottom"
+                    app:maxLines="@integer/config_notificationPanelMaxBodyLines"
                     app:showBigIcon="true"/>
 
-                <com.android.car.notification.template.CarNotificationActionsView
-                    android:id="@+id/notification_actions"
+                <FrameLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_below="@id/notification_body"
-                    android:gravity="left"
-                    android:minHeight="@dimen/card_min_bottom_padding"/>
+                    android:layout_below="@id/notification_body">
+
+                    <com.android.car.notification.template.CarNotificationActionsView
+                        android:id="@+id/notification_actions"
+                        style="@style/NotificationActionViewLayout"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"/>
+
+                    <include
+                        layout="@layout/dismiss_button"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"/>
+
+                </FrameLayout>
             </RelativeLayout>
         </FrameLayout>
     </androidx.cardview.widget.CardView>

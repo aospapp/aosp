@@ -17,11 +17,14 @@
 package com.android.managedprovisioning.common;
 
 import static android.provider.Settings.Global.DEVICE_PROVISIONED;
-import static android.provider.Settings.Secure.MANAGED_PROFILE_CONTACT_REMOTE_SEARCH;
 import static android.provider.Settings.Secure.CROSS_PROFILE_CALENDAR_ENABLED;
+import static android.provider.Settings.Secure.MANAGED_PROFILE_CONTACT_REMOTE_SEARCH;
 import static android.provider.Settings.Secure.USER_SETUP_COMPLETE;
+import static android.provider.Settings.Secure.USER_SETUP_PERSONALIZATION_STARTED;
+import static android.provider.Settings.Secure.USER_SETUP_PERSONALIZATION_STATE;
 
 import android.content.Context;
+import android.provider.Settings;
 import android.provider.Settings.Global;
 import android.provider.Settings.Secure;
 
@@ -68,7 +71,8 @@ public class SettingsFacade {
     }
 
     /**
-     * Returns whether we are running during the setup wizard flow.
+     * Returns whether we are running during the setup wizard flow, this does not include the
+     * deferred setup case.
      */
     public boolean isDuringSetupWizard(Context context) {
         // If the flow is running in SUW, the primary user is not set up at this point
@@ -76,9 +80,15 @@ public class SettingsFacade {
     }
 
     /**
-     * Returns whether ADB is enabled (developer mode)
+     * Returns whether provisioning has started during deferred setup.
      */
-    public boolean isDeveloperMode(Context context) {
-        return Global.getInt(context.getContentResolver(), Global.ADB_ENABLED, 0) > 0;
+    public boolean isDeferredSetup(Context context) {
+        try {
+            return Settings.Secure.getInt(
+                    context.getContentResolver(), USER_SETUP_PERSONALIZATION_STATE)
+                    == USER_SETUP_PERSONALIZATION_STARTED;
+        } catch (Settings.SettingNotFoundException e) {
+            return false;
+        }
     }
 }

@@ -15,6 +15,8 @@
 -->
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
            xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <!-- required Italian (it) for this message: "Allarmi pubblici" -->
+    <string name="sms_cb_settings">Public warnings</string>
      <!-- CMAS dialog title for presidential level alert.  [CHAR LIMIT=50] -->
     <string name="cmas_presidential_level_alert" translatable="false">IT-Alert</string>
     <!-- CMAS dialog title for extreme alert. [CHAR LIMIT=50] -->

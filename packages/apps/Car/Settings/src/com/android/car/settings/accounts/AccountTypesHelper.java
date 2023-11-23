@@ -96,7 +96,8 @@ public class AccountTypesHelper {
      * <p>Derived from
      * {@link com.android.settings.accounts.ChooseAccountActivity#onAuthDescriptionsUpdated}
      */
-    private void updateAuthorizedAccountTypes(boolean isForced) {
+    @VisibleForTesting
+    void updateAuthorizedAccountTypes(boolean isForced) {
         AccountManager accountManager = AccountManager.get(mContext);
         AuthenticatorDescription[] authenticatorDescriptions =
                 accountManager.getAuthenticatorTypesAsUser(mUserHandle.getIdentifier());
@@ -182,5 +183,10 @@ public class AccountTypesHelper {
     @VisibleForTesting
     AuthenticatorHelper getAuthenticatorHelper() {
         return mAuthenticatorHelper;
+    }
+
+    @VisibleForTesting
+    void setAuthenticatorHelper(AuthenticatorHelper helper) {
+        mAuthenticatorHelper = helper;
     }
 }

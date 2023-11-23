@@ -39,4 +39,5 @@
       <item quantity="one"><xliff:g id="COUNT">%d</xliff:g>টা নতুন বাৰ্তা</item>
       <item quantity="other"><xliff:g id="COUNT">%d</xliff:g>টা নতুন বাৰ্তা</item>
     </plurals>
+    <string name="manage_text" msgid="4225197445283791757">"পৰিচালনা কৰক"</string>
 </resources>

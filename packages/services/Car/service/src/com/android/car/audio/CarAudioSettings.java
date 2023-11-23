@@ -15,12 +15,11 @@
  */
 package com.android.car.audio;
 
+import android.annotation.NonNull;
 import android.annotation.UserIdInt;
 import android.car.settings.CarSettings;
 import android.content.ContentResolver;
 import android.provider.Settings;
-
-import androidx.annotation.NonNull;
 
 import java.util.Objects;
 
@@ -33,20 +32,13 @@ public class CarAudioSettings {
     // allows listening for both GROUP/MEDIA and GROUP/NAVIGATION.
     private static final String VOLUME_SETTINGS_KEY_FOR_GROUP_PREFIX = "android.car.VOLUME_GROUP/";
 
+    // The trailing slash forms a directory-liked hierarchy and
+    // allows listening for both GROUP/MEDIA and GROUP/NAVIGATION.
+    private static final String VOLUME_SETTINGS_KEY_FOR_GROUP_MUTE_PREFIX =
+            "android.car.VOLUME_GROUP_MUTE/";
+
     // Key to persist master mute state in system settings
     private static final String VOLUME_SETTINGS_KEY_MASTER_MUTE = "android.car.MASTER_MUTE";
-
-    /**
-     * Gets the key to persist volume for a volume group in settings
-     *
-     * @param zoneId The audio zone id
-     * @param groupId The volume group id
-     * @return Key to persist volume index for volume group in system settings
-     */
-    private static String getVolumeSettingsKeyForGroup(int zoneId, int groupId) {
-        final int maskedGroupId = (zoneId << 8) + groupId;
-        return VOLUME_SETTINGS_KEY_FOR_GROUP_PREFIX + maskedGroupId;
-    }
 
     private final ContentResolver mContentResolver;
 
@@ -54,14 +46,14 @@ public class CarAudioSettings {
         mContentResolver = Objects.requireNonNull(contentResolver);
     }
 
-    int getStoredVolumeGainIndexForUser(int userId, int zoneId, int id) {
+    int getStoredVolumeGainIndexForUser(int userId, int zoneId, int groupId) {
         return Settings.System.getIntForUser(mContentResolver,
-                getVolumeSettingsKeyForGroup(zoneId, id), -1, userId);
+                getVolumeSettingsKeyForGroup(zoneId, groupId), -1, userId);
     }
 
-    void storeVolumeGainIndexForUser(int userId, int zoneId, int id, int gainIndex) {
+    void storeVolumeGainIndexForUser(int userId, int zoneId, int groupId, int gainIndex) {
         Settings.System.putIntForUser(mContentResolver,
-                getVolumeSettingsKeyForGroup(zoneId, id),
+                getVolumeSettingsKeyForGroup(zoneId, groupId),
                 gainIndex, userId);
     }
 
@@ -76,6 +68,25 @@ public class CarAudioSettings {
                 VOLUME_SETTINGS_KEY_MASTER_MUTE, 0) != 0;
     }
 
+    void storeVolumeGroupMuteForUser(@UserIdInt int userId, int zoneId, int groupId,
+            boolean isMuted) {
+        Settings.System.putIntForUser(mContentResolver,
+                getMuteSettingsKeyForGroup(zoneId, groupId),
+                isMuted ? 1 : 0, userId);
+    }
+
+    boolean getVolumeGroupMuteForUser(@UserIdInt int userId, int zoneId, int groupId) {
+        return Settings.System.getIntForUser(mContentResolver,
+                getMuteSettingsKeyForGroup(zoneId, groupId),
+                /*disabled by default*/ 0, userId) != 0;
+    }
+
+    boolean isPersistVolumeGroupMuteEnabled(@UserIdInt int userId) {
+        return Settings.Secure.getIntForUser(mContentResolver,
+                CarSettings.Secure.KEY_AUDIO_PERSIST_VOLUME_GROUP_MUTE_STATES,
+                /*disabled by default*/ 0, userId) == 1;
+    }
+
     /**
      * Determines if for a given userId the reject navigation on call setting is enabled
      */
@@ -83,6 +94,20 @@ public class CarAudioSettings {
         return Settings.Secure.getIntForUser(mContentResolver,
                 CarSettings.Secure.KEY_AUDIO_FOCUS_NAVIGATION_REJECTED_DURING_CALL,
                 /*disabled by default*/ 0, userId) == 1;
+    }
+
+    private static String getVolumeSettingsKeyForGroup(int zoneId, int groupId) {
+        return VOLUME_SETTINGS_KEY_FOR_GROUP_PREFIX
+                + getFormattedZoneIdAndGroupIdKey(zoneId, groupId);
+    }
+
+    private static String getMuteSettingsKeyForGroup(int zoneId, int groupId) {
+        return VOLUME_SETTINGS_KEY_FOR_GROUP_MUTE_PREFIX
+                + getFormattedZoneIdAndGroupIdKey(zoneId, groupId);
+    }
+
+    private static String getFormattedZoneIdAndGroupIdKey(int zoneId, int groupId) {
+        return new StringBuilder().append(zoneId).append('/').append(groupId).toString();
     }
 
     public ContentResolver getContentResolver() {

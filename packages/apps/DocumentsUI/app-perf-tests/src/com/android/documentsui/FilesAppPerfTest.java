@@ -28,12 +28,19 @@ import android.support.test.uiautomator.UiDevice;
 import android.test.InstrumentationTestCase;
 import android.test.suitebuilder.annotation.LargeTest;
 
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
+
+import org.junit.BeforeClass;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
-@LargeTest
-public class FilesAppPerfTest extends InstrumentationTestCase {
+@RunWith(AndroidJUnit4.class)
+public class FilesAppPerfTest {
 
     // Keys used to report metrics to APCT.
     private static final String KEY_FILES_COLD_START_PERFORMANCE_MEDIAN =
@@ -46,17 +53,19 @@ public class FilesAppPerfTest extends InstrumentationTestCase {
     private static final int NUM_MEASUREMENTS = 10;
 
     private LauncherActivity mActivity;
-    private UiDevice mDevice;
+    private static UiDevice mDevice;
 
-    @Override
-    public void setUp() {
-        mDevice = UiDevice.getInstance(getInstrumentation());
+    @BeforeClass
+    public static void setUp() {
+        mDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
     }
 
+    @Test
     public void testFilesColdStartPerformance() throws Exception {
         runFilesStartPerformanceTest(true);
     }
 
+    @Test
     public void testFilesWarmStartPerformance() throws Exception {
         runFilesStartPerformanceTest(false);
     }
@@ -72,7 +81,9 @@ public class FilesAppPerfTest extends InstrumentationTestCase {
             mDevice.waitForIdle();
 
             LauncherActivity.testCaseLatch = new CountDownLatch(1);
-            mActivity = launchActivity(getInstrumentation().getTargetContext().getPackageName(),
+            mActivity = launchActivity(
+                    InstrumentationRegistry.getInstrumentation().getTargetContext()
+                            .getPackageName(),
                     LauncherActivity.class, null);
             LauncherActivity.testCaseLatch.await();
             measurements[i] = LauncherActivity.measurement;
@@ -88,11 +99,11 @@ public class FilesAppPerfTest extends InstrumentationTestCase {
         final long median = measurements[NUM_MEASUREMENTS / 2 - 1];
         status.putDouble(key, median);
 
-        getInstrumentation().sendStatus(Activity.RESULT_OK, status);
+        InstrumentationRegistry.getInstrumentation().sendStatus(Activity.RESULT_OK, status);
     }
 
     private void killProviders() throws Exception {
-        final Context context = getInstrumentation().getContext();
+        final Context context = InstrumentationRegistry.getInstrumentation().getContext();
         final PackageManager pm = context.getPackageManager();
         final ActivityManager am = (ActivityManager) context.getSystemService(
                 Context.ACTIVITY_SERVICE);
@@ -102,5 +113,27 @@ public class FilesAppPerfTest extends InstrumentationTestCase {
             final String packageName = info.providerInfo.packageName;
             am.killBackgroundProcesses(packageName);
         }
+    }
+
+    private final <T extends Activity> T launchActivity(
+            String pkg,
+            Class<T> activityCls,
+            Bundle extras) {
+        Intent intent = new Intent(Intent.ACTION_MAIN);
+        if (extras != null) {
+            intent.putExtras(extras);
+        }
+        return launchActivityWithIntent(pkg, activityCls, intent);
+    }
+
+    private final <T extends Activity> T launchActivityWithIntent(
+            String pkg,
+            Class<T> activityCls,
+            Intent intent) {
+        intent.setClassName(pkg, activityCls.getName());
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        T activity = (T) InstrumentationRegistry.getInstrumentation().startActivitySync(intent);
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+        return activity;
     }
 }

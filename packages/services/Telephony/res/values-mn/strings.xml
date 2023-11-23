@@ -31,7 +31,7 @@
     <string name="ussdRunning" msgid="1163586813106772717">"USSD код ажиллаж байна…"</string>
     <string name="mmiCancelled" msgid="5339191899200678272">"MMI код цуцлагдсан"</string>
     <string name="cancel" msgid="8984206397635155197">"Цуцлах"</string>
-    <string name="enter_input" msgid="6193628663039958990">"USSD зурвасын үсгийн тоо <xliff:g id="MIN_LEN">%1$d</xliff:g> болон <xliff:g id="MAX_LEN">%2$d</xliff:g> хооронд байх шаардлагатай. Дахин оролдоно уу."</string>
+    <string name="enter_input" msgid="6193628663039958990">"USSD мессежийн үсгийн тоо <xliff:g id="MIN_LEN">%1$d</xliff:g> болон <xliff:g id="MAX_LEN">%2$d</xliff:g> хооронд байх шаардлагатай. Дахин оролдоно уу."</string>
     <string name="manageConferenceLabel" msgid="8415044818156353233">"Хурлын дуудлага удирдах"</string>
     <string name="ok" msgid="7818974223666140165">"OK"</string>
     <string name="audio_mode_speaker" msgid="243689733219312360">"Чанга яригч"</string>
@@ -49,7 +49,8 @@
     <string name="add_vm_number_str" msgid="7368168964435881637">"Дугаар нэмэх"</string>
     <string name="voice_number_setting_primary_user_only" msgid="3394706575741912843">"Дуут шуудангийн тохиргоог зөвхөн Үндсэн хэрэглэгч өөрчлөх боломжтой."</string>
     <string name="puk_unlocked" msgid="4627340655215746511">"Таны SIM карт тайлагдлаа. Таны утас тайлагдаж байна…"</string>
-    <string name="label_ndp" msgid="7617392683877410341">"SIM сүлжээ тайлах PIN"</string>
+    <string name="label_ndp" msgid="7617392683877410341">"SIM сүлжээ тайлах ПИН"</string>
+    <string name="label_phoneid" msgid="8775611434123577808">"Операторын SIM түгжигдсэн"</string>
     <string name="sim_ndp_unlock_text" msgid="7737338355451978338">"Тайлах"</string>
     <string name="sim_ndp_dismiss_text" msgid="89667342248929777">"Алгасах"</string>
     <string name="requesting_unlock" msgid="930512210309437741">"Сүлжээг тайлах хүсэлтийг илгээж байна…"</string>
@@ -95,7 +96,7 @@
     <string name="sum_loading_settings" msgid="434063780286688775">"Тохиргоог ачаалж байна…"</string>
     <string name="sum_hide_caller_id" msgid="131100328602371933">"Залгасан дуудлагуудад дугаарыг нууцална"</string>
     <string name="sum_show_caller_id" msgid="3571854755324664591">"Залгасан дуудлагуудад дугаарыг харуулна"</string>
-    <string name="sum_default_caller_id" msgid="1767070797135682959">"Гарах дуудлагуудад миний дугаарыг харуулахдаа операторын үндсэн тохиргоог ашиглах"</string>
+    <string name="sum_default_caller_id" msgid="1767070797135682959">"Гарах дуудлагуудад миний дугаарыг харуулахдаа операторын өгөгдмөл тохиргоог ашиглах"</string>
     <string name="labelCW" msgid="8449327023861428622">"Дуудлага хүлээлгэх"</string>
     <string name="sum_cw_enabled" msgid="3977308526187139996">"Дуудлагын дундуур өөр дуудлага ирвэл надад мэдэгдэх"</string>
     <string name="sum_cw_disabled" msgid="3658094589461768637">"Дуудлагын дундуур өөр дуудлага ирвэл надад мэдэгдэх"</string>
@@ -123,6 +124,13 @@
     <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"<xliff:g id="PHONENUMBER">{0}</xliff:g> руу дамжуулж байна"</string>
     <string name="sum_cfnrc_disabled" msgid="739289696796917683">"Идэвхгүй"</string>
     <string name="disable_cfnrc_forbidden" msgid="775348748084726890">"Таны үүрэн холбоо үзүүлэгчээс утас завгүй байхад дуудлагыг дамжуулахыг зогсоох үйлчилгээг дэмждэггүй."</string>
+    <string name="registration_cf_forbidden" msgid="4386482610771190420">"Таны оператор компани дуудлага шилжүүлэхийг дэмждэггүй."</string>
+    <string name="cdma_call_waiting" msgid="4565070960879673216">"\"Дуудлага хүлээлгэнд\" тохиргоог асаах уу?"</string>
+    <string name="enable_cdma_call_waiting_setting" msgid="5906811747921744307">"Дуудлагын үеэр танд ирсэн дуудлагын талаар мэдэгдэнэ"</string>
+    <string name="enable_cdma_cw" msgid="811047045863422232">"Асаах"</string>
+    <string name="disable_cdma_cw" msgid="7119290446496301734">"Болих"</string>
+    <string name="cdma_call_waiting_in_ims_on" msgid="6390979414188659218">"IMS доорх CDMA-н \"Дуудлага хүлээлгэнд\" тохиргоо асаалттай байна"</string>
+    <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"IMS доорх CDMA-н \"Дуудлага хүлээлгэнд\" тохиргоо унтраалттай байна"</string>
     <string name="updating_title" msgid="6130548922615719689">"Дуудлагын тохиргоо"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"Дуудлагын тохиргоог зөвхөн админ хэрэглэгч солих боломжтой."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"Тохиргоо (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -154,16 +162,16 @@
     <string name="no_change" msgid="3737264882821031892">"Ямар ч өөрчлөлт хийгдсэнгүй."</string>
     <string name="sum_voicemail_choose_provider" msgid="6750824719081403773">"Дуут шуудангийн үйлчилгээг сонгох"</string>
     <string name="voicemail_default" msgid="6427575113775462077">"Таны оператор компани"</string>
-    <string name="vm_change_pin_old_pin" msgid="7154951790929009241">"Хуучин PIN"</string>
-    <string name="vm_change_pin_new_pin" msgid="2656200418481288069">"Шинэ PIN"</string>
+    <string name="vm_change_pin_old_pin" msgid="7154951790929009241">"Хуучин ПИН"</string>
+    <string name="vm_change_pin_new_pin" msgid="2656200418481288069">"Шинэ ПИН"</string>
     <string name="vm_change_pin_progress_message" msgid="626015184502739044">"Түр хүлээнэ үү."</string>
-    <string name="vm_change_pin_error_too_short" msgid="1789139338449945483">"Шинэ PIN хэт богино байна."</string>
-    <string name="vm_change_pin_error_too_long" msgid="3634907034310018954">"Шинэ PIN хэт урт байна."</string>
-    <string name="vm_change_pin_error_too_weak" msgid="8581892952627885719">"Шинэ PIN хэт амархан байна. Сайн нууц үгэнд үргэлжилсэн дараалал буюу давтагдсан цифр ордоггүй."</string>
-    <string name="vm_change_pin_error_mismatch" msgid="5364847280026257331">"Хуучин PIN таарахгүй байна."</string>
-    <string name="vm_change_pin_error_invalid" msgid="5230002671175580674">"Шинэ PIN-д буруу тэмдэгт агуулагдаж байна."</string>
-    <string name="vm_change_pin_error_system_error" msgid="9116483527909681791">"PIN-г өөрчлөх боломжгүй"</string>
-    <string name="vvm_unsupported_message_format" msgid="4206402558577739713">"Дэмжигдээгүй зурвасын төрөл, сонсохын тулд <xliff:g id="NUMBER">%s</xliff:g> руу залгана уу."</string>
+    <string name="vm_change_pin_error_too_short" msgid="1789139338449945483">"Шинэ ПИН хэт богино байна."</string>
+    <string name="vm_change_pin_error_too_long" msgid="3634907034310018954">"Шинэ ПИН хэт урт байна."</string>
+    <string name="vm_change_pin_error_too_weak" msgid="8581892952627885719">"Шинэ ПИН хэт амархан байна. Сайн нууц үгэнд үргэлжилсэн дараалал буюу давтагдсан цифр ордоггүй."</string>
+    <string name="vm_change_pin_error_mismatch" msgid="5364847280026257331">"Хуучин ПИН таарахгүй байна."</string>
+    <string name="vm_change_pin_error_invalid" msgid="5230002671175580674">"Шинэ ПИН-д буруу тэмдэгт агуулагдаж байна."</string>
+    <string name="vm_change_pin_error_system_error" msgid="9116483527909681791">"ПИН-г өөрчлөх боломжгүй"</string>
+    <string name="vvm_unsupported_message_format" msgid="4206402558577739713">"Дэмжигдээгүй мессежийн төрөл, сонсохын тулд <xliff:g id="NUMBER">%s</xliff:g> руу залгана уу."</string>
     <string name="network_settings_title" msgid="7560807107123171541">"Мобайл сүлжээ"</string>
     <string name="label_available" msgid="1316084116670821258">"Боломжтой сүлжээнүүд"</string>
     <string name="load_networks_progress" msgid="4051433047717401683">"Хайж байна..."</string>
@@ -283,9 +291,12 @@
     <string name="roaming_warning" msgid="7855681468067171971">"Таны төлбөр өндөр гарах магадлалтайг анхааруулж байна."</string>
     <string name="roaming_check_price_warning" msgid="8212484083990570215">"Үнийг нь өөрийн сүлжээний нийлүүлэгчээс шалгана уу."</string>
     <string name="roaming_alert_title" msgid="5689615818220960940">"Дата роуминг үйлчилгээг идэвхжүүлэх үү?"</string>
-    <string name="limited_sim_function_notification_title" msgid="612715399099846281">"Хязгаарлагдмал СИМ-н функц"</string>
+    <string name="limited_sim_function_notification_title" msgid="612715399099846281">"Хязгаарлагдмал SIM-н функц"</string>
     <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"<xliff:g id="PHONE_NUMBER">%2$s</xliff:g>-г ашиглах явцад <xliff:g id="CARRIER_NAME">%1$s</xliff:g>-н дуудлага болон дата үйлчилгээг блоклож болзошгүй."</string>
-    <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"Өөр СИМ ашиглах явцад <xliff:g id="CARRIER_NAME">%1$s</xliff:g>-н дуудлага болон дата үйлчилгээг хориглож болзошгүй."</string>
+    <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"Өөр SIM ашиглах явцад <xliff:g id="CARRIER_NAME">%1$s</xliff:g>-н дуудлага болон дата үйлчилгээг хориглож болзошгүй."</string>
+    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"SIP-н зогсоосон бүртгэлүүд олдсон бөгөөд тэдгээрийг хассан"</string>
+    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"SIP дуудлагыг цаашид Android платформоос дэмжихгүй.\nТаны одоо байгаа <xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g> SIP-н бүртгэлүүдийг хассан.\nДуудлагын бүртгэлийн өгөгдмөл тохиргоогоо баталгаажуулна уу."</string>
+    <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"Тохиргоо руу очих"</string>
     <string name="data_usage_title" msgid="8438592133893837464">"Аппын дата ашиглалт"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"<xliff:g id="ID_1">%1$s</xliff:g> мобайл дата ашигласан <xliff:g id="ID_2">%2$s</xliff:g>"</string>
     <string name="advanced_options_title" msgid="9208195294513520934">"Нарийвчилсан"</string>
@@ -438,7 +449,7 @@
     <string name="enable_fdn_ok" msgid="5080925177369329827">"FDN идэвхгүйжүүлэх"</string>
     <string name="disable_fdn_ok" msgid="3745475926874838676">"FDN-г идэвхжүүлэх"</string>
     <string name="sum_fdn" msgid="6152246141642323582">"Тогтсон залгах дугааруудыг удирдах"</string>
-    <string name="sum_fdn_change_pin" msgid="3510994280557335727">"FDN хандалтын PIN-г өөрчлөх"</string>
+    <string name="sum_fdn_change_pin" msgid="3510994280557335727">"FDN хандалтын ПИН-г өөрчлөх"</string>
     <string name="sum_fdn_manage_list" msgid="3311397063233992907">"Утасны дугаарын жагсаалтыг удирдах"</string>
     <string name="voice_privacy" msgid="7346935172372181951">"Дууны нууцлал"</string>
     <string name="voice_privacy_summary" msgid="3556460926168473346">"Сайжруулсан нууцлалын төлвийг идэвхжүүлэх"</string>
@@ -464,31 +475,31 @@
     <string name="delete_fdn_contact" msgid="7027405651994507077">"Тогтвортой залгах дугаарыг устгах"</string>
     <string name="deleting_fdn_contact" msgid="6872320570844460428">"Тогтвортой залгах дугаарыг устгаж байна…"</string>
     <string name="fdn_contact_deleted" msgid="1680714996763848838">"Тогтвортой залгах дугаарыг устгав."</string>
-    <string name="pin2_invalid" msgid="2313954262684494442">"Та буруу PIN оруулсан учир FDN шинэчлэгдсэнгүй."</string>
+    <string name="pin2_invalid" msgid="2313954262684494442">"Та буруу ПИН оруулсан учир FDN шинэчлэгдсэнгүй."</string>
     <string name="fdn_invalid_number" msgid="9067189814657840439">"Дугаар <xliff:g id="FDN_NUMBER_LIMIT_LENGTH">%d</xliff:g> цифрээс хэтэрсэн тул FDN-г шинэчлээгүй."</string>
     <string name="pin2_or_fdn_invalid" msgid="7542639487955868181">"FDN шинэчлэгдсэнгүй. PIN2 буруу байсан, эсхүл утасны дугаар зөвшөөрөгдсөнгүй."</string>
     <string name="fdn_failed" msgid="216592346853420250">"ФДН ажиллуулах амжилтгүй."</string>
     <string name="simContacts_emptyLoading" msgid="4989040293858675483">"SIM картаас уншиж байна…"</string>
     <string name="simContacts_empty" msgid="1135632055473689521">"Таны SIM картанд харилцагчид байхгүй байна."</string>
     <string name="simContacts_title" msgid="2714029230160136647">"Оруулах харилцагчдыг сонгоно уу"</string>
-    <string name="simContacts_airplaneMode" msgid="4654884030631503808">"Сим картнаас дугаар импортлохын тулд онгоцны горимыг унтраа"</string>
-    <string name="enable_pin" msgid="967674051730845376">"SIM PIN Идэвхжүүлэх/идэвхгүйжүүлэх"</string>
-    <string name="change_pin" msgid="3657869530942905790">"SIM PIN өөрчлөх"</string>
-    <string name="enter_pin_text" msgid="3182311451978663356">"SIM PIN:"</string>
-    <string name="oldPinLabel" msgid="8618515202411987721">"Хуучин PIN"</string>
-    <string name="newPinLabel" msgid="3585899083055354732">"Шинэ PIN"</string>
-    <string name="confirmPinLabel" msgid="7783531218662473778">"Шинэ PIN-г баталгаажуулах"</string>
-    <string name="badPin" msgid="4549286285015892321">"Таны оруулсан хуучин PIN буруу байна. Дахин оролдоно уу."</string>
-    <string name="mismatchPin" msgid="1467254768290323845">"Таны оруулсан PIN таарахгүй байна. Дахин оролдоно уу."</string>
-    <string name="invalidPin" msgid="7363723429414001979">"4-с 8 цифртэй PIN оруулна уу"</string>
-    <string name="disable_sim_pin" msgid="3112303905548613752">"SIM-ний PIN-г цэвэрлэх"</string>
+    <string name="simContacts_airplaneMode" msgid="4654884030631503808">"SIM картнаас дугаар импортлохын тулд онгоцны горимыг унтраа"</string>
+    <string name="enable_pin" msgid="967674051730845376">"SIM ПИН Идэвхжүүлэх/идэвхгүйжүүлэх"</string>
+    <string name="change_pin" msgid="3657869530942905790">"SIM ПИН өөрчлөх"</string>
+    <string name="enter_pin_text" msgid="3182311451978663356">"SIM ПИН:"</string>
+    <string name="oldPinLabel" msgid="8618515202411987721">"Хуучин ПИН"</string>
+    <string name="newPinLabel" msgid="3585899083055354732">"Шинэ ПИН"</string>
+    <string name="confirmPinLabel" msgid="7783531218662473778">"Шинэ ПИН-г баталгаажуулах"</string>
+    <string name="badPin" msgid="4549286285015892321">"Таны оруулсан хуучин ПИН буруу байна. Дахин оролдоно уу."</string>
+    <string name="mismatchPin" msgid="1467254768290323845">"Таны оруулсан ПИН таарахгүй байна. Дахин оролдоно уу."</string>
+    <string name="invalidPin" msgid="7363723429414001979">"4-с 8 цифртэй ПИН оруулна уу"</string>
+    <string name="disable_sim_pin" msgid="3112303905548613752">"SIM-ний ПИН-г цэвэрлэх"</string>
     <string name="enable_sim_pin" msgid="445461050748318980">"SIM-ний ПИН-г тохируулах"</string>
     <string name="enable_in_progress" msgid="4135305985717272592">"ПИН-г тохируулж байна..."</string>
-    <string name="enable_pin_ok" msgid="2877428038280804256">"PIN-г тохирууллаа"</string>
-    <string name="disable_pin_ok" msgid="888505244389647754">"PIN цэвэрлэгдсэн"</string>
-    <string name="pin_failed" msgid="4527347792881939652">"PIN буруу байна"</string>
-    <string name="pin_changed" msgid="7291153750090452808">"PIN шинэчлэгдсэн"</string>
-    <string name="puk_requested" msgid="2061337960609806851">"Нууц үг буруу байна. PIN код одоо түгжигдсэн. PUK кодыг авах хүсэлт тавигдсан."</string>
+    <string name="enable_pin_ok" msgid="2877428038280804256">"ПИН-г тохирууллаа"</string>
+    <string name="disable_pin_ok" msgid="888505244389647754">"ПИН цэвэрлэгдсэн"</string>
+    <string name="pin_failed" msgid="4527347792881939652">"ПИН буруу байна"</string>
+    <string name="pin_changed" msgid="7291153750090452808">"ПИН шинэчлэгдсэн"</string>
+    <string name="puk_requested" msgid="2061337960609806851">"Нууц үг буруу байна. ПИН код одоо түгжигдсэн. PUK кодыг авах хүсэлт тавигдсан."</string>
     <string name="enter_pin2_text" msgid="7266379426804295979">"PIN2"</string>
     <string name="oldPin2Label" msgid="4648543187859997203">"Хуучин PIN2"</string>
     <string name="newPin2Label" msgid="1840905981784453939">"Шинэ PIN2"</string>
@@ -504,6 +515,7 @@
     <string name="puk2_requested" msgid="6992374450720307514">"Нууц үг буруу байна. SIM карт одоо түгжигдсэн. PUK2 кодыг оруулна уу."</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"ПҮК2 бүрмөсөн түгжигдсэн."</string>
     <string name="pin2_attempts" msgid="5625178102026453023">\n"Танд <xliff:g id="NUMBER">%d</xliff:g> оролдлого үлдлээ."</string>
+    <string name="puk2_locked" msgid="6497760825455461057">"PUK2-г түгжсэн. Түгжээг тайлахын тулд үйлчилгээ үзүүлэгчтэй холбогдоно уу."</string>
     <string name="pin2_unblocked" msgid="4481107908727789303">"PIN2 түгжээгүй болсон"</string>
     <string name="pin2_error_exception" msgid="8116103864600823641">"Сүлжээ болон SIM картын алдаа"</string>
     <string name="doneButton" msgid="7371209609238460207">"Дууссан"</string>
@@ -525,13 +537,14 @@
     <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"Дуудлага хийхийн тулд мобайл сүлжээг асаах, нислэгийн горим буюу батерей хэмнэх горимыг идэвхгүй болгоно уу."</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"Дуудлага хийхийн тулд онгоцны горимыг унтраа."</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"Дуудлага хийхийн тулд онгоцны горимыг унтраа эсвэл утасгүй интернетэд холбогдоно уу."</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"Утас хэт халуун байна"</b>\n\n"Энэ дуудлагыг гүйцээх боломжгүй. Та утсаа хөрсөн үед дахин оролдоно уу.\n\nТа яаралтай дуудлага хийх боломжтой хэвээр байна."</string>
     <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"Яаралтай түргэн тусламжийн бус дуудлага хийхийн тулд яаралтай түргэн тусламжийн callback горимоос гарна уу."</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"Сүлжээнд бүртгэгдээгүй."</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"Мобайль сүлжээ байхгүй."</string>
     <string name="incall_error_out_of_service_wfc" msgid="4497663185857190885">"Мобайл сүлжээнд холбогдох боломжгүй байна. Дуудлага хийхийн тулд утасгүй интернетэд холбогдоно уу."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="8680831089508851894">"Дуудлага хийхийн тулд хүчин төгөлдөр дугаар оруулна уу."</string>
     <string name="incall_error_call_failed" msgid="393508653582682539">"Дуудлага амжилтгүй болсон."</string>
-    <string name="incall_error_cannot_add_call" msgid="5425764862628655443">"Дуудлагыг энэ удаад нэмэх боломжгүй. Та зурвас илгээн холбоо тогтоохыг оролдох боломжтой."</string>
+    <string name="incall_error_cannot_add_call" msgid="5425764862628655443">"Дуудлагыг энэ удаад нэмэх боломжгүй. Та мессеж илгээн холбоо тогтоохыг оролдох боломжтой."</string>
     <string name="incall_error_supp_service_unknown" msgid="8751177117194592623">"Үйлчилгээг дэмждэггүй байна"</string>
     <string name="incall_error_supp_service_switch" msgid="5272822448189448479">"Дуудлагыг солих боломжгүй байна."</string>
     <string name="incall_error_supp_service_resume" msgid="1276861499306817035">"Дуудлагыг үргэлжлүүлэх боломжгүй."</string>
@@ -582,8 +595,8 @@
     <string name="hac_mode_title" msgid="4127986689621125468">"Сонсголын төхөөрөмж"</string>
     <string name="hac_mode_summary" msgid="7774989500136009881">"Сонсголын төхөөрөмж тааруулагчийг асаана уу"</string>
     <string name="rtt_mode_title" msgid="3075948111362818043">"Шууд мессежлэх (RTT) дуудлага"</string>
-    <string name="rtt_mode_summary" msgid="8631541375609989562">"Дуудлагын дотор зурвас бичихийг зөвшөөрөх"</string>
-    <string name="rtt_mode_more_information" msgid="587500128658756318">"RTT нь дүлий, хатуу чихтэй, хэл ярианы хөгжлийн бэрхшээлтэй, эсвэл хэн нэгний тусламжтай ярьдаг дуудлага хийгчдэд тусладаг.&lt;br&gt; &lt;a href=<xliff:g id="URL">http://support.google.com/mobile?p=telephony_rtt</xliff:g>&gt;Дэлгэрэнгүй үзэх&lt;/a&gt;\n       &lt;br&gt;&lt;br&gt; - RTT дуудлага нь зурвасын сийрүүлэг хэлбэрээр хадгалагдана\n       &lt;br&gt; - RTT нь видео дуудлага хийхэд боломжгүй"</string>
+    <string name="rtt_mode_summary" msgid="8631541375609989562">"Дуудлагын дотор мессеж бичихийг зөвшөөрөх"</string>
+    <string name="rtt_mode_more_information" msgid="587500128658756318">"RTT нь дүлий, хатуу чихтэй, хэл ярианы хөгжлийн бэрхшээлтэй, эсвэл хэн нэгний тусламжтай ярьдаг дуудлага хийгчдэд тусладаг.&lt;br&gt; &lt;a href=<xliff:g id="URL">http://support.google.com/mobile?p=telephony_rtt</xliff:g>&gt;Дэлгэрэнгүй үзэх&lt;/a&gt;\n       &lt;br&gt;&lt;br&gt; - RTT дуудлага нь мессежийн сийрүүлэг хэлбэрээр хадгалагдана\n       &lt;br&gt; - RTT нь видео дуудлага хийхэд боломжгүй"</string>
     <string name="no_rtt_when_roaming" msgid="5268008247378355389">"Санамж: RTT (Тухайн агшины текст) роуминг үйлчилгээний үед боломжгүй байна"</string>
   <string-array name="tty_mode_entries">
     <item msgid="3238070884803849303">"TTY Унтраасан"</item>
@@ -597,14 +610,14 @@
     <item msgid="2271798469250155310">"Энгийн"</item>
     <item msgid="6044210222666533564">"Урт"</item>
   </string-array>
-    <string name="network_info_message" msgid="7599413947016532355">"Сүлжээний зурвас"</string>
-    <string name="network_error_message" msgid="4271579424089326618">"Алдаатай зурвас"</string>
+    <string name="network_info_message" msgid="7599413947016532355">"Сүлжээний мессеж"</string>
+    <string name="network_error_message" msgid="4271579424089326618">"Алдаатай мессеж"</string>
     <string name="ota_title_activate" msgid="4049645324841263423">"Утсаа идэвхжүүлнэ үү"</string>
     <string name="ota_touch_activate" msgid="838764494319694754">"Таны утасны үйлчилгээ идэвхжүүлэхийн тулд тусгай дуудлага хийх шаардлагатай. \n\n“Идэвхжүүлэх” гэснийг дарсны дараа өгч байгаа зааврыг сонсон утсаа идэвхжүүлнэ үү."</string>
     <string name="ota_hfa_activation_title" msgid="3300556778212729671">"Идэвхжүүлж байна..."</string>
     <string name="ota_hfa_activation_dialog_message" msgid="7921718445773342996">"Утас таны мобайл дата үйлчилгээг идэвхжүүлж байна.\n\nҮүнд 5 хүртэл минут орж болно."</string>
     <string name="ota_skip_activation_dialog_title" msgid="7666611236789203797">"Идэвхжүүлэхийг алгасах уу?"</string>
-    <string name="ota_skip_activation_dialog_message" msgid="6691722887019708713">"Хэрэв та идэвхжүүлэхийг алгасвал дуудлага хийх буюу мобайль дата сүлжээнд холбогдох (хэдийгээр Wi-Fi сүлжээнд холбогдож болох ч) боломжгүй болно. Таныг утсаа идэвхжүүлэх хүртэл утсаа асаах бүрт идэвхжүүлэхийг хүсэх болно."</string>
+    <string name="ota_skip_activation_dialog_message" msgid="6691722887019708713">"Хэрэв та идэвхжүүлэхийг алгасвал дуудлага хийх буюу мобайль дата сүлжээнд холбогдох (хэдийгээр Wi-Fi сүлжээнд холбогдож болох ч) боломжгүй болно. Таныг утсаа идэвхжүүлэх хүртэл утсаа асаах бүрд идэвхжүүлэхийг хүсэх болно."</string>
     <string name="ota_skip_activation_dialog_skip_label" msgid="5908029466817825633">"Алгасах"</string>
     <string name="ota_activate" msgid="7939695753665438357">"Идэвхжүүлэх"</string>
     <string name="ota_title_activate_success" msgid="1272135024761004889">"Утсыг идэвхжүүллээ."</string>
@@ -656,8 +669,8 @@
     <string name="description_dialpad_button" msgid="7395114120463883623">"дугаар цуглуулах самбарыг харуулах"</string>
     <string name="pane_title_emergency_dialpad" msgid="3627372514638694401">"Яаралтай тусламжийн дугаар цуглуулах самбар"</string>
     <string name="voicemail_visual_voicemail_switch_title" msgid="6610414098912832120">"Визуал дуут шуудан"</string>
-    <string name="voicemail_set_pin_dialog_title" msgid="7005128605986960003">"PIN тохируулах"</string>
-    <string name="voicemail_change_pin_dialog_title" msgid="4633077715231764435">"PIN өөрчлөх"</string>
+    <string name="voicemail_set_pin_dialog_title" msgid="7005128605986960003">"ПИН тохируулах"</string>
+    <string name="voicemail_change_pin_dialog_title" msgid="4633077715231764435">"ПИН өөрчлөх"</string>
     <string name="preference_category_ringtone" msgid="8787281191375434976">"Хонхны ая &amp; Чичиргээ"</string>
     <string name="pstn_connection_service_label" msgid="9200102709997537069">"Суурилагдсан SIM карт"</string>
     <string name="enable_video_calling_title" msgid="7246600931634161830">"Видео дуудлагыг идэвхжүүлэх"</string>
@@ -671,7 +684,7 @@
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"Wi-Fi дуудлага"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"Wi-Fi дуудлага"</string>
     <string name="emergency_action_launch_hint" msgid="2762016865340891314">"Нээхийн тулд дахин дарна уу"</string>
-    <string name="message_decode_error" msgid="1061856591500290887">"Зурвасын кодыг тайлах явцад алдаа гарсан."</string>
+    <string name="message_decode_error" msgid="1061856591500290887">"Мессежийн кодыг тайлах явцад алдаа гарсан."</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"SIM карт таны үйлчилгээг идэвхжүүлж, утасны роаминг багтаамжийг шинэчиллээ."</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"Хэт олон идэвхтэй дуудлага байна. Шинэ дуудлага хийхийн өмнө одоогийн дуудлагуудыг таслах буюу нэгтгэнэ үү."</string>
     <string name="callFailed_imei_not_accepted" msgid="7257903653685147251">"Холбох боломжгүй, хүчинтэй SIM карт оруулна уу."</string>
@@ -680,18 +693,18 @@
     <string name="callFailed_low_battery" msgid="4056828320214416182">"Цэнэг бага байгаа тул видео дуудлагыг дуусгасан."</string>
     <string name="callFailed_emergency_call_over_wfc_not_available" msgid="5944309590693432042">"Энэ байрлалд Wi-Fi дуудлагаар яаралтай дуудлага хийх боломжгүй."</string>
     <string name="callFailed_wfc_service_not_available_in_this_location" msgid="3624536608369524988">"Энэ байрлалд Wi-Fi дуудлага хийх боломжгүй байна."</string>
-    <string name="change_pin_title" msgid="3564254326626797321">"Дуут шуудангийн PIN-г өөрчлөх"</string>
+    <string name="change_pin_title" msgid="3564254326626797321">"Дуут шуудангийн ПИН-г өөрчлөх"</string>
     <string name="change_pin_continue_label" msgid="5177011752453506371">"Үргэлжлүүлэх"</string>
     <string name="change_pin_cancel_label" msgid="2301711566758827936">"Цуцлах"</string>
     <string name="change_pin_ok_label" msgid="6861082678817785330">"OK"</string>
-    <string name="change_pin_enter_old_pin_header" msgid="853151335217594829">"Хуучин PIN-ээ баталгаажуулна уу"</string>
-    <string name="change_pin_enter_old_pin_hint" msgid="8801292976275169367">"Үргэлжлүүлэхийн тулд дуут шуудангийн PIN оруулна уу."</string>
-    <string name="change_pin_enter_new_pin_header" msgid="4739465616733486118">"Шинэ PIN тохируулах"</string>
-    <string name="change_pin_enter_new_pin_hint" msgid="2326038476516364210">"PIN <xliff:g id="MIN">%1$d</xliff:g> - <xliff:g id="MAX">%2$d</xliff:g> цифртэй байх ёстой."</string>
-    <string name="change_pin_confirm_pin_header" msgid="2606303906320705726">"PIN кодоо баталгаажуулна уу"</string>
-    <string name="change_pin_confirm_pins_dont_match" msgid="305164501222587215">"PIN код таарахгүй байна"</string>
-    <string name="change_pin_succeeded" msgid="2504705600693014403">"Дуут шуудангийн PIN шинэчлэгдсэн"</string>
-    <string name="change_pin_system_error" msgid="7772788809875146873">"PIN тохируулах боломжгүй"</string>
+    <string name="change_pin_enter_old_pin_header" msgid="853151335217594829">"Хуучин ПИН-ээ баталгаажуулна уу"</string>
+    <string name="change_pin_enter_old_pin_hint" msgid="8801292976275169367">"Үргэлжлүүлэхийн тулд дуут шуудангийн ПИН оруулна уу."</string>
+    <string name="change_pin_enter_new_pin_header" msgid="4739465616733486118">"Шинэ ПИН тохируулах"</string>
+    <string name="change_pin_enter_new_pin_hint" msgid="2326038476516364210">"ПИН <xliff:g id="MIN">%1$d</xliff:g> - <xliff:g id="MAX">%2$d</xliff:g> цифртэй байх ёстой."</string>
+    <string name="change_pin_confirm_pin_header" msgid="2606303906320705726">"ПИН кодоо баталгаажуулна уу"</string>
+    <string name="change_pin_confirm_pins_dont_match" msgid="305164501222587215">"ПИН код таарахгүй байна"</string>
+    <string name="change_pin_succeeded" msgid="2504705600693014403">"Дуут шуудангийн ПИН шинэчлэгдсэн"</string>
+    <string name="change_pin_system_error" msgid="7772788809875146873">"ПИН тохируулах боломжгүй"</string>
     <string name="mobile_data_status_roaming_turned_off_subtext" msgid="6840673347416227054">"Дата роумингийг идэвхгүй болгосон"</string>
     <string name="mobile_data_status_roaming_turned_on_subtext" msgid="5615757897768777865">"Дата роумингийг асаасан"</string>
     <string name="mobile_data_status_roaming_without_plan_subtext" msgid="6536671968072284677">"Одоо роумингтэй байна, дата багц шаардлагатай"</string>
@@ -866,8 +879,7 @@
     <string name="radio_info_subid" msgid="6839966868621703203">"Одоогийн subId:"</string>
     <string name="radio_info_dds" msgid="1122593144425697126">"Өгөгдмөл дата SIM-н SubId:"</string>
     <string name="radio_info_dl_kbps" msgid="2382922659525318726">"DLзурвасын өргөн (kbps):"</string>
-    <string name="radio_info_ul_kbps" msgid="2102225400904799036">"UL Зурвасын өргөн (kbps):"</string>
-    <string name="radio_info_signal_location_label" msgid="6188435197086550049">"Үүрэн байршлын мэдээлэл (цуцалсан):"</string>
+    <string name="radio_info_ul_kbps" msgid="2102225400904799036">"UL Мессежийн өргөн (kbps):"</string>
     <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"LTE Сувгийн бодит тохиргоо:"</string>
     <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"Үүрэн мэдээлэл сэргээх тариф:"</string>
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"Бүх үүрэн хэмжилтийн мэдээлэл:"</string>
@@ -882,9 +894,9 @@
     <string name="radio_info_signal_strength_label" msgid="5545444702102543260">"Дохионы хүч:"</string>
     <string name="radio_info_call_status_label" msgid="7693575431923095487">"Дуут дуудлагын төлөв:"</string>
     <string name="radio_info_ppp_sent_label" msgid="6542208429356199695">"Дата илгээсэн:"</string>
-    <string name="radio_info_message_waiting_label" msgid="1886549432566952078">"Зурвасыг хүлээж байна:"</string>
+    <string name="radio_info_message_waiting_label" msgid="1886549432566952078">"Мессежийг хүлээж байна:"</string>
     <string name="radio_info_phone_number_label" msgid="2533852539562512203">"Утасны дугаар:"</string>
-    <string name="radio_info_band_mode_label" msgid="23480556225515290">"Радио зурвасыг сонгох"</string>
+    <string name="radio_info_band_mode_label" msgid="23480556225515290">"Радио мессежийг сонгох"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"Дуут сүлжээний төрөл:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"Дата сүлжээний төрөл:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"Утасны индекс сонгох"</string>
@@ -896,10 +908,15 @@
     <string name="radio_info_smsc_label" msgid="3749927072726033763">"SMSC:"</string>
     <string name="radio_info_smsc_update_label" msgid="5141996256097115753">"Шинэчлэх"</string>
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Сэргээх"</string>
-    <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"DNS шалгалтыг унтраах/асаах"</string>
+    <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"DNS шалгалтыг асаах/унтраах"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"OEM-тодорхой Мэдээлэл/Тохиргоо"</string>
-    <string name="band_mode_title" msgid="7988822920724576842">"Радио зурвасын горимыг тохируулах"</string>
-    <string name="band_mode_loading" msgid="795923726636735967">"Зурвасын жагсаалтыг ачаалж байна…"</string>
+    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC боломжтой:"</string>
+    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR хязгаарласан:"</string>
+    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR боломжтой:"</string>
+    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR төлөв:"</string>
+    <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR давтамж:"</string>
+    <string name="band_mode_title" msgid="7988822920724576842">"Радио мессежийн горимыг тохируулах"</string>
+    <string name="band_mode_loading" msgid="795923726636735967">"Мессежийн жагсаалтыг ачаалж байна…"</string>
     <string name="band_mode_set" msgid="6657819412803771421">"Тохируулах"</string>
     <string name="band_mode_failed" msgid="1707488541847192924">"Амжилтгүй"</string>
     <string name="band_mode_succeeded" msgid="2230018000534761063">"Амжилттай"</string>
@@ -907,4 +924,7 @@
     <string name="phone_info_label" product="default" msgid="1784175881556791433">"Утасны мэдээлэл"</string>
     <string name="carrier_provisioning" msgid="2668065041869578376">"Оператор компанийн хангалтын мэдээлэл"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"Оператор компанийн хангалтыг эхлүүлэх"</string>
+    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"Таны Bluetooth-н дохио сул байна. Чанга яригчтай утас руу сэлгэж үзнэ үү."</string>
+    <string name="call_quality_notification_name" msgid="3476828289553948830">"Дуудлагын чанарын мэдэгдэл"</string>
+    <string name="notification_channel_sip_account" msgid="1261816025156179637">"SIP-н зогсоосон бүртгэлүүд"</string>
 </resources>

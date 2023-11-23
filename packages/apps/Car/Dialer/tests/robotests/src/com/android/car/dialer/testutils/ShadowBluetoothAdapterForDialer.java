@@ -16,8 +16,14 @@
 
 package com.android.car.dialer.testutils;
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothHeadsetClient;
 import android.bluetooth.BluetoothProfile;
+import android.content.Context;
 
 import androidx.annotation.Nullable;
 
@@ -26,6 +32,7 @@ import org.robolectric.annotation.Implements;
 import org.robolectric.shadows.ShadowApplication;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -40,6 +47,8 @@ public class ShadowBluetoothAdapterForDialer extends
 
     private static boolean bluetoothAvailable = true;
     private Map<Integer, Integer> profileConnectionStateData = new HashMap<>();
+    private final BluetoothHeadsetClient mMockBluetoothHeadsetClient = mock(
+            BluetoothHeadsetClient.class);
 
     @Nullable
     @Implementation
@@ -50,10 +59,25 @@ public class ShadowBluetoothAdapterForDialer extends
         return (BluetoothAdapter) ShadowApplication.getInstance().getBluetoothAdapter();
     }
 
+    @Implementation
+    public boolean getProfileProxy(Context context, BluetoothProfile.ServiceListener listener,
+            int profile) {
+        if (profile == BluetoothProfile.HEADSET_CLIENT) {
+            listener.onServiceConnected(BluetoothProfile.HEADSET_CLIENT,
+                    mMockBluetoothHeadsetClient);
+            return true;
+        }
+        return false;
+    }
+
     /**
      * Sets if the default Bluetooth Adapter is null
      */
     public static void setBluetoothAvailable(boolean available) {
         bluetoothAvailable = available;
+    }
+
+    public void setHfpDevices(List<BluetoothDevice> bluetoothDevices) {
+        when(mMockBluetoothHeadsetClient.getConnectedDevices()).thenReturn(bluetoothDevices);
     }
 }

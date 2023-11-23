@@ -19,6 +19,9 @@
     <!-- Applications settings title. If clicked, the user is taken to a screen full of application settings [CHAR_LIMIT=NONE BACKUP_MESSAGE_ID=5281808652705396152] -->
     <string name="applications_settings">App info</string>
 
+    <!-- Class name for AccessibilityServiceResult Task [CHAR_LIMIT=NONE]-->
+    <string name="accessibility_settings_classname">com.android.settings.accessibility.AccessibilitySettings</string>
+
     <!-- Settings title in main settings screen for accessibility settings [CHAR_LIMIT=NONE BACKUP_MESSAGE_ID=3975902491934816215] -->
     <string name="accessibility_settings">Accessibility</string>
 

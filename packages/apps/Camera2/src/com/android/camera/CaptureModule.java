@@ -411,7 +411,7 @@ public class CaptureModule extends CameraModule implements
         } catch (OneCameraException e) {
             Log.e(TAG, "Unable to provide a OneCameraManager. ", e);
         }
-        mDisplayRotation = CameraUtil.getDisplayRotation();
+        mDisplayRotation = CameraUtil.getDisplayRotation(activity);
         mCameraFacing = getFacingFromCameraId(
               mSettingsManager.getInteger(mAppController.getModuleScope(), Keys.KEY_CAMERA_ID));
         mShowErrorAndFinish = !updateCameraCharacteristics();
@@ -1218,7 +1218,7 @@ public class CaptureModule extends CameraModule implements
         Log.d(TAG, "updatePreviewTransform: " + incomingWidth + " x " + incomingHeight);
 
         synchronized (mDimensionLock) {
-            int incomingRotation = CameraUtil.getDisplayRotation();
+            int incomingRotation = CameraUtil.getDisplayRotation(mUI.getActivity());
             // Check for an actual change:
             if (mScreenHeight == incomingHeight && mScreenWidth == incomingWidth &&
                     incomingRotation == mDisplayRotation && !forceUpdate) {
@@ -1293,7 +1293,7 @@ public class CaptureModule extends CameraModule implements
             return;
         }
 
-        Size previewBufferSize = mCamera.pickPreviewSize(mPictureSize, mContext);
+        Size previewBufferSize = mCamera.pickPreviewSize(mPictureSize, mUI.getActivity());
         mPreviewBufferWidth = previewBufferSize.getWidth();
         mPreviewBufferHeight = previewBufferSize.getHeight();
 

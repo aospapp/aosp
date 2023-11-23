@@ -17,36 +17,26 @@
 
 package com.android.settings.intelligence.search;
 
-import androidx.fragment.app.FragmentActivity;
+import android.os.Bundle;
+
 import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentActivity;
 import androidx.fragment.app.FragmentManager;
 
-import android.content.pm.PackageManager;
-import android.os.Bundle;
-import android.view.WindowManager;
-
 import com.android.settings.intelligence.R;
-import com.android.settings.intelligence.search.car.CarSearchFragment;
 
 public class SearchActivity extends FragmentActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        if (isAutomotive()) {
-            // Automotive relies on a different theme. Apply before calling super so that
-            // fragments are restored properly on configuration changes.
-            setTheme(R.style.Theme_CarSettings);
-        }
         super.onCreate(savedInstanceState);
         setContentView(R.layout.search_main);
 
         FragmentManager fragmentManager = getSupportFragmentManager();
         Fragment fragment = fragmentManager.findFragmentById(R.id.main_content);
         if (fragment == null) {
-            fragment = isAutomotive() ?
-                    new CarSearchFragment() : new SearchFragment();
             fragmentManager.beginTransaction()
-                    .add(R.id.main_content, fragment)
+                    .add(R.id.main_content, new SearchFragment())
                     .commit();
         }
     }
@@ -55,9 +45,5 @@ public class SearchActivity extends FragmentActivity {
     public boolean onNavigateUp() {
         finish();
         return true;
-    }
-
-    private boolean isAutomotive() {
-        return getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
     }
 }

@@ -22,6 +22,7 @@ import static android.system.OsConstants.AF_INET;
 import static android.system.OsConstants.AF_INET6;
 import static android.system.OsConstants.IPPROTO_TCP;
 import static android.system.OsConstants.IPPROTO_UDP;
+import static android.system.OsConstants.NETLINK_INET_DIAG;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -249,7 +250,7 @@ public class InetDiagSocketTest {
     public void testParseInetDiagResponse() throws Exception {
         final ByteBuffer byteBuffer = ByteBuffer.wrap(INET_DIAG_MSG_BYTES);
         byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
-        final NetlinkMessage msg = NetlinkMessage.parse(byteBuffer);
+        final NetlinkMessage msg = NetlinkMessage.parse(byteBuffer, NETLINK_INET_DIAG);
         assertNotNull(msg);
 
         assertTrue(msg instanceof InetDiagMessage);

@@ -37,13 +37,13 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Handler;
-import android.os.Looper;
 import android.os.ParcelUuid;
 import android.os.Parcelable;
 import android.os.RemoteException;
 import android.os.UserHandle;
 import android.provider.Settings;
 import android.util.Log;
+import android.util.Slog;
 import android.util.SparseArray;
 
 import com.android.internal.annotations.GuardedBy;
@@ -62,7 +62,7 @@ import java.util.Set;
  * connection priorities. Access to these functions is provided through CarBluetoothManager.
  */
 public class BluetoothProfileDeviceManager {
-    private static final String TAG = "BluetoothProfileDeviceManager";
+    private static final String TAG = CarLog.tagFor(BluetoothProfileDeviceManager.class);
     private static final boolean DBG = Log.isLoggable(TAG, Log.DEBUG);
     private final Context mContext;
     private final int mUserId;
@@ -142,8 +142,8 @@ public class BluetoothProfileDeviceManager {
     private final BluetoothAdapter mBluetoothAdapter;
     private final BluetoothBroadcastReceiver mBluetoothBroadcastReceiver;
     private final ICarBluetoothUserService mBluetoothUserProxies;
-    private final Handler mHandler = new Handler(Looper.getMainLooper());
-
+    private final Handler mHandler = new Handler(
+            CarServiceUtils.getHandlerThread(CarBluetoothService.THREAD_NAME).getLooper());
     /**
      * A BroadcastReceiver that listens specifically for actions related to the profile we're
      * tracking and uses them to update the status.
@@ -817,7 +817,8 @@ public class BluetoothProfileDeviceManager {
      */
     private void logd(String msg) {
         if (DBG) {
-            Log.d(TAG, "[" + Utils.getProfileName(mProfileId) + " - User: " + mUserId + "] " + msg);
+            Slog.d(TAG, "[" + Utils.getProfileName(mProfileId) + " - User: " + mUserId + "] "
+                    + msg);
         }
     }
 
@@ -825,6 +826,6 @@ public class BluetoothProfileDeviceManager {
      * Log a message to WARN
      */
     private void logw(String msg) {
-        Log.w(TAG, "[" + Utils.getProfileName(mProfileId) + " - User: " + mUserId + "] " + msg);
+        Slog.w(TAG, "[" + Utils.getProfileName(mProfileId) + " - User: " + mUserId + "] " + msg);
     }
 }

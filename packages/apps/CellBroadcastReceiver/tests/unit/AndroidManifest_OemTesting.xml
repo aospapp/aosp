@@ -16,17 +16,18 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.android.cellbroadcastreceiver.tests.unit">
+    <uses-permission android:name="android.permission.BROADCAST_CLOSE_SYSTEM_DIALOGS" />
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <uses-permission android:name="android.permission.RECEIVE_EMERGENCY_BROADCAST" />
     <uses-permission android:name="android.permission.READ_PRIVILEGED_PHONE_STATE" />
     <uses-permission android:name="android.permission.MODIFY_PHONE_STATE" />
+    <uses-permission android:name="android.permission.MODIFY_CELL_BROADCASTS" />
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
     <uses-permission android:name="android.permission.MANAGE_USERS" />
     <uses-permission android:name="android.permission.DEVICE_POWER" />
-    <uses-permission android:name="android.permission.GRANT_RUNTIME_PERMISSIONS_TO_TELEPHONY_DEFAULTS" />
     <uses-permission android:name="android.permission.START_ACTIVITIES_FROM_BACKGROUND" />
     <uses-permission android:name="android.permission.READ_CELL_BROADCASTS" />
     <uses-permission android:name="com.android.cellbroadcastservice.FULL_ACCESS_CELL_BROADCAST_HISTORY" />
@@ -39,6 +40,7 @@
         android:targetPackage="com.android.cellbroadcastreceiver.tests.unit"
         android:label="CellBroadcastReceiver OEM Unit Test Cases">
     </instrumentation>
+    <uses-sdk android:minSdkVersion="30" android:targetSdkVersion="30" />
 
 </manifest>
 

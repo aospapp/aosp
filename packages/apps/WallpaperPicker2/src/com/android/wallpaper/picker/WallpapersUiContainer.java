@@ -27,11 +27,11 @@ public interface WallpapersUiContainer {
     void onWallpapersReady();
 
     /**
-     * Returns the {@link CategoryFragment} used by this container to display wallpaper
+     * Returns the {@link CategorySelectorFragment} used by this container to display wallpaper
      * categories, or {@code null} if none is available.
      */
     @Nullable
-    CategoryFragment getCategoryFragment();
+    CategorySelectorFragment getCategorySelectorFragment();
 
     /**
      * Notifies the container that categories have been fetched.

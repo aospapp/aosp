@@ -71,7 +71,11 @@
     <string name="accept" msgid="4426153292469698134">"Accetta"</string>
     <string name="reject" msgid="24751635160440693">"Rifiuta"</string>
     <string name="connections" msgid="8895413761760117180">"Connessioni"</string>
+    <string name="wifi_direct_problem" msgid="8995174986718516990">"Il servizio di stampa predefinito non riesce a trovare stampanti Wi-Fi Direct"</string>
+    <string name="disable_wifi_direct" msgid="4824677957241687577">"Disatt. Wi-Fi Direct"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Il servizio di stampa predefinito ha bisogno dell\'autorizzazione di accesso alla posizione per individuare i dispositivi nelle vicinanze."</string>
     <string name="fix" msgid="7784394272611365393">"Esamina autorizzaz."</string>
+    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"Devi attivare i Servizi di geolocalizzazione per consentire al servizio di stampa predefinito di individuare i dispositivi nelle vicinanze."</string>
+    <string name="enable_location" msgid="3627841004298863140">"Attiva geolocalizz."</string>
     <string name="print" msgid="7851318072404916362">"Stampa"</string>
 </resources>

@@ -16,18 +16,13 @@
 
 package com.android.managedprovisioning.finalization;
 
-import static com.android.internal.util.Preconditions.checkNotNull;
-
 import android.accounts.Account;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.os.UserHandle;
-import androidx.annotation.Nullable;
 
-import com.android.internal.annotations.VisibleForTesting;
 import com.android.managedprovisioning.common.ProvisionLogger;
-import com.android.managedprovisioning.common.Utils;
 
 /**
  * Class that acts as the final receiver of the intent ACTION_PROFILE_PROVISIONING_COMPLETE
@@ -44,20 +39,11 @@ public class DpcReceivedSuccessReceiver extends BroadcastReceiver {
     private final PrimaryProfileFinalizationHelper mHelper;
     private final Callback mCallback;
 
-    public DpcReceivedSuccessReceiver(@Nullable Account migratedAccount,
-            boolean keepAccountMigrated, UserHandle managedUserHandle, String mdmPackageName,
-            Callback callback, boolean isAdminIntegratedFlow) {
-        this(migratedAccount, keepAccountMigrated, managedUserHandle, mdmPackageName, new Utils(),
-                callback, isAdminIntegratedFlow);
-    }
-
-    @VisibleForTesting
-    DpcReceivedSuccessReceiver(Account migratedAccount, boolean keepAccountMigrated,
-            UserHandle managedUserHandle, String mdmPackageName, Utils utils, Callback callback,
-            boolean isAdminIntegratedFlow) {
+    public DpcReceivedSuccessReceiver(Account migratedAccount, UserHandle managedUserHandle,
+            String mdmPackageName, Callback callback) {
         mCallback = callback;
-        mHelper = new PrimaryProfileFinalizationHelper(migratedAccount, keepAccountMigrated,
-                managedUserHandle, mdmPackageName, utils, isAdminIntegratedFlow);
+        mHelper = new PrimaryProfileFinalizationHelper(
+                migratedAccount, managedUserHandle, mdmPackageName);
     }
 
     @Override

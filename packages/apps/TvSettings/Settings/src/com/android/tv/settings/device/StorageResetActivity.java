@@ -16,12 +16,13 @@
 
 package com.android.tv.settings.device;
 
-import android.app.Fragment;
 import android.text.TextUtils;
+
+import androidx.fragment.app.Fragment;
 
 import com.android.tv.settings.R;
 import com.android.tv.settings.TvSettingsActivity;
-import com.android.tv.settings.overlay.FeatureFactory;
+import com.android.tv.settings.overlay.FlavorUtils;
 
 /**
  * Activity to view storage consumption and factory reset device.
@@ -34,7 +35,7 @@ public class StorageResetActivity extends TvSettingsActivity {
         if (!TextUtils.isEmpty(getString(R.string.storage_summary_fragment_name))) {
             fragmentName = getString(R.string.storage_summary_fragment_name);
         }
-        return FeatureFactory.getFactory(this).getSettingsFragmentProvider()
+        return FlavorUtils.getFeatureFactory(this).getSettingsFragmentProvider()
             .newSettingsFragment(fragmentName, null);
     }
 }

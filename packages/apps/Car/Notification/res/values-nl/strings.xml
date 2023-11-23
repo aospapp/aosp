@@ -29,14 +29,15 @@
     <string name="notifications" msgid="2865534625906329283">"Meldingscentrum"</string>
     <string name="clear_all" msgid="1845314281571237722">"Alles wissen"</string>
     <string name="ellipsized_string" msgid="6993649229498857557">"…"</string>
-    <string name="show_more" msgid="7291378544926443344">"Meer weergeven"</string>
+    <string name="show_more" msgid="7291378544926443344">"Meer tonen"</string>
     <string name="notification_header" msgid="324550431063568049">"Meldingen"</string>
     <string name="empty_notification_header" msgid="4928379791607839720">"Geen meldingen"</string>
-    <string name="show_less" msgid="7342677676229302829">"Minder weergeven"</string>
-    <string name="show_count_more" msgid="480555295700318609">"<xliff:g id="COUNT">%d</xliff:g> meer weergeven"</string>
+    <string name="show_less" msgid="7342677676229302829">"Minder tonen"</string>
+    <string name="show_count_more" msgid="480555295700318609">"<xliff:g id="COUNT">%d</xliff:g> meer tonen"</string>
     <string name="message_unshown_count" msgid="2234421277246741233">" + nog <xliff:g id="COUNT">%d</xliff:g>"</string>
     <plurals name="restricted_message_text" formatted="false" msgid="507312322886633308">
       <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> nieuwe berichten</item>
       <item quantity="one">1 nieuw bericht</item>
     </plurals>
+    <string name="manage_text" msgid="4225197445283791757">"Beheren"</string>
 </resources>

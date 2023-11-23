@@ -71,7 +71,11 @@
     <string name="accept" msgid="4426153292469698134">"ຍອມຮັບ"</string>
     <string name="reject" msgid="24751635160440693">"ປະຕິເສດ"</string>
     <string name="connections" msgid="8895413761760117180">"ການເຊື່ອມຕໍ່"</string>
+    <string name="wifi_direct_problem" msgid="8995174986718516990">"ບໍລິການການ​ພິມ​ມາດ​ຕະ​ຖານບໍ່ສາມາດຊອກເຫັນເຄື່ອງພິມ Wi-Fi Direct ໄດ້"</string>
+    <string name="disable_wifi_direct" msgid="4824677957241687577">"ປິດ Wi-Fi Direct"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"ບໍລິການການ​ພິມ​ມາດ​ຕະ​ຖານຕ້ອງການສິດອະນຸຍາດສະຖານທີ່ເພື່ອຊອກຫາອຸປະກອນທີ່ຢູ່ໃກ້ຄຽງ."</string>
     <string name="fix" msgid="7784394272611365393">"ກວດສອບສິດອະນຸຍາດ"</string>
+    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"ບໍລິການການ​ພິມ​ມາດ​ຕະ​ຖານຕ້ອງການໃຫ້ເປີດການນຳໃຊ້ບໍລິການສະຖານທີ່ເພື່ອຊອກຫາອຸປະກອນໃກ້ຄຽງ."</string>
+    <string name="enable_location" msgid="3627841004298863140">"ເປີດການນຳໃຊ້ສະຖານທີ່"</string>
     <string name="print" msgid="7851318072404916362">"ພິມ"</string>
 </resources>

@@ -17,4 +17,5 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="cmas_presidential_level_alert" msgid="6968323372438785870">"Kritik acil durum uyarısı"</string>
+    <string name="alerts_header_summary" msgid="8898082819299479687">"Telefonunuz doğal felaketler sırasında tahliye emirleri gibi uyarıları size gönderebilir. Bu hizmet Ulusal Acil Durum Yönetim Dairesi, ağ sağlayıcılar ve cihaz üreticileri arasında iş birliğiyle sunulmaktadır.\n\nCihazınızda sorun olması veya ağ koşullarının kötü olması durumunda uyarı almayabilirsiniz."</string>
 </resources>

@@ -17,7 +17,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="3551052199033657984">"Defolt Çap Xidməti"</string>
+    <string name="app_name" msgid="3551052199033657984">"Standart çap xidməti"</string>
     <string name="printer_busy" msgid="8604311528104955859">"Məşğul"</string>
     <string name="printer_out_of_paper" msgid="4882186432807703877">"Kağız bitdi"</string>
     <string name="printer_out_of_ink" msgid="7361897651097675464">"Mürəkkəb bitdi"</string>
@@ -60,18 +60,22 @@
     <string name="forget" msgid="892068061425802502">"Unudun"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Wi-Fi Direct ilə qoşulur"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Cari şəbəkə ilə <xliff:g id="IP_ADDRESS">%1$s</xliff:g> ünvanında qoşulur"</string>
-    <string name="recommendation_summary" msgid="2979700524954307566">"Defolt Çap Xidməti əsas seçimləri təmin edir. Bu printerin digər seçimləri başqa çap xidmətində əlçatan ola bilər."</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"Standart çap xidməti təməl variantları təmin edir. Bu printerin digər variantları başqa çap xidmətindədir."</string>
     <string name="recommendations_heading" msgid="5086762263560605249">"Tövsiyə olunan xidmətlər"</string>
     <string name="recommendation_install_summary" msgid="374785283809791669">"Quraşdırmaq üçün seçin"</string>
     <string name="recommendation_enable_summary" msgid="3500907868251326224">"Aktiv etmək üçün seçin"</string>
     <string name="recommendation_manage" msgid="4683640588502866284">"Xidmətləri idarə edin"</string>
-    <string name="security" msgid="2279008326210305401">"Təhlükəsizlik"</string>
+    <string name="security" msgid="2279008326210305401">"Güvənlik"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"Bu printer yeni sertifikat təqdim etdi və ya digər cihaz onun şəxsiyyətini oğurlayır. Yeni sertifikat qəbul edilsin?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"Bu printer artıq şifrələnmiş işləri qəbul etmir. Çapa davam edilsin?"</string>
     <string name="accept" msgid="4426153292469698134">"Qəbul edin"</string>
     <string name="reject" msgid="24751635160440693">"Rədd edin"</string>
     <string name="connections" msgid="8895413761760117180">"Əlaqələr"</string>
-    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Defolt Çap Xidməti yaxınlıqdakı cihazları tapmaq üçün məkan icazəsi tələb edir."</string>
+    <string name="wifi_direct_problem" msgid="8995174986718516990">"Standart çap xidməti Wi-Fi Direct printerini tapa bilmir"</string>
+    <string name="disable_wifi_direct" msgid="4824677957241687577">"Wi-Fi Direkt\'i deaktiv edin"</string>
+    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Standart çap xidmətinə cihazları tapmaq üçün məkan icazəsi lazımdır."</string>
     <string name="fix" msgid="7784394272611365393">"Rəy icazələri"</string>
+    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"Standart çap xidmətinə cihazları tapmaq üçün məkan aşkarlanmasının açıq olması lazımdır."</string>
+    <string name="enable_location" msgid="3627841004298863140">"Məkanı aktivləşdirin"</string>
     <string name="print" msgid="7851318072404916362">"Çap"</string>
 </resources>

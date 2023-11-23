@@ -27,12 +27,12 @@ import android.os.Process;
 import android.os.RemoteException;
 import android.os.UserHandle;
 import android.util.ArrayMap;
-import android.util.Log;
+import android.util.IndentingPrintWriter;
+import android.util.Slog;
 
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 
-import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -41,7 +41,7 @@ import java.util.List;
  */
 public final class CarExperimentalFeatureServiceController implements CarServiceBase {
 
-    private static final String TAG = "CAR.EXPERIMENTAL";
+    private static final String TAG = CarLog.tagFor(CarExperimentalFeatureServiceController.class);
 
     private final Context mContext;
 
@@ -54,7 +54,7 @@ public final class CarExperimentalFeatureServiceController implements CarService
                 mExperimentalCar = experimentalCar;
             }
             if (experimentalCar == null) {
-                Log.e(TAG, "Experimental car returned null binder");
+                Slog.e(TAG, "Experimental car returned null binder");
                 return;
             }
             CarFeatureController featureController = CarLocalServices.getService(
@@ -64,7 +64,7 @@ public final class CarExperimentalFeatureServiceController implements CarService
             try {
                 experimentalCar.init(mHelper, enabledExperimentalFeatures);
             } catch (RemoteException e) {
-                Log.e(TAG, "Experimental car service crashed", e);
+                Slog.e(TAG, "Experimental car service crashed", e);
             }
         }
 
@@ -79,17 +79,17 @@ public final class CarExperimentalFeatureServiceController implements CarService
         public void onInitComplete(List<String> allAvailableFeatures, List<String> startedFeatures,
                 List<String> classNames, List<IBinder> binders) {
             if (allAvailableFeatures == null) {
-                Log.e(TAG, "Experimental car passed null allAvailableFeatures");
+                Slog.e(TAG, "Experimental car passed null allAvailableFeatures");
                 return;
             }
             if (startedFeatures == null || classNames == null || binders == null) {
-                Log.i(TAG, "Nothing enabled in Experimental car");
+                Slog.i(TAG, "Nothing enabled in Experimental car");
                 return;
             }
             int sizeOfStartedFeatures = startedFeatures.size();
             if (sizeOfStartedFeatures != classNames.size()
                     || sizeOfStartedFeatures != binders.size()) {
-                Log.e(TAG,
+                Slog.e(TAG,
                         "Experimental car passed wrong lists of enabled features, startedFeatures:"
                         + startedFeatures + " classNames:" + classNames + " binders:" + binders);
             }
@@ -106,8 +106,8 @@ public final class CarExperimentalFeatureServiceController implements CarService
             CarFeatureController featureController = CarLocalServices.getService(
                     CarFeatureController.class);
             featureController.setAvailableExperimentalFeatureList(allAvailableFeatures);
-            Log.i(TAG, "Available experimental features:" + allAvailableFeatures);
-            Log.i(TAG, "Started experimental features:" + startedFeatures);
+            Slog.i(TAG, "Available experimental features:" + allAvailableFeatures);
+            Slog.i(TAG, "Started experimental features:" + startedFeatures);
         }
     };
 
@@ -144,7 +144,7 @@ public final class CarExperimentalFeatureServiceController implements CarService
                 "com.android.experimentalcar.ExperimentalCarService"));
         boolean bound = bindService(intent);
         if (!bound) {
-            Log.e(TAG, "Cannot bind to experimental car service, intent:" + intent);
+            Slog.e(TAG, "Cannot bind to experimental car service, intent:" + intent);
         }
         synchronized (mLock) {
             mBound = bound;
@@ -159,7 +159,7 @@ public final class CarExperimentalFeatureServiceController implements CarService
     public boolean bindService(Intent intent) {
         int myUid = Process.myUid();
         if (myUid != Process.SYSTEM_UID) {
-            Log.w(TAG, "Binding experimental service skipped as this may be test env, uid:"
+            Slog.w(TAG, "Binding experimental service skipped as this may be test env, uid:"
                     + myUid);
             return false;
         }
@@ -168,7 +168,7 @@ public final class CarExperimentalFeatureServiceController implements CarService
                     Context.BIND_AUTO_CREATE, UserHandle.SYSTEM);
         } catch (Exception e) {
             // Do not crash car service for case like package not found and etc.
-            Log.e(TAG, "Cannot bind to experimental car service", e);
+            Slog.e(TAG, "Cannot bind to experimental car service", e);
             return false;
         }
     }
@@ -185,7 +185,7 @@ public final class CarExperimentalFeatureServiceController implements CarService
     }
 
     @Override
-    public void dump(PrintWriter writer) {
+    public void dump(IndentingPrintWriter writer) {
         writer.println("*CarExperimentalFeatureServiceController*");
 
         synchronized (mLock) {

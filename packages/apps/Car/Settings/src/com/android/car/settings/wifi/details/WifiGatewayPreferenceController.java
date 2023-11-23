@@ -22,6 +22,8 @@ import android.net.RouteInfo;
 
 import com.android.car.settings.common.FragmentController;
 
+import java.net.Inet4Address;
+
 /**
  * Shows info about Wifi Gateway info.
  */
@@ -44,7 +46,9 @@ public class WifiGatewayPreferenceController extends
         String gateway = null;
         if (linkProperties != null) {
             for (RouteInfo routeInfo : linkProperties.getRoutes()) {
-                if (routeInfo.isIPv4Default() && routeInfo.hasGateway()) {
+                if (routeInfo.isDefaultRoute()
+                        && routeInfo.getDestination().getAddress() instanceof Inet4Address
+                        && routeInfo.hasGateway()) {
                     gateway = routeInfo.getGateway().getHostAddress();
                     break;
                 }

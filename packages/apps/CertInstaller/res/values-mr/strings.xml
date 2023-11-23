@@ -83,8 +83,8 @@
     <string name="install_done" msgid="1522718684172097080">"<xliff:g id="NAME">%1$s</xliff:g> क्रेडेंशियल वाय-फाय ने सेव्ह केलेल्या नेटवर्कवर जोडले गेले आहेत."</string>
     <string name="done_label" msgid="5597425930652904250">"पूर्ण झाले"</string>
     <string name="wifi_installer_detail" msgid="63879632832701669">"<xliff:g id="NAME">%1$s</xliff:g> द्वारे उपलब्ध असलेल्या नेटवर्कशी कनेक्‍ट करण्यासाठी वाय-फाय क्रेडेंशियल इंस्टॉल करा."</string>
-    <string name="wifi_installer_download_error" msgid="5429453090956277692">"डाउनलोड केलेल्या फाइलमध्‍ये समस्या आहेत आणि इंस्टॉल केली जाऊ शकत नाही. तुम्ही योग्य स्त्रोतावरून फाईल डाउनलोड केली हे सुनिश्चित करा."</string>
-    <string name="wifi_installer_fail" msgid="894483173306576331">"वाय-फाय क्रेडेंशियल इंस्टॉल करू शकत नाही. फाईल डाउनलोड करण्‍याचा पुन्हा प्रयत्न करा."</string>
+    <string name="wifi_installer_download_error" msgid="5429453090956277692">"डाउनलोड केलेल्या फाइलमध्‍ये समस्या आहेत आणि इंस्टॉल केली जाऊ शकत नाही. तुम्ही योग्य स्त्रोतावरून फाइल डाउनलोड केली हे सुनिश्चित करा."</string>
+    <string name="wifi_installer_fail" msgid="894483173306576331">"वाय-फाय क्रेडेंशियल इंस्टॉल करू शकत नाही. फाइल डाउनलोड करण्‍याचा पुन्हा प्रयत्न करा."</string>
     <string name="wifi_installer_fail_no_wifi_title" msgid="8358191074828840533">"इंस्टॉल करणे रद्द झाले"</string>
     <string name="wifi_installer_fail_title" msgid="5547079779067835479">"इंस्टॉल करू शकत नाही"</string>
     <string name="wifi_installer_fail_no_wifi" msgid="2044576439984209921">"वाय-फाय सुरू करा आणि पुन्हा प्रयत्न करा."</string>

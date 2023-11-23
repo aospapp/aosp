@@ -21,6 +21,7 @@
     <string name="bugreport_info_quit" msgid="5590138890181142473">"ပိတ်ရန်"</string>
     <string name="bugreport_info_start" msgid="667324824650830832">"ချွတ်ယွင်းမှု အစီရင်ခံခြင်းကို စတင်ရန်"</string>
     <string name="bugreport_info_status" msgid="7211044508792815451">"အခြေအနေ-"</string>
+    <string name="bugreport_info_expires_soon_notice" msgid="927139313070992675">"ချွတ်ယွင်းမှု အစီရင်ခံချက် မကြာမီ သက်တမ်းကုန်ပါမည်"</string>
     <string name="bugreport_dialog_submit" msgid="2789636252713280633">"ပေးပို့ရန်"</string>
     <string name="bugreport_dialog_cancel" msgid="4741928791364757040">"မလုပ်တော့"</string>
     <string name="bugreport_dialog_upload" msgid="2517386929450370781">"အပ်လုဒ်လုပ်ရန်"</string>

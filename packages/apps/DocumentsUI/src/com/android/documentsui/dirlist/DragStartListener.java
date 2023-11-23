@@ -48,7 +48,7 @@ import javax.annotation.Nullable;
  */
 interface DragStartListener {
 
-    static final DragStartListener DUMMY = new DragStartListener() {
+    DragStartListener STUB = new DragStartListener() {
         @Override
         public boolean onDragEvent(MotionEvent event) {
             return false;

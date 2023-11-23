@@ -34,6 +34,7 @@ import androidx.test.runner.AndroidJUnit4;
 import com.android.documentsui.R;
 import com.android.documentsui.base.MimeTypes;
 import com.android.documentsui.base.Shared;
+import com.android.documentsui.util.VersionUtils;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -49,6 +50,8 @@ public final class SearchChipViewManagerTest {
 
     private static final String LARGE_FILES_CHIP_MIME_TYPE = "";
     private static final String FROM_THIS_WEEK_CHIP_MIME_TYPE = "";
+    private static final String[] TEST_MIME_TYPES_INCLUDING_DOCUMENT =
+            new String[]{"image/*", "video/*", "text/*"};
     private static final String[] TEST_MIME_TYPES =
             new String[]{"image/*", "video/*"};
     private static final String[] TEST_OTHER_TYPES =
@@ -85,6 +88,18 @@ public final class SearchChipViewManagerTest {
 
         int totalChipLength = TEST_MIME_TYPES.length + TEST_OTHER_TYPES.length;
         assertThat(mChipGroup.getChildCount()).isEqualTo(totalChipLength);
+    }
+
+    @Test
+    public void testUpdateChips_documentsFilterOnlyAvailableAboveR() throws Exception {
+        mSearchChipViewManager.updateChips(TEST_MIME_TYPES_INCLUDING_DOCUMENT);
+
+        int totalChipLength = TEST_MIME_TYPES_INCLUDING_DOCUMENT.length + TEST_OTHER_TYPES.length;
+        if (VersionUtils.isAtLeastR()) {
+            assertThat(mChipGroup.getChildCount()).isEqualTo(totalChipLength);
+        } else {
+            assertThat(mChipGroup.getChildCount()).isEqualTo(totalChipLength - 1);
+        }
     }
 
     @Test

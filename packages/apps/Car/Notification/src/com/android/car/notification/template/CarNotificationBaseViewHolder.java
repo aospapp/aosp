@@ -22,7 +22,10 @@ import android.annotation.Nullable;
 import android.app.Notification;
 import android.content.Context;
 import android.view.View;
+import android.view.ViewTreeObserver;
+import android.widget.ImageButton;
 
+import androidx.annotation.VisibleForTesting;
 import androidx.cardview.widget.CardView;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -48,6 +51,22 @@ public abstract class CarNotificationBaseViewHolder extends RecyclerView.ViewHol
     private final CarNotificationBodyView mBodyView;
     @Nullable
     private final CarNotificationActionsView mActionsView;
+    @Nullable
+    private final ImageButton mDismissButton;
+
+    /**
+     * Focus change listener to make the dismiss button transparent or opaque depending on whether
+     * the card view has focus.
+     */
+    private final ViewTreeObserver.OnGlobalFocusChangeListener mFocusChangeListener;
+
+    /**
+     * Whether to hide the dismiss button. If the bound {@link AlertEntry} is dismissible, a dismiss
+     * button will normally be shown when card view has focus. If this field is true, no dismiss
+     * button will be shown. This is the case for the group summary notification in a collapsed
+     * group.
+     */
+    private boolean mHideDismissButton;
 
     @ColorInt
     private final int mDefaultBackgroundColor;
@@ -73,6 +92,7 @@ public abstract class CarNotificationBaseViewHolder extends RecyclerView.ViewHol
     private boolean mEnableCardBackgroundColorForCategoryNavigation;
     private boolean mEnableCardBackgroundColorForSystemApp;
     private boolean mEnableSmallIconAccentColor;
+    private boolean mAlwaysShowDismissButton;
 
     /**
      * Tracks if the foreground colors have been calculated for the binding of the view holder.
@@ -90,6 +110,17 @@ public abstract class CarNotificationBaseViewHolder extends RecyclerView.ViewHol
         mHeaderView = itemView.findViewById(R.id.notification_header);
         mBodyView = itemView.findViewById(R.id.notification_body);
         mActionsView = itemView.findViewById(R.id.notification_actions);
+        mDismissButton = itemView.findViewById(R.id.dismiss_button);
+        mAlwaysShowDismissButton = mContext.getResources().getBoolean(
+                R.bool.config_alwaysShowNotificationDismissButton);
+        mFocusChangeListener = (oldFocus, newFocus) -> {
+            if (mDismissButton != null && !mAlwaysShowDismissButton) {
+                // The dismiss button should only be visible when the focus is on this notification
+                // or within it. Use alpha rather than visibility so that focus can move up to the
+                // previous notification's dismiss button.
+                mDismissButton.setImageAlpha(itemView.hasFocus() ? 255 : 0);
+            }
+        };
         mDefaultBackgroundColor = NotificationUtils.getAttrColor(mContext,
                 android.R.attr.colorPrimary);
         mDefaultCarAccentColor = NotificationUtils.getAttrColor(mContext,
@@ -124,6 +155,7 @@ public abstract class CarNotificationBaseViewHolder extends RecyclerView.ViewHol
         } else if (mCardView != null) {
             mCardView.setOnClickListener(mClickHandlerFactory.getClickHandler(alertEntry));
         }
+        updateDismissButton(alertEntry, isHeadsUp);
 
         bindCardView(mCardView, isInGroup);
         bindHeader(mHeaderView, isInGroup);
@@ -264,6 +296,14 @@ public abstract class CarNotificationBaseViewHolder extends RecyclerView.ViewHol
         if (mActionsView != null) {
             mActionsView.reset();
         }
+
+        itemView.getViewTreeObserver().removeOnGlobalFocusChangeListener(mFocusChangeListener);
+        if (mDismissButton != null) {
+            if (!mAlwaysShowDismissButton) {
+                mDismissButton.setImageAlpha(0);
+            }
+            mDismissButton.setVisibility(View.GONE);
+        }
     }
 
     /**
@@ -275,7 +315,7 @@ public abstract class CarNotificationBaseViewHolder extends RecyclerView.ViewHol
     }
 
     /**
-     * Returns true if the notification contained in this view holder can be swiped away.
+     * Returns true if the panel notification contained in this view holder can be swiped away.
      */
     public boolean isDismissible() {
         if (mAlertEntry == null) {
@@ -284,6 +324,35 @@ public abstract class CarNotificationBaseViewHolder extends RecyclerView.ViewHol
 
         return (getAlertEntry().getNotification().flags
                 & (Notification.FLAG_FOREGROUND_SERVICE | Notification.FLAG_ONGOING_EVENT)) == 0;
+    }
+
+    void updateDismissButton(AlertEntry alertEntry, boolean isHeadsUp) {
+        if (mDismissButton == null) {
+            return;
+        }
+        // isDismissible only applies to panel notifications, not HUNs
+        if ((!isHeadsUp && !isDismissible()) || mHideDismissButton) {
+            hideDismissButton();
+            return;
+        }
+        if (!mAlwaysShowDismissButton) {
+            mDismissButton.setImageAlpha(0);
+        }
+        mDismissButton.setVisibility(View.VISIBLE);
+        if (!isHeadsUp) {
+            // Only set the click listener here for panel notifications - HUNs already have one
+            // provided from the CarHeadsUpNotificationManager
+            mDismissButton.setOnClickListener(getDismissHandler(alertEntry));
+        }
+        itemView.getViewTreeObserver().addOnGlobalFocusChangeListener(mFocusChangeListener);
+    }
+
+    void hideDismissButton() {
+        if (mDismissButton == null) {
+            return;
+        }
+        mDismissButton.setVisibility(View.GONE);
+        itemView.getViewTreeObserver().removeOnGlobalFocusChangeListener(mFocusChangeListener);
     }
 
     /**
@@ -319,5 +388,18 @@ public abstract class CarNotificationBaseViewHolder extends RecyclerView.ViewHol
      */
     public boolean isAnimating() {
         return mIsAnimating;
+    }
+
+    @VisibleForTesting
+    public boolean shouldHideDismissButton() {
+        return mHideDismissButton;
+    }
+
+    public void setHideDismissButton(boolean hideDismissButton) {
+        mHideDismissButton = hideDismissButton;
+    }
+
+    View.OnClickListener getDismissHandler(AlertEntry alertEntry) {
+        return mClickHandlerFactory.getDismissHandler(alertEntry);
     }
 }

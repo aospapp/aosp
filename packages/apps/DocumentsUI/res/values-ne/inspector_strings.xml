@@ -21,13 +21,13 @@
     <string name="inspector_debug_section" msgid="2576052661505700421">"डिबगसम्बन्धी जानकारी (विकासकर्ताका लागि मात्र)"</string>
     <string name="inspector_debug_metadata_section" msgid="5875140675600744846">"अप्रशोधित मेटाडेटा: <xliff:g id="METADATATYPE">%1$s</xliff:g>"</string>
     <string name="inspector_metadata_section" msgid="6077622515328240575">"मिडियासम्बन्धी विवरणहरू"</string>
-    <string name="handler_app_file_opens_with" msgid="5272329600389613550">"यस प्रकारको फाइल निम्न अनुप्रयोगमार्फत खुल्छ"</string>
+    <string name="handler_app_file_opens_with" msgid="5272329600389613550">"यस प्रकारको फाइल निम्न एपमार्फत खुल्छ"</string>
     <string name="handler_app_belongs_to" msgid="5444507329303253553">"यो फाइलको प्रदायक"</string>
     <string name="handler_app_not_selected" msgid="1294439257183908786">"चयन गरिएको छैन"</string>
     <string name="handler_app_unknown" msgid="5911661530593229287">"अज्ञात"</string>
     <string name="metadata_dimensions" msgid="6112907724016659801">"उचाइ तथा चौडाइ"</string>
     <string name="metadata_dimensions_format" msgid="6138765871412005962">"<xliff:g id="WIDTH">%1$d</xliff:g> x <xliff:g id="HEIGHT">%2$d</xliff:g> - <xliff:g id="MEGAPIXELS">%3$,.1f</xliff:g> एम. पि."</string>
-    <string name="metadata_coordinates" msgid="6897383227370702734">"तस्बिर खिचेको स्थानका भौगोलिक स्थितिहरू"</string>
+    <string name="metadata_coordinates" msgid="6897383227370702734">"फोटो खिचेको स्थानका भौगोलिक स्थितिहरू"</string>
     <string name="metadata_coordinates_format" msgid="1402724596764547761">"<xliff:g id="LATITUDE">%1$,.3f</xliff:g>, <xliff:g id="LONGITUDE">%2$,.3f</xliff:g>"</string>
     <string name="metadata_altitude" msgid="8063792127436794294">"उचाइ"</string>
     <string name="metadata_camera" msgid="2363009732801281319">"क्यामेरा"</string>
@@ -35,7 +35,7 @@
     <string name="metadata_aperture" msgid="6538741952698935357">"अपार्चर"</string>
     <string name="metadata_shutter_speed" msgid="8204739885103326131">"सटरको गति"</string>
     <string name="metadata_duration" msgid="3115494422055472715">"अवधि"</string>
-    <string name="metadata_date_time" msgid="1090351199248114406">"तस्बिर खिचेको समय"</string>
+    <string name="metadata_date_time" msgid="1090351199248114406">"फोटो खिचेको समय"</string>
     <string name="metadata_focal_length" msgid="3440735161407699893">"फोकल लम्बाइ"</string>
     <string name="metadata_focal_format" msgid="8542211707962355623">"<xliff:g id="LENGTH">%1$.2f </xliff:g> मि. मि."</string>
     <string name="metadata_iso_speed_ratings" msgid="1699781252899759058">"ISO बराबर"</string>

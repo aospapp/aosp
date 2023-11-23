@@ -19,7 +19,9 @@
     <!-- On wide screens, there is an additional margin below the minimized control bar.
       Since you can't sum dimensions in xml, this value is:
       @dimen/minimized_control_bar_height + @dimen/minimized_control_bar_margin_bottom -->
-    <dimen name="browse_fragment_bottom_padding">144dp</dimen>
+    <dimen name="browse_fragment_bottom_padding">152dp</dimen>
+
+    <dimen name="minimized_control_bar_margin_bottom">@dimen/car_ui_padding_3</dimen>
 
     <dimen name="media_browse_list_icons_item_art_margin_start">@dimen/car_ui_padding_4</dimen>
     <dimen name="queue_list_item_padding_x">@dimen/car_ui_padding_4</dimen>

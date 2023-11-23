@@ -87,6 +87,18 @@ class FakeCarPropertyService extends ICarProperty.Stub implements CarPropertyCon
     }
 
     @Override
+    public List<CarPropertyConfig> getPropertyConfigList(int[] propIds) {
+        List<CarPropertyConfig> configs = new ArrayList<>(propIds.length);
+        for (int prop : propIds) {
+            CarPropertyConfig cfg = mConfigs.get(prop);
+            if (cfg != null) {
+                configs.add(cfg);
+            }
+        }
+        return configs;
+    }
+
+    @Override
     public CarPropertyValue getProperty(int prop, int zone) throws RemoteException {
         return mValues.get(PropKey.of(prop, zone));
     }

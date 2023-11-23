@@ -25,7 +25,7 @@ import android.media.AudioDeviceAttributes;
  * @hide
  */
 interface ICarAudio {
-    boolean isDynamicRoutingEnabled();
+    boolean isAudioFeatureEnabled(int feature);
 
     void setGroupVolume(int zoneId, int groupId, int index, int flags);
     int getGroupMaxVolume(int zoneId, int groupId);
@@ -48,9 +48,14 @@ interface ICarAudio {
     boolean setZoneIdForUid(int zoneId, int uid);
     boolean clearZoneIdForUid(int uid);
 
+    boolean isVolumeGroupMuted(int zoneId, int groupId);
+    void setVolumeGroupMute(int zoneId, int groupId, boolean mute, int flags);
+
     String getOutputDeviceAddressForUsage(int zoneId, int usage);
 
     List<AudioDeviceAttributes> getInputDevicesForZoneId(int zoneId);
+
+    boolean isPlaybackOnVolumeGroupActive(int volumeGroupId, int audioZoneId);
     /**
      * IBinder is ICarVolumeCallback but passed as IBinder due to aidl hidden.
      */

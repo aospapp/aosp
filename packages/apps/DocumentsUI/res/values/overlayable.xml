@@ -40,6 +40,8 @@
 
             <!-- START COLOR -->
             <item type="color" name="primary"/>
+            <item type="color" name="list_item_selected_background_color"/>
+            <item type="color" name="color_surface_header"/>
             <!-- END COLOR -->
 
             <!-- START DIMEN -->

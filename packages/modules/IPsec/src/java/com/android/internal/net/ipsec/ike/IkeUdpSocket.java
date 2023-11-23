@@ -18,13 +18,14 @@ package com.android.internal.net.ipsec.ike;
 
 import static android.net.ipsec.ike.IkeManager.getIkeLog;
 
-import android.net.Network;
 import android.os.Handler;
 import android.system.ErrnoException;
 import android.system.Os;
 import android.util.LongSparseArray;
 
 import com.android.internal.annotations.VisibleForTesting;
+
+import libcore.io.IoUtils;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
@@ -41,8 +42,8 @@ public abstract class IkeUdpSocket extends IkeSocket {
     // FileDescriptor for sending and receving IKE packet.
     protected final FileDescriptor mSocket;
 
-    protected IkeUdpSocket(FileDescriptor socket, Network network, Handler handler) {
-        super(network, handler);
+    protected IkeUdpSocket(FileDescriptor socket, IkeSocketConfig sockConfig, Handler handler) {
+        super(sockConfig, handler);
         mSocket = socket;
     }
 
@@ -108,7 +109,7 @@ public abstract class IkeUdpSocket extends IkeSocket {
             getIkeLog()
                     .i(
                             this.getClass().getSimpleName(),
-                            "Failed to send packet on network " + getNetwork(),
+                            "Failed to send packet on network " + getIkeSocketConfig().getNetwork(),
                             e);
         }
     }
@@ -122,12 +123,14 @@ public abstract class IkeUdpSocket extends IkeSocket {
     @Override
     public void close() {
         try {
-            Os.close(mSocket);
-        } catch (ErrnoException e) {
+            IoUtils.close(mSocket);
+        } catch (IOException e) {
             getIkeLog()
                     .e(
                             this.getClass().getSimpleName(),
-                            "Failed to close UDP Encapsulation Socket for Network " + getNetwork());
+                            "Failed to close UDP Socket for Network "
+                                    + getIkeSocketConfig().getNetwork(),
+                            e);
         }
 
         // PacketReader unregisters file descriptor from listener on thread with which the Handler

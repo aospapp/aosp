@@ -16,6 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="missing_rename_error" msgid="9098952207447981103">"Треба да го преименувате ова"</string>
+    <string name="add_folder_name_error" msgid="6014615052491406810">"Треба да додадете име на папка"</string>
     <string name="files_label" msgid="771781190045103748">"Датотеки"</string>
     <string name="downloads_label" msgid="5462789470049501103">"Преземања"</string>
     <!-- no translation found for app_label (8089292432455111409) -->
@@ -150,20 +152,20 @@
     <string name="delete_preparing" msgid="7339349837842802508">"Се подготвува…"</string>
     <string name="delete_progress" msgid="2627631054702306423">"<xliff:g id="COUNT_0">%1$d</xliff:g>/<xliff:g id="TOTALCOUNT">%2$d</xliff:g>"</string>
     <plurals name="copy_error_notification_title" formatted="false" msgid="3188432450429390963">
-      <item quantity="one">Не можеше да се копира <xliff:g id="COUNT_1">%1$d</xliff:g> ставка</item>
-      <item quantity="other">Не можеше да се копираат <xliff:g id="COUNT_1">%1$d</xliff:g> ставки</item>
+      <item quantity="one">Не може да се копира <xliff:g id="COUNT_1">%1$d</xliff:g> ставка</item>
+      <item quantity="other">Не може да се копираат <xliff:g id="COUNT_1">%1$d</xliff:g> ставки</item>
     </plurals>
     <plurals name="compress_error_notification_title" formatted="false" msgid="3043630066678213644">
-      <item quantity="one">Не можеше да се компримира <xliff:g id="COUNT_1">%1$d</xliff:g> датотека</item>
-      <item quantity="other">Не можеше да се компримираат <xliff:g id="COUNT_1">%1$d</xliff:g> датотеки</item>
+      <item quantity="one">Не може да се компримира <xliff:g id="COUNT_1">%1$d</xliff:g> датотека</item>
+      <item quantity="other">Не може да се компримираат <xliff:g id="COUNT_1">%1$d</xliff:g> датотеки</item>
     </plurals>
     <plurals name="move_error_notification_title" formatted="false" msgid="2185736082411854754">
-      <item quantity="one">Не можеше да премести <xliff:g id="COUNT_1">%1$d</xliff:g> ставка</item>
-      <item quantity="other">Не можеше да преместат <xliff:g id="COUNT_1">%1$d</xliff:g> ставки</item>
+      <item quantity="one">Не може да премести <xliff:g id="COUNT_1">%1$d</xliff:g> ставка</item>
+      <item quantity="other">Не може да преместат <xliff:g id="COUNT_1">%1$d</xliff:g> ставки</item>
     </plurals>
     <plurals name="delete_error_notification_title" formatted="false" msgid="7568122018481625267">
-      <item quantity="one">Не можеше да се избрише <xliff:g id="COUNT_1">%1$d</xliff:g> ставка</item>
-      <item quantity="other">Не можеше да се избришат <xliff:g id="COUNT_1">%1$d</xliff:g> ставки</item>
+      <item quantity="one">Не може да се избрише <xliff:g id="COUNT_1">%1$d</xliff:g> ставка</item>
+      <item quantity="other">Не може да се избришат <xliff:g id="COUNT_1">%1$d</xliff:g> ставки</item>
     </plurals>
     <string name="notification_touch_for_details" msgid="2385563502445129570">"Допрете за приказ на деталите"</string>
     <string name="close" msgid="905969391788869975">"Затвори"</string>
@@ -278,4 +280,6 @@
     <string name="work_tab" msgid="7265359366883747413">"Работен"</string>
     <string name="a11y_work" msgid="7504431382825242153">"Работен профил"</string>
     <string name="drag_from_another_app" msgid="8310249276199969905">"Не може да преместувате датотеки од друга апликација."</string>
+    <string name="grid_mode_showing" msgid="2803166871485028508">"Се прикажува во режим на решетка."</string>
+    <string name="list_mode_showing" msgid="1225413902295895166">"Се прикажува во режим на список."</string>
 </resources>

@@ -25,5 +25,5 @@
     <string name="call_state_call_ended" msgid="1432127342949555464">"Gesprek beëindigd"</string>
     <string name="call_state_call_active" msgid="2769644783657864202">"Verbonden"</string>
     <string name="call_state_call_ringing" msgid="4618803402954375017">"Gaat over…"</string>
-    <string name="call_state_call_ending" msgid="5037498349965472247">"Verb. verbreken…"</string>
+    <string name="call_state_call_ending" msgid="5037498349965472247">"Verbreken…"</string>
 </resources>

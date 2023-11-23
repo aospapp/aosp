@@ -19,8 +19,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="?android:colorPrimary">
+    android:orientation="vertical">
     <include layout="@layout/section_header"/>
 
     <FrameLayout
@@ -32,56 +31,32 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent">
 
-            <com.android.wallpaper.widget.PreviewPager
-                android:id="@+id/grid_preview_pager"
+            <FrameLayout
+                android:id="@+id/preview_card_container"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@color/preview_pager_background"
-                app:card_style="screen_aspect_ratio"
+                android:clipToPadding="false"
+                android:paddingTop="@dimen/preview_page_top_margin"
+                android:paddingBottom="@dimen/preview_page_bottom_margin"
                 app:layout_constrainedHeight="true"
-                app:layout_constraintBottom_toTopOf="@id/options_container"
+                app:layout_constraintBottom_toTopOf="@+id/options_container"
                 app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintHeight_max="@dimen/preview_pager_max_height"
-                app:layout_constraintHeight_min="@dimen/preview_pager_min_height"
-                app:layout_constraintVertical_bias="0.0"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintVertical_chainStyle="spread_inside"/>
+                app:layout_constraintTop_toTopOf="parent">
+
+                <include layout="@layout/grid_preview_card" />
+            </FrameLayout>
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/options_container"
                 android:layout_width="match_parent"
                 android:layout_height="@dimen/options_container_height"
-                android:layout_gravity="center_horizontal"
-                android:layout_marginTop="10dp"
-                app:layout_constraintBottom_toTopOf="@id/placeholder"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/grid_preview_pager"
-                app:layout_constraintVertical_bias="1.0"/>
-
-            <Space
-                android:id="@+id/placeholder"
-                android:layout_width="match_parent"
-                android:layout_height="@dimen/min_taptarget_height"
-                app:layout_constraintBottom_toTopOf="@id/apply_button"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/options_container"
-                app:layout_constraintVertical_bias="1.0"/>
-
-            <Button
-                android:id="@+id/apply_button"
-                style="@style/ActionPrimaryButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="end"
-                android:layout_marginEnd="10dp"
-                android:layout_marginVertical="10dp"
-                android:layout_weight="1"
-                android:text="@string/apply_theme_btn"
+                android:layout_marginBottom="@dimen/grid_options_container_bottom_margin"
+                android:paddingHorizontal="@dimen/grid_options_container_horizontal_margin"
+                android:clipToPadding="false"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"/>
-
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent" />
         </androidx.constraintlayout.widget.ConstraintLayout>
 
         <androidx.core.widget.ContentLoadingProgressBar

@@ -21,5 +21,6 @@
 
     <color name="cell_broadcast_color_primary">#ff263238</color>
     <color name="cell_broadcast_color_primary_dark">#ff21272b</color>
+    <color name="ic_launcher_cell_broadcast_background">#FFFFFF</color>
 </resources>
 

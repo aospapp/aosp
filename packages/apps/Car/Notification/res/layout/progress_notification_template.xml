@@ -55,6 +55,7 @@
                 android:layout_height="wrap_content"
                 android:layout_below="@id/notification_header"
                 android:layout_marginBottom="@dimen/item_spacing"
+                app:maxLines="@integer/config_notificationPanelMaxBodyLines"
                 app:showBigIcon="true"/>
 
             <ProgressBar
@@ -68,14 +69,23 @@
                 android:layout_marginBottom="@dimen/card_body_margin_bottom"
                 style="?android:attr/progressBarStyleHorizontal"/>
 
-            <com.android.car.notification.template.CarNotificationActionsView
-                android:id="@+id/notification_actions"
+            <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_below="@id/progress_bar"
-                android:gravity="left"
-                android:minHeight="@dimen/card_min_bottom_padding"/>
+                android:layout_below="@id/progress_bar">
 
+                <com.android.car.notification.template.CarNotificationActionsView
+                    android:id="@+id/notification_actions"
+                    style="@style/NotificationActionViewLayout"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"/>
+
+                <include
+                    layout="@layout/dismiss_button"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"/>
+
+            </FrameLayout>
         </RelativeLayout>
     </androidx.cardview.widget.CardView>
 </FrameLayout>

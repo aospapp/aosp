@@ -20,6 +20,7 @@ import android.bluetooth.BluetoothHeadsetClient;
 import android.bluetooth.BluetoothHeadsetClientCall;
 import android.content.Context;
 import android.net.Uri;
+import android.os.Bundle;
 import android.telecom.Connection;
 import android.telecom.DisconnectCause;
 import android.telecom.PhoneAccount;
@@ -31,6 +32,10 @@ import java.util.UUID;
 public class HfpClientConnection extends Connection {
     private static final String TAG = "HfpClientConnection";
     private static final boolean DBG = false;
+
+    private static final String EVENT_SCO_CONNECT = "com.android.bluetooth.hfpclient.SCO_CONNECT";
+    private static final String EVENT_SCO_DISCONNECT =
+             "com.android.bluetooth.hfpclient.SCO_DISCONNECT";
 
     private final Context mContext;
     private final BluetoothDevice mDevice;
@@ -274,6 +279,21 @@ public class HfpClientConnection extends Connection {
         }
         if (!mClosed) {
             mHeadsetProfile.rejectCall(mDevice);
+        }
+    }
+
+    @Override
+    public void onCallEvent(String event, Bundle extras) {
+        if (DBG) {
+            Log.d(TAG, "onCallEvent(" + event + ", " + extras + ")");
+        }
+        switch (event) {
+            case EVENT_SCO_CONNECT:
+                mHeadsetProfile.connectAudio(mDevice);
+                break;
+            case EVENT_SCO_DISCONNECT:
+                mHeadsetProfile.disconnectAudio(mDevice);
+                break;
         }
     }
 

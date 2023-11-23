@@ -17,8 +17,8 @@
 package com.android.internal.net.ipsec.ike.message;
 
 import android.net.ipsec.ike.exceptions.IkeProtocolException;
+import android.net.ipsec.ike.exceptions.InvalidSyntaxException;
 
-import com.android.internal.net.ipsec.ike.exceptions.InvalidSyntaxException;
 import com.android.internal.net.ipsec.ike.utils.RandomnessFactory;
 
 import java.nio.ByteBuffer;

@@ -31,6 +31,7 @@ import com.android.car.settings.R;
 import com.android.car.settings.common.ConfirmationDialogFragment;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
+import com.android.car.ui.preference.CarUiSwitchPreference;
 
 import java.util.Collections;
 import java.util.Comparator;
@@ -77,10 +78,8 @@ public class KeyboardManagementPreferenceController extends
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
         mPackageManager = context.getPackageManager();
-        mDevicePolicyManager =
-                (DevicePolicyManager) context.getSystemService(Context.DEVICE_POLICY_SERVICE);
-        mInputMethodManager =
-                (InputMethodManager) context.getSystemService(Context.INPUT_METHOD_SERVICE);
+        mDevicePolicyManager = context.getSystemService(DevicePolicyManager.class);
+        mInputMethodManager = context.getSystemService(InputMethodManager.class);
     }
 
     @Override
@@ -183,7 +182,7 @@ public class KeyboardManagementPreferenceController extends
      * @return {@code SwitchPreference} which allows a user to enable/disable an input method.
      */
     private SwitchPreference createSwitchPreference(InputMethodInfo inputMethodInfo) {
-        SwitchPreference switchPreference = new SwitchPreference(getContext());
+        SwitchPreference switchPreference = new CarUiSwitchPreference(getContext());
         switchPreference.setKey(String.valueOf(inputMethodInfo.getId()));
         switchPreference.setIcon(InputMethodUtil.getPackageIcon(mPackageManager, inputMethodInfo));
         switchPreference.setTitle(InputMethodUtil.getPackageLabel(mPackageManager,

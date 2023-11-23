@@ -35,6 +35,7 @@ import android.os.Bundle;
 import android.os.UserManager;
 import android.text.TextUtils;
 
+import androidx.activity.ComponentActivity;
 import androidx.annotation.VisibleForTesting;
 
 import com.android.car.settings.R;
@@ -43,6 +44,7 @@ import com.android.car.ui.AlertDialogBuilder;
 import com.android.settingslib.bluetooth.BluetoothDiscoverableTimeoutReceiver;
 import com.android.settingslib.bluetooth.LocalBluetoothAdapter;
 import com.android.settingslib.bluetooth.LocalBluetoothManager;
+import com.android.settingslib.core.lifecycle.HideNonSystemOverlayMixin;
 
 import java.util.List;
 
@@ -51,7 +53,7 @@ import java.util.List;
  * consent and waiting until the state change is completed. It can also be used to make the device
  * explicitly discoverable for a given amount of time.
  */
-public class BluetoothRequestPermissionActivity extends Activity {
+public class BluetoothRequestPermissionActivity extends ComponentActivity {
     private static final Logger LOG = new Logger(BluetoothRequestPermissionActivity.class);
 
     @VisibleForTesting
@@ -88,6 +90,8 @@ public class BluetoothRequestPermissionActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        getLifecycle().addObserver(new HideNonSystemOverlayMixin(this));
 
         mRequest = parseIntent();
         if (mRequest == REQUEST_UNKNOWN) {
@@ -153,15 +157,21 @@ public class BluetoothRequestPermissionActivity extends Activity {
                          * discovery mode. We still show the dialog and handle this case via the
                          * broadcast receiver.
                          */
-                        mDialog = createRequestEnableBluetoothDialogWithTimeout(mTimeout);
-                        mDialog.show();
+                        if (isSetupWizardDialogBypass()) {
+                            /*
+                             * In some cases, users may get to the setup wizard's bluetooth fragment
+                             * while in this state. We still need to wait until we reach STATE_ON
+                             * before enabling discovery mode but without showing a dialog.
+                             */
+                            enableBluetoothWithWaitingDialog(/* dialogToShowOnWait= */ null);
+                        } else {
+                            mDialog = createRequestEnableBluetoothDialogWithTimeout(mTimeout);
+                            mDialog.show();
+                        }
                         break;
                     case BluetoothAdapter.STATE_ON:
                         // Allow SetupWizard specifically to skip the discoverability dialog.
-                        String callerName = getCallingPackage();
-                        if (mBypassConfirmDialog
-                                && callerName != null
-                                && callerName.equals(getSetupWizardPackageName())) {
+                        if (isSetupWizardDialogBypass()) {
                             proceedAndFinish();
                         } else {
                             mDialog = createDiscoverableConfirmDialog(mTimeout);
@@ -183,6 +193,12 @@ public class BluetoothRequestPermissionActivity extends Activity {
         if (mReceiver != null) {
             unregisterReceiver(mReceiver);
         }
+    }
+
+    private boolean isSetupWizardDialogBypass() {
+        String callerName = getCallingPackage();
+        return mBypassConfirmDialog && callerName != null
+            && callerName.equals(getSetupWizardPackageName());
     }
 
     @Nullable
@@ -356,6 +372,18 @@ public class BluetoothRequestPermissionActivity extends Activity {
             return;
         }
 
+        if (mRequest == REQUEST_ENABLE) {
+            enableBluetoothWithWaitingDialog(createWaitingDialog());
+        } else {
+            enableBluetoothWithWaitingDialog(createDiscoverableConfirmDialog(mTimeout));
+        }
+    }
+
+    /*
+     * Ensure bluetooth is enabled and then check if it is in STATE_ON. If it isn't, register
+     * the broadcast receiver to wait for the state to change and show a waiting dialog if provided.
+     */
+    private void enableBluetoothWithWaitingDialog(@Nullable AlertDialog dialogToShowOnWait) {
         mLocalBluetoothAdapter.enable();
 
         int desiredState = BluetoothAdapter.STATE_ON;
@@ -366,13 +394,10 @@ public class BluetoothRequestPermissionActivity extends Activity {
             mReceiver = new StateChangeReceiver(desiredState);
             registerReceiver(mReceiver, new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED));
 
-            if (mRequest == REQUEST_ENABLE) {
-                // Show dialog while waiting for enabling to complete.
-                mDialog = createWaitingDialog();
-            } else {
-                mDialog = createDiscoverableConfirmDialog(mTimeout);
+            if (dialogToShowOnWait != null) {
+                mDialog = dialogToShowOnWait;
+                mDialog.show();
             }
-            mDialog.show();
         }
     }
 
@@ -422,12 +447,18 @@ public class BluetoothRequestPermissionActivity extends Activity {
         return mDialog;
     }
 
+    @VisibleForTesting
+    StateChangeReceiver getCurrentReceiver() {
+        return mReceiver;
+    }
+
     /**
      * Listens for bluetooth state changes and finishes the activity if changed to the desired
      * state. If the desired bluetooth state is not received in time, the activity is finished with
      * {@link Activity#RESULT_CANCELED}.
      */
-    private final class StateChangeReceiver extends BroadcastReceiver {
+    @VisibleForTesting
+    final class StateChangeReceiver extends BroadcastReceiver {
         private static final long TOGGLE_TIMEOUT_MILLIS = 10000; // 10 sec
         private final int mDesiredState;
 

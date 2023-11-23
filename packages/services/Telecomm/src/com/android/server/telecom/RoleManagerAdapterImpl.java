@@ -85,8 +85,11 @@ public class RoleManagerAdapterImpl implements RoleManagerAdapter {
 
     @Override
     public void observeDefaultDialerApp(Executor executor, IntConsumer observer) {
-        mRoleManager.addOnRoleHoldersChangedListenerAsUser(executor, (roleName, user) ->
-                observer.accept(user.getIdentifier()), UserHandle.ALL);
+        mRoleManager.addOnRoleHoldersChangedListenerAsUser(executor, (roleName, user) -> {
+                    if (ROLE_DIALER.equals(roleName)) {
+                        observer.accept(user.getIdentifier());
+                    }
+                }, UserHandle.ALL);
     }
 
     @Override

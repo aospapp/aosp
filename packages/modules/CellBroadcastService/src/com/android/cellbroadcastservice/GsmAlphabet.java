@@ -16,8 +16,12 @@
 
 package com.android.cellbroadcastservice;
 
+import android.text.TextUtils;
 import android.util.Log;
 import android.util.SparseIntArray;
+
+import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
 
 /**
  * This class implements the character set mapping between
@@ -719,6 +723,105 @@ public class GsmAlphabet {
         } catch (RuntimeException ex) {
             Log.e(TAG, "Error GSM 7 bit packed: ", ex);
             return null;
+        }
+
+        return ret.toString();
+    }
+
+    /**
+     * Convert a GSM alphabet string that's stored in 8-bit unpacked
+     * format (as it often appears in SIM records) into a String
+     *
+     * Field may be padded with trailing 0xff's. The decode stops
+     * at the first 0xff encountered.
+     *
+     * @param data the byte array to decode
+     * @param offset array offset for the first character to decode
+     * @param length the number of bytes to decode
+     * @return the decoded string
+     */
+    public static String gsm8BitUnpackedToString(byte[] data, int offset, int length) {
+        return gsm8BitUnpackedToString(data, offset, length, "");
+    }
+
+    /**
+     * Convert a GSM alphabet string that's stored in 8-bit unpacked
+     * format (as it often appears in SIM records) into a String
+     *
+     * Field may be padded with trailing 0xff's. The decode stops
+     * at the first 0xff encountered.
+     *
+     * Additionally, in some country(ex. Korea), there are non-ASCII or MBCS characters.
+     * If a character set is given, characters in data are treat as MBCS.
+     */
+    public static String gsm8BitUnpackedToString(
+            byte[] data, int offset, int length, String characterset) {
+        boolean isMbcs = false;
+        Charset charset = null;
+        ByteBuffer mbcsBuffer = null;
+
+        if (!TextUtils.isEmpty(characterset)
+                && !characterset.equalsIgnoreCase("us-ascii")
+                && Charset.isSupported(characterset)) {
+            isMbcs = true;
+            charset = Charset.forName(characterset);
+            mbcsBuffer = ByteBuffer.allocate(2);
+        }
+
+        // Always use GSM 7 bit default alphabet table for this method
+        String languageTableToChar = sLanguageTables[0];
+        String shiftTableToChar = sLanguageShiftTables[0];
+
+        StringBuilder ret = new StringBuilder(length);
+        boolean prevWasEscape = false;
+        for (int i = offset; i < offset + length; i++) {
+            // Never underestimate the pain that can be caused
+            // by signed bytes
+            int c = data[i] & 0xff;
+
+            if (c == 0xff) {
+                break;
+            } else if (c == GSM_EXTENDED_ESCAPE) {
+                if (prevWasEscape) {
+                    // Two escape chars in a row
+                    // We treat this as a space
+                    // See Note 1 in table 6.2.1.1 of TS 23.038 v7.00
+                    ret.append(' ');
+                    prevWasEscape = false;
+                } else {
+                    prevWasEscape = true;
+                }
+            } else {
+                if (prevWasEscape) {
+                    char shiftChar =
+                            c < shiftTableToChar.length() ? shiftTableToChar.charAt(c) : ' ';
+                    if (shiftChar == ' ') {
+                        // display character from main table if not present in shift table
+                        if (c < languageTableToChar.length()) {
+                            ret.append(languageTableToChar.charAt(c));
+                        } else {
+                            ret.append(' ');
+                        }
+                    } else {
+                        ret.append(shiftChar);
+                    }
+                } else {
+                    if (!isMbcs || c < 0x80 || i + 1 >= offset + length) {
+                        if (c < languageTableToChar.length()) {
+                            ret.append(languageTableToChar.charAt(c));
+                        } else {
+                            ret.append(' ');
+                        }
+                    } else {
+                        // isMbcs must be true. So both mbcsBuffer and charset are initialized.
+                        mbcsBuffer.clear();
+                        mbcsBuffer.put(data, i++, 2);
+                        mbcsBuffer.flip();
+                        ret.append(charset.decode(mbcsBuffer).toString());
+                    }
+                }
+                prevWasEscape = false;
+            }
         }
 
         return ret.toString();

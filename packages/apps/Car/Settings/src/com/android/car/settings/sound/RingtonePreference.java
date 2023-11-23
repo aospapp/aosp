@@ -17,7 +17,6 @@
 package com.android.car.settings.sound;
 
 import android.content.Context;
-import android.content.Intent;
 import android.content.res.TypedArray;
 import android.media.RingtoneManager;
 import android.util.AttributeSet;
@@ -48,7 +47,6 @@ public class RingtonePreference extends CarUiPreference {
                 RingtoneManager.TYPE_RINGTONE);
         mShowSilent = a.getBoolean(com.android.internal.R.styleable.RingtonePreference_showSilent,
                 true);
-        setIntent(new Intent(RingtoneManager.ACTION_RINGTONE_PICKER));
         a.recycle();
     }
 

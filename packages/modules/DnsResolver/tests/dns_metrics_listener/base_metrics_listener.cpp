@@ -45,7 +45,12 @@ namespace metrics {
 
 ::ndk::ScopedAStatus BaseMetricsListener::onWakeupEvent(
         const std::string& /*prefix*/, int32_t /*uid*/, int32_t /*ethertype*/,
+// TODO: remove build flag when mainline release branch migrates to Android S (b/168163123).
+#ifdef __ANDROID_API_S__
+        int32_t /*ipNextHeader*/, const std::vector<uint8_t>& /*dstHw*/,
+#else
         int32_t /*ipNextHeader*/, const std::vector<int8_t>& /*dstHw*/,
+#endif
         const std::string& /*srcIp*/, const std::string& /*dstIp*/, int32_t /*srcPort*/,
         int32_t /*dstPort*/, int64_t /*timestampNs*/) {
     // default no-op

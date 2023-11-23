@@ -16,13 +16,9 @@
 
 package com.android.car.settings.wifi.details;
 
-import static android.net.NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL;
-import static android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED;
 import static android.net.NetworkCapabilities.TRANSPORT_WIFI;
 
-import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.ConnectivityManager;
 import android.net.ConnectivityManager.NetworkCallback;
@@ -43,7 +39,7 @@ import androidx.lifecycle.DefaultLifecycleObserver;
 import androidx.lifecycle.LifecycleOwner;
 
 import com.android.car.settings.common.Logger;
-import com.android.settingslib.wifi.AccessPoint;
+import com.android.wifitrackerlib.WifiEntry;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -53,7 +49,7 @@ import java.util.Set;
 /**
  * Provides Wifi related info.
  */
-public class WifiInfoProvider implements DefaultLifecycleObserver {
+public class WifiInfoProvider implements DefaultLifecycleObserver, WifiEntry.WifiEntryCallback {
     private static final Logger LOG = new Logger(WifiInfoProvider.class);
 
     /**
@@ -61,9 +57,9 @@ public class WifiInfoProvider implements DefaultLifecycleObserver {
      */
     interface Listener {
         /**
-         * Called when NetworkInfo and/or WifiInfo is changed.
+         * Called when WifiEntry is updated.
          */
-        void onWifiChanged(NetworkInfo networkInfo, WifiInfo wifiInfo);
+        void onWifiEntryUpdated();
 
         /**
          * Called when network is lost.
@@ -76,18 +72,12 @@ public class WifiInfoProvider implements DefaultLifecycleObserver {
         void onCapabilitiesChanged(Network network, NetworkCapabilities nc);
 
         /**
-         * Called when WifiConfiguration changed.
-         */
-        void onWifiConfigurationChanged(WifiConfiguration wifiConfiguration,
-                NetworkInfo networkInfo, WifiInfo wifiInfo);
-
-        /**
          * Called when LinkProperties changed.
          */
         void onLinkPropertiesChanged(Network network, LinkProperties lp);
     }
 
-    private final AccessPoint mAccessPoint;
+    private final WifiEntry mWifiEntry;
     private final Context mContext;
     private final Set<Listener> mListeners = new HashSet<>();
     private final WifiManager mWifiManager;
@@ -106,41 +96,6 @@ public class WifiInfoProvider implements DefaultLifecycleObserver {
     private NetworkInfo mNetworkInfo;
     private WifiInfo mWifiInfo;
 
-    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            switch (intent.getAction()) {
-                case WifiManager.CONFIGURED_NETWORKS_CHANGED_ACTION:
-                    LOG.d("Wifi Config changed.");
-                    updateMatchingWifiConfig();
-                    updateInfo();
-                    for (Listener listener : getListenersCopy()) {
-                        listener.onWifiConfigurationChanged(mWifiConfig, mNetworkInfo, mWifiInfo);
-                    }
-                    break;
-                case WifiManager.NETWORK_STATE_CHANGED_ACTION:
-                case WifiManager.RSSI_CHANGED_ACTION:
-                    LOG.d("wifi changed.");
-                    updateInfo();
-                    for (Listener listener : getListenersCopy()) {
-                        listener.onWifiChanged(mNetworkInfo, mWifiInfo);
-                    }
-                    break;
-            }
-        }
-
-        private void updateMatchingWifiConfig() {
-            // use getPrivilegedConfiguredNetworks() to get Passpoint & other ephemeral networks
-            for (WifiConfiguration wifiConfiguration :
-                    mWifiManager.getPrivilegedConfiguredNetworks()) {
-                if (mAccessPoint.matches(wifiConfiguration)) {
-                    mWifiConfig = wifiConfiguration;
-                    break;
-                }
-            }
-        }
-    };
-
     private final NetworkRequest mNetworkRequest = new NetworkRequest.Builder()
             .clearCapabilities().addTransportType(TRANSPORT_WIFI).build();
 
@@ -156,22 +111,10 @@ public class WifiInfoProvider implements DefaultLifecycleObserver {
             }
         }
 
-        private boolean hasCapabilityChanged(NetworkCapabilities nc, int cap) {
-            // If this is the first time we get NetworkCapabilities, report that something changed.
-            if (mNetworkCapabilities == null) return true;
-
-            // nc can never be null, see ConnectivityService#callCallbackForRequest.
-            return mNetworkCapabilities.hasCapability(cap) != nc.hasCapability(cap);
-        }
-
         @Override
         public void onCapabilitiesChanged(Network network, NetworkCapabilities nc) {
             // If the network just validated or lost Internet access, refresh network state.
             if (network.equals(mNetwork) && !nc.equals(mNetworkCapabilities)) {
-                if (hasCapabilityChanged(nc, NET_CAPABILITY_VALIDATED)
-                        || hasCapabilityChanged(nc, NET_CAPABILITY_CAPTIVE_PORTAL)) {
-                    mAccessPoint.update(mWifiConfig, mWifiInfo, mNetworkInfo);
-                }
                 mNetworkCapabilities = nc;
                 for (Listener listener : getListenersCopy()) {
                     listener.onCapabilitiesChanged(mNetwork, mNetworkCapabilities);
@@ -189,14 +132,15 @@ public class WifiInfoProvider implements DefaultLifecycleObserver {
         }
     };
 
-    WifiInfoProvider(Context context, AccessPoint accessPoint) {
+    WifiInfoProvider(Context context, WifiEntry wifiEntry) {
         mContext = context;
-        mAccessPoint = accessPoint;
+        mWifiEntry = wifiEntry;
+        mWifiEntry.setListener(this);
         mHandler = new Handler(Looper.getMainLooper());
         mConnectivityManager =
                 mContext.getSystemService(ConnectivityManager.class);
         mWifiManager = mContext.getSystemService(WifiManager.class);
-        mWifiConfig = mAccessPoint.getConfig();
+        mWifiConfig = mWifiEntry.getWifiConfiguration();
         mNetwork = mWifiManager.getCurrentNetwork();
         mLinkProperties = mConnectivityManager.getLinkProperties(mNetwork);
         mNetworkCapabilities = mConnectivityManager.getNetworkCapabilities(mNetwork);
@@ -231,11 +175,10 @@ public class WifiInfoProvider implements DefaultLifecycleObserver {
     @Override
     public void onStart(@NonNull LifecycleOwner owner) {
         LOG.d("onStart");
-        mContext.registerReceiver(mReceiver, mFilter);
         mConnectivityManager.registerNetworkCallback(mNetworkRequest, mNetworkCallback,
                 mHandler);
         for (Listener listener : getListenersCopy()) {
-            listener.onWifiChanged(mNetworkInfo, mWifiInfo);
+            listener.onWifiEntryUpdated();
         }
         LOG.d("Done onStart");
     }
@@ -243,9 +186,19 @@ public class WifiInfoProvider implements DefaultLifecycleObserver {
     @Override
     public void onStop(@NonNull LifecycleOwner owner) {
         LOG.d("onStop");
-        mContext.unregisterReceiver(mReceiver);
         mConnectivityManager.unregisterNetworkCallback(mNetworkCallback);
         LOG.d("done onStop");
+    }
+
+    /**
+     * Indicates the state of the WifiEntry has changed and clients may retrieve updates through
+     * the WifiEntry getter methods.
+     */
+    @Override
+    public void onUpdated() {
+        for (Listener listener : getListenersCopy()) {
+            listener.onWifiEntryUpdated();
+        }
     }
 
     /**
@@ -283,7 +236,7 @@ public class WifiInfoProvider implements DefaultLifecycleObserver {
     }
 
     /**
-     * Returns the {@link WifiConfiguration} of the current access point or {@code null} if
+     * Returns the {@link WifiConfiguration} of the current Wi-Fi entry or {@code null} if
      * unavailable.
      */
     @Nullable
@@ -292,7 +245,7 @@ public class WifiInfoProvider implements DefaultLifecycleObserver {
     }
 
     /**
-     * Returns the {@link LinkProperties} of the current Wi-Fi newtork or {@link null} if no network
+     * Returns the {@link LinkProperties} of the current Wi-Fi network or {@link null} if no network
      * is available.
      */
     @Nullable

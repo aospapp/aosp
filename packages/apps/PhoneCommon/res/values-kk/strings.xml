@@ -53,7 +53,7 @@
     <string name="incall_error_missing_voicemail_number" msgid="4519524908114719666">"Дауыстық пошта нөмірі белгісіз."</string>
     <string name="callFailed_video_call_tty_enabled" msgid="5419496275850000361">"TTY қосулы кезде бейне қоңыраулар шалу мүмкін емес."</string>
     <string name="callEnded_pulled" msgid="4824518546417807865">"Қоңырау басқа құрылғыға тасымалданды."</string>
-    <string name="ringtone_silent" msgid="1173111569760233645">"Ешқандай"</string>
+    <string name="ringtone_silent" msgid="1173111569760233645">"Жоқ"</string>
     <string name="ringtone_unknown" msgid="3036191370493284036">"Белгісіз қоңырау әуені"</string>
     <string name="callFailed_maximum_reached" msgid="6704266142192963900">"Желілер бос емес. Қоңырау шалу үшін, осы немесе басқа құрылғыдағы қоңыраулардың бірін тоқтатыңыз."</string>
     <string name="callFailed_data_disabled" msgid="8592999219489448277">"Қоңырау аяқталды, себебі ұялы деректер ажыратылды."</string>

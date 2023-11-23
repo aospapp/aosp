@@ -25,7 +25,7 @@
 
     <uses-sdk
         android:minSdkVersion="24"
-        android:targetSdkVersion="24"/>
+        android:targetSdkVersion="29"/>
 
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
@@ -42,13 +42,16 @@
     <uses-permission android:name="android.permission.FORCE_STOP_PACKAGES"/>
     <uses-permission android:name="android.permission.GET_ACCOUNTS_PRIVILEGED"/>
     <uses-permission android:name="android.permission.GET_PACKAGE_SIZE"/>
+    <uses-permission android:name="android.permission.HIDE_NON_SYSTEM_OVERLAY_WINDOWS"/>
     <uses-permission android:name="android.permission.INJECT_EVENTS"/>
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.MANAGE_ACCOUNTS"/>
+    <uses-permission android:name="android.permission.MANAGE_SENSOR_PRIVACY"/>
     <uses-permission android:name="android.permission.MANAGE_USERS"/>
     <uses-permission android:name="android.permission.MASTER_CLEAR" />
     <uses-permission android:name="android.permission.MOUNT_UNMOUNT_FILESYSTEMS"/>
     <uses-permission android:name="android.permission.NETWORK_SETTINGS" />
+    <uses-permission android:name="android.permission.OBSERVE_SENSOR_PRIVACY"/>
     <uses-permission android:name="android.permission.OVERRIDE_WIFI_CONFIG"/>
     <uses-permission android:name="android.permission.READ_CONTACTS"/>
     <uses-permission android:name="android.permission.READ_DISPLAY_UNITS"/>
@@ -84,6 +87,7 @@
                 <action android:name="android.settings.NIGHT_DISPLAY_SETTINGS" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <meta-data android:name="com.android.car.settings.SINGLE_PANE" android:value="true"/>
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -97,6 +101,15 @@
                 <action android:name="android.settings.SETTINGS" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_HomepageActivity" />
+            <meta-data android:name="distractionOptimized" android:value="true"/>
+        </activity>
+
+        <activity
+            android:name=".common.SubSettingsActivity"
+            android:windowSoftInputMode="adjustPan">
+            <meta-data android:name="com.android.car.settings.SINGLE_PANE" android:value="true"/>
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -108,6 +121,8 @@
                 <action android:name="android.settings.DISPLAY_SETTINGS" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_DisplaySettingsActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -120,6 +135,22 @@
                 <action android:name="android.settings.panel.action.VOLUME" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_SoundSettingsActivity" />
+            <meta-data android:name="distractionOptimized" android:value="true"/>
+        </activity>
+
+        <activity
+            android:name=".common.CarSettingActivities$RingtonePickerActivity"
+            android:windowSoftInputMode="adjustPan"
+            android:finishOnTaskLaunch="true"
+            android:exported="true">
+            <intent-filter android:priority="1">
+                <action android:name="android.intent.action.RINGTONE_PICKER" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_RingtonePickerActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -132,6 +163,8 @@
                 <action android:name="android.settings.WIRELESS_SETTINGS" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_NetworkAndInternetActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -143,6 +176,8 @@
                 <action android:name="android.settings.BLUETOOTH_SETTINGS" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_BluetoothSettingsActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -150,6 +185,8 @@
             android:name=".common.CarSettingActivities$UnitsSettingsActivity"
             android:windowSoftInputMode="adjustPan"
             android:exported="true">
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_UnitsSettingsActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -162,13 +199,34 @@
                 <action android:name="android.settings.LOCATION_SOURCE_SETTINGS" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_LocationSettingsActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
         <activity
-            android:name=".common.CarSettingActivities$AppsAndNotificationsActivity"
+            android:name=".common.CarSettingActivities$AppsActivity"
             android:windowSoftInputMode="adjustPan"
             android:exported="true">
+            <intent-filter>
+                <action android:name="android.settings.APPLICATION_SETTINGS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_AppsActivity" />
+            <meta-data android:name="distractionOptimized" android:value="true"/>
+        </activity>
+
+        <activity
+            android:name=".common.CarSettingActivities$NotificationsActivity"
+            android:windowSoftInputMode="adjustPan"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.settings.NOTIFICATION_SETTINGS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_NotificationsActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -181,29 +239,22 @@
                 <action android:name="android.intent.action.QUICK_CLOCK" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_DatetimeSettingsActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
         <activity
-            android:name=".common.CarSettingActivities$UserDetailsActivity"
+            android:name=".common.CarSettingActivities$ProfileDetailsActivity"
             android:excludeFromRecents="true"
-            android:launchMode="singleInstance"
             android:exported="true">
             <intent-filter android:priority="1">
                 <action android:name="android.settings.USER_SETTINGS" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-            <meta-data android:name="distractionOptimized" android:value="true"/>
-        </activity>
-
-        <activity
-            android:name=".common.CarSettingActivities$AccountSettingsActivity"
-            android:windowSoftInputMode="adjustPan"
-            android:exported="true">
-            <intent-filter android:priority="1">
                 <action android:name="android.settings.SYNC_SETTINGS" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_ProfileDetailsActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -215,6 +266,17 @@
                 <action android:name="android.settings.PRIVACY_SETTINGS" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_PrivacySettingsActivity" />
+            <meta-data android:name="distractionOptimized" android:value="true"/>
+        </activity>
+
+        <activity
+            android:name=".common.CarSettingActivities$VehicleDataActivity"
+            android:windowSoftInputMode="adjustPan"
+            android:exported="true">
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_VehicleDataActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -227,6 +289,8 @@
                 <action android:name="android.os.storage.action.MANAGE_STORAGE" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_StorageSettingsActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -238,6 +302,21 @@
                 <action android:name="android.settings.SECURITY_SETTINGS" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_SecuritySettingsActivity" />
+            <meta-data android:name="distractionOptimized" android:value="true"/>
+        </activity>
+
+        <activity
+            android:name=".common.CarSettingActivities$AssistantAndVoiceSettingsActivity"
+            android:windowSoftInputMode="adjustPan"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.settings.VOICE_INPUT_SETTINGS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_AssistantAndVoiceSettingsActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -245,6 +324,8 @@
             android:name=".common.CarSettingActivities$SystemSettingsActivity"
             android:windowSoftInputMode="adjustPan"
             android:exported="true">
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_SystemSettingsActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -258,6 +339,8 @@
                 <action android:name="android.settings.panel.action.WIFI" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_WifiSettingsActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -265,6 +348,8 @@
             android:name=".common.CarSettingActivities$WifiTetherActivity"
             android:windowSoftInputMode="adjustPan"
             android:exported="true">
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_WifiTetherActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -277,6 +362,8 @@
                 <action android:name="android.settings.NETWORK_OPERATOR_SETTINGS" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_MobileNetworkActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -284,6 +371,8 @@
             android:name=".common.CarSettingActivities$MobileNetworkListActivity"
             android:windowSoftInputMode="adjustPan"
             android:exported="true">
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_MobileNetworkListActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -296,6 +385,8 @@
                 <action android:name="android.settings.MOBILE_DATA_USAGE" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_DataUsageActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -304,11 +395,12 @@
             android:windowSoftInputMode="adjustPan"
             android:exported="true">
             <intent-filter android:priority="1">
-                <action android:name="android.settings.APPLICATION_SETTINGS" />
                 <action android:name="android.settings.MANAGE_APPLICATIONS_SETTINGS" />
                 <action android:name="android.settings.MANAGE_ALL_APPLICATIONS_SETTINGS" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_ApplicationsSettingsActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -316,6 +408,8 @@
             android:name=".common.CarSettingActivities$SpecialAccessSettingsActivity"
             android:windowSoftInputMode="adjustPan"
             android:exported="true">
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_SpecialAccessSettingsActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -323,6 +417,8 @@
             android:name=".common.CarSettingActivities$LanguagesAndInputActivity"
             android:windowSoftInputMode="adjustPan"
             android:exported="true">
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_LanguagesAndInputActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -335,6 +431,8 @@
                 <action android:name="android.settings.DEVICE_NAME" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_AboutSettingsActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -342,6 +440,8 @@
             android:name=".common.CarSettingActivities$LegalInformationActivity"
             android:windowSoftInputMode="adjustPan"
             android:exported="true">
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_LegalInformationActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -349,6 +449,8 @@
             android:name=".common.CarSettingActivities$ResetOptionsActivity"
             android:windowSoftInputMode="adjustPan"
             android:exported="true">
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_ResetOptionsActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -360,6 +462,8 @@
                 <action android:name="android.settings.WIFI_ADD_NETWORKS" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_AddWifiActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -371,6 +475,8 @@
                 <action android:name="android.settings.WIFI_IP_SETTINGS" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_WifiPreferencesActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -385,9 +491,9 @@
                       -d "package:<package name>" -->
             <intent-filter android:priority="100">
                 <action android:name="android.settings.APPLICATION_DETAILS_SETTINGS" />
-                <action android:name="android.settings.NOTIFICATION_SETTINGS" />
                 <action android:name="android.settings.CHANNEL_NOTIFICATION_SETTINGS" />
                 <action android:name="android.settings.APP_NOTIFICATION_SETTINGS" />
+                <action android:name="android.intent.action.AUTO_REVOKE_PERMISSIONS" />
                 <data android:scheme="package" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
@@ -397,11 +503,13 @@
                       -e "android.provider.extra.APP_PACKAGE" "<package name>" -->
             <intent-filter android:priority="100">
                 <action android:name="android.settings.APPLICATION_DETAILS_SETTINGS" />
-                <action android:name="android.settings.NOTIFICATION_SETTINGS" />
                 <action android:name="android.settings.CHANNEL_NOTIFICATION_SETTINGS" />
                 <action android:name="android.settings.APP_NOTIFICATION_SETTINGS" />
+                <action android:name="android.intent.action.AUTO_REVOKE_PERMISSIONS" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_ApplicationsDetailsActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -413,6 +521,8 @@
                 <action android:name="android.settings.action.MANAGE_WRITE_SETTINGS" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_ModifySystemSettingsActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -422,8 +532,11 @@
             android:exported="true">
             <intent-filter android:priority="100">
                 <action android:name="android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS" />
+                <action android:name="android.settings.NOTIFICATION_LISTENER_DETAIL_SETTINGS" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_NotificationAccessActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -431,6 +544,8 @@
             android:name=".common.CarSettingActivities$PremiumSmsAccessActivity"
             android:windowSoftInputMode="adjustPan"
             android:exported="true">
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_PremiumSmsAccessActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -442,6 +557,8 @@
                 <action android:name="android.settings.USAGE_ACCESS_SETTINGS" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_UsageAccessActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -449,6 +566,8 @@
             android:name=".common.CarSettingActivities$WifiControlActivity"
             android:windowSoftInputMode="adjustPan"
             android:exported="true">
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_WifiControlActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -460,6 +579,8 @@
                 <action android:name="android.settings.ADD_ACCOUNT_SETTINGS" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_ChooseAccountActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -471,6 +592,8 @@
                 <action android:name="android.settings.LOCALE_SETTINGS" />
                 <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_LanguagePickerActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -483,6 +606,8 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:scheme="package" />
             </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_DefaultAutofillPickerActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -494,6 +619,8 @@
                 <action android:name="android.settings.INPUT_METHOD_SETTINGS" />
                 <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_KeyboardActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -501,6 +628,12 @@
             android:name=".common.CarSettingActivities$TextToSpeechOutputActivity"
             android:windowSoftInputMode="adjustPan"
             android:exported="true">
+            <intent-filter android:priority="1">
+                <action android:name="com.android.settings.TTS_SETTINGS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_TextToSpeechOutputActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -518,6 +651,8 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_HomepageActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity-alias>
 
@@ -534,8 +669,19 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <meta-data android:name="com.android.car.settings.SINGLE_PANE" android:value="true"/>
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity-alias>
+
+        <activity android:name=".enterprise.RemoteRequestBugreportActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:permission="android.permission.DUMP">
+            <intent-filter>
+                <action android:name="android.settings.SHOW_REMOTE_BUGREPORT_DIALOG" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
 
         <activity
             android:name=".bluetooth.BluetoothPairingDialog"
@@ -543,7 +689,7 @@
             android:windowSoftInputMode="stateVisible|adjustResize"
             android:taskAffinity="car.settings.bluetooth"
             android:launchMode="singleTask"
-            android:theme="@*android:style/Theme.DeviceDefault.Settings.Dialog.NoActionBar">
+            android:theme="@style/ActionDialogTheme">
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -557,6 +703,8 @@
                 <action android:name="android.bluetooth.devicepicker.action.LAUNCH" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_BluetoothDevicePickerActivity" />
         </activity>
 
         <activity
@@ -588,18 +736,7 @@
                 <action android:name="android.settings.MANAGE_DOMAIN_URLS" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
-            <meta-data android:name="distractionOptimized" android:value="true"/>
-        </activity>
-
-        <activity
-            android:name=".applications.assist.ManageAssistActivity"
-            android:configChanges="orientation|keyboardHidden|screenSize"
-            android:windowSoftInputMode="adjustResize"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.settings.VOICE_INPUT_SETTINGS" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
+            <meta-data android:name="com.android.car.settings.SINGLE_PANE" android:value="true"/>
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -609,9 +746,11 @@
             android:exported="true"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
+                <action android:name="android.app.action.SET_NEW_PASSWORD" />
                 <action android:name="android.car.settings.SCREEN_LOCK_ACTIVITY" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <meta-data android:name="com.android.car.settings.SINGLE_PANE" android:value="true"/>
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -625,14 +764,48 @@
                 <action android:name="android.app.action.CONFIRM_FRP_CREDENTIAL" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <meta-data android:name="com.android.car.settings.SINGLE_PANE" android:value="true"/>
         </activity>
 
+        <activity
+            android:name=".security.VerifyLockChangeActivity"
+            android:configChanges="orientation|keyboardHidden|screenSize"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize">
+            <meta-data android:name="com.android.car.settings.SINGLE_PANE" android:value="true"/>
+            <meta-data android:name="distractionOptimized" android:value="true"/>
+        </activity>
 
         <activity
-            android:name=".users.UserSwitcherActivity"
+            android:name=".security.ChooseLockPatternActivity"
+            android:windowSoftInputMode="adjustPan"
+            android:noHistory="true"
+            android:exported="false">
+            <meta-data android:name="com.android.car.settings.SINGLE_PANE" android:value="true"/>
+        </activity>
+
+        <activity
+            android:name=".security.ChooseLockPinActivity"
+            android:windowSoftInputMode="adjustPan"
+            android:noHistory="true"
+            android:exported="false">
+            <meta-data android:name="com.android.car.settings.SINGLE_PANE" android:value="true"/>
+        </activity>
+
+        <activity
+            android:name=".security.ChooseLockPasswordActivity"
+            android:windowSoftInputMode="adjustPan"
+            android:noHistory="true"
+            android:exported="false">
+            <meta-data android:name="com.android.car.settings.SINGLE_PANE" android:value="true"/>
+        </activity>
+
+        <activity
+            android:name=".profiles.ProfileSwitcherActivity"
             android:configChanges="orientation|keyboardHidden|screenSize"
             android:windowSoftInputMode="adjustResize"
             android:exported="true">
+            <meta-data android:name="com.android.car.settings.SINGLE_PANE" android:value="true"/>
         </activity>
 
         <activity
@@ -663,6 +836,7 @@
         <activity
             android:name=".system.RegulatoryInfoDisplayActivity"
             android:label="@string/regulatory_labels"
+            android:exported="true"
             android:enabled="@bool/config_show_regulatory_info">
             <intent-filter>
                 <action android:name="android.settings.SHOW_REGULATORY_INFO" />
@@ -676,6 +850,8 @@
             android:windowSoftInputMode="adjustResize"
             android:exported="true">
             <meta-data android:name="distractionOptimized" android:value="true"/>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_DataWarningAndLimitActivity" />
         </activity>
 
         <activity
@@ -683,11 +859,26 @@
             android:theme="@style/ActionDialogTheme"
             android:excludeFromRecents="true"
             android:clearTaskOnLaunch="true"
+            android:exported="true"
             android:launchMode="singleInstance">
             <intent-filter>
                 <action android:name="android.net.wifi.action.REQUEST_ENABLE" />
                 <action android:name="android.net.wifi.action.REQUEST_DISABLE" />
                 <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- This is used internally for CTS tests and should not be used in generally. -->
+        <activity android:name=".wifi.networkrequest.NetworkRequestDialogActivity"
+                  android:excludeFromRecents="true"
+                  android:exported="true"
+                  android:launchMode="singleTop"
+                  android:permission="android.permission.NETWORK_SETTINGS"
+                  android:taskAffinity=".wifi.networkrequest.NetworkRequestDialogActivity"
+                  android:theme="@style/ActionDialogTheme">
+            <intent-filter>
+                <action android:name="com.android.settings.wifi.action.NETWORK_REQUEST"/>
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
 
@@ -708,13 +899,36 @@
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
+        <activity
+            android:name=".enterprise.DeviceAdminAddActivity"
+            android:exported="true">
+            <meta-data android:name="com.android.car.settings.SINGLE_PANE" android:value="true"/>
+            <meta-data android:name="distractionOptimized" android:value="true"/>
+            <intent-filter>
+                <action android:name="android.app.action.ADD_DEVICE_ADMIN" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name=".enterprise.ActionDisabledByAdminActivity"
+                android:theme="@style/ActionDialogTheme"
+                android:taskAffinity=".enterprise"
+                android:excludeFromRecents="true"
+                android:exported="true">
+            <intent-filter android:priority="1">
+                <action android:name="android.settings.SHOW_ADMIN_SUPPORT_DETAILS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
         <service android:name=".bluetooth.BluetoothPairingService" />
 
         <service android:name=".setupservice.InitialLockSetupService"
                  android:exported="true"
                  android:permission="com.android.car.settings.SET_INITIAL_LOCK"/>
 
-        <receiver android:name=".bluetooth.BluetoothPairingRequest">
+        <receiver android:name=".bluetooth.BluetoothPairingRequest"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.bluetooth.device.action.PAIRING_REQUEST" />
             </intent-filter>

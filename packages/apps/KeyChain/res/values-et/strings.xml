@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"Võite installida sertifikaadid failist PKCS#12 laiendiga %1$s või %2$s, mis asub välismäluseadmel."</string>
     <string name="allow_button" msgid="3030990695030371561">"Vali"</string>
     <string name="deny_button" msgid="3766539809121892584">"Keeldu"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"Sertifikaatide laadimine …"</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"%s kontrollib, kas sertifikaat on olemas …"</string>
 </resources>

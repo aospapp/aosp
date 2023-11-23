@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3077225713817780583">"Puhelujen hallinta"</string>
+    <string name="telecommAppLabel" product="default" msgid="1825598513414129827">"Puhelut"</string>
     <string name="userCallActivityLabel" product="default" msgid="3605391260292846248">"Puhelin"</string>
     <string name="unknown" msgid="6993977514360123431">"Tuntematon"</string>
     <string name="notification_missedCallTitle" msgid="5060387047205532974">"Vastaamatta jäänyt puhelu"</string>
@@ -55,13 +55,13 @@
     <string name="add_vm_number_str" msgid="5179510133063168998">"Lisää numero"</string>
     <string name="change_default_dialer_dialog_title" msgid="5861469279421508060">"Valitaanko <xliff:g id="NEW_APP">%s</xliff:g> oletuspuhelinsovellukseksi?"</string>
     <string name="change_default_dialer_dialog_affirmative" msgid="8604665314757739550">"Aseta oletukseksi"</string>
-    <string name="change_default_dialer_dialog_negative" msgid="8648669840052697821">"Peruuta"</string>
+    <string name="change_default_dialer_dialog_negative" msgid="8648669840052697821">"Peru"</string>
     <string name="change_default_dialer_warning_message" msgid="8461963987376916114">"<xliff:g id="NEW_APP">%s</xliff:g> voi hallita kaikkia puhelutoimintoja. Aseta oletuspuhelinsovellukseksi vain luotettava sovellus."</string>
     <string name="change_default_call_screening_dialog_title" msgid="5365787219927262408">"Määritetäänkö <xliff:g id="NEW_APP">%s</xliff:g> puheluseulonnan oletussovellukseksi?"</string>
     <string name="change_default_call_screening_warning_message_for_disable_old_app" msgid="2039830033533243164">"<xliff:g id="OLD_APP">%s</xliff:g> ei voi enää seuloa puheluita."</string>
     <string name="change_default_call_screening_warning_message" msgid="9020537562292754269">"<xliff:g id="NEW_APP">%s</xliff:g> näkee tietoa soittajista, jotka eivät ole yhteystiedoissasi, ja pystyy estämään heiltä tulevat puhelut. Puheluseulonnan oletussovellukseksi kannattaa määrittää vain sellainen sovellus, johon luotat."</string>
     <string name="change_default_call_screening_dialog_affirmative" msgid="7162433828280058647">"Määritä oletussovellus"</string>
-    <string name="change_default_call_screening_dialog_negative" msgid="1839266125623106342">"Peruuta"</string>
+    <string name="change_default_call_screening_dialog_negative" msgid="1839266125623106342">"Peru"</string>
     <string name="blocked_numbers" msgid="8322134197039865180">"Estetyt numerot"</string>
     <string name="blocked_numbers_msg" msgid="2797422132329662697">"Et voi vastaanottaa puheluita tai tekstiviestejä estetyistä numeroista."</string>
     <string name="block_number" msgid="3784343046852802722">"Lisää numero"</string>

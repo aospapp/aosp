@@ -16,10 +16,14 @@
 
 package com.android.cellbroadcastservice.tests;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
 
 import android.content.ContentValues;
+import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources;
 import android.database.Cursor;
@@ -27,6 +31,7 @@ import android.database.MatrixCursor;
 import android.net.Uri;
 import android.os.SystemProperties;
 import android.provider.Telephony;
+import android.telephony.CbGeoUtils;
 import android.telephony.SmsCbCmasInfo;
 import android.telephony.SmsCbLocation;
 import android.telephony.SmsCbMessage;
@@ -38,6 +43,9 @@ import android.testing.AndroidTestingRunner;
 import android.testing.TestableLooper;
 import android.text.format.DateUtils;
 
+import androidx.annotation.NonNull;
+
+import com.android.cellbroadcastservice.CbSendMessageCalculator;
 import com.android.cellbroadcastservice.CellBroadcastHandler;
 import com.android.cellbroadcastservice.CellBroadcastProvider;
 import com.android.cellbroadcastservice.SmsCbConstants;
@@ -51,6 +59,7 @@ import org.mockito.Mock;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.util.List;
 import java.util.Map;
 
 @RunWith(AndroidTestingRunner.class)
@@ -63,6 +72,10 @@ public class CellBroadcastHandlerTest extends CellBroadcastServiceTestBase {
 
     @Mock
     private Map<Integer, Resources> mMockedResourcesCache;
+
+    private CbSendMessageCalculatorFactoryFacade mSendMessageFactory;
+
+    private CellBroadcastHandler.HandlerHelper mHandlerHelper;
 
     private class CellBroadcastContentProvider extends MockContentProvider {
         @Override
@@ -120,9 +133,19 @@ public class CellBroadcastHandlerTest extends CellBroadcastServiceTestBase {
         super.setUp();
 
         mTestbleLooper = TestableLooper.get(CellBroadcastHandlerTest.this);
+        mSendMessageFactory = new CbSendMessageCalculatorFactoryFacade();
+        mHandlerHelper = mock(CellBroadcastHandler.HandlerHelper.class);
 
         mCellBroadcastHandler = new CellBroadcastHandler("CellBroadcastHandlerUT",
-                mMockedContext, mTestbleLooper.getLooper());
+                mMockedContext, mTestbleLooper.getLooper(), mSendMessageFactory, mHandlerHelper);
+
+        doAnswer(invocation -> {
+            Runnable r = invocation.getArgument(0);
+            mCellBroadcastHandler.getHandler().post(r);
+            return null;
+        }).when(mHandlerHelper).post(any());
+        doReturn(mCellBroadcastHandler.getHandler()).when(mHandlerHelper).getHandler();
+
         ((MockContentResolver) mMockedContext.getContentResolver()).addProvider(
                 Telephony.CellBroadcasts.CONTENT_URI.getAuthority(),
                 new CellBroadcastContentProvider());
@@ -132,6 +155,8 @@ public class CellBroadcastHandlerTest extends CellBroadcastServiceTestBase {
                 mMockedResourcesCache);
         putResources(com.android.cellbroadcastservice.R.integer.message_expiration_time,
                 (int) DateUtils.DAY_IN_MILLIS);
+        putResources(com.android.cellbroadcastservice.R.bool.duplicate_compare_service_category,
+                true);
     }
 
     @After
@@ -264,6 +289,35 @@ public class CellBroadcastHandlerTest extends CellBroadcastServiceTestBase {
 
             // message should be detected as duplicate again
             assertTrue(mCellBroadcastHandler.isDuplicate(msg));
+        }
+    }
+
+    /**
+     * Makes injecting a mock factory easy.
+     */
+    static class CbSendMessageCalculatorFactoryFacade extends
+            CellBroadcastHandler.CbSendMessageCalculatorFactory {
+
+        @NonNull
+        private CellBroadcastHandler.CbSendMessageCalculatorFactory mUnderlyingFactory;
+
+        @NonNull CellBroadcastHandler.CbSendMessageCalculatorFactory getUnderlyingFactory() {
+            return mUnderlyingFactory;
+        }
+
+        void setUnderlyingFactory(
+                @NonNull final CellBroadcastHandler.CbSendMessageCalculatorFactory factory) {
+            mUnderlyingFactory = factory;
+        }
+
+        CbSendMessageCalculatorFactoryFacade() {
+            mUnderlyingFactory = new CellBroadcastHandler.CbSendMessageCalculatorFactory();
+        }
+
+        @Override
+        public CbSendMessageCalculator createNew(@NonNull Context context,
+                @NonNull List<CbGeoUtils.Geometry> fences) {
+            return mUnderlyingFactory.createNew(context, fences);
         }
     }
 }

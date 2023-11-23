@@ -17,6 +17,8 @@
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_name" translatable="false">AAE Theme Playground</string>
     <string name="text_elements" translatable="false">Text Elements</string>
+    <string name="button_elements" translatable="false">Button Elements</string>
+    <string name="progress_bar_elements" translatable="false">Progress Bar Elements</string>
     <string name="panel_elements" translatable="false">Color Panels</string>
     <string name="dialog_elements" translatable="false">Dialogs</string>
     <string name="toggle_theme" translatable="false">Change configuration(Day/Night)</string>

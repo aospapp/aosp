@@ -35,7 +35,7 @@
     <string name="password_empty_error" msgid="591713406761723025">"أدخل كلمة المرور."</string>
     <string name="name_empty_error" msgid="3808800768660110354">"اكتب اسمًا."</string>
     <string name="name_char_error" msgid="3176618568784938968">"أدخل اسمًا يحتوي على أحرف وأرقام فقط."</string>
-    <string name="unable_to_save_cert" msgid="9178604087335389686">"تعذر حفظ الشهادة. لم يتم تفعيل وحدة تخزين بيانات الاعتماد أو لم تتم تهيئتها بشكل صحيح."</string>
+    <string name="unable_to_save_cert" msgid="9178604087335389686">"تعذر حفظ الشهادة. لم يتم تفعيل وحدة تخزين بيانات الاعتماد أو لم تتم إعدادها بشكل صحيح."</string>
     <string name="cert_not_saved" msgid="4037698479662830270">"الشهادة غير مثبتة."</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"ليس هناك شهادات للتثبيت."</string>
     <string name="invalid_cert" msgid="7704228670980743590">"الشهادة غير صالحة."</string>

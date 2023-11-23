@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3077225713817780583">"Xestión de chamadas"</string>
+    <string name="telecommAppLabel" product="default" msgid="1825598513414129827">"Chamadas telefónicas"</string>
     <string name="userCallActivityLabel" product="default" msgid="3605391260292846248">"Teléfono"</string>
     <string name="unknown" msgid="6993977514360123431">"Descoñecido"</string>
     <string name="notification_missedCallTitle" msgid="5060387047205532974">"Chamada perdida"</string>
@@ -88,7 +88,7 @@
     <string name="answering_ends_other_managed_call" msgid="4031778317409881805">"Ao responder, finalizará a túa chamada en curso"</string>
     <string name="answering_ends_other_managed_calls" msgid="3974069768615307659">"Ao responder, finalizarán as túas chamadas en curso"</string>
     <string name="answering_ends_other_managed_video_call" msgid="1988508241432031327">"Ao responder, finalizarán as túas videochamadas en curso"</string>
-    <string name="answer_incoming_call" msgid="2045888814782215326">"Responder"</string>
+    <string name="answer_incoming_call" msgid="2045888814782215326">"Contestar"</string>
     <string name="decline_incoming_call" msgid="922147089348451310">"Rexeitar"</string>
     <string name="cant_call_due_to_no_supported_service" msgid="1635626384149947077">"Non se pode realizar a chamada porque non hai ningunha conta de chamadas que admita chamadas deste tipo."</string>
     <string name="cant_call_due_to_ongoing_call" msgid="8004235328451385493">"Non se pode realizar a chamada porque hai unha chamada en curso en <xliff:g id="OTHER_CALL">%1$s</xliff:g>."</string>

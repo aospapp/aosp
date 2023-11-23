@@ -15,20 +15,30 @@
  */
 package com.android.managedprovisioning.common;
 
+import static java.util.Objects.requireNonNull;
+
 import android.content.Intent;
-import androidx.annotation.NonNull;
 import android.text.TextPaint;
 import android.text.style.ClickableSpan;
 import android.view.SoundEffectConstants;
 import android.view.View;
 
+import androidx.annotation.NonNull;
+
+import java.util.function.Consumer;
+
 /** Used to standardize the way we set up clickable spanned elements */
 public class ClickableSpanFactory {
-    private final int linkColor;
+    private final int mLinkColor;
+    private final Consumer<Intent> mClickHandler;
 
-    /** @param linkColor color value (i.e. not resource id) */
-    public ClickableSpanFactory(int linkColor) {
-        this.linkColor = linkColor;
+    /**
+     * @param linkColor color value (i.e. not resource id)
+     * @param clickHandler callback invoked when a link is tapped
+     */
+    public ClickableSpanFactory(int linkColor, Consumer<Intent> clickHandler) {
+        mLinkColor = linkColor;
+        mClickHandler = requireNonNull(clickHandler);
     }
 
     /**
@@ -39,14 +49,14 @@ public class ClickableSpanFactory {
             @Override
             public void onClick(View widget) {
                 widget.playSoundEffect(SoundEffectConstants.CLICK);
-                widget.getContext().startActivity(intent);
+                mClickHandler.accept(intent);
             }
 
             @Override
             public void updateDrawState(TextPaint ds) {
                 super.updateDrawState(ds);
                 ds.setUnderlineText(false);
-                ds.setColor(linkColor);
+                ds.setColor(mLinkColor);
             }
         };
     }

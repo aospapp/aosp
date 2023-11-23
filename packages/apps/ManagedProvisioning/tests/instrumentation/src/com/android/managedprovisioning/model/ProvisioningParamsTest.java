@@ -15,7 +15,19 @@
  */
 package com.android.managedprovisioning.model;
 
+import static android.app.admin.DevicePolicyManager.PROVISIONING_MODE_FULLY_MANAGED_DEVICE;
+import static android.app.admin.DevicePolicyManager.PROVISIONING_MODE_MANAGED_PROFILE;
+import static android.app.admin.DevicePolicyManager.PROVISIONING_MODE_MANAGED_PROFILE_ON_PERSONAL_DEVICE;
+import static android.app.admin.DevicePolicyManager.PROVISIONING_TRIGGER_CLOUD_ENROLLMENT;
+import static android.app.admin.DevicePolicyManager.PROVISIONING_TRIGGER_PERSISTENT_DEVICE_OWNER;
+import static android.app.admin.DevicePolicyManager.PROVISIONING_TRIGGER_QR_CODE;
+import static android.app.admin.DevicePolicyManager.PROVISIONING_TRIGGER_UNSPECIFIED;
+
 import static com.android.managedprovisioning.TestUtils.createTestAdminExtras;
+import static com.android.managedprovisioning.model.ProvisioningParams.FLOW_TYPE_ADMIN_INTEGRATED;
+import static com.android.managedprovisioning.model.ProvisioningParams.FLOW_TYPE_LEGACY;
+import static com.android.managedprovisioning.model.ProvisioningParams.FLOW_TYPE_UNSPECIFIED;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.eq;
@@ -38,6 +50,8 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 /** Tests for {@link ProvisioningParams} */
@@ -52,13 +66,10 @@ public class ProvisioningParamsTest extends AndroidTestCase {
     private static final long TEST_LOCAL_TIME = 1456939524713L;
     private static final Locale TEST_LOCALE = Locale.UK;
     private static final String TEST_TIME_ZONE = "GMT";
-    private static final Integer TEST_MAIN_COLOR = 65280;
     private static final boolean TEST_STARTED_BY_TRUSTED_SOURCE = true;
     private static final boolean TEST_IS_NFC = true;
     private static final boolean TEST_LEAVE_ALL_SYSTEM_APP_ENABLED = true;
     private static final boolean TEST_SKIP_ENCRYPTION = true;
-    private static final boolean TEST_SKIP_USER_SETUP = true;
-    private static final boolean TEST_SKIP_USER_CONSENT = true;
     private static final Account TEST_ACCOUNT_TO_MIGRATE =
             new Account("user@gmail.com", "com.google");
     private static final boolean TEST_USE_MOBILE_DATA = true;
@@ -158,11 +169,9 @@ public class ProvisioningParamsTest extends AndroidTestCase {
                 .setLocalTime(TEST_LOCAL_TIME)
                 .setLocale(TEST_LOCALE)
                 .setTimeZone(TEST_TIME_ZONE)
-                .setMainColor(TEST_MAIN_COLOR)
                 .setStartedByTrustedSource(TEST_STARTED_BY_TRUSTED_SOURCE)
                 .setLeaveAllSystemAppsEnabled(TEST_LEAVE_ALL_SYSTEM_APP_ENABLED)
                 .setSkipEncryption(TEST_SKIP_ENCRYPTION)
-                .setSkipUserSetup(TEST_SKIP_USER_SETUP)
                 .setAccountToMigrate(TEST_ACCOUNT_TO_MIGRATE)
                 .setWifiInfo(TEST_WIFI_INFO)
                 .setUseMobileData(TEST_USE_MOBILE_DATA)
@@ -176,11 +185,9 @@ public class ProvisioningParamsTest extends AndroidTestCase {
                 .setLocalTime(TEST_LOCAL_TIME)
                 .setLocale(TEST_LOCALE)
                 .setTimeZone(TEST_TIME_ZONE)
-                .setMainColor(TEST_MAIN_COLOR)
                 .setStartedByTrustedSource(TEST_STARTED_BY_TRUSTED_SOURCE)
                 .setLeaveAllSystemAppsEnabled(TEST_LEAVE_ALL_SYSTEM_APP_ENABLED)
                 .setSkipEncryption(TEST_SKIP_ENCRYPTION)
-                .setSkipUserSetup(TEST_SKIP_USER_SETUP)
                 .setAccountToMigrate(TEST_ACCOUNT_TO_MIGRATE)
                 .setWifiInfo(TEST_WIFI_INFO)
                 .setUseMobileData(TEST_USE_MOBILE_DATA)
@@ -282,6 +289,214 @@ public class ProvisioningParamsTest extends AndroidTestCase {
         assertThat(createDefaultProvisioningParamsBuilder().build().useMobileData).isFalse();
     }
 
+    @SmallTest
+    public void testSetFlowType_legacy_areEqual() {
+        ProvisioningParams provisioningParams =
+                createDefaultProvisioningParamsBuilder()
+                        .setFlowType(FLOW_TYPE_LEGACY).build();
+
+        assertThat(provisioningParams.flowType).isEqualTo(FLOW_TYPE_LEGACY);
+    }
+
+    @SmallTest
+    public void testSetFlowType_adminIntegrated_areEqual() {
+        ProvisioningParams provisioningParams =
+                createDefaultProvisioningParamsBuilder()
+                        .setFlowType(FLOW_TYPE_ADMIN_INTEGRATED).build();
+
+        assertThat(provisioningParams.flowType).isEqualTo(FLOW_TYPE_ADMIN_INTEGRATED);
+    }
+
+    @SmallTest
+    public void testSetFlowType_defaultsToUnspecified() {
+        assertThat(createDefaultProvisioningParamsBuilder().build().flowType)
+                .isEqualTo(FLOW_TYPE_UNSPECIFIED);
+    }
+
+    @SmallTest
+    public void testSetProvisioningTrigger_cloudEnrollment_areEqual() {
+        ProvisioningParams provisioningParams =
+                createDefaultProvisioningParamsBuilder()
+                        .setProvisioningTrigger(PROVISIONING_TRIGGER_CLOUD_ENROLLMENT).build();
+
+        assertThat(provisioningParams.provisioningTrigger)
+                .isEqualTo(PROVISIONING_TRIGGER_CLOUD_ENROLLMENT);
+    }
+
+    @SmallTest
+    public void testSetProvisioningTrigger_qrCode_areEqual() {
+        ProvisioningParams provisioningParams =
+                createDefaultProvisioningParamsBuilder()
+                        .setProvisioningTrigger(PROVISIONING_TRIGGER_QR_CODE).build();
+
+        assertThat(provisioningParams.provisioningTrigger).isEqualTo(PROVISIONING_TRIGGER_QR_CODE);
+    }
+
+    @SmallTest
+    public void testSetProvisioningTrigger_persistentDeviceOwner_areEqual() {
+        ProvisioningParams provisioningParams =
+                createDefaultProvisioningParamsBuilder()
+                        .setProvisioningTrigger(PROVISIONING_TRIGGER_PERSISTENT_DEVICE_OWNER)
+                        .build();
+
+        assertThat(provisioningParams.provisioningTrigger)
+                .isEqualTo(PROVISIONING_TRIGGER_PERSISTENT_DEVICE_OWNER);
+    }
+
+    @SmallTest
+    public void testSetProvisioningTrigger_defaultsToUnspecified() {
+        assertThat(createDefaultProvisioningParamsBuilder().build().provisioningTrigger)
+                .isEqualTo(PROVISIONING_TRIGGER_UNSPECIFIED);
+    }
+
+    @SmallTest
+    public void testSetAllowedProvisioningModes_defaultsToEmptyArray() {
+        assertThat(createDefaultProvisioningParamsBuilder().build().allowedProvisioningModes)
+                .isEmpty();
+    }
+
+    @SmallTest
+    public void testSetAllowedProvisioningModes_personallyOwned_areEqual() {
+        ProvisioningParams params =
+                createDefaultProvisioningParamsBuilder()
+                        .setAllowedProvisioningModes(new ArrayList<>(List.of(
+                                PROVISIONING_MODE_MANAGED_PROFILE)))
+                        .build();
+
+        assertThat(params.allowedProvisioningModes)
+                .containsExactly(PROVISIONING_MODE_MANAGED_PROFILE);
+    }
+
+    @SmallTest
+    public void testSetAllowedProvisioningModes_organizationOwned_areEqual() {
+        ProvisioningParams params =
+                createDefaultProvisioningParamsBuilder()
+                        .setAllowedProvisioningModes(new ArrayList<>(List.of(
+                                PROVISIONING_MODE_MANAGED_PROFILE,
+                                PROVISIONING_MODE_FULLY_MANAGED_DEVICE)))
+                        .build();
+
+        assertThat(params.allowedProvisioningModes).containsExactly(
+                PROVISIONING_MODE_MANAGED_PROFILE,
+                PROVISIONING_MODE_FULLY_MANAGED_DEVICE);
+    }
+
+    @SmallTest
+    public void testSetAllowedProvisioningModes_organizationAndPersonallyOwned_areEqual() {
+        ProvisioningParams params =
+                createDefaultProvisioningParamsBuilder()
+                        .setAllowedProvisioningModes(new ArrayList<>(List.of(
+                                PROVISIONING_MODE_MANAGED_PROFILE,
+                                PROVISIONING_MODE_FULLY_MANAGED_DEVICE,
+                                PROVISIONING_MODE_MANAGED_PROFILE_ON_PERSONAL_DEVICE)))
+                        .build();
+
+        assertThat(params.allowedProvisioningModes).containsExactly(
+                PROVISIONING_MODE_MANAGED_PROFILE,
+                PROVISIONING_MODE_FULLY_MANAGED_DEVICE,
+                PROVISIONING_MODE_MANAGED_PROFILE_ON_PERSONAL_DEVICE);
+    }
+
+    @SmallTest
+    public void testSetSkipOwnershipDisclaimer_setTrue_isTrue() {
+        ProvisioningParams provisioningParams =
+                createDefaultProvisioningParamsBuilder()
+                        .setSkipOwnershipDisclaimer(true)
+                        .build();
+
+        assertThat(provisioningParams.skipOwnershipDisclaimer).isTrue();
+    }
+
+    @SmallTest
+    public void testSetSkipOwnershipDisclaimer_setFalse_isFalse() {
+        ProvisioningParams provisioningParams =
+                createDefaultProvisioningParamsBuilder()
+                        .setSkipOwnershipDisclaimer(false)
+                        .build();
+
+        assertThat(provisioningParams.skipOwnershipDisclaimer).isFalse();
+    }
+
+    @SmallTest
+    public void testSetSkipOwnershipDisclaimer_notSet_isFalse() {
+        ProvisioningParams provisioningParams =
+                createDefaultProvisioningParamsBuilder()
+                        .build();
+
+        assertThat(provisioningParams.skipOwnershipDisclaimer).isFalse();
+    }
+
+    @SmallTest
+    public void testSetReturnBeforePolicyCompliance_setTrue_isTrue() {
+        ProvisioningParams provisioningParams =
+                createDefaultProvisioningParamsBuilder()
+                        .setReturnBeforePolicyCompliance(true)
+                        .build();
+
+        assertThat(provisioningParams.returnBeforePolicyCompliance).isTrue();
+    }
+
+    @SmallTest
+    public void testSetReturnBeforePolicyCompliance_setFalse_isFalse() {
+        ProvisioningParams provisioningParams =
+                createDefaultProvisioningParamsBuilder()
+                        .setReturnBeforePolicyCompliance(false)
+                        .build();
+
+        assertThat(provisioningParams.returnBeforePolicyCompliance).isFalse();
+    }
+
+    @SmallTest
+    public void testSetReturnBeforePolicyCompliance_notSet_isFalse() {
+        ProvisioningParams provisioningParams =
+                createDefaultProvisioningParamsBuilder()
+                        .build();
+
+        assertThat(provisioningParams.returnBeforePolicyCompliance).isFalse();
+    }
+
+    @SmallTest
+    public void testDeviceOwnerDoesNotOptOutOfSensorsPermissionGrantsByDefault() {
+        ProvisioningParams params = createDefaultProvisioningParamsBuilder().build();
+        assertThat(params.deviceOwnerPermissionGrantOptOut).isFalse();
+    }
+
+    @SmallTest
+    public void testDeviceOwnerCanOptOutOfSensorsPermissionGrants() {
+        ProvisioningParams params = createDefaultProvisioningParamsBuilder()
+                .setDeviceOwnerPermissionGrantOptOut(true).build();
+        assertThat(params.deviceOwnerPermissionGrantOptOut).isTrue();
+    }
+
+    @SmallTest
+    public void testSetAllowProvisioningAfterUserSetupComplete_setTrue_isTrue() {
+        ProvisioningParams provisioningParams =
+                createDefaultProvisioningParamsBuilder()
+                        .setAllowProvisioningAfterUserSetupComplete(true)
+                        .build();
+
+        assertThat(provisioningParams.allowProvisioningAfterUserSetupComplete).isTrue();
+    }
+
+    @SmallTest
+    public void testSetAllowProvisioningAfterUserSetupComplete_setFalse_isFalse() {
+        ProvisioningParams provisioningParams =
+                createDefaultProvisioningParamsBuilder()
+                        .setAllowProvisioningAfterUserSetupComplete(false)
+                        .build();
+
+        assertThat(provisioningParams.allowProvisioningAfterUserSetupComplete).isFalse();
+    }
+
+    @SmallTest
+    public void testSetAllowProvisioningAfterUserSetupComplete_notSet_isFalse() {
+        ProvisioningParams provisioningParams =
+                createDefaultProvisioningParamsBuilder()
+                        .build();
+
+        assertThat(provisioningParams.allowProvisioningAfterUserSetupComplete).isFalse();
+    }
+
     private ProvisioningParams.Builder createDefaultProvisioningParamsBuilder() {
         return ProvisioningParams.Builder
                 .builder()
@@ -298,17 +513,18 @@ public class ProvisioningParamsTest extends AndroidTestCase {
                 .setLocalTime(TEST_LOCAL_TIME)
                 .setLocale(TEST_LOCALE)
                 .setTimeZone(TEST_TIME_ZONE)
-                .setMainColor(TEST_MAIN_COLOR)
                 .setStartedByTrustedSource(TEST_STARTED_BY_TRUSTED_SOURCE)
                 .setIsNfc(TEST_IS_NFC)
                 .setLeaveAllSystemAppsEnabled(TEST_LEAVE_ALL_SYSTEM_APP_ENABLED)
                 .setSkipEncryption(TEST_SKIP_ENCRYPTION)
-                .setSkipUserSetup(TEST_SKIP_USER_SETUP)
-                .setSkipUserConsent(TEST_SKIP_USER_CONSENT)
                 .setAccountToMigrate(TEST_ACCOUNT_TO_MIGRATE)
                 .setWifiInfo(TEST_WIFI_INFO)
                 .setUseMobileData(TEST_USE_MOBILE_DATA)
                 .setAdminExtrasBundle(createTestAdminExtras())
+                .setIsOrganizationOwnedProvisioning(true)
+                .setFlowType(FLOW_TYPE_ADMIN_INTEGRATED)
+                .setProvisioningTrigger(DevicePolicyManager.PROVISIONING_TRIGGER_QR_CODE)
+                .setAllowProvisioningAfterUserSetupComplete(true)
                 .build();
     }
 }

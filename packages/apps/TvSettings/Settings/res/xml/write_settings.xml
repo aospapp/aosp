@@ -20,6 +20,7 @@
     <Preference
             android:key="header"
             android:title="@string/write_settings_description"
-            android:singleLineTitle="false"/>
+            android:singleLineTitle="false"
+            android:selectable="false" />
 
 </PreferenceScreen>

@@ -31,7 +31,8 @@
         <item name="colorControlHighlight">@color/ripple_material_dark</item>
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
-        <item name="toolbarNavigationButtonStyle">@style/Widget.AppCompat.Toolbar.Button.Navigation</item>
+        <item name="toolbarNavigationButtonStyle">@android:style/Widget.Toolbar.Button.Navigation
+        </item>
 
         <item name="android:windowActionBar">false</item>
         <item name="android:windowNoTitle">true</item>

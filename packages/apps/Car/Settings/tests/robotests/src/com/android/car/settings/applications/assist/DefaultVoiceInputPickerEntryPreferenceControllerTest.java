@@ -34,11 +34,11 @@ import android.service.voice.VoiceInteractionServiceInfo;
 
 import androidx.lifecycle.Lifecycle;
 
-import com.android.car.settings.common.ButtonPreference;
 import com.android.car.settings.common.PreferenceController;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
 import com.android.car.settings.testutils.ShadowSecureSettings;
 import com.android.car.settings.testutils.ShadowVoiceInteractionServiceInfo;
+import com.android.car.ui.preference.CarUiTwoActionIconPreference;
 import com.android.settingslib.applications.DefaultAppInfo;
 
 import com.google.common.collect.Iterables;
@@ -78,7 +78,7 @@ public class DefaultVoiceInputPickerEntryPreferenceControllerTest {
         mContext = RuntimeEnvironment.application;
         mControllerHelper = new PreferenceControllerTestHelper<>(mContext,
                 DefaultVoiceInputPickerEntryPreferenceController.class,
-                new ButtonPreference(mContext));
+                new CarUiTwoActionIconPreference(mContext));
         mController = mControllerHelper.getController();
     }
 
@@ -173,7 +173,7 @@ public class DefaultVoiceInputPickerEntryPreferenceControllerTest {
         // Create new controller to rerun the constructor with the new shadow package manager.
         mControllerHelper = new PreferenceControllerTestHelper<>(mContext,
                 DefaultVoiceInputPickerEntryPreferenceController.class,
-                new ButtonPreference(mContext));
+                new CarUiTwoActionIconPreference(mContext));
         mController = mControllerHelper.getController();
 
         ComponentName voiceService = new ComponentName(TEST_PACKAGE, TEST_VOICE);

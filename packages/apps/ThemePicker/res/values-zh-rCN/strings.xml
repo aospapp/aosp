@@ -17,18 +17,20 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="6995669566699638946">"样式和壁纸"</string>
+    <string name="app_name" msgid="1647136562008520313">"壁纸和样式"</string>
     <string name="theme_title" msgid="2144932106319405101">"样式"</string>
     <string name="clock_title" msgid="2126046720254613991">"时钟"</string>
-    <string name="grid_title" msgid="2825094404523390773">"网格"</string>
-    <string name="wallpaper_title" msgid="6952635398953194544">"壁纸"</string>
+    <string name="grid_title" msgid="1688173478777254123">"应用网格"</string>
     <string name="apply_theme_btn" msgid="6293081192321303991">"应用"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"点按即可修改"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"保留当前壁纸"</string>
     <string name="apply_btn" msgid="7965877231041987336">"应用"</string>
-    <string name="accessibility_preview_pager" msgid="3548503287402185430">"第 <xliff:g id="ID_1">%1$d</xliff:g> 页，共 <xliff:g id="ID_2">%2$d</xliff:g> 页"</string>
-    <string name="next_page_content_description" msgid="5290226604542300962">"下一页"</string>
-    <string name="previous_page_content_description" msgid="6025726405430262788">"上一页"</string>
+    <string name="theme_preview_card_content_description" msgid="5989222908619535533">"样式预览"</string>
+    <string name="grid_preview_card_content_description" msgid="8449383777584714842">"网格预览"</string>
+    <string name="font_preview_content_description" msgid="128230439293337891">"字体预览"</string>
+    <string name="icon_preview_content_description" msgid="7761101284351952890">"图标预览"</string>
+    <string name="color_preview_content_description" msgid="4879120462082058124">"颜色预览"</string>
+    <string name="shape_preview_content_description" msgid="6479487796176550432">"形状预览"</string>
     <string name="option_applied_description" msgid="5022305212078053534">"<xliff:g id="ID_1">%1$s</xliff:g>，目前已应用"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"<xliff:g id="ID_1">%1$s</xliff:g>（目前应用及预览的项）"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"<xliff:g id="ID_1">%1$s</xliff:g>（目前预览的项）"</string>
@@ -41,12 +43,15 @@
     <string name="preview_name_wallpaper" msgid="1738652462949531828">"壁纸"</string>
     <string name="font_card_title" msgid="2343292653502548685">"ABC • abc • 123"</string>
     <string name="font_card_body" msgid="6790525594503904468">"将您喜爱的字体应用于每个屏幕上的文字"</string>
+    <string name="grid_options_title" msgid="7071930966989877023">"选择网格大小"</string>
     <string name="grid_title_pattern" msgid="9188866567612607806">"<xliff:g id="ID_1">%1$d</xliff:g>x<xliff:g id="ID_2">%2$d</xliff:g>"</string>
-    <string name="applied_theme_msg" msgid="7348498271552054431">"已应用样式"</string>
-    <string name="applied_clock_msg" msgid="1938218786265793285">"已应用时钟"</string>
+    <string name="applied_theme_msg" msgid="3749018706366796244">"已成功设置样式"</string>
+    <string name="applied_clock_msg" msgid="1303338016701443767">"已成功设置时钟"</string>
+    <string name="applied_grid_msg" msgid="3250499654436933034">"已成功设置网格"</string>
     <string name="apply_theme_error_msg" msgid="791364062636538317">"应用样式时出现问题"</string>
     <string name="custom_theme_next" msgid="6235420097213197301">"下一步"</string>
     <string name="custom_theme_previous" msgid="4941132112640503022">"上一步"</string>
+    <string name="custom_theme" msgid="1618351922263478163">"自定义"</string>
     <string name="custom_theme_title" msgid="2192300350332693631">"自定义 <xliff:g id="ID_1">%1$d</xliff:g>"</string>
     <string name="custom_theme_fragment_title" msgid="6615547284702040280">"自定义样式"</string>
     <string name="custom_theme_delete" msgid="4744494663184126202">"删除"</string>
@@ -66,4 +71,16 @@
     <string name="no_thanks" msgid="7286616980115687627">"不用了"</string>
     <string name="clock_preview_content_description" msgid="5460561185905717460">"<xliff:g id="ID_1">%1$s</xliff:g>时钟预览"</string>
     <string name="something_went_wrong" msgid="529840112449799117">"糟糕！遇到了问题。"</string>
+    <string name="theme_preview_icons_section_title" msgid="7064768910744000643">"颜色/图标"</string>
+    <string name="style_info_description" msgid="2612473574431003251">"字体、图标、应用形状和颜色的预览"</string>
+    <string name="accessibility_custom_font_title" msgid="966867359157303705">"自定义字体"</string>
+    <string name="accessibility_custom_icon_title" msgid="5753297905849062296">"自定义图标"</string>
+    <string name="accessibility_custom_color_title" msgid="4124246598886320663">"自定义颜色"</string>
+    <string name="accessibility_custom_shape_title" msgid="7708408259374643129">"自定义形状"</string>
+    <string name="accessibility_custom_name_title" msgid="5494460518085463262">"自定义样式名称"</string>
+    <string name="mode_title" msgid="2394873501427436055">"深色主题"</string>
+    <string name="mode_disabled_msg" msgid="9196245518435936512">"因省电模式已开启，该功能被暂时停用了"</string>
+    <string name="themed_icon_title" msgid="7312460430471956558">"带主题的图标"</string>
+    <string name="beta_title" msgid="8703819523760746458">"Beta 版"</string>
+    <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"更改应用网格"</string>
 </resources>

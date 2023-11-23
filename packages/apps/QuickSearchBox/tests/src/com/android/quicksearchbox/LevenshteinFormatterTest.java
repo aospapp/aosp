@@ -87,7 +87,7 @@ public class LevenshteinFormatterTest extends AndroidTestCase {
     }
 
     public void testTokenizeWithTabs() {
-        verifyTokenizeResult("paranoid\tandroid\t", "paranoid", "android");
+        verifyTokenizeResult("don't\tpanic\t", "don't", "panic");
     }
 
     private void verifyFindMatches(String source, String target, String... newTokensInTarget) {

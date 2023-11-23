@@ -16,6 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="missing_rename_error" msgid="9098952207447981103">"Musisz zmienić nazwę"</string>
+    <string name="add_folder_name_error" msgid="6014615052491406810">"Musisz dodać nazwę folderu"</string>
     <string name="files_label" msgid="771781190045103748">"Pliki"</string>
     <string name="downloads_label" msgid="5462789470049501103">"Pobieranie"</string>
     <!-- no translation found for app_label (8089292432455111409) -->
@@ -92,14 +94,14 @@
     <string name="query_error" msgid="6625421453613879336">"Teraz nie można załadować zawartości"</string>
     <string name="quiet_mode_error_title" msgid="9126656325282792843">"Wstrzymano profil służbowy"</string>
     <string name="quiet_mode_button" msgid="6977115032320235420">"Włącz"</string>
-    <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"Nie można wybrać plików związanych z pracą"</string>
-    <string name="cant_select_work_files_error_message" msgid="683480676150690641">"Administrator IT nie pozwala na dostęp do plików związanych z pracą w aplikacjach osobistych"</string>
+    <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"Nie można wybrać plików służbowych"</string>
+    <string name="cant_select_work_files_error_message" msgid="683480676150690641">"Administrator IT nie pozwala na dostęp do plików służbowych w aplikacjach osobistych"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"Nie można wybrać plików osobistych"</string>
-    <string name="cant_select_personal_files_error_message" msgid="4105905035459118209">"Administrator IT nie pozwala na dostęp do plików osobistych w aplikacjach do pracy"</string>
-    <string name="cant_save_to_work_error_title" msgid="1351323070040641358">"Nie można zapisać w profilu do pracy"</string>
-    <string name="cant_save_to_work_error_message" msgid="4975583233814059890">"Administrator IT nie pozwala na zapisywanie plików osobistych w profilu do pracy"</string>
+    <string name="cant_select_personal_files_error_message" msgid="4105905035459118209">"Administrator IT nie pozwala na dostęp do plików osobistych w aplikacjach służbowych"</string>
+    <string name="cant_save_to_work_error_title" msgid="1351323070040641358">"Nie można zapisać w profilu służbowym"</string>
+    <string name="cant_save_to_work_error_message" msgid="4975583233814059890">"Administrator IT nie pozwala na zapisywanie plików osobistych w profilu służbowym"</string>
     <string name="cant_save_to_personal_error_title" msgid="858327493694069780">"Nie można zapisać w profilu osobistym"</string>
-    <string name="cant_save_to_personal_error_message" msgid="6991758723736381751">"Administrator IT nie pozwala na zapisywanie plików związanych z pracą w profilu osobistym"</string>
+    <string name="cant_save_to_personal_error_message" msgid="6991758723736381751">"Administrator IT nie pozwala na zapisywanie plików służbowych w profilu osobistym"</string>
     <string name="cross_profile_action_not_allowed_title" msgid="6611281348716476478">"Ta czynność jest niedozwolona"</string>
     <string name="cross_profile_action_not_allowed_message" msgid="7331275433061690947">"Aby dowiedzieć się więcej, skontaktuj się z administratorem IT"</string>
     <string name="root_recent" msgid="1080156975424341623">"Najnowsze"</string>
@@ -307,7 +309,7 @@
     <string name="input_hint_new_folder" msgid="479672411219725677">"Nazwa folderu"</string>
     <string name="input_hint_rename" msgid="8390711744270994452">"Nowa nazwa"</string>
     <string name="preview_file" msgid="4056622696305432343">"Wyświetl podgląd pliku <xliff:g id="FILENAME">%1$s</xliff:g>"</string>
-    <string name="preview_work_file" msgid="4495643735563487273">"Wyświetl podgląd pliku związanego z pracą <xliff:g id="FILENAME">%1$s</xliff:g>"</string>
+    <string name="preview_work_file" msgid="4495643735563487273">"Wyświetl podgląd pliku służbowego <xliff:g id="FILENAME">%1$s</xliff:g>"</string>
     <string name="apps_row_title" msgid="3340490016663092925">"Przeglądaj pliki w innych aplikacjach"</string>
     <string name="anonymous_application" msgid="7633027057951625862">"Anonimowa"</string>
     <string name="open_tree_button" msgid="6402871398424497776">"Użyj tego folderu"</string>
@@ -320,6 +322,8 @@
     <string name="delete_search_history" msgid="2202015025607694515">"Usuń historię wyszukiwania <xliff:g id="TEXT">%1$s</xliff:g>"</string>
     <string name="personal_tab" msgid="3878576287868528503">"Osobiste"</string>
     <string name="work_tab" msgid="7265359366883747413">"Służbowe"</string>
-    <string name="a11y_work" msgid="7504431382825242153">"Praca"</string>
+    <string name="a11y_work" msgid="7504431382825242153">"Służbowy"</string>
     <string name="drag_from_another_app" msgid="8310249276199969905">"Nie można przenosić plików z innej aplikacji."</string>
+    <string name="grid_mode_showing" msgid="2803166871485028508">"Wyświetlanie w trybie siatki."</string>
+    <string name="list_mode_showing" msgid="1225413902295895166">"Wyświetlanie w trybie listy."</string>
 </resources>

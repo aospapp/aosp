@@ -16,6 +16,7 @@
 
 package com.android.car.settings.security;
 
+import android.app.Activity;
 import android.os.Bundle;
 import android.os.UserHandle;
 import android.view.View;
@@ -145,7 +146,7 @@ public class ChooseLockPatternFragment extends BaseFragment {
 
     @Override
     public List<MenuItem> getToolbarMenuItems() {
-        return Arrays.asList(mPrimaryButton, mSecondaryButton);
+        return Arrays.asList(mSecondaryButton, mPrimaryButton);
     }
 
     @Override
@@ -169,6 +170,9 @@ public class ChooseLockPatternFragment extends BaseFragment {
         Bundle args = getArguments();
         if (args != null) {
             mCurrentCredential = args.getParcelable(PasswordHelper.EXTRA_CURRENT_SCREEN_LOCK);
+            if (mCurrentCredential != null) {
+                mCurrentCredential = mCurrentCredential.duplicate();
+            }
         }
 
         if (savedInstanceState != null) {
@@ -188,7 +192,7 @@ public class ChooseLockPatternFragment extends BaseFragment {
     public void onViewCreated(View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        mMessageText = view.findViewById(R.id.description_text);
+        mMessageText = view.findViewById(R.id.title_text);
         mMessageText.setText(getString(R.string.choose_lock_pattern_message));
 
         mLockPatternView = view.findViewById(R.id.lockPattern);
@@ -230,6 +234,15 @@ public class ChooseLockPatternFragment extends BaseFragment {
             mSaveLockWorker.setListener(null);
         }
         getToolbar().getProgressBar().setVisible(false);
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+
+        mLockPatternView.clearPattern();
+
+        PasswordHelper.zeroizeCredentials(mChosenPattern, mCurrentCredential);
     }
 
     /**
@@ -371,18 +384,13 @@ public class ChooseLockPatternFragment extends BaseFragment {
     // Update display message and proceed to next step according to the different mText on
     // the secondary button.
     private void handleSecondaryButtonClick() {
-        switch (mUiStage.mSecondaryButtonState) {
-            case Retry:
-                mChosenPattern = null;
-                mLockPatternView.clearPattern();
-                updateStage(Stage.Introduction);
-                break;
-            case Cancel:
-                getFragmentHost().goBack();
-                break;
-            default:
-                throw new IllegalStateException("secondary footer button pressed, but stage of "
-                        + mUiStage + " doesn't make sense");
+        if (mUiStage.mSecondaryButtonState == SecondaryButtonState.Retry) {
+            mChosenPattern = null;
+            mLockPatternView.clearPattern();
+            updateStage(Stage.Introduction);
+        } else {
+            throw new IllegalStateException("secondary button pressed, but stage of "
+                    + mUiStage + " doesn't make sense");
         }
     }
 
@@ -426,6 +434,7 @@ public class ChooseLockPatternFragment extends BaseFragment {
             mCurrentCredential.zeroize();
         }
 
+        getActivity().setResult(Activity.RESULT_OK);
         getActivity().finish();
     }
 
@@ -439,7 +448,7 @@ public class ChooseLockPatternFragment extends BaseFragment {
          */
         Introduction(
                 R.string.lockpattern_recording_intro_header,
-                SecondaryButtonState.Cancel,
+                SecondaryButtonState.Gone,
                 PrimaryButtonState.ContinueDisabled,
                 /* patternEnabled= */ true),
         /**
@@ -475,7 +484,7 @@ public class ChooseLockPatternFragment extends BaseFragment {
          */
         NeedToConfirm(
                 R.string.lockpattern_need_to_confirm,
-                SecondaryButtonState.Cancel,
+                SecondaryButtonState.Gone,
                 PrimaryButtonState.ConfirmDisabled,
                 /* patternEnabled= */ true),
         /**
@@ -484,7 +493,7 @@ public class ChooseLockPatternFragment extends BaseFragment {
          */
         ConfirmWrong(
                 R.string.lockpattern_pattern_wrong,
-                SecondaryButtonState.Cancel,
+                SecondaryButtonState.Gone,
                 PrimaryButtonState.ConfirmDisabled,
                 /* patternEnabled= */ true),
         /**
@@ -493,7 +502,7 @@ public class ChooseLockPatternFragment extends BaseFragment {
          */
         ChoiceConfirmed(
                 R.string.lockpattern_pattern_confirmed,
-                SecondaryButtonState.Cancel,
+                SecondaryButtonState.Gone,
                 PrimaryButtonState.Confirm,
                 /* patternEnabled= */ false),
 
@@ -503,7 +512,7 @@ public class ChooseLockPatternFragment extends BaseFragment {
          */
         SaveFailure(
                 R.string.error_saving_lockpattern,
-                SecondaryButtonState.Cancel,
+                SecondaryButtonState.Gone,
                 PrimaryButtonState.Retry,
                 /* patternEnabled= */ false);
 
@@ -557,10 +566,7 @@ public class ChooseLockPatternFragment extends BaseFragment {
      * The states of the secondary footer button.
      */
     enum SecondaryButtonState {
-        Cancel(R.string.lockpattern_cancel_button_text, true),
-        CancelDisabled(R.string.lockpattern_cancel_button_text, false),
         Retry(R.string.lockpattern_retry_button_text, true),
-        RetryDisabled(R.string.lockpattern_retry_button_text, false),
         Gone(ID_EMPTY_MESSAGE, false);
 
         final int mTextResId;

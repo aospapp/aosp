@@ -13,18 +13,23 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_app {
     name: "CarCalendarApp",
     srcs: ["src/**/*.java"],
     resource_dirs: ["res"],
-    platform_apis: true,
+    sdk_version: "system_current",
+    min_sdk_version: "29",
     optimize: {
         enabled: false,
     },
     dex_preopt: {
         enabled: false,
     },
-    aaptflags: ["--auto-add-overlay"],
+    libs: ["android.car-system-stubs"],
     static_libs: [
         "car-ui-lib",
         "androidx.lifecycle_lifecycle-extensions",
@@ -33,5 +38,4 @@ android_app {
         "androidx.lifecycle_lifecycle-viewmodel",
         "guava",
     ],
-    libs: ["android.car"],
 }

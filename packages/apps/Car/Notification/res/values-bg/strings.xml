@@ -39,4 +39,5 @@
       <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> нови съобщения</item>
       <item quantity="one">1 ново съобщение</item>
     </plurals>
+    <string name="manage_text" msgid="4225197445283791757">"Управление"</string>
 </resources>

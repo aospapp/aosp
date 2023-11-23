@@ -26,22 +26,26 @@
     <string name="company_controls_device" msgid="8230957518758871390">"Organizata jote do ta kontrollojë këtë pajisje dhe do ta mbajë atë të sigurt."</string>
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"Aplikacionit të mëposhtëm do i nevojitet qasje në këtë profil:"</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Aplikacioni i mëposhtëm do të menaxhojë pajisjen tënde:"</string>
-    <string name="next" msgid="1004321437324424398">"Tjetri"</string>
+    <string name="next" msgid="1004321437324424398">"Para"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Profili i punës po konfigurohet…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Administratori i teknologjisë së informacionit ka aftësinë e monitorimit dhe menaxhimit të cilësimeve, të qasjes së korporatës, të aplikacioneve, të autorizimeve dhe të të dhënave të lidhura me këtë profil, duke përfshirë aktivitetin e rrjetit si dhe vendndodhjen e pajisjes, historikun e telefonatave dhe historikun e kërkimit të kontakteve.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Kontakto me administratorin e teknologjisë së informacionit për më shumë informacione, duke përfshirë politikat e privatësisë së organizatës sate."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Administratori i teknologjisë së informacionit ka aftësinë e monitorimit dhe menaxhimit të cilësimeve, të qasjes së korporatës, të aplikacioneve, të autorizimeve dhe të të dhënave të lidhura me këtë pajisje, duke përfshirë aktivitetin e rrjetit si dhe vendndodhjen e pajisjes, historikun e telefonatave dhe historikun e kërkimit të kontakteve.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Kontakto me administratorin e teknologjisë së informacionit për më shumë informacione, duke përfshirë politikat e privatësisë së organizatës sate."</string>
-    <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Për të përdorur funksionet kundër vjedhjes, duhet të kesh ekran të mbrojtur me fjalëkalim për pajisjen tënde."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Administratori i teknologjisë së informacionit ka aftësinë e monitorimit dhe menaxhimit të cilësimeve, të qasjes së korporatës, të aplikacioneve, të autorizimeve dhe të të dhënave të lidhura me këtë profil, duke përfshirë aktivitetin e rrjetit si dhe vendndodhjen e pajisjes, historikun e telefonatave dhe historikun e kërkimit të kontakteve.<xliff:g id="LINE_BREAK">
+
+</xliff:g>Kontakto me administratorin e teknologjisë së informacionit për më shumë informacione, duke përfshirë politikat e privatësisë së organizatës sate."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Administratori i teknologjisë së informacionit ka aftësinë e monitorimit dhe menaxhimit të cilësimeve, të qasjes së korporatës, të aplikacioneve, të autorizimeve dhe të të dhënave të lidhura me këtë pajisje, duke përfshirë aktivitetin e rrjetit si dhe vendndodhjen e pajisjes, historikun e telefonatave dhe historikun e kërkimit të kontakteve.<xliff:g id="LINE_BREAK">
+
+</xliff:g>Kontakto me administratorin e teknologjisë së informacionit për më shumë informacione, duke përfshirë politikat e privatësisë së organizatës sate."</string>
+    <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Për të përdorur veçoritë kundër vjedhjes, duhet të kesh ekran të mbrojtur me fjalëkalim për pajisjen tënde."</string>
     <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"Kontakto me administratorin tënd të teknologjisë së informacionit për më shumë informacione, duke përfshirë politikat e privatësisë së organizatës sate."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Mëso më shumë"</string>
     <string name="cancel_setup" msgid="2949928239276274745">"Anulo"</string>
     <string name="ok_setup" msgid="4593707675416137504">"Në rregull"</string>
     <string name="user_consent_msg" msgid="8820951802130353584">"Pranoj"</string>
     <string name="url_error" msgid="5958494012986243186">"Lidhja nuk mund të shfaqet."</string>
+    <string name="navigation_button_description" msgid="6106309408994461239">"Ngjitu lart"</string>
     <string name="terms" msgid="8295436105384703903">"Kushtet"</string>
     <string name="work_profile_info" msgid="5433388376309583996">"Informacioni i profilit të punës"</string>
     <string name="managed_device_info" msgid="1529447646526616811">"Informacioni i pajisjes së menaxhuar"</string>
     <string name="default_managed_profile_name" msgid="5370257687074907055">"Profili i punës"</string>
-    <string name="default_first_meat_user_name" msgid="7540515892748490540">"Përdoruesi parësor"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"Të fshihet profili ekzistues?"</string>
     <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"E ke tashmë një profil pune. Ai menaxhohet duke përdorur aplikacionin e mëposhtëm:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"para se të vazhdosh, "<a href="#read_this_link">"lexo këtë"</a>"."</string>
@@ -65,15 +69,6 @@
     <string name="user_setup_incomplete" msgid="6494920045526591079">"Konfigurimi i përdoruesit është i paplotë"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"Përdorues i pajisjes së punës"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"Pajisja e punës po konfigurohet..."</string>
-    <string name="progress_data_process" msgid="1707745321954672971">"Po përpunon të dhënat e konfigurimit..."</string>
-    <string name="progress_connect_to_wifi" msgid="472251154628863539">"Po lidhet me Wi-Fi..."</string>
-    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"Po lidhet me rrjetin celular…"</string>
-    <string name="progress_download" msgid="3522436271691064624">"Po shkarkon aplikacionin e administratorit..."</string>
-    <string name="progress_install" msgid="2258045670385866183">"Po instalon aplikacionin e administratorit..."</string>
-    <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"Po heq aplikacionet e sistemit që nuk kërkohen..."</string>
-    <string name="progress_finishing_touches" msgid="9037776404089697198">"Po vendos rregullimet e fundit…"</string>
-    <string name="progress_set_owner" msgid="8214062820093757961">"Po cakton zotëruesin e pajisjes..."</string>
-    <string name="progress_initialize" msgid="1104643492713424939">"Duke nisur pajisjen…"</string>
     <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"Pajisja nuk lejon enkriptimin, i cili nevojitet për konfigurimin. Për ndihmë, kontakto me administratorin e teknologjisë së informacionit."</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"Të ndalohet konfigurimi dhe të rivendoset pajisja?"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"Kjo do ta rivendosë pajisjen dhe do të të kthejë tek ekrani i parë."</string>
@@ -92,10 +87,10 @@
     <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"Pajisja ka të aktivizuar mbrojtjen kundër rivendosjes. Për ndihmë, kontakto me administratorin e teknologjisë së informacionit."</string>
     <string name="frp_clear_progress_title" msgid="8628074089458234965">"Po spastron"</string>
     <string name="frp_clear_progress_text" msgid="1740164332830598827">"Qëndro në pritje..."</string>
-    <string name="error_hash_mismatch" msgid="1145488923243178454">"Aplikacioni i administratorit nuk mund të përdorej për shkak të gabimit të shumës së kontrollit. Për ndihmë, kontakto me administratorin e teknologjisë së informacionit."</string>
-    <string name="error_download_failed" msgid="3274283629837019452">"Aplikacioni i administratorit nuk mund të shkarkohej"</string>
-    <string name="error_package_invalid" msgid="555402554502033988">"Aplikacioni i administratorit nuk mund të përdoret pasi i mungojnë përbërësit ose është i dëmtuar. Për ndihmë, kontakto me administratorin e teknologjisë së informacionit."</string>
-    <string name="error_installation_failed" msgid="2282903750318407285">"Nuk mundi ta instalonte aplikacionin e administratorit"</string>
+    <string name="error_hash_mismatch" msgid="1145488923243178454">"Aplikacioni i administrimit nuk mund të përdorej për shkak të gabimit të shumës së kontrollit. Për ndihmë, kontakto me administratorin e TI-së."</string>
+    <string name="error_download_failed" msgid="3274283629837019452">"Aplikacioni i administrimit nuk mund të shkarkohej"</string>
+    <string name="error_package_invalid" msgid="555402554502033988">"Aplikacioni i administrimit nuk mund të përdoret pasi i mungojnë përbërësit ose është i dëmtuar. Për ndihmë, kontakto me administratorin e TI-së."</string>
+    <string name="error_installation_failed" msgid="2282903750318407285">"Aplikacioni i administrimit nuk mund të instalohej"</string>
     <string name="profile_owner_cancel_message" msgid="6868736915633023477">"Ndalo konfigurimin?"</string>
     <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"Jo"</string>
     <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"Po"</string>
@@ -161,12 +156,11 @@
     <string name="work_profile_description" msgid="8524116010729569213">"Aplikacionet e tua të punës do të mbahen në këtë profil dhe do të menaxhohen nga organizata jote"</string>
     <string name="device_owner_description" msgid="168013145812679664">"Kjo pajisje do të mbahet e sigurt dhe do të menaxhohet nga organizata jote"</string>
     <string name="setup_provisioning_header" msgid="4282483198266806271">"Po përgatitet konfigurimi i pajisjes së punës…"</string>
-    <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Konfigurimi i aplikacionit të administratorit"</string>
-    <string name="set_up_everything_else" msgid="4407706086957916501">"Konfiguro gjithçka tjetër"</string>
-    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"Shto një llogari personale për të marrë më shumë nga pajisja jote"</string>
-    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"Ki parasysh se profili yt i punës është gati, mund të shtosh gjithashtu edhe një \"Llogari të Google\" personale për t\'u qasur në aplikacionet dhe përmbajtjen tënde."</string>
+    <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Konfigurimi i aplikacionit të administrimit"</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"Kjo pajisje i përket organizatës sate"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"Aplikacioni i mëposhtëm do të përdoret për të menaxhuar dhe monitoruar këtë telefon"</string>
+    <string name="account_management_disclaimer_header" msgid="8013083414694316564">"Llogaria jote po menaxhohet"</string>
+    <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"Administratori i teknologjisë së informacionit përdor menaxhimin e pajisjes celulare për të zbatuar politikat e sigurisë"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Po përgatitet për konfigurimin e punës…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Le të konfigurojmë profilin tënd të punës"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Aplikacionet e punës mbahen në profilin tënd të punës"</string>
@@ -178,8 +172,16 @@
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Mbaji aplikacionet e tua të punës në majë të gishtave"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Kjo pajisje nuk është private"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"Administratori i teknologjisë së informacionit mund të arrijë t\'i shikojë të dhënat e tua dhe aktivitetin tënd në këtë pajisje."</string>
+    <string name="fully_managed_device_provisioning_permissions_header" msgid="2852101532084770993">"Aktiviteti dhe të dhënat e tua"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_header" msgid="4419374850927705136">"Lejet e aplikacionit"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8328298923037335068">"Administratori yt i teknologjisë së informacionit mund të caktojë lejet për aplikacionet në këtë pajisje, si p.sh. lejet për mikrofonin, kamerën dhe vendndodhjen."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Pajisja po konfigurohet…"</string>
-    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"Përdor këtë pajisje për të pasur qasje me lehtësi tek aplikacionet e tua të punës. Kjo pajisje nuk është private, kështu që administratori yt i teknologjisë së informacionit mund të arrijë të shikojë të dhënat e tua dhe aktivitetin tënd. Për të mësuar më shumë, kontakto me administratorin tënd të teknologjisë së informacionit."</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1090645190066781456">"Përdor këtë pajisje për të pasur qasje me lehtësi tek aplikacionet e tua të punës. Kjo pajisje nuk është private, kështu që administratori yt i teknologjisë së informacionit mund të arrijë të shikojë të dhënat e tua dhe aktivitetin tënd."</string>
+    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"Përdor këtë pajisje për të pasur qasje me lehtësi tek aplikacionet e tua të punës. Kjo pajisje nuk është private, kështu që administratori yt i teknologjisë së informacionit mund të arrijë të shikojë aktivitetin dhe të dhënat e tua. Administratori yt i teknologjisë së informacionit mund të caktojë po ashtu lejet për aplikacionet në këtë pajisje, si p.sh. lejet për mikrofonin, kamerën dhe vendndodhjen."</string>
+    <string name="fully_managed_device_provisioning_return_device_title" msgid="8500829014794276683">"Ktheja këtë pajisje administratorit të teknologjisë së informacionit"</string>
+    <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"Kthehu tek ekrani i mëparshëm ose rivendose këtë pajisje dhe ktheja atë administratorit të teknologjisë së informacionit."</string>
+    <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"Anulo konfigurimin"</string>
+    <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"Rivendose pajisjen dhe ktheje"</string>
     <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Apl. e punës mbahen në profilin tënd të punës dhe menaxhohen nga administratori yt i TI-së"</string>
     <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Aplikacionet personale janë të ndara dhe të fshehura nga aplikacionet e punës"</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"Admin. i TI-së mund ta kontrollojë këtë pajisje e të bllokojë aplikacione të caktuara"</string>
@@ -187,10 +189,9 @@
     <string name="just_a_sec" msgid="6244676028626237220">"Vetëm një sekondë…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Rikujtuesi i privatësisë"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"Administratori i teknologjisë së informacionit mund të arrijë t\'i shikojë të dhënat e tua dhe aktivitetin tënd në këtë pajisje"</string>
-    <string name="device_provisioning_finished" msgid="3981783240592092906">"Pajisja jote është gati për të vazhduar!"</string>
-    <string name="done" msgid="7755227776955952318">"U krye"</string>
-    <string name="financed_device_screen_header" msgid="7890706080917322376">"Kjo pajisje u ble me kreditim nga <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>"</string>
-    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> mund:"</string>
-    <string name="install_creditor_app_description" msgid="6159751782301108878">"Të instalojë aplikacionin <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> në mënyrë që të kryesh pagesat për këtë pajisje"</string>
-    <string name="lock_device_description" msgid="2940362560732989166">"Të kufizojë qasjen në këtë pajisje nëse nuk kryen pagesat"</string>
+    <string name="financed_device_screen_header" msgid="6875169548352717124">"Kjo pajisje ofrohet nga <xliff:g id="CREDITOR_NAME">%s</xliff:g>"</string>
+    <string name="financed_make_payments_subheader_title" msgid="7880606710044254210">"Bëj pagesa për këtë pajise"</string>
+    <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> mund të instalojë aplikacionin <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> që të mund të kryesh pagesat për këtë pajisje."</string>
+    <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Kjo pajisje mund të kufizohet"</string>
+    <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> mund ta kufizojë qasjen në këtë pajisje nëse nuk bën pagesa."</string>
 </resources>

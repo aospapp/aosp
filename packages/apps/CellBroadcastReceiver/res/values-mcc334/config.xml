@@ -15,20 +15,25 @@
 -->
 
 <resources>
-    <!-- Channel 4370 -->
+    <!-- Channel 4370, 4383 -->
     <string-array name="cmas_presidential_alerts_channels_range_strings" translatable="false">
-        <item>0x1112:rat=gsm, emergency=true, alert_duration=86400000</item>
+        <item>0x1112:rat=gsm, emergency=true, alert_duration=86400000, always_on=true</item>
+        <item>0x111F:rat=gsm, emergency=true, alert_duration=86400000, always_on=true</item>
     </string-array>
 
-    <!-- Channel 50 and 919 -->
+    <!-- Channel 50, 919, 6400, and 4396-4399 -->
     <string-array name="additional_cbs_channels_strings" translatable="false">
         <item>0x397:rat=gsm, emergency=true, alert_duration=86400000</item>
         <!-- Channel 50 for area update info -->
         <item>0x032:type=area, emergency=false</item>
+        <!-- Channel 6400 for Information messages -->
+        <item>0x1900:rat=gsm, emergency=false</item>
+        <!-- Channel 4396-4399 reserved for future -->
+        <item>0x112C-0x112F:rat=gsm, emergency=true</item>
     </string-array>
 
     <!-- Play alert sound in full volume regardless Do Not Disturb is on -->
-    <bool name="override_dnd_default">true</bool>
+    <bool name="override_dnd">true</bool>
 
     <!-- Link method -->
     <string name="link_method" translatable="false">none</string>

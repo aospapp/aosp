@@ -14,14 +14,16 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_library {
     name: "car-theme-lib",
 
     srcs: ["src/**/*.java"],
 
     resource_dirs: ["res"],
-
-    static_libs: ["androidx.car_car"],
 
     optimize: {
         enabled: false,

@@ -235,8 +235,8 @@ public class GsmSmsCbMessage {
 
         if (offset + wacDataLength > pdu.length) {
             IllegalArgumentException ex = new IllegalArgumentException(
-                    "Invalid wac data, expected the length of pdu at least " + offset
-                            + wacDataLength + ", actual is " + pdu.length);
+                    "Invalid wac data, expected the length of pdu at least "
+                            + (offset + wacDataLength) + ", actual is " + pdu.length);
             CellBroadcastStatsLog.write(CellBroadcastStatsLog.CB_MESSAGE_ERROR,
                     CellBroadcastStatsLog.CELL_BROADCAST_MESSAGE_ERROR__TYPE__GSM_UMTS_INVALID_WAC,
                     ex.toString());
@@ -388,6 +388,12 @@ public class GsmSmsCbMessage {
                     language = body.substring(0, 2);
                     body = body.substring(3);
                 }
+                break;
+
+            case SmsMessage.ENCODING_8BIT:
+                // Support decoding the pdu as pack GSM 8-bit (a GSM alphabet string that's stored
+                // in 8-bit unpacked format) characters.
+                body = GsmAlphabet.gsm8BitUnpackedToString(pdu, offset, length);
                 break;
 
             case SmsMessage.ENCODING_16BIT:

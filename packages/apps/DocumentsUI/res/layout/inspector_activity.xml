@@ -68,7 +68,6 @@
         android:orientation="vertical"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:overScrollMode="never"
         app:behavior_overlapTop="10dp"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 

@@ -25,14 +25,16 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.Bundle;
+import android.os.UserHandle;
+import android.os.UserManager;
 
 import androidx.annotation.NonNull;
 import androidx.leanback.widget.GuidanceStylist;
 
-import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
+import com.android.settingslib.RestrictedLockUtils;
+import com.android.settingslib.RestrictedLockUtilsInternal;
 import com.android.settingslib.Utils;
 import com.android.settingslib.applications.ApplicationsState;
-import com.android.settingslib.core.instrumentation.MetricsFeatureProvider;
 import com.android.tv.settings.R;
 
 import java.util.ArrayList;
@@ -48,6 +50,18 @@ public class EnableDisablePreference extends AppActionPreference {
         super(context, entry);
         mPackageManager = context.getPackageManager();
         refresh();
+
+
+        if (isRestricted()) {
+            final RestrictedLockUtils.EnforcedAdmin admin =
+                    RestrictedLockUtilsInternal.checkIfRestrictionEnforced(context,
+                            UserManager.DISALLOW_APPS_CONTROL, UserHandle.myUserId());
+            if (admin != null) {
+                setDisabledByAdmin(admin);
+            } else {
+                setEnabled(false);
+            }
+        }
     }
 
     public void refresh() {
@@ -125,6 +139,11 @@ public class EnableDisablePreference extends AppActionPreference {
         return false;
     }
 
+    boolean isRestricted() {
+        UserManager userManager = getContext().getSystemService(UserManager.class);
+        return userManager.hasUserRestriction(UserManager.DISALLOW_APPS_CONTROL);
+    }
+
     @Override
     public String getFragment() {
         return ConfirmationFragment.class.getName();
@@ -138,8 +157,6 @@ public class EnableDisablePreference extends AppActionPreference {
             args.putString(ARG_PACKAGE_NAME, packageName);
             args.putBoolean(ARG_ENABLE, enable);
         }
-
-        private final MetricsFeatureProvider mMetricsFeatureProvider = new MetricsFeatureProvider();
 
         @NonNull
         @Override
@@ -158,9 +175,6 @@ public class EnableDisablePreference extends AppActionPreference {
         @Override
         public void onOk() {
             boolean enable = getArguments().getBoolean(ARG_ENABLE);
-            mMetricsFeatureProvider.action(getContext(), enable
-                    ? MetricsEvent.ACTION_SETTINGS_ENABLE_APP
-                    : MetricsEvent.ACTION_SETTINGS_DISABLE_APP);
             getActivity().getPackageManager().setApplicationEnabledSetting(
                     getArguments().getString(ARG_PACKAGE_NAME), enable
                             ? PackageManager.COMPONENT_ENABLED_STATE_DEFAULT

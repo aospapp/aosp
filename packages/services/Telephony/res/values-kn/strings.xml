@@ -50,6 +50,7 @@
     <string name="voice_number_setting_primary_user_only" msgid="3394706575741912843">"ಧ್ವನಿಮೇಲ್ ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ಕೇವಲ ಪ್ರಾಥಮಿಕ ಬಳಕೆದಾರರು ಮಾತ್ರ ಮಾರ್ಪಡಿಸಬಹುದು."</string>
     <string name="puk_unlocked" msgid="4627340655215746511">"ನಿಮ್ಮ ಸಿಮ್‌ ಕಾರ್ಡ್‌ನ ನಿರ್ಬಂಧವನ್ನು ತೆಗೆಯಲಾಗಿದೆ. ನಿಮ್ಮ ಫೋನ್‌ ಅನ್‌ಲಾಕ್‌ ಆಗುತ್ತಿದೆ…"</string>
     <string name="label_ndp" msgid="7617392683877410341">"ಸಿಮ್‌ ನೆಟ್‌ವರ್ಕ್‌ನ ಅನ್‌ಲಾಕ್‌ ಮಾಡುವ ಪಿನ್‌"</string>
+    <string name="label_phoneid" msgid="8775611434123577808">"ಆಪರೇಟರ್‌ಗಾಗಿ SIM ಅನ್ನು ಲಾಕ್ ಮಾಡಲಾಗಿದೆ"</string>
     <string name="sim_ndp_unlock_text" msgid="7737338355451978338">"ಅನ್‌ಲಾಕ್"</string>
     <string name="sim_ndp_dismiss_text" msgid="89667342248929777">"ವಜಾಗೊಳಿಸಿ"</string>
     <string name="requesting_unlock" msgid="930512210309437741">"ನೆಟ್‌ವರ್ಕ್‌ ಅನ್ನು ಅನ್‌ಲಾಕ್‌ ಮಾಡಲು ವಿನಂತಿಸಲಾಗುತ್ತಿದೆ…"</string>
@@ -60,7 +61,7 @@
     <string name="labelGsmMore_with_label" msgid="3206015314393246224">"GSM ಕರೆ ಸೆಟ್ಟಿಂಗ್‌ಗಳು (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="labelCDMAMore" msgid="7937441382611224632">"CDMA ಕರೆ ಸೆಟ್ಟಿಂಗ್‌ಗಳು"</string>
     <string name="labelCdmaMore_with_label" msgid="7759692829160238152">"CDMA ಕರೆ ಸೆಟ್ಟಿಂಗ್‌ಗಳು (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
-    <string name="apn_settings" msgid="1978652203074756623">"ಪ್ರವೇಶಿಸುವಿಕೆ ಕೇಂದ್ರದ ಹೆಸರುಗಳು"</string>
+    <string name="apn_settings" msgid="1978652203074756623">"ಆ್ಯಕ್ಸೆಸ್ ಪಾಯಿಂಟ್ ಹೆಸರುಗಳು"</string>
     <string name="settings_label" msgid="9101778088412567956">"ನೆಟ್‌ವರ್ಕ್‌ ಸೆಟ್ಟಿಂಗ್‌ಗಳು"</string>
     <string name="phone_accounts" msgid="1216879437523774604">"ಕರೆ ಮಾಡುವ ಖಾತೆಗಳು"</string>
     <string name="phone_accounts_make_calls_with" msgid="16747814788918145">"ಇದರೊಂದಿಗೆ ಕರೆಗಳನ್ನು ಮಾಡಿ"</string>
@@ -123,6 +124,13 @@
     <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"<xliff:g id="PHONENUMBER">{0}</xliff:g> ಗೆ ಫಾರ್ವರ್ಡ್‌ ಮಾಡಲಾಗುತ್ತಿದೆ"</string>
     <string name="sum_cfnrc_disabled" msgid="739289696796917683">"ಆಫ್"</string>
     <string name="disable_cfnrc_forbidden" msgid="775348748084726890">"ನಿಮ್ಮ ಫೋನ್‌ ಅನ್ನು ತಲುಪಲಾಗದಿದ್ದಾಗ ನಿಮ್ಮ ವಾಹಕ ಕರೆ ಫಾರ್ವರ್ಡ್‌ ಮಾಡುವಿಕೆ ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಲು ಬೆಂಬಲಿಸುವುದಿಲ್ಲ."</string>
+    <string name="registration_cf_forbidden" msgid="4386482610771190420">"ನಿಮ್ಮ ವಾಹಕವು ಕರೆ ಫಾರ್ವರ್ಡ್ ಮಾಡುವಿಕೆಯನ್ನು ಬೆಂಬಲಿಸುವುದಿಲ್ಲ."</string>
+    <string name="cdma_call_waiting" msgid="4565070960879673216">"ಕರೆ ನಿರೀಕ್ಷೆಯನ್ನು ಆನ್ ಮಾಡಬೇಕೆ?"</string>
+    <string name="enable_cdma_call_waiting_setting" msgid="5906811747921744307">"ಕರೆಯ ಸಮಯದಲ್ಲಿ, ಒಳಬರುವ ಕರೆಗಳ ಕುರಿತು ನಿಮಗೆ ಸೂಚಿಸಲಾಗುತ್ತದೆ"</string>
+    <string name="enable_cdma_cw" msgid="811047045863422232">"ಆನ್ ಮಾಡಿ"</string>
+    <string name="disable_cdma_cw" msgid="7119290446496301734">"ರದ್ದುಮಾಡಿ"</string>
+    <string name="cdma_call_waiting_in_ims_on" msgid="6390979414188659218">"IMS ಆನ್ ಅಡಿಯಲ್ಲಿ CDMA ಕರೆ ನಿರೀಕ್ಷೆ"</string>
+    <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"IMS ಆಫ್ ಅಡಿಯಲ್ಲಿ CDMA ಕರೆ ನಿರೀಕ್ಷೆ"</string>
     <string name="updating_title" msgid="6130548922615719689">"ಕರೆ ಸೆಟ್ಟಿಂಗ್‌ಗಳು"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"ಕರೆ ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ಕೇವಲ ನಿರ್ವಾಹಕ ಬಳಕೆದಾರರು ಮಾತ್ರ ಬದಲಾಯಿಸಬಹುದು."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"ಸೆಟ್ಟಿಂಗ್‌ಗಳು (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -286,6 +294,9 @@
     <string name="limited_sim_function_notification_title" msgid="612715399099846281">"ಸೀಮಿತ ಸಿಮ್ ಕಾರ್ಯನಿರ್ವಹಣೆ"</string>
     <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"<xliff:g id="PHONE_NUMBER">%2$s</xliff:g> ಬಳಸುತ್ತಿರುವಾಗ <xliff:g id="CARRIER_NAME">%1$s</xliff:g> ಕರೆಗಳು ಮತ್ತು ಡೇಟಾ ಸೇವೆಗಳನ್ನು ನಿರ್ಬಂಧಿಸಬಹುದು."</string>
     <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"ಬೇರೊಂದು ಸಿಮ್ ಬಳಸುತ್ತಿರುವಾಗ <xliff:g id="CARRIER_NAME">%1$s</xliff:g> ಕರೆಗಳು ಮತ್ತು ಡೇಟಾ ಸೇವೆಗಳನ್ನು ನಿರ್ಬಂಧಿಸಬಹುದು."</string>
+    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"ತಡೆಹಿಡಿಯಲಾಗಿರುವ SIP ಖಾತೆಗಳನ್ನು ಪತ್ತೆಮಾಡಲಾಗಿದೆ ಮತ್ತು ತೆಗೆದುಹಾಕಲಾಗಿದೆ"</string>
+    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"Android ಪ್ಲ್ಯಾಟ್‌ಫಾರ್ಮ್ ಇನ್ನು ಮುಂದೆ SIP ಕರೆ ಮಾಡುವಿಕೆಯನ್ನು ಬೆಂಬಲಿಸುವುದಿಲ್ಲ.\nನಿಮ್ಮ ಅಸ್ತಿತ್ವದಲ್ಲಿರುವ SIP ಖಾತೆಗಳನ್ನು <xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g> ತೆಗೆದುಹಾಕಲಾಗಿದೆ.\nನಿಮ್ಮ ಡೀಫಾಲ್ಟ್ ಕರೆ ಮಾಡುವಿಕೆ ಖಾತೆ ಸೆಟ್ಟಿಂಗ್ ಅನ್ನು ಖಚಿತಪಡಿಸಿ."</string>
+    <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"ಸೆಟ್ಟಿಂಗ್‌ಗಳಿಗೆ ಹೋಗಿ"</string>
     <string name="data_usage_title" msgid="8438592133893837464">"ಅಪ್ಲಿಕೇಶನ್‌ ಡೇಟಾ ಬಳಕೆ"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"<xliff:g id="ID_1">%1$s</xliff:g> ಬಳಸಲಾದ ಮೊಬೈಲ್ ಡೇಟಾ <xliff:g id="ID_2">%2$s</xliff:g>"</string>
     <string name="advanced_options_title" msgid="9208195294513520934">"ಸುಧಾರಿತ"</string>
@@ -504,6 +515,7 @@
     <string name="puk2_requested" msgid="6992374450720307514">"ಪಾಸ್‌ವರ್ಡ್ ತಪ್ಪಾಗಿದೆ. SIM ಅನ್ನು ಇದೀಗ ಲಾಕ್ ಮಾಡಲಾಗಿದೆ. PUK2 ನಮೂದಿಸಿ."</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"PUK2 ಅನ್ನು ಶಾಶ್ವತವಾಗಿ ನಿರ್ಬಂಧಿಸಲಾಗಿದೆ."</string>
     <string name="pin2_attempts" msgid="5625178102026453023">\n"ನೀವು <xliff:g id="NUMBER">%d</xliff:g> ಬಾಕಿ ಉಳಿದಿರುವ ಪ್ರಯತ್ನಗಳನ್ನು ಹೊಂದಿರುವಿರಿ."</string>
+    <string name="puk2_locked" msgid="6497760825455461057">"PUK2 ಲಾಕ್ ಆಗಿದೆ. ಅನ್‌ಲಾಕ್ ಮಾಡಲು ಸೇವೆ ಒದಗಿಸುವವರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
     <string name="pin2_unblocked" msgid="4481107908727789303">"PIN2 ಇನ್ನು ಮುಂದೆ ನಿರ್ಬಂಧಿತವಾಗಿರುವುದಿಲ್ಲ"</string>
     <string name="pin2_error_exception" msgid="8116103864600823641">"ನೆಟ್‌ವರ್ಕ್‌ ಅಥವಾ ಸಿಮ್ ಕಾರ್ಡ್‌ ದೋಷ"</string>
     <string name="doneButton" msgid="7371209609238460207">"ಮುಗಿದಿದೆ"</string>
@@ -525,10 +537,11 @@
     <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"ಕರೆ ಮಾಡಲು ಮೊಬೈಲ್ ನೆಟ್‌ವರ್ಕ್ ಆನ್ ಮಾಡಿ, ಏರ್‌ಪ್ಲೇನ್ ಮೋಡ್ ಅಥವಾ ಬ್ಯಾಟರಿ ಉಳಿತಾಯ ಮೋಡ್ ಅನ್ನು ಆಫ್ ಮಾಡಿ."</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"ಕರೆ ಮಾಡಲು ಏರ್‌ಪ್ಲೇನ್ ಮೋಡ್ ಆಫ್ ಮಾಡಿ."</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"ಏರ್‌ಪ್ಲೇನ್ ಮೋಡ್ ಆಫ್ ಮಾಡಿ ಅಥವಾ ಕರೆ ಮಾಡಲು ವೈರ್‌ಲೆಸ್ ನೆಟ್‌ವರ್ಕ್‌ಗೆ ಸಂಪರ್ಕಿಸಿ."</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"ಫೋನ್ ತುಂಬಾ ಬಿಸಿಯಾಗಿದೆ"</b>\n\n"ಈ ಕರೆಯನ್ನು ಪೂರ್ಣಗೊಳಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ. ಫೋನ್ ತಣ್ಣಗಾದ ನಂತರ ಪುನಃ ಪ್ರಯತ್ನಿಸಿ.\n\nನೀವು ಈಗಲೂ ತುರ್ತು ಕರೆಗಳನ್ನು ಮಾಡಬಹುದು."</string>
     <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"ತುರ್ತು ರಹಿತ ಕರೆಯನ್ನು ಮಾಡಲು ತುರ್ತು ಮರು ಕರೆಮಾಡುವಿಕೆ ಮೋಡ್ ಅನ್ನು ನಿರ್ಗಮಿಸಿ."</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"ನೆಟ್‌ವರ್ಕ್‌ನಲ್ಲಿ ಇನ್ನೂ ನೋಂದಣಿಯಾಗಿಲ್ಲ."</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"ಮೊಬೈಲ್‌ ನೆಟ್‌ವರ್ಕ್‌ ಲಭ್ಯವಿಲ್ಲ."</string>
-    <string name="incall_error_out_of_service_wfc" msgid="4497663185857190885">"ಮೊಬೈಲ್ ನೆಟ್‌ವರ್ಕ್ ಲಭ್ಯವಿಲ್ಲ. ಕರೆ ಮಾಡಲು ವೈರ್‌ಲೆಸ್ ನೆಟ್‌ವರ್ಕ್‌ಗೆ ಸಂಪರ್ಕಿಸಿ."</string>
+    <string name="incall_error_out_of_service_wfc" msgid="4497663185857190885">"ಮೊಬೈಲ್ ನೆಟ್‌ವರ್ಕ್ ಲಭ್ಯವಿಲ್ಲ. ಕರೆ ಮಾಡಲು ವೈರ್‌ಲೆಸ್ ನೆಟ್‌ವರ್ಕ್‌ಗೆ ಕನೆಕ್ಟ್ ಮಾಡಿ."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="8680831089508851894">"ಕರೆಯನ್ನು ಮಾಡಲು, ಮಾನ್ಯವಾದ ಸಂಖ್ಯೆಯನ್ನು ನಮೂದಿಸಿ."</string>
     <string name="incall_error_call_failed" msgid="393508653582682539">"ಕರೆ ವಿಫಲವಾಗಿದೆ."</string>
     <string name="incall_error_cannot_add_call" msgid="5425764862628655443">"ಈ ಸಮಯದಲ್ಲಿ ಕರೆಯನ್ನು ಸೇರಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ. ಸಂದೇಶವನ್ನು ಕಳುಹಿಸುವ ಮೂಲಕ ನೀವು ಸಂಪರ್ಕಿಸಲು ಪ್ರಯತ್ನಿಸಬಹುದು."</string>
@@ -867,7 +880,6 @@
     <string name="radio_info_dds" msgid="1122593144425697126">"ಡೀಫಾಲ್ಟ್ ಡೇಟಾ ಸಿಮ್‌ನ ವಿಷಯಐಡಿ:"</string>
     <string name="radio_info_dl_kbps" msgid="2382922659525318726">"DL ಬ್ಯಾಂಡ್‌ವಿಡ್ತ್ (kbps):"</string>
     <string name="radio_info_ul_kbps" msgid="2102225400904799036">"UL ಬ್ಯಾಂಡ್‌ವಿಡ್ತ್ (kbps):"</string>
-    <string name="radio_info_signal_location_label" msgid="6188435197086550049">"ಸೆಲ್ ಸ್ಥಳ ಮಾಹಿತಿ (ತಡೆಹಿಡಿಯಲಾಗಿದೆ):"</string>
     <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"LTE ಭೌತಿಕ ಚಾನೆಲ್ ಕಾನ್ಫಿಗರೇಶನ್:"</string>
     <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"ಸೆಲ್ ಮಾಹಿತಿ ರಿಫ್ರೆಶ್ ದರ:"</string>
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"ಎಲ್ಲಾ ಸೆಲ್ ಮಾಪನ ಮಾಹಿತಿ:"</string>
@@ -898,6 +910,11 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"ರಿಫ್ರೆಶ್ ಮಾಡಿ"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"DNS ಪರಿಶೀಲನೆ ಟಾಗಲ್ ಮಾಡಿ"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"OEM-ನಿರ್ದಿಷ್ಟ ಮಾಹಿತಿ/ಸೆಟ್ಟಿಂಗ್‌ಗಳು"</string>
+    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC ಲಭ್ಯವಿದೆ:"</string>
+    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"ನಿರ್ಬಂಧಿತ DCNR:"</string>
+    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR ಲಭ್ಯವಿದೆ:"</string>
+    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR ಸ್ಥಿತಿ:"</string>
+    <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR ಫ್ರೀಕ್ವೆನ್ಸಿ:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"ರೇಡಿಯೋ ಬ್ಯಾಂಡ್ ಮೋಡ್ ಹೊಂದಿಸಿ"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"ಬ್ಯಾಂಡ್ ಪಟ್ಟಿಯನ್ನು ಲೋಡ್ ಮಾಡಲಾಗುತ್ತಿದೆ…"</string>
     <string name="band_mode_set" msgid="6657819412803771421">"ಹೊಂದಿಸಿ"</string>
@@ -907,4 +924,7 @@
     <string name="phone_info_label" product="default" msgid="1784175881556791433">"ಫೋನ್ ಮಾಹಿತಿ"</string>
     <string name="carrier_provisioning" msgid="2668065041869578376">"ವಾಹಕ ಪೂರೈಕೆಯ ಮಾಹಿತಿ"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"ಟ್ರಿಗರ್‌ ವಾಹಕ ಪೂರೈಕೆ"</string>
+    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"ನಿಮ್ಮ ಬ್ಲೂಟೂತ್ ಸಿಗ್ನಲ್ ದುರ್ಬಲವಾಗಿದೆ. ಸ್ಪೀಕರ್‌ಫೋನ್‌ಗೆ ಬದಲಾಯಿಸಲು ಪ್ರಯತ್ನಿಸಿ."</string>
+    <string name="call_quality_notification_name" msgid="3476828289553948830">"ಕರೆ ಗುಣಮಟ್ಟದ ಅಧಿಸೂಚನೆ"</string>
+    <string name="notification_channel_sip_account" msgid="1261816025156179637">"ತಡೆಹಿಡಿಯಲಾಗಿರುವ SIP ಖಾತೆಗಳು"</string>
 </resources>

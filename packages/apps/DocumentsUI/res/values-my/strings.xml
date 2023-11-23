@@ -16,6 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="missing_rename_error" msgid="9098952207447981103">"၎င်းကို အမည်ပြောင်းရန် လိုအပ်သည်"</string>
+    <string name="add_folder_name_error" msgid="6014615052491406810">"ဖိုင်တွဲအမည်ကို ထည့်သွင်းရန် လိုအပ်သည်"</string>
     <string name="files_label" msgid="771781190045103748">"ဖိုင်များ"</string>
     <string name="downloads_label" msgid="5462789470049501103">"ဒေါင်းလုဒ်များ"</string>
     <!-- no translation found for app_label (8089292432455111409) -->
@@ -278,4 +280,6 @@
     <string name="work_tab" msgid="7265359366883747413">"အလုပ်"</string>
     <string name="a11y_work" msgid="7504431382825242153">"အလုပ်"</string>
     <string name="drag_from_another_app" msgid="8310249276199969905">"အခြားအက်ပ်မှဖိုင်ကို ရွှေ့၍မရပါ။"</string>
+    <string name="grid_mode_showing" msgid="2803166871485028508">"ဇယားကွက်မုဒ်ဖြင့် ပြသရန်။"</string>
+    <string name="list_mode_showing" msgid="1225413902295895166">"စာရင်းမုဒ်ဖြင့် ပြသရန်။"</string>
 </resources>

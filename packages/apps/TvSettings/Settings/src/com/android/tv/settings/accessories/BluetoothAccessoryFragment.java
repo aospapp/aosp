@@ -16,7 +16,6 @@
 
 package com.android.tv.settings.accessories;
 
-import android.app.Fragment;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
@@ -35,14 +34,13 @@ import android.util.Log;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
-import androidx.leanback.app.GuidedStepFragment;
+import androidx.fragment.app.Fragment;
+import androidx.leanback.app.GuidedStepSupportFragment;
 import androidx.leanback.widget.GuidanceStylist;
 import androidx.leanback.widget.GuidedAction;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceScreen;
 
-import com.android.internal.logging.nano.MetricsProto;
-import com.android.settingslib.core.instrumentation.MetricsFeatureProvider;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
 
@@ -317,9 +315,7 @@ public class BluetoothAccessoryFragment extends SettingsPreferenceFragment {
      * Fragment for changing the name of a bluetooth accessory
      */
     @Keep
-    public static class ChangeNameFragment extends GuidedStepFragment {
-
-        private final MetricsFeatureProvider mMetricsFeatureProvider = new MetricsFeatureProvider();
+    public static class ChangeNameFragment extends GuidedStepSupportFragment {
 
         public static void prepareArgs(@NonNull Bundle args, String deviceName,
                 @DrawableRes int deviceImgId) {
@@ -330,8 +326,6 @@ public class BluetoothAccessoryFragment extends SettingsPreferenceFragment {
         @Override
         public void onStart() {
             super.onStart();
-            mMetricsFeatureProvider.action(getContext(),
-                    MetricsProto.MetricsEvent.ACTION_BLUETOOTH_RENAME);
         }
 
         @NonNull
@@ -400,13 +394,11 @@ public class BluetoothAccessoryFragment extends SettingsPreferenceFragment {
         }
     }
 
-    public static class UnpairConfirmFragment extends GuidedStepFragment {
+    public static class UnpairConfirmFragment extends GuidedStepSupportFragment {
 
         private BluetoothDevice mDevice;
         private BroadcastReceiver mBroadcastReceiver;
         private final Handler mHandler = new Handler();
-        private final MetricsFeatureProvider mMetricsFeatureProvider =
-                new MetricsFeatureProvider();
 
         private Runnable mBailoutRunnable = new Runnable() {
             @Override
@@ -447,8 +439,6 @@ public class BluetoothAccessoryFragment extends SettingsPreferenceFragment {
             adapterIntentFilter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
             mBroadcastReceiver = new UnpairReceiver(this, mDevice);
             getActivity().registerReceiver(mBroadcastReceiver, adapterIntentFilter);
-            mMetricsFeatureProvider.action(getContext(),
-                    MetricsProto.MetricsEvent.DIALOG_BLUETOOTH_PAIRED_DEVICE_FORGET);
         }
 
         @Override
@@ -529,10 +519,5 @@ public class BluetoothAccessoryFragment extends SettingsPreferenceFragment {
                 Log.e(TAG, "Bluetooth device not found. Address = " + mDevice.getAddress());
             }
         }
-    }
-
-    @Override
-    public int getMetricsCategory() {
-        return MetricsProto.MetricsEvent.DIALOG_BLUETOOTH_PAIRED_DEVICE_PROFILE;
     }
 }

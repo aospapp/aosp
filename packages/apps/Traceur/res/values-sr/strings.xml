@@ -2,7 +2,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="system_tracing" msgid="4719188511746319848">"Праћење система"</string>
-    <string name="record_system_activity" msgid="4339462312915377825">"Бележите системску активност и касније је анализирајте да бисте побољшали учинак"</string>
+    <string name="record_system_activity" msgid="4339462312915377825">"Бележи се системска активност и можете касније да је анализирате како бисте побољшали учинак"</string>
     <string name="record_trace" msgid="6416875085186661845">"Снимај траг"</string>
     <string name="trace_debuggable_applications" msgid="7957069895298887899">"Прати апликације са функцијом за отклањање грешака"</string>
     <string name="categories" msgid="2280163673538611008">"Категорије"</string>
@@ -21,6 +21,9 @@
     <string name="saving_trace" msgid="1468692734770800541">"Чува се траг"</string>
     <string name="trace_saved" msgid="5869970594780992309">"Траг је сачуван"</string>
     <string name="tap_to_share" msgid="6766732404489536899">"Додирните да бисте делили траг"</string>
+    <string name="attaching_to_report" msgid="2629202947947275886">"Праћење се прилаже извештају о грешци"</string>
+    <string name="attached_to_report" msgid="5806905349184608870">"Праћење је приложено извештају о грешци"</string>
+    <string name="attached_to_report_summary" msgid="7665675771190391355">"Додирните да бисте отворили BetterBug"</string>
     <string name="stop_tracing" msgid="8916938308534164152">"Зауставите трагање"</string>
     <string name="tracing_categories_unavailable" msgid="5609076391417077752">"Неке категорије праћења нису доступне:"</string>
     <string name="trace_is_being_recorded" msgid="5947378146009337469">"Траг се снима"</string>
@@ -57,4 +60,9 @@
     <string name="sixteen_thousand_kb" msgid="7342517169232459259">"16.384 kB"</string>
     <string name="thirtytwo_thousand_kb" msgid="654328198799196150">"32.768 kB"</string>
     <string name="sixtyfive_thousand_kb" msgid="8168144138598305306">"65.536 kB"</string>
+    <string name="stop_on_bugreport" msgid="2045328149107284734">"Заустави праћење за извештаје о грешкама"</string>
+    <string name="stop_on_bugreport_summary" msgid="7844074306038850040">"Зауставља активне снимке праћења кад се започне извештај о грешкама"</string>
+    <string name="attach_to_bug_report" msgid="2953745117960948415">"Приложи праћења извештајима о грешкама"</string>
+    <string name="attach_to_bug_report_summary" msgid="2225208904634565377">"Аутоматски шаљи праћења у току на BetterBug по добијању извештаја о грешци"</string>
+    <string name="link_to_traces" msgid="6569969595898995517">"Прикажи фајлове са праћењима"</string>
 </resources>

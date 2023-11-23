@@ -17,6 +17,7 @@
 package com.android.camera.util;
 
 import android.annotation.TargetApi;
+import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.KeyguardManager;
 import android.app.NotificationManager;
@@ -126,14 +127,21 @@ public class AndroidServices {
         return (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
     }
 
-    public WindowManager provideWindowManager() {
-        return (WindowManager) getSystemService(Context.WINDOW_SERVICE);
+    public WindowManager provideWindowManager(Activity context) {
+        return (WindowManager) getSystemService(Context.WINDOW_SERVICE, context);
     }
 
     private Object getSystemService(String service) {
+        return getSystemService(service, null);
+    }
+
+    private Object getSystemService(String service, Context targetContext) {
         try {
             long start = System.currentTimeMillis();
-            Object result = mContext.getSystemService(service);
+            if (targetContext == null) targetContext = mContext;
+
+            Object result = targetContext.getSystemService(service);
+
             long duration = System.currentTimeMillis() - start;
             if (duration > LOG_THRESHOLD_MILLIS) {
                 Log.w(TAG, "Warning: providing system service " + service + " took " +

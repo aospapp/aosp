@@ -32,6 +32,7 @@ import android.content.pm.PackageManager;
 import android.content.res.Resources.NotFoundException;
 import android.graphics.Outline;
 import android.graphics.Rect;
+import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
@@ -84,7 +85,7 @@ public class LiveWallpaperPreview extends Activity {
 
     private static final String LOG_TAG = "LiveWallpaperPreview";
 
-    private static final boolean SHOW_DUMMY_DATA = false;
+    private static final boolean SHOW_FAKE_DATA = false;
 
     private WallpaperManager mWallpaperManager;
     private WallpaperConnection mWallpaperConnection;
@@ -190,7 +191,7 @@ public class LiveWallpaperPreview extends Activity {
         setWallpaperButton.setOnClickListener(this::setLiveWallpaper);
         mPages.add(Pair.create(getString(R.string.tab_info), pageInfo));
 
-        if (SHOW_DUMMY_DATA) {
+        if (SHOW_FAKE_DATA) {
             attributionTitle.setText("Diorama, Yosemite");
             attributionTitle.setVisibility(View.VISIBLE);
             attributionAuthor.setText("Live Earth Collection - Android Earth");
@@ -627,6 +628,12 @@ public class LiveWallpaperPreview extends Activity {
                 }
                 mService = null;
             }
+        }
+
+        @Override
+        public void onLocalWallpaperColorsChanged(RectF area,
+                WallpaperColors colors, int displayId) {
+
         }
 
         public void onServiceConnected(ComponentName name, IBinder service) {

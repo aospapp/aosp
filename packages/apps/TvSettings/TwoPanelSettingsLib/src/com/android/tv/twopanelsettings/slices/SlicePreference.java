@@ -17,10 +17,13 @@ package com.android.tv.twopanelsettings.slices;
 
 import android.content.Context;
 import android.content.res.TypedArray;
+import android.text.TextUtils;
 import android.util.AttributeSet;
+import android.view.View;
 
 import androidx.annotation.Nullable;
 import androidx.preference.Preference;
+import androidx.preference.PreferenceViewHolder;
 import androidx.slice.core.SliceActionImpl;
 
 import com.android.tv.twopanelsettings.R;
@@ -28,14 +31,17 @@ import com.android.tv.twopanelsettings.R;
 /**
  * A preference that represents a slice provided by another app.
  */
-public class SlicePreference extends Preference implements HasSliceAction, HasSliceUri {
+public class SlicePreference extends Preference implements HasSliceAction, HasSliceUri,
+        HasCustomContentDescription {
 
     private static final String TAG = "SlicePreference";
+    private static final String SEPARATOR = ",";
 
     private String mUri;
     private int mActionId;
     private SliceActionImpl mAction;
     private SliceActionImpl mFollowUpAction;
+    private String mContentDescription;
 
     public SlicePreference(Context context) {
         super(context);
@@ -45,6 +51,15 @@ public class SlicePreference extends Preference implements HasSliceAction, HasSl
     public SlicePreference(Context context, AttributeSet attrs) {
         super(context, attrs);
         init(attrs);
+    }
+
+    @Override
+    public void onBindViewHolder(PreferenceViewHolder holder) {
+        super.onBindViewHolder(holder);
+        if (!TextUtils.isEmpty(mContentDescription)) {
+            holder.itemView.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
+            holder.itemView.setContentDescription(mContentDescription);
+        }
     }
 
     private void init(@Nullable AttributeSet attrs) {
@@ -100,5 +115,17 @@ public class SlicePreference extends Preference implements HasSliceAction, HasSl
     @Override
     public SliceActionImpl getSliceAction() {
         return mAction;
+    }
+
+    /**
+     * Sets the accessibility content description that will be read to the TalkBack users when they
+     * select this preference.
+     */
+    public void setContentDescription(String contentDescription) {
+        this.mContentDescription = contentDescription;
+    }
+
+    public String getContentDescription() {
+        return mContentDescription;
     }
 }

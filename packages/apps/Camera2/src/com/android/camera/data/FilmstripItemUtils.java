@@ -95,9 +95,9 @@ public class FilmstripItemUtils {
         byte[] decodeBuffer = new byte[32 * 1024];
 
         if (orientation % 180 != 0) {
-            int dummy = imageHeight;
+            int temp = imageHeight;
             imageHeight = imageWidth;
-            imageWidth = dummy;
+            imageWidth = temp;
         }
 
         // Generate Bitmap of maximum size that fits into widthBound x heightBound.

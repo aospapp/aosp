@@ -17,21 +17,21 @@
 package com.android.tv.settings.name;
 
 import android.annotation.Nullable;
-import android.app.Activity;
 import android.os.Bundle;
 
-import androidx.leanback.app.GuidedStepFragment;
+import androidx.fragment.app.FragmentActivity;
+import androidx.leanback.app.GuidedStepSupportFragment;
 
 /**
  * Activity that displays Device Name settings
  */
-public class DeviceNameSettingsActivity extends Activity  {
+public class DeviceNameSettingsActivity extends FragmentActivity {
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (savedInstanceState == null) {
-            GuidedStepFragment.addAsRoot(this, DeviceNameSummaryFragment.newInstance(),
+            GuidedStepSupportFragment.addAsRoot(this, DeviceNameSummaryFragment.newInstance(),
                     android.R.id.content);
         }
     }

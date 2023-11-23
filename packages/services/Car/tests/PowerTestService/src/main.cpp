@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "PowerTestService: "
+#define LOG_TAG "PowerTestService"
 
 #include <signal.h>
 #include <utils/Log.h>

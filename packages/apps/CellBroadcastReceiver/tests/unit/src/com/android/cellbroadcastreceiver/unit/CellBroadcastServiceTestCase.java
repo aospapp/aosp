@@ -16,6 +16,7 @@
 
 package com.android.cellbroadcastreceiver.unit;
 
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Mockito.doReturn;
@@ -25,8 +26,10 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.res.Resources;
 import android.media.AudioManager;
+import android.os.SystemClock;
 import android.os.Vibrator;
 import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionInfo;
@@ -43,6 +46,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.util.Arrays;
+import java.util.function.BooleanSupplier;
 
 public abstract class CellBroadcastServiceTestCase<T extends Service> extends ServiceTestCase<T> {
 
@@ -62,6 +66,8 @@ public abstract class CellBroadcastServiceTestCase<T extends Service> extends Se
     protected TelephonyManager mMockedTelephonyManager;
     @Mock
     protected Vibrator mMockedVibrator;
+    @Mock
+    protected SharedPreferences mMockedSharedPreferences;
 
     MockedServiceManager mMockedServiceManager;
 
@@ -73,11 +79,20 @@ public abstract class CellBroadcastServiceTestCase<T extends Service> extends Se
         super(serviceClass);
     }
 
-    protected static void waitForMs(long ms) {
-        try {
-            Thread.sleep(ms);
-        } catch (InterruptedException e) {
+    protected static void waitFor(BooleanSupplier condition) {
+        if (condition.getAsBoolean()) {
+            return;
         }
+        for (int i = 0; i < 50; i++) {
+            SystemClock.sleep(100);
+            if (condition.getAsBoolean()) {
+                return;
+            }
+        }
+    }
+
+    protected void enablePreference(String pref) {
+        doReturn(true).when(mMockedSharedPreferences).getBoolean(eq(pref), anyBoolean());
     }
 
     private class TestContextWrapper extends ContextWrapper {
@@ -124,6 +139,11 @@ public abstract class CellBroadcastServiceTestCase<T extends Service> extends Se
                     return mMockedVibrator;
             }
             return super.getSystemService(name);
+        }
+
+        @Override
+        public SharedPreferences getSharedPreferences(String name, int mode) {
+            return mMockedSharedPreferences;
         }
     }
 

@@ -22,28 +22,36 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 
+import androidx.annotation.Nullable;
+
 import java.util.Collections;
 import java.util.Set;
+
+import javax.inject.Inject;
+
+import dagger.hilt.android.AndroidEntryPoint;
 
 /**
  * Broadcast receiver that monitors the bluetooth device unpair event and removes entries for
  * devices that has been unpaired.
  */
-public class BluetoothBondedListReceiver extends BroadcastReceiver {
+@AndroidEntryPoint(BroadcastReceiver.class)
+public class BluetoothBondedListReceiver extends Hilt_BluetoothBondedListReceiver {
+    @Inject FavoriteNumberRepository mFavoriteNumberRepository;
+    @Nullable BluetoothAdapter mBluetoothAdapter;
+
     @Override
     public void onReceive(Context context, Intent intent) {
+        super.onReceive(context, intent);
         if (intent.getAction() != BluetoothDevice.ACTION_BOND_STATE_CHANGED) {
             return;
         }
 
         if (intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, BluetoothDevice.BOND_NONE)
                 == BluetoothDevice.BOND_NONE) {
-            FavoriteNumberRepository favoriteNumberRepository =
-                    FavoriteNumberRepository.getRepository(context);
-            BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-            Set<BluetoothDevice> pairedDevices = bluetoothAdapter == null ? Collections.emptySet()
-                    : bluetoothAdapter.getBondedDevices();
-            favoriteNumberRepository.cleanup(pairedDevices);
+            Set<BluetoothDevice> pairedDevices = mBluetoothAdapter == null ? Collections.emptySet()
+                    : mBluetoothAdapter.getBondedDevices();
+            mFavoriteNumberRepository.cleanup(pairedDevices);
         }
     }
 }

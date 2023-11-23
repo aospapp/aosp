@@ -17,7 +17,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="3551052199033657984">"இயல்புநிலை அச்சிடுதல் சேவை"</string>
+    <string name="app_name" msgid="3551052199033657984">"இயல்புநிலை பிரிண்ட் சேவை"</string>
     <string name="printer_busy" msgid="8604311528104955859">"பணிமிகுதி"</string>
     <string name="printer_out_of_paper" msgid="4882186432807703877">"காகிதம் தீர்ந்துவிட்டது"</string>
     <string name="printer_out_of_ink" msgid="7361897651097675464">"மை தீர்ந்துவிட்டது"</string>
@@ -71,7 +71,11 @@
     <string name="accept" msgid="4426153292469698134">"ஏற்கிறேன்"</string>
     <string name="reject" msgid="24751635160440693">"நிராகரி"</string>
     <string name="connections" msgid="8895413761760117180">"இணைப்புகள்"</string>
+    <string name="wifi_direct_problem" msgid="8995174986718516990">"\'இயல்புநிலை அச்சிடுதல் சேவையால்\' வைஃபை டைரக்ட் பிரிண்டர்களைக் கண்டறிய முடியவில்லை"</string>
+    <string name="disable_wifi_direct" msgid="4824677957241687577">"ஆஃப் வைஃபை டைரக்ட்"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"அருகிலுள்ள சாதனங்களைக் கண்டறிய \'இயல்புநிலை அச்சிடுதல் சேவைக்கு\' இருப்பிட அனுமதி தேவை."</string>
     <string name="fix" msgid="7784394272611365393">"அனுமதியைச் சரிபார்"</string>
+    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"\'இயல்புநிலை அச்சிடுதல் சேவை\' மூலம் அருகிலுள்ள சாதனங்களைக் கண்டறிய, \'இருப்பிடச் சேவைகள்\' அம்சம் இயக்கப்பட்டிருக்க வேண்டும்."</string>
+    <string name="enable_location" msgid="3627841004298863140">"இருப்பிடத்தை இயக்கு"</string>
     <string name="print" msgid="7851318072404916362">"அச்சிடு"</string>
 </resources>

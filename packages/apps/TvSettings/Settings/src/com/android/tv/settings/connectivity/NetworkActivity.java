@@ -16,34 +16,16 @@
 
 package com.android.tv.settings.connectivity;
 
-import android.app.Fragment;
-import android.content.Intent;
-import android.os.Bundle;
-import android.provider.Settings;
+import androidx.fragment.app.Fragment;
 
 import com.android.tv.settings.TvSettingsActivity;
-import com.android.tv.settings.overlay.FeatureFactory;
+import com.android.tv.settings.overlay.FlavorUtils;
 
 public class NetworkActivity extends TvSettingsActivity {
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        Intent callingIntent = getIntent();
-        if (FeatureFactory.getFactory(this).getOfflineFeatureProvider().isOfflineMode(this)
-                && callingIntent != null
-                && Settings.ACTION_WIFI_SETTINGS.equals(callingIntent.getAction())) {
-            if (FeatureFactory.getFactory(this).getOfflineFeatureProvider()
-                    .startOfflineExitActivity(this)) {
-                finish();
-                return;
-            }
-        }
-        super.onCreate(savedInstanceState);
-    }
-
-    @Override
     protected Fragment createSettingsFragment()  {
-        return FeatureFactory.getFactory(this).getSettingsFragmentProvider()
+        return FlavorUtils.getFeatureFactory(this).getSettingsFragmentProvider()
                 .newSettingsFragment(NetworkFragment.class.getName(), null);
     }
 }

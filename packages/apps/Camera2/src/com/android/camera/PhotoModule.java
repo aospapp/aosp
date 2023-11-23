@@ -292,7 +292,7 @@ public class PhotoModule
         // down and camera app is opened. Rotation animation will
         // take some time and the rotation value we have got may be
         // wrong. Framework does not have a callback for this now.
-        if (CameraUtil.getDisplayRotation() != mDisplayRotation) {
+        if (CameraUtil.getDisplayRotation(mActivity) != mDisplayRotation) {
             setDisplayOrientation();
         }
         if (SystemClock.uptimeMillis() - mOnResumeTime < 5000) {
@@ -727,7 +727,7 @@ public class PhotoModule
         queue.addIdleHandler(new MessageQueue.IdleHandler() {
             @Override
             public boolean queueIdle() {
-                Storage.ensureOSXCompatible();
+                Storage.instance().ensureOSXCompatible();
                 return false;
             }
         });
@@ -1597,7 +1597,7 @@ public class PhotoModule
 
     @Override
     public void updateCameraOrientation() {
-        if (mDisplayRotation != CameraUtil.getDisplayRotation()) {
+        if (mDisplayRotation != CameraUtil.getDisplayRotation(mActivity)) {
             setDisplayOrientation();
         }
     }
@@ -1723,7 +1723,7 @@ public class PhotoModule
     }
 
     private void setDisplayOrientation() {
-        mDisplayRotation = CameraUtil.getDisplayRotation();
+        mDisplayRotation = CameraUtil.getDisplayRotation(mActivity);
         Characteristics info =
                 mActivity.getCameraProvider().getCharacteristics(mCameraId);
         mDisplayOrientation = info.getPreviewOrientation(mDisplayRotation);
@@ -2002,7 +2002,7 @@ public class PhotoModule
         // the right aspect ratio.
         List<Size> sizes = Size.convert(mCameraCapabilities.getSupportedPreviewSizes());
         Size optimalSize = CameraUtil.getOptimalPreviewSize(sizes,
-                (double) pictureSize.width() / pictureSize.height());
+                (double) pictureSize.width() / pictureSize.height(), mActivity);
         Size original = new Size(mCameraSettings.getCurrentPreviewSize());
         if (!optimalSize.equals(original)) {
             Log.v(TAG, "setting preview size. optimal: " + optimalSize + "original: " + original);

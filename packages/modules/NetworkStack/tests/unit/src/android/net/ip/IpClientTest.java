@@ -18,12 +18,14 @@ package android.net.ip;
 
 import static android.system.OsConstants.RT_SCOPE_UNIVERSE;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -48,22 +50,30 @@ import android.net.LinkProperties;
 import android.net.MacAddress;
 import android.net.NetworkStackIpMemoryStore;
 import android.net.RouteInfo;
+import android.net.apf.ApfCapabilities;
+import android.net.apf.ApfFilter.ApfConfiguration;
 import android.net.ipmemorystore.NetworkAttributes;
 import android.net.metrics.IpConnectivityLog;
 import android.net.shared.InitialConfiguration;
 import android.net.shared.ProvisioningConfiguration;
 import android.net.util.InterfaceParams;
+import android.os.Build;
 
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.networkstack.R;
 import com.android.server.NetworkObserver;
 import com.android.server.NetworkObserverRegistry;
 import com.android.server.NetworkStackService;
 import com.android.server.connectivity.ipmemorystore.IpMemoryStoreService;
-import com.android.testutils.HandlerUtilsKt;
+import com.android.testutils.DevSdkIgnoreRule;
+import com.android.testutils.DevSdkIgnoreRule.IgnoreAfter;
+import com.android.testutils.DevSdkIgnoreRule.IgnoreUpTo;
+import com.android.testutils.HandlerUtils;
 
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
@@ -85,6 +95,9 @@ import java.util.Set;
 @RunWith(AndroidJUnit4.class)
 @SmallTest
 public class IpClientTest {
+    @Rule
+    public final DevSdkIgnoreRule mIgnoreRule = new DevSdkIgnoreRule();
+
     private static final String VALID = "VALID";
     private static final String INVALID = "INVALID";
     private static final String TEST_IFNAME = "test_wlan0";
@@ -262,7 +275,7 @@ public class IpClientTest {
                 lp.getDnsServers().stream().map(InetAddress::getHostAddress)
                         .toArray(String[]::new));
 
-        HandlerUtilsKt.waitForIdle(ipc.getHandler(), TEST_TIMEOUT_MS);
+        HandlerUtils.waitForIdle(ipc.getHandler(), TEST_TIMEOUT_MS);
         verify(mCb, never()).onProvisioningFailure(any());
         verify(mIpMemoryStore, never()).storeNetworkAttributes(any(), any(), any());
 
@@ -301,7 +314,7 @@ public class IpClientTest {
 
         reset(mCb);
         doIPv6ProvisioningLoss(lp);
-        HandlerUtilsKt.waitForIdle(ipc.getHandler(), TEST_TIMEOUT_MS);
+        HandlerUtils.waitForIdle(ipc.getHandler(), TEST_TIMEOUT_MS);
         verify(mCb).onProvisioningFailure(lp);
         verify(mCb).onLinkPropertiesChange(makeEmptyLinkProperties(TEST_IFNAME));
 
@@ -326,11 +339,11 @@ public class IpClientTest {
         final IpClient ipc = doProvisioningWithDefaultConfiguration();
         final LinkProperties lp = makeIPv6ProvisionedLinkProperties();
         addIPv4Provisioning(lp);
-        HandlerUtilsKt.waitForIdle(ipc.getHandler(), TEST_TIMEOUT_MS);
+        HandlerUtils.waitForIdle(ipc.getHandler(), TEST_TIMEOUT_MS);
 
         reset(mCb);
         doIPv6ProvisioningLoss(lp);
-        HandlerUtilsKt.waitForIdle(ipc.getHandler(), TEST_TIMEOUT_MS);
+        HandlerUtils.waitForIdle(ipc.getHandler(), TEST_TIMEOUT_MS);
         if (avoidBadWifi) { // Provisioning failure is expected only when avoidBadWifi is true
             verify(mCb).onProvisioningFailure(lp);
             verify(mCb).onLinkPropertiesChange(makeEmptyLinkProperties(TEST_IFNAME));
@@ -629,6 +642,71 @@ public class IpClientTest {
             }
         }
         return out;
+    }
+
+    private ApfConfiguration verifyApfFilterCreatedOnStart(IpClient ipc) {
+        ProvisioningConfiguration config = new ProvisioningConfiguration.Builder()
+                .withoutIPv4()
+                .withoutIpReachabilityMonitor()
+                .withInitialConfiguration(
+                        conf(links(TEST_LOCAL_ADDRESSES), prefixes(TEST_PREFIXES), ips()))
+                .withApfCapabilities(new ApfCapabilities(
+                        4 /* version */, 4096 /* maxProgramSize */, 4 /* format */))
+                .build();
+
+        ipc.startProvisioning(config);
+        final ArgumentCaptor<ApfConfiguration> configCaptor = ArgumentCaptor.forClass(
+                ApfConfiguration.class);
+        verify(mDependencies, timeout(TEST_TIMEOUT_MS)).maybeCreateApfFilter(
+                any(), configCaptor.capture(), any(), any());
+
+        return configCaptor.getValue();
+    }
+
+    @Test @IgnoreAfter(Build.VERSION_CODES.R)
+    public void testApfConfiguration_R() throws Exception {
+        final IpClient ipc = makeIpClient(TEST_IFNAME);
+        final ApfConfiguration config = verifyApfFilterCreatedOnStart(ipc);
+
+        assertEquals(ApfCapabilities.getApfDrop8023Frames(), config.ieee802_3Filter);
+        assertArrayEquals(ApfCapabilities.getApfEtherTypeBlackList(), config.ethTypeBlackList);
+
+        verify(mResources, never()).getBoolean(R.bool.config_apfDrop802_3Frames);
+        verify(mResources, never()).getIntArray(R.array.config_apfEthTypeDenyList);
+
+        verifyShutdown(ipc);
+    }
+
+    @Test @IgnoreUpTo(Build.VERSION_CODES.R)
+    public void testApfConfiguration() throws Exception {
+        doReturn(true).when(mResources).getBoolean(R.bool.config_apfDrop802_3Frames);
+        final int[] ethTypeDenyList = new int[] { 0x88A2, 0x88A4 };
+        doReturn(ethTypeDenyList).when(mResources).getIntArray(
+                R.array.config_apfEthTypeDenyList);
+
+        final IpClient ipc = makeIpClient(TEST_IFNAME);
+        final ApfConfiguration config = verifyApfFilterCreatedOnStart(ipc);
+
+        assertTrue(config.ieee802_3Filter);
+        assertArrayEquals(ethTypeDenyList, config.ethTypeBlackList);
+
+        verifyShutdown(ipc);
+    }
+
+    @Test @IgnoreUpTo(Build.VERSION_CODES.R)
+    public void testApfConfiguration_NoApfDrop8023Frames() throws Exception {
+        doReturn(false).when(mResources).getBoolean(R.bool.config_apfDrop802_3Frames);
+        final int[] ethTypeDenyList = new int[] { 0x88A3, 0x88A5 };
+        doReturn(ethTypeDenyList).when(mResources).getIntArray(
+                R.array.config_apfEthTypeDenyList);
+
+        final IpClient ipc = makeIpClient(TEST_IFNAME);
+        final ApfConfiguration config = verifyApfFilterCreatedOnStart(ipc);
+
+        assertFalse(config.ieee802_3Filter);
+        assertArrayEquals(ethTypeDenyList, config.ethTypeBlackList);
+
+        verifyShutdown(ipc);
     }
 
     interface Fn<A,B> {

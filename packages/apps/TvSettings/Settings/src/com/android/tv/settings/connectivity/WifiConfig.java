@@ -60,4 +60,7 @@ class WifiConfig implements NetworkConfiguration {
         return mWifiConfiguration.getPrintableSsid();
     }
 
+    public boolean isLockedDown(Context context) {
+        return WifiConfigHelper.isNetworkLockedDown(context, mWifiConfiguration);
+    }
 }

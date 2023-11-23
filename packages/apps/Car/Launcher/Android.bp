@@ -13,16 +13,41 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+android_library {
+  name: "CarLauncher-core",
+  platform_apis: true,
+
+  srcs: ["src/**/*.java"],
+
+  resource_dirs: ["res"],
+
+  static_libs: [
+      "androidx-constraintlayout_constraintlayout-solver",
+      "androidx-constraintlayout_constraintlayout",
+      "androidx.lifecycle_lifecycle-extensions",
+      "car-media-common",
+      "car-telephony-common",
+      "car-ui-lib",
+      "WindowManager-Shell",
+      ],
+
+    libs: ["android.car"],
+
+    manifest: "AndroidManifest.xml",
+}
+
 android_app {
     name: "CarLauncher",
 
-    srcs: ["src/**/*.java"],
-
-    resource_dirs: ["res"],
+    resource_dirs: [],
 
     platform_apis: true,
 
-    required: ["privapp_whitelist_com.android.car.carlauncher"],
+    required: ["allowed_privapp_com.android.car.carlauncher"],
 
     certificate: "platform",
 
@@ -34,6 +59,10 @@ android_app {
         "Launcher3QuickStep",
     ],
 
+    static_libs: ["CarLauncher-core"],
+
+    libs: ["android.car"],
+
     optimize: {
         enabled: false,
     },
@@ -41,16 +70,6 @@ android_app {
     dex_preopt: {
         enabled: false,
     },
-
-    static_libs: [
-        "androidx-constraintlayout_constraintlayout-solver",
-        "androidx-constraintlayout_constraintlayout",
-        "androidx.lifecycle_lifecycle-extensions",
-        "car-media-common",
-        "car-ui-lib",
-    ],
-
-    libs: ["android.car"],
 
     product_variables: {
         pdk: {

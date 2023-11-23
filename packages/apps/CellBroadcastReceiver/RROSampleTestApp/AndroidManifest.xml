@@ -16,7 +16,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.android.cellbroadcast.overlay">
     <application android:hasCode="false" />
-    <uses-sdk android:targetSdkVersion="29" />
+    <!-- change targetPackage name to override mainlined cellbroadcast module -->
     <overlay android:targetPackage="com.android.cellbroadcastreceiver"
-        android:targetName="CellBroadcastCustomization"/>
+        android:targetName="CellBroadcastCustomization"
+        android:isStatic="true"
+        android:priority="0"/>
 </manifest>

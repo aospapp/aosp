@@ -20,8 +20,6 @@ import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_FINANCED_DE
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE;
-import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_SHAREABLE_DEVICE;
-import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_USER;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_ACCOUNT_TO_MIGRATE;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME;
@@ -29,8 +27,6 @@ import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_AD
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_CHECKSUM;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_COOKIE_HEADER;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION;
-import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_ICON_URI;
-import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_LABEL;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_NAME;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DISCLAIMERS;
@@ -41,12 +37,12 @@ import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_LEAVE_ALL
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_LOCALE;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_LOCAL_TIME;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_LOGO_URI;
-import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_MAIN_COLOR;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_ORGANIZATION_NAME;
-import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SKIP_ENCRYPTION;
-import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SKIP_USER_CONSENT;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_RETURN_BEFORE_POLICY_COMPLIANCE;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SENSORS_PERMISSION_GRANT_OPT_OUT;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SKIP_EDUCATION_SCREENS;
-import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SKIP_USER_SETUP;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SKIP_ENCRYPTION;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SUPPORTED_MODES;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SUPPORT_URL;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_TIME_ZONE;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_USE_MOBILE_DATA;
@@ -65,13 +61,16 @@ import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_PROX
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_SECURITY_TYPE;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_SSID;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_USER_CERTIFICATE;
+import static android.app.admin.DevicePolicyManager.FLAG_SUPPORTED_MODES_ORGANIZATION_OWNED;
+import static android.app.admin.DevicePolicyManager.PROVISIONING_TRIGGER_CLOUD_ENROLLMENT;
+import static android.app.admin.DevicePolicyManager.PROVISIONING_TRIGGER_QR_CODE;
+import static android.nfc.NfcAdapter.ACTION_NDEF_DISCOVERED;
 
 import static com.android.internal.util.Preconditions.checkNotNull;
 import static com.android.managedprovisioning.common.Globals.ACTION_PROVISION_MANAGED_DEVICE_SILENTLY;
 import static com.android.managedprovisioning.common.Globals.ACTION_RESUME_PROVISIONING;
 import static com.android.managedprovisioning.model.ProvisioningParams.DEFAULT_EXTRA_PROVISIONING_SKIP_EDUCATION_SCREENS;
 import static com.android.managedprovisioning.model.ProvisioningParams.DEFAULT_EXTRA_PROVISIONING_USE_MOBILE_DATA;
-import static com.android.managedprovisioning.model.ProvisioningParams.inferStaticDeviceAdminPackageName;
 
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
@@ -89,6 +88,7 @@ import com.android.managedprovisioning.common.IllegalProvisioningArgumentExcepti
 import com.android.managedprovisioning.common.LogoUtils;
 import com.android.managedprovisioning.common.ManagedProvisioningSharedPreferences;
 import com.android.managedprovisioning.common.ProvisionLogger;
+import com.android.managedprovisioning.common.SettingsFacade;
 import com.android.managedprovisioning.common.StoreUtils;
 import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.DisclaimersParam;
@@ -97,7 +97,6 @@ import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.model.WifiInfo;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IllformedLocaleException;
@@ -118,8 +117,6 @@ public class ExtrasProvisioningDataParser implements ProvisioningDataParser {
     private static final Set<String> PROVISIONING_ACTIONS_SUPPORT_MIN_PROVISIONING_DATA =
             new HashSet<>(Arrays.asList(
                     ACTION_PROVISION_MANAGED_DEVICE,
-                    ACTION_PROVISION_MANAGED_SHAREABLE_DEVICE,
-                    ACTION_PROVISION_MANAGED_USER,
                     ACTION_PROVISION_MANAGED_PROFILE,
                     ACTION_PROVISION_MANAGED_DEVICE_SILENTLY));
 
@@ -137,9 +134,6 @@ public class ExtrasProvisioningDataParser implements ProvisioningDataParser {
 
     @VisibleForTesting
     static final String EXTRA_PROVISIONING_KEEP_ACCOUNT_ON_MIGRATION_SHORT = "a.a.e.PKAOM";
-
-    @VisibleForTesting
-    static final String EXTRA_PROVISIONING_MAIN_COLOR_SHORT = "a.a.e.PMC";
 
     @VisibleForTesting
     static final String EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED_SHORT = "a.a.e.PLASAE";
@@ -209,12 +203,6 @@ public class ExtrasProvisioningDataParser implements ProvisioningDataParser {
     static final String EXTRA_PROVISIONING_SUPPORT_URL_SHORT = "a.a.e.PSU";
 
     @VisibleForTesting
-    static final String EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_LABEL_SHORT = "a.a.e.PDAPL";
-
-    @VisibleForTesting
-    static final String EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_ICON_URI_SHORT = "a.a.e.PDAPIU";
-
-    @VisibleForTesting
     static final String EXTRA_PROVISIONING_DEVICE_ADMIN_MINIMUM_VERSION_CODE_SHORT = "a.a.e.PDAMVC";
 
     @VisibleForTesting
@@ -243,16 +231,13 @@ public class ExtrasProvisioningDataParser implements ProvisioningDataParser {
     static final String EXTRA_PROVISIONING_DISCLAIMER_CONTENT_SHORT = "a.a.e.PDC";
 
     @VisibleForTesting
-    static final String EXTRA_PROVISIONING_SKIP_USER_SETUP_SHORT = "a.a.e.PSUS";
-
-    @VisibleForTesting
-    static final String EXTRA_PROVISIONING_SKIP_USER_CONSENT_SHORT = "a.a.e.PSUC";
-
-    @VisibleForTesting
     static final String EXTRA_PROVISIONING_SKIP_EDUCATION_SCREENS_SHORT = "a.a.e.PSES";
 
     @VisibleForTesting
     static final String EXTRA_PROVISIONING_USE_MOBILE_DATA_SHORT = "a.a.e.PUMD";
+
+    @VisibleForTesting
+    static final String EXTRA_PROVISIONING_SENSORS_PERMISSION_GRANT_OPT_OUT_SHORT = "a.a.e.PPSGOO";
 
     private static final Map<String, String> SHORTER_EXTRAS = buildShorterExtrasMap();
 
@@ -272,8 +257,6 @@ public class ExtrasProvisioningDataParser implements ProvisioningDataParser {
         shorterExtras.put(
                 EXTRA_PROVISIONING_KEEP_ACCOUNT_ON_MIGRATION,
                 EXTRA_PROVISIONING_KEEP_ACCOUNT_ON_MIGRATION_SHORT);
-        shorterExtras.put(
-                EXTRA_PROVISIONING_MAIN_COLOR, EXTRA_PROVISIONING_MAIN_COLOR_SHORT);
         shorterExtras.put(
                 EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED,
                 EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED_SHORT);
@@ -324,12 +307,6 @@ public class ExtrasProvisioningDataParser implements ProvisioningDataParser {
         shorterExtras.put(
                 EXTRA_PROVISIONING_SUPPORT_URL, EXTRA_PROVISIONING_SUPPORT_URL_SHORT);
         shorterExtras.put(
-                EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_LABEL,
-                EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_LABEL_SHORT);
-        shorterExtras.put(
-                EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_ICON_URI,
-                EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_ICON_URI_SHORT);
-        shorterExtras.put(
                 EXTRA_PROVISIONING_DEVICE_ADMIN_MINIMUM_VERSION_CODE,
                 EXTRA_PROVISIONING_DEVICE_ADMIN_MINIMUM_VERSION_CODE_SHORT);
         shorterExtras.put(
@@ -352,30 +329,34 @@ public class ExtrasProvisioningDataParser implements ProvisioningDataParser {
         shorterExtras.put(
                 EXTRA_PROVISIONING_DISCLAIMER_CONTENT, EXTRA_PROVISIONING_DISCLAIMER_CONTENT_SHORT);
         shorterExtras.put(
-                EXTRA_PROVISIONING_SKIP_USER_SETUP, EXTRA_PROVISIONING_SKIP_USER_SETUP_SHORT);
-        shorterExtras.put(
-                EXTRA_PROVISIONING_SKIP_USER_CONSENT, EXTRA_PROVISIONING_SKIP_USER_CONSENT_SHORT);
-        shorterExtras.put(
                 EXTRA_PROVISIONING_SKIP_EDUCATION_SCREENS,
                 EXTRA_PROVISIONING_SKIP_EDUCATION_SCREENS_SHORT);
         shorterExtras.put(
                 EXTRA_PROVISIONING_USE_MOBILE_DATA, EXTRA_PROVISIONING_USE_MOBILE_DATA_SHORT);
+        shorterExtras.put(EXTRA_PROVISIONING_SENSORS_PERMISSION_GRANT_OPT_OUT,
+                EXTRA_PROVISIONING_SENSORS_PERMISSION_GRANT_OPT_OUT_SHORT);
         return shorterExtras;
     }
 
     private final Utils mUtils;
+    private final ParserUtils mParserUtils;
+    private final SettingsFacade mSettingsFacade;
     private final Context mContext;
     private final ManagedProvisioningSharedPreferences mSharedPreferences;
 
-    ExtrasProvisioningDataParser(Context context, Utils utils) {
-        this(context, utils, new ManagedProvisioningSharedPreferences(context));
+    ExtrasProvisioningDataParser(Context context, Utils utils, ParserUtils parserUtils,
+            SettingsFacade settingsFacade) {
+        this(context, utils, parserUtils, settingsFacade,
+                new ManagedProvisioningSharedPreferences(context));
     }
 
     @VisibleForTesting
-    ExtrasProvisioningDataParser(Context context, Utils utils,
-            ManagedProvisioningSharedPreferences sharedPreferences) {
+    ExtrasProvisioningDataParser(Context context, Utils utils, ParserUtils parserUtils,
+            SettingsFacade settingsFacade, ManagedProvisioningSharedPreferences sharedPreferences) {
         mContext = checkNotNull(context);
         mUtils = checkNotNull(utils);
+        mParserUtils = checkNotNull(parserUtils);
+        mSettingsFacade = checkNotNull(settingsFacade);
         mSharedPreferences = checkNotNull(sharedPreferences);
     }
 
@@ -493,16 +474,10 @@ public class ExtrasProvisioningDataParser implements ProvisioningDataParser {
      *         {@link ACTION_PROVISION_MANAGED_PROFILE}.
      *     </li>
      *     <li>{@link EXTRA_PROVISIONING_LOGO_URI}</li>
-     *     <li>{@link EXTRA_PROVISIONING_MAIN_COLOR}</li>
-     *     <li>
-     *         {@link EXTRA_PROVISIONING_SKIP_USER_SETUP} only in
-     *         {@link ACTION_PROVISION_MANAGED_USER} and {@link ACTION_PROVISION_MANAGED_DEVICE}.
-     *     </li>
      *     <li>{@link EXTRA_PROVISIONING_SKIP_ENCRYPTION}</li>
      *     <li>{@link EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED}</li>
      *     <li>{@link EXTRA_PROVISIONING_ACCOUNT_TO_MIGRATE}</li>
      *     <li>{@link EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE}</li>
-     *     <li>{@link EXTRA_PROVISIONING_SKIP_USER_CONSENT}</li>
      * </ul>
      */
     private ProvisioningParams.Builder parseMinimalistSupportedProvisioningDataInternal(
@@ -513,11 +488,12 @@ public class ExtrasProvisioningDataParser implements ProvisioningDataParser {
                 ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE.equals(intent.getAction());
         boolean isFinancedDeviceProvisioning =
                 ACTION_PROVISION_FINANCED_DEVICE.equals(intent.getAction());
+        final boolean isManagedProfileAction =
+                ACTION_PROVISION_MANAGED_PROFILE.equals(intent.getAction());
         try {
             final long provisioningId = mSharedPreferences.incrementAndGetProvisioningId();
-            String provisioningAction = mUtils.mapIntentToDpmAction(intent);
-            final boolean isManagedProfileAction =
-                    ACTION_PROVISION_MANAGED_PROFILE.equals(provisioningAction);
+            String provisioningAction = mParserUtils.extractProvisioningAction(
+                    intent, mSettingsFacade, mContext);
 
             // Parse device admin package name and component name.
             ComponentName deviceAdminComponentName = getParcelableExtraFromLongName(
@@ -543,30 +519,6 @@ public class ExtrasProvisioningDataParser implements ProvisioningDataParser {
                 deviceAdminPackageName = null;
             }
 
-            // Parse skip user setup in ACTION_PROVISION_MANAGED_USER and
-            // ACTION_PROVISION_MANAGED_DEVICE (sync auth) only. This extra is not supported if
-            // provisioning was started by trusted source, as it is not clear where SUW should
-            // continue from.
-            boolean skipUserSetup = ProvisioningParams.DEFAULT_SKIP_USER_SETUP;
-            if (!isProvisionManagedDeviceFromTrustedSourceIntent
-                    && (provisioningAction.equals(ACTION_PROVISION_MANAGED_USER)
-                            || provisioningAction.equals(ACTION_PROVISION_MANAGED_DEVICE))) {
-                skipUserSetup = getBooleanExtraFromLongName(
-                        intent, EXTRA_PROVISIONING_SKIP_USER_SETUP,
-                        ProvisioningParams.DEFAULT_SKIP_USER_SETUP);
-            } else if (isFinancedDeviceProvisioning) {
-                skipUserSetup = false;
-            }
-
-            // Only current DeviceOwner can specify EXTRA_PROVISIONING_SKIP_USER_CONSENT when
-            // provisioning PO with ACTION_PROVISION_MANAGED_PROFILE
-            final boolean skipUserConsent = isManagedProfileAction
-                            && getBooleanExtraFromLongName(intent,
-                                EXTRA_PROVISIONING_SKIP_USER_CONSENT,
-                                ProvisioningParams.DEFAULT_EXTRA_PROVISIONING_SKIP_USER_CONSENT)
-                            && mUtils.isPackageDeviceOwner(dpm, inferStaticDeviceAdminPackageName(
-                                    deviceAdminComponentName, deviceAdminPackageName));
-
             final boolean skipEducationScreens = shouldSkipEducationScreens(intent);
 
             // Only when provisioning PO with ACTION_PROVISION_MANAGED_PROFILE
@@ -576,15 +528,10 @@ public class ExtrasProvisioningDataParser implements ProvisioningDataParser {
                                 ProvisioningParams
                                         .DEFAULT_EXTRA_PROVISIONING_KEEP_ACCOUNT_MIGRATED);
 
-            // Parse main color and organization's logo. This is not supported in managed device
+            // Parse organization's logo. This is not supported in managed device
             // from trusted source provisioning because, currently, there is no way to send
             // organization logo to the device at this stage.
-            Integer mainColor = ProvisioningParams.DEFAULT_MAIN_COLOR;
             if (!isProvisionManagedDeviceFromTrustedSourceIntent) {
-                if (hasExtraFromLongName(intent, EXTRA_PROVISIONING_MAIN_COLOR)) {
-                    mainColor = getIntExtraFromLongName(
-                            intent, EXTRA_PROVISIONING_MAIN_COLOR, 0 /* not used */);
-                }
                 parseOrganizationLogoUrlFromExtras(context, intent);
             }
 
@@ -592,19 +539,11 @@ public class ExtrasProvisioningDataParser implements ProvisioningDataParser {
                     .parse(getParcelableArrayExtraFromLongName(
                             intent, EXTRA_PROVISIONING_DISCLAIMERS));
 
-            String deviceAdminLabel = null;
-            String organizationName = null;
+            String organizationName =
+                    getStringExtraFromLongName(intent, EXTRA_PROVISIONING_ORGANIZATION_NAME);
             String supportUrl = null;
-            String deviceAdminIconFilePath = null;
             if (isProvisionManagedDeviceFromTrustedSourceIntent || isFinancedDeviceProvisioning) {
-                deviceAdminLabel = getStringExtraFromLongName(intent,
-                        EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_LABEL);
-                organizationName = getStringExtraFromLongName(
-                        intent,EXTRA_PROVISIONING_ORGANIZATION_NAME);
-                supportUrl = getStringExtraFromLongName(intent,EXTRA_PROVISIONING_SUPPORT_URL);
-                deviceAdminIconFilePath = new DeviceAdminIconParser(context, provisioningId).parse(
-                        getParcelableExtraFromLongName(intent,
-                                EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_ICON_URI));
+                supportUrl = getStringExtraFromLongName(intent, EXTRA_PROVISIONING_SUPPORT_URL);
             }
 
             final boolean leaveAllSystemAppsEnabled = isManagedProfileAction
@@ -614,6 +553,14 @@ public class ExtrasProvisioningDataParser implements ProvisioningDataParser {
                                     intent, EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED,
                                     ProvisioningParams.DEFAULT_LEAVE_ALL_SYSTEM_APPS_ENABLED));
 
+            int provisioningTrigger = mParserUtils.extractProvisioningTrigger(intent);
+            int initiatorRequestedProvisioningModes =
+                    getInitiatorRequestedProvisioningModes(intent);
+
+            final boolean adminOptedOutOfSensorsPermissionGrants =
+                    getBooleanExtraFromLongName(intent,
+                            EXTRA_PROVISIONING_SENSORS_PERMISSION_GRANT_OPT_OUT,
+                            ProvisioningParams.DEFAULT_EXTRA_PROVISIONING_PERMISSION_GRANT_OPT_OUT);
             return ProvisioningParams.Builder.builder()
                     .setProvisioningId(provisioningId)
                     .setProvisioningAction(provisioningAction)
@@ -626,21 +573,23 @@ public class ExtrasProvisioningDataParser implements ProvisioningDataParser {
                     .setLeaveAllSystemAppsEnabled(leaveAllSystemAppsEnabled)
                     .setAdminExtrasBundle(getParcelableExtraFromLongName(
                             intent, EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE))
-                    .setMainColor(mainColor)
                     .setDisclaimersParam(disclaimersParam)
-                    .setSkipUserConsent(skipUserConsent)
                     .setKeepAccountMigrated(keepAccountMigrated)
-                    .setSkipUserSetup(skipUserSetup)
                     .setSkipEducationScreens(skipEducationScreens)
                     .setAccountToMigrate(getParcelableExtraFromLongName(
                             intent, EXTRA_PROVISIONING_ACCOUNT_TO_MIGRATE))
-                    .setDeviceAdminLabel(deviceAdminLabel)
                     .setOrganizationName(organizationName)
                     .setSupportUrl(supportUrl)
-                    .setDeviceAdminIconFilePath(deviceAdminIconFilePath)
-                    .setIsQrProvisioning(mUtils.isQrProvisioning(intent))
-                    .setIsOrganizationOwnedProvisioning(
-                            mUtils.isOrganizationOwnedProvisioning(intent));
+                    .setIsQrProvisioning(provisioningTrigger == PROVISIONING_TRIGGER_QR_CODE)
+                    .setProvisioningTrigger(provisioningTrigger)
+                    .setAllowedProvisioningModes(mParserUtils.getAllowedProvisioningModes(
+                            mContext, initiatorRequestedProvisioningModes, mUtils))
+                    .setInitiatorRequestedProvisioningModes(
+                            initiatorRequestedProvisioningModes)
+                    .setSkipOwnershipDisclaimer(getSkipOwnershipDisclaimer(intent))
+                    .setReturnBeforePolicyCompliance(getReturnBeforePolicyCompliance(intent))
+                    .setDeviceOwnerPermissionGrantOptOut(
+                            adminOptedOutOfSensorsPermissionGrants);
         } catch (ClassCastException e) {
             throw new IllegalProvisioningArgumentException("Extra has invalid type", e);
         } catch (IllegalArgumentException e) {
@@ -648,6 +597,42 @@ public class ExtrasProvisioningDataParser implements ProvisioningDataParser {
         } catch (NullPointerException e) {
             throw new IllegalProvisioningArgumentException("Compulsory parameter not found!", e);
         }
+    }
+
+    private boolean getSkipOwnershipDisclaimer(Intent intent) {
+        if (!intent.getAction().equals(ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE)) {
+            return ProvisioningParams.DEFAULT_EXTRA_PROVISIONING_SKIP_OWNERSHIP_DISCLAIMER;
+        }
+        return getBooleanExtraFromLongName(
+                intent,
+                DevicePolicyManager.EXTRA_PROVISIONING_SKIP_OWNERSHIP_DISCLAIMER,
+                ProvisioningParams.DEFAULT_EXTRA_PROVISIONING_SKIP_OWNERSHIP_DISCLAIMER);
+    }
+
+    private boolean getReturnBeforePolicyCompliance(Intent intent) {
+        if (intent.getAction().equals(ACTION_PROVISION_MANAGED_PROFILE)) {
+            // TODO(b/182462297): Default to false after in-setup wizard is no longer supported
+            return mSettingsFacade.isDuringSetupWizard(mContext);
+        }
+        // TODO(b/177849035): Remove financed device-specific logic
+        if (intent.getAction().equals(ACTION_PROVISION_FINANCED_DEVICE)) {
+            return true;
+        }
+        return getBooleanExtraFromLongName(
+                intent,
+                EXTRA_PROVISIONING_RETURN_BEFORE_POLICY_COMPLIANCE,
+                /* defaultValue */ true);
+    }
+
+    private int getInitiatorRequestedProvisioningModes(Intent intent) {
+        if (!intent.getAction().equals(ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE)) {
+            return ProvisioningParams.DEFAULT_EXTRA_PROVISIONING_SUPPORTED_MODES;
+        }
+        int supportedModes = getIntExtraFromLongName(intent,
+                EXTRA_PROVISIONING_SUPPORTED_MODES,
+                FLAG_SUPPORTED_MODES_ORGANIZATION_OWNED);
+        mParserUtils.validateSupportedModes(supportedModes);
+        return supportedModes;
     }
 
     /**
@@ -661,7 +646,12 @@ public class ExtrasProvisioningDataParser implements ProvisioningDataParser {
                 DEFAULT_EXTRA_PROVISIONING_SKIP_EDUCATION_SCREENS)) {
             return false;
         }
-        if (mUtils.isOrganizationOwnedProvisioning(intent)) {
+        // TODO(b/175021111): Remove managed account provisioning-specific logic in MP for the
+        // skip education screens extra.
+        int provisioningTrigger = mParserUtils.extractProvisioningTrigger(intent);
+        if (provisioningTrigger == PROVISIONING_TRIGGER_QR_CODE
+                || provisioningTrigger == PROVISIONING_TRIGGER_CLOUD_ENROLLMENT
+                || ACTION_NDEF_DISCOVERED.equals(intent.getAction())) {
             return false;
         }
         return isFullyManagedDeviceAction(intent);

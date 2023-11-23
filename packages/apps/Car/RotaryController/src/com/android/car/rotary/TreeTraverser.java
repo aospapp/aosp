@@ -23,6 +23,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import java.util.List;
+import java.util.function.Predicate;
 
 /**
  * Utility methods for traversing {@link AccessibilityNodeInfo} trees.
@@ -40,7 +41,7 @@ class TreeTraverser {
      */
     @Nullable
     AccessibilityNodeInfo findNodeOrAncestor(@NonNull AccessibilityNodeInfo node,
-            @NonNull NodePredicate targetPredicate) {
+            @NonNull Predicate<AccessibilityNodeInfo> targetPredicate) {
         return findNodeOrAncestor(node, /* stopPredicate= */ null, targetPredicate);
     }
 
@@ -54,11 +55,12 @@ class TreeTraverser {
     @VisibleForTesting
     @Nullable
     AccessibilityNodeInfo findNodeOrAncestor(@NonNull AccessibilityNodeInfo node,
-            @Nullable NodePredicate stopPredicate, @NonNull NodePredicate targetPredicate) {
+            @Nullable Predicate<AccessibilityNodeInfo> stopPredicate,
+            @NonNull Predicate<AccessibilityNodeInfo> targetPredicate) {
         AccessibilityNodeInfo currentNode = copyNode(node);
         while (currentNode != null
-                && (stopPredicate == null || !stopPredicate.isTarget(currentNode))) {
-            if (targetPredicate.isTarget(currentNode)) {
+                && (stopPredicate == null || !stopPredicate.test(currentNode))) {
+            if (targetPredicate.test(currentNode)) {
                 return currentNode;
             }
             AccessibilityNodeInfo parentNode = currentNode.getParent();
@@ -76,7 +78,7 @@ class TreeTraverser {
      */
     @Nullable
     AccessibilityNodeInfo depthFirstSearch(@NonNull AccessibilityNodeInfo node,
-            @NonNull NodePredicate targetPredicate) {
+            @NonNull Predicate<AccessibilityNodeInfo> targetPredicate) {
         return depthFirstSearch(node, /* skipPredicate= */ null, targetPredicate);
     }
 
@@ -90,11 +92,12 @@ class TreeTraverser {
     @Nullable
     @VisibleForTesting
     AccessibilityNodeInfo depthFirstSearch(@NonNull AccessibilityNodeInfo node,
-            @Nullable NodePredicate skipPredicate, @NonNull NodePredicate targetPredicate) {
-        if (skipPredicate != null && skipPredicate.isTarget(node)) {
+            @Nullable Predicate<AccessibilityNodeInfo> skipPredicate,
+            @NonNull Predicate<AccessibilityNodeInfo> targetPredicate) {
+        if (skipPredicate != null && skipPredicate.test(node)) {
             return null;
         }
-        if (targetPredicate.isTarget(node)) {
+        if (targetPredicate.test(node)) {
             return copyNode(node);
         }
         for (int i = 0; i < node.getChildCount(); i++) {
@@ -119,7 +122,7 @@ class TreeTraverser {
     @VisibleForTesting
     @Nullable
     AccessibilityNodeInfo reverseDepthFirstSearch(@NonNull AccessibilityNodeInfo node,
-            @NonNull NodePredicate targetPredicate) {
+            @NonNull Predicate<AccessibilityNodeInfo> targetPredicate) {
         for (int i = node.getChildCount() - 1; i >= 0; i--) {
             AccessibilityNodeInfo child = node.getChild(i);
             if (child == null) {
@@ -132,7 +135,7 @@ class TreeTraverser {
                 return result;
             }
         }
-        if (targetPredicate.isTarget(node)) {
+        if (targetPredicate.test(node)) {
             return copyNode(node);
         }
         return null;
@@ -145,9 +148,9 @@ class TreeTraverser {
      */
     @VisibleForTesting
     void depthFirstSelect(@NonNull AccessibilityNodeInfo node,
-            @NonNull NodePredicate selectPredicate,
+            @NonNull Predicate<AccessibilityNodeInfo> selectPredicate,
             @NonNull List<AccessibilityNodeInfo> selectedNodes) {
-        if (selectPredicate.isTarget(node)) {
+        if (selectPredicate.test(node)) {
             selectedNodes.add(copyNode(node));
             return;
         }
@@ -159,12 +162,6 @@ class TreeTraverser {
             depthFirstSelect(child, selectPredicate, selectedNodes);
             child.recycle();
         }
-    }
-
-    /** A function that takes an {@link AccessibilityNodeInfo} and returns a {@code boolean}. */
-    @VisibleForTesting
-    interface NodePredicate {
-        boolean isTarget(@NonNull AccessibilityNodeInfo node);
     }
 
     /** Sets a node copier for testing. */

@@ -31,16 +31,11 @@ import android.security.keystore.ParcelableKeyGenParameterSpec;
  * @hide
  */
 interface IKeyChainServiceTestSupport {
-    boolean keystoreReset();
-    boolean keystoreSetPassword(String password);
-    boolean keystorePut(String key, in byte[] value);
-    boolean keystoreImportKey(String key, in byte[] value);
     void revokeAppPermission(int uid, String alias);
     void grantAppPermission(int uid, String alias);
     boolean installKeyPair(in byte[] privateKey, in byte[] userCert, in byte[] certChain, String alias);
     boolean removeKeyPair(String alias);
     void setUserSelectable(String alias, boolean isUserSelectable);
     int generateKeyPair(in String algorithm, in ParcelableKeyGenParameterSpec spec);
-    int attestKey(in String alias, in byte[] challenge, in int[] idAttestationFlags);
     boolean setKeyPairCertificate(String alias, in byte[] userCert, in byte[] certChain);
 }

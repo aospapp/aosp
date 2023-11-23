@@ -177,7 +177,7 @@ public class NotificationController extends BroadcastReceiver {
         Notification.Action.Builder cancelAction = new Notification.Action.Builder(null,
                 res.getString(R.string.automatic_storage_manager_cancel_button),
                 PendingIntent.getBroadcast(context, 0, noThanksIntent,
-                        PendingIntent.FLAG_UPDATE_CURRENT));
+                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
 
 
         Intent activateIntent = getBaseIntent(context, INTENT_ACTION_ACTIVATE_ASM);
@@ -185,18 +185,18 @@ public class NotificationController extends BroadcastReceiver {
         Notification.Action.Builder activateAutomaticAction = new Notification.Action.Builder(null,
                 res.getString(R.string.automatic_storage_manager_activate_button),
                 PendingIntent.getBroadcast(context, 0, activateIntent,
-                        PendingIntent.FLAG_UPDATE_CURRENT));
+                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
 
         Intent dismissIntent = getBaseIntent(context, INTENT_ACTION_DISMISS);
         dismissIntent.putExtra(INTENT_EXTRA_ID, NOTIFICATION_ID);
         PendingIntent deleteIntent = PendingIntent.getBroadcast(context, 0,
                 dismissIntent,
-                PendingIntent.FLAG_ONE_SHOT);
+                PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE);
 
         Intent contentIntent = getBaseIntent(context, INTENT_ACTION_TAP);
         contentIntent.putExtra(INTENT_EXTRA_ID, NOTIFICATION_ID);
         PendingIntent tapIntent = PendingIntent.getBroadcast(context, 0,  contentIntent,
-                PendingIntent.FLAG_ONE_SHOT);
+                PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE);
 
         Notification.Builder builder;
         // We really should only have the path with the notification channel set. The other path is

@@ -15,9 +15,9 @@
  */
 package com.android.car.user;
 
-import static android.car.test.mocks.AndroidMockitoHelper.getResult;
-import static android.car.test.mocks.AndroidMockitoHelper.mockUmGetUsers;
+import static android.car.test.mocks.AndroidMockitoHelper.mockUmGetAliveUsers;
 import static android.car.testapi.CarMockitoHelper.mockHandleRemoteExceptionFromCarServiceWithDefaultValue;
+import static android.car.testapi.CarTestingHelper.getResult;
 import static android.os.UserHandle.USER_SYSTEM;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -47,9 +47,13 @@ import android.car.user.UserCreationResult;
 import android.car.user.UserIdentificationAssociationResponse;
 import android.car.user.UserRemovalResult;
 import android.car.user.UserSwitchResult;
+import android.car.util.concurrent.AsyncFuture;
 import android.content.Context;
 import android.content.pm.UserInfo;
 import android.content.pm.UserInfo.UserInfoFlag;
+import android.hardware.automotive.vehicle.V2_0.UserIdentificationAssociationSetValue;
+import android.hardware.automotive.vehicle.V2_0.UserIdentificationAssociationType;
+import android.hardware.automotive.vehicle.V2_0.UserIdentificationAssociationValue;
 import android.os.RemoteException;
 import android.os.UserManager;
 import android.provider.Settings;
@@ -82,6 +86,43 @@ public final class CarUserManagerUnitTest extends AbstractExtendedMockitoTestCas
     public void setFixtures() {
         mMgr = new CarUserManager(mCar, mService, mUserManager);
         when(mCar.getContext()).thenReturn(mMockContext);
+    }
+
+    @Test
+    public void testUserIdentificationAssociationType() {
+        assertThat(CarUserManager.USER_IDENTIFICATION_ASSOCIATION_TYPE_KEY_FOB)
+                .isEqualTo(UserIdentificationAssociationType.KEY_FOB);
+        assertThat(CarUserManager.USER_IDENTIFICATION_ASSOCIATION_TYPE_CUSTOM_1)
+                .isEqualTo(UserIdentificationAssociationType.CUSTOM_1);
+        assertThat(CarUserManager.USER_IDENTIFICATION_ASSOCIATION_TYPE_CUSTOM_2)
+                .isEqualTo(UserIdentificationAssociationType.CUSTOM_2);
+        assertThat(CarUserManager.USER_IDENTIFICATION_ASSOCIATION_TYPE_CUSTOM_3)
+                .isEqualTo(UserIdentificationAssociationType.CUSTOM_3);
+        assertThat(CarUserManager.USER_IDENTIFICATION_ASSOCIATION_TYPE_CUSTOM_4)
+                .isEqualTo(UserIdentificationAssociationType.CUSTOM_4);
+    }
+
+    @Test
+    public void testUserIdentificationAssociationSetValue() {
+        assertThat(CarUserManager.USER_IDENTIFICATION_ASSOCIATION_SET_VALUE_ASSOCIATE_CURRENT_USER)
+                .isEqualTo(UserIdentificationAssociationSetValue.ASSOCIATE_CURRENT_USER);
+        assertThat(
+                CarUserManager.USER_IDENTIFICATION_ASSOCIATION_SET_VALUE_DISASSOCIATE_CURRENT_USER)
+                        .isEqualTo(UserIdentificationAssociationSetValue.DISASSOCIATE_CURRENT_USER);
+        assertThat(CarUserManager.USER_IDENTIFICATION_ASSOCIATION_SET_VALUE_DISASSOCIATE_ALL_USERS)
+                .isEqualTo(UserIdentificationAssociationSetValue.DISASSOCIATE_ALL_USERS);
+    }
+
+    @Test
+    public void testUserIdentificationAssociationValue() {
+        assertThat(CarUserManager.USER_IDENTIFICATION_ASSOCIATION_VALUE_UNKNOWN)
+                .isEqualTo(UserIdentificationAssociationValue.UNKNOWN);
+        assertThat(CarUserManager.USER_IDENTIFICATION_ASSOCIATION_VALUE_ASSOCIATE_CURRENT_USER)
+                .isEqualTo(UserIdentificationAssociationValue.ASSOCIATED_CURRENT_USER);
+        assertThat(CarUserManager.USER_IDENTIFICATION_ASSOCIATION_VALUE_ASSOCIATED_ANOTHER_USER)
+                .isEqualTo(UserIdentificationAssociationValue.ASSOCIATED_ANOTHER_USER);
+        assertThat(CarUserManager.USER_IDENTIFICATION_ASSOCIATION_VALUE_NOT_ASSOCIATED_ANY_USER)
+                .isEqualTo(UserIdentificationAssociationValue.NOT_ASSOCIATED_ANY_USER);
     }
 
     @Test
@@ -172,7 +213,7 @@ public final class CarUserManagerUnitTest extends AbstractExtendedMockitoTestCas
     public void testSwitchUser_success() throws Exception {
         expectServiceSwitchUserSucceeds(11, UserSwitchResult.STATUS_SUCCESSFUL, "D'OH!");
 
-        AndroidFuture<UserSwitchResult> future = mMgr.switchUser(11);
+        AsyncFuture<UserSwitchResult> future = mMgr.switchUser(11);
 
         assertThat(future).isNotNull();
         UserSwitchResult result = getResult(future);
@@ -181,24 +222,23 @@ public final class CarUserManagerUnitTest extends AbstractExtendedMockitoTestCas
     }
 
     @Test
-    public void testSwitchUser_noUserSwitchability() throws Exception {
-        when(mUserManager.getUserSwitchability())
-                .thenReturn(UserManager.SWITCHABILITY_STATUS_SYSTEM_USER_LOCKED);
+    public void testSwitchUser_remoteException() throws Exception {
+        expectServiceSwitchUserFails(11, new RemoteException("D'OH!"));
+        mockHandleRemoteExceptionFromCarServiceWithDefaultValue(mCar);
 
-        AndroidFuture<UserSwitchResult> future = mMgr.switchUser(11);
+        AsyncFuture<UserSwitchResult> future = mMgr.switchUser(11);
 
         assertThat(future).isNotNull();
         UserSwitchResult result = getResult(future);
-        assertThat(result.getStatus()).isEqualTo(UserSwitchResult.STATUS_NOT_SWITCHABLE);
+        assertThat(result.getStatus()).isEqualTo(UserSwitchResult.STATUS_HAL_INTERNAL_FAILURE);
         assertThat(result.getErrorMessage()).isNull();
     }
 
     @Test
-    public void testSwitchUser_remoteException() throws Exception {
-        expectServiceSwitchUserFails(11);
-        mockHandleRemoteExceptionFromCarServiceWithDefaultValue(mCar);
+    public void testSwitchUser_runtimeException() throws Exception {
+        expectServiceSwitchUserFails(11, new RuntimeException("D'OH!"));
 
-        AndroidFuture<UserSwitchResult> future = mMgr.switchUser(11);
+        AsyncFuture<UserSwitchResult> future = mMgr.switchUser(11);
 
         assertThat(future).isNotNull();
         UserSwitchResult result = getResult(future);
@@ -208,24 +248,30 @@ public final class CarUserManagerUnitTest extends AbstractExtendedMockitoTestCas
 
     @Test
     public void testRemoveUser_success() throws Exception {
-        int userId = 11;
-        int status = UserRemovalResult.STATUS_SUCCESSFUL;
-        when(mService.removeUser(userId)).thenReturn(new UserRemovalResult(status));
+        expectServiceRemoveUserSucceeds(100);
 
-        UserRemovalResult result = mMgr.removeUser(11);
+        UserRemovalResult result = mMgr.removeUser(100);
 
         assertThat(result.getStatus()).isEqualTo(UserRemovalResult.STATUS_SUCCESSFUL);
     }
 
     @Test
     public void testRemoveUser_remoteException() throws Exception {
-        int userId = 11;
-        doThrow(new RemoteException("D'OH!")).when(mService).removeUser(eq(userId));
+        doThrow(new RemoteException("D'OH!")).when(mService).removeUser(eq(100), any());
         mockHandleRemoteExceptionFromCarServiceWithDefaultValue(mCar);
 
-        UserRemovalResult result = mMgr.removeUser(11);
+        UserRemovalResult result = mMgr.removeUser(100);
 
-        assertThat(result.getStatus()).isEqualTo(UserRemovalResult.STATUS_HAL_INTERNAL_FAILURE);
+        assertThat(result.getStatus()).isEqualTo(UserRemovalResult.STATUS_ANDROID_FAILURE);
+    }
+
+    @Test
+    public void testRemoveUser_runtimeException() throws Exception {
+        doThrow(new RuntimeException("D'OH!")).when(mService).removeUser(eq(100), any());
+
+        UserRemovalResult result = mMgr.removeUser(100);
+
+        assertThat(result.getStatus()).isEqualTo(UserRemovalResult.STATUS_ANDROID_FAILURE);
     }
 
     @Test
@@ -247,7 +293,7 @@ public final class CarUserManagerUnitTest extends AbstractExtendedMockitoTestCas
         expectServiceCreateUserSucceeds("dude", "sweet", 42, UserCreationResult.STATUS_SUCCESSFUL,
                 108);
 
-        AndroidFuture<UserCreationResult> future = mMgr.createUser("dude", "sweet", 42);
+        AsyncFuture<UserCreationResult> future = mMgr.createUser("dude", "sweet", 42);
 
         assertThat(future).isNotNull();
         UserCreationResult result = getResult(future);
@@ -268,7 +314,22 @@ public final class CarUserManagerUnitTest extends AbstractExtendedMockitoTestCas
         expectServiceCreateUserFails("dude", "sweet", 42);
         mockHandleRemoteExceptionFromCarServiceWithDefaultValue(mCar);
 
-        AndroidFuture<UserCreationResult> future = mMgr.createUser("dude", "sweet", 42);
+        AsyncFuture<UserCreationResult> future = mMgr.createUser("dude", "sweet", 42);
+
+        assertThat(future).isNotNull();
+        UserCreationResult result = getResult(future);
+        assertThat(result.getStatus()).isEqualTo(UserCreationResult.STATUS_HAL_INTERNAL_FAILURE);
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getErrorMessage()).isNull();
+        assertThat(result.getUser()).isNull();
+    }
+
+    @Test
+    public void testCreateUser_withType_runtimeException() throws Exception {
+        doThrow(new RuntimeException("D'OH!")).when(mService).createUser(eq("dude"), eq("sweet"),
+                eq(42), anyInt(), notNull());
+
+        AsyncFuture<UserCreationResult> future = mMgr.createUser("dude", "sweet", 42);
 
         assertThat(future).isNotNull();
         UserCreationResult result = getResult(future);
@@ -283,7 +344,7 @@ public final class CarUserManagerUnitTest extends AbstractExtendedMockitoTestCas
         expectServiceCreateUserSucceeds("dude", UserManager.USER_TYPE_FULL_SECONDARY, 42,
                 UserCreationResult.STATUS_SUCCESSFUL, 108);
 
-        AndroidFuture<UserCreationResult> future = mMgr.createUser("dude", 42);
+        AsyncFuture<UserCreationResult> future = mMgr.createUser("dude", 42);
 
         assertThat(future).isNotNull();
         UserCreationResult result = getResult(future);
@@ -304,7 +365,7 @@ public final class CarUserManagerUnitTest extends AbstractExtendedMockitoTestCas
         expectServiceCreateUserFails("dude", UserManager.USER_TYPE_FULL_SECONDARY, 42);
         mockHandleRemoteExceptionFromCarServiceWithDefaultValue(mCar);
 
-        AndroidFuture<UserCreationResult> future = mMgr.createUser("dude", 42);
+        AsyncFuture<UserCreationResult> future = mMgr.createUser("dude", 42);
 
         assertThat(future).isNotNull();
         UserCreationResult result = getResult(future);
@@ -319,7 +380,7 @@ public final class CarUserManagerUnitTest extends AbstractExtendedMockitoTestCas
         expectServiceCreateUserSucceeds("dudeGuest", UserManager.USER_TYPE_FULL_GUEST, 0,
                 UserCreationResult.STATUS_SUCCESSFUL, 108);
 
-        AndroidFuture<UserCreationResult> future = mMgr.createGuest("dudeGuest");
+        AsyncFuture<UserCreationResult> future = mMgr.createGuest("dudeGuest");
 
         assertThat(future).isNotNull();
         UserCreationResult result = getResult(future);
@@ -341,7 +402,7 @@ public final class CarUserManagerUnitTest extends AbstractExtendedMockitoTestCas
         expectServiceCreateUserFails("dudeGuest", UserManager.USER_TYPE_FULL_GUEST, 0);
         mockHandleRemoteExceptionFromCarServiceWithDefaultValue(mCar);
 
-        AndroidFuture<UserCreationResult> future = mMgr.createGuest("dudeGuest");
+        AsyncFuture<UserCreationResult> future = mMgr.createGuest("dudeGuest");
 
         assertThat(future).isNotNull();
         UserCreationResult result = getResult(future);
@@ -349,6 +410,13 @@ public final class CarUserManagerUnitTest extends AbstractExtendedMockitoTestCas
         assertThat(result.isSuccess()).isFalse();
         assertThat(result.getErrorMessage()).isNull();
         assertThat(result.getUser()).isNull();
+    }
+
+    @Test
+    public void testUpdatedPreCreatedUser_success() throws Exception {
+        mMgr.updatePreCreatedUsers();
+
+        verify(mService).updatePreCreatedUsers();
     }
 
     @Test
@@ -370,7 +438,25 @@ public final class CarUserManagerUnitTest extends AbstractExtendedMockitoTestCas
                 .thenThrow(new RemoteException("D'OH!"));
         mockHandleRemoteExceptionFromCarServiceWithDefaultValue(mCar);
 
-        assertThat(mMgr.getUserIdentificationAssociation(types)).isNull();
+        UserIdentificationAssociationResponse response =
+                mMgr.getUserIdentificationAssociation(types);
+
+        assertThat(response).isNotNull();
+        assertThat(response.isSuccess()).isFalse();
+    }
+
+    @Test
+    public void testGetUserIdentificationAssociation_runtimeException() throws Exception {
+        int[] types = new int[] {1};
+        when(mService.getUserIdentificationAssociation(types))
+                .thenThrow(new RuntimeException("D'OH!"));
+        mockHandleRemoteExceptionFromCarServiceWithDefaultValue(mCar);
+
+        UserIdentificationAssociationResponse response =
+                mMgr.getUserIdentificationAssociation(types);
+
+        assertThat(response).isNotNull();
+        assertThat(response.isSuccess()).isFalse();
     }
 
     @Test
@@ -383,7 +469,7 @@ public final class CarUserManagerUnitTest extends AbstractExtendedMockitoTestCas
         UserIdentificationAssociationResponse actualResponse =
                 mMgr.getUserIdentificationAssociation(types);
 
-        assertThat(actualResponse).isSameAs(expectedResponse);
+        assertThat(actualResponse).isSameInstanceAs(expectedResponse);
     }
 
     @Test
@@ -424,7 +510,25 @@ public final class CarUserManagerUnitTest extends AbstractExtendedMockitoTestCas
                 .setUserIdentificationAssociation(anyInt(), same(types), same(values), notNull());
         mockHandleRemoteExceptionFromCarServiceWithDefaultValue(mCar);
 
-        AndroidFuture<UserIdentificationAssociationResponse> future =
+        AsyncFuture<UserIdentificationAssociationResponse> future =
+                mMgr.setUserIdentificationAssociation(types, values);
+
+        assertThat(future).isNotNull();
+        UserIdentificationAssociationResponse result = getResult(future);
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getValues()).isNull();
+        assertThat(result.getErrorMessage()).isNull();
+    }
+
+    @Test
+    public void testSetUserIdentificationAssociation_runtimeException() throws Exception {
+        int[] types = new int[] {1};
+        int[] values = new int[] {2};
+        doThrow(new RuntimeException("D'OH!")).when(mService)
+                .setUserIdentificationAssociation(anyInt(), same(types), same(values), notNull());
+        mockHandleRemoteExceptionFromCarServiceWithDefaultValue(mCar);
+
+        AsyncFuture<UserIdentificationAssociationResponse> future =
                 mMgr.setUserIdentificationAssociation(types, values);
 
         assertThat(future).isNotNull();
@@ -441,22 +545,23 @@ public final class CarUserManagerUnitTest extends AbstractExtendedMockitoTestCas
         doAnswer((inv) -> {
             @SuppressWarnings("unchecked")
             AndroidFuture<UserIdentificationAssociationResponse> future =
-                    (AndroidFuture<UserIdentificationAssociationResponse>) inv.getArguments()[3];
-            UserIdentificationAssociationResponse response =
-                    UserIdentificationAssociationResponse.forSuccess(values, "D'OH!");
+                    (AndroidFuture<UserIdentificationAssociationResponse>) inv
+                            .getArguments()[3];
+            UserIdentificationAssociationResponse response = UserIdentificationAssociationResponse
+                    .forSuccess(values, "D'OH!");
             future.complete(response);
             return null;
         }).when(mService)
                 .setUserIdentificationAssociation(anyInt(), same(types), same(values), notNull());
         mockHandleRemoteExceptionFromCarServiceWithDefaultValue(mCar);
 
-        AndroidFuture<UserIdentificationAssociationResponse> future =
+        AsyncFuture<UserIdentificationAssociationResponse> future =
                 mMgr.setUserIdentificationAssociation(types, values);
 
         assertThat(future).isNotNull();
         UserIdentificationAssociationResponse result = getResult(future);
         assertThat(result.isSuccess()).isTrue();
-        assertThat(result.getValues()).asList().containsAllOf(10, 20, 30).inOrder();
+        assertThat(result.getValues()).asList().containsAtLeast(10, 20, 30).inOrder();
         assertThat(result.getErrorMessage()).isEqualTo("D'OH!");
     }
 
@@ -476,21 +581,37 @@ public final class CarUserManagerUnitTest extends AbstractExtendedMockitoTestCas
         assertThat(mMgr.isUserHalUserAssociationSupported()).isFalse();
     }
 
+    @Test
+    public void testIsUserHalUserAssociation_runtimeException() throws Exception {
+        doThrow(new RuntimeException("D'OH!")).when(mService).isUserHalUserAssociationSupported();
+
+        assertThat(mMgr.isUserHalUserAssociationSupported()).isFalse();
+    }
+
     private void expectServiceSwitchUserSucceeds(@UserIdInt int userId,
             @UserSwitchResult.Status int status, @Nullable String errorMessage)
             throws RemoteException {
         doAnswer((invocation) -> {
             @SuppressWarnings("unchecked")
-            AndroidFuture<UserSwitchResult> future = (AndroidFuture<UserSwitchResult>) invocation
-                    .getArguments()[2];
+            AndroidFuture<UserSwitchResult> future =
+                    (AndroidFuture<UserSwitchResult>) invocation.getArguments()[2];
             future.complete(new UserSwitchResult(status, errorMessage));
             return null;
         }).when(mService).switchUser(eq(userId), anyInt(), notNull());
     }
 
-    private void expectServiceSwitchUserFails(@UserIdInt int userId) throws RemoteException {
-        doThrow(new RemoteException("D'OH!")).when(mService)
-            .switchUser(eq(userId), anyInt(), notNull());
+    private void expectServiceSwitchUserFails(@UserIdInt int userId, Exception e) throws Exception {
+        doThrow(e).when(mService).switchUser(eq(userId), anyInt(), notNull());
+    }
+
+    private void expectServiceRemoveUserSucceeds(@UserIdInt int userId) throws RemoteException {
+        doAnswer((invocation) -> {
+            @SuppressWarnings("unchecked")
+            AndroidFuture<UserRemovalResult> future =
+                    (AndroidFuture<UserRemovalResult>) invocation.getArguments()[1];
+            future.complete(new UserRemovalResult(UserRemovalResult.STATUS_SUCCESSFUL));
+            return null;
+        }).when(mService).removeUser(eq(userId), notNull());
     }
 
     private void expectServiceCreateUserSucceeds(@Nullable String name,
@@ -514,6 +635,6 @@ public final class CarUserManagerUnitTest extends AbstractExtendedMockitoTestCas
     }
 
     private void setExistingUsers(int... userIds) {
-        mockUmGetUsers(mUserManager, userIds);
+        mockUmGetAliveUsers(mUserManager, userIds);
     }
 }

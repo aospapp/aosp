@@ -20,4 +20,9 @@
         <item name="android:layout_width">@dimen/control_bar_width</item>
         <item name="android:layout_height">wrap_content</item>
     </style>
+
+    <style name="MinimizedControlBar">
+        <item name="android:layout_width">@dimen/control_bar_width</item>
+        <item name="android:layout_height">@dimen/minimized_control_bar_height</item>
+    </style>
 </resources>

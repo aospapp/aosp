@@ -41,15 +41,18 @@ def main():
   commit_msg = subprocess.check_output(["git", "show",
                                         sys.argv[1], "--no-notes"])
   for commit_line in commit_msg.splitlines():
-    if re.search(AOSP_COMMIT_TAG_REGEX, commit_line, re.IGNORECASE):
-      _check_aosp_message(commit_line)
+    # Some lines in the commit message will be given to us as bytes
+    commit_line_str = str(commit_line)
+    if re.search(AOSP_COMMIT_TAG_REGEX, str(commit_line_str), re.IGNORECASE):
+      _check_aosp_message(commit_line_str)
 
   print(ERROR_MESSAGE)
-  sys.exit(0)
+  # Print the warning, but do not fail the presubmit check.
+  sys.exit(77)
 
 def _is_in_aosp():
   branch_info = subprocess.check_output(["git", "branch", "-vv"])
-  return re.search(AOSP_BRANCH_REGEX, branch_info) is not None
+  return re.search(AOSP_BRANCH_REGEX, str(branch_info)) is not None
 
 def _check_aosp_message(aosp_line):
   if re.search(AOSP_COMMIT_LINK_REGEX, aosp_line):
@@ -59,7 +62,8 @@ def _check_aosp_message(aosp_line):
     sys.exit(0)
 
   print(ERROR_MESSAGE)
-  sys.exit(0)
+  # Print the warning, but do not fail the presubmit check.
+  sys.exit(77)
 
 if __name__ == '__main__':
   main()

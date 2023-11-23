@@ -62,7 +62,7 @@ public class MinimizedPlaybackControlBar extends MinimizedControlBar {
 
     private void init(Context context) {
         mMediaButtonController = new MediaButtonController(context, this,
-                R.color.playback_control_color, R.layout.play_pause_stop_button_layout,
+                R.color.playback_control_color, R.layout.minimized_play_pause_stop_button_layout,
                 R.drawable.ic_skip_previous, R.drawable.ic_skip_next);
 
         mShowLinearProgressBar = context.getResources().getBoolean(R.bool.show_linear_progress_bar);

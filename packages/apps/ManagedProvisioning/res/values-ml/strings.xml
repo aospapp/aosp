@@ -28,8 +28,12 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"ഇനിപ്പറയുന്ന അപ്ലിക്കേഷൻ നിങ്ങളുടെ ഉപകരണത്തെ നിയന്ത്രിക്കും:"</string>
     <string name="next" msgid="1004321437324424398">"അടുത്തത്"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"ഔദ്യോഗിക പ്രൊഫൈൽ സജ്ജമാക്കുന്നു…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"നിങ്ങളുടെ നെറ്റ്‌വർക്ക് ആക്റ്റിവിറ്റി ഉൾപ്പെടെ, ക്രമീകരണം, കോർപ്പറേറ്റ് ആക്‌സസ്, ആപ്പുകൾ, അനുമതികൾ, ഈ പ്രൊഫൈലുമായി ബന്ധപ്പെടുത്തിയിട്ടുള്ള ഡാറ്റ എന്നിവയും നിങ്ങളുടെ ഉപകരണത്തിന്റെ ലൊക്കേഷനും കോൾ ചരിത്രവും കോൺടാക്റ്റ് തിരയൽ ചരിത്രവും നിരീക്ഷിക്കുന്നതിനും മാനേജ് ചെയ്യുന്നതിനും നിങ്ങളുടെ ഐടി അഡ്‌മിന് കഴിയും.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>നിങ്ങളുടെ സ്ഥാപനത്തിന്റെ സ്വകാര്യതാ നയങ്ങൾ ഉൾപ്പെടെയുള്ള കൂടുതൽ വിവരങ്ങൾ അറിയുന്നതിന് നിങ്ങളുടെ ഐടി അഡ്‌മിനെ ബന്ധപ്പെടുക."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"നിങ്ങളുടെ നെറ്റ്‌വർക്ക് ആക്റ്റിവിറ്റി ഉൾപ്പെടെ, ക്രമീകരണം, കോർപ്പറേറ്റ് ആക്‌സസ്, ആപ്പുകൾ, അനുമതികൾ, ഈ ഉപകരണവുമായി ബന്ധപ്പെടുത്തിയിട്ടുള്ള ഡാറ്റ എന്നിവയും നിങ്ങളുടെ ഉപകരണത്തിന്റെ ലൊക്കേഷനും കോൾ ചരിത്രവും കോൺടാക്റ്റ് തിരയൽ ചരിത്രവും നിരീക്ഷിക്കുന്നതിനും മാനേജ് ചെയ്യുന്നതിനും നിങ്ങളുടെ ഐടി അഡ്‌മിന് കഴിയും.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>നിങ്ങളുടെ സ്ഥാപനത്തിന്റെ സ്വകാര്യതാ നയങ്ങൾ ഉൾപ്പെടെയുള്ള കൂടുതൽ വിവരങ്ങൾ അറിയുന്നതിന് നിങ്ങളുടെ ഐടി അഡ്‌മിനെ ബന്ധപ്പെടുക."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"നിങ്ങളുടെ നെറ്റ്‌വർക്ക് ആക്റ്റിവിറ്റി ഉൾപ്പെടെ, ക്രമീകരണം, കോർപ്പറേറ്റ് ആക്‌സസ്, ആപ്പുകൾ, അനുമതികൾ, ഈ പ്രൊഫൈലുമായി ബന്ധപ്പെടുത്തിയിട്ടുള്ള ഡാറ്റ എന്നിവയും നിങ്ങളുടെ ഉപകരണത്തിന്റെ ലൊക്കേഷനും കോൾ ചരിത്രവും കോൺടാക്റ്റ് തിരയൽ ചരിത്രവും നിരീക്ഷിക്കുന്നതിനും മാനേജ് ചെയ്യുന്നതിനും നിങ്ങളുടെ ഐടി അഡ്‌മിന് കഴിയും.<xliff:g id="LINE_BREAK">
+
+</xliff:g>നിങ്ങളുടെ സ്ഥാപനത്തിന്റെ സ്വകാര്യതാ നയങ്ങൾ ഉൾപ്പെടെയുള്ള കൂടുതൽ വിവരങ്ങൾ അറിയുന്നതിന് നിങ്ങളുടെ ഐടി അഡ്‌മിനെ ബന്ധപ്പെടുക."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"നിങ്ങളുടെ നെറ്റ്‌വർക്ക് ആക്റ്റിവിറ്റി ഉൾപ്പെടെ, ക്രമീകരണം, കോർപ്പറേറ്റ് ആക്‌സസ്, ആപ്പുകൾ, അനുമതികൾ, ഈ ഉപകരണവുമായി ബന്ധപ്പെടുത്തിയിട്ടുള്ള ഡാറ്റ എന്നിവയും നിങ്ങളുടെ ഉപകരണത്തിന്റെ ലൊക്കേഷനും കോൾ ചരിത്രവും കോൺടാക്റ്റ് തിരയൽ ചരിത്രവും നിരീക്ഷിക്കുന്നതിനും മാനേജ് ചെയ്യുന്നതിനും നിങ്ങളുടെ ഐടി അഡ്‌മിന് കഴിയും.<xliff:g id="LINE_BREAK">
+
+</xliff:g>നിങ്ങളുടെ സ്ഥാപനത്തിന്റെ സ്വകാര്യതാ നയങ്ങൾ ഉൾപ്പെടെയുള്ള കൂടുതൽ വിവരങ്ങൾ അറിയുന്നതിന് നിങ്ങളുടെ ഐടി അഡ്‌മിനെ ബന്ധപ്പെടുക."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"മോഷണ പരിരക്ഷാ ഫീച്ചറുകൾ ഉപയോഗിക്കാൻ, നിങ്ങളുടെ ഉപകരണത്തിൽ പാസ്‌വേഡ് കൊണ്ട് പരിരക്ഷിച്ചിട്ടുള്ള ഒരു സ്ക്രീൻ ലോക്ക് ഉണ്ടായിരിക്കണം."</string>
     <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"നിങ്ങളുടെ സ്ഥാപനത്തിന്റെ സ്വകാര്യതാ നയങ്ങൾ ഉൾപ്പെടെയുള്ള കൂടുതൽ വിവരങ്ങൾക്ക് ഐടി അഡ്‌മിനെ ബന്ധപ്പെടുക."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"കൂടുതലറിയുക"</string>
@@ -37,11 +41,11 @@
     <string name="ok_setup" msgid="4593707675416137504">"ശരി"</string>
     <string name="user_consent_msg" msgid="8820951802130353584">"ഞാൻ സമ്മതിക്കുന്നു"</string>
     <string name="url_error" msgid="5958494012986243186">"ഈ ലിങ്ക് പ്രദർശിപ്പിക്കാൻ കഴിയില്ല."</string>
+    <string name="navigation_button_description" msgid="6106309408994461239">"മുകളിലേക്ക് നാവിഗേറ്റ് ചെയ്യുക"</string>
     <string name="terms" msgid="8295436105384703903">"നിബന്ധനകള്‍"</string>
     <string name="work_profile_info" msgid="5433388376309583996">"ഔദ്യോഗിക പ്രൊഫൈൽ വിവരം"</string>
     <string name="managed_device_info" msgid="1529447646526616811">"മാനേജുചെയ്യപ്പെടുന്ന ഉപകരണത്തിന്റെ വിവരങ്ങൾ"</string>
     <string name="default_managed_profile_name" msgid="5370257687074907055">"ഔദ്യോഗിക പ്രൊഫൈൽ"</string>
-    <string name="default_first_meat_user_name" msgid="7540515892748490540">"പ്രാഥമിക ഉപയോക്താവ്"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"നിലവിലെ പ്രൊഫൈൽ ഇല്ലാതാക്കണോ?"</string>
     <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"നിങ്ങൾക്ക് ഇതിനകം തന്നെ ഒരു ഔദ്യോഗിക പ്രൊഫൈലുണ്ട്. ഇനിപ്പറയുന്ന ആപ്പ് ഉപയോഗിച്ചുകൊണ്ടാണത് മാനേജുചെയ്യുന്നത്:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"തുടരുന്നതിന് മുമ്പ്, "<a href="#read_this_link">"ഇത് വായിക്കുക"</a>"."</string>
@@ -65,22 +69,13 @@
     <string name="user_setup_incomplete" msgid="6494920045526591079">"ഉപയോക്തൃ സജ്ജമാക്കൽ അപൂർണ്ണമാണ്"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"ഔദ്യോഗിക ഉപകരണത്തിന്റെ ഉപയോക്താവ്"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"ഔദ്യോഗിക ഉപകരണം സജ്ജമാക്കുന്നു…"</string>
-    <string name="progress_data_process" msgid="1707745321954672971">"സജ്ജീകരണ ഡാറ്റ പ്രോസസ്സുചെയ്യുന്നു…"</string>
-    <string name="progress_connect_to_wifi" msgid="472251154628863539">"Wi-Fi-യിലേക്ക് ബന്ധിപ്പിക്കുന്നു…"</string>
-    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"മൊബൈൽ നെറ്റ്‌വർക്കിലേക്ക് കണക്‌റ്റ് ചെയ്യുന്നു…"</string>
-    <string name="progress_download" msgid="3522436271691064624">"അഡ്‌മിൻ ആപ്പ് ഡൗൺലോഡുചെയ്യുന്നു…"</string>
-    <string name="progress_install" msgid="2258045670385866183">"അഡ്‌മിൻ ആപ്പ് ഇൻസ്റ്റാളുചെയ്യുന്നു…"</string>
-    <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"ആവശ്യമില്ലാത്ത സിസ്റ്റം ആപ്‌സ് നീക്കംചെയ്യുന്നു…"</string>
-    <string name="progress_finishing_touches" msgid="9037776404089697198">"മിനുക്കുപണികൾ നടത്തുന്നു…"</string>
-    <string name="progress_set_owner" msgid="8214062820093757961">"ഉപകരണ ഉടമയെ സജ്ജമാക്കുന്നു…"</string>
-    <string name="progress_initialize" msgid="1104643492713424939">"ഉപകരണം ആരംഭിക്കുന്നു…"</string>
     <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"ഈ ഉപകരണം എൻക്രിപ്ഷൻ അനുവദിക്കുന്നില്ല, സജ്ജീകരിക്കുന്നതിന് എൻക്രിപ്ഷൻ ആവശ്യവുമാണ്. സഹായത്തിന് നിങ്ങളുടെ അഡ്‌മിനുമായി ബന്ധപ്പെടുക."</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"സജ്ജമാക്കൽ നിർത്തുകയും ഉപകരണം പുനഃക്രമീകരിക്കുകയും ചെയ്യണോ?"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"നിങ്ങളുടെ ഉപകരണത്തെ ഇത് റീസെറ്റുചെയ്യും, തുടക്ക സ്ക്രീനിലേക്ക് നിങ്ങളെ തിരികെ കൊണ്ടുപോകും"</string>
     <string name="device_owner_cancel_message" msgid="2529288571742712065">"സജ്ജീകരിക്കുന്നത് അവസാനിപ്പിച്ച് നിങ്ങളുടെ ഉപകരണത്തിന്റെ ഡാറ്റ മായ്‌ക്കണമെന്ന് തീർച്ചയാണോ?"</string>
     <string name="device_owner_cancel_cancel" msgid="1052951540909389275">"റദ്ദാക്കുക"</string>
     <string name="device_owner_error_ok" msgid="2002250763093787051">"ശരി"</string>
-    <string name="reset" msgid="6467204151306265796">"പുനഃസജ്ജമാക്കുക"</string>
+    <string name="reset" msgid="6467204151306265796">"റീസെറ്റ് ചെയ്യുക"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"പ്രൊഫൈൽ സജ്ജമാക്കാൻ കഴിയില്ല"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"ഉപകരണം സജ്ജമാക്കാൻ കഴിയില്ല"</string>
     <string name="something_went_wrong" msgid="3593223774041784329">"എന്തോ കുഴപ്പമുണ്ടായി"</string>
@@ -162,11 +157,10 @@
     <string name="device_owner_description" msgid="168013145812679664">"ഈ ഉപകരണം സുരക്ഷിതമായി സൂക്ഷിക്കപ്പെടും, ഒപ്പം നിങ്ങളുടെ ഓര്‍ഗനൈസേഷന്‍ അത് മാനേജും ചെയ്യും"</string>
     <string name="setup_provisioning_header" msgid="4282483198266806271">"ഔദ്യോഗിക ഉപകരണം സജ്ജീകരിക്കാൻ തയ്യാറെടുക്കുന്നു…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"അഡ്‌മിൻ ആപ്പ്, സജ്ജീകരിക്കുന്നു"</string>
-    <string name="set_up_everything_else" msgid="4407706086957916501">"മറ്റുള്ളവയെല്ലാം സജ്ജീകരിക്കുക"</string>
-    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"നിങ്ങളുടെ ഉപകരണത്തിൽ നിന്നും കൂടുതൽ കാര്യങ്ങൾ ലഭിക്കാൻ വ്യക്തിപരമായ അക്കൗണ്ട് ചേർക്കുക"</string>
-    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"നിങ്ങളുടെ ഔദ്യോഗിക പ്രൊഫെെൽ ഇപ്പോൾ തയ്യാറായതിനാൽ ആപ്പുകളും ഉള്ളടക്കവും ആക്‌സസ് ചെയ്യുന്നതിന് വ്യക്തിപരമായ Google അക്കൗണ്ടും നിങ്ങൾക്ക് ചേർക്കാം."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"ഈ ഉപകരണം നിങ്ങളുടെ സ്ഥാപനത്തിന്റെ ഉടമസ്ഥതയിലാണ്"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"ഈ ഫോൺ മാനേജ് ചെയ്യാനും നിരീക്ഷിക്കാനുമായി ഇനിപ്പറയുന്ന ആപ്പ് ഉപയോഗിക്കും"</string>
+    <string name="account_management_disclaimer_header" msgid="8013083414694316564">"നിങ്ങളുടെ അക്കൗണ്ട് മാനേജ് ചെയ്യും"</string>
+    <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"സുരക്ഷാ നയങ്ങൾ നടപ്പിലാക്കാൻ നിങ്ങളുടെ ഐടി അഡ്‌മിൻ, മൊബെെൽ മാനേജ് ചെയ്യൽ ഉപയോഗിക്കുന്നു"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"ഔദ്യോഗിക സജ്ജീകരണത്തിനായി തയ്യാറാവുന്നു…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"നിങ്ങളുടെ ഔദ്യോഗിക പ്രൊഫൈൽ സജ്ജീകരിക്കാം"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"ഔദ്യോഗിക ആപ്പുകൾ നിങ്ങളുടെ ഔദ്യോഗിക പ്രൊഫൈലിൽ സൂക്ഷിച്ചിരിക്കുന്നു"</string>
@@ -178,8 +172,16 @@
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"നിങ്ങളുടെ ഔദ്യോഗിക ആപ്പുകൾ വിരൽത്തുമ്പിൽ നിലനിർത്തുക"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"ഈ ഉപകരണം സ്വകാര്യമല്ല"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"ഈ ഉപകരണത്തിലുള്ള നിങ്ങളുടെ ഡാറ്റയും ആക്‌റ്റിവിറ്റിയും ഐടി അഡ്‌മിന് കാണാനായേക്കാം."</string>
+    <string name="fully_managed_device_provisioning_permissions_header" msgid="2852101532084770993">"നിങ്ങളുടെ ആക്റ്റിവിറ്റിയും ഡാറ്റയും"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_header" msgid="4419374850927705136">"ആപ്പ് അനുമതികൾ"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8328298923037335068">"മെെക്രോഫോൺ, ക്യാമറ, ലൊക്കേഷൻ അനുമതികൾ എന്നിവ പോലുള്ള, ഈ ഉപകരണത്തിലെ ആപ്പുകൾക്കുള്ള അനുമതികൾ സജ്ജീകരിക്കാൻ നിങ്ങളുടെ ഐടി അഡ്‌മിന് കഴിയും."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"നിങ്ങളുടെ ഉപകരണം സജ്ജമാക്കുന്നു…"</string>
-    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"നിങ്ങളുടെ ഔദ്യോഗിക ആപ്പുകൾ എളുപ്പത്തിൽ ആക്‌സസ് ചെയ്യാൻ ഈ ഉപകരണം ഉപയോഗിക്കുക. ഈ ഉപകരണം സ്വകാര്യമല്ലാത്തതിനാൽ, നിങ്ങളുടെ ഡാറ്റയും ആക്റ്റിവിറ്റിയും ഐടി അഡ്‌മിന് കാണാനായേക്കാം. കൂടുതലറിയാൻ, നിങ്ങളുടെ ഐടി അഡ്‌മിനെ ബന്ധപ്പെടുക."</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1090645190066781456">"നിങ്ങളുടെ ഔദ്യോഗിക ആപ്പുകൾ എളുപ്പത്തിൽ ആക്‌സസ് ചെയ്യാൻ ഈ ഉപകരണം ഉപയോഗിക്കുക. ഈ ഉപകരണം സ്വകാര്യമല്ലാത്തതിനാൽ നിങ്ങളുടെ ഡാറ്റയും ആക്റ്റിവിറ്റിയും ഐടി അഡ്‌മിന് കാണാനായേക്കാം."</string>
+    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"നിങ്ങളുടെ ഔദ്യോഗിക ആപ്പുകൾ എളുപ്പത്തിൽ ആക്‌സസ് ചെയ്യാൻ ഈ ഉപകരണം ഉപയോഗിക്കുക. ഈ ഉപകരണം സ്വകാര്യമല്ലാത്തതിനാൽ നിങ്ങളുടെ ആക്‌റ്റിവിറ്റിയും ഡാറ്റയും ഐടി അഡ്‌മിന് കാണാനായേക്കാം. മെെക്രോഫോൺ, ക്യാമറ, ലൊക്കേഷൻ അനുമതികൾ എന്നിവ പോലുള്ള, ഈ ഉപകരണത്തിലെ ആപ്പുകൾക്കുള്ള അനുമതികൾ സജ്ജീകരിക്കാനും നിങ്ങളുടെ ഐടി അഡ്‌മിന് കഴിയും."</string>
+    <string name="fully_managed_device_provisioning_return_device_title" msgid="8500829014794276683">"ഈ ഉപകരണം നിങ്ങളുടെ ഐടി അഡ്‌മിന് മടക്കി നൽകുക"</string>
+    <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"മുമ്പത്തെ സ്ക്രീനിലേക്ക് മടങ്ങുക അല്ലെങ്കിൽ ഈ ഉപകരണം റീസെറ്റ് ചെയ്‌ത് നിങ്ങളുടെ ഐടി അഡ്‌മിന് മടക്കി നൽകുക."</string>
+    <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"സജ്ജീകരണം റദ്ദാക്കുക"</string>
+    <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"റീസെറ്റ് ചെയ്‌ത് ഉപകരണം മടക്കി നൽകുക"</string>
     <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"ഔദ്യോഗിക ആപ്പുകൾ ഔദ്യോഗിക പ്രൊഫൈലിലാണ്, അവ നിയന്ത്രിക്കുന്നത് ഐടി അഡ്‍മിനാണ്"</string>
     <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"വ്യക്തിപരമായ ആപ്പുകളും ഔദ്യോഗിക ആപ്പുകളും വെവ്വേറെയാണ് അവ പരസ്പരം മറച്ചിരിക്കുന്നു"</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"നിങ്ങളുടെ ഐടി അഡ്‍മിന് ഈ ഉപകരണം നിയന്ത്രിക്കാനും ചില ആപ്പുകൾ ബ്ലോക്ക് ചെയ്യാനുമാകും"</string>
@@ -187,10 +189,9 @@
     <string name="just_a_sec" msgid="6244676028626237220">"ഒരു നിമിഷം…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"സ്വകാര്യതാ റിമൈൻഡർ"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"ഈ ഉപകരണത്തിലുള്ള നിങ്ങളുടെ ഡാറ്റയും ആക്‌റ്റിവിറ്റിയും ഐടി അഡ്‌മിന് കാണാനായേക്കാം"</string>
-    <string name="device_provisioning_finished" msgid="3981783240592092906">"നിങ്ങളുടെ ഉപകരണം ഉപയോഗിക്കാൻ തയ്യാറാണ്!"</string>
-    <string name="done" msgid="7755227776955952318">"പൂർത്തിയായി"</string>
-    <string name="financed_device_screen_header" msgid="7890706080917322376">"ഈ ഉപകരണം <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> എന്നതിൽ നിന്ന് ക്രെഡിറ്റ് ഉപയോഗിച്ച് വാങ്ങിയതാണ്"</string>
-    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> എന്നതിന് ഇനിപ്പറയുന്നവ ചെയ്യാനാകും:"</string>
-    <string name="install_creditor_app_description" msgid="6159751782301108878">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> ആപ്പ് ഇൻസ്റ്റാൾ ചെയ്യുന്നത് വഴി, ഈ ഉപകരണത്തിന്റെ പേയ്‌മെന്റ് നടത്താനാകും"</string>
-    <string name="lock_device_description" msgid="2940362560732989166">"നിങ്ങൾ പേയ്‌മെന്റ് നടത്തുന്നില്ലെങ്കിൽ, ഈ ഉപകരണത്തിലേക്കുള്ള ആക്‌സസ് നിയന്ത്രിക്കുക"</string>
+    <string name="financed_device_screen_header" msgid="6875169548352717124">"<xliff:g id="CREDITOR_NAME">%s</xliff:g> നൽകിയ ഉപകരണമാണിത്"</string>
+    <string name="financed_make_payments_subheader_title" msgid="7880606710044254210">"ഈ ഉപകരണത്തിനുള്ള പേയ്‌മെന്റുകൾ നടത്തുക"</string>
+    <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> എന്നയാൾക്ക് <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> ഇൻസ്‌റ്റാൾ ചെയ്യാനാകും, അതുവഴി നിങ്ങൾക്ക് ഈ ഉപകരണത്തിനുള്ള പേയ്‌മെന്റ് നടത്താം."</string>
+    <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"ഈ ഉപകരണം നിയന്ത്രിക്കാനാകും"</string>
+    <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"നിങ്ങൾ പേയ്മെന്റുകൾ നടത്തിയില്ലെങ്കിൽ ഈ ഉപകരണത്തിലേക്കുള്ള ആക്‌സസ് നിയന്ത്രിക്കാൻ <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> എന്നതിനാകും."</string>
 </resources>

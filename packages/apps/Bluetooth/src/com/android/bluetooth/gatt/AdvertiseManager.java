@@ -217,7 +217,7 @@ class AdvertiseManager {
 
         Map.Entry<IBinder, AdvertiserInfo> entry = findAdvertiser(advertiserId);
         if (entry == null) {
-            Log.i(TAG, "onOwnAddressRead() - bad advertiserId " + advertiserId);
+            Log.w(TAG, "onOwnAddressRead() - bad advertiserId " + advertiserId);
             return;
         }
 
@@ -226,6 +226,11 @@ class AdvertiseManager {
     }
 
     void getOwnAddress(int advertiserId) {
+        Map.Entry<IBinder, AdvertiserInfo> entry = findAdvertiser(advertiserId);
+        if (entry == null) {
+            Log.w(TAG, "getOwnAddress() - bad advertiserId " + advertiserId);
+            return;
+        }
         getOwnAddressNative(advertiserId);
     }
 
@@ -260,37 +265,72 @@ class AdvertiseManager {
     }
 
     void enableAdvertisingSet(int advertiserId, boolean enable, int duration, int maxExtAdvEvents) {
+        Map.Entry<IBinder, AdvertiserInfo> entry = findAdvertiser(advertiserId);
+        if (entry == null) {
+            Log.w(TAG, "enableAdvertisingSet() - bad advertiserId " + advertiserId);
+            return;
+        }
         enableAdvertisingSetNative(advertiserId, enable, duration, maxExtAdvEvents);
     }
 
     void setAdvertisingData(int advertiserId, AdvertiseData data) {
+        Map.Entry<IBinder, AdvertiserInfo> entry = findAdvertiser(advertiserId);
+        if (entry == null) {
+            Log.w(TAG, "setAdvertisingData() - bad advertiserId " + advertiserId);
+            return;
+        }
         String deviceName = AdapterService.getAdapterService().getName();
         setAdvertisingDataNative(advertiserId,
                 AdvertiseHelper.advertiseDataToBytes(data, deviceName));
     }
 
     void setScanResponseData(int advertiserId, AdvertiseData data) {
+        Map.Entry<IBinder, AdvertiserInfo> entry = findAdvertiser(advertiserId);
+        if (entry == null) {
+            Log.w(TAG, "setScanResponseData() - bad advertiserId " + advertiserId);
+            return;
+        }
         String deviceName = AdapterService.getAdapterService().getName();
         setScanResponseDataNative(advertiserId,
                 AdvertiseHelper.advertiseDataToBytes(data, deviceName));
     }
 
     void setAdvertisingParameters(int advertiserId, AdvertisingSetParameters parameters) {
+        Map.Entry<IBinder, AdvertiserInfo> entry = findAdvertiser(advertiserId);
+        if (entry == null) {
+            Log.w(TAG, "setAdvertisingParameters() - bad advertiserId " + advertiserId);
+            return;
+        }
         setAdvertisingParametersNative(advertiserId, parameters);
     }
 
     void setPeriodicAdvertisingParameters(int advertiserId,
             PeriodicAdvertisingParameters parameters) {
+        Map.Entry<IBinder, AdvertiserInfo> entry = findAdvertiser(advertiserId);
+        if (entry == null) {
+            Log.w(TAG, "setPeriodicAdvertisingParameters() - bad advertiserId " + advertiserId);
+            return;
+        }
         setPeriodicAdvertisingParametersNative(advertiserId, parameters);
     }
 
     void setPeriodicAdvertisingData(int advertiserId, AdvertiseData data) {
+        Map.Entry<IBinder, AdvertiserInfo> entry = findAdvertiser(advertiserId);
+        if (entry == null) {
+            Log.w(TAG, "setPeriodicAdvertisingData() - bad advertiserId " + advertiserId);
+            return;
+        }
         String deviceName = AdapterService.getAdapterService().getName();
         setPeriodicAdvertisingDataNative(advertiserId,
                 AdvertiseHelper.advertiseDataToBytes(data, deviceName));
     }
 
     void setPeriodicAdvertisingEnable(int advertiserId, boolean enable) {
+        Map.Entry<IBinder, AdvertiserInfo> entry = findAdvertiser(advertiserId);
+        if (entry == null) {
+            Log.w(TAG, "setPeriodicAdvertisingEnable() - bad advertiserId " + advertiserId);
+            return;
+        }
         setPeriodicAdvertisingEnableNative(advertiserId, enable);
     }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2019 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,17 +50,17 @@ import com.android.tv.tuner.data.PsipData.EitItem;
 import com.android.tv.tuner.data.Track.AtscCaptionTrack;
 import com.android.tv.tuner.data.TunerChannel;
 import com.android.tv.tuner.dvb.DvbDeviceAccessor;
-import com.android.tv.tuner.exoplayer.ExoPlayerSampleExtractor;
-import com.android.tv.tuner.exoplayer.SampleExtractor;
-import com.android.tv.tuner.exoplayer.buffer.BufferManager;
-import com.android.tv.tuner.exoplayer.buffer.DvrStorageManager;
-import com.android.tv.tuner.exoplayer.buffer.PlaybackBufferListener;
+import com.android.tv.tuner.exoplayer2.ExoPlayerSampleExtractor;
+import com.android.tv.tuner.exoplayer2.SampleExtractor;
+import com.android.tv.tuner.exoplayer2.buffer.BufferManager;
+import com.android.tv.tuner.exoplayer2.buffer.DvrStorageManager;
+import com.android.tv.tuner.exoplayer2.buffer.PlaybackBufferListener;
 import com.android.tv.tuner.source.TsDataSource;
 import com.android.tv.tuner.source.TsDataSourceManager;
 import com.android.tv.tuner.ts.EventDetector.EventListener;
 import com.android.tv.tuner.tvinput.datamanager.ChannelDataManager;
 
-import com.google.android.exoplayer.C;
+import com.google.android.exoplayer2.C;
 import com.google.auto.factory.AutoFactory;
 import com.google.auto.factory.Provided;
 
@@ -83,8 +83,9 @@ public class TunerRecordingSessionWorkerExoV2
         implements PlaybackBufferListener,
                 EventListener,
                 SampleExtractor.OnCompletionListener,
+                SampleExtractor.Callback,
                 Handler.Callback {
-    private static final String TAG = "TunerRecordingSessionW";
+    private static final String TAG = "TunerRecordingSWExoV2";
     private static final boolean DEBUG = false;
 
     private static final String SORT_BY_TIME =
@@ -320,10 +321,7 @@ public class TunerRecordingSessionWorkerExoV2
                         return true;
                     }
                     try {
-                        if (!mRecorder.prepare()) {
-                            mHandler.sendEmptyMessageDelayed(
-                                    MSG_PREPARE_RECODER, PREPARE_RECORDER_POLL_MS);
-                        }
+                        mRecorder.prepare(this);
                     } catch (IOException e) {
                         Log.w(TAG, "Failed to start recording. Couldn't prepare an extractor");
                         mSession.onError(TvInputManager.RECORDING_ERROR_UNKNOWN);
@@ -387,6 +385,11 @@ public class TunerRecordingSessionWorkerExoV2
                 }
         }
         return false;
+    }
+
+    @Override
+    public void onPrepared() {
+        // Do nothing
     }
 
     @Nullable
@@ -657,7 +660,7 @@ public class TunerRecordingSessionWorkerExoV2
         }
         Log.i(TAG, "recording finished " + (success ? "completely" : "partially"));
         long recordEndTime =
-                (lastExtractedPositionUs == C.UNKNOWN_TIME_US)
+                (lastExtractedPositionUs == C.TIME_UNSET)
                         ? System.currentTimeMillis()
                         : mRecordStartTime + lastExtractedPositionUs / 1000;
         updateRecordedProgramStateFinished(recordEndTime, calculateRecordingSizeInBytes());

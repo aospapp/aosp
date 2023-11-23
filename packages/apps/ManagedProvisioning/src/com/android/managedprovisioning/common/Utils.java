@@ -18,37 +18,15 @@ package com.android.managedprovisioning.common;
 
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_FINANCED_DEVICE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE;
-import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE;
-import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_SHAREABLE_DEVICE;
-import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_USER;
-import static android.app.admin.DevicePolicyManager.MIME_TYPE_PROVISIONING_NFC;
-import static android.app.admin.DevicePolicyManager.PROVISIONING_TRIGGER_CLOUD_ENROLLMENT;
-import static android.app.admin.DevicePolicyManager.PROVISIONING_TRIGGER_QR_CODE;
-import static android.app.admin.DevicePolicyManager.PROVISIONING_TRIGGER_UNSPECIFIED;
+import static android.app.admin.DevicePolicyManager.FLAG_SUPPORTED_MODES_DEVICE_OWNER;
+import static android.app.admin.DevicePolicyManager.FLAG_SUPPORTED_MODES_ORGANIZATION_OWNED;
 import static android.content.pm.PackageManager.MATCH_HIDDEN_UNTIL_INSTALLED_COMPONENTS;
 import static android.content.pm.PackageManager.MATCH_UNINSTALLED_PACKAGES;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED;
 import static android.net.NetworkCapabilities.TRANSPORT_CELLULAR;
-import static android.nfc.NfcAdapter.ACTION_NDEF_DISCOVERED;
 
-import static com.android.managedprovisioning.common.Globals.ACTION_PROVISION_MANAGED_DEVICE_SILENTLY;
-import static com.android.managedprovisioning.model.ProvisioningParams.PROVISIONING_MODE_FULLY_MANAGED_DEVICE;
-import static com.android.managedprovisioning.model.ProvisioningParams.PROVISIONING_MODE_MANAGED_PROFILE;
-import static com.android.managedprovisioning.model.ProvisioningParams.PROVISIONING_MODE_MANAGED_PROFILE_ON_FULLY_NAMAGED_DEVICE;
-
-import android.annotation.WorkerThread;
-import android.net.NetworkCapabilities;
-import android.os.Handler;
-import android.os.Looper;
-import com.android.managedprovisioning.R;
-
-import android.accounts.Account;
-import android.accounts.AccountManager;
-import android.accounts.AccountManagerFuture;
-import android.accounts.AuthenticatorException;
-import android.accounts.OperationCanceledException;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.StringRes;
@@ -65,12 +43,11 @@ import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.ResolveInfo;
 import android.content.pm.UserInfo;
 import android.content.res.TypedArray;
-import android.graphics.Color;
 import android.net.ConnectivityManager;
+import android.net.NetworkCapabilities;
 import android.net.NetworkInfo;
 import android.net.wifi.WifiManager;
 import android.os.Build;
-import android.os.Bundle;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.SystemProperties;
@@ -82,15 +59,22 @@ import android.text.Spanned;
 import android.text.TextUtils;
 import android.text.method.LinkMovementMethod;
 import android.text.style.ClickableSpan;
+import android.view.View;
 import android.view.View.OnClickListener;
+import android.view.ViewTreeObserver;
 import android.widget.TextView;
 
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.managedprovisioning.TrampolineActivity;
+import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.model.CustomizationParams;
 import com.android.managedprovisioning.model.PackageDownloadInfo;
 import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.preprovisioning.WebActivity;
+
+import com.google.android.setupcompat.template.FooterBarMixin;
+import com.google.android.setupcompat.template.FooterButton;
+import com.google.android.setupcompat.template.FooterButton.ButtonType;
+import com.google.android.setupdesign.GlifLayout;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -102,11 +86,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-
-import com.google.android.setupdesign.GlifLayout;
-import com.google.android.setupcompat.template.FooterBarMixin;
-import com.google.android.setupcompat.template.FooterButton;
-import com.google.android.setupcompat.template.FooterButton.ButtonType;
+import java.util.function.Consumer;
 
 /**
  * Class containing various auxiliary methods.
@@ -390,67 +370,6 @@ public class Utils {
     }
 
     /**
-     * Returns the user id of an already existing managed profile or -1 if none exists.
-     */
-    // TODO: Add unit tests
-    public int alreadyHasManagedProfile(Context context) {
-        UserHandle managedUser = getManagedProfile(context);
-        if (managedUser != null) {
-            return managedUser.getIdentifier();
-        } else {
-            return -1;
-        }
-    }
-
-    /**
-     * Removes an account asynchronously.
-     *
-     * @see #removeAccount(Context, Account)
-     */
-    public void removeAccountAsync(Context context, Account accountToRemove,
-            RemoveAccountListener callback) {
-        new RemoveAccountAsyncTask(context, accountToRemove, this, callback).execute();
-    }
-
-    /**
-     * Removes an account synchronously.
-     *
-     * This method is blocking and must never be called from the main thread.
-     *
-     * <p>This removes the given account from the calling user's list of accounts.
-     *
-     * @param context a {@link Context} object
-     * @param account the account to be removed
-     */
-    // TODO: Add unit tests
-    @WorkerThread
-    void removeAccount(Context context, Account account) {
-        final AccountManager accountManager =
-                (AccountManager) context.getSystemService(Context.ACCOUNT_SERVICE);
-        final AccountManagerFuture<Bundle> bundle = accountManager.removeAccount(account,
-                null, null /* callback */, null /* handler */);
-        // Block to get the result of the removeAccount operation
-        try {
-            final Bundle result = bundle.getResult();
-            if (result.getBoolean(AccountManager.KEY_BOOLEAN_RESULT, /* default */ false)) {
-                ProvisionLogger.logw("Account removed from the primary user.");
-            } else {
-                final Intent removeIntent = result.getParcelable(AccountManager.KEY_INTENT);
-                if (removeIntent != null) {
-                    ProvisionLogger.logi("Starting activity to remove account");
-                    new Handler(Looper.getMainLooper()).post(() -> {
-                        TrampolineActivity.startActivity(context, removeIntent);
-                    });
-                } else {
-                    ProvisionLogger.logw("Could not remove account from the primary user.");
-                }
-            }
-        } catch (OperationCanceledException | AuthenticatorException | IOException e) {
-            ProvisionLogger.logw("Exception removing account from the primary user.", e);
-        }
-    }
-
-    /**
      * Returns whether FRP is supported on the device.
      */
     public boolean isFrpSupported(Context context) {
@@ -458,129 +377,84 @@ public class Utils {
         return pdbManager != null;
     }
 
-    /**
-     * Translates a given managed provisioning intent to its corresponding provisioning flow, using
-     * the action from the intent.
-     *
-     * <p/>This is necessary because, unlike other provisioning actions which has 1:1 mapping, there
-     * are multiple actions that can trigger the device owner provisioning flow. This includes
-     * {@link ACTION_PROVISION_MANAGED_DEVICE}, {@link ACTION_NDEF_DISCOVERED} and
-     * {@link ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE}. These 3 actions are equivalent
-     * excepts they are sent from a different source.
-     *
-     * @return the appropriate DevicePolicyManager declared action for the given incoming intent.
-     * @throws IllegalProvisioningArgumentException if intent is malformed
-     */
-    // TODO: Add unit tests
-    public String mapIntentToDpmAction(Intent intent)
-            throws IllegalProvisioningArgumentException {
-        if (intent == null || intent.getAction() == null) {
-            throw new IllegalProvisioningArgumentException("Null intent action.");
-        }
-
-        // Map the incoming intent to a DevicePolicyManager.ACTION_*, as there is a N:1 mapping in
-        // some cases.
-        String dpmProvisioningAction;
-        switch (intent.getAction()) {
-            // Trivial cases.
-            case ACTION_PROVISION_MANAGED_DEVICE:
-            case ACTION_PROVISION_MANAGED_SHAREABLE_DEVICE:
-            case ACTION_PROVISION_MANAGED_USER:
-            case ACTION_PROVISION_MANAGED_PROFILE:
-            case ACTION_PROVISION_FINANCED_DEVICE:
-                dpmProvisioningAction = intent.getAction();
-                break;
-
-            // Silent device owner is same as device owner.
-            case ACTION_PROVISION_MANAGED_DEVICE_SILENTLY:
-                dpmProvisioningAction = ACTION_PROVISION_MANAGED_DEVICE;
-                break;
-
-            // NFC cases which need to take mime-type into account.
-            case ACTION_NDEF_DISCOVERED:
-                String mimeType = intent.getType();
-                if (mimeType == null) {
-                    throw new IllegalProvisioningArgumentException(
-                            "Unknown NFC bump mime-type: " + mimeType);
-                }
-                switch (mimeType) {
-                    case MIME_TYPE_PROVISIONING_NFC:
-                        dpmProvisioningAction = ACTION_PROVISION_MANAGED_DEVICE;
-                        break;
-
-                    default:
-                        throw new IllegalProvisioningArgumentException(
-                                "Unknown NFC bump mime-type: " + mimeType);
-                }
-                break;
-
-            // Device owner provisioning from a trusted app.
-            // TODO (b/27217042): review for new management modes in split system-user model
-            case ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE:
-                dpmProvisioningAction = ACTION_PROVISION_MANAGED_DEVICE;
-                break;
-
-            default:
-                throw new IllegalProvisioningArgumentException("Unknown intent action "
-                        + intent.getAction());
-        }
-        return dpmProvisioningAction;
-    }
 
     /**
-     * Returns if the given intent for a organization owned provisioning.
-     * Only QR, cloud enrollment and NFC are owned by organization.
+     * Returns {@code true} if the admin-integrated flow should be performed.
+     *
+     * <p>This method must not be called before the admin app has been installed. If it has not
+     * yet been installed, consider using {@link
+     * #checkAdminIntegratedFlowPreconditions(ProvisioningParams)}.
+     *
+     * <p>To perform the admin-integrated flow, all of the following criteria must be fulfilled:
+     * <ul>
+     *     <li>All of the preconditions in {@link
+     *     #checkAdminIntegratedFlowPreconditions(ProvisioningParams)}</li>
+     *     <li>The DPC has an activity with intent filter with action {@link
+     *     DevicePolicyManager#ACTION_GET_PROVISIONING_MODE}</li>
+     *     <li>The DPC has an activity with intent filter with action {@link
+     *     DevicePolicyManager#ACTION_ADMIN_POLICY_COMPLIANCE}</li>
+     * </ul>
      */
-    public boolean isOrganizationOwnedProvisioning(Intent intent) {
-        if (ACTION_NDEF_DISCOVERED.equals(intent.getAction())) {
-            return true;
-        }
-        if (!ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE.equals(intent.getAction())) {
+    public boolean canPerformAdminIntegratedFlow(Context context, ProvisioningParams params,
+            PolicyComplianceUtils policyComplianceUtils,
+            GetProvisioningModeUtils provisioningModeUtils) {
+        if (!checkAdminIntegratedFlowPreconditions(params)) {
             return false;
         }
-        //  Do additional check under ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE
-        // in order to exclude force DO.
-        switch (intent.getIntExtra(DevicePolicyManager.EXTRA_PROVISIONING_TRIGGER,
-                PROVISIONING_TRIGGER_UNSPECIFIED)) {
-            case PROVISIONING_TRIGGER_CLOUD_ENROLLMENT:
-            case PROVISIONING_TRIGGER_QR_CODE:
-                return true;
-            default:
-                return false;
-        }
-    }
-
-    public boolean isQrProvisioning(Intent intent) {
-        return PROVISIONING_TRIGGER_QR_CODE ==
-                intent.getIntExtra(
-                        DevicePolicyManager.EXTRA_PROVISIONING_TRIGGER,
-                        /* defValue= */ PROVISIONING_TRIGGER_UNSPECIFIED);
-    }
-
-    /**
-     * Returns if the given parameter is for provisioning the admin integrated flow.
-     */
-    public boolean isAdminIntegratedFlow(ProvisioningParams params) {
-        if (!params.isOrganizationOwnedProvisioning) {
+        boolean isPolicyComplianceScreenAvailable =
+                policyComplianceUtils.isPolicyComplianceActivityResolvableForUser(context, params,
+                        this, UserHandle.SYSTEM);
+        if (!isPolicyComplianceScreenAvailable) {
+            ProvisionLogger.logi("Policy compliance DPC screen not available.");
             return false;
         }
-        return params.provisioningMode == PROVISIONING_MODE_FULLY_MANAGED_DEVICE
-                || params.provisioningMode == PROVISIONING_MODE_MANAGED_PROFILE
-                || params.provisioningMode
-                    == PROVISIONING_MODE_MANAGED_PROFILE_ON_FULLY_NAMAGED_DEVICE;
+        boolean isGetProvisioningModeScreenAvailable =
+                provisioningModeUtils.isGetProvisioningModeActivityResolvable(context, params);
+        if (!isGetProvisioningModeScreenAvailable) {
+            ProvisionLogger.logi("Get provisioning mode DPC screen not available.");
+            return false;
+        }
+        return true;
     }
 
     /**
-     * Sends an intent to trigger a factory reset.
+     * Returns {@code true} if the admin-integrated flow preconditions are met.
+     *
+     * <p>This method can be called before the admin app has been installed. Returning {@code true}
+     * does not mean the admin-integrated flow should be performed (for that, use {@link
+     * #canPerformAdminIntegratedFlow(Context, ProvisioningParams, PolicyComplianceUtils,
+     * GetProvisioningModeUtils)}), but returning {@code false} can be used as an early indication
+     * that it should <i>not</i> be performed.
+     *
+     * <p>The preconditions are:
+     * <ul>
+     *     <li>Provisioning was started using {@link
+     *     DevicePolicyManager#ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE}</li>
+     *     <li>The provisioning is not triggered by NFC</li>
+     *     <li>This is not a financed device provisioning</li>
+     * </ul>
      */
-    // TODO: Move the FR intent into a Globals class.
-    public void sendFactoryResetBroadcast(Context context, String reason) {
-        Intent intent = new Intent(Intent.ACTION_FACTORY_RESET);
-        // Send explicit broadcast due to Broadcast Limitations
-        intent.setPackage("android");
-        intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
-        intent.putExtra(Intent.EXTRA_REASON, reason);
-        context.sendBroadcast(intent);
+    public boolean checkAdminIntegratedFlowPreconditions(ProvisioningParams params) {
+        if (params.isNfc) {
+            ProvisionLogger.logi("NFC provisioning");
+            return false;
+        }
+        if (isFinancedDeviceAction(params.provisioningAction)) {
+            ProvisionLogger.logi("Financed device provisioning");
+            return false;
+        }
+        if (!params.startedByTrustedSource) {
+            ProvisionLogger.logi("Provisioning not started by a trusted source");
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Factory resets the device.
+     */
+    public void factoryReset(Context context, String reason) {
+        context.getSystemService(DevicePolicyManager.class).wipeData(/* flags=*/ 0, reason);
     }
 
     /**
@@ -588,8 +462,7 @@ public class Utils {
      */
     // TODO: Move the list of device owner actions into a Globals class.
     public final boolean isProfileOwnerAction(String action) {
-        return ACTION_PROVISION_MANAGED_PROFILE.equals(action)
-                || ACTION_PROVISION_MANAGED_USER.equals(action);
+        return ACTION_PROVISION_MANAGED_PROFILE.equals(action);
     }
 
     /**
@@ -597,8 +470,7 @@ public class Utils {
      */
     // TODO: Move the list of device owner actions into a Globals class.
     public final boolean isDeviceOwnerAction(String action) {
-        return ACTION_PROVISION_MANAGED_DEVICE.equals(action)
-                || ACTION_PROVISION_MANAGED_SHAREABLE_DEVICE.equals(action);
+        return ACTION_PROVISION_MANAGED_DEVICE.equals(action);
     }
 
     /**
@@ -695,13 +567,10 @@ public class Utils {
     }
 
     /**
-     * Returns whether the device has a split system user.
-     *
-     * <p>Split system user means that user 0 is system only and all meat users are separate from
-     * the system user.
+     * Returns whether the device is in headless system user mode.
      */
-    public boolean isSplitSystemUser() {
-        return UserManager.isSplitSystemUser();
+    public boolean isHeadlessSystemUserMode() {
+        return UserManager.isHeadlessSystemUserMode();
     }
 
     /**
@@ -799,13 +668,6 @@ public class Utils {
         return hash;
     }
 
-    public boolean isBrightColor(int color) {
-        // This comes from the YIQ transformation. We're using the formula:
-        // Y = .299 * R + .587 * G + .114 * B
-        return Color.red(color) * 299 + Color.green(color) * 587 + Color.blue(color) * 114
-                >= 1000 * THRESHOLD_BRIGHT_COLOR;
-    }
-
     /**
      * Returns whether given intent can be resolved for the user.
      */
@@ -823,6 +685,27 @@ public class Utils {
         return getAttrColor(context, android.R.attr.colorAccent);
     }
 
+    /**
+     * Returns the theme's background color.
+     */
+    public int getBackgroundColor(Context context) {
+        return getAttrColor(context, android.R.attr.colorBackground);
+    }
+
+    /**
+     * Returns the theme's text primary color.
+     */
+    public int getTextPrimaryColor(Context context) {
+        return getAttrColor(context, android.R.attr.textColorPrimary);
+    }
+
+    /**
+     * Returns the theme's text secondary color.
+     */
+    public int getTextSecondaryColor(Context context) {
+        return getAttrColor(context, android.R.attr.textColorSecondary);
+    }
+
     private int getAttrColor(Context context, int attr) {
         TypedArray ta = context.obtainStyledAttributes(new int[]{attr});
         int attrColor = ta.getColor(0, 0);
@@ -831,18 +714,20 @@ public class Utils {
     }
 
     public void handleSupportUrl(Context context, CustomizationParams customizationParams,
-                ClickableSpanFactory clickableSpanFactory,
-                AccessibilityContextMenuMaker contextMenuMaker, TextView textView,
-                String deviceProvider, String contactDeviceProvider) {
+            AccessibilityContextMenuMaker contextMenuMaker, TextView textView,
+            String deviceProvider, String contactDeviceProvider,
+            Consumer<Intent> clickHandler) {
         if (customizationParams.supportUrl == null) {
             textView.setText(contactDeviceProvider);
             return;
         }
         final Intent intent = WebActivity.createIntent(
-                context, customizationParams.supportUrl, customizationParams.statusBarColor);
+                context, customizationParams.supportUrl);
 
-        handlePartialClickableTextView(textView, contactDeviceProvider, deviceProvider, intent,
-                clickableSpanFactory);
+        final ClickableSpanFactory spanFactory =
+                new ClickableSpanFactory(getAccentColor(context), clickHandler);
+        handlePartialClickableTextView(
+                textView, contactDeviceProvider, deviceProvider, intent, spanFactory);
 
         contextMenuMaker.registerWithActivity(textView);
     }
@@ -873,52 +758,38 @@ public class Utils {
         textView.setText(spannableString);
     }
 
-    public static boolean isSilentProvisioningForTestingDeviceOwner(
-                Context context, ProvisioningParams params) {
-        final DevicePolicyManager dpm = context.getSystemService(DevicePolicyManager.class);
-        final ComponentName currentDeviceOwner =
-                dpm.getDeviceOwnerComponentOnCallingUser();
-        final ComponentName targetDeviceAdmin = params.deviceAdminComponentName;
-
-        switch (params.provisioningAction) {
-            case DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE:
-                return isPackageTestOnly(context, params)
-                        && currentDeviceOwner != null
-                        && targetDeviceAdmin != null
-                        && currentDeviceOwner.equals(targetDeviceAdmin);
-            default:
-                return false;
-        }
-    }
-
-    private static boolean isSilentProvisioningForTestingManagedProfile(
-        Context context, ProvisioningParams params) {
-        return DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE.equals(
-                params.provisioningAction) && isPackageTestOnly(context, params);
-    }
-
-    public static boolean isSilentProvisioning(Context context, ProvisioningParams params) {
-        return isSilentProvisioningForTestingManagedProfile(context, params)
-                || isSilentProvisioningForTestingDeviceOwner(context, params);
-    }
-
-    private static boolean isPackageTestOnly(Context context, ProvisioningParams params) {
-        final UserManager userManager = context.getSystemService(UserManager.class);
-        return isPackageTestOnly(context.getPackageManager(),
-                params.inferDeviceAdminPackageName(), userManager.getUserHandle());
+    /**
+     * Gets the device's current device owner admin component.
+     */
+    @Nullable
+    public ComponentName getCurrentDeviceOwnerComponentName(DevicePolicyManager dpm) {
+        return isHeadlessSystemUserMode()
+                ? dpm.getDeviceOwnerComponentOnAnyUser()
+                : dpm.getDeviceOwnerComponentOnCallingUser();
     }
 
     public static FooterButton addNextButton(GlifLayout layout, @NonNull OnClickListener listener) {
         return setPrimaryButton(layout, listener, ButtonType.NEXT, R.string.next);
     }
 
-    public static FooterButton addDoneButton(GlifLayout layout, @NonNull OnClickListener listener) {
-        return setPrimaryButton(layout, listener, ButtonType.DONE, R.string.done);
+    /**
+     * Adds an encryption primary button mixin to a {@link GlifLayout} screen.
+     */
+    public static FooterButton addEncryptButton(
+            GlifLayout layout, @NonNull OnClickListener listener) {
+        return setPrimaryButton(layout, listener, ButtonType.NEXT, R.string.encrypt);
     }
 
     public static FooterButton addAcceptAndContinueButton(GlifLayout layout,
         @NonNull OnClickListener listener) {
         return setPrimaryButton(layout, listener, ButtonType.NEXT, R.string.accept_and_continue);
+    }
+
+    /** Adds a primary "Cancel setup" button */
+    public static FooterButton addResetButton(GlifLayout layout,
+            @NonNull OnClickListener listener) {
+        return setPrimaryButton(layout, listener, ButtonType.CANCEL,
+                R.string.fully_managed_device_reset_and_return_button);
     }
 
     private static FooterButton setPrimaryButton(GlifLayout layout, OnClickListener listener,
@@ -932,6 +803,29 @@ public class Utils {
             .build();
         mixin.setPrimaryButton(primaryButton);
         return primaryButton;
+    }
+
+    /** Adds a secondary "abort & reset" button. */
+    public static FooterButton addAbortAndResetButton(GlifLayout layout,
+            @NonNull OnClickListener listener) {
+        final int buttonType = ButtonType.CANCEL;
+        final int buttonLabel = R.string.fully_managed_device_cancel_setup_button;
+
+        return addSecondaryButton(layout, listener, buttonType, buttonLabel);
+    }
+
+    private static FooterButton addSecondaryButton(GlifLayout layout,
+            @NonNull OnClickListener listener,
+            @ButtonType int buttonType, @StringRes int buttonLabel) {
+        final FooterBarMixin mixin = layout.getMixin(FooterBarMixin.class);
+        final FooterButton secondaryButton = new FooterButton.Builder(layout.getContext())
+                .setText(buttonLabel)
+                .setListener(listener)
+                .setButtonType(buttonType)
+                .setTheme(R.style.SudGlifButton_Secondary)
+                .build();
+        mixin.setSecondaryButton(secondaryButton);
+        return secondaryButton;
     }
 
     public SimpleDialog.Builder createCancelProvisioningResetDialogBuilder() {
@@ -949,6 +843,43 @@ public class Utils {
         return getBaseDialogBuilder(positiveResId, negativeResId, dialogMsgResId);
     }
 
+    public boolean shouldShowOwnershipDisclaimerScreen(ProvisioningParams params) {
+        return !params.skipOwnershipDisclaimer;
+    }
+
+    public boolean isOrganizationOwnedAllowed(ProvisioningParams params) {
+        int provisioningModes = params.initiatorRequestedProvisioningModes;
+        return containsBinaryFlags(provisioningModes, FLAG_SUPPORTED_MODES_ORGANIZATION_OWNED)
+                || containsBinaryFlags(provisioningModes, FLAG_SUPPORTED_MODES_DEVICE_OWNER);
+    }
+
+    public boolean isManagedProfileProvisioningStartedByDpc(
+            Context context,
+            ProvisioningParams params,
+            SettingsFacade settingsFacade) {
+        if (!ACTION_PROVISION_MANAGED_PROFILE.equals(params.provisioningAction)) {
+            return false;
+        }
+        if (params.startedByTrustedSource) {
+            return false;
+        }
+        return settingsFacade.isUserSetupCompleted(context);
+    }
+
+    /**
+     * Returns {@code true} if {@code packageName} is installed on the primary user.
+     */
+    public boolean isPackageInstalled(String packageName, PackageManager packageManager) {
+        try {
+            final ApplicationInfo ai = packageManager.getApplicationInfo(packageName,
+                    PackageManager.MATCH_DIRECT_BOOT_AWARE
+                            | PackageManager.MATCH_DIRECT_BOOT_UNAWARE);
+            return ai != null;
+        } catch (PackageManager.NameNotFoundException e) {
+            return false;
+        }
+    }
+
     private SimpleDialog.Builder getBaseDialogBuilder(
             int positiveResId, int negativeResId, int dialogMsgResId) {
         return new SimpleDialog.Builder()
@@ -956,5 +887,26 @@ public class Utils {
                 .setMessage(dialogMsgResId)
                 .setNegativeButtonMessage(negativeResId)
                 .setPositiveButtonMessage(positiveResId);
+    }
+
+    /**
+     * Returns {@code true} if {@code value} contains the {@code flags} binary flags.
+     */
+    public boolean containsBinaryFlags(int value, int flags) {
+        return (value & flags) == flags;
+    }
+
+    /**
+     * Calls {@code callback} when {@code view} has been measured.
+     */
+    public void onViewMeasured(View view, Consumer<View> callback) {
+        view.getViewTreeObserver().addOnGlobalLayoutListener(
+                new ViewTreeObserver.OnGlobalLayoutListener() {
+                @Override
+                public void onGlobalLayout() {
+                    view.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+                    callback.accept(view);
+                }
+            });
     }
 }

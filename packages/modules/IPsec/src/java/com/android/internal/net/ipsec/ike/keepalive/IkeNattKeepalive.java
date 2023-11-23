@@ -20,6 +20,7 @@ import static android.net.ipsec.ike.IkeManager.getIkeLog;
 
 import android.app.PendingIntent;
 import android.content.Context;
+import android.net.ConnectivityManager;
 import android.net.IpSecManager.UdpEncapsulationSocket;
 import android.net.Network;
 
@@ -40,6 +41,7 @@ public class IkeNattKeepalive {
     /** Construct an instance of IkeNattKeepalive */
     public IkeNattKeepalive(
             Context context,
+            ConnectivityManager connectMgr,
             int keepaliveDelaySeconds,
             Inet4Address src,
             Inet4Address dest,
@@ -50,6 +52,7 @@ public class IkeNattKeepalive {
         mNattKeepalive =
                 new HardwareKeepaliveImpl(
                         context,
+                        connectMgr,
                         keepaliveDelaySeconds,
                         src,
                         dest,

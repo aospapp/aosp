@@ -4,7 +4,7 @@ import android.net.LinkAddress
 import android.net.LinkProperties
 import android.net.Network
 import android.net.NetworkCapabilities
-import com.android.testutils.ConcurrentIntepreter
+import com.android.testutils.ConcurrentInterpreter
 import com.android.testutils.InterpretMatcher
 import com.android.testutils.RecorderCallback.CallbackEntry
 import com.android.testutils.RecorderCallback.CallbackEntry.Available
@@ -247,7 +247,7 @@ class TestableNetworkCallbackTest {
     }
 }
 
-private object TNCInterpreter : ConcurrentIntepreter<TestableNetworkCallback>(interpretTable)
+private object TNCInterpreter : ConcurrentInterpreter<TestableNetworkCallback>(interpretTable)
 
 val EntryList = CallbackEntry::class.sealedSubclasses.map { it.simpleName }.joinToString("|")
 private fun callbackEntryFromString(name: String): KClass<out CallbackEntry> {

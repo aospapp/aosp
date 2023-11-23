@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3077225713817780583">"কল পৰিচালনা"</string>
+    <string name="telecommAppLabel" product="default" msgid="1825598513414129827">"ফ’ন কল"</string>
     <string name="userCallActivityLabel" product="default" msgid="3605391260292846248">"ফ’ন"</string>
     <string name="unknown" msgid="6993977514360123431">"অজ্ঞাত"</string>
     <string name="notification_missedCallTitle" msgid="5060387047205532974">"মিছ্ড কল"</string>

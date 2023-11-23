@@ -122,7 +122,7 @@ public class DownloadService extends Service {
                     .setIdentifier(String.valueOf(mId));
 
             final PendingIntent pendingIntent = PendingIntent.getService(context,
-                    0 /* requestCode */, cancelIntent, 0 /* flags */);
+                    0 /* requestCode */, cancelIntent, PendingIntent.FLAG_IMMUTABLE);
             final Notification.Action cancelAction = new Notification.Action.Builder(
                     Icon.createWithResource(context, R.drawable.ic_close),
                     res.getString(android.R.string.cancel),
@@ -216,8 +216,8 @@ public class DownloadService extends Service {
         }
 
         synchronized (mQueue) {
-            final DownloadTask task = new DownloadTask(mNextDownloadId.getAndIncrement(), network,
-                    userAgent, url, filename, outFile, this);
+            final DownloadTask task = new DownloadTask(mNextDownloadId.getAndIncrement(),
+                    network.getPrivateDnsBypassingCopy(), userAgent, url, filename, outFile, this);
             mQueue.add(task);
             if (!mProcessing) {
                 startForeground(NOTE_DOWNLOAD_PROGRESS, makeProgressNotification(task,

@@ -119,6 +119,7 @@
     <string name="player_started" translatable="false">Player Started</string>
     <string name="player_delayed" translatable="false">Player Delayed</string>
     <string name="player_stopped" translatable="false">Player Stopped</string>
+    <string name="player_status_title" translatable="false">Player Status</string>
     <string name="nav_play" translatable="false">Nav Play</string>
     <string name="vr_play" translatable="false">VR Play</string>
     <string name="system_play" translatable="false">System Play</string>
@@ -142,6 +143,8 @@
     <string name="activity_current_zone_id" translatable="false">Activity\'s current audio zone id</string>
     <string name="no_zone" translatable="false">none</string>
     <string name="phone_audio_player" translatable="false">Phone Player</string>
+    <string name="track_audio_player" translatable="false">Track Player Tone Generator </string>
+    <string name="select_tone_to_hear_on_speaker" translatable="false">Tone</string>
 
     <!-- Audio Input-->
     <string name="play_audio_input" translatable="false">Play</string>
@@ -169,6 +172,7 @@
     <string name="volume_up" translatable="false">Volume +</string>
     <string name="volume_down" translatable="false">Volume -</string>
     <string name="volume_mute" translatable="false">Mute</string>
+    <string name="volume_unmute" translatable="false">Unmute</string>
     <string name="voice" translatable="false">Voice</string>
     <string name="mock_vehicle_hal" translatable="false">Mock HAL</string>
     <string name="mock_vehicle_hal_off" translatable="false">Mock HAL OFF</string>
@@ -360,10 +364,17 @@
     <string name="always_crashing_activity" translatable="false">Always Crash Activity</string>
     <string name="no_crash_activity" translatable="false">No Crash Activity</string>
     <string name="empty_activity" translatable="false">Empty Activity</string>
+    <string name="audio_auto_start_activity" translatable="false">Audio Auto Start Activity</string>
+    <string name="occupant_zone_start_activity" translatable="false">Occupant Zone Start Activity</string>
+    <string name="window_insets_test_activity" translatable="false">Window Insets Test Activity</string>
 
     <!-- ExperimentalFeatureTest -->
     <string name="experimental_ping" translatable="false">Ping Service</string>
 
     <!-- User Profile -->
     <string name="status_message_title">Status Message</string>
+
+    <!-- Fullscreen Activity Test -->
+    <string name="nav_to_full_screen" translatable="false">Navigate to Full Screen</string>
+    <string name="cancel" translatable="false">Cancel</string>
 </resources>

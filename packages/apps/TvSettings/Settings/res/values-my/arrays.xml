@@ -36,7 +36,7 @@
   <string-array name="captioning_typeface_selector_titles">
     <item msgid="890926483922346934">"ပုံသေ"</item>
     <item msgid="3343022995357433227">"Sans-seri"</item>
-    <item msgid="5638318073828379963">"Sans-serif သိပ်သည်း"</item>
+    <item msgid="5638318073828379963">"Sans-serif condensed"</item>
     <item msgid="7195810992054707804">"Sans-serif monospace"</item>
     <item msgid="3746382747920668734">"Serif"</item>
     <item msgid="5506326688955062027">"Serif monospace"</item>
@@ -63,6 +63,12 @@
     <item msgid="6571958570070138850">"၅၀%"</item>
     <item msgid="8127599536762217559">"၇၅%"</item>
     <item msgid="4680121960387090302">"၁၀၀%"</item>
+  </string-array>
+  <string-array name="font_scale_entries">
+    <item msgid="6953338104484431184">"သေး"</item>
+    <item msgid="3988732129988118066">"မူရင်း"</item>
+    <item msgid="366536516474422757">"ကြီး"</item>
+    <item msgid="2224819763437549790">"အကြီးဆုံး"</item>
   </string-array>
   <string-array name="wifi_peap_phase2_entries">
     <item msgid="5504589898033185752">"မရှိ"</item>

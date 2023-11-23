@@ -33,7 +33,24 @@ import com.android.managedprovisioning.task.VerifyPackageTask;
  */
 public class AdminIntegratedFlowPrepareController extends AbstractProvisioningController {
 
-    public AdminIntegratedFlowPrepareController(
+    /**
+     * Instantiates a new {@link AdminIntegratedFlowPrepareController} instance and creates the
+     * relevant tasks.
+     *
+     * @return the newly created instance
+     */
+    static AdminIntegratedFlowPrepareController createInstance(
+            Context context,
+            ProvisioningParams params,
+            int userId,
+            ProvisioningControllerCallback callback) {
+        AdminIntegratedFlowPrepareController controller =
+                new AdminIntegratedFlowPrepareController(context, params, userId, callback);
+        controller.setUpTasks();
+        return controller;
+    }
+
+    private AdminIntegratedFlowPrepareController(
             Context context,
             ProvisioningParams params,
             int userId,
@@ -49,12 +66,7 @@ public class AdminIntegratedFlowPrepareController extends AbstractProvisioningCo
             addTasks(new ConnectMobileNetworkTask(mContext, mParams, this));
         }
 
-        if (mParams.deviceAdminDownloadInfo != null) {
-            DownloadPackageTask downloadTask = new DownloadPackageTask(mContext, mParams, this);
-            addTasks(downloadTask,
-                    new VerifyPackageTask(downloadTask, mContext, mParams, this),
-                    new InstallPackageTask(downloadTask, mContext, mParams, this));
-        }
+        addDownloadAndInstallDeviceOwnerPackageTasks();
     }
 
     @Override
@@ -95,10 +107,5 @@ public class AdminIntegratedFlowPrepareController extends AbstractProvisioningCo
     @Override
     protected boolean getRequireFactoryReset(AbstractProvisioningTask task, int errorCode) {
         return !(task instanceof AddWifiNetworkTask);
-    }
-
-    @Override
-    protected void performCleanup() {
-        // Do nothing, because a factory reset will be triggered.
     }
 }

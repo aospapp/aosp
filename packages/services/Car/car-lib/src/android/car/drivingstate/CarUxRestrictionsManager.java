@@ -384,7 +384,7 @@ public final class CarUxRestrictionsManager extends CarManagerBase {
         return mDisplayId;
     }
 
-    // Dummy Callback to identify the requester of reportVirtualDisplayToPhysicalDisplay() and
+    // Placeholder Callback to identify the requester of reportVirtualDisplayToPhysicalDisplay() and
     // to clean up the internal data when the requester is crashed.
     private final IRemoteCallback mRequester = new IRemoteCallback.Stub() {
         @Override

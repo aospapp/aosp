@@ -511,10 +511,16 @@ public class HvacPanelController {
      };
 
     public void toggleHvacUi() {
-        if(mCurrentState != STATE_COLLAPSED) {
+        if (mCurrentState != STATE_COLLAPSED) {
             mCollapseHvac.onClick(null);
         } else {
             mExpandHvac.onClick(null);
+        }
+    }
+
+    public void collapseHvacUi() {
+        if (mCurrentState != STATE_COLLAPSED) {
+            mCollapseHvac.onClick(null);
         }
     }
 

@@ -1,3 +1,7 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CellBroadcastServiceTests",
     static_libs: [
@@ -16,7 +20,8 @@ android_test {
     ],
     srcs: ["src/**/*.java", ":cellbroadcast-shared-srcs"],
     platform_apis: true,
-    test_suites: ["device-tests", "mts"],
+    test_suites: ["general-tests", "mts-cellbroadcast"],
     certificate: "platform",
     instrumentation_for: "CellBroadcastServiceModule",
+    min_sdk_version: "30",
 }

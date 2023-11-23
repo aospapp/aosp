@@ -17,37 +17,61 @@
 package com.android;
 
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doAnswer;
 
 import android.content.BroadcastReceiver;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
+import android.os.Binder;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.PersistableBundle;
 import android.telecom.TelecomManager;
 import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
+import android.telephony.ims.ImsManager;
 import android.test.mock.MockContext;
+import android.util.Log;
+import android.util.SparseArray;
 
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.mockito.stubbing.Answer;
 
+import java.util.HashSet;
 import java.util.concurrent.Executor;
 
 public class TestContext extends MockContext {
+
+    private static final String TAG = "TestContext";
+    // Stub used to grant all permissions
+    public static final String STUB_PERMISSION_ENABLE_ALL = "stub_permission_enable_all";
 
     @Mock CarrierConfigManager mMockCarrierConfigManager;
     @Mock TelecomManager mMockTelecomManager;
     @Mock TelephonyManager mMockTelephonyManager;
     @Mock SubscriptionManager mMockSubscriptionManager;
+    @Mock ImsManager mMockImsManager;
 
-    private PersistableBundle mCarrierConfig = new PersistableBundle();
+    private SparseArray<PersistableBundle> mCarrierConfigs = new SparseArray<>();
+
+    private final HashSet<String> mPermissionTable = new HashSet<>();
 
     public TestContext() {
         MockitoAnnotations.initMocks(this);
-        doReturn(mCarrierConfig).when(mMockCarrierConfigManager).getConfigForSubId(anyInt());
+        doAnswer((Answer<PersistableBundle>) invocation -> {
+            int subId = (int) invocation.getArguments()[0];
+            if (subId < 0) {
+                return new PersistableBundle();
+            }
+            PersistableBundle b = mCarrierConfigs.get(subId);
+
+            return (b != null ? b : new PersistableBundle());
+        }).when(mMockCarrierConfigManager).getConfigForSubId(anyInt());
     }
 
     @Override
@@ -94,6 +118,11 @@ public class TestContext extends MockContext {
     }
 
     @Override
+    public ContentResolver getContentResolver() {
+        return null;
+    }
+
+    @Override
     public Object getSystemService(String name) {
         switch (name) {
             case (Context.CARRIER_CONFIG_SERVICE) : {
@@ -107,6 +136,9 @@ public class TestContext extends MockContext {
             }
             case (Context.TELEPHONY_SUBSCRIPTION_SERVICE) : {
                 return mMockSubscriptionManager;
+            }
+            case(Context.TELEPHONY_IMS_SERVICE) : {
+                return mMockImsManager;
             }
         }
         return null;
@@ -129,7 +161,83 @@ public class TestContext extends MockContext {
         return null;
     }
 
-    public PersistableBundle getCarrierConfig() {
-        return mCarrierConfig;
+    @Override
+    public Handler getMainThreadHandler() {
+        return new Handler(Looper.getMainLooper());
+    }
+
+    /**
+     * @return CarrierConfig PersistableBundle for the subscription specified.
+     */
+    public PersistableBundle getCarrierConfig(int subId) {
+        PersistableBundle b = mCarrierConfigs.get(subId);
+        if (b == null) {
+            b = new PersistableBundle();
+            mCarrierConfigs.put(subId, b);
+        }
+        return b;
+    }
+
+    @Override
+    public void enforceCallingOrSelfPermission(String permission, String message) {
+        if (checkCallingOrSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
+            throw new SecurityException(permission + " denied: " + message);
+        }
+    }
+
+    @Override
+    public void enforcePermission(String permission, int pid, int uid, String message) {
+        enforceCallingOrSelfPermission(permission, message);
+    }
+
+    @Override
+    public void enforceCallingPermission(String permission, String message) {
+        enforceCallingOrSelfPermission(permission, message);
+    }
+
+    @Override
+    public int checkCallingOrSelfPermission(String permission) {
+        return checkPermission(permission, Binder.getCallingPid(), Binder.getCallingUid());
+    }
+
+    @Override
+    public int checkPermission(String permission, int pid, int uid) {
+        synchronized (mPermissionTable) {
+            if (mPermissionTable.contains(permission)
+                    || mPermissionTable.contains(STUB_PERMISSION_ENABLE_ALL)) {
+                logd("checkCallingOrSelfPermission: " + permission + " return GRANTED");
+                return PackageManager.PERMISSION_GRANTED;
+            } else {
+                logd("checkCallingOrSelfPermission: " + permission + " return DENIED");
+                return PackageManager.PERMISSION_DENIED;
+            }
+        }
+    }
+
+    public void grantPermission(String permission) {
+        synchronized (mPermissionTable) {
+            if (mPermissionTable != null && permission != null) {
+                mPermissionTable.remove(STUB_PERMISSION_ENABLE_ALL);
+                mPermissionTable.add(permission);
+            }
+        }
+    }
+
+    public void revokePermission(String permission) {
+        synchronized (mPermissionTable) {
+            if (mPermissionTable != null && permission != null) {
+                mPermissionTable.remove(permission);
+            }
+        }
+    }
+
+    public void revokeAllPermissions() {
+        synchronized (mPermissionTable) {
+            mPermissionTable.clear();
+        }
+    }
+
+    private static void logd(String s) {
+        Log.d(TAG, s);
     }
 }

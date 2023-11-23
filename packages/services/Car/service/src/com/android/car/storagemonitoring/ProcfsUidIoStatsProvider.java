@@ -17,10 +17,12 @@ package com.android.car.storagemonitoring;
 
 import android.annotation.Nullable;
 import android.car.storagemonitoring.UidIoRecord;
-import android.util.Log;
+import android.util.Slog;
 import android.util.SparseArray;
+
 import com.android.car.CarLog;
 import com.android.internal.annotations.VisibleForTesting;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -56,14 +58,14 @@ public class ProcfsUidIoStatsProvider implements UidIoStatsProvider {
         try {
             lines = Files.readAllLines(mStatsFile);
         } catch (IOException e) {
-            Log.w(CarLog.TAG_STORAGE, "can't read I/O stats from " + mStatsFile, e);
+            Slog.w(CarLog.TAG_STORAGE, "can't read I/O stats from " + mStatsFile, e);
             return null;
         }
 
         for (String line : lines) {
             StringTokenizer tokenizer = new StringTokenizer(line);
             if (tokenizer.countTokens() != 11) {
-                Log.w(CarLog.TAG_STORAGE, "malformed I/O stats entry: " + line);
+                Slog.w(CarLog.TAG_STORAGE, "malformed I/O stats entry: " + line);
                 return null;
             }
 
@@ -93,7 +95,7 @@ public class ProcfsUidIoStatsProvider implements UidIoStatsProvider {
                             background_fsync));
 
             } catch (NumberFormatException e) {
-                Log.w(CarLog.TAG_STORAGE, "malformed I/O stats entry: " + line, e);
+                Slog.w(CarLog.TAG_STORAGE, "malformed I/O stats entry: " + line, e);
                 return null;
             }
         }

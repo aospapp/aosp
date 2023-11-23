@@ -82,8 +82,9 @@ struct DnsRecord {
 
 // TODO: make this dynamic and stop depending on implementation details.
 constexpr int TEST_NETID = 30;
-// Use maximum reserved appId for applications to avoid conflict with existing uids.
+// Use the biggest two reserved appId for applications to avoid conflict with existing uids.
 constexpr int TEST_UID = 99999;
+constexpr int TEST_UID2 = 99998;
 
 static constexpr char kLocalHost[] = "localhost";
 static constexpr char kLocalHostAddr[] = "127.0.0.1";

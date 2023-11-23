@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"Ziurtagiriak kanpoko memorian daukazun eta %1$s edo %2$s luzapena duen PKCS#12 fitxategi batetik instala ditzakezu."</string>
     <string name="allow_button" msgid="3030990695030371561">"Hautatu"</string>
     <string name="deny_button" msgid="3766539809121892584">"Ukatu"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"Ziurtagiriak kargatzen…"</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"%s ziurtagiri bat egiaztatzen ari da…"</string>
 </resources>

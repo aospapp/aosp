@@ -16,10 +16,12 @@
 
 package com.android.cellbroadcastreceiver.unit;
 
+import static android.telephony.SubscriptionManager.INVALID_SUBSCRIPTION_ID;
+
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
@@ -29,9 +31,9 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
 import android.content.ContentResolver;
+import android.content.Context;
 import android.content.IContentProvider;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
@@ -42,6 +44,7 @@ import android.os.UserManager;
 import android.provider.Telephony;
 import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionManager;
+import android.telephony.TelephonyManager;
 import android.telephony.cdma.CdmaSmsCbProgramData;
 
 import com.android.cellbroadcastreceiver.CellBroadcastAlertService;
@@ -55,7 +58,6 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -69,12 +71,6 @@ public class CellBroadcastReceiverTest extends CellBroadcastTest {
     @Mock
     UserManager mUserManager;
     @Mock
-    SharedPreferences mSharedPreferences;
-    @Mock
-    private SharedPreferences.Editor mEditor;
-    @Mock
-    SharedPreferences mDefaultSharedPreferences;
-    @Mock
     Intent mIntent;
     @Mock
     PackageManager mPackageManager;
@@ -84,6 +80,11 @@ public class CellBroadcastReceiverTest extends CellBroadcastTest {
     ContentResolver mContentResolver;
     @Mock
     IContentProvider mContentProviderClient;
+    @Mock
+    TelephonyManager mMockTelephonyManager;
+    @Mock
+    SubscriptionManager mSubscriptionManager;
+    FakeSharedPreferences mFakeSharedPreferences = new FakeSharedPreferences();
 
     private Configuration mConfiguration = new Configuration();
     private AudioDeviceInfo[] mDevices = new AudioDeviceInfo[0];
@@ -115,41 +116,54 @@ public class CellBroadcastReceiverTest extends CellBroadcastTest {
     @Before
     public void setUp() throws Exception {
         super.setUp(this.getClass().getSimpleName());
-        MockitoAnnotations.initMocks(this);
         doReturn(mConfiguration).when(mResources).getConfiguration();
         mCellBroadcastReceiver = spy(new CellBroadcastReceiver());
         doReturn(mResources).when(mCellBroadcastReceiver).getResourcesMethod();
-        doNothing().when(mCellBroadcastReceiver).startConfigService();
+        doNothing().when(mCellBroadcastReceiver).startConfigServiceToEnableChannels();
         doReturn(mContext).when(mContext).getApplicationContext();
         doReturn(mPackageName).when(mContext).getPackageName();
-    }
-
-    @Test
-    public void testOnReceive_actionMarkAsRead() {
-        doReturn(CellBroadcastReceiver.ACTION_MARK_AS_READ).when(mIntent).getAction();
-        doNothing().when(mCellBroadcastReceiver).getCellBroadcastTask(anyLong());
-        mCellBroadcastReceiver.onReceive(mContext, mIntent);
-        verify(mIntent).getLongExtra(CellBroadcastReceiver.EXTRA_DELIVERY_TIME, -1);
-        verify(mCellBroadcastReceiver).getCellBroadcastTask(anyLong());
+        doReturn(mFakeSharedPreferences).when(mContext).getSharedPreferences(anyString(), anyInt());
+        doReturn(mUserManager).when(mContext).getSystemService(Context.USER_SERVICE);
+        doReturn(false).when(mUserManager).isSystemUser();
+        setContext();
     }
 
     @Test
     public void testOnReceive_actionCarrierConfigChanged() {
         doReturn(CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED).when(mIntent).getAction();
-        doNothing().when(mCellBroadcastReceiver).initializeSharedPreference();
         doNothing().when(mCellBroadcastReceiver).enableLauncher();
         mCellBroadcastReceiver.onReceive(mContext, mIntent);
-        verify(mCellBroadcastReceiver).initializeSharedPreference();
-        verify(mCellBroadcastReceiver).startConfigService();
+        verify(mCellBroadcastReceiver).initializeSharedPreference(any(), anyInt());
+        verify(mCellBroadcastReceiver).startConfigServiceToEnableChannels();
         verify(mCellBroadcastReceiver).enableLauncher();
+    }
+
+    @Test
+    public void testOnReceive_actionCarrierConfigChangedOnRebroadcast() {
+        doReturn(CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED).when(mIntent).getAction();
+        doReturn(true).when(mIntent)
+                .getBooleanExtra("android.telephony.extra.REBROADCAST_ON_UNLOCK", false);
+        mCellBroadcastReceiver.onReceive(mContext, mIntent);
+        verify(mCellBroadcastReceiver, never()).initializeSharedPreference(any(), anyInt());
+        verify(mCellBroadcastReceiver, never()).startConfigServiceToEnableChannels();
+        verify(mCellBroadcastReceiver, never()).enableLauncher();
+    }
+
+    @Test
+    public void testOnReceive_actionBootCompleted() {
+        doReturn(mContentResolver).when(mContext).getContentResolver();
+        doReturn(mContentProviderClient).when(mContentResolver).acquireContentProviderClient(
+                "cellbroadcasts-app");
+        doReturn(Intent.ACTION_BOOT_COMPLETED).when(mIntent).getAction();
+        mCellBroadcastReceiver.onReceive(mContext, mIntent);
     }
 
     @Test
     public void testOnReceive_cellbroadcastStartConfigAction() {
         doReturn(CellBroadcastReceiver.CELLBROADCAST_START_CONFIG_ACTION).when(mIntent).getAction();
         mCellBroadcastReceiver.onReceive(mContext, mIntent);
-        verify(mCellBroadcastReceiver, never()).initializeSharedPreference();
-        verify(mCellBroadcastReceiver).startConfigService();
+        verify(mCellBroadcastReceiver, never()).initializeSharedPreference(any(), anyInt());
+        verify(mCellBroadcastReceiver).startConfigServiceToEnableChannels();
     }
 
     @Test
@@ -158,8 +172,8 @@ public class CellBroadcastReceiverTest extends CellBroadcastTest {
                 .when(mIntent).getAction();
         doReturn(mUserManager).when(mContext).getSystemService(anyString());
         mCellBroadcastReceiver.onReceive(mContext, mIntent);
-        verify(mCellBroadcastReceiver, never()).initializeSharedPreference();
-        verify(mCellBroadcastReceiver).startConfigService();
+        verify(mCellBroadcastReceiver, never()).initializeSharedPreference(any(), anyInt());
+        verify(mCellBroadcastReceiver).startConfigServiceToEnableChannels();
     }
 
     @Test
@@ -195,30 +209,93 @@ public class CellBroadcastReceiverTest extends CellBroadcastTest {
     }
 
     @Test
-    public void testInitializeSharedPreference_ifSystemUser() {
+    public void testInitializeSharedPreference_ifSystemUser_invalidSub() {
         doReturn("An invalid action").when(mIntent).getAction();
-        doReturn(true).when(mCellBroadcastReceiver).isSystemUser();
-        doReturn(mDefaultSharedPreferences).when(mCellBroadcastReceiver)
-                .getDefaultSharedPreferences();
+        doReturn(true).when(mUserManager).isSystemUser();
         doReturn(true).when(mCellBroadcastReceiver).sharedPrefsHaveDefaultValues();
         doNothing().when(mCellBroadcastReceiver).adjustReminderInterval();
 
-        mCellBroadcastReceiver.initializeSharedPreference();
-        verify(mCellBroadcastReceiver).getDefaultSharedPreferences();
+        mCellBroadcastReceiver.initializeSharedPreference(mContext, INVALID_SUBSCRIPTION_ID);
+        verify(mContext, never()).startService(any());
+        // Check interval.
+    }
+
+    private void mockTelephonyManager() {
+        doReturn(mMockTelephonyManager).when(mMockTelephonyManager)
+                .createForSubscriptionId(anyInt());
+        doReturn(Context.TELEPHONY_SERVICE).when(mContext).getSystemServiceName(
+                TelephonyManager.class);
+        doReturn(mMockTelephonyManager).when(mContext).getSystemService(Context.TELEPHONY_SERVICE);
+    }
+
+    @Test
+    public void testInitializeSharedPreference_ifSystemUser_firstSub() throws Exception {
+        doReturn("An invalid action").when(mIntent).getAction();
+        doReturn(true).when(mUserManager).isSystemUser();
+        doReturn(true).when(mCellBroadcastReceiver).sharedPrefsHaveDefaultValues();
+        doNothing().when(mCellBroadcastReceiver).adjustReminderInterval();
+        mockTelephonyManager();
+
+        int subId = 1;
+        int otherSubId = 2;
+        // The subId has to match default sub for it to take action.
+        doReturn(SubscriptionManager.INVALID_SUBSCRIPTION_ID).when(mSubService).getDefaultSubId();
+        mCellBroadcastReceiver.initializeSharedPreference(mContext, subId);
+        verify(mContext, never()).startService(any());
+
+        // Not starting ConfigService, not matching default subId.
+        doReturn(otherSubId).when(mSubService).getDefaultSubId();
+        mCellBroadcastReceiver.initializeSharedPreference(mContext, subId);
+        verify(mContext, never()).startService(any());
+
+        // Not starting ConfigService, simCarrierId is UNKNOWN.
+        doReturn(subId).when(mSubService).getDefaultSubId();
+        doReturn(TelephonyManager.UNKNOWN_CARRIER_ID).when(mMockTelephonyManager)
+                .getSimCarrierId();
+        mCellBroadcastReceiver.initializeSharedPreference(mContext, subId);
+        verify(mContext, never()).startService(any());
+
+        // Not starting ConfigService, as there was no previous carrierId.
+        doReturn(subId).when(mMockTelephonyManager).getSimCarrierId();
+        mCellBroadcastReceiver.initializeSharedPreference(mContext, subId);
+        verify(mContext, never()).startService(any());
+    }
+
+    @Test
+    public void testInitializeSharedPreference_ifSystemUser_carrierChange() throws Exception {
+        doReturn("An invalid action").when(mIntent).getAction();
+        doReturn(true).when(mUserManager).isSystemUser();
+        doReturn(true).when(mCellBroadcastReceiver).sharedPrefsHaveDefaultValues();
+        doNothing().when(mCellBroadcastReceiver).adjustReminderInterval();
+        mockTelephonyManager();
+
+        int firstSubId = 1;
+        int secondSubId = 2;
+        // Initialize for first sub.
+        doReturn(firstSubId).when(mSubService).getDefaultSubId();
+        doReturn(firstSubId).when(mMockTelephonyManager).getSimCarrierId();
+        mCellBroadcastReceiver.initializeSharedPreference(mContext, firstSubId);
+        verify(mContext, never()).startService(any());
+
+        // InitializeSharedPreference for second sub.
+        // Starting ConfigService, as there's a carrierId change.
+        doReturn(secondSubId).when(mSubService).getDefaultSubId();
+        doReturn(secondSubId).when(mMockTelephonyManager).getSimCarrierId();
+        mCellBroadcastReceiver.initializeSharedPreference(mContext, secondSubId);
+        verify(mContext).startService(any());
     }
 
     @Test
     public void testInitializeSharedPreference_ifNotSystemUser() {
         doReturn("An invalid action").when(mIntent).getAction();
-        doReturn(false).when(mCellBroadcastReceiver).isSystemUser();
+        doReturn(false).when(mUserManager).isSystemUser();
 
-        mCellBroadcastReceiver.initializeSharedPreference();
-        verify(mSharedPreferences, never()).getBoolean(anyString(), anyBoolean());
+        mCellBroadcastReceiver.initializeSharedPreference(any(), anyInt());
+        assertThat(mFakeSharedPreferences.getValueCount()).isEqualTo(0);
     }
 
     @Test
     public void testMigrateSharedPreferenceFromLegacyWhenNoLegacyProvider() {
-        setContext();
         doReturn(mContentResolver).when(mContext).getContentResolver();
         doReturn(null).when(mContentResolver).acquireContentProviderClient(
                 Telephony.CellBroadcasts.AUTHORITY_LEGACY);
@@ -229,62 +306,44 @@ public class CellBroadcastReceiverTest extends CellBroadcastTest {
 
     @Test
     public void testMigrateSharedPreferenceFromLegacyWhenBundleNull() throws RemoteException {
-        setContext();
         doReturn(mContentResolver).when(mContext).getContentResolver();
         doReturn(mContentProviderClient).when(mContentResolver).acquireContentProviderClient(
                 Telephony.CellBroadcasts.AUTHORITY_LEGACY);
-        doReturn(mEditor).when(mSharedPreferences).edit();
         doReturn(null).when(mContentProviderClient).call(
                 anyString(), anyString(), anyString(), any());
-        doNothing().when(mEditor).apply();
 
         mCellBroadcastReceiver.migrateSharedPreferenceFromLegacy();
         verify(mContext).getSharedPreferences(anyString(), anyInt());
-        verify(mEditor, never()).putBoolean(anyString(), anyBoolean());
+        assertThat(mFakeSharedPreferences.getValueCount()).isEqualTo(0);
     }
 
     @Test
     public void testSetTestingMode() {
-        boolean isTestingMode = true;
-        setContext();
-        doReturn(mSharedPreferences).when(mContext).getSharedPreferences(anyString(), anyInt());
-        doReturn(mEditor).when(mSharedPreferences).edit();
-        doReturn(mEditor).when(mEditor).putBoolean(anyString(), anyBoolean());
-        doReturn(true).when(mEditor).commit();
-
-        mCellBroadcastReceiver.setTestingMode(isTestingMode);
-        verify(mEditor).putBoolean(CellBroadcastReceiver.TESTING_MODE, isTestingMode);
-    }
-
-    @Test
-    public void testIsTestingMode() {
-        doReturn(mSharedPreferences).when(mContext).getSharedPreferences(anyString(), anyInt());
-
-        mCellBroadcastReceiver.isTestingMode(mContext);
-        verify(mSharedPreferences).getBoolean("testing_mode", false);
+        assertThat(mCellBroadcastReceiver.isTestingMode(mContext)).isFalse();
+        mCellBroadcastReceiver.setTestingMode(true);
+        assertThat(mCellBroadcastReceiver.isTestingMode(mContext)).isTrue();
     }
 
     @Test
     public void testAdjustReminderInterval() {
-        setContext();
-        doReturn(mSharedPreferences).when(mContext).getSharedPreferences(anyString(), anyInt());
-        doReturn("currentInterval").when(mSharedPreferences).getString(
-                CellBroadcastReceiver.CURRENT_INTERVAL_DEFAULT, "0");
+        mFakeSharedPreferences.putString(CellBroadcastReceiver.CURRENT_INTERVAL_DEFAULT,
+                "currentInterval");
         doReturn(mResources).when(mContext).getResources();
+        doReturn(mContext).when(mContext).createConfigurationContext(any());
+        doReturn(mSubscriptionManager).when(mContext).getSystemService(
+                Context.TELEPHONY_SUBSCRIPTION_SERVICE);
         doReturn("newInterval").when(mResources).getString(
                 R.string.alert_reminder_interval_in_min_default);
-        doReturn(mEditor).when(mSharedPreferences).edit();
-        doReturn(mEditor).when(mEditor).putBoolean(anyString(), anyBoolean());
-        doReturn(true).when(mEditor).commit();
 
         mCellBroadcastReceiver.adjustReminderInterval();
-        verify(mEditor).putString(CellBroadcastReceiver.CURRENT_INTERVAL_DEFAULT, "newInterval");
+        assertThat(mFakeSharedPreferences.getString(
+                CellBroadcastReceiver.CURRENT_INTERVAL_DEFAULT, ""))
+                .isEqualTo("newInterval");
     }
 
     @Test
     public void testEnableLauncherIfNoLauncherActivity() throws
             PackageManager.NameNotFoundException {
-        setContext();
         doReturn(mPackageManager).when(mContext).getPackageManager();
         doReturn(mPackageInfo).when(mPackageManager).getPackageInfo(anyString(), anyInt());
 
@@ -302,7 +361,6 @@ public class CellBroadcastReceiverTest extends CellBroadcastTest {
 
     @Test
     public void testEnableLauncherIfEnableTrue() throws PackageManager.NameNotFoundException {
-        setContext();
         doReturn(mPackageManager).when(mContext).getPackageManager();
         doReturn(mPackageInfo).when(mPackageManager).getPackageInfo(anyString(), anyInt());
         doReturn(true).when(mResources)
@@ -323,7 +381,6 @@ public class CellBroadcastReceiverTest extends CellBroadcastTest {
 
     @Test
     public void testEnableLauncherIfEnableFalse() throws PackageManager.NameNotFoundException {
-        setContext();
         doReturn(mPackageManager).when(mContext).getPackageManager();
         doReturn(mPackageInfo).when(mPackageManager).getPackageInfo(anyString(), anyInt());
         doReturn(false).when(mResources)
@@ -345,38 +402,34 @@ public class CellBroadcastReceiverTest extends CellBroadcastTest {
     @Test
     public void testTryCdmaSetCatergory() {
         boolean enable = true;
-        doReturn(mSharedPreferences).when(mContext).getSharedPreferences(anyString(), anyInt());
-        doReturn(mEditor).when(mSharedPreferences).edit();
-        doReturn(mEditor).when(mEditor).putBoolean(anyString(), anyBoolean());
 
         mCellBroadcastReceiver.tryCdmaSetCategory(mContext,
                 CdmaSmsCbProgramData.CATEGORY_CMAS_EXTREME_THREAT, enable);
-        verify(mEditor).putBoolean(
-                CellBroadcastSettings.KEY_ENABLE_CMAS_EXTREME_THREAT_ALERTS, enable);
+        assertThat(mFakeSharedPreferences.getBoolean(
+                CellBroadcastSettings.KEY_ENABLE_CMAS_EXTREME_THREAT_ALERTS, !enable))
+                .isEqualTo(enable);
 
         mCellBroadcastReceiver.tryCdmaSetCategory(mContext,
                 CdmaSmsCbProgramData.CATEGORY_CMAS_SEVERE_THREAT, enable);
-        verify(mEditor).putBoolean(
-                CellBroadcastSettings.KEY_ENABLE_CMAS_SEVERE_THREAT_ALERTS, enable);
+        assertThat(mFakeSharedPreferences.getBoolean(
+                CellBroadcastSettings.KEY_ENABLE_CMAS_SEVERE_THREAT_ALERTS, !enable))
+                .isEqualTo(enable);
 
         mCellBroadcastReceiver.tryCdmaSetCategory(mContext,
                 CdmaSmsCbProgramData.CATEGORY_CMAS_CHILD_ABDUCTION_EMERGENCY, enable);
-        verify(mEditor).putBoolean(
-                CellBroadcastSettings.KEY_ENABLE_CMAS_AMBER_ALERTS, enable);
+        assertThat(mFakeSharedPreferences.getBoolean(
+                CellBroadcastSettings.KEY_ENABLE_CMAS_AMBER_ALERTS, !enable))
+                .isEqualTo(enable);
 
         mCellBroadcastReceiver.tryCdmaSetCategory(mContext,
                 CdmaSmsCbProgramData.CATEGORY_CMAS_TEST_MESSAGE, enable);
-        verify(mEditor).putBoolean(
-                CellBroadcastSettings.KEY_ENABLE_TEST_ALERTS, enable);
+        assertThat(mFakeSharedPreferences.getBoolean(
+                CellBroadcastSettings.KEY_ENABLE_TEST_ALERTS, !enable))
+                .isEqualTo(enable);
     }
 
     @Test
     public void testHandleCdmaSmsCbProgramDataOperationAddAndDelete() {
-        setContext();
-        doReturn(mSharedPreferences).when(mContext).getSharedPreferences(anyString(), anyInt());
-        doReturn(mEditor).when(mSharedPreferences).edit();
-        doReturn(mEditor).when(mEditor).putBoolean(anyString(), anyBoolean());
-
         CdmaSmsCbProgramData programData = new CdmaSmsCbProgramData(
                 CdmaSmsCbProgramData.OPERATION_ADD_CATEGORY,
                 CdmaSmsCbProgramData.CATEGORY_CMAS_EXTREME_THREAT,
@@ -395,11 +448,6 @@ public class CellBroadcastReceiverTest extends CellBroadcastTest {
 
     @Test
     public void testHandleCdmaSmsCbProgramDataOprationClear() {
-        setContext();
-        doReturn(mSharedPreferences).when(mContext).getSharedPreferences(anyString(), anyInt());
-        doReturn(mEditor).when(mSharedPreferences).edit();
-        doReturn(mEditor).when(mEditor).putBoolean(anyString(), anyBoolean());
-
         CdmaSmsCbProgramData programData = new CdmaSmsCbProgramData(
                 CdmaSmsCbProgramData.OPERATION_CLEAR_CATEGORIES,
                 CdmaSmsCbProgramData.CATEGORY_CMAS_PRESIDENTIAL_LEVEL_ALERT,
@@ -418,7 +466,6 @@ public class CellBroadcastReceiverTest extends CellBroadcastTest {
     //this method is just to assign mContext to the spied instance mCellBroadcastReceiver
     private void setContext() {
         doReturn("dummy action").when(mIntent).getAction();
-        doNothing().when(mCellBroadcastReceiver).getCellBroadcastTask(anyLong());
 
         mCellBroadcastReceiver.onReceive(mContext, mIntent);
     }

@@ -16,6 +16,15 @@
 
 package com.android.tv.settings;
 
+import static com.android.tv.settings.accounts.AccountsUtil.ACCOUNTS_BASIC_MODE_FRAGMENT;
+import static com.android.tv.settings.accounts.AccountsUtil.ACCOUNTS_FRAGMENT_DEFAULT;
+import static com.android.tv.settings.accounts.AccountsUtil.ACCOUNTS_FRAGMENT_RESTRICTED;
+import static com.android.tv.settings.accounts.AccountsUtil.ACCOUNTS_SLICE_FRAGMENT;
+import static com.android.tv.settings.accounts.AccountsUtil.ACCOUNTS_SYSTEM_INTENT;
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_CLASSIC;
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_TWO_PANEL;
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_VENDOR;
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_X;
 import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
 import static com.android.tv.settings.util.InstrumentationUtils.logPageFocused;
 
@@ -24,20 +33,20 @@ import android.accounts.AccountManager;
 import android.app.tvsettings.TvSettingsEnums;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.ProviderInfo;
 import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
+import android.net.Uri;
 import android.os.Bundle;
 import android.service.settings.suggestions.Suggestion;
-import android.telephony.SignalStrength;
+import android.telephony.CellSignalStrength;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -48,22 +57,20 @@ import androidx.annotation.Keep;
 import androidx.annotation.VisibleForTesting;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
-import androidx.preference.SwitchPreference;
 
 import com.android.settingslib.core.AbstractPreferenceController;
-import com.android.settingslib.suggestions.SuggestionControllerMixin;
-import com.android.settingslib.utils.IconCache;
+import com.android.settingslib.suggestions.SuggestionControllerMixinCompat;
 import com.android.tv.settings.HotwordSwitchController.HotwordStateListener;
 import com.android.tv.settings.accounts.AccountsFragment;
+import com.android.tv.settings.accounts.AccountsUtil;
 import com.android.tv.settings.connectivity.ConnectivityListener;
-import com.android.tv.settings.overlay.FeatureFactory;
+import com.android.tv.settings.overlay.FlavorUtils;
 import com.android.tv.settings.suggestions.SuggestionPreference;
 import com.android.tv.settings.system.SecurityFragment;
 import com.android.tv.settings.util.SliceUtils;
 import com.android.tv.twopanelsettings.TwoPanelSettingsFragment;
 import com.android.tv.twopanelsettings.slices.SlicePreference;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -72,15 +79,18 @@ import java.util.Set;
  */
 @Keep
 public class MainFragment extends PreferenceControllerFragment implements
-        SuggestionControllerMixin.SuggestionControllerHost, SuggestionPreference.Callback,
+        SuggestionControllerMixinCompat.SuggestionControllerHost, SuggestionPreference.Callback,
         HotwordStateListener {
 
     private static final String TAG = "MainFragment";
-    private static final String KEY_SUGGESTIONS_LIST = "suggestions";
+    private static final String KEY_BASIC_MODE_SUGGESTION = "basic_mode_suggestion";
+    private static final String KEY_BASIC_MODE_EXIT = "basic_mode_exit";
     @VisibleForTesting
     static final String KEY_ACCOUNTS_AND_SIGN_IN = "accounts_and_sign_in";
     @VisibleForTesting
     static final String KEY_ACCOUNTS_AND_SIGN_IN_SLICE = "accounts_and_sign_in_slice";
+    @VisibleForTesting
+    static final String KEY_ACCOUNTS_AND_SIGN_IN_BASIC_MODE = "accounts_and_sign_in_basic_mode";
     private static final String KEY_APPLICATIONS = "applications";
     @VisibleForTesting
     static final String KEY_ACCESSORIES = "remotes_and_accessories";
@@ -98,18 +108,11 @@ public class MainFragment extends PreferenceControllerFragment implements
     static final String KEY_PRIVACY = "privacy";
     @VisibleForTesting
     static final String KEY_DISPLAY_AND_SOUND = "display_and_sound";
-    @VisibleForTesting
-    static final String KEY_QUICK_SETTINGS = "quick_settings";
     private static final String KEY_CHANNELS_AND_INPUTS = "channels_and_inputs";
 
     private static final String ACTION_ACCOUNTS = "com.android.tv.settings.ACCOUNTS";
     @VisibleForTesting
     ConnectivityListener mConnectivityListener;
-    @VisibleForTesting
-    PreferenceCategory mSuggestionsList;
-    private SuggestionControllerMixin mSuggestionControllerMixin;
-    @VisibleForTesting
-    IconCache mIconCache;
     @VisibleForTesting
     BluetoothAdapter mBtAdapter;
     @VisibleForTesting
@@ -117,13 +120,7 @@ public class MainFragment extends PreferenceControllerFragment implements
     @VisibleForTesting
     boolean mHasAccounts;
 
-    /** Controllers for the Quick Settings section. */
-    private List<AbstractPreferenceController> mPreferenceControllers;
-    private HotwordSwitchController mHotwordSwitchController;
-    private TakeBugReportController mTakeBugReportController;
-    private PreferenceCategory mQuickSettingsList;
-    private SwitchPreference mHotwordSwitch;
-    private Preference mTakeBugReportPreference;
+    private SuggestionQuickSettingPrefsContainer mSuggestionQuickSettingPrefsContainer;
 
     private final BroadcastReceiver mBCMReceiver = new BroadcastReceiver() {
         @Override
@@ -137,21 +134,31 @@ public class MainFragment extends PreferenceControllerFragment implements
     }
 
     @Override
-    public int getMetricsCategory() {
-        // Do not log visibility.
-        return METRICS_CATEGORY_UNKNOWN;
+    protected int getPreferenceScreenResId() {
+        switch (FlavorUtils.getFlavor(getContext())) {
+            case FLAVOR_CLASSIC:
+            case FLAVOR_TWO_PANEL:
+                return R.xml.main_prefs;
+            case FLAVOR_X:
+                return R.xml.main_prefs_x;
+            case FLAVOR_VENDOR:
+                return R.xml.main_prefs_vendor;
+            default:
+                return R.xml.main_prefs;
+        }
     }
 
-    @Override
-    protected int getPreferenceScreenResId() {
-        return R.xml.main_prefs;
+    @Override 
+    public void onAttach(Context context) {
+        mSuggestionQuickSettingPrefsContainer = new SuggestionQuickSettingPrefsContainer(this);
+        super.onAttach(context);
     }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        mIconCache = new IconCache(getContext());
-        mConnectivityListener =
-                new ConnectivityListener(getContext(), this::updateConnectivity, getLifecycle());
+        mSuggestionQuickSettingPrefsContainer.onCreate();
+        mConnectivityListener = new ConnectivityListener(getContext(), this::updateConnectivity,
+                getSettingsLifecycle());
         mBtAdapter = BluetoothAdapter.getDefaultAdapter();
         super.onCreate(savedInstanceState);
         // This is to record the initial start of Settings root in two panel settings case, as the
@@ -164,121 +171,19 @@ public class MainFragment extends PreferenceControllerFragment implements
     }
 
     @Override
-    public void onDestroy() {
-        if (mHotwordSwitchController != null) {
-            mHotwordSwitchController.unregister();
-        }
-        super.onDestroy();
-    }
-
-    /** @return true if there is at least one available item in quick settings. */
-    private boolean shouldShowQuickSettings() {
-        for (AbstractPreferenceController controller : mPreferenceControllers) {
-            if (controller.isAvailable()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private void showOrHideQuickSettings() {
-        if (shouldShowQuickSettings()) {
-            showQuickSettings();
-        } else {
-            hideQuickSettings();
-        }
-    }
-
-    @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState) {
-        showOrHideQuickSettings();
+        mSuggestionQuickSettingPrefsContainer.showOrHideQuickSettings();
         updateAccountPref();
         updateAccessoryPref();
         updateConnectivity();
+        updateBasicModeSuggestion();
         return super.onCreateView(inflater, container, savedInstanceState);
-    }
-
-    /** Creates the quick settings category and its children. */
-    private void showQuickSettings() {
-        if (mQuickSettingsList != null) {
-            return;
-        }
-        mQuickSettingsList = new PreferenceCategory(this.getPreferenceManager().getContext());
-        mQuickSettingsList.setKey(KEY_QUICK_SETTINGS);
-        mQuickSettingsList.setTitle(R.string.header_category_quick_settings);
-        mQuickSettingsList.setOrder(1); // at top, but below suggested settings
-        getPreferenceScreen().addPreference(mQuickSettingsList);
-        if (mHotwordSwitchController.isAvailable()) {
-            mHotwordSwitch = new SwitchPreference(this.getPreferenceManager().getContext());
-            mHotwordSwitch.setKey(HotwordSwitchController.KEY_HOTWORD_SWITCH);
-            mHotwordSwitch.setOnPreferenceClickListener(
-                    preference -> {
-                        logEntrySelected(TvSettingsEnums.QUICK_SETTINGS);
-                        return false;
-                    }
-            );
-            mHotwordSwitchController.updateState(mHotwordSwitch);
-            mQuickSettingsList.addPreference(mHotwordSwitch);
-        }
-        if (mTakeBugReportController.isAvailable()) {
-            mTakeBugReportPreference = new Preference(this.getPreferenceManager().getContext());
-            mTakeBugReportPreference.setKey(TakeBugReportController.KEY_TAKE_BUG_REPORT);
-            mTakeBugReportPreference.setOnPreferenceClickListener(
-                    preference -> {
-                        logEntrySelected(TvSettingsEnums.QUICK_SETTINGS);
-                        return false;
-                    }
-            );
-            mTakeBugReportController.updateState(mTakeBugReportPreference);
-            mQuickSettingsList.addPreference(mTakeBugReportPreference);
-        }
-    }
-
-    /** Removes the quick settings category and all its children. */
-    private void hideQuickSettings() {
-        Preference quickSettingsPref = findPreference(KEY_QUICK_SETTINGS);
-        if (quickSettingsPref == null) {
-            return;
-        }
-        mQuickSettingsList.removeAll();
-        getPreferenceScreen().removePreference(mQuickSettingsList);
-        mQuickSettingsList = null;
-    }
-
-    @Override
-    public void onHotwordStateChanged() {
-        if (mHotwordSwitch != null) {
-            mHotwordSwitchController.updateState(mHotwordSwitch);
-        }
-        showOrHideQuickSettings();
-    }
-
-    @Override
-    public void onHotwordEnable() {
-        try {
-            Intent intent = new Intent(HotwordSwitchController.ACTION_HOTWORD_ENABLE);
-            intent.setPackage(HotwordSwitchController.ASSISTANT_PGK_NAME);
-            startActivityForResult(intent, 0);
-        } catch (ActivityNotFoundException e) {
-            Log.w(TAG, "Unable to find hotwording activity.", e);
-        }
-    }
-
-    @Override
-    public void onHotwordDisable() {
-        try {
-            Intent intent = new Intent(HotwordSwitchController.ACTION_HOTWORD_DISABLE);
-            intent.setPackage(HotwordSwitchController.ASSISTANT_PGK_NAME);
-            startActivityForResult(intent, 0);
-        } catch (ActivityNotFoundException e) {
-            Log.w(TAG, "Unable to find hotwording activity.", e);
-        }
     }
 
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
-        setPreferencesFromResource(R.xml.main_prefs, null);
+        setPreferencesFromResource(getPreferenceScreenResId(), null);
         if (isRestricted()) {
             Preference appPref = findPreference(KEY_APPLICATIONS);
             if (appPref != null) {
@@ -295,7 +200,7 @@ public class MainFragment extends PreferenceControllerFragment implements
                 accessoryPreference.setVisible(false);
             }
         }
-        if (FeatureFactory.getFactory(getContext()).isTwoPanelLayout()) {
+        if (FlavorUtils.isTwoPanel(getContext())) {
             Preference displaySoundPref = findPreference(KEY_DISPLAY_AND_SOUND);
             if (displaySoundPref != null) {
                 displaySoundPref.setVisible(true);
@@ -305,18 +210,8 @@ public class MainFragment extends PreferenceControllerFragment implements
                 privacyPref.setVisible(true);
             }
         }
-        mHotwordSwitchController.init(this);
+        mSuggestionQuickSettingPrefsContainer.onCreatePreferences();
         updateSoundSettings();
-    }
-
-    @Override
-    protected List<AbstractPreferenceController> onCreatePreferenceControllers(Context context) {
-        mPreferenceControllers = new ArrayList<>(2);
-        mHotwordSwitchController = new HotwordSwitchController(context);
-        mTakeBugReportController = new TakeBugReportController(context);
-        mPreferenceControllers.add(mHotwordSwitchController);
-        mPreferenceControllers.add(mTakeBugReportController);
-        return mPreferenceControllers;
     }
 
     @VisibleForTesting
@@ -329,19 +224,19 @@ public class MainFragment extends PreferenceControllerFragment implements
         if (mConnectivityListener.isCellConnected()) {
             final int signal = mConnectivityListener.getCellSignalStrength();
             switch (signal) {
-                case SignalStrength.SIGNAL_STRENGTH_GREAT:
+                case CellSignalStrength.SIGNAL_STRENGTH_GREAT:
                     networkPref.setIcon(R.drawable.ic_cell_signal_4_white);
                     break;
-                case SignalStrength.SIGNAL_STRENGTH_GOOD:
+                case CellSignalStrength.SIGNAL_STRENGTH_GOOD:
                     networkPref.setIcon(R.drawable.ic_cell_signal_3_white);
                     break;
-                case SignalStrength.SIGNAL_STRENGTH_MODERATE:
+                case CellSignalStrength.SIGNAL_STRENGTH_MODERATE:
                     networkPref.setIcon(R.drawable.ic_cell_signal_2_white);
                     break;
-                case SignalStrength.SIGNAL_STRENGTH_POOR:
+                case CellSignalStrength.SIGNAL_STRENGTH_POOR:
                     networkPref.setIcon(R.drawable.ic_cell_signal_1_white);
                     break;
-                case SignalStrength.SIGNAL_STRENGTH_NONE_OR_UNKNOWN:
+                case CellSignalStrength.SIGNAL_STRENGTH_NONE_OR_UNKNOWN:
                 default:
                     networkPref.setIcon(R.drawable.ic_cell_signal_0_white);
                     break;
@@ -409,7 +304,7 @@ public class MainFragment extends PreferenceControllerFragment implements
     /**
      * Extracts a string resource from a given package.
      *
-     * @param pkgName the package name
+     * @param pkgName  the package name
      * @param resource name, e.g. "my_string_name"
      */
     private String getStringResource(String pkgName, String resourceName) {
@@ -430,7 +325,7 @@ public class MainFragment extends PreferenceControllerFragment implements
     /**
      * Extracts an drawable resource from a given package.
      *
-     * @param pkgName the package name
+     * @param pkgName  the package name
      * @param resource name, e.g. "my_icon_name"
      */
     private Drawable getDrawableResource(String pkgName, String resourceName) {
@@ -451,8 +346,9 @@ public class MainFragment extends PreferenceControllerFragment implements
     /**
      * Returns the ResolveInfo for the system activity that matches given intent filter or null if
      * no such activity exists.
+     *
      * @param context Context of the caller
-     * @param intent The intent matching the desired system app
+     * @param intent  The intent matching the desired system app
      * @return ResolveInfo of the matching activity or null if no match exists
      */
     public static ResolveInfo systemIntentIsHandled(Context context, Intent intent) {
@@ -461,7 +357,6 @@ public class MainFragment extends PreferenceControllerFragment implements
         }
 
         final PackageManager pm = context.getPackageManager();
-
         for (ResolveInfo info : pm.queryIntentActivities(intent, 0)) {
             if (info.activityInfo != null
                     && (info.activityInfo.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM)
@@ -472,63 +367,8 @@ public class MainFragment extends PreferenceControllerFragment implements
         return null;
     }
 
-    @Override
-    public void onSuggestionReady(List<Suggestion> data) {
-        if (data == null || data.size() == 0) {
-            if (mSuggestionsList != null) {
-                getPreferenceScreen().removePreference(mSuggestionsList);
-                mSuggestionsList = null;
-            }
-            return;
-        }
-
-        if (mSuggestionsList == null) {
-            mSuggestionsList = new PreferenceCategory(this.getPreferenceManager().getContext());
-            mSuggestionsList.setKey(KEY_SUGGESTIONS_LIST);
-            mSuggestionsList.setTitle(R.string.header_category_suggestions);
-            mSuggestionsList.setOrder(0); // always at top
-            getPreferenceScreen().addPreference(mSuggestionsList);
-        }
-        updateSuggestionList(data);
-    }
-
-    @VisibleForTesting
-    void updateSuggestionList(List<Suggestion> suggestions) {
-        // Remove suggestions that are not in the new list.
-        for (int i = 0; i < mSuggestionsList.getPreferenceCount(); i++) {
-            SuggestionPreference pref = (SuggestionPreference) mSuggestionsList.getPreference(i);
-            boolean isInNewSuggestionList = false;
-            for (Suggestion suggestion : suggestions) {
-                if (pref.getId().equals(suggestion.getId())) {
-                    isInNewSuggestionList = true;
-                    break;
-                }
-            }
-            if (!isInNewSuggestionList) {
-                mSuggestionsList.removePreference(pref);
-            }
-        }
-
-        // Add suggestions that are not in the old list and update the existing suggestions.
-        for (Suggestion suggestion : suggestions) {
-            Preference curPref = findPreference(
-                        SuggestionPreference.SUGGESTION_PREFERENCE_KEY + suggestion.getId());
-            if (curPref == null) {
-                SuggestionPreference newSuggPref = new SuggestionPreference(
-                        suggestion, this.getPreferenceManager().getContext(),
-                        mSuggestionControllerMixin, this);
-                newSuggPref.setIcon(mIconCache.getIcon(suggestion.getIcon()));
-                newSuggPref.setTitle(suggestion.getTitle());
-                newSuggPref.setSummary(suggestion.getSummary());
-                mSuggestionsList.addPreference(newSuggPref);
-            } else {
-                // Even though the id of suggestion might not change, the details could change.
-                // So we need to update icon, title and summary for the suggestions.
-                curPref.setIcon(mIconCache.getIcon(suggestion.getIcon()));
-                curPref.setTitle(suggestion.getTitle());
-                curPref.setSummary(suggestion.getSummary());
-            }
-        }
+    private static ProviderInfo getProviderInfo(Context context, String authority) {
+        return context.getPackageManager().resolveContentProvider(authority, 0);
     }
 
     private boolean isRestricted() {
@@ -542,12 +382,17 @@ public class MainFragment extends PreferenceControllerFragment implements
         Preference accessoryPreference = findPreference(KEY_ACCESSORIES);
         Preference connectedDevicesPreference = findPreference(KEY_CONNECTED_DEVICES);
         if (connectedDevicesSlicePreference != null
-                && FeatureFactory.getFactory(getContext()).isTwoPanelLayout()
+                && FlavorUtils.isTwoPanel(getContext())
                 && SliceUtils.isSliceProviderValid(
-                        getContext(), connectedDevicesSlicePreference.getUri())) {
+                getContext(), connectedDevicesSlicePreference.getUri())) {
             connectedDevicesSlicePreference.setVisible(true);
             connectedDevicesPreference.setVisible(false);
             accessoryPreference.setVisible(false);
+            ProviderInfo pkgInfo = getProviderInfo(getContext(),
+                    Uri.parse(connectedDevicesSlicePreference.getUri()).getAuthority());
+            if (pkgInfo != null) {
+                updateConnectedDevicePref(pkgInfo.packageName, connectedDevicesSlicePreference);
+            }
             return;
         }
 
@@ -559,26 +404,10 @@ public class MainFragment extends PreferenceControllerFragment implements
             Intent intent = new Intent(ACTION_CONNECTED_DEVICES);
             ResolveInfo info = systemIntentIsHandled(getContext(), intent);
             connectedDevicesPreference.setVisible(info != null);
-            connectedDevicesPreference.setOnPreferenceClickListener(
-                    preference -> {
-                        logEntrySelected(TvSettingsEnums.CONNECTED_CLASSIC);
-                        return false;
-                    });
             accessoryPreference.setVisible(info == null);
             if (info != null) {
-                String pkgName = info.activityInfo.packageName;
-                Drawable icon = getDrawableResource(pkgName, "connected_devices_pref_icon");
-                if (icon != null) {
-                    connectedDevicesPreference.setIcon(icon);
-                }
-                String title = getStringResource(pkgName, "connected_devices_pref_title");
-                if (!TextUtils.isEmpty(title)) {
-                    connectedDevicesPreference.setTitle(title);
-                }
-                String summary = getStringResource(pkgName, "connected_devices_pref_summary");
-                if (!TextUtils.isEmpty(summary)) {
-                    connectedDevicesPreference.setSummary(summary);
-                }
+                updateConnectedDevicePref(
+                        info.activityInfo.packageName, connectedDevicesPreference);
                 return;
             }
         }
@@ -587,39 +416,84 @@ public class MainFragment extends PreferenceControllerFragment implements
         }
 
         final Set<BluetoothDevice> bondedDevices = mBtAdapter.getBondedDevices();
-        if (bondedDevices.size() == 0) {
-            mHasBtAccessories = false;
-        } else {
-            mHasBtAccessories = true;
-        }
+        mHasBtAccessories = bondedDevices.size() != 0;
     }
 
     @VisibleForTesting
     void updateAccountPref() {
         Preference accountsPref = findPreference(KEY_ACCOUNTS_AND_SIGN_IN);
-        SlicePreference acccountsSlicePref =
+        SlicePreference accountsSlicePref =
                 (SlicePreference) findPreference(KEY_ACCOUNTS_AND_SIGN_IN_SLICE);
+        Preference accountsBasicMode = findPreference(KEY_ACCOUNTS_AND_SIGN_IN_BASIC_MODE);
         Intent intent = new Intent(ACTION_ACCOUNTS);
 
-        // If the intent can be handled, use it.
-        if (systemIntentIsHandled(getContext(), intent) != null) {
-            accountsPref.setVisible(true);
-            accountsPref.setFragment(null);
-            accountsPref.setIntent(intent);
-            acccountsSlicePref.setVisible(false);
-            return;
-        }
-
-        // If a slice is available, use it to display the accounts settings, otherwise fall back to
-        // use AccountsFragment.
-        String uri = acccountsSlicePref.getUri();
-        if (SliceUtils.isSliceProviderValid(getContext(), uri)) {
-            accountsPref.setVisible(false);
-            acccountsSlicePref.setVisible(true);
-        } else {
-            accountsPref.setVisible(true);
-            acccountsSlicePref.setVisible(false);
-            updateAccountPrefInfo();
+        switch(AccountsUtil.getAccountsFragmentToLaunch(getContext())) {
+            case ACCOUNTS_FRAGMENT_RESTRICTED: {
+                // Use the bundled AccountsFragment if restriction active
+                if (accountsBasicMode != null) {
+                    accountsBasicMode.setVisible(false);
+                }
+                if (accountsSlicePref != null) {
+                    accountsSlicePref.setVisible(false);
+                }
+                if (accountsPref != null) {
+                    accountsPref.setVisible(true);
+                }
+                return;
+            }
+            case ACCOUNTS_BASIC_MODE_FRAGMENT: {
+                if (accountsBasicMode != null) {
+                    accountsBasicMode.setVisible(true);
+                }
+                if (accountsPref != null) {
+                    accountsPref.setVisible(false);
+                }
+                if (accountsSlicePref != null) {
+                    accountsSlicePref.setVisible(false);
+                }
+                return;
+            }
+            case ACCOUNTS_SYSTEM_INTENT: {
+                if (accountsPref != null) {
+                    accountsPref.setVisible(true);
+                    accountsPref.setFragment(null);
+                    accountsPref.setIntent(intent);
+                }
+                if (accountsSlicePref != null) {
+                    accountsSlicePref.setVisible(false);
+                }
+                if (accountsBasicMode != null) {
+                    accountsBasicMode.setVisible(false);
+                }
+                return;
+            }
+            case ACCOUNTS_SLICE_FRAGMENT: {
+                // If a slice is available, use it to display the accounts settings, otherwise
+                // fall back to use AccountsFragment.
+                if (accountsPref != null) {
+                    accountsPref.setVisible(false);
+                }
+                if (accountsSlicePref != null) {
+                    accountsSlicePref.setVisible(true);
+                }
+                if (accountsBasicMode != null) {
+                    accountsBasicMode.setVisible(false);
+                }
+                return;
+            }
+            case ACCOUNTS_FRAGMENT_DEFAULT:
+            default: {
+                if (accountsPref != null) {
+                    accountsPref.setVisible(true);
+                    updateAccountPrefInfo();
+                }
+                if (accountsSlicePref != null) {
+                    accountsSlicePref.setVisible(false);
+                }
+                if (accountsBasicMode != null) {
+                    accountsBasicMode.setVisible(false);
+                }
+            }
         }
     }
 
@@ -647,6 +521,20 @@ public class MainFragment extends PreferenceControllerFragment implements
         }
     }
 
+    @VisibleForTesting
+    void updateBasicModeSuggestion() {
+        PreferenceCategory basicModeSuggestion = findPreference(KEY_BASIC_MODE_SUGGESTION);
+        if (basicModeSuggestion == null) {
+            return;
+        }
+        if (FlavorUtils.getFeatureFactory(getContext())
+                .getBasicModeFeatureProvider().isBasicMode(getContext())) {
+            basicModeSuggestion.setVisible(true);
+        } else {
+            basicModeSuggestion.setVisible(false);
+        }
+    }
+
     @Override
     public void onStart() {
         super.onStart();
@@ -664,26 +552,23 @@ public class MainFragment extends PreferenceControllerFragment implements
     }
 
     @Override
-    public void onAttach(Context context) {
-        super.onAttach(context);
-        ComponentName componentName = new ComponentName(
-                "com.android.settings.intelligence",
-                "com.android.settings.intelligence.suggestions.SuggestionService");
-        if (!isRestricted()) {
-            mSuggestionControllerMixin = new SuggestionControllerMixin(
-                    context, this, getLifecycle(), componentName);
-        }
-    }
-
-    @Override
     public boolean onPreferenceTreeClick(Preference preference) {
-        if (preference.getKey().equals(KEY_ACCOUNTS_AND_SIGN_IN) && !mHasAccounts
+        if ((preference.getKey().equals(KEY_ACCOUNTS_AND_SIGN_IN) && !mHasAccounts
+                && !AccountsUtil.isAdminRestricted(getContext()))
                 || (preference.getKey().equals(KEY_ACCESSORIES) && !mHasBtAccessories)
                 || (preference.getKey().equals(KEY_DISPLAY_AND_SOUND)
-                        && preference.getIntent() != null)
+                && preference.getIntent() != null)
                 || (preference.getKey().equals(KEY_CHANNELS_AND_INPUTS)
-                        && preference.getIntent() != null)) {
+                && preference.getIntent() != null)) {
             getContext().startActivity(preference.getIntent());
+            return true;
+        } else if (preference.getKey().equals(KEY_BASIC_MODE_EXIT)
+                && FlavorUtils.getFeatureFactory(getContext())
+                .getBasicModeFeatureProvider().isBasicMode(getContext())) {
+            if (getActivity() != null) {
+                FlavorUtils.getFeatureFactory(getContext())
+                        .getBasicModeFeatureProvider().startBasicModeExitActivity(getActivity());
+            }
             return true;
         } else {
             return super.onPreferenceTreeClick(preference);
@@ -691,20 +576,66 @@ public class MainFragment extends PreferenceControllerFragment implements
     }
 
     @Override
+    public void onDestroy() {
+        mSuggestionQuickSettingPrefsContainer.onDestroy();
+        super.onDestroy();
+    }
+
+    @Override
+    protected List<AbstractPreferenceController> onCreatePreferenceControllers(Context context) {
+        return mSuggestionQuickSettingPrefsContainer.onCreatePreferenceControllers(context);
+    }
+
+    @Override
     public void onSuggestionClosed(Preference preference) {
-        if (mSuggestionsList == null || mSuggestionsList.getPreferenceCount() == 0) {
-            return;
-        } else if (mSuggestionsList.getPreferenceCount() == 1) {
-            getPreferenceScreen().removePreference(mSuggestionsList);
-        } else {
-            mSuggestionsList.removePreference(preference);
-        }
+      mSuggestionQuickSettingPrefsContainer.onSuggestionClosed(preference);
+    }
+
+    @Override
+    public void onSuggestionReady(List<Suggestion> data) {
+        mSuggestionQuickSettingPrefsContainer.onSuggestionReady(data);
+    }
+
+    @Override
+    public void onHotwordStateChanged() {
+        mSuggestionQuickSettingPrefsContainer.onHotwordStateChanged();
+    }
+
+    @Override
+    public void onHotwordEnable() {
+        mSuggestionQuickSettingPrefsContainer.onHotwordEnable();
+    }
+
+    @Override
+    public void onHotwordDisable() {
+        mSuggestionQuickSettingPrefsContainer.onHotwordDisable();
     }
 
     private boolean supportBluetooth() {
-        return getActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)
-                ? true
-                : false;
+        return getActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH);
+    }
+
+    private void updateConnectedDevicePref(String pkgName, Preference pref) {
+        Drawable icon = getDrawableResource(pkgName, "connected_devices_pref_icon");
+        if (icon != null) {
+            pref.setIcon(icon);
+        }
+        String title =
+                (pref instanceof SlicePreference)
+                        ? getStringResource(pkgName, "connected_devices_slice_pref_title")
+                        : getStringResource(pkgName, "connected_devices_pref_title");
+        if (!TextUtils.isEmpty(title)) {
+            pref.setTitle(title);
+        }
+        String summary = getStringResource(pkgName, "connected_devices_pref_summary");
+        if (!TextUtils.isEmpty(summary)) {
+            pref.setSummary(summary);
+        }
+        pref.setOnPreferenceClickListener(
+                preference -> {
+                    logEntrySelected(TvSettingsEnums.CONNECTED_CLASSIC);
+                    return false;
+                });
     }
 
     @Override

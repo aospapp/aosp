@@ -14,18 +14,25 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.ipsec.ike.crypto;
+package com.android.internal.net.ipsec.test.ike.crypto;
+
+import static android.net.IpSecAlgorithm.AUTH_AES_XCBC;
 
 import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import android.net.IpSecAlgorithm;
-import android.net.ipsec.ike.SaProposal;
+import android.net.ipsec.test.ike.SaProposal;
+
+import androidx.test.filters.SdkSuppress;
 
 import com.android.internal.net.TestUtils;
-import com.android.internal.net.ipsec.ike.message.IkeSaPayload.IntegrityTransform;
+import com.android.internal.net.ipsec.test.ike.message.IkeSaPayload.IntegrityTransform;
+import com.android.modules.utils.build.SdkLevel;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -70,6 +77,15 @@ public final class IkeMacIntegrityTest {
     private static final String AUTH_AES128XCBC_CALCULATED_MAC_HEX_STRING1 =
             "d2a246fa349b68a79998a439";
 
+    // Test vectors from RFC 4494 Section 5
+    private IkeMacIntegrity mAesCmac96IntgerityMac;
+    private static final String AUTH_AES_CMAC_96_KEY_HEX_STRING =
+            "2b7e151628aed2a6abf7158809cf4f3c";
+    private static final String AUTH_AES_CMAC_96_DATA_TO_SIGN_HEX_STRING =
+            "6bc1bee22e409f96e93d7e117393172a";
+    private static final String AUTH_AES_CMAC_96_CALCULATED_MAC_HEX_STRING =
+            "070a16b46b4d4144f79bdd9d";
+
     @Before
     public void setUp() throws Exception {
         mHmacSha1IntegrityMac =
@@ -81,6 +97,12 @@ public final class IkeMacIntegrityTest {
         mAes128XCbcIntgerityMac =
                 IkeMacIntegrity.create(
                         new IntegrityTransform(SaProposal.INTEGRITY_ALGORITHM_AES_XCBC_96));
+
+        if (SdkLevel.isAtLeastS()) {
+            mAesCmac96IntgerityMac =
+                    IkeMacIntegrity.create(
+                            new IntegrityTransform(SaProposal.INTEGRITY_ALGORITHM_AES_CMAC_96));
+        }
     }
 
     @Test
@@ -89,6 +111,21 @@ public final class IkeMacIntegrityTest {
                 mHmacSha1IntegrityMac.generateChecksum(mHmacSha1IntegrityKey, mDataToAuthenticate);
 
         byte[] expectedChecksum = TestUtils.hexStringToByteArray(CHECKSUM_HEX_STRING);
+        assertArrayEquals(expectedChecksum, calculatedChecksum);
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = 31, codeName = "S")
+    public void testGenerateChecksumAuthAesCmac96() throws Exception {
+        byte[] integrityKey = TestUtils.hexStringToByteArray(AUTH_AES_CMAC_96_KEY_HEX_STRING);
+
+        byte[] calculatedChecksum =
+                mAesCmac96IntgerityMac.generateChecksum(
+                        integrityKey,
+                        TestUtils.hexStringToByteArray(AUTH_AES_CMAC_96_DATA_TO_SIGN_HEX_STRING));
+
+        byte[] expectedChecksum =
+                TestUtils.hexStringToByteArray(AUTH_AES_CMAC_96_CALCULATED_MAC_HEX_STRING);
         assertArrayEquals(expectedChecksum, calculatedChecksum);
     }
 
@@ -142,6 +179,7 @@ public final class IkeMacIntegrityTest {
     }
 
     @Test
+    @SdkSuppress(minSdkVersion = 31, codeName = "S")
     public void testSignBytesAuthAes128XCbc() throws Exception {
         byte[] skpBytes = TestUtils.hexStringToByteArray(AUTH_AES128XCBC_KEY_HEX_STRING);
         byte[] dataBytes = TestUtils.hexStringToByteArray(AUTH_AES128XCBC_DATA_TO_SIGN_HEX_STRING);
@@ -154,6 +192,7 @@ public final class IkeMacIntegrityTest {
     }
 
     @Test
+    @SdkSuppress(minSdkVersion = 31, codeName = "S")
     public void testSignBytesAuthAes128XCbcWith16ByteInput() throws Exception {
         // 16-byte is a multiple of aes block size. Hence key2 will be used instead of key3
         byte[] skpBytes = TestUtils.hexStringToByteArray(AUTH_AES128XCBC_KEY_HEX_STRING1);
@@ -164,5 +203,49 @@ public final class IkeMacIntegrityTest {
         byte[] expectedBytes =
                 TestUtils.hexStringToByteArray(AUTH_AES128XCBC_CALCULATED_MAC_HEX_STRING1);
         assertArrayEquals(expectedBytes, calculatedBytes);
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = 31, codeName = "S")
+    public void testBuildIpSecAlgorithmFromAuthAes128XCbcMac() throws Exception {
+        byte[] keyBytes = TestUtils.hexStringToByteArray(AUTH_AES128XCBC_KEY_HEX_STRING);
+
+        if (IpSecAlgorithm.getSupportedAlgorithms().contains(AUTH_AES_XCBC)) {
+            IpSecAlgorithm algo = mAes128XCbcIntgerityMac.buildIpSecAlgorithmWithKey(keyBytes);
+            assertEquals(AUTH_AES_XCBC, algo.getName());
+            assertArrayEquals(keyBytes, algo.getKey());
+        } else {
+            try {
+                mAes128XCbcIntgerityMac.buildIpSecAlgorithmWithKey(keyBytes);
+                fail("Expect to fail because this device does not support AES-XCBC for IPsec");
+            } catch (IllegalArgumentException expected) {
+            }
+        }
+    }
+
+    @Test
+    public void testGetIpSecAlgorithmName() throws Exception {
+        assertEquals(
+                IpSecAlgorithm.AUTH_HMAC_SHA1,
+                IkeMacIntegrity.getIpSecAlgorithmName(SaProposal.INTEGRITY_ALGORITHM_HMAC_SHA1_96));
+        assertEquals(
+                IpSecAlgorithm.AUTH_AES_XCBC,
+                IkeMacIntegrity.getIpSecAlgorithmName(SaProposal.INTEGRITY_ALGORITHM_AES_XCBC_96));
+        assertEquals(
+                IpSecAlgorithm.AUTH_AES_CMAC,
+                IkeMacIntegrity.getIpSecAlgorithmName(SaProposal.INTEGRITY_ALGORITHM_AES_CMAC_96));
+        assertEquals(
+                IpSecAlgorithm.AUTH_HMAC_SHA256,
+                IkeMacIntegrity.getIpSecAlgorithmName(
+                        SaProposal.INTEGRITY_ALGORITHM_HMAC_SHA2_256_128));
+        assertEquals(
+                IpSecAlgorithm.AUTH_HMAC_SHA384,
+                IkeMacIntegrity.getIpSecAlgorithmName(
+                        SaProposal.INTEGRITY_ALGORITHM_HMAC_SHA2_384_192));
+        assertEquals(
+                IpSecAlgorithm.AUTH_HMAC_SHA512,
+                IkeMacIntegrity.getIpSecAlgorithmName(
+                        SaProposal.INTEGRITY_ALGORITHM_HMAC_SHA2_512_256));
+        assertNull(IkeMacIntegrity.getIpSecAlgorithmName(SaProposal.INTEGRITY_ALGORITHM_NONE));
     }
 }

@@ -29,6 +29,7 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Process;
 import android.security.Credentials;
 import android.security.KeyChain;
 import android.security.KeyChain.KeyChainConnection;
@@ -41,7 +42,11 @@ import android.widget.EditText;
 import android.widget.RadioGroup;
 import android.widget.Toast;
 
+import com.android.internal.annotations.VisibleForTesting;
+
 import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Installs certificates to the system keystore.
@@ -73,7 +78,32 @@ public class CertInstaller extends Activity {
 
     private CredentialHelper createCredentialHelper(Intent intent) {
         try {
-            return new CredentialHelper(intent);
+            Bundle bundle = intent.getExtras();
+            if (bundle == null) {
+                return new CredentialHelper();
+            } else {
+                int size = bundle.size();
+                Log.d(TAG, "# extras: " + size);
+
+                String name = bundle.getString(KeyChain.EXTRA_NAME);
+                bundle.remove(KeyChain.EXTRA_NAME);
+
+                String referrer = bundle.getString(Intent.EXTRA_REFERRER);
+                bundle.remove(Intent.EXTRA_REFERRER);
+
+                String certUsageSelected = bundle.getString(Credentials.EXTRA_CERTIFICATE_USAGE);
+                bundle.remove(Credentials.EXTRA_CERTIFICATE_USAGE);
+
+                int uid = bundle.getInt(Credentials.EXTRA_INSTALL_AS_UID, Process.INVALID_UID);
+                bundle.remove(Credentials.EXTRA_INSTALL_AS_UID);
+
+                Map<String, byte[]> byteMap = new HashMap<>();
+                for (String key : bundle.keySet()) {
+                    byte[] bytes = bundle.getByteArray(key);
+                    byteMap.put(key, bytes);
+                }
+                return new CredentialHelper(byteMap, name,  referrer, certUsageSelected, uid);
+            }
         } catch (Throwable t) {
             Log.w(TAG, "createCredentialHelper", t);
             toastErrorAndFinish(R.string.invalid_cert);
@@ -247,7 +277,7 @@ public class CertInstaller extends Activity {
     }
 
     private void installOthers() {
-        // Sanity check: Check that there's either:
+        // Check that there's either:
         // * A private key AND a user certificate, or
         // * A CA cert.
         boolean hasPrivateKeyAndUserCertificate =
@@ -563,5 +593,10 @@ public class CertInstaller extends Activity {
         public void run(CertInstaller host) {
             host.onExtractionDone(mSuccess);
         }
+    }
+
+    @VisibleForTesting
+    public CredentialHelper getCredentials() {
+        return mCredentials;
     }
 }

@@ -50,11 +50,19 @@
         </LinearLayout>
 
         <TextView
-            android:id="@+id/bug_info_row_message"
+            android:id="@+id/bug_info_row_status_message"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:visibility="gone"
             style="@style/TextAppearance.BugReportUi.Body" />
+
+        <TextView
+            android:id="@+id/bug_info_row_expiration_notice"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            android:text="@string/bugreport_info_expires_soon_notice"
+            android:textSize="@dimen/bug_report_default_text_size" />
 
         <LinearLayout
             android:layout_width="wrap_content"

@@ -37,7 +37,7 @@ import java.util.List;
  * selected user.
  *
  * <p>If no root of the selected user was added but that of the other user was added,
- * a dummy root of that root for the selected user will be generated.
+ * a stub root of that root for the selected user will be generated.
  *
  * <p>The builder group the roots using {@link Item#stringId} as key.
  *
@@ -45,9 +45,9 @@ import java.util.List;
  * itemC[10], itemX[0],itemY[10] where root itemX, itemY do not support cross profile.
  *
  * <p>When the selected user is user 0, {@link #getList()} returns itemA[0], itemB[0],
- * dummyC[0], itemX[0], itemY[10].
+ * stubC[0], itemX[0], itemY[10].
  *
- * <p>When the selected user is user 10, {@link #getList()} returns itemA[10], dummyB[10],
+ * <p>When the selected user is user 10, {@link #getList()} returns itemA[10], stubB[10],
  * itemC[10], itemX[0], itemY[10].
  */
 class RootItemListBuilder {
@@ -87,7 +87,7 @@ class RootItemListBuilder {
             return items;
         }
 
-        // If the root supports cross-profile, we return the added root or create a dummy root if
+        // If the root supports cross-profile, we return the added root or create a stub root if
         // it was not added for the selected user.
         for (RootItem item : items) {
             if (item.userId.equals(mSelectedUser)) {
@@ -96,6 +96,6 @@ class RootItemListBuilder {
             }
         }
 
-        return Collections.singletonList(RootItem.createDummyItem(testRootItem, mSelectedUser));
+        return Collections.singletonList(RootItem.createStubItem(testRootItem, mSelectedUser));
     }
 }

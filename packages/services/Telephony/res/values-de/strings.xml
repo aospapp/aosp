@@ -50,6 +50,7 @@
     <string name="voice_number_setting_primary_user_only" msgid="3394706575741912843">"Mailboxeinstellungen können nur vom primären Nutzer geändert werden."</string>
     <string name="puk_unlocked" msgid="4627340655215746511">"Deine SIM-Karte wurde entsperrt. Dein Telefon wird nun entsperrt..."</string>
     <string name="label_ndp" msgid="7617392683877410341">"Entsperr-PIN für netzgebundenes Gerät"</string>
+    <string name="label_phoneid" msgid="8775611434123577808">"SIM für Anbieter gesperrt"</string>
     <string name="sim_ndp_unlock_text" msgid="7737338355451978338">"Entsperren"</string>
     <string name="sim_ndp_dismiss_text" msgid="89667342248929777">"Verwerfen"</string>
     <string name="requesting_unlock" msgid="930512210309437741">"Entsperrung des netzgebundenen Geräts wird angefordert..."</string>
@@ -123,6 +124,13 @@
     <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"Weiterleitung an <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfnrc_disabled" msgid="739289696796917683">"Aus"</string>
     <string name="disable_cfnrc_forbidden" msgid="775348748084726890">"Dein Mobilfunkanbieter unterstützt die Deaktivierung der Anrufweiterleitung bei Nichterreichbarkeit nicht."</string>
+    <string name="registration_cf_forbidden" msgid="4386482610771190420">"Dein Mobilfunkanbieter unterstützt die Anrufweiterleitung nicht."</string>
+    <string name="cdma_call_waiting" msgid="4565070960879673216">"Anklopfen aktivieren?"</string>
+    <string name="enable_cdma_call_waiting_setting" msgid="5906811747921744307">"Du wirst während eines Anrufs über eingehende Anrufe benachrichtigt"</string>
+    <string name="enable_cdma_cw" msgid="811047045863422232">"Aktivieren"</string>
+    <string name="disable_cdma_cw" msgid="7119290446496301734">"Abbrechen"</string>
+    <string name="cdma_call_waiting_in_ims_on" msgid="6390979414188659218">"CDMA-Anklopfen unter IMS aktiviert"</string>
+    <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"CDMA-Anklopfen unter IMS deaktiviert"</string>
     <string name="updating_title" msgid="6130548922615719689">"Anrufeinstellungen"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"Anrufeinstellungen können nur vom Administrator geändert werden."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"Einstellungen (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -286,6 +294,9 @@
     <string name="limited_sim_function_notification_title" msgid="612715399099846281">"Eingeschränkte SIM-Funktion"</string>
     <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"Anrufe und Datendienste über <xliff:g id="CARRIER_NAME">%1$s</xliff:g> stehen möglicherweise nicht zur Verfügung, während du <xliff:g id="PHONE_NUMBER">%2$s</xliff:g> nutzt."</string>
     <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"Anrufe/Datendienste über <xliff:g id="CARRIER_NAME">%1$s</xliff:g> sind bei Nutzung einer anderen SIM eventuell blockiert."</string>
+    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"Eingestellte SIP-Konten gefunden und entfernt"</string>
+    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"SIP-Anrufe werden von der Android-Plattform nicht mehr unterstützt.\nDie vorhandenen SIP-Konten (<xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g>) wurden entfernt.\nPrüfe die Einstellung für das Standardkonto für Anrufe."</string>
+    <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"Zu den Einstellungen"</string>
     <string name="data_usage_title" msgid="8438592133893837464">"Datenverbrauch durch Apps"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"Im Zeitraum <xliff:g id="ID_2">%2$s</xliff:g> genutzte mobile Daten: <xliff:g id="ID_1">%1$s</xliff:g>"</string>
     <string name="advanced_options_title" msgid="9208195294513520934">"Erweitert"</string>
@@ -504,6 +515,7 @@
     <string name="puk2_requested" msgid="6992374450720307514">"Passwort falsch. SIM-Karte ist jetzt gesperrt. Bitte PUK2 eingeben."</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"PUK2 wurde endgültig gesperrt."</string>
     <string name="pin2_attempts" msgid="5625178102026453023">\n"Du hast noch <xliff:g id="NUMBER">%d</xliff:g> Versuche."</string>
+    <string name="puk2_locked" msgid="6497760825455461057">"PUK2 gesperrt. Wende dich zum Entsperren an den Mobilfunkanbieter."</string>
     <string name="pin2_unblocked" msgid="4481107908727789303">"PIN2 nicht mehr gesperrt"</string>
     <string name="pin2_error_exception" msgid="8116103864600823641">"Netzwerk- oder SIM-Kartenfehler"</string>
     <string name="doneButton" msgid="7371209609238460207">"Fertig"</string>
@@ -525,6 +537,7 @@
     <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"Zum Anrufen Mobilfunknetz aktivieren, Flugmodus oder Energiesparmodus deaktivieren."</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"Deaktiviere zum Telefonieren den Flugmodus."</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"Deaktiviere zum Telefonieren den Flugmodus oder stelle eine WLAN-Verbindung her."</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"Smartphone ist überhitzt."</b>\n\n"Anruf nicht möglich. Versuche es noch einmal, wenn das Smartphone abgekühlt ist.\n\nDu kannst weiterhin Notrufe absetzen."</string>
     <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"Beende den Notfallrückrufmodus, um einen Anruf zu tätigen, bei dem es sich nicht um einen Notfall handelt."</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"Nicht in Netzwerk registriert."</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"Mobilfunknetz ist nicht verfügbar."</string>
@@ -707,7 +720,7 @@
     <string name="mobile_data_activate_button" msgid="1139792516354374612">"DATEN HINZUFÜGEN"</string>
     <string name="mobile_data_activate_cancel_button" msgid="3530174817572005860">"ABBRECHEN"</string>
     <string name="clh_card_title_call_ended_txt" msgid="5977978317527299698">"Anruf beendet"</string>
-    <string name="clh_callFailed_powerOff_txt" msgid="8279934912560765361">"Flugzeugmodus aktiviert"</string>
+    <string name="clh_callFailed_powerOff_txt" msgid="8279934912560765361">"Flugmodus ist aktiviert"</string>
     <string name="clh_callFailed_simError_txt" msgid="5128538525762326413">"Zugriff auf SIM-Karte nicht möglich"</string>
     <string name="clh_incall_error_out_of_service_txt" msgid="2736010617446749869">"Mobilfunknetz nicht verfügbar"</string>
     <string name="clh_callFailed_unassigned_number_txt" msgid="141967660286695682">"Problem mit der gewählten Telefonnummer. Fehlercode 1."</string>
@@ -867,7 +880,6 @@
     <string name="radio_info_dds" msgid="1122593144425697126">"Unter-ID der standardmäßigen Daten-SIM:"</string>
     <string name="radio_info_dl_kbps" msgid="2382922659525318726">"DL-Bandbreite (kbit/s):"</string>
     <string name="radio_info_ul_kbps" msgid="2102225400904799036">"UL-Bandbreite (kbit/s):"</string>
-    <string name="radio_info_signal_location_label" msgid="6188435197086550049">"Standortinformationen des Mobiltelefons (eingestellt):"</string>
     <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"Konfiguration des physischen LTE-Kanals:"</string>
     <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"Aktualisierungsrate der Mobiltelefoninformationen:"</string>
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"Alle Informationen zu Zellenmesswerten:"</string>
@@ -898,6 +910,11 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Aktualisieren"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"DNS-Überprüfung ein-/ausschalten"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"OEM-spezifische Infos/Einstellungen"</string>
+    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC verfügbar:"</string>
+    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR eingeschränkt:"</string>
+    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR verfügbar:"</string>
+    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR-Status:"</string>
+    <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR-Frequenz:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Frequenzbereichmodus festlegen"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Frequenzliste wird geladen…"</string>
     <string name="band_mode_set" msgid="6657819412803771421">"Festlegen"</string>
@@ -907,4 +924,7 @@
     <string name="phone_info_label" product="default" msgid="1784175881556791433">"Über das Telefon"</string>
     <string name="carrier_provisioning" msgid="2668065041869578376">"Informationen zur Nutzerverwaltung durch den Anbieter"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"Nutzerverwaltung durch den Anbieter auslösen"</string>
+    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"Das Bluetooth-Signal ist schwach. Verwende die Freisprechfunktion."</string>
+    <string name="call_quality_notification_name" msgid="3476828289553948830">"Benachrichtigung zu Anrufqualität"</string>
+    <string name="notification_channel_sip_account" msgid="1261816025156179637">"Eingestellte SIP-Konten"</string>
 </resources>

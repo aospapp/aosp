@@ -4,3 +4,12 @@
 # minimize merge conflicts in AndroidManifest.xml.
 -dontwarn com.android.managedprovisioning.provisioning.SilentDeviceOwnerProvisioningService
 -dontwarn com.android.managedprovisioning.provisioning.SilentDeviceOwnerProvisioningReceiver
+-keep public class com.android.managedprovisioning.ScreenManager {
+    public protected *;
+}
+-keep public class com.android.managedprovisioning.ManagedProvisioningBaseApplication {
+    public protected *;
+}
+-keep public class com.android.managedprovisioning.common.HomogenousBiMap {
+    public *;
+}

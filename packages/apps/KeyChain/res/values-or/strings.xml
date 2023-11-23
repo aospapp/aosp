@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"ଏକ୍ସଟର୍ନଲ୍‌ ଷ୍ଟୋରେଜ୍‌ରେ ଥିବା ଏକ PKCS#12 ଫାଇଲ୍‌ରୁ ଆପଣ ସର୍ଟିଫିକେଟ୍‌ଗୁଡ଼ିକ ଇନ୍‌ଷ୍ଟଲ୍‌ କରିପାରିବେ, ଯାହାର ଏକ୍ସଟେନ୍ସନ୍‌ ହେଉଛି %1$s କିମ୍ବା ଏକ %2$s।"</string>
     <string name="allow_button" msgid="3030990695030371561">"ଚୟନ କରନ୍ତୁ"</string>
     <string name="deny_button" msgid="3766539809121892584">"ଅଗ୍ରାହ୍ୟ"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"ସାର୍ଟିଫିକେଟ୍‌ଗୁଡ଼ିକ ଲୋଡ୍ ହେଉଛି..."</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"%s ଏକ ସାର୍ଟିଫିକେଟ୍ ପାଇଁ ଯାଞ୍ଚ କରୁଛି…"</string>
 </resources>

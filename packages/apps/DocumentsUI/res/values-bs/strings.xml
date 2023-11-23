@@ -16,6 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="missing_rename_error" msgid="9098952207447981103">"Ovo morate preimenovati"</string>
+    <string name="add_folder_name_error" msgid="6014615052491406810">"Morate dodati naziv foldera"</string>
     <string name="files_label" msgid="771781190045103748">"Fajlovi"</string>
     <string name="downloads_label" msgid="5462789470049501103">"Preuzimanja"</string>
     <!-- no translation found for app_label (8089292432455111409) -->
@@ -53,8 +55,8 @@
     <string name="menu_copy_to_clipboard" msgid="5064081159073330776">"Kopiraj"</string>
     <string name="menu_paste_from_clipboard" msgid="360947260414135827">"Zalijepi"</string>
     <string name="menu_paste_into_folder" msgid="8000644546983240101">"Zalijepi u folder"</string>
-    <string name="menu_advanced_show" msgid="7558626506462906726">"Prikaži unutrašnju mem."</string>
-    <string name="menu_advanced_hide" msgid="6488381508009246334">"Sakrij unutrašnju mem."</string>
+    <string name="menu_advanced_show" msgid="7558626506462906726">"Prikaži unutrašnju pohranu"</string>
+    <string name="menu_advanced_hide" msgid="6488381508009246334">"Sakrij unutrašnju pohranu"</string>
     <string name="button_select" msgid="240863497069321364">"Odaberi"</string>
     <string name="button_copy" msgid="8219059853840996027">"Kopiraj"</string>
     <string name="button_compress" msgid="8951561310857223966">"Kompresiraj"</string>
@@ -216,9 +218,9 @@
     <string name="rename_error" msgid="6700093173508118635">"Promjena naziva dokumenta nije uspjela"</string>
     <string name="menu_eject_root" msgid="9215040039374893613">"Izbaci"</string>
     <string name="notification_copy_files_converted_title" msgid="6916768494891833365">"Neki fajlovi su pretvoreni u drugi format"</string>
-    <string name="open_external_dialog_request" msgid="8173558471322861268">"Želite li aplikaciji <xliff:g id="APPNAME"><b>^1</b></xliff:g> odobriti pristup direktoriju <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> na pohrani <xliff:g id="STORAGE"><i>^3</i></xliff:g>?"</string>
+    <string name="open_external_dialog_request" msgid="8173558471322861268">"Želite li aplikaciji <xliff:g id="APPNAME"><b>^1</b></xliff:g> odobriti pristup direktoriju <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> na uređaju za pohranu <xliff:g id="STORAGE"><i>^3</i></xliff:g>?"</string>
     <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"Želite li aplikaciji <xliff:g id="APPNAME"><b>^1</b></xliff:g> odobriti pristup direktoriju <xliff:g id="DIRECTORY"><i>^2</i></xliff:g>?"</string>
-    <string name="open_external_dialog_root_request" msgid="6776729293982633">"Želite li aplikaciji <xliff:g id="APPNAME"><b>^1</b></xliff:g> odobriti pristup svojim podacima, uključujući fotografije i videozapise, na pohrani: <xliff:g id="STORAGE"><i>^2</i></xliff:g>?"</string>
+    <string name="open_external_dialog_root_request" msgid="6776729293982633">"Želite li aplikaciji <xliff:g id="APPNAME"><b>^1</b></xliff:g> odobriti pristup svojim podacima, uključujući fotografije i videozapise, na uređaju za pohranu <xliff:g id="STORAGE"><i>^2</i></xliff:g>?"</string>
     <string name="allow" msgid="1275746941353040309">"Dozvoli"</string>
     <string name="deny" msgid="5127201668078153379">"Odbij"</string>
     <plurals name="elements_selected" formatted="false" msgid="4448165978637163692">
@@ -300,4 +302,6 @@
     <string name="work_tab" msgid="7265359366883747413">"Poslovno"</string>
     <string name="a11y_work" msgid="7504431382825242153">"Posao"</string>
     <string name="drag_from_another_app" msgid="8310249276199969905">"Ne možete premjestiti fajlove iz druge aplikacije."</string>
+    <string name="grid_mode_showing" msgid="2803166871485028508">"Prikazivanje u vidu mreže."</string>
+    <string name="list_mode_showing" msgid="1225413902295895166">"Prikazivanje u vidu liste."</string>
 </resources>

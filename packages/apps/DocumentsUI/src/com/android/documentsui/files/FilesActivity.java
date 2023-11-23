@@ -37,7 +37,6 @@ import com.android.documentsui.ActionModeController;
 import com.android.documentsui.BaseActivity;
 import com.android.documentsui.DocsSelectionHelper;
 import com.android.documentsui.DocumentsApplication;
-import com.android.documentsui.DummyProfileTabsAddons;
 import com.android.documentsui.FocusManager;
 import com.android.documentsui.Injector;
 import com.android.documentsui.MenuManager.DirectoryDetails;
@@ -49,6 +48,7 @@ import com.android.documentsui.ProviderExecutor;
 import com.android.documentsui.R;
 import com.android.documentsui.SharedInputHandler;
 import com.android.documentsui.ShortcutsUpdater;
+import com.android.documentsui.StubProfileTabsAddons;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.Features;
 import com.android.documentsui.base.RootInfo;
@@ -76,7 +76,7 @@ public class FilesActivity extends BaseActivity implements AbstractActionHandler
     private Injector<ActionHandler<FilesActivity>> mInjector;
     private ActivityInputHandler mActivityInputHandler;
     private SharedInputHandler mSharedInputHandler;
-    private final ProfileTabsAddons mProfileTabsAddonsStub = new DummyProfileTabsAddons();
+    private final ProfileTabsAddons mProfileTabsAddonsStub = new StubProfileTabsAddons();
 
     public FilesActivity() {
         super(R.layout.files_activity, TAG);
@@ -132,6 +132,7 @@ public class FilesActivity extends BaseActivity implements AbstractActionHandler
         mInjector.actionModeController = new ActionModeController(
                 this,
                 mInjector.selectionMgr,
+                mNavigator,
                 mInjector.menuManager,
                 mInjector.messages);
 
@@ -150,7 +151,7 @@ public class FilesActivity extends BaseActivity implements AbstractActionHandler
 
         mInjector.searchManager = mSearchManager;
 
-        // No profile tabs will be shown on FilesActivity. Use a dummy to avoid unnecessary
+        // No profile tabs will be shown on FilesActivity. Use a stub to avoid unnecessary
         // operations.
         mInjector.profileTabsController = new ProfileTabsController(
                 mInjector.selectionMgr,

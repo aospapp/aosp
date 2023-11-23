@@ -7,4 +7,9 @@
 -keepclassmembers class * {
 @**.NeededForTesting *;
 }
+# TODO: remove this after call composer gets more integrated.
+# for the time being, this is here so that the tests don't fail when encountering dead code.
+-keep class com.android.phone.callcomposer.** {
+ *;
+}
 -verbose

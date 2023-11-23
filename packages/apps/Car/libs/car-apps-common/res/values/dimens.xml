@@ -26,12 +26,12 @@
     <dimen name="control_bar_height">128dp</dimen>
     <dimen name="control_bar_margin_x">@dimen/car_ui_margin</dimen>
     <dimen name="control_bar_margin_bottom">@dimen/car_ui_padding_2</dimen>
-    <dimen name="control_bar_button_size">76dp</dimen>
+    <dimen name="control_bar_button_size">104dp</dimen>
     <dimen name="control_bar_button_slot_height">@dimen/control_bar_height</dimen>
     <dimen name="control_bar_button_slot_width">@dimen/control_bar_button_size</dimen>
     <dimen name="control_bar_elevation">0dp</dimen>
-    <dimen name="control_bar_button_padding">16dp</dimen>
-    <dimen name="control_bar_button_background_radius">38dp</dimen>
+    <dimen name="control_bar_button_padding">30dp</dimen>
+    <dimen name="control_bar_button_background_radius">52dp</dimen>
 
     <!-- Overflow button in control Bar -->
     <dimen name="overflow_button_icon_size">44dp</dimen>
@@ -46,7 +46,7 @@
     <dimen name="minimized_control_bar_edge_padding">@dimen/car_ui_padding_4</dimen>
     <dimen name="minimized_control_bar_text_padding">@dimen/car_ui_padding_3</dimen>
     <dimen name="minimized_control_bar_button_padding">@dimen/car_ui_padding_5</dimen>
-    <dimen name="minimized_control_bar_button_size">76dp</dimen>
+    <dimen name="minimized_control_bar_button_size">104dp</dimen>
 
     <!-- Tabs -->
     <dimen name="car_tab_width">135dp</dimen>

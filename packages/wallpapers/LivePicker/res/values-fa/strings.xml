@@ -22,7 +22,7 @@
     <string name="application_name" msgid="321870838342157591">"Live Wallpaper Picker"</string>
     <string name="live_wallpaper_picker_title" msgid="6152733341691314608">"انتخاب کاغذدیواری زنده"</string>
     <string name="live_wallpaper_picker_label" msgid="295628316836042825">"تصاویر زمینهٔ زنده"</string>
-    <string name="live_wallpaper_preview_title" msgid="908570871421455329">"پیش‌نمایش کاغذدیواری زنده"</string>
+    <string name="live_wallpaper_preview_title" msgid="908570871421455329">"پیش‌نمای کاغذدیواری زنده"</string>
     <string name="configure_wallpaper" msgid="4308477548538487192">"تنظیمات..."</string>
     <string name="delete_live_wallpaper" msgid="2401799265848069389">"حذف"</string>
     <string name="preview" msgid="1067744492020029129">"پیش‌نمایش"</string>

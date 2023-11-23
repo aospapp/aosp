@@ -1,7 +1,7 @@
 {
-  "presubmit": [
+  "carui-presubmit": [
     {
-      "name": "generate-resources"
+      "name": "CarUILibUnitTests"
     }
   ]
 }

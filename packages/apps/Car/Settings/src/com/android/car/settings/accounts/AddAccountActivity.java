@@ -82,23 +82,34 @@ public class AddAccountActivity extends Activity {
                 LOG.v("Account manager future is not done.");
                 finish();
             }
+            boolean done = true;
             try {
                 Bundle result = future.getResult();
-
                 Intent intent = result.getParcelable(AccountManager.KEY_INTENT);
-                Bundle addAccountOptions = new Bundle();
-                addAccountOptions.putBoolean(EXTRA_HAS_MULTIPLE_USERS,
-                        hasMultipleUsers(AddAccountActivity.this));
-                addAccountOptions.putParcelable(EXTRA_USER, mUserHandle);
-                intent.putExtras(addAccountOptions);
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                startActivityForResultAsUser(
-                        intent, ADD_ACCOUNT_REQUEST, mUserHandle);
+                if (intent != null) {
+                    done = false;
+                    Bundle addAccountOptions = new Bundle();
+                    addAccountOptions.putBoolean(EXTRA_HAS_MULTIPLE_USERS,
+                            hasMultipleUsers(AddAccountActivity.this));
+                    addAccountOptions.putParcelable(EXTRA_USER, mUserHandle);
+                    intent.putExtras(addAccountOptions);
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivityForResultAsUser(
+                            intent, ADD_ACCOUNT_REQUEST, mUserHandle);
+                } else {
+                    setResult(RESULT_OK);
+                    if (mPendingIntent != null) {
+                        mPendingIntent.cancel();
+                        mPendingIntent = null;
+                    }
+                }
                 LOG.v("account added: " + result);
             } catch (OperationCanceledException | IOException | AuthenticatorException e) {
                 LOG.v("addAccount error: " + e);
             } finally {
-                finish();
+                if (done) {
+                    finish();
+                }
             }
         }
     };
@@ -173,7 +184,8 @@ public class AddAccountActivity extends Activity {
         identityIntent.setAction(SHOULD_NOT_RESOLVE);
         identityIntent.addCategory(SHOULD_NOT_RESOLVE);
 
-        mPendingIntent = PendingIntent.getBroadcast(this, 0, identityIntent, 0);
+        mPendingIntent =
+                PendingIntent.getBroadcast(this, 0, identityIntent, PendingIntent.FLAG_IMMUTABLE);
         addAccountOptions.putParcelable(KEY_CALLER_IDENTITY, mPendingIntent);
 
         AccountManager.get(this).addAccountAsUser(

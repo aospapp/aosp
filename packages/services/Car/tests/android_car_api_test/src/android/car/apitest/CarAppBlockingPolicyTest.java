@@ -42,10 +42,10 @@ public class CarAppBlockingPolicyTest {
         AppBlockingPackageInfo selfInfo =
                 AppBlockingPackageInfoTest.createInfoSelf(mContext);
         // this is only for testing parcelling. contents has nothing to do with actual app blocking.
-        AppBlockingPackageInfo[] whitelists = new AppBlockingPackageInfo[] { carServiceInfo,
+        AppBlockingPackageInfo[] allowlists = new AppBlockingPackageInfo[] { carServiceInfo,
                 selfInfo };
-        AppBlockingPackageInfo[] blacklists = new AppBlockingPackageInfo[] { selfInfo };
-        CarAppBlockingPolicy policyExpected = new CarAppBlockingPolicy(whitelists, blacklists);
+        AppBlockingPackageInfo[] denylists = new AppBlockingPackageInfo[] { selfInfo };
+        CarAppBlockingPolicy policyExpected = new CarAppBlockingPolicy(allowlists, denylists);
         Parcel dest = Parcel.obtain();
         policyExpected.writeToParcel(dest, 0);
         dest.setDataPosition(0);

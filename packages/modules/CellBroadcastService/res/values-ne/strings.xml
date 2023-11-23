@@ -19,6 +19,6 @@
     <string name="etws_primary_default_message_earthquake" msgid="6322509321590329419">"शान्त रहनुहोस् र नजिकै आश्रयस्थल खोज्नुहोस्।"</string>
     <string name="etws_primary_default_message_tsunami" msgid="2521384573822842618">"तटीय क्षेत्र र नदीछेउका ठाउँहरू छाडी उच्च सतहमा अवस्थित कुनै अझ सुरक्षित ठाउँमा जानुहोस्।"</string>
     <string name="etws_primary_default_message_earthquake_and_tsunami" msgid="7826176257527823396">"शान्त रहनुहोस् र नजिकै आश्रयस्थल खोज्नुहोस्।"</string>
-    <string name="etws_primary_default_message_test" msgid="2739829278266087553">"आपतकालीन सन्देशहरूको परीक्षण"</string>
+    <string name="etws_primary_default_message_test" msgid="2739829278266087553">"आपत्‌कालीन सन्देशहरूको परीक्षण"</string>
     <string name="etws_primary_default_message_others" msgid="3271611843755121534">"स्थानीय सरकारले जारी गरेको अलर्ट। यसबारे थप जानकारी चाँडै उपलब्ध हुने छ।"</string>
 </resources>

@@ -35,7 +35,7 @@
     <string name="password_empty_error" msgid="591713406761723025">"Veuillez saisir le mot de passe."</string>
     <string name="name_empty_error" msgid="3808800768660110354">"Veuillez saisir un nom."</string>
     <string name="name_char_error" msgid="3176618568784938968">"Veuillez saisir un nom ne contenant que des lettres et des chiffres."</string>
-    <string name="unable_to_save_cert" msgid="9178604087335389686">"Impossible d\'enregistrer le certificat. Le stockage des identifiants n\'est pas activé, ou il n\'est pas initialisé correctement."</string>
+    <string name="unable_to_save_cert" msgid="9178604087335389686">"Impossible d\'enregistrer le certificat. Le stockage des authentifiants n\'est pas activé, ou il n\'est pas initialisé correctement."</string>
     <string name="cert_not_saved" msgid="4037698479662830270">"Le certificat n\'est pas installé."</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"Aucun certificat à installer."</string>
     <string name="invalid_cert" msgid="7704228670980743590">"Le certificat est incorrect."</string>

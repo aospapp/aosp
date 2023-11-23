@@ -42,7 +42,6 @@ import androidx.annotation.NonNull;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceScreen;
 
-import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.settingslib.applications.ApplicationsState;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
@@ -105,11 +104,6 @@ public class AppManagementFragment extends SettingsPreferenceFragment {
 
     public static void prepareArgs(@NonNull Bundle args, String packageName) {
         args.putString(ARG_PACKAGE_NAME, packageName);
-    }
-
-    @Override
-    public int getMetricsCategory() {
-        return MetricsEvent.APPLICATIONS_INSTALLED_APP_DETAILS;
     }
 
     @Override
@@ -207,8 +201,6 @@ public class AppManagementFragment extends SettingsPreferenceFragment {
         if (intent != null) {
             try {
                 if (preference.equals(mUninstallPreference)) {
-                    mMetricsFeatureProvider.action(getContext(),
-                            MetricsEvent.ACTION_SETTINGS_UNINSTALL_APP);
                     startActivityForResult(intent, mUninstallPreference.canUninstall()
                             ? REQUEST_UNINSTALL : REQUEST_UNINSTALL_UPDATES);
                 } else {
@@ -310,7 +302,9 @@ public class AppManagementFragment extends SettingsPreferenceFragment {
             replacePreference(mEnableDisablePreference);
         } else {
             mEnableDisablePreference.setEntry(mEntry);
-            mEnableDisablePreference.setEnabled(true);
+            if (!mEnableDisablePreference.isRestricted()) {
+                mEnableDisablePreference.setEnabled(true);
+            }
         }
 
         // Storage used
@@ -443,7 +437,6 @@ public class AppManagementFragment extends SettingsPreferenceFragment {
             return;
         }
 
-        mMetricsFeatureProvider.action(getContext(), MetricsEvent.ACTION_SETTINGS_CLEAR_APP_DATA);
         mClearDataPreference.setClearingData(true);
         String spaceManagementActivityName = mEntry.info.manageSpaceActivityName;
         if (spaceManagementActivityName != null) {
@@ -495,7 +488,6 @@ public class AppManagementFragment extends SettingsPreferenceFragment {
     }
 
     public void clearCache() {
-        mMetricsFeatureProvider.action(getContext(), MetricsEvent.ACTION_SETTINGS_CLEAR_APP_CACHE);
         mClearCachePreference.setClearingCache(true);
         mPackageManager.deleteApplicationCacheFiles(mEntry.info.packageName,
                 new IPackageDataObserver.Stub() {

@@ -97,7 +97,7 @@ public final class HeadsetClientHalConstants {
     static final int CMD_COMPLETE_ERROR_BUSY = 3;
     static final int CMD_COMPLETE_ERROR_NO_ANSWER = 4;
     static final int CMD_COMPLETE_ERROR_DELAYED = 5;
-    static final int CMD_COMPLETE_ERROR_BLACKLISTED = 6;
+    static final int CMD_COMPLETE_ERROR_REJECTLISTED = 6;
     static final int CMD_COMPLETE_ERROR_CME = 7;
 
     // match up with bthf_client_call_action_t enum of bt_hf_client.h
@@ -146,6 +146,11 @@ public final class HeadsetClientHalConstants {
     static final int PEER_FEAT_EXTERR = 0x00000100;
     // Codec Negotiation
     static final int PEER_FEAT_CODEC = 0x00000200;
+    // HFP 1.7 features
+    // HF Indicators
+    static final int PEER_FEAT_HF_IND = 0x00000400;
+    // ESCO S4 link setting
+    static final int PEER_FEAT_ESCO_S4 = 0x00000800;
 
     // AG's 3WC features masks
     // match up with masks in bt_hf_client.h
@@ -171,6 +176,7 @@ public final class HeadsetClientHalConstants {
 
     static final int HANDSFREECLIENT_AT_CMD_NREC = 15;
     static final int HANDSFREECLIENT_AT_CMD_VENDOR_SPECIFIC_CMD = 16;
+    static final int HANDSFREECLIENT_AT_CMD_BIEV = 17;
 
     // Flag to check for local NREC support
     static final boolean HANDSFREECLIENT_NREC_SUPPORTED = true;

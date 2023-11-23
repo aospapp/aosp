@@ -28,8 +28,8 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
-import androidx.leanback.preference.LeanbackPreferenceDialogFragment;
-import androidx.leanback.preference.LeanbackSettingsFragment;
+import androidx.leanback.preference.LeanbackPreferenceDialogFragmentCompat;
+import androidx.leanback.preference.LeanbackSettingsFragmentCompat;
 import androidx.leanback.widget.picker.DatePicker;
 import androidx.leanback.widget.picker.Picker;
 import androidx.leanback.widget.picker.TimePicker;
@@ -46,7 +46,7 @@ import java.util.Calendar;
  * that's clicked. Launching of these two fragments is done inside
  * {@link com.android.tv.settings.BaseSettingsFragment#onPreferenceDisplayDialog}.
  */
-public class LeanbackPickerDialogFragment extends LeanbackPreferenceDialogFragment implements
+public class LeanbackPickerDialogFragment extends LeanbackPreferenceDialogFragmentCompat implements
         TwoPanelSettingsFragment.NavigationCallback {
 
     private static final String EXTRA_PICKER_TYPE = "LeanbackPickerDialogFragment.PickerType";
@@ -129,7 +129,7 @@ public class LeanbackPickerDialogFragment extends LeanbackPreferenceDialogFragme
             styledInflater.inflate(R.layout.date_picker_widget, pickerContainer, true);
             DatePicker datePicker = pickerContainer.findViewById(R.id.date_picker);
             mPicker = datePicker;
-            if (getParentFragment() instanceof LeanbackSettingsFragment) {
+            if (getParentFragment() instanceof LeanbackSettingsFragmentCompat) {
                 datePicker.setActivated(true);
             }
             datePicker.setOnClickListener(v -> {
@@ -151,7 +151,7 @@ public class LeanbackPickerDialogFragment extends LeanbackPreferenceDialogFragme
         } else {
             styledInflater.inflate(R.layout.time_picker_widget, pickerContainer, true);
             TimePicker timePicker = pickerContainer.findViewById(R.id.time_picker);
-            if (getParentFragment() instanceof LeanbackSettingsFragment) {
+            if (getParentFragment() instanceof LeanbackSettingsFragmentCompat) {
                 timePicker.setActivated(true);
             }
             mPicker = timePicker;

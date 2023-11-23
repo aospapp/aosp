@@ -148,7 +148,8 @@ public class BasicCameraFactory {
                 Lifetime(lifetime), frameServer, cameraCommandExecutor, cropRegion,
                 sensorOrientation, mPreviewUpdater, requestTemplate,
                 templateType, new Settings3A(), Executors.newScheduledThreadPool(1),
-                3 /* afHoldSeconds */);
+                3 /* afHoldSeconds */, cameraCharacteristics.isAutoExposureSupported(),
+                cameraCharacteristics.isAutoFocusSupported());
         mManualAutoFocus = manualAutoFocusFactory.provideManualAutoFocus();
         Supplier<MeteringRectangle[]> aeRegions =
                 manualAutoFocusFactory.provideAEMeteringRegion();

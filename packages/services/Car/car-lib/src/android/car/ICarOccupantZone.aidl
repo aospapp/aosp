@@ -29,8 +29,14 @@ interface ICarOccupantZone {
     CarOccupantZoneManager.OccupantZoneInfo getOccupantForAudioZoneId(in int audioZoneId);
     int getDisplayType(in int displayId);
     int getUserForOccupant(in int occupantZoneId);
+
+    // Returns the preferred zone id for the user passed as parameter. Users may be associated
+    // with more than one zone id. In that case, this method will return the first associated zone
+    // (which will be the preferred zone).
     int getOccupantZoneIdForUserId(in int userId);
+
     void registerCallback(in ICarOccupantZoneCallback callback);
     void unregisterCallback(in ICarOccupantZoneCallback callback);
     boolean assignProfileUserToOccupantZone(in int occupantZoneId, in int userId);
+    int getDisplayIdForDriver(in int displayType);
 }

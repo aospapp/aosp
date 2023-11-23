@@ -14,6 +14,10 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_app {
     name: "ThemePlayground",
 
@@ -43,5 +47,5 @@ android_app {
 
     libs: ["android.car"],
 
-    required: ["privapp_whitelist_com.android.car.themeplayground"],
+    required: ["allowed_privapp_com.android.car.themeplayground"],
 }

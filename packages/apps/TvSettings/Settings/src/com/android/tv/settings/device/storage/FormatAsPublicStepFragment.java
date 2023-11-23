@@ -16,7 +16,6 @@
 
 package com.android.tv.settings.device.storage;
 
-import android.app.Fragment;
 import android.os.Bundle;
 import android.os.storage.DiskInfo;
 import android.os.storage.StorageManager;
@@ -24,7 +23,8 @@ import android.os.storage.VolumeInfo;
 import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
-import androidx.leanback.app.GuidedStepFragment;
+import androidx.fragment.app.Fragment;
+import androidx.leanback.app.GuidedStepSupportFragment;
 import androidx.leanback.widget.GuidanceStylist;
 import androidx.leanback.widget.GuidedAction;
 
@@ -32,7 +32,7 @@ import com.android.tv.settings.R;
 
 import java.util.List;
 
-public class FormatAsPublicStepFragment extends GuidedStepFragment {
+public class FormatAsPublicStepFragment extends GuidedStepSupportFragment {
     private static final int ACTION_ID_BACKUP = 1;
     private static final int ACTION_ID_FORMAT = 2;
 

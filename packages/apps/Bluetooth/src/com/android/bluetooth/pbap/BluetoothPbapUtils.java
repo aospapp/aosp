@@ -429,7 +429,12 @@ class BluetoothPbapUtils {
         int indexData = c.getColumnIndex(Data.DATA1);
         int indexMimeType = c.getColumnIndex(Data.MIMETYPE);
         String contactId, data, mimeType;
+
         while (c.moveToNext()) {
+            if (c.isNull(indexCId)) {
+                Log.w(TAG, "_id column is null. Row was deleted during iteration, skipping");
+                continue;
+            }
             contactId = c.getString(indexCId);
             data = c.getString(indexData);
             mimeType = c.getString(indexMimeType);

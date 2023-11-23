@@ -32,6 +32,7 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 import com.android.car.settings.R;
@@ -111,14 +112,6 @@ public class BluetoothPairingDialogFragment extends CarUiDialogFragment implemen
             mPairingController.onDialogNegativeClick(this);
         }
         mPairingDialogActivity.dismiss();
-    }
-
-    /**
-     * Used in testing to get a reference to the dialog.
-     * @return - The fragments current dialog
-     */
-    protected AlertDialog getmDialog() {
-        return mDialog;
     }
 
     /**
@@ -318,7 +311,12 @@ public class BluetoothPairingDialogFragment extends CarUiDialogFragment implemen
      * not require user input.
      */
     private View createView() {
-        View view = getActivity().getLayoutInflater().inflate(R.layout.bluetooth_pin_confirm, null);
+        ScrollView view = (ScrollView) getActivity().getLayoutInflater().inflate(
+                R.layout.bluetooth_pin_confirm, /* root= */ null);
+        // ScrollView sets itself to be focusable on construction, so focusability needs to be
+        // disabled explicitly after inflation for focus highlights to be properly shown on this
+        // dialog.
+        view.setFocusable(false);
         TextView pairingViewCaption = (TextView) view.findViewById(R.id.pairing_caption);
         TextView pairingViewContent = (TextView) view.findViewById(R.id.pairing_subhead);
         TextView messagePairing = (TextView) view.findViewById(R.id.pairing_code_message);

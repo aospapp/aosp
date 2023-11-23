@@ -22,7 +22,7 @@
     <string name="inspector_debug_metadata_section" msgid="5875140675600744846">"அசல் மீத்தரவு: <xliff:g id="METADATATYPE">%1$s</xliff:g>"</string>
     <string name="inspector_metadata_section" msgid="6077622515328240575">"மீடியா விவரங்கள்"</string>
     <string name="handler_app_file_opens_with" msgid="5272329600389613550">"இந்தக் கோப்பு வகையை, பின்வரும் பயன்பாடு திறக்கும்:"</string>
-    <string name="handler_app_belongs_to" msgid="5444507329303253553">"இந்தக் கோப்பை வழங்குவது:"</string>
+    <string name="handler_app_belongs_to" msgid="5444507329303253553">"இந்த ஃபைலை வழங்குவது:"</string>
     <string name="handler_app_not_selected" msgid="1294439257183908786">"தேர்ந்தெடுக்கவில்லை"</string>
     <string name="handler_app_unknown" msgid="5911661530593229287">"தெரியாதது"</string>
     <string name="metadata_dimensions" msgid="6112907724016659801">"பரிமாணங்கள்"</string>

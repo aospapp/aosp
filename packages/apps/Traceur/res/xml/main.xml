@@ -25,7 +25,8 @@
         android:defaultValue="true" />
     <androidx.preference.MultiSelectListPreference
         android:key="@string/pref_key_tags"
-        android:title="@string/categories" />
+        android:title="@string/categories"
+        style="@style/MultiSelectDialogStyle" />
     <Preference
         android:key="restore_default_tags"
         android:persistent="false"
@@ -35,7 +36,11 @@
         android:title="@string/buffer_size"
         android:entries="@array/buffer_size_names"
         android:entryValues="@array/buffer_size_values"
-        android:defaultValue="@string/default_buffer_size"/>
+        android:defaultValue="@string/default_buffer_size" />
+    <Preference
+        android:key="trace_link_button"
+        android:title="@string/link_to_traces"
+        android:persistent="false" />
     <Preference
         android:key="clear_saved_traces"
         android:summary="@string/clear_saved_traces_summary"
@@ -55,17 +60,26 @@
             android:dependency="@string/pref_key_long_traces"
             android:entries="@array/long_trace_size_names"
             android:entryValues="@array/long_trace_size_values"
-            android:defaultValue="@string/default_long_trace_size"/>
+            android:defaultValue="@string/default_long_trace_size" />
         <androidx.preference.ListPreference
             android:key="@string/pref_key_max_long_trace_duration"
             android:title="@string/max_long_trace_duration"
             android:dependency="@string/pref_key_long_traces"
             android:entries="@array/long_trace_duration_names"
             android:entryValues="@array/long_trace_duration_values"
-            android:defaultValue="@string/default_long_trace_duration"/>
+            android:defaultValue="@string/default_long_trace_duration" />
     </androidx.preference.PreferenceCategory>
     <androidx.preference.PreferenceCategory
         android:orderingFromXml="true" >
+        <androidx.preference.SwitchPreference
+            android:key="@string/pref_key_stop_on_bugreport"
+            android:summary="@string/stop_on_bugreport_summary"
+            android:title="@string/stop_on_bugreport" />
+        <androidx.preference.SwitchPreference
+            android:key="@string/pref_key_attach_to_bugreport"
+            android:summary="@string/attach_to_bug_report_summary"
+            android:title="@string/attach_to_bug_report"
+            android:defaultValue="true" />
         <androidx.preference.SwitchPreference
             android:key="@string/pref_key_quick_setting"
             android:title="@string/show_quick_settings_tile"

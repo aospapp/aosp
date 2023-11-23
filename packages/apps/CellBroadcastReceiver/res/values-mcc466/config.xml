@@ -21,6 +21,8 @@
     <bool name="show_severe_alert_settings">false</bool>
     <!-- Whether to show amber alert settings -->
     <bool name="show_amber_alert_settings">false</bool>
+    <!-- Whether to enable alert handling during active voice call. -->
+    <bool name="enable_alert_handling_during_call">true</bool>
 
     <string-array name="public_safety_messages_channels_range_strings" translatable="false">
         <!-- Channel 911 and 919 are required by Taiwan NCC -->
@@ -29,9 +31,9 @@
     </string-array>
     <!-- 4370, 4383 -->
     <string-array name="cmas_presidential_alerts_channels_range_strings" translatable="false">
-        <item>0x1112:rat=gsm, emergency=true</item>
+        <item>0x1112:rat=gsm, emergency=true, always_on=true</item>
         <!-- additional language -->
-        <item>0x111F:rat=gsm, emergency=true</item>
+        <item>0x111F:rat=gsm, emergency=true, always_on=true</item>
     </string-array>
     <!--4371~4379, 4384~4392 -->
     <string-array name="emergency_alerts_channels_range_strings" translatable="false">

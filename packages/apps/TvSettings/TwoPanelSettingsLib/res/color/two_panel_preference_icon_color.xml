@@ -15,7 +15,7 @@
 -->
 
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:color="#FF0E0E0E"
+    <item android:color="#FF4285F4"
           android:state_focused="true"/>
     <item
         android:color="#B3E8EAED"/>

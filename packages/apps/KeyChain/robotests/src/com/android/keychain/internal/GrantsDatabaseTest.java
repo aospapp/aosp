@@ -369,4 +369,18 @@ public final class GrantsDatabaseTest {
             Assert.assertTrue(mGrantsDB.isUserSelectable(alias));
         }
     }
+
+    @Test
+    public void testGetGrants_empty() {
+        Assert.assertArrayEquals(new int[0], mGrantsDB.getGrants(DUMMY_ALIAS));
+    }
+
+    @Test
+    public void testGetGrants_nonEmpty() {
+        mGrantsDB.setGrant(DUMMY_UID, DUMMY_ALIAS, true);
+        mGrantsDB.setGrant(DUMMY_UID + 1, DUMMY_ALIAS, true);
+
+        Assert.assertArrayEquals(
+                new int[]{DUMMY_UID, DUMMY_UID + 1}, mGrantsDB.getGrants(DUMMY_ALIAS));
+    }
 }

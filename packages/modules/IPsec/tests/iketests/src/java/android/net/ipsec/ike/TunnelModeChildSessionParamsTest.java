@@ -14,21 +14,21 @@
  * limitations under the License.
  */
 
-package android.net.ipsec.ike;
+package android.net.ipsec.test.ike;
 
-import static android.net.ipsec.ike.ChildSessionParams.CHILD_HARD_LIFETIME_SEC_DEFAULT;
-import static android.net.ipsec.ike.ChildSessionParams.CHILD_HARD_LIFETIME_SEC_MAXIMUM;
-import static android.net.ipsec.ike.ChildSessionParams.CHILD_HARD_LIFETIME_SEC_MINIMUM;
-import static android.net.ipsec.ike.ChildSessionParams.CHILD_SOFT_LIFETIME_SEC_DEFAULT;
+import static android.net.ipsec.test.ike.ChildSessionParams.CHILD_HARD_LIFETIME_SEC_DEFAULT;
+import static android.net.ipsec.test.ike.ChildSessionParams.CHILD_HARD_LIFETIME_SEC_MAXIMUM;
+import static android.net.ipsec.test.ike.ChildSessionParams.CHILD_HARD_LIFETIME_SEC_MINIMUM;
+import static android.net.ipsec.test.ike.ChildSessionParams.CHILD_SOFT_LIFETIME_SEC_DEFAULT;
 import static android.system.OsConstants.AF_INET;
 import static android.system.OsConstants.AF_INET6;
 
-import static com.android.internal.net.ipsec.ike.message.IkeConfigPayload.CONFIG_ATTR_INTERNAL_IP4_ADDRESS;
-import static com.android.internal.net.ipsec.ike.message.IkeConfigPayload.CONFIG_ATTR_INTERNAL_IP4_DHCP;
-import static com.android.internal.net.ipsec.ike.message.IkeConfigPayload.CONFIG_ATTR_INTERNAL_IP4_DNS;
-import static com.android.internal.net.ipsec.ike.message.IkeConfigPayload.CONFIG_ATTR_INTERNAL_IP4_NETMASK;
-import static com.android.internal.net.ipsec.ike.message.IkeConfigPayload.CONFIG_ATTR_INTERNAL_IP6_ADDRESS;
-import static com.android.internal.net.ipsec.ike.message.IkeConfigPayload.CONFIG_ATTR_INTERNAL_IP6_DNS;
+import static com.android.internal.net.ipsec.test.ike.message.IkeConfigPayload.CONFIG_ATTR_INTERNAL_IP4_ADDRESS;
+import static com.android.internal.net.ipsec.test.ike.message.IkeConfigPayload.CONFIG_ATTR_INTERNAL_IP4_DHCP;
+import static com.android.internal.net.ipsec.test.ike.message.IkeConfigPayload.CONFIG_ATTR_INTERNAL_IP4_DNS;
+import static com.android.internal.net.ipsec.test.ike.message.IkeConfigPayload.CONFIG_ATTR_INTERNAL_IP4_NETMASK;
+import static com.android.internal.net.ipsec.test.ike.message.IkeConfigPayload.CONFIG_ATTR_INTERNAL_IP6_ADDRESS;
+import static com.android.internal.net.ipsec.test.ike.message.IkeConfigPayload.CONFIG_ATTR_INTERNAL_IP6_DNS;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -39,7 +39,7 @@ import static org.junit.Assert.fail;
 import android.net.InetAddresses;
 import android.util.SparseArray;
 
-import com.android.internal.net.ipsec.ike.message.IkeConfigPayload.ConfigAttribute;
+import com.android.internal.net.ipsec.test.ike.message.IkeConfigPayload.ConfigAttribute;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -56,17 +56,17 @@ public final class TunnelModeChildSessionParamsTest {
     private static final int INVALID_ADDR_FAMILY = 5;
 
     private static final Inet4Address IPV4_ADDRESS =
-            (Inet4Address) (InetAddresses.parseNumericAddress("192.0.2.100"));
+            (Inet4Address) InetAddresses.parseNumericAddress("192.0.2.100");
     private static final Inet6Address IPV6_ADDRESS =
-            (Inet6Address) (InetAddresses.parseNumericAddress("2001:db8::1"));
+            (Inet6Address) InetAddresses.parseNumericAddress("2001:db8::1");
 
     private static final Inet4Address IPV4_DNS_SERVER =
-            (Inet4Address) (InetAddresses.parseNumericAddress("8.8.8.8"));
+            (Inet4Address) InetAddresses.parseNumericAddress("8.8.8.8");
     private static final Inet6Address IPV6_DNS_SERVER =
-            (Inet6Address) (InetAddresses.parseNumericAddress("2001:4860:4860::8888"));
+            (Inet6Address) InetAddresses.parseNumericAddress("2001:4860:4860::8888");
 
     private static final Inet4Address IPV4_DHCP_SERVER =
-            (Inet4Address) (InetAddresses.parseNumericAddress("192.0.2.200"));
+            (Inet4Address) InetAddresses.parseNumericAddress("192.0.2.200");
     private ChildSaProposal mSaProposal;
 
     @Before
@@ -263,6 +263,28 @@ public final class TunnelModeChildSessionParamsTest {
             fail("Expected failure because soft lifetime is too short");
         } catch (IllegalArgumentException expected) {
         }
+    }
+
+    @Test
+    public void testConstructTunnelModeChildParamsCopy() throws Exception {
+        TunnelModeChildSessionParams childParams =
+                new TunnelModeChildSessionParams.Builder()
+                        .addSaProposal(mSaProposal)
+                        .setLifetimeSeconds(
+                                (int) TimeUnit.HOURS.toSeconds(3L),
+                                (int) TimeUnit.HOURS.toSeconds(1L))
+                        .addInternalAddressRequest(AF_INET)
+                        .addInternalAddressRequest(AF_INET6)
+                        .addInternalAddressRequest(IPV4_ADDRESS)
+                        .addInternalAddressRequest(IPV6_ADDRESS, IP6_PREFIX_LEN)
+                        .addInternalDnsServerRequest(AF_INET)
+                        .addInternalDnsServerRequest(AF_INET6)
+                        .addInternalDhcpServerRequest(AF_INET)
+                        .build();
+
+        TunnelModeChildSessionParams result =
+                new TunnelModeChildSessionParams.Builder(childParams).build();
+        assertEquals(childParams, result);
     }
 }
 

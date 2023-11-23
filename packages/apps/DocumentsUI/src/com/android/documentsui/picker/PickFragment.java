@@ -98,7 +98,7 @@ public class PickFragment extends Fragment {
         final PickFragment fragment = new PickFragment();
         final FragmentTransaction ft = fm.beginTransaction();
         ft.replace(R.id.container_save, fragment, TAG);
-        ft.commitAllowingStateLoss();
+        ft.commitNowAllowingStateLoss();
     }
 
     public static PickFragment get(FragmentManager fm) {

@@ -18,12 +18,12 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"ডাউনল’ড মেনেজাৰ ব্যৱহাৰ কৰিব পাৰে।"</string>
     <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"এপটোক BluetoothShare মেনেজাৰ ব্যৱহাৰ কৰি ফাইল স্থানান্তৰ কৰিবলৈ অনুমতি দিয়ে।"</string>
-    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"ব্লুটুথ ডিভাইচ ব্যৱাহৰ কৰিবলৈ স্বীকৃতি দিয়ক।"</string>
-    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"ব্যৱহাৰকাৰীৰ অনুমতি অবিহনে এই ডিভাইচক ফাইলবোৰ পঠিয়াবলৈ দি এপটোক ব্লুটুথ ডিভাইচক কিছু সময়ৰ বাবে স্বীকৃতি দিয়ে।"</string>
+    <string name="permlab_bluetoothAcceptlist" msgid="2647575807648622053">"ব্লুটুথ ডিভাইচ এক্সেছ কৰাৰ স্বীকৃতি দিয়ে।"</string>
+    <string name="permdesc_bluetoothAcceptlist" msgid="2406423665674766442">"এপ্‌টোক এটা ব্লুটুথ ডিভাইচ অস্থায়ীৰূপে স্বীকাৰ কৰাৰ অনুমতি দিয়ে যিয়ে ডিভাইচটোক ব্যৱহাৰকাৰীৰ নিশ্চিতিকৰণৰ অবিহনেই ইয়ালৈ ফাইল পঠিওৱাৰ অনুমতি দিয়ে।"</string>
     <string name="bt_share_picker_label" msgid="6268100924487046932">"ব্লুটুথ"</string>
     <string name="unknown_device" msgid="9221903979877041009">"অজ্ঞাত ডিভাইচ"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"অজ্ঞাত"</string>
-    <string name="airplane_error_title" msgid="2683839635115739939">"এয়াৰপ্লেইন ম\'ড"</string>
+    <string name="airplane_error_title" msgid="2683839635115739939">"এয়াৰপ্লে’ন ম’ড"</string>
     <string name="airplane_error_msg" msgid="8698965595254137230">"আপুনি এয়াৰপ্লেইন ম\'ডত ব্লুটুথ ব্যৱহাৰ কৰিব নোৱাৰে।"</string>
     <string name="bt_enable_title" msgid="8657832550503456572"></string>
     <string name="bt_enable_line1" msgid="7203551583048149">"ব্লুটুথ সেৱা ব্যৱহাৰ কৰাৰ আগতে ইয়াক অন কৰিবই লাগিব।"</string>
@@ -37,7 +37,7 @@
     <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"ঠিক"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"\"<xliff:g id="SENDER">%1$s</xliff:g>\"ৰ পৰা লাভ কৰা ফাইলটো গ্ৰহণ কৰোঁতে সময় ওকলিছে"</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"অন্তৰ্গামী ফাইল"</string>
-    <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="SENDER">%1$s</xliff:g> <xliff:g id="FILE">%2$s</xliff:g> পঠাবলৈ সাজু"</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="6237487486781004992">"<xliff:g id="SENDER">%1$s</xliff:g> এটা ফাইল পঠিয়াবলৈ সাজু: <xliff:g id="FILE">%2$s</xliff:g>"</string>
     <string name="notification_receiving" msgid="4674648179652543984">"ব্লুটুথ শ্বেয়াৰ: <xliff:g id="FILE">%1$s</xliff:g> লাভ কৰি থকা হৈছে"</string>
     <string name="notification_received" msgid="3324588019186687985">"ব্লুটুথ শ্বেয়াৰ: <xliff:g id="FILE">%1$s</xliff:g> লাভ কৰা হ’ল"</string>
     <string name="notification_received_fail" msgid="3619350997285714746">"ব্লুটুথ শ্বেয়াৰ: ফাইল <xliff:g id="FILE">%1$s</xliff:g> লাভ কৰা নহ\'ল"</string>
@@ -83,8 +83,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\"লৈ ফাইল প্ৰেৰণ কৰি থকা হৈছে"</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"\"<xliff:g id="RECIPIENT">%2$s</xliff:g>\"লৈ <xliff:g id="NUMBER">%1$s</xliff:g>টা ফাইল পঠিয়াই থকা হৈছে"</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\"লৈ ফাইল পঠিওৱা বন্ধ কৰা হ’ল"</string>
-    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"\"<xliff:g id="SENDER">%1$s</xliff:g>\"ৰ পৰা লাভ কৰা ফাইলটো ছেভ কৰিবলৈ USB সঞ্চয়াগাৰত পৰ্যাপ্ত খালী ঠাই নাই"</string>
-    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"\"<xliff:g id="SENDER">%1$s</xliff:g>\"ৰ পৰা লাভ কৰা ফাইলটো ছেভ কৰিবলৈ SD কাৰ্ডত পৰ্যাপ্ত খালী ঠাই নাই"</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="5354343190503952837">"ফাইলটো ছেভ কৰিব পৰাকৈ ইউএছবি ষ্ট’ৰেজত পৰ্যাপ্ত খালী ঠাই নাই।"</string>
+    <string name="bt_sm_2_1_default" msgid="2497541206648973852">"ফাইলটো ছেভ কৰিব পৰাকৈ এছডি কাৰ্ডখনত পৰ্যাপ্ত খালী ঠাই নাই।"</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"ইমান খালী ঠাইৰ দৰকাৰ: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"বহুত বেছি অনুৰোধৰ ওপৰত প্ৰক্ৰিয়া চলি আছে৷ পিছত আকৌ চেষ্টা কৰক৷"</string>
     <string name="status_pending" msgid="2503691772030877944">"ফাইলৰ স্থানান্তৰণ এতিয়ালৈকে আৰম্ভ হোৱা নাই।"</string>
@@ -121,7 +121,7 @@
     <string name="transfer_menu_open" msgid="3368984869083107200">"খোলক"</string>
     <string name="transfer_menu_clear" msgid="5854038118831427492">"সূচীৰ পৰা মচক"</string>
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"মচক"</string>
-    <string name="bluetooth_a2dp_sink_queue_name" msgid="6864149958708669766">"সদ্য পৰিৱেশিত গীত"</string>
+    <string name="bluetooth_a2dp_sink_queue_name" msgid="6864149958708669766">"এতিয়া প্লে’ হৈ আছে"</string>
     <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"ছেভ কৰক"</string>
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"বাতিল কৰক"</string>
     <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"ব্লুটুথৰ জৰিয়তে শ্বেয়াৰ কৰিব খোজা একাউণ্টসমূহ বাছক। তথাপিও সংযোগ কৰি থাকোঁতে আপুনি একাউণ্টসমূহক সকলো ধৰণৰ অনুমতি দিবই লাগিব।"</string>

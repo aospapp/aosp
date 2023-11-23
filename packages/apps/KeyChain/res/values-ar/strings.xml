@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"‏يمكنك تثبيت شهادات من ملف PKCS#12 بامتداد %1$s أو %2$s، حيث إن هذا الملف موجود في وحدة التخزين الخارجية."</string>
     <string name="allow_button" msgid="3030990695030371561">"تحديد"</string>
     <string name="deny_button" msgid="3766539809121892584">"رفض"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"جارٍ تحميل الشهادات..."</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"‏جارٍ التحقّق من قِبل %s بحثًا عن شهادة…"</string>
 </resources>

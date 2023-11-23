@@ -104,8 +104,6 @@ public abstract class MultiRootDocumentsLoader extends AsyncTaskLoader<Directory
      * @param state current state
      * @param executors the executors of authorities
      * @param fileTypeMap the map of mime types and file types.
-     * @param lock the selection lock
-     * @param contentChangedCallback callback when content changed
      */
     public MultiRootDocumentsLoader(Context context, ProvidersAccess providers, State state,
             Lookup<String, Executor> executors, Lookup<String, String> fileTypeMap) {
@@ -126,8 +124,13 @@ public abstract class MultiRootDocumentsLoader extends AsyncTaskLoader<Directory
 
     @Override
     public DirectoryResult loadInBackground() {
-        synchronized (mTasks) {
-            return loadInBackgroundLocked();
+        try {
+            synchronized (mTasks) {
+                return loadInBackgroundLocked();
+            }
+        } catch (InterruptedException e) {
+            Log.w(TAG, "loadInBackground is interrupted: ", e);
+            return null;
         }
     }
 
@@ -135,7 +138,7 @@ public abstract class MultiRootDocumentsLoader extends AsyncTaskLoader<Directory
         mObserver = observer;
     }
 
-    private DirectoryResult loadInBackgroundLocked() {
+    private DirectoryResult loadInBackgroundLocked() throws InterruptedException {
         if (mFirstPassLatch == null) {
             // First time through we kick off all the recent tasks, and wait
             // around to see if everyone finishes quickly.
@@ -144,6 +147,11 @@ public abstract class MultiRootDocumentsLoader extends AsyncTaskLoader<Directory
             for (Map.Entry<String, List<RootInfo>> rootEntry : rootsIndex.entrySet()) {
                 mTasks.put(rootEntry.getKey(),
                         getQueryTask(rootEntry.getKey(), rootEntry.getValue()));
+            }
+
+            if (isLoadInBackgroundCanceled()) {
+                // Loader is cancelled (e.g. about to be reset), preempt loading.
+                throw new InterruptedException("Loading is cancelled!");
             }
 
             mFirstPassLatch = new CountDownLatch(mTasks.size());
@@ -166,6 +174,11 @@ public abstract class MultiRootDocumentsLoader extends AsyncTaskLoader<Directory
         int totalQuerySize = 0;
         List<Cursor> cursors = new ArrayList<>(mTasks.size());
         for (QueryTask task : mTasks.values()) {
+            if (isLoadInBackgroundCanceled()) {
+                // Loader is cancelled (e.g. about to be reset), preempt loading.
+                throw new InterruptedException("Loading is cancelled!");
+            }
+
             if (task.isDone()) {
                 try {
                     final Cursor[] taskCursors = task.get();
@@ -181,17 +194,18 @@ public abstract class MultiRootDocumentsLoader extends AsyncTaskLoader<Directory
                             continue;
                         }
 
-                        // Filter hidden files.
-                        cursor = new FilteringCursorWrapper(cursor, mState.showHiddenFiles);
-
-                        final FilteringCursorWrapper filtered = new FilteringCursorWrapper(
-                                cursor, mState.acceptMimes, getRejectMimes(), rejectBefore) {
+                        final FilteringCursorWrapper filteredCursor =
+                                new FilteringCursorWrapper(cursor) {
                             @Override
                             public void close() {
                                 // Ignored, since we manage cursor lifecycle internally
                             }
                         };
-                        cursors.add(filtered);
+                        filteredCursor.filterHiddenFiles(mState.showHiddenFiles);
+                        filteredCursor.filterMimes(mState.acceptMimes, getRejectMimes());
+                        filteredCursor.filterLastModified(rejectBefore);
+
+                        cursors.add(filteredCursor);
                     }
 
                 } catch (InterruptedException e) {
@@ -238,7 +252,7 @@ public abstract class MultiRootDocumentsLoader extends AsyncTaskLoader<Directory
         extras.putBoolean(DocumentsContract.EXTRA_LOADING, !allDone);
         sorted.setExtras(extras);
 
-        result.cursor = sorted;
+        result.setCursor(sorted);
 
         return result;
     }
@@ -292,7 +306,7 @@ public abstract class MultiRootDocumentsLoader extends AsyncTaskLoader<Directory
         DirectoryResult oldResult = mResult;
         mResult = result;
 
-        if (isStarted()) {
+        if (isStarted() && !isAbandoned() && !isLoadInBackgroundCanceled()) {
             super.deliverResult(result);
         }
 
@@ -303,10 +317,11 @@ public abstract class MultiRootDocumentsLoader extends AsyncTaskLoader<Directory
 
     @Override
     protected void onStartLoading() {
-        if (mResult != null) {
+        boolean isCursorStale = checkIfCursorStale(mResult);
+        if (mResult != null && !isCursorStale) {
             deliverResult(mResult);
         }
-        if (takeContentChanged() || mResult == null) {
+        if (takeContentChanged() || mResult == null || isCursorStale) {
             forceLoad();
         }
     }
@@ -324,9 +339,6 @@ public abstract class MultiRootDocumentsLoader extends AsyncTaskLoader<Directory
     @Override
     protected void onReset() {
         super.onReset();
-
-        // Ensure the loader is stopped
-        onStopLoading();
 
         synchronized (mTasks) {
             for (QueryTask task : mTasks.values()) {
@@ -455,5 +467,23 @@ public abstract class MultiRootDocumentsLoader extends AsyncTaskLoader<Directory
 
             mIsClosed = true;
         }
+    }
+
+    private boolean checkIfCursorStale(DirectoryResult result) {
+        if (result == null || result.getCursor() == null || result.getCursor().isClosed()) {
+            return true;
+        }
+        Cursor cursor = result.getCursor();
+        try {
+            cursor.moveToPosition(-1);
+            for (int pos = 0; pos < cursor.getCount(); ++pos) {
+                if (!cursor.moveToNext()) {
+                    return true;
+                }
+            }
+        } catch (Exception e) {
+            return true;
+        }
+        return false;
     }
 }

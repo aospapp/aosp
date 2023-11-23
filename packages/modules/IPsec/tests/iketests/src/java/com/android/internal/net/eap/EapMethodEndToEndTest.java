@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.eap;
+package com.android.internal.net.eap.test;
 
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.EAP_FAILURE_PACKET;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.EAP_REQUEST_NOTIFICATION_PACKET;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.EAP_RESPONSE_NOTIFICATION_PACKET;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.EAP_SUCCESS;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_FAILURE_PACKET;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_REQUEST_NOTIFICATION_PACKET;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_RESPONSE_NOTIFICATION_PACKET;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_SUCCESS;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -29,10 +29,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import android.content.Context;
-import android.net.eap.EapSessionConfig;
+import android.net.eap.test.EapSessionConfig;
 import android.os.test.TestLooper;
 
-import com.android.internal.net.eap.exceptions.EapInvalidRequestException;
+import com.android.internal.net.eap.test.exceptions.EapInvalidRequestException;
 
 import org.junit.Before;
 

@@ -16,16 +16,14 @@
      limitations under the License.
 -->
 <resources>
-    <dimen name="preview_theme_content_margin">12dp</dimen>
+    <dimen name="preview_theme_content_margin">76dp</dimen>
 
-    <dimen name="preview_theme_icon_size">40dp</dimen>
-    <dimen name="preview_theme_tile_size">20dp</dimen>
-    <dimen name="preview_theme_shape_size">52dp</dimen>
-    <dimen name="preview_theme_cover_content_extra_margin">8dp</dimen>
+    <dimen name="preview_theme_color_component_size">272dp</dimen>
+    <dimen name="preview_theme_icon_size">48dp</dimen>
+    <dimen name="preview_theme_tile_size">24dp</dimen>
+    <dimen name="preview_theme_shape_size">48dp</dimen>
 
     <dimen name="preview_theme_content_min_height">152dp</dimen>
 
     <dimen name="theme_preview_header_drawable_padding">12dp</dimen>
-
-    <dimen name="card_header_top_margin">16dp</dimen>
 </resources>

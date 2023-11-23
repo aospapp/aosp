@@ -31,6 +31,7 @@ allow experimentalcarservice_app {
     sensorservice_service
     surfaceflinger_service
     telecom_service
+    tethering_service
     uimode_service
     voiceinteraction_service
 }:service_manager find;

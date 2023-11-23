@@ -39,6 +39,10 @@ class DnsResolverService : public aidl::android::net::BnDnsResolver {
     ::ndk::ScopedAStatus registerEventListener(
             const std::shared_ptr<aidl::android::net::metrics::INetdEventListener>& listener)
             override;
+    ::ndk::ScopedAStatus registerUnsolicitedEventListener(
+            const std::shared_ptr<
+                    aidl::android::net::resolv::aidl::IDnsResolverUnsolicitedEventListener>&
+                    listener) override;
 
     // Resolver commands.
     ::ndk::ScopedAStatus setResolverConfiguration(
@@ -51,6 +55,8 @@ class DnsResolverService : public aidl::android::net::BnDnsResolver {
     ::ndk::ScopedAStatus destroyNetworkCache(int32_t netId) override;
     ::ndk::ScopedAStatus createNetworkCache(int32_t netId) override;
     ::ndk::ScopedAStatus flushNetworkCache(int32_t netId) override;
+    ::ndk::ScopedAStatus setResolverOptions(
+            int32_t netId, const aidl::android::net::ResolverOptionsParcel& options) override;
 
     // DNS64-related commands
     ::ndk::ScopedAStatus startPrefix64Discovery(int32_t netId) override;

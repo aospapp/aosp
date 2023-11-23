@@ -18,7 +18,6 @@
     android:id="@+id/directory_header"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginTop="@dimen/action_bar_space_margin"
     android:orientation="vertical">
 
     <com.android.documentsui.HorizontalBreadcrumb
@@ -47,8 +46,8 @@
             app:tabMaxWidth="0dp"
             app:tabGravity="fill"
             app:tabMode="fixed"
-            app:tabIndicatorColor="@color/tab_indicator_color"
-            app:tabSelectedTextColor="@color/tab_indicator_color"
+            app:tabIndicatorColor="?android:attr/colorAccent"
+            app:tabSelectedTextColor="?android:attr/colorAccent"
             app:tabTextAppearance="@style/TabTextAppearance"
             app:tabTextColor="?android:attr/textColorSecondary"/>
 
@@ -73,8 +72,7 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:textAppearance="@style/SortTitle"
-            android:textAllCaps="true"
+            android:textAppearance="@style/SectionHeader"
             android:maxLines="1"
             android:ellipsize="end"
             android:gravity="start|center_vertical"/>

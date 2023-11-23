@@ -353,7 +353,7 @@ public class ONSProfileSelector {
         callbackIntent.putExtra("subId", subId);
         mSubId = subId;
         PendingIntent replyIntent = PendingIntent.getService(mContext,
-                1, callbackIntent, PendingIntent.FLAG_ONE_SHOT);
+                1, callbackIntent, PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE);
         mSubscriptionManager.switchToSubscription(subId, replyIntent);
     }
 

@@ -23,6 +23,6 @@
     <string name="pws_other_message_identifiers" msgid="7907712751421890873">"ಅಲರ್ಟ್‌ಗಳು"</string>
     <string name="enable_emergency_alerts_message_title" msgid="5267857032926801433">"ಅಲರ್ಟ್‌ಗಳು"</string>
     <string name="enable_emergency_alerts_message_summary" msgid="8961532453478455676">"ಜೀವಗಳು ಅಥವಾ ಆಸ್ತಿಯನ್ನು ಉಳಿಸಬಹುದಾದ ಶಿಫಾರಸು ಮಾಡಿದ ಕ್ರಮಗಳು"</string>
-    <string name="cmas_required_monthly_test" msgid="197559096432885563">"ಪರೀಕ್ಷೆ ಅಲರ್ಟ್‌ಗಳು"</string>
+    <string name="cmas_required_monthly_test" msgid="5733131786754331921">"ಟೆಸ್ಟ್ ಅಲರ್ಟ್‌ಗಳು"</string>
     <string name="cmas_exercise_alert" msgid="7249058541625071454">"ವ್ಯಾಯಾಮಗಳು"</string>
 </resources>

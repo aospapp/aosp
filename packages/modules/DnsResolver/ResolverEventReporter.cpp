@@ -21,6 +21,7 @@
 #include <android/binder_manager.h>
 
 using aidl::android::net::metrics::INetdEventListener;
+using aidl::android::net::resolv::aidl::IDnsResolverUnsolicitedEventListener;
 
 ResolverEventReporter& ResolverEventReporter::getInstance() {
     // It should be initialized only once.
@@ -38,8 +39,17 @@ ResolverEventReporter::ListenerSet ResolverEventReporter::getListeners() const {
     return getListenersImpl();
 }
 
+ResolverEventReporter::UnsolEventListenerSet ResolverEventReporter::getUnsolEventListeners() const {
+    return getUnsolEventListenersImpl();
+}
+
 int ResolverEventReporter::addListener(const std::shared_ptr<INetdEventListener>& listener) {
     return addListenerImpl(listener);
+}
+
+int ResolverEventReporter::addUnsolEventListener(
+        const std::shared_ptr<IDnsResolverUnsolicitedEventListener>& listener) {
+    return addUnsolEventListenerImpl(listener);
 }
 
 // TODO: Consider registering metrics listener from framework and remove this function.
@@ -73,9 +83,26 @@ void ResolverEventReporter::handleBinderDied(const void* who) {
     if (found != mListeners.end()) mListeners.erase(found);
 }
 
+void ResolverEventReporter::handleUnsolEventBinderDied(const void* who) {
+    std::lock_guard lock(mMutex);
+
+    // Use the raw binder pointer address to be the identification of dead binder. Treat "who"
+    // which passes the raw address of dead binder as an identification only.
+    auto found = std::find_if(mUnsolEventListeners.begin(), mUnsolEventListeners.end(),
+                              [=](const auto& it) { return static_cast<void*>(it.get()) == who; });
+
+    if (found != mUnsolEventListeners.end()) mUnsolEventListeners.erase(found);
+}
+
 ResolverEventReporter::ListenerSet ResolverEventReporter::getListenersImpl() const {
     std::lock_guard lock(mMutex);
     return mListeners;
+}
+
+ResolverEventReporter::UnsolEventListenerSet ResolverEventReporter::getUnsolEventListenersImpl()
+        const {
+    std::lock_guard lock(mMutex);
+    return mUnsolEventListeners;
 }
 
 int ResolverEventReporter::addListenerImpl(const std::shared_ptr<INetdEventListener>& listener) {
@@ -125,5 +152,57 @@ int ResolverEventReporter::addListenerImplLocked(
     }
 
     mListeners.insert(listener);
+    return 0;
+}
+
+int ResolverEventReporter::addUnsolEventListenerImpl(
+        const std::shared_ptr<IDnsResolverUnsolicitedEventListener>& listener) {
+    std::lock_guard lock(mMutex);
+    return addUnsolEventListenerImplLocked(listener);
+}
+
+int ResolverEventReporter::addUnsolEventListenerImplLocked(
+        const std::shared_ptr<IDnsResolverUnsolicitedEventListener>& listener) {
+    if (listener == nullptr) {
+        LOG(ERROR) << "The unsolicited event listener should not be null";
+        return -EINVAL;
+    }
+
+    for (const auto& it : mUnsolEventListeners) {
+        if (it->asBinder().get() == listener->asBinder().get()) {
+            LOG(WARNING) << "The unsolicited event listener was already subscribed";
+            return -EEXIST;
+        }
+    }
+
+    static AIBinder_DeathRecipient* deathRecipient = nullptr;
+    if (deathRecipient == nullptr) {
+        // The AIBinder_DeathRecipient object is used to manage all death recipients for multiple
+        // binder objects. It doesn't released because there should have at least one binder object
+        // from framework.
+        // TODO: Considering to remove death recipient for the binder object from framework because
+        // it doesn't need death recipient actually.
+        deathRecipient = AIBinder_DeathRecipient_new([](void* cookie) {
+            ResolverEventReporter::getInstance().handleUnsolEventBinderDied(cookie);
+        });
+    }
+
+    // Pass the raw binder pointer address to be the cookie of the death recipient. While the death
+    // notification is fired, the cookie is used for identifying which binder was died. Because
+    // the NDK binder doesn't pass dead binder pointer to binder death handler, the binder death
+    // handler can't know who was died via wp<IBinder>. The reason for wp<IBinder> is not passed
+    // is that NDK binder can't transform a wp<IBinder> to a wp<AIBinder> in some cases.
+    // See more information in b/128712772.
+    auto binder = listener->asBinder().get();
+    auto cookie = static_cast<void*>(listener.get());  // Used for dead binder identification.
+    binder_status_t status = AIBinder_linkToDeath(binder, deathRecipient, cookie);
+
+    if (STATUS_OK != status) {
+        LOG(ERROR)
+                << "Failed to register death notification for IDnsResolverUnsolicitedEventListener";
+        return -EAGAIN;
+    }
+
+    mUnsolEventListeners.insert(listener);
     return 0;
 }

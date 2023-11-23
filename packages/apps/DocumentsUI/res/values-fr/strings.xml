@@ -16,6 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="missing_rename_error" msgid="9098952207447981103">"Vous devez lui attribuer un autre nom"</string>
+    <string name="add_folder_name_error" msgid="6014615052491406810">"Vous devez ajouter un nom de dossier"</string>
     <string name="files_label" msgid="771781190045103748">"Fichiers"</string>
     <string name="downloads_label" msgid="5462789470049501103">"Téléchargements"</string>
     <!-- no translation found for app_label (8089292432455111409) -->
@@ -90,7 +92,7 @@
     <string name="save_error" msgid="8631128801982095782">"Échec de l\'enregistrement du document"</string>
     <string name="create_error" msgid="3092144450044861994">"Échec de la création du dossier"</string>
     <string name="query_error" msgid="6625421453613879336">"Impossible de charger le contenu pour le moment"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"Le profil professionnel est interrompu"</string>
+    <string name="quiet_mode_error_title" msgid="9126656325282792843">"Profil professionnel en pause"</string>
     <string name="quiet_mode_button" msgid="6977115032320235420">"Activer"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"Impossible de sélectionner des fichiers professionnels"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"Votre administrateur informatique ne vous autorise pas à accéder à des fichiers professionnels depuis une application personnelle"</string>
@@ -276,6 +278,8 @@
     <string name="delete_search_history" msgid="2202015025607694515">"Supprimer l\'historique des recherches <xliff:g id="TEXT">%1$s</xliff:g>"</string>
     <string name="personal_tab" msgid="3878576287868528503">"Personnel"</string>
     <string name="work_tab" msgid="7265359366883747413">"Professionnel"</string>
-    <string name="a11y_work" msgid="7504431382825242153">"Travail"</string>
+    <string name="a11y_work" msgid="7504431382825242153">"Pro"</string>
     <string name="drag_from_another_app" msgid="8310249276199969905">"Vous ne pouvez pas déplacer de fichiers depuis une autre application."</string>
+    <string name="grid_mode_showing" msgid="2803166871485028508">"Affichage en mode grille."</string>
+    <string name="list_mode_showing" msgid="1225413902295895166">"Affichage en mode liste."</string>
 </resources>

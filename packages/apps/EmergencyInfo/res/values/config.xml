@@ -15,9 +15,10 @@
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
 
-      <!-- Fully-qualified class name for the implementation of the FeatureFactory to be instantiated. -->
+    <!-- Fully-qualified class name for the implementation of the FeatureFactory to be instantiated. -->
     <string name="config_featureFactory" translatable="false">com.android.emergency.overlay.FeatureFactoryImpl</string>
 
     <!-- Flag to enable search index feature in Settings. -->
     <bool name="config_search_index_disabled">false</bool>
+    <item name="config_screenBrightnessDimFloat" format="float" type="dimen">0.05</item>
 </resources>

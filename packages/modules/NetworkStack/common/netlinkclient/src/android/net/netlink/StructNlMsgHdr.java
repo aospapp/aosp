@@ -16,6 +16,9 @@
 
 package android.net.netlink;
 
+import android.annotation.NonNull;
+import android.annotation.Nullable;
+
 import java.nio.ByteBuffer;
 
 
@@ -44,7 +47,8 @@ public class StructNlMsgHdr {
     public static final short NLM_F_CREATE    = 0x400;
     public static final short NLM_F_APPEND    = 0x800;
 
-
+    // TODO: Probably need to distinguish the flags which have the same value. For example,
+    // NLM_F_MATCH (0x200) and NLM_F_EXCL (0x200).
     public static String stringForNlMsgFlags(short flags) {
         final StringBuilder sb = new StringBuilder();
         if ((flags & NLM_F_REQUEST) != 0) {
@@ -124,8 +128,23 @@ public class StructNlMsgHdr {
 
     @Override
     public String toString() {
+        return toString(null /* unknown netlink family */);
+    }
+
+    /**
+     * Transform a netlink header into a string. The netlink family is required for transforming
+     * a netlink type integer into a string.
+     * @param nlFamily netlink family. Using Integer will not incur autoboxing penalties because
+     *                 family values are small, and all Integer objects between -128 and 127 are
+     *                 statically cached. See Integer.IntegerCache.
+     * @return A list of header elements.
+     */
+    @NonNull
+    public String toString(@Nullable Integer nlFamily) {
         final String typeStr = "" + nlmsg_type
-                + "(" + NetlinkConstants.stringForNlMsgType(nlmsg_type) + ")";
+                + "(" + (nlFamily == null
+                ? "" : NetlinkConstants.stringForNlMsgType(nlmsg_type, nlFamily))
+                + ")";
         final String flagsStr = "" + nlmsg_flags
                 + "(" + stringForNlMsgFlags(nlmsg_flags) + ")";
         return "StructNlMsgHdr{ "

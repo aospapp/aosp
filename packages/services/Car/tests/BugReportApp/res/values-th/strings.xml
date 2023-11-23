@@ -21,6 +21,7 @@
     <string name="bugreport_info_quit" msgid="5590138890181142473">"ปิด"</string>
     <string name="bugreport_info_start" msgid="667324824650830832">"เริ่มรายงานข้อบกพร่อง"</string>
     <string name="bugreport_info_status" msgid="7211044508792815451">"สถานะ:"</string>
+    <string name="bugreport_info_expires_soon_notice" msgid="927139313070992675">"รายงานข้อบกพร่องนี้จะหมดอายุในไม่ช้า"</string>
     <string name="bugreport_dialog_submit" msgid="2789636252713280633">"ส่ง"</string>
     <string name="bugreport_dialog_cancel" msgid="4741928791364757040">"ยกเลิก"</string>
     <string name="bugreport_dialog_upload" msgid="2517386929450370781">"อัปโหลด"</string>

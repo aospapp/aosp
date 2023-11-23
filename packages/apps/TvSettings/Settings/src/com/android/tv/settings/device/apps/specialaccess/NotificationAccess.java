@@ -27,6 +27,7 @@ import android.os.Bundle;
 import android.os.UserHandle;
 import android.provider.Settings;
 import android.service.notification.NotificationListenerService;
+import android.util.ArraySet;
 import android.util.IconDrawableFactory;
 import android.util.Log;
 
@@ -35,7 +36,6 @@ import androidx.preference.Preference;
 import androidx.preference.PreferenceScreen;
 import androidx.preference.SwitchPreference;
 
-import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.applications.ServiceListing;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
@@ -51,15 +51,13 @@ public class NotificationAccess extends SettingsPreferenceFragment {
 
     private static final String HEADER_KEY = "header";
 
+    private static final String DEFAULT_PACKAGES_SEPARATOR = ":";
+    private ArraySet<String> mDefaultPackages;
+
     private NotificationManager mNotificationManager;
     private PackageManager mPackageManager;
     private ServiceListing mServiceListing;
     private IconDrawableFactory mIconDrawableFactory;
-
-    @Override
-    public int getMetricsCategory() {
-        return MetricsProto.MetricsEvent.NOTIFICATION_ACCESS;
-    }
 
     @Override
     public void onAttach(Context context) {
@@ -98,6 +96,10 @@ public class NotificationAccess extends SettingsPreferenceFragment {
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
         setPreferencesFromResource(R.xml.notification_access, null);
+
+        String packages = getString(
+                com.android.internal.R.string.config_defaultListenerAccessPackages);
+        mDefaultPackages = new ArraySet<String>(packages.split(DEFAULT_PACKAGES_SEPARATOR));
     }
 
     private void updateList(List<ServiceInfo> services) {
@@ -131,6 +133,11 @@ public class NotificationAccess extends SettingsPreferenceFragment {
             }
             pref.setKey(cn.flattenToString());
             pref.setChecked(mNotificationManager.isNotificationListenerAccessGranted(cn));
+            // Prevent the user from removing access from a default notification listener.
+            if (mDefaultPackages.contains(cn.getPackageName()) && pref.isChecked()) {
+                pref.setEnabled(false);
+                pref.setSummary(R.string.default_notification_access_package_summary);
+            }
             pref.setOnPreferenceChangeListener((preference, newValue) -> {
                 final boolean enable = (boolean) newValue;
                 mNotificationManager.setNotificationListenerAccessGranted(cn, enable);

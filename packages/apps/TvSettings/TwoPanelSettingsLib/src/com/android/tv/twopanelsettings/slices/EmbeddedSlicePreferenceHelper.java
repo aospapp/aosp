@@ -86,8 +86,13 @@ public class EmbeddedSlicePreferenceHelper implements Observer<Slice> {
             return;
         }
         SliceItem embeddedItem = SlicePreferencesUtil.getEmbeddedItem(items);
+        // TODO(b/174691340): Refactor this class and integrate the functionality to TsPreference.
+        // TODO: Redesign TvSettings project structure so class in twopanelsettings lib can access
+        //  FlavorUtils
+        // For now, put true or false here does not affect anything as the only related preference
+        // is not displayed to user anymore.
         mNewPref = SlicePreferencesUtil.getPreference(embeddedItem,
-                (ContextThemeWrapper) mContext, null);
+                (ContextThemeWrapper) mContext, null, false);
         if (mNewPref == null) {
             updateVisibility(false);
             return;

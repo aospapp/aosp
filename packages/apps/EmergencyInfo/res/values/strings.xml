@@ -104,6 +104,8 @@
         <item>H/H</item>
         <item></item>
     </string-array>
+    <!-- [DO NOT TRANSLATE] Empty text for setting injection [CHAR_LIMIT=NONE] -->
+    <string name="injection_summary_empty" translatable="false"></string>
     <!-- Content descriptions for the blood types, used for talkback. -->
     <string-array name="blood_type_content_description">
         <item>@string/o_positive</item>

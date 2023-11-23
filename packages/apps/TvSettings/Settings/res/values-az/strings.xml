@@ -20,6 +20,17 @@
     <string name="launcher_settings_app_name" msgid="1459269619779675736">"Ayarlar"</string>
     <string name="launcher_network_app_name" msgid="8311763462169735002">"Şəbəkə"</string>
     <string name="launcher_restricted_profile_app_name" msgid="3324091425480935205">"Məhdud Profil"</string>
+    <string name="general_action_yes" msgid="1303080504548165355">"Bəli"</string>
+    <string name="general_action_no" msgid="674735073031386948">"Xeyr"</string>
+    <string name="action_on_title" msgid="1074972820237738324">"Aktiv"</string>
+    <string name="action_off_title" msgid="3598665702863436597">"Deaktiv"</string>
+    <string name="action_on_description" msgid="9146557891514835767">"Aktiv"</string>
+    <string name="action_off_description" msgid="1368039592272701910">"Deaktiv"</string>
+    <string name="agree" msgid="8155497436593889753">"Razıyam"</string>
+    <string name="disagree" msgid="7402998517682194430">"Razı deyiləm"</string>
+    <string name="enabled" msgid="5127188665060746381">"Aktiv edilib"</string>
+    <string name="disabled" msgid="4589065923272201387">"Deaktiv edilib"</string>
+    <string name="unavailable" msgid="1610732303812180196">"Əlçatmazdır"</string>
     <string name="header_category_suggestions" msgid="106077820663753645">"Təkliflər"</string>
     <string name="header_category_quick_settings" msgid="3785334008768367890">"Sürətli Ayarlar"</string>
     <string name="header_category_general_settings" msgid="3897615781153506434">"Ümumi Ayarlar"</string>
@@ -28,7 +39,7 @@
     <string name="hotwording_summary" msgid="2170375928302175449">"İstənilən zaman Google Assistentlə danışın"</string>
     <string name="header_category_device" msgid="3023893663454705969">"Cihaz"</string>
     <string name="header_category_preferences" msgid="3738388885555798797">"Tərcihlər"</string>
-    <string name="header_category_accessories" msgid="8310540329290988415">"Pult və Aksesuarlar"</string>
+    <string name="header_category_accessories" msgid="6479803330480847199">"Pult və Aksesuarlar"</string>
     <string name="header_category_personal" msgid="7880053929985150368">"Şəxsi"</string>
     <string name="connect_to_network" msgid="4133686359319492392">"Şəbəkəyə qoşulun"</string>
     <string name="add_an_account" msgid="2601275122685226096">"Hesab əlavə edin"</string>
@@ -53,6 +64,9 @@
     <string name="help_and_feedback_category_title" msgid="7036505833991003031">"Yardım və Rəy"</string>
     <string name="privacy_category_title" msgid="8552430590908463601">"Məxfilik"</string>
     <string name="privacy_device_settings_category" msgid="5018334603278648524">"Cihaz Ayarları"</string>
+    <string name="privacy_account_settings_category" msgid="5786591549945777400">"Hesab Ayarları"</string>
+    <string name="privacy_assistant_settings_title" msgid="4524957824712623680">"Google Assistent"</string>
+    <string name="privacy_purchases_settings_title" msgid="6490965297061569673">"Ödəniş və Alışlar"</string>
     <string name="privacy_app_settings_category" msgid="858250971978879266">"Tətbiq Ayarları"</string>
     <string name="privacy_category_summary" msgid="3534434883380511043">"Məkan, İstifadə &amp; Diaqnostika, Reklamlar"</string>
     <string name="add_account" msgid="7386223854837017129">"Hesab əlavə edin"</string>
@@ -60,7 +74,7 @@
     <string name="account_sync" msgid="4315295293211313989">"Sinxronlaşmış tətbiqləri seçin"</string>
     <string name="sync_now" msgid="4335217984374620551">"İndi sinxronizə edin"</string>
     <string name="sync_in_progress" msgid="8081367667406185785">"Sinxronizə olunur..."</string>
-    <string name="last_synced" msgid="8371967816955123864">"Son sinxronlaşdırma <xliff:g id="TIME">%1$s</xliff:g>"</string>
+    <string name="last_synced" msgid="8371967816955123864">"Son sinxronizasiya <xliff:g id="TIME">%1$s</xliff:g>"</string>
     <string name="sync_disabled" msgid="6652778349371079140">"Deaktiv"</string>
     <string name="account_remove" msgid="8456848988853890155">"Hesabı silin"</string>
     <string name="account_remove_failed" msgid="5654411101098531690">"Hesab silinə bilmir"</string>
@@ -77,11 +91,15 @@
     <string name="connectivity_summary_wifi_disabled" msgid="7819225159680467324">"Wi-Fi söndürüldü"</string>
     <string name="wifi_setting_always_scan" msgid="431846292711998602">"Skan hər zaman əlçatımlıdır"</string>
     <string name="wifi_setting_always_scan_context" msgid="1092998659666221222">"Wi-Fi qapalı olsa da belə, Google\'un yerləşmə xidməti və digər tətbiqlərə şəbəkə skanı etməyə icazə ve"</string>
+    <string name="wifi_setting_always_scan_content_description" msgid="484630053450137332">"Skanlama həmişə əlçatandır: Wi-Fi qapalı olsa da belə, Google\'un yerləşmə xidməti və digər tətbiqlərə şəbəkələri skan etməyə icazə verin"</string>
     <string name="wifi_setting_enable_wifi" msgid="5276730445393952969">"Wi-Fi"</string>
     <string name="connectivity_hint_message" msgid="5638304246522516583">"Şəbəkəyə qoşulun"</string>
+    <string name="connectivity_network_diagnostics" msgid="4396132865849151854">"Şəbəkə diaqnostikası"</string>
     <string name="apps_recently_used_category_title" msgid="7877660412428813933">"Ən son istifadə edilən tətbiqlər"</string>
     <string name="apps_see_all_apps" msgid="2002886135933443688">"Bütün tətbiqlərə baxın"</string>
     <string name="apps_permissions_category_title" msgid="8099660060701465267">"İcazələr"</string>
+    <string name="overlay_security_slice_title" msgid="4895032817538300187"></string>
+    <string name="update_slice_title" msgid="6553763903108611747"></string>
     <string name="all_apps_title" msgid="3717294436135280133">"Bütün tətbiqlər"</string>
     <string name="all_apps_show_system_apps" msgid="1260688031005374302">"Sistem tətbiqlərini göstərin"</string>
     <string name="all_apps_installed" msgid="8217778476185598971">"Quraşdırılmış tətbiqlər"</string>
@@ -96,7 +114,7 @@
     <string name="device_apps" msgid="2134756632245008919">"Tətbiqlər"</string>
     <string name="device_storage" msgid="8540243547121791073">"Yaddaş"</string>
     <string name="device_reset" msgid="6115282675800077867">"Zavod sıfırlaması"</string>
-    <string name="device_backup_restore" msgid="4552158624969018687">"Yedək və bərpa"</string>
+    <string name="device_backup_restore" msgid="3634531946308269398">"Yedək və Bərpa"</string>
     <string name="device_factory_reset" msgid="1110189450013225971">"Data zavod sıfırlaması"</string>
     <string name="device_calibration" msgid="2907914144048739705">"Kalibrləmə"</string>
     <string name="device_energy_saver" msgid="1105023232841036991">"Enerjiyə qənaət"</string>
@@ -106,15 +124,67 @@
     <string name="surround_sound_format_e_ac3" msgid="6923129088903887242">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="8331816247117135587">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="4268947520371740146">"DTS-HD"</string>
-    <string name="surround_sound_format_iec61937" msgid="9035476171988404170">"IEC61937"</string>
-    <string name="surround_sound_auto_info" msgid="852202989256054406">"Qeyd: Cihaz dəstəklənən formatları düzgün bildirmirsə, Avtomatik seçim işləməyə bilər."</string>
-    <string name="surround_sound_auto_summary" msgid="5559552398163510156">"Avtomatik: Cihaz hesabatlarının dəstəkləndiyi (məsləhətlidir) formatlardan istifadə edin"</string>
-    <string name="surround_sound_none_summary" msgid="2791597033750908940">"Heç vaxt: Əhatəli səs heç vaxt işlədilməsin"</string>
-    <string name="surround_sound_manual_summary" msgid="8945926149168263067">"Manual: İstifadə ediləcək formatları seçin"</string>
+    <string name="surround_sound_format_dts_uhd" msgid="2844983210044263719">"DTS-UHD"</string>
+    <string name="surround_sound_format_dolby_mat" msgid="3029804841912462928">"Dolby TrueHD ilə Dolby Atmos"</string>
+    <string name="surround_sound_format_dolby_truehd" msgid="5113046743572967088">"Dolby TrueHD"</string>
+    <string name="surround_sound_format_e_ac3_joc" msgid="3360344066462262996">"Dolby Digital Plus ilə Dolby Atmos"</string>
+    <string name="surround_sound_format_dra" msgid="6102878163986662443">"DRA"</string>
+    <string name="surround_sound_auto_info" msgid="4829346839183591680">"Qeyd: Cihaz dəstəklənən formatları düzgün bildirmirsə, Avtomatik seçim işləməyə bilər."</string>
+    <string name="surround_sound_auto_title" msgid="4892922385727913277">"Avtomatik: Yalnız səs çıxış cihazınız tərəfindən dəstəklənən formatları aktivləşdirin "</string>
+    <string name="surround_sound_auto_summary" msgid="7073023654150720285">"Seçildiyi zaman sistem tətbiqlərin cihaz şəbəkəniz tərəfindən dəstəklənən hər hansı səs formatını seçməsinə imkan verəcək. Tətbiqlər ən yüksək keyfiyyətdə olmayan formatı seçə bilər."</string>
+    <string name="surround_sound_none_title" msgid="1600095173519889326">"Heç vaxt: Əhatəli səs heç vaxt işlədilməsin"</string>
+    <string name="surround_sound_manual_title" msgid="4935447605070985537">"Manual: Səs çıxış cihazınızın dəstəklədiyindən asılı olmayaraq bu cihaz tərəfindən dəstəklənən hər bir formatı seçici olaraq aktiv və ya deaktiv edin."</string>
+    <string name="surround_sound_manual_summary" msgid="5155535847461070572">"Seçildiyi zaman oxutma ilə bağlı problemə səbəb olan, cihaz şəbəkəniz tərəfindən dəstəklənən səs formatlarını manual olaraq deaktiv edə bilərsiniz. Cihaz şəbəkəniz tərəfindən dəstəklənməyən səs formatları aktiv edilə bilər. Bəzi hallarda tətbiqlər ən yüksək keyfiyyətdə olmayan formatı seçə bilər."</string>
+    <string name="surround_sound_enable_unsupported_dialog_title" msgid="9155579373370356463">"Dəstəklənməyən səs formatı aktiv edilsin?"</string>
+    <string name="surround_sound_enable_unsupported_dialog_desc" msgid="1901648758103522741">"Qoşulmuş audio cihazınız bu formatın dəstəklənməsini bildirmir. Cihazda yüksək səs və ya qarışıqlıq kimi gözlənilməz əlamətlər yarana bilər."</string>
+    <string name="surround_sound_enable_unsupported_dialog_cancel" msgid="3499147437078761105">"Ləğv edin"</string>
+    <string name="surround_sound_enable_unsupported_dialog_ok" msgid="7466983147896640444">"İstənilən halda dəyişin"</string>
+    <string name="surround_sound_supported_title" msgid="4873195851187547020">"DƏSTƏKLƏNƏN FORMATLAR"</string>
+    <string name="surround_sound_unsupported_title" msgid="2302820271700954900">"DƏSTƏKLƏNMƏYƏN FORMATLAR"</string>
+    <string name="surround_sound_format_info" msgid="5671866505653542934">"FORMAT HAQQINDA MƏLUMAT"</string>
+    <string name="surround_sound_show_formats" msgid="1929849219042916469">"Formatları göstərin"</string>
+    <string name="surround_sound_hide_formats" msgid="7770931097236868238">"Formatları gizlədin"</string>
+    <string name="surround_sound_enabled_formats" msgid="5159269040069877148">"AKTİV FORMATLAR"</string>
+    <string name="surround_sound_disabled_formats" msgid="2250466936859455802">"DEAKTİV FORMATLAR"</string>
+    <string name="surround_sound_disabled_format_info_clicked" msgid="463393349034930031">"Aktiv etmək üçün format seçimini Manual olaraq dəyişin."</string>
+    <string name="surround_sound_enabled_format_info_clicked" msgid="4003154853054756792">"Deaktiv etmək üçün format seçimini Manual olaraq dəyişin."</string>
     <string name="display_category_title" msgid="247804007525046312">"Displey"</string>
     <string name="advanced_display_settings_title" msgid="6293280819870140631">"Qabaqcıl displey ayarları"</string>
+    <string name="hdmi_cec_settings_title" msgid="7120729705063868627">"HDMI-CEC"</string>
     <string name="advanced_sound_settings_title" msgid="319921303039469139">"Qabaqcıl səs ayarları"</string>
     <string name="game_mode_title" msgid="7280816243531315755">"Oyun rejiminə icazə verin"</string>
+    <string name="match_content_frame_rate_title" msgid="153291168560947689">"Kontentin kadr tezliyini uyğunlaşdırın"</string>
+    <string name="match_content_frame_rate_seamless" msgid="5900012519258795448">"Ardıcıl"</string>
+    <string name="match_content_frame_rate_seamless_summary" msgid="2737466163964133210">"Tətbiq tələb etsə, YALNIZ TV-də ardıcıl keçid imkanı olduğu halda cihazınız təmin etdiyi nəticəni izlədiyiniz məzmunun orijinal kadr sürətinə uyğunlaşdıracaq."</string>
+    <string name="match_content_frame_rate_non_seamless" msgid="1534300397118594640">"Qeyri-ardıcıl"</string>
+    <string name="match_content_frame_rate_non_seamless_summary" msgid="6831699459487130055">"Tətbiq tələb etsə, cihazınız təmin etdiyi nəticəni izlədiyiniz məzmunun orijinal kadr sürətinə uyğunlaşdıracaq. Bu, video oxutmadan çıxarkən və ya daxil olarkən ekranınızda bir saniyə görüntü olmamasına səbəb ola bilər."</string>
+    <string name="match_content_frame_rate_never" msgid="1678354793095148423">"Heç vaxt"</string>
+    <string name="match_content_frame_rate_never_summary" msgid="742977618080396095">"Tətbiq tələb etsə də, cihazınız heç vaxt təmin etdiyi nəticəni izlədiyiniz məzmunun orijinal kadr sürətinə uyğunlaşdırmağa çalışmayacaq."</string>
+    <string name="font_scale_settings_title" msgid="4114019544800225980">"Mətn miqyası"</string>
+    <string name="font_scale_item_detail" msgid="1558315053348778805">"Miqyası dəyişin: <xliff:g id="SCALE">%1$d</xliff:g>%%"</string>
+    <string name="font_scale_sample_text_title" msgid="5239266611413037261">"Mətn nümunəsi"</string>
+    <string name="font_scale_preview_text_title" msgid="8056182208511371119">"Ozlu Heyrətamiz Sehrbaz"</string>
+    <string name="font_scale_preview_text_subtitle" msgid="677394182922188048">"Fəsil 11: Məftunedici Zümrüd Şəhəri Oz"</string>
+    <string name="font_scale_preview_text_body" msgid="2040384234251207410">"Hətta yaşıl eynəklərlə də Şəhərin gözəlliyi Dorothy və onun dostlarının gözlərini qamaşdırdı. Küçələrdə yaşıl mərmərlərdən tikilmiş və parlaq zümrüdlərlə bəzədilmiş gözəl evlər yanbayan düzülmüşdü. Onlar səki ilə gəzirdilər və yaşıl mərmərdən olan səkilərin üstündə, günəş şüaları altında par-par parıldayan zümrüdlər cərgə ilə birləşmişdi. Pəncərənin şüşələri yaşıl idi; hətta səmada yaşıl boya hiss olunurdu və günəşin şüaları da yaşıl idi. \n\nƏtrafda çoxlu adamlar, kişilər, qadınlar və uşaqlar var idi və hər kəs yaşıl paltar geyinmişdi, hətta dəriləri də yaşıl idi. Onlar Dorothy\'yə və ətrafında yad adamlara təəccüblə baxdılar və Aslanı görən kimi uşaqlar tez qaçıb analarının arxasında gizləndilər; amma heç kəs onları dindirmədi. Küçədə çoxlu dükanlar var idi və Dorothy orada hər şeyin yaşıl olduğu gördü. Yaşıl konfetlər, yaşıl popkorn, yaşıl ayaqqabılar, yaşıl papaq və cürbəcür yaşıl paltarlar. Bir kişi yaşıl limonad satırdı və Dorothy gördü ki, uşaqlar onu alanda əvəzində yaşıl pul verdilər. \n\nOrada at yox idi, ümumiyyətlə heç bir heyvan gözə dəymirdi; kişi əşyalarını yaşıl araba ilə daşıyırdı. Hər kəs xoşbəxt, razı və firavan görünürdü."</string>
+    <string name="hdr_format_selection_title" msgid="4042679694363850581">"Format seçimi"</string>
+    <string name="hdr_format_selection_auto_title" msgid="2370148695440344232">"Avtomatik"</string>
+    <string name="hdr_format_selection_manual_title" msgid="2077604650196987438">"Manual"</string>
+    <string name="hdr_format_selection_auto_desc" msgid="1542210944552409996">"Cihazın bildirdiyi formatları istifadə edin"</string>
+    <string name="hdr_format_selection_manual_desc" msgid="8865649615882146772">"Əlçatan formatlardan manual olaraq formatları seçin"</string>
+    <string name="hdr_format_supported_title" msgid="1458594819224612431">"DƏSTƏKLƏNƏN FORMATLAR"</string>
+    <string name="hdr_format_unsupported_title" msgid="715318408107924941">"DƏSTƏKLƏNMƏYƏN FORMATLAR"</string>
+    <string name="hdr_format_hdr10" msgid="8063543267227491062">"HDR10"</string>
+    <string name="hdr_format_hlg" msgid="454510079939620321">"HLG"</string>
+    <string name="hdr_format_hdr10plus" msgid="4371652089162162876">"HDR10+"</string>
+    <string name="hdr_format_dolby_vision" msgid="7367264615042999587">"Dolby Vision"</string>
+    <string name="hdr_format_selection_auto_summary" msgid="7384637194191436727">"Seçildiyi zaman sistem tətbiqlərin cihaz şəbəkəniz tərəfindən dəstəklənən hər hansı HDR formatını seçməsinə imkan verəcək. Tətbiqlər ən yüksək keyfiyyətdə olmayan formatı seçə bilər."</string>
+    <string name="hdr_format_selection_manual_summary" msgid="7886959642083639353">"Seçildiyi zaman oxutma ilə bağlı problemə səbəb olan, cihaz şəbəkəniz tərəfindən dəstəklənən HDR formatlarını manual olaraq deaktiv edə bilərsiniz. Cihaz şəbəkəniz tərəfindən dəstəklənməyən HDR formatları məcburi qaydada aktiv edilə bilməz. Tətbiqlər ən yüksək keyfiyyətdə olmayan formatı seçə bilər."</string>
+    <string name="hdr_format_info" msgid="5652559220799426076">"FORMAT HAQQINDA MƏLUMAT"</string>
+    <string name="hdr_show_formats" msgid="171065892975445851">"Formatları göstərin"</string>
+    <string name="hdr_hide_formats" msgid="8561568998525727230">"Formatları gizlədin"</string>
+    <string name="hdr_enabled_formats" msgid="8527870623949982774">"AKTİV FORMATLAR"</string>
+    <string name="hdr_disabled_formats" msgid="4758522849421497896">"DEAKTİV FORMATLAR"</string>
+    <string name="hdr_enabled_format_info_clicked" msgid="1466675962665861040">"Deaktiv etmək üçün format seçimini Manual olaraq dəyişin."</string>
     <string name="device_storage_clear_cache_title" msgid="14370154552302965">"Keşlənmiş data silinsin?"</string>
     <string name="device_storage_clear_cache_message" msgid="4352802738505831032">"Bu, bütün tətbiqlər üçün keşlənmiş verilənləri siləcək."</string>
     <string name="accessories_add" msgid="413764175035531452">"Aksessuar əlavə edin"</string>
@@ -130,8 +200,9 @@
     <string name="accessory_connected" msgid="5229574480869175180">"Qoşulu"</string>
     <string name="accessory_change_name" msgid="6493717176878500683">"Adını dəyişdirin"</string>
     <string name="accessory_change_name_title" msgid="451188562035392238">"Bu aksesuar üçün yeni ad daxil edin"</string>
+    <string name="accessories_add_accessibility_title" msgid="1300294413423909579">"Bluetooth birləşdirməsi."</string>
     <string name="accessories_add_title" msgid="7704824893011194433">"Aksesuar axtarılır..."</string>
-    <string name="accessories_add_bluetooth_inst" msgid="5109947637581187896">"Bluetoth cihazlarınızı qoşalaşdırmamışdan əvvəl, əmin olun ki, onlar qoşalaşma rejimindədir."</string>
+    <string name="accessories_add_bluetooth_inst" msgid="2508151218328384366">"Bluetoth cihazlarınızı birləşdirməzdən əvvəl əmin olun ki, onlar birləşdirmə rejimindədir."</string>
     <string name="accessories_autopair_msg" msgid="2501824457418285019">"Cihaz tapıldı və <xliff:g id="COUNTDOWN">%1$s</xliff:g> saniyəyə cütləşdiriləcək"</string>
     <string name="error_action_not_supported" msgid="5377532621386080296">"Bu fəaliyyət dəstəklənmir"</string>
     <string name="bluetooth_pairing_request" msgid="6120176967230348092">"Bluetooth bağlantı sorğusu"</string>
@@ -141,46 +212,154 @@
     <string name="bluetooth_enter_pin_msg" msgid="8905524093007140634">"&lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt; ilə qoşalaşdırmaq üçün, &lt;br&gt;cihazın tələb olunan PIN kodunu daxil edin:"</string>
     <string name="bluetooth_enter_passkey_msg" msgid="889584097447402492">"Bu cihaz ilə qoşalaşdırmaq üçün: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;, &lt;br&gt;Cihazın tələb olunan kodunu daxil edin:"</string>
     <string name="bluetooth_pin_values_hint" msgid="6237371515577342950">"Adətən 0000 və ya 1234"</string>
-    <string name="bluetooth_pair" msgid="2410285813728786067">"Qoşalaşdırın"</string>
+    <string name="bluetooth_pair" msgid="2410285813728786067">"Qoşulsun"</string>
     <string name="bluetooth_cancel" msgid="4415185529332987034">"Ləğv edin"</string>
+    <string name="bluetooth_device_connected_toast" msgid="1896195197089204806">"%1$s qoşulub"</string>
+    <string name="bluetooth_device_disconnected_toast" msgid="7459239447363156499">"%1$s ayrılıb"</string>
+    <string name="connected_devices_slice_pref_title" msgid="6761921505544005991">"Pult və Aksesuarlar"</string>
+    <string name="bluetooth_toggle_title" msgid="3808904783456336104">"Bluetooth"</string>
+    <string name="bluetooth_toggle_confirmation_dialog_title" msgid="3906746631391295717">"Bluetooth\'u deaktiv edin"</string>
+    <string name="bluetooth_toggle_confirmation_dialog_summary" msgid="9017044450625172698">"Bluetooth deaktiv olduqda pultdan Google Assistentə giriş edə bilməyəcəksiniz."</string>
+    <string name="bluetooth_pair_accessory" msgid="5508750142754420984">"Aksesuarı birləşdirin"</string>
+    <string name="bluetooth_known_devices_category" msgid="6895470515631452961">"Aksesuarlar"</string>
+    <string name="bluetooth_official_remote_category" msgid="5817814488268307170">"Pult"</string>
+    <string name="bluetooth_official_remote_entry_title" msgid="6699700335229570038">"Pult ayarları"</string>
+    <string name="bluetooth_connect_action_title" msgid="7715342395313781643">"Qoşun"</string>
+    <string name="bluetooth_connect_confirm" msgid="4769958536295137386">"%1$s cihazına qoşulun"</string>
+    <string name="bluetooth_disconnect_action_title" msgid="1135513009197728480">"Ayırın"</string>
+    <string name="bluetooth_disconnect_confirm" msgid="1445977623973613581">"%1$s cihazından ayırın"</string>
+    <string name="bluetooth_rename_action_title" msgid="4200419902722729907">"Adını dəyişin"</string>
+    <string name="bluetooth_rename" msgid="7791922876280337194">"Qoşulmuş cihazın adını dəyişin"</string>
+    <string name="bluetooth_forget_action_title" msgid="2351140076684719196">"Unudun"</string>
+    <string name="bluetooth_forget_confirm" msgid="5175414848391021666">"%1$s cihazını unudun"</string>
+    <string name="bluetooth_serial_number_label" msgid="6639294603220209971">"Bluetooth ünvanı"</string>
+    <string name="bluetooth_connected_status" msgid="8629393539370085418">"Qoşulub"</string>
+    <string name="bluetooth_disconnected_status" msgid="7617866963193224775">"Ayrılıb"</string>
+    <string name="bluetooth_empty_list_user_restricted" msgid="1610743588460010736">"Bluetooth ayarlarını dəyişməyə icazəniz yoxdur."</string>
     <string name="send_feedback" msgid="936698637869795473">"Rəy göndərin"</string>
     <string name="launch_help" msgid="2607478763131952469">"Yardım Mərkəzi"</string>
     <string name="system_cast" msgid="6081391679828510058">"Google Cast"</string>
-    <string name="system_date_time" msgid="6938588387002473344">"Vaxt və tarix"</string>
+    <string name="system_date_time" msgid="5922833592234018667">"Tarix və Vaxt"</string>
     <string name="system_language" msgid="5516099388471974346">"Dil"</string>
+    <string name="language_empty_list_user_restricted" msgid="5430199913998605436">"Cihaz dilini dəyişmək icazəniz yoxdur."</string>
     <string name="system_keyboard" msgid="1514460705385401872">"Klaviatura"</string>
     <string name="system_keyboard_autofill" msgid="8530944165814838255">"Klaviatura &amp; avtomatik daxiletmə"</string>
     <string name="system_autofill" msgid="6983989261108020046">"Avtomatik daxiletmə"</string>
     <string name="system_home" msgid="2149349845791104094">"Başlanğıc ekran"</string>
     <string name="system_search" msgid="3170169128257586925">"Axtarış"</string>
     <string name="system_google" msgid="945985164023885276">"Google"</string>
-    <string name="system_security" msgid="5053021134921182612">"Təhlükəsizlik və məhdudiyyətlər"</string>
+    <string name="system_security" msgid="1012999639810957132">"Təhlükəsizlik və Məhdudiyyətlər"</string>
     <string name="system_speech" msgid="8779582280374089518">"Nitq"</string>
     <string name="system_inputs" msgid="5552840337357572096">"Daxiletmələr"</string>
-    <string name="system_inputs_devices" msgid="8423782334271632810">"Giriş və cihazlar"</string>
+    <string name="system_inputs_devices" msgid="2158421111699829399">"Girişlər və Cihazlar"</string>
     <string name="system_home_theater_control" msgid="6228949628173590310">"Ev teatrına nəzarət"</string>
     <string name="system_accessibility" msgid="3081009195560501010">"Əlçatımlılıq"</string>
     <string name="system_developer_options" msgid="8480844257066475479">"Gəlişdirici seçimləri"</string>
     <string name="accessibility_none" msgid="6355646833528306702">"Heç bir"</string>
     <string name="system_diagnostic" msgid="1654842813331919958">"İstifadə &amp; diaqnostika"</string>
+    <string name="no_device_admins" msgid="4628974717150185625">"Əlçatan cihaz admin tətbiqi yoxdur"</string>
+    <string name="security_enable_widgets_disabled_summary" msgid="7678529948487939871">"Admin tərəfindən deaktiv edildi"</string>
+    <string name="disabled_by_administrator_summary" msgid="3420979957115426764">"Əlçatmazdır"</string>
+    <string name="manage_device_admin" msgid="5714217234035017983">"Administrator tətbiqləri"</string>
+    <string name="number_of_device_admins_none" msgid="2734299122299837459">"Aktiv tətbiq yoxdur"</string>
+    <plurals name="number_of_device_admins" formatted="false" msgid="5825543996501454373">
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> aktiv tətbiq</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> aktiv tətbiq</item>
+    </plurals>
+    <string name="unlock_set_unlock_disabled_summary" msgid="108190334043671416">"Admin, siyasət və ya yaddaş deaktiv etdi"</string>
+    <string name="enterprise_privacy_settings" msgid="8226765895133003202">"İdarə edilən cihaz məlumatı"</string>
+    <string name="enterprise_privacy_settings_summary_generic" msgid="5719549523275019419">"Dəyişiklik və ayarlar təşkilat tərəfindən idarə olunur"</string>
+    <string name="enterprise_privacy_settings_summary_with_name" msgid="2866704039759872293">"Dəyişiklik və ayarlar <xliff:g id="ORGANIZATION_NAME">%s</xliff:g> tərəfindən idarə olunur"</string>
+    <string name="enterprise_privacy_header" msgid="9221881402582661521">"İş datasına girişi təmin etmək üçün təşkilat ayarları dəyişə və cihaza proqram təminatını quraşdıra bilər.\n\nƏtraflı məlumat üçün təşkilatın admini ilə əlaqə saxlayın."</string>
+    <string name="enterprise_privacy_exposure_category" msgid="1555735251238636669">"Təşkilatın görə biləcəyi məlumat növləri"</string>
+    <string name="enterprise_privacy_exposure_changes_category" msgid="7750498604032318318">"Təşkilatın admini tərəfindən edilən dəyişikliklər"</string>
+    <string name="enterprise_privacy_device_access_category" msgid="7397106369136259850">"Bu cihaza girişiniz"</string>
+    <string name="enterprise_privacy_enterprise_data" msgid="8135491104894522008">"E-poçt və təqvim kimi iş hesabınız ilə əlaqələndirilmiş data"</string>
+    <string name="enterprise_privacy_installed_packages" msgid="5012554762299490994">"Cihazdakı tətbiqlərin siyahısı"</string>
+    <string name="enterprise_privacy_usage_stats" msgid="7062422823174345793">"Hər bir tətbiqdə istifadə edilən vaxt və data həcmi"</string>
+    <string name="enterprise_privacy_network_logs" msgid="305782312671493780">"Ən son şəbəkə ötürülməsi qeydi"</string>
+    <string name="enterprise_privacy_bug_reports" msgid="2393617117911211486">"Ən son baq hesabatı"</string>
+    <string name="enterprise_privacy_security_logs" msgid="2573545327989145361">"Ən son təhlükəsizlik qeydiyyatı"</string>
+    <string name="enterprise_privacy_none" msgid="6660670916934417519">"Heç bir"</string>
+    <string name="enterprise_privacy_enterprise_installed_packages" msgid="7244796629052581085">"Tətbiqlər quraşdırıldı"</string>
+    <string name="enterprise_privacy_apps_count_estimation_info" msgid="3875568975752197381">"Tətbiq sayı hesablanır. Siyahıya Play Mağazadan quraşdırılmayan tətbiqlər də daxil ola bilər."</string>
+    <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="3891649682522079620">
+      <item quantity="other">Minimum <xliff:g id="COUNT_1">%d</xliff:g> tətbiq</item>
+      <item quantity="one">Minimum <xliff:g id="COUNT_0">%d</xliff:g> tətbiq</item>
+    </plurals>
+    <string name="enterprise_privacy_location_access" msgid="8978502415647245748">"Məkan icazələri"</string>
+    <string name="enterprise_privacy_microphone_access" msgid="3746238027890585248">"Mikrofon icazələri"</string>
+    <string name="enterprise_privacy_camera_access" msgid="6258493631976121930">"Kamera icazələri"</string>
+    <string name="enterprise_privacy_enterprise_set_default_apps" msgid="5538330175901952288">"Defolt tətbiqlər"</string>
+    <plurals name="enterprise_privacy_number_packages" formatted="false" msgid="1652060324792116347">
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> tətbiq</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> tətbiq</item>
+    </plurals>
+    <string name="enterprise_privacy_input_method" msgid="5814752394251833058">"Defolt klaviatura"</string>
+    <string name="enterprise_privacy_input_method_name" msgid="1088874503312671318">"<xliff:g id="APP_LABEL">%s</xliff:g> kimi ayarlandı"</string>
+    <string name="enterprise_privacy_always_on_vpn_device" msgid="8845550514448914237">"Həmişə aktiv VPN yandırıldı"</string>
+    <string name="enterprise_privacy_always_on_vpn_personal" msgid="6996782365866442280">"Həmişə aktiv VPN şəxsi profilinizdə yandırıldı"</string>
+    <string name="enterprise_privacy_always_on_vpn_work" msgid="3674119583050531071">"Həmişə aktiv VPN iş profilinizdə yandırıldı"</string>
+    <string name="enterprise_privacy_global_http_proxy" msgid="2818848848337527780">"Qlobal HTTP proksi ayarlandı"</string>
+    <string name="enterprise_privacy_ca_certs_device" msgid="975646846291012452">"Güvənli kimlik bilgiləri"</string>
+    <string name="enterprise_privacy_ca_certs_personal" msgid="7641368559306519707">"Şəxsi profilinizdəki etibarlı kredensiallar"</string>
+    <string name="enterprise_privacy_ca_certs_work" msgid="2905939250974399645">"İş profilinizdəki etibarlı kredensiallar"</string>
+    <plurals name="enterprise_privacy_number_ca_certs" formatted="false" msgid="4861211387981268796">
+      <item quantity="other">Minimum <xliff:g id="COUNT_1">%d</xliff:g> CA sertifikatı</item>
+      <item quantity="one">Minimum <xliff:g id="COUNT_0">%d</xliff:g> CA sertifikatı</item>
+    </plurals>
+    <string name="enterprise_privacy_lock_device" msgid="3140624232334033641">"Admin cihazı kilidləyə və parolu sıfırlaya bilər"</string>
+    <string name="enterprise_privacy_wipe_device" msgid="1714271125636510031">"Admin cihazın bütün datalarını silə bilər"</string>
+    <string name="enterprise_privacy_failed_password_wipe_device" msgid="8272298134556250600">"Cihazın bütün datasını silməzdən əvvəl parol cəhdləri alınmadı"</string>
+    <string name="enterprise_privacy_failed_password_wipe_work" msgid="1184137458404844014">"İş profil datasını silməzdən əvvəl parol cəhdləri alınmadı"</string>
+    <plurals name="enterprise_privacy_number_failed_password_wipe" formatted="false" msgid="8317320334895448341">
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> cəhd</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> cəhd</item>
+    </plurals>
+    <string name="do_disclosure_generic" msgid="8390478119591845948">"Bu cihaz təşkilatınız tərəfindən idarə olunur."</string>
+    <string name="do_disclosure_with_name" msgid="4755509039938948975">"Bu cihaz <xliff:g id="ORGANIZATION_NAME">%s</xliff:g> tərəfindən idarə olunur."</string>
+    <string name="do_disclosure_learn_more_separator" msgid="4226390963162716446">" "</string>
+    <string name="learn_more" msgid="820336467414665686">"Ətraflı məlumat"</string>
+    <plurals name="default_camera_app_title" formatted="false" msgid="3870902175441923391">
+      <item quantity="other">Kamera tətbiqləri</item>
+      <item quantity="one">Kamera tətbiqi</item>
+    </plurals>
+    <string name="default_calendar_app_title" msgid="1533912443930743532">"Təqvim tətbiqi"</string>
+    <string name="default_contacts_app_title" msgid="7792041146751261191">"Kontakt tətbiqi"</string>
+    <plurals name="default_email_app_title" formatted="false" msgid="5601238555065668402">
+      <item quantity="other">E-poçt klient tətbiqləri</item>
+      <item quantity="one">E-poçt klient tətbiqi</item>
+    </plurals>
+    <string name="default_map_app_title" msgid="9051013257374474801">"Xəritə tətbiqi"</string>
+    <plurals name="default_phone_app_title" formatted="false" msgid="1573981201056870719">
+      <item quantity="other">Telefon tətbiqləri</item>
+      <item quantity="one">Telefon tətbiqi</item>
+    </plurals>
+    <string name="default_browser_title" msgid="3612813200586492159">"Brauzer tətbiqi"</string>
+    <string name="app_names_concatenation_template_2" msgid="5297284354915830297">"<xliff:g id="FIRST_APP_NAME">%1$s</xliff:g>, <xliff:g id="SECOND_APP_NAME">%2$s</xliff:g>"</string>
+    <string name="app_names_concatenation_template_3" msgid="4932774380339466733">"<xliff:g id="FIRST_APP_NAME">%1$s</xliff:g>, <xliff:g id="SECOND_APP_NAME">%2$s</xliff:g>, <xliff:g id="THIRD_APP_NAME">%3$s</xliff:g>"</string>
     <string name="tutorials" msgid="7880770425872110455">"Təlimatlar"</string>
     <string name="about_system_update" msgid="7421264399111367755">"Sistem güncəlləşdirməsi"</string>
+    <string name="system_update_description" msgid="998883510488461766">"Bu, sistem proqramınızı ən son versiyaya güncəlləyəcək. Cihazınız yenidən başladılacaq."</string>
+    <string name="system_update_content_description" msgid="5702888187682876466">"Sistem güncəllənməsi: Bununla sistem proqramınız ən son versiyaya güncəllənəcək. Cihazınız yenidən başladılacaq."</string>
     <string name="about_preference" msgid="9112690446998150670">"Haqqında"</string>
     <string name="device_name" msgid="566626587332817733">"Cihaz adı"</string>
-    <string name="restart_button_label" msgid="2124590135040611899">"Yenidən başladın"</string>
+    <string name="restart_button_label" msgid="911750765086382990">"Yenidən başlat"</string>
     <string name="about_legal_info" msgid="2148797328415559733">"Hüquqi məlumat"</string>
-    <string name="about_legal_license" msgid="4801707286720681261">"Açıq mənbə lisenziyaları"</string>
+    <string name="about_legal_license" msgid="4056934178111674054">"Üçüncü Tərəf Mənbəyi"</string>
     <string name="about_terms_of_service" msgid="8514826341101557623">"Google hüquqi"</string>
     <string name="about_license_activity_unavailable" msgid="4559187037375581674">"Lisenziya datası əlçatan deyil"</string>
     <string name="about_model" msgid="9164284529291439296">"Model"</string>
-    <string name="about_version" msgid="7800676128792880991">"Versiya"</string>
+    <string name="about_version" msgid="6223547403835399861">"Android TV ƏS versiyası"</string>
     <string name="about_serial" msgid="3432319328808745459">"Seriya nömrəsi"</string>
-    <string name="about_build" msgid="1139171613038225768">"Hazır"</string>
+    <string name="about_build" msgid="8467840394761634575">"Android TV ƏS buraxılışı"</string>
     <plurals name="show_dev_countdown" formatted="false" msgid="523455736684670250">
       <item quantity="other">Siz indi tərtibatçı olmaqdan <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> addım uzaqsınız.</item>
       <item quantity="one">Siz indi tərtibatçı olmaqdan <xliff:g id="STEP_COUNT_0">%1$d</xliff:g> addım uzaqsınız.</item>
     </plurals>
     <string name="about_ads" msgid="7662896442040086522">"Reklamlar"</string>
+    <string name="ads_description" msgid="8081069475265061074">"Reklam ID\'nizin sıfırlanması kimi reklam ayarlarınızı idarə edin."</string>
+    <string name="ads_content_description" msgid="1006489792324920289">"Reklamlar: Reklam ID\'nizin sıfırlanması kimi reklam ayarlarınızı idarə edin."</string>
     <string name="show_dev_on" msgid="612741433124106067">"Siz indi developersiniz!"</string>
     <string name="show_dev_already" msgid="1522591284776449818">"Ehtiyac yoxdur, Siz artıq gəlişdiricisiniz."</string>
     <string name="device_info_default" msgid="2374506935205518448">"Naməlum"</string>
@@ -189,11 +368,36 @@
     <string name="selinux_status_permissive" msgid="8694617578567517527">"Icazəli"</string>
     <string name="selinux_status_enforcing" msgid="4140979635669643342">"Tətbiq edilir"</string>
     <string name="additional_system_update_settings_list_item_title" msgid="1839534735929143986">"Əlavə sistem güncəlləmələri"</string>
+    <string name="ssl_ca_cert_warning" msgid="7836390021162211069">"Şəbəkə nəzərdən keçirilə bilər"</string>
+    <string name="done_button" msgid="616159688526431451">"Hazırdır"</string>
+    <plurals name="ssl_ca_cert_dialog_title" formatted="false" msgid="8222753634330561111">
+      <item quantity="other">Sertifikatlara güvənin və ya silin</item>
+      <item quantity="one">Sertifikata güvənin və ya silin</item>
+    </plurals>
+    <plurals name="ssl_ca_cert_info_message_device_owner" formatted="false" msgid="6128536570911468907">
+      <item quantity="other"><xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g> cihazınızda e-poçt, tətbiq və təhlükəsiz veb saytları daxil olmaqla cihaz şəbəkə fəaliyyətinizi izləməyə icazə verəcək sertifikat səlahiyyətlərini quraşdırdı.\n\nBu sertifikatlar haqqında daha çox məlumat üçün administratorunuzla əlaqə saxlayın.</item>
+      <item quantity="one"><xliff:g id="MANAGING_DOMAIN_0">%s</xliff:g> cihazınızda e-poçt, tətbiq və təhlükəsiz veb saytları daxil olmaqla cihaz şəbəkə fəaliyyətinizi izləməyə icazə verəcək sertifikat səlahiyyətini quraşdırdı.\n\nBu sertifikat haqqında daha çox məlumat üçün administratorunuzla əlaqə saxlayın.</item>
+    </plurals>
+    <plurals name="ssl_ca_cert_info_message" formatted="false" msgid="5828471957724016946">
+      <item quantity="other"><xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g> iş profiliniz üçün e-poçt, tətbiq və təhlükəsiz veb saytları daxil olmaqla iş şəbəkə fəaliyyətinizi izləməyə icazə verəcək sertifikat səlahiyyətlərini quraşdırdı.\n\nBu sertifikatlar haqqında daha çox məlumat üçün administratorunuzla əlaqə saxlayın.</item>
+      <item quantity="one"><xliff:g id="MANAGING_DOMAIN_0">%s</xliff:g> iş profiliniz üçün e-poçt, tətbiq və təhlükəsiz veb saytları daxil olmaqla iş şəbəkə fəaliyyətinizi izləməyə icazə verəcək sertifikat səlahiyyətini quraşdırdı.\n\nBu sertifikat haqqında daha çox məlumat üçün administratorunuzla əlaqə saxlayın.</item>
+    </plurals>
+    <string name="ssl_ca_cert_warning_message" msgid="4837017382712096218">"Üçüncü tərəf e-məktublar, tətbiqlər və təhlükəsiz saytlar kimi şəbəkə fəaliyyətinizi izləmək imkanına malikdir.\n\nCihazınıza quraşdırılmış etibarlı etimad bunu mümkün edir."</string>
+    <plurals name="ssl_ca_cert_settings_button" formatted="false" msgid="196409967946912560">
+      <item quantity="other">Sertifikatları yoxlayın</item>
+      <item quantity="one">Sertifikatı yoxlayın</item>
+    </plurals>
     <string name="device_status" msgid="8266002761193692207">"Vəziyyət"</string>
     <string name="device_status_summary" msgid="3270932829412434985">"Şəbəkə, seriya nömrələri və digər məlumat"</string>
     <string name="manual" msgid="5683935624321864999">"Təlimat"</string>
     <string name="regulatory_information" msgid="9107675969694713391">"Normativ informasiya"</string>
     <string name="device_feedback" msgid="4871903271442960465">"Bu cihaz haqqında fikrinizi bildirin"</string>
+    <string name="oem_unlock_enable_disabled_summary_bootloader_unlocked" msgid="4641790432171693921">"Əməliyyat sistemi yükləyicisi kiliddən çıxarılıb"</string>
+    <string name="oem_unlock_enable_disabled_summary_connectivity" msgid="2979556699380115576">"İlk olaraq internetə qoşulun"</string>
+    <string name="oem_unlock_enable_disabled_summary_connectivity_or_locked" msgid="1946089732305102622">"İnternetə qoşulun və ya operatorunuz ilə əlaqə saxlayın"</string>
+    <string name="oem_unlock_enable_disabled_summary_sim_locked_device" msgid="5634005787486307657">"Operatoru kilidlənmiş cihazlarda əlçatan deyil"</string>
+    <string name="oem_lock_info_message" msgid="2165887409937351689">"Cihazın qoruma funksiyasını aktiv etmək üçün yeniən başladın."</string>
+    <string name="automatic_storage_manager_freed_bytes" msgid="1654574152815129396">"Ümumi olaraq <xliff:g id="SIZE">%1$s</xliff:g> əlçatandır\n\nSonuncu dəfə <xliff:g id="DATE">%2$s</xliff:g> tarixində çalışdı"</string>
     <string name="fcc_equipment_id" msgid="6731077083927000108">"Avadanlığın ID nömrəsi"</string>
     <string name="baseband_version" msgid="5618116741093274294">"Baseband versiyası"</string>
     <string name="kernel_version" msgid="7265509054070001542">"Kernel versiyası"</string>
@@ -201,8 +405,6 @@
     <string name="device_status_title" msgid="9051569510258883673">"Vəziyyət"</string>
     <string name="battery_status_title" msgid="8850166742025222210">"Batareya statusu"</string>
     <string name="battery_level_title" msgid="2672804570916248736">"Batareya səviyyəsi"</string>
-    <string name="sim_status_title" msgid="1704273079796640946">"SIM statusu"</string>
-    <string name="imei_information_title" msgid="3790368306353698724">"IMEI məlumat"</string>
     <string name="status_bt_address" msgid="7190052214963950844">"Bluetooth ünvanı"</string>
     <string name="status_up_time" msgid="1758102680983108313">"Müddəti"</string>
     <string name="legal_information" msgid="1087445528481370874">"Hüquqi məlumat"</string>
@@ -210,6 +412,9 @@
     <string name="license_title" msgid="4032466200355435641">"Lisenziya"</string>
     <string name="terms_title" msgid="192888187310800678">"Şərtlər"</string>
     <string name="webview_license_title" msgid="5370270485188947540">"Sistem WebView Lisenziyası"</string>
+    <string name="consumer_information_title" msgid="7729729568416672733">"Müştəri Məlumatı"</string>
+    <string name="consumer_information_message" msgid="205236637689468764">"Android TV\'də tapdığınız məzmun tətbiq tərtibatçıları və film studiyaları kimi üçüncü tərəf partnyorlarından, eləcə də Google’dan əldə edilir. Ətraflı məlumat: "<a href="g.co/tv/androidtvinfo">"g.co/tv/androidtvinfo"</a></string>
+    <string name="consumer_information_button_ok" msgid="6979480064600038080">"OK"</string>
   <string-array name="wifi_signal_strength">
     <item msgid="4475363344103354364">"Zəif"</item>
     <item msgid="2098818614362343532">"Kafi"</item>
@@ -222,7 +427,7 @@
     <string name="title_random_mac_settings" msgid="6685812569356353378">"Məxfilik"</string>
   <string-array name="random_mac_settings_entries">
     <item msgid="3457228452595715533">"Təsadüfi MAC (defolt) istifadə edin"</item>
-    <item msgid="2490415280467390067">"MAC cihazından istifadə edin"</item>
+    <item msgid="2490415280467390067">"Cihazın MAC-ünvanını istifadə edin"</item>
   </string-array>
     <string name="mac_address_not_available" msgid="2992935344891853369">"Əlçatan deyil"</string>
     <string name="mac_address_ephemeral_summary" msgid="3284374877361772531">"Təsadüfi MAC"</string>
@@ -236,6 +441,8 @@
     <string name="wifi_setting_see_fewer" msgid="8585364493300703467">"Daha azına baxın"</string>
     <string name="wifi_setting_available_networks" msgid="2096957819727319750">"Əlçatan şəbəkələr"</string>
     <string name="wifi_setting_other_options_add_network" msgid="6490215784178866978">"Yeni şəbəkə əlavə edin"</string>
+    <string name="wifi_setting_other_options_add_network_via_easyconnect" msgid="2869989555950644533">"Cəld qoşulma"</string>
+    <string name="wifi_setting_other_options_add_network_via_easyconnect_info_summary" msgid="4564538591168691865">"Cəld qoşulma telefonunuzdakı QR kodunu skanlayaraq WiFi\'a cəld qoşulmağınıza kömək edir."</string>
     <string name="security_type" msgid="2297615092250075696">"Təhlükəsizlik növü"</string>
     <string name="other_network" msgid="5299289104661858596">"Digər şəbəkə..."</string>
     <string name="skip_network" msgid="3095529090560000692">"Keç"</string>
@@ -263,6 +470,7 @@
     <string name="title_wifi_proxy_settings_invalid" msgid="7698883245005941665">"Proksi ayarları düzgün deyil"</string>
     <string name="title_wifi_ip_settings_invalid" msgid="7283801973512992014">"İP ayarları düzgün deyil"</string>
     <string name="title_wifi_known_network" msgid="6162483884727898697">"<xliff:g id="SSID">%1$s</xliff:g> saxlanılmış şəbəkədir"</string>
+    <string name="title_wifi_scan_qr_code" msgid="7485605625055717874">"Qoşulmaq üçün QR kodunu skan edin"</string>
     <string name="wifi_action_try_again" msgid="8920677153891141148">"Yenidən cəhd edin"</string>
     <string name="wifi_action_view_available_networks" msgid="609561604257828342">"Əlçatımlı şəbəkələrə baxın"</string>
     <string name="wifi_connecting" msgid="4234341255109283018">"<xliff:g id="SSID">%1$s</xliff:g> şəbəkəsinə qoşulur"</string>
@@ -270,6 +478,8 @@
     <string name="wifi_connect" msgid="2206086690065242121">"Qoşul"</string>
     <string name="wifi_forget_network" msgid="4634016112624305571">"Şəbəkəni unudun"</string>
     <string name="wifi_forget_network_description" msgid="4146715475962713899">"Bu, saxlanılmış parol daxil olmaqla bu şəbəkəyə qoşulmaq üçün istifadə olunan məlumatı silir"</string>
+    <string name="wifi_scan_qr_code_description" msgid="2375814285190385839">"Mobil telefonunuzdan QR kodunu skan edərək Wifi\'a qoşulun və təlimatı izləyin."</string>
+    <string name="wifi_scan_qr_code_back_description" msgid="8830716278283379280">"Ləğv etmək üçün Geri düyməsinə basın"</string>
     <string name="wifi_action_ok" msgid="6257483288047397880">"OK"</string>
     <string name="wifi_setup_action_dont_change_network" msgid="2999582059217623090">"Davam edin"</string>
     <string name="wifi_setup_action_change_network" msgid="1603908238711710943">"Şəbəkəni dəyişin"</string>
@@ -310,6 +520,7 @@
     <string name="wifi_summary_title_not_connected" msgid="7991004795297065201">"Şəbəkə qoşulu deyil"</string>
     <string name="wifi_summary_description_connected_to_wifi_network" msgid="8796747274977762311">"Artıq <xliff:g id="SSID">%1$s</xliff:g> şəbəkəsinə qoşuludur. Başqa şəbəkəyə qoşulsun?"</string>
     <string name="wifi_summary_unknown_network" msgid="8044143986439139664">"naməlum şəbəkə"</string>
+    <string name="wifi_empty_list_user_restricted" msgid="7326314737931342236">"Sizin Wi‑Fi şəbəkəsini dəyişməyə icazəniz yoxdur."</string>
     <string name="title_ok" msgid="6500452958848127145">"OK"</string>
     <string name="title_cancel" msgid="2337143367016419016">"Ləğv et"</string>
     <string name="storage_title" msgid="6637715914885228193">"Yaddaş"</string>
@@ -318,12 +529,12 @@
     <string name="storage_calculating_size" msgid="5716281278843281044">"Hesablanır..."</string>
     <string name="storage_apps_usage" msgid="8659915575274468924">"Tətbiqlər"</string>
     <string name="storage_downloads_usage" msgid="8429196848359517158">"Endirmələr"</string>
-    <string name="storage_dcim_usage" msgid="337290403400541958">"Foto &amp; videolar"</string>
+    <string name="storage_dcim_usage" msgid="1890098882753254745">"Foto və Videolar"</string>
     <string name="storage_music_usage" msgid="5362871290115089474">"Audio"</string>
     <string name="storage_media_misc_usage" msgid="3404230292054880339">"Qarışıq"</string>
     <string name="storage_media_cache_usage" msgid="6397941751551207630">"Keşlənmiş data"</string>
     <string name="storage_eject" msgid="3268870873944951902">"Çıxarın"</string>
-    <string name="storage_format" msgid="1068977713279648756">"Silin və format edin"</string>
+    <string name="storage_format" msgid="5360900929128087085">"Silin və Formatlayın"</string>
     <string name="storage_format_as_private" msgid="77945551149326052">"Silin və cihaz yaddaşı kimi format edin"</string>
     <string name="storage_format_as_public" msgid="6745112917895223463">"Silin və daşınabilən yaddaş kimi format edin"</string>
     <string name="storage_format_for_private" msgid="5380138334184923252">"Cihaz yaddaşı kimi format edin"</string>
@@ -406,6 +617,22 @@
     <item msgid="5645263357181875427">"Transport yayım təminatlı zamandan istifadə edin."</item>
     <item msgid="5501503537181350884">"Deaktiv"</item>
   </string-array>
+    <string name="sensor_toggle_description" msgid="7415801459994303159">"Bütün tətbiqlər və xidmətlər üçün"</string>
+    <string name="recently_accessed_by_category" msgid="6841705864715653428">"Bu yaxınlarda giriş edilib:"</string>
+    <string name="no_recent_sensor_accesses" msgid="3498112970658050800">"Bu yaxınlarda giriş olmayıb"</string>
+    <string name="recently_accessed_show_all" msgid="5234849189704717855">"Hamısına baxın"</string>
+    <string name="microphone" msgid="7893752847683941214">"Mikrofon"</string>
+    <string name="mic_toggle_title" msgid="7193417007060235665">"Mikrofona giriş"</string>
+    <string name="open_mic_permissions" msgid="8121871594807641073">"Mikrofona tətbiqin girişi"</string>
+    <string name="camera" msgid="1226671478936288283">"Kamera"</string>
+    <string name="camera_toggle_title" msgid="5566469574224956142">"Kameraya giriş"</string>
+    <string name="open_camera_permissions" msgid="301360297337141591">"Kameraya tətbiqin girişi"</string>
+    <string name="mic_toggle_info_title" msgid="1086545614315873599">"Mikrofona giriş: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
+    <string name="mic_toggle_info_content" msgid="4699624900513326055">"Aktiv edildikdə, icazəsi olan bütün tətbiqlər və xidmətlər bu cihazdakı istənilən mikrofona giriş edə bilər.\n\nFərdi protokolu olan audio köməkçi cihazları bu ayardan təsirlənməyəcəkdir."</string>
+    <string name="camera_toggle_info_title" msgid="3871317082313736088">"Kameraya giriş: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
+    <string name="camera_toggle_info_content" msgid="2999965953853204003">"Aktiv edildikdə, icazəsi olan bütün tətbiqlər və xidmətlər bu cihazdakı istənilən kameraya giriş edə bilər.\n\nFərdi protokolu olan kamera köməkçi cihazları bu ayardan təsirlənməyəcəkdir."</string>
+    <string name="sensor_toggle_info_on" msgid="4568111889147132257">"Aktiv"</string>
+    <string name="sensor_toggle_info_off" msgid="7546772458177469821">"Deaktiv"</string>
     <string name="system_location" msgid="4057295363709016511">"Məkan"</string>
     <string name="system_desc_location" msgid="1680134126100535031">"İcazə sorğusu göndərən tətbiqlərə yerləşmə məlumatınızı istifadə etməyə icazə verin"</string>
     <string name="system_network_location_confirm" msgid="7128162421781085332">"Yer razılığı"</string>
@@ -444,7 +671,7 @@
     <string name="captions_language" msgid="5905918439449912646">"Dil"</string>
     <string name="captions_language_default" msgid="3894192926725192528">"Defolt"</string>
     <string name="captions_textsize" msgid="7161136610669343510">"Mətn ölçüsü"</string>
-    <string name="captions_captionstyle" msgid="6650139717545516071">"Başlıq üslubu"</string>
+    <string name="captions_captionstyle" msgid="6650139717545516071">"Subtitr üslubu"</string>
     <string name="captions_customoptions" msgid="7691004663572161126">"Fərdi seçimlər"</string>
     <string name="captions_fontfamily" msgid="1026632786438880997">"Şrift ailəsi"</string>
     <string name="captions_textcolor" msgid="1566679779609140317">"Mətn rəngi"</string>
@@ -480,10 +707,10 @@
     <string name="system_accessibility_tts_output" msgid="3186078508203212288">"Yazıdan nitqə çevirmə"</string>
     <string name="system_accessibility_tts_engine_config" msgid="4757760652785865532">"Mühərrikin konfiqurasiyası"</string>
     <string name="system_speak_passwords" msgid="8556036524146404052">"Parolları səsləndirin"</string>
-    <string name="system_preferred_engine" msgid="3545505072652708443">"Tərcih olunmuş mühərrik"</string>
+    <string name="system_preferred_engine" msgid="3545505072652708443">"Defolt nitq sintezatoru"</string>
     <string name="system_speech_rate" msgid="6553204071403872669">"Nitq diapazonu"</string>
     <string name="system_play_sample" msgid="3934369914309865584">"Play nümunəsi"</string>
-    <string name="system_install_voice_data" msgid="8016395777968958673">"Səs datasını quraşdırın"</string>
+    <string name="system_install_voice_data" msgid="8016395777968958673">"Səs datasının quraşdırılması"</string>
     <string name="system_general" msgid="687760148454147771">"Ümumi"</string>
     <string name="system_debugging" msgid="1576324426385458481">"Sazlama"</string>
     <string name="system_input" msgid="4457152980514604873">"Daxiletmə"</string>
@@ -491,58 +718,52 @@
     <string name="system_monitoring" msgid="7997260748312620855">"Monitorinq"</string>
     <string name="system_apps" msgid="8481888654606868074">"Tətbiqlər"</string>
     <string name="system_stay_awake" msgid="5935117574414511413">"Oyaq qal"</string>
-    <string name="system_hdcp_checking" msgid="3757586362130048838">"HDCP yoxlanılır"</string>
+    <string name="system_hdcp_checking" msgid="3757586362130048838">"HDCP yoxlanışı"</string>
     <string name="system_hdmi_optimization" msgid="4122753440620724144">"HDMI optimallaşdırılması"</string>
-    <string name="system_reboot_confirm" msgid="8346913287126400728">"İndi yenidən başladılsın?"</string>
+    <string name="system_reboot_confirm" msgid="7035370306447878560">"Yenidən başladılsın?"</string>
     <string name="system_desc_reboot_confirm" msgid="1567738857421128179">"Bu ayarı güncəlləmək üçün cihazı yenidən başlatmaq lazımdır"</string>
     <string name="system_never_check" msgid="2860070727606369055">"Heç vaxt yoxlama"</string>
     <string name="system_check_for_drm_content_only" msgid="6667617772587997533">"Yalnız DRM kontent üçün yoxlayın"</string>
     <string name="system_always_check" msgid="384870282800221580">"Həmişə yoxlayın"</string>
     <string name="system_bt_hci_log" msgid="1891838112637932603">"Bluetooth HCI girişi"</string>
     <string name="system_email_address" msgid="3725494874473757217">"E-poçt ünvanı"</string>
-    <string name="system_usb_debugging" msgid="2158285492172755923">"USB debaq prosesi"</string>
+    <string name="system_usb_debugging" msgid="2158285492172755923">"USB ilə sazlama"</string>
     <string name="system_allow_mock_locations" msgid="2483106887711851466">"Sınaq yerləşmələrinə icazə verin"</string>
-    <string name="system_select_debug_app" msgid="6200987902307533721">"Debaq tətbiqi seçin"</string>
-    <string name="system_wait_for_debugger" msgid="5715878008542589060">"Sazlamanı gözləyin"</string>
-    <string name="system_verify_apps_over_usb" msgid="7289212844195483932">"USB üzərindən tətbiqləri yoxlayın"</string>
+    <string name="system_select_debug_app" msgid="6200987902307533721">"Sazlamaq üçün tətbiq seçin"</string>
+    <string name="system_wait_for_debugger" msgid="5715878008542589060">"Sazlayıcının qoşulmasını gözləyin"</string>
+    <string name="system_verify_apps_over_usb" msgid="7289212844195483932">"Tətbiqlər quraşdırılanda yoxlanılsın"</string>
     <string name="system_desc_verify_apps_over_usb" msgid="7737988681480237094">"ADB/ADT vasitəsi ilə quraşdırılmış tətbiqləri zərərli davranış üzrə yoxlayın."</string>
     <string name="system_wifi_verbose_logging" msgid="3097788974146704831">"Ayrıntılı Wi-Fi qeydiyyatı"</string>
     <string name="system_desc_wifi_verbose_logging" msgid="3537578245428327314">"Ayrıntılı Wi-Fi qeydiyyatını aktiv edin"</string>
     <string name="system_show_touches" msgid="8244331695139748286">"Tıklamaları göstər"</string>
     <string name="system_pointer_location" msgid="8724050865245555084">"Kursor yeri"</string>
-    <string name="system_show_layout_bounds" msgid="8803080672553699649">"Düzən həddini göstər"</string>
-    <string name="system_show_gpu_view_updates" msgid="1625918928089365222">"GPU görünüş güncəlləşməsini göstər"</string>
+    <string name="system_show_layout_bounds" msgid="8803080672553699649">"Element sərhəddi göstərilsin"</string>
+    <string name="system_show_gpu_view_updates" msgid="1625918928089365222">"Ekran yenilənməsi göstərilsin"</string>
     <string name="system_show_hardware_layer" msgid="5833664339844452290">"Avadanlıq qatını göstər"</string>
     <string name="system_show_gpu_overdraw" msgid="5073007513540516704">"GPU aşımını göstər"</string>
-    <string name="system_show_surface_updates" msgid="7680759813613585278">"Səth güncəlləşməsini göstər"</string>
-    <string name="system_window_animation_scale" msgid="685477540250939659">"Pəncərə animasiya miqyası"</string>
-    <string name="system_transition_animation_scale" msgid="7266380208347453619">"Animasiya keçid miqyası"</string>
-    <string name="system_animator_duration_scale" msgid="3829445237130423625">"Animator müddət şkalası"</string>
-    <string name="system_strict_mode_enabled" msgid="7392183793064579588">"Məhdud rejim aktivdir"</string>
+    <string name="system_show_surface_updates" msgid="7680759813613585278">"Səth yenilənməsi göstərilsin"</string>
+    <string name="system_window_animation_scale" msgid="685477540250939659">"Pəncərə animasiyası"</string>
+    <string name="system_transition_animation_scale" msgid="7266380208347453619">"Keçid animasiyası"</string>
+    <string name="system_animator_duration_scale" msgid="3829445237130423625">"Animasiya müddəti"</string>
+    <string name="system_strict_mode_enabled" msgid="7392183793064579588">"Ciddi rejim"</string>
     <string name="system_profile_gpu_rendering" msgid="1113416260742329348">"Profil GPU renderinq"</string>
     <string name="system_enable_traces" msgid="108745519968154528">"İzləri aktiv edin"</string>
-    <string name="system_dont_keep_activities" msgid="4641165963339846161">"Fəaliyyətləri saxlamayın"</string>
+    <string name="system_dont_keep_activities" msgid="4641165963339846161">"Fəaliyyətlər saxlanmasın"</string>
     <string name="system_background_process_limit" msgid="1985373407150771045">"Fon prosesi limiti"</string>
     <string name="system_show_all_anrs" msgid="5353216640638263217">"Bütün ANR\'ları göstər"</string>
     <string name="system_desc_stay_awake" msgid="8485868071929937500">"Yuxunu deaktiv edin"</string>
     <string name="system_desc_hdcp_checking" msgid="1664068008848077241">"Yalnız DRM məzmun üçün istifadə edin"</string>
     <string name="system_desc_hdmi_optimization" msgid="5695603795556335912">"Displeyi maksimum ayırdetmə dəqiqliyinə və ya maksimum kadr sayına optimallaşdırın. Bu yalnız Ultra HD displeylərinə təsir edir. Bu ayarı dəyişməklə cihazınız yandırılıb-söndürüləcək."</string>
     <string name="system_desc_bt_hci_log" msgid="2592649923221658103">"Bluetooth HCI izləmə jurnalını aktivləşdirin"</string>
-    <string name="system_desc_usb_debugging" msgid="5672275208185222785">"USB qoşulan zaman sazlama rejimi"</string>
-    <string name="system_desc_wait_for_debugger" msgid="7213496668606417691">"Sazlanmış tətbiq icradan əvvəl qoşulmaq üçün sazlayıcını gözləyir"</string>
-    <string name="system_desc_show_layout_bounds" msgid="5275008598296135852">"Klip sərhədləri, boşluqları və s. göstər"</string>
-    <string name="system_desc_show_gpu_view_updates" msgid="9088343415389734854">"GPU ilə tərtib edildikdə işıq pəncərələr daxilində görüntülənir"</string>
-    <string name="system_desc_show_hardware_layer" msgid="3483713991865249527">"Onlar güncəllənəndən sonra avadanlıq qatlarında işartı olsun"</string>
+    <string name="system_desc_usb_debugging" msgid="5672275208185222785">"USB qoşulanda sazlama"</string>
+    <string name="system_desc_wait_for_debugger" msgid="7213496668606417691">"Tətbiq sazlayıcının qoşulmasını gözləyir"</string>
+    <string name="system_desc_show_layout_bounds" msgid="5275008598296135852">"Kəsim sərhəddi, sahəsi və digər şeyləri göstərilsin"</string>
+    <string name="system_desc_show_gpu_view_updates" msgid="9088343415389734854">"GPU-dan çəkəndə ekran sahələri işılqansın"</string>
+    <string name="system_desc_show_hardware_layer" msgid="3483713991865249527">"Yenilənəndə aparat qatları yaşıl rənglə ayrılsın"</string>
     <string name="system_desc_show_gpu_overdraw" msgid="74019834911598588">"Yaxşıdan pisə qədər: mavi, yaşıl, açıq qırmızı, qırmızı"</string>
-    <string name="system_desc_show_surface_updates" msgid="4018685547515133353">"Güncəlləşdirmədən sonra bütün ekranda işartı olsun"</string>
-    <string name="system_desc_strict_mode_enabled" msgid="1974896408481676324">"Əsas axında tətbiqlərin əlavə əməliyyatlar etməsi zamanı ekran işartısı olsun"</string>
+    <string name="system_desc_show_surface_updates" msgid="4018685547515133353">"Pəncərə səthi təzələnəndə işıqlansın"</string>
+    <string name="system_desc_strict_mode_enabled" msgid="1974896408481676324">"Uzun əməliyyatlar ərzində ekran işıqlandırılsın"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="1594070211030991">"adb shell dumpsys gfxinfo render vaxtını ölçmə"</string>
-    <string name="action_on_title" msgid="1074972820237738324">"Aktiv"</string>
-    <string name="action_off_title" msgid="3598665702863436597">"Deaktiv"</string>
-    <string name="action_on_description" msgid="9146557891514835767">"Aktiv"</string>
-    <string name="action_off_description" msgid="1368039592272701910">"Deaktiv"</string>
-    <string name="agree" msgid="8155497436593889753">"Razıyam"</string>
-    <string name="disagree" msgid="7402998517682194430">"Razı deyiləm"</string>
     <string name="security_unknown_sources_title" msgid="2012801664240314305">"Naməlum mənbələr"</string>
     <string name="security_unknown_sources_desc" msgid="7196715598352173267">"Play Store\'dan kənar mənbələrdən tətbiqləri quraşdırmağa imkan verir"</string>
     <string name="security_unknown_sources_confirm_title" msgid="4600896691987804985">"Naməlum mənbələrə icazə verin"</string>
@@ -586,7 +807,7 @@
     <string name="title_current_autofill_service" msgid="9029001041887283153">"Cari Avtomatik Daxiletmə Xidməti"</string>
     <string name="title_select_autofill_service" msgid="696559582725756848">"Avtomatik Daxiletmə Xidmətini seçin"</string>
     <string name="autofill_none" msgid="1615056985649424207">"Yoxdur"</string>
-    <string name="autofill_confirmation_message" msgid="3840267789160192558">"&lt;b&gt;Bu tətbiqə etibar etdiyinizə əmin olun&lt;b&gt; &lt;br/&gt; &lt;br/&gt; &lt;xliff:g id=tətbiq_adı nümunə=Parol xidməti &gt;%%1$s&lt;/xliff:g&gt; nəyin avtomatik daxil edilə biləcəyini müəyyən etmək üçün ekrandakılardan istifadə edir."</string>
+    <string name="autofill_confirmation_message" msgid="3840267789160192558">"&lt;b&gt;Bu tətbiqə inana biləcəyinizi dəqiqləşdirin&lt;b&gt; &lt;br/&gt; &lt;br/&gt; &lt;xliff:g id=tətbiq_adı nümunə=Parol xidməti &gt;%%1$s&lt;/xliff:g&gt; ekranı analiz edərək avtomatik doldurula bilən sahələri tapır."</string>
     <string name="computing_size" msgid="8623916230485437579">"Hesablanır..."</string>
     <string name="title_select_wifi_network" msgid="935820896444071617">"Wi-Fi şəbəkənizi seçin"</string>
     <string name="accessories_wifi_display_rename_device" msgid="8803397194143132061">"Adlandırın"</string>
@@ -594,7 +815,7 @@
     <string name="accessories_wifi_display_pin_required" msgid="5434960694140426664">"PIN tələb olunur"</string>
     <string name="whichApplication" msgid="4510042089342879264">"Əməliyyatı tamamlayın:"</string>
     <string name="alwaysUseQuestion" msgid="2643084054296937138">"Bu əməliyyat üçün həmişə bu seçim istifadə olunsun?"</string>
-    <string name="alwaysUseOption" msgid="8799609235198714441">"Həmişə istifadə edin"</string>
+    <string name="alwaysUseOption" msgid="8799609235198714441">"Həmişə istifadə edilsin"</string>
     <string name="justOnceOption" msgid="6714005843102804865">"Sadəcə bir dəfə"</string>
     <string name="noApplications" msgid="7511175717026318399">"Heç bir tətbiq bu əməliyyatı apara bilmir."</string>
     <string name="noAppsGoBack" msgid="2538480554615467065">"Geri"</string>
@@ -663,11 +884,13 @@
     <string name="pin_toast_wrong" msgid="4297542365877164402">"PİN səhvdir, yenidən cəhd edin"</string>
     <string name="pin_toast_not_match" msgid="2439298696342975155">"Yenidən cəhd edin, PİN uyğun deyil"</string>
     <string name="wifi_setup_input_password" msgid="8510003548463241234">"<xliff:g id="SSID">%1$s</xliff:g> üçün parol daxil et"</string>
+    <string name="wifi_setup_description" msgid="6843574399437584520">"Davam etmək üçün <xliff:g id="WIFI_SUBMIT_ICON">%1$s</xliff:g> seçin."</string>
+    <string name="label_done_key" msgid="8576286462300373440">"Oldu"</string>
     <string name="wifi_setup_connection_success" msgid="3301901673876973474">"Uğurla qoşuldu"</string>
     <string name="wifi_setup_save_success" msgid="6862510218032734919">"Uğurla saxlanıldı"</string>
     <string name="device_apps_app_management_version" msgid="2119174719194899740">"<xliff:g id="APP_VERSION">%1$s</xliff:g> versiyası"</string>
     <string name="device_apps_app_management_open" msgid="4249743535677261897">"Açın"</string>
-    <string name="device_apps_app_management_force_stop" msgid="4454221309989640309">"Dayandırmağı gücləndir"</string>
+    <string name="device_apps_app_management_force_stop" msgid="4454221309989640309">"Dayandırılsın"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="1980972142863114899">"Əgər proqramın dayandırılmasını gücləndirsəniz, o düzgün işləməyə bilər."</string>
     <string name="device_apps_app_management_uninstall" msgid="4171103696233332967">"Poz"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5647988075828648951">"Güncəlləmələri sistemdən silin"</string>
@@ -678,17 +901,18 @@
     <string name="device_apps_app_management_enable_desc" msgid="8686291003061136476">"Bu proqramı aktivləşdirmək istəyirsiniz?"</string>
     <string name="device_apps_app_management_storage_used" msgid="6725789557993296433">"İşlənmiş yaddaş"</string>
     <string name="device_apps_app_management_storage_used_desc" msgid="8928632612101487179">"<xliff:g id="VOLUME">%2$s</xliff:g> üzrə <xliff:g id="SIZE">%1$s</xliff:g> istifadə olunub"</string>
-    <string name="device_apps_app_management_clear_data" msgid="7305471678286735600">"Datanı təmizlə"</string>
+    <string name="device_apps_app_management_clear_data" msgid="7305471678286735600">"Datanı silin"</string>
     <string name="device_apps_app_management_clear_data_desc" msgid="170972356946852847">"Bu tətbiq datası həmişəlik silinəcək. \nBura bütün fayllar, ayarlar, hesablar, verilənlər bazası və sairləri aiddir."</string>
     <string name="device_apps_app_management_clear_default" msgid="4566187319647111484">"Defoltları təmizləyin"</string>
     <string name="device_apps_app_management_clear_default_set" msgid="1649974109123107390">"Bəzi fəaliyyətlər üçün bu proqramı işə salmağı təyin edin"</string>
     <string name="device_apps_app_management_clear_default_none" msgid="5935252537185381597">"Defolt ayarlanmayıb"</string>
     <string name="device_apps_app_management_clear_cache" msgid="2678301483598915479">"Keşi təmizləyin"</string>
     <string name="device_apps_app_management_notifications" msgid="1687529279264810317">"Bildirişlər"</string>
-    <string name="device_apps_app_management_licenses" msgid="5554510375160907076">"Açıq mənbə lisenziyaları"</string>
+    <string name="device_apps_app_management_licenses" msgid="4809737266551899869">"Üçüncü Tərəf Mənbəyi"</string>
     <string name="device_apps_app_management_permissions" msgid="4951820230491375037">"İcazələr"</string>
     <string name="device_apps_app_management_not_available" msgid="4198634078194500518">"Tətbiq əlçatan deyil"</string>
     <string name="settings_ok" msgid="5950888975075541964">"OK"</string>
+    <string name="settings_confirm" msgid="4489126458677153411">"Təsdiq edin"</string>
     <string name="settings_cancel" msgid="576094334743686152">"Ləğv edin"</string>
     <string name="settings_on" msgid="7734010120323404333">"Aktiv"</string>
     <string name="settings_off" msgid="4060451657850476369">"Qeyri-aktiv"</string>
@@ -703,6 +927,8 @@
     <string name="device_energy_saver_screen_off_dialog_title" msgid="4092476553760123309">"Displeyi bundan sonra deaktiv edin:"</string>
     <string name="device_energy_saver_allow_turning_screen_off" msgid="3832490233158066073">"Ekranı deaktiv etməyə icazə verin"</string>
     <string name="device_energy_saver_allow_turning_screen_off_description" msgid="6369746832941270786">"Media oxudulması zamanı"</string>
+    <string name="device_energy_saver_confirmation_title" msgid="3888708298070409591">"Enerjiyə Qənaət ayarını təsdiq edin"</string>
+    <string name="device_energy_saver_confirmation_text" msgid="3157546670441493125">"Enerji istifadəsini artıra biləcək yeni <xliff:g id="SLEEP_TIME">%1$s</xliff:g> ayarını təsdiq edin."</string>
     <string name="backup_configure_account_default_summary" msgid="2170733614341544296">"Hazırda heç bir hesab ehtiyat nüsxəsi çıxarılmış məlumatları saxlamır."</string>
     <string name="backup_erase_dialog_title" msgid="6008454053276987100"></string>
     <string name="backup_erase_dialog_message" msgid="222169533402624861">"Wi-Fi parollarının, əlfəcinlərin, digər parametrlərin və proqramla bağlı məlumatların ehtiyat nüsxəsinin çıxarılması dayandırılsın və Google serverlərində bütün surətlər təmizlənsin?"</string>
@@ -710,7 +936,9 @@
     <string name="privacy_backup_account" msgid="4527813051841860610">"Hesabın ehtiyat nüsxəsini çıxart"</string>
     <string name="privacy_automatic_restore" msgid="7117805818589418118">"Avtomatik bərpa"</string>
     <string name="factory_reset_device" msgid="6509900821515094361">"Cihazı ilkin vəziyyətinə bərpa edin"</string>
-    <string name="factory_reset_description" msgid="4448783644897046471">"Bu, cihazınızın daxili yaddaşından, o cümlədən Google hesabı, sistem və proqramla bağlı verilənlər və parametrlər və yüklənmiş proqramlarınızdan bütün məlumatları siləcəkdir."</string>
+    <string name="factory_reset_description" msgid="6697396335158766785">"Bununla cihazınız defolt ayarlara bərpa ediləcək və bütün data, hesablar, fayllar və endirilmiş tətbiqlər silinəcək."</string>
+    <string name="factory_reset_info_description" msgid="5098454670833183487">"Bununla cihazınız defolt ayarlara bərpa ediləcək və bütün data, hesablar, fayllar və endirilmiş tətbiqlər silinəcək."</string>
+    <string name="factory_reset_content_description" msgid="1677022688420116803">"Zavod sıfırlaması: Bununla cihazınız defolt ayarlara bərpa ediləcək və bütün data, hesablar, fayllar və endirilmiş tətbiqlər silinəcək."</string>
     <string name="confirm_factory_reset_description" msgid="1337483463207721713">"Bu cihazdakı bütün şəxsi məlumatlarınız və endirilmiş tətbiqlər silinsin? Bu əməliyyat geri qaytarıla bilməz!"</string>
     <string name="confirm_factory_reset_device" msgid="4308646529880718465">"Hər şeyi silin"</string>
     <string name="select_device_name_title" msgid="3045019448327493634">"<xliff:g id="DEVICEMODEL">%1$s</xliff:g> cihazınız üçün ad seçin"</string>
@@ -732,7 +960,7 @@
     <string name="device_apps_permissions" msgid="8421323706003063878">"Tətbiq icazələri"</string>
     <string name="app_permissions_group_summary" msgid="6818210080117761117">"<xliff:g id="COUNT_0">%1$d</xliff:g> tətbiqdən <xliff:g id="COUNT_1">%2$d</xliff:g> tətbiq icazəlidir"</string>
     <string name="bluetooth_permission_request" msgid="7788089036741496993">"Bluetooth icazə sorğusu"</string>
-    <string name="security_patch" msgid="5468261708915367254">"Android təhlükəsizlik yamaq səviyyəsi"</string>
+    <string name="security_patch" msgid="8924741264829495392">"Android TV ƏS təhlükəsizlik əlavəsi səviyyəsi"</string>
     <string name="choose_application" msgid="2375936782103669988">"Tətbiq seçin"</string>
     <string name="experimental_preference" msgid="3982593252210557436">"(Eksperimental)"</string>
     <string name="reboot_safemode_action" msgid="2862127510492131128">"Təhlükəsiz rejimdə yenidən başlayın"</string>
@@ -744,23 +972,24 @@
     <string name="app_permission_summary_allowed" msgid="5359622119044147500">"İcazəli"</string>
     <string name="app_permission_summary_not_allowed" msgid="5131611341738385303">"İcazə verilmir"</string>
     <string name="usage_access" msgid="8402350645248312782">"İstifadə girişi"</string>
-    <string name="usage_access_description" msgid="3276026988575551587">"İstifadə girişi istifadə etdiyiniz digər tətbiqləri və istifadə tezliyini, həmçinin, operator, dil ayarları və digər detalları izləməyə imkan verir."</string>
+    <string name="usage_access_description" msgid="3276026988575551587">"İstifadə girişi işlədilən tətbiqləri və müntəzəmliyi izləyir, operatoru, dili və digər parametrləri müəyyən edir."</string>
     <string name="high_power_apps" msgid="5841073958519976562">"Enerji optimallaşdırılması"</string>
     <string name="high_power_apps_description" msgid="8651692364795060525">"Tətbiqlərin enerji istifadəsini optimallaşdırın"</string>
     <string name="high_power_apps_empty" msgid="3084512758421482051">"Optimallaşdırılacaq tətbiq yoxdur"</string>
-    <string name="high_power_on" msgid="3120162683093360951">"Optimallaşdırılmadı"</string>
+    <string name="high_power_on" msgid="3120162683093360951">"Enerjiyə qənaət etmir"</string>
     <string name="high_power_off" msgid="3588854600942236231">"Enerji istifadəsi optimallaşdırılır"</string>
     <string name="high_power_system" msgid="6263052626979462255">"Enerji optimallaşdırılması əlçatan deyil"</string>
     <string name="manage_notification_access_title" msgid="8659254371564990084">"Bildiriş girişi"</string>
     <string name="no_notification_listeners" msgid="5119406452675724448">"Heç bir quraşdırılmış tətbiq bildiriş girişi tələb etməyib."</string>
     <string name="notification_listener_security_warning_summary" msgid="8602907284276088658">"Kontakt adları və aldığınız mətn mesajları kimi şəxsi məlumatlar daxil olmaqla, bu tətbiqlər bütün bildirişləri oxuya biləcək. Həmçinin, bildirişləri kənarlaşdıra və onlara daxil olan əməliyyat düymələrini işə sala bilər."</string>
+    <string name="default_notification_access_package_summary" msgid="1354775994781420222">"Sistem tərəfindən tələb olunur"</string>
     <string name="directory_access" msgid="7338555825237012006">"Kataloq girişi"</string>
     <string name="directory_access_description" msgid="3630855858552422012">"Bu tətbiqlərin müəyyən kataloqlara giriş icazəsi var."</string>
     <string name="directory_on_volume" msgid="5628089584970521703">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
-    <string name="system_alert_window_settings" msgid="5790572489650085051">"Digər tətbiqlərdən görüntüləmə"</string>
-    <string name="permit_draw_overlay" msgid="5312730681030266735">"Digər tətbiqdən görüntüləmək icazəsi verin"</string>
+    <string name="system_alert_window_settings" msgid="5790572489650085051">"Tətbiqlərin üzərində"</string>
+    <string name="permit_draw_overlay" msgid="5312730681030266735">"Tətbiqlərin üzərində"</string>
     <string name="allow_overlay_description" msgid="5152329837278240259">"Bu tətbiqə istifadə etdiyiniz digər tətbiqlərin üzərində göstərilmək icazəsi verin. Bu tətbiq həmin tətbiqlərin istifadəsinə müdaxilə edə və ya tətbiqlərin görünüş və davranışını dəyişə bilər."</string>
-    <string name="write_system_settings" msgid="4284654265954461890">"Sistem ayarlarında dəyişiklik edin"</string>
+    <string name="write_system_settings" msgid="4284654265954461890">"Sistem ayarlarını dəyişin"</string>
     <string name="write_settings_title" msgid="2361816483383105754">"Sistem ayarlarını dəyişə bilər"</string>
     <string name="write_settings_description" msgid="7382397926674265937">"Bu icazə tətbiqə sistem ayarlarını dəyişdirməyə imkan verir."</string>
     <string name="write_settings_on" msgid="71675710746513956">"Bəli"</string>
@@ -768,7 +997,8 @@
     <string name="picture_in_picture_title" msgid="2636935591386702348">"Şəkil içində şəkil"</string>
     <string name="picture_in_picture_app_detail_switch" msgid="3688997906817583854">"Şəkil içində şəklə icazə verin"</string>
     <string name="picture_in_picture_empty_text" msgid="4370198922852736600">"Quraşdırılmış tətbiqlərdən heç biri Şəkil-içində-şəkil funksiyasını dəstəkləmir"</string>
-    <string name="picture_in_picture_app_detail_summary" msgid="3296649114939705896">"Tətbiq açıq olanda və ya tətbiqdən çıxdıqdan sonra (məsələn, videoya baxmağa davam etmək üçün) bu tətbiqə şəkil içində şəkil pəncərəsi yaratmağa icazə verin. Bu pəncərə istifadə etdiyiniz digər tətbiqlərin üstündə görüntülənəcək."</string>
+    <string name="picture_in_picture_app_detail_summary" msgid="3296649114939705896">"Tətbiq açıq olanda və ya tətbiqdən çıxdıqdan sonra (məsələn, videoya baxmağa davam etmək üçün) bu tətbiqə şəkil içində şəkil pəncərəsi yaratmağa icazə versəniz, bu pəncərə digər tətbiqlərin üzərində görünəcək."</string>
+    <string name="alarms_and_reminders_description" msgid="4063972350154624500">"Tətbiqlərə siqnallar ayarlamağa və vaxta əsaslanan əməliyyatları planlaşdırmağa icazə verin. Bu, tətbiqlərin arxa fonda işləməsinə imkan verir ki, nəticədə daha çox enerji istifadə edilə bilər.\n\nBu icazə deaktiv olsa, bu tətbiq tərəfindən planlaşdırılan mövcud siqnallar və vaxta əsaslanan tədbirlər işləməyəcəkdir."</string>
     <string name="special_access" msgid="21806055758289916">"Xüsusi tətbiq girişi"</string>
     <string name="string_concat" msgid="5213870180216051497">"<xliff:g id="PART1">%1$s</xliff:g>, <xliff:g id="PART2">%2$s</xliff:g>"</string>
     <string name="audio_category" msgid="6143623109624947993">"Audio"</string>
@@ -782,9 +1012,11 @@
     <string name="empty_audio_duration_title" msgid="9024377320171450683">"Boş audionun müddəti"</string>
     <string name="show_audio_recording_start_failed" msgid="9131762831381326605">"Audio yazmanı başlatmaq alınmadı."</string>
     <string name="show_audio_recording_failed" msgid="8128216664039868681">"Audio yazma alınmadı."</string>
-    <string name="title_data_saver" msgid="7500278996154002792">"Data Qənaəti"</string>
+    <string name="title_data_saver" msgid="7500278996154002792">"Trafikə qənaət"</string>
     <string name="summary_data_saver" msgid="6793558728898207405">"Daha az mobil data istifadə etmək üçün video keyfiyyətini avtomatik tənzimləyin"</string>
     <string name="title_data_alert" msgid="8262081890052682475">"Data istifadəsi və siqnalları"</string>
+    <string name="data_saver_header_info" msgid="239820871940156510">"İnternetə Wi-Fi, Ethernet və ya telefonun hotspotu ilə qoşula bilərsiniz. Əlavə yardım üçün "<b>"g.co/network"</b>" ünvanına daxil olun."</string>
+    <string name="help_center_title" msgid="6109822142761302433"></string>
     <string name="disabled_by_policy_title" msgid="2220484346213756472">"Əməliyyata icazə verilmir"</string>
     <string name="disabled_by_policy_title_adjust_volume" msgid="4229779946666263271">"Səsi dəyişmək olmur"</string>
     <string name="disabled_by_policy_title_outgoing_calls" msgid="8642280178608881544">"Zəngə icazə verilmir"</string>
@@ -793,6 +1025,28 @@
     <string name="disabled_by_policy_title_screen_capture" msgid="5774035841010091253">"Skrinşota icazə verilmir"</string>
     <string name="disabled_by_policy_title_suspend_packages" msgid="6500185610058872758">"Bu tətbiqi açmaq mümkün deyil"</string>
     <string name="default_admin_support_msg" msgid="7913455019068370350">"Sualınız varsa, İT admini ilə əlaqə saxlayın"</string>
+    <string name="admin_support_more_info" msgid="9053232166115098434">"Daha ətraflı"</string>
+    <string name="admin_profile_owner_message" msgid="5729169873349157622">"Admin ayarlar, icazələr, korporativ giriş, şəbəkə fəaliyyəti və cihazın məkan məlumatı da daxil olmaqla bu iş profili ilə əlaqəli tətbiq və dataya nəzarət edə və idarə edə bilər."</string>
+    <string name="admin_profile_owner_user_message" msgid="6431405126322617268">"Admin ayarlar, icazələr, korporativ giriş, şəbəkə fəaliyyəti və cihazın məkan məlumatı da daxil olmaqla bu istifadəçi ilə əlaqəli tətbiq və dataya nəzarət edə və idarə edə bilər."</string>
+    <string name="admin_device_owner_message" msgid="1935507216776040907">"Admin ayarlar, icazələr, korporativ giriş, şəbəkə fəaliyyəti və cihazın məkan məlumatı da daxil olmaqla bu cihazla əlaqəli tətbiq və dataya nəzarət edə və idarə edə bilər."</string>
+    <string name="remove_managed_profile_label" msgid="8950011141359605612">"İş profilini silin"</string>
+    <string name="active_device_admin_msg" msgid="185537304726228624">"Cihaz admin tətbiqi"</string>
+    <string name="remove_device_admin" msgid="2623866073546295104">"Bu cihaz admin tətbiqini deaktiv edin"</string>
+    <string name="uninstall_device_admin" msgid="6301368408620948266">"Tətbiqi sistemdən sil"</string>
+    <string name="remove_and_uninstall_device_admin" msgid="1504351551194915633">"Deaktiv edin və silin"</string>
+    <string name="select_device_admin_msg" msgid="8475934459999710332">"Administrator tətbiqləri"</string>
+    <string name="add_device_admin_msg" msgid="5390773166682603421">"Cihaz administratoru tətbiqi"</string>
+    <string name="add_device_admin" msgid="5078281377915844544">"Administrator tətbiqi aktiv edilsin"</string>
+    <string name="device_admin_warning" msgid="7399916080685200660">"Aktivasiyadan sonra <xliff:g id="APP_NAME">%1$s</xliff:g> tətbiqinə aşağı əməliyyatları etmək icazəsi verilir:"</string>
+    <string name="device_admin_warning_simplified" msgid="3310965971422346950">"Bu cihazı <xliff:g id="APP_NAME">%1$s</xliff:g> idarə edəcək."</string>
+    <string name="device_admin_status" msgid="5467001937240455367">"Bu admin tətbiqi aktivdir və <xliff:g id="APP_NAME">%1$s</xliff:g> tətbiqinə aşağıdakı əməliyyatları etməyə icazə verir:"</string>
+    <string name="adding_profile_owner_warning" msgid="3888867082224127564">"Davam etməklə istifadəçiniz admin tərəfindən idarə ediləcək ki, şəxsi dataya əlavə olaraq, əlaqəli datanı saxlaya bilsin.\n\nAdmin ayarlar, giriş, tətbiq və bu istifadəçi ilə əlaqəli ayarlar, giriş, tətbiq və dataya nəzarət etmək və idarə etmək iqtidarındadır, bura şəbəkə fəaliyyəti və cihazın məkan məlumatı da daxildir."</string>
+    <string name="share_remote_bugreport_dialog_title" msgid="2080017987692459555">"Baq hesabatı paylaşılsın?"</string>
+    <string name="share_remote_bugreport_dialog_message_finished" msgid="8515056665416643253">"İT admininiz bu cihazda nasazlıqların aşkarlanması üçün baq hesabatı sorğusu göndərdi. Tətbiqlər və data paylaşıla bilər."</string>
+    <string name="share_remote_bugreport_dialog_message" msgid="4637489112422692638">"İT admininiz bu cihazda nasazlıqların aşkarlanması üçün baq hesabatı sorğusu göndərdi. Tətbiqlər və data paylaşıla və cihazınızın surəti müvəqqəti azala bilər."</string>
+    <string name="sharing_remote_bugreport_dialog_message" msgid="8096239263583331293">"Bu baq hesabatı İT admininiz ilə paylaşıldı. Daha ətraflı məlumat üçün onlarla əlaqə saxlayın."</string>
+    <string name="share_remote_bugreport_action" msgid="6760197666368262892">"Paylaşın"</string>
+    <string name="decline_remote_bugreport_action" msgid="2130779396296090961">"İmtina edin"</string>
     <string name="network_connection_request_dialog_title" msgid="4103963119407212989">"<xliff:g id="APPNAME">%1$s</xliff:g> ilə istifadə ediləcək cihaz"</string>
     <string name="network_connection_timeout_dialog_message" msgid="8408857135950230472">"Cihaz tapılmadı. Cihazların aktiv olması və qoşulmaq üçün əlçatan olmasından əmin olun."</string>
     <string name="network_connection_timeout_dialog_ok" msgid="5374522862360880609">"Təkrar sınayın"</string>
@@ -800,4 +1054,15 @@
     <string name="network_connection_connect_successful" msgid="2981223044343511313">"Qoşuldu"</string>
     <string name="network_connection_request_dialog_showall" msgid="2653775399674126208">"Hamısını göstərin"</string>
     <string name="progress_scanning" msgid="3323638586482686516">"Axtarış icra olunur"</string>
+    <string name="channels_and_inputs_title" msgid="7484506121290830217">"Kanallar və Girişlər"</string>
+    <string name="channels_and_inputs_summary" msgid="3168386051698084007">"Kanallar, xarici girişlər"</string>
+    <string name="channels_settings_title" msgid="8048956665383762510">"Kanallar"</string>
+    <string name="external_inputs_settings_title" msgid="8937038060355986380">"Xarici girişlər"</string>
+    <string name="display_and_sound_vendor_summary" msgid="7661072343315403110">"Şəkil, ekran, səs"</string>
+    <string name="picture_settings_title" msgid="7643193630924322697">"Şəkil"</string>
+    <string name="screen_settings_title" msgid="7806908869190824434">"Ekran"</string>
+    <string name="sound_settings_title" msgid="9149367966117889465">"Səs"</string>
+    <string name="power_and_energy" msgid="4638182439670702556">"Güc və Enerji"</string>
+    <string name="power_on_behavior" msgid="927607372303160716">"Aktiv edildikdə davranış"</string>
+    <string name="reset_options_title" msgid="7632580482285108955">"Sıfırlayın"</string>
 </resources>

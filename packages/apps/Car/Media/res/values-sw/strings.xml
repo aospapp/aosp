@@ -26,18 +26,6 @@
     <string name="media_app_title" msgid="94717597743776797">"Maudhui"</string>
     <string name="search_hint" msgid="5401750426238148416">"Tafuta nyimbo, wasanii na zaidi..."</string>
     <string name="fragment_playback_title" msgid="5014481549024607614">"Inayocheza Sasa"</string>
-    <string name="default_error_message" msgid="6365377134388091079">"Hitilafu fulani imetokea. Jaribu baadaye."</string>
-    <string name="error_code_app_error" msgid="1726372057192704809">"Imeshindwa kufanya hivyo kwa sasa"</string>
-    <string name="error_code_not_supported" msgid="1435878548411799387">"Programu hii imeshindwa kutekeleza ombi lako"</string>
-    <string name="error_code_authentication_expired" msgid="905154133202017052">"Ingia katika akaunti ili utumie programu hii"</string>
-    <string name="error_code_premium_account_required" msgid="4736461331592855166">"Unahitaji kutumia akaunti ya Kulipia"</string>
-    <string name="error_code_concurrent_stream_limit" msgid="1279573243715957403">"Unasikiliza kwenye vifaa vingi mno"</string>
-    <string name="error_code_parental_control_restricted" msgid="5222841294702530806">"Maudhui haya yamezuiwa"</string>
-    <string name="error_code_not_available_in_region" msgid="4106605584926645567">"Imeshindwa kupata maudhui haya hapa"</string>
-    <string name="error_code_content_already_playing" msgid="8050972499898729459">"Tayari inacheza maudhui hayo"</string>
-    <string name="error_code_skip_limit_reached" msgid="8926507875025988831">"Imeshindwa kuruka nyimbo nyingine zaidi"</string>
-    <string name="error_code_action_aborted" msgid="3889734248905737169">"Imeshindwa kumaliza. Jaribu tena."</string>
-    <string name="error_code_end_of_queue" msgid="2842652212154074468">"Hakuna maudhui mengine kwenye foleni"</string>
     <string name="service_notification_title" msgid="8085444675783592744">"Inaunganisha kwenye chanzo cha maudhui"</string>
     <string name="menu_item_sound_settings_title" msgid="58887078120809669">"Mipangilio ya Sauti"</string>
     <string name="menu_item_app_selector_title" msgid="4587248991114338595">"Badilisha programu"</string>

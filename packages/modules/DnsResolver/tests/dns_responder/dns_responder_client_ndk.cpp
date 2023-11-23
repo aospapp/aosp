@@ -18,9 +18,6 @@
 
 #include "dns_responder_client_ndk.h"
 
-#include <android-base/logging.h>
-#include <android-base/stringprintf.h>
-
 #include <android/binder_manager.h>
 #include "NetdClient.h"
 
@@ -33,8 +30,8 @@ static const char* ANDROID_DNS_MODE = "ANDROID_DNS_MODE";
 
 using aidl::android::net::IDnsResolver;
 using aidl::android::net::INetd;
+using aidl::android::net::ResolverOptionsParcel;
 using aidl::android::net::ResolverParamsParcel;
-using android::base::StringPrintf;
 using android::net::ResolverStats;
 
 void DnsResponderClient::SetupMappings(unsigned numHosts, const std::vector<std::string>& domains,
@@ -81,6 +78,7 @@ ResolverParamsParcel DnsResponderClient::makeResolverParamsParcel(
     paramsParcel.tlsServers = tlsServers;
     paramsParcel.tlsFingerprints = {};
     paramsParcel.caCertificate = caCert;
+    paramsParcel.resolverOptions = ResolverOptionsParcel{};  // optional, must be explicitly set.
 
     // Note, do not remove this otherwise the ResolverTest#ConnectTlsServerTimeout won't pass in M4
     // module.
@@ -120,20 +118,6 @@ bool DnsResponderClient::GetResolverInfo(aidl::android::net::IDnsResolver* dnsRe
     };
     *waitForPendingReqTimeoutCount = waitForPendingReqTimeoutCount32[0];
     return ResolverStats::decodeAll(stats32, stats);
-}
-
-bool DnsResponderClient::isRemoteVersionSupported(
-        aidl::android::net::IDnsResolver* dnsResolverService, int requiredVersion) {
-    int remoteVersion = 0;
-    if (!dnsResolverService->getInterfaceVersion(&remoteVersion).isOk()) {
-        LOG(FATAL) << "Can't get 'dnsresolver' remote version";
-    }
-    if (remoteVersion < requiredVersion) {
-        LOG(WARNING) << StringPrintf("Remote version: %d < Required version: %d", remoteVersion,
-                                     requiredVersion);
-        return false;
-    }
-    return true;
 }
 
 bool DnsResponderClient::SetResolversForNetwork(const std::vector<std::string>& servers,
@@ -191,7 +175,19 @@ void DnsResponderClient::SetupDNSServers(unsigned numServers, const std::vector<
 int DnsResponderClient::SetupOemNetwork() {
     mNetdSrv->networkDestroy(TEST_NETID);
     mDnsResolvSrv->destroyNetworkCache(TEST_NETID);
-    auto ret = mNetdSrv->networkCreatePhysical(TEST_NETID, INetd::PERMISSION_NONE);
+
+    ::ndk::ScopedAStatus ret;
+    if (DnsResponderClient::isRemoteVersionSupported(mNetdSrv, 6)) {
+        const auto& config = DnsResponderClient::makeNativeNetworkConfig(
+                TEST_NETID, NativeNetworkType::PHYSICAL, INetd::PERMISSION_NONE, /*secure=*/false);
+        ret = mNetdSrv->networkCreate(config);
+    } else {
+        // Only for presubmit tests that run mainline module (and its tests) on R or earlier images.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        ret = mNetdSrv->networkCreatePhysical(TEST_NETID, INetd::PERMISSION_NONE);
+#pragma clang diagnostic pop
+    }
     if (!ret.isOk()) {
         fprintf(stderr, "Creating physical network %d failed, %s\n", TEST_NETID, ret.getMessage());
         return -1;
@@ -237,4 +233,17 @@ void DnsResponderClient::SetUp() {
 
 void DnsResponderClient::TearDown() {
     TearDownOemNetwork(mOemNetId);
+}
+
+NativeNetworkConfig DnsResponderClient::makeNativeNetworkConfig(int netId,
+                                                                NativeNetworkType networkType,
+                                                                int permission, bool secure) {
+    NativeNetworkConfig config = {};
+    config.netId = netId;
+    config.networkType = networkType;
+    config.permission = permission;
+    config.secure = secure;
+    // The vpnType doesn't matter in AOSP. Just pick a well defined one from INetd.
+    config.vpnType = NativeVpnType::PLATFORM;
+    return config;
 }

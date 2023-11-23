@@ -51,7 +51,7 @@
     <string name="callFailed_dsac_restricted_normal" msgid="2812267231481193715">"Звычайныя выклікі, абмежаваныя кантролем доступу."</string>
     <string name="callFailed_unobtainable_number" msgid="2048455732432022283">"Несапраўдны нумар"</string>
     <string name="incall_error_missing_voicemail_number" msgid="4519524908114719666">"Невядомы нумар галасавой пошты."</string>
-    <string name="callFailed_video_call_tty_enabled" msgid="5419496275850000361">"Калі рэжым TTY уключаны, немагчыма рабіць відэавыклікі."</string>
+    <string name="callFailed_video_call_tty_enabled" msgid="5419496275850000361">"Калі TTY уключаны, немагчыма рабіць відэавыклікі."</string>
     <string name="callEnded_pulled" msgid="4824518546417807865">"Выклік пераведзены на іншую прыладу."</string>
     <string name="ringtone_silent" msgid="1173111569760233645">"Няма"</string>
     <string name="ringtone_unknown" msgid="3036191370493284036">"Невядомы рынгтон"</string>

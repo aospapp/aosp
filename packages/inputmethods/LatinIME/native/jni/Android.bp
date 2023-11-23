@@ -12,6 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "packages_inputmethods_LatinIME_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["packages_inputmethods_LatinIME_license"],
+}
+
 filegroup {
     name: "LATIN_IME_CORE_SRC_FILES",
     srcs: [
@@ -130,6 +139,7 @@ cc_library {
         "-Wno-unused-parameter",
         "-Wno-unused-function",
     ],
+    header_libs: ["jni_headers"],
     local_include_dirs: ["src"],
 
     srcs: [
@@ -167,6 +177,7 @@ cc_library_static {
         "-Wall",
         "-Werror",
     ],
+    header_libs: ["jni_headers"],
     local_include_dirs: ["src"],
     sdk_version: "14",
     stl: "libc++_static",
@@ -177,7 +188,9 @@ cc_library_static {
 cc_test {
     name: "liblatinime_unittests",
     host_supported: true,
-
+    test_options: {
+        unit_test: true,
+    },
     cflags: [
         "-Wno-unused-parameter",
         "-Wno-unused-function",

@@ -36,7 +36,6 @@ import com.android.internal.annotations.VisibleForTesting;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
@@ -70,7 +69,6 @@ public class PreprocessingManager {
     private Map<String, AlertEntry> mOldNotifications;
     private List<NotificationGroup> mOldProcessedNotifications;
     private NotificationListenerService.RankingMap mOldRankingMap;
-    private Map<String, Integer> mRanking = new HashMap<>();
 
     private boolean mIsInCall;
     private List<CallStateListener> mCallStateListeners = new ArrayList<>();
@@ -170,7 +168,7 @@ public class PreprocessingManager {
                 // insert a new notification into the list
                 mOldNotifications.put(notification.getKey(), notification);
                 mOldProcessedNotifications = new ArrayList<>(
-                        additionalRank(additionalGroup(alertEntry), newRankingMap));
+                        additionalGroupAndRank((alertEntry), newRankingMap));
             }
         }
 
@@ -408,13 +406,15 @@ public class PreprocessingManager {
     }
 
     /**
-     * Add new NotificationGroup to an existing list of NotificationGroups.
+     * Add new NotificationGroup to an existing list of NotificationGroups. The group will be
+     * placed above next highest ranked notification without changing the ordering of the full list.
      *
      * @param newNotification the {@link AlertEntry} that should be added to the list.
      * @return list of grouped notifications as {@link NotificationGroup}s.
      */
     @VisibleForTesting
-    protected List<NotificationGroup> additionalGroup(AlertEntry newNotification) {
+    protected List<NotificationGroup> additionalGroupAndRank(AlertEntry newNotification,
+            RankingMap newRankingMap) {
         Notification notification = newNotification.getNotification();
 
         if (notification.isGroupSummary()) {
@@ -427,7 +427,7 @@ public class PreprocessingManager {
             // if child notifications do not exist, insert the summary as a new notification
             NotificationGroup newGroup = new NotificationGroup();
             newGroup.setGroupSummaryNotification(newNotification);
-            mOldProcessedNotifications.add(newGroup);
+            insertRankedNotification(newGroup, newRankingMap);
             return mOldProcessedNotifications;
         } else {
             for (int i = 0; i < mOldProcessedNotifications.size(); i++) {
@@ -446,9 +446,30 @@ public class PreprocessingManager {
                 }
             }
             // if it is a new notification, insert directly
-            mOldProcessedNotifications.add(new NotificationGroup(newNotification));
+            insertRankedNotification(new NotificationGroup(newNotification), newRankingMap);
             return mOldProcessedNotifications;
         }
+    }
+
+    // When adding a new notification we want to add it before the next highest ranked without
+    // changing existing order
+    private void insertRankedNotification(NotificationGroup group, RankingMap newRankingMap) {
+        NotificationListenerService.Ranking newRanking = new NotificationListenerService.Ranking();
+        newRankingMap.getRanking(group.getNotificationForSorting().getKey(), newRanking);
+
+        for(int i = 0; i < mOldProcessedNotifications.size(); i++) {
+            NotificationListenerService.Ranking ranking = new NotificationListenerService.Ranking();
+            newRankingMap.getRanking(mOldProcessedNotifications.get(
+                    i).getNotificationForSorting().getKey(), ranking);
+
+            if(newRanking.getRank() < ranking.getRank()) {
+                mOldProcessedNotifications.add(i, group);
+                return;
+            }
+        }
+
+        // If it's not higher ranked than any existing notifications then just add at end
+        mOldProcessedNotifications.add(group);
     }
 
     private boolean hasSameGroupKey(AlertEntry notification1, AlertEntry notification2) {
@@ -473,18 +494,6 @@ public class PreprocessingManager {
                         new InGroupComparator(rankingMap));
             }
         });
-        return notifications;
-    }
-
-    /**
-     * Only rank top-level notification groups because no children should be inserted into a group.
-     */
-    public List<NotificationGroup> additionalRank(
-            List<NotificationGroup> notifications, RankingMap newRankingMap) {
-
-        Collections.sort(
-                notifications, new AdditionalNotificationComparator(newRankingMap));
-
         return notifications;
     }
 
@@ -559,47 +568,5 @@ public class PreprocessingManager {
 
             return leftRanking.getRank() - rightRanking.getRank();
         }
-    }
-
-    /**
-     * Comparator that sorts the notification groups by their representative notification's
-     * rank using both of the initial ranking map and the current ranking map.
-     *
-     * <p>Cache the ranking value so that it doesn't change over time.</p>
-     */
-    private class AdditionalNotificationComparator implements Comparator<NotificationGroup> {
-        private final RankingMap mNewRankingMap;
-
-        AdditionalNotificationComparator(RankingMap newRankingMap) {
-            mNewRankingMap = newRankingMap;
-        }
-
-        @Override
-        public int compare(NotificationGroup left, NotificationGroup right) {
-            int leftRankingNumber = getRanking(left, mNewRankingMap);
-            int rightRankingNumber = getRanking(right, mNewRankingMap);
-            return leftRankingNumber - rightRankingNumber;
-        }
-    }
-
-    private int getRanking(NotificationGroup group, RankingMap newRankingMap) {
-        int rankingNumber;
-
-        if (mRanking.containsKey(group.getGroupKey())) {
-            rankingNumber = mRanking.get(group.getGroupKey());
-        } else {
-            NotificationListenerService.Ranking rightRanking =
-                    new NotificationListenerService.Ranking();
-            if (!mOldRankingMap.getRanking(
-                    group.getNotificationForSorting().getKey(), rightRanking)) {
-                if (newRankingMap != null) {
-                    newRankingMap.getRanking(
-                            group.getNotificationForSorting().getKey(), rightRanking);
-                }
-            }
-            rankingNumber = rightRanking.getRank();
-        }
-        mRanking.putIfAbsent(group.getGroupKey(), rankingNumber);
-        return rankingNumber;
     }
 }

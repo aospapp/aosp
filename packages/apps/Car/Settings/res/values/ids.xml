@@ -16,7 +16,12 @@
 -->
 
 <resources>
-    <!-- Ids for toolbar menu items for purposes of selecting items for tests -->
+    <!-- IDs for toolbar menu items for purposes of selecting items for tests -->
     <item type="id" name="toolbar_menu_item_0"/>
     <item type="id" name="toolbar_menu_item_1"/>
+
+    <!-- ID for the selected item in the ringtone picker -->
+    <item type="id" name="ringtone_picker_selected_id"/>
+    <!-- ID key for tagging whether a preference is highlighted or not -->
+    <item type="id" name="preference_highlighted" />
 </resources>

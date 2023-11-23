@@ -16,32 +16,45 @@
 
 package com.android.car.dialer.ui.calllog;
 
-import android.app.Application;
+import android.content.Context;
 import android.text.format.DateUtils;
 
-import androidx.annotation.NonNull;
-import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
 
 import com.android.car.arch.common.FutureData;
 import com.android.car.arch.common.LiveDataFunctions;
-import com.android.car.dialer.livedata.CallHistoryLiveData;
+import com.android.car.dialer.bluetooth.CallHistoryManager;
 import com.android.car.dialer.livedata.HeartBeatLiveData;
+import com.android.car.dialer.livedata.SharedPreferencesLiveData;
+import com.android.car.dialer.ui.common.DialerListViewModel;
 import com.android.car.dialer.ui.common.UiCallLogLiveData;
 import com.android.car.telephony.common.InMemoryPhoneBook;
 
 import java.util.List;
 
+import javax.inject.Inject;
+
+import dagger.hilt.android.lifecycle.HiltViewModel;
+import dagger.hilt.android.qualifiers.ApplicationContext;
+
 /** View model for CallHistoryFragment which provides call history live data. */
-public class CallHistoryViewModel extends AndroidViewModel {
+@HiltViewModel
+public class CallHistoryViewModel extends DialerListViewModel {
+    private final CallHistoryManager mCallHistoryManager;
+
     private UiCallLogLiveData mUiCallLogLiveData;
     private LiveData<FutureData<List<Object>>> mUiCallLogFutureData;
 
-    public CallHistoryViewModel(@NonNull Application application) {
-        super(application);
-        mUiCallLogLiveData = new UiCallLogLiveData(application.getApplicationContext(),
+    @Inject
+    public CallHistoryViewModel(
+            @ApplicationContext Context context,
+            SharedPreferencesLiveData.Factory sharedPreferencesFactory,
+            CallHistoryManager callHistoryManager) {
+        super(context, sharedPreferencesFactory);
+        mCallHistoryManager = callHistoryManager;
+        mUiCallLogLiveData = new UiCallLogLiveData(context,
                 new HeartBeatLiveData(DateUtils.MINUTE_IN_MILLIS),
-                CallHistoryLiveData.newInstance(application.getApplicationContext()),
+                mCallHistoryManager.getCallHistoryLiveData(),
                 InMemoryPhoneBook.get().getContactsLiveData());
 
         mUiCallLogFutureData = LiveDataFunctions.loadingSwitchMap(mUiCallLogLiveData,

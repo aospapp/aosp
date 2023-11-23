@@ -17,18 +17,20 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="6995669566699638946">"Slogi in ozadja"</string>
+    <string name="app_name" msgid="1647136562008520313">"Zaslonsko ozadje in slog"</string>
     <string name="theme_title" msgid="2144932106319405101">"Slog"</string>
     <string name="clock_title" msgid="2126046720254613991">"Ura"</string>
-    <string name="grid_title" msgid="2825094404523390773">"Mreža"</string>
-    <string name="wallpaper_title" msgid="6952635398953194544">"Ozadje"</string>
+    <string name="grid_title" msgid="1688173478777254123">"Mreža aplikacij"</string>
     <string name="apply_theme_btn" msgid="6293081192321303991">"Uporabi"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"Dotaknite se za urejanje"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"Obdrži trenutno ozadje"</string>
     <string name="apply_btn" msgid="7965877231041987336">"Uporabi"</string>
-    <string name="accessibility_preview_pager" msgid="3548503287402185430">"<xliff:g id="ID_1">%1$d</xliff:g>. stran od <xliff:g id="ID_2">%2$d</xliff:g>"</string>
-    <string name="next_page_content_description" msgid="5290226604542300962">"Naprej"</string>
-    <string name="previous_page_content_description" msgid="6025726405430262788">"Nazaj"</string>
+    <string name="theme_preview_card_content_description" msgid="5989222908619535533">"Predogled sloga"</string>
+    <string name="grid_preview_card_content_description" msgid="8449383777584714842">"Predogled mreže"</string>
+    <string name="font_preview_content_description" msgid="128230439293337891">"Predogled pisave"</string>
+    <string name="icon_preview_content_description" msgid="7761101284351952890">"Predogled ikone"</string>
+    <string name="color_preview_content_description" msgid="4879120462082058124">"Predogled barve"</string>
+    <string name="shape_preview_content_description" msgid="6479487796176550432">"Predogled oblike"</string>
     <string name="option_applied_description" msgid="5022305212078053534">"<xliff:g id="ID_1">%1$s</xliff:g> – trenutno uporabljeno"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"<xliff:g id="ID_1">%1$s</xliff:g> – trenutno uporabljeno in v predogledu"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"<xliff:g id="ID_1">%1$s</xliff:g> – trenutno v predogledu"</string>
@@ -41,12 +43,15 @@
     <string name="preview_name_wallpaper" msgid="1738652462949531828">"Ozadje"</string>
     <string name="font_card_title" msgid="2343292653502548685">"ABC • abc • 123"</string>
     <string name="font_card_body" msgid="6790525594503904468">"Dodajte priljubljeno pisavo na vsak zaslon"</string>
+    <string name="grid_options_title" msgid="7071930966989877023">"Izbira velikosti mreže"</string>
     <string name="grid_title_pattern" msgid="9188866567612607806">"<xliff:g id="ID_1">%1$d</xliff:g> x <xliff:g id="ID_2">%2$d</xliff:g>"</string>
-    <string name="applied_theme_msg" msgid="7348498271552054431">"Uporabljen je bil slog"</string>
-    <string name="applied_clock_msg" msgid="1938218786265793285">"Ura je uporabljena"</string>
+    <string name="applied_theme_msg" msgid="3749018706366796244">"Slog je uspešno nastavljen"</string>
+    <string name="applied_clock_msg" msgid="1303338016701443767">"Ura je uspešno nastavljena"</string>
+    <string name="applied_grid_msg" msgid="3250499654436933034">"Mreža je uspešno nastavljena"</string>
     <string name="apply_theme_error_msg" msgid="791364062636538317">"Pri uporabi sloga je prišlo do težave"</string>
     <string name="custom_theme_next" msgid="6235420097213197301">"Naprej"</string>
     <string name="custom_theme_previous" msgid="4941132112640503022">"Nazaj"</string>
+    <string name="custom_theme" msgid="1618351922263478163">"Po meri"</string>
     <string name="custom_theme_title" msgid="2192300350332693631">"Po meri <xliff:g id="ID_1">%1$d</xliff:g>"</string>
     <string name="custom_theme_fragment_title" msgid="6615547284702040280">"Slog po meri"</string>
     <string name="custom_theme_delete" msgid="4744494663184126202">"Izbris"</string>
@@ -66,4 +71,16 @@
     <string name="no_thanks" msgid="7286616980115687627">"Ne, hvala"</string>
     <string name="clock_preview_content_description" msgid="5460561185905717460">"Predogled ure <xliff:g id="ID_1">%1$s</xliff:g>"</string>
     <string name="something_went_wrong" msgid="529840112449799117">"Ojoj, prišlo je do napake."</string>
+    <string name="theme_preview_icons_section_title" msgid="7064768910744000643">"Barva/ikone"</string>
+    <string name="style_info_description" msgid="2612473574431003251">"Predogled pisave, ikon, oblike aplikacije in barve."</string>
+    <string name="accessibility_custom_font_title" msgid="966867359157303705">"Pisava po meri"</string>
+    <string name="accessibility_custom_icon_title" msgid="5753297905849062296">"Ikona po meri"</string>
+    <string name="accessibility_custom_color_title" msgid="4124246598886320663">"Barva po meri"</string>
+    <string name="accessibility_custom_shape_title" msgid="7708408259374643129">"Oblika po meri"</string>
+    <string name="accessibility_custom_name_title" msgid="5494460518085463262">"Ime sloga po meri"</string>
+    <string name="mode_title" msgid="2394873501427436055">"Temna tema"</string>
+    <string name="mode_disabled_msg" msgid="9196245518435936512">"Začasno onemogočeno zaradi varčevanja z energijo baterije."</string>
+    <string name="themed_icon_title" msgid="7312460430471956558">"Ikone s temo"</string>
+    <string name="beta_title" msgid="8703819523760746458">"Beta"</string>
+    <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"Spreminjanje mreže aplikacij."</string>
 </resources>

@@ -17,9 +17,11 @@
 
 <SeekBar
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/seekbar"
+    android:id="@+id/quick_settings_brightness_seekbar"
     android:layout_width="match_parent"
     android:layout_height="@dimen/brightness_seekbar_height"
+    android:layout_marginEnd="@dimen/tile_margin_end"
+    android:layout_marginStart="@dimen/tile_margin_start"
     android:layout_marginBottom="@dimen/brightness_seekbar_margin_bottom"
     android:paddingEnd="@dimen/brightness_seekbar_padding_horizontal"
     android:paddingStart="@dimen/brightness_seekbar_padding_horizontal"
@@ -27,4 +29,5 @@
     android:progressDrawable="@drawable/brightness_seekbar_track"
     android:progressTint="?attr/quickSettingsEnabledColor"
     android:splitTrack="true"
-    android:thumb="@drawable/ic_brightness_knob_stretched"/>
+    android:thumb="@drawable/ic_brightness_knob_with_focus"
+    android:background="@drawable/brightness_seekbar_background"/>

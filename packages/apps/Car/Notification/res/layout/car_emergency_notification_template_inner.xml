@@ -16,6 +16,7 @@
 -->
 <FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/inner_template_view"
     android:layout_width="match_parent"
     android:layout_height="wrap_content">
@@ -45,15 +46,15 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_below="@id/notification_header"
-            android:layout_marginBottom="@dimen/card_body_margin_bottom"/>
+            android:layout_marginBottom="@dimen/card_body_margin_bottom"
+            app:maxLines="@integer/config_notificationPanelMaxBodyLines"/>
 
         <com.android.car.notification.template.CarNotificationActionsView
             android:id="@+id/notification_actions"
-            android:layout_width="match_parent"
+            style="@style/NotificationActionViewLayout"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_below="@id/notification_body"
-            android:gravity="left"
-            android:minHeight="@dimen/card_min_bottom_padding"/>
+            android:layout_below="@id/notification_body"/>
     </RelativeLayout>
 
 </FrameLayout>

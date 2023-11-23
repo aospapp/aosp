@@ -16,7 +16,9 @@
 
 package com.android.cellbroadcastreceiver;
 
+import android.annotation.NonNull;
 import android.content.Context;
+import android.content.res.Configuration;
 import android.graphics.Typeface;
 import android.telephony.SmsCbCmasInfo;
 import android.telephony.SmsCbEtwsInfo;
@@ -30,6 +32,7 @@ import com.android.cellbroadcastreceiver.CellBroadcastChannelManager.CellBroadca
 
 import java.text.DateFormat;
 import java.util.ArrayList;
+import java.util.Locale;
 
 /**
  * Returns the string resource ID's for CMAS and ETWS emergency alerts.
@@ -278,6 +281,51 @@ public class CellBroadcastResources {
             default:
                 return 0;
         }
+    }
+
+    /**
+     * Return the English string for the SMS sender address.
+     * This exists as a temporary workaround for b/174972822
+     * @param context
+     * @param message
+     * @return
+     */
+    public static String getSmsSenderAddressResourceEnglishString(@NonNull Context context,
+            @NonNull SmsCbMessage message) {
+
+        int resId = getSmsSenderAddressResource(context, message);
+
+        Configuration conf = context.getResources().getConfiguration();
+        conf = new Configuration(conf);
+        conf.setLocale(Locale.ENGLISH);
+        Context localizedContext = context.createConfigurationContext(conf);
+        return localizedContext.getResources().getText(resId).toString();
+    }
+
+    /**
+     * @return the string resource ID for the SMS sender address.
+     * As a temporary workaround for b/174972822, prefer getSmsSenderAddressResourceEnglishString,
+     * which ignores all translations for non-English languages for these 4 strings.
+     */
+    public static int getSmsSenderAddressResource(@NonNull Context context,
+            @NonNull SmsCbMessage message) {
+        CellBroadcastChannelManager channelManager = new CellBroadcastChannelManager(
+                context, message.getSubscriptionId());
+        final int serviceCategory = message.getServiceCategory();
+        // store to different SMS threads based on channel mappings.
+        if (channelManager.checkCellBroadcastChannelRange(serviceCategory,
+                R.array.cmas_presidential_alerts_channels_range_strings)) {
+            return R.string.sms_cb_sender_name_presidential;
+        }
+        if (channelManager.checkCellBroadcastChannelRange(serviceCategory,
+                R.array.emergency_alerts_channels_range_strings)) {
+            return R.string.sms_cb_sender_name_emergency;
+        }
+        if (channelManager.checkCellBroadcastChannelRange(serviceCategory,
+                R.array.public_safety_messages_channels_range_strings)) {
+            return R.string.sms_cb_sender_name_public_safety;
+        }
+        return R.string.sms_cb_sender_name_default;
     }
 
     static int getDialogTitleResource(Context context, SmsCbMessage message) {

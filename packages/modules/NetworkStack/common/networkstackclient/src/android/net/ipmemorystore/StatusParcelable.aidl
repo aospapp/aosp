@@ -17,6 +17,7 @@
 package android.net.ipmemorystore;
 
 /** {@hide} */
+@JavaDerive(toString=true)
 parcelable StatusParcelable {
   int resultCode;
 }

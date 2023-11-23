@@ -38,4 +38,6 @@ interface ICarProperty {
     String getReadPermission(int propId) = 5;
 
     String getWritePermission(int propId) = 6;
+
+    List<CarPropertyConfig> getPropertyConfigList(in int[] propIds) = 7;
 }

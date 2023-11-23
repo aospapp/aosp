@@ -75,7 +75,7 @@
                     <TextView
                             android:id="@+id/add_blocked"
                             android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
+                            android:layout_height="48dp"
                             android:text="@string/block_number"
                             android:layout_marginBottom="@dimen/blocked_numbers_button_bottom_margin"
                             android:paddingTop="@dimen/blocked_numbers_button_large_padding"

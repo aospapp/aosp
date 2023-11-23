@@ -216,7 +216,7 @@ public class DataUsageSummaryPreferenceController extends
                     textResourceId = R.string.no_carrier_update_text;
                 }
                 updateTime = StringUtil.formatElapsedTime(getContext(),
-                        updateAgeMillis, /* withSeconds= */ false);
+                        updateAgeMillis, /* withSeconds= */ false, /* collapseTimeUnit= */ false);
             }
             return TextUtils.expandTemplate(getContext().getText(textResourceId), mCarrierName,
                     updateTime);

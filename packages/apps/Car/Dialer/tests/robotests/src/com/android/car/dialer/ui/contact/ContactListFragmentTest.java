@@ -37,11 +37,12 @@ import com.android.car.dialer.FragmentTestActivity;
 import com.android.car.dialer.R;
 import com.android.car.dialer.telecom.UiCallManager;
 import com.android.car.dialer.testutils.ShadowAndroidViewModelFactory;
-import com.android.car.dialer.ui.common.entity.ContactSortingInfo;
+import com.android.car.dialer.ui.common.OnItemClickedListener;
 import com.android.car.dialer.ui.favorite.FavoriteViewModel;
 import com.android.car.telephony.common.Contact;
 import com.android.car.telephony.common.PhoneNumber;
 import com.android.car.telephony.common.PostalAddress;
+import com.android.car.telephony.common.TelecomUtils;
 import com.android.car.ui.recyclerview.CarUiRecyclerView;
 
 import org.junit.Before;
@@ -93,7 +94,7 @@ public class ContactListFragmentTest {
         MutableLiveData<FutureData<Pair<Integer, List<Contact>>>> contactList =
                 new MutableLiveData<>();
         contactList.setValue(
-                new FutureData<>(false, new Pair<>(ContactSortingInfo.SORT_BY_LAST_NAME,
+                new FutureData<>(false, new Pair<>(TelecomUtils.SORT_BY_LAST_NAME,
                         Arrays.asList(mMockContact1, mMockContact2, mMockContact3))));
         ShadowAndroidViewModelFactory.add(ContactListViewModel.class, mMockContactListViewModel);
         when(mMockContactListViewModel.getAllContacts()).thenReturn(contactList);
@@ -109,7 +110,6 @@ public class ContactListFragmentTest {
 
     @Test
     public void testClickCallActionButton_ContactHasOneNumber_placeCall() {
-        UiCallManager.set(mMockUiCallManager);
         when(mMockContact1.getNumbers()).thenReturn(Arrays.asList(mMockPhoneNumber));
         when(mMockPhoneNumber.getRawNumber()).thenReturn(RAW_NUMBNER);
         setUpFragment();
@@ -213,6 +213,11 @@ public class ContactListFragmentTest {
         mContactListFragment = ContactListFragment.newInstance();
         mFragmentTestActivity = Robolectric.buildActivity(
                 FragmentTestActivity.class).create().resume().get();
+
+        ContactListViewHolder.Factory viewHolderFactory = itemView -> new ContactListViewHolder(
+                itemView, mock(OnItemClickedListener.class), mMockUiCallManager);
+        mContactListFragment.mContactListAdapter = new ContactListAdapter(
+               mFragmentTestActivity, viewHolderFactory);
         mFragmentTestActivity.setFragment(mContactListFragment);
 
         CarUiRecyclerView recyclerView = mContactListFragment.getView()

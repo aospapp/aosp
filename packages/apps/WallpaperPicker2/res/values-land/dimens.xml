@@ -14,8 +14,6 @@
      limitations under the License.
 -->
 <resources>
-    <dimen name="metadata_tile_thumb_height">164dp</dimen>
-    <dimen name="metadata_tile_attribution_section_height">80dp</dimen>
 
     <!-- Dimensions for "permissions needed" tile. -->
     <dimen name="permissions_needed_metadata_warning_icon_margin_top">0dp</dimen>
@@ -27,5 +25,4 @@
     <dimen name="preview_page_gap">60dp</dimen>
     <dimen name="preview_page_horizontal_margin">92dp</dimen>
     <dimen name="preview_card_padding">8dp</dimen>
-    <dimen name="preview_pager_height">150dp</dimen>
 </resources>

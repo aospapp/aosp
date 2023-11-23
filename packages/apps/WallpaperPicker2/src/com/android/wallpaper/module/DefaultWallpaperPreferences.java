@@ -22,19 +22,24 @@ import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.text.TextUtils;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.android.wallpaper.module.WallpaperPersister.Destination;
 import com.android.wallpaper.module.WallpaperPreferenceKeys.NoBackupKeys;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 
 import java.io.File;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
+import java.util.TimeZone;
 
 /**
  * Default implementation that writes to and reads from SharedPreferences.
@@ -150,6 +155,10 @@ public class DefaultWallpaperPreferences implements WallpaperPreferences {
         if (mSharedPrefs.contains(NoBackupKeys.KEY_HOME_WALLPAPER_PACKAGE_NAME)) {
             editor.putString(NoBackupKeys.KEY_HOME_WALLPAPER_PACKAGE_NAME,
                     mSharedPrefs.getString(NoBackupKeys.KEY_HOME_WALLPAPER_PACKAGE_NAME, null));
+        }
+        if (mSharedPrefs.contains(NoBackupKeys.KEY_HOME_WALLPAPER_SERVICE_NAME)) {
+            editor.putString(NoBackupKeys.KEY_HOME_WALLPAPER_SERVICE_NAME,
+                    mSharedPrefs.getString(NoBackupKeys.KEY_HOME_WALLPAPER_SERVICE_NAME, null));
         }
 
         editor.apply();
@@ -317,6 +326,7 @@ public class DefaultWallpaperPreferences implements WallpaperPreferences {
                 .remove(NoBackupKeys.KEY_HOME_WALLPAPER_PACKAGE_NAME)
                 .remove(NoBackupKeys.KEY_HOME_WALLPAPER_MANAGER_ID)
                 .remove(NoBackupKeys.KEY_HOME_WALLPAPER_REMOTE_ID)
+                .remove(NoBackupKeys.KEY_HOME_WALLPAPER_SERVICE_NAME)
                 .remove(NoBackupKeys.KEY_HOME_WALLPAPER_BASE_IMAGE_URL)
                 .remove(NoBackupKeys.KEY_HOME_WALLPAPER_BACKING_FILE)
                 .apply();
@@ -333,6 +343,20 @@ public class DefaultWallpaperPreferences implements WallpaperPreferences {
         mNoBackupPrefs.edit().putString(
                 NoBackupKeys.KEY_HOME_WALLPAPER_PACKAGE_NAME, packageName)
                 .apply();
+    }
+
+    @Override
+    public String getHomeWallpaperServiceName() {
+        return mNoBackupPrefs.getString(
+                NoBackupKeys.KEY_HOME_WALLPAPER_SERVICE_NAME, null);
+    }
+
+    @Override
+    public void setHomeWallpaperServiceName(@NonNull String serviceName) {
+        mNoBackupPrefs.edit().putString(
+                NoBackupKeys.KEY_HOME_WALLPAPER_SERVICE_NAME, serviceName)
+                .apply();
+        setFirstWallpaperApplyDateIfNeeded();
     }
 
     @Override
@@ -360,6 +384,7 @@ public class DefaultWallpaperPreferences implements WallpaperPreferences {
         mNoBackupPrefs.edit().putString(
                 NoBackupKeys.KEY_HOME_WALLPAPER_REMOTE_ID, wallpaperRemoteId)
                 .apply();
+        setFirstWallpaperApplyDateIfNeeded();
     }
 
     @Override
@@ -465,6 +490,20 @@ public class DefaultWallpaperPreferences implements WallpaperPreferences {
     }
 
     @Override
+    public String getLockWallpaperRemoteId() {
+        return mNoBackupPrefs.getString(
+                NoBackupKeys.KEY_LOCK_WALLPAPER_REMOTE_ID, null);
+    }
+
+    @Override
+    public void setLockWallpaperRemoteId(String wallpaperRemoteId) {
+        mNoBackupPrefs.edit().putString(
+                NoBackupKeys.KEY_LOCK_WALLPAPER_REMOTE_ID, wallpaperRemoteId)
+                .apply();
+        setFirstWallpaperApplyDateIfNeeded();
+    }
+
+    @Override
     public long getLockWallpaperHashCode() {
         return mSharedPrefs.getLong(WallpaperPreferenceKeys.KEY_LOCK_WALLPAPER_HASH_CODE, 0);
     }
@@ -489,12 +528,14 @@ public class DefaultWallpaperPreferences implements WallpaperPreferences {
                 .remove(WallpaperPreferenceKeys.KEY_LOCK_WALLPAPER_ACTION_URL)
                 .remove(WallpaperPreferenceKeys.KEY_LOCK_WALLPAPER_ACTION_LABEL_RES)
                 .remove(WallpaperPreferenceKeys.KEY_LOCK_WALLPAPER_ACTION_ICON_RES)
+                .remove(WallpaperPreferenceKeys.KEY_LOCK_WALLPAPER_COLLECTION_ID)
                 .remove(WallpaperPreferenceKeys.KEY_LOCK_WALLPAPER_HASH_CODE)
                 .apply();
 
         mNoBackupPrefs.edit()
                 .remove(NoBackupKeys.KEY_LOCK_WALLPAPER_MANAGER_ID)
                 .remove(NoBackupKeys.KEY_LOCK_WALLPAPER_BACKING_FILE)
+                .remove(NoBackupKeys.KEY_LOCK_WALLPAPER_REMOTE_ID)
                 .apply();
     }
 
@@ -797,5 +838,76 @@ public class DefaultWallpaperPreferences implements WallpaperPreferences {
         mNoBackupPrefs.edit()
                 .putInt(NoBackupKeys.KEY_NUM_DAYS_DAILY_ROTATION_NOT_ATTEMPTED, 0)
                 .apply();
+    }
+
+    @Override
+    public int getAppLaunchCount() {
+        return mNoBackupPrefs.getInt(NoBackupKeys.KEY_APP_LAUNCH_COUNT, 0);
+    }
+
+    private void setAppLaunchCount(int count) {
+        mNoBackupPrefs.edit().putInt(NoBackupKeys.KEY_APP_LAUNCH_COUNT, count).apply();
+    }
+
+    @Override
+    public int getFirstLaunchDateSinceSetup() {
+        return mNoBackupPrefs.getInt(NoBackupKeys.KEY_FIRST_LAUNCH_DATE_SINCE_SETUP, 0);
+    }
+
+    private void setFirstLaunchDateSinceSetup(int firstLaunchDate) {
+        mNoBackupPrefs.edit().putInt(NoBackupKeys.KEY_FIRST_LAUNCH_DATE_SINCE_SETUP,
+                firstLaunchDate).apply();
+    }
+
+    @Override
+    public int getFirstWallpaperApplyDateSinceSetup() {
+        return mNoBackupPrefs.getInt(NoBackupKeys.KEY_FIRST_WALLPAPER_APPLY_DATE_SINCE_SETUP, 0);
+    }
+
+    private void setFirstWallpaperApplyDateSinceSetup(int firstApplyDate) {
+        mNoBackupPrefs.edit().putInt(NoBackupKeys.KEY_FIRST_WALLPAPER_APPLY_DATE_SINCE_SETUP,
+                firstApplyDate).apply();
+    }
+
+    @Override
+    public void incrementAppLaunched() {
+        if (getFirstLaunchDateSinceSetup() == 0) {
+            setFirstLaunchDateSinceSetup(getCurrentDate());
+        }
+
+        int appLaunchCount = getAppLaunchCount();
+        if (appLaunchCount < Integer.MAX_VALUE) {
+            setAppLaunchCount(appLaunchCount + 1);
+        }
+    }
+
+    private void setFirstWallpaperApplyDateIfNeeded() {
+        if (getFirstWallpaperApplyDateSinceSetup() == 0) {
+            setFirstWallpaperApplyDateSinceSetup(getCurrentDate());
+        }
+    }
+
+    @Override
+    public void updateDailyWallpaperSet(@Destination int destination, String collectionId,
+            String wallpaperId) {
+        // Assign wallpaper info by destination.
+        if (destination == WallpaperPersister.DEST_HOME_SCREEN) {
+            setHomeWallpaperCollectionId(collectionId);
+            setHomeWallpaperRemoteId(wallpaperId);
+        } else if (destination == WallpaperPersister.DEST_LOCK_SCREEN) {
+            setLockWallpaperCollectionId(collectionId);
+            setLockWallpaperRemoteId(wallpaperId);
+        } else if (destination == WallpaperPersister.DEST_BOTH) {
+            setHomeWallpaperCollectionId(collectionId);
+            setHomeWallpaperRemoteId(wallpaperId);
+            setLockWallpaperCollectionId(collectionId);
+            setLockWallpaperRemoteId(wallpaperId);
+        }
+    }
+
+    private int getCurrentDate() {
+        Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+        SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd", Locale.US);
+        return Integer.parseInt(format.format(calendar.getTime()));
     }
 }

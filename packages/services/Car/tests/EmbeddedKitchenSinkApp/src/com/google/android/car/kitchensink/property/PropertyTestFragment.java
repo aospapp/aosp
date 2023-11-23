@@ -188,7 +188,6 @@ public class PropertyTestFragment extends Fragment implements OnItemSelectedList
 
     // Spinner callbacks
     public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
-        // An item was selected. You can retrieve the selected item using
         PropertyInfo info = (PropertyInfo) parent.getItemAtPosition(pos);
         int[] areaIds = info.mConfig.getAreaIds();
         List<String> areaString = new LinkedList<String>();

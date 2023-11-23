@@ -102,7 +102,7 @@ public class DocsSelectionHelperTest {
         mSelectionMgr.reset(mgr);
     }
 
-    private static final class TestSelectionManager extends DummySelectionTracker<String> {
+    private static final class TestSelectionManager extends StubSelectionTracker<String> {
 
         private boolean mCleared;
         private Map<String, Boolean> mSelected = new HashMap<>();

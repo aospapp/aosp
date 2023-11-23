@@ -27,6 +27,7 @@ import com.android.camera.one.Settings3A;
 import com.android.camera.one.v2.commands.CameraCommand;
 import com.android.camera.one.v2.commands.CameraCommandExecutor;
 import com.android.camera.one.v2.commands.ResettingRunnableCameraCommand;
+import com.android.camera.one.v2.commands.UpdateRequestCommand;
 import com.android.camera.one.v2.core.FrameServer;
 import com.android.camera.one.v2.core.RequestBuilder;
 import com.android.camera.one.v2.core.RequestTemplate;
@@ -65,6 +66,8 @@ public class ManualAutoFocusFactory {
      * @param threadPool The executor on which to schedule delayed tasks.
      * @param afHoldSeconds The number of seconds to hold AF after a manual AF
      *            sweep is triggered.
+     * @param aeSupport Camera device supports AE metering regions
+     * @param afSupport Camera device supports AF and AF metering regions
      */
     public static ManualAutoFocusFactory create(Lifetime lifetime, FrameServer frameServer,
             CameraCommandExecutor commandExecutor, Supplier<Rect> cropRegion,
@@ -72,7 +75,7 @@ public class ManualAutoFocusFactory {
             Runnable previewRunner, RequestBuilder.Factory rootBuilder,
             int templateType, Settings3A settings3A,
             ScheduledExecutorService threadPool,
-            int afHoldSeconds) {
+            int afHoldSeconds, boolean aeSupport, boolean afSupport) {
         ConcurrentState<MeteringParameters> currentMeteringParameters = new ConcurrentState<>(
                 GlobalMeteringParameters.create());
         AEMeteringRegion aeMeteringRegion = new AEMeteringRegion(currentMeteringParameters,
@@ -81,17 +84,27 @@ public class ManualAutoFocusFactory {
                 cropRegion);
 
         RequestTemplate afScanRequestBuilder = new RequestTemplate(rootBuilder);
-        afScanRequestBuilder.setParam(CaptureRequest.CONTROL_AE_REGIONS, aeMeteringRegion);
-        afScanRequestBuilder.setParam(CaptureRequest.CONTROL_AF_REGIONS, afMeteringRegion);
+        if (aeSupport) {
+            afScanRequestBuilder.setParam(CaptureRequest.CONTROL_AE_REGIONS, aeMeteringRegion);
+        }
+        if (afSupport) {
+            afScanRequestBuilder.setParam(CaptureRequest.CONTROL_AF_REGIONS, afMeteringRegion);
+        }
 
-        CameraCommand afScanCommand = new FullAFScanCommand(frameServer, afScanRequestBuilder,
-                templateType);
+        CameraCommand initialCommand;
+        if (afSupport) {
+            initialCommand  = new FullAFScanCommand(frameServer, afScanRequestBuilder,
+                    templateType);
+        } else {
+            initialCommand  = new UpdateRequestCommand(frameServer, afScanRequestBuilder,
+                    templateType);
+        }
 
         ResettingDelayedExecutor afHoldDelayedExecutor = new ResettingDelayedExecutor(
                 threadPool, afHoldSeconds, TimeUnit.SECONDS);
         lifetime.add(afHoldDelayedExecutor);
 
-        CameraCommand afScanHoldResetCommand = new AFScanHoldResetCommand(afScanCommand,
+        CameraCommand afScanHoldResetCommand = new AFScanHoldResetCommand(initialCommand,
                 afHoldDelayedExecutor, previewRunner, currentMeteringParameters);
 
         Runnable afRunner = new ResettingRunnableCameraCommand(commandExecutor,

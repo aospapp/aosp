@@ -17,7 +17,6 @@
 package com.android.car.calendar;
 
 import static com.google.common.base.Verify.verify;
-import static com.google.common.base.Verify.verifyNotNull;
 
 import android.Manifest;
 import android.util.Log;
@@ -25,10 +24,10 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.lifecycle.Observer;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.recyclerview.widget.RecyclerView.ViewHolder;
 
 import com.android.car.calendar.common.CalendarFormatter;
 import com.android.car.calendar.common.Dialer;
@@ -64,15 +63,8 @@ class CarCalendarView {
     /** Holds an instance of either {@link LocalDate} or {@link Event} for each item in the list. */
     private final List<CalendarItem> mRecyclerViewItems = new ArrayList<>();
 
-    private final RecyclerView.Adapter mAdapter = new EventRecyclerViewAdapter();
-    private final Observer<ImmutableList<Event>> mEventsObserver =
-            events -> {
-                if (DEBUG) Log.d(TAG, "Events changed");
-                updateRecyclerViewItems(events);
-
-                // TODO(jdp) Only change the affected items (DiffUtil) to allow animated changes.
-                mAdapter.notifyDataSetChanged();
-            };
+    private final RecyclerView.Adapter<ViewHolder> mAdapter = new EventRecyclerViewAdapter();
+    private final Observer<ImmutableList<Event>> mEventsObserver = this::onEventsChanged;
 
     CarCalendarView(
             CarCalendarActivity carCalendarActivity,
@@ -102,23 +94,30 @@ class CarCalendarView {
     private void showWithPermission() {
         EventsLiveData eventsLiveData = mCarCalendarViewModel.getEventsLiveData();
         eventsLiveData.observe(mCarCalendarActivity, mEventsObserver);
-        updateRecyclerViewItems(verifyNotNull(eventsLiveData.getValue()));
+    }
+
+    private void onEventsChanged(ImmutableList<Event> events) {
+        updateRecyclerViewItems(events);
+
+        // TODO(jdp) Only change the affected items (DiffUtil) to allow animated changes.
+        mAdapter.notifyDataSetChanged();
     }
 
     /**
      * If the events list is null there is no calendar data available. If the events list is empty
      * there is calendar data but no events.
      */
-    private void updateRecyclerViewItems(@Nullable ImmutableList<Event> carCalendarEvents) {
+    private void updateRecyclerViewItems(@Nullable ImmutableList<Event> events) {
+        if (DEBUG) Log.d(TAG, "Update events");
         LocalDate currentDate = null;
         mRecyclerViewItems.clear();
 
-        if (carCalendarEvents == null) {
+        if (events == null) {
             mNoEventsTextView.setVisibility(View.VISIBLE);
             mNoEventsTextView.setText(R.string.no_calendars);
             return;
         }
-        if (carCalendarEvents.isEmpty()) {
+        if (events.isEmpty()) {
             mNoEventsTextView.setVisibility(View.VISIBLE);
             mNoEventsTextView.setText(R.string.no_events);
             return;
@@ -130,7 +129,7 @@ class CarCalendarView {
         // add the event rows after looking at all events for the day.
         List<CalendarItem> eventItems = null;
         List<EventCalendarItem> allDayEventItems = null;
-        for (Event event : carCalendarEvents) {
+        for (Event event : events) {
             LocalDate date =
                     event.getDayStartInstant().atZone(ZoneId.systemDefault()).toLocalDate();
 
@@ -177,17 +176,15 @@ class CarCalendarView {
         mRecyclerViewItems.addAll(eventItems);
     }
 
-    private class EventRecyclerViewAdapter extends RecyclerView.Adapter {
-
-        @NonNull
+    private class EventRecyclerViewAdapter extends RecyclerView.Adapter<ViewHolder> {
         @Override
-        public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        public ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
             CalendarItem.Type type = CalendarItem.Type.values()[viewType];
             return type.createViewHolder(parent);
         }
 
         @Override
-        public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
+        public void onBindViewHolder(ViewHolder holder, int position) {
             mRecyclerViewItems.get(position).bind(holder);
         }
 

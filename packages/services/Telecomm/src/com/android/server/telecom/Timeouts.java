@@ -17,8 +17,13 @@
 package com.android.server.telecom;
 
 import android.content.ContentResolver;
+import android.provider.DeviceConfig;
 import android.provider.Settings;
+import android.telecom.CallDiagnosticService;
 import android.telecom.CallRedirectionService;
+import android.telecom.CallDiagnostics;
+import android.telephony.ims.ImsReasonInfo;
+
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -67,6 +72,14 @@ public final class Timeouts {
         public long getCallRecordingToneRepeatIntervalMillis(ContentResolver cr) {
             return Timeouts.getCallRecordingToneRepeatIntervalMillis(cr);
         }
+
+        public long getCallDiagnosticServiceTimeoutMillis(ContentResolver cr) {
+            return Timeouts.getCallDiagnosticServiceTimeoutMillis(cr);
+        }
+
+        public long getCallStartAppOpDebounceIntervalMillis() {
+            return  Timeouts.getCallStartAppOpDebounceIntervalMillis();
+        }
     }
 
     /** A prefix to use for all keys so to not clobber the global namespace. */
@@ -85,7 +98,8 @@ public final class Timeouts {
      * @return The timeout value from Settings or the default value if it hasn't been changed.
      */
     private static long get(ContentResolver contentResolver, String key, long defaultValue) {
-        return Settings.Secure.getLong(contentResolver, PREFIX + key, defaultValue);
+        return Settings.Secure.getLongForUser(contentResolver, PREFIX + key, defaultValue,
+                        contentResolver.getUserId());
     }
 
     /**
@@ -189,7 +203,7 @@ public final class Timeouts {
     /**
      * Returns the amount of time for an user-defined {@link CallRedirectionService}.
      *
-     * @param contentResolver The content resolved.
+     * @param contentResolver The content resolver.
      */
     public static long getUserDefinedCallRedirectionTimeoutMillis(ContentResolver contentResolver) {
         return get(contentResolver, "user_defined_call_redirection_timeout",
@@ -199,7 +213,7 @@ public final class Timeouts {
     /**
      * Returns the amount of time for a carrier {@link CallRedirectionService}.
      *
-     * @param contentResolver The content resolved.
+     * @param contentResolver The content resolver.
      */
     public static long getCarrierCallRedirectionTimeoutMillis(ContentResolver contentResolver) {
         return get(contentResolver, "carrier_call_redirection_timeout", 5000L /* 5 seconds */);
@@ -210,5 +224,31 @@ public final class Timeouts {
      */
     public static long getCallRecordingToneRepeatIntervalMillis(ContentResolver contentResolver) {
         return get(contentResolver, "call_recording_tone_repeat_interval", 15000L /* 15 seconds */);
+    }
+
+    /**
+     * Returns the maximum amount of time a {@link CallDiagnosticService} is permitted to take to
+     * return back from {@link CallDiagnostics#onCallDisconnected(ImsReasonInfo)} and
+     * {@link CallDiagnostics#onCallDisconnected(int, int)}.
+     * @param contentResolver The resolver for the config option.
+     * @return The timeout in millis.
+     */
+    public static long getCallDiagnosticServiceTimeoutMillis(ContentResolver contentResolver) {
+        return get(contentResolver, "call_diagnostic_service_timeout", 2000L /* 2 sec */);
+    }
+
+    public static long getCallStartAppOpDebounceIntervalMillis() {
+        return DeviceConfig.getLong(DeviceConfig.NAMESPACE_PRIVACY, "app_op_debounce_time", 250L);
+    }
+
+    /**
+     * Returns the number of milliseconds for which the system should exempt the default dialer from
+     * power save restrictions due to the dialer needing to handle a missed call notification
+     * (update call log, check VVM, etc...).
+     */
+    public static long getDialerMissedCallPowerSaveExemptionTimeMillis(
+            ContentResolver contentResolver) {
+        return get(contentResolver, "dialer_missed_call_power_save_exemption_time_millis",
+                30000L /*30 seconds*/);
     }
 }

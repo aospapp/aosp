@@ -16,17 +16,12 @@
 
 package com.android.managedprovisioning.provisioning;
 
-import android.app.Activity;
-import android.content.ComponentName;
-import android.content.Context;
-import android.content.Intent;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.util.Pair;
 
 import com.android.internal.annotations.GuardedBy;
-import com.android.managedprovisioning.common.Globals;
 import com.android.managedprovisioning.common.ProvisionLogger;
 
 import java.util.ArrayList;
@@ -42,11 +37,6 @@ public class ProvisioningManagerHelper {
     private static final int CALLBACK_ERROR = 1;
     private static final int CALLBACK_PRE_FINALIZED = 2;
 
-    private static final Intent SERVICE_INTENT = new Intent().setComponent(new ComponentName(
-            Globals.MANAGED_PROVISIONING_PACKAGE_NAME,
-            ProvisioningService.class.getName()));
-
-    private final Context mContext;
     private final Handler mUiHandler;
 
     @GuardedBy("this")
@@ -56,8 +46,7 @@ public class ProvisioningManagerHelper {
     private Pair<Pair<Integer, Integer>, Boolean> mLastError; // TODO: refactor
     private HandlerThread mHandlerThread;
 
-    public ProvisioningManagerHelper(Context context) {
-        mContext = context;
+    public ProvisioningManagerHelper() {
         mUiHandler = new Handler(Looper.getMainLooper());
     }
 
@@ -66,7 +55,6 @@ public class ProvisioningManagerHelper {
             mHandlerThread = new HandlerThread(
                     String.format("%s Worker", controller.getClass().getName()));
             mHandlerThread.start();
-            mContext.startService(SERVICE_INTENT);
         }
         mLastCallback = CALLBACK_NONE;
         mLastError = null;
@@ -140,7 +128,6 @@ public class ProvisioningManagerHelper {
         if (mHandlerThread != null) {
             mHandlerThread.quitSafely();
             mHandlerThread = null;
-            mContext.stopService(SERVICE_INTENT);
         }
     }
 

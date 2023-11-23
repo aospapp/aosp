@@ -9,6 +9,8 @@ import android.graphics.drawable.Drawable;
 import android.text.TextUtils;
 import android.util.Log;
 
+import androidx.annotation.ColorInt;
+
 public abstract class ResourcesApkProvider {
     private static final String TAG = "ResourcesApkProvider";
 
@@ -53,6 +55,13 @@ public abstract class ResourcesApkProvider {
         int resourceId = mStubApkResources.getIdentifier(String.format("%s%s", prefix, itemName),
                 "drawable", mStubPackageName);
         return mStubApkResources.getDrawable(resourceId, null);
+    }
+
+    @ColorInt
+    protected int getItemColorFromStub(String prefix, String itemName) {
+        int resourceId = mStubApkResources.getIdentifier(String.format("%s%s", prefix, itemName),
+                "color", mStubPackageName);
+        return mStubApkResources.getColor(resourceId, null);
     }
 
     public boolean isAvailable() {

@@ -2,9 +2,12 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 CAR_UI_RRO_SET_NAME := googlecarui
+CAR_UI_RRO_MANIFEST_FILE := $(LOCAL_PATH)/AndroidManifest.xml
 CAR_UI_RESOURCE_DIR := $(LOCAL_PATH)/res
 CAR_UI_RRO_TARGETS := \
     com.android.car.ui.paintbooth \
+    com.google.android.car.ui.paintbooth \
+    com.google.android.carui.ats \
     com.android.car.rotaryplayground \
     com.android.car.themeplayground \
     com.android.car.carlauncher \
@@ -19,15 +22,19 @@ CAR_UI_RRO_TARGETS := \
     com.android.car.settings \
     com.android.car.voicecontrol \
     com.android.car.faceenroll \
-    com.android.permissioncontroller \
+    com.android.managedprovisioning \
     com.android.settings.intelligence \
     com.google.android.apps.automotive.inputmethod \
     com.google.android.apps.automotive.inputmethod.dev \
+    com.google.android.apps.automotive.templates.host \
     com.google.android.embedded.projection \
     com.google.android.gms \
+    com.google.android.gsf \
     com.google.android.packageinstaller \
+    com.google.android.permissioncontroller \
     com.google.android.carassistant \
     com.google.android.tts \
+    com.android.htmlviewer \
     com.android.vending \
 
 include packages/apps/Car/libs/car-ui-lib/generate_rros.mk

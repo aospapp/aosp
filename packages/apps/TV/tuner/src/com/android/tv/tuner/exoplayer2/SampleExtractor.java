@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2019 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,19 +16,20 @@
 package com.android.tv.tuner.exoplayer2;
 
 import android.os.Handler;
-import com.google.android.exoplayer.MediaFormat;
-import com.google.android.exoplayer.MediaFormatHolder;
-import com.google.android.exoplayer.SampleHolder;
-import com.google.android.exoplayer.SampleSource;
-import com.google.android.exoplayer.TrackRenderer;
+
+import com.google.android.exoplayer2.C;
+import com.google.android.exoplayer2.Format;
+import com.google.android.exoplayer2.FormatHolder;
+import com.google.android.exoplayer2.decoder.DecoderInputBuffer;
+import com.google.android.exoplayer2.source.TrackGroupArray;
+
 import java.io.IOException;
-import java.util.List;
 
 /**
  * Extractor for reading track metadata and samples stored in tracks.
  *
  * <p>Call {@link #prepare} until it returns {@code true}, then access track metadata via {@link
- * #getTrackFormats} and {@link #getTrackMediaFormat}.
+ * #getTrackGroups and {@link #getTrackMediaFormat}.
  *
  * <p>Pass indices of tracks to read from to {@link #selectTrack}. A track can later be deselected
  * by calling {@link #deselectTrack}. It is safe to select/deselect tracks after reading sample data
@@ -36,6 +37,7 @@ import java.util.List;
  *
  * <p>Call {@link #release()} when the extractor is no longer needed to free resources.
  */
+// TODO: Should be replaced by {@link com.google.android.exoplayer2.source.MediaPeriod}.
 public interface SampleExtractor {
 
     /**
@@ -49,13 +51,14 @@ public interface SampleExtractor {
     /**
      * Prepares the extractor for reading track metadata and samples.
      *
-     * @return whether the source is ready; if {@code false}, this method must be called again.
+     * @param callback Callback to receive updates from this sample extractor, including being
+     *                 notified when preparation completes.
      * @throws IOException thrown if the source can't be read
      */
-    boolean prepare() throws IOException;
+    void prepare(Callback callback) throws IOException;
 
     /** Returns track information about all tracks that can be selected. */
-    List<MediaFormat> getTrackFormats();
+    TrackGroupArray getTrackGroups();
 
     /** Selects the track at {@code index} for reading sample data. */
     void selectTrack(int index);
@@ -69,10 +72,18 @@ public interface SampleExtractor {
      * <p>This method should not be called until after the extractor has been successfully prepared.
      *
      * @return an estimate of the absolute position in microseconds up to which data is buffered, or
-     *     {@link TrackRenderer#END_OF_TRACK_US} if data is buffered to the end of the stream, or
-     *     {@link TrackRenderer#UNKNOWN_TIME_US} if no estimate is available.
+     *     {@link C#TIME_END_OF_SOURCE} if data is buffered to the end of the stream, or
+     *     {@link C#TIME_UNSET} if no estimate is available.
      */
     long getBufferedPositionUs();
+
+    /**
+     * Returns the next load time, or {@link C#TIME_END_OF_SOURCE} if loading has finished.
+     *
+     * <p>This method is only called after the period has been prepared. It may be called when no
+     * tracks are selected.
+     */
+    long getNextLoadPositionUs();
 
     /**
      * Seeks to the specified time in microseconds.
@@ -83,30 +94,30 @@ public interface SampleExtractor {
      */
     void seekTo(long positionUs);
 
-    /** Stores the {@link MediaFormat} of {@code track}. */
-    void getTrackMediaFormat(int track, MediaFormatHolder outMediaFormatHolder);
+    /** Stores the {@link Format} of {@code track}. */
+    void getTrackMediaFormat(int track, FormatHolder outMediaFormatHolder);
 
     /**
      * Reads the next sample in the track at index {@code track} into {@code sampleHolder},
-     * returning {@link SampleSource#SAMPLE_READ} if it is available.
+     * returning {@link C#RESULT_BUFFER_READ} if it is available.
      *
      * <p>Advances to the next sample if a sample was read.
      *
      * @param track the index of the track from which to read a sample
-     * @param sampleHolder the holder for read sample data, if {@link SampleSource#SAMPLE_READ} is
+     * @param sampleHolder the holder for read sample data, if {@link C#RESULT_BUFFER_READ} is
      *     returned
-     * @return {@link SampleSource#SAMPLE_READ} if a sample was read into {@code sampleHolder}, or
-     *     {@link SampleSource#END_OF_STREAM} if the last samples in all tracks have been read, or
-     *     {@link SampleSource#NOTHING_READ} if the sample cannot be read immediately as it is not
+     * @return {@link C#RESULT_BUFFER_READ} if a sample was read into {@code sampleHolder}, or
+     *     {@link C#RESULT_END_OF_INPUT} if the last samples in all tracks have been read, or
+     *     {@link C#RESULT_NOTHING_READ} if the sample cannot be read immediately as it is not
      *     loaded.
      */
-    int readSample(int track, SampleHolder sampleHolder);
+    int readSample(int track, DecoderInputBuffer sampleHolder);
 
     /** Releases resources associated with this extractor. */
     void release();
 
     /** Indicates to the source that it should still be buffering data. */
-    boolean continueBuffering(long positionUs);
+    boolean continueLoading(long positionUs);
 
     /**
      * Sets OnCompletionListener for notifying the completion of SampleExtractor.
@@ -127,5 +138,12 @@ public interface SampleExtractor {
          * @param lastExtractedPositionUs the last extracted position when extractor is completed
          */
         void onCompletion(boolean result, long lastExtractedPositionUs);
+    }
+
+    /** A callback to be notified of {@link SampleExtractor} events. */
+    interface Callback {
+
+        /** Called when preparation completes. */
+        void onPrepared();
     }
 }

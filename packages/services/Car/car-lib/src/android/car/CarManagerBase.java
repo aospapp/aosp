@@ -16,9 +16,12 @@
 
 package android.car;
 
+import static android.car.CarLibLog.TAG_CAR;
+
 import android.content.Context;
 import android.os.Handler;
 import android.os.RemoteException;
+import android.util.Log;
 
 /**
  * Common base class for Car*Manager
@@ -46,6 +49,25 @@ public abstract class CarManagerBase {
 
     protected void handleRemoteExceptionFromCarService(RemoteException e) {
         mCar.handleRemoteExceptionFromCarService(e);
+    }
+
+    /**
+     * Handles runtime and remote exception from CarService.
+     */
+    protected <T> T handleExceptionFromCarService(Exception e, T returnValue) {
+        if (e instanceof RemoteException) {
+            return handleRemoteExceptionFromCarService((RemoteException) e, returnValue);
+        }
+
+        if (e instanceof RuntimeException) {
+            Log.w(TAG_CAR, "Car service threw Runtime Exception.", e);
+            return returnValue;
+        }
+
+        // exception should be either runtime or remote exception
+        Log.wtf(TAG_CAR, "Car service threw Exception.", e);
+
+        return returnValue;
     }
 
     /**

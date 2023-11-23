@@ -54,7 +54,7 @@
     <string name="callFailed_video_call_tty_enabled" msgid="5419496275850000361">"Videohovory nelze uskutečňovat v režimu TTY."</string>
     <string name="callEnded_pulled" msgid="4824518546417807865">"Hovor byl přesměrován na jiné zařízení."</string>
     <string name="ringtone_silent" msgid="1173111569760233645">"Žádný"</string>
-    <string name="ringtone_unknown" msgid="3036191370493284036">"Neznámý vyzváněcí tón"</string>
+    <string name="ringtone_unknown" msgid="3036191370493284036">"Neznámý vyzvánění"</string>
     <string name="callFailed_maximum_reached" msgid="6704266142192963900">"Všechny dostupné linky jsou používány. Pokud chcete provést hovor, odpojte jeden z hovorů na tomto nebo jiném z vašich zařízení."</string>
     <string name="callFailed_data_disabled" msgid="8592999219489448277">"Hovor byl ukončen, protože byla vypnuta mobilní data."</string>
     <string name="callFailed_data_limit_reached_description" msgid="3739097798746751739">"Hovor byl ukončen, protože jste dosáhli limitu mobilních dat."</string>

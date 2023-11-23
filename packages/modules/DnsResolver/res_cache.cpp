@@ -60,15 +60,18 @@
 #include <server_configurable_flags/get_flags.h>
 
 #include "DnsStats.h"
+#include "Experiments.h"
 #include "res_comp.h"
 #include "res_debug.h"
 #include "resolv_private.h"
 #include "util.h"
 
 using aidl::android::net::IDnsResolver;
+using aidl::android::net::ResolverOptionsParcel;
 using android::base::StringAppendF;
 using android::net::DnsQueryEvent;
 using android::net::DnsStats;
+using android::net::Experiments;
 using android::net::PROTO_DOT;
 using android::net::PROTO_TCP;
 using android::net::PROTO_UDP;
@@ -262,6 +265,22 @@ struct DnsPacket {
     const uint8_t* cursor;
 };
 
+static uint8_t res_tolower(uint8_t c) {
+    return (c >= 'A' && c <= 'Z') ? (c | 0x20) : c;
+}
+
+static int res_memcasecmp(const unsigned char *s1, const unsigned char *s2, size_t len) {
+    for (size_t i = 0; i < len; i++) {
+        int ch1 = *s1++;
+        int ch2 = *s2++;
+        int d = res_tolower(ch1) - res_tolower(ch2);
+        if (d != 0) {
+            return d;
+        }
+    }
+    return 0;
+}
+
 static void _dnsPacket_init(DnsPacket* packet, const uint8_t* buff, int bufflen) {
     packet->base = buff;
     packet->end = buff + bufflen;
@@ -449,14 +468,12 @@ static unsigned _dnsPacket_hashQName(DnsPacket* packet, unsigned hash) {
     const uint8_t* end = packet->end;
 
     for (;;) {
-        int c;
-
         if (p >= end) { /* should not happen */
             LOG(INFO) << __func__ << ": INTERNAL_ERROR: read-overflow";
             break;
         }
 
-        c = *p++;
+        int c = *p++;
 
         if (c == 0) break;
 
@@ -468,9 +485,12 @@ static unsigned _dnsPacket_hashQName(DnsPacket* packet, unsigned hash) {
             LOG(INFO) << __func__ << ": INTERNAL_ERROR: simple label read-overflow";
             break;
         }
+
         while (c > 0) {
-            hash = hash * FNV_MULT ^ *p++;
-            c -= 1;
+            uint8_t ch = *p++;
+            ch = res_tolower(ch);
+            hash = hash * FNV_MULT ^ ch;
+            c--;
         }
     }
     packet->cursor = p;
@@ -546,14 +566,12 @@ static int _dnsPacket_isEqualDomainName(DnsPacket* pack1, DnsPacket* pack2) {
     const uint8_t* end2 = pack2->end;
 
     for (;;) {
-        int c1, c2;
-
         if (p1 >= end1 || p2 >= end2) {
             LOG(INFO) << __func__ << ": INTERNAL_ERROR: read-overflow";
             break;
         }
-        c1 = *p1++;
-        c2 = *p2++;
+        int c1 = *p1++;
+        int c2 = *p2++;
         if (c1 != c2) break;
 
         if (c1 == 0) {
@@ -569,7 +587,7 @@ static int _dnsPacket_isEqualDomainName(DnsPacket* pack1, DnsPacket* pack2) {
             LOG(INFO) << __func__ << ": INTERNAL_ERROR: simple label read-overflow";
             break;
         }
-        if (memcmp(p1, p2, c1) != 0) break;
+        if (res_memcasecmp(p1, p2, c1) != 0) break;
         p1 += c1;
         p2 += c1;
         /* we rely on the bound checks at the start of the loop */
@@ -886,7 +904,7 @@ namespace {
 // if the ReturnCode is not associated with any rate_denom, use default
 // Sampling rate varies by return code; events to log are chosen randomly, with a
 // probability proportional to the sampling rate.
-constexpr const char DEFAULT_SUBSAMPLING_MAP[] = "default:1 0:100 7:10";
+constexpr const char DEFAULT_SUBSAMPLING_MAP[] = "default:8 0:400 2:110 7:110";
 
 std::unordered_map<int, uint32_t> resolv_get_dns_event_subsampling_map() {
     using android::base::ParseInt;
@@ -986,7 +1004,23 @@ struct NetConfig {
         dns_event_subsampling_map = resolv_get_dns_event_subsampling_map();
     }
     int nameserverCount() { return nameserverSockAddrs.size(); }
+    int setOptions(const ResolverOptionsParcel& resolverOptions) {
+        customizedTable.clear();
+        for (const auto& host : resolverOptions.hosts) {
+            if (!host.hostName.empty() && !host.ipAddr.empty())
+                customizedTable.emplace(host.hostName, host.ipAddr);
+        }
 
+        if (resolverOptions.tcMode < aidl::android::net::IDnsResolver::TC_MODE_DEFAULT ||
+            resolverOptions.tcMode > aidl::android::net::IDnsResolver::TC_MODE_UDP_TCP) {
+            LOG(WARNING) << __func__ << ": netid = " << netid
+                         << ", invalid TC mode: " << resolverOptions.tcMode;
+            return -EINVAL;
+        }
+        tc_mode = resolverOptions.tcMode;
+        enforceDnsUid = resolverOptions.enforceDnsUid;
+        return 0;
+    }
     const unsigned netid;
     std::unique_ptr<Cache> cache;
     std::vector<std::string> nameservers;
@@ -999,9 +1033,13 @@ struct NetConfig {
     // Map format: ReturnCode:rate_denom
     std::unordered_map<int, uint32_t> dns_event_subsampling_map;
     DnsStats dnsStats;
+
     // Customized hostname/address table will be stored in customizedTable.
     // If resolverParams.hosts is empty, the existing customized table will be erased.
+    typedef std::multimap<std::string /* hostname */, std::string /* IPv4/IPv6 address */>
+            HostMapping;
     HostMapping customizedTable = {};
+
     int tc_mode = aidl::android::net::IDnsResolver::TC_MODE_DEFAULT;
     bool enforceDnsUid = false;
     std::vector<int32_t> transportTypes;
@@ -1579,7 +1617,7 @@ std::vector<std::string> getCustomizedTableByName(const size_t netid, const char
 
 int resolv_set_nameservers(unsigned netid, const std::vector<std::string>& servers,
                            const std::vector<std::string>& domains, const res_params& params,
-                           const aidl::android::net::ResolverOptionsParcel& resolverOptions,
+                           const std::optional<ResolverOptionsParcel> optionalResolverOptions,
                            const std::vector<int32_t>& transportTypes) {
     std::vector<std::string> nameservers = filter_nameservers(servers);
     const int numservers = static_cast<int>(nameservers.size());
@@ -1633,24 +1671,20 @@ int resolv_set_nameservers(unsigned netid, const std::vector<std::string>& serve
         LOG(WARNING) << __func__ << ": netid = " << netid << ", failed to set dns stats";
         return -EINVAL;
     }
-    netconfig->customizedTable.clear();
-    for (const auto& host : resolverOptions.hosts) {
-        if (!host.hostName.empty() && !host.ipAddr.empty())
-            netconfig->customizedTable.emplace(host.hostName, host.ipAddr);
-    }
-
-    if (resolverOptions.tcMode < aidl::android::net::IDnsResolver::TC_MODE_DEFAULT ||
-        resolverOptions.tcMode > aidl::android::net::IDnsResolver::TC_MODE_UDP_TCP) {
-        LOG(WARNING) << __func__ << ": netid = " << netid
-                     << ", invalid TC mode: " << resolverOptions.tcMode;
-        return -EINVAL;
-    }
-    netconfig->tc_mode = resolverOptions.tcMode;
-    netconfig->enforceDnsUid = resolverOptions.enforceDnsUid;
-
     netconfig->transportTypes = transportTypes;
-
+    if (optionalResolverOptions.has_value()) {
+        const ResolverOptionsParcel& resolverOptions = optionalResolverOptions.value();
+        return netconfig->setOptions(resolverOptions);
+    }
     return 0;
+}
+
+int resolv_set_options(unsigned netid, const ResolverOptionsParcel& options) {
+    std::lock_guard guard(cache_mutex);
+    NetConfig* netconfig = find_netconfig_locked(netid);
+
+    if (netconfig == nullptr) return -ENONET;
+    return netconfig->setOptions(options);
 }
 
 static bool resolv_is_nameservers_equal(const std::vector<std::string>& oldServers,
@@ -1682,7 +1716,10 @@ void resolv_populate_res_for_net(ResState* statp) {
     NetConfig* info = find_netconfig_locked(statp->netid);
     if (info == nullptr) return;
 
-    statp->nsaddrs = info->nameserverSockAddrs;
+    const bool sortNameservers = Experiments::getInstance()->getFlag("sort_nameservers", 0);
+    statp->sort_nameservers = sortNameservers;
+    statp->nsaddrs = sortNameservers ? info->dnsStats.getSortedServers(PROTO_UDP)
+                                     : info->nameserverSockAddrs;
     statp->search_domains = info->search_domains;
     statp->tc_mode = info->tc_mode;
     statp->enforce_dns_uid = info->enforceDnsUid;

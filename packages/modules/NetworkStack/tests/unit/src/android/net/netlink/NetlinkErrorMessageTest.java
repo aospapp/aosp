@@ -19,6 +19,7 @@ package android.net.netlink;
 import static android.net.netlink.StructNlMsgHdr.NLM_F_ACK;
 import static android.net.netlink.StructNlMsgHdr.NLM_F_REPLACE;
 import static android.net.netlink.StructNlMsgHdr.NLM_F_REQUEST;
+import static android.system.OsConstants.NETLINK_ROUTE;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -68,7 +69,7 @@ public class NetlinkErrorMessageTest {
     public void testParseNlmErrorOk() {
         final ByteBuffer byteBuffer = ByteBuffer.wrap(NLM_ERROR_OK);
         byteBuffer.order(ByteOrder.LITTLE_ENDIAN);  // For testing.
-        final NetlinkMessage msg = NetlinkMessage.parse(byteBuffer);
+        final NetlinkMessage msg = NetlinkMessage.parse(byteBuffer, NETLINK_ROUTE);
         assertNotNull(msg);
         assertTrue(msg instanceof NetlinkErrorMessage);
         final NetlinkErrorMessage errorMsg = (NetlinkErrorMessage) msg;

@@ -173,6 +173,17 @@
                     android:layout_height="wrap_content"
                     android:text="android:attr/panelColorBackground"/>
             </FrameLayout>
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical|start"
+                style="?android:attr/windowTitleBackgroundStyle">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="android:attr/windowTitleBackgroundStyle"/>
+            </FrameLayout>
         </LinearLayout>
     </ScrollView>
     <include layout="@layout/menu_button"/>

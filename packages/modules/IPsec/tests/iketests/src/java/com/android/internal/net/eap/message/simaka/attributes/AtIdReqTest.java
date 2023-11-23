@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.eap.message.simaka.attributes;
+package com.android.internal.net.eap.test.message.simaka.attributes;
 
-import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_ANY_ID_REQ;
-import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_FULLAUTH_ID_REQ;
-import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_PERMANENT_ID_REQ;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.ANY_ID_INVALID_LENGTH;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.AT_ANY_ID_REQ;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.AT_FULL_AUTH_ID_REQ;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.AT_PERMANENT_ID_REQ;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.FULL_AUTH_ID_INVALID_LENGTH;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.PERMANENT_ID_INVALID_LENGTH;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_ANY_ID_REQ;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_FULLAUTH_ID_REQ;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_PERMANENT_ID_REQ;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.ANY_ID_INVALID_LENGTH;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.AT_ANY_ID_REQ;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.AT_FULL_AUTH_ID_REQ;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.AT_PERMANENT_ID_REQ;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.FULL_AUTH_ID_INVALID_LENGTH;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.PERMANENT_ID_INVALID_LENGTH;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -32,12 +32,12 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.android.internal.net.eap.exceptions.simaka.EapSimAkaInvalidAttributeException;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtAnyIdReq;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtFullauthIdReq;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtPermanentIdReq;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttributeFactory;
+import com.android.internal.net.eap.test.exceptions.simaka.EapSimAkaInvalidAttributeException;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtAnyIdReq;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtFullauthIdReq;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtPermanentIdReq;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttributeFactory;
 
 import org.junit.Before;
 import org.junit.Test;

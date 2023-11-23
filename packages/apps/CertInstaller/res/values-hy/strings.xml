@@ -43,16 +43,16 @@
     <string name="action_missing_user_cert" msgid="3727411730202316771">"Գաղտնի բանալի տեղադրելու համար հավաստագիր է անհրաժեշտ"</string>
     <string name="select_certificate_usage_title" msgid="8853023485944920851">"Ընտրեք հավաստագրի տեսակը"</string>
     <string name="redirect_ca_certificate_title" msgid="3457516863949244510">"Տեղադրեք CA հավաստագրերը կարգավորումներում"</string>
-    <string name="redirect_ca_certificate_with_app_info_message" msgid="934477720755323579">"«<xliff:g id="REQUESTING_APP">%1$s</xliff:g>» հավելվածի հավաստագիրն անհրաժեշտ է տեղադրել Կարգավորումներում։ Տեղադրեք միայն վստահելի կազմակերպությունների ՎԿ հավաստագրեր։"</string>
+    <string name="redirect_ca_certificate_with_app_info_message" msgid="934477720755323579">"«<xliff:g id="REQUESTING_APP">%1$s</xliff:g>» հավելվածի հավաստագիրն անհրաժեշտ է տեղադրել Կարգավորումներում։ Տեղադրեք միայն վստահելի կազմակերպությունների CA հավաստագրեր։"</string>
     <string name="redirect_ca_certificate_close_button" msgid="4291301659747279488">"Փակել"</string>
     <string name="invalid_certificate_title" msgid="6500315398016809635">"Հնարավոր չէ օգտագործել այս ֆայլը"</string>
     <string name="invalid_certificate_close_button" msgid="350986774973653102">"Փակել"</string>
     <string name="invalid_certificate_message" msgid="3508065546083182733">"Այս ֆայլը չի կարող օգտագործվել որպես <xliff:g id="CERTIFICATE_USAGE">%1$s</xliff:g>"</string>
     <string name="certificate" msgid="8790577925509962529">"Հավաստագիր"</string>
-    <string name="ca_certificate" msgid="7397198551290322945">"ՎԿ հավաստագիր"</string>
+    <string name="ca_certificate" msgid="7397198551290322945">"CA հավաստագիր"</string>
     <string name="user_certificate" msgid="514888069820553128">"VPN-ի և հավելվածների օգտատիրոջ հավաստագիր"</string>
     <string name="wifi_certificate" msgid="5356595832360140989">"Wi‑Fi հավաստագիր"</string>
-    <string name="ca_cert_is_added" msgid="2847081843756291802">"ՎԿ հավաստագիրը տեղադրվեց"</string>
+    <string name="ca_cert_is_added" msgid="2847081843756291802">"CA հավաստագիրը տեղադրվեց"</string>
     <string name="user_cert_is_added" msgid="3088794616560630823">"Օգտատիրոջ հավաստագիրը տեղադրվեց"</string>
     <string name="wifi_cert_is_added" msgid="333220613655140428">"Wi‑Fi հավաստագիրը տեղադրվեց"</string>
     <string name="cert_too_large_error" msgid="8715414972725646285">"Չհաջողվեց տեղադրել, քանի որ վկայականի չափը չափազանց մեծ է:"</string>

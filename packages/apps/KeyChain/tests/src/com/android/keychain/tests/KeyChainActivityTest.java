@@ -17,39 +17,40 @@
 package com.android.keychain.tests;
 
 import static com.android.keychain.KeyChainActivity.CertificateParametersFilter;
+
 import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assert.fail;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import android.platform.test.annotations.LargeTest;
-import android.security.Credentials;
-import android.security.KeyStore;
 import android.util.Base64;
+
 import androidx.test.runner.AndroidJUnit4;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
-import java.nio.charset.StandardCharsets;
-import java.security.cert.Certificate;
-import java.security.cert.CertificateEncodingException;
-import java.security.cert.CertificateException;
-import java.security.cert.CertificateFactory;
-import java.security.cert.X509Certificate;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
-import javax.security.auth.x500.X500Principal;
-import org.bouncycastle.util.io.pem.PemObject;
-import org.bouncycastle.util.io.pem.PemWriter;
+
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.security.KeyFactory;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.concurrent.CancellationException;
+
+import javax.security.auth.x500.X500Principal;
 
 @LargeTest
 @RunWith(AndroidJUnit4.class)
@@ -58,22 +59,25 @@ public final class KeyChainActivityTest {
     // openssl req -newkey rsa:2048 -nodes -keyout key.pem -x509 -days 3650
     //   -out root_ca_certificate.pem
     private static final String ROOT_CA_CERT_RSA =
-            "MIIDazCCAlOgAwIBAgIUWQjj+9olDNtdjcSLzK2RpxI9j6UwDQYJKoZIhvcNAQELBQAwRTELMAkG" +
-            "A1UEBhMCVUsxCzAJBgNVBAgMAk5BMQ8wDQYDVQQHDAZMb25kb24xGDAWBgNVBAoMD0FuZHJvaWQg" +
-            "VGVzdCBDQTAeFw0yMDAzMTIxMTUxNDJaFw0zMDAzMTAxMTUxNDJaMEUxCzAJBgNVBAYTAlVLMQsw" +
-            "CQYDVQQIDAJOQTEPMA0GA1UEBwwGTG9uZG9uMRgwFgYDVQQKDA9BbmRyb2lkIFRlc3QgQ0EwggEi" +
-            "MA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDGbsQO+LqPMr5Nr4Lq0B7C0th93phohSY6hb2w" +
-            "MmZs3MRwamlw8FS64KEgmszX5lnyLNqRs91FOFNuq4f2A+TYQhawi9D2bHB7z2ishDM3SxNAqwQl" +
-            "LzVNBJw7DAtimajy3VvXoprescFbsOZx8wPGGb2xMKqAXg4Yw9F6te4Y4BSIiwCWtammiSR8Ev0B" +
-            "lcnMBrWmSZ4yYF+UgNgNiD/TVrTtRmzQlRhBo5n4F61SGeAxb5p0NRRGmAXKtx358HiLANzZSCiM" +
-            "UE5IrgDvW8AKPn5InuYS1G1K2wG5ar1eanQahimtaIEugQxhqG0+/OiKKq2LGRiBpwV1OomXHNFr" +
-            "AgMBAAGjUzBRMB0GA1UdDgQWBBRrxYWzKZpCHDi/NK4keXIU5iGukzAfBgNVHSMEGDAWgBRrxYWz" +
-            "KZpCHDi/NK4keXIU5iGukzAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUAA4IBAQBJTjUY" +
-            "rfi3adJFpF2IFkSnavPRxi+NX6wxfKgQvcScO7sV18gAMG7r2NhjsVeScZ48mxsNkj99lHaVoNm6" +
-            "c+sWmcb3LO7WCqmAgfJcHeQ5VuluwNoJWo+SGuKbh6/yRejNeQFf++uaEwXP3yNydwKJyQDyDwoG" +
-            "vx0jvy8glkVl3fr6u0lGQqmubGU5Q1X6QyA0zJ/sSWBVorLCgk6KvPABQJhjoij+g/GOB1h4g6fb" +
-            "bQ3xnek6TGwjQ1bB7rQlqBF7iP/9iUtuuDf0cR8LwMr1Z2OUEMDjRHQCZQJ3APc0kW1ewJ8nqQ+m" +
-            "NsUKFRuThYtE/OFsV/TfXwMXbc2rMug+";
+            "MIIDazCCAlOgAwIBAgIUKNVj8g/LG+6tqsK8HZqT6EuktpkwDQYJKoZIhvcNAQEL" +
+            "BQAwRTELMAkGA1UEBhMCVUsxCzAJBgNVBAgMAk5BMQ8wDQYDVQQHDAZMb25kb24x" +
+            "GDAWBgNVBAoMD0FuZHJvaWQgVGVzdCBDQTAeFw0yMTAyMjMwMDU0MzdaFw0zMTAy" +
+            "MjEwMDU0MzdaMEUxCzAJBgNVBAYTAlVLMQswCQYDVQQIDAJOQTEPMA0GA1UEBwwG" +
+            "TG9uZG9uMRgwFgYDVQQKDA9BbmRyb2lkIFRlc3QgQ0EwggEiMA0GCSqGSIb3DQEB" +
+            "AQUAA4IBDwAwggEKAoIBAQDLpcaoJijYhS3QUDgG8kVGrwTxaVTS0TE156fJa5za" +
+            "s3RI7TYKHzYwn1KMJJUwoc+cOkv+rFC7j5MQ+6SMK2GpDoCoGn4FV9dDPVnxIgjj" +
+            "/66kuf+we1ur3gz7m/8tFFdZhLFoFMRzcNg+F35jSur8y0dnc8O83gMwuf+91pU7" +
+            "HyNahHzDyMM5sR7u1K91R1MKiOnVqJNTHWVK+rl3G0m0rbDTz7/xbq3/FPBvw764" +
+            "QUJgkSEG15i5CFNn2ww5IYnF30Wbke3kUfdd/Q32MOyfkcp3El/TPJj/3mevGHed" +
+            "vTi0j6ovIXMrDnoJvmeI40p97EMIlaZ3x39i+krE02RfAgMBAAGjUzBRMB0GA1Ud" +
+            "DgQWBBRDpNR2iik8NGDmY5IvgiUy6dMRMjAfBgNVHSMEGDAWgBRDpNR2iik8NGDm" +
+            "Y5IvgiUy6dMRMjAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUAA4IBAQDG" +
+            "OIZdoopwX2PlkAnWMR6PIl4GJ9eiPg1cbQHHcqsB8oNYiiiZydJ8TniZYFptEIjQ" +
+            "LIuerSr/a+c353JNOOK76w0vciJld8uQDCTnMChUahJsQjJJgDCyhjkQqV9Srstu" +
+            "IClm5IP/LEYVSzfR+LqhwX5JYUU8zsDnbiAH3CIENhBw5ApXgfDHP54bHOBw5eHE" +
+            "ETATnib8uPZVHsyHQXXULDqMITY9pmjc9/9x6CqcMGEiSVvhDSujerVlnw3I17Te" +
+            "HWT8bf8mJyQFR8kr59NPQMNN4oUIfFzj2VgzjL21mKGR+hBGqoIMJ1ZdPGCJsw0W" +
+            "5WYM4TtQtL7yNVDtJzOL";
 
     // Generated with:
     // openssl genrsa  -out intermediate_key.pem 2048
@@ -81,42 +85,74 @@ public final class KeyChainActivityTest {
     // openssl x509 -req -days 3650 -in intermediate_ca.csr -CA root_ca_certificate.pem
     //   -CAkey key.pem -CAcreateserial -out intermediate_ca.pem
     private static final String INTERMEDIATE_CA_CERT_RSA =
-            "MIIDHjCCAgYCFHVrA0CEKcoc/C8BqKap3a1m0x8CMA0GCSqGSIb3DQEBCwUAMEUxCzAJBgNVBAYT" +
-            "AlVLMQswCQYDVQQIDAJOQTEPMA0GA1UEBwwGTG9uZG9uMRgwFgYDVQQKDA9BbmRyb2lkIFRlc3Qg" +
-            "Q0EwHhcNMjAwMzEyMTE1NzUwWhcNMzAwMzEwMTE1NzUwWjBSMQswCQYDVQQGEwJVSzELMAkGA1UE" +
-            "CAwCTkExDzANBgNVBAcMBkxvbmRvbjElMCMGA1UECgwcQW5kcm9pZCBJbnRlcm1lZGlhdGUgVGVz" +
-            "dCBDQTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAPlEIzApeTyKzQWTvv25z/KVEbsr" +
-            "alrcto7mX56HV1VQ53cGqi4I7dso3cvpg0CYfcZ+mZh6Evkd+njkcc7Dh/nI0KBJIzGZuo2LB+0r" +
-            "qT0RfvI/Xv7CqLO9KOjWJ3+HK3EhSXGvnLvSTsQD1LnE9HXKVdhdOUgLFjbcZrzH62mvTRAO6nhg" +
-            "agWTzprTXOX8okaMJtJl9QGMG63Z/m5DONPPrgASW6X6wksGjyorEaakQTUGuPimapP5mk+Y31Se" +
-            "pLDDumqRavLT2CpfjHfFq0iDmnnJjG5nz6oKlirhg9JjxHwuKm5jIdsO4dIgi1fJ8Goz2ODG6R6E" +
-            "6CjitsQjoMMCAwEAATANBgkqhkiG9w0BAQsFAAOCAQEAdud6PahLSmDLOTr9t0Jqq1HKpeRsjSqn" +
-            "JTpd/GkNUrxcctKLTzpAruMq6en8OfcSEa2s3HUMJ1LVMoO9pp4aQaadH7626Q4uqHbNGHWngVNX" +
-            "lfBioxrH2QJ2wuKBjUipEGWaM3LY0wqNuBFd5qAVuBwQtZ1x/XH7/Y4l38Y5EGGEi4jSw8eCqiiQ" +
-            "2UKItmK8byl3/T5SVgAMbFYz1WJN37EgETEcEgPlosSQ4pha6fVB3Oz6mSfzjGXqHKpHBPUn/N2d" +
-            "Z2kxJG8IuwhhhyemhqJdCfOxT2WpemgLQQCCgqtM9O89peWL8AJUVT9cF9KySOvh/P9lTtSf5bJf" +
-            "sAzfSg==";
+            "MIIDHjCCAgYCFHgZBbZMuJTvvm1wlBBoPE7peS4jMA0GCSqGSIb3DQEBCwUAMEUx" +
+            "CzAJBgNVBAYTAlVLMQswCQYDVQQIDAJOQTEPMA0GA1UEBwwGTG9uZG9uMRgwFgYD" +
+            "VQQKDA9BbmRyb2lkIFRlc3QgQ0EwHhcNMjEwMjIzMDA1ODQ5WhcNMzEwMjIxMDA1" +
+            "ODQ5WjBSMQswCQYDVQQGEwJVSzELMAkGA1UECAwCTkExDzANBgNVBAcMBkxvbmRv" +
+            "bjElMCMGA1UECgwcQW5kcm9pZCBJbnRlcm1lZGlhdGUgVGVzdCBDQTCCASIwDQYJ" +
+            "KoZIhvcNAQEBBQADggEPADCCAQoCggEBAMZ5tLvS8qiZGK8fBUPzZYWRG2kmf3Hi" +
+            "o6db8qjTvzkJ0l43zmI92v0pEy8a4/XlC7wGSaJuX/TqpAR43+a9kYqGWczkASpX" +
+            "7w1W5tjjDlLANZdRP2R7Wb3XWTTMxzDWOqsMGTHw+H92oFm4bGO9+PaBRRzifLmQ" +
+            "OI/Whw6/kHZlXyI7J68EwRbyaZXNJ6iqk8dF7B4iwZ9yNgW1H0m8uxdDAykEA2WX" +
+            "wbzITwD1zdMsQV7/eLe9RIMFN5VMeHtIFUi2AcioG0i4ZLZNFnVrFQKu7u3XQyxk" +
+            "u7ZzgeGtpluM71sDxnqhZv9NaZIq3mV3JrKHPsw6+uJjN4U5AVfzIYUCAwEAATAN" +
+            "BgkqhkiG9w0BAQsFAAOCAQEAXrRQUFlLyS3QlmwkGocLQISY9B8fF8LTH7sl6HFA" +
+            "VSVuhPDuNsmqVhsMH1981MY2rSVfM3fkUMz1WEH7ZbhooYPirax/AlW+oRdRB/xX" +
+            "WEAJRGgybK98PXogI4tqEvicVn2kfcyNzmfMn8yRClxD5GuZ0oOA50lpUwUmeJjo" +
+            "jb3DY8NF+bcA0lW5h7p86ezqjhB836XZRL47jZJj+jgKoiSsdcex7rzikW6bzdlV" +
+            "f9DCuBJMpM1y31AP15Gvg5Jhh9Wc4y8LLipTn7wGdJvvhclUe1U3roerhAEB+rU/" +
+            "Eu7h+Nqjogg3IzmfHlhDe4N8o/XLdc2FnhCZGZklDDDMvA==";
 
     // Generated with:
     // openssl req -new -newkey rsa:2048 -nodes -keyout server.key -out server.csr
     // openssl x509 -req -days 3650 -in server.csr -CA intermediate_ca.pem
     //   -CAkey intermediate_key.pem -CAcreateserial -out server.pem
     private static final String LEAF_SERVER_CERT_RSA =
-            "MIIDIjCCAgoCFGNstHCN7uzPtFlxnbu2FQ3+sc7rMA0GCSqGSIb3DQEBCwUAMFIxCzAJBgNVBAYT" +
-            "AlVLMQswCQYDVQQIDAJOQTEPMA0GA1UEBwwGTG9uZG9uMSUwIwYDVQQKDBxBbmRyb2lkIEludGVy" +
-            "bWVkaWF0ZSBUZXN0IENBMB4XDTIwMDMxMjEyMTQwMloXDTMwMDMxMDEyMTQwMlowSTELMAkGA1UE" +
-            "BhMCVUsxCzAJBgNVBAgMAk5BMQ8wDQYDVQQHDAZMb25kb24xHDAaBgNVBAoME0FuZHJvaWQgU2Vy" +
-            "dmVyIFRlc3QwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDCBdt0uV01nG2ULMThfnEx" +
-            "CDoVvOSJJLcqKSMsoRUcEYvvqA70x7O2BR6+FZLilr09qAyK1ygyTh+Q6NcBxiB137khrygd/R3S" +
-            "U9nNWI6Xj882EospCiPaewR3j49F6F45PvviAacx7v0mZpU1dVMP7ZvhJWb1AB675/379EFztYyU" +
-            "ghM5ub8zuAgBuvH/O/dJpnmKUmO43n/qSHDM+Q+oDmLAkWD4gd3SOBZKcLgTyO/pD0pghT8m2t0t" +
-            "9X/3KX+tQhif1pAemCOqvxr/HHjlLWxY+QWmcRIAMzTg6+h7sNSKAwwfulMomzMwzkV5sJAYUJOm" +
-            "suhhyAXCNX5rWuqXAgMBAAEwDQYJKoZIhvcNAQELBQADggEBACdFD/uV4iT4jg3/rEtszPHkyP4b" +
-            "zHaYJYpExoWNbJIz7djhycptdM7wjSoesWQMfpJz95aNWoVHrW85DSdGT+7HwZEsW1zUx3KkXURA" +
-            "CdlbVBn1CS4vm0Xk7Rr3LayfhqdFALQVItvBr+LkJPiG/R1jQySp1qaw+NrwukFoepukeZxHH1bF" +
-            "9zjGCLwOcfuRB9g8Gm45wRgoSUTDKbD1SMSLuPyllKeHLKE+chhYjm51Evy2xR0DLm0yaFmeyPPM" +
-            "KQaZJmtkeAzk2uYYb1HsVDlnEoDoXpTKKN1j39qckpCHxF0X0KqbN7D0grDWIDIee5mnSrg3+Xq5" +
-            "aCEDTUn6uU4=";
+            "MIIDIjCCAgoCFDV+Rg1WxBy4ThLxvu1lRJl1YUzwMA0GCSqGSIb3DQEBCwUAMFIx" +
+            "CzAJBgNVBAYTAlVLMQswCQYDVQQIDAJOQTEPMA0GA1UEBwwGTG9uZG9uMSUwIwYD" +
+            "VQQKDBxBbmRyb2lkIEludGVybWVkaWF0ZSBUZXN0IENBMB4XDTIxMDIyMzAxMDEw" +
+            "OFoXDTMxMDIyMTAxMDEwOFowSTELMAkGA1UEBhMCVUsxCzAJBgNVBAgMAk5BMQ8w" +
+            "DQYDVQQHDAZMb25kb24xHDAaBgNVBAoME0FuZHJvaWQgU2VydmVyIFRlc3QwggEi" +
+            "MA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC7267U6iCagBJFiYMMUkteQliO" +
+            "ljOfnuSZJTG1xxNXBggLDdHmchjOPQgEICINpxz7Hhg+PLME3DEqrwUHo9k/bR3e" +
+            "Tglt1o6qxGirIEKROtdzNyi3medRex6FATXq1g4W/1U0tl8EbMv9kJPZP52Uj0Rq" +
+            "XYZ9Y27IGtWDcudpyJij/nBbV/kfufti2pFNHhnXytyBrQXz6AziZjHnNt316z64" +
+            "Tfqchr0jxqIF3Sup9AVKnGooGymwT8ez5C6VO7WoRZnp40pH78GzSALnRJC9w26V" +
+            "1IVlqjYPWvFwJ0ENb0Nuc8Jr3tW/0gf1UzTsuRsMU9vl+tMjweXS8HI8M4uRAgMB" +
+            "AAEwDQYJKoZIhvcNAQELBQADggEBAIcOLAdu9HU6+Bk/SkQW2qW2mY5+WFSYYRG5" +
+            "KfDiMQr0kUeddBJYk+bLN3Qqi6KUAZ+ITxyarVrjZjxaTr1JV6m9fVxdZ8elAx+7" +
+            "ci9ghBkiUPKFtVz3Y1F31Em4tLRr0LHF49Mjvr62+mQuZlAXZ3TuMdxrwc9AePhN" +
+            "btY8YwUsPPJ2vrIQB14NJ6EIaMaIyTowBPX9eo5K47ISbfnCUKhFYAEK4v5s4Hkt" +
+            "Us/209E0FNdFKOZDKDwclhZSFbyA1tknBRXsP7QCFuj/hPFxcRaj9R8CoHQAqEFr" +
+            "mV8JscA9dV40m+kRkj5TZeHjIw2xI39btv5aeRW2fBNB0MEoNPQ=";
+
+    private static final String PRIVATE_SERVER_KEY =
+            "MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQC7267U6iCagBJF" +
+            "iYMMUkteQliOljOfnuSZJTG1xxNXBggLDdHmchjOPQgEICINpxz7Hhg+PLME3DEq" +
+            "rwUHo9k/bR3eTglt1o6qxGirIEKROtdzNyi3medRex6FATXq1g4W/1U0tl8EbMv9" +
+            "kJPZP52Uj0RqXYZ9Y27IGtWDcudpyJij/nBbV/kfufti2pFNHhnXytyBrQXz6Azi" +
+            "ZjHnNt316z64Tfqchr0jxqIF3Sup9AVKnGooGymwT8ez5C6VO7WoRZnp40pH78Gz" +
+            "SALnRJC9w26V1IVlqjYPWvFwJ0ENb0Nuc8Jr3tW/0gf1UzTsuRsMU9vl+tMjweXS" +
+            "8HI8M4uRAgMBAAECggEARWNUhYJhPpAVr6emRxPSkONysGAce1YGW+bYIKuCoj8x" +
+            "E1wsbrEwJmV2o4d27JIQa1TnYX2sJhxq8Lgq5HKJ2Rql0KoEY5S/p6Xaf3LwA5K3" +
+            "Z/A00vQ+8+LFGB2lW7NrCuWPBGRkXk8NXgBcC/+qZegxPhSDi6cBkVoQCXiUr4Zs" +
+            "4wacrmpQbl/FekvpuWQxnVAm95knZhJ87r7izwO6e3VP1VZseG7ld6PbxkLnuTP7" +
+            "Y9Q+viAPwkk1SedvYy6RtIRbyyOKzTVbh9SXirPsLM6N+a8k3J7LY+8HnZhte0O4" +
+            "BFoZwwhXt/kPHilro6gt69Bh2bas+lpP62c8e7Q3HQKBgQDwY6XJzLXV1UQNbwLL" +
+            "FHTDBdf3Afe6W5jcKpsOUaNP/424JeLpc5a2ccaytCPs2p3RCTZ3SHaxe+LNrKbU" +
+            "iKdloGO/XTqcAHbvw/uy5Zzsv6XqUjREmCvCatF7UU7PH9Pztjhb91IXT7taB1Ee" +
+            "yYyPPJU9ioZDEV45/PIUpGwjnwKBgQDIDrtHx5fBH0od8XWSBzuQ3QjLl3WZcEAv" +
+            "Bf2GcdYUV7migWOXm28k51l2VbQQRCVOulJjf45TZgZgzKInZZJ+rZ69FLrOx7q3" +
+            "7X+8rTyWKa2u/IlZ/EBtNIRuqH7A+OuY5qroFngtYa/qsaX58/eUAe64I6HslenG" +
+            "ktvmwdSCzwKBgAtQ1YQLU9/t+xcay6ndm6V2h/UDrbKjDy4F/2iMJUDlybkKZ4UP" +
+            "wN9zuaO94RcML3OgmGTDD3tJVqLR5sSIbkDVbPycGd8wEmk084s3TczDNL80AWvd" +
+            "Meoj9xpz+F69o8+MG1kQ6ldYlHwnbgUh/bDcbDYKaEmN7r6SDp80IjcHAoGAOrqQ" +
+            "Yf8G3qu3z1h94jN7Wgh5N4MsA7I/NU614Uzzwp8KINmJCg2YMCY2ThXUuV238gei" +
+            "fhEJEBSIVMxd4eDgg42mZu159ZAOkUYIVLQqcA6mLRN3otH5e9WJ9w5Bv5aTWxyE" +
+            "GYPXHcNqqCQkjF8BVBLJKIdVVqWfriqYoYJPR2MCgYAWWIrS8XN1c2iLParb+xOJ" +
+            "q1WKe8q5wFucqJCVFbJXjtpGgZFxZLAFlT8VpaiBwDLQBPC+CYhzLVwAvzW2h46W" +
+            "KONqO7zoxiuwOEj466iH4YrgviNw6lGtgSPB6wx91c7se/1lcZhviBMB5rUjtxxj" +
+            "qKIC9Y+gz77w1M3pwMlhDA==";
 
     private static final X500Principal LEAF_SUBJECT =
             new X500Principal("O=Android Server Test, L=London, ST=NA, C=UK");
@@ -127,44 +163,63 @@ public final class KeyChainActivityTest {
     private static final X500Principal ROOT_SUBJECT =
             new X500Principal("O=Android Test CA, L=London, ST=NA, C=UK");
 
+    private byte[] mPrivateKey;
     private byte[] mLeafRsaCertificate;
     private byte[] mIntermediateRsaCertificate;
     private byte[] mRootRsaCertificate;
 
     @Before
     public void setUp() {
+        mPrivateKey = Base64.decode(PRIVATE_SERVER_KEY, Base64.DEFAULT);
         mLeafRsaCertificate = Base64.decode(LEAF_SERVER_CERT_RSA, Base64.DEFAULT);
         mIntermediateRsaCertificate = Base64.decode(INTERMEDIATE_CA_CERT_RSA, Base64.DEFAULT);
         mRootRsaCertificate = Base64.decode(ROOT_CA_CERT_RSA, Base64.DEFAULT);
     }
 
+    @After
+    public void tearDown() {
+        KeyStore keyStore = null;
+        try {
+            keyStore = KeyStore.getInstance("AndroidKeyStore");
+            keyStore.load(null);
+            keyStore.deleteEntry("testCertificateParametersFilter_client");
+        } catch (KeyStoreException | CertificateException | NoSuchAlgorithmException
+                | IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     @Test
     public void testCertificateParametersFilter_filtersByIntermediateIssuer()
-            throws InterruptedException, ExecutionException, CancellationException,
-            TimeoutException, IOException, CertificateEncodingException {
+            throws CancellationException, IOException, CertificateException,
+            KeyStoreException, NoSuchAlgorithmException {
         KeyStore keyStore = prepareKeyStoreWithLongChainCertificates();
 
         assertThat(createCheckerForIssuer(keyStore, ROOT_SUBJECT)
-                .shouldPresentCertificate("client")).isTrue();
+                .shouldPresentCertificate("testCertificateParametersFilter_client")).isTrue();
 
         assertThat(createCheckerForIssuer(keyStore, INTERMEDIATE_SUBJECT)
-                .shouldPresentCertificate("client")).isTrue();
+                .shouldPresentCertificate("testCertificateParametersFilter_client")).isTrue();
 
         assertThat(createCheckerForIssuer(keyStore, LEAF_SUBJECT)
-                .shouldPresentCertificate("client")).isFalse();
+                .shouldPresentCertificate("testCertificateParametersFilter_client")).isFalse();
     }
 
     // Return a KeyStore instance that has both a client certificate as well as a certificate
     // chain associated with it.
     private KeyStore prepareKeyStoreWithLongChainCertificates()
-            throws IOException, CertificateEncodingException {
-        KeyStore keyStore = mock(KeyStore.class);
-        when(keyStore.get(Credentials.USER_CERTIFICATE + "client")).thenReturn(mLeafRsaCertificate);
-        Certificate[] intermediates = new Certificate[] {
-            parseCertificate(mRootRsaCertificate), parseCertificate(mIntermediateRsaCertificate)};
-        byte[] intermediatesPem = convertToPem(intermediates);
-        assertThat(intermediatesPem).isNotNull();
-        when(keyStore.get(Credentials.CA_CERTIFICATE + "client")).thenReturn(intermediatesPem);
+            throws IOException, CertificateException, KeyStoreException, NoSuchAlgorithmException {
+
+        KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
+        keyStore.load(null);
+
+        Certificate[] certs = new Certificate[3];
+        certs[0] = parseCertificate(mLeafRsaCertificate);
+        certs[1] = parseCertificate(mIntermediateRsaCertificate);
+        certs[2] = parseCertificate(mRootRsaCertificate);
+
+        keyStore.setKeyEntry("testCertificateParametersFilter_client", parseKey(mPrivateKey),
+                null, certs);
 
         return keyStore;
     }
@@ -189,16 +244,13 @@ public final class KeyChainActivityTest {
         }
     }
 
-    // Copied from android.security.Credentials, as that is a framework class.
-    public static byte[] convertToPem(Certificate... objects)
-            throws IOException, CertificateEncodingException {
-        ByteArrayOutputStream bao = new ByteArrayOutputStream();
-        Writer writer = new OutputStreamWriter(bao, StandardCharsets.US_ASCII);
-        PemWriter pw = new PemWriter(writer);
-        for (Certificate o : objects) {
-            pw.writeObject(new PemObject("CERTIFICATE", o.getEncoded()));
+    private static PrivateKey parseKey(byte[] key) {
+        try {
+            KeyFactory kf = KeyFactory.getInstance("RSA");
+            return kf.generatePrivate(new PKCS8EncodedKeySpec(key));
+        } catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
+            fail(String.format("Could not parse private key: %s", e));
+            return null;
         }
-        pw.close();
-        return bao.toByteArray();
     }
 }

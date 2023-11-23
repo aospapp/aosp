@@ -26,10 +26,10 @@ import android.content.res.Resources;
 import android.os.PersistableBundle;
 import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionManager;
+import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.util.SparseArray;
 
-import com.android.cellbroadcastreceiver.unit.MockedServiceManager;
 import com.android.internal.telephony.ISub;
 
 import org.mockito.Mock;
@@ -48,6 +48,8 @@ public abstract class CellBroadcastTest {
     @Mock
     CarrierConfigManager mCarrierConfigManager;
     @Mock
+    TelephonyManager mTelephonyManager;
+    @Mock
     Resources mResources;
     @Mock
     ISub.Stub mSubService;
@@ -58,19 +60,29 @@ public abstract class CellBroadcastTest {
         // A hack to return mResources from static method
         // CellBroadcastSettings.getResources(context).
         doReturn(mSubService).when(mSubService).queryLocalInterface(anyString());
+        doReturn(mSubService).when(mSubService).asBinder();
         doReturn(SubscriptionManager.INVALID_SUBSCRIPTION_ID).when(mSubService).getDefaultSubId();
         doReturn(SubscriptionManager.INVALID_SUBSCRIPTION_ID).when(mSubService).getDefaultSmsSubId();
         mMockedServiceManager = new MockedServiceManager();
         mMockedServiceManager.replaceService("isub", mSubService);
+        TelephonyManager.disableServiceHandleCaching();
+        SubscriptionManager.clearCaches();
+        SubscriptionManager.disableCaching();
+
         initContext();
     }
 
     private void initContext() {
         doReturn(mCarrierConfigManager).when(mContext)
                 .getSystemService(eq(Context.CARRIER_CONFIG_SERVICE));
+        doReturn(Context.TELEPHONY_SERVICE).when(mContext).getSystemServiceName(
+                TelephonyManager.class);
+        doReturn(mTelephonyManager).when(mContext).getSystemService(Context.TELEPHONY_SERVICE);
         doReturn(mResources).when(mContext).getResources();
         doReturn(mContext).when(mContext).getApplicationContext();
         doReturn(new String[]{""}).when(mResources).getStringArray(anyInt());
+        doReturn(TelephonyManager.SIM_STATE_LOADED).when(mTelephonyManager)
+                .getSimApplicationState(anyInt());
     }
 
     void carrierConfigSetStringArray(int subId, String key, String[] values) {

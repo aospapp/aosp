@@ -22,12 +22,8 @@
     <string name="display_settings" msgid="5325515247739279185">"Display"</string>
     <string name="brightness" msgid="2919605130898772866">"Helligkeit"</string>
     <string name="auto_brightness_title" msgid="9124647862844666581">"Automatische Helligkeit"</string>
-    <string name="auto_brightness_summary" msgid="4741887033140384352">"Helligkeit an Lichtverhältnisse anpassen"</string>
+    <string name="auto_brightness_summary" msgid="2002570577219479702">"Bildschirmhelligkeit an Umgebung anpassen"</string>
     <string name="condition_night_display_title" msgid="3777509730126972675">"Nachtlicht ist eingeschaltet"</string>
-    <string name="keywords_display" msgid="3978416985146943922">"bildschirm, display, touchscreen"</string>
-    <string name="keywords_display_brightness_level" msgid="3956411572536209195">"display dimmen, bildschirm dimmen, touchscreen, akku"</string>
-    <string name="keywords_display_auto_brightness" msgid="2700310050333468752">"display dimmen, bildschirm dimmen, touchscreen, akku"</string>
-    <string name="keywords_display_night_display" msgid="2922294576679769957">"display dimmen, bildschirm dimmen, nacht, tönung"</string>
     <string name="night_mode_tile_label" msgid="6603597795502131664">"Nachtmodus"</string>
     <string name="network_and_internet" msgid="4229023630498537530">"Netzwerk und Internet"</string>
     <string name="mobile_network_settings" msgid="1708621113321368597">"Mobilfunknetz"</string>
@@ -84,6 +80,10 @@
     <string name="data_usage_warning_editor_title" msgid="2041517150169038813">"Warnung für Datennutzung festlegen"</string>
     <string name="data_usage_limit_editor_title" msgid="133468242379286689">"Limit für Datennutzung festlegen"</string>
     <string name="usage_bytes_threshold_picker_positive_button" msgid="4625479840977965519">"Festlegen"</string>
+    <string name="network_and_internet_oem_network_title" msgid="6436902713696212250">"OEM-Netzwerk"</string>
+    <string name="network_and_internet_data_usage_time_range_summary" msgid="1792995626433410056">"%1$s zwischen dem %2$s und dem %3$s verbraucht"</string>
+    <string name="network_and_internet_join_other_network_title" msgid="7126831320010062712">"Anderem Netzwerk beitreten"</string>
+    <string name="network_and_internet_network_preferences_title" msgid="2983548049081168876">"Netzwerkeinstellungen"</string>
     <string name="wifi_settings" msgid="7701477685273103841">"WLAN"</string>
     <string name="wifi_starting" msgid="473253087503153167">"WLAN wird aktiviert…"</string>
     <string name="wifi_stopping" msgid="3534173972547890148">"WLAN wird deaktiviert…"</string>
@@ -93,6 +93,8 @@
     <string name="wifi_failed_connect_message" msgid="4447498225022147324">"Netzwerkverbindung konnte nicht hergestellt werden"</string>
     <string name="wifi_setup_add_network" msgid="3660498520389954620">"WLAN hinzufügen"</string>
     <string name="wifi_setup_connect" msgid="3512399573397979101">"Verbinden"</string>
+    <string name="wifi_connecting" msgid="1930665730621677960">"Wird verbunden…"</string>
+    <string name="wifi_not_in_range_message" msgid="2617126307140203787">"Netzwerk außer Reichweite"</string>
     <string name="wifi_password" msgid="5565632142720292397">"Passwort"</string>
     <string name="wifi_show_password" msgid="8423293211933521097">"Passwort anzeigen"</string>
     <string name="wifi_no_network_name" msgid="6819604337231313594">"Gib einen Netzwerknamen ein"</string>
@@ -152,11 +154,19 @@
     <string name="wifi_ap_5G" msgid="4945574428537860279">"5 GHz"</string>
     <string name="wifi_ap_band_select_one" msgid="615578175244067396">"Mindestens ein Band für WLAN-Hotspot wählen:"</string>
     <string name="tether_settings_title_all" msgid="4663704772599383169">"Hotspot und Tethering"</string>
+    <string name="hotspot_settings_title" msgid="8220814387592756713">"Hotspot"</string>
     <string name="wifi_hotspot_auto_off_title" msgid="7871858619924599922">"Hotspot automatisch deaktivieren"</string>
     <string name="wifi_hotspot_auto_off_summary" msgid="4830341947541735136">"Der WLAN-Hotspot wird deaktiviert, wenn keine Geräte verbunden sind"</string>
     <string name="wifi_ask_enable" msgid="4452418245680754578">"<xliff:g id="REQUESTER">%s</xliff:g> möchte die WLAN-Funktion aktivieren"</string>
     <string name="wifi_ask_disable" msgid="2949290055916181553">"<xliff:g id="REQUESTER">%s</xliff:g> möchte die WLAN-Funktion deaktivieren"</string>
     <string name="wifi_error" msgid="3105105447117289410">"Fehler"</string>
+    <string name="network_connection_request_dialog_title" msgid="8449606155059098762">"Gerät zur Nutzung mit <xliff:g id="APPNAME">%1$s</xliff:g>"</string>
+    <string name="network_connection_timeout_dialog_message" msgid="2536299451668687586">"Keine Geräte gefunden. Achte darauf, dass die Geräte eingeschaltet und zur Verbindung bereit sind."</string>
+    <string name="network_connection_timeout_dialog_ok" msgid="2228662561126434792">"Noch einmal versuchen"</string>
+    <string name="network_connection_errorstate_dialog_message" msgid="4268321315241218483">"Ein Fehler ist aufgetreten. Die Anwendung hat die Anfrage zur Auswahl eines Geräts abgebrochen."</string>
+    <string name="network_connection_connect_successful" msgid="7893957133113302365">"Verbindung hergestellt"</string>
+    <string name="network_connection_request_dialog_showall" msgid="776613149566461487">"Alle anzeigen"</string>
+    <string name="progress_scanning" msgid="7191583064717479795">"Suche läuft"</string>
     <string name="bluetooth_settings_title" msgid="3794688574569688649">"Bluetooth"</string>
     <string name="bluetooth_device" msgid="3178478829314083240">"Unbenanntes Gerät"</string>
     <string name="bluetooth_paired_devices" msgid="6463199569164652410">"Gekoppelte Geräte"</string>
@@ -183,6 +193,11 @@
     <string name="bluetooth_ask_discovery_no_name" msgid="164397600370102369">"Eine App fordert die Berechtigung, deine Haupteinheit <xliff:g id="TIMEOUT">%1$d</xliff:g> Sekunden lang für andere Bluetooth-Geräte sichtbar zu machen."</string>
     <string name="bluetooth_ask_enablement_and_discovery" msgid="5487502083015708674">"<xliff:g id="APP_NAME">%1$s</xliff:g> fordert die Berechtigung, Bluetooth zu aktivieren und deine Haupteinheit <xliff:g id="TIMEOUT">%2$d</xliff:g> Sekunden lang für andere Geräte sichtbar zu machen."</string>
     <string name="bluetooth_ask_enablement_and_discovery_no_name" msgid="907153034209916282">"Eine App fordert die Berechtigung, Bluetooth zu aktivieren und deine Haupteinheit <xliff:g id="TIMEOUT">%1$d</xliff:g> Sekunden lang für andere Geräte sichtbar zu machen."</string>
+    <string name="bluetooth_state_switch_summary" msgid="171929910916432266">"Als %1$s für andere Geräte sichtbar"</string>
+    <string name="bluetooth_my_devices" msgid="6352010339607939612">"Meine Geräte"</string>
+    <string name="bluetooth_previously_connected" msgid="5206229557831180323">"Zuletzt verbundene Geräte"</string>
+    <string name="bluetooth_device_connected_toast" msgid="4614765282582494488">"%1$s verbunden"</string>
+    <string name="bluetooth_device_disconnected_toast" msgid="8889122688851623920">"Verbindung mit %1$s getrennt"</string>
     <string name="bluetooth_notif_ticker" msgid="7192577740198156792">"Anfrage zur Bluetooth-Kopplung"</string>
     <string name="bluetooth_device_context_pair_connect" msgid="3138105800372470422">"Koppeln &amp; verbinden"</string>
     <string name="bluetooth_pairing_key_msg" msgid="5066825929751599037">"Bluetooth-Kopplungscode"</string>
@@ -220,6 +235,11 @@
     <string name="ringtone_title" msgid="8370531086214517972">"Klingelton"</string>
     <string name="notification_ringtone_title" msgid="8661716239594010288">"Standard-Benachrichtigungston"</string>
     <string name="alarm_ringtone_title" msgid="3257364170646440908">"Standard-Weckton"</string>
+    <string name="ringtone_picker_save_title" msgid="4388137432517227001">"Speichern"</string>
+    <string name="sound_alert_sounds" msgid="6838044721739163867">"Warntöne"</string>
+    <string name="sound_alert_sounds_summary" msgid="816501423095651281">"Klingelton, Benachrichtigungen, Wecker"</string>
+    <string name="display_brightness" msgid="5718970880488110840">"Helligkeit"</string>
+    <string name="display_night_mode_summary" msgid="4939425286027546230">"Bildschirm für geringe Helligkeit anpassen"</string>
     <string name="units_settings" msgid="402325305096925886">"Einheiten"</string>
     <string name="units_speed_title" msgid="7115143916747108160">"Geschwindigkeit"</string>
     <string name="units_distance_title" msgid="6257691565990474635">"Distanz"</string>
@@ -272,24 +292,36 @@
     <string name="all_applications" msgid="7798210477486822168">"Alle Apps anzeigen"</string>
     <string name="default_applications" msgid="1558183275638697087">"Standard-Apps"</string>
     <string name="app_permissions" msgid="32799922508313948">"App-Berechtigungen"</string>
-    <string name="app_permissions_summary" msgid="1842858532315056367">"Apps, die die Berechtigung \"<xliff:g id="APPS">%1$s</xliff:g>\" verwenden"</string>
+    <string name="app_permissions_summary" msgid="5402214755935368418">"App-Zugriff auf Daten steuern"</string>
     <string name="applications_settings" msgid="794261395191035632">"App-Info"</string>
     <string name="force_stop" msgid="2153183697014720520">"Beenden erzwingen"</string>
     <string name="force_stop_dialog_title" msgid="3342850939200388694">"Beenden erzwingen?"</string>
     <string name="force_stop_dialog_text" msgid="4354954014318432599">"Das Beenden der App zu erzwingen kann zu unerwünschtem Verhalten führen."</string>
+    <string name="peak_performance_dialog_title" msgid="5970933611683430870">"Leistungsschutz deaktivieren?"</string>
+    <string name="peak_performance_dialog_text" msgid="7648337738884134499">"Wenn du die Funktion deaktivierst, werden deine Software und Hardware möglicherweise ebenfalls nicht mehr funktionieren."</string>
+    <string name="peak_performance_dialog_action_on" msgid="2139033153500237350">"Aktiviert lassen"</string>
+    <string name="peak_performance_dialog_action_off" msgid="1019653666533456482">"Deaktivieren"</string>
     <string name="disable_text" msgid="4358165448648990820">"Deaktivieren"</string>
     <string name="enable_text" msgid="1794971777861881238">"Aktivieren"</string>
     <string name="uninstall_text" msgid="277907956072833012">"Deinstallieren"</string>
     <string name="app_disable_dialog_text" msgid="7731155411006654025">"Bei Deaktivierung dieser App funktionieren Android und andere Apps möglicherweise nicht mehr ordnungsgemäß."</string>
     <string name="app_disable_dialog_positive" msgid="4448684722791563349">"App deaktivieren"</string>
-    <string name="not_installed" msgid="4218816013370552746">"Nicht für diesen Nutzer installiert"</string>
+    <string name="not_installed" msgid="4163454337822508007">"Für dieses Profil nicht installiert"</string>
     <string name="permissions_label" msgid="2701446753515612685">"Berechtigungen"</string>
     <string name="notifications_label" msgid="6586089149665170731">"Benachrichtigungen"</string>
     <string name="storage_application_label" msgid="5911779903670978586">"Speicher und Cache"</string>
+    <string name="peak_performance_label" msgid="1592816366516845648">"Für optimale Leistung sorgen"</string>
     <string name="application_version_label" msgid="8556889839783311649">"Version: %1$s"</string>
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"Keine Berechtigungen gewährt"</string>
     <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"Keine Berechtigungen angefordert"</string>
+    <string name="unused_apps" msgid="648471933781010395">"Nicht verwendete Apps"</string>
+    <plurals name="unused_apps_summary" formatted="false" msgid="6410080383909014362">
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> nicht verwendete Apps</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> nicht verwendete App</item>
+    </plurals>
+    <string name="unused_apps_switch" msgid="4433958286200341563">"Berechtigungen löschen/Speicher freigeben"</string>
     <string name="storage_type_internal" msgid="8918688427078709570">"%s in internem Speicher"</string>
+    <string name="peak_performance_summary" msgid="2450911487290019786">"Wenn nötig, App schließen, um Ressourcennutzung zu verringern"</string>
     <string name="data_usage_summary_title" msgid="4368024763485916986">"Datennutzung"</string>
     <string name="data_usage_app_summary_title" msgid="5012851696585421420">"Datenverbrauch durch Apps"</string>
     <string name="computing_size" msgid="5791407621793083965">"Berechnung läuft…"</string>
@@ -326,15 +358,23 @@
     <string name="app_link_open_ask" msgid="7242075065136237456">"Jedes Mal fragen"</string>
     <string name="app_link_open_never" msgid="2173174327831792316">"In dieser App nicht öffnen"</string>
     <string name="app_launch_supported_domain_urls_title" msgid="7345116365785981158">"Unterstützte Links"</string>
+    <string name="apps_settings_title" msgid="3982535942394315336">"Apps"</string>
+    <string name="apps_recently_opened" msgid="5320377037971195984">"Zuletzt geöffnet"</string>
+    <string name="apps_view_all_apps_title" msgid="2322120325505230530">"Alle %1$d Apps zeigen"</string>
+    <string name="apps_permission_manager_title" msgid="8776335943862484131">"Berechtigungsmanager"</string>
+    <string name="apps_permission_manager_summary" msgid="4180424218228141274">"App-Zugriff auf Daten steuern"</string>
+    <string name="apps_default_apps_summary" msgid="2017792579839972926">"Für den Assistenten und andere Apps"</string>
+    <string name="apps_special_app_access_summary" msgid="6464767436309742163">"Für Systemeinstellungen und andere Einstellungen"</string>
     <string name="special_access" msgid="5730278220917123811">"Spezieller App-Zugriff"</string>
     <string name="show_system" msgid="4401355756969485287">"Systemprozesse anzeigen"</string>
     <string name="hide_system" msgid="8845453295584638040">"Systemprozesse ausblenden"</string>
+    <string name="hide_system_apps" msgid="6583947381056154020">"System-Apps ausblenden"</string>
     <string name="modify_system_settings_title" msgid="4596320571562433972">"Systemeinstellungen ändern"</string>
     <string name="modify_system_settings_description" msgid="5295023124419592452">"Durch diese Berechtigung kann eine App Systemeinstellungen ändern."</string>
     <string name="notification_access_title" msgid="1467340098885813473">"Benachrichtigungszugriff"</string>
     <string name="notification_listener_security_warning_title" msgid="2893273335175140895">"<xliff:g id="SERVICE">%1$s</xliff:g> Zugriff auf Benachrichtigungen erlauben?"</string>
-    <string name="notification_listener_security_warning_summary" msgid="7280197998063498125">"<xliff:g id="NOTIFICATION_LISTENER_NAME">%1$s</xliff:g> kann alle Benachrichtigungen lesen, also auch persönliche Informationen wie Kontaktnamen und eingehende Nachrichten, sowie Benachrichtigungen schließen oder in ihnen enthaltene Aktionen auslösen.\n\nZusätzlich wird die App in die Lage versetzt, die \"Bitte nicht stören\"-Funktion zu aktivieren bzw. zu deaktivieren und zugehörige Einstellungen zu ändern."</string>
-    <string name="notification_listener_revoke_warning_summary" msgid="4904973394539125407">"Wenn du den Benachrichtigungszugriff für <xliff:g id="NOTIFICATION_LISTENER_NAME">%1$s</xliff:g> deaktivierst, wird möglicherweise auch der \"Bitte nicht stören\"-Zugriff deaktiviert."</string>
+    <string name="notification_listener_security_warning_summary" msgid="7280197998063498125">"<xliff:g id="NOTIFICATION_LISTENER_NAME">%1$s</xliff:g> kann alle Benachrichtigungen lesen, also auch persönliche Informationen wie Kontaktnamen und eingehende Nachrichten, sowie Benachrichtigungen schließen oder in ihnen enthaltene Aktionen auslösen.\n\nZusätzlich wird die App in die Lage versetzt, die „Bitte nicht stören“-Funktion zu aktivieren bzw. zu deaktivieren und zugehörige Einstellungen zu ändern."</string>
+    <string name="notification_listener_revoke_warning_summary" msgid="4904973394539125407">"Wenn du den Benachrichtigungszugriff für <xliff:g id="NOTIFICATION_LISTENER_NAME">%1$s</xliff:g> deaktivierst, wird möglicherweise auch der „Bitte nicht stören“-Zugriff deaktiviert."</string>
     <string name="notification_listener_revoke_warning_confirm" msgid="2759583507454984812">"Deaktivieren"</string>
     <string name="notification_listener_revoke_warning_cancel" msgid="4399941651358241154">"Abbrechen"</string>
     <string name="premium_sms_access_title" msgid="1409118461646148686">"Zugriff auf Premium-SMS"</string>
@@ -349,8 +389,12 @@
     <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"Keine letzten Standortanfragen"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"Berechtigungen auf App-Ebene"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"Standortdienste"</string>
+    <string name="location_use_location_title" msgid="117735895374606680">"Standort verwenden"</string>
+    <string name="location_settings_footer" msgid="296892848338100051">"Der Standortdienst kann Quellen wie GPS, WLANs, Mobilfunknetze und Sensoren nutzen, um den Standort deines Geräts zu ermitteln."</string>
     <string name="system_setting_title" msgid="6864599341809463440">"System"</string>
     <string name="system_update_settings_title" msgid="8448588267784138855">"Systemupdates"</string>
+    <string name="system_advanced_title" msgid="6303355131691523362">"Erweitert"</string>
+    <string name="system_advanced_summary" msgid="5833643795981791953">"Informationen, rechtliche Hinweise und Zurücksetzen"</string>
     <string name="firmware_version" msgid="8491753744549309333">"Android-Version"</string>
     <string name="security_patch" msgid="4794276590178386903">"Stand der Sicherheitsupdates"</string>
     <string name="hardware_info" msgid="3973165746261507658">"Modell und Hardware"</string>
@@ -409,25 +453,24 @@
     <string name="reset_network_confirm_button_text" msgid="5246859685069024851">"Einstellungen zurücksetzen"</string>
     <string name="reset_network_complete_toast" msgid="3804108209431416865">"Die Netzwerkeinstellungen wurden zurückgesetzt"</string>
     <string name="reset_app_pref_title" msgid="5855420038951743992">"App-Einstellungen zurücksetzen"</string>
-    <string name="reset_app_pref_desc" msgid="579392665146962149">"Hierdurch werden alle Einstellungen zurückgesetzt für:\n\n"<li>"Deaktivierte Apps"</li>\n<li>"Benachrichtigungen zu deaktivierten Apps"</li>\n<li>"Standardanwendungen für Aktionen"</li>\n<li>"Einschränkungen der Hintergrunddaten für Apps"</li>\n<li>"Jegliche Zugriffsbeschränkungen"</li>\n\n"Alle App-Daten bleiben erhalten."</string>
+    <string name="reset_app_pref_desc" msgid="579392665146962149">"Hierdurch werden die folgenden Einstellungen zurückgesetzt:\n\n "<li>"Deaktivierungen von Apps"</li>\n" "<li>"Deaktivierungen von App-Benachrichtigungen"</li>\n" "<li>"Festlegungen von Standard-Apps für bestimmte Aktionen"</li>\n" "<li>"Einschränkungen der Hintergrunddaten für Apps"</li>\n" "<li>"Jegliche Zugriffsbeschränkungen"</li>\n\n" Alle App-Daten bleiben erhalten."</string>
     <string name="reset_app_pref_button_text" msgid="6270820447321231609">"Apps zurücksetzen"</string>
     <string name="reset_app_pref_complete_toast" msgid="8709072932243594166">"App-Einstellungen wurden zurückgesetzt"</string>
-    <string name="master_clear_title" msgid="8515335233363214414">"Alle Daten löschen (Werkseinstellungen)"</string>
-    <string name="master_clear_desc" msgid="9058719802779893535">"Hierdurch werden alle Daten von der Haupteinheit deines Fahrzeugs gelöscht, wie z. B. die Folgenden:\n\n"<li>"Dein Google-Konto"</li>\n<li>"System- und App-Daten sowie entsprechende Einstellungen"</li>\n<li>"Heruntergeladene Apps"</li></string>
-    <string name="master_clear_accounts" msgid="7797522012993567494">"Du bist derzeit in folgenden Konten angemeldet:"</string>
-    <string name="master_clear_other_users_present" msgid="8383376863095743337">"Auf der Haupteinheit dieses Fahrzeugs sind andere Nutzer vorhanden."</string>
-    <string name="master_clear_button_text" msgid="8010754220392741160">"Fahrzeug zurücksetzen"</string>
-    <string name="master_clear_confirm_title" msgid="8646455623132887370">"Zurücksetzen?"</string>
-    <string name="master_clear_confirm_desc" msgid="8920446291698038558">"Alle personenbezogenen Daten und heruntergeladenen Apps löschen? Diese Aktion kann nicht rückgängig gemacht werden!"</string>
-    <string name="master_clear_confirm_button_text" msgid="7981254968588121786">"Alles löschen"</string>
-    <string name="master_clear_progress_title" msgid="7087480656932674774">"Wird gelöscht"</string>
-    <string name="master_clear_progress_text" msgid="3440789441935303176">"Bitte warten…"</string>
+    <string name="factory_reset_title" msgid="4019066569214122052">"Alle Daten löschen"</string>
+    <string name="factory_reset_summary" msgid="854815182943504327">"Alle Daten und Profile aus dem Infotainmentsystem löschen"</string>
+    <string name="factory_reset_desc" msgid="1688333312943433244">"Hierdurch werden alle Daten vom Infotainmentsystem deines Fahrzeugs gelöscht, wie z. B. die Folgenden:\n\n"<li>"Dein Google-Konto"</li>\n<li>"System- und App-Daten sowie entsprechende Einstellungen"</li>\n<li>"Heruntergeladene Apps"</li></string>
+    <string name="factory_reset_accounts" msgid="5523956654938834209">"Du bist zurzeit in folgenden Konten angemeldet:"</string>
+    <string name="factory_reset_other_users_present" msgid="3852324375352090570">"Für dieses Fahrzeug existieren bereits andere Profile."</string>
+    <string name="factory_reset_button_text" msgid="2626666247051368256">"Alle Daten löschen"</string>
+    <string name="factory_reset_confirm_title" msgid="3354542161765761879">"Alle Daten löschen?"</string>
+    <string name="factory_reset_confirm_desc" msgid="2037199381372030510">"Hierdurch werden alle Daten zu deinem privaten Profil sowie deine Konten und heruntergeladenen Apps in diesem Infotainmentsystem gelöscht.\n\nDiese Aktion kann nicht rückgängig gemacht werden."</string>
+    <string name="factory_reset_confirm_button_text" msgid="1797490544756481809">"Alles löschen"</string>
+    <string name="factory_reset_progress_title" msgid="4580937077054738173">"Wird gelöscht"</string>
+    <string name="factory_reset_progress_text" msgid="7704636573522634757">"Bitte warten…"</string>
     <string name="date_and_time_settings_title" msgid="4058492663544475485">"Datum &amp; Uhrzeit"</string>
     <string name="date_and_time_settings_summary" msgid="7669856855390804666">"Datum, Uhrzeit, Zeitzone &amp; Formate festlegen"</string>
-    <string name="date_time_auto" msgid="3570339569471779767">"Datum/Uhrzeit autom. festlegen"</string>
-    <string name="date_time_auto_summary" msgid="3311706425095342759">"Zeit aus Netzwerk verwenden"</string>
-    <string name="zone_auto" msgid="3701878581920206160">"Automatische Zeitzone"</string>
-    <string name="zone_auto_summary" msgid="4345856882906981864">"Vom Netzwerk angegebene Zeitzone verwenden"</string>
+    <string name="date_time_auto" msgid="6018635902717385962">"Zeit automatisch einstellen"</string>
+    <string name="zone_auto" msgid="4174874778459184605">"Zeitzone automatisch einstellen"</string>
     <string name="date_time_24hour_title" msgid="3025576547136168692">"24-Stunden-Format"</string>
     <string name="date_time_24hour" msgid="1137618702556486913">"24-Stunden-Format verwenden"</string>
     <string name="date_time_set_time_title" msgid="5884883050656937853">"Uhrzeit"</string>
@@ -442,35 +485,36 @@
     <string name="time_picker_title" msgid="7436045944320504639">"Uhrzeit"</string>
     <string name="user_admin" msgid="1535484812908584809">"Administrator"</string>
     <string name="signed_in_admin_user" msgid="1267225622818673274">"Als Administrator angemeldet"</string>
-    <string name="grant_admin_permissions_title" msgid="4628430467359951437">"Alle Administrator-Berechtigungen"</string>
+    <string name="grant_admin_permissions_title" msgid="4496239754512028468">"Administrator-Berechtigungen erteilen?"</string>
     <string name="grant_admin_permissions_button_text" msgid="988239414372882401">"Als Administrator festlegen"</string>
-    <string name="grant_admin_permissions_message" msgid="1751910369004774830">"Der Nutzer kann dann andere Nutzer einschließlich anderer Administratoren löschen und das System auf die Werkseinstellungen zurücksetzen."</string>
+    <string name="grant_admin_permissions_message" msgid="5205433947453539566">"Der Administrator kann andere Profile löschen, einschließlich der Profile von anderen Administratoren, und das Infotainmentsystem auf die Werkseinstellungen zurücksetzen."</string>
     <string name="action_not_reversible_message" msgid="740401337875726973">"Diese Aktion lässt sich nicht rückgängig machen."</string>
     <string name="confirm_grant_admin" msgid="7852596890218647682">"Ja, als Administrator festlegen"</string>
-    <string name="create_user_permission_title" msgid="7781550880565935298">"Neue Nutzer erstellen"</string>
+    <string name="create_user_permission_title" msgid="2402003632264628632">"Neue Profile erstellen"</string>
     <string name="outgoing_calls_permission_title" msgid="1230180443712099293">"Anrufe tätigen"</string>
     <string name="sms_messaging_permission_title" msgid="6099328509729071243">"SMS über mobile Daten des Autos senden und empfangen"</string>
     <string name="install_apps_permission_title" msgid="3099705360827925296">"Neue Apps installieren"</string>
     <string name="uninstall_apps_permission_title" msgid="8448422340567430659">"Apps deinstallieren"</string>
-    <string name="user_add_user_menu" msgid="5319151436895941496">"Nutzer hinzufügen"</string>
-    <string name="user_new_user_name" msgid="7115771396412339662">"Neuer Nutzer"</string>
-    <string name="user_add_user_title" msgid="7458813670614932479">"Neuen Nutzer hinzufügen?"</string>
-    <string name="user_add_user_message_setup" msgid="6030901156040053106">"Wenn du einen neuen Nutzer hinzufügst, muss dieser seinen Bereich einrichten."</string>
-    <string name="user_add_user_message_update" msgid="1528170913388932459">"Jeder Nutzer kann Apps für alle anderen Nutzer aktualisieren."</string>
-    <string name="user_limit_reached_title" msgid="8803355734556061238">"Nutzerlimit erreicht"</string>
-    <plurals name="user_limit_reached_message" formatted="false" msgid="2651922256448824747">
-      <item quantity="other">Du kannst bis zu <xliff:g id="COUNT">%d</xliff:g> Nutzer erstellen.</item>
-      <item quantity="one">Es kann nur ein Nutzer erstellt werden.</item>
+    <string name="user_add_user_menu" msgid="4125869008006021799">"Profil hinzufügen"</string>
+    <string name="user_new_user_name" msgid="906698527658609819">"Neues Profil"</string>
+    <string name="user_add_user_title" msgid="6296827596015729982">"Neues Profil hinzufügen?"</string>
+    <string name="user_add_user_message_setup" msgid="812616230454605159">"Wenn du ein neues Profil hinzufügst, sollte diese Person ihr Profil noch selbst einrichten."</string>
+    <string name="user_add_user_message_update" msgid="3836353291078729240">"Apps können von jedem Profil aus aktualisiert und dann von allen Profilen genutzt werden."</string>
+    <string name="user_limit_reached_title" msgid="5677729355746623293">"Maximale Profilanzahl erreicht"</string>
+    <plurals name="user_limit_reached_message" formatted="false" msgid="3310152546154693349">
+      <item quantity="other">Du kannst bis zu <xliff:g id="COUNT">%d</xliff:g> Profile erstellen.</item>
+      <item quantity="one">Nur ein Profil kann erstellt werden.</item>
     </plurals>
-    <string name="add_user_error_title" msgid="3206300411663817038">"Nutzer konnte nicht erstellt werden"</string>
-    <string name="delete_user_dialog_title" msgid="3422867434431562007">"Diesen Nutzer löschen?"</string>
-    <string name="delete_user_dialog_message" msgid="4346777604351785057">"Sämtliche Apps und Daten werden gelöscht."</string>
-    <string name="delete_user_error_title" msgid="7609819398530124827">"Der Nutzer konnte nicht gelöscht werden."</string>
+    <string name="add_user_error_title" msgid="7589792057846396341">"Profil konnte nicht erstellt werden"</string>
+    <string name="delete_user_dialog_title" msgid="575517556232943687">"Dieses Profil löschen?"</string>
+    <string name="delete_user_dialog_message" msgid="3916865958419051299">"Alle Apps und Daten für dieses Profil werden gelöscht"</string>
+    <string name="delete_user_error_title" msgid="6422249596301690254">"Profil konnte nicht gelöscht werden."</string>
+    <string name="delete_user_error_set_ephemeral_title" msgid="9062453678745644817">"Dieses Profil wird gelöscht, wenn das Profil gewechselt oder das Fahrzeug wieder gestartet wird."</string>
     <string name="delete_user_error_dismiss" msgid="429156446763738273">"Schließen"</string>
     <string name="delete_user_error_retry" msgid="5116434895572670563">"Noch einmal versuchen"</string>
-    <string name="delete_last_user_dialog_title" msgid="3644392025675369680">"Letzten Nutzer löschen?"</string>
-    <string name="delete_last_user_admin_created_message" msgid="1856897729010319054">"Nachdem du den letzten Nutzer für dieses Auto gelöscht hast, wird ein neuer Administrator erstellt."</string>
-    <string name="delete_last_user_system_setup_required_message" msgid="8550730509371697989">"Sämtliche Daten, Einstellungen und Apps, die mit diesem Nutzer zugeordnet sind, werden gelöscht. Du musst das System dann neu einrichten."</string>
+    <string name="delete_last_user_dialog_title" msgid="3454454005909291260">"Das letzte übrige Profil löschen?"</string>
+    <string name="delete_last_user_delete_warning" msgid="7189499586859833988">"Wenn du das einzige übrige Profil für dieses Fahrzeug löschst, werden alle Daten, Einstellungen und Apps, die mit diesem Profil verknüpft sind, ebenfalls gelöscht."</string>
+    <string name="delete_last_user_system_setup_required_message" msgid="726196874941282088">"Nach dem Zurücksetzen kannst du ein neues Profil einrichten."</string>
     <string name="choose_new_admin_title" msgid="1915428454917699587">"Neuen Administrator auswählen"</string>
     <string name="choose_new_admin_message" msgid="7468286545352043354">"Du benötigst mindestens einen Administrator. Damit diesen Administrator löschen kannst, musst du zuerst einen Ersatz auswählen."</string>
     <string name="choose_new_admin_label" msgid="5987653639387437939">"Administrator auswählen"</string>
@@ -480,10 +524,11 @@
     <string name="current_user_name" msgid="3813671533249316823">"Du (%1$s)"</string>
     <string name="user_name_label" msgid="3210832645046206845">"Name"</string>
     <string name="user_summary_not_set_up" msgid="1473688119241224145">"Nicht eingerichtet"</string>
-    <string name="edit_user_name_title" msgid="6890782937520262478">"Nutzername bearbeiten"</string>
+    <string name="edit_user_name_title" msgid="1118500707473139995">"Profilname bearbeiten"</string>
     <string name="name_input_blank_error" msgid="2088850865880984123">"Das Feld darf nicht leer sein."</string>
-    <string name="name_input_invalid_error" msgid="3523545780580744273">"Der eingegebene Nutzername ist ungültig."</string>
+    <string name="name_input_invalid_error" msgid="4355625213535164704">"Eingegebener Profilname ist ungültig."</string>
     <string name="users_list_title" msgid="770764290290240909">"Nutzer"</string>
+    <string name="profiles_list_title" msgid="1443396686780460221">"Profile"</string>
     <string name="user_details_admin_title" msgid="3530292857178371891">"Berechtigungen für %1$s"</string>
     <string name="storage_settings_title" msgid="8957054192781341797">"Speicher"</string>
     <string name="storage_music_audio" msgid="7827147379976134040">"Musik &amp; Audio"</string>
@@ -494,7 +539,7 @@
     <string name="storage_audio_files_title" msgid="5183170457027181700">"Audiodateien"</string>
     <string name="memory_calculating_size" msgid="1672238502950390033">"Wird berechnet…"</string>
     <string name="storage_application_size_label" msgid="1146156683170661354">"App-Größe"</string>
-    <string name="storage_data_size_label" msgid="5022911581004239367">"Nutzerdaten"</string>
+    <string name="storage_data_size_label" msgid="7986110464268960652">"Profildaten"</string>
     <string name="storage_cache_size_label" msgid="6361308766707419555">"Cache"</string>
     <string name="storage_total_size_label" msgid="3892138268243791912">"Gesamt"</string>
     <string name="storage_clear_user_data_text" msgid="8787615136779130680">"Speicherinhalt löschen"</string>
@@ -536,6 +581,15 @@
     <string name="sync_button_sync_cancel" msgid="7739510554513641393">"Synchronisierung abbrechen"</string>
     <string name="sync_is_failing" msgid="5766255460901806206">"Bei der Synchronisierung treten momentan Probleme auf. Sie wird bald fortgesetzt."</string>
     <string name="privacy_settings_title" msgid="3150145262029229572">"Datenschutz"</string>
+    <string name="privacy_vehicle_data_title" msgid="6385777370742595651">"Daten des Infotainmentsystems"</string>
+    <string name="privacy_location_summary" msgid="7019817848470566242">"App-Zugriff auf meinen Standort steuern"</string>
+    <string name="mute_mic_title" msgid="2813215197799569553">"Mikrofon"</string>
+    <string name="mute_mic_summary" msgid="5426953935775303904">"App-Zugriff auf Mikrofon steuern"</string>
+    <string name="vehicle_data_title" msgid="935933215161763721">"Daten des Infotainmentsystems"</string>
+    <string name="vehicle_data_summary" msgid="9204836361819386115">"Aktivitäten und Informationen verwalten, die in diesem Fahrzeug gespeichert sind"</string>
+    <string name="vehicle_data_delete_user_title" msgid="9132472153739085346">"Profil löschen"</string>
+    <string name="vehicle_data_delete_user_summary" msgid="5900205773710111394">"Mein Profil und meine Konten aus dem Infotainmentsystem löschen"</string>
+    <string name="action_unavailable" msgid="7087119418684417249">"Diese Aktion ist für dein Profil nicht verfügbar"</string>
     <string name="security_settings_title" msgid="6955331714774709746">"Sicherheit"</string>
     <string name="security_settings_subtitle" msgid="2244635550239273229">"Displaysperre"</string>
     <string name="security_lock_none" msgid="1054645093754839638">"Keine"</string>
@@ -552,7 +606,6 @@
     <string name="lockscreen_skip_button_text" msgid="3755748786396198091">"Überspringen"</string>
     <string name="set_screen_lock" msgid="5239317292691332780">"Displaysperre einrichten"</string>
     <string name="lockscreen_choose_your_pin" msgid="1645229555410061526">"PIN wählen"</string>
-    <string name="lockscreen_choose_your_pattern" msgid="6801175111142593404">"Muster wählen"</string>
     <string name="lockscreen_choose_your_password" msgid="4487577710136014069">"Passwort festlegen"</string>
     <string name="current_screen_lock" msgid="637651611145979587">"Aktuelle Displaysperre"</string>
     <string name="choose_lock_pattern_message" msgid="6242765203541309524">"Richte zur Sicherheit ein Muster ein"</string>
@@ -567,9 +620,12 @@
     <string name="lockpattern_pattern_wrong" msgid="929223969555399363">"Falsches Muster"</string>
     <string name="lockpattern_settings_help_how_to_record" msgid="4436556875843192284">"Zeichnen eines Entsperrungsmusters"</string>
     <string name="error_saving_lockpattern" msgid="2933512812768570130">"Fehler beim Speichern des Musters"</string>
+    <string name="lockpattern_too_many_failed_confirmation_attempts" msgid="4636307830951251013">"Zu viele fehlerhafte Versuche. Bitte versuch es in <xliff:g id="NUMBER">%d</xliff:g> Sekunden noch einmal."</string>
     <string name="okay" msgid="4589873324439764349">"Ok"</string>
     <string name="remove_screen_lock_title" msgid="1234382338764193387">"Displaysperre entfernen?"</string>
     <string name="remove_screen_lock_message" msgid="6675850371585564965">"Dadurch können andere auf dein Konto zugreifen"</string>
+    <string name="security_profile_lock_title" msgid="3082523481292617350">"Profilsperre"</string>
+    <string name="security_unlock_profile_summary" msgid="6742592419759865631">"Automatisches Entsperren einrichten"</string>
     <string name="lock_settings_enter_pin" msgid="1669172111244633904">"PIN eingeben"</string>
     <string name="lock_settings_enter_password" msgid="2636669926649496367">"Passwort eingeben"</string>
     <string name="choose_lock_pin_message" msgid="2963792070267774417">"Richte zur Sicherheit eine PIN ein"</string>
@@ -593,7 +649,7 @@
     <string name="lockpassword_pin_too_long" msgid="62957683396974404">"PIN muss weniger als <xliff:g id="NUMBER">%d</xliff:g> Ziffern haben"</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"Es dürfen nur Ziffern von 0 bis 9 enthalten sein."</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"Der Geräteadministrator hat festgelegt, dass bereits verwendete PINs nicht noch einmal verwendet werden dürfen"</string>
-    <string name="lockpassword_pin_blacklisted_by_admin" msgid="7412709707800738442">"Dein IT-Administrator hat die Verwendung allzu häufiger PINs blockiert. Versuch es mit einer anderen PIN."</string>
+    <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"Dein IT-Administrator hat die Verwendung allzu häufiger PINs blockiert. Versuch es mit einer anderen PIN."</string>
     <string name="lockpassword_illegal_character" msgid="1984970060523635618">"Ungültige Zeichen sind nicht zulässig."</string>
     <string name="lockpassword_invalid_password" msgid="1690956113717418430">"Ungültiges Passwort – muss mindestens 4 Zeichen haben."</string>
     <plurals name="lockpassword_password_requires_letters" formatted="false" msgid="424616259312760303">
@@ -622,7 +678,7 @@
     </plurals>
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"Der Geräteadministrator hat festgelegt, dass bereits verwendete Passwörter nicht noch einmal verwendet werden dürfen"</string>
     <string name="error_saving_password" msgid="8334882262622500658">"Fehler beim Speichern des Passworts"</string>
-    <string name="lockpassword_password_blacklisted_by_admin" msgid="7965893810326503891">"Dein IT-Administrator hat die Verwendung allzu häufiger Passwörter blockiert. Versuch es mit einem anderen Passwort."</string>
+    <string name="lockpassword_password_denylisted_by_admin" msgid="8611831198794524730">"Dein IT-Administrator hat die Verwendung allzu häufiger Passwörter blockiert. Versuch es mit einem anderen Passwort."</string>
     <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"Aufsteigende, absteigende oder sich wiederholende Ziffernfolgen sind unzulässig."</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"Optionen für die Displaysperre"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g>: vor <xliff:g id="NUM_DAYS">%3$s</xliff:g> Tagen"</string>
@@ -643,10 +699,24 @@
     <string name="enter_key" msgid="2121394305541579468">"Schlüssel eingeben"</string>
     <string name="exit_retail_button_text" msgid="6093240315583384473">"Demo beenden"</string>
     <string name="exit_retail_mode_dialog_title" msgid="7970631760237469168">"Demomodus beenden"</string>
-    <string name="exit_retail_mode_dialog_body" msgid="8314316171782527301">"Dadurch wird das Demokonto gelöscht und das System auf die Werkseinstellungen zurückgesetzt. Dabei gehen alle Nutzerdaten verloren."</string>
+    <string name="exit_retail_mode_dialog_body" msgid="6513854703627380365">"Dadurch wird das Demokonto gelöscht und das System auf die Werkseinstellungen zurückgesetzt. Dabei gehen alle Profildaten verloren."</string>
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"Demo beenden"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"SCHLIEẞEN"</string>
     <string name="restricted_while_driving" msgid="6587569249519274524">"Funktion während der Fahrt nicht verfügbar"</string>
-    <string name="add_user_restricted_while_driving" msgid="4754946754222453656">"Während der Fahrt kann kein Nutzer hinzugefügt werden"</string>
+    <string name="add_user_restricted_while_driving" msgid="1037301074725362944">"Während der Fahrt kann kein Profil hinzugefügt werden"</string>
     <string name="default_search_query" msgid="3137420627428857068">"Suche"</string>
+    <string name="assistant_and_voice_setting_title" msgid="737733881661819853">"Assistant &amp; Voice"</string>
+    <string name="assistant_and_voice_assistant_app_title" msgid="5981647244625171285">"App für digitalen Assistenten"</string>
+    <string name="assistant_and_voice_use_text_from_screen_title" msgid="5851460943413795599">"Text auf Bildschirm verwenden"</string>
+    <string name="assistant_and_voice_use_text_from_screen_summary" msgid="4161751708121301541">"Assistenten Zugriff auf Bildschirminhalte erlauben"</string>
+    <string name="assistant_and_voice_use_screenshot_title" msgid="1930735578425470046">"Screenshot verwenden"</string>
+    <string name="assistant_and_voice_use_screenshot_summary" msgid="3738474919393817950">"Assistenten Zugriff auf Bildschirmbild erlauben"</string>
+    <string name="notifications_recently_sent" msgid="9051696542615302799">"Vor Kurzem gesendet"</string>
+    <string name="notifications_all_apps" msgid="3557079551048958846">"Alle Apps"</string>
+    <string name="profiles_and_accounts_settings_title" msgid="2672643892127659812">"Profile &amp; Konten"</string>
+    <string name="manage_other_profiles_button_text" msgid="2262188413455510828">"Andere Profile verwalten"</string>
+    <string name="add_a_profile_button_text" msgid="8027395095117925114">"Profil hinzufügen"</string>
+    <string name="delete_this_profile_text" msgid="6035404714526922665">"Profil löschen"</string>
+    <string name="add_profile_text" msgid="9118410102199116969">"Profil hinzufügen"</string>
+    <string name="power_component_disabled" msgid="7084144472096800457">"Diese Einstellung kann momentan nicht geändert werden"</string>
 </resources>

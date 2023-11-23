@@ -56,6 +56,7 @@ static const char *pattrs[] = {
         "output-bin-supported",
         "print-color-mode-supported",
         "print-quality-supported",
+        "printer-output-tray",
         "printer-resolution-supported",
         "sides-supported",
         "printer-device-id",
@@ -65,7 +66,9 @@ static const char *pattrs[] = {
         "pclm-compression-method-preferred",
         "pclm-source-resolution-supported",
         "pwg-raster-document-sheet-back",
-        "document-format-details-supported"
+        "document-format-details-supported",
+        "media-ready",
+        "media-col-ready"
 };
 
 static void _init(const ifc_printer_capabilities_t *this_p,

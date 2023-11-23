@@ -16,8 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="car_permission_label" msgid="741004755205554376">"存取車輛的資訊"</string>
-    <string name="car_permission_desc" msgid="162499818870052725">"存取車輛資訊。"</string>
+    <string name="car_permission_label" msgid="2215078736675564541">"車輛資訊"</string>
+    <string name="car_permission_desc" msgid="3584369074931334964">"存取車輛資訊"</string>
     <string name="car_permission_label_camera" msgid="3725702064841827180">"存取車輛的攝影機"</string>
     <string name="car_permission_desc_camera" msgid="917024932164501426">"存取車輛攝影機。"</string>
     <string name="car_permission_label_energy" msgid="7409144323527821558">"存取車輛的能源資訊"</string>
@@ -62,6 +62,8 @@
     <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="5073596870485006783">"接收儀錶板資料"</string>
     <string name="car_permission_label_car_ux_restrictions_configuration" msgid="6801393970411049725">"使用者體驗限制設定"</string>
     <string name="car_permission_desc_car_ux_restrictions_configuration" msgid="5711926927484813777">"設定使用者體驗限制"</string>
+    <string name="car_permission_label_access_private_display_id" msgid="6712116114341634316">"不公開螢幕 ID 的讀取權限"</string>
+    <string name="car_permission_desc_access_private_display_id" msgid="8535974477610944721">"授予不公開螢幕 ID 的讀取權限"</string>
     <string name="car_permission_label_car_handle_usb_aoap_device" msgid="72783989504378036">"使用 AOAP 模式與 USB 裝置通訊"</string>
     <string name="car_permission_desc_car_handle_usb_aoap_device" msgid="273505990971317034">"允許應用程式使用 AOAP 模式與裝置通訊"</string>
     <string name="car_permission_label_read_car_occupant_awareness_state" msgid="125517953575032758">"Occupant Awareness System 讀取權限"</string>
@@ -91,6 +93,18 @@
     <string name="car_permission_desc_storage_monitoring" msgid="2075712271139671318">"監控快閃記憶體用量"</string>
     <string name="car_permission_label_driving_state" msgid="7754624599537393650">"監聽駕駛狀態"</string>
     <string name="car_permission_desc_driving_state" msgid="2684025262811635737">"監聽駕駛狀態變更。"</string>
+    <string name="car_permission_label_use_telemetry_service" msgid="948005838683758846">"使用車輛遙測服務"</string>
+    <string name="car_permission_desc_use_telemetry_service" msgid="3633214312435700766">"收集車輛系統的健康狀態資料。"</string>
+    <string name="car_permission_label_use_evs_service" msgid="1729276125209310607">"使用車輛 EVS 服務"</string>
+    <string name="car_permission_desc_use_evs_service" msgid="2374737642186632816">"訂閱 EVS 視訊串流"</string>
+    <string name="car_permission_label_request_evs_activity" msgid="3906551972883482883">"要求 EVS 預覽活動"</string>
+    <string name="car_permission_desc_request_evs_activity" msgid="4582768053649138488">"要求系統啟動 EVS 預覽活動"</string>
+    <string name="car_permission_label_control_evs_activity" msgid="2030069860204405679">"控管 EVS 預覽活動"</string>
+    <string name="car_permission_desc_control_evs_activity" msgid="691646545916976346">"控管系統的 EVS 預覽活動"</string>
+    <string name="car_permission_label_use_evs_camera" msgid="3607720208623955067">"使用 EVS 攝影機"</string>
+    <string name="car_permission_desc_use_evs_camera" msgid="1625845902221003985">"訂閱 EVS 攝影機串流畫面"</string>
+    <string name="car_permission_label_monitor_evs_status" msgid="2091521314159379622">"監控 EVS 服務狀態"</string>
+    <string name="car_permission_desc_monitor_evs_status" msgid="2764278897143573535">"注意 EVS 服務狀態變更"</string>
     <string name="car_permission_label_car_engine_detailed" msgid="8911992719173587337">"存取車輛的引擎詳細資料"</string>
     <string name="car_permission_desc_car_engine_detailed" msgid="1746863362811347700">"存取車輛的詳細引擎資訊。"</string>
     <string name="car_permission_label_car_energy_ports" msgid="8548990315169219454">"存取車輛的油孔蓋和充電口"</string>
@@ -113,6 +127,10 @@
     <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"存取車商權限資訊。"</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"讀取車輛外部燈光狀態"</string>
     <string name="car_permission_desc_car_exterior_lights" msgid="4038037584100849318">"存取車輛外部燈光狀態。"</string>
+    <string name="car_permission_label_car_epoch_time" msgid="6303397910662625112">"存取車輛的 Epoch 紀元時間"</string>
+    <string name="car_permission_desc_car_epoch_time" msgid="398907082895238558">"存取車輛的 Epoch 紀元時間。"</string>
+    <string name="car_permission_label_encryption_binding_seed" msgid="4652180636501144684">"存取車輛的加密繫結種子"</string>
+    <string name="car_permission_desc_encryption_binding_seed" msgid="6290944678417286024">"存取車輛的加密繫結種子。"</string>
     <string name="car_permission_label_control_car_exterior_lights" msgid="101357531386232141">"讀取車輛外部燈光"</string>
     <string name="car_permission_desc_control_car_exterior_lights" msgid="6332252612685264180">"控制車輛外部燈光。"</string>
     <string name="car_permission_label_car_interior_lights" msgid="8506302199784427680">"讀取車輛內部燈光"</string>
@@ -141,6 +159,27 @@
     <string name="car_permission_desc_control_car_features" msgid="7646711104530599901">"啟用或停用車輛的功能。"</string>
     <string name="car_permission_label_use_car_watchdog" msgid="6973938293170413475">"使用車輛監控計時器"</string>
     <string name="car_permission_desc_use_car_watchdog" msgid="8244592601805516086">"使用車輛監控計時器。"</string>
+    <string name="car_permission_label_control_car_watchdog_config" msgid="7002301555689209243">"控管車輛監控計時器設定"</string>
+    <string name="car_permission_desc_control_car_watchdog_config" msgid="2276721198186100781">"控管車輛監控計時器設定。"</string>
+    <string name="car_permission_label_collect_car_watchdog_metrics" msgid="6868646053065666480">"收集車輛監控計時器指標"</string>
+    <string name="car_permission_desc_collect_car_watchdog_metrics" msgid="5712074376194601441">"收集車輛監控計時器指標。"</string>
+    <string name="car_permission_label_read_car_power_policy" msgid="4597484321338979324">"讀取車輛電源政策"</string>
+    <string name="car_permission_desc_read_car_power_policy" msgid="5430714179790601808">"讀取車輛電源政策。"</string>
+    <string name="car_permission_label_control_car_power_policy" msgid="6840069695926008330">"控制車輛電源政策"</string>
+    <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"控制車輛電源政策。"</string>
+    <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"算繪範本"</string>
+    <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"算繪範本。"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"我的裝置"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"訪客"</string>
+    <string name="importance_default" msgid="8587741629268312938">"預設重要性"</string>
+    <string name="importance_high" msgid="3141530792377745041">"高重要性"</string>
+    <string name="factory_reset_notification_title" msgid="2530056626309489398">"必須恢復原廠設定"</string>
+    <string name="factory_reset_notification_text" msgid="6517642677900094724">"系統將清除資訊娛樂系統中的所有資料。重設完成後即可設定新的設定檔。"</string>
+    <string name="factory_reset_notification_button" msgid="5450535366202106371">"更多"</string>
+    <string name="factory_reset_parked_title" msgid="258340498079453871">"重設資訊娛樂系統"</string>
+    <string name="factory_reset_parked_text" msgid="910347526834275166">"系統已收到恢復原廠設定並清除所有資料的要求。你可選擇立即重設，或是讓系統在下次車輛發動時進行重設。重設完成後即可設定新的設定檔。"</string>
+    <string name="factory_reset_now_button" msgid="1245040835119663310">"立即重設"</string>
+    <string name="factory_reset_later_button" msgid="2401829720674483843">"稍後重設"</string>
+    <string name="factory_reset_later_text" msgid="5896142140528784784">"資訊娛樂系統將在下次車輛發動時重設。"</string>
+    <string name="factory_reset_driving_text" msgid="6702298505761254553">"必須停車才能啟動重設程序。"</string>
 </resources>

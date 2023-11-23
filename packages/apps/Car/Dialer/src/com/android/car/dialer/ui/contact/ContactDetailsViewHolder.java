@@ -16,11 +16,12 @@
 
 package com.android.car.dialer.ui.contact;
 
+import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
-import android.net.Uri;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -33,6 +34,7 @@ import com.android.car.apps.common.BackgroundImageView;
 import com.android.car.apps.common.LetterTileDrawable;
 import com.android.car.apps.common.util.ViewUtils;
 import com.android.car.dialer.R;
+import com.android.car.dialer.log.L;
 import com.android.car.dialer.telecom.UiCallManager;
 import com.android.car.dialer.ui.view.ContactAvatarOutputlineProvider;
 import com.android.car.telephony.common.Contact;
@@ -41,14 +43,26 @@ import com.android.car.telephony.common.PostalAddress;
 import com.android.car.telephony.common.TelecomUtils;
 
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.DataSource;
+import com.bumptech.glide.load.engine.GlideException;
+import com.bumptech.glide.request.RequestListener;
 import com.bumptech.glide.request.RequestOptions;
-import com.bumptech.glide.request.target.SimpleTarget;
-import com.bumptech.glide.request.transition.Transition;
+import com.bumptech.glide.request.target.Target;
+
+import java.util.List;
+
+import dagger.assisted.Assisted;
+import dagger.assisted.AssistedFactory;
+import dagger.assisted.AssistedInject;
 
 /**
  * ViewHolder for {@link ContactDetailsFragment}.
  */
 class ContactDetailsViewHolder extends RecyclerView.ViewHolder {
+    private static final String TAG = "CD.ContactDetailsVH";
+
+    private final UiCallManager mUiCallManager;
+
     // Applies to all
     @NonNull
     private final TextView mTitle;
@@ -78,10 +92,13 @@ class ContactDetailsViewHolder extends RecyclerView.ViewHolder {
     @NonNull
     private final ContactDetailsAdapter.PhoneNumberPresenter mPhoneNumberPresenter;
 
+    @AssistedInject
     ContactDetailsViewHolder(
-            View v,
-            @NonNull ContactDetailsAdapter.PhoneNumberPresenter phoneNumberPresenter) {
+            @Assisted @NonNull View v,
+            @Assisted @NonNull ContactDetailsAdapter.PhoneNumberPresenter phoneNumberPresenter,
+            UiCallManager uiCallManager) {
         super(v);
+        mUiCallManager = uiCallManager;
         mCallActionView = v.findViewById(R.id.call_action_id);
         mFavoriteActionView = v.findViewById(R.id.contact_details_favorite_button);
         mAddressView = v.findViewById(R.id.address_button);
@@ -123,32 +140,30 @@ class ContactDetailsViewHolder extends RecyclerView.ViewHolder {
         Glide.with(context)
                 .load(contact.getAvatarUri())
                 .apply(new RequestOptions().centerCrop().error(letterTile))
-                .into(new SimpleTarget<Drawable>() {
+                .listener(new RequestListener<Drawable>() {
                     @Override
-                    public void onResourceReady(Drawable resource,
-                            Transition<? super Drawable> glideAnimation) {
-                        if (mAvatarView != null) {
-                            mAvatarView.setImageDrawable(resource);
-                        }
-                        if (mBackgroundImageView != null) {
-                            mBackgroundImageView.setAlpha(context.getResources().getFloat(
-                                    R.dimen.config_background_image_alpha));
-                            mBackgroundImageView.setBackgroundDrawable(resource, false);
-                        }
-                    }
-
-                    @Override
-                    public void onLoadFailed(Drawable errorDrawable) {
-                        if (mAvatarView != null) {
-                            mAvatarView.setImageDrawable(letterTile);
-                        }
+                    public boolean onLoadFailed(@Nullable GlideException e, Object model,
+                            Target<Drawable> target, boolean isFirstResource) {
                         if (mBackgroundImageView != null) {
                             mBackgroundImageView.setAlpha(context.getResources().getFloat(
                                     R.dimen.config_background_image_error_alpha));
                             mBackgroundImageView.setBackgroundColor(letterTile.getColor());
                         }
+                        return false;
                     }
-                });
+
+                    @Override
+                    public boolean onResourceReady(Drawable resource, Object model,
+                            Target<Drawable> target, DataSource dataSource,
+                            boolean isFirstResource) {
+                        if (mBackgroundImageView != null) {
+                            mBackgroundImageView.setAlpha(context.getResources().getFloat(
+                                    R.dimen.config_background_image_alpha));
+                            mBackgroundImageView.setBackgroundDrawable(resource, false);
+                        }
+                        return false;
+                    }
+                }).into(mAvatarView);
     }
 
     public void bind(Context context, Contact contact, PhoneNumber phoneNumber) {
@@ -167,7 +182,7 @@ class ContactDetailsViewHolder extends RecyclerView.ViewHolder {
         }
 
         mCallActionView.setOnClickListener(
-                v -> UiCallManager.get().placeCall(phoneNumber.getRawNumber()));
+                v -> mUiCallManager.placeCall(phoneNumber.getRawNumber()));
 
         if (phoneNumber.isFavorite() || !contact.isStarred()) {
             // If the phone number is marked as favorite locally, enable the action button to
@@ -199,11 +214,33 @@ class ContactDetailsViewHolder extends RecyclerView.ViewHolder {
 
         mAddressView.setOnClickListener(
                 v -> openMapWithMapIntent(context, postalAddress.getAddressIntent(resources)));
-        mNavigationButton.setOnClickListener(
-                v -> openMapWithMapIntent(context, postalAddress.getNavigationIntent(resources)));
+
+        Intent intent = postalAddress.getNavigationIntent(resources);
+        List<ResolveInfo> infos = context.getPackageManager().queryIntentActivities(intent, 0);
+
+        if (infos.size() > 0) {
+            mNavigationButton.setVisibility(View.VISIBLE);
+            mNavigationButton.setOnClickListener(v -> openMapWithMapIntent(context, intent));
+        } else {
+            mNavigationButton.setVisibility(View.GONE);
+        }
     }
 
     private void openMapWithMapIntent(Context context, Intent mapIntent) {
-        context.startActivity(mapIntent);
+        try {
+            context.startActivity(mapIntent);
+        } catch (ActivityNotFoundException e) {
+            L.w(TAG, "Map is not available.");
+        }
+    }
+
+    /**
+     * Factory to create {@link ContactDetailsViewHolder} instances via the {@link AssistedInject}
+     * constructor.
+     */
+    @AssistedFactory
+    interface Factory {
+        ContactDetailsViewHolder create(@NonNull View v,
+                @NonNull ContactDetailsAdapter.PhoneNumberPresenter phoneNumberPresenter);
     }
 }

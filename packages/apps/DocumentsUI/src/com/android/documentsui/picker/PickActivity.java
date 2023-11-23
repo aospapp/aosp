@@ -121,6 +121,7 @@ public class PickActivity extends BaseActivity implements ActionHandler.Addons {
         mInjector.actionModeController = new ActionModeController(
                 this,
                 mInjector.selectionMgr,
+                mNavigator,
                 mInjector.menuManager,
                 mInjector.messages);
 

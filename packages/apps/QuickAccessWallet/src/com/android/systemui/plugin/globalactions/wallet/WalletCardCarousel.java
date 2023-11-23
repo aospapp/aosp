@@ -22,6 +22,7 @@ import android.content.Context;
 import android.graphics.Rect;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
+import android.util.TypedValue;
 import android.view.HapticFeedbackConstants;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -47,7 +48,6 @@ class WalletCardCarousel extends RecyclerView {
 
     // A negative card margin is required because card shrinkage pushes the cards too far apart
     private static final float CARD_MARGIN_RATIO = -.03f;
-    private static final float CARD_SCREEN_WIDTH_RATIO = .69f;
     // Size of the unselected card as a ratio to size of selected card.
     private static final float UNSELECTED_CARD_SCALE = .83f;
     private static final float CORNER_RADIUS_RATIO = 25f / 700f;
@@ -102,10 +102,14 @@ class WalletCardCarousel extends RecyclerView {
 
     public WalletCardCarousel(Context context, @Nullable AttributeSet attributeSet) {
         super(context, attributeSet);
+        TypedValue outValue = new TypedValue();
+        getResources().getValue(R.dimen.card_screen_width_ratio, outValue, true);
+        final float cardScreenWidthRatio = outValue.getFloat();
+
         setLayoutManager(new LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false));
         DisplayMetrics metrics = getResources().getDisplayMetrics();
         mScreenWidth = Math.min(metrics.widthPixels, metrics.heightPixels);
-        mCardWidthPx = Math.round(mScreenWidth * CARD_SCREEN_WIDTH_RATIO);
+        mCardWidthPx = Math.round(mScreenWidth * cardScreenWidthRatio);
         mCardHeightPx = Math.round(mCardWidthPx / CARD_ASPECT_RATIO);
         mCornerRadiusPx = mCardWidthPx * CORNER_RADIUS_RATIO;
         mCardMarginPx = Math.round(mScreenWidth * CARD_MARGIN_RATIO);

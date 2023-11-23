@@ -110,7 +110,7 @@ public class TimeShiftManager {
     private static final int MSG_GET_CURRENT_POSITION = 1000;
     private static final int MSG_PREFETCH_PROGRAM = 1001;
     private static final long REQUEST_CURRENT_POSITION_INTERVAL = TimeUnit.SECONDS.toMillis(1);
-    private static final long MAX_DUMMY_PROGRAM_DURATION = TimeUnit.MINUTES.toMillis(30);
+    private static final long MAX_PLACEHOLDER_PROGRAM_DURATION = TimeUnit.MINUTES.toMillis(30);
     @VisibleForTesting static final long INVALID_TIME = -1;
     static final long CURRENT_TIME = -2;
     private static final long PREFETCH_TIME_OFFSET_FROM_PROGRAM_END = TimeUnit.MINUTES.toMillis(1);
@@ -489,7 +489,7 @@ public class TimeShiftManager {
         Program program = mProgramManager.getProgramAt(timeMs);
         if (program == null) {
             // Guard just in case when the program prefetch handler doesn't work on time.
-            mProgramManager.addDummyProgramsAt(timeMs);
+            mProgramManager.addPlaceholderProgramsAt(timeMs);
             program = mProgramManager.getProgramAt(timeMs);
         }
         return program;
@@ -544,8 +544,8 @@ public class TimeShiftManager {
     /**
      * Returns the current program which airs right now.
      *
-     * <p>If the program is a dummy program, which means there's no program information, returns
-     * {@code null}.
+     * <p>If the program is a placeholder program, which means there's no program information,
+     * returns {@code null}.
      */
     @Nullable
     public Program getCurrentProgram() {
@@ -909,11 +909,11 @@ public class TimeShiftManager {
                     prefetchStartTimeMs = program.getEndTimeUtcMillis();
                 } else {
                     prefetchStartTimeMs =
-                            Utils.floorTime(currentPositionMs, MAX_DUMMY_PROGRAM_DURATION);
+                            Utils.floorTime(currentPositionMs, MAX_PLACEHOLDER_PROGRAM_DURATION);
                 }
-                // Create dummy program
+                // Create placeholder program
                 mPrograms.addAll(
-                        createDummyPrograms(
+                        createPlaceholderPrograms(
                                 prefetchStartTimeMs,
                                 currentPositionMs + PREFETCH_DURATION_FOR_NEXT));
                 schedulePrefetchPrograms();
@@ -929,12 +929,12 @@ public class TimeShiftManager {
                 endTimeMs = System.currentTimeMillis();
             }
 
-            long fetchStartTimeMs = Utils.floorTime(startTimeMs, MAX_DUMMY_PROGRAM_DURATION);
+            long fetchStartTimeMs = Utils.floorTime(startTimeMs, MAX_PLACEHOLDER_PROGRAM_DURATION);
             long fetchEndTimeMs =
                     Utils.ceilTime(
-                            endTimeMs + PREFETCH_DURATION_FOR_NEXT, MAX_DUMMY_PROGRAM_DURATION);
+                            endTimeMs + PREFETCH_DURATION_FOR_NEXT, MAX_PLACEHOLDER_PROGRAM_DURATION);
             removeOutdatedPrograms(fetchStartTimeMs);
-            boolean needToLoad = addDummyPrograms(fetchStartTimeMs, fetchEndTimeMs);
+            boolean needToLoad = addPlaceholderPrograms(fetchStartTimeMs, fetchEndTimeMs);
             if (needToLoad) {
                 Range<Long> period = Range.create(fetchStartTimeMs, fetchEndTimeMs);
                 mProgramLoadQueue.add(period);
@@ -983,60 +983,60 @@ public class TimeShiftManager {
             }
         }
 
-        void addDummyProgramsAt(long timeMs) {
-            addDummyPrograms(timeMs, timeMs + PREFETCH_DURATION_FOR_NEXT);
+        void addPlaceholderProgramsAt(long timeMs) {
+            addPlaceholderPrograms(timeMs, timeMs + PREFETCH_DURATION_FOR_NEXT);
         }
 
-        private boolean addDummyPrograms(Range<Long> period) {
-            return addDummyPrograms(period.getLower(), period.getUpper());
+        private boolean addPlaceholderPrograms(Range<Long> period) {
+            return addPlaceholderPrograms(period.getLower(), period.getUpper());
         }
 
-        private boolean addDummyPrograms(long startTimeMs, long endTimeMs) {
+        private boolean addPlaceholderPrograms(long startTimeMs, long endTimeMs) {
             boolean added = false;
             if (mPrograms.isEmpty()) {
-                // Insert dummy program.
-                mPrograms.addAll(createDummyPrograms(startTimeMs, endTimeMs));
+                // Insert placeholder program.
+                mPrograms.addAll(createPlaceholderPrograms(startTimeMs, endTimeMs));
                 return true;
             }
-            // Insert dummy program to the head of the list if needed.
+            // Insert placeholder program to the head of the list if needed.
             Program firstProgram = mPrograms.get(0);
             if (startTimeMs < firstProgram.getStartTimeUtcMillis()) {
                 if (!firstProgram.isValid()) {
-                    // Already the firstProgram is dummy.
+                    // Already the firstProgram is a placeholder.
                     mPrograms.remove(0);
                     mPrograms.addAll(
                             0,
-                            createDummyPrograms(startTimeMs, firstProgram.getEndTimeUtcMillis()));
+                            createPlaceholderPrograms(startTimeMs, firstProgram.getEndTimeUtcMillis()));
                 } else {
                     mPrograms.addAll(
                             0,
-                            createDummyPrograms(startTimeMs, firstProgram.getStartTimeUtcMillis()));
+                            createPlaceholderPrograms(startTimeMs, firstProgram.getStartTimeUtcMillis()));
                 }
                 added = true;
             }
-            // Insert dummy program to the tail of the list if needed.
+            // Insert placeholder program to the tail of the list if needed.
             Program lastProgram = mPrograms.get(mPrograms.size() - 1);
             if (endTimeMs > lastProgram.getEndTimeUtcMillis()) {
                 if (!lastProgram.isValid()) {
-                    // Already the lastProgram is dummy.
+                    // Already the lastProgram is a placeholder.
                     mPrograms.remove(mPrograms.size() - 1);
                     mPrograms.addAll(
-                            createDummyPrograms(lastProgram.getStartTimeUtcMillis(), endTimeMs));
+                            createPlaceholderPrograms(lastProgram.getStartTimeUtcMillis(), endTimeMs));
                 } else {
                     mPrograms.addAll(
-                            createDummyPrograms(lastProgram.getEndTimeUtcMillis(), endTimeMs));
+                            createPlaceholderPrograms(lastProgram.getEndTimeUtcMillis(), endTimeMs));
                 }
                 added = true;
             }
-            // Insert dummy programs if the holes exist in the list.
+            // Insert placeholder programs if the holes exist in the list.
             for (int i = 1; i < mPrograms.size(); ++i) {
                 long endOfPrevious = mPrograms.get(i - 1).getEndTimeUtcMillis();
                 long startOfCurrent = mPrograms.get(i).getStartTimeUtcMillis();
                 if (startOfCurrent > endOfPrevious) {
-                    List<Program> dummyPrograms =
-                            createDummyPrograms(endOfPrevious, startOfCurrent);
-                    mPrograms.addAll(i, dummyPrograms);
-                    i += dummyPrograms.size();
+                    List<Program> placeholderPrograms =
+                            createPlaceholderPrograms(endOfPrevious, startOfCurrent);
+                    mPrograms.addAll(i, placeholderPrograms);
+                    i += placeholderPrograms.size();
                     added = true;
                 }
             }
@@ -1049,7 +1049,7 @@ public class TimeShiftManager {
             }
         }
 
-        private void removeDummyPrograms() {
+        private void removePlaceholderPrograms() {
             for (Iterator<Program> it = mPrograms.listIterator(); it.hasNext(); ) {
                 if (!it.next().isValid()) {
                     it.remove();
@@ -1084,18 +1084,18 @@ public class TimeShiftManager {
             }
         }
 
-        // Returns a list of dummy programs.
-        // The maximum duration of a dummy program is {@link MAX_DUMMY_PROGRAM_DURATION}.
+        // Returns a list of placeholder programs.
+        // The maximum duration of a placeholder program is {@link MAX_PLACEHOLDER_PROGRAM_DURATION}.
         // So if the duration ({@code endTimeMs}-{@code startTimeMs}) is greater than the duration,
-        // we need to create multiple dummy programs.
+        // we need to create multiple placeholder programs.
         // The reason of the limitation of the duration is because we want the trick play viewer
-        // to show the time-line duration of {@link MAX_DUMMY_PROGRAM_DURATION} at most
-        // for a dummy program.
-        private List<Program> createDummyPrograms(long startTimeMs, long endTimeMs) {
+        // to show the time-line duration of {@link MAX_PLACEHOLDER_PROGRAM_DURATION} at most
+        // for a placeholder program.
+        private List<Program> createPlaceholderPrograms(long startTimeMs, long endTimeMs) {
             SoftPreconditions.checkArgument(
                     endTimeMs - startTimeMs <= TWO_WEEKS_MS,
                     TAG,
-                    "createDummyProgram: long duration of dummy programs are requested ( %s , %s)",
+                    "createPlaceholderProgram: long duration of placeholder programs are requested ( %s , %s)",
                     Utils.toTimeString(startTimeMs),
                     Utils.toTimeString(endTimeMs));
             if (startTimeMs >= endTimeMs) {
@@ -1103,7 +1103,7 @@ public class TimeShiftManager {
             }
             List<Program> programs = new ArrayList<>();
             long start = startTimeMs;
-            long end = Utils.ceilTime(startTimeMs, MAX_DUMMY_PROGRAM_DURATION);
+            long end = Utils.ceilTime(startTimeMs, MAX_PLACEHOLDER_PROGRAM_DURATION);
             while (end < endTimeMs) {
                 programs.add(
                         new ProgramImpl.Builder()
@@ -1111,7 +1111,7 @@ public class TimeShiftManager {
                                 .setEndTimeUtcMillis(end)
                                 .build());
                 start = end;
-                end += MAX_DUMMY_PROGRAM_DURATION;
+                end += MAX_PLACEHOLDER_PROGRAM_DURATION;
             }
             programs.add(
                     new ProgramImpl.Builder()
@@ -1256,7 +1256,7 @@ public class TimeShiftManager {
                 }
                 if (programs == null || programs.isEmpty()) {
                     mEmptyFetchCount++;
-                    if (addDummyPrograms(mPeriod)) {
+                    if (addPlaceholderPrograms(mPeriod)) {
                         TimeShiftManager.this.onProgramInfoChanged();
                     }
                     schedulePrefetchPrograms();
@@ -1265,7 +1265,7 @@ public class TimeShiftManager {
                 }
                 mEmptyFetchCount = 0;
                 if (!mPrograms.isEmpty()) {
-                    removeDummyPrograms();
+                    removePlaceholderPrograms();
                     removeOverlappedPrograms(programs);
                     Program loadedProgram = programs.get(0);
                     for (int i = 0; i < mPrograms.size() && !programs.isEmpty(); ++i) {
@@ -1282,7 +1282,7 @@ public class TimeShiftManager {
                     }
                 }
                 mPrograms.addAll(programs);
-                addDummyPrograms(mPeriod);
+                addPlaceholderPrograms(mPeriod);
                 TimeShiftManager.this.onProgramInfoChanged();
                 schedulePrefetchPrograms();
                 startNextLoadingIfNeeded();

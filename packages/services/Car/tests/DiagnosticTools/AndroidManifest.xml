@@ -16,11 +16,13 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.google.android.car.diagnostictools">
+     package="com.google.android.car.diagnostictools">
     <uses-permission android:name="android.car.permission.CAR_DIAGNOSTICS"/>
     <uses-permission android:name="android.car.permission.CLEAR_CAR_DIAGNOSTICS"/>
-    <application android:label="OBD-II Diagnostic Tools" android:theme="@style/AppTheme">
-        <activity android:name=".ECUListActivity">
+    <application android:label="OBD-II Diagnostic Tools"
+         android:theme="@style/AppTheme">
+        <activity android:name=".ECUListActivity"
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>

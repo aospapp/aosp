@@ -102,21 +102,38 @@ public final class UserHalServiceTest {
     private static final String TAG = UserHalServiceTest.class.getSimpleName();
 
     /**
-     * Timeout passed to {@link UserHalService} methods
+     * Timeout passed to {@link UserHalService} methods. This is the timeout for which
+     * {@link UserHalService} wait for the property change event and return
+     * {@link HalCallback.STATUS_HAL_RESPONSE_TIMEOUT} if HAL doesn't respond. This timeout is used
+     * where we expect HAL to return something and {@link UserHalService} methods are not expected
+     * to timeout. Tests are not supposed to wait for this much so this value can be high. If test
+     * requires HAL to timeout, then use {@link HAL_TIMEOUT_MS}.
      */
-    private static final int TIMEOUT_MS = 50;
+    private static final int HAL_TIMEOUT_MS = 5_000;
 
     /**
-     * Timeout for {@link GenericHalCallback#assertCalled()} for tests where the HAL is supposed to
-     * return something - it's a short time so it doesn't impact the test duration.
+     * Timeout passed to {@link UserHalService} methods only if test expects that call will be
+     * timeout and {@link HalCallback.STATUS_HAL_RESPONSE_TIMEOUT} is expected response. A higher
+     * value for this is going to slow down tests. If this timeout is used, then it is expected that
+     * {@link HalCallback.STATUS_HAL_RESPONSE_TIMEOUT} is checked.
      */
-    private static final int CALLBACK_TIMEOUT_SUCCESS = TIMEOUT_MS + 50;
+    private static final int HAL_TIMEOUT_FOR_NEGATIVE_TESTS_MS = 250;
 
     /**
-     * Timeout for {@link GenericHalCallback#assertCalled()} for tests where the HAL is not supposed
-     * to return anything - it's a slightly longer to make sure the test doesn't fail prematurely.
+     * If tests expect {@link UserHalService} call to timeout, and if they require to sleep then
+     * sleep for this much time. This value should be higher than {@link HAL_TIMEOUT_MS}. A much
+     * higher value for this is going to slow down the test.
      */
-    private static final int CALLBACK_TIMEOUT_TIMEOUT = TIMEOUT_MS + 450;
+    private static final int WAITING_TIME_FOR_NEGATIVE_TESTS_MS = HAL_TIMEOUT_FOR_NEGATIVE_TESTS_MS
+            + 100;
+
+    /**
+     * Timeout for {@link GenericHalCallback#assertCalled()} for tests. In each case,
+     * {@link UserHalService} is supposed to return something - either a valid response or a
+     * timeout. This timeout is for the callback to wait for the response. A higher value of this
+     * timeout should not affect the test duration.
+     */
+    private static final int CALLBACK_TIMEOUT = 5_000;
 
     // Used when crafting a request property - the real value will be set by the mock.
     private static final int REQUEST_ID_PLACE_HOLDER = 1111;
@@ -254,7 +271,7 @@ public final class UserHalServiceTest {
         UserHalService myHalService = new UserHalService(mVehicleHal);
 
         assertThrows(IllegalStateException.class, () -> myHalService.getInitialUserInfo(COLD_BOOT,
-                TIMEOUT_MS, mUsersInfo, noOpCallback()));
+                HAL_TIMEOUT_MS, mUsersInfo, noOpCallback()));
     }
 
     @Test
@@ -267,14 +284,14 @@ public final class UserHalServiceTest {
 
     @Test
     public void testGetUserInfo_noUsersInfo() {
-        assertThrows(NullPointerException.class, () ->
-                mUserHalService.getInitialUserInfo(COLD_BOOT, TIMEOUT_MS, null, noOpCallback()));
+        assertThrows(NullPointerException.class, () -> mUserHalService.getInitialUserInfo(COLD_BOOT,
+                HAL_TIMEOUT_MS, null, noOpCallback()));
     }
 
     @Test
     public void testGetUserInfo_noCallback() {
         assertThrows(NullPointerException.class,
-                () -> mUserHalService.getInitialUserInfo(COLD_BOOT, TIMEOUT_MS,
+                () -> mUserHalService.getInitialUserInfo(COLD_BOOT, HAL_TIMEOUT_MS,
                         mUsersInfo, null));
     }
 
@@ -283,8 +300,8 @@ public final class UserHalServiceTest {
         replySetPropertyWithTimeoutException(INITIAL_USER_INFO);
 
         GenericHalCallback<InitialUserInfoResponse> callback = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_TIMEOUT);
-        mUserHalService.getInitialUserInfo(COLD_BOOT, TIMEOUT_MS, mUsersInfo,
+                CALLBACK_TIMEOUT);
+        mUserHalService.getInitialUserInfo(COLD_BOOT, HAL_TIMEOUT_MS, mUsersInfo,
                 callback);
 
         callback.assertCalled();
@@ -292,15 +309,15 @@ public final class UserHalServiceTest {
         assertThat(callback.response).isNull();
 
         // Make sure the pending request was removed
-        SystemClock.sleep(CALLBACK_TIMEOUT_TIMEOUT);
+        SystemClock.sleep(WAITING_TIME_FOR_NEGATIVE_TESTS_MS);
         callback.assertNotCalledAgain();
     }
 
     @Test
     public void testGetUserInfo_halDidNotReply() throws Exception {
         GenericHalCallback<InitialUserInfoResponse> callback = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_TIMEOUT);
-        mUserHalService.getInitialUserInfo(COLD_BOOT, TIMEOUT_MS, mUsersInfo,
+                CALLBACK_TIMEOUT);
+        mUserHalService.getInitialUserInfo(COLD_BOOT, HAL_TIMEOUT_FOR_NEGATIVE_TESTS_MS, mUsersInfo,
                 callback);
 
         callback.assertCalled();
@@ -311,12 +328,12 @@ public final class UserHalServiceTest {
     @Test
     public void testGetUserInfo_secondCallFailWhilePending() throws Exception {
         GenericHalCallback<InitialUserInfoResponse> callback1 = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_TIMEOUT);
+                CALLBACK_TIMEOUT);
         GenericHalCallback<InitialUserInfoResponse> callback2 = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_TIMEOUT);
-        mUserHalService.getInitialUserInfo(COLD_BOOT, TIMEOUT_MS, mUsersInfo,
+                CALLBACK_TIMEOUT);
+        mUserHalService.getInitialUserInfo(COLD_BOOT, HAL_TIMEOUT_FOR_NEGATIVE_TESTS_MS, mUsersInfo,
                 callback1);
-        mUserHalService.getInitialUserInfo(COLD_BOOT, TIMEOUT_MS, mUsersInfo,
+        mUserHalService.getInitialUserInfo(COLD_BOOT, HAL_TIMEOUT_MS, mUsersInfo,
                 callback2);
 
         callback1.assertCalled();
@@ -337,8 +354,8 @@ public final class UserHalServiceTest {
                 /* rightRequestId= */ false);
 
         GenericHalCallback<InitialUserInfoResponse> callback = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_TIMEOUT);
-        mUserHalService.getInitialUserInfo(COLD_BOOT, TIMEOUT_MS, mUsersInfo,
+                CALLBACK_TIMEOUT);
+        mUserHalService.getInitialUserInfo(COLD_BOOT, HAL_TIMEOUT_FOR_NEGATIVE_TESTS_MS, mUsersInfo,
                 callback);
 
         callback.assertCalled();
@@ -355,8 +372,8 @@ public final class UserHalServiceTest {
                 INITIAL_USER_INFO, propResponse, /* rightRequestId= */ true);
 
         GenericHalCallback<InitialUserInfoResponse> callback = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_SUCCESS);
-        mUserHalService.getInitialUserInfo(COLD_BOOT, TIMEOUT_MS, mUsersInfo,
+                CALLBACK_TIMEOUT);
+        mUserHalService.getInitialUserInfo(COLD_BOOT, HAL_TIMEOUT_MS, mUsersInfo,
                 callback);
 
         callback.assertCalled();
@@ -378,8 +395,8 @@ public final class UserHalServiceTest {
                 INITIAL_USER_INFO, propResponse, /* rightRequestId= */ true);
 
         GenericHalCallback<InitialUserInfoResponse> callback = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_SUCCESS);
-        mUserHalService.getInitialUserInfo(COLD_BOOT, TIMEOUT_MS, mUsersInfo,
+                CALLBACK_TIMEOUT);
+        mUserHalService.getInitialUserInfo(COLD_BOOT, HAL_TIMEOUT_MS, mUsersInfo,
                 callback);
 
         callback.assertCalled();
@@ -408,8 +425,8 @@ public final class UserHalServiceTest {
                 INITIAL_USER_INFO, propResponse, /* rightRequestId= */ true);
 
         GenericHalCallback<InitialUserInfoResponse> callback = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_SUCCESS);
-        mUserHalService.getInitialUserInfo(COLD_BOOT, TIMEOUT_MS, mUsersInfo,
+                CALLBACK_TIMEOUT);
+        mUserHalService.getInitialUserInfo(COLD_BOOT, HAL_TIMEOUT_MS, mUsersInfo,
                 callback);
 
         callback.assertCalled();
@@ -441,8 +458,8 @@ public final class UserHalServiceTest {
                 INITIAL_USER_INFO, propResponse, /* rightRequestId= */ true);
 
         GenericHalCallback<InitialUserInfoResponse> callback = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_SUCCESS);
-        mUserHalService.getInitialUserInfo(COLD_BOOT, TIMEOUT_MS, mUsersInfo,
+                CALLBACK_TIMEOUT);
+        mUserHalService.getInitialUserInfo(COLD_BOOT, HAL_TIMEOUT_MS, mUsersInfo,
                 callback);
 
         callback.assertCalled();
@@ -475,7 +492,7 @@ public final class UserHalServiceTest {
 
         assertThrows(IllegalStateException.class,
                 () -> myHalService.switchUser(createUserSwitchRequest(mUser10, mUsersInfo),
-                        TIMEOUT_MS, noOpCallback()));
+                        HAL_TIMEOUT_MS, noOpCallback()));
     }
 
     @Test
@@ -489,25 +506,27 @@ public final class UserHalServiceTest {
     @Test
     public void testSwitchUser_noUsersInfo() {
         assertThrows(IllegalArgumentException.class, () -> mUserHalService
-                .switchUser(createUserSwitchRequest(mUser10, null), TIMEOUT_MS, noOpCallback()));
+                .switchUser(createUserSwitchRequest(mUser10, null), HAL_TIMEOUT_MS,
+                        noOpCallback()));
     }
 
     @Test
     public void testSwitchUser_noCallback() {
         assertThrows(NullPointerException.class, () -> mUserHalService
-                .switchUser(createUserSwitchRequest(mUser10, mUsersInfo), TIMEOUT_MS, null));
+                .switchUser(createUserSwitchRequest(mUser10, mUsersInfo), HAL_TIMEOUT_MS, null));
     }
 
     @Test
     public void testSwitchUser_nullRequest() {
         assertThrows(NullPointerException.class, () -> mUserHalService
-                .switchUser(null, TIMEOUT_MS, noOpCallback()));
+                .switchUser(null, HAL_TIMEOUT_MS, noOpCallback()));
     }
 
     @Test
     public void testSwitchUser_noTarget() {
         assertThrows(NullPointerException.class, () -> mUserHalService
-                .switchUser(createUserSwitchRequest(null, mUsersInfo), TIMEOUT_MS, noOpCallback()));
+                .switchUser(createUserSwitchRequest(null, mUsersInfo), HAL_TIMEOUT_MS,
+                        noOpCallback()));
     }
 
     @Test
@@ -515,8 +534,9 @@ public final class UserHalServiceTest {
         replySetPropertyWithTimeoutException(SWITCH_USER);
 
         GenericHalCallback<SwitchUserResponse> callback = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_TIMEOUT);
-        mUserHalService.switchUser(createUserSwitchRequest(mUser10, mUsersInfo), TIMEOUT_MS,
+                CALLBACK_TIMEOUT);
+        mUserHalService.switchUser(createUserSwitchRequest(mUser10, mUsersInfo),
+                HAL_TIMEOUT_FOR_NEGATIVE_TESTS_MS,
                 callback);
 
         callback.assertCalled();
@@ -524,15 +544,16 @@ public final class UserHalServiceTest {
         assertThat(callback.response).isNull();
 
         // Make sure the pending request was removed
-        SystemClock.sleep(CALLBACK_TIMEOUT_TIMEOUT);
+        SystemClock.sleep(WAITING_TIME_FOR_NEGATIVE_TESTS_MS);
         callback.assertNotCalledAgain();
     }
 
     @Test
     public void testSwitchUser_halDidNotReply() throws Exception {
         GenericHalCallback<SwitchUserResponse> callback = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_TIMEOUT);
-        mUserHalService.switchUser(createUserSwitchRequest(mUser10, mUsersInfo), TIMEOUT_MS,
+                CALLBACK_TIMEOUT);
+        mUserHalService.switchUser(createUserSwitchRequest(mUser10, mUsersInfo),
+                HAL_TIMEOUT_FOR_NEGATIVE_TESTS_MS,
                 callback);
 
         callback.assertCalled();
@@ -549,8 +570,9 @@ public final class UserHalServiceTest {
                 /* rightRequestId= */ false);
 
         GenericHalCallback<SwitchUserResponse> callback = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_TIMEOUT);
-        mUserHalService.switchUser(createUserSwitchRequest(mUser10, mUsersInfo), TIMEOUT_MS,
+                CALLBACK_TIMEOUT);
+        mUserHalService.switchUser(createUserSwitchRequest(mUser10, mUsersInfo),
+                HAL_TIMEOUT_FOR_NEGATIVE_TESTS_MS,
                 callback);
 
         callback.assertCalled();
@@ -568,8 +590,8 @@ public final class UserHalServiceTest {
                 SWITCH_USER, propResponse, /* rightRequestId= */ true);
 
         GenericHalCallback<SwitchUserResponse> callback = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_SUCCESS);
-        mUserHalService.switchUser(createUserSwitchRequest(mUser10, mUsersInfo), TIMEOUT_MS,
+                CALLBACK_TIMEOUT);
+        mUserHalService.switchUser(createUserSwitchRequest(mUser10, mUsersInfo), HAL_TIMEOUT_MS,
                 callback);
 
         callback.assertCalled();
@@ -593,8 +615,8 @@ public final class UserHalServiceTest {
                 SWITCH_USER, propResponse, /* rightRequestId= */ true);
 
         GenericHalCallback<SwitchUserResponse> callback = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_SUCCESS);
-        mUserHalService.switchUser(createUserSwitchRequest(mUser10, mUsersInfo), TIMEOUT_MS,
+                CALLBACK_TIMEOUT);
+        mUserHalService.switchUser(createUserSwitchRequest(mUser10, mUsersInfo), HAL_TIMEOUT_MS,
                 callback);
 
         callback.assertCalled();
@@ -622,8 +644,8 @@ public final class UserHalServiceTest {
                 SWITCH_USER, propResponse, /* rightRequestId= */ true);
 
         GenericHalCallback<SwitchUserResponse> callback = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_SUCCESS);
-        mUserHalService.switchUser(createUserSwitchRequest(mUser10, mUsersInfo), TIMEOUT_MS,
+                CALLBACK_TIMEOUT);
+        mUserHalService.switchUser(createUserSwitchRequest(mUser10, mUsersInfo), HAL_TIMEOUT_MS,
                 callback);
 
         callback.assertCalled();
@@ -643,12 +665,13 @@ public final class UserHalServiceTest {
     @Test
     public void testSwitchUser_secondCallFailWhilePending() throws Exception {
         GenericHalCallback<SwitchUserResponse> callback1 = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_TIMEOUT);
+                CALLBACK_TIMEOUT);
         GenericHalCallback<SwitchUserResponse> callback2 = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_TIMEOUT);
-        mUserHalService.switchUser(createUserSwitchRequest(mUser10, mUsersInfo), TIMEOUT_MS,
+                CALLBACK_TIMEOUT);
+        mUserHalService.switchUser(createUserSwitchRequest(mUser10, mUsersInfo),
+                HAL_TIMEOUT_FOR_NEGATIVE_TESTS_MS,
                 callback1);
-        mUserHalService.switchUser(createUserSwitchRequest(mUser10, mUsersInfo), TIMEOUT_MS,
+        mUserHalService.switchUser(createUserSwitchRequest(mUser10, mUsersInfo), HAL_TIMEOUT_MS,
                 callback2);
 
         callback1.assertCalled();
@@ -670,8 +693,8 @@ public final class UserHalServiceTest {
                 SWITCH_USER, propResponse, /* rightRequestId= */ true);
 
         GenericHalCallback<SwitchUserResponse> callback = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_SUCCESS);
-        mUserHalService.switchUser(createUserSwitchRequest(mUser10, mUsersInfo), TIMEOUT_MS,
+                CALLBACK_TIMEOUT);
+        mUserHalService.switchUser(createUserSwitchRequest(mUser10, mUsersInfo), HAL_TIMEOUT_MS,
                 callback);
 
         callback.assertCalled();
@@ -869,13 +892,14 @@ public final class UserHalServiceTest {
         UserHalService myHalService = new UserHalService(mVehicleHal);
 
         assertThrows(IllegalStateException.class,
-                () -> myHalService.createUser(new CreateUserRequest(), TIMEOUT_MS, noOpCallback()));
+                () -> myHalService.createUser(new CreateUserRequest(), HAL_TIMEOUT_MS,
+                        noOpCallback()));
     }
 
     @Test
     public void testCreateUser_noRequest() {
         assertThrows(NullPointerException.class, () -> mUserHalService
-                .createUser(null, TIMEOUT_MS, noOpCallback()));
+                .createUser(null, HAL_TIMEOUT_MS, noOpCallback()));
     }
 
     @Test
@@ -893,7 +917,7 @@ public final class UserHalServiceTest {
         request.usersInfo.existingUsers.add(request.newUserInfo);
 
         assertThrows(NullPointerException.class, () -> mUserHalService
-                .createUser(request, TIMEOUT_MS, null));
+                .createUser(request, HAL_TIMEOUT_MS, null));
     }
 
     /**
@@ -912,23 +936,25 @@ public final class UserHalServiceTest {
         replySetPropertyWithTimeoutException(CREATE_USER);
 
         GenericHalCallback<CreateUserResponse> callback = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_TIMEOUT);
-        mUserHalService.createUser(newValidCreateUserRequest(), TIMEOUT_MS, callback);
+                CALLBACK_TIMEOUT);
+        mUserHalService.createUser(newValidCreateUserRequest(), HAL_TIMEOUT_FOR_NEGATIVE_TESTS_MS,
+                callback);
 
         callback.assertCalled();
         assertCallbackStatus(callback, HalCallback.STATUS_HAL_SET_TIMEOUT);
         assertThat(callback.response).isNull();
 
         // Make sure the pending request was removed
-        SystemClock.sleep(CALLBACK_TIMEOUT_TIMEOUT);
+        SystemClock.sleep(WAITING_TIME_FOR_NEGATIVE_TESTS_MS);
         callback.assertNotCalledAgain();
     }
 
     @Test
     public void testCreateUser_halDidNotReply() throws Exception {
         GenericHalCallback<CreateUserResponse> callback = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_TIMEOUT);
-        mUserHalService.createUser(newValidCreateUserRequest(), TIMEOUT_MS, callback);
+                CALLBACK_TIMEOUT);
+        mUserHalService.createUser(newValidCreateUserRequest(), HAL_TIMEOUT_FOR_NEGATIVE_TESTS_MS,
+                callback);
 
         callback.assertCalled();
         assertCallbackStatus(callback, HalCallback.STATUS_HAL_RESPONSE_TIMEOUT);
@@ -944,8 +970,9 @@ public final class UserHalServiceTest {
                 /* rightRequestId= */ false);
 
         GenericHalCallback<CreateUserResponse> callback = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_TIMEOUT);
-        mUserHalService.createUser(newValidCreateUserRequest(), TIMEOUT_MS, callback);
+                CALLBACK_TIMEOUT);
+        mUserHalService.createUser(newValidCreateUserRequest(), HAL_TIMEOUT_FOR_NEGATIVE_TESTS_MS,
+                callback);
 
         callback.assertCalled();
         assertCallbackStatus(callback, HalCallback.STATUS_HAL_RESPONSE_TIMEOUT);
@@ -965,8 +992,8 @@ public final class UserHalServiceTest {
         request.newUserInfo = mUser10;
         request.usersInfo = mUsersInfo;
         GenericHalCallback<CreateUserResponse> callback = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_SUCCESS);
-        mUserHalService.createUser(request, TIMEOUT_MS, callback);
+                CALLBACK_TIMEOUT);
+        mUserHalService.createUser(request, HAL_TIMEOUT_MS, callback);
 
         callback.assertCalled();
 
@@ -994,8 +1021,8 @@ public final class UserHalServiceTest {
         request.newUserInfo = mUser10;
         request.usersInfo = mUsersInfo;
         GenericHalCallback<CreateUserResponse> callback = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_SUCCESS);
-        mUserHalService.createUser(request, TIMEOUT_MS, callback);
+                CALLBACK_TIMEOUT);
+        mUserHalService.createUser(request, HAL_TIMEOUT_MS, callback);
 
         callback.assertCalled();
 
@@ -1012,11 +1039,12 @@ public final class UserHalServiceTest {
     @Test
     public void testCreateUser_secondCallFailWhilePending() throws Exception {
         GenericHalCallback<CreateUserResponse> callback1 = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_TIMEOUT);
+                CALLBACK_TIMEOUT);
         GenericHalCallback<CreateUserResponse> callback2 = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_TIMEOUT);
-        mUserHalService.createUser(newValidCreateUserRequest(), TIMEOUT_MS, callback1);
-        mUserHalService.createUser(newValidCreateUserRequest(), TIMEOUT_MS, callback2);
+                CALLBACK_TIMEOUT);
+        mUserHalService.createUser(newValidCreateUserRequest(), HAL_TIMEOUT_FOR_NEGATIVE_TESTS_MS,
+                callback1);
+        mUserHalService.createUser(newValidCreateUserRequest(), HAL_TIMEOUT_MS, callback2);
 
         callback1.assertCalled();
         assertCallbackStatus(callback1, HalCallback.STATUS_HAL_RESPONSE_TIMEOUT);
@@ -1037,8 +1065,8 @@ public final class UserHalServiceTest {
                 CREATE_USER, propResponse, /* rightRequestId= */ true);
 
         GenericHalCallback<CreateUserResponse> callback = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_SUCCESS);
-        mUserHalService.createUser(newValidCreateUserRequest(), TIMEOUT_MS, callback);
+                CALLBACK_TIMEOUT);
+        mUserHalService.createUser(newValidCreateUserRequest(), HAL_TIMEOUT_MS, callback);
 
         callback.assertCalled();
 
@@ -1170,8 +1198,9 @@ public final class UserHalServiceTest {
         // Cannot use mUserHalService because it's already set with supported properties
         UserHalService myHalService = new UserHalService(mVehicleHal);
 
-        assertThrows(IllegalStateException.class, () -> myHalService.setUserAssociation(TIMEOUT_MS,
-                new UserIdentificationSetRequest(), noOpCallback()));
+        assertThrows(IllegalStateException.class,
+                () -> myHalService.setUserAssociation(HAL_TIMEOUT_MS,
+                        new UserIdentificationSetRequest(), noOpCallback()));
     }
 
     @Test
@@ -1186,14 +1215,14 @@ public final class UserHalServiceTest {
     @Test
     public void testSetUserAssociation_nullRequest() {
         assertThrows(NullPointerException.class, () ->
-                mUserHalService.setUserAssociation(TIMEOUT_MS, null, noOpCallback()));
+                mUserHalService.setUserAssociation(HAL_TIMEOUT_MS, null, noOpCallback()));
     }
 
     @Test
     public void testSetUserAssociation_nullCallback() {
         UserIdentificationSetRequest request = new UserIdentificationSetRequest();
         assertThrows(NullPointerException.class, () ->
-                mUserHalService.setUserAssociation(TIMEOUT_MS, request, null));
+                mUserHalService.setUserAssociation(HAL_TIMEOUT_MS, request, null));
     }
 
     @Test
@@ -1207,24 +1236,24 @@ public final class UserHalServiceTest {
         request.associations.add(association1);
 
         assertThrows(IllegalArgumentException.class, () ->
-                mUserHalService.setUserAssociation(TIMEOUT_MS, request, noOpCallback()));
+                mUserHalService.setUserAssociation(HAL_TIMEOUT_MS, request, noOpCallback()));
     }
 
     @Test
     public void testSetUserAssociation_halSetTimedOut() throws Exception {
         UserIdentificationSetRequest request = validUserIdentificationSetRequest();
         GenericHalCallback<UserIdentificationResponse> callback = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_TIMEOUT);
+                CALLBACK_TIMEOUT);
         replySetPropertyWithTimeoutException(USER_IDENTIFICATION_ASSOCIATION);
 
-        mUserHalService.setUserAssociation(TIMEOUT_MS, request, callback);
+        mUserHalService.setUserAssociation(HAL_TIMEOUT_FOR_NEGATIVE_TESTS_MS, request, callback);
 
         callback.assertCalled();
         assertCallbackStatus(callback, HalCallback.STATUS_HAL_SET_TIMEOUT);
         assertThat(callback.response).isNull();
 
         // Make sure the pending request was removed
-        SystemClock.sleep(CALLBACK_TIMEOUT_TIMEOUT);
+        SystemClock.sleep(WAITING_TIME_FOR_NEGATIVE_TESTS_MS);
         callback.assertNotCalledAgain();
     }
 
@@ -1232,9 +1261,9 @@ public final class UserHalServiceTest {
     public void testSetUserAssociation_halDidNotReply() throws Exception {
         UserIdentificationSetRequest request = validUserIdentificationSetRequest();
         GenericHalCallback<UserIdentificationResponse> callback = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_TIMEOUT);
+                CALLBACK_TIMEOUT);
 
-        mUserHalService.setUserAssociation(TIMEOUT_MS, request, callback);
+        mUserHalService.setUserAssociation(HAL_TIMEOUT_FOR_NEGATIVE_TESTS_MS, request, callback);
 
         callback.assertCalled();
         assertCallbackStatus(callback, HalCallback.STATUS_HAL_RESPONSE_TIMEOUT);
@@ -1245,12 +1274,12 @@ public final class UserHalServiceTest {
     public void testSetUserAssociation_secondCallFailWhilePending() throws Exception {
         UserIdentificationSetRequest request = validUserIdentificationSetRequest();
         GenericHalCallback<UserIdentificationResponse> callback1 = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_TIMEOUT);
+                CALLBACK_TIMEOUT);
         GenericHalCallback<UserIdentificationResponse> callback2 = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_TIMEOUT);
+                CALLBACK_TIMEOUT);
 
-        mUserHalService.setUserAssociation(TIMEOUT_MS, request, callback1);
-        mUserHalService.setUserAssociation(TIMEOUT_MS, request, callback2);
+        mUserHalService.setUserAssociation(HAL_TIMEOUT_FOR_NEGATIVE_TESTS_MS, request, callback1);
+        mUserHalService.setUserAssociation(HAL_TIMEOUT_MS, request, callback2);
 
         callback1.assertCalled();
         assertCallbackStatus(callback1, HalCallback.STATUS_HAL_RESPONSE_TIMEOUT);
@@ -1270,9 +1299,9 @@ public final class UserHalServiceTest {
                 USER_IDENTIFICATION_ASSOCIATION, propResponse, /* rightRequestId= */ true);
         UserIdentificationSetRequest request = replyToValidSetUserIdentificationRequest();
         GenericHalCallback<UserIdentificationResponse> callback = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_TIMEOUT);
+                CALLBACK_TIMEOUT);
 
-        mUserHalService.setUserAssociation(TIMEOUT_MS, request, callback);
+        mUserHalService.setUserAssociation(HAL_TIMEOUT_MS, request, callback);
 
         // Assert request
         verifyValidSetUserIdentificationRequestMade(propRequest.get());
@@ -1295,9 +1324,9 @@ public final class UserHalServiceTest {
                 USER_IDENTIFICATION_ASSOCIATION, propResponse, /* rightRequestId= */ true);
         UserIdentificationSetRequest request = replyToValidSetUserIdentificationRequest();
         GenericHalCallback<UserIdentificationResponse> callback = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_TIMEOUT);
+                CALLBACK_TIMEOUT);
 
-        mUserHalService.setUserAssociation(TIMEOUT_MS, request, callback);
+        mUserHalService.setUserAssociation(HAL_TIMEOUT_MS, request, callback);
 
         // Assert request
         verifyValidSetUserIdentificationRequestMade(propRequest.get());
@@ -1322,9 +1351,9 @@ public final class UserHalServiceTest {
                 USER_IDENTIFICATION_ASSOCIATION, propResponse, /* rightRequestId= */ true);
         UserIdentificationSetRequest request = replyToValidSetUserIdentificationRequest();
         GenericHalCallback<UserIdentificationResponse> callback = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_TIMEOUT);
+                CALLBACK_TIMEOUT);
 
-        mUserHalService.setUserAssociation(TIMEOUT_MS, request, callback);
+        mUserHalService.setUserAssociation(HAL_TIMEOUT_MS, request, callback);
 
         // Assert request
         verifyValidSetUserIdentificationRequestMade(propRequest.get());
@@ -1347,9 +1376,9 @@ public final class UserHalServiceTest {
                 USER_IDENTIFICATION_ASSOCIATION, propResponse, /* rightRequestId= */ true);
         UserIdentificationSetRequest request = replyToValidSetUserIdentificationRequest();
         GenericHalCallback<UserIdentificationResponse> callback = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_TIMEOUT);
+                CALLBACK_TIMEOUT);
 
-        mUserHalService.setUserAssociation(TIMEOUT_MS, request, callback);
+        mUserHalService.setUserAssociation(HAL_TIMEOUT_MS, request, callback);
 
         // Assert request
         verifyValidSetUserIdentificationRequestMade(propRequest.get());
@@ -1372,9 +1401,9 @@ public final class UserHalServiceTest {
                 USER_IDENTIFICATION_ASSOCIATION, propResponse, /* rightRequestId= */ true);
         UserIdentificationSetRequest request = replyToValidSetUserIdentificationRequest();
         GenericHalCallback<UserIdentificationResponse> callback = new GenericHalCallback<>(
-                CALLBACK_TIMEOUT_TIMEOUT);
+                CALLBACK_TIMEOUT);
 
-        mUserHalService.setUserAssociation(TIMEOUT_MS, request, callback);
+        mUserHalService.setUserAssociation(HAL_TIMEOUT_MS, request, callback);
 
         // Assert request
         verifyValidSetUserIdentificationRequestMade(propRequest.get());
@@ -1521,7 +1550,7 @@ public final class UserHalServiceTest {
      * Run empty runnable to make sure that all posted handlers are done.
      */
     private void waitForHandler() {
-        mHandler.runWithScissors(() -> { }, /* Default timeout */ CALLBACK_TIMEOUT_TIMEOUT);
+        mHandler.runWithScissors(() -> { }, /* Default timeout */ CALLBACK_TIMEOUT);
     }
 
     private void mockNextRequestId(int requestId) {
@@ -1617,14 +1646,14 @@ public final class UserHalServiceTest {
 
         @Override
         public void onResponse(int status, R response) {
-            Log.d(TAG, "onResponse(): status=" + status + ", response=" +  response);
-            this.status = status;
-            this.response = response;
+            Log.d(TAG, "onResponse(): status=" + status + ", response=" + response);
             if (mLatch.getCount() == 0) {
                 Log.e(TAG, "Already responded");
                 mExtraCalls.add(new Pair<>(status, response));
                 return;
             }
+            this.status = status;
+            this.response = response;
             mLatch.countDown();
         }
 

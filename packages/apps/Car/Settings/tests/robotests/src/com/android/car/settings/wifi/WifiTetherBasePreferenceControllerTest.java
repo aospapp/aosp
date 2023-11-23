@@ -18,6 +18,9 @@ package com.android.car.settings.wifi;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.content.Intent;
@@ -96,36 +99,13 @@ public class WifiTetherBasePreferenceControllerTest {
                 new PreferenceControllerTestHelper<TestWifiTetherBasePreferenceController>(mContext,
                         TestWifiTetherBasePreferenceController.class, mPreference);
         mController = mControllerHelper.getController();
+        when(mControllerHelper.getMockFragmentController().getSettingsLifecycle())
+                .thenReturn(mock(Lifecycle.class));
     }
 
     @After
     public void tearDown() {
         ShadowCarWifiManager.reset();
-    }
-
-    @Test
-    public void onStart_shouldStartCarWifiManager() {
-        mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_START);
-        assertThat(getShadowCarWifiManager().getCurrentState())
-                .isEqualTo(getShadowCarWifiManager().STATE_STARTED);
-    }
-
-    @Test
-    public void onStop_shouldStopCarWifiManager() {
-        mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_START);
-        mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_STOP);
-
-        assertThat(getShadowCarWifiManager().getCurrentState())
-                .isEqualTo(getShadowCarWifiManager().STATE_STOPPED);
-    }
-
-    @Test
-    public void onDestroy_shouldDestroyCarWifiManager() {
-        mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_START);
-        mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_DESTROY);
-
-        assertThat(getShadowCarWifiManager().getCurrentState())
-                .isEqualTo(getShadowCarWifiManager().STATE_DESTROYED);
     }
 
     @Test
@@ -179,6 +159,6 @@ public class WifiTetherBasePreferenceControllerTest {
     }
 
     private ShadowCarWifiManager getShadowCarWifiManager() {
-        return Shadow.extract(new CarWifiManager(mContext));
+        return Shadow.extract(new CarWifiManager(mContext, mock(Lifecycle.class)));
     }
 }

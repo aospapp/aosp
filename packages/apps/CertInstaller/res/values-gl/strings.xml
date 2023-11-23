@@ -50,7 +50,7 @@
     <string name="invalid_certificate_message" msgid="3508065546083182733">"Este ficheiro non se pode usar como <xliff:g id="CERTIFICATE_USAGE">%1$s</xliff:g>"</string>
     <string name="certificate" msgid="8790577925509962529">"certificado"</string>
     <string name="ca_certificate" msgid="7397198551290322945">"certificado de CA"</string>
-    <string name="user_certificate" msgid="514888069820553128">"Certificado de usuario de aplicacións e VPN"</string>
+    <string name="user_certificate" msgid="514888069820553128">"Cert. de usuario de VPN e app"</string>
     <string name="wifi_certificate" msgid="5356595832360140989">"certificado de wifi"</string>
     <string name="ca_cert_is_added" msgid="2847081843756291802">"Instalouse o certificado de CA"</string>
     <string name="user_cert_is_added" msgid="3088794616560630823">"Instalouse o certificado de usuario"</string>

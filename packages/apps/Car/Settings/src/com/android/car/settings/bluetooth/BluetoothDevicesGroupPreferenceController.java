@@ -20,7 +20,9 @@ import android.annotation.CallSuper;
 import android.bluetooth.BluetoothAdapter;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
+import android.os.UserManager;
 
+import androidx.annotation.VisibleForTesting;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceGroup;
 
@@ -28,6 +30,7 @@ import com.android.car.settings.common.FragmentController;
 import com.android.settingslib.bluetooth.BluetoothCallback;
 import com.android.settingslib.bluetooth.BluetoothDeviceFilter;
 import com.android.settingslib.bluetooth.CachedBluetoothDevice;
+import com.android.settingslib.bluetooth.LocalBluetoothManager;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -60,6 +63,14 @@ public abstract class BluetoothDevicesGroupPreferenceController extends
     public BluetoothDevicesGroupPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
+    }
+
+    @VisibleForTesting
+    BluetoothDevicesGroupPreferenceController(Context context, String preferenceKey,
+            FragmentController fragmentController, CarUxRestrictions uxRestrictions,
+            LocalBluetoothManager localBluetoothManager, UserManager userManager) {
+        super(context, preferenceKey, fragmentController, uxRestrictions, localBluetoothManager,
+                userManager);
     }
 
     @Override

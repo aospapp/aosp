@@ -19,6 +19,8 @@ LOCAL_JAVA_LIBRARIES := tv-common
 
 LOCAL_INSTRUMENTATION_FOR := LiveTv
 LOCAL_MODULE := tv-tuner-testing
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MODULE_TAGS := optional
 LOCAL_SDK_VERSION := system_current
 

@@ -50,6 +50,7 @@
     <string name="voice_number_setting_primary_user_only" msgid="3394706575741912843">"只有主用户才能修改语音信箱设置。"</string>
     <string name="puk_unlocked" msgid="4627340655215746511">"您的SIM卡已解锁。正在解锁您的手机..."</string>
     <string name="label_ndp" msgid="7617392683877410341">"SIM 网络解锁 PIN 码"</string>
+    <string name="label_phoneid" msgid="8775611434123577808">"已锁定以下运营商的 SIM 卡："</string>
     <string name="sim_ndp_unlock_text" msgid="7737338355451978338">"解锁"</string>
     <string name="sim_ndp_dismiss_text" msgid="89667342248929777">"关闭"</string>
     <string name="requesting_unlock" msgid="930512210309437741">"正在请求网络解锁..."</string>
@@ -123,6 +124,13 @@
     <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"转接到 <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfnrc_disabled" msgid="739289696796917683">"关闭"</string>
     <string name="disable_cfnrc_forbidden" msgid="775348748084726890">"您的运营商不支持在手机无法接通时停用来电转接功能。"</string>
+    <string name="registration_cf_forbidden" msgid="4386482610771190420">"您的运营商不支持来电转接功能。"</string>
+    <string name="cdma_call_waiting" msgid="4565070960879673216">"要启用来电等待吗？"</string>
+    <string name="enable_cdma_call_waiting_setting" msgid="5906811747921744307">"如果您在通话期间接到来电，则会收到通知"</string>
+    <string name="enable_cdma_cw" msgid="811047045863422232">"开启"</string>
+    <string name="disable_cdma_cw" msgid="7119290446496301734">"取消"</string>
+    <string name="cdma_call_waiting_in_ims_on" msgid="6390979414188659218">"基于 IMS 的 CDMA 来电等待功能已开启"</string>
+    <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"基于 IMS 的 CDMA 来电等待功能已关闭"</string>
     <string name="updating_title" msgid="6130548922615719689">"通话设置"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"只有管理员用户才能更改通话设置。"</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"设置（<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>）"</string>
@@ -286,6 +294,9 @@
     <string name="limited_sim_function_notification_title" msgid="612715399099846281">"SIM 卡功能受限"</string>
     <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"使用 <xliff:g id="PHONE_NUMBER">%2$s</xliff:g> 时，系统可能会屏蔽<xliff:g id="CARRIER_NAME">%1$s</xliff:g>通话和数据服务。"</string>
     <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"使用另一张 SIM 卡时，系统可能会屏蔽<xliff:g id="CARRIER_NAME">%1$s</xliff:g>通话和数据服务。"</string>
+    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"系统已找到并移除已弃用的 SIP 帐号"</string>
+    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"SIP 通话已不再受 Android 平台支持。\n您现有的 SIP 帐号 <xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g> 已被移除。\n请确认您的默认通话帐号设置。"</string>
+    <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"转到设置"</string>
     <string name="data_usage_title" msgid="8438592133893837464">"应用的流量使用情况"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"<xliff:g id="ID_2">%2$s</xliff:g>期间使用的移动数据流量为：<xliff:g id="ID_1">%1$s</xliff:g>"</string>
     <string name="advanced_options_title" msgid="9208195294513520934">"高级"</string>
@@ -504,6 +515,7 @@
     <string name="puk2_requested" msgid="6992374450720307514">"密码不正确。SIM 卡已锁定。请输入 PUK2 码。"</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"PUK2码已被永远锁定。"</string>
     <string name="pin2_attempts" msgid="5625178102026453023">\n"您还可以尝试输入 <xliff:g id="NUMBER">%d</xliff:g> 次。"</string>
+    <string name="puk2_locked" msgid="6497760825455461057">"SIM 卡已通过 PUK2 进行锁定。请联系服务提供商来解锁。"</string>
     <string name="pin2_unblocked" msgid="4481107908727789303">"PIN2 码已解除锁定"</string>
     <string name="pin2_error_exception" msgid="8116103864600823641">"网络或 SIM 卡错误"</string>
     <string name="doneButton" msgid="7371209609238460207">"完成"</string>
@@ -525,6 +537,7 @@
     <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"需开启移动网络，并关闭飞行模式或省电模式才能拨打电话。"</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"需关闭飞行模式才能拨打电话。"</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"需关闭飞行模式或连接至无线网络才能拨打电话。"</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"手机过热"</b>\n\n"无法完成此通话。请先让手机降温，然后再重试。\n\n您仍然可以拨打紧急呼救电话。"</string>
     <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"要拨打非紧急电话，请先退出紧急回拨模式。"</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"尚未注册网络。"</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"无法连接到移动网络"</string>
@@ -867,7 +880,6 @@
     <string name="radio_info_dds" msgid="1122593144425697126">"默认数据 SIM 卡的 SubId："</string>
     <string name="radio_info_dl_kbps" msgid="2382922659525318726">"DL 带宽 (kbps)："</string>
     <string name="radio_info_ul_kbps" msgid="2102225400904799036">"UL 带宽 (kbps)："</string>
-    <string name="radio_info_signal_location_label" msgid="6188435197086550049">"移动网络位置信息（已弃用）："</string>
     <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"LTE 物理信道配置："</string>
     <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"移动网络信息刷新频率："</string>
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"所有移动网络测量信息："</string>
@@ -898,6 +910,11 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"刷新"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"切换 DNS 检查"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"特定 OEM 的信息/设置"</string>
+    <string name="radio_info_endc_available" msgid="4410653375290113436">"4G/5G 双连接可用："</string>
+    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"5G 双连接受限："</string>
+    <string name="radio_info_nr_available" msgid="1321318331361249997">"5G 可用："</string>
+    <string name="radio_info_nr_state" msgid="1337571996788535356">"5G 状态："</string>
+    <string name="radio_info_nr_frequency" msgid="1201156032796584128">"5G 频率："</string>
     <string name="band_mode_title" msgid="7988822920724576842">"设置无线装置频道模式"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"正在加载频道列表…"</string>
     <string name="band_mode_set" msgid="6657819412803771421">"设置"</string>
@@ -907,4 +924,7 @@
     <string name="phone_info_label" product="default" msgid="1784175881556791433">"手机信息"</string>
     <string name="carrier_provisioning" msgid="2668065041869578376">"运营商配置信息"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"触发运营商配置"</string>
+    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"您的蓝牙信号较弱。请尝试切换为扬声器模式。"</string>
+    <string name="call_quality_notification_name" msgid="3476828289553948830">"通话质量通知"</string>
+    <string name="notification_channel_sip_account" msgid="1261816025156179637">"已弃用的 SIP 帐号"</string>
 </resources>

@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.eap.statemachine;
+package com.android.internal.net.eap.test.statemachine;
 
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.EAP_REQUEST_IDENTITY_PACKET;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.EAP_REQUEST_NOTIFICATION_PACKET;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.EAP_REQUEST_SIM_START_PACKET;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.EAP_RESPONSE_NOTIFICATION_PACKET;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_REQUEST_IDENTITY_PACKET;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_REQUEST_NOTIFICATION_PACKET;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_REQUEST_SIM_START_PACKET;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_RESPONSE_NOTIFICATION_PACKET;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertTrue;
@@ -29,10 +29,10 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
-import com.android.internal.net.eap.EapResult;
-import com.android.internal.net.eap.EapResult.EapResponse;
-import com.android.internal.net.eap.statemachine.EapStateMachine.IdentityState;
-import com.android.internal.net.eap.statemachine.EapStateMachine.MethodState;
+import com.android.internal.net.eap.test.EapResult;
+import com.android.internal.net.eap.test.EapResult.EapResponse;
+import com.android.internal.net.eap.test.statemachine.EapStateMachine.IdentityState;
+import com.android.internal.net.eap.test.statemachine.EapStateMachine.MethodState;
 
 import org.junit.Before;
 import org.junit.Test;

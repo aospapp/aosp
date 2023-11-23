@@ -16,21 +16,33 @@
 <androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
     style="@style/FullContentPreviewCard"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
-
-    <ImageView
-        android:id="@+id/wallpaper_preview_image"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="@color/primary_color" />
-
-    <SurfaceView
-        android:id="@+id/workspace_surface"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+    android:layout_height="match_parent"
+    android:clipChildren="true"
+    android:contentDescription="@string/wallpaper_preview_card_content_description">
 
     <SurfaceView
         android:id="@+id/wallpaper_surface"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
+
+    <SurfaceView
+        android:id="@+id/workspace_surface"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:importantForAccessibility="noHideDescendants" />
+
+    <FrameLayout
+        android:id="@+id/lock_screen_preview_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:importantForAccessibility="noHideDescendants" />
+
+    <androidx.core.widget.ContentLoadingProgressBar
+        android:id="@+id/wallpaper_preview_spinner"
+        style="?android:progressBarStyleLarge"
+        android:background="@android:color/transparent"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:visibility="gone" />
 </androidx.cardview.widget.CardView>

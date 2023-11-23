@@ -1,1 +1,0 @@
-genfscon sysfs /fs/ext4 u:object_r:sysfs_fs_ext4:s0

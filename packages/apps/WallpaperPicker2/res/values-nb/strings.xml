@@ -32,10 +32,10 @@
     <string name="home_screen_message" msgid="106444102822522813">"Startskjerm"</string>
     <string name="lock_screen_message" msgid="1534506081955058013">"Låseskjermen"</string>
     <string name="home_and_lock_short_label" msgid="2937922943541927983">"Startskjermen og låseskjermen"</string>
-    <string name="set_wallpaper_dialog_message" msgid="6114951028768599417">"Angi bakgrunn"</string>
+    <string name="set_wallpaper_dialog_message" msgid="2110475703996853076">"Angi bakgrunn på"</string>
     <string name="set_wallpaper_home_screen_destination" msgid="7315594722013109354">"Startskjerm"</string>
     <string name="set_wallpaper_lock_screen_destination" msgid="6224685559375417945">"Låseskjermen"</string>
-    <string name="set_wallpaper_both_destination" msgid="6967226064958263939">"Startskjerm og låseskjerm"</string>
+    <string name="set_wallpaper_both_destination" msgid="233216830256235288">"Startskjerm og låseskjerm"</string>
     <string name="no_backup_image_wallpaper_label" msgid="6316627676107284851">"Bakgrunn med skiftende bilder"</string>
     <string name="permission_needed_explanation" msgid="139166837541426823">"For å vise gjeldende bakgrunn her må <xliff:g id="APP_NAME">%1$s</xliff:g> ha tilgang til lagring på enheten din."</string>
     <string name="permission_needed_explanation_go_to_settings" msgid="3923551582092599609">"For å vise bakgrunnen din her må du gi Bakgrunner tilgang til enhetens lagringsplass.\n\nFor å endre denne innstillingen, gå til Tillatelser-områder i appinformasjonen for Bakgrunner."</string>
@@ -66,8 +66,6 @@
     <string name="refresh_daily_wallpaper_content_description" msgid="4362142658237147583">"Oppdater daglig bakgrunn"</string>
     <string name="refreshing_daily_wallpaper_dialog_message" msgid="1975910873362855761">"Oppdaterer daglig bakgrunn …"</string>
     <string name="refresh_daily_wallpaper_failed_message" msgid="4749879993812557166">"Kunne ikke oppdatere den daglige bakgrunnen. Sjekk nettverkstilkoblingen din, og prøv igjen."</string>
-    <string name="collapse_attribution_panel" msgid="4367971404848122275">"Skjul informasjonspanelet for bakgrunnen"</string>
-    <string name="expand_attribution_panel" msgid="6975094181456095915">"Vis informasjonspanelet for bakgrunnen"</string>
     <string name="on_device_wallpapers_category_title" msgid="805819102071369004">"Bakgrunner på enheten"</string>
     <string name="on_device_wallpapers_category_title_desktop" msgid="316919420410065369">"På enheten"</string>
     <string name="on_device_wallpaper_title" msgid="5262564748034629524">"Android-bakgrunn"</string>
@@ -79,5 +77,25 @@
     <string name="center_wallpaper_position" msgid="4166894762352288883">"Midtstilt"</string>
     <string name="center_crop_wallpaper_position" msgid="1681980019815343348">"Midtstilt beskjæring"</string>
     <string name="stretch_wallpaper_position" msgid="5002680983147456935">"Strekk"</string>
-    <string name="preview" msgid="1774602101743861071">"Ta en forhåndskikk"</string>
+    <string name="preview" msgid="1774602101743861071">"Forhåndsvisning"</string>
+    <string name="tab_info" msgid="818614080690111416">"Informasjon"</string>
+    <string name="tab_customize" msgid="2533745409174959960">"Tilpass"</string>
+    <string name="configure_wallpaper" msgid="849882179182976621">"Innstillinger"</string>
+    <string name="delete_live_wallpaper" msgid="589212696102662329">"Slett"</string>
+    <string name="delete_wallpaper_confirmation" msgid="33790318361863778">"Vil du slette denne bakgrunnen fra telefonen din?"</string>
+    <string name="bottom_action_bar_back" msgid="8237013112999946725">"Tilbake"</string>
+    <string name="bottom_action_bar_edit" msgid="1214742990893082138">"Endre"</string>
+    <string name="bottom_action_bar_download" msgid="3983122338076389421">"Last ned"</string>
+    <string name="bottom_action_bar_slideshow_wallpaper" msgid="509770525179533154">"Bakgrunn med lysbildevisning"</string>
+    <string name="bottom_action_bar_apply" msgid="2983308349819178932">"Bruk"</string>
+    <string name="accessibility_preview_pager" msgid="1839869637405028575">"Side <xliff:g id="ID_1">%1$d</xliff:g> av <xliff:g id="ID_2">%2$d</xliff:g>"</string>
+    <string name="next_page_content_description" msgid="6268461446679584152">"Neste"</string>
+    <string name="previous_page_content_description" msgid="1138597031571078429">"Forrige"</string>
+    <string name="wallpaper_title" msgid="6754214682228331092">"Bakgrunn"</string>
+    <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"Forhåndsvisning av bakgrunn"</string>
+    <string name="collection_not_exist_msg" msgid="3504852962885064842">"Samlingen eksisterer ikke"</string>
+    <string name="hide_ui_preview_text" msgid="6766076482511252295">"Skjul UI-forhåndsvisning"</string>
+    <string name="show_ui_preview_text" msgid="5993063062417070806">"Vis UI-forhåndsvisning"</string>
+    <string name="wallpaper_picker_entry_title" msgid="5185793991582084891">"Endre bakgrunn"</string>
+    <string name="lockscreen_wallpaper_preview_card_content_description" msgid="2244890820627302245">"Forhåndsvisning av låseskjermbakgrunn"</string>
 </resources>

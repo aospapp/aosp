@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"PKCS#12 파일에서 외부 저장소에 있는 확장 프로그램 %1$s 또는 %2$s을(를) 사용하여 인증서를 설치할 수 있습니다."</string>
     <string name="allow_button" msgid="3030990695030371561">"선택"</string>
     <string name="deny_button" msgid="3766539809121892584">"거부"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"인증서 로드 중..."</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"%s에서 인증서 확인 중…"</string>
 </resources>

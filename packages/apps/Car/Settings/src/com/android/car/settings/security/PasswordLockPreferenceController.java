@@ -19,8 +19,7 @@ package com.android.car.settings.security;
 import android.app.admin.DevicePolicyManager;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
-
-import androidx.fragment.app.Fragment;
+import android.content.Intent;
 
 import com.android.car.settings.common.FragmentController;
 
@@ -38,8 +37,8 @@ public class PasswordLockPreferenceController extends LockTypeBasePreferenceCont
     }
 
     @Override
-    protected Fragment fragmentToOpen() {
-        return ChooseLockPinPasswordFragment.newPasswordInstance();
+    protected Intent activityToOpen() {
+        return new Intent(getContext(), ChooseLockPasswordActivity.class);
     }
 
     @Override

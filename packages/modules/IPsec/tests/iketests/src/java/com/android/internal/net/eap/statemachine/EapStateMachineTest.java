@@ -14,24 +14,24 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.eap.statemachine;
+package com.android.internal.net.eap.test.statemachine;
 
 import static androidx.test.InstrumentationRegistry.getInstrumentation;
 
-import static com.android.internal.net.eap.EapTestUtils.getDummyEapSessionConfig;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.EAP_SUCCESS_PACKET;
+import static com.android.internal.net.eap.test.EapTestUtils.getDummyEapSessionConfig;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_SUCCESS_PACKET;
 
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
-import android.net.eap.EapSessionConfig;
+import android.net.eap.test.EapSessionConfig;
 
-import com.android.internal.net.eap.EapResult;
-import com.android.internal.net.eap.EapResult.EapError;
-import com.android.internal.net.eap.exceptions.EapInvalidRequestException;
-import com.android.internal.net.eap.statemachine.EapStateMachine.CreatedState;
-import com.android.internal.net.eap.statemachine.EapStateMachine.FailureState;
-import com.android.internal.net.eap.statemachine.EapStateMachine.SuccessState;
+import com.android.internal.net.eap.test.EapResult;
+import com.android.internal.net.eap.test.EapResult.EapError;
+import com.android.internal.net.eap.test.exceptions.EapInvalidRequestException;
+import com.android.internal.net.eap.test.statemachine.EapStateMachine.CreatedState;
+import com.android.internal.net.eap.test.statemachine.EapStateMachine.FailureState;
+import com.android.internal.net.eap.test.statemachine.EapStateMachine.SuccessState;
 
 import org.junit.Before;
 import org.junit.Test;

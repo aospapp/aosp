@@ -26,6 +26,7 @@ import android.util.Log;
 import com.android.bluetooth.BluetoothObexTransport;
 import com.android.bluetooth.IObexConnectionHandler;
 import com.android.bluetooth.ObexServerSockets;
+import com.android.bluetooth.Utils;
 import com.android.bluetooth.sdp.SdpManager;
 
 import java.io.IOException;
@@ -128,11 +129,11 @@ public class MnsService {
             MceStateMachine stateMachine = sContext.getMceStateMachineForDevice(device);
             if (stateMachine == null) {
                 Log.e(TAG, "Error: NO statemachine for device: " + device.getAddress()
-                        + " (name: " + device.getName());
+                        + " (name: " + Utils.getName(device));
                 return false;
             } else if (stateMachine.getState() != BluetoothProfile.STATE_CONNECTED) {
                 Log.e(TAG, "Error: statemachine for device: " + device.getAddress()
-                        + " (name: " + device.getName() + ") is not currently CONNECTED : "
+                        + " (name: " + Utils.getName(device) + ") is not currently CONNECTED : "
                         + stateMachine.getCurrentState());
                 return false;
             }

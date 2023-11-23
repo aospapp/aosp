@@ -17,7 +17,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="3551052199033657984">"Служба друку за умовчанням"</string>
+    <string name="app_name" msgid="3551052199033657984">"Стандартний сервіс друку"</string>
     <string name="printer_busy" msgid="8604311528104955859">"Зайнятий"</string>
     <string name="printer_out_of_paper" msgid="4882186432807703877">"Закінчився папір"</string>
     <string name="printer_out_of_ink" msgid="7361897651097675464">"Закінчилося чорнило"</string>
@@ -60,7 +60,7 @@
     <string name="forget" msgid="892068061425802502">"Забути"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Під’єднується через Wi-Fi Direct"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Під’єднується через поточну мережу за IP-адресою <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
-    <string name="recommendation_summary" msgid="2979700524954307566">"Основні параметри постачальників послуг стандартного друку. Інші параметри цього принтера можуть бути доступними в інших сервісах друку."</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"Стандартний сервіс друку надає основні параметри. Інші параметри цього принтера можуть походити з інших сервісів друку."</string>
     <string name="recommendations_heading" msgid="5086762263560605249">"Рекомендовані сервіси"</string>
     <string name="recommendation_install_summary" msgid="374785283809791669">"Виберіть, щоб установити"</string>
     <string name="recommendation_enable_summary" msgid="3500907868251326224">"Виберіть, щоб увімкнути"</string>
@@ -71,7 +71,11 @@
     <string name="accept" msgid="4426153292469698134">"Прийняти"</string>
     <string name="reject" msgid="24751635160440693">"Відхилити"</string>
     <string name="connections" msgid="8895413761760117180">"З\'єднання"</string>
-    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Сервісу Default Print потрібен дозвіл на доступ до геоданих, щоб знаходити пристрої поруч."</string>
+    <string name="wifi_direct_problem" msgid="8995174986718516990">"Стандартний сервіс друку не може знайти принтери Wi-Fi Direct"</string>
+    <string name="disable_wifi_direct" msgid="4824677957241687577">"Вимк. Wi-Fi Direct"</string>
+    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Стандартному сервісу друку потрібен дозвіл на доступ до геоданих, щоб знаходити пристрої поруч."</string>
     <string name="fix" msgid="7784394272611365393">"Перевірити дозволи"</string>
+    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"Стандартний сервіс друку знаходитиме пристрої поруч, лише якщо ввімкнути служби локації."</string>
+    <string name="enable_location" msgid="3627841004298863140">"Увімкнути геодані"</string>
     <string name="print" msgid="7851318072404916362">"Друк"</string>
 </resources>

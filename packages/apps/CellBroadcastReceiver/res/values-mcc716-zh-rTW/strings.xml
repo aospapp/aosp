@@ -21,4 +21,5 @@
     <string name="cmas_required_monthly_test" msgid="9061179556831144678">"緊急警報：測試訊息"</string>
     <string name="cmas_exercise_alert" msgid="3061507852301643814">"緊急警報：演習/模擬訊息"</string>
     <string name="pws_other_message_identifiers" msgid="4992476982074198144">"緊急警報：測試訊息"</string>
+    <string name="button_dismiss" msgid="5823921161712171097">"隱藏"</string>
 </resources>

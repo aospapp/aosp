@@ -29,14 +29,17 @@ import android.annotation.SystemApi;
 import android.annotation.TestApi;
 import android.app.Activity;
 import android.app.Service;
+import android.car.admin.CarDevicePolicyManager;
 import android.car.annotation.MandatoryFeature;
 import android.car.annotation.OptionalFeature;
 import android.car.cluster.CarInstrumentClusterManager;
 import android.car.cluster.ClusterActivityState;
+import android.car.cluster.ClusterHomeManager;
 import android.car.content.pm.CarPackageManager;
 import android.car.diagnostic.CarDiagnosticManager;
 import android.car.drivingstate.CarDrivingStateManager;
 import android.car.drivingstate.CarUxRestrictionsManager;
+import android.car.evs.CarEvsManager;
 import android.car.hardware.CarSensorManager;
 import android.car.hardware.CarVendorExtensionManager;
 import android.car.hardware.cabin.CarCabinManager;
@@ -46,13 +49,13 @@ import android.car.hardware.property.CarPropertyManager;
 import android.car.hardware.property.ICarProperty;
 import android.car.input.CarInputManager;
 import android.car.media.CarAudioManager;
+import android.car.media.CarMediaIntents;
 import android.car.media.CarMediaManager;
 import android.car.navigation.CarNavigationStatusManager;
 import android.car.occupantawareness.OccupantAwarenessManager;
-import android.car.settings.CarConfigurationManager;
 import android.car.storagemonitoring.CarStorageMonitoringManager;
+import android.car.telemetry.CarTelemetryManager;
 import android.car.test.CarTestManagerBinderWrapper;
-import android.car.trust.CarTrustAgentEnrollmentManager;
 import android.car.user.CarUserManager;
 import android.car.vms.VmsClientManager;
 import android.car.vms.VmsSubscriberManager;
@@ -73,6 +76,7 @@ import android.os.TransactionTooLargeException;
 import android.os.UserHandle;
 import android.util.Log;
 
+import com.android.car.internal.common.CommonConstants;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 
@@ -179,12 +183,22 @@ public final class Car {
     public static final String CAR_USER_SERVICE = "car_user_service";
 
     /**
+     * Service name for {@link CarDevicePolicyManager}
+     *
+     * @hide
+     */
+    @MandatoryFeature
+    @SystemApi
+    @TestApi
+    public static final String CAR_DEVICE_POLICY_SERVICE = "car_device_policy_service";
+
+    /**
      * Service name for {@link CarInstrumentClusterManager}
      *
      * @deprecated CarInstrumentClusterManager is being deprecated
      * @hide
      */
-    @MandatoryFeature
+    @OptionalFeature
     @Deprecated
     public static final String CAR_INSTRUMENT_CLUSTER_SERVICE = "cluster_service";
 
@@ -217,10 +231,9 @@ public final class Car {
     public static final String HVAC_SERVICE = "hvac";
 
     /**
-     * @hide
+     * Service name for {@link CarPowerManager}
      */
     @MandatoryFeature
-    @SystemApi
     public static final String POWER_SERVICE = "power";
 
     /**
@@ -293,11 +306,6 @@ public final class Car {
     public static final String OCCUPANT_AWARENESS_SERVICE = "occupant_awareness";
 
     /**
-     * Service name for {@link android.car.settings.CarConfigurationManager}
-     */
-    public static final String CAR_CONFIGURATION_SERVICE = "configuration";
-
-    /**
      * Service name for {@link android.car.media.CarMediaManager}
      * @hide
      */
@@ -321,24 +329,23 @@ public final class Car {
     public static final String STORAGE_MONITORING_SERVICE = "storage_monitoring";
 
     /**
-     * Service name for {@link android.car.trust.CarTrustAgentEnrollmentManager}
-     * @hide
-     */
-    @SystemApi
-    public static final String CAR_TRUST_AGENT_ENROLLMENT_SERVICE = "trust_enroll";
-
-    /**
      * Service name for {@link android.car.watchdog.CarWatchdogManager}
-     * @hide
      */
     @MandatoryFeature
-    @SystemApi
     public static final String CAR_WATCHDOG_SERVICE = "car_watchdog";
 
     /**
      * @hide
      */
+    @MandatoryFeature
+    @SystemApi
     public static final String CAR_INPUT_SERVICE = "android.car.input";
+
+    /**
+     * @hide
+     */
+    @OptionalFeature
+    public static final String CLUSTER_HOME_SERVICE = "cluster_home_service";
 
     /**
      * Service for testing. This is system app only feature.
@@ -348,6 +355,23 @@ public final class Car {
     @MandatoryFeature
     @SystemApi
     public static final String TEST_SERVICE = "car-service-test";
+
+    /**
+     * Service name for {@link android.car.evs.CarEvsManager}
+     *
+     * @hide
+     */
+    @OptionalFeature
+    @SystemApi
+    public static final String CAR_EVS_SERVICE = "car_evs_service";
+
+    /**
+     * Service name for {@link android.car.telemetry.CarTelemetryManager}
+     *
+     * @hide
+     */
+    @OptionalFeature
+    public static final String CAR_TELEMETRY_SERVICE = "car_telemetry_service";
 
     /** Permission necessary to access car's mileage information.
      *  @hide
@@ -390,6 +414,7 @@ public final class Car {
     @SystemApi
     public static final String PERMISSION_CONTROL_ENERGY_PORTS =
             "android.car.permission.CONTROL_CAR_ENERGY_PORTS";
+
     /**
      * Permission necessary to read car's exterior lights information.
      *  @hide
@@ -512,6 +537,22 @@ public final class Car {
     public static final String PERMISSION_TIRES = "android.car.permission.CAR_TIRES";
 
     /**
+     * Permission necessary to access car's property {@link VehiclePropertyIds#EPOCH_TIME}.
+     * @hide
+     */
+    @SystemApi
+    public static final String PERMISSION_CAR_EPOCH_TIME = "android.car.permission.CAR_EPOCH_TIME";
+
+    /**
+     * Permission necessary to access car's property
+     * {@link VehiclePropertyIds#STORAGE_ENCRYPTION_BINDING_SEED}.
+     * @hide
+     */
+    @SystemApi
+    public static final String PERMISSION_STORAGE_ENCRYPTION_BINDING_SEED =
+            "android.car.permission.STORAGE_ENCRYPTION_BINDING_SEED";
+
+    /**
      * Permission necessary to access car's steering angle information.
      */
     public static final String PERMISSION_READ_STEERING_STATE =
@@ -523,6 +564,7 @@ public final class Car {
      */
     public static final String PERMISSION_READ_DISPLAY_UNITS =
             "android.car.permission.READ_CAR_DISPLAY_UNITS";
+
     /**
      * Permission necessary to control display units for distance, fuel volume, tire pressure
      * and ev battery.
@@ -571,11 +613,25 @@ public final class Car {
             "android.car.permission.CONTROL_CAR_CLIMATE";
 
     /**
-     * Permission necessary to access Car POWER APIs.
+     * Permission necessary to access restrictive car power management APIs.
      * @hide
      */
     @SystemApi
     public static final String PERMISSION_CAR_POWER = "android.car.permission.CAR_POWER";
+
+    /**
+     * Permission necessary to read the current power policy or be notified of power policy change.
+     */
+    public static final String PERMISSION_READ_CAR_POWER_POLICY =
+            "android.car.permission.READ_CAR_POWER_POLICY";
+
+    /**
+     * Permission necessary to apply a new power policy.
+     * @hide
+     */
+    @SystemApi
+    public static final String PERMISSION_CONTROL_CAR_POWER_POLICY =
+            "android.car.permission.CONTROL_CAR_POWER_POLICY";
 
     /**
      * Permission necessary to access Car PROJECTION system APIs.
@@ -678,7 +734,16 @@ public final class Car {
             "android.car.permission.READ_CAR_OCCUPANT_AWARENESS_STATE";
 
     /**
-     * Permission necessary to modify occupant awareness graph.
+     * Permission necessary to access private display id.
+     *
+     * @hide
+     */
+    @SystemApi
+    public static final String ACCESS_PRIVATE_DISPLAY_ID =
+            "android.car.permission.ACCESS_PRIVATE_DISPLAY_ID";
+
+    /**
+     * @deprecated This permission is not used by any service.
      *
      * @hide
      */
@@ -694,15 +759,6 @@ public final class Car {
     @SystemApi
     public static final String PERMISSION_STORAGE_MONITORING =
             "android.car.permission.STORAGE_MONITORING";
-
-    /**
-     * Permission necessary to enroll a device as a trusted authenticator device.
-     *
-     * @hide
-     */
-    @SystemApi
-    public static final String PERMISSION_CAR_ENROLL_TRUST =
-            "android.car.permission.CAR_ENROLL_TRUST";
 
     /**
      * Permission necessary to dynamically enable / disable optional car features.
@@ -722,9 +778,95 @@ public final class Car {
     public static final String PERMISSION_USE_CAR_WATCHDOG =
             "android.car.permission.USE_CAR_WATCHDOG";
 
-    /** Type of car connection: platform runs directly in car. */
+    /**
+     * Permission necessary to monitor Car input events.
+     *
+     * @hide
+     */
+    @SystemApi
+    public static final String PERMISSION_CAR_MONITOR_INPUT =
+            "android.car.permission.CAR_MONITOR_INPUT";
+
+    /**
+     * Permission necessary to request CarEvsService to launch the special activity to show the
+     * camera preview.
+     *
+     * @hide
+     */
+    @SystemApi
+    public static final String PERMISSION_REQUEST_CAR_EVS_ACTIVITY =
+            "android.car.permission.REQUEST_CAR_EVS_ACTIVITY";
+
+    /**
+     * Permission necessary to control the special activity to show the camera preview.
+     *
+     * @hide
+     */
+    @SystemApi
+    public static final String PERMISSION_CONTROL_CAR_EVS_ACTIVITY =
+            "android.car.permission.CONTROL_CAR_EVS_ACTIVITY";
+
+    /**
+     * Permission necessary to use the camera streams via CarEvsService.
+     *
+     * @hide
+     */
+    @SystemApi
+    public static final String PERMISSION_USE_CAR_EVS_CAMERA =
+            "android.car.permission.USE_CAR_EVS_CAMERA";
+
+    /**
+     * Permission necessary to monitor the status of CarEvsService.
+     *
+     * @hide
+     */
+    @SystemApi
+    public static final String PERMISSION_MONITOR_CAR_EVS_STATUS =
+            "android.car.permission.MONITOR_CAR_EVS_STATUS";
+
+    /**
+     * Permission necessary to use the CarTelemetryService.
+     *
+     * @hide
+     */
+    public static final String PERMISSION_USE_CAR_TELEMETRY_SERVICE =
+            "android.car.permission.USE_CAR_TELEMETRY_SERVICE";
+
+    /**
+     * Type of car connection: platform runs directly in car.
+     *
+     * @deprecated connection type constants are no longer used
+     */
+    @Deprecated
     public static final int CONNECTION_TYPE_EMBEDDED = 5;
 
+    /**
+     * Permission necessary to be able to render template-based UI metadata on behalf of another
+     * application.
+     *
+     * @hide
+     */
+    @SystemApi
+    public static final String PERMISSION_TEMPLATE_RENDERER =
+            "android.car.permission.TEMPLATE_RENDERER";
+
+    /**
+     * Permission necessary to set or retrieve car watchdog configurations.
+     *
+     * @hide
+     */
+    @SystemApi
+    public static final String PERMISSION_CONTROL_CAR_WATCHDOG_CONFIG =
+            "android.car.permission.CONTROL_CAR_WATCHDOG_CONFIG";
+
+    /**
+     * Permission necessary to collect metrics from car watchdog.
+     *
+     * @hide
+     */
+    @SystemApi
+    public static final String PERMISSION_COLLECT_CAR_WATCHDOG_METRICS =
+            "android.car.permission.COLLECT_CAR_WATCHDOG_METRICS";
 
     /** @hide */
     @IntDef({CONNECTION_TYPE_EMBEDDED})
@@ -732,26 +874,23 @@ public final class Car {
     public @interface ConnectionType {}
 
     /**
-     * Activity Action: Provide media playing through a media template app.
-     * <p>Input: String extra mapped by {@link android.app.SearchManager#QUERY} is the query
-     * used to start the media. String extra mapped by {@link #CAR_EXTRA_MEDIA_COMPONENT} is the
-     * component name of the media app which user wants to play media on.
-     * <p>Output: nothing.
+     * @deprecated Use {@link CarMediaIntents#ACTION_MEDIA_TEMPLATE} instead.
      */
+    @Deprecated
     @SdkConstant(SdkConstantType.ACTIVITY_INTENT_ACTION)
     public static final String CAR_INTENT_ACTION_MEDIA_TEMPLATE =
             "android.car.intent.action.MEDIA_TEMPLATE";
 
     /**
-     * Used as a string extra field with {@link #CAR_INTENT_ACTION_MEDIA_TEMPLATE} to specify the
-     * MediaBrowserService that user wants to start the media on.
+     * @deprecated Use {@link CarMediaIntents#EXTRA_MEDIA_COMPONENT} instead.
      */
+    @Deprecated
     public static final String CAR_EXTRA_MEDIA_COMPONENT =
             "android.car.intent.extra.MEDIA_COMPONENT";
 
     /**
      *
-     * @deprecated Use{@link #CAR_EXTRA_MEDIA_COMPONENT} instead.
+     * @deprecated Use {@link #CAR_EXTRA_MEDIA_COMPONENT} instead.
      * @removed Using this for specifying MediaBrowserService was not supported since API level 29
      * and above. Apps must use {@link #CAR_EXTRA_MEDIA_COMPONENT} instead.
      */
@@ -766,7 +905,7 @@ public final class Car {
             "android.media.session.BROWSE_SERVICE";
 
     /** @hide */
-    public static final String CAR_SERVICE_INTERFACE_NAME = "android.car.ICar";
+    public static final String CAR_SERVICE_INTERFACE_NAME = CommonConstants.CAR_SERVICE_INTERFACE;
 
     private static final String CAR_SERVICE_PACKAGE = "com.android.car";
 
@@ -1427,10 +1566,12 @@ public final class Car {
     }
 
     /**
-     * Return the type of currently connected car.
-     * @return
+     * @return the type of currently connected car.
+     *
+     * @deprecated connection type will be always {@link CONNECTION_TYPE_EMBEDDED}
      */
     @ConnectionType
+    @Deprecated
     public int getCarConnectionType() {
         return CONNECTION_TYPE_EMBEDDED;
     }
@@ -1603,7 +1744,6 @@ public final class Car {
         }
     }
 
-
     private void finishClient() {
         if (mContext == null) {
             throw new IllegalStateException("Car service has crashed, null Context");
@@ -1733,12 +1873,6 @@ public final class Car {
             case OCCUPANT_AWARENESS_SERVICE:
                 manager = new OccupantAwarenessManager(this, binder);
                 break;
-            case CAR_CONFIGURATION_SERVICE:
-                manager = new CarConfigurationManager(this, binder);
-                break;
-            case CAR_TRUST_AGENT_ENROLLMENT_SERVICE:
-                manager = new CarTrustAgentEnrollmentManager(this, binder);
-                break;
             case CAR_MEDIA_SERVICE:
                 manager = new CarMediaManager(this, binder);
                 break;
@@ -1753,6 +1887,18 @@ public final class Car {
                 break;
             case CAR_INPUT_SERVICE:
                 manager = new CarInputManager(this, binder);
+                break;
+            case CAR_DEVICE_POLICY_SERVICE:
+                manager = new CarDevicePolicyManager(this, binder);
+                break;
+            case CLUSTER_HOME_SERVICE:
+                manager = new ClusterHomeManager(this, binder);
+                break;
+            case CAR_EVS_SERVICE:
+                manager = new CarEvsManager(this, binder);
+                break;
+            case CAR_TELEMETRY_SERVICE:
+                manager = new CarTelemetryManager(this, binder);
                 break;
             default:
                 // Experimental or non-existing

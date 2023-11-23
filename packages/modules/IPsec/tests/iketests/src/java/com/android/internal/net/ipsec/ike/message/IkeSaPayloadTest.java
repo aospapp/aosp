@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.ipsec.ike.message;
+package com.android.internal.net.ipsec.test.ike.message;
 
 import static com.android.internal.net.TestUtils.createMockRandomFactory;
 
@@ -37,33 +37,33 @@ import static org.mockito.Mockito.when;
 import android.net.InetAddresses;
 import android.net.IpSecManager;
 import android.net.IpSecSpiResponse;
-import android.net.ipsec.ike.ChildSaProposal;
-import android.net.ipsec.ike.IkeSaProposal;
-import android.net.ipsec.ike.SaProposal;
-import android.net.ipsec.ike.exceptions.IkeProtocolException;
+import android.net.ipsec.test.ike.ChildSaProposal;
+import android.net.ipsec.test.ike.IkeSaProposal;
+import android.net.ipsec.test.ike.SaProposal;
+import android.net.ipsec.test.ike.exceptions.IkeProtocolException;
+import android.net.ipsec.test.ike.exceptions.InvalidSyntaxException;
+import android.net.ipsec.test.ike.exceptions.NoValidProposalChosenException;
 import android.util.Pair;
 
 import com.android.internal.net.TestUtils;
-import com.android.internal.net.ipsec.ike.exceptions.InvalidSyntaxException;
-import com.android.internal.net.ipsec.ike.exceptions.NoValidProposalChosenException;
-import com.android.internal.net.ipsec.ike.message.IkeSaPayload.Attribute;
-import com.android.internal.net.ipsec.ike.message.IkeSaPayload.AttributeDecoder;
-import com.android.internal.net.ipsec.ike.message.IkeSaPayload.ChildProposal;
-import com.android.internal.net.ipsec.ike.message.IkeSaPayload.DhGroupTransform;
-import com.android.internal.net.ipsec.ike.message.IkeSaPayload.EncryptionTransform;
-import com.android.internal.net.ipsec.ike.message.IkeSaPayload.EsnTransform;
-import com.android.internal.net.ipsec.ike.message.IkeSaPayload.IkeProposal;
-import com.android.internal.net.ipsec.ike.message.IkeSaPayload.IntegrityTransform;
-import com.android.internal.net.ipsec.ike.message.IkeSaPayload.KeyLengthAttribute;
-import com.android.internal.net.ipsec.ike.message.IkeSaPayload.PrfTransform;
-import com.android.internal.net.ipsec.ike.message.IkeSaPayload.Proposal;
-import com.android.internal.net.ipsec.ike.message.IkeSaPayload.Transform;
-import com.android.internal.net.ipsec.ike.message.IkeSaPayload.TransformDecoder;
-import com.android.internal.net.ipsec.ike.message.IkeSaPayload.UnrecognizedAttribute;
-import com.android.internal.net.ipsec.ike.message.IkeSaPayload.UnrecognizedTransform;
-import com.android.internal.net.ipsec.ike.testutils.MockIpSecTestUtils;
-import com.android.internal.net.ipsec.ike.utils.IkeSpiGenerator;
-import com.android.internal.net.ipsec.ike.utils.IpSecSpiGenerator;
+import com.android.internal.net.ipsec.test.ike.message.IkeSaPayload.Attribute;
+import com.android.internal.net.ipsec.test.ike.message.IkeSaPayload.AttributeDecoder;
+import com.android.internal.net.ipsec.test.ike.message.IkeSaPayload.ChildProposal;
+import com.android.internal.net.ipsec.test.ike.message.IkeSaPayload.DhGroupTransform;
+import com.android.internal.net.ipsec.test.ike.message.IkeSaPayload.EncryptionTransform;
+import com.android.internal.net.ipsec.test.ike.message.IkeSaPayload.EsnTransform;
+import com.android.internal.net.ipsec.test.ike.message.IkeSaPayload.IkeProposal;
+import com.android.internal.net.ipsec.test.ike.message.IkeSaPayload.IntegrityTransform;
+import com.android.internal.net.ipsec.test.ike.message.IkeSaPayload.KeyLengthAttribute;
+import com.android.internal.net.ipsec.test.ike.message.IkeSaPayload.PrfTransform;
+import com.android.internal.net.ipsec.test.ike.message.IkeSaPayload.Proposal;
+import com.android.internal.net.ipsec.test.ike.message.IkeSaPayload.Transform;
+import com.android.internal.net.ipsec.test.ike.message.IkeSaPayload.TransformDecoder;
+import com.android.internal.net.ipsec.test.ike.message.IkeSaPayload.UnrecognizedAttribute;
+import com.android.internal.net.ipsec.test.ike.message.IkeSaPayload.UnrecognizedTransform;
+import com.android.internal.net.ipsec.test.ike.testutils.MockIpSecTestUtils;
+import com.android.internal.net.ipsec.test.ike.utils.IkeSpiGenerator;
+import com.android.internal.net.ipsec.test.ike.utils.IpSecSpiGenerator;
 import com.android.server.IpSecService;
 
 import org.junit.After;
@@ -73,8 +73,8 @@ import org.junit.Test;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedList;
 import java.util.List;
 
 public final class IkeSaPayloadTest {
@@ -129,9 +129,9 @@ public final class IkeSaPayloadTest {
     private static final byte[] PROPOSAL_NUMBER_LIST = {1, 2};
 
     private static final Inet4Address LOCAL_ADDRESS =
-            (Inet4Address) (InetAddresses.parseNumericAddress("8.8.4.4"));
+            (Inet4Address) InetAddresses.parseNumericAddress("8.8.4.4");
     private static final Inet4Address REMOTE_ADDRESS =
-            (Inet4Address) (InetAddresses.parseNumericAddress("8.8.8.8"));
+            (Inet4Address) InetAddresses.parseNumericAddress("8.8.8.8");
 
     private static final int DUMMY_CHILD_SPI_RESOURCE_ID_LOCAL_ONE = 0x1234;
     private static final int DUMMY_CHILD_SPI_RESOURCE_ID_LOCAL_TWO = 0x1235;
@@ -178,7 +178,7 @@ public final class IkeSaPayloadTest {
         Transform.setAttributeDecoder(mMockedAttributeDecoder);
 
         mAttributeKeyLength128 = new KeyLengthAttribute(SaProposal.KEY_LEN_AES_128);
-        mAttributeListWithKeyLength128 = new LinkedList<>();
+        mAttributeListWithKeyLength128 = new ArrayList<>();
         mAttributeListWithKeyLength128.add(mAttributeKeyLength128);
 
         mEncrAesCbc128Transform =
@@ -305,7 +305,7 @@ public final class IkeSaPayloadTest {
         byte[] inputPacket = TestUtils.hexStringToByteArray(ENCR_TRANSFORM_RAW_PACKET);
         ByteBuffer inputBuffer = ByteBuffer.wrap(inputPacket);
 
-        List<Attribute> attributeList = new LinkedList<>();
+        List<Attribute> attributeList = new ArrayList<>();
         Attribute keyLengAttr = new KeyLengthAttribute(SaProposal.KEY_LEN_AES_128 + 1);
         attributeList.add(keyLengAttr);
 
@@ -351,7 +351,7 @@ public final class IkeSaPayloadTest {
         byte[] inputPacket = TestUtils.hexStringToByteArray(PRF_TRANSFORM_RAW_PACKET);
         ByteBuffer inputBuffer = ByteBuffer.wrap(inputPacket);
 
-        doReturn(new LinkedList<Attribute>())
+        doReturn(new ArrayList<Attribute>())
                 .when(mMockedAttributeDecoder)
                 .decodeAttributes(anyInt(), any());
 
@@ -386,7 +386,7 @@ public final class IkeSaPayloadTest {
         byte[] inputPacket = TestUtils.hexStringToByteArray(INTEG_TRANSFORM_RAW_PACKET);
         ByteBuffer inputBuffer = ByteBuffer.wrap(inputPacket);
 
-        doReturn(new LinkedList<Attribute>())
+        doReturn(new ArrayList<Attribute>())
                 .when(mMockedAttributeDecoder)
                 .decodeAttributes(anyInt(), any());
 
@@ -437,7 +437,7 @@ public final class IkeSaPayloadTest {
         byte[] inputPacket = TestUtils.hexStringToByteArray(DH_GROUP_TRANSFORM_RAW_PACKET);
         ByteBuffer inputBuffer = ByteBuffer.wrap(inputPacket);
 
-        doReturn(new LinkedList<Attribute>())
+        doReturn(new ArrayList<Attribute>())
                 .when(mMockedAttributeDecoder)
                 .decodeAttributes(anyInt(), any());
 
@@ -472,7 +472,7 @@ public final class IkeSaPayloadTest {
         byte[] inputPacket = TestUtils.hexStringToByteArray(ESN_TRANSFORM_RAW_PACKET);
         ByteBuffer inputBuffer = ByteBuffer.wrap(inputPacket);
 
-        doReturn(new LinkedList<Attribute>())
+        doReturn(new ArrayList<Attribute>())
                 .when(mMockedAttributeDecoder)
                 .decodeAttributes(anyInt(), any());
 
@@ -489,7 +489,7 @@ public final class IkeSaPayloadTest {
         inputPacket[TRANSFORM_ID_OFFSET] = -1;
         ByteBuffer inputBuffer = ByteBuffer.wrap(inputPacket);
 
-        doReturn(new LinkedList<Attribute>())
+        doReturn(new ArrayList<Attribute>())
                 .when(mMockedAttributeDecoder)
                 .decodeAttributes(anyInt(), any());
 
@@ -546,7 +546,7 @@ public final class IkeSaPayloadTest {
         byte[] inputPacket = TestUtils.hexStringToByteArray(ENCR_TRANSFORM_RAW_PACKET);
         ByteBuffer inputBuffer = ByteBuffer.wrap(inputPacket);
 
-        List<Attribute> attributeList = new LinkedList<>();
+        List<Attribute> attributeList = new ArrayList<>();
         attributeList.add(mAttributeKeyLength128);
         attributeList.add(mAttributeKeyLength128);
 
@@ -579,7 +579,7 @@ public final class IkeSaPayloadTest {
         byte[] inputPacket = TestUtils.hexStringToByteArray(ENCR_TRANSFORM_RAW_PACKET);
         ByteBuffer inputBuffer = ByteBuffer.wrap(inputPacket);
 
-        List<Attribute> attributeList = new LinkedList<>();
+        List<Attribute> attributeList = new ArrayList<>();
         attributeList.add(mAttributeKeyLength128);
         Attribute attributeUnrecognized = new UnrecognizedAttribute(1, new byte[0]);
         attributeList.add(attributeUnrecognized);
@@ -876,7 +876,7 @@ public final class IkeSaPayloadTest {
         Transform[] negotiatedTransformSet =
                 Arrays.copyOfRange(
                         mValidNegotiatedTransformSet, 0, mValidNegotiatedTransformSet.length);
-        negotiatedTransformSet[0] = new UnrecognizedTransform(-1, 1, new LinkedList<>());
+        negotiatedTransformSet[0] = new UnrecognizedTransform(-1, 1, new ArrayList<>());
 
         try {
             buildAndVerifyIkeSaRespProposal(inputPacket, negotiatedTransformSet);
@@ -947,7 +947,7 @@ public final class IkeSaPayloadTest {
 
         final String saPayloadBodyHex =
                 "0000002c010100040300000c0100000c800e0080030000080300000c"
-                        + "0300000802000005000000080400001f";
+                        + "0300000802000005000000080400005f";
         IkeSaPayload saPayload =
                 new IkeSaPayload(
                         false /* isCritical*/,

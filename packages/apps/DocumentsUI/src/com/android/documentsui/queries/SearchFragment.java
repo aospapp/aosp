@@ -40,7 +40,7 @@ import com.android.documentsui.R;
 
 import java.util.List;
 
-public class SearchFragment extends Fragment{
+public class SearchFragment extends Fragment {
 
     private static final String TAG = "SearchFragment";
     private static final String KEY_QUERY = "query";
@@ -97,8 +97,8 @@ public class SearchFragment extends Fragment{
     }
 
     @Override
-    public void onActivityCreated(@Nullable Bundle savedInstanceState) {
-        super.onActivityCreated(savedInstanceState);
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
 
         final BaseActivity activity = (BaseActivity) getActivity();
         final Injector injector = activity.getInjector();
@@ -121,14 +121,16 @@ public class SearchFragment extends Fragment{
         mListView.setAdapter(mAdapter);
         mListView.setOnItemClickListener(this::onHistoryItemClicked);
 
-        View toolbar = getActivity().findViewById(R.id.toolbar_background_layout);
-        if (toolbar != null) {
-            // Align top with the bottom of search bar.
+        View toolbar = getActivity().findViewById(R.id.toolbar);
+        View collapsingBarLayout = getActivity().findViewById(R.id.collapsing_toolbar);
+        if (toolbar != null && collapsingBarLayout != null) {
+            // If collapsingBarLayout is used (i.e. not in Tablet mode),
+            // need to align top with the bottom of search bar.
             FrameLayout.LayoutParams layoutParams = new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT);
             layoutParams.setMargins(0, getResources().getDimensionPixelSize(
-                    R.dimen.action_bar_space_height), 0, 0);
+                    R.dimen.action_bar_margin) + toolbar.getLayoutParams().height, 0, 0);
             getView().setLayoutParams(layoutParams);
         }
 
@@ -150,7 +152,7 @@ public class SearchFragment extends Fragment{
         final String item = mHistoryList.get(position);
         mSearchViewManager.setHistorySearch();
         mSearchViewManager.setCurrentSearch(item);
-        mSearchViewManager.restoreSearch(true);
+        mSearchViewManager.restoreSearch(/* keepFocus= */ false);
     }
 
     private void dismiss() {

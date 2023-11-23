@@ -22,12 +22,8 @@
     <string name="display_settings" msgid="5325515247739279185">"డిస్‌ప్లే"</string>
     <string name="brightness" msgid="2919605130898772866">"ప్రకాశం స్థాయి"</string>
     <string name="auto_brightness_title" msgid="9124647862844666581">"పరిసర అనుకూల ప్రకాశం"</string>
-    <string name="auto_brightness_summary" msgid="4741887033140384352">"అందుబాటులో ఉన్న కాంతికి తగినట్లు ప్రకాశం స్థాయిని ఆప్టిమైజ్ చేస్తుంది"</string>
+    <string name="auto_brightness_summary" msgid="2002570577219479702">"స్క్రీన్ ప్రకాశాన్ని పరిసరాలకు అనుగుణంగా సర్దుబాటు చేయండి"</string>
     <string name="condition_night_display_title" msgid="3777509730126972675">"రాత్రి కాంతి ఆన్‌లో ఉంది"</string>
-    <string name="keywords_display" msgid="3978416985146943922">"స్క్రీన్, టచ్‌స్క్రీన్"</string>
-    <string name="keywords_display_brightness_level" msgid="3956411572536209195">"కాంతివిహీన స్క్రీన్, టచ్‌స్క్రీన్, బ్యాటరీ"</string>
-    <string name="keywords_display_auto_brightness" msgid="2700310050333468752">"కాంతివిహీన స్క్రీన్, టచ్‌స్క్రీన్, బ్యాటరీ"</string>
-    <string name="keywords_display_night_display" msgid="2922294576679769957">"కాంతివిహీన స్క్రీన్, రాత్రి, లేత రంగు"</string>
     <string name="night_mode_tile_label" msgid="6603597795502131664">"రాత్రి మోడ్"</string>
     <string name="network_and_internet" msgid="4229023630498537530">"నెట్‌వర్క్ &amp; ఇంటర్నెట్"</string>
     <string name="mobile_network_settings" msgid="1708621113321368597">"మొబైల్ నెట్‌వర్క్"</string>
@@ -84,6 +80,10 @@
     <string name="data_usage_warning_editor_title" msgid="2041517150169038813">"డేటా వినియోగ హెచ్చరికను సెట్ చేయండి"</string>
     <string name="data_usage_limit_editor_title" msgid="133468242379286689">"డేటా వినియోగ పరిమితిని సెట్ చేయండి"</string>
     <string name="usage_bytes_threshold_picker_positive_button" msgid="4625479840977965519">"సెట్ చేయి"</string>
+    <string name="network_and_internet_oem_network_title" msgid="6436902713696212250">"OEM నెట్‌వర్క్"</string>
+    <string name="network_and_internet_data_usage_time_range_summary" msgid="1792995626433410056">"%2$sనుండి - %3$sవరకు %1$sను ఉపయోగించారు"</string>
+    <string name="network_and_internet_join_other_network_title" msgid="7126831320010062712">"మరో నెట్‌వర్క్‌కు కనెక్ట్ చేయండి"</string>
+    <string name="network_and_internet_network_preferences_title" msgid="2983548049081168876">"నెట్‌వర్క్ ప్రాధాన్యతలు"</string>
     <string name="wifi_settings" msgid="7701477685273103841">"Wi‑Fi"</string>
     <string name="wifi_starting" msgid="473253087503153167">"Wi‑Fiని ఆన్ చేస్తోంది…"</string>
     <string name="wifi_stopping" msgid="3534173972547890148">"Wi‑Fiని ఆఫ్ చేస్తోంది…"</string>
@@ -93,17 +93,19 @@
     <string name="wifi_failed_connect_message" msgid="4447498225022147324">"నెట్‌వర్క్‌కు కనెక్ట్ చేయడం విఫలమైంది"</string>
     <string name="wifi_setup_add_network" msgid="3660498520389954620">"నెట్‌వర్క్‌ను జోడించు"</string>
     <string name="wifi_setup_connect" msgid="3512399573397979101">"కనెక్ట్"</string>
+    <string name="wifi_connecting" msgid="1930665730621677960">"కనెక్ట్ అవుతోంది…"</string>
+    <string name="wifi_not_in_range_message" msgid="2617126307140203787">"నెట్‌వర్క్, పరిధిలో లేదు"</string>
     <string name="wifi_password" msgid="5565632142720292397">"పాస్‌‌వర్డ్"</string>
     <string name="wifi_show_password" msgid="8423293211933521097">"పాస్‌వర్డ్‌ను చూపు"</string>
     <string name="wifi_no_network_name" msgid="6819604337231313594">"దయచేసి నెట్‌వర్క్‌ పేరును నమోదు చేయండి"</string>
     <string name="wifi_ssid" msgid="488604828159458741">"నెట్‌వర్క్ పేరు"</string>
-    <string name="wifi_ssid_hint" msgid="3170608752313710099">"SSIDని నమోదు చేయండి"</string>
+    <string name="wifi_ssid_hint" msgid="3170608752313710099">"SSIDని ఎంటర్ చేయండి"</string>
     <string name="wifi_security" msgid="158358046038876532">"భద్రత"</string>
     <string name="wifi_signal_strength" msgid="8507318230553042817">"సిగ్నల్ సామర్థ్యం"</string>
     <string name="wifi_status" msgid="5688013206066543952">"స్థితి"</string>
     <string name="wifi_speed" msgid="1650692446731850781">"లింక్ వేగం"</string>
     <string name="wifi_frequency" msgid="8951455949682864922">"తరచుదనం"</string>
-    <string name="wifi_ip_address" msgid="3128140627890954061">"IP చిరునామా"</string>
+    <string name="wifi_ip_address" msgid="3128140627890954061">"IP అడ్రస్"</string>
     <string name="show_password" msgid="2074628020371139240">"పాస్‌వర్డ్‌ను చూపు"</string>
     <string name="default_network_name_summary" msgid="8148402439232464276">"నెట్‌వర్క్ పేరును నమోదు చేయండి"</string>
     <string name="default_password_summary" msgid="8789594645836902982">"పాస్‌వర్డ్‌ని నమోదు చేయండి"</string>
@@ -120,7 +122,7 @@
     <string name="wifi_band_5ghz" msgid="2023762623523105080">"5 GHz"</string>
     <string name="wifi_network_detail" msgid="9070182553555487360">"నెట్‌వర్క్ వివరాలు"</string>
     <string name="wifi_mac_address" msgid="1466178247802349180">"MAC చిరునామా"</string>
-    <string name="wifi_ip_address_title" msgid="300539799594024884">"IP చిరునామా"</string>
+    <string name="wifi_ip_address_title" msgid="300539799594024884">"IP అడ్రస్"</string>
     <string name="wifi_subnet_mask" msgid="6238171812379380608">"సబ్‌నెట్ మాస్క్"</string>
     <string name="wifi_dns" msgid="1841448353154932801">"DNS"</string>
     <string name="wifi_details_ipv6_address_header" msgid="4707181386646531890">"IPv6 చిరునామాలు"</string>
@@ -132,7 +134,7 @@
     <string name="wifi_settings_scanning_required_title" msgid="2726782203331704928">"Wi‑Fi స్కానింగ్‌ను ఆన్ చేయాలా?"</string>
     <string name="wifi_settings_scanning_required_turn_on" msgid="4464931023377210050">"ఆన్ చేయి"</string>
     <string name="wifi_settings_scanning_required_enabled" msgid="5457372118991438313">"Wi-Fi స్కానింగ్ ఆన్ చేయబడింది"</string>
-    <string name="wifi_cellular_fallback_title" msgid="8322675436784870862">"స్వయంచాలకంగా మొబైల్ డేటాకి మార్చు"</string>
+    <string name="wifi_cellular_fallback_title" msgid="8322675436784870862">"ఆటోమేటిక్‌గా మొబైల్ డేటాకి మార్చు"</string>
     <string name="wifi_cellular_fallback_summary" msgid="2433848528924203758">"Wi‑Fiకి ఇంటర్నెట్ యాక్సెస్ లేనప్పుడు మొబైల్ డేటాను ఉపయోగిస్తుంది. డేటా వినియోగ ఛార్జీలు వర్తించవచ్చు."</string>
     <string name="learn_more" msgid="8214605928933358604">"మరింత తెలుసుకోండి"</string>
     <string name="wifi_hotspot_name_title" msgid="8844779338692535356">"హాట్‌స్పాట్ పేరు"</string>
@@ -151,21 +153,29 @@
     <string name="wifi_ap_2G" msgid="5364135697314262014">"2.4 GHz"</string>
     <string name="wifi_ap_5G" msgid="4945574428537860279">"5.0 GHz"</string>
     <string name="wifi_ap_band_select_one" msgid="615578175244067396">"హాట్‌స్పాట్‌కు బ్యాండ్:"</string>
-    <string name="tether_settings_title_all" msgid="4663704772599383169">"హాట్‌స్పాట్ &amp; టెథెరింగ్"</string>
+    <string name="tether_settings_title_all" msgid="4663704772599383169">"హాట్‌స్పాట్ &amp; టెథరింగ్"</string>
+    <string name="hotspot_settings_title" msgid="8220814387592756713">"హాట్‌స్పాట్"</string>
     <string name="wifi_hotspot_auto_off_title" msgid="7871858619924599922">"హాట్‌స్పాట్‌ని ఆటోమేటిక్‌గా ఆఫ్ చేయండి"</string>
     <string name="wifi_hotspot_auto_off_summary" msgid="4830341947541735136">"పరికరాలు ఏవీ కనెక్ట్ కాకపోతే Wi‑Fi హాట్‌స్పాట్‌ ఆఫ్ అవుతుంది"</string>
     <string name="wifi_ask_enable" msgid="4452418245680754578">"<xliff:g id="REQUESTER">%s</xliff:g> Wi-Fiని ఆన్ చేయాలనుకుంటుంది"</string>
     <string name="wifi_ask_disable" msgid="2949290055916181553">"<xliff:g id="REQUESTER">%s</xliff:g> Wi-Fiని ఆఫ్ చేయాలనుకుంటుంది"</string>
     <string name="wifi_error" msgid="3105105447117289410">"ఎర్రర్"</string>
+    <string name="network_connection_request_dialog_title" msgid="8449606155059098762">"<xliff:g id="APPNAME">%1$s</xliff:g>తో ఉపయోగించుకునే పరికరం"</string>
+    <string name="network_connection_timeout_dialog_message" msgid="2536299451668687586">"పరికరాలు ఏవీ కనుగొనబడలేదు. పరికరాలు ఆన్‌లో ఉన్నాయని మరియు కనెక్ట్ చేయడానికి అందుబాటులో ఉన్నాయని నిర్ధారించుకోండి."</string>
+    <string name="network_connection_timeout_dialog_ok" msgid="2228662561126434792">"మళ్లీ ప్రయత్నించు"</string>
+    <string name="network_connection_errorstate_dialog_message" msgid="4268321315241218483">"ఏదో తప్పు జరిగింది. ఈ అప్లికేషన్ పరికరాన్ని ఎంచుకునే అభ్యర్థనని రద్దు చేసింది."</string>
+    <string name="network_connection_connect_successful" msgid="7893957133113302365">"విజయవంతంగా కనెక్ట్ చేయబడింది"</string>
+    <string name="network_connection_request_dialog_showall" msgid="776613149566461487">"అన్నింటినీ చూపు"</string>
+    <string name="progress_scanning" msgid="7191583064717479795">"శోధించడం"</string>
     <string name="bluetooth_settings_title" msgid="3794688574569688649">"బ్లూటూత్"</string>
     <string name="bluetooth_device" msgid="3178478829314083240">"పేరులేని పరికరం"</string>
     <string name="bluetooth_paired_devices" msgid="6463199569164652410">"జత చేయబడిన పరికరాలు"</string>
     <string name="bluetooth_pair_new_device" msgid="6948753485443263095">"కొత్త పరికరాన్ని జత చేయి"</string>
-    <string name="bluetooth_pair_new_device_summary" msgid="2497221247690369031">"జత చేయడం కోసం బ్లూటూత్ ఆన్ చేయబడుతుంది"</string>
+    <string name="bluetooth_pair_new_device_summary" msgid="2497221247690369031">"పెయిర్ చేయడం కోసం బ్లూటూత్ ఆన్ చేయబడుతుంది"</string>
     <string name="bluetooth_disconnect_title" msgid="7675271355910637528">"పరికరాన్ని డిస్‌కనెక్ట్ చేయాలా?"</string>
     <string name="bluetooth_disconnect_all_profiles" msgid="2017519733701757244">"మీ వాహనం <xliff:g id="DEVICE_NAME">%1$s</xliff:g> నుండి డిస్‌కనెక్ట్ అవుతుంది."</string>
     <string name="bluetooth_vehicle_mac_address" msgid="7069234636525805937">"వాహనం బ్లూటూత్ చిరునామా: <xliff:g id="ADDRESS">%1$s</xliff:g>"</string>
-    <string name="bluetooth_device_mac_address" msgid="3949829271575045069">"పరికరం యొక్క బ్లూటూత్ చిరునామా: <xliff:g id="ADDRESS">%1$s</xliff:g>"</string>
+    <string name="bluetooth_device_mac_address" msgid="3949829271575045069">"పరికర బ్లూటూత్ అడ్రస్: <xliff:g id="ADDRESS">%1$s</xliff:g>"</string>
     <string name="bluetooth_name" msgid="2609869978821094114">"వాహనం పేరు"</string>
     <string name="bluetooth_rename_vehicle" msgid="5769424875066563154">"ఈ వాహనం పేరు మార్చండి"</string>
     <string name="bluetooth_rename_device" msgid="8406868875363878712">"పరికరం పేరు మార్చండి"</string>
@@ -183,9 +193,14 @@
     <string name="bluetooth_ask_discovery_no_name" msgid="164397600370102369">"ఒక యాప్ మీ పరికర హెడ్ యూనిట్‌ను ఇతర బ్లూటూత్ పరికరాలకు <xliff:g id="TIMEOUT">%1$d</xliff:g> సెకన్ల పాటు కనిపించేలా చేయాలనుకుంటుంది."</string>
     <string name="bluetooth_ask_enablement_and_discovery" msgid="5487502083015708674">"<xliff:g id="APP_NAME">%1$s</xliff:g> బ్లూటూత్‌ను ఆన్ చేసి, మీ పరికర హెడ్ యూనిట్‌ను <xliff:g id="TIMEOUT">%2$d</xliff:g> సెకన్ల పాటు ఇతర పరికరాలకు కనిపించేలా చేయాలనుకుంటోంది."</string>
     <string name="bluetooth_ask_enablement_and_discovery_no_name" msgid="907153034209916282">"యాప్ బ్లూటూత్‌ను ప్రారంభించి, మీ పరికర హెడ్ యూనిట్‌ను ఇతర పరికరాలకు <xliff:g id="TIMEOUT">%1$d</xliff:g> సెకన్ల పాటు కనిపించేలా చేయాలనుకుంటుంది."</string>
+    <string name="bluetooth_state_switch_summary" msgid="171929910916432266">"ఇతర పరికరాల్లో %1$sగా కనిపిస్తుంది"</string>
+    <string name="bluetooth_my_devices" msgid="6352010339607939612">"నా పరికరాలు"</string>
+    <string name="bluetooth_previously_connected" msgid="5206229557831180323">"గతంలో కనెక్ట్ చేయబడినవి"</string>
+    <string name="bluetooth_device_connected_toast" msgid="4614765282582494488">"%1$s కనెక్ట్ చేయబడింది"</string>
+    <string name="bluetooth_device_disconnected_toast" msgid="8889122688851623920">"%1$s డిస్‌కనెక్ట్ చేయబడింది"</string>
     <string name="bluetooth_notif_ticker" msgid="7192577740198156792">"బ్లూటూత్ జత చేయడానికి అభ్యర్థన"</string>
     <string name="bluetooth_device_context_pair_connect" msgid="3138105800372470422">"జత చేసి, కనెక్ట్ చేయి"</string>
-    <string name="bluetooth_pairing_key_msg" msgid="5066825929751599037">"బ్లూటూత్ జత చేసే కోడ్"</string>
+    <string name="bluetooth_pairing_key_msg" msgid="5066825929751599037">"బ్లూటూత్ పెయిరింగ్ కోడ్"</string>
     <string name="bluetooth_enable_alphanumeric_pin" msgid="1636575922217263060">"పిన్‌ అక్షరాలను లేదా చిహ్నాలను కలిగి ఉంది"</string>
     <string name="bluetooth_enter_passkey_msg" msgid="5955236916732265593">"జత చేసే కోడ్‌ను టైప్ చేసి, ఆపై Return లేదా Enter నొక్కండి"</string>
     <string name="bluetooth_pairing_request" msgid="4769675459526556801">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g>తో జత చేయాలా?"</string>
@@ -203,10 +218,10 @@
     <string name="language_picker_list_all_header" msgid="1577387973934368428">"అన్ని భాషలు"</string>
     <string name="keyboard_settings" msgid="1959697870618278081">"కీబోర్డ్"</string>
     <string name="manage_keyboard" msgid="4045394766282200132">"కీబోర్డ్‌లను నిర్వహించండి"</string>
-    <string name="text_to_speech_settings" msgid="811985746199507343">"వచనం నుండి ప్రసంగం అవుట్‌పుట్"</string>
+    <string name="text_to_speech_settings" msgid="811985746199507343">"టెక్స్ట్ టు స్పీచ్ అవుట్‌పుట్"</string>
     <string name="text_to_speech_preferred_engine_settings" msgid="2766782925699132256">"ప్రాధాన్య ఇంజిన్"</string>
     <string name="text_to_speech_current_engine" msgid="8133107484909612597">"ప్రస్తుత ఇంజిన్"</string>
-    <string name="tts_speech_rate" msgid="4512944877291943133">"ప్రసంగం రేట్"</string>
+    <string name="tts_speech_rate" msgid="4512944877291943133">"స్పీచ్ రేట్"</string>
     <string name="tts_pitch" msgid="2389171233852604923">"పిచ్"</string>
     <string name="tts_reset" msgid="6289481549801844709">"రీసెట్ చేయి"</string>
     <string name="sound_settings" msgid="3072423952331872246">"ధ్వని"</string>
@@ -220,6 +235,11 @@
     <string name="ringtone_title" msgid="8370531086214517972">"ఫోన్ రింగ్‌టోన్"</string>
     <string name="notification_ringtone_title" msgid="8661716239594010288">"డిఫాల్ట్ నోటిఫికేషన్ ధ్వని"</string>
     <string name="alarm_ringtone_title" msgid="3257364170646440908">"డిఫాల్ట్ అలారం ధ్వని"</string>
+    <string name="ringtone_picker_save_title" msgid="4388137432517227001">"సేవ్ చేయి"</string>
+    <string name="sound_alert_sounds" msgid="6838044721739163867">"అలర్ట్ సౌండ్‌లు"</string>
+    <string name="sound_alert_sounds_summary" msgid="816501423095651281">"రింగ్‌టోన్, నోటిఫికేషన్, అలారం"</string>
+    <string name="display_brightness" msgid="5718970880488110840">"ప్రకాశం"</string>
+    <string name="display_night_mode_summary" msgid="4939425286027546230">"స్క్రీన్‌ను తక్కువ కాంతికి సర్దుబాటు చేయండి"</string>
     <string name="units_settings" msgid="402325305096925886">"యూనిట్‌లు"</string>
     <string name="units_speed_title" msgid="7115143916747108160">"వేగం"</string>
     <string name="units_distance_title" msgid="6257691565990474635">"దూరం"</string>
@@ -270,26 +290,38 @@
     <string name="units_unit_name_liter_per_hundred_kilometers" msgid="4867647387452453552">"వంద కిలోమీటర్‌లకు లీటర్‌లు"</string>
     <string name="apps_and_notifications_settings" msgid="8704585874333781975">"యాప్‌లు &amp; నోటిఫికేషన్‌లు"</string>
     <string name="all_applications" msgid="7798210477486822168">"అన్ని యాప్‌లను చూపండి"</string>
-    <string name="default_applications" msgid="1558183275638697087">"డిఫాల్ట్ యాప్‌లు"</string>
+    <string name="default_applications" msgid="1558183275638697087">"ఆటోమేటిక్ యాప్‌లు"</string>
     <string name="app_permissions" msgid="32799922508313948">"యాప్ అనుమతులు"</string>
-    <string name="app_permissions_summary" msgid="1842858532315056367">"<xliff:g id="APPS">%1$s</xliff:g> ఉపయోగిస్తున్న యాప్‌లు"</string>
+    <string name="app_permissions_summary" msgid="5402214755935368418">"మీ డేటాకు యాప్ యాక్సెస్‌ను కంట్రోల్ చేయండి"</string>
     <string name="applications_settings" msgid="794261395191035632">"యాప్ సమాచారం"</string>
     <string name="force_stop" msgid="2153183697014720520">"ఫోర్స్ స్టాప్"</string>
-    <string name="force_stop_dialog_title" msgid="3342850939200388694">"హటాత్తుగా ఆపివేయాలా?"</string>
-    <string name="force_stop_dialog_text" msgid="4354954014318432599">"మీరు ఏదైనా యాప్‌ను హటాత్తుగా ఆపివేస్తే, అది సరిగ్గా పని చేయకపోవచ్చు."</string>
-    <string name="disable_text" msgid="4358165448648990820">"నిలిపివేయి"</string>
+    <string name="force_stop_dialog_title" msgid="3342850939200388694">"ఫోర్స్ స్టాప్ చేయాలా?"</string>
+    <string name="force_stop_dialog_text" msgid="4354954014318432599">"మీరు ఏదైనా యాప్‌ను ఫోర్స్ స్టాప్ చేస్తే, అది సరిగ్గా పని చేయకపోవచ్చు."</string>
+    <string name="peak_performance_dialog_title" msgid="5970933611683430870">"పనితీరు రక్షణను ఆఫ్ చేయాలా?"</string>
+    <string name="peak_performance_dialog_text" msgid="7648337738884134499">"మీరు అలా చేస్తే, మీ సాఫ్ట్‌వేర్, ఇంకా హార్డ్‌వేర్ కూడా సరిగ్గా పని చేయకపోవచ్చు."</string>
+    <string name="peak_performance_dialog_action_on" msgid="2139033153500237350">"ఆన్‌లోనే ఉంచండి"</string>
+    <string name="peak_performance_dialog_action_off" msgid="1019653666533456482">"ఆఫ్ చేయండి"</string>
+    <string name="disable_text" msgid="4358165448648990820">"డిజేబుల్ చేయి"</string>
     <string name="enable_text" msgid="1794971777861881238">"ప్రారంభించు"</string>
     <string name="uninstall_text" msgid="277907956072833012">"అన్ఇన్‌స్టాల్ చేయి"</string>
     <string name="app_disable_dialog_text" msgid="7731155411006654025">"మీరు ఈ యాప్‌ను నిలిపివేస్తే, Android మరియు ఇతర యాప్‌లు ఇకపై ఉద్దేశించిన రీతిలో పని చేయకపోవచ్చు."</string>
     <string name="app_disable_dialog_positive" msgid="4448684722791563349">"యాప్‌ను నిలిపివేయి"</string>
-    <string name="not_installed" msgid="4218816013370552746">"ఈ వినియోగదారుని కోసం ఇన్‌స్టాల్ చేయలేదు"</string>
+    <string name="not_installed" msgid="4163454337822508007">"ఈ ప్రొఫైల్‌లో ఇన్‌స్టాల్ చేయబడలేదు"</string>
     <string name="permissions_label" msgid="2701446753515612685">"అనుమతులు"</string>
     <string name="notifications_label" msgid="6586089149665170731">"నోటిఫికేషన్‌లు"</string>
-    <string name="storage_application_label" msgid="5911779903670978586">"నిల్వ &amp; కాష్"</string>
+    <string name="storage_application_label" msgid="5911779903670978586">"స్టోరేజ్ &amp; కాష్"</string>
+    <string name="peak_performance_label" msgid="1592816366516845648">"టాప్ పనితీరు పొందండి"</string>
     <string name="application_version_label" msgid="8556889839783311649">"వెర్షన్: %1$s"</string>
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"అనుమతులు మంజూరు కాలేదు"</string>
     <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"అనుమతులను అభ్యర్థించలేదు"</string>
+    <string name="unused_apps" msgid="648471933781010395">"ఉపయోగించని యాప్‌లు"</string>
+    <plurals name="unused_apps_summary" formatted="false" msgid="6410080383909014362">
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> ఉపయోగించని యాప్‌లు</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> ఉపయోగించని యాప్</item>
+    </plurals>
+    <string name="unused_apps_switch" msgid="4433958286200341563">"అనుమతులను తీసివేసి స్పేస్‌ను ఖాళీ చేయండి"</string>
     <string name="storage_type_internal" msgid="8918688427078709570">"అంతర్గత నిల్వలో %s"</string>
+    <string name="peak_performance_summary" msgid="2450911487290019786">"అవసరమైనప్పుడు, యాప్‌ను మూసి వనరుల వాడకం తగ్గించండి"</string>
     <string name="data_usage_summary_title" msgid="4368024763485916986">"డేటా వినియోగం"</string>
     <string name="data_usage_app_summary_title" msgid="5012851696585421420">"యాప్ డేటా వినియోగం"</string>
     <string name="computing_size" msgid="5791407621793083965">"గణిస్తోంది…"</string>
@@ -305,7 +337,7 @@
     <string name="assist_access_screenshot_title" msgid="2855956879971465044">"స్క్రీన్‌షాట్‌ను ఉపయోగించండి"</string>
     <string name="assist_access_screenshot_summary" msgid="6246496926635145782">"స్క్రీన్ చిత్రాన్ని యాక్సెస్ చేయడానికి సహాయక యాప్‌ను అనుమతిస్తుంది"</string>
     <string name="voice_input_settings_title" msgid="3238707827815647526">"వాయిస్ ఇన్‌పుట్"</string>
-    <string name="autofill_settings_title" msgid="1188754272680049972">"స్వీయ పూరింపు సేవ"</string>
+    <string name="autofill_settings_title" msgid="1188754272680049972">"ఆటోమేటిక్ ఫిల్ సర్వీస్"</string>
     <string name="app_list_preference_none" msgid="7753357799926715901">"ఏదీ కాదు"</string>
     <string name="default_app_selected_app" msgid="5289396663745484773">"ఎంచుకోబడింది"</string>
     <string name="assistant_security_warning" msgid="1844807956967428012">"అసిస్టెంట్ మీ సిస్టమ్‌లో వినియోగంలో ఉన్న యాప్‌ల గురించిన సమాచారం, అలాగే మీ స్క్రీన్‌పై కనిపించే లేదా యాప్‌లలో యాక్సెస్ చేసే సమాచారాన్ని చదవగలుగుతుంది."</string>
@@ -326,9 +358,17 @@
     <string name="app_link_open_ask" msgid="7242075065136237456">"ప్రతిసారి అడుగు"</string>
     <string name="app_link_open_never" msgid="2173174327831792316">"ఈ యాప్‌లో తెరవదు"</string>
     <string name="app_launch_supported_domain_urls_title" msgid="7345116365785981158">"మద్దతిచ్చే లింక్‌లు"</string>
+    <string name="apps_settings_title" msgid="3982535942394315336">"యాప్‌లు"</string>
+    <string name="apps_recently_opened" msgid="5320377037971195984">"ఇటీవల తెరిచినవి"</string>
+    <string name="apps_view_all_apps_title" msgid="2322120325505230530">"అన్ని %1$d యాప్‌లను చూడండి"</string>
+    <string name="apps_permission_manager_title" msgid="8776335943862484131">"అనుమతి మేనేజర్"</string>
+    <string name="apps_permission_manager_summary" msgid="4180424218228141274">"మీ డేటాకు యాప్ యాక్సెస్‌ను కంట్రోల్ చేయండి"</string>
+    <string name="apps_default_apps_summary" msgid="2017792579839972926">"Assistant, ఇంకా మరిన్నింటి కోసం"</string>
+    <string name="apps_special_app_access_summary" msgid="6464767436309742163">"సిస్టమ్, ఇతర సెట్టింగ్‌లకు"</string>
     <string name="special_access" msgid="5730278220917123811">"ప్రత్యేక యాప్ యాక్సెస్"</string>
     <string name="show_system" msgid="4401355756969485287">"సిస్టమ్‌ను చూపు"</string>
     <string name="hide_system" msgid="8845453295584638040">"సిస్టమ్‌ను దాచు"</string>
+    <string name="hide_system_apps" msgid="6583947381056154020">"సిస్టమ్ యాప్‌లను దాచు"</string>
     <string name="modify_system_settings_title" msgid="4596320571562433972">"సిస్టమ్ సెట్టింగ్‌ల సవరణ"</string>
     <string name="modify_system_settings_description" msgid="5295023124419592452">"సిస్టమ్ సెట్టింగ్‌లను సవరించడానికి ఈ అనుమతి యాప్‌కు వీలు కల్పిస్తుంది."</string>
     <string name="notification_access_title" msgid="1467340098885813473">"నోటిఫికేషన్ యాక్సెస్"</string>
@@ -340,8 +380,8 @@
     <string name="premium_sms_access_title" msgid="1409118461646148686">"ప్రీమియం SMS యాక్సెస్"</string>
     <string name="premium_sms_access_description" msgid="7119026067677052169">"ప్రీమియం SMSతో మీకు డబ్బు ఖర్చు కావచ్చు, ఈ ఛార్జీ మీ క్యారియర్ బిల్లులలో విధించబడుతుంది. మీరు ఒక యాప్‌కు అనుమతిని ఇస్తే, ఆ యాప్‌ను ఉపయోగించి మీరు ప్రీమియం SMSను పంపగలరు."</string>
     <string name="usage_access_title" msgid="7153427122072303254">"వినియోగ యాక్సెస్"</string>
-    <string name="usage_access_description" msgid="2413168719257435422">"వినియోగ యాక్సెస్‌తో యాప్ మీరు ఉపయోగించే ఇతర యాప్‌ల గురించి మరియు వాటిని ఎంత తరచుగా ఉపయోగిస్తున్నారనే దాని గురించి అలాగే మీ క్యారియర్, భాష సెట్టింగ్‌లు మరియు ఇతర వివరాలను ట్రాక్ చేయగలదు."</string>
-    <string name="wifi_control_title" msgid="5660436566907731929">"Wi-Fi నియంత్రణ"</string>
+    <string name="usage_access_description" msgid="2413168719257435422">"\'వినియోగ యాక్సెస్\' ద్వారా యాప్, మీరు ఏయే ఇతర యాప్‌లను ఉపయోగిస్తున్నారో, వాటిని ఎంత తరచుగా ఉపయోగిస్తున్నారో, అలాగే మీ క్యారియర్, భాష సెట్టింగ్‌లు, ఇతర వివరాలను ట్రాక్ చేయగలదు."</string>
+    <string name="wifi_control_title" msgid="5660436566907731929">"Wi-Fi కంట్రోల్‌"</string>
     <string name="wifi_control_description" msgid="6021926850423169261">"యాప్‌కు Wi-Fiను ఆన్ లేదా ఆఫ్ చేయడానికి, Wi-Fi నెట్‌వర్క్‌లను స్కాన్ చేసి, కనెక్ట్ చేయడానికి, నెట్‌వర్క్‌లను జోడించడానికి లేదా తీసివేయడానికి, స్థానికం-మాత్రమే హాట్‌స్పాట్‌ను ప్రారంభించడానికి ఈ Wi-Fi కంట్రోలర్ అనుమతిస్తుంది."</string>
     <string name="more_special_access_title" msgid="166115485446645971">"మరిన్ని"</string>
     <string name="location_settings_title" msgid="901334356682423679">"స్థానం"</string>
@@ -349,16 +389,20 @@
     <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"ఇటీవలి స్థాన అభ్యర్థనలు లేవు"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"యాప్‌-స్థాయి అనుమతులు"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"స్థాన సేవలు"</string>
+    <string name="location_use_location_title" msgid="117735895374606680">"లొకేషన్‌ను ఉపయోగించండి"</string>
+    <string name="location_settings_footer" msgid="296892848338100051">"మీ పరికరం లొకేషన్‌ను అంచనా వేయడంలో సహాయపడటానికి GPS, Wi-Fi, మొబైల్ నెట్‌వర్క్‌లు, సెన్సార్‌ల వంటి సోర్సులను \'లొకేషన్\' ఉపయోగించవచ్చు."</string>
     <string name="system_setting_title" msgid="6864599341809463440">"సిస్టమ్"</string>
     <string name="system_update_settings_title" msgid="8448588267784138855">"సిస్టమ్ అప్‌డేట్‌లు"</string>
+    <string name="system_advanced_title" msgid="6303355131691523362">"అధునాతనం"</string>
+    <string name="system_advanced_summary" msgid="5833643795981791953">"పరిచయం, చట్టపరమైన సమాచారం, రీసెట్, మరిన్ని"</string>
     <string name="firmware_version" msgid="8491753744549309333">"Android వెర్షన్"</string>
     <string name="security_patch" msgid="4794276590178386903">"Android భద్రతా ప్యాచ్ స్థాయి"</string>
     <string name="hardware_info" msgid="3973165746261507658">"మోడల్ &amp; హార్డ్‌వేర్"</string>
     <string name="hardware_info_summary" msgid="8262576443254075921">"మోడల్: <xliff:g id="MODEL">%1$s</xliff:g>"</string>
     <string name="baseband_version" msgid="2370088062235041897">"బేస్‌బ్యాండ్ వెర్షన్"</string>
     <string name="kernel_version" msgid="7327212934187011508">"కెర్నెల్ వెర్షన్"</string>
-    <string name="build_number" msgid="3997326631001009102">"బిల్డ్ సంఖ్య"</string>
-    <string name="bluetooth_mac_address" msgid="7641425947941688072">"బ్లూటూత్ చిరునామా"</string>
+    <string name="build_number" msgid="3997326631001009102">"బిల్డ్ నంబర్"</string>
+    <string name="bluetooth_mac_address" msgid="7641425947941688072">"బ్లూటూత్ అడ్రస్"</string>
     <string name="device_info_not_available" msgid="2095601973977376655">"అందుబాటులో లేదు"</string>
     <string name="device_status_activity_title" msgid="4083567497305368200">"స్థితి"</string>
     <string name="device_status" msgid="267298179806290920">"స్థితి"</string>
@@ -370,7 +414,7 @@
     <string name="legal_information" msgid="1838443759229784762">"చట్టబద్ధమైన సమాచారం"</string>
     <string name="contributors_title" msgid="7698463793409916113">"సహకారులు"</string>
     <string name="manual" msgid="4819839169843240804">"మాన్యువల్"</string>
-    <string name="regulatory_labels" msgid="3165587388499646779">"నియంత్రణ లేబుల్‌లు"</string>
+    <string name="regulatory_labels" msgid="3165587388499646779">"నియంత్రణ లేబుళ్లు"</string>
     <string name="safety_and_regulatory_info" msgid="1204127697132067734">"భద్రత &amp; amp; నియంత్రణ మాన్యువల్"</string>
     <string name="copyright_title" msgid="4220237202917417876">"కాపీరైట్"</string>
     <string name="license_title" msgid="936705938435249965">"లైసెన్స్"</string>
@@ -379,7 +423,7 @@
     <string name="wallpaper_attributions" msgid="9201272150014500697">"వాల్‌పేపర్‌లు"</string>
     <string name="wallpaper_attributions_values" msgid="4292446851583307603">"ఉపగ్రహ ఫోటోలను అందించినవారు:\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
     <string name="model_info" msgid="4966408071657934452">"మోడల్"</string>
-    <string name="status_serial_number" msgid="9158889113131907656">"క్రమ సంఖ్య"</string>
+    <string name="status_serial_number" msgid="9158889113131907656">"సీరియల్ నంబర్"</string>
     <string name="hardware_revision" msgid="5713759927934872874">"హార్డ్‌వేర్ వెర్షన్"</string>
     <string name="regulatory_info_text" msgid="8890339124198005428"></string>
     <string name="settings_license_activity_title" msgid="8499293744313077709">"మూడవ పక్షం లైసెన్స్‌లు"</string>
@@ -412,22 +456,21 @@
     <string name="reset_app_pref_desc" msgid="579392665146962149">"ఇది వీటి కోసం అన్ని ప్రాధాన్యతలను రీసెట్ చేస్తుంది:\n\n"<li>"నిలిపివేయబడిన యాప్‌లు"</li>\n<li>"నిలిపివేయబడిన యాప్ నోటిఫికేషన్‌లు"</li>\n<li>"చర్యల కోసం డిఫాల్ట్ యాప్‌లు"</li>\n<li>"యాప్‌ల కోసం నేపథ్య డేటా పరిమితులు"</li>\n<li>"ఏవైనా అనుమతి పరిమితులు"</li>\n\n" మీరు ఏ యాప్‌ డేటాను కోల్పోరు."</string>
     <string name="reset_app_pref_button_text" msgid="6270820447321231609">"యాప్‌లను రీసెట్ చేయి"</string>
     <string name="reset_app_pref_complete_toast" msgid="8709072932243594166">"యాప్ ప్రాధాన్యతలు రీసెట్ చేయబడ్డాయి"</string>
-    <string name="master_clear_title" msgid="8515335233363214414">"మొత్తం డేటాను తొలగించు (ఫ్యాక్టరీ రీసెట్)"</string>
-    <string name="master_clear_desc" msgid="9058719802779893535">"ఇది మీ వాహన ప్రధాన విభాగం నుండి మొత్తం డేటాను తొలగిస్తుంది, వీటితో సహా:\n\n"<li>"మీ Google ఖాతా"</li>\n<li>"సిస్టమ్ మరియు యాప్ డేటా మరియు సెట్టింగ్‌లు"</li>\n<li>"డౌన్‌లోడ్ చేసిన యాప్‌‍లు"</li></string>
-    <string name="master_clear_accounts" msgid="7797522012993567494">"మీరు ప్రస్తుతం క్రింది ఖాతాలకు సైన్ ఇన్ చేసారు:"</string>
-    <string name="master_clear_other_users_present" msgid="8383376863095743337">"ఈ వాహనంలో ఇతర వినియోగదారులు ఉన్నారు."</string>
-    <string name="master_clear_button_text" msgid="8010754220392741160">"వాహనాన్ని రీసెట్ చేయి"</string>
-    <string name="master_clear_confirm_title" msgid="8646455623132887370">"రీసెట్ చేయాలా?"</string>
-    <string name="master_clear_confirm_desc" msgid="8920446291698038558">"మీ వ్యక్తిగత సమాచారం మరియు డౌన్‌లోడ్ చేసిన యాప్‌లు అన్నింటినీ తొలగించాలా? మీరు ఈ చర్యను తిరిగి రద్దు చేయలేరు!"</string>
-    <string name="master_clear_confirm_button_text" msgid="7981254968588121786">"ప్రతి దాన్ని తొలగించండి"</string>
-    <string name="master_clear_progress_title" msgid="7087480656932674774">"తొలగిస్తోంది"</string>
-    <string name="master_clear_progress_text" msgid="3440789441935303176">"దయచేసి వేచి ఉండండి..."</string>
+    <string name="factory_reset_title" msgid="4019066569214122052">"డేటా అంతటినీ తొలగించు (ఫ్యాక్టరీ రీసెట్)"</string>
+    <string name="factory_reset_summary" msgid="854815182943504327">"సమాచారంతో కూడిన వినోదం సిస్టమ్ నుండి మొత్తం డేటా, ప్రొఫైల్‌లను ఫ్యాక్టరీ రీసెట్ చేస్తుంది"</string>
+    <string name="factory_reset_desc" msgid="1688333312943433244">"వీటితో సహా ఇది మీ వాహన సమాచారంతో కూడిన వినోదం సిస్టమ్ నుండి మొత్తం డేటాను ఫ్యాక్టరీ రీసెట్ చేస్తుంది:\n\n"<li>"మీ Google ఖాతా"</li>\n<li>"సిస్టమ్, యాప్ డేటా, సెట్టింగ్‌లు"</li>\n<li>"డౌన్‌లోడ్ చేసిన యాప్‌లు"</li></string>
+    <string name="factory_reset_accounts" msgid="5523956654938834209">"మీరు ప్రస్తుతం కింది ఖాతాలకు సైన్ ఇన్ చేశారు:"</string>
+    <string name="factory_reset_other_users_present" msgid="3852324375352090570">"ఈ వాహనం కోసం ఇతర ప్రొఫైల్‌లు సెటప్ చేయబడ్డాయి."</string>
+    <string name="factory_reset_button_text" msgid="2626666247051368256">"మొత్తం డేటాను తొలగించండి"</string>
+    <string name="factory_reset_confirm_title" msgid="3354542161765761879">"మొత్తం డేటాను తొలగించాలా?"</string>
+    <string name="factory_reset_confirm_desc" msgid="2037199381372030510">"ఇది ఈ సమాచారంతో కూడిన వినోదం సిస్టమ్ నుండి మీ మొత్తం వ్యక్తిగత ప్రొఫైల్ డేటాను, ఖాతాలను, అలాగే డౌన్‌లోడ్ చేసిన యాప్‌లను ఫ్యాక్టరీ రీసెట్ చేస్తుంది.\n\nమీరు ఈ చర్యను తిరిగి రద్దు చేయలేరు."</string>
+    <string name="factory_reset_confirm_button_text" msgid="1797490544756481809">"అన్నింటినీ తొలగించండి"</string>
+    <string name="factory_reset_progress_title" msgid="4580937077054738173">"తొలగిస్తోంది"</string>
+    <string name="factory_reset_progress_text" msgid="7704636573522634757">"దయచేసి వేచి ఉండండి..."</string>
     <string name="date_and_time_settings_title" msgid="4058492663544475485">"తేదీ &amp; సమయం"</string>
     <string name="date_and_time_settings_summary" msgid="7669856855390804666">"తేదీ, సమయం, సమయ మండలి &amp; ఫార్మాట్‌లను సెట్ చేయండి"</string>
-    <string name="date_time_auto" msgid="3570339569471779767">"ఆటోమేటిక్‌గా తేదీ &amp; సమయం"</string>
-    <string name="date_time_auto_summary" msgid="3311706425095342759">"నెట్‌వర్క్ అందించిన సమయాన్ని ఉపయోగించు"</string>
-    <string name="zone_auto" msgid="3701878581920206160">"ఆటోమేటిక్ సమయ మండలి"</string>
-    <string name="zone_auto_summary" msgid="4345856882906981864">"నెట్‌వర్క్ అందించిన సమయ మండలిని ఉపయోగించు"</string>
+    <string name="date_time_auto" msgid="6018635902717385962">"ఆటోమేటిక్‌గా టైమ్‌ను సెట్ చేయి"</string>
+    <string name="zone_auto" msgid="4174874778459184605">"ఆటోమేటిక్‌గా టైమ్ జోన్‌ను సెట్ చేయండి"</string>
     <string name="date_time_24hour_title" msgid="3025576547136168692">"24‑గంటల ఫార్మాట్"</string>
     <string name="date_time_24hour" msgid="1137618702556486913">"24-గంటల ఫార్మాట్‌ని ఉపయోగించు"</string>
     <string name="date_time_set_time_title" msgid="5884883050656937853">"సమయం"</string>
@@ -441,36 +484,37 @@
     <string name="date_picker_title" msgid="1533614225273770178">"తేదీ"</string>
     <string name="time_picker_title" msgid="7436045944320504639">"సమయం"</string>
     <string name="user_admin" msgid="1535484812908584809">"నిర్వాహకుడు"</string>
-    <string name="signed_in_admin_user" msgid="1267225622818673274">"నిర్వాహకుడిగా సైన్ ఇన్ చేసారు"</string>
-    <string name="grant_admin_permissions_title" msgid="4628430467359951437">"అన్ని నిర్వాహక అనుమతులు"</string>
+    <string name="signed_in_admin_user" msgid="1267225622818673274">"నిర్వాహకుడిగా సైన్ ఇన్ చేశారు"</string>
+    <string name="grant_admin_permissions_title" msgid="4496239754512028468">"అడ్మిన్ అనుమతులను మంజూరు చేయాలా?"</string>
     <string name="grant_admin_permissions_button_text" msgid="988239414372882401">"నిర్వాహకుడిగా చేయి"</string>
-    <string name="grant_admin_permissions_message" msgid="1751910369004774830">"వినియోగదారు ఇతర నిర్వాహకులతో సహా వినియోగదారులను తొలగించగలరు మరియు సిస్టమ్‌ని ఫ్యాక్టరీ రీసెట్ చేయగలరు."</string>
+    <string name="grant_admin_permissions_message" msgid="5205433947453539566">"ఇతర అడ్మిన్‌ల ప్రొఫైల్‌లతో సహా, అడ్మిన్ ఇతర ప్రొఫైల్‌లను తొలగించగలరు, సమాచారంతో కూడిన వినోదం సిస్టమ్‌ను ఫ్యాక్టరీ రీసెట్ చేయగలరు."</string>
     <string name="action_not_reversible_message" msgid="740401337875726973">"ఈ చర్యను రద్దు చేయలేరు."</string>
     <string name="confirm_grant_admin" msgid="7852596890218647682">"అవును, నిర్వాహకుడిగా చేయి"</string>
-    <string name="create_user_permission_title" msgid="7781550880565935298">"కొత్త వినియోగదారులను సృష్టించడం"</string>
-    <string name="outgoing_calls_permission_title" msgid="1230180443712099293">"ఫోన్ కాల్‌లు చేయడం"</string>
+    <string name="create_user_permission_title" msgid="2402003632264628632">"కొత్త ప్రొఫైల్‌లను క్రియేట్ చేయండి"</string>
+    <string name="outgoing_calls_permission_title" msgid="1230180443712099293">"ఫోన్ కాల్స్‌ చేయడం"</string>
     <string name="sms_messaging_permission_title" msgid="6099328509729071243">"కారు మొబైల్ డేటాతో సందేశం పంపడం"</string>
     <string name="install_apps_permission_title" msgid="3099705360827925296">"కొత్త యాప్‌లను ఇన్‌స్టాల్ చేయడం"</string>
     <string name="uninstall_apps_permission_title" msgid="8448422340567430659">"యాప్‌లను అన్‌ఇన్‌స్టాల్ చేయడం"</string>
-    <string name="user_add_user_menu" msgid="5319151436895941496">"వినియోగదారుని జోడించు"</string>
-    <string name="user_new_user_name" msgid="7115771396412339662">"కొత్త వినియోగదారు"</string>
-    <string name="user_add_user_title" msgid="7458813670614932479">"కొత్త వినియోగదారుని జోడించాలా?"</string>
-    <string name="user_add_user_message_setup" msgid="6030901156040053106">"మీరు కొత్త వినియోగదారును జోడించినప్పుడు, ఆ వ్యక్తి తన స్థలాన్ని సెటప్ చేసుకోవాలి."</string>
-    <string name="user_add_user_message_update" msgid="1528170913388932459">"ఏ వినియోగదారు అయినా మిగతా అందరు వినియోగదారుల కోసం యాప్‌లను అప్‌డేట్ చేయవచ్చు."</string>
-    <string name="user_limit_reached_title" msgid="8803355734556061238">"వినియోగదారు పరిమితిని చేరుకున్నారు"</string>
-    <plurals name="user_limit_reached_message" formatted="false" msgid="2651922256448824747">
-      <item quantity="other">మీరు <xliff:g id="COUNT">%d</xliff:g>వినియోగదారుల వరకు సృష్టించవచ్చు.</item>
-      <item quantity="one">ఒక్క వినియోగదారుని మాత్రమే సృష్టించవచ్చు.</item>
+    <string name="user_add_user_menu" msgid="4125869008006021799">"ప్రొఫైల్‌ను జోడించండి"</string>
+    <string name="user_new_user_name" msgid="906698527658609819">"కొత్త ప్రొఫైల్"</string>
+    <string name="user_add_user_title" msgid="6296827596015729982">"కొత్త ప్రొఫైల్‌ను జోడించాలా?"</string>
+    <string name="user_add_user_message_setup" msgid="812616230454605159">"మీరు కొత్త ప్రొఫైల్‌ను క్రియేట్ చేసిన తర్వాత, ఆ వ్యక్తి దాన్ని వారి కోసం అనుకూలంగా మార్చుకోవాలి."</string>
+    <string name="user_add_user_message_update" msgid="3836353291078729240">"అన్ని ఇతర ప్రొఫైల్‌ల ఉపయోగం కోసం యాప్‌లను ఏదైనా ఇతర ప్రొఫైల్ నుండి అప్‌డేట్ చేయవచ్చు."</string>
+    <string name="user_limit_reached_title" msgid="5677729355746623293">"ప్రొఫైల్ పరిమితిని చేరుకున్నారు"</string>
+    <plurals name="user_limit_reached_message" formatted="false" msgid="3310152546154693349">
+      <item quantity="other">మీరు <xliff:g id="COUNT">%d</xliff:g> ప్రొఫైల్‌ల వరకు క్రియేట్ చేయగలరు.</item>
+      <item quantity="one">ఒక ప్రొఫైల్‌ను మాత్రమే క్రియేట్ చేయగలరు.</item>
     </plurals>
-    <string name="add_user_error_title" msgid="3206300411663817038">"కొత్త వినియోగదారుని సృష్టించడంలో విఫలమైంది"</string>
-    <string name="delete_user_dialog_title" msgid="3422867434431562007">"ఈ వినియోగదారును తొలగించాలా?"</string>
-    <string name="delete_user_dialog_message" msgid="4346777604351785057">"అన్ని యాప్‌లు మరియు డేటా తొలగించబడతాయి."</string>
-    <string name="delete_user_error_title" msgid="7609819398530124827">"వినియెగదారును తొలగించడం విఫలమైంది."</string>
+    <string name="add_user_error_title" msgid="7589792057846396341">"కొత్త ప్రొఫైల్‌ను‌ క్రియేట్ చేయలేకపోయాము"</string>
+    <string name="delete_user_dialog_title" msgid="575517556232943687">"ఈ ప్రొఫైల్‌ను తొలగించాలా?"</string>
+    <string name="delete_user_dialog_message" msgid="3916865958419051299">"ఈ ప్రొఫైల్‌లోని మొత్తం యాప్‌లు, డేటా తొలగించబడతాయి"</string>
+    <string name="delete_user_error_title" msgid="6422249596301690254">"ప్రొఫైల్‌ను తొలగించడం సాధ్యపడలేదు."</string>
+    <string name="delete_user_error_set_ephemeral_title" msgid="9062453678745644817">"మీరు ప్రొఫైల్‌లను మార్చినప్పుడు లేదా వాహనాన్ని రీస్టార్ట్ చేసినప్పుడు ఈ ప్రొఫైల్ తొలగించబడుతుంది."</string>
     <string name="delete_user_error_dismiss" msgid="429156446763738273">"విస్మరించు"</string>
     <string name="delete_user_error_retry" msgid="5116434895572670563">"మళ్లీ ప్రయత్నించు"</string>
-    <string name="delete_last_user_dialog_title" msgid="3644392025675369680">"చివరి వినియోగదారుని తొలగించాలా?"</string>
-    <string name="delete_last_user_admin_created_message" msgid="1856897729010319054">"ఈ కార్ యొక్క ఏకైక వినియోగదారుని తొలగించిన తర్వాత, కొత్త నిర్వాహక వినియోగదారు సృష్టించబడతారు."</string>
-    <string name="delete_last_user_system_setup_required_message" msgid="8550730509371697989">"ఈ వినియోగదారుకు అనుబంధంగా ఉన్న మొత్తం డేటా, సెట్టింగ్‌లు మరియు యాప్‌లు తొలగించబడతాయి. మీరు సిస్టమ్‌ను మళ్లీ సెటప్ చేయవలసి ఉంటుంది."</string>
+    <string name="delete_last_user_dialog_title" msgid="3454454005909291260">"చివరి యూజర్ ప్రొఫైల్‌ను తొలగించాలా?"</string>
+    <string name="delete_last_user_delete_warning" msgid="7189499586859833988">"మీరు ఈ వాహనం కోసం మిగిలి ఉన్న ఏకైక ప్రొఫైల్‌ను తొలగిస్తే, ఈ ప్రొఫైల్‌తో అనుబంధించబడి ఉన్న మొత్తం డేటా, సెట్టింగ్‌లు, యాప్‌లు ఫ్యాక్టరీ రీసెట్ చేయబడతాయి."</string>
+    <string name="delete_last_user_system_setup_required_message" msgid="726196874941282088">"రీసెట్ చేసిన తర్వాత, మీరు కొత్త ప్రొఫైల్‌ను సెటప్ చేయవచ్చు."</string>
     <string name="choose_new_admin_title" msgid="1915428454917699587">"కొత్త నిర్వాహకుడిని ఎంచుకోండి"</string>
     <string name="choose_new_admin_message" msgid="7468286545352043354">"మీకు కనీసం ఒక నిర్వాహకుడు అవసరం. ఈ నిర్వహకుడిని తొలగించడానికి, ముందుగా ఒక ప్రత్యామ్నాయాన్ని ఎంచుకోండి."</string>
     <string name="choose_new_admin_label" msgid="5987653639387437939">"నిర్వాహకుడిని ఎంచుకోండి"</string>
@@ -480,27 +524,28 @@
     <string name="current_user_name" msgid="3813671533249316823">"మీరు (%1$s)"</string>
     <string name="user_name_label" msgid="3210832645046206845">"పేరు"</string>
     <string name="user_summary_not_set_up" msgid="1473688119241224145">"సెటప్ చేయలేదు"</string>
-    <string name="edit_user_name_title" msgid="6890782937520262478">"వినియోగదారు పేరుని సవరించండి"</string>
+    <string name="edit_user_name_title" msgid="1118500707473139995">"ప్రొఫైల్ పేరును ఎడిట్ చేయండి"</string>
     <string name="name_input_blank_error" msgid="2088850865880984123">"ఫీల్డ్ ఖాళీగా ఉండరాదు."</string>
-    <string name="name_input_invalid_error" msgid="3523545780580744273">"నమోదు చేసిన వినియోగదారు పేరు చెల్లదు."</string>
+    <string name="name_input_invalid_error" msgid="4355625213535164704">"ఎంటర్ చేసిన ప్రొఫైల్ పేరు చెల్లదు."</string>
     <string name="users_list_title" msgid="770764290290240909">"వినియోగదారులు"</string>
+    <string name="profiles_list_title" msgid="1443396686780460221">"ప్రొఫైల్‌లు"</string>
     <string name="user_details_admin_title" msgid="3530292857178371891">"%1$s కి అనుమతులు మంజూరు చేయబడ్డాయి"</string>
-    <string name="storage_settings_title" msgid="8957054192781341797">"నిల్వ"</string>
+    <string name="storage_settings_title" msgid="8957054192781341797">"స్టోరేజ్"</string>
     <string name="storage_music_audio" msgid="7827147379976134040">"సంగీతం &amp; ఆడియో"</string>
     <string name="storage_other_apps" msgid="945509804756782640">"ఇతర యాప్‌లు"</string>
     <string name="storage_files" msgid="6382081694781340364">"ఫైల్స్"</string>
     <string name="storage_system" msgid="1271345630248014010">"సిస్టమ్"</string>
-    <string name="storage_detail_dialog_system" msgid="796365720531622361">"సిస్టమ్‌లో Android వెర్షన్ <xliff:g id="VERSION">%s</xliff:g>ను అమలు చేయడానికి అవసరమైన ఫైల్‌లు ఉంటాయి"</string>
-    <string name="storage_audio_files_title" msgid="5183170457027181700">"ఆడియో ఫైల్‌లు"</string>
+    <string name="storage_detail_dialog_system" msgid="796365720531622361">"సిస్టమ్‌లో Android వెర్షన్ <xliff:g id="VERSION">%s</xliff:g>ను అమలు చేయడానికి అవసరమైన ఫైళ్లు ఉంటాయి"</string>
+    <string name="storage_audio_files_title" msgid="5183170457027181700">"ఆడియో ఫైళ్లు"</string>
     <string name="memory_calculating_size" msgid="1672238502950390033">"గణిస్తోంది…"</string>
-    <string name="storage_application_size_label" msgid="1146156683170661354">"యాప్ పరిమాణం"</string>
-    <string name="storage_data_size_label" msgid="5022911581004239367">"వినియోగదారు డేటా"</string>
+    <string name="storage_application_size_label" msgid="1146156683170661354">"యాప్ సైజ్"</string>
+    <string name="storage_data_size_label" msgid="7986110464268960652">"ప్రొఫైల్ డేటా"</string>
     <string name="storage_cache_size_label" msgid="6361308766707419555">"కాష్"</string>
     <string name="storage_total_size_label" msgid="3892138268243791912">"మొత్తం"</string>
     <string name="storage_clear_user_data_text" msgid="8787615136779130680">"నిల్వను తీసివేయి"</string>
     <string name="storage_clear_cache_btn_text" msgid="8449547925966775612">"కాష్‌ను తీసివేయి"</string>
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"యాప్ డేటాను తొలగించాలా?"</string>
-    <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"ఈ యాప్ డేటా మొత్తం శాశ్వతంగా తొలగించబడుతుంది. ఇందులో అన్ని ఫైల్‌లు, సెట్టింగ్‌లు, ఖాతాలు, డేటాబేస్‌లు మొదలైనవి ఉంటాయి."</string>
+    <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"ఈ యాప్ డేటా మొత్తం శాశ్వతంగా తొలగించబడుతుంది. ఇందులో అన్ని ఫైళ్లు, సెట్టింగ్‌లు, ఖాతాలు, డేటాబేస్‌లు మొదలైనవి ఉంటాయి."</string>
     <string name="storage_clear_failed_dlg_text" msgid="6710485971686866306">"యాప్ యొక్క నిల్వను తీసివేయడం సాధ్యపడలేదు."</string>
     <string name="storage_unmount_success" msgid="1553591517580407021">"<xliff:g id="NAME">%1$s</xliff:g> సురక్షితంగా తొలగించబడింది"</string>
     <string name="storage_unmount_failure" msgid="4591934911541762883">"<xliff:g id="NAME">%1$s</xliff:g>ని సురక్షితంగా తొలగించలేకపోయింది"</string>
@@ -511,7 +556,7 @@
     <string name="account_auto_sync_title" msgid="3238816995364191432">"డేటాని ఆటోమేటిక్‌గా సమకాలీకరించు"</string>
     <string name="account_auto_sync_summary" msgid="6963837893148304128">"డేటాని ఆటోమేటిక్‌గా రిఫ్రెష్ చేసేలా యాప్‌లు అనుమతించబడతాయి"</string>
     <string name="data_usage_auto_sync_on_dialog_title" msgid="6027487764261344033">"స్వీయ-సమకాలీకరణ డేటాను ప్రారంభించాలా?"</string>
-    <string name="data_usage_auto_sync_on_dialog" msgid="2770233931307606956">"వెబ్‌లో మీ ఖాతాలకు మీరు ఏవైనా మార్పులు చేస్తే అవి స్వయంచాలకంగా మీ పరికరానికి కాపీ చేయబడతాయి.\n\nకొన్ని ఖాతాలు మీరు ఫోన్‌లో ఏవైనా మార్పులు చేస్తే కూడా ఆటోమేటిక్‌గా వాటిని వెబ్‌కి కాపీ చేస్తాయి. Google ఖాతా ఈ విధంగానే పనిచేస్తుంది."</string>
+    <string name="data_usage_auto_sync_on_dialog" msgid="2770233931307606956">"వెబ్‌లో మీ ఖాతాలకు మీరు ఏవైనా మార్పులు చేస్తే అవి ఆటోమేటిక్‌గా మీ పరికరానికి కాపీ చేయబడతాయి.\n\nకొన్ని ఖాతాలు మీరు ఫోన్‌లో ఏవైనా మార్పులు చేస్తే కూడా ఆటోమేటిక్‌గా వాటిని వెబ్‌కి కాపీ చేస్తాయి. Google ఖాతా ఈ విధంగానే పనిచేస్తుంది."</string>
     <string name="data_usage_auto_sync_off_dialog_title" msgid="1235955038330202536">"స్వీయ-సమకాలీకరణ డేటాను ఆఫ్ చేయాలా?"</string>
     <string name="data_usage_auto_sync_off_dialog" msgid="5040873073016183315">"ఇది డేటాను ఆదా చేస్తుంది, కానీ మీరు ఇటీవలి సమాచారాన్ని సేకరించడానికి మాన్యువల్‌గా ప్రతి ఖాతాను సమకాలీకరించాల్సి ఉంటుంది. అలాగే మీరు అప్‌డేట్‌లు జరిగినప్పుడు నోటిఫికేషన్‌లను స్వీకరించరు."</string>
     <string name="account_details_title" msgid="7529571432258448573">"ఖాతా సమాచారం"</string>
@@ -536,6 +581,15 @@
     <string name="sync_button_sync_cancel" msgid="7739510554513641393">"సమకాలీకరణను రద్దు చేయి"</string>
     <string name="sync_is_failing" msgid="5766255460901806206">"సమకాలీకరణ ప్రస్తుతం సమస్యలను ఎదుర్కొంటోంది. ఇది త్వరలో అందుబాటులోకి వస్తుంది."</string>
     <string name="privacy_settings_title" msgid="3150145262029229572">"గోప్యత"</string>
+    <string name="privacy_vehicle_data_title" msgid="6385777370742595651">"సమాచారంతో కూడిన వినోద సిస్టమ్ డేటా"</string>
+    <string name="privacy_location_summary" msgid="7019817848470566242">"మీ లొకేషన్‌కు యాప్ యాక్సెస్‌ను కంట్రోల్ చేయండి"</string>
+    <string name="mute_mic_title" msgid="2813215197799569553">"మైక్రోఫోన్"</string>
+    <string name="mute_mic_summary" msgid="5426953935775303904">"మైక్రోఫోన్‌కు యాప్ యాక్సెస్‌ను కంట్రోల్ చేయండి"</string>
+    <string name="vehicle_data_title" msgid="935933215161763721">"వినోదాత్మక సమాచార సిస్టమ్ డేటా"</string>
+    <string name="vehicle_data_summary" msgid="9204836361819386115">"ఈ వాహనంలో సేవ్ చేసిన యాక్టివిటీలు, సమాచారాన్ని మేనేజ్ చేయండి"</string>
+    <string name="vehicle_data_delete_user_title" msgid="9132472153739085346">"మీ ప్రొఫైల్‌ను తొలగించండి"</string>
+    <string name="vehicle_data_delete_user_summary" msgid="5900205773710111394">"సమాచారంతో కూడిన వినోదం సిస్టమ్ నుండి మీ ప్రొఫైల్, ఖాతాలను ఫ్యాక్టరీ రీసెట్ చేయండి"</string>
+    <string name="action_unavailable" msgid="7087119418684417249">"ఈ చర్య మీ ప్రొఫైల్ కోసం అందుబాటులో లేదు"</string>
     <string name="security_settings_title" msgid="6955331714774709746">"భద్రత"</string>
     <string name="security_settings_subtitle" msgid="2244635550239273229">"స్క్రీన్ లాక్"</string>
     <string name="security_lock_none" msgid="1054645093754839638">"ఏదీ కాదు"</string>
@@ -552,13 +606,12 @@
     <string name="lockscreen_skip_button_text" msgid="3755748786396198091">"దాటవేయి"</string>
     <string name="set_screen_lock" msgid="5239317292691332780">"స్క్రీన్ లాక్‌ను సెట్ చేయండి"</string>
     <string name="lockscreen_choose_your_pin" msgid="1645229555410061526">"మీ పిన్ ఎంచుకోండి"</string>
-    <string name="lockscreen_choose_your_pattern" msgid="6801175111142593404">"మీ నమూనాను ఎంచుకోండి"</string>
     <string name="lockscreen_choose_your_password" msgid="4487577710136014069">"మీ పాస్‌వర్డ్‌ను ఎంచుకోండి"</string>
     <string name="current_screen_lock" msgid="637651611145979587">"ప్రస్తుత స్క్రీన్ లాక్"</string>
     <string name="choose_lock_pattern_message" msgid="6242765203541309524">"భద్రత కోసం, ఆకృతిని సెట్ చేయండి"</string>
     <string name="lockpattern_retry_button_text" msgid="4655398824001857843">"తీసివేయి"</string>
     <string name="lockpattern_cancel_button_text" msgid="4068764595622381766">"రద్దు చేయి"</string>
-    <string name="lockpattern_pattern_confirmed" msgid="5984306638250515385">"మీ కొత్త అన్‌లాక్ నమూనా"</string>
+    <string name="lockpattern_pattern_confirmed" msgid="5984306638250515385">"మీ కొత్త అన్‌లాక్ ఆకృతి"</string>
     <string name="lockpattern_recording_intro_header" msgid="7864149726033694408">"అన్‌లాక్ నమూనాని గీయండి"</string>
     <string name="lockpattern_recording_inprogress" msgid="1575019990484725964">"పూర్తయినప్పుడు వేలును తీసివేయండి"</string>
     <string name="lockpattern_pattern_entered" msgid="6103071005285320575">"ఆకృతి రికార్డ్ చేయబడింది"</string>
@@ -567,9 +620,12 @@
     <string name="lockpattern_pattern_wrong" msgid="929223969555399363">"ఆకృతి తప్పు"</string>
     <string name="lockpattern_settings_help_how_to_record" msgid="4436556875843192284">"అన్‌లాక్ నమూనాను ఎలా గీయాలి"</string>
     <string name="error_saving_lockpattern" msgid="2933512812768570130">"ఆకృతిని సేవ్ చేయడంలో ఎర్రర్ ఏర్పడింది"</string>
+    <string name="lockpattern_too_many_failed_confirmation_attempts" msgid="4636307830951251013">"చాలా ఎక్కువ తప్పు ప్రయత్నాలు చేశారు. <xliff:g id="NUMBER">%d</xliff:g> సెకన్లలో మళ్లీ ట్రై చేయండి."</string>
     <string name="okay" msgid="4589873324439764349">"సరే"</string>
     <string name="remove_screen_lock_title" msgid="1234382338764193387">"స్క్రీన్ లాక్‌ను తీసివేయాలా?"</string>
     <string name="remove_screen_lock_message" msgid="6675850371585564965">"ఎవరైనా మీ ఖాతాను యాక్సెస్ చేయడానికి ఇది అనుమతిస్తుంది"</string>
+    <string name="security_profile_lock_title" msgid="3082523481292617350">"ప్రొఫైల్ లాక్"</string>
+    <string name="security_unlock_profile_summary" msgid="6742592419759865631">"ఆటోమేటిక్‌గా అన్‌లాక్ చేయడాన్ని సెటప్ చేయండి"</string>
     <string name="lock_settings_enter_pin" msgid="1669172111244633904">"మీ పిన్‌ని నమోదు చేయండి"</string>
     <string name="lock_settings_enter_password" msgid="2636669926649496367">"మీ పాస్‌వర్డ్‌ను నమోదు చేయండి"</string>
     <string name="choose_lock_pin_message" msgid="2963792070267774417">"భద్రత కోసం, పిన్‌ను సెట్ చేయండి"</string>
@@ -593,7 +649,7 @@
     <string name="lockpassword_pin_too_long" msgid="62957683396974404">"తప్పనిసరిగా <xliff:g id="NUMBER">%d</xliff:g> కంటే తక్కువ అంకెలు ఉండాలి"</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"తప్పనిసరిగా 0-9 అంకెలను మాత్రమే కలిగి ఉండాలి."</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"ఇటీవలి పిన్‌ని ఉపయోగించడానికి పరికర నిర్వాహకులు అనుమతించరు"</string>
-    <string name="lockpassword_pin_blacklisted_by_admin" msgid="7412709707800738442">"సాధారణ పిన్‌లను మా IT నిర్వాహకులు బ్లాక్ చేసారు. వేరే పిన్‌ని ప్రయత్నించండి."</string>
+    <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"సాధారణ PINలను మీ IT అడ్మిన్ బ్లాక్ చేశారు. వేరే PINను ట్రై చేయండి."</string>
     <string name="lockpassword_illegal_character" msgid="1984970060523635618">"ఇందులో చెల్లని అక్షరం ఉండకూడదు."</string>
     <string name="lockpassword_invalid_password" msgid="1690956113717418430">"పాస్‌వర్డ్ చెల్లదు, తప్పనిసరిగా కనీసం 4 అక్షరాలు ఉండాలి."</string>
     <plurals name="lockpassword_password_requires_letters" formatted="false" msgid="424616259312760303">
@@ -622,7 +678,7 @@
     </plurals>
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"ఇటీవలి పాస్‌వర్డ్‌ను ఉపయోగించడానికి పరికర నిర్వాహకులు అనుమతించరు"</string>
     <string name="error_saving_password" msgid="8334882262622500658">"పాస్‌వర్డ్‌ని సేవ్ చేయడంలో ఎర్రర్"</string>
-    <string name="lockpassword_password_blacklisted_by_admin" msgid="7965893810326503891">"సాధారణ పాస్‌వర్డ్‌లను మా IT నిర్వాహకులు బ్లాక్ చేసారు. వేరే పాస్‌వర్డ్‌ని ప్రయత్నించండి."</string>
+    <string name="lockpassword_password_denylisted_by_admin" msgid="8611831198794524730">"సాధారణ పాస్‌వర్డ్‌లను మీ IT అడ్మిన్ బ్లాక్ చేశారు. వేరే పాస్‌వర్డ్‌ను ట్రై చేయండి."</string>
     <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"అంకెలను ఆరోహణ, అవరోహణ క్రమంలో లేదా ఒకే అంకెను వరుసగా పునరావృతంగా ఉపయోగించకూడదు."</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"స్క్రీన్ లాక్ ఎంపికలు"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : <xliff:g id="NUM_DAYS">%3$s</xliff:g> రోజుల క్రితం"</string>
@@ -643,10 +699,24 @@
     <string name="enter_key" msgid="2121394305541579468">"Enter కీ"</string>
     <string name="exit_retail_button_text" msgid="6093240315583384473">"డెమో నుండి నిష్క్రమించండి"</string>
     <string name="exit_retail_mode_dialog_title" msgid="7970631760237469168">"డెమో మోడ్ నుండి నిష్క్రమించండి"</string>
-    <string name="exit_retail_mode_dialog_body" msgid="8314316171782527301">"ఫ్యాక్టరీ డేటా డెమో ఖాతాను తొలగించి, సిస్టమ్‌ను రీసెట్ చేస్తుంది. మొత్తం వినియోగదారు డేటాను కోల్పోతారు."</string>
+    <string name="exit_retail_mode_dialog_body" msgid="6513854703627380365">"ఇది డెమో ఖాతాను తొలగించి, సిస్టమ్‌ను ఫ్యాక్టరీ డేటా రీసెట్ చేస్తుంది. మొత్తం ప్రొఫైల్ డేటాను కోల్పోతారు."</string>
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"డెమో నుండి నిష్క్రమించండి"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"విస్మరించు"</string>
     <string name="restricted_while_driving" msgid="6587569249519274524">"డ్రైవింగ్ చేస్తున్నప్పుడు ఈ ఫీచర్ అందుబాటులో ఉండదు"</string>
-    <string name="add_user_restricted_while_driving" msgid="4754946754222453656">"డ్రైవింగ్ చేస్తున్నప్పుడు, యూజర్‌ను జోడించడం సాధ్యం కాదు"</string>
-    <string name="default_search_query" msgid="3137420627428857068">"శోధన"</string>
+    <string name="add_user_restricted_while_driving" msgid="1037301074725362944">"డ్రైవింగ్ చేస్తున్నప్పుడు, ప్రొఫైల్‌ను జోడించడం సాధ్యం కాదు"</string>
+    <string name="default_search_query" msgid="3137420627428857068">"Search"</string>
+    <string name="assistant_and_voice_setting_title" msgid="737733881661819853">"Assistant &amp; వాయిస్"</string>
+    <string name="assistant_and_voice_assistant_app_title" msgid="5981647244625171285">"డిజిటల్ అసిస్టెంట్ యాప్"</string>
+    <string name="assistant_and_voice_use_text_from_screen_title" msgid="5851460943413795599">"స్క్రీన్‌పై ఉన్న టెక్స్ట్‌ను ఉపయోగించండి"</string>
+    <string name="assistant_and_voice_use_text_from_screen_summary" msgid="4161751708121301541">"స్క్రీన్ కంటెంట్‌లను యాక్సెస్ చేయడానికి అసిస్టెంట్‌ను అనుమతించండి"</string>
+    <string name="assistant_and_voice_use_screenshot_title" msgid="1930735578425470046">"స్క్రీన్‌షాట్‌ను ఉపయోగించండి"</string>
+    <string name="assistant_and_voice_use_screenshot_summary" msgid="3738474919393817950">"స్క్రీన్ ఇమేజ్‌ను యాక్సెస్ చేయడానికి అసిస్టెంట్‌ను అనుమతించండి"</string>
+    <string name="notifications_recently_sent" msgid="9051696542615302799">"ఇటీవల పంపినవి"</string>
+    <string name="notifications_all_apps" msgid="3557079551048958846">"అన్ని యాప్‌లు"</string>
+    <string name="profiles_and_accounts_settings_title" msgid="2672643892127659812">"ప్రొఫైల్‌లు &amp; ఖాతాలు"</string>
+    <string name="manage_other_profiles_button_text" msgid="2262188413455510828">"ఇతర ప్రొఫైల్‌లను మేనేజ్ చేయండి"</string>
+    <string name="add_a_profile_button_text" msgid="8027395095117925114">"ఒక ప్రొఫైల్‌ను జోడించు"</string>
+    <string name="delete_this_profile_text" msgid="6035404714526922665">"ఈ ప్రొఫైల్‌ను తొలగించు"</string>
+    <string name="add_profile_text" msgid="9118410102199116969">"ప్రొఫైల్‌ను జోడించండి"</string>
+    <string name="power_component_disabled" msgid="7084144472096800457">"ఈ సెట్టింగ్‌ను ఇప్పుడే మార్చడం సాధ్యం కాదు"</string>
 </resources>

@@ -63,7 +63,7 @@ public class PreferenceControllerFragmentTest {
         final AbstractPreferenceController retrievedController =
                 mPreferenceControllerFragment.getOnePreferenceController(mockController.getClass());
 
-        assertThat(mockController).isSameAs(retrievedController);
+        assertThat(mockController).isSameInstanceAs(retrievedController);
     }
 
     @Test

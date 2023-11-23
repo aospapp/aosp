@@ -593,6 +593,44 @@ static jboolean disconnectAudioNative(JNIEnv* env, jobject object,
   return (status == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
 }
 
+static jboolean isNoiseReductionSupportedNative(JNIEnv* env, jobject object,
+                                                jbyteArray address) {
+  std::shared_lock<std::shared_timed_mutex> lock(interface_mutex);
+  if (!sBluetoothHfpInterface) {
+    ALOGW("%s: sBluetoothHfpInterface is null", __func__);
+    return JNI_FALSE;
+  }
+  jbyte* addr = env->GetByteArrayElements(address, nullptr);
+  if (!addr) {
+    ALOGE("%s: failed to get device address", __func__);
+    jniThrowIOException(env, EINVAL);
+    return JNI_FALSE;
+  }
+  bt_status_t status =
+      sBluetoothHfpInterface->isNoiseReductionSupported((RawAddress*)addr);
+  env->ReleaseByteArrayElements(address, addr, 0);
+  return (status == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
+}
+
+static jboolean isVoiceRecognitionSupportedNative(JNIEnv* env, jobject object,
+                                                  jbyteArray address) {
+  std::shared_lock<std::shared_timed_mutex> lock(interface_mutex);
+  if (!sBluetoothHfpInterface) {
+    ALOGW("%s: sBluetoothHfpInterface is null", __func__);
+    return JNI_FALSE;
+  }
+  jbyte* addr = env->GetByteArrayElements(address, nullptr);
+  if (!addr) {
+    ALOGE("%s: failed to get device address", __func__);
+    jniThrowIOException(env, EINVAL);
+    return JNI_FALSE;
+  }
+  bt_status_t status =
+      sBluetoothHfpInterface->isVoiceRecognitionSupported((RawAddress*)addr);
+  env->ReleaseByteArrayElements(address, addr, 0);
+  return (status == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
+}
+
 static jboolean startVoiceRecognitionNative(JNIEnv* env, jobject object,
                                             jbyteArray address) {
   std::shared_lock<std::shared_timed_mutex> lock(interface_mutex);
@@ -924,6 +962,10 @@ static JNINativeMethod sMethods[] = {
     {"disconnectHfpNative", "([B)Z", (void*)disconnectHfpNative},
     {"connectAudioNative", "([B)Z", (void*)connectAudioNative},
     {"disconnectAudioNative", "([B)Z", (void*)disconnectAudioNative},
+    {"isNoiseReductionSupportedNative", "([B)Z",
+     (void*)isNoiseReductionSupportedNative},
+    {"isVoiceRecognitionSupportedNative", "([B)Z",
+     (void*)isVoiceRecognitionSupportedNative},
     {"startVoiceRecognitionNative", "([B)Z",
      (void*)startVoiceRecognitionNative},
     {"stopVoiceRecognitionNative", "([B)Z", (void*)stopVoiceRecognitionNative},

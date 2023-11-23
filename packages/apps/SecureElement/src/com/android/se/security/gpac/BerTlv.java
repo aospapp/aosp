@@ -225,7 +225,7 @@ public class BerTlv {
 
     /** Returns the byte array of only the data values */
     public byte[] getValue() {
-        // sanity checks
+        // quick checks
         if (mRawData == null
                 || mValueLength == 0
                 || mValueIndex < 0

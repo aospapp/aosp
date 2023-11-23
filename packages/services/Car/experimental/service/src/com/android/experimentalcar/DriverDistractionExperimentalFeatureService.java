@@ -44,6 +44,7 @@ import android.os.Looper;
 import android.os.RemoteCallbackList;
 import android.os.RemoteException;
 import android.os.UserHandle;
+import android.util.IndentingPrintWriter;
 import android.util.Log;
 import android.util.Pair;
 
@@ -52,7 +53,6 @@ import com.android.car.Utils;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 
-import java.io.PrintWriter;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -311,7 +311,7 @@ public final class DriverDistractionExperimentalFeatureService extends
     }
 
     @Override
-    public void dump(PrintWriter writer) {
+    public void dump(IndentingPrintWriter writer) {
         writer.println("*DriverDistractionExperimentalFeatureService*");
         mDistractionClients.dump(writer, "Distraction Clients ");
         writer.println("Prioritized Driver Awareness Suppliers (highest to lowest priority):");

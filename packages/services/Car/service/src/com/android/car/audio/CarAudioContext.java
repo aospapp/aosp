@@ -16,18 +16,22 @@
 
 package com.android.car.audio;
 
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.BOILERPLATE_CODE;
+
+import android.annotation.IntDef;
 import android.media.AudioAttributes;
 import android.media.AudioAttributes.AttributeUsage;
 import android.util.SparseArray;
 import android.util.SparseIntArray;
 
-import androidx.annotation.IntDef;
-
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 import com.android.internal.util.Preconditions;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Groupings of {@link AttributeUsage}s to simplify configuration of car audio routing, volume
@@ -219,6 +223,9 @@ public final class CarAudioContext {
         }
     }
 
+    private CarAudioContext() {
+    }
+
     /**
      * Checks if the audio context is within the valid range from MUSIC to SYSTEM_SOUND
      */
@@ -232,6 +239,10 @@ public final class CarAudioContext {
         return CONTEXT_TO_USAGES.get(carAudioContext);
     }
 
+    static @AudioContext int getContextForAttributes(AudioAttributes attributes) {
+        return getContextForUsage(attributes.getSystemUsage());
+    }
+
     /**
      * @return Context number for a given audio usage, {@code INVALID} if the given usage is
      * unrecognized.
@@ -240,6 +251,20 @@ public final class CarAudioContext {
         return USAGE_TO_CONTEXT.get(audioUsage, INVALID);
     }
 
+    static Set<Integer> getUniqueContextsForUsages(int[] usages) {
+        Set<Integer> uniqueContexts = new HashSet<>();
+        for (int i = 0; i < usages.length; i++) {
+            uniqueContexts.add(getContextForUsage(usages[i]));
+        }
+
+        return uniqueContexts;
+    }
+
+    static boolean isCriticalAudioContext(@CarAudioContext.AudioContext int audioContext) {
+        return CarAudioContext.EMERGENCY == audioContext || CarAudioContext.SAFETY == audioContext;
+    }
+
+    @ExcludeFromCodeCoverageGeneratedReport(reason = BOILERPLATE_CODE)
     static String toString(@AudioContext int audioContext) {
         String name = CONTEXT_NAMES.get(audioContext);
         if (name != null) {

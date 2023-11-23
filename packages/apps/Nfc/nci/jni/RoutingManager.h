@@ -36,8 +36,8 @@ class RoutingManager {
   void deinitialize();
   void enableRoutingToHost();
   void disableRoutingToHost();
-  bool addAidRouting(const uint8_t* aid, uint8_t aidLen, int route,
-                     int aidInfo);
+  bool addAidRouting(const uint8_t* aid, uint8_t aidLen, int route, int aidInfo,
+                     int power);
   bool removeAidRouting(const uint8_t* aid, uint8_t aidLen);
   bool commitRouting();
   int registerT3tIdentifier(uint8_t* t3tId, uint8_t t3tIdLen);
@@ -46,6 +46,7 @@ class RoutingManager {
   int registerJniFunctions(JNIEnv* e);
   bool setNfcSecure(bool enable);
   void updateRoutingTable();
+  void eeSetPwrAndLinkCtrl(uint8_t config);
 
  private:
   RoutingManager();
@@ -121,4 +122,5 @@ class RoutingManager {
   SyncEvent mEeUpdateEvent;
   SyncEvent mEeInfoEvent;
   SyncEvent mEeSetModeEvent;
+  SyncEvent mEePwrAndLinkCtrlEvent;
 };

@@ -33,7 +33,7 @@
         android:allowBackup="true"
         android:label="@string/app_name"
         android:theme="@style/AppTheme" >
-        <!-- Dummy activity -->
+        <!-- Test activity -->
         <activity
             android:name="com.android.tests.connectivity.uid.ConnectivityTestActivity"
             android:configChanges="keyboardHidden|orientation|screenSize"

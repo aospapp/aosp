@@ -282,14 +282,14 @@ public class CarHvacManagerTest extends MockedCarTestBase {
         public synchronized void onPropertySubscribe(int property, float sampleRate) {
             Log.d(TAG, "onPropertySubscribe property " + property + " sampleRate " + sampleRate);
             if (mMap.get(property) == null) {
-                Log.d(TAG, "onPropertySubscribe add dummy property: " + property);
-                VehiclePropValue dummyValue = VehiclePropValueBuilder.newBuilder(property)
+                Log.d(TAG, "onPropertySubscribe add placeholder property: " + property);
+                VehiclePropValue placeholderValue = VehiclePropValueBuilder.newBuilder(property)
                         .setAreaId(0)
                         .setTimestamp(SystemClock.elapsedRealtimeNanos())
                         .addIntValue(1)
                         .addFloatValue(1)
                         .build();
-                mMap.put(property, dummyValue);
+                mMap.put(property, placeholderValue);
             }
         }
 

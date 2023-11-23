@@ -16,6 +16,11 @@
 
 package com.android.tv.settings.about;
 
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_CLASSIC;
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_TWO_PANEL;
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_VENDOR;
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_X;
+
 import android.content.Context;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -24,16 +29,17 @@ import android.view.View;
 
 import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
-import androidx.leanback.app.GuidedStepFragment;
+import androidx.leanback.app.GuidedStepSupportFragment;
 import androidx.leanback.widget.GuidanceStylist;
 import androidx.leanback.widget.GuidedAction;
 
 import com.android.tv.settings.R;
+import com.android.tv.settings.overlay.FlavorUtils;
 
 import java.util.List;
 
 @Keep
-public class RebootConfirmFragment extends GuidedStepFragment {
+public class RebootConfirmFragment extends GuidedStepSupportFragment {
 
     private static final String ARG_SAFE_MODE = "RebootConfirmFragment.safe_mode";
 
@@ -91,6 +97,25 @@ public class RebootConfirmFragment extends GuidedStepFragment {
         actions.add(new GuidedAction.Builder(context)
                 .clickAction(GuidedAction.ACTION_ID_CANCEL)
                 .build());
+    }
+
+    @Override
+    public GuidanceStylist onCreateGuidanceStylist() {
+        return new GuidanceStylist() {
+            @Override
+            public int onProvideLayoutId() {
+                switch (FlavorUtils.getFlavor(getContext())) {
+                    case FLAVOR_CLASSIC:
+                    case FLAVOR_TWO_PANEL:
+                        return R.layout.confirm_guidance;
+                    case FLAVOR_X:
+                    case FLAVOR_VENDOR:
+                        return R.layout.confirm_guidance_x;
+                    default:
+                        return R.layout.confirm_guidance;
+                }
+            }
+        };
     }
 
     @Override

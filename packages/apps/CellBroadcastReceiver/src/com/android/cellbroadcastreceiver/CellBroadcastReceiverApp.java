@@ -16,9 +16,11 @@
 
 package com.android.cellbroadcastreceiver;
 
+import android.annotation.NonNull;
 import android.app.Application;
 import android.telephony.SmsCbMessage;
 
+import android.util.Log;
 import java.util.ArrayList;
 
 /**
@@ -27,19 +29,37 @@ import java.util.ArrayList;
  */
 public class CellBroadcastReceiverApp extends Application {
     private static final String TAG = "CellBroadcastReceiverApp";
+    private static final boolean VDBG = Log.isLoggable(TAG, Log.VERBOSE);
 
     /** List of unread non-emergency alerts to show when user selects the notification. */
     private static final ArrayList<SmsCbMessage> sNewMessageList = new ArrayList<>(4);
 
     /** Adds a new unread non-emergency message and returns the current list. */
     static ArrayList<SmsCbMessage> addNewMessageToList(SmsCbMessage message) {
+        if (VDBG) Log.v(TAG, "addNewMessageToList: " + message);
         sNewMessageList.add(message);
         return sNewMessageList;
     }
 
     /** Clears the list of unread non-emergency messages. */
     static void clearNewMessageList() {
+        if (VDBG) Log.v(TAG, "clearNewMessageList");
         sNewMessageList.clear();
+    }
+
+    /** Remove the read message from the unread message list. */
+    static ArrayList<SmsCbMessage> removeReadMessage(@NonNull SmsCbMessage message) {
+        if (sNewMessageList.removeIf(msg -> msg.getReceivedTime() == message.getReceivedTime())) {
+            if (VDBG) Log.v(TAG, "removeReadMessage succeed, msg: " + message);
+        } else {
+            if (VDBG) Log.v(TAG, "removeReadMessage failed, no matching message: " + message);
+        }
+        return sNewMessageList;
+    }
+
+    /** Returns the latest unread message. */
+    static SmsCbMessage getLatestMessage() {
+        return sNewMessageList.isEmpty() ? null : sNewMessageList.get(sNewMessageList.size()-1);
     }
 
     /** Returns a list of unread non-emergency alerts */

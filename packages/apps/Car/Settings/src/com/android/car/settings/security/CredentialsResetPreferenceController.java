@@ -46,6 +46,6 @@ public class CredentialsResetPreferenceController extends PreferenceController<P
     @Override
     public int getAvailabilityStatus() {
         return mUserManager.hasUserRestriction(DISALLOW_CONFIG_CREDENTIALS)
-                ? DISABLED_FOR_USER : AVAILABLE;
+                ? DISABLED_FOR_PROFILE : AVAILABLE;
     }
 }

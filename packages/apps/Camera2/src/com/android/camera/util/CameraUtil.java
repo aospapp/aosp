@@ -450,8 +450,8 @@ public class CameraUtil {
         return new Size((int) width, (int) height);
     }
 
-    public static int getDisplayRotation() {
-        WindowManager windowManager = AndroidServices.instance().provideWindowManager();
+    public static int getDisplayRotation(Activity context) {
+        WindowManager windowManager = AndroidServices.instance().provideWindowManager(context);
         int rotation = windowManager.getDefaultDisplay()
                 .getRotation();
         switch (rotation) {
@@ -467,15 +467,16 @@ public class CameraUtil {
         return 0;
     }
 
-    private static Size getDefaultDisplaySize() {
-        WindowManager windowManager = AndroidServices.instance().provideWindowManager();
+    private static Size getDefaultDisplaySize(Activity context) {
+        WindowManager windowManager = AndroidServices.instance().provideWindowManager(context);
         Point res = new Point();
         windowManager.getDefaultDisplay().getSize(res);
         return new Size(res);
     }
 
-    public static Size getOptimalPreviewSize(List<Size> sizes, double targetRatio) {
-        int optimalPickIndex = getOptimalPreviewSizeIndex(sizes, targetRatio);
+    public static Size getOptimalPreviewSize(List<Size> sizes, double targetRatio,
+            Activity context) {
+        int optimalPickIndex = getOptimalPreviewSizeIndex(sizes, targetRatio, context);
         if (optimalPickIndex == -1) {
             return null;
         } else {
@@ -494,16 +495,18 @@ public class CameraUtil {
      * @param sizes the available preview sizes
      * @param targetRatio the target aspect ratio, typically the aspect ratio of
      *            the picture size
+     * @param context the Activity to use for determining display information
      * @return The index into 'previewSizes' for the optimal size, or -1, if no
      *         matching size was found.
      */
-    public static int getOptimalPreviewSizeIndex(List<Size> sizes, double targetRatio) {
+    public static int getOptimalPreviewSizeIndex(List<Size> sizes, double targetRatio,
+            Activity context) {
         // Use a very small tolerance because we want an exact match. HTC 4:3
         // ratios is over .01 from true 4:3, so this value must be above .01,
         // see b/18241645.
         final double aspectRatioTolerance = 0.02;
 
-        return getOptimalPreviewSizeIndex(sizes, targetRatio, aspectRatioTolerance);
+        return getOptimalPreviewSizeIndex(sizes, targetRatio, aspectRatioTolerance, context);
     }
 
     /**
@@ -516,11 +519,13 @@ public class CameraUtil {
      * @param aspectRatioTolerance the tolerance we allow between the selected
      *            preview size's aspect ratio and the target ratio. If this is
      *            set to 'null', the default value is used.
+     * @param context the Activity to use for determining display information
      * @return The index into 'previewSizes' for the optimal size, or -1, if no
      *         matching size was found.
      */
     public static int getOptimalPreviewSizeIndex(
-            List<Size> previewSizes, double targetRatio, Double aspectRatioTolerance) {
+            List<Size> previewSizes, double targetRatio, Double aspectRatioTolerance,
+            Activity context) {
         if (previewSizes == null) {
             return -1;
         }
@@ -528,7 +533,7 @@ public class CameraUtil {
         // If no particular aspect ratio tolerance is set, use the default
         // value.
         if (aspectRatioTolerance == null) {
-            return getOptimalPreviewSizeIndex(previewSizes, targetRatio);
+            return getOptimalPreviewSizeIndex(previewSizes, targetRatio, context);
         }
 
         int optimalSizeIndex = -1;
@@ -539,7 +544,7 @@ public class CameraUtil {
         // wrong size of preview surface. When we change the preview size, the
         // new overlay will be created before the old one closed, which causes
         // an exception. For now, just get the screen size.
-        Size defaultDisplaySize = getDefaultDisplaySize();
+        Size defaultDisplaySize = getDefaultDisplaySize(context);
         int targetHeight = Math.min(defaultDisplaySize.getWidth(), defaultDisplaySize.getHeight());
         // Try to find an size match aspect ratio and size
         for (int i = 0; i < previewSizes.size(); i++) {

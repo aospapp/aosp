@@ -19,8 +19,12 @@
     <bool name="ignore_messages_in_ecbm">true</bool>
     <!-- Whether to disable cell broadcast severe alert when extreme alert is disabled -->
     <bool name="disable_severe_when_extreme_disabled">false</bool>
-    <!-- Whether to show test settings -->
+    <!-- U.S carrier want to show separate testing toggles for monthly test, operator defined and exercise -->
+    <!-- those testing toggles are visible after entering testing mode -->
+    <!-- Whether to show monthly test toggle when testing mode is off -->
     <bool name="show_test_settings">false</bool>
-    <!-- Whether allowing testing mode on user build or not -->
-    <bool name="allow_testing_mode_on_user_build">true</bool>
+    <!-- Whether to display operator defined test settings when testing mode is off. -->
+    <bool name="show_operator_defined_settings">false</bool>
+    <!-- Whether to display exercise test settings when testing mode is off. -->
+    <bool name="show_exercise_settings">false</bool>
 </resources>

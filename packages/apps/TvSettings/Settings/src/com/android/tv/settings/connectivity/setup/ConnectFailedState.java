@@ -118,20 +118,26 @@ public class ConnectFailedState implements State {
         String getConnectionFailTitle() {
             UserChoiceInfo.ConnectionFailedStatus status =
                     mUserChoiceInfo.getConnectionFailedStatus();
-            String ssid = mUserChoiceInfo.getWifiConfiguration().getPrintableSsid();
-            switch (status) {
-                case AUTHENTICATION:
-                    return getContext().getString(
-                            R.string.title_wifi_could_not_connect_authentication_failure, ssid);
-                case REJECTED:
-                    return getContext().getString(R.string.title_wifi_could_not_connect_ap_reject,
-                            ssid);
-                case TIMEOUT:
-                    return getContext().getString(R.string.title_wifi_could_not_connect_timeout,
-                            ssid);
-                default: // UNKNOWN
-                    return getContext().getString(R.string.title_wifi_could_not_connect, ssid);
+            if (status != null) {
+                String ssid = mUserChoiceInfo.getWifiConfiguration().getPrintableSsid();
+                switch (status) {
+                    case AUTHENTICATION:
+                        return getContext().getString(
+                                R.string.title_wifi_could_not_connect_authentication_failure, ssid);
+                    case REJECTED:
+                        return getContext().getString(
+                                R.string.title_wifi_could_not_connect_ap_reject,
+                                ssid);
+                    case TIMEOUT:
+                        return getContext().getString(R.string.title_wifi_could_not_connect_timeout,
+                                ssid);
+                    case EASY_CONNECT_FAILURE:
+                        return getContext().getString(R.string.wifi_summary_title_not_connected);
+                    default: // UNKNOWN
+                        return getContext().getString(R.string.title_wifi_could_not_connect, ssid);
+                }
             }
+            return getContext().getString(R.string.wifi_summary_title_not_connected);
         }
     }
 }

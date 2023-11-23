@@ -26,18 +26,6 @@
     <string name="media_app_title" msgid="94717597743776797">"Multimédia"</string>
     <string name="search_hint" msgid="5401750426238148416">"Pesquise músicas, artistas e mais…"</string>
     <string name="fragment_playback_title" msgid="5014481549024607614">"A tocar"</string>
-    <string name="default_error_message" msgid="6365377134388091079">"Ocorreu um problema. Tente mais tarde."</string>
-    <string name="error_code_app_error" msgid="1726372057192704809">"Não é possível responder a esse pedido neste momento."</string>
-    <string name="error_code_not_supported" msgid="1435878548411799387">"Esta aplicação não consegue responder a esse pedido."</string>
-    <string name="error_code_authentication_expired" msgid="905154133202017052">"Inicie sessão para utilizar esta aplicação."</string>
-    <string name="error_code_premium_account_required" msgid="4736461331592855166">"Acesso premium necessário."</string>
-    <string name="error_code_concurrent_stream_limit" msgid="1279573243715957403">"A ouvir em demasiados dispositivos."</string>
-    <string name="error_code_parental_control_restricted" msgid="5222841294702530806">"Esse conteúdo está bloqueado."</string>
-    <string name="error_code_not_available_in_region" msgid="4106605584926645567">"Não é possível obter esse conteúdo aqui."</string>
-    <string name="error_code_content_already_playing" msgid="8050972499898729459">"Esse conteúdo já está em reprodução."</string>
-    <string name="error_code_skip_limit_reached" msgid="8926507875025988831">"Não é possível ignorar mais faixas."</string>
-    <string name="error_code_action_aborted" msgid="3889734248905737169">"Não foi possível terminar. Tente novamente."</string>
-    <string name="error_code_end_of_queue" msgid="2842652212154074468">"Não existem mais elementos em fila."</string>
     <string name="service_notification_title" msgid="8085444675783592744">"A ligar à fonte multimédia…"</string>
     <string name="menu_item_sound_settings_title" msgid="58887078120809669">"Definições de som"</string>
     <string name="menu_item_app_selector_title" msgid="4587248991114338595">"Mudar de app"</string>

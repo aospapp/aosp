@@ -19,6 +19,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 
 import android.annotation.Nullable;
 import android.annotation.UserIdInt;
+import android.content.Intent;
 import android.content.pm.UserInfo;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
 import android.os.UserHandle;
@@ -27,6 +28,7 @@ import android.util.Log;
 import org.mockito.ArgumentMatcher;
 
 import java.util.Arrays;
+import java.util.Objects;
 
 /**
  * Provides custom mockito matcher for Android / Car objects.
@@ -48,6 +50,13 @@ public final class CarArgumentMatchers {
      */
     public static UserHandle isUserHandle(@UserIdInt int userId) {
         return argThat(new UserHandleMatcher(userId));
+    }
+
+    /**
+     * Matches an {@link Intent} for the given action and package name.
+     */
+    public static Intent intentFor(String action, String packageName) {
+        return argThat(new IntentMatcher(action, packageName));
     }
 
     /**
@@ -162,6 +171,30 @@ public final class CarArgumentMatchers {
         @Override
         public String toString() {
             return "prop: " + mProp + " values: " + Arrays.toString(mValues);
+        }
+    }
+
+    private static final class IntentMatcher implements ArgumentMatcher<Intent> {
+
+        private final String mAction;
+        private final String mPackageName;
+
+        private IntentMatcher(String action, String packageName) {
+            mAction = Objects.requireNonNull(action, "action cannot be null");
+            mPackageName = Objects.requireNonNull(packageName, "packageName cannot be null");
+        }
+
+        @Override
+        public boolean matches(Intent argument) {
+            Log.v(TAG, "IntentMatcher: argument=" + argument + ", this=" + this);
+
+            return argument != null && mAction.equals(argument.getAction())
+                    && mPackageName.equals(argument.getPackage());
+        }
+
+        @Override
+        public String toString() {
+            return "intentFor(action=" + mAction + ", pkg=" + mPackageName + ')';
         }
     }
 

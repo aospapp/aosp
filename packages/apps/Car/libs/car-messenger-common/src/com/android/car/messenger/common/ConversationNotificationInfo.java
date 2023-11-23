@@ -18,13 +18,13 @@ package com.android.car.messenger.common;
 
 import static com.android.car.apps.common.util.SafeLog.logw;
 
-import android.annotation.NonNull;
-import android.annotation.Nullable;
 import android.bluetooth.BluetoothDevice;
 import android.content.Intent;
 import android.graphics.drawable.Icon;
-import android.os.Build;
 import android.util.Log;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.android.car.messenger.NotificationMsgProto.NotificationMsg;
 import com.android.car.messenger.NotificationMsgProto.NotificationMsg.ConversationNotification;
@@ -77,7 +77,7 @@ public class ConversationNotificationInfo {
         MessagingStyle messagingStyle = conversation.getMessagingStyle();
 
         if (!Utils.isValidConversationNotification(conversation, /* isShallowCheck= */ true)) {
-            if (Log.isLoggable(TAG, Log.DEBUG) || Build.IS_DEBUGGABLE) {
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
                 throw new IllegalArgumentException(
                         "ConversationNotificationInfo is missing required fields");
             } else {

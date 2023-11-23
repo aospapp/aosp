@@ -36,8 +36,8 @@ import java.util.List;
 /**
  * DocumentsAdapter provides glue between a directory Model, and RecyclerView. We've
  * abstracted this a bit in order to decompose some specialized support
- * for adding dummy layout objects (@see SectionBreakDocumentsAdapter). Handling of the
- * dummy layout objects was error prone when interspersed with the core mode / adapter code.
+ * for adding stub layout objects (@see SectionBreakDocumentsAdapter). Handling of the
+ * stub layout objects was error prone when interspersed with the core mode / adapter code.
  *
  * @see ModelBackedDocumentsAdapter
  * @see DirectoryAddonsAdapter

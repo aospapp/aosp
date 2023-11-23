@@ -38,6 +38,8 @@ LOCAL_SDK_VERSION := system_current
 LOCAL_FULL_MANIFEST_FILE := $(OEM_APP_PATH)/AndroidManifest.xml
 
 LOCAL_PACKAGE_NAME := TimeZoneData$(TIME_ZONE_DATA_APP_SUFFIX)
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 
 LOCAL_AAPT_FLAGS := --version-code $(TIME_ZONE_DATA_APP_VERSION_CODE) \
                     --version-name $(TIME_ZONE_DATA_APP_VERSION_NAME)

@@ -18,8 +18,8 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"ഡൗൺലോഡ് മാനേജർ ആക്‌സസ്സ് ചെയ്യുക."</string>
     <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"BluetoothShare മാനേജർ ആക്‌സസ്സുചെയ്യാനും ഫയലുകൾ കൈമാറാൻ അത് ഉപയോഗിക്കാനും അപ്ലിക്കേഷനെ അനുവദിക്കുന്നു."</string>
-    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"വൈറ്റ്‌ലിസ്റ്റ് ബ്ലൂടൂത്ത് ഉപകരണ ആക്‌സസ്സ്."</string>
-    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"ഒരു ബ്ലൂടൂത്ത് ഉപകരണം താൽക്കാലികമായി വൈറ്റ്‌ലിസ്റ്റുചെയ്യാൻ അപ്ലിക്കേഷനെ അനുവദിക്കുന്നു, അത് ഉപയോക്താവിന്റെ സ്ഥിരീകരണമില്ലാതെ ഈ ഉപകരണത്തിലേക്ക് ഫയലുകൾ അയയ്‌ക്കാൻ ആ ഉപകരണത്തെ അനുവദിക്കുന്നു."</string>
+    <string name="permlab_bluetoothAcceptlist" msgid="2647575807648622053">"Bluetooth ഉപകരണത്തിലേക്കുള്ള ആക്സസിന്റെ അനുമതി ലിസ്റ്റ്."</string>
+    <string name="permdesc_bluetoothAcceptlist" msgid="2406423665674766442">"ഒരു Bluetooth ഉപകരണം താൽക്കാലികമായി അനുമതി ലിസ്റ്റിൽ ചേർക്കാൻ ആപ്പിനെ അനുവദിക്കുന്നു, അത് ഉപയോക്താവിന്റെ സ്ഥിരീകരണമില്ലാതെ ഈ ഉപകരണത്തിലേക്ക് ഫയലുകൾ അയയ്‌ക്കാൻ ആ ഉപകരണത്തെ അനുവദിക്കുന്നു."</string>
     <string name="bt_share_picker_label" msgid="6268100924487046932">"Bluetooth"</string>
     <string name="unknown_device" msgid="9221903979877041009">"അജ്ഞാത ഉപകരണം"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"അറിയില്ല"</string>
@@ -37,7 +37,7 @@
     <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"ശരി"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" -ൽ നിന്നും ഇൻകമിംഗ് ഫയൽ സ്വീകരിക്കുമ്പോൾ സമയപരിധി കഴിഞ്ഞിരുന്നു"</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"ഇൻകമിംഗ് ഫയൽ"</string>
-    <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="FILE">%2$s</xliff:g> അയയ്ക്കാൻ <xliff:g id="SENDER">%1$s</xliff:g> തയ്യാറാണ്"</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="6237487486781004992">"<xliff:g id="SENDER">%1$s</xliff:g>, ഫയൽ അയയ്‌ക്കാൻ തയ്യാറാണ്: <xliff:g id="FILE">%2$s</xliff:g>"</string>
     <string name="notification_receiving" msgid="4674648179652543984">"ബ്ലൂടൂത്ത് പങ്കിടൽ: <xliff:g id="FILE">%1$s</xliff:g> എന്ന ഫയൽ ലഭിക്കുന്നു"</string>
     <string name="notification_received" msgid="3324588019186687985">"ബ്ലൂടൂത്ത് പങ്കിടൽ: <xliff:g id="FILE">%1$s</xliff:g> ലഭിച്ചു"</string>
     <string name="notification_received_fail" msgid="3619350997285714746">"ബ്ലൂടൂത്ത് പങ്കിടൽ: <xliff:g id="FILE">%1$s</xliff:g> എന്ന ഫയൽ ലഭിച്ചില്ല."</string>
@@ -83,8 +83,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" എന്നയാൾക്ക് ഫയൽ അയയ്‌ക്കുന്നു"</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"\"<xliff:g id="RECIPIENT">%2$s</xliff:g>\" എന്നയാൾക്ക് <xliff:g id="NUMBER">%1$s</xliff:g> ഫയലുകൾ അയയ്‌ക്കുന്നു"</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" എന്നയാൾക്ക് ഫയൽ അയയ്‌ക്കുന്നത് നിർത്തി"</string>
-    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" എന്നയാളിൽ നിന്നുള്ള ഫയൽ സംരക്ഷിക്കാൻ USB സ്‌റ്റോറേജിൽ ആവശ്യമായ ഇടമില്ല."</string>
-    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" എന്നയാളിൽ നിന്നുള്ള ഫയൽ സംരക്ഷിക്കാൻ SD കാർഡിൽ ആവശ്യമായ ഇടമില്ല."</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="5354343190503952837">"ഫയൽ സംരക്ഷിക്കാൻ ആവശ്യമായ ഇടം USB സ്‌റ്റോറേജിൽ ഇല്ല."</string>
+    <string name="bt_sm_2_1_default" msgid="2497541206648973852">"ഫയൽ സംരക്ഷിക്കാൻ ആവശ്യമായ ഇടം SD കാർഡിൽ ഇല്ല."</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"ആവശ്യമായ ഇടം: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"നിരവധി അഭ്യർത്ഥനകൾ പ്രോസസ്സ് ചെയ്യുന്നു. പിന്നീട് വീണ്ടും ശ്രമിക്കുക."</string>
     <string name="status_pending" msgid="2503691772030877944">"ഫയൽ കൈമാറ്റം ഇതുവരെ ആരംഭിച്ചിട്ടില്ല."</string>
@@ -113,8 +113,10 @@
       <item quantity="other"><xliff:g id="UNSUCCESSFUL_NUMBER_1">%1$d</xliff:g> പരാജയം.</item>
       <item quantity="one"><xliff:g id="UNSUCCESSFUL_NUMBER_0">%1$d</xliff:g> പരാജയം.</item>
     </plurals>
-    <!-- String.format failed for translation -->
-    <!-- no translation found for noti_caption_success (1572472450257645181) -->
+    <plurals name="noti_caption_success" formatted="false" msgid="1572472450257645181">
+      <item quantity="other"><xliff:g id="SUCCESSFUL_NUMBER_1">%1$d</xliff:g> വിജയകരം, %2$s</item>
+      <item quantity="one"><xliff:g id="SUCCESSFUL_NUMBER_0">%1$d</xliff:g> വിജയകരം, %2$s</item>
+    </plurals>
     <string name="transfer_menu_clear_all" msgid="790017462957873132">"ലിസ്റ്റ് മായ്‌ക്കുക"</string>
     <string name="transfer_menu_open" msgid="3368984869083107200">"തുറക്കുക"</string>
     <string name="transfer_menu_clear" msgid="5854038118831427492">"ലിസ്റ്റിൽ നിന്നും മായ്‌ക്കുക"</string>

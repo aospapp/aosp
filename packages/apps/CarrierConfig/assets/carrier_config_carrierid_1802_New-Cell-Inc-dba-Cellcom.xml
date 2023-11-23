@@ -12,4 +12,6 @@
     <int name="maxMessageSize" value="8388608"/>
     <int name="maxImageWidth" value="4320"/>
     <string name="httpParams">X-MDN: ##LINE1##</string>
+    <boolean name="inflate_signal_strength_bool" value="true" />
+    <string name="5g_icon_configuration_string">connected_mmwave:5G_Plus,connected:5G,not_restricted_rrc_idle:5G,not_restricted_rrc_con:5G</string>
 </carrier_config>

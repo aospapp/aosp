@@ -31,6 +31,7 @@
                 adb shell am start -n com.android.phone.tests/.CallDialTest
         -->
         <activity android:name="CallDialTest"
+                  android:exported="true"
                   android:label="@string/callDialTestLabel">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -39,6 +40,7 @@
         </activity>
 
         <service android:name="SendInstantTextTestService"
+                 android:exported="true"
                  android:permission="android.permission.SEND_RESPOND_VIA_MESSAGE" >
             <intent-filter>
                 <action android:name="android.intent.action.RESPOND_VIA_MESSAGE" />

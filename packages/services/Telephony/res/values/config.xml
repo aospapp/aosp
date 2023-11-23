@@ -211,9 +211,6 @@
     CarrierConfigManager.KEY_CARRIER_VVM_PACKAGE_NAME_STRING does not handle it -->
     <string name="system_visual_voicemail_client" translatable="false"/>
 
-    <!-- Flag to enable VVM3 visual voicemail. VVM3 is used by Verizon Wireless. -->
-    <bool name="vvm3_enabled">false</bool>
-
     <!-- Flag indicating whether to allow pstn phone accounts [DO NOT TRANSLATE] -->
     <bool name="config_pstn_phone_accounts_enabled">true</bool>
 
@@ -299,4 +296,29 @@
         <item>250</item>
         <item>350</item>
     </integer-array>
+
+    <!-- String indicating the package name of the device GbaService implementation. -->
+    <string name="config_gba_package" translatable="false"/>
+    <!-- The interval to release/unbind GbaService after the authentication request
+        by millisecond. -1 - no release, 0 - release immediately,
+        positive n - release in n milliseconds -->
+    <integer name="config_gba_release_time">0</integer>
+
+    <!-- Whether or not to support RCS User Capability Exchange -->
+    <bool name="config_rcs_user_capability_exchange_enabled">true</bool>
+
+    <!-- Whether or not to support device to device communication using RTP and DTMF communication
+         transports. -->
+    <bool name="config_use_device_to_device_communication">false</bool>
+
+    <!-- Whether or not to show notifications for when bluetooth connection is bad during a call -->
+    <bool name="enable_bluetooth_call_quality_notification">false</bool>
+
+    <!-- The package names which can request thermal mitigation. -->
+    <string-array name="thermal_mitigation_allowlisted_packages" translatable="false">
+    </string-array>
+
+    <!-- The package name of the app which hosts the
+         {@link TelecomManager#ACTION_SHOW_CALL_SETTINGS} settings screen. -->
+    <string name="call_settings_package_name">com.android.phone</string>
 </resources>

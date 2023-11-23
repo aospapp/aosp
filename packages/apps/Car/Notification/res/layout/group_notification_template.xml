@@ -41,8 +41,8 @@
                 android:layout_alignParentStart="true"
                 android:layout_alignParentTop="true"
                 android:layout_marginBottom="@dimen/card_header_margin_bottom"
-                android:layout_marginStart="@dimen/card_start_margin"
                 android:layout_toStartOf="@+id/group_toggle_button"
+                android:paddingStart="@dimen/card_start_margin"
                 android:gravity="center_vertical"/>
 
             <View
@@ -76,21 +76,40 @@
                 android:layout_below="@id/notification_list"
                 android:background="@color/notification_list_divider_color"/>
 
-            <TextView
-                android:id="@+id/expansion_footer"
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="@dimen/notification_card_footer_height"
+                android:layout_height="wrap_content"
                 android:layout_below="@id/footer_divider"
-                android:layout_marginEnd="@dimen/card_end_margin"
-                android:layout_marginStart="@dimen/card_start_margin"
-                android:gravity="center_vertical"
-                style="@style/NotificationBodyContentText"/>
+                android:orientation="horizontal"
+                android:layoutDirection="ltr">
+
+                <TextView
+                    android:id="@+id/expansion_footer"
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/notification_card_footer_height"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="@dimen/card_end_margin"
+                    android:layout_marginStart="@dimen/card_start_margin"
+                    android:gravity="center_vertical"
+                    android:textDirection="locale"
+                    android:textAlignment="gravity"
+                    style="@style/NotificationBodyContentText"/>
+
+                <include
+                    layout="@layout/dismiss_button"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="0"/>
+
+            </LinearLayout>
+
         </RelativeLayout>
 
         <!-- This view intercepts all clicks on the card in the collapsed state -->
         <View
             android:id="@+id/touch_interceptor_view"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"/>
+            android:layout_height="match_parent"
+            android:focusable="false"/>
     </androidx.cardview.widget.CardView>
 </FrameLayout>

@@ -207,7 +207,6 @@ public class TcpSocketTrackerTest {
     private static final int TEST_NETID2_FWMARK = 0x1A85;
     private static final int NETID_MASK = 0xffff;
     @Mock private TcpSocketTracker.Dependencies mDependencies;
-    @Mock private FileDescriptor mMockFd;
     @Mock private INetd mNetd;
     private final Network mNetwork = new Network(TEST_NETID1);
     private final Network mOtherNetwork = new Network(TEST_NETID2);
@@ -226,7 +225,7 @@ public class TcpSocketTrackerTest {
                 Log.setWtfHandler((tag, what, system) -> Log.e(tag, what.getMessage(), what));
         when(mDependencies.getNetd()).thenReturn(mNetd);
         when(mDependencies.isTcpInfoParsingSupported()).thenReturn(true);
-        when(mDependencies.connectToKernel()).thenReturn(mMockFd);
+        when(mDependencies.connectToKernel()).thenReturn(new FileDescriptor());
         when(mDependencies.getDeviceConfigPropertyInt(
                 eq(NAMESPACE_CONNECTIVITY),
                 eq(CONFIG_TCP_PACKETS_FAIL_PERCENTAGE),

@@ -34,7 +34,7 @@ import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.net.module.util.Inet4AddressUtils;
-import com.android.testutils.MiscAssertsKt;
+import com.android.testutils.MiscAsserts;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -199,7 +199,7 @@ public class DhcpServingParamsTest {
         assertEquals(params.singleClientAddr, parceled.singleClientAddr);
         assertEquals(params.changePrefixOnDecline, parceled.changePrefixOnDecline);
 
-        MiscAssertsKt.assertFieldCountEquals(10, DhcpServingParamsParcel.class);
+        MiscAsserts.assertFieldCountEquals(10, DhcpServingParamsParcel.class);
     }
 
     @Test(expected = InvalidParameterException.class)

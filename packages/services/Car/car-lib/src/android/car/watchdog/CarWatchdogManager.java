@@ -21,16 +21,18 @@ import static com.android.internal.util.function.pooled.PooledLambda.obtainMessa
 import android.annotation.CallbackExecutor;
 import android.annotation.IntDef;
 import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.annotation.RequiresPermission;
 import android.annotation.SystemApi;
-import android.automotive.watchdog.ICarWatchdogClient;
 import android.car.Car;
 import android.car.CarManagerBase;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.RemoteException;
+import android.os.UserHandle;
 import android.util.Log;
+import android.util.SparseIntArray;
 
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.util.Preconditions;
@@ -40,14 +42,15 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.Executor;
 
 /**
- * Provides APIs and interfaces for client health checking.
- *
- * @hide
+ * CarWatchdogManager allows applications to collect latest system resource overuse statistics, add
+ * listener for resource overuse notifications, and update resource overuse configurations.
  */
-@SystemApi
 public final class CarWatchdogManager extends CarManagerBase {
 
     private static final String TAG = CarWatchdogManager.class.getSimpleName();
@@ -57,13 +60,28 @@ public final class CarWatchdogManager extends CarManagerBase {
     // Message ID representing main thread activeness checking.
     private static final int WHAT_CHECK_MAIN_THREAD = 1;
 
-    /** Timeout for services which should be responsive. The length is 3,000 milliseconds. */
+    /**
+     * Timeout for services which should be responsive. The length is 3,000 milliseconds.
+     *
+     * @hide
+     */
+    @SystemApi
     public static final int TIMEOUT_CRITICAL = 0;
 
-    /** Timeout for services which are relatively responsive. The length is 5,000 milliseconds. */
+    /**
+     * Timeout for services which are relatively responsive. The length is 5,000 milliseconds.
+     *
+     * @hide
+     */
+    @SystemApi
     public static final int TIMEOUT_MODERATE = 1;
 
-    /** Timeout for all other services. The length is 10,000 milliseconds. */
+    /**
+     * Timeout for all other services. The length is 10,000 milliseconds.
+     *
+     * @hide
+     */
+    @SystemApi
     public static final int TIMEOUT_NORMAL = 2;
 
     /** @hide */
@@ -78,40 +96,49 @@ public final class CarWatchdogManager extends CarManagerBase {
 
     private final ICarWatchdogService mService;
     private final ICarWatchdogClientImpl mClientImpl;
+    private final IResourceOveruseListenerImpl mResourceOveruseListenerImpl;
+    private final IResourceOveruseListenerImpl mResourceOveruseListenerForSystemImpl;
     private final Handler mMainHandler = new Handler(Looper.getMainLooper());
 
     private final Object mLock = new Object();
     @GuardedBy("mLock")
+    private final SessionInfo mSession = new SessionInfo(INVALID_SESSION_ID, INVALID_SESSION_ID);
+    @GuardedBy("mLock")
+    private final List<ResourceOveruseListenerInfo> mResourceOveruseListenerInfos;
+    @GuardedBy("mLock")
+    private final List<ResourceOveruseListenerInfo> mResourceOveruseListenerForSystemInfos;
+    @GuardedBy("mLock")
     private CarWatchdogClientCallback mRegisteredClient;
     @GuardedBy("mLock")
     private Executor mCallbackExecutor;
-    @GuardedBy("mLock")
-    private SessionInfo mSession = new SessionInfo(INVALID_SESSION_ID, INVALID_SESSION_ID);
     @GuardedBy("mLock")
     private int mRemainingConditions;
 
     /**
      * CarWatchdogClientCallback is implemented by the clients which want to be health-checked by
      * car watchdog server. Every time onCheckHealthStatus is called, they are expected to
-     * respond by calling {@link CarWatchdogManager.tellClientAlive} within timeout. If they don't
+     * respond by calling {@link #tellClientAlive} within timeout. If they don't
      * respond, car watchdog server reports the current state and kills them.
      *
      * <p>Before car watchdog server kills the client, it calls onPrepareProcessTermination to allow
      * them to prepare the termination. They will be killed in 1 second.
+     *
+     * @hide
      */
+    @SystemApi
     public abstract static class CarWatchdogClientCallback {
         /**
          * Car watchdog server pings the client to check if it is alive.
          *
-         * <p>The callback method is called at the Executor which is specifed in {@link
-         * #registerClient}.
+         * <p>The callback method is called at the Executor which is specified in {@link
+         * CarWatchdogManager#registerClient}.
          *
          * @param sessionId Unique id to distinguish each health checking.
          * @param timeout Time duration within which the client should respond.
          *
          * @return whether the response is immediately acknowledged. If {@code true}, car watchdog
          *         server considers that the response is acknowledged already. If {@code false},
-         *         the client should call {@link CarWatchdogManager.tellClientAlive} later to tell
+         *         the client should call {@link CarWatchdogManager#tellClientAlive} later to tell
          *         that it is alive.
          */
         public boolean onCheckHealthStatus(int sessionId, @TimeoutLengthEnum int timeout) {
@@ -121,8 +148,8 @@ public final class CarWatchdogManager extends CarManagerBase {
         /**
          * Car watchdog server notifies the client that it will be terminated in 1 second.
          *
-         * <p>The callback method is called at the Executor which is specifed in {@link
-         * #registerClient}.
+         * <p>The callback method is called at the Executor which is specified in {@link
+         * CarWatchdogManager#registerClient}.
          */
         public void onPrepareProcessTermination() {}
     }
@@ -132,6 +159,11 @@ public final class CarWatchdogManager extends CarManagerBase {
         super(car);
         mService = ICarWatchdogService.Stub.asInterface(service);
         mClientImpl = new ICarWatchdogClientImpl(this);
+        mResourceOveruseListenerImpl = new IResourceOveruseListenerImpl(this, /* isSystem= */false);
+        mResourceOveruseListenerForSystemImpl = new IResourceOveruseListenerImpl(this,
+                /* isSystem= */true);
+        mResourceOveruseListenerInfos = new ArrayList<>();
+        mResourceOveruseListenerForSystemInfos = new ArrayList<>();
     }
 
     /**
@@ -145,10 +177,15 @@ public final class CarWatchdogManager extends CarManagerBase {
      * @param timeout The time duration within which the client desires to respond. The actual
      *        timeout is decided by watchdog server.
      * @throws IllegalStateException if at least one client is already registered.
+     *
+     * @hide
      */
+    @SystemApi
     @RequiresPermission(Car.PERMISSION_USE_CAR_WATCHDOG)
     public void registerClient(@NonNull @CallbackExecutor Executor executor,
             @NonNull CarWatchdogClientCallback client, @TimeoutLengthEnum int timeout) {
+        Objects.requireNonNull(client, "Client must be non-null");
+        Objects.requireNonNull(executor, "Executor must be non-null");
         synchronized (mLock) {
             if (mRegisteredClient == client) {
                 return;
@@ -177,9 +214,13 @@ public final class CarWatchdogManager extends CarManagerBase {
      * Unregisters the car watchdog client from {@link CarWatchdogManager}.
      *
      * @param client Watchdog client implementing {@link CarWatchdogClientCallback} interface.
+     *
+     * @hide
      */
+    @SystemApi
     @RequiresPermission(Car.PERMISSION_USE_CAR_WATCHDOG)
     public void unregisterClient(@NonNull CarWatchdogClientCallback client) {
+        Objects.requireNonNull(client, "Client must be non-null");
         synchronized (mLock) {
             if (mRegisteredClient != client) {
                 Log.w(TAG, "Cannot unregister the client. It has not been registered.");
@@ -204,10 +245,14 @@ public final class CarWatchdogManager extends CarManagerBase {
      * @param client Watchdog client implementing {@link CarWatchdogClientCallback} interface.
      * @param sessionId Session id given by {@link CarWatchdogManager}.
      * @throws IllegalStateException if {@code client} is not registered.
-     * @throws IllegalArgumentException if {@code session Id} is not correct.
+     * @throws IllegalArgumentException if {@code sessionId} is not correct.
+     *
+     * @hide
      */
+    @SystemApi
     @RequiresPermission(Car.PERMISSION_USE_CAR_WATCHDOG)
     public void tellClientAlive(@NonNull CarWatchdogClientCallback client, int sessionId) {
+        Objects.requireNonNull(client, "Client must be non-null");
         boolean shouldReport;
         synchronized (mLock) {
             if (mRegisteredClient != client) {
@@ -227,6 +272,467 @@ public final class CarWatchdogManager extends CarManagerBase {
         }
         if (shouldReport) {
             reportToService(sessionId);
+        }
+    }
+
+    /** @hide */
+    @IntDef(flag = false, prefix = { "STATS_PERIOD_" }, value = {
+        STATS_PERIOD_CURRENT_DAY,
+        STATS_PERIOD_PAST_3_DAYS,
+        STATS_PERIOD_PAST_7_DAYS,
+        STATS_PERIOD_PAST_15_DAYS,
+        STATS_PERIOD_PAST_30_DAYS,
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface StatsPeriod {}
+
+    /** @hide */
+    @IntDef(flag = true, prefix = { "FLAG_RESOURCE_OVERUSE_" }, value = {
+            FLAG_RESOURCE_OVERUSE_IO,
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface ResourceOveruseFlag {}
+
+    /** @hide */
+    @IntDef(flag = true, prefix = { "FLAG_MINIMUM_STATS_" }, value = {
+            FLAG_MINIMUM_STATS_IO_1_MB,
+            FLAG_MINIMUM_STATS_IO_100_MB,
+            FLAG_MINIMUM_STATS_IO_1_GB,
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface MinimumStatsFlag {}
+
+    /** @hide */
+    @IntDef(flag = true, prefix = { "RETURN_CODE_" }, value = {
+            RETURN_CODE_SUCCESS,
+            RETURN_CODE_ERROR,
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface ReturnCode {}
+
+    /**
+     * Constants that define the stats period in days.
+     */
+    public static final int STATS_PERIOD_CURRENT_DAY = 1;
+    public static final int STATS_PERIOD_PAST_3_DAYS = 2;
+    public static final int STATS_PERIOD_PAST_7_DAYS = 3;
+    public static final int STATS_PERIOD_PAST_15_DAYS = 4;
+    public static final int STATS_PERIOD_PAST_30_DAYS = 5;
+
+    /**
+     * Constants that define the type of resource overuse.
+     */
+    public static final int FLAG_RESOURCE_OVERUSE_IO = 1 << 0;
+
+    /**
+     * Constants that define the minimum stats for each resource type.
+     *
+     * Below constants specify the minimum amount of data written to disk.
+     *
+     * @hide
+     */
+    @SystemApi
+    public static final int FLAG_MINIMUM_STATS_IO_1_MB = 1 << 0;
+    /** @hide */
+    @SystemApi
+    public static final int FLAG_MINIMUM_STATS_IO_100_MB = 1 << 1;
+    /** @hide */
+    @SystemApi
+    public static final int FLAG_MINIMUM_STATS_IO_1_GB = 1 << 2;
+
+    // Return codes used to indicate the result of a request.
+    /** @hide */
+    @SystemApi
+    public static final int RETURN_CODE_SUCCESS = 0;
+    /** @hide */
+    @SystemApi
+    public static final int RETURN_CODE_ERROR = -1;
+
+    /**
+     * Returns resource overuse stats for the calling package. Returns {@code null}, if no stats.
+     *
+     * @param resourceOveruseFlag Flag to indicate the types of resource overuse stats to return.
+     * @param maxStatsPeriod Maximum period to aggregate the resource overuse stats.
+     *
+     * @return Resource overuse stats for the calling package. If the calling package has no stats
+     *         for a specified resource overuse type, null value is returned for the corresponding
+     *         resource overuse stats. If the calling package doesn't have sufficient stats for
+     *         {@code maxStatsPeriod} for a specified resource overuse type, the stats are returned
+     *         only for the period returned in the individual resource overuse stats.
+     */
+    @NonNull
+    public ResourceOveruseStats getResourceOveruseStats(
+            @ResourceOveruseFlag int resourceOveruseFlag,
+            @StatsPeriod int maxStatsPeriod) {
+        try {
+            return mService.getResourceOveruseStats(resourceOveruseFlag, maxStatsPeriod);
+        } catch (RemoteException e) {
+            ResourceOveruseStats.Builder builder =
+                    new ResourceOveruseStats.Builder("", UserHandle.CURRENT);
+            return handleRemoteExceptionFromCarService(e, builder.build());
+        }
+    }
+
+    /**
+     * Returns resource overuse stats for all monitored packages.
+     *
+     * @param resourceOveruseFlag Flag to indicate the types of resource overuse stats to return.
+     * @param minimumStatsFlag Flag to specify the minimum stats for each resource overuse type.
+     *                         Only stats above the specified minimum stats for a resource overuse
+     *                         type will be returned. May provide only one minimum stats flag for
+     *                         each resource overuse type. When no minimum stats flag is specified,
+     *                         all stats are returned.
+     * @param maxStatsPeriod Maximum period to aggregate the resource overuse stats.
+     *
+     * @return Resource overuse stats for all monitored packages. If any package doesn't have stats
+     *         for a specified resource type, null value is returned for the corresponding resource
+     *         overuse stats. If any package doesn't have sufficient stats for
+     *         {@code maxStatsPeriod} for a specified resource overuse type, the stats are returned
+     *         only for the period returned in the individual resource stats.
+     *
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(Car.PERMISSION_COLLECT_CAR_WATCHDOG_METRICS)
+    @NonNull
+    public List<ResourceOveruseStats> getAllResourceOveruseStats(
+            @ResourceOveruseFlag int resourceOveruseFlag,
+            @MinimumStatsFlag int minimumStatsFlag,
+            @StatsPeriod int maxStatsPeriod) {
+        try {
+            return mService.getAllResourceOveruseStats(resourceOveruseFlag, minimumStatsFlag,
+                    maxStatsPeriod);
+        } catch (RemoteException e) {
+            return handleRemoteExceptionFromCarService(e, new ArrayList<>());
+        }
+    }
+
+    /**
+     * Returns resource overuse stats for a specific user package.
+     *
+     * @param packageName Name of the package whose stats should to be returned.
+     * @param userId ID of the user whose stats should be returned.
+     * @param resourceOveruseFlag Flag to indicate the types of resource overuse stats to return.
+     * @param maxStatsPeriod Maximum period to aggregate the resource overuse stats.
+     *
+     * @return Resource overuse stats for the specified user package. If the user package has no
+     *         stats for a specified resource overuse type, null value is returned for the
+     *         corresponding resource overuse stats. If the user package doesn't have sufficient
+     *         stats for {@code maxStatsPeriod} for a specified resource overuse type, the stats are
+     *         returned only for the period returned in the individual resource overuse stats.
+     *
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(Car.PERMISSION_COLLECT_CAR_WATCHDOG_METRICS)
+    @NonNull
+    public ResourceOveruseStats getResourceOveruseStatsForUserPackage(
+            @NonNull String packageName, @NonNull UserHandle userHandle,
+            @ResourceOveruseFlag int resourceOveruseFlag,
+            @StatsPeriod int maxStatsPeriod) {
+        try {
+            return mService.getResourceOveruseStatsForUserPackage(packageName, userHandle,
+                    resourceOveruseFlag, maxStatsPeriod);
+        } catch (RemoteException e) {
+            ResourceOveruseStats.Builder builder =
+                    new ResourceOveruseStats.Builder("", userHandle);
+            return handleRemoteExceptionFromCarService(e, builder.build());
+        }
+    }
+
+    /**
+     * Listener to get resource overuse notifications.
+     *
+     * <p>Applications implement the listener method to take action and/or log on resource overuse.
+     */
+    public interface ResourceOveruseListener {
+        /**
+         * Called when a package either overuses a resource or about to overuse a resource.
+         *
+         * <p>The listener is called at the executor which is specified in {@link
+         * CarWatchdogManager#addResourceOveruseListener} or
+         * {@link CarWatchdogManager#addResourceOveruseListenerForSystem}.
+         *
+         * <p>The listener is called only on overusing one of the resources specified at the
+         * {@code resourceOveruseFlag} in {@link CarWatchdogManager#addResourceOveruseListener} or
+         * {@link CarWatchdogManager#addResourceOveruseListenerForSystem}.
+         *
+         * @param resourceOveruseStats Resource overuse stats containing stats only for resources
+         *                             overuse types that are either overused or about to be
+         *                             overused by the package. Implementations must check for null
+         *                             value in each resource overuse stats before reading the
+         *                             stats.
+         */
+        void onOveruse(@NonNull ResourceOveruseStats resourceOveruseStats);
+    }
+
+    /**
+     * Adds the {@link ResourceOveruseListener} for the calling package.
+     *
+     * <p>Resource overuse notifications are sent only for the calling package's resource overuse.
+     *
+     * @param listener Listener implementing {@link ResourceOveruseListener} interface.
+     * @param resourceOveruseFlag Flag to indicate the types of resource overuses to listen.
+     *
+     * @throws IllegalStateException if (@code listener} is already added.
+     */
+    public void addResourceOveruseListener(
+            @NonNull @CallbackExecutor Executor executor,
+            @ResourceOveruseFlag int resourceOveruseFlag,
+            @NonNull ResourceOveruseListener listener) {
+        Objects.requireNonNull(listener, "Listener must be non-null");
+        Objects.requireNonNull(executor, "Executor must be non-null");
+        Preconditions.checkArgument((resourceOveruseFlag > 0),
+                "Must provide valid resource overuse flag");
+        boolean shouldRemoveFromService;
+        boolean shouldAddToService;
+        synchronized (mLock) {
+            ResourceOveruseListenerInfo listenerInfo =
+                    new ResourceOveruseListenerInfo(listener, executor, resourceOveruseFlag);
+            if (mResourceOveruseListenerInfos.contains(listenerInfo)) {
+                throw new IllegalStateException(
+                        "Cannot add the listener as it is already added");
+            }
+            shouldRemoveFromService = mResourceOveruseListenerImpl.hasListeners();
+            shouldAddToService =  mResourceOveruseListenerImpl.maybeAppendFlag(resourceOveruseFlag);
+            mResourceOveruseListenerInfos.add(listenerInfo);
+        }
+        if (shouldAddToService) {
+            if (shouldRemoveFromService) {
+                removeResourceOveruseListenerImpl();
+            }
+            addResourceOveruseListenerImpl();
+        }
+    }
+
+    /**
+     * Removes the {@link ResourceOveruseListener} for the calling package.
+     *
+     * @param listener Listener implementing {@link ResourceOveruseListener} interface.
+     */
+    public void removeResourceOveruseListener(@NonNull ResourceOveruseListener listener) {
+        Objects.requireNonNull(listener, "Listener must be non-null");
+        boolean shouldRemoveFromService;
+        boolean shouldReAddToService;
+        synchronized (mLock) {
+            int index = 0;
+            int resourceOveruseFlag = 0;
+            for (; index != mResourceOveruseListenerInfos.size(); ++index) {
+                ResourceOveruseListenerInfo listenerInfo = mResourceOveruseListenerInfos.get(index);
+                if (listenerInfo.listener == listener) {
+                    resourceOveruseFlag = listenerInfo.resourceOveruseFlag;
+                    break;
+                }
+            }
+            if (index == mResourceOveruseListenerInfos.size()) {
+                Log.w(TAG, "Cannot remove the listener. It has not been added.");
+                return;
+            }
+            mResourceOveruseListenerInfos.remove(index);
+            shouldRemoveFromService =
+                    mResourceOveruseListenerImpl.maybeRemoveFlag(resourceOveruseFlag);
+            shouldReAddToService = mResourceOveruseListenerImpl.hasListeners();
+        }
+        if (shouldRemoveFromService) {
+            removeResourceOveruseListenerImpl();
+            if (shouldReAddToService) {
+                addResourceOveruseListenerImpl();
+            }
+        }
+    }
+
+    /**
+     * Adds {@link ResourceOveruseListener} to get resource overuse notifications for all packages.
+     *
+     * <p>Listening system services will get notified on any package overusing one of the resources
+     * specified at {@code resourceOveruseFlag}.
+     *
+     * @param listener Listener implementing {@link ResourceOveruseListener} interface.
+     * @param resourceOveruseFlag Flag to indicate the types of resource overuses to listen.
+     *
+     * @throws IllegalStateException if (@code listener} is already added.
+     *
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(Car.PERMISSION_COLLECT_CAR_WATCHDOG_METRICS)
+    public void addResourceOveruseListenerForSystem(
+            @NonNull @CallbackExecutor Executor executor,
+            @ResourceOveruseFlag int resourceOveruseFlag,
+            @NonNull ResourceOveruseListener listener) {
+        Objects.requireNonNull(listener, "Listener must be non-null");
+        Objects.requireNonNull(executor, "Executor must be non-null");
+        Preconditions.checkArgument((resourceOveruseFlag > 0),
+                "Must provide valid resource overuse flag");
+        boolean shouldRemoveFromService;
+        boolean shouldAddToService;
+        synchronized (mLock) {
+            ResourceOveruseListenerInfo listenerInfo =
+                    new ResourceOveruseListenerInfo(listener, executor, resourceOveruseFlag);
+            if (mResourceOveruseListenerForSystemInfos.contains(listenerInfo)) {
+                throw new IllegalStateException(
+                        "Cannot add the listener as it is already added");
+            }
+            shouldRemoveFromService = mResourceOveruseListenerForSystemImpl.hasListeners();
+            shouldAddToService =
+                    mResourceOveruseListenerForSystemImpl.maybeAppendFlag(resourceOveruseFlag);
+            mResourceOveruseListenerForSystemInfos.add(listenerInfo);
+        }
+        if (shouldAddToService) {
+            if (shouldRemoveFromService) {
+                removeResourceOveruseListenerForSystemImpl();
+            }
+            addResourceOveruseListenerForSystemImpl();
+        }
+    }
+
+    /**
+     * Removes {@link ResourceOveruseListener} from receiving system resource overuse notifications.
+     *
+     * @param listener Listener implementing {@link ResourceOveruseListener} interface.
+     *
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(Car.PERMISSION_COLLECT_CAR_WATCHDOG_METRICS)
+    public void removeResourceOveruseListenerForSystem(
+            @NonNull ResourceOveruseListener listener) {
+        Objects.requireNonNull(listener, "Listener must be non-null");
+        boolean shouldRemoveFromService;
+        boolean shouldReAddToService;
+        synchronized (mLock) {
+            int index = 0;
+            int resourceOveruseFlag = 0;
+            for (; index != mResourceOveruseListenerForSystemInfos.size(); ++index) {
+                ResourceOveruseListenerInfo listenerInfo =
+                        mResourceOveruseListenerForSystemInfos.get(index);
+                if (listenerInfo.listener == listener) {
+                    resourceOveruseFlag = listenerInfo.resourceOveruseFlag;
+                    break;
+                }
+            }
+            if (index == mResourceOveruseListenerForSystemInfos.size()) {
+                Log.w(TAG, "Cannot remove the listener. It has not been added.");
+                return;
+            }
+            mResourceOveruseListenerForSystemInfos.remove(index);
+            shouldRemoveFromService =
+                    mResourceOveruseListenerForSystemImpl.maybeRemoveFlag(resourceOveruseFlag);
+            shouldReAddToService = mResourceOveruseListenerForSystemImpl.hasListeners();
+        }
+        if (shouldRemoveFromService) {
+            removeResourceOveruseListenerForSystemImpl();
+            if (shouldReAddToService) {
+                addResourceOveruseListenerForSystemImpl();
+            }
+        }
+    }
+
+    /**
+     * Sets whether or not a package is killable on resource overuse.
+     *
+     * <p>Updating killable setting for package, whose state cannot be changed, will result in
+     * exception. This API may be used by CarSettings application or UI notification.
+     *
+     * @param packageName Name of the package whose setting should to be updated.
+     * @param userHandle  User whose setting should to be updated.
+     * @param isKillable  Whether or not the package for the specified user is killable on resource
+     *                    overuse.
+     *
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(Car.PERMISSION_CONTROL_CAR_WATCHDOG_CONFIG)
+    public void setKillablePackageAsUser(@NonNull String packageName,
+            @NonNull UserHandle userHandle, boolean isKillable) {
+        try {
+            mService.setKillablePackageAsUser(packageName, userHandle, isKillable);
+        } catch (RemoteException e) {
+            handleRemoteExceptionFromCarService(e);
+        }
+    }
+
+    /**
+     * Returns the list of package killable states on resource overuse for the user.
+     *
+     * <p>This API may be used by CarSettings application or UI notification.
+     *
+     * @param userHandle User whose killable states for all packages should to be returned.
+     *
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(Car.PERMISSION_CONTROL_CAR_WATCHDOG_CONFIG)
+    @NonNull
+    public List<PackageKillableState> getPackageKillableStatesAsUser(
+            @NonNull UserHandle userHandle) {
+        try {
+            return mService.getPackageKillableStatesAsUser(userHandle);
+        } catch (RemoteException e) {
+            return handleRemoteExceptionFromCarService(e, new ArrayList<>());
+        }
+    }
+
+    /**
+     * Sets the resource overuse configurations for the components provided in the configurations.
+     *
+     * <p>Must provide only one configuration per component. System services should set the
+     * configurations only for system and third-party components. Vendor services should set the
+     * configuration only for the vendor component.
+     *
+     * @param configurations List of resource overuse configurations. One configuration per
+     *                       component.
+     * @param resourceOveruseFlag Flag to indicate the types of resource overuse configurations to
+     *                            set.
+     *
+     * @return - {@link #RETURN_CODE_SUCCESS} if the set request is successful.
+     *         - {@link #RETURN_CODE_ERROR} if the set request cannot be completed and the client
+     *         should retry later.
+     *
+     * @throws IllegalArgumentException if {@code configurations} are invalid.
+     *
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(Car.PERMISSION_CONTROL_CAR_WATCHDOG_CONFIG)
+    @ReturnCode
+    public int setResourceOveruseConfigurations(
+            @NonNull List<ResourceOveruseConfiguration> configurations,
+            @ResourceOveruseFlag int resourceOveruseFlag) {
+        try {
+            return mService.setResourceOveruseConfigurations(configurations, resourceOveruseFlag);
+        } catch (RemoteException e) {
+            handleRemoteExceptionFromCarService(e);
+            return RETURN_CODE_ERROR;
+        }
+    }
+
+    /**
+     * Returns the current resource overuse configurations for all components.
+     *
+     * <p>This call is blocking and may take few seconds to return if the service is temporarily
+     * unavailable.
+     *
+     * @param resourceOveruseFlag Flag to indicate the types of resource overuse configurations to
+     *                            return.
+     *
+     * @return If the server process is alive and connected, returns list of available resource
+     *         overuse configurations for all components. If the server process is dead,
+     *         returns {@code null} value.
+     *
+     * @throws IllegalStateException if the system is in an invalid state.
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(anyOf = {Car.PERMISSION_CONTROL_CAR_WATCHDOG_CONFIG,
+            Car.PERMISSION_COLLECT_CAR_WATCHDOG_METRICS})
+    @Nullable
+    public List<ResourceOveruseConfiguration> getResourceOveruseConfigurations(
+            @ResourceOveruseFlag int resourceOveruseFlag) {
+        try {
+            return mService.getResourceOveruseConfigurations(resourceOveruseFlag);
+        } catch (RemoteException e) {
+            return handleRemoteExceptionFromCarService(e, null);
         }
     }
 
@@ -317,16 +823,101 @@ public final class CarWatchdogManager extends CarManagerBase {
         executor.execute(() -> client.onPrepareProcessTermination());
     }
 
+    private void addResourceOveruseListenerImpl() {
+        try {
+            mService.addResourceOveruseListener(
+                    mResourceOveruseListenerImpl.resourceOveruseFlag(),
+                    mResourceOveruseListenerImpl);
+            if (DEBUG) {
+                Log.d(TAG, "Resource overuse listener implementation is successfully added to "
+                        + "service");
+            }
+        } catch (RemoteException e) {
+            synchronized (mLock) {
+                mResourceOveruseListenerInfos.clear();
+            }
+            handleRemoteExceptionFromCarService(e);
+        }
+    }
+
+    private void removeResourceOveruseListenerImpl() {
+        try {
+            mService.removeResourceOveruseListener(mResourceOveruseListenerImpl);
+            if (DEBUG) {
+                Log.d(TAG, "Resource overuse listener implementation is successfully removed "
+                        + "from service");
+            }
+        } catch (RemoteException e) {
+            handleRemoteExceptionFromCarService(e);
+        }
+    }
+
+    private void addResourceOveruseListenerForSystemImpl() {
+        try {
+            mService.addResourceOveruseListenerForSystem(
+                    mResourceOveruseListenerForSystemImpl.resourceOveruseFlag(),
+                    mResourceOveruseListenerForSystemImpl);
+            if (DEBUG) {
+                Log.d(TAG, "Resource overuse listener for system implementation is successfully "
+                        + "added to service");
+            }
+        } catch (RemoteException e) {
+            synchronized (mLock) {
+                mResourceOveruseListenerForSystemInfos.clear();
+            }
+            handleRemoteExceptionFromCarService(e);
+        }
+    }
+
+    private void removeResourceOveruseListenerForSystemImpl() {
+        try {
+            mService.removeResourceOveruseListenerForSystem(mResourceOveruseListenerForSystemImpl);
+            if (DEBUG) {
+                Log.d(TAG, "Resource overuse listener for system implementation is successfully "
+                        + "removed from service");
+            }
+        } catch (RemoteException e) {
+            handleRemoteExceptionFromCarService(e);
+        }
+    }
+
+    private void onResourceOveruse(ResourceOveruseStats resourceOveruseStats, boolean isSystem) {
+        if (resourceOveruseStats.getIoOveruseStats() == null) {
+            Log.w(TAG, "Skipping resource overuse notification as the stats are missing");
+            return;
+        }
+        List<ResourceOveruseListenerInfo> listenerInfos;
+        synchronized (mLock) {
+            if (isSystem) {
+                listenerInfos = mResourceOveruseListenerForSystemInfos;
+            } else {
+                listenerInfos = mResourceOveruseListenerInfos;
+            }
+        }
+        if (listenerInfos.isEmpty()) {
+            Log.w(TAG, "Cannot notify resource overuse listener " + (isSystem ? "for system " : "")
+                    + "as it is not registered.");
+            return;
+        }
+        for (ResourceOveruseListenerInfo listenerInfo : listenerInfos) {
+            if ((listenerInfo.resourceOveruseFlag & FLAG_RESOURCE_OVERUSE_IO) == 1) {
+                listenerInfo.executor.execute(() -> {
+                    listenerInfo.listener.onOveruse(resourceOveruseStats);
+                });
+            }
+        }
+    }
+
     /** @hide */
-    private static final class ICarWatchdogClientImpl extends ICarWatchdogClient.Stub {
+    private static final class ICarWatchdogClientImpl extends ICarWatchdogServiceCallback.Stub {
         private final WeakReference<CarWatchdogManager> mManager;
 
-        private ICarWatchdogClientImpl(CarWatchdogManager manager) {
+        ICarWatchdogClientImpl(CarWatchdogManager manager) {
             mManager = new WeakReference<>(manager);
         }
 
         @Override
-        public void checkIfAlive(int sessionId, int timeout) {
+        public void onCheckHealthStatus(int sessionId, int timeout) {
             CarWatchdogManager manager = mManager.get();
             if (manager != null) {
                 manager.checkClientStatus(sessionId, timeout);
@@ -334,31 +925,126 @@ public final class CarWatchdogManager extends CarManagerBase {
         }
 
         @Override
-        public void prepareProcessTermination() {
+        public void onPrepareProcessTermination() {
             CarWatchdogManager manager = mManager.get();
             if (manager != null) {
                 manager.notifyProcessTermination();
             }
         }
-
-        @Override
-        public int getInterfaceVersion() {
-            return this.VERSION;
-        }
-
-        @Override
-        public String getInterfaceHash() {
-            return this.HASH;
-        }
     }
 
-    private final class SessionInfo {
+    private static final class SessionInfo {
         public int currentId;
         public int lastReportedId;
 
         SessionInfo(int currentId, int lastReportedId) {
             this.currentId = currentId;
             this.lastReportedId = lastReportedId;
+        }
+    }
+
+    /** @hide */
+    private static final class IResourceOveruseListenerImpl extends IResourceOveruseListener.Stub {
+        private static final int[] RESOURCE_OVERUSE_FLAGS = new int[]{ FLAG_RESOURCE_OVERUSE_IO };
+
+        private final WeakReference<CarWatchdogManager> mManager;
+        private final boolean mIsSystem;
+
+        private final Object mLock = new Object();
+        @GuardedBy("mLock")
+        private final SparseIntArray mNumListenersByResource;
+
+
+        IResourceOveruseListenerImpl(CarWatchdogManager manager, boolean isSystem) {
+            mManager = new WeakReference<>(manager);
+            mIsSystem = isSystem;
+            mNumListenersByResource = new SparseIntArray();
+        }
+
+        @Override
+        public void onOveruse(ResourceOveruseStats resourceOveruserStats) {
+            CarWatchdogManager manager = mManager.get();
+            if (manager != null) {
+                manager.onResourceOveruse(resourceOveruserStats, mIsSystem);
+            }
+        }
+
+        public boolean hasListeners() {
+            synchronized (mLock) {
+                return mNumListenersByResource.size() != 0;
+            }
+        }
+
+        public boolean maybeAppendFlag(int appendFlag) {
+            boolean isChanged = false;
+            synchronized (mLock) {
+                for (int flag : RESOURCE_OVERUSE_FLAGS) {
+                    if ((appendFlag & flag) != 1) {
+                        continue;
+                    }
+                    int value = mNumListenersByResource.get(flag, 0);
+                    isChanged = ++value == 1;
+                    mNumListenersByResource.put(flag, value);
+                }
+            }
+            return isChanged;
+        }
+
+        public boolean maybeRemoveFlag(int removeFlag) {
+            boolean isChanged = false;
+            synchronized (mLock) {
+                for (int flag : RESOURCE_OVERUSE_FLAGS) {
+                    if ((removeFlag & flag) != 1) {
+                        continue;
+                    }
+                    int value = mNumListenersByResource.get(flag, 0);
+                    if (value == 0) {
+                        continue;
+                    }
+                    if (--value == 0) {
+                        isChanged = true;
+                        mNumListenersByResource.delete(flag);
+                    } else {
+                        mNumListenersByResource.put(flag, value);
+                    }
+                }
+            }
+            return isChanged;
+        }
+
+        public int resourceOveruseFlag() {
+            int flag = 0;
+            for (int i = 0; i < mNumListenersByResource.size(); ++i) {
+                flag |= mNumListenersByResource.valueAt(i) > 0 ? mNumListenersByResource.keyAt(i)
+                        : 0;
+            }
+            return flag;
+        }
+    }
+
+    /** @hide */
+    private static final class ResourceOveruseListenerInfo {
+        public final ResourceOveruseListener listener;
+        public final Executor executor;
+        public final int resourceOveruseFlag;
+
+        ResourceOveruseListenerInfo(ResourceOveruseListener listener,
+                Executor executor, int resourceOveruseFlag) {
+            this.listener = listener;
+            this.executor = executor;
+            this.resourceOveruseFlag = resourceOveruseFlag;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (obj == this) {
+                return true;
+            }
+            if (!(obj instanceof ResourceOveruseListenerInfo)) {
+                return false;
+            }
+            ResourceOveruseListenerInfo listenerInfo = (ResourceOveruseListenerInfo) obj;
+            return listenerInfo.listener == listener;
         }
     }
 }

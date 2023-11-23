@@ -16,7 +16,6 @@
 
 package com.android.tv.settings.device.storage;
 
-import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -31,7 +30,8 @@ import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.leanback.app.GuidedStepFragment;
+import androidx.fragment.app.FragmentActivity;
+import androidx.leanback.app.GuidedStepSupportFragment;
 import androidx.leanback.widget.GuidanceStylist;
 import androidx.leanback.widget.GuidedAction;
 
@@ -40,7 +40,7 @@ import com.android.tv.settings.device.StorageResetActivity;
 
 import java.util.List;
 
-public class NewStorageActivity extends Activity {
+public class NewStorageActivity extends FragmentActivity {
 
     private static final String TAG = "NewStorageActivity";
 
@@ -80,7 +80,7 @@ public class NewStorageActivity extends Activity {
                             "NewStorageActivity launched without specifying missing storage");
                 }
 
-                getFragmentManager().beginTransaction()
+                getSupportFragmentManager().beginTransaction()
                         .add(android.R.id.content, MissingStorageFragment.newInstance(fsUuid))
                         .commit();
             } else {
@@ -91,14 +91,14 @@ public class NewStorageActivity extends Activity {
                             "NewStorageActivity launched without specifying new storage");
                 }
 
-                getFragmentManager().beginTransaction()
+                getSupportFragmentManager().beginTransaction()
                         .add(android.R.id.content, NewStorageFragment.newInstance(volumeId, diskId))
                         .commit();
             }
         }
     }
 
-    public static class NewStorageFragment extends GuidedStepFragment {
+    public static class NewStorageFragment extends GuidedStepSupportFragment {
 
         private static final int ACTION_BROWSE = 1;
         private static final int ACTION_FORMAT_AS_PRIVATE = 2;
@@ -259,7 +259,7 @@ public class NewStorageActivity extends Activity {
         }
     }
 
-    public static class MissingStorageFragment extends GuidedStepFragment {
+    public static class MissingStorageFragment extends GuidedStepSupportFragment {
 
         private String mFsUuid;
         private String mDescription;

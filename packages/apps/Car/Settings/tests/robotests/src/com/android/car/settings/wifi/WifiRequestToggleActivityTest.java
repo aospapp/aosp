@@ -18,10 +18,14 @@ package com.android.car.settings.wifi;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.mockito.Mockito.mock;
+
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.wifi.WifiManager;
+
+import androidx.lifecycle.Lifecycle;
 
 import com.android.car.settings.common.ConfirmationDialogFragment;
 import com.android.car.settings.testutils.ShadowCarWifiManager;
@@ -51,7 +55,7 @@ public class WifiRequestToggleActivityTest {
         mContext = RuntimeEnvironment.application;
         Shadows.shadowOf(mContext.getPackageManager()).setSystemFeature(PackageManager.FEATURE_WIFI,
                 true);
-        ShadowCarWifiManager.setInstance(new CarWifiManager(mContext));
+        ShadowCarWifiManager.setInstance(new CarWifiManager(mContext, mock(Lifecycle.class)));
     }
 
     @After

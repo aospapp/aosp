@@ -34,19 +34,22 @@
     <uses-permission android:name="android.permission.READ_CELL_BROADCASTS" />
     <uses-permission android:name="android.permission.MODIFY_PHONE_STATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.BROADCAST_SMS" />
     <uses-permission android:name="com.android.cellbroadcastservice.FULL_ACCESS_CELL_BROADCAST_HISTORY" />
 
     <protected-broadcast android:name="android.telephony.action.AREA_INFO_UPDATED" />
 
-    <uses-sdk android:minSdkVersion="29"/>
+    <uses-sdk android:minSdkVersion="30" />
 
+    <!-- Need to set usesCleartextTraffic="true" as every APK in the process
+    must set it to avoid races. The flag is necessary for the NetworkStack
+    module. See b/161860610. -->
     <application android:label="Cell Broadcast Service"
         android:defaultToDeviceProtectedStorage="true"
         android:directBootAware="true"
         android:persistent="true"
         android:forceQueryable="true"
-        android:process="com.android.networkstack.process">
+        android:process="com.android.networkstack.process"
+        android:usesCleartextTraffic="true">
 
         <service android:name="DefaultCellBroadcastService"
             android:process="com.android.networkstack.process"

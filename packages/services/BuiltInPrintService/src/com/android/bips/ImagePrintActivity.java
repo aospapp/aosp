@@ -24,6 +24,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.ColorMatrix;
 import android.graphics.ColorMatrixColorFilter;
+import android.graphics.ColorSpace;
 import android.graphics.Paint;
 import android.net.Uri;
 import android.os.AsyncTask;
@@ -118,6 +119,7 @@ public class ImagePrintActivity extends Activity {
                 // Publish progress and load for real
                 publishProgress(options.outHeight > options.outWidth);
                 options.inJustDecodeBounds = false;
+                options.inPreferredColorSpace = ColorSpace.get(ColorSpace.Named.SRGB);
                 return loadBitmap(uris[0], options);
             }
         }

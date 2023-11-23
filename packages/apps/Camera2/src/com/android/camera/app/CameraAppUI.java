@@ -16,6 +16,7 @@
 
 package com.android.camera.app;
 
+import android.app.Activity;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -924,7 +925,7 @@ public class CameraAppUI implements ModeListView.ModeSwitchListener,
      */
     private void initDisplayListener() {
         if (ApiHelper.HAS_DISPLAY_LISTENER) {
-            mLastRotation = CameraUtil.getDisplayRotation();
+            mLastRotation = CameraUtil.getDisplayRotation((Activity) mAppRootView.getContext());
 
             mDisplayListener = new DisplayManager.DisplayListener() {
                 @Override
@@ -935,7 +936,7 @@ public class CameraAppUI implements ModeListView.ModeSwitchListener,
                 @Override
                 public void onDisplayChanged(int displayId) {
                     int rotation = CameraUtil.getDisplayRotation(
-                    );
+                        (Activity) mAppRootView.getContext());
                     if ((rotation - mLastRotation + 360) % 360 == 180
                             && mPreviewStatusListener != null) {
                         mPreviewStatusListener.onPreviewFlipped();

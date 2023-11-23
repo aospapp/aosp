@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="cmas_severe_alert" msgid="4470698515511189493">"Allarme"</string>
+    <string name="cmas_severe_alert" msgid="4470698515511189493">"Allerta"</string>
     <string name="public_safety_message" msgid="7373019453807671797">"Messaggio informativo"</string>
     <string name="cmas_amber_alert" msgid="740474290634511931">"Messaggio di richiesta di assistenza sociale"</string>
     <string name="enable_cmas_severe_threat_alerts_title" msgid="4570611095431464471">"Allarmi"</string>

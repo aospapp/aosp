@@ -21,6 +21,8 @@ import android.content.res.Resources;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.car.dialer.R;
 import com.android.car.dialer.log.L;
@@ -74,8 +76,10 @@ public class DialerUtils {
                     : readableLabel);
             item.setBody(TelecomUtils.getBidiWrappedNumber(number.getNumber()));
             item.setOnCheckedChangeListener((i, isChecked) -> {
-                selectedPhoneNumber.clear();
-                selectedPhoneNumber.add(number);
+                if (isChecked) {
+                    selectedPhoneNumber.clear();
+                    selectedPhoneNumber.add(number);
+                }
             });
             items.add(item);
         }
@@ -143,5 +147,24 @@ public class DialerUtils {
                 && (!contact.getNumbers().isEmpty() || DialerUtils.hasPostalAddress(
                 resources, contact));
         return hasContactDetail;
+    }
+
+    /**
+     * Return the first visible item position in a {@link LinearLayoutManager}.
+     */
+    public static int getFirstVisibleItemPosition(@NonNull LinearLayoutManager layoutManager) {
+        int firstItem = layoutManager.findFirstCompletelyVisibleItemPosition();
+        if (firstItem == RecyclerView.NO_POSITION) {
+            firstItem = layoutManager.findFirstVisibleItemPosition();
+        }
+        return firstItem;
+    }
+
+    /**
+     * Validates whether the old anchor point is still in the new data set range.
+     * If so, return the old anchor index, otherwise return 0;
+     */
+    public static int validateListLimitingAnchor(int newSize, int oldAnchorIndex) {
+        return newSize < oldAnchorIndex ? 0 : oldAnchorIndex;
     }
 }

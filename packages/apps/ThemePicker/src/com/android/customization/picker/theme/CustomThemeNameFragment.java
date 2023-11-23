@@ -15,84 +15,51 @@
  */
 package com.android.customization.picker.theme;
 
-import android.content.Context;
-import android.content.res.Resources;
-import android.graphics.Bitmap;
-import android.graphics.drawable.BitmapDrawable;
-import android.graphics.drawable.Drawable;
 import android.os.Bundle;
-import android.text.Editable;
-import android.text.TextWatcher;
+import android.text.TextUtils;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.View.OnLayoutChangeListener;
 import android.view.ViewGroup;
 import android.widget.EditText;
-import android.widget.TextView;
+import android.widget.ImageView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.cardview.widget.CardView;
 
 import com.android.customization.model.theme.ThemeBundle.PreviewInfo;
-import com.android.customization.picker.TimeTicker;
-import com.android.customization.picker.theme.ThemePreviewPage.ThemeCoverPage;
+import com.android.customization.model.theme.custom.CustomTheme;
+import com.android.customization.module.CustomizationInjector;
+import com.android.customization.module.CustomizationPreferences;
+import com.android.customization.picker.WallpaperPreviewer;
 import com.android.wallpaper.R;
-import com.android.wallpaper.asset.Asset;
-import com.android.wallpaper.asset.BitmapCachingAsset;
 import com.android.wallpaper.module.CurrentWallpaperInfoFactory;
 import com.android.wallpaper.module.InjectorProvider;
-import com.android.wallpaper.picker.ToolbarFragment;
+import com.android.wallpaper.picker.AppbarFragment;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+
+/** Fragment of naming a custom theme. */
 public class CustomThemeNameFragment extends CustomThemeStepFragment {
 
+    private static final String TAG = "CustomThemeNameFragment";
+
     public static CustomThemeNameFragment newInstance(CharSequence toolbarTitle, int position,
-            int titleResId) {
+            int titleResId, int accessibilityResId) {
         CustomThemeNameFragment fragment = new CustomThemeNameFragment();
-        Bundle arguments = ToolbarFragment.createArguments(toolbarTitle);
+        Bundle arguments = AppbarFragment.createArguments(toolbarTitle);
         arguments.putInt(ARG_KEY_POSITION, position);
         arguments.putInt(ARG_KEY_TITLE_RES_ID, titleResId);
+        arguments.putInt(ARG_KEY_ACCESSIBILITY_RES_ID, accessibilityResId);
         fragment.setArguments(arguments);
         return fragment;
     }
 
-
-    private int[] mColorButtonIds = {
-            R.id.preview_check_selected, R.id.preview_radio_selected, R.id.preview_toggle_selected
-    };
-    private int[] mColorTileIds = {
-            R.id.preview_color_qs_0_bg, R.id.preview_color_qs_1_bg, R.id.preview_color_qs_2_bg
-    };
-    private int[][] mColorTileIconIds = {
-            new int[]{ R.id.preview_color_qs_0_icon, 0},
-            new int[]{ R.id.preview_color_qs_1_icon, 1},
-            new int[] { R.id.preview_color_qs_2_icon, 3}
-    };
-
-    private int[] mShapeIconIds = {
-            R.id.shape_preview_icon_0, R.id.shape_preview_icon_1, R.id.shape_preview_icon_2,
-            R.id.shape_preview_icon_3, R.id.shape_preview_icon_4, R.id.shape_preview_icon_5
-    };
-
-    private Asset mWallpaperAsset;
-    private ThemeCoverPage mCoverPage;
-    private TimeTicker mTicker;
     private EditText mNameEditor;
-
-    @Override
-    public void onCreate(@Nullable Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        CurrentWallpaperInfoFactory currentWallpaperFactory = InjectorProvider.getInjector()
-                .getCurrentWallpaperFactory(getActivity().getApplicationContext());
-        currentWallpaperFactory.createCurrentWallpaperInfos(
-                (homeWallpaper, lockWallpaper, presentationMode) -> {
-                    mWallpaperAsset = new BitmapCachingAsset(getContext(),
-                            homeWallpaper.getThumbAsset(getContext()));
-                    if (mCoverPage != null) {
-                        mCoverPage.bindBody(true);
-                    }
-                }, false);
-    }
+    private ImageView mWallpaperImage;
+    private ThemeOptionPreviewer mThemeOptionPreviewer;
+    private CustomizationPreferences mCustomizationPreferences;
 
     @Nullable
     @Override
@@ -101,93 +68,57 @@ public class CustomThemeNameFragment extends CustomThemeStepFragment {
         View view = super.onCreateView(inflater, container, savedInstanceState);
         mTitle = view.findViewById(R.id.component_options_title);
         mTitle.setText(mTitleResId);
-        mNameEditor = view.findViewById(R.id.custom_theme_name);
-        mNameEditor.setText(mCustomThemeManager.getOriginalTheme().getTitle());
-        bindCover(view.findViewById(R.id.component_preview_content));
+        CurrentWallpaperInfoFactory currentWallpaperFactory = InjectorProvider.getInjector()
+                .getCurrentWallpaperFactory(getActivity().getApplicationContext());
+        CustomizationInjector injector = (CustomizationInjector) InjectorProvider.getInjector();
+        mCustomizationPreferences = injector.getCustomizationPreferences(getContext());
 
+        // Set theme option.
+        ViewGroup previewContainer = view.findViewById(R.id.theme_preview_container);
+        mThemeOptionPreviewer = new ThemeOptionPreviewer(getLifecycle(), getContext(),
+                previewContainer);
+        PreviewInfo previewInfo = mCustomThemeManager.buildCustomThemePreviewInfo(getContext());
+        mThemeOptionPreviewer.setPreviewInfo(previewInfo);
+
+        // Set wallpaper background.
+        mWallpaperImage = view.findViewById(R.id.wallpaper_preview_image);
+        final WallpaperPreviewer wallpaperPreviewer = new WallpaperPreviewer(
+                getLifecycle(),
+                getActivity(),
+                mWallpaperImage,
+                view.findViewById(R.id.wallpaper_preview_surface));
+        currentWallpaperFactory.createCurrentWallpaperInfos(
+                (homeWallpaper, lockWallpaper, presentationMode) -> {
+                    wallpaperPreviewer.setWallpaper(homeWallpaper,
+                            mThemeOptionPreviewer::updateColorForLauncherWidgets);
+                }, false);
+
+        // Set theme default name.
+        mNameEditor = view.findViewById(R.id.custom_theme_name);
+        mNameEditor.setText(getOriginalThemeName());
         return view;
     }
 
-    @Override
-    public void onResume() {
-        super.onResume();
-        mTicker = TimeTicker.registerNewReceiver(getContext(), this::updateTime);
-        updateTime();
-    }
-
-    private void updateTime() {
-        if (mCoverPage != null) {
-            mCoverPage.updateTime();
-        }
-    }
-
-    @Override
-    public void onPause() {
-        super.onPause();
-        if (getContext() != null) {
-            getContext().unregisterReceiver(mTicker);
-        }
-    }
-
-    private void bindCover(CardView card) {
-        Context context = getContext();
-        PreviewInfo previewInfo = mCustomThemeManager.buildCustomThemePreviewInfo(context);
-        mCoverPage = new ThemeCoverPage(context, getThemeName(),
-                previewInfo.resolveAccentColor(getResources()), previewInfo.icons,
-                previewInfo.headlineFontFamily, previewInfo.bottomSheeetCornerRadius,
-                previewInfo.shapeDrawable, previewInfo.shapeAppIcons, null,
-                mColorButtonIds, mColorTileIds, mColorTileIconIds, mShapeIconIds,
-                new WallpaperLayoutListener());
-        mCoverPage.setCard(card);
-        mCoverPage.bindPreviewContent();
-        mNameEditor.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
-
-            }
-
-            @Override
-            public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
-                ((TextView)card.findViewById(R.id.theme_preview_card_header)).setText(charSequence);
-            }
-
-            @Override
-            public void afterTextChanged(Editable editable) {
-
-            }
-        });
-    }
-
-    private class WallpaperLayoutListener implements OnLayoutChangeListener {
-
-        @Override
-        public void onLayoutChange(View view, int left, int top, int right,
-                int bottom, int oldLeft, int oldTop, int oldRight, int oldBottom) {
-            int targetWidth = right - left;
-            int targetHeight = bottom - top;
-            if (targetWidth > 0 && targetHeight > 0) {
-                if (mWallpaperAsset != null) {
-                    mWallpaperAsset.decodeBitmap(
-                            targetWidth, targetHeight,
-                            bitmap -> setWallpaperBitmap(view, bitmap));
+    private String getOriginalThemeName() {
+        CustomTheme originalTheme = mCustomThemeManager.getOriginalTheme();
+        if (originalTheme == null || !originalTheme.isDefined()) {
+            // For new custom theme. use custom themes amount plus 1 as default naming.
+            String serializedThemes = mCustomizationPreferences.getSerializedCustomThemes();
+            int customThemesCount = 0;
+            if (!TextUtils.isEmpty(serializedThemes)) {
+                try {
+                    JSONArray customThemes = new JSONArray(serializedThemes);
+                    customThemesCount = customThemes.length();
+                } catch (JSONException e) {
+                    Log.w(TAG, "Couldn't read stored custom theme");
                 }
-                view.removeOnLayoutChangeListener(this);
             }
+            return getContext().getString(
+                    R.string.custom_theme_title, customThemesCount + 1);
+        } else {
+            // For existing custom theme, keep its name as default naming.
+            return originalTheme.getTitle();
         }
-
-        private void setWallpaperBitmap(View view, Bitmap bitmap) {
-            Resources res = view.getContext().getResources();
-            Drawable background = new BitmapDrawable(res, bitmap);
-            background.setAlpha(ThemeCoverPage.COVER_PAGE_WALLPAPER_ALPHA);
-
-            view.findViewById(R.id.theme_preview_card_background).setBackground(background);
-        }
-    }
-
-    @Override
-    public void onDestroyView() {
-        super.onDestroyView();
-        mCoverPage = null;
     }
 
     @Override

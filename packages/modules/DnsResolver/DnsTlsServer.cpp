@@ -18,6 +18,8 @@
 
 #include <algorithm>
 
+#include <netdutils/InternetAddresses.h>
+
 namespace {
 
 // Returns a tuple of references to the elements of a.
@@ -109,7 +111,7 @@ bool AddressComparator::operator() (const DnsTlsServer& x, const DnsTlsServer& y
 
 // Returns a tuple of references to the elements of s.
 auto make_tie(const DnsTlsServer& s) {
-    return std::tie(s.ss, s.name, s.protocol, s.connectTimeout);
+    return std::tie(s.ss, s.name, s.protocol);
 }
 
 bool DnsTlsServer::operator <(const DnsTlsServer& other) const {
@@ -122,6 +124,10 @@ bool DnsTlsServer::operator ==(const DnsTlsServer& other) const {
 
 bool DnsTlsServer::wasExplicitlyConfigured() const {
     return !name.empty();
+}
+
+std::string DnsTlsServer::toIpString() const {
+    return netdutils::IPSockAddr::toIPSockAddr(ss).ip().toString();
 }
 
 }  // namespace net

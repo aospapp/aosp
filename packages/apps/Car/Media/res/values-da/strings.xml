@@ -26,18 +26,6 @@
     <string name="media_app_title" msgid="94717597743776797">"Medie"</string>
     <string name="search_hint" msgid="5401750426238148416">"Søg efter sange og kunstnere m.m..."</string>
     <string name="fragment_playback_title" msgid="5014481549024607614">"Afspiller nu"</string>
-    <string name="default_error_message" msgid="6365377134388091079">"Der er noget galt. Prøv senere."</string>
-    <string name="error_code_app_error" msgid="1726372057192704809">"Det er ikke muligt lige nu"</string>
-    <string name="error_code_not_supported" msgid="1435878548411799387">"Det kan denne app ikke gøre"</string>
-    <string name="error_code_authentication_expired" msgid="905154133202017052">"Log ind for at bruge denne app"</string>
-    <string name="error_code_premium_account_required" msgid="4736461331592855166">"Dette kræver en Premium-konto"</string>
-    <string name="error_code_concurrent_stream_limit" msgid="1279573243715957403">"Du lytter på for mange enheder"</string>
-    <string name="error_code_parental_control_restricted" msgid="5222841294702530806">"Indholdet er blokeret"</string>
-    <string name="error_code_not_available_in_region" msgid="4106605584926645567">"Der er ikke adgang til indholdet her"</string>
-    <string name="error_code_content_already_playing" msgid="8050972499898729459">"Indholdet afspilles allerede"</string>
-    <string name="error_code_skip_limit_reached" msgid="8926507875025988831">"Du kan ikke springe over flere numre"</string>
-    <string name="error_code_action_aborted" msgid="3889734248905737169">"Handlingen kunne ikke afsluttes. Prøv igen."</string>
-    <string name="error_code_end_of_queue" msgid="2842652212154074468">"Der er ikke mere i køen"</string>
     <string name="service_notification_title" msgid="8085444675783592744">"Opretter forbindelse til medie"</string>
     <string name="menu_item_sound_settings_title" msgid="58887078120809669">"Lydindstillinger"</string>
     <string name="menu_item_app_selector_title" msgid="4587248991114338595">"Skift mellem apps"</string>

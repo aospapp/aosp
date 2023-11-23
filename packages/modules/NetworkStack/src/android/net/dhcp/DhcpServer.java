@@ -33,12 +33,12 @@ import static android.system.OsConstants.SOL_SOCKET;
 import static android.system.OsConstants.SO_BROADCAST;
 import static android.system.OsConstants.SO_REUSEADDR;
 
-import static com.android.internal.util.TrafficStatsConstants.TAG_SYSTEM_DHCP_SERVER;
 import static com.android.net.module.util.Inet4AddressUtils.getBroadcastAddress;
 import static com.android.net.module.util.Inet4AddressUtils.getPrefixMaskAsInet4Address;
-import static com.android.server.util.NetworkStackConstants.INFINITE_LEASE;
-import static com.android.server.util.NetworkStackConstants.IPV4_ADDR_ALL;
-import static com.android.server.util.NetworkStackConstants.IPV4_ADDR_ANY;
+import static com.android.net.module.util.NetworkStackConstants.INFINITE_LEASE;
+import static com.android.net.module.util.NetworkStackConstants.IPV4_ADDR_ALL;
+import static com.android.net.module.util.NetworkStackConstants.IPV4_ADDR_ANY;
+import static com.android.net.module.util.NetworkStackConstants.TAG_SYSTEM_DHCP_SERVER;
 import static com.android.server.util.PermissionUtil.enforceNetworkStackCallingPermission;
 
 import static java.lang.Integer.toUnsignedLong;
@@ -67,6 +67,7 @@ import androidx.annotation.VisibleForTesting;
 import com.android.internal.util.HexDump;
 import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
+import com.android.net.module.util.DeviceConfigUtils;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
@@ -99,6 +100,7 @@ public class DhcpServer extends StateMachine {
     private static final int CMD_UPDATE_PARAMS = 3;
     @VisibleForTesting
     protected static final int CMD_RECEIVE_PACKET = 4;
+    private static final int CMD_TERMINATE_AFTER_STOP = 5;
 
     @NonNull
     private final Context mContext;
@@ -230,7 +232,7 @@ public class DhcpServer extends StateMachine {
 
         @Override
         public boolean isFeatureEnabled(@NonNull Context context, @NonNull String name) {
-            return NetworkStackUtils.isFeatureEnabled(context, NAMESPACE_CONNECTIVITY, name);
+            return DeviceConfigUtils.isFeatureEnabled(context, NAMESPACE_CONNECTIVITY, name);
         }
     }
 
@@ -362,10 +364,12 @@ public class DhcpServer extends StateMachine {
      * Stop listening for packets.
      *
      * <p>As the server is stopped asynchronously, some packets may still be processed shortly after
-     * calling this method.
+     * calling this method. The server will also be cleaned up and can't be started again, even if
+     * it was already stopped.
      */
     void stop(@Nullable INetworkStackStatusCallback cb) {
         sendMessage(CMD_STOP_DHCP_SERVER, cb);
+        sendMessage(CMD_TERMINATE_AFTER_STOP);
     }
 
     private void maybeNotifyStatus(@Nullable INetworkStackStatusCallback cb, int statusCode) {
@@ -406,6 +410,9 @@ public class DhcpServer extends StateMachine {
                     mStartedState.mOnStartCallback = obj.first;
                     mEventCallbacks = obj.second;
                     transitionTo(mRunningState);
+                    return HANDLED;
+                case CMD_TERMINATE_AFTER_STOP:
+                    quit();
                     return HANDLED;
                 default:
                     return NOT_HANDLED;

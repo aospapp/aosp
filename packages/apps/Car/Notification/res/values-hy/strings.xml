@@ -29,14 +29,15 @@
     <string name="notifications" msgid="2865534625906329283">"Ծանուցումների կենտրոն"</string>
     <string name="clear_all" msgid="1845314281571237722">"Ջնջել բոլորը"</string>
     <string name="ellipsized_string" msgid="6993649229498857557">"…"</string>
-    <string name="show_more" msgid="7291378544926443344">"Ցուցադրել ավելի շատ"</string>
+    <string name="show_more" msgid="7291378544926443344">"Ցույց տալ ավելին"</string>
     <string name="notification_header" msgid="324550431063568049">"Ծանուցումներ"</string>
     <string name="empty_notification_header" msgid="4928379791607839720">"Ծանուցումներ չկան"</string>
-    <string name="show_less" msgid="7342677676229302829">"Ցուցադրել ավելի քիչ"</string>
+    <string name="show_less" msgid="7342677676229302829">"Ցույց տալ ավելի քիչ"</string>
     <string name="show_count_more" msgid="480555295700318609">"Ցուցադրել ևս <xliff:g id="COUNT">%d</xliff:g>"</string>
     <string name="message_unshown_count" msgid="2234421277246741233">" Եվս <xliff:g id="COUNT">%d</xliff:g>"</string>
     <plurals name="restricted_message_text" formatted="false" msgid="507312322886633308">
       <item quantity="one"><xliff:g id="COUNT">%d</xliff:g> նոր հաղորդագրություն</item>
       <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> նոր հաղորդագրություն</item>
     </plurals>
+    <string name="manage_text" msgid="4225197445283791757">"Կառավարել"</string>
 </resources>

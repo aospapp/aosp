@@ -76,6 +76,7 @@ public class PhonePolicyTest {
         TestUtils.setAdapterService(mAdapterService);
         // Configure the maximum connected audio devices
         doReturn(MAX_CONNECTED_AUDIO_DEVICES).when(mAdapterService).getMaxConnectedAudioDevices();
+        doReturn(mDatabaseManager).when(mAdapterService).getDatabase();
         // Setup the mocked factory to return mocked services
         doReturn(mHeadsetService).when(mServiceFactory).getHeadsetService();
         doReturn(mA2dpService).when(mServiceFactory).getA2dpService();
@@ -148,7 +149,6 @@ public class PhonePolicyTest {
 
         // Return a list of connection order
         BluetoothDevice bondedDevice = TestUtils.getTestDevice(mAdapter, 0);
-        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
         when(mDatabaseManager.getMostRecentlyConnectedA2dpDevice()).thenReturn(bondedDevice);
         when(mAdapterService.getBondState(bondedDevice)).thenReturn(BluetoothDevice.BOND_BONDED);
 
@@ -184,7 +184,6 @@ public class PhonePolicyTest {
         connectionOrder.add(TestUtils.getTestDevice(mAdapter, 2));
         connectionOrder.add(TestUtils.getTestDevice(mAdapter, 3));
 
-        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
         when(mDatabaseManager.getMostRecentlyConnectedA2dpDevice()).thenReturn(
                 connectionOrder.get(0));
 
@@ -307,7 +306,6 @@ public class PhonePolicyTest {
     public void testReconnectOnPartialConnect_PreviousPartialFail() {
         List<BluetoothDevice> connectionOrder = new ArrayList<>();
         connectionOrder.add(TestUtils.getTestDevice(mAdapter, 0));
-        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
         when(mDatabaseManager.getMostRecentlyConnectedA2dpDevice()).thenReturn(
                 connectionOrder.get(0));
 

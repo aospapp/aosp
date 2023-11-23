@@ -69,6 +69,13 @@ public class SaveLockWorker extends Fragment {
         setRetainInstance(true);
     }
 
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+
+        PasswordHelper.zeroizeCredentials(mEnteredCredential, mCurrentCredential);
+    }
+
     final void init(int userId) {
         mUtils = new LockPatternUtils(getContext());
         mUserId = userId;

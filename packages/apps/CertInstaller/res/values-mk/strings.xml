@@ -30,12 +30,12 @@
     <string name="userkey_type" msgid="6214833257030657106">"Алгоритам:"</string>
     <string name="one_usercrt" msgid="7690798336332403106">"еден сертификат на корисник"</string>
     <string name="one_cacrt" msgid="2667950425420663146">"еден CA сертификат"</string>
-    <string name="n_cacrts" msgid="2141498640685639208">"%d CA сертификати"</string>
+    <string name="n_cacrts" msgid="2141498640685639208">"%d CA-сертификати"</string>
     <string name="password_error" msgid="2042471639556516356">"Внеси ја точната лозинка."</string>
     <string name="password_empty_error" msgid="591713406761723025">"Внеси ја лозинката."</string>
     <string name="name_empty_error" msgid="3808800768660110354">"Напиши име."</string>
     <string name="name_char_error" msgid="3176618568784938968">"Напишете име кое содржи само букви и броеви."</string>
-    <string name="unable_to_save_cert" msgid="9178604087335389686">"Не можеше да се зачува сертификатот. Меморирањето акредитиви не е овозможено или не е правилно иницијализирано."</string>
+    <string name="unable_to_save_cert" msgid="9178604087335389686">"Не може да се зачува сертификатот. Меморирањето акредитиви не е овозможено или не е правилно иницијализирано."</string>
     <string name="cert_not_saved" msgid="4037698479662830270">"Сертификатот не е инсталиран."</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"Нема сертификат за инсталирање."</string>
     <string name="invalid_cert" msgid="7704228670980743590">"Сертификатот е неважечки."</string>
@@ -49,15 +49,15 @@
     <string name="invalid_certificate_close_button" msgid="350986774973653102">"Затвори"</string>
     <string name="invalid_certificate_message" msgid="3508065546083182733">"Датотекава не може да се користи како <xliff:g id="CERTIFICATE_USAGE">%1$s</xliff:g>"</string>
     <string name="certificate" msgid="8790577925509962529">"Сертификат"</string>
-    <string name="ca_certificate" msgid="7397198551290322945">"Сертификат CA"</string>
+    <string name="ca_certificate" msgid="7397198551290322945">"CA-сертификат"</string>
     <string name="user_certificate" msgid="514888069820553128">"Кориснички сертификат за VPN и апликации"</string>
     <string name="wifi_certificate" msgid="5356595832360140989">"Сертификат за Wi‑Fi"</string>
-    <string name="ca_cert_is_added" msgid="2847081843756291802">"Сертификат CA е инсталиран"</string>
+    <string name="ca_cert_is_added" msgid="2847081843756291802">"Инсталиран е CA-сертификат"</string>
     <string name="user_cert_is_added" msgid="3088794616560630823">"Корисничкиот сертификат е инсталиран"</string>
     <string name="wifi_cert_is_added" msgid="333220613655140428">"Сертификатот за Wi‑Fi е инсталиран"</string>
-    <string name="cert_too_large_error" msgid="8715414972725646285">"Не можеше да се инсталира зашто сертификатот е преголем."</string>
-    <string name="cert_missing_error" msgid="7040527352278728220">"Не можеше да се инсталира зашто датотеката со сертификат не можеше да се лоцира."</string>
-    <string name="cert_read_error" msgid="7353463360652419796">"Не можеше да се инсталира зашто датотеката со сертификат не можеше да се прочита."</string>
+    <string name="cert_too_large_error" msgid="8715414972725646285">"Не може да се инсталира зашто сертификатот е преголем."</string>
+    <string name="cert_missing_error" msgid="7040527352278728220">"Не може да се инсталира зашто датотеката со сертификат не може да се лоцира."</string>
+    <string name="cert_read_error" msgid="7353463360652419796">"Не може да се инсталира зашто датотеката со сертификат не може да се прочита."</string>
     <string name="cert_temp_error" msgid="617276803992714550">"Привремен проблем. Обидете се подоцна."</string>
     <string name="only_primary_user_allowed" msgid="4005084935023047716">"Само сопственикот на овој уред може да инсталира сертификати."</string>
     <string name="credential_usage_label" msgid="1513892208033156805">"Употреба на акредитив:"</string>

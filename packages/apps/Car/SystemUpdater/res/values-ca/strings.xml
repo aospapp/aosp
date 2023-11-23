@@ -17,7 +17,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="title" msgid="9099755437807065998">"Actualització local del sistema"</string>
+    <string name="title" msgid="9099755437807065998">"Actualització del sistema local"</string>
     <string name="invalid_file_type" msgid="5363346679377832590">"Aquest fitxer d\'actualització no és vàlid"</string>
     <string name="unknown_file" msgid="4460330045071455406">"Fitxer desconegut"</string>
     <string name="cannot_access_storage" msgid="692801523959625901">"Sense accés al dispositiu emmagatzematge"</string>

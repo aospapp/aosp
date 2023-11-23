@@ -75,7 +75,7 @@ public class PKG_REF_DO extends BerTlv {
         byte[] data = getRawData();
         int index = getValueIndex();
 
-        // sanity checks
+        // quick checks
         if (getValueLength() > 128) {
             throw new ParserException("Invalid value length for PKG-REF-DO!");
         }
@@ -98,7 +98,7 @@ public class PKG_REF_DO extends BerTlv {
     @Override
     public void build(ByteArrayOutputStream stream) throws DO_Exception {
         byte[] pkg = mPackageName.getBytes();
-        // sanity checks
+        // quick checks
         if (pkg.length > 128) {
             throw new DO_Exception("Invalid value length for PKG-REF-DO!");
         }

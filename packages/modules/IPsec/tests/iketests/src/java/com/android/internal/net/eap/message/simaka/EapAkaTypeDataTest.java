@@ -14,38 +14,38 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.eap.message.simaka;
+package com.android.internal.net.eap.test.message.simaka;
 
 import static com.android.internal.net.TestUtils.hexStringToByteArray;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.EAP_AKA_CHALLENGE_RESPONSE_MAC_BYTES;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.EAP_AKA_CHALLENGE_RESPONSE_TYPE_DATA;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.EAP_AKA_IDENTITY_REQUEST;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.INVALID_SUBTYPE;
-import static com.android.internal.net.eap.message.simaka.EapAkaTypeData.EAP_AKA_CHALLENGE;
-import static com.android.internal.net.eap.message.simaka.EapAkaTypeData.EAP_AKA_IDENTITY;
-import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_ANY_ID_REQ;
-import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_AUTN;
-import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_CHECKCODE;
-import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_MAC;
-import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_RAND;
-import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_RES;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.RES_BYTES;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_AKA_CHALLENGE_RESPONSE_MAC_BYTES;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_AKA_CHALLENGE_RESPONSE_TYPE_DATA;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_AKA_IDENTITY_REQUEST;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.INVALID_SUBTYPE;
+import static com.android.internal.net.eap.test.message.simaka.EapAkaTypeData.EAP_AKA_CHALLENGE;
+import static com.android.internal.net.eap.test.message.simaka.EapAkaTypeData.EAP_AKA_IDENTITY;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_ANY_ID_REQ;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_AUTN;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_CHECKCODE;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_MAC;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_RAND;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_RES;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.RES_BYTES;
 
-import static junit.framework.TestCase.fail;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-import com.android.internal.net.eap.message.simaka.EapAkaTypeData.EapAkaTypeDataDecoder;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtAnyIdReq;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtAutn;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtMac;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtRandAka;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtRes;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EapSimAkaUnsupportedAttribute;
-import com.android.internal.net.eap.message.simaka.EapSimAkaTypeData.DecodeResult;
+import com.android.internal.net.eap.test.message.simaka.EapAkaTypeData.EapAkaTypeDataDecoder;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtAnyIdReq;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtAutn;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtMac;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtRandAka;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtRes;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EapSimAkaUnsupportedAttribute;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaTypeData.DecodeResult;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -68,12 +68,12 @@ public class EapAkaTypeDataTest {
     private static final byte[] MAC_BYTES = hexStringToByteArray(MAC);
     private static final byte[] EAP_AKA_REQUEST =
             hexStringToByteArray(
-                    "010000" // Challenge | 2B padding
-                            + "01050000" + RAND // AT_RAND attribute
-                            + "02050000" + AUTN // AT_AUTN attribute
+                    "010A0B" // Challenge | 2B reserved
+                            + "01051A1B" + RAND // AT_RAND attribute
+                            + "02052A2B" + AUTN // AT_AUTN attribute
                             + "8B010002" // AT_RESULT_IND attribute (TS 124 302#8.2.3.1)
-                            + "0B050000" + MAC // AT_MAC attribute
-                            + "86010000"); // AT_CHECKCODE attribute
+                            + "0B053A3B" + MAC // AT_MAC attribute
+                            + "86014A4B"); // AT_CHECKCODE attribute
 
     private EapAkaTypeDataDecoder mEapAkaTypeDataDecoder;
 
@@ -103,6 +103,14 @@ public class EapAkaTypeDataTest {
         assertArrayEquals(EAP_AKA_CHALLENGE_RESPONSE_MAC_BYTES, ((AtMac) entry.getValue()).mac);
 
         assertFalse(itr.hasNext());
+    }
+
+    @Test
+    public void testDecodeEncode() {
+        DecodeResult<EapAkaTypeData> result = mEapAkaTypeDataDecoder.decode(EAP_AKA_REQUEST);
+        assertTrue(result.isSuccessfulDecode());
+
+        assertArrayEquals(EAP_AKA_REQUEST, result.eapTypeData.encode());
     }
 
     @Test

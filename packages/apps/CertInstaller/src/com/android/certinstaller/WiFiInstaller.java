@@ -1,5 +1,7 @@
 package com.android.certinstaller;
 
+import static android.view.WindowManager.LayoutParams.SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS;
+
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
@@ -13,6 +15,8 @@ import android.net.wifi.hotspot2.PasspointConfiguration;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.provider.DocumentsContract;
+import android.text.TextUtils;
+import android.util.EventLog;
 import android.util.Log;
 import android.view.View;
 import android.widget.TextView;
@@ -26,18 +30,24 @@ public class WiFiInstaller extends Activity {
     private static final String TAG = "WifiInstaller";
     private static final String NETWORK_NAME = "network_name";
     private static final String INSTALL_STATE = "install_state";
+    private static final String TYPE_WIFI_CONFIG = "application/x-wifi-config";
     public static final int INSTALL_SUCCESS = 2;
     public static final int INSTALL_FAIL = 1;
     public static final int INSTALL_FAIL_NO_WIFI = 0;
-    PasspointConfiguration mPasspointConfig;
-    WifiManager mWifiManager;
-    boolean doNotInstall;
+    private PasspointConfiguration mPasspointConfig;
+    private boolean mIsPasspointConfigurationValid;
 
     @Override
     protected void onCreate(Bundle savedStates) {
         super.onCreate(savedStates);
+        getWindow().addSystemFlags(SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS);
 
+        mIsPasspointConfigurationValid = false;
         Bundle bundle = getIntent().getExtras();
+        if (bundle == null) {
+            Log.e(TAG, "Invalid inputs");
+            return;
+        }
         String uriString = bundle.getString(CertInstallerMain.WIFI_CONFIG_FILE);
         String mimeType = bundle.getString(CertInstallerMain.WIFI_CONFIG);
         byte[] data = bundle.getByteArray(CertInstallerMain.WIFI_CONFIG_DATA);
@@ -45,17 +55,34 @@ public class WiFiInstaller extends Activity {
         Log.d(TAG, "WiFi data for " + CertInstallerMain.WIFI_CONFIG + ": " +
                 mimeType + " is " + (data != null ? data.length : "-"));
 
-        mWifiManager = (WifiManager) getSystemService(Context.WIFI_SERVICE);
-        mPasspointConfig = ConfigParser.parsePasspointConfig(mimeType, data);
-        dropFile(Uri.parse(uriString), getApplicationContext());
-
-        if (mPasspointConfig == null) {
-            Log.w(TAG, "failed to build passpoint configuration");
-            doNotInstall = true;
-        } else if (mPasspointConfig.getHomeSp() == null) {
-            Log.w(TAG, "Passpoint profile missing HomeSP information");
-            doNotInstall = true;
+        // Make sure that the input is valid
+        if (data == null || data.length == 0 || TextUtils.isEmpty(uriString)) {
+            Log.e(TAG, "Invalid inputs");
+            return;
         }
+
+        // Verify MIME type before parsing
+        if (!TextUtils.equals(mimeType, TYPE_WIFI_CONFIG)) {
+            Log.e(TAG, "Unexpected MIME type: " + mimeType);
+            EventLog.writeEvent(0x534e4554, "176756691", -1, "Invalid mime-type");
+            return;
+        }
+
+        mPasspointConfig = ConfigParser.parsePasspointConfig(mimeType, data);
+        if (mPasspointConfig == null) {
+            Log.e(TAG, "Failed to build Passpoint configuration");
+            EventLog.writeEvent(0x534e4554, "176756691", -1, "Invalid data in file "
+                    + uriString);
+            return;
+        }
+        if (mPasspointConfig.getHomeSp() == null) {
+            Log.e(TAG, "Passpoint profile missing HomeSP information");
+        } else {
+            // Passpoint configuration parsed successfully and valid. Mark to be installed.
+            mIsPasspointConfigurationValid = true;
+        }
+        // Delete the file only if the Passpoint configuration was parsed successfully
+        dropFile(Uri.parse(uriString), getApplicationContext());
     }
 
     @Override
@@ -75,7 +102,8 @@ public class WiFiInstaller extends Activity {
         builder.setView(layout);
 
         TextView text = (TextView) layout.findViewById(R.id.wifi_info);
-        if (!doNotInstall) {
+        if (mIsPasspointConfigurationValid) {
+            WifiManager wifiManager = getSystemService(WifiManager.class);
             text.setText(String.format(getResources().getString(R.string.wifi_installer_detail),
                     mPasspointConfig.getHomeSp().getFriendlyName()));
 
@@ -93,14 +121,14 @@ public class WiFiInstaller extends Activity {
                         public void run() {
                             boolean success = true;
                             try {
-                                mWifiManager.removePasspointConfiguration(
+                                wifiManager.removePasspointConfiguration(
                                         mPasspointConfig.getHomeSp().getFqdn());
                             } catch (IllegalArgumentException e) {
                                 // Do nothing. This is expected if a profile with this FQDN does not
                                 // exist.
                             }
                             try {
-                                mWifiManager.addOrUpdatePasspointConfiguration(mPasspointConfig);
+                                wifiManager.addOrUpdatePasspointConfiguration(mPasspointConfig);
                             } catch (RuntimeException rte) {
                                 Log.w(TAG, "Caught exception while installing wifi config: " +
                                            rte, rte);
@@ -144,7 +172,9 @@ public class WiFiInstaller extends Activity {
                 }
             });
         }
-        builder.create().show();
+        final AlertDialog alertDialog = builder.create();
+        alertDialog.show();
+        alertDialog.getWindow().addSystemFlags(SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS);
     }
 
     /**
@@ -154,14 +184,14 @@ public class WiFiInstaller extends Activity {
      * @param context The context of the current application
      */
     private static void dropFile(Uri uri, Context context) {
-      try {
-        if (DocumentsContract.isDocumentUri(context, uri)) {
-          DocumentsContract.deleteDocument(context.getContentResolver(), uri);
-        } else {
-          context.getContentResolver().delete(uri, null, null);
+        try {
+            if (DocumentsContract.isDocumentUri(context, uri)) {
+                DocumentsContract.deleteDocument(context.getContentResolver(), uri);
+            } else {
+                context.getContentResolver().delete(uri, null, null);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "could not delete document " + uri);
         }
-      } catch (Exception e) {
-        Log.e(TAG, "could not delete document " + uri);
-      }
     }
 }

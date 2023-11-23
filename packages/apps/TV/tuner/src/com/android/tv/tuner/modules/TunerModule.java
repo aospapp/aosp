@@ -32,8 +32,11 @@ import com.android.tv.tuner.exoplayer.buffer.RecordingSampleBufferFactory;
 import com.android.tv.tuner.exoplayer.buffer.SampleChunkIoHelper;
 import com.android.tv.tuner.exoplayer.buffer.SampleChunkIoHelperFactory;
 import com.android.tv.tuner.source.TunerSourceModule;
+import com.android.tv.tuner.tvinput.TunerRecordingSessionExoV2FactoryImpl;
 import com.android.tv.tuner.tvinput.TunerRecordingSessionFactoryImpl;
 import com.android.tv.tuner.tvinput.TunerRecordingSessionWorker;
+import com.android.tv.tuner.tvinput.TunerRecordingSessionWorkerExoV2;
+import com.android.tv.tuner.tvinput.TunerRecordingSessionWorkerExoV2Factory;
 import com.android.tv.tuner.tvinput.TunerRecordingSessionWorkerFactory;
 import com.android.tv.tuner.tvinput.TunerSessionExoV2Factory;
 import com.android.tv.tuner.tvinput.TunerSessionOverlay;
@@ -64,9 +67,22 @@ public abstract class TunerModule {
         return tunerFlags.useExoplayerV2() ? tunerSessionExoV2Factory : tunerSessionFactory;
     }
 
+    @Provides
+    static TunerRecordingSessionFactory tunerRecordingSessionFactory(
+            TunerFlags tunerFlags,
+            TunerRecordingSessionFactoryImpl tunerRecordingSessionFactoryImpl,
+            TunerRecordingSessionExoV2FactoryImpl tunerRecordingSessionExoV2FactoryImpl) {
+        return tunerFlags.useExoplayerV2() ?
+                tunerRecordingSessionExoV2FactoryImpl : tunerRecordingSessionFactoryImpl;
+    }
+
     @Binds
     abstract TunerRecordingSessionWorker.Factory tunerRecordingSessionWorkerFactory(
             TunerRecordingSessionWorkerFactory tunerRecordingSessionWorkerFactory);
+
+    @Binds
+    abstract TunerRecordingSessionWorkerExoV2.Factory tunerRecordingSessionWorkerExoV2Factory(
+            TunerRecordingSessionWorkerExoV2Factory tunerRecordingSessionWorkerExoV2Factory);
 
     @Binds
     abstract TunerSessionWorker.Factory tunerSessionWorkerFactory(
@@ -87,10 +103,6 @@ public abstract class TunerModule {
     @Binds
     abstract TunerSessionWorkerExoV2.Factory tunerSessionWorkerExoV2Factory(
             TunerSessionWorkerExoV2Factory tunerSessionWorkerExoV2Factory);
-
-    @Binds
-    abstract TunerRecordingSessionFactory tunerRecordingSessionFactory(
-            TunerRecordingSessionFactoryImpl impl);
 
     @Binds
     abstract MpegTsRendererBuilder.Factory mpegTsRendererBuilderFactory(
@@ -115,4 +127,33 @@ public abstract class TunerModule {
     @Binds
     abstract SampleChunkIoHelper.Factory sampleChunkIoHelperFactory(
             SampleChunkIoHelperFactory sampleChunkIoHelperFactory);
+
+    @Binds
+    abstract com.android.tv.tuner.exoplayer2.MpegTsSampleExtractor.Factory
+    mpegTsSampleExtractorFactoryV2(
+            com.android.tv.tuner.exoplayer2.MpegTsSampleExtractorFactory
+                    mpegTsSampleExtractorFactory);
+
+    @Binds
+    abstract com.android.tv.tuner.exoplayer2.ExoPlayerSampleExtractor.Factory
+    exoPlayerSampleExtractorFactoryV2(
+            com.android.tv.tuner.exoplayer2.ExoPlayerSampleExtractorFactory
+                    exoPlayerSampleExtractorFactory);
+
+    @Binds
+    abstract com.android.tv.tuner.exoplayer2.FileSampleExtractor.Factory
+    fileSampleExtractorFactoryV2(
+            com.android.tv.tuner.exoplayer2.FileSampleExtractorFactory fileSampleExtractorFactory);
+
+    @Binds
+    abstract com.android.tv.tuner.exoplayer2.buffer.RecordingSampleBuffer.Factory
+    recordingSampleBufferFactoryV2(
+            com.android.tv.tuner.exoplayer2.buffer.RecordingSampleBufferFactory
+                    recordingSampleBufferFactory);
+
+    @Binds
+    abstract com.android.tv.tuner.exoplayer2.buffer.SampleChunkIoHelper.Factory
+    sampleChunkIoHelperFactoryV2(
+            com.android.tv.tuner.exoplayer2.buffer.SampleChunkIoHelperFactory
+                    sampleChunkIoHelperFactory);
 }

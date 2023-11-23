@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3077225713817780583">"Kudhibiti Simu"</string>
+    <string name="telecommAppLabel" product="default" msgid="1825598513414129827">"Simu"</string>
     <string name="userCallActivityLabel" product="default" msgid="3605391260292846248">"Simu"</string>
     <string name="unknown" msgid="6993977514360123431">"Haijulikani"</string>
     <string name="notification_missedCallTitle" msgid="5060387047205532974">"Simu uliyokosa"</string>
@@ -43,7 +43,7 @@
     <string name="respond_via_sms_setting_title_2" msgid="4914853536609553457">"Hariri majibu ya haraka"</string>
     <string name="respond_via_sms_setting_summary" msgid="8054571501085436868"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="6579353156073272157">"Majibu ya haraka"</string>
-    <string name="respond_via_sms_confirmation_format" msgid="2932395476561267842">"Ujumbe uliotumwa kwa <xliff:g id="PHONE_NUMBER">%s</xliff:g> ."</string>
+    <string name="respond_via_sms_confirmation_format" msgid="2932395476561267842">"Ujumbe umetumwa kwa <xliff:g id="PHONE_NUMBER">%s</xliff:g>."</string>
     <string name="respond_via_sms_failure_format" msgid="5198680980054596391">"Imeshindwa kutuma SMS kwa <xliff:g id="PHONE_NUMBER">%s</xliff:g>."</string>
     <string name="enable_account_preference_title" msgid="6949224486748457976">"Akaunti za simu"</string>
     <string name="outgoing_call_not_allowed_user_restriction" msgid="3424338207838851646">"Piga simu za dharura pekee."</string>

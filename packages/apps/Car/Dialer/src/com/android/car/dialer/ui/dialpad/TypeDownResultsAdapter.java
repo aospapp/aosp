@@ -21,6 +21,8 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import com.android.car.dialer.R;
+import com.android.car.dialer.ui.common.ContactResultsLiveData;
+import com.android.car.dialer.ui.common.OnItemClickedListener;
 import com.android.car.dialer.ui.search.ContactResultViewHolder;
 import com.android.car.dialer.ui.search.ContactResultsAdapter;
 
@@ -28,20 +30,43 @@ import com.android.car.dialer.ui.search.ContactResultsAdapter;
  * An adapter used for type down functionality.
  */
 public class TypeDownResultsAdapter extends ContactResultsAdapter {
+    private OnItemClickedListener<ContactResultsLiveData.ContactResultListItem>
+            mOnItemClickedListener;
 
-    public TypeDownResultsAdapter() {
-        super(null);
+    private int mUnrestrictedItemCount = Integer.MAX_VALUE;
+
+    public TypeDownResultsAdapter(
+            OnItemClickedListener<ContactResultsLiveData.ContactResultListItem> listener) {
+        super(listener);
+        mOnItemClickedListener = listener;
+    }
+
+    /**
+     * Sets the unrestricted item count. This sets the limit for when UXR is not enforced.
+     */
+    public void setUnrestrictedItemCount(int limit) {
+        mUnrestrictedItemCount = limit < 0 ? Integer.MAX_VALUE : limit;
     }
 
     @Override
-    public ContactResultViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+    public int getUnrestrictedItemCount() {
+        return Math.min(mUnrestrictedItemCount, getContactResults().size());
+    }
+
+    @Override
+    public ContactResultViewHolder onCreateViewHolderImpl(ViewGroup parent, int viewType) {
         View view = LayoutInflater.from(parent.getContext())
                 .inflate(R.layout.type_down_list_item, parent, false);
-        return new ContactResultViewHolder(view, null);
+        return new ContactResultViewHolder(view, mOnItemClickedListener);
     }
 
     @Override
-    public void onBindViewHolder(ContactResultViewHolder holder, int position) {
-        holder.bindTypeDownResult(getContactResults().get(position));
+    public void onBindViewHolderImpl(ContactResultViewHolder holder, int position) {
+        holder.bindTypeDownResult(getContactResults().get(position), getSortMethod());
+    }
+
+    @Override
+    public int getConfigurationId() {
+        return R.id.dialpad_type_down_uxr_config;
     }
 }

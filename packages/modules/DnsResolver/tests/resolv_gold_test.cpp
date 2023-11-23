@@ -85,7 +85,7 @@ class TestBase : public ::testing::Test {
 
     void TearDown() override {
         // Clear TLS configuration for test
-        gPrivateDnsConfiguration.clear(TEST_NETID);
+        privateDnsConfiguration.clear(TEST_NETID);
         // Delete cache for test
         resolv_delete_cache_for_net(TEST_NETID);
     }
@@ -106,10 +106,10 @@ class TestBase : public ::testing::Test {
         fwmark.explicitlySelected = true;
         fwmark.protectedFromVpn = true;
         fwmark.permission = PERMISSION_SYSTEM;
-        ASSERT_EQ(gPrivateDnsConfiguration.set(TEST_NETID, fwmark.intValue, tlsServers, tlsHostname,
-                                               caCert),
+        ASSERT_EQ(privateDnsConfiguration.set(TEST_NETID, fwmark.intValue, tlsServers, tlsHostname,
+                                              caCert),
                   0);
-        ASSERT_EQ(resolv_set_nameservers(TEST_NETID, servers, domains, kParams), 0);
+        ASSERT_EQ(resolv_set_nameservers(TEST_NETID, servers, domains, kParams, std::nullopt), 0);
     }
 
     void SetResolvers() { SetResolverConfiguration(kDefaultServers, kDefaultSearchDomains); }
@@ -129,7 +129,7 @@ class TestBase : public ::testing::Test {
         android::base::Timer t;
         while (t.duration() < timeoutMs) {
             const auto& validatedServers =
-                    gPrivateDnsConfiguration.getStatus(TEST_NETID).validatedServers();
+                    privateDnsConfiguration.getStatus(TEST_NETID).validatedServers();
             for (const auto& server : validatedServers) {
                 if (serverAddr == ToString(&server.ss)) return true;
             }
@@ -273,6 +273,10 @@ class TestBase : public ::testing::Test {
             // packages/modules/DnsResolver/DnsProxyListener.cpp.
             .flags = NET_CONTEXT_FLAG_USE_DNS_OVER_TLS | NET_CONTEXT_FLAG_USE_EDNS,
     };
+
+  private:
+    // Only one instance is created and used across tests.
+    PrivateDnsConfiguration& privateDnsConfiguration = PrivateDnsConfiguration::getInstance();
 };
 class ResolvGetAddrInfo : public TestBase {};
 
@@ -364,6 +368,8 @@ TEST_F(ResolvGetAddrInfo, BasicTlsQuery) {
     ASSERT_TRUE(tls.startServer());
     ASSERT_NO_FATAL_FAILURE(SetResolversWithTls());
     EXPECT_TRUE(WaitForPrivateDnsValidation(tls.listen_address()));
+    tls.setDelayQueries(2);
+    tls.setDelayQueriesTimeout(200);
 
     dns.clearQueries();
     addrinfo* res = nullptr;
@@ -425,6 +431,8 @@ TEST_P(ResolvGoldTest, GoldData) {
     test::DNSResponder dns(test::DNSResponder::MappingType::BINARY_PACKET);
     ASSERT_TRUE(dns.startServer());
     test::DnsTlsFrontend tls;
+    tls.setDelayQueries(2);
+    tls.setDelayQueriesTimeout(200);
 
     if (protocol == DnsProtocol::CLEARTEXT) {
         ASSERT_NO_FATAL_FAILURE(SetResolvers());

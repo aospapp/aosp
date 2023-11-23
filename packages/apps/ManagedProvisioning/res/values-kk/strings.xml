@@ -28,8 +28,12 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Келесі қолданба құрылғыңызды басқарады:"</string>
     <string name="next" msgid="1004321437324424398">"Келесі"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Жұмыс профилі реттелуде…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Әкімші параметрлерді, корпоративтік ресурстарды пайдалануды, қолданбаларды, рұқсаттарды және осы профильмен байланысты деректерді, соның ішінде желідегі белсенділікті, құрылғының орналасқан жерін, қоңыраулар тарихы мен контактілерді іздеу тарихын бақылай және басқара алады.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Қосымша ақпарат, соның ішінде ұйымның құпиялылық саясаттары туралы ақпарат алу үшін әкімшіге хабарласыңыз."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Әкімші параметрлерді, корпоративтік ресурстарды пайдалануды, қолданбаларды, рұқсаттарды және осы құрылғымен байланысты деректерді, соның ішінде желідегі белсенділікті әрі құрылғының орналасқан жерін, қоңыраулар тарихын және контактілерді іздеу тарихын бақылай және басқара алады.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Қосымша ақпаратты, соның ішінде ұйымның құпиялылық саясаттары туралы мәліметті алу үшін әкімшіге хабарласыңыз."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Әкімші параметрлерді, корпоративтік ресурстарды пайдалануды, қолданбаларды, рұқсаттарды және осы профильмен байланысты деректерді, соның ішінде желідегі белсенділікті, құрылғының орналасқан жерін, қоңыраулар тарихы мен контактілерді іздеу тарихын бақылай және басқара алады.<xliff:g id="LINE_BREAK">
+
+</xliff:g>Қосымша ақпарат, соның ішінде ұйымның құпиялылық саясаттары туралы ақпарат алу үшін әкімшіге хабарласыңыз."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Әкімші параметрлерді, корпоративтік ресурстарды пайдалануды, қолданбаларды, рұқсаттарды және осы құрылғымен байланысты деректерді, соның ішінде желідегі белсенділікті әрі құрылғының орналасқан жерін, қоңыраулар тарихын және контактілерді іздеу тарихын бақылай және басқара алады.<xliff:g id="LINE_BREAK">
+
+</xliff:g>Қосымша ақпаратты, соның ішінде ұйымның құпиялылық саясаттары туралы мәліметті алу үшін әкімшіге хабарласыңыз."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Ұрлықтан қорғау функцияларын пайдалану үшін, құрылғыда құпия сөзбен қорғалған экран құлпы болуы тиіс."</string>
     <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"Қосымша ақпаратты, соның ішінде ұйымның құпиялылық саясаттары туралы мәліметтер алу үшін әкімшіге хабарласыңыз."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Толығырақ"</string>
@@ -37,11 +41,11 @@
     <string name="ok_setup" msgid="4593707675416137504">"Жарайды"</string>
     <string name="user_consent_msg" msgid="8820951802130353584">"Келісемін"</string>
     <string name="url_error" msgid="5958494012986243186">"Бұл сілтеме көрсетілмейді."</string>
+    <string name="navigation_button_description" msgid="6106309408994461239">"Жоғары қарай өту"</string>
     <string name="terms" msgid="8295436105384703903">"Шарттар"</string>
     <string name="work_profile_info" msgid="5433388376309583996">"Жұмыс профилінің ақпараты"</string>
     <string name="managed_device_info" msgid="1529447646526616811">"Басқарылатын құрылғы ақпараты"</string>
     <string name="default_managed_profile_name" msgid="5370257687074907055">"Жұмыс профилі"</string>
-    <string name="default_first_meat_user_name" msgid="7540515892748490540">"Негізгі пайдаланушы"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"Қолданыстағы профиль жойылсын ба?"</string>
     <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"Сізде жұмыс профилі бұрыннан бар, ол келесі қолданбамен басқарылады:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"Жалғастырудан бұрын "<a href="#read_this_link">"мынаны оқыңыз"</a>"."</string>
@@ -65,15 +69,6 @@
     <string name="user_setup_incomplete" msgid="6494920045526591079">"Пайдаланушыны орнату аяқталмады"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"Жұмыс құрылғысының пайдаланушысы"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"Жұмыс құрылғысы реттелуде…"</string>
-    <string name="progress_data_process" msgid="1707745321954672971">"Реттеу деректері өңделуде…"</string>
-    <string name="progress_connect_to_wifi" msgid="472251154628863539">"Wi-Fi желісіне қосылу орындалуда…"</string>
-    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"Мобильдік желіге қосылуда..."</string>
-    <string name="progress_download" msgid="3522436271691064624">"Әкімші қолданбасы жүктелуде…"</string>
-    <string name="progress_install" msgid="2258045670385866183">"Әкімші қолданбасы орнатылуда…"</string>
-    <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"Қажет емес жүйе қолданбалары өшірілуде…"</string>
-    <string name="progress_finishing_touches" msgid="9037776404089697198">"Соңғы түзетулер енгізілуде…"</string>
-    <string name="progress_set_owner" msgid="8214062820093757961">"Құрылғы иесі орнатылуда…"</string>
-    <string name="progress_initialize" msgid="1104643492713424939">"Құрылғы жұмысқа дайындалуда…"</string>
     <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"Бұл құрылғы реттеуге қажет шифрлауға рұқсат етпейді. Анықтама алу үшін әкімшіге хабарласыңыз."</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"Реттеуді тоқтатып, құрылғыны бастапқы күйге қайтару керек пе?"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"Құрылғы бастапқы күйге қайтарылады және сіз бірінші экранға ораласыз"</string>
@@ -162,11 +157,10 @@
     <string name="device_owner_description" msgid="168013145812679664">"Бұл құрылғы ұйымның қорғауында және бақылауында болады"</string>
     <string name="setup_provisioning_header" msgid="4282483198266806271">"Жұмыс құрғылғысының параметрлері орнатылайын деп жатыр…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Әкімші қолданбасының параметрлері орнатылуда"</string>
-    <string name="set_up_everything_else" msgid="4407706086957916501">"Қалған параметрлерді орнату"</string>
-    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"Жеке есептік жазба енгізіп, құрылғыңыздың барлық мүмкіндігін пайдаланыңыз"</string>
-    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"Жұмыс профиліңіз дайын болған кезде жеке Google есептік жазбасын енгізіп, қолданбалар мен мазмұнды пайдалана аласыз."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"Бұл құрылғы ұйымға тиесілі."</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"Бұл телефонды басқару және бақылау үшін мына қолданба пайдаланылатын болады."</string>
+    <string name="account_management_disclaimer_header" msgid="8013083414694316564">"Есептік жазбаңыз басқарылады"</string>
+    <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"Қауіпсіздік саясатының талаптарын іске асыру үшін жүйе әкімшісі мобильдік құрылғыны басқару процесін қолданады."</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Жұмысқа реттеуге дайындалуда…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Алдымен жұмыс профиліңізді реттеп алайық."</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Жұмыс қолданбалары жұмыс профилінде сақталады"</string>
@@ -178,8 +172,16 @@
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Жұмыс қолданбаларын оңай пайдаланыңыз"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Бұл құрылғы жеке емес."</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"Әкімші осы құрылғыдағы деректеріңізді және әрекеттеріңізді көруі мүмкін."</string>
+    <string name="fully_managed_device_provisioning_permissions_header" msgid="2852101532084770993">"Әрекетіңіз және деректеріңіз"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_header" msgid="4419374850927705136">"Қолданба рұқсаттары"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8328298923037335068">"Әкімші осы құрылғыдағы қолданбалар үшін микрофон, камера және геодерек рұқсаттары сияқты рұқсаттарды орната алады."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Құрылғы реттелуде…"</string>
-    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"Жұмыс қолданбаларына оңай кіру үшін осы құрылғыны пайдаланыңыз. Бұл жеке құрылғы емес, сондықтан деректеріңіз бен әрекеттеріңізді әкімші көруі мүмкін. Толығырақ ақпарат үшін әкімшімен хабарласыңыз."</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1090645190066781456">"Жұмыс қолданбаларына оңай кіру үшін осы құрылғыны пайдаланыңыз. Бұл жеке құрылғы емес, сондықтан деректеріңіз бен әрекеттеріңізді әкімші көруі мүмкін."</string>
+    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"Жұмыс қолданбаларына оңай кіру үшін осы құрылғыны пайдаланыңыз. Бұл жеке құрылғы емес, сондықтан әрекеттеріңіз бен деректеріңізді әкімші көруі мүмкін. Сондай-ақ әкімші осы құрылғыдағы қолданбалар үшін микрофон, камера және геодерек рұқсаттары сияқты рұқсаттарды орната алады."</string>
+    <string name="fully_managed_device_provisioning_return_device_title" msgid="8500829014794276683">"Құрылғыны әкімшіге беріңіз"</string>
+    <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"Алдыңғы экранға оралыңыз немесе құрылғыны бастапқы күйге қайтарып, оны әкімшіге беріңіз."</string>
+    <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"Реттеуден бас тарту"</string>
+    <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"Құрылғыны бастапқы күйге қайтару және беру"</string>
     <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Жұмыс қолданбалары жұмыс профиліңізге сақталады және оларды әкімші басқарады"</string>
     <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Жеке қолданбалар жұмыстікінен бөлек және жасырын орналасқан"</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"Әкімші осы құрылғыны басқара алады және кейбір қолданбаларды бөгей алады."</string>
@@ -187,10 +189,9 @@
     <string name="just_a_sec" msgid="6244676028626237220">"Сәл күтіңіз…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Құпиялылық туралы еске салғыш"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"Әкімші осы құрылғыдағы деректеріңізді және әрекеттеріңізді көруі мүмкін."</string>
-    <string name="device_provisioning_finished" msgid="3981783240592092906">"Құрылғыңыз пайдалануға дайын!"</string>
-    <string name="done" msgid="7755227776955952318">"Дайын"</string>
-    <string name="financed_device_screen_header" msgid="7890706080917322376">"Бұл құрылғы <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> дүкенінен несиеге алынған"</string>
-    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> мүмкіндіктері:"</string>
-    <string name="install_creditor_app_description" msgid="6159751782301108878">"Құрылғының ақшасын төлеу үшін <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> қолданбасын орнату"</string>
-    <string name="lock_device_description" msgid="2940362560732989166">"Ақша төленбеген жағдайда құрылғыны пайдалану мүмкіндігін шектеу"</string>
+    <string name="financed_device_screen_header" msgid="6875169548352717124">"Бұл құрылғыны <xliff:g id="CREDITOR_NAME">%s</xliff:g> ұсынады"</string>
+    <string name="financed_make_payments_subheader_title" msgid="7880606710044254210">"Осы құрылғы арқылы төлемдер жасаңыз"</string>
+    <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"Құрылғының ақшасын төлеу үшін <xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> қолданбасын орната алады."</string>
+    <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Бұл құрылғыға шектеу қойылуы мүмкін"</string>
+    <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"Егер төлемесеңіз, <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> құрылғыны пайдалануды шектей алады."</string>
 </resources>

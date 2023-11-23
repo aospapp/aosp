@@ -10,11 +10,15 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.LiveData;
-import androidx.lifecycle.ViewModelProviders;
+import androidx.lifecycle.ViewModelProvider;
 
 import com.android.car.dialer.R;
 
-public class RingingCallControllerBarFragment extends Fragment {
+import dagger.hilt.android.AndroidEntryPoint;
+
+/** Controller bar for the incoming call. */
+@AndroidEntryPoint(Fragment.class)
+public class RingingCallControllerBarFragment extends Hilt_RingingCallControllerBarFragment {
 
     private LiveData<Call> mIncomingCall;
 
@@ -36,7 +40,7 @@ public class RingingCallControllerBarFragment extends Fragment {
     @Override
     public void onStart() {
         super.onStart();
-        InCallViewModel inCallViewModel = ViewModelProviders.of(getActivity()).get(
+        InCallViewModel inCallViewModel = new ViewModelProvider(getActivity()).get(
                 InCallViewModel.class);
         mIncomingCall = inCallViewModel.getIncomingCall();
     }

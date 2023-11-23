@@ -41,6 +41,7 @@ import com.android.server.telecom.R;
 import com.android.server.telecom.TelecomBroadcastIntentProcessor;
 import com.android.server.telecom.components.TelecomBroadcastReceiver;
 
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -68,7 +69,7 @@ public class IncomingCallNotifier extends CallsManagerListenerBase {
     public static final int NOTIFICATION_INCOMING_CALL = 1;
     @VisibleForTesting
     public static final String NOTIFICATION_TAG = IncomingCallNotifier.class.getSimpleName();
-
+    private final Object mLock = new Object();
 
     public final Call.ListenerBase mCallListener = new Call.ListenerBase() {
         @Override
@@ -104,8 +105,10 @@ public class IncomingCallNotifier extends CallsManagerListenerBase {
 
     @Override
     public void onCallAdded(Call call) {
-        if (!mCalls.contains(call)) {
-            mCalls.add(call);
+        synchronized (mLock) {
+            if (!mCalls.contains(call)) {
+                mCalls.add(call);
+            }
         }
 
         updateIncomingCall();
@@ -113,10 +116,11 @@ public class IncomingCallNotifier extends CallsManagerListenerBase {
 
     @Override
     public void onCallRemoved(Call call) {
-        if (mCalls.contains(call)) {
-            mCalls.remove(call);
+        synchronized (mLock) {
+            if (mCalls.contains(call)) {
+                mCalls.remove(call);
+            }
         }
-
         updateIncomingCall();
     }
 
@@ -130,11 +134,16 @@ public class IncomingCallNotifier extends CallsManagerListenerBase {
      * UI.
      */
     private void updateIncomingCall() {
-        Optional<Call> incomingCallOp = mCalls.stream()
-                .filter(call -> call.isSelfManaged() && call.isIncoming() &&
-                        call.getState() == CallState.RINGING &&
-                        call.getHandoverState() == HandoverState.HANDOVER_NONE)
-                .findFirst();
+        Optional<Call> incomingCallOp;
+        synchronized (mLock) {
+            incomingCallOp = mCalls.stream()
+                    .filter(Objects::nonNull)
+                    .filter(call -> call.isSelfManaged() && call.isIncoming() &&
+                            call.getState() == CallState.RINGING &&
+                            call.getHandoverState() == HandoverState.HANDOVER_NONE)
+                    .findFirst();
+        }
+
         Call incomingCall = incomingCallOp.orElse(null);
         if (incomingCall != null && mCallsManagerProxy != null &&
                 !mCallsManagerProxy.hasUnholdableCallsForOtherConnectionService(
@@ -273,12 +282,12 @@ public class IncomingCallNotifier extends CallsManagerListenerBase {
                 R.anim.on_going_call,
                 getActionText(R.string.answer_incoming_call, R.color.notification_action_answer),
                 PendingIntent.getBroadcast(mContext, 0, answerIntent,
-                        PendingIntent.FLAG_CANCEL_CURRENT));
+                        PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE));
         builder.addAction(
                 R.drawable.ic_close_dk,
                 getActionText(R.string.decline_incoming_call, R.color.notification_action_decline),
                 PendingIntent.getBroadcast(mContext, 0, rejectIntent,
-                        PendingIntent.FLAG_CANCEL_CURRENT));
+                        PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE));
         return builder;
     }
 

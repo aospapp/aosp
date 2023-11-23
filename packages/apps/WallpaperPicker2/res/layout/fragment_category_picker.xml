@@ -17,37 +17,56 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?android:colorPrimary"
     android:orientation="vertical">
 
     <include layout="@layout/section_header" />
 
-    <androidx.coordinatorlayout.widget.CoordinatorLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/content_section"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"
-        android:background="?android:colorPrimary">
+        android:layout_weight="1">
 
         <com.android.wallpaper.widget.PreviewPager
             android:id="@+id/wallpaper_preview_pager"
             android:layout_width="match_parent"
-            android:layout_height="@dimen/preview_pager_height"
-            android:background="@color/preview_pager_background"
-            app:card_style="screen_aspect_ratio" />
+            android:layout_height="0dp"
+            app:card_style="screen_aspect_ratio"
+            app:layout_constrainedHeight="true"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHeight_max="@dimen/preview_pager_max_height"
+            app:layout_constraintHeight_percent="@dimen/preview_pager_maximum_height_ratio"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
 
         <include
             android:id="@+id/permission_needed"
-            layout="@layout/grid_item_permission_needed"
+            layout="@layout/permission_needed_layout"
             android:layout_width="match_parent"
-            android:layout_height="@dimen/preview_pager_height"
-            android:visibility="gone" />
+            android:layout_height="0dp"
+            android:visibility="gone"
+            app:layout_constrainedHeight="true"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHeight_max="@dimen/preview_pager_max_height"
+            app:layout_constraintHeight_percent="@dimen/preview_pager_maximum_height_ratio"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
 
-        <FrameLayout
-            android:id="@+id/category_fragment_container"
+        <androidx.coordinatorlayout.widget.CoordinatorLayout
+            android:id="@+id/root_container"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:background="?android:colorPrimary"
-            app:layout_behavior="@string/bottom_sheet_behavior" />
+            android:background="@android:color/transparent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent">
 
-    </androidx.coordinatorlayout.widget.CoordinatorLayout>
+            <FrameLayout
+                android:id="@+id/category_fragment_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="?android:colorBackground"
+                app:layout_behavior="@string/bottom_sheet_behavior" />
+        </androidx.coordinatorlayout.widget.CoordinatorLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
 </LinearLayout>

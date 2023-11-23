@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"Sertifikaları harici depolama biriminde bulunan %1$s veya %2$s uzantılı bir PKCS#12 dosyasından yükleyebilirsiniz."</string>
     <string name="allow_button" msgid="3030990695030371561">"Seç"</string>
     <string name="deny_button" msgid="3766539809121892584">"Reddet"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"Sertifikalar yükleniyor…"</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"%s, sertifika olup olmadığına bakıyor…"</string>
 </resources>

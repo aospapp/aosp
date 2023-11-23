@@ -27,6 +27,7 @@ import androidx.leanback.widget.GuidedAction;
 import androidx.leanback.widget.GuidedActionsStylist;
 import androidx.lifecycle.ViewModelProviders;
 
+import com.android.net.module.util.ProxyUtils;
 import com.android.tv.settings.R;
 import com.android.tv.settings.connectivity.util.AdvancedOptionsFlowUtil;
 import com.android.tv.settings.connectivity.util.State;
@@ -112,7 +113,8 @@ public class ProxyBypassState implements State {
             if (mAdvancedOptionsFlowInfo.containsPage(AdvancedOptionsFlowInfo.PROXY_BYPASS)) {
                 title = mAdvancedOptionsFlowInfo.get(AdvancedOptionsFlowInfo.PROXY_BYPASS);
             }  else if (mAdvancedOptionsFlowInfo.getInitialProxyInfo() != null) {
-                title = mAdvancedOptionsFlowInfo.getInitialProxyInfo().getExclusionListAsString();
+                title = ProxyUtils.exclusionListAsString(
+                        mAdvancedOptionsFlowInfo.getInitialProxyInfo().getExclusionList());
             }
 
             Context context = getActivity();

@@ -42,14 +42,17 @@ final class TtyManager implements WiredHeadsetManager.Listener {
         mWiredHeadsetManager = wiredHeadsetManager;
         mWiredHeadsetManager.addListener(this);
 
-        mPreferredTtyMode = Settings.Secure.getInt(
+        mPreferredTtyMode = Settings.Secure.getIntForUser(
                 mContext.getContentResolver(),
                 Settings.Secure.PREFERRED_TTY_MODE,
-                TelecomManager.TTY_MODE_OFF);
+                TelecomManager.TTY_MODE_OFF,
+                mContext.getUserId());
 
         IntentFilter intentFilter = new IntentFilter(
                 TelecomManager.ACTION_TTY_PREFERRED_MODE_CHANGED);
-        mContext.registerReceiver(mReceiver, intentFilter);
+        mContext.registerReceiver(mReceiver, intentFilter,
+                android.Manifest.permission.MODIFY_PHONE_STATE,
+                null);
 
         updateCurrentTtyMode();
     }

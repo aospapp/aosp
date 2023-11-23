@@ -14,7 +14,6 @@
      limitations under the License.
 -->
 <resources>
-    <color name="primary_color">#ffffff</color>
     <color name="secondary_color">#f8f9fa</color>
     <color name="accent_color">@color/material_googblue500</color>
 

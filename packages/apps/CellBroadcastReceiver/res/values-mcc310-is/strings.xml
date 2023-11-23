@@ -16,11 +16,17 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="enable_cmas_test_alerts_title" msgid="5028777622440500200">"Aðrar prófanir"</string>
     <string name="receive_cmas_in_second_language_title" msgid="7539080017840218665">"Spænska"</string>
     <string name="receive_cmas_in_second_language_summary" msgid="4482209573334686904">"Fá neyðartilkynningar á spænsku þegar það er hægt"</string>
     <string name="confirm_delete_broadcast" msgid="6808374217554967811">"Eyða þessari viðvörun?"</string>
     <string name="confirm_delete_all_broadcasts" msgid="4748571670736214158">"Viltu eyða öllum viðvörunum sem þú hefur móttekið?"</string>
     <string name="menu_delete" msgid="2691868773984777519">"Eyða viðvörun"</string>
     <string name="menu_delete_all" msgid="8991615021908376216">"Eyða viðvörunum"</string>
+    <!-- no translation found for enable_cmas_test_alerts_title (3722503121618497385) -->
+    <skip />
+    <string name="enable_cmas_test_alerts_summary" msgid="6138676147687910935">"Fá áskildar mánaðarlegar prófanir frá öryggisviðvörunarkerfinu"</string>
+    <string name="cmas_presidential_level_alert" msgid="5810314558991898384">"Innlend viðvörun"</string>
+    <string name="show_cmas_opt_out_summary" msgid="5612381687166765604">"Sýna glugga til að afþakka viðvaranir eftir að sú fyrsta birtist (nema neyðarviðvaranir)."</string>
+    <string name="enable_cmas_presidential_alerts_title" msgid="3871388542233245120">"Almannavarnatilkynningar"</string>
+    <string name="enable_cmas_presidential_alerts_summary" msgid="1292969668875568075">"Skilaboð frá almannavörnum. Ekki er hægt að slökkva."</string>
 </resources>

@@ -148,7 +148,7 @@ void HciEventManager::nfaHciCallback(tNFA_HCI_EVT event,
   } else if (eventData->rcvd_evt.pipe == sSimPipe) {
     evtSrc = "SIM1";
   } else {
-    LOG(ERROR) << "Incorrect Pipe Id";
+    LOG(WARNING) << "Incorrect Pipe Id";
     return;
   }
 

@@ -16,6 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="missing_rename_error" msgid="9098952207447981103">"Tienes que cambiar el nombre"</string>
+    <string name="add_folder_name_error" msgid="6014615052491406810">"Debes asignarle un nombre a la carpeta"</string>
     <string name="files_label" msgid="771781190045103748">"Archivos"</string>
     <string name="downloads_label" msgid="5462789470049501103">"Descargas"</string>
     <!-- no translation found for app_label (8089292432455111409) -->
@@ -90,16 +92,16 @@
     <string name="save_error" msgid="8631128801982095782">"Error al guardar el documento"</string>
     <string name="create_error" msgid="3092144450044861994">"Error al crear la carpeta"</string>
     <string name="query_error" msgid="6625421453613879336">"No se puede cargar el contenido en este momento"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"El perfil de trabajo está pausado"</string>
+    <string name="quiet_mode_error_title" msgid="9126656325282792843">"Se pausó el perfil de trabajo"</string>
     <string name="quiet_mode_button" msgid="6977115032320235420">"Activar"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"No se pueden seleccionar archivos de trabajo"</string>
-    <string name="cant_select_work_files_error_message" msgid="683480676150690641">"Tu administrador de TI no te permite acceder a archivos de trabajo desde una app personal"</string>
+    <string name="cant_select_work_files_error_message" msgid="683480676150690641">"Tu administrador de TI no te permite acceder a archivos de trabajo desde una app personal."</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"No se pueden seleccionar archivos personales"</string>
-    <string name="cant_select_personal_files_error_message" msgid="4105905035459118209">"Tu administrador de TI no te permite acceder a los archivos personales desde una app de trabajo"</string>
+    <string name="cant_select_personal_files_error_message" msgid="4105905035459118209">"Tu administrador de TI no te permite acceder a archivos personales desde una app de trabajo."</string>
     <string name="cant_save_to_work_error_title" msgid="1351323070040641358">"No se puede guardar en el perfil de trabajo"</string>
-    <string name="cant_save_to_work_error_message" msgid="4975583233814059890">"Tu administrador de TI no te permite guardar archivos personales en el perfil de trabajo"</string>
+    <string name="cant_save_to_work_error_message" msgid="4975583233814059890">"Tu administrador de TI no te permite guardar archivos personales en el perfil de trabajo."</string>
     <string name="cant_save_to_personal_error_title" msgid="858327493694069780">"No se puede guardar en el perfil personal"</string>
-    <string name="cant_save_to_personal_error_message" msgid="6991758723736381751">"Tu administrador de TI no te permite guardar archivos de trabajo en el perfil personal"</string>
+    <string name="cant_save_to_personal_error_message" msgid="6991758723736381751">"Tu administrador de TI no te permite guardar archivos de trabajo en el perfil personal."</string>
     <string name="cross_profile_action_not_allowed_title" msgid="6611281348716476478">"Esta acción no está permitida."</string>
     <string name="cross_profile_action_not_allowed_message" msgid="7331275433061690947">"Para obtener más información, comunícate con tu administrador de TI."</string>
     <string name="root_recent" msgid="1080156975424341623">"Recientes"</string>
@@ -243,7 +245,7 @@
     <string name="root_info_header_recent" msgid="5654901877295332262">"Archivos recientes"</string>
     <string name="root_info_header_global_search" msgid="4904078222280496152">"Archivos"</string>
     <string name="root_info_header_downloads" msgid="8848161246921154115">"Archivos en Descargas"</string>
-    <string name="root_info_header_storage" msgid="2989014130584927442">"Archivos en <xliff:g id="DEVICE">%1$s</xliff:g>"</string>
+    <string name="root_info_header_storage" msgid="2989014130584927442">"Archivos de <xliff:g id="DEVICE">%1$s</xliff:g>"</string>
     <string name="root_info_header_folder" msgid="5851172222368049864">"Archivos almacenados en <xliff:g id="FOLDER">%1$s</xliff:g>"</string>
     <string name="root_info_header_app" msgid="2125422047558420885">"Archivos de <xliff:g id="LABEL">%1$s</xliff:g>"</string>
     <string name="root_info_header_app_with_summary" msgid="3223302581236069702">"Archivos de <xliff:g id="LABEL">%1$s</xliff:g>/<xliff:g id="SUMMARY">%2$s</xliff:g>"</string>
@@ -270,7 +272,7 @@
     <string name="open_tree_dialog_title" msgid="6339509533852318569">"¿Deseas brindarle a <xliff:g id="APPNAME">%1$s</xliff:g> acceso a los archivos almacenados en <xliff:g id="DIRECTORY">%2$s</xliff:g>?"</string>
     <string name="open_tree_dialog_message" msgid="4120695398430659628">"Se le brindará a <xliff:g id="APPNAME">%1$s</xliff:g> acceso al contenido actual y futuro almacenado en <xliff:g id="DIRECTORY">%2$s</xliff:g>."</string>
     <string name="directory_blocked_header_title" msgid="1164584889578740066">"No se puede usar esta carpeta"</string>
-    <string name="directory_blocked_header_subtitle" msgid="2829150911849033408">"Para proteger tu privacidad, elige otra carpeta"</string>
+    <string name="directory_blocked_header_subtitle" msgid="2829150911849033408">"Para proteger tu privacidad, elige otra carpeta."</string>
     <string name="create_new_folder_button" msgid="8859613309559794890">"Crear carpeta"</string>
     <string name="search_bar_hint" msgid="4517366509897977321">"Buscar en este teléfono"</string>
     <string name="delete_search_history" msgid="2202015025607694515">"Borrar historial de búsqueda de <xliff:g id="TEXT">%1$s</xliff:g>"</string>
@@ -278,4 +280,6 @@
     <string name="work_tab" msgid="7265359366883747413">"De trabajo"</string>
     <string name="a11y_work" msgid="7504431382825242153">"Trabajo"</string>
     <string name="drag_from_another_app" msgid="8310249276199969905">"No puedes transferir archivos de otra app."</string>
+    <string name="grid_mode_showing" msgid="2803166871485028508">"Se muestra en modo de cuadrícula."</string>
+    <string name="list_mode_showing" msgid="1225413902295895166">"Se muestra en modo de lista."</string>
 </resources>

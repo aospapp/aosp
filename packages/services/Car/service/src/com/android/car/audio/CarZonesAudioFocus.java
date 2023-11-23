@@ -16,6 +16,8 @@
 
 package com.android.car.audio;
 
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
+
 import android.annotation.NonNull;
 import android.annotation.UserIdInt;
 import android.car.media.CarAudioManager;
@@ -25,15 +27,17 @@ import android.media.AudioFocusInfo;
 import android.media.AudioManager;
 import android.media.audiopolicy.AudioPolicy;
 import android.os.Bundle;
-import android.util.Log;
+import android.util.IndentingPrintWriter;
+import android.util.SparseArray;
 
 import com.android.car.CarLog;
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.Preconditions;
+import com.android.server.utils.Slogf;
 
-import java.io.PrintWriter;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -41,43 +45,52 @@ import java.util.Objects;
  *
  * <p><b>Note:</b> Manages audio focus on a per zone basis.
  */
-class CarZonesAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
+final class CarZonesAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
+    private static final String TAG = CarLog.tagFor(CarZonesAudioFocus.class);
 
+    private final CarFocusCallback mCarFocusCallback;
     private final boolean mDelayedFocusEnabled;
     private CarAudioService mCarAudioService; // Dynamically assigned just after construction
     private AudioPolicy mAudioPolicy; // Dynamically assigned just after construction
 
-    private final Map<Integer, CarAudioFocus> mFocusZones = new HashMap<>();
+    private final SparseArray<CarAudioFocus> mFocusZones;
 
-    CarZonesAudioFocus(@NonNull AudioManager audioManager,
+    public static CarZonesAudioFocus createCarZonesAudioFocus(@NonNull AudioManager audioManager,
             @NonNull PackageManager packageManager,
-            @NonNull CarAudioZone[] carAudioZones,
+            @NonNull SparseArray<CarAudioZone> carAudioZones,
             @NonNull CarAudioSettings carAudioSettings,
-            boolean enableDelayedAudioFocus) {
-        //Create the zones here, the policy will be set setOwningPolicy,
-        // which is called right after this constructor.
-        Objects.requireNonNull(audioManager);
-        Objects.requireNonNull(packageManager);
-        Objects.requireNonNull(carAudioZones);
-        Objects.requireNonNull(carAudioSettings);
-        Preconditions.checkArgument(carAudioZones.length != 0,
+            boolean enableDelayedAudioFocus,
+            CarFocusCallback carFocusCallback) {
+        Objects.requireNonNull(audioManager, "AudioManager cannot be null");
+        Objects.requireNonNull(packageManager, "PackageManager cannot be null");
+        Objects.requireNonNull(carAudioZones, "CarAudioZones cannot be null");
+        Preconditions.checkArgument(carAudioZones.size() != 0,
                 "There must be a minimum of one audio zone");
+        Objects.requireNonNull(carAudioSettings, "CarAudioSettings cannot be null");
+
+        SparseArray<CarAudioFocus> audioFocusPerZone = new SparseArray<>();
 
         //Create focus for all the zones
-        for (CarAudioZone audioZone : carAudioZones) {
+        for (int i = 0; i < carAudioZones.size(); i++) {
+            CarAudioZone audioZone = carAudioZones.valueAt(i);
             int audioZoneId = audioZone.getId();
-            if (Log.isLoggable(CarLog.TAG_AUDIO, Log.DEBUG)) {
-                Log.d(CarLog.TAG_AUDIO,
-                        "CarZonesAudioFocus adding new zone " + audioZoneId);
-            }
+            Slogf.d(TAG, "Adding new zone %d", audioZoneId);
             CarAudioFocus zoneFocusListener =
                     new CarAudioFocus(audioManager, packageManager,
                             new FocusInteraction(carAudioSettings), enableDelayedAudioFocus);
-            mFocusZones.put(audioZoneId, zoneFocusListener);
+            audioFocusPerZone.put(audioZoneId, zoneFocusListener);
         }
-        mDelayedFocusEnabled = enableDelayedAudioFocus;
+        return new CarZonesAudioFocus(audioFocusPerZone, enableDelayedAudioFocus, carFocusCallback);
     }
 
+    @VisibleForTesting
+    CarZonesAudioFocus(SparseArray<CarAudioFocus> focusZones,
+            boolean enableDelayedAudioFocus,
+            CarFocusCallback carFocusCallback) {
+        mFocusZones = focusZones;
+        mDelayedFocusEnabled = enableDelayedAudioFocus;
+        mCarFocusCallback = carFocusCallback;
+    }
 
     /**
      * Query the current list of focus loser in zoneId for uid
@@ -106,8 +119,7 @@ class CarZonesAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
      * @param afiList list of audio focus entries
      * @param zoneId zone id where focus should should be lost
      */
-    void transientlyLoseInFocusInZone(@NonNull ArrayList<AudioFocusInfo> afiList,
-            int zoneId) {
+    void transientlyLoseInFocusInZone(@NonNull ArrayList<AudioFocusInfo> afiList, int zoneId) {
         CarAudioFocus focus = mFocusZones.get(zoneId);
 
         for (AudioFocusInfo info : afiList) {
@@ -116,10 +128,9 @@ class CarZonesAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
     }
 
     int reevaluateAndRegainAudioFocus(AudioFocusInfo afi) {
-        CarAudioFocus focus = getFocusForAudioFocusInfo(afi);
-        return focus.reevaluateAndRegainAudioFocus(afi);
+        int zoneId = getAudioZoneIdForAudioFocusInfo(afi);
+        return getCarAudioFocusForZoneId(zoneId).reevaluateAndRegainAudioFocus(afi);
     }
-
 
     /**
      * Sets the owning policy of the audio focus
@@ -134,15 +145,25 @@ class CarZonesAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
         mAudioPolicy = parentPolicy;
         mCarAudioService = carAudioService;
 
-        for (int zoneId : mFocusZones.keySet()) {
-            mFocusZones.get(zoneId).setOwningPolicy(mAudioPolicy);
+        for (int i = 0; i < mFocusZones.size(); i++) {
+            mFocusZones.valueAt(i).setOwningPolicy(mAudioPolicy);
         }
+    }
+
+    void setRestrictFocus(boolean isFocusRestricted) {
+        int[] zoneIds = new int[mFocusZones.size()];
+        for (int i = 0; i < mFocusZones.size(); i++) {
+            zoneIds[i] = mFocusZones.keyAt(i);
+            mFocusZones.valueAt(i).setRestrictFocus(isFocusRestricted);
+        }
+        notifyFocusCallback(zoneIds);
     }
 
     @Override
     public void onAudioFocusRequest(AudioFocusInfo afi, int requestResult) {
-        CarAudioFocus focus = getFocusForAudioFocusInfo(afi);
-        focus.onAudioFocusRequest(afi, requestResult);
+        int zoneId = getAudioZoneIdForAudioFocusInfo(afi);
+        getCarAudioFocusForZoneId(zoneId).onAudioFocusRequest(afi, requestResult);
+        notifyFocusCallback(new int[]{zoneId});
     }
 
     /**
@@ -152,14 +173,17 @@ class CarZonesAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
      */
     @Override
     public void onAudioFocusAbandon(AudioFocusInfo afi) {
-        CarAudioFocus focus = getFocusForAudioFocusInfo(afi);
-        focus.onAudioFocusAbandon(afi);
+        int zoneId = getAudioZoneIdForAudioFocusInfo(afi);
+        getCarAudioFocusForZoneId(zoneId).onAudioFocusAbandon(afi);
+        notifyFocusCallback(new int[]{zoneId});
     }
 
-    private CarAudioFocus getFocusForAudioFocusInfo(AudioFocusInfo afi) {
-        //getFocusForAudioFocusInfo defaults to returning default zoneId
-        //if uid has not been mapped, thus the value returned will be
-        //default zone focus
+    @NonNull
+    private CarAudioFocus getCarAudioFocusForZoneId(int zoneId) {
+        return mFocusZones.get(zoneId);
+    }
+
+    private int getAudioZoneIdForAudioFocusInfo(AudioFocusInfo afi) {
         int zoneId = mCarAudioService.getZoneIdForUid(afi.getClientUid());
 
         // If the bundle attribute for AUDIOFOCUS_EXTRA_REQUEST_ZONE_ID has been assigned
@@ -172,44 +196,69 @@ class CarZonesAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
                             -1);
             // check if the zone id is within current zones bounds
             if (mCarAudioService.isAudioZoneIdValid(bundleZoneId)) {
-                if (Log.isLoggable(CarLog.TAG_AUDIO, Log.DEBUG)) {
-                    Log.d(CarLog.TAG_AUDIO,
-                            "getFocusForAudioFocusInfo valid zoneId " + bundleZoneId
-                                    + " with bundle request for client " + afi.getClientId());
-                }
+                Slogf.d(TAG, "getFocusForAudioFocusInfo valid zoneId %d with bundle request for"
+                        + " client %s", bundleZoneId, afi.getClientId());
                 zoneId = bundleZoneId;
             } else {
-                Log.w(CarLog.TAG_AUDIO,
-                        "getFocusForAudioFocusInfo invalid zoneId " + bundleZoneId
-                                + " with bundle request for client " + afi.getClientId()
-                                + ", dispatching focus request to zoneId " + zoneId);
+                Slogf.w(TAG, "getFocusForAudioFocusInfo invalid zoneId %d with bundle request for "
+                                + "client %s, dispatching focus request to zoneId %d", bundleZoneId,
+                        afi.getClientId(), zoneId);
             }
         }
 
-        CarAudioFocus focus =  mFocusZones.get(zoneId);
-        return focus;
+        return zoneId;
     }
 
-    /**
-     * dumps the current state of the CarZoneAudioFocus
-     *
-     * @param indent indent to append to each new line
-     * @param writer stream to write current state
-     */
-    void dump(String indent, PrintWriter writer) {
-        writer.printf("%s*CarZonesAudioFocus*\n", indent);
-        writer.printf("%s\tDelayed Focus Enabled: %b\n", indent, mDelayedFocusEnabled);
-        writer.printf("%s\tCar Zones Audio Focus Listeners:\n", indent);
-        Integer[] keys = mFocusZones.keySet().stream().sorted().toArray(Integer[]::new);
-        for (Integer zoneId : keys) {
-            writer.printf("%s\tZone Id: %s\n", indent, zoneId.toString());
-            mFocusZones.get(zoneId).dump(indent + "\t", writer);
+    private void notifyFocusCallback(int[] zoneIds) {
+        if (mCarFocusCallback == null) {
+            return;
         }
+        SparseArray<List<AudioFocusInfo>> focusHoldersByZoneId = new SparseArray<>();
+        for (int i = 0; i < zoneIds.length; i++) {
+            int zoneId = zoneIds[i];
+            List<AudioFocusInfo> focusHolders = mFocusZones.get(zoneId).getAudioFocusHolders();
+            focusHoldersByZoneId.put(zoneId, focusHolders);
+        }
+
+        mCarFocusCallback.onFocusChange(zoneIds, focusHoldersByZoneId);
+    }
+
+    @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
+    void dump(IndentingPrintWriter writer) {
+        writer.println("*CarZonesAudioFocus*");
+        writer.increaseIndent();
+        writer.printf("Delayed Focus Enabled: %b\n", mDelayedFocusEnabled);
+        writer.printf("Has Focus Callback: %b\n", mCarFocusCallback != null);
+        writer.println("Car Zones Audio Focus Listeners:");
+        writer.increaseIndent();
+        for (int i = 0; i < mFocusZones.size(); i++) {
+            writer.printf("Zone Id: %d\n", mFocusZones.keyAt(i));
+            writer.increaseIndent();
+            mFocusZones.valueAt(i).dump(writer);
+            writer.decreaseIndent();
+        }
+        writer.decreaseIndent();
+        writer.decreaseIndent();
     }
 
     public void updateUserForZoneId(int audioZoneId, @UserIdInt int userId) {
         Preconditions.checkArgument(mCarAudioService.isAudioZoneIdValid(audioZoneId),
                 "Invalid zoneId %d", audioZoneId);
         mFocusZones.get(audioZoneId).getFocusInteraction().setUserIdForSettings(userId);
+    }
+
+    /**
+     * Callback to get notified of the active focus holders after any focus request or abandon  call
+     */
+    public interface CarFocusCallback {
+        /**
+         * Called after a focus request or abandon call is handled.
+         *
+         * @param audioZoneIds IDs of the zones where the changes took place
+         * @param focusHoldersByZoneId sparse array by zone ID, where each value is a list of
+         * {@link AudioFocusInfo}s holding focus in specified audio zone
+         */
+        void onFocusChange(int[] audioZoneIds,
+                @NonNull SparseArray<List<AudioFocusInfo>> focusHoldersByZoneId);
     }
 }

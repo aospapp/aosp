@@ -17,18 +17,20 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="6995669566699638946">"స్ట‌యిల్స్‌ &amp; వాల్‌పేపర్‌లు"</string>
+    <string name="app_name" msgid="1647136562008520313">"వాల్‌పేపర్ &amp; స్టయిల్"</string>
     <string name="theme_title" msgid="2144932106319405101">"శైలి"</string>
     <string name="clock_title" msgid="2126046720254613991">"గడియారం"</string>
-    <string name="grid_title" msgid="2825094404523390773">"గ్రిడ్"</string>
-    <string name="wallpaper_title" msgid="6952635398953194544">"వాల్‌పేపర్"</string>
+    <string name="grid_title" msgid="1688173478777254123">"యాప్ గ్రిడ్"</string>
     <string name="apply_theme_btn" msgid="6293081192321303991">"వర్తింపజేయి"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"సవరించడానికి నొక్కండి"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"ప్రస్తుత వాల్‌పేపర్‌ను అలాగే ఉంచండి"</string>
     <string name="apply_btn" msgid="7965877231041987336">"వర్తింపజేయి"</string>
-    <string name="accessibility_preview_pager" msgid="3548503287402185430">"<xliff:g id="ID_2">%2$d</xliff:g>లో <xliff:g id="ID_1">%1$d</xliff:g>వ పేజీ"</string>
-    <string name="next_page_content_description" msgid="5290226604542300962">"తర్వాత"</string>
-    <string name="previous_page_content_description" msgid="6025726405430262788">"మునుపటి"</string>
+    <string name="theme_preview_card_content_description" msgid="5989222908619535533">"స్టైల్ ప్రివ్యూ"</string>
+    <string name="grid_preview_card_content_description" msgid="8449383777584714842">"గ్రిడ్ ప్రివ్యూ"</string>
+    <string name="font_preview_content_description" msgid="128230439293337891">"ఫాంట్ ప్రివ్యూ"</string>
+    <string name="icon_preview_content_description" msgid="7761101284351952890">"చిహ్నం ప్రివ్యూ"</string>
+    <string name="color_preview_content_description" msgid="4879120462082058124">"రంగు ప్రివ్యూ"</string>
+    <string name="shape_preview_content_description" msgid="6479487796176550432">"ఆకారం ప్రివ్యూ"</string>
     <string name="option_applied_description" msgid="5022305212078053534">"<xliff:g id="ID_1">%1$s</xliff:g>, ప్రస్తుతం వర్తింపజేయబడింది"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"<xliff:g id="ID_1">%1$s</xliff:g>, ప్రస్తుతం వర్తింప చేయబడి ప్రివ్యూ చేయబడింది"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"<xliff:g id="ID_1">%1$s</xliff:g>, ప్రస్తుతం ప్రివ్యూ చేయబడింది"</string>
@@ -41,12 +43,15 @@
     <string name="preview_name_wallpaper" msgid="1738652462949531828">"వాల్‌పేపర్"</string>
     <string name="font_card_title" msgid="2343292653502548685">"ABC • abc • 123"</string>
     <string name="font_card_body" msgid="6790525594503904468">"ప్రతి స్క్రీన్‌కు మీకు ఇష్టమైన ఫాంట్‌లను జోడించండి"</string>
+    <string name="grid_options_title" msgid="7071930966989877023">"ఒక గ్రిడ్ సైజ్‌ను ఎంచుకోండి"</string>
     <string name="grid_title_pattern" msgid="9188866567612607806">"<xliff:g id="ID_1">%1$d</xliff:g>x<xliff:g id="ID_2">%2$d</xliff:g>"</string>
-    <string name="applied_theme_msg" msgid="7348498271552054431">"శైలి వర్తింపజేయబడింది"</string>
-    <string name="applied_clock_msg" msgid="1938218786265793285">"గడియారం వర్తింపజేయబడింది"</string>
+    <string name="applied_theme_msg" msgid="3749018706366796244">"స్టైల్ విజయవంతంగా సెట్ చేయబడింది"</string>
+    <string name="applied_clock_msg" msgid="1303338016701443767">"గడియారం విజయవంతంగా సెట్ చేయబడింది"</string>
+    <string name="applied_grid_msg" msgid="3250499654436933034">"గ్రిడ్ విజయవంతంగా సెట్ చేయబడింది"</string>
     <string name="apply_theme_error_msg" msgid="791364062636538317">"శైలిని వర్తింపజేస్తున్నప్పుడు సమస్య ఏర్పడింది"</string>
     <string name="custom_theme_next" msgid="6235420097213197301">"తర్వాత"</string>
     <string name="custom_theme_previous" msgid="4941132112640503022">"మునుపటి"</string>
+    <string name="custom_theme" msgid="1618351922263478163">"అనుకూలం"</string>
     <string name="custom_theme_title" msgid="2192300350332693631">"అనుకూల <xliff:g id="ID_1">%1$d</xliff:g>"</string>
     <string name="custom_theme_fragment_title" msgid="6615547284702040280">"అనుకూల శైలి"</string>
     <string name="custom_theme_delete" msgid="4744494663184126202">"తొలగించు"</string>
@@ -66,4 +71,16 @@
     <string name="no_thanks" msgid="7286616980115687627">"వద్దు, ధన్యవాదం"</string>
     <string name="clock_preview_content_description" msgid="5460561185905717460">"<xliff:g id="ID_1">%1$s</xliff:g> గడియార ప్రివ్యూ"</string>
     <string name="something_went_wrong" msgid="529840112449799117">"అయ్యో, ఏదో తప్పు జరిగింది."</string>
+    <string name="theme_preview_icons_section_title" msgid="7064768910744000643">"రంగు / చిహ్నాలు"</string>
+    <string name="style_info_description" msgid="2612473574431003251">"ఫాంట్, చిహ్నాలు, యాప్ ఆకారం, రంగుల ప్రివ్యూ"</string>
+    <string name="accessibility_custom_font_title" msgid="966867359157303705">"అనుకూల ఫాంట్"</string>
+    <string name="accessibility_custom_icon_title" msgid="5753297905849062296">"అనుకూల చిహ్నం"</string>
+    <string name="accessibility_custom_color_title" msgid="4124246598886320663">"అనుకూల రంగు"</string>
+    <string name="accessibility_custom_shape_title" msgid="7708408259374643129">"అనుకూల ఆకారం"</string>
+    <string name="accessibility_custom_name_title" msgid="5494460518085463262">"అనుకూల స్టయిల్ పేరు"</string>
+    <string name="mode_title" msgid="2394873501427436055">"ముదురు రంగు రూపం"</string>
+    <string name="mode_disabled_msg" msgid="9196245518435936512">"బ్యాటరీ సేవర్ కారణంగా తాత్కాలికంగా డిజేబుల్‌ చేయబడింది"</string>
+    <string name="themed_icon_title" msgid="7312460430471956558">"రూపానికి తగిన చిహ్నాలు"</string>
+    <string name="beta_title" msgid="8703819523760746458">"బీటా"</string>
+    <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"యాప్ గ్రిడ్‌ను మార్చండి"</string>
 </resources>

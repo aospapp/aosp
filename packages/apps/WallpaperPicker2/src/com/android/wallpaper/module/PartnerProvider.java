@@ -17,6 +17,8 @@ package com.android.wallpaper.module;
 
 import android.content.res.Resources;
 
+import androidx.annotation.Nullable;
+
 import java.io.File;
 
 /**
@@ -27,18 +29,18 @@ public interface PartnerProvider {
     /**
      * Marker action used to discover partner.
      */
-    public static final String ACTION_PARTNER_CUSTOMIZATION =
+    String ACTION_PARTNER_CUSTOMIZATION =
             "com.android.launcher3.action.PARTNER_CUSTOMIZATION";
 
     /**
      * The resource ID in the partner APK for its list of wallpapers.
      */
-    public static final String WALLPAPER_RES_ID = "partner_wallpapers";
+    String WALLPAPER_RES_ID = "wallpapers";
 
     /**
      * Directory for system wallpapers in legacy versions of the partner APK.
      */
-    public static final String RES_LEGACY_SYSTEM_WALLPAPER_DIR = "system_wallpaper_directory";
+    String RES_LEGACY_SYSTEM_WALLPAPER_DIR = "system_wallpaper_directory";
 
     /**
      * Boolean indicating the OEM does not want the picker to show the built-in Android system
@@ -46,31 +48,32 @@ public interface PartnerProvider {
      * NOTE: The typo here "wallpapper" is intentional. The typo was made in legacy versions of the
      * customization scheme so we can't fix it without breaking existing devices.
      */
-    public static final String RES_DEFAULT_WALLPAPER_HIDDEN = "default_wallpapper_hidden";
+    String RES_DEFAULT_WALLPAPER_HIDDEN = "default_wallpapper_hidden";
 
     /**
      * Returns the Resources object for the partner APK, or null if there is no partner APK on the
      * device.
      */
-    public Resources getResources();
+    @Nullable
+    Resources getResources();
 
     /**
      * Returns the directory containing wallpapers, or null if the directory is not found on the
      * device. The directory is only present and populated in legacy versions of the partner
      * customization scheme.
      */
-    public File getLegacyWallpaperDirectory();
+    File getLegacyWallpaperDirectory();
 
     /**
      * Returns the package name of the partner APK, or null if there is no partner APK on the
      * device.
      */
-    public String getPackageName();
+    @Nullable String getPackageName();
 
     /**
      * Returns whether the OEM has specified that the built-in system default wallpaper should be
      * hidden (because OEM has provided their own wallpaper). If no partner customization exists on
      * the device, returns false.
      */
-    public boolean shouldHideDefaultWallpaper();
+    boolean shouldHideDefaultWallpaper();
 }

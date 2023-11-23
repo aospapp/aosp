@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"Galite įdiegti sertifikatus iš failo PKCS#12 naudodami išorinėje saugykloje esantį plėtinį %1$s arba %2$s."</string>
     <string name="allow_button" msgid="3030990695030371561">"Pasirinkti"</string>
     <string name="deny_button" msgid="3766539809121892584">"Atmesti"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"Įkeliami sertifikatai..."</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"Tikrinama, ar yra „%s“ sertifikatas…"</string>
 </resources>

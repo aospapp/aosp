@@ -21,8 +21,9 @@ import android.car.Car;
 import android.car.hardware.power.CarPowerManager;
 import android.content.Context;
 import android.util.ArrayMap;
-import android.util.Log;
+import android.util.Slog;
 
+import com.android.car.power.CarPowerManagementService;
 import com.android.internal.annotations.VisibleForTesting;
 
 /**
@@ -30,6 +31,10 @@ import com.android.internal.annotations.VisibleForTesting;
  * This is for accessing other car service components.
  */
 public class CarLocalServices {
+    private static final boolean DBG = false;
+
+    private static final String TAG = CarLog.tagFor(CarLocalServices.class);
+
     private CarLocalServices() {}
 
     private static final ArrayMap<Class<?>, Object> sLocalServiceObjects =
@@ -43,7 +48,9 @@ public class CarLocalServices {
      */
     @SuppressWarnings("unchecked")
     public static <T> T getService(Class<T> type) {
-        Log.d("CarLocalServices", " getService " + type.getSimpleName());
+        if (DBG) {
+            Slog.d(TAG, " getService " + type.getSimpleName());
+        }
         synchronized (sLocalServiceObjects) {
             return (T) sLocalServiceObjects.get(type);
         }
@@ -57,7 +64,9 @@ public class CarLocalServices {
             if (sLocalServiceObjects.containsKey(type)) {
                 throw new IllegalStateException("Overriding service registration");
             }
-            Log.d("CarLocalServices", " Adding " + type.getSimpleName());
+            if (DBG) {
+                Slog.d(TAG, " Adding " + type.getSimpleName());
+            }
             sLocalServiceObjects.put(type, service);
         }
     }
@@ -67,7 +76,9 @@ public class CarLocalServices {
      */
     @VisibleForTesting
     public static <T> void removeServiceForTest(Class<T> type) {
-        Log.d("CarLocalServices", " Removing " + type.getSimpleName());
+        if (DBG) {
+            Slog.d(TAG, " Removing " + type.getSimpleName());
+        }
         synchronized (sLocalServiceObjects) {
             sLocalServiceObjects.remove(type);
         }
@@ -77,7 +88,9 @@ public class CarLocalServices {
      * Remove all registered services. Should be called when car service restarts.
      */
     public static void removeAllServices() {
-        Log.d("CarLocalServices", " removeAllServices");
+        if (DBG) {
+            Slog.d(TAG, " removeAllServices");
+        }
         synchronized (sLocalServiceObjects) {
             sLocalServiceObjects.clear();
         }

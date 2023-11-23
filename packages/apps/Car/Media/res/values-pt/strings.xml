@@ -26,19 +26,7 @@
     <string name="media_app_title" msgid="94717597743776797">"Mídia"</string>
     <string name="search_hint" msgid="5401750426238148416">"Pesq. músicas e mais"</string>
     <string name="fragment_playback_title" msgid="5014481549024607614">"Tocando agora"</string>
-    <string name="default_error_message" msgid="6365377134388091079">"Algo deu errado. Tente mais tarde."</string>
-    <string name="error_code_app_error" msgid="1726372057192704809">"Não é possível fazer isso no momento"</string>
-    <string name="error_code_not_supported" msgid="1435878548411799387">"Não é possível fazer isso com este app"</string>
-    <string name="error_code_authentication_expired" msgid="905154133202017052">"Faça login para usar este app"</string>
-    <string name="error_code_premium_account_required" msgid="4736461331592855166">"É necessário ter acesso Premium"</string>
-    <string name="error_code_concurrent_stream_limit" msgid="1279573243715957403">"Ouvindo em muitos dispositivos"</string>
-    <string name="error_code_parental_control_restricted" msgid="5222841294702530806">"Esse conteúdo está bloqueado"</string>
-    <string name="error_code_not_available_in_region" msgid="4106605584926645567">"Não é possível usar esse conteúdo aqui"</string>
-    <string name="error_code_content_already_playing" msgid="8050972499898729459">"Esse conteúdo já está tocando"</string>
-    <string name="error_code_skip_limit_reached" msgid="8926507875025988831">"Não é possível pular mais faixas"</string>
-    <string name="error_code_action_aborted" msgid="3889734248905737169">"Não foi possível concluir. Tente novamente."</string>
-    <string name="error_code_end_of_queue" msgid="2842652212154074468">"Não há mais nada na fila"</string>
     <string name="service_notification_title" msgid="8085444675783592744">"Conectando à mídia"</string>
     <string name="menu_item_sound_settings_title" msgid="58887078120809669">"Configurações de som"</string>
-    <string name="menu_item_app_selector_title" msgid="4587248991114338595">"Alternar entre apps"</string>
+    <string name="menu_item_app_selector_title" msgid="4587248991114338595">"Trocar de app"</string>
 </resources>

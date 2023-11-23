@@ -16,9 +16,9 @@
 
 package com.android.tv.settings.connectivity.util;
 
+import android.net.InetAddresses;
 import android.net.IpConfiguration;
 import android.net.LinkAddress;
-import android.net.NetworkUtils;
 import android.net.ProxyInfo;
 import android.net.StaticIpConfiguration;
 import android.text.TextUtils;
@@ -26,11 +26,14 @@ import android.text.TextUtils;
 import androidx.fragment.app.FragmentActivity;
 import androidx.lifecycle.ViewModelProviders;
 
+import com.android.net.module.util.ProxyUtils;
 import com.android.tv.settings.R;
 import com.android.tv.settings.connectivity.WifiConfigHelper;
 import com.android.tv.settings.connectivity.setup.AdvancedOptionsFlowInfo;
 
 import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.util.ArrayList;
 
 /**
  * Class that helps process proxy and IP settings.
@@ -70,7 +73,8 @@ public class AdvancedOptionsFlowUtil {
                 result = R.string.proxy_error_invalid_port;
             }
             if (result == 0) {
-                mIpConfiguration.setHttpProxy(new ProxyInfo(host, port, exclusionList));
+                mIpConfiguration.setHttpProxy(ProxyInfo.buildDirectProxy(host, port,
+                        ProxyUtils.exclusionStringAsList(exclusionList)));
             } else {
                 return result;
             }
@@ -102,15 +106,15 @@ public class AdvancedOptionsFlowUtil {
                         ? IpConfiguration.IpAssignment.STATIC
                         : IpConfiguration.IpAssignment.DHCP);
         if (hasIpSettings) {
-            StaticIpConfiguration staticConfig = new StaticIpConfiguration();
-            mIpConfiguration.setStaticIpConfiguration(staticConfig);
+            final StaticIpConfiguration.Builder staticIpBuilder =
+                    new StaticIpConfiguration.Builder();
             String ipAddr = flowInfo.get(AdvancedOptionsFlowInfo.IP_ADDRESS);
             if (TextUtils.isEmpty(ipAddr)) {
                 return R.string.wifi_ip_settings_invalid_ip_address;
             }
             Inet4Address inetAddr;
             try {
-                inetAddr = (Inet4Address) NetworkUtils.numericToInetAddress(ipAddr);
+                inetAddr = (Inet4Address) InetAddresses.parseNumericAddress(ipAddr);
             } catch (IllegalArgumentException | ClassCastException e) {
                 return R.string.wifi_ip_settings_invalid_ip_address;
             }
@@ -121,7 +125,7 @@ public class AdvancedOptionsFlowUtil {
                 if (networkPrefixLength < 0 || networkPrefixLength > 32) {
                     return R.string.wifi_ip_settings_invalid_network_prefix_length;
                 }
-                staticConfig.ipAddress = new LinkAddress(inetAddr, networkPrefixLength);
+                staticIpBuilder.setIpAddress(new LinkAddress(inetAddr, networkPrefixLength));
             } catch (NumberFormatException e) {
                 return R.string.wifi_ip_settings_invalid_ip_address;
             }
@@ -129,18 +133,17 @@ public class AdvancedOptionsFlowUtil {
             String gateway = flowInfo.get(AdvancedOptionsFlowInfo.GATEWAY);
             if (!TextUtils.isEmpty(gateway)) {
                 try {
-                    staticConfig.gateway =
-                            NetworkUtils.numericToInetAddress(gateway);
+                    staticIpBuilder.setGateway(InetAddresses.parseNumericAddress(gateway));
                 } catch (IllegalArgumentException | ClassCastException e) {
                     return R.string.wifi_ip_settings_invalid_gateway;
                 }
             }
 
+            final ArrayList<InetAddress> dnsServers = new ArrayList<>();
             String dns1 = flowInfo.get(AdvancedOptionsFlowInfo.DNS1);
             if (!TextUtils.isEmpty(dns1)) {
                 try {
-                    staticConfig.dnsServers.add(
-                            NetworkUtils.numericToInetAddress(dns1));
+                    dnsServers.add(InetAddresses.parseNumericAddress(dns1));
                 } catch (IllegalArgumentException | ClassCastException e) {
                     return R.string.wifi_ip_settings_invalid_dns;
                 }
@@ -149,12 +152,14 @@ public class AdvancedOptionsFlowUtil {
             String dns2 = flowInfo.get(AdvancedOptionsFlowInfo.DNS2);
             if (!TextUtils.isEmpty(dns2)) {
                 try {
-                    staticConfig.dnsServers.add(
-                            NetworkUtils.numericToInetAddress(dns2));
+                    dnsServers.add(InetAddresses.parseNumericAddress(dns2));
                 } catch (IllegalArgumentException | ClassCastException e) {
                     return R.string.wifi_ip_settings_invalid_dns;
                 }
             }
+
+            staticIpBuilder.setDnsServers(dnsServers);
+            mIpConfiguration.setStaticIpConfiguration(staticIpBuilder.build());
         } else {
             mIpConfiguration.setStaticIpConfiguration(null);
         }

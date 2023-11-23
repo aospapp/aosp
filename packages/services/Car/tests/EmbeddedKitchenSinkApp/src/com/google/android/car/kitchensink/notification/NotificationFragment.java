@@ -92,6 +92,7 @@ public class NotificationFragment extends Fragment {
         initOngoingButton(view);
         initMessagingStyleButtonForDiffPerson(view);
         initMessagingStyleButtonForSamePerson(view);
+        initMessagingStyleButtonWithMuteAction(view);
         initTestMessagesButton(view);
         initProgressButton(view);
         initNavigationButton(view);
@@ -107,7 +108,7 @@ public class NotificationFragment extends Fragment {
         Intent intent = new Intent(mContext, KitchenSinkActivity.class).setAction(action);
 
         return PendingIntent.getForegroundService(mContext, notificationId, intent,
-                PendingIntent.FLAG_UPDATE_CURRENT);
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
     }
 
     private void initCancelAllButton(View view) {
@@ -165,7 +166,8 @@ public class NotificationFragment extends Fragment {
 
     private void initImportanceHighBotton(View view) {
         Intent intent = new Intent(mContext, KitchenSinkActivity.class);
-        PendingIntent pendingIntent = PendingIntent.getActivity(mContext, 0, intent, 0);
+        PendingIntent pendingIntent = PendingIntent.getActivity(mContext, 0, intent,
+                PendingIntent.FLAG_IMMUTABLE);
 
         Notification notification1 = new Notification
                 .Builder(mContext, IMPORTANCE_HIGH_ID)
@@ -349,6 +351,54 @@ public class NotificationFragment extends Fragment {
                                     System.currentTimeMillis(),
                                     person)));
             mManager.notify(12345, updateNotification.build());
+        });
+    }
+
+
+    private void initMessagingStyleButtonWithMuteAction(View view) {
+        view.findViewById(R.id.category_message_mute_action_button).setOnClickListener(v -> {
+            int id = mCurrentNotificationId++;
+
+            PendingIntent replyIntent = createServiceIntent(id, "reply");
+            PendingIntent markAsReadIntent = createServiceIntent(id, "read");
+            PendingIntent muteIntent = createServiceIntent(id, "mute");
+
+            Person person = new Person.Builder().setName("John Doe").build();
+            MessagingStyle messagingStyle =
+                    new MessagingStyle(person).setConversationTitle("Hello, try muting me!");
+            NotificationCompat.Builder builder = new NotificationCompat
+                    .Builder(mContext, IMPORTANCE_HIGH_ID)
+                    .setContentTitle("Message from someone")
+                    .setContentText("Muting notification when "
+                            + "mute pending intent is provided by posting app")
+                    .setShowWhen(true)
+                    .setCategory(Notification.CATEGORY_MESSAGE)
+                    .setSmallIcon(R.drawable.car_ic_mode)
+                    .setAutoCancel(true)
+                    .setColor(mContext.getColor(android.R.color.holo_green_light))
+                    .addAction(
+                            new Action.Builder(R.drawable.ic_check_box, "read", markAsReadIntent)
+                                    .setSemanticAction(Action.SEMANTIC_ACTION_MARK_AS_READ)
+                                    .setShowsUserInterface(false)
+                                    .build())
+                    .addAction(
+                            new Action.Builder(R.drawable.ic_check_box, "mute", muteIntent)
+                                    .setSemanticAction(Action.SEMANTIC_ACTION_MUTE)
+                                    .setShowsUserInterface(false)
+                                    .build())
+                    .addAction(
+                            new Action.Builder(R.drawable.ic_check_box, "reply", replyIntent)
+                                    .setSemanticAction(Action.SEMANTIC_ACTION_REPLY)
+                                    .setShowsUserInterface(false)
+                                    .addRemoteInput(new RemoteInput.Builder("input").build())
+                                    .build());
+
+            builder.setStyle(messagingStyle.addMessage(
+                    new MessagingStyle.Message(
+                            "Message with mute pending intent" + id,
+                            System.currentTimeMillis(),
+                            person)));
+            mManager.notify(id, builder.build());
         });
     }
 
@@ -543,7 +593,8 @@ public class NotificationFragment extends Fragment {
 
     private void initCallButton(View view) {
         Intent intent = new Intent(mContext, KitchenSinkActivity.class);
-        PendingIntent pendingIntent = PendingIntent.getActivity(mContext, 0, intent, 0);
+        PendingIntent pendingIntent = PendingIntent.getActivity(mContext, 0, intent,
+                PendingIntent.FLAG_IMMUTABLE);
 
         view.findViewById(R.id.category_call_button).setOnClickListener(v -> {
             Notification notification = new Notification

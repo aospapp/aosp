@@ -28,7 +28,7 @@
     <string name="preview" msgid="1067744492020029129">"Предварительный просмотр"</string>
     <string name="wallpaper_instructions" msgid="6112878742140691445">"Установить обои"</string>
     <string name="live_wallpaper_empty" msgid="8057319062274870589">"Живые обои отсутствуют."</string>
-    <string name="set_live_wallpaper" msgid="764007409845174475">"Установить фоновый рисунок"</string>
+    <string name="set_live_wallpaper" msgid="764007409845174475">"Установить как обои"</string>
     <string name="wallpaper_title_and_author" msgid="7606029050779779421">"<xliff:g id="TITLE">%1$s</xliff:g>, автор: <xliff:g id="AUTHOR">%2$s</xliff:g>"</string>
     <string name="live_wallpaper_loading" msgid="7218845906181560315">"Загрузка живых обоев…"</string>
     <string name="which_wallpaper_option_home_screen" msgid="3323619298489943624">"Главный экран"</string>

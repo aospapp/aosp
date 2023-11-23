@@ -16,7 +16,6 @@
 
 package com.android.tv.settings.dialog;
 
-import android.app.Fragment;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -30,6 +29,7 @@ import android.widget.TextView;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
+import androidx.fragment.app.Fragment;
 
 import com.android.tv.settings.R;
 
@@ -50,9 +50,9 @@ public class ProgressDialogFragment extends Fragment {
 
         mIconView = view.findViewById(android.R.id.icon);
         mTitleView = view.findViewById(android.R.id.title);
-        mExtraTextView = view.findViewById(R.id.extra);
-        mSummaryView = view.findViewById(android.R.id.summary);
         mProgressBar = view.findViewById(android.R.id.progress);
+        mSummaryView = view.findViewById(android.R.id.summary);
+        mExtraTextView = view.findViewById(R.id.extra);
 
         if (mWidth != -1) {
             final ViewGroup.LayoutParams params = view.getLayoutParams();
@@ -90,6 +90,14 @@ public class ProgressDialogFragment extends Fragment {
         mExtraTextView.setVisibility(TextUtils.isEmpty(text) ? View.GONE : View.VISIBLE);
     }
 
+    /**
+     * This is helpful in setting the content description to be used by accessibility feature such
+     * as Talkback.
+     */
+    public void setExtraContentDescription(CharSequence text) {
+        mExtraTextView.setContentDescription(text);
+    }
+
     public void setSummary(@StringRes int resId) {
         mSummaryView.setText(resId);
     }
@@ -119,5 +127,20 @@ public class ProgressDialogFragment extends Fragment {
         final ViewGroup.LayoutParams params = root.getLayoutParams();
         params.width = width;
         root.setLayoutParams(params);
+    }
+
+    /**
+     * Sets customized line spacing
+     * @param multiplier line spacing multiplier
+     */
+    public void setDescriptionLineSpacingMultiplier(float multiplier) {
+        if (getResources() != null) {
+            if (mSummaryView != null) {
+                mSummaryView.setLineSpacing(mSummaryView.getLineSpacingExtra(), multiplier);
+            }
+            if (mExtraTextView != null) {
+                mExtraTextView.setLineSpacing(mExtraTextView.getLineSpacingExtra(), multiplier);
+            }
+        }
     }
 }

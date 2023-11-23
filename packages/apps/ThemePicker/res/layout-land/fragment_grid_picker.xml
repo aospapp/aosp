@@ -31,42 +31,29 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="horizontal">
-        <com.android.wallpaper.widget.PreviewPager
-            android:id="@+id/grid_preview_pager"
+        <FrameLayout
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:background="@color/secondary_color"
-            app:card_style="screen_aspect_ratio"/>
+            android:clipToPadding="false"
+            android:paddingTop="@dimen/preview_content_padding_top"
+            android:paddingBottom="@dimen/preview_content_padding_bottom"
+            android:background="?android:colorSecondary">
+            <include layout="@layout/grid_preview_card"/>
+        </FrameLayout>
 
-        <LinearLayout
+        <FrameLayout
             android:id="@+id/options_section"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:paddingVertical="10dp"
-            android:orientation="vertical">
+            android:paddingVertical="10dp">
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/options_container"
                 android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1"/>
-
-            <RelativeLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:paddingHorizontal="10dp">
-                <Button
-                    android:id="@+id/apply_button"
-                    style="@style/ActionPrimaryButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_alignParentEnd="true"
-                    android:text="@string/apply_btn"/>
-            </RelativeLayout>
-
-        </LinearLayout>
+                android:layout_height="match_parent"/>
+        </FrameLayout>
     </LinearLayout>
         <androidx.core.widget.ContentLoadingProgressBar
             android:id="@+id/loading_indicator"

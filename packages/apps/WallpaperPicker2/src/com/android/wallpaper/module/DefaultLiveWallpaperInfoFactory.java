@@ -15,6 +15,8 @@
  */
 package com.android.wallpaper.module;
 
+import androidx.annotation.Nullable;
+
 import com.android.wallpaper.model.LiveWallpaperInfo;
 import com.android.wallpaper.model.WallpaperInfo;
 
@@ -31,7 +33,7 @@ public class DefaultLiveWallpaperInfoFactory implements LiveWallpaperInfoFactory
 
     @Override
     public WallpaperInfo getLiveWallpaperInfo(android.app.WallpaperInfo info,
-            boolean shouldShowTitle) {
-        return new LiveWallpaperInfo(info, shouldShowTitle);
+            boolean shouldShowTitle, @Nullable String collectionId) {
+        return new LiveWallpaperInfo(info, shouldShowTitle, collectionId);
     }
 }

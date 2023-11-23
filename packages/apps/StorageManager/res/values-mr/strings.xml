@@ -51,7 +51,7 @@
     <string name="automatic_storage_manager_service_label" msgid="648592272375278978">"स्वयंचलित स्टोरेज व्यवस्थापन सेवा"</string>
     <string name="automatic_storage_manager_notification_title" product="default" msgid="8480483265300964701">"आपल्या फोन वर स्थान कमी आहे"</string>
     <string name="automatic_storage_manager_notification_title" product="tablet" msgid="3150907918531844467">"तुमच्या टॅबलेटमध्ये जागा कमी आहे"</string>
-    <string name="automatic_storage_manager_notification_summary" msgid="2267399886362245822">"तुमचा फोन पुन्हा भरणेे प्रारंभ होतो तेव्हा जुने फोटो आणि व्हिडिओ स्वयंचलितपणेे काढून स्टोरेज व्यवस्थापकास स्थान मोकळे करू द्या."</string>
+    <string name="automatic_storage_manager_notification_summary" msgid="2267399886362245822">"तुमचा फोन पुन्हा भरणेे सुरू होतो तेव्हा जुने फोटो आणि व्हिडिओ स्वयंचलितपणेे काढून स्टोरेज व्यवस्थापकास स्थान मोकळे करू द्या."</string>
     <string name="automatic_storage_manager_cancel_button" msgid="1826365037494962803">"नाही, नको"</string>
     <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"सुरू करा"</string>
     <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"फोटो आणि व्हिडिओंंचा बॅकअप घेतला"</string>

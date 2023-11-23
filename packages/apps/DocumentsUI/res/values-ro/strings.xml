@@ -16,6 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="missing_rename_error" msgid="9098952207447981103">"Trebuie să redenumiți elementul"</string>
+    <string name="add_folder_name_error" msgid="6014615052491406810">"Trebuie să adăugați un nume de dosar"</string>
     <string name="files_label" msgid="771781190045103748">"Fișiere"</string>
     <string name="downloads_label" msgid="5462789470049501103">"Descărcări"</string>
     <!-- no translation found for app_label (8089292432455111409) -->
@@ -296,8 +298,10 @@
     <string name="create_new_folder_button" msgid="8859613309559794890">"Creați un dosar nou"</string>
     <string name="search_bar_hint" msgid="4517366509897977321">"Căutați în acest telefon"</string>
     <string name="delete_search_history" msgid="2202015025607694515">"Ștergeți istoricul căutărilor <xliff:g id="TEXT">%1$s</xliff:g>"</string>
-    <string name="personal_tab" msgid="3878576287868528503">"Personal"</string>
+    <string name="personal_tab" msgid="3878576287868528503">"Personale"</string>
     <string name="work_tab" msgid="7265359366883747413">"Serviciu"</string>
     <string name="a11y_work" msgid="7504431382825242153">"Serviciu"</string>
     <string name="drag_from_another_app" msgid="8310249276199969905">"Nu puteți muta fișiere din altă aplicație."</string>
+    <string name="grid_mode_showing" msgid="2803166871485028508">"Se afișează în modul grilă."</string>
+    <string name="list_mode_showing" msgid="1225413902295895166">"Se afișează în modul listă."</string>
 </resources>

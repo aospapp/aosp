@@ -20,10 +20,10 @@
      and they are used as key mapping to fragments. The array can only be a subset of predefined
      strings in any order. Tabs will be added in the same order as defined in the array.-->
     <string-array name="tabs_config">
-        <item>CALL_HISTORY</item>
-        <item>CONTACTS</item>
-        <item>FAVORITE</item>
-        <item>DIAL_PAD</item>
+        <item>@string/tab_config_call_history</item>
+        <item>@string/tab_config_contacts</item>
+        <item>@string/tab_config_favorites</item>
+        <item>@string/tab_config_dial_pad</item>
     </string-array>
 
     <string-array name="tabs_title">

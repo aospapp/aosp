@@ -16,24 +16,176 @@
 
 package com.android.car.notification.headsup;
 
+import android.content.Context;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.WindowManager;
+
+import androidx.annotation.VisibleForTesting;
+
+import com.android.car.notification.CarNotificationTypeItem;
+import com.android.car.notification.R;
+
+import java.util.LinkedList;
 
 /**
  * Container for displaying Heads Up Notifications.
  */
-public interface CarHeadsUpNotificationContainer {
+public abstract class CarHeadsUpNotificationContainer {
+    private static final String TAG = "CarHUNContainer";
+    private final LinkedList<HunImportance> mHunImportanceLinkedList = new LinkedList<>();
+    private final ViewGroup mHunWindow;
+    private final ViewGroup mHunContent;
+    private final boolean mShowHunOnBottom;
+
+    public CarHeadsUpNotificationContainer(Context context, WindowManager windowManager) {
+        mShowHunOnBottom = context.getResources().getBoolean(
+                R.bool.config_showHeadsUpNotificationOnBottom);
+        mHunWindow = (ViewGroup) LayoutInflater.from(context).inflate(
+                mShowHunOnBottom ? R.layout.headsup_container_bottom
+                        : R.layout.headsup_container, /* root= */ null, /* attachToRoot= */ false);
+        mHunContent = mHunWindow.findViewById(R.id.headsup_content);
+        mHunWindow.setVisibility(View.INVISIBLE);
+        windowManager.addView(mHunWindow, getWindowManagerLayoutParams());
+    }
+
     /**
-     * Displays a given notification View to the user.
+     * @return {@link WindowManager.LayoutParams} to be used when adding HUN Window to {@link
+     * WindowManager}.
      */
-    void displayNotification(View notificationView);
+    protected abstract WindowManager.LayoutParams getWindowManagerLayoutParams();
+
+    /**
+     * Displays a given notification View to the user and inserts the view at Z-index according to
+     * its {@link HunImportance},
+     */
+    public void displayNotification(View notificationView,
+            CarNotificationTypeItem notificationTypeItem) {
+        HunImportance hunImportance = getImportanceForCarNotificationTypeItem(notificationTypeItem);
+
+        displayNotificationInner(notificationView, hunImportance);
+
+        if (shouldShowHunPanel()) {
+            getHunWindow().setVisibility(View.VISIBLE);
+        }
+    }
+
+    private void displayNotificationInner(View notificationView, HunImportance hunImportance) {
+        if (mHunImportanceLinkedList.isEmpty() || hunImportance.equals(HunImportance.EMERGENCY)) {
+            mHunImportanceLinkedList.add(hunImportance);
+            getHunContent().addView(notificationView);
+            return;
+        }
+
+        int index = 0;
+        for (; index < mHunImportanceLinkedList.size(); index++) {
+            if (hunImportance.isLessImportantThan(mHunImportanceLinkedList.get(index))) break;
+        }
+        if (index < mHunImportanceLinkedList.size()) {
+            mHunImportanceLinkedList.add(index, hunImportance);
+            getHunContent().addView(notificationView, index);
+            return;
+        }
+
+        mHunImportanceLinkedList.add(hunImportance);
+        getHunContent().addView(notificationView);
+    }
+
+    /**
+     * @return {@code true} if Hun panel should be set as visible after displaying HUN.
+     */
+    public boolean shouldShowHunPanel() {
+        return !isVisible();
+    }
 
     /**
      * Removes a given notification View from the container.
      */
-    void removeNotification(View notificationView);
+    public void removeNotification(View notificationView) {
+        if (getHunContent().getChildCount() == 0) return;
+
+        int index = getHunContent().indexOfChild(notificationView);
+        if (index == -1) return;
+
+        getHunContent().removeViewAt(index);
+        mHunImportanceLinkedList.remove(index);
+
+        if (shouldHideHunPanel()) {
+            getHunWindow().setVisibility(View.INVISIBLE);
+        }
+    }
+
+    /**
+     * @return {@code true} if HUN panel should be set as invisible after removing a HUN.
+     */
+    public boolean shouldHideHunPanel() {
+        return getHunContent().getChildCount() == 0;
+    }
 
     /**
      * @return Whether or not the container is currently visible.
      */
-    boolean isVisible();
+    public final boolean isVisible() {
+        return getHunWindow().getVisibility() == View.VISIBLE;
+    }
+
+    /**
+     * @return HUN window.
+     */
+    protected final ViewGroup getHunWindow() {
+        return mHunWindow;
+    }
+
+    /**
+     * @return HUN content inside of window.
+     */
+    protected final ViewGroup getHunContent() {
+        return mHunContent;
+    }
+
+    /**
+     * @return {@code true} if HUN should be shown on bottom.
+     */
+    protected final boolean getShowHunOnBottom() {
+        return mShowHunOnBottom;
+    }
+
+    private HunImportance getImportanceForCarNotificationTypeItem(
+            CarNotificationTypeItem notificationTypeItem) {
+        if (notificationTypeItem == CarNotificationTypeItem.EMERGENCY) {
+            return HunImportance.EMERGENCY;
+        } else if (notificationTypeItem == CarNotificationTypeItem.WARNING) {
+            return HunImportance.WARNING;
+        } else if (notificationTypeItem == CarNotificationTypeItem.NAVIGATION) {
+            return HunImportance.NAVIGATION;
+        } else if (notificationTypeItem == CarNotificationTypeItem.CALL) {
+            return HunImportance.CALL;
+        } else {
+            return HunImportance.OTHER;
+        }
+    }
+
+    @VisibleForTesting
+    enum HunImportance {
+        OTHER(/* level= */ 0),
+        CALL(/* level= */ 1),
+        NAVIGATION(/* level= */ 2),
+        WARNING(/* level= */ 3),
+        EMERGENCY(/* level= */ 4);
+
+        private final Integer mLevel;
+
+        HunImportance(int level) {
+            this.mLevel = level;
+        }
+
+        boolean isMoreImportantThan(HunImportance other) {
+            return this.mLevel > other.mLevel;
+        }
+
+        boolean isLessImportantThan(HunImportance other) {
+            return this.mLevel < other.mLevel;
+        }
+    }
 }

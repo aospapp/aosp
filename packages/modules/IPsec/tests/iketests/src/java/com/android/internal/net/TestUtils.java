@@ -23,8 +23,8 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 
-import com.android.internal.net.ipsec.ike.utils.RandomnessFactory;
-import com.android.internal.net.utils.Log;
+import com.android.internal.net.ipsec.test.ike.utils.RandomnessFactory;
+import com.android.internal.net.utils.test.Log;
 
 import java.nio.ByteBuffer;
 

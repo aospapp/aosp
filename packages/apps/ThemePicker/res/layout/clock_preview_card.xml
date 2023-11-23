@@ -25,6 +25,6 @@
         android:id="@+id/clock_preview_image"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@color/clockface_preview_background"/>
+        android:background="@android:color/black"/>
 
 </androidx.cardview.widget.CardView>

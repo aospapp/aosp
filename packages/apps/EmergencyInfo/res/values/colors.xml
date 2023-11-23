@@ -27,4 +27,10 @@
     <color name="primary_dark_color">@color/material_grey_300</color>
     <color name="accent_color_light">@color/accent_material_light</color>
     <color name="accent_color_dark">@color/accent_material_dark</color>
+
+    <color name="emergency_action_accent">#F28B82</color>
+    <color name="emergency_action_subtitle_color">#FFFFFF</color>
+
+    <color name="slider_track_background_color">#333333</color>
+    <color name="slider_thumb_background_color">#5c5c5c</color>
 </resources>

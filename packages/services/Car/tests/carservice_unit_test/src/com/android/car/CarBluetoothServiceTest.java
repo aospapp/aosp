@@ -30,6 +30,10 @@ import android.provider.Settings;
 import android.test.mock.MockContentProvider;
 import android.test.mock.MockContentResolver;
 
+import com.android.car.power.CarPowerManagementService;
+import com.android.car.systeminterface.SystemInterface;
+import com.android.internal.app.IVoiceInteractionManagerService;
+
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -65,6 +69,9 @@ public class CarBluetoothServiceTest {
     @Mock private PerUserCarServiceHelper mMockUserSwitchService;
     @Mock private IPerUserCarService mMockPerUserCarService;
     @Mock private CarBluetoothUserService mMockBluetoothUserService;
+    @Mock private IVoiceInteractionManagerService mMockVoiceService;
+    @Mock private SystemInterface mMockSystemInterface;
+    @Mock private CarPowerManagementService mMockCarPowerManagementService;
     private PerUserCarServiceHelper.ServiceCallback mUserSwitchCallback;
 
     //--------------------------------------------------------------------------------------------//
@@ -108,6 +115,8 @@ public class CarBluetoothServiceTest {
         } catch (RemoteException e) {
             Assert.fail();
         }
+        CarLocalServices.addService(CarPowerManagementService.class,
+                mMockCarPowerManagementService);
     }
 
     @After
@@ -116,6 +125,7 @@ public class CarBluetoothServiceTest {
             mCarBluetoothService.release();
             mCarBluetoothService = null;
         }
+        CarLocalServices.removeServiceForTest(CarPowerManagementService.class);
     }
 
     //--------------------------------------------------------------------------------------------//

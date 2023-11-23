@@ -31,7 +31,20 @@
     <bool name="config_clearAllNotificationsAnimationFromBottomUp">true</bool>
     <!-- Whether to collapse notification shade panel on clear all notification animation end -->
     <bool name="config_collapseShadePanelAfterClearAllNotifications">false</bool>
+    <!-- The number of lines of body text to show in HUNs -->
+    <integer name="config_headsUpNotificationMaxBodyLines">1</integer>
+    <!-- The number of lines of body text to show for notifications inside the notification panel -->
+    <integer name="config_notificationPanelMaxBodyLines">3</integer>
     <!-- Animation helper for animating heads up notification showing on screen and leaving the screen. -->
     <string name="config_headsUpNotificationAnimationHelper" translatable="false">
         com.android.car.notification.headsup.animationhelper.CarHeadsUpNotificationTopAnimationHelper</string>
+    <!-- Whether heads-up notifications should be shown on the bottom. If false, heads-up
+         notifications will be shown pushed to the top of their parent container. If true, they will
+         be shown pushed to the bottom of their parent container. If true, then should override
+         config_headsUpNotificationAnimationHelper to use a different AnimationHelper, such as
+         com.android.car.notification.headsup.animationhelper.
+         CarHeadsUpNotificationBottomAnimationHelper. -->
+    <bool name="config_showHeadsUpNotificationOnBottom">false</bool>
+    <!-- Whether to always show Notification's dismiss button even without the need to have rotary focus. -->
+    <bool name="config_alwaysShowNotificationDismissButton">false</bool>
 </resources>

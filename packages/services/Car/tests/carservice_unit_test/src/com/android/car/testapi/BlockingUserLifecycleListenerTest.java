@@ -34,9 +34,10 @@ import android.annotation.UserIdInt;
 import android.car.testapi.BlockingUserLifecycleListener;
 import android.car.user.CarUserManager;
 import android.car.user.CarUserManager.UserLifecycleEvent;
-import android.car.user.CarUserManager.UserLifecycleEventType;
 import android.os.UserHandle;
 import android.util.Log;
+
+import com.android.car.internal.common.CommonConstants.UserLifecycleEventType;
 
 import org.junit.Test;
 
@@ -113,7 +114,7 @@ public final class BlockingUserLifecycleListenerTest {
                 USER_LIFECYCLE_EVENT_TYPE_UNLOCKED);
 
         List<UserLifecycleEvent> allReceivedEvents = listener.getAllReceivedEvents();
-        assertThat(allReceivedEvents).containsAllIn(events).inOrder();
+        assertThat(allReceivedEvents).containsAtLeastElementsIn(events).inOrder();
     }
 
     @Test

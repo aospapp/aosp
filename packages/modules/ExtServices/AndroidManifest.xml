@@ -17,7 +17,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
     package="android.ext.services"
-    android:versionCode="300000000"
+    android:versionCode="309999900"
     android:versionName="2019-09"
     coreApp="true">
 
@@ -31,20 +31,17 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
 
-    <!-- TODO: Uncomment this when the R API level is fixed. b/148281152 -->
-    <!--uses-sdk
-        android:minSdkVersion="29"
-        android:targetSdkVersion="29"
+    <uses-sdk
+        android:targetSdkVersion="30"
     />
-    -->
 
     <application android:label="@string/app_name"
-        android:defaultToDeviceProtectedStorage="true"
         android:forceQueryable="true"
         android:directBootAware="true"
         android:supportsRtl="true">
 
         <service android:name=".storage.CacheQuotaServiceImpl"
+             android:exported="true"
              android:permission="android.permission.BIND_CACHE_QUOTA_SERVICE">
             <intent-filter>
                 <action android:name="android.app.usage.CacheQuotaService" />
@@ -52,6 +49,7 @@
         </service>
 
         <service android:name=".resolver.LRResolverRankerService"
+                 android:exported="true"
                  android:permission="android.permission.BIND_RESOLVER_RANKER_SERVICE">
             <intent-filter android:priority="-1">
                 <action android:name="android.service.resolver.ResolverRankerService" />
@@ -68,6 +66,7 @@
         </service>
 
         <service android:name=".autofill.AutofillFieldClassificationServiceImpl"
+             android:exported="true"
              android:permission="android.permission.BIND_AUTOFILL_FIELD_CLASSIFICATION_SERVICE">
             <intent-filter>
                 <action android:name="android.service.autofill.AutofillFieldClassificationService" />
@@ -81,6 +80,7 @@
         </service>
 
         <service android:name=".watchdog.ExplicitHealthCheckServiceImpl"
+                 android:exported="true"
                  android:permission="android.permission.BIND_EXPLICIT_HEALTH_CHECK_SERVICE">
             <intent-filter>
                 <action android:name="android.service.watchdog.ExplicitHealthCheckService" />
@@ -101,9 +101,18 @@
         </service>
 
         <service android:name=".autofill.InlineSuggestionRenderServiceImpl"
+                 android:exported="true"
                  android:permission="android.permission.BIND_INLINE_SUGGESTION_RENDER_SERVICE">
             <intent-filter>
                 <action android:name="android.service.autofill.InlineSuggestionRenderService" />
+            </intent-filter>
+        </service>
+
+        <service android:name=".displayhash.DisplayHashingServiceImpl"
+            android:exported="true"
+            android:permission="android.permission.BIND_DISPLAY_HASHING_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.displayhash.DisplayHashingService" />
             </intent-filter>
         </service>
 

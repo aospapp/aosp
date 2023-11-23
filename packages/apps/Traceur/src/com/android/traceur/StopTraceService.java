@@ -53,8 +53,6 @@ public class StopTraceService extends TraceService {
                         false).commit();
         context.sendBroadcast(new Intent(MainFragment.ACTION_REFRESH_TAGS));
         QsService.updateTile();
-
-        intent.setAction(INTENT_ACTION_FORCE_STOP_TRACING);
         super.onHandleIntent(intent);
     }
 }

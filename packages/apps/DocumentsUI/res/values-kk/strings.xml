@@ -16,6 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="missing_rename_error" msgid="9098952207447981103">"Мұның атауын өзгертуіңіз қажет."</string>
+    <string name="add_folder_name_error" msgid="6014615052491406810">"Қалта атауын енгізуіңіз қажет."</string>
     <string name="files_label" msgid="771781190045103748">"Файлдар"</string>
     <string name="downloads_label" msgid="5462789470049501103">"Жүктеп алынғандар"</string>
     <!-- no translation found for app_label (8089292432455111409) -->
@@ -43,7 +45,7 @@
     <string name="menu_move" msgid="2310760789561129882">"Тасымалдау…"</string>
     <string name="menu_compress" msgid="37539111904724188">"Сығу"</string>
     <string name="menu_extract" msgid="8171946945982532262">"Алынуда…"</string>
-    <string name="menu_rename" msgid="1883113442688817554">"Атауын өзгерту"</string>
+    <string name="menu_rename" msgid="1883113442688817554">"Атын өзгерту"</string>
     <string name="menu_inspect" msgid="7279855349299446224">"Ақпарат алу"</string>
     <string name="menu_show_hidden_files" msgid="5140676344684492769">"Жасырын файлдарды көрсету"</string>
     <string name="menu_hide_hidden_files" msgid="5654495713350153702">"Жасырын файлдарды көрсетпеу"</string>
@@ -278,4 +280,6 @@
     <string name="work_tab" msgid="7265359366883747413">"Жұмыс"</string>
     <string name="a11y_work" msgid="7504431382825242153">"Жұмыс"</string>
     <string name="drag_from_another_app" msgid="8310249276199969905">"Файлдарды басқа қолданбадан тасымалдай алмайсыз."</string>
+    <string name="grid_mode_showing" msgid="2803166871485028508">"Тор режимінде көрсетіледі."</string>
+    <string name="list_mode_showing" msgid="1225413902295895166">"Тізім режимінде көрсетіледі."</string>
 </resources>

@@ -17,7 +17,6 @@
 package com.android.car.dialer.ui;
 
 import android.app.SearchManager;
-import android.bluetooth.BluetoothDevice;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
@@ -30,22 +29,20 @@ import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
-import androidx.lifecycle.ViewModelProviders;
-import androidx.preference.PreferenceManager;
+import androidx.lifecycle.ViewModelProvider;
 
 import com.android.car.apps.common.util.Themes;
-import com.android.car.dialer.Constants;
 import com.android.car.dialer.R;
-import com.android.car.dialer.livedata.BluetoothErrorStringLiveData;
 import com.android.car.dialer.log.L;
 import com.android.car.dialer.notification.NotificationService;
 import com.android.car.dialer.telecom.UiCallManager;
 import com.android.car.dialer.ui.activecall.InCallActivity;
-import com.android.car.dialer.ui.activecall.InCallViewModel;
 import com.android.car.dialer.ui.common.DialerBaseFragment;
+import com.android.car.dialer.ui.common.OnItemClickedListener;
 import com.android.car.dialer.ui.dialpad.DialpadFragment;
 import com.android.car.dialer.ui.search.ContactResultsFragment;
 import com.android.car.dialer.ui.settings.DialerSettingsActivity;
+import com.android.car.dialer.ui.warning.OverlayFragment;
 import com.android.car.ui.baselayout.Insets;
 import com.android.car.ui.baselayout.InsetsChangedListener;
 import com.android.car.ui.core.CarUi;
@@ -53,6 +50,11 @@ import com.android.car.ui.toolbar.MenuItem;
 import com.android.car.ui.toolbar.ToolbarController;
 
 import java.util.List;
+import java.util.stream.Collectors;
+
+import javax.inject.Inject;
+
+import dagger.hilt.android.AndroidEntryPoint;
 
 /**
  * Main activity for the Dialer app. It hosts most of the fragments for the app.
@@ -61,14 +63,17 @@ import java.util.List;
  *
  * <p>Based on call and connectivity status, it will choose the right page to display.
  */
-public class TelecomActivity extends FragmentActivity implements
+@AndroidEntryPoint(FragmentActivity.class)
+public class TelecomActivity extends Hilt_TelecomActivity implements
         DialerBaseFragment.DialerFragmentParent, InsetsChangedListener {
     private static final String TAG = "CD.TelecomActivity";
-    private LiveData<String> mBluetoothErrorMsgLiveData;
+
+    @Inject SharedPreferences mSharedPreferences;
+    @Inject UiCallManager mUiCallManager;
     private LiveData<List<Call>> mOngoingCallListLiveData;
+    private LiveData<Boolean> mRefreshUiLiveData;
     // View objects for this activity.
     private TelecomPageTab.Factory mTabFactory;
-    private BluetoothDevice mBluetoothDevice;
     private ToolbarController mCarUiToolbar;
 
     @Override
@@ -83,33 +88,26 @@ public class TelecomActivity extends FragmentActivity implements
 
         setupTabLayout();
 
-        TelecomActivityViewModel viewModel = ViewModelProviders.of(this).get(
+        TelecomActivityViewModel viewModel = new ViewModelProvider(this).get(
                 TelecomActivityViewModel.class);
-        mBluetoothErrorMsgLiveData = viewModel.getErrorMessage();
-        mBluetoothErrorMsgLiveData.observe(this, (String error) -> {
-            if (!BluetoothErrorStringLiveData.NO_BT_ERROR.equals(error)) {
-                startActivity(new Intent(this, NoHfpActivity.class));
-                finish();
+
+        mRefreshUiLiveData = viewModel.getRefreshTabsLiveData();
+        mRefreshUiLiveData.observe(this, v -> refreshUi());
+
+        LiveData<Boolean> hasHfpDeviceConnectedLiveData = viewModel.hasHfpDeviceConnected();
+        hasHfpDeviceConnectedLiveData.observe(this, hasHfpDeviceConnected -> {
+            if (!Boolean.TRUE.equals(hasHfpDeviceConnected)) {
+                new OverlayFragment().show(getSupportFragmentManager(), null);
             }
         });
 
         MutableLiveData<Integer> toolbarTitleMode = viewModel.getToolbarTitleMode();
         toolbarTitleMode.setValue(Themes.getAttrInteger(this, R.attr.toolbarTitleMode));
-        viewModel.getRefreshTabsLiveData().observe(this, this::refreshTabs);
 
-        InCallViewModel inCallViewModel = ViewModelProviders.of(this).get(InCallViewModel.class);
-        mOngoingCallListLiveData = inCallViewModel.getOngoingCallList();
-        // The mOngoingCallListLiveData needs to be active to get calculated.
-        mOngoingCallListLiveData.observe(this, this::maybeStartInCallActivity);
+        mOngoingCallListLiveData = viewModel.getOngoingCallListLiveData();
+        mOngoingCallListLiveData.observe(this, list -> maybeStartInCallActivity(list));
 
         handleIntent();
-    }
-
-    private void refreshTabs(boolean refreshTabs) {
-        L.v(TAG, "hfp connected device list Changes.");
-        if (refreshTabs) {
-            setupTabLayout();
-        }
     }
 
     @Override
@@ -136,23 +134,17 @@ public class TelecomActivity extends FragmentActivity implements
 
             case Intent.ACTION_CALL:
                 number = PhoneNumberUtils.getNumberFromIntent(intent, this);
-                UiCallManager.get().placeCall(number);
+                mUiCallManager.placeCall(number);
                 break;
 
             case Intent.ACTION_SEARCH:
                 String searchQuery = intent.getStringExtra(SearchManager.QUERY);
                 navigateToContactResultsFragment(searchQuery);
                 break;
-
-            case Constants.Intents.ACTION_SHOW_PAGE:
-                showTabPage(intent.getStringExtra(Constants.Intents.EXTRA_SHOW_PAGE));
-                if (intent.getBooleanExtra(Constants.Intents.EXTRA_ACTION_READ_MISSED, false)) {
-                    NotificationService.readAllMissedCall(this);
-                }
-                break;
             case Intent.ACTION_VIEW:
                 if (CallLog.Calls.CONTENT_TYPE.equals(intent.getType())) {
                     showTabPage(TelecomPageTab.Page.CALL_HISTORY);
+                    NotificationService.readAllMissedCall(this);
                 }
                 break;
             default:
@@ -166,14 +158,22 @@ public class TelecomActivity extends FragmentActivity implements
     }
 
     private void setupTabLayout() {
+        boolean[] tabSelectedListenerEnabled = new boolean[] { false };
+        OnItemClickedListener<TelecomPageTab> onTabSelected = tab -> {
+            if (tabSelectedListenerEnabled[0]) {
+                Fragment fragment = tab.getFragment();
+                setContentFragment(fragment, tab.getFragmentTag());
+            }
+        };
         boolean wasContentFragmentRestored = false;
-        mTabFactory = new TelecomPageTab.Factory(this, getSupportFragmentManager());
-        mCarUiToolbar.clearAllTabs();
-        for (int i = 0; i < mTabFactory.getTabCount(); i++) {
-            TelecomPageTab tab = mTabFactory.createTab(getBaseContext(), i);
-            mCarUiToolbar.addTab(tab);
+        mTabFactory = new TelecomPageTab.Factory(this, onTabSelected, getSupportFragmentManager());
+        List<TelecomPageTab> tabs = mTabFactory.recreateTabs(getBaseContext(), false);
+        mCarUiToolbar.setTabs(tabs.stream()
+                .map(TelecomPageTab::getToolbarTab)
+                .collect(Collectors.toList()));
 
-            if (tab.wasFragmentRestored()) {
+        for (int i = 0; i < tabs.size(); i++) {
+            if (tabs.get(i).wasFragmentRestored()) {
                 mCarUiToolbar.selectTab(i);
                 wasContentFragmentRestored = true;
             }
@@ -181,18 +181,24 @@ public class TelecomActivity extends FragmentActivity implements
 
         // Select the starting tab and set up the fragment for it.
         if (!wasContentFragmentRestored) {
-            int startTabIndex = getTabFromSharedPreference();
-            TelecomPageTab startTab = (TelecomPageTab) mCarUiToolbar.getTab(startTabIndex);
+            int startTabIndex = mTabFactory.getTabIndex(getTabFromSharedPreference());
             mCarUiToolbar.selectTab(startTabIndex);
+            TelecomPageTab startTab = tabs.get(startTabIndex);
             setContentFragment(startTab.getFragment(), startTab.getFragmentTag());
         }
+        tabSelectedListenerEnabled[0] = true;
+    }
 
-        mCarUiToolbar.registerOnTabSelectedListener(
-                tab -> {
-                    TelecomPageTab telecomPageTab = (TelecomPageTab) tab;
-                    Fragment fragment = telecomPageTab.getFragment();
-                    setContentFragment(fragment, telecomPageTab.getFragmentTag());
-                });
+    private void refreshUi() {
+        L.v(TAG, "Refresh ui");
+
+        List<TelecomPageTab> tabs = mTabFactory.recreateTabs(getBaseContext(), true);
+        mCarUiToolbar.setTabs(tabs.stream()
+                .map(TelecomPageTab::getToolbarTab)
+                .collect(Collectors.toList()));
+
+        String startTab = getTabFromSharedPreference();
+        showTabPage(startTab);
     }
 
     /**
@@ -205,7 +211,7 @@ public class TelecomActivity extends FragmentActivity implements
             return;
         }
 
-        TelecomPageTab dialpadTab = (TelecomPageTab) mCarUiToolbar.getTab(dialpadTabIndex);
+        TelecomPageTab dialpadTab = mTabFactory.getTab(dialpadTabIndex);
         Fragment fragment = dialpadTab.getFragment();
         if (fragment instanceof DialpadFragment) {
             ((DialpadFragment) fragment).setDialedNumber(number);
@@ -325,11 +331,10 @@ public class TelecomActivity extends FragmentActivity implements
         return getSupportFragmentManager().getBackStackEntryCount() > 1;
     }
 
-    private int getTabFromSharedPreference() {
+    private String getTabFromSharedPreference() {
         String key = getResources().getString(R.string.pref_start_page_key);
-        String defaultValue = getResources().getStringArray(R.array.tabs_config)[0];
-        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
-        return mTabFactory.getTabIndex(sharedPreferences.getString(key, defaultValue));
+        String defaultValue = getResources().getString(R.string.tab_config_default_value);
+        return mSharedPreferences.getString(key, defaultValue);
     }
 
     @Override

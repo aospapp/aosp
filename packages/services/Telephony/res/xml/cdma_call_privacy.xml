@@ -7,4 +7,14 @@
         android:title="@string/voice_privacy"
         android:persistent="false"
         android:summary="@string/voice_privacy_summary"/>
+
+    <PreferenceScreen
+        android:key="call_forwarding_key"
+        android:title="@string/labelCF"
+        android:persistent="false" />
+
+    <com.android.phone.CdmaCallWaitingPreference
+        android:key="call_waiting_key"
+        android:title="@string/labelCW"
+        android:persistent="false" />
 </PreferenceScreen>

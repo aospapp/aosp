@@ -15,12 +15,14 @@
  */
 package com.android.managedprovisioning.task;
 
-import static android.content.pm.PackageManager.INSTALL_ALL_WHITELIST_RESTRICTED_PERMISSIONS;
+import static android.app.PendingIntent.FLAG_MUTABLE;
+import static android.app.PendingIntent.FLAG_ONE_SHOT;
+import static android.app.PendingIntent.FLAG_UPDATE_CURRENT;
 import static android.content.pm.PackageManager.INSTALL_REPLACE_EXISTING;
 
-import static com.android.internal.logging.nano.MetricsProto.MetricsEvent
-        .PROVISIONING_INSTALL_PACKAGE_TASK_MS;
-import static com.android.internal.util.Preconditions.checkNotNull;
+import static com.android.internal.logging.nano.MetricsProto.MetricsEvent.PROVISIONING_INSTALL_PACKAGE_TASK_MS;
+
+import static java.util.Objects.requireNonNull;
 
 import android.annotation.NonNull;
 import android.app.PendingIntent;
@@ -31,15 +33,14 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageInstaller;
 import android.content.pm.PackageManager;
-import android.text.TextUtils;
 
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.analytics.MetricsWriterFactory;
 import com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker;
 import com.android.managedprovisioning.common.ManagedProvisioningSharedPreferences;
 import com.android.managedprovisioning.common.ProvisionLogger;
 import com.android.managedprovisioning.common.SettingsFacade;
+import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.ProvisioningParams;
 
 import java.io.File;
@@ -47,10 +48,13 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.HashSet;
+import java.util.Set;
+
 
 /**
  * Installs the management app apk from a download location provided by
- * {@link DownloadPackageTask#getDownloadedPackageLocation()}.
+ * {@link PackageLocationProvider#getPackageLocation()}.
  */
 public class InstallPackageTask extends AbstractProvisioningTask {
     private static final String ACTION_INSTALL_DONE = InstallPackageTask.class.getName() + ".DONE.";
@@ -58,10 +62,17 @@ public class InstallPackageTask extends AbstractProvisioningTask {
     public static final int ERROR_PACKAGE_INVALID = 0;
     public static final int ERROR_INSTALLATION_FAILED = 1;
 
-    private final DownloadPackageTask mDownloadPackageTask;
+    private final PackageLocationProvider mPackageLocationProvider;
 
     private final PackageManager mPm;
     private final DevicePolicyManager mDpm;
+    private final PackageInstaller.SessionCallback mSessionCallback =  new SessionCallback();
+    private final String mPackageName;
+    private final Utils mUtils;
+
+    private static final int SUCCESS_INSTALLED_BROADCAST = 1;
+    private static final int SUCCESS_INSTALLED_CALLBACK = 2;
+    private final Set<Integer> mSuccessCodes = new HashSet<>();
 
     /**
      * Create an InstallPackageTask. When run, this will attempt to install the device admin package
@@ -70,33 +81,32 @@ public class InstallPackageTask extends AbstractProvisioningTask {
      * {@see #run(String, String)} for more detail on package installation.
      */
     public InstallPackageTask(
-            DownloadPackageTask downloadPackageTask,
+            PackageLocationProvider packageLocationProvider,
             Context context,
             ProvisioningParams params,
             Callback callback) {
-        this(downloadPackageTask, context, params, callback,
+        this(packageLocationProvider, context, params, callback,
                 new ProvisioningAnalyticsTracker(
                         MetricsWriterFactory.getMetricsWriter(context, new SettingsFacade()),
-                        new ManagedProvisioningSharedPreferences(context)));
+                        new ManagedProvisioningSharedPreferences(context)),
+                new Utils());
     }
 
     @VisibleForTesting
     InstallPackageTask(
-            DownloadPackageTask downloadPackageTask,
+            PackageLocationProvider packageLocationProvider,
             Context context,
             ProvisioningParams params,
             Callback callback,
-            ProvisioningAnalyticsTracker provisioningAnalyticsTracker) {
+            ProvisioningAnalyticsTracker provisioningAnalyticsTracker,
+            Utils utils) {
         super(context, params, callback, provisioningAnalyticsTracker);
 
         mPm = context.getPackageManager();
         mDpm = context.getSystemService(DevicePolicyManager.class);
-        mDownloadPackageTask = checkNotNull(downloadPackageTask);
-    }
-
-    @Override
-    public int getStatusMsgId() {
-        return R.string.progress_install;
+        mPackageLocationProvider = requireNonNull(packageLocationProvider);
+        mPackageName = requireNonNull(mProvisioningParams.inferDeviceAdminPackageName());
+        mUtils = requireNonNull(utils);
     }
 
     private static void copyStream(@NonNull InputStream in, @NonNull OutputStream out)
@@ -119,56 +129,73 @@ public class InstallPackageTask extends AbstractProvisioningTask {
     @Override
     public void run(int userId) {
         startTaskTimer();
-        String packageLocation = mDownloadPackageTask.getDownloadedPackageLocation();
-        String packageName = mProvisioningParams.inferDeviceAdminPackageName();
 
-        ProvisionLogger.logi("Installing package " + packageName);
-        if (TextUtils.isEmpty(packageLocation)) {
-            // Do not log time if not installing any package, as that isn't useful.
+        File packageLocation = mPackageLocationProvider.getPackageLocation();
+        ProvisionLogger.logi("Installing package " + mPackageName + " on user " + userId + " from "
+                + packageLocation);
+        if (packageLocation == null) {
             success();
             return;
         }
 
-        int installFlags = INSTALL_REPLACE_EXISTING | INSTALL_ALL_WHITELIST_RESTRICTED_PERMISSIONS;
+        int installFlags = INSTALL_REPLACE_EXISTING;
         // Current device owner (if exists) must be test-only, so it is fine to replace it with a
         // test-only package of same package name. No need to further verify signature as
         // installation will fail if signatures don't match.
-        if (mDpm.isDeviceOwnerApp(packageName)) {
+        if (mDpm.isDeviceOwnerApp(mPackageName)) {
             installFlags |= PackageManager.INSTALL_ALLOW_TEST;
         }
 
         PackageInstaller.SessionParams params = new PackageInstaller.SessionParams(
                 PackageInstaller.SessionParams.MODE_FULL_INSTALL);
-        params.installFlags = installFlags;
+        params.installFlags |= installFlags;
 
-        File source = new File(packageLocation);
-        PackageInstaller pi = mPm.getPackageInstaller();
         try {
-            int sessionId = pi.createSession(params);
-            try (PackageInstaller.Session session = pi.openSession(sessionId)) {
-                try (FileInputStream in = new FileInputStream(source);
-                     OutputStream out = session.openWrite(source.getName(), 0, -1)) {
-                    copyStream(in, out);
-                } catch (IOException e) {
-                    session.abandon();
-                    throw e;
-                }
-
-                String action = ACTION_INSTALL_DONE + sessionId;
-                mContext.registerReceiver(new PackageInstallReceiver(packageName),
-                        new IntentFilter(action));
-
-                PendingIntent pendingIntent = PendingIntent.getBroadcast(mContext, sessionId,
-                        new Intent(action),
-                        PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_UPDATE_CURRENT);
-                session.commit(pendingIntent.getIntentSender());
-            }
+            installPackage(packageLocation, mPackageName, params, mContext, mSessionCallback);
         } catch (IOException e) {
-            ProvisionLogger.loge("Installing package " + packageName + " failed.", e);
+            ProvisionLogger.loge("Installing package " + mPackageName + " failed.", e);
             error(ERROR_INSTALLATION_FAILED);
         } finally {
-            source.delete();
+            packageLocation.delete();
         }
+    }
+
+    private void installPackage(
+            File source,
+            String packageName,
+            PackageInstaller.SessionParams params,
+            Context context,
+            PackageInstaller.SessionCallback sessionCallback)
+            throws IOException {
+        PackageInstaller pi = context.getPackageManager().getPackageInstaller();
+        context.registerReceiver(
+                new PackageAddedReceiver(packageName),
+                createPackageAddedIntentFilter());
+        pi.registerSessionCallback(sessionCallback);
+        int sessionId = pi.createSession(params);
+        try (PackageInstaller.Session session = pi.openSession(sessionId)) {
+            try (FileInputStream in = new FileInputStream(source);
+                 OutputStream out = session.openWrite(source.getName(), 0, -1)) {
+                copyStream(in, out);
+            } catch (IOException e) {
+                session.abandon();
+                throw e;
+            }
+
+            String action = ACTION_INSTALL_DONE + sessionId;
+            PendingIntent pendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    sessionId,
+                    new Intent(action),
+                    FLAG_ONE_SHOT | FLAG_UPDATE_CURRENT | FLAG_MUTABLE);
+            session.commit(pendingIntent.getIntentSender());
+        }
+    }
+
+    private IntentFilter createPackageAddedIntentFilter() {
+        IntentFilter intentFilter = new IntentFilter(Intent.ACTION_PACKAGE_ADDED);
+        intentFilter.addDataScheme("package");
+        return intentFilter;
     }
 
     @Override
@@ -176,52 +203,79 @@ public class InstallPackageTask extends AbstractProvisioningTask {
         return PROVISIONING_INSTALL_PACKAGE_TASK_MS;
     }
 
-    private class PackageInstallReceiver extends BroadcastReceiver {
+    private void addSuccessStatus(int successStatus) {
+        mSuccessCodes.add(successStatus);
+        if (mSuccessCodes.contains(SUCCESS_INSTALLED_BROADCAST)
+                && mSuccessCodes.contains(SUCCESS_INSTALLED_CALLBACK)) {
+            ProvisionLogger.logd("Package " + mPackageName + " is successfully installed.");
+            stopTaskTimer();
+            success();
+        }
+    }
+
+    private class PackageAddedReceiver extends BroadcastReceiver {
+
         private final String mPackageName;
 
-        public PackageInstallReceiver(String packageName) {
-            mPackageName = packageName;
+        PackageAddedReceiver(String packageName) {
+            mPackageName = requireNonNull(packageName);
         }
 
         @Override
         public void onReceive(Context context, Intent intent) {
-            // Should not happen as we use a one shot pending intent specifically for this receiver
-            if (intent.getAction() == null || !intent.getAction().startsWith(ACTION_INSTALL_DONE)) {
-                ProvisionLogger.logw("Incorrect action");
-
-                error(ERROR_INSTALLATION_FAILED);
+            ProvisionLogger.logd("PACKAGE_ADDED broadcast received with intent data "
+                    + intent.getDataString());
+            if (!mPackageName.equals(extractPackageNameFromDataString(intent.getDataString()))) {
+                ProvisionLogger.logd("The package name provided in the intent data does not equal "
+                        + mPackageName);
                 return;
             }
+            addSuccessStatus(SUCCESS_INSTALLED_BROADCAST);
+            context.unregisterReceiver(this);
+        }
 
-            // Should not happen as we use a one shot pending intent specifically for this receiver
-            if (!intent.getStringExtra(PackageInstaller.EXTRA_PACKAGE_NAME).equals(mPackageName)) {
-                ProvisionLogger.loge("Package doesn't have expected package name.");
-                error(ERROR_PACKAGE_INVALID);
-                return;
+        private String extractPackageNameFromDataString(String dataString) {
+            return dataString.substring("package:".length());
+        }
+    }
+
+    private class SessionCallback extends PackageInstaller.SessionCallback {
+
+        @Override
+        public void onCreated(int sessionId) {}
+
+        @Override
+        public void onBadgingChanged(int sessionId) {}
+
+        @Override
+        public void onActiveChanged(int sessionId, boolean active) {}
+
+        @Override
+        public void onProgressChanged(int sessionId, float progress) {}
+
+        @Override
+        public void onFinished(int sessionId, boolean success) {
+            PackageInstaller packageInstaller = mPm.getPackageInstaller();
+            packageInstaller.unregisterSessionCallback(mSessionCallback);
+            if (!success) {
+                boolean packageInstalled =
+                        mUtils.isPackageInstalled(mPackageName, mContext.getPackageManager());
+                if (packageInstalled) {
+                    ProvisionLogger.logd("Current version of " + mPackageName
+                            + " higher than the version to be installed. It was not reinstalled.");
+                    // If the package is already at a higher version: success.
+                    // Do not log time if package is already at a higher version, as that isn't
+                    // useful.
+                    success();
+                    return;
+                } else {
+                    ProvisionLogger.logd("Installing package " + mPackageName + " failed.");
+                    error(ERROR_INSTALLATION_FAILED);
+                    return;
+                }
             }
-
-            int status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, 0);
-            String statusMessage = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE);
-            int legacyStatus = intent.getIntExtra(PackageInstaller.EXTRA_LEGACY_STATUS, 0);
-
-            mContext.unregisterReceiver(this);
-            ProvisionLogger.logi(status + " " + legacyStatus + " " + statusMessage);
-
-            if (status == PackageInstaller.STATUS_SUCCESS) {
-                ProvisionLogger.logd("Package " + mPackageName + " is succesfully installed.");
-                stopTaskTimer();
-                success();
-            } else if (legacyStatus == PackageManager.INSTALL_FAILED_VERSION_DOWNGRADE) {
-                ProvisionLogger.logd("Current version of " + mPackageName
-                        + " higher than the version to be installed. It was not reinstalled.");
-                // If the package is already at a higher version: success.
-                // Do not log time if package is already at a higher version, as that isn't useful.
-                success();
-            } else {
-                ProvisionLogger.logd("Installing package " + mPackageName + " failed.");
-                ProvisionLogger.logd("Status message returned  = " + statusMessage);
-                error(ERROR_INSTALLATION_FAILED);
-            }
+            ProvisionLogger.logd("Install package callback received for " + mPackageName);
+            addSuccessStatus(SUCCESS_INSTALLED_CALLBACK);
         }
     }
 }

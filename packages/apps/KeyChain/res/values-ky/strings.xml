@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"PKCS#12 файлындагы тастыктамаларды тышкы сактагычта жайгашкан %1$s же %2$s кеңейтмеси менен орнотсоңуз болот."</string>
     <string name="allow_button" msgid="3030990695030371561">"Тандоо"</string>
     <string name="deny_button" msgid="3766539809121892584">"Баш тартуу"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"Тастыктамалар жүктөлүүдө..."</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"%s тастыктаманы текшерүүдө…"</string>
 </resources>

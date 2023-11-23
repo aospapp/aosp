@@ -52,13 +52,21 @@ public class TmaLauncherActivity extends AppCompatActivity {
                     // Get the token for the MediaSession
                     MediaSessionCompat.Token token = mediaBrowser.getSessionToken();
 
-                    // Create a MediaControllerCompat
-                    MediaControllerCompat controller =
-                            new MediaControllerCompat(TmaLauncherActivity.this, token);
-
-                    // Save the controller
-                    MediaControllerCompat.setMediaController(
-                            TmaLauncherActivity.this, controller);
+                    try {
+                        // Create a MediaControllerCompat
+                        MediaControllerCompat controller =
+                                new MediaControllerCompat(TmaLauncherActivity.this, token);
+                        // Save the controller
+                        MediaControllerCompat.setMediaController(
+                                TmaLauncherActivity.this, controller);
+                    } catch (Exception ex) {
+                        // ToDo: b/166328624 Workaround for an Android Studio Build error:
+                        //          unreported exception RemoteException
+                        //       Whereas as an Android Soong Build error:
+                        //          RemoteException is never thrown
+                        Log.e(TAG, "Failed to create MediaControllerCompat", ex);
+                        return;
+                    }
                 }
             };
 

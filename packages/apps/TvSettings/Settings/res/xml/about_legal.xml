@@ -51,6 +51,10 @@
         <intent android:action="android.settings.WEBVIEW_LICENSE" />
     </PreferenceScreen>
 
+    <com.android.tv.settings.about.ConsumerInformationDialogPreference
+        android:key="consumer_information"
+        android:title="@string/consumer_information_title"/>
+
     <!-- TODO: remove this once Google Settings is implemented for TV -->
     <Preference
         android:key="ads"

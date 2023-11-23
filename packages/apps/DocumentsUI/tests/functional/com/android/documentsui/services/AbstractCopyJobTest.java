@@ -179,7 +179,7 @@ public abstract class AbstractCopyJobTest<T extends CopyJob> extends AbstractJob
         // Init FileCountProgressTracker with 10 docs required to copy.
         TestCopyJobProcessTracker<CopyJob.FileCountProgressTracker> tracker =
                 new TestCopyJobProcessTracker(CopyJob.FileCountProgressTracker.class, 10,
-                        createJob(newArrayList(mDocs.createFolder(mSrcRoot, "dummyDir"))),
+                        createJob(newArrayList(mDocs.createFolder(mSrcRoot, "tempDir"))),
                         (completed) -> NumberFormat.getPercentInstance().format(completed),
                         (time) -> mContext.getString(R.string.copy_remaining,
                                 DateUtils.formatDuration((Long) time)));
@@ -213,7 +213,7 @@ public abstract class AbstractCopyJobTest<T extends CopyJob> extends AbstractJob
         // Init ByteCountProgressTracker with 100 KBytes required to copy.
         TestCopyJobProcessTracker<CopyJob.ByteCountProgressTracker> tracker =
                 new TestCopyJobProcessTracker(CopyJob.ByteCountProgressTracker.class, 100000,
-                        createJob(newArrayList(mDocs.createFolder(mSrcRoot, "dummyDir"))),
+                        createJob(newArrayList(mDocs.createFolder(mSrcRoot, "tempDir"))),
                         (completed) -> NumberFormat.getPercentInstance().format(completed),
                         (time) -> mContext.getString(R.string.copy_remaining,
                                 DateUtils.formatDuration((Long) time)));

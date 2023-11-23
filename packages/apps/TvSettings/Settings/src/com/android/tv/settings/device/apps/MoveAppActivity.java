@@ -17,8 +17,6 @@
 package com.android.tv.settings.device.apps;
 
 import android.annotation.Nullable;
-import android.app.Activity;
-import android.app.Fragment;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
@@ -30,11 +28,13 @@ import android.util.Log;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentActivity;
 
 import com.android.tv.settings.device.storage.MoveAppProgressFragment;
 import com.android.tv.settings.device.storage.MoveAppStepFragment;
 
-public class MoveAppActivity extends Activity implements MoveAppStepFragment.Callback {
+public class MoveAppActivity extends FragmentActivity implements MoveAppStepFragment.Callback {
 
     private static final String TAG = "MoveAppActivity";
 
@@ -84,7 +84,7 @@ public class MoveAppActivity extends Activity implements MoveAppStepFragment.Cal
             final String packageName = getIntent().getStringExtra(ARG_PACKAGE_NAME);
 
             final Fragment fragment = MoveAppStepFragment.newInstance(packageName, packageDesc);
-            getFragmentManager().beginTransaction()
+            getSupportFragmentManager().beginTransaction()
                     .add(android.R.id.content, fragment)
                     .commit();
         }
@@ -116,7 +116,7 @@ public class MoveAppActivity extends Activity implements MoveAppStepFragment.Cal
         final MoveAppProgressFragment fragment = MoveAppProgressFragment
                 .newInstance(mPackageManager.getApplicationLabel(applicationInfo));
 
-        getFragmentManager().beginTransaction()
+        getSupportFragmentManager().beginTransaction()
                 .replace(android.R.id.content, fragment)
                 .commit();
     }

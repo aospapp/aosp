@@ -18,6 +18,4 @@
     android:id="@+id/bottom_actionbar"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_gravity="bottom"
-    android:elevation="@dimen/bottom_action_bar_elevation"
     android:visibility="gone" />

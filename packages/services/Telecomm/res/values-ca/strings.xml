@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3077225713817780583">"Gestió de trucades"</string>
+    <string name="telecommAppLabel" product="default" msgid="1825598513414129827">"Trucades telefòniques"</string>
     <string name="userCallActivityLabel" product="default" msgid="3605391260292846248">"Telèfon"</string>
     <string name="unknown" msgid="6993977514360123431">"Desconegut"</string>
     <string name="notification_missedCallTitle" msgid="5060387047205532974">"Trucada perduda"</string>

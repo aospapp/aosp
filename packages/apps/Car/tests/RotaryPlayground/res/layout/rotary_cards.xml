@@ -149,7 +149,8 @@
                 android:layout_width="@dimen/card_width"
                 android:layout_height="match_parent"
                 android:padding="@dimen/card_padding"
-                android:orientation="vertical">
+                android:orientation="vertical"
+                app:defaultFocus="@+id/default_focus">
                 <TextView
                     android:layout_height="@dimen/description_height"
                     android:layout_width="match_parent"
@@ -160,8 +161,8 @@
                     android:onClick="onRotaryButtonClick"
                     android:tag="test_button"
                     android:text="Button" />
-                <!-- TODO(b/154180719): Make this button the default focus in this FocusArea -->
                 <Button
+                    android:id="@+id/default_focus"
                     android:layout_width="match_parent"
                     android:layout_height="50dp"
                     android:onClick="onRotaryButtonClick"
@@ -181,18 +182,9 @@
                     android:text="Button" />
             </com.android.car.ui.FocusArea>
 
-            <!-- A FocusArea with buttons in a circle. The default focus should land on A.
+            <!-- A FocusArea with buttons in a circle.
                  Rotating clockwise moves the focus from A -> B -> C -> D -> E -> F -> G -> H,
-                 and reverse counterclockwise.
-                 Adding app:defaultFocus to A to make it the default focus on this card
-                 Adding android:nextFocusForward is necessary to ensure the expected focus
-                 order, without it, the focus will move from
-                 G -> H -> F -> A -> E -> B -> D -> C.
-                 Lastly, android:nextFocusForward is not added to H -> A, to avoid linking
-                 the nodes in a circle. app:wrapAround="true" should be used instead.
-             -->
-            <!-- TODO(agathaman): add app:wrapAround to this card when b/155698037 is fixed -->
-            <!-- TODO(agathaman): add app:defaultFocus to this card when b/155698037 is fixed -->
+                 and reverse counterclockwise. -->
             <com.android.car.ui.FocusArea
                 android:id="@+id/card_that_wraps_around"
                 android:background="@color/card_background_color"
@@ -200,7 +192,8 @@
                 android:layout_width="@dimen/card_width"
                 android:layout_height="match_parent"
                 android:padding="@dimen/card_padding"
-                android:orientation="vertical">
+                android:orientation="vertical"
+                app:wrapAround="true">
                 <TextView
                     android:layout_height="@dimen/description_height"
                     android:layout_width="match_parent"
@@ -304,6 +297,68 @@
                         app:layout_constraintCircleRadius="90dp"
                         />
                 </androidx.constraintlayout.widget.ConstraintLayout>
+            </com.android.car.ui.FocusArea>
+            <!-- A FocusArea to demonstrate how to update a view properly.
+                 Don't remove the focused view, otherwise Android framework will focus on another
+                 view (the default focus view, or the first focusable view in the view tree), and
+                 the user will see the focus highlight jump away unexpectedly. Some workarounds:
+                 1. Don't remove the view. You may achieve the desired behavior by updating the
+                    source image of focused view.
+                 2. Delegate the view focus to its container, therefore removing the view won't
+                    affect the focus
+                 3. Make another view request focus explicitly after Android framework adjusts the
+                    focus.
+                 Don't disable the focused view, otherwise Android framework will focus on another
+                 view. A workaround is to use a custom state to replace android:state_disabled so
+                 that it appears disabled but is not disabled actually.
+            -->
+            <com.android.car.ui.FocusArea
+                android:id="@+id/focus_area5"
+                android:background="@color/card_background_color"
+                android:layout_margin="16dp"
+                android:layout_width="@dimen/card_width"
+                android:layout_height="match_parent"
+                android:padding="@dimen/card_padding"
+                android:orientation="vertical">
+                <Button
+                    android:id="@+id/button_5a"
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:text="focus jumps" />
+                <Button
+                    android:id="@+id/button_5b"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:background="@drawable/ic_play_arrow"/>
+                <FrameLayout
+                    android:id="@+id/button_5c_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:focusable="true">
+                    <Button
+                        android:id="@+id/button_5c"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:text="focus stays" />
+                </FrameLayout>
+                <Button
+                    android:id="@+id/button_5d"
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:text="focus returns" />
+                <Button
+                    android:id="@+id/button_5e"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:background="@drawable/button_background"/>
+                <com.android.car.rotaryplayground.CustomButton
+                    android:id="@+id/button_5f"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:background="@drawable/custom_button_background"/>
             </com.android.car.ui.FocusArea>
         </LinearLayout>
     </HorizontalScrollView>

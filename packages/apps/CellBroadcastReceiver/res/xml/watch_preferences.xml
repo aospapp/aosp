@@ -37,7 +37,19 @@
                           android:key="enable_cmas_amber_alerts"
                           android:title="@string/enable_cmas_amber_alerts_title" />
 
-        <SwitchPreference android:defaultValue="true"
+        <!-- Enable public safety messages -->
+        <SwitchPreference android:defaultValue="@bool/public_safety_messages_enabled_default"
+            android:key="enable_public_safety_messages"
+            android:summary="@string/enable_public_safety_messages_summary"
+            android:title="@string/enable_public_safety_messages_title" />
+
+        <!-- Enable public safety full screen messages -->
+        <SwitchPreference android:defaultValue="@bool/public_safety_messages_full_screen_enabled_default"
+            android:key="enable_public_safety_messages_full_screen"
+            android:summary="@string/enable_full_screen_public_safety_messages_summary"
+            android:title="@string/enable_full_screen_public_safety_messages_title" />
+
+        <com.android.settingslib.widget.MainSwitchPreference android:defaultValue="true"
                           android:key="enable_emergency_alerts"
                           android:title="@string/enable_alerts_master_toggle_title" />
 
@@ -55,10 +67,19 @@
                           android:key="enable_alert_vibrate"
                           android:title="@string/enable_alert_vibrate_title" />
 
+        <SwitchPreference android:defaultValue="true"
+                          android:key="enable_alert_speech"
+                          android:title="@string/enable_alert_speech_title" />
+
         <!-- Enable receive monthly test -->
         <SwitchPreference android:defaultValue="false"
                           android:key="enable_test_alerts"
                           android:title="@string/enable_cmas_test_alerts_title" />
+
+        <!-- Enable state/local test alerts -->
+        <SwitchPreference android:defaultValue="true"
+                          android:key="enable_state_local_test_alerts"
+                          android:title="@string/enable_state_local_test_alerts_title" />
 
         <!-- Default value is true for Brazil and India. This preference is ignored and hidden
         unless the boolean "config_showAreaUpdateInfoSettings" is set to true in the global resource. -->
@@ -70,4 +91,8 @@
         <Preference android:key="emergency_alert_history"
                             android:title="@string/emergency_alert_history_title" />
 
+        <!-- Show additional language on/off switch in settings -->
+        <SwitchPreference android:defaultValue="false"
+                          android:key="receive_cmas_in_second_language"
+                          android:title="@string/receive_cmas_in_second_language_title" />
 </PreferenceScreen>

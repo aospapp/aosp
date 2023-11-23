@@ -21,19 +21,22 @@ import static android.provider.Settings.Secure.SLEEP_TIMEOUT;
 
 import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
 
+import android.app.AlertDialog;
 import android.app.tvsettings.TvSettingsEnums;
 import android.os.Bundle;
+import android.os.UserManager;
 import android.provider.Settings;
 import android.text.format.DateUtils;
 
 import androidx.annotation.Keep;
 import androidx.preference.ListPreference;
 import androidx.preference.Preference;
-import androidx.preference.SwitchPreference;
 
-import com.android.internal.logging.nano.MetricsProto;
+import com.android.settingslib.RestrictedSwitchPreference;
 import com.android.tv.settings.R;
+import com.android.tv.settings.RestrictedPreferenceAdapter;
 import com.android.tv.settings.SettingsPreferenceFragment;
+import com.android.tv.twopanelsettings.TwoPanelSettingsFragment;
 
 /**
  * The energy saver screen in TV settings.
@@ -45,8 +48,10 @@ public class EnergySaverFragment extends SettingsPreferenceFragment implements
     private static final String KEY_SLEEP_TIME = "sleepTime";
     private static final String KEY_ALLOW_TURN_SCREEN_OFF = "allowTurnScreenOff";
     private static final int DEFAULT_SLEEP_TIME_MS = (int) (24 * DateUtils.HOUR_IN_MILLIS);
-    private SwitchPreference mAllowTurnScreenOffWithWakeLockPref;
+    private static final int WARNING_THRESHOLD_SLEEP_TIME_MS = (int) (4 * DateUtils.HOUR_IN_MILLIS);
+    private RestrictedSwitchPreference mAllowTurnScreenOffWithWakeLockPref;
     private ListPreference mSleepTimePref;
+    private RestrictedPreferenceAdapter<ListPreference> mRestrictedSleepTime;
 
     @Override
     public void onCreatePreferences(Bundle bundle, String s) {
@@ -54,6 +59,12 @@ public class EnergySaverFragment extends SettingsPreferenceFragment implements
         mAllowTurnScreenOffWithWakeLockPref = findPreference(KEY_ALLOW_TURN_SCREEN_OFF);
         mAllowTurnScreenOffWithWakeLockPref.setOnPreferenceChangeListener(this);
         mAllowTurnScreenOffWithWakeLockPref.setVisible(showStandbyTimeout());
+        UserManager userManager = UserManager.get(getContext());
+        if (userManager.hasUserRestriction(UserManager.DISALLOW_CONFIG_SCREEN_TIMEOUT)
+                && !mAllowTurnScreenOffWithWakeLockPref.isDisabledByAdmin()) {
+            mAllowTurnScreenOffWithWakeLockPref.setEnabled(false);
+        }
+
         updateAllowTurnScreenOffWithWakeLockPref();
         mSleepTimePref = findPreference(KEY_SLEEP_TIME);
         if (allowTurnOffWithWakeLock()) {
@@ -75,6 +86,9 @@ public class EnergySaverFragment extends SettingsPreferenceFragment implements
                     logEntrySelected(TvSettingsEnums.SYSTEM_ENERGYSAVER_START_DELAY);
                     return false;
                 });
+
+        mRestrictedSleepTime = RestrictedPreferenceAdapter.adapt(
+                mSleepTimePref, UserManager.DISALLOW_CONFIG_SCREEN_TIMEOUT);
     }
 
     private boolean showStandbyTimeout() {
@@ -89,21 +103,27 @@ public class EnergySaverFragment extends SettingsPreferenceFragment implements
         if (!mAllowTurnScreenOffWithWakeLockPref.isVisible()) {
             return;
         }
+
+        UserManager userManager = UserManager.get(getContext());
+        boolean canChangeEnabled = !userManager
+                .hasUserRestriction(UserManager.DISALLOW_CONFIG_SCREEN_TIMEOUT);
+
         if (getSleepTime() == -1) {
             mAllowTurnScreenOffWithWakeLockPref.setChecked(false);
-            mAllowTurnScreenOffWithWakeLockPref.setEnabled(false);
+            if (canChangeEnabled) {
+                mAllowTurnScreenOffWithWakeLockPref.setEnabled(false);
+            }
         } else if (getAttentiveSleepTime() == -1) {
             mAllowTurnScreenOffWithWakeLockPref.setChecked(false);
-            mAllowTurnScreenOffWithWakeLockPref.setEnabled(true);
+            if (canChangeEnabled) {
+                mAllowTurnScreenOffWithWakeLockPref.setEnabled(true);
+            }
         } else {
             mAllowTurnScreenOffWithWakeLockPref.setChecked(true);
-            mAllowTurnScreenOffWithWakeLockPref.setEnabled(true);
+            if (canChangeEnabled) {
+                mAllowTurnScreenOffWithWakeLockPref.setEnabled(true);
+            }
         }
-    }
-
-    @Override
-    public int getMetricsCategory() {
-        return MetricsProto.MetricsEvent.DREAM;
     }
 
     @Override
@@ -114,13 +134,29 @@ public class EnergySaverFragment extends SettingsPreferenceFragment implements
                 if (getSleepTimeEntryId(newSleepTime) != -1) {
                     logEntrySelected(getSleepTimeEntryId(newSleepTime));
                 }
-                updateTimeOut(allowTurnOffWithWakeLock(), newSleepTime);
-                break;
+                if (showStandbyTimeout()
+                        && (newSleepTime > WARNING_THRESHOLD_SLEEP_TIME_MS || newSleepTime == -1)) {
+                    // Some regions require a warning to be presented.
+                    new AlertDialog.Builder(getContext())
+                            .setTitle(R.string.device_energy_saver_confirmation_title)
+                            .setMessage(getConfirmationDialogDescription(newSleepTime))
+                            .setPositiveButton(R.string.settings_confirm,
+                                    (dialog, which) -> confirmNewSleepTime(newSleepTime))
+                            .setNegativeButton(R.string.settings_cancel,
+                                    (dialog, which) -> dialog.dismiss())
+                            .create()
+                            .show();
+                    return false;
+                } else {
+                    updateTimeOut(allowTurnOffWithWakeLock(), newSleepTime);
+                    return true;
+                }
             case KEY_ALLOW_TURN_SCREEN_OFF:
                 updateTimeOut((boolean) newValue, Integer.parseInt(mSleepTimePref.getValue()));
-                break;
+                return true;
+            default:
+                return false;
         }
-        return true;
     }
 
     private void updateTimeOut(boolean allowTurnScreenOffWithWakeLock, int value) {
@@ -177,6 +213,29 @@ public class EnergySaverFragment extends SettingsPreferenceFragment implements
             }
         }
         return validatedTimeout;
+    }
+
+    private String getConfirmationDialogDescription(int newSleepTime) {
+        String sleepTimeText = null;
+        String[] optionsValues = getResources().getStringArray(R.array.screen_off_timeout_values);
+        String[] optionsStrings = getResources().getStringArray(R.array.screen_off_timeout_entries);
+        for (int i = 0; i < optionsValues.length; i++) {
+            if (newSleepTime == Integer.parseInt(optionsValues[i])) {
+                sleepTimeText = optionsStrings[i];
+            }
+        }
+        return getString(R.string.device_energy_saver_confirmation_text, sleepTimeText);
+    }
+
+    private void confirmNewSleepTime(int newSleepTime) {
+        if (mSleepTimePref != null) {
+            updateTimeOut(allowTurnOffWithWakeLock(), newSleepTime);
+            mSleepTimePref.setValue(String.valueOf(newSleepTime));
+            mRestrictedSleepTime.updatePreference();
+            if (getCallbackFragment() instanceof TwoPanelSettingsFragment) {
+                ((TwoPanelSettingsFragment) getCallbackFragment()).refocusPreference(this);
+            }
+        }
     }
 
     // TODO(b/158783050): update logging for new options 4H, 8H, 24H.

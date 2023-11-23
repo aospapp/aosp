@@ -25,6 +25,8 @@ import android.os.IBinder;
 import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
 
+import com.android.internal.annotations.VisibleForTesting;
+
 import libcore.io.IoUtils;
 
 import java.lang.annotation.Retention;
@@ -177,13 +179,41 @@ public final class CarBugreportManager extends CarManagerBase {
             @NonNull ParcelFileDescriptor output,
             @NonNull ParcelFileDescriptor extraOutput,
             @NonNull CarBugreportManagerCallback callback) {
+        requestBugreport(output, extraOutput, callback, /* dumpstateDryRun= */ false);
+    }
+
+    /**
+     * Similar to {@link requestBugreport()} above, but runs with {@code dumpstateDryRun=true}.
+     *
+     * @hide
+     */
+    @RequiresPermission(android.Manifest.permission.DUMP)
+    @VisibleForTesting
+    public void requestBugreportForTesting(
+            @NonNull ParcelFileDescriptor output,
+            @NonNull ParcelFileDescriptor extraOutput,
+            @NonNull CarBugreportManagerCallback callback) {
+        requestBugreport(output, extraOutput, callback, /* dumpstateDryRun= */ true);
+    }
+
+    /**
+     * Requests a bug report.
+     *
+     * @param dumpstateDryRun if true, it runs dumpstate in dry_run mode, which is faster.
+     */
+    @RequiresPermission(android.Manifest.permission.DUMP)
+    private void requestBugreport(
+            @NonNull ParcelFileDescriptor output,
+            @NonNull ParcelFileDescriptor extraOutput,
+            @NonNull CarBugreportManagerCallback callback,
+            boolean dumpstateDryRun) {
         Objects.requireNonNull(output);
         Objects.requireNonNull(extraOutput);
         Objects.requireNonNull(callback);
         try {
             CarBugreportManagerCallbackWrapper wrapper =
                     new CarBugreportManagerCallbackWrapper(callback, getEventHandler());
-            mService.requestBugreport(output, extraOutput, wrapper);
+            mService.requestBugreport(output, extraOutput, wrapper, dumpstateDryRun);
         } catch (RemoteException e) {
             handleRemoteExceptionFromCarService(e);
         } finally {

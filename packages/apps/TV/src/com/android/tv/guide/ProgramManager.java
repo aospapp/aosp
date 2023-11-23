@@ -417,8 +417,9 @@ public class ProgramManager {
 
     /**
      * Returns an entry as {@link ProgramImpl} for a given {@code channelId} and {@code index} of
-     * entries within the currently managed time range. Returned {@link ProgramImpl} can be a dummy
-     * one (e.g., whose channelId is INVALID_ID), when it corresponds to a gap between programs.
+     * entries within the currently managed time range. Returned {@link ProgramImpl} can be a
+     * placeholder (e.g., whose channelId is INVALID_ID), when it corresponds to a gap between
+     * programs.
      */
     TableEntry getTableEntry(long channelId, int index) {
         mProgramDataManager.prefetchChannel(channelId, index);
@@ -613,7 +614,7 @@ public class ProgramManager {
             List<Program> programs = mProgramDataManager.getPrograms(channelId, mStartUtcMillis);
             for (Program program : programs) {
                 if (program.getChannelId() == INVALID_ID) {
-                    // Dummy program.
+                    // Placeholder program.
                     continue;
                 }
                 long programStartTime = Math.max(program.getStartTimeUtcMillis(), mStartUtcMillis);

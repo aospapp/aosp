@@ -13,22 +13,23 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
+
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
-        package="com.google.android.car.usb.aoap.host" >
-    <application android:label="@string/app_title" >
-      <uses-library android:name="android.test.runner" />
+     xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
+     package="com.google.android.car.usb.aoap.host">
+    <application android:label="@string/app_title">
+      <uses-library android:name="android.test.runner"/>
 
       <activity android:name=".UsbAoapHostActivity"
-                android:configChanges="keyboard|keyboardHidden" >
+           android:configChanges="keyboard|keyboardHidden"
+           android:exported="true">
         <intent-filter>
-          <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
+          <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"/>
         </intent-filter>
-        <meta-data
-            android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
-            android:resource="@xml/usb_device_filter"/>
+        <meta-data android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
+             android:resource="@xml/usb_device_filter"/>
       </activity>
       <service android:name=".AoapSupportCheckService"
-               android:exported="true" />
+           android:exported="true"/>
     </application>
 </manifest>

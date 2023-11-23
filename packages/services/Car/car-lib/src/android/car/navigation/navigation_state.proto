@@ -491,6 +491,9 @@ message Step {
   // instance, the beginning of these instructions must be displayed,
   // cutting as much from the end as needed to fit.
   Cue cue = 5;
+
+  // Indicates whether this step is about to be executed.
+  bool is_imminent = 6;
 }
 
 // An object representing a latitude/longitude pair. This is expressed as a pair

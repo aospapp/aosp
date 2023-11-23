@@ -40,4 +40,5 @@
       <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> de mesaje noi</item>
       <item quantity="one">Un mesaj nou</item>
     </plurals>
+    <string name="manage_text" msgid="4225197445283791757">"Gestionați"</string>
 </resources>

@@ -14,19 +14,19 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.eap.statemachine;
+package com.android.internal.net.eap.test.statemachine;
 
+import static android.net.eap.test.EapSessionConfig.EapMethodConfig.EAP_TYPE_SIM;
 import static android.telephony.TelephonyManager.APPTYPE_USIM;
 
 import static com.android.internal.net.TestUtils.hexStringToByteArray;
-import static com.android.internal.net.eap.message.EapData.EAP_TYPE_SIM;
-import static com.android.internal.net.eap.message.EapMessage.EAP_CODE_REQUEST;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.EAP_SIM_CLIENT_ERROR_UNABLE_TO_PROCESS;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.EAP_SIM_NOTIFICATION_RESPONSE;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.ID_INT;
-import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtNotification.GENERAL_FAILURE_PRE_CHALLENGE;
-import static com.android.internal.net.eap.message.simaka.EapSimTypeData.EAP_SIM_NOTIFICATION;
-import static com.android.internal.net.eap.message.simaka.EapSimTypeData.EAP_SIM_START;
+import static com.android.internal.net.eap.test.message.EapMessage.EAP_CODE_REQUEST;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_SIM_CLIENT_ERROR_UNABLE_TO_PROCESS;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_SIM_NOTIFICATION_RESPONSE;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.ID_INT;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtNotification.GENERAL_FAILURE_PRE_CHALLENGE;
+import static com.android.internal.net.eap.test.message.simaka.EapSimTypeData.EAP_SIM_NOTIFICATION;
+import static com.android.internal.net.eap.test.message.simaka.EapSimTypeData.EAP_SIM_START;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -39,21 +39,21 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
-import android.net.eap.EapSessionConfig.EapSimConfig;
+import android.net.eap.test.EapSessionConfig.EapSimConfig;
 import android.telephony.TelephonyManager;
 
-import com.android.internal.net.eap.EapResult.EapError;
-import com.android.internal.net.eap.EapResult.EapResponse;
-import com.android.internal.net.eap.exceptions.EapInvalidRequestException;
-import com.android.internal.net.eap.message.EapData;
-import com.android.internal.net.eap.message.EapMessage;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtNotification;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtVersionList;
-import com.android.internal.net.eap.message.simaka.EapSimAkaTypeData;
-import com.android.internal.net.eap.message.simaka.EapSimAkaTypeData.DecodeResult;
-import com.android.internal.net.eap.message.simaka.EapSimTypeData;
-import com.android.internal.net.eap.message.simaka.EapSimTypeData.EapSimTypeDataDecoder;
-import com.android.internal.net.eap.statemachine.EapSimMethodStateMachine.CreatedState;
+import com.android.internal.net.eap.test.EapResult.EapError;
+import com.android.internal.net.eap.test.EapResult.EapResponse;
+import com.android.internal.net.eap.test.exceptions.EapInvalidRequestException;
+import com.android.internal.net.eap.test.message.EapData;
+import com.android.internal.net.eap.test.message.EapMessage;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtNotification;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtVersionList;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaTypeData;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaTypeData.DecodeResult;
+import com.android.internal.net.eap.test.message.simaka.EapSimTypeData;
+import com.android.internal.net.eap.test.message.simaka.EapSimTypeData.EapSimTypeDataDecoder;
+import com.android.internal.net.eap.test.statemachine.EapSimMethodStateMachine.CreatedState;
 
 import org.junit.Before;
 import org.junit.Test;

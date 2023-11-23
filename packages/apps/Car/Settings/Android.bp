@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_app {
     name: "CarSettings",
     overrides: ["Settings"],
@@ -41,6 +45,7 @@ android_app {
         "androidx-constraintlayout_constraintlayout-solver",
         "jsr305",
         "car-ui-lib",
+        "car-admin-ui-lib",
     ],
 
     certificate: "platform",
@@ -55,7 +60,7 @@ android_app {
         enabled: false,
     },
 
-    required: ["privapp_whitelist_com.android.car.settings"],
+    required: ["allowed_privapp_com.android.car.settings"],
 
     dxflags: ["--multi-dex"],
 
@@ -95,6 +100,7 @@ android_app {
         "androidx-constraintlayout_constraintlayout-solver",
         "jsr305",
         "car-ui-lib-testing-support",
+        "car-admin-ui-lib",
     ],
 
     // Testing only resources must be applied last so they take precedence.
@@ -116,6 +122,63 @@ android_app {
     },
 
     dxflags: ["--multi-dex"],
+
+    product_variables: {
+        pdk: {
+            enabled: false,
+        },
+    },
+}
+
+android_library {
+    name: "CarSettingsForUnitTesting",
+    platform_apis: true,
+    defaults: [
+        "SettingsLibDefaults",
+        "SettingsLib-search-defaults",
+    ],
+
+    manifest: "tests/unit/AndroidManifest.xml",
+
+    srcs: ["src/**/*.java"],
+
+    libs: [
+        "android.car",
+    ],
+
+    static_libs: [
+        "androidx.lifecycle_lifecycle-common-java8",
+        "androidx.lifecycle_lifecycle-extensions",
+        "androidx.preference_preference",
+        "androidx-constraintlayout_constraintlayout",
+        "car-apps-common",
+        "car-setup-wizard-lib-utils",
+        "SettingsLib",
+        "SettingsLib-search",
+        "android.car.userlib",
+        "androidx-constraintlayout_constraintlayout-solver",
+        "jsr305",
+        "car-ui-lib-testing-support",
+        "car-admin-ui-lib",
+    ],
+
+    // Testing only resources must be applied last so they take precedence.
+    resource_dirs: [
+        "res",
+        "tests/unit/res",
+    ],
+
+    optimize: {
+        enabled: false,
+    },
+
+    dex_preopt: {
+        enabled: false,
+    },
+
+    dxflags: ["--multi-dex"],
+
+    aaptflags: ["--extra-packages com.android.car.settings"],
 
     product_variables: {
         pdk: {

@@ -16,12 +16,16 @@
 
 package com.android.internal.net.ipsec.ike.message;
 
+import static android.net.ipsec.ike.IkeManager.getIkeLog;
+
 import android.annotation.StringDef;
+import android.net.ipsec.ike.exceptions.AuthenticationFailedException;
 import android.net.ipsec.ike.exceptions.IkeProtocolException;
+import android.net.ipsec.ike.exceptions.InvalidSyntaxException;
+import android.util.ArraySet;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.net.ipsec.ike.crypto.IkeMacPrf;
-import com.android.internal.net.ipsec.ike.exceptions.AuthenticationFailedException;
 import com.android.internal.net.ipsec.ike.message.IkeAuthPayload.AuthMethod;
 
 import java.lang.annotation.Retention;
@@ -35,6 +39,7 @@ import java.security.Signature;
 import java.security.SignatureException;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
+import java.util.Set;
 
 /**
  * IkeAuthDigitalSignPayload represents Authentication Payload using a specific or generic digital
@@ -50,6 +55,8 @@ import java.util.Arrays;
  *     Internet Key Exchange Version 2 (IKEv2)</a>
  */
 public class IkeAuthDigitalSignPayload extends IkeAuthPayload {
+    private static final String TAG = IkeAuthDigitalSignPayload.class.getSimpleName();
+
     private static final String KEY_ALGO_NAME = "RSA";
     private static final byte SIGNATURE_ALGO_ASN1_BYTES_LEN = (byte) 15;
     private static final byte SIGNATURE_ALGO_ASN1_BYTES_LEN_LEN = (byte) 1;
@@ -114,6 +121,14 @@ public class IkeAuthDigitalSignPayload extends IkeAuthPayload {
                 HASH_ALGORITHM_RSA_SHA2_384,
                 HASH_ALGORITHM_RSA_SHA2_512
             };
+    private static final Set<Short> ALL_SIGNATURE_ALGO_TYPES_SET = new ArraySet<>();
+
+    static {
+        ALL_SIGNATURE_ALGO_TYPES_SET.add(HASH_ALGORITHM_RSA_SHA1);
+        ALL_SIGNATURE_ALGO_TYPES_SET.add(HASH_ALGORITHM_RSA_SHA2_256);
+        ALL_SIGNATURE_ALGO_TYPES_SET.add(HASH_ALGORITHM_RSA_SHA2_384);
+        ALL_SIGNATURE_ALGO_TYPES_SET.add(HASH_ALGORITHM_RSA_SHA2_512);
+    }
 
     public final String signatureAndHashAlgos;
     public final byte[] signature;
@@ -292,5 +307,40 @@ public class IkeAuthDigitalSignPayload extends IkeAuthPayload {
     @Override
     public String getTypeString() {
         return "Auth(Digital Sign)";
+    }
+
+    /**
+     * Gets the Signature Hash Algorithsm from the specified IkeNotifyPayload.
+     *
+     * @param notifyPayload IkeNotifyPayload to read serialized Signature Hash Algorithms from. The
+     *     payload type must be SIGNATURE_HASH_ALGORITHMS.
+     * @return Set<Short> the Signature Hash Algorithms included in the notifyPayload.
+     * @throws InvalidSyntaxException if the included Signature Hash Algorithms are not serialized
+     *     correctly
+     */
+    public static Set<Short> getSignatureHashAlgorithmsFromIkeNotifyPayload(
+            IkeNotifyPayload notifyPayload) throws InvalidSyntaxException {
+        if (notifyPayload.notifyType != IkeNotifyPayload.NOTIFY_TYPE_SIGNATURE_HASH_ALGORITHMS) {
+            throw new IllegalArgumentException(
+                    "Notify payload type must be SIGNATURE_HASH_ALGORITHMS");
+        }
+
+        // Hash Algorithm Identifiers are encoded as 16-bit values with no padding (RFC 7427#4)
+        int dataLen = notifyPayload.notifyData.length;
+        if (dataLen % 2 != 0) {
+            throw new InvalidSyntaxException(
+                    "Received notify(SIGNATURE_HASH_ALGORITHMS) with invalid notify data");
+        }
+
+        Set<Short> hashAlgos = new ArraySet<>();
+        ByteBuffer serializedHashAlgos = ByteBuffer.wrap(notifyPayload.notifyData);
+        while (serializedHashAlgos.hasRemaining()) {
+            short hashAlgo = serializedHashAlgos.getShort();
+            if (!ALL_SIGNATURE_ALGO_TYPES_SET.contains(hashAlgo) || !hashAlgos.add(hashAlgo)) {
+                getIkeLog().w(TAG, "Unexpected or repeated Signature Hash Algorithm: " + hashAlgo);
+            }
+        }
+
+        return hashAlgos;
     }
 }

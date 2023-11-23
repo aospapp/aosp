@@ -1415,11 +1415,11 @@ public class PduPersister {
 
                     // For received messages (whether group MMS is enabled or not) we want to
                     // associate this message with the thread composed of all the recipients
-                    // EXCLUDING our own number. This includes the person who sent the
-                    // message (the FROM field above) in addition to the other people the message
-                    // was addressed TO (or CC fields to address group messaging compatibility
-                    // issues with devices that place numbers in this field). Typically our own
-                    // number is in the TO/CC field so we have to remove it in loadRecipients.
+                    // EXCLUDING our own number. This includes the person who sent the message
+                    // (the FROM field above) in addition to the other people the message was
+                    // addressed TO (or CC fields to address group messaging compatibility issues
+                    // with devices that place numbers in this field). Typically our own number is
+                    // in the TO/CC field so we have to remove it in checkAndLoadToCcRecipients.
                     checkAndLoadToCcRecipients(recipients, addressMap, subPhoneNumber);
                     break;
                 case PduHeaders.MESSAGE_TYPE_SEND_REQ:
@@ -1440,7 +1440,7 @@ public class PduPersister {
 
         // Save parts first to avoid inconsistent message is loaded
         // while saving the parts.
-        final long dummyId = System.currentTimeMillis(); // Dummy ID of the msg.
+        final long placeholderId = System.currentTimeMillis(); // Placeholder ID of the msg.
 
         // Figure out if this PDU is a text-only message
         boolean textOnly = true;
@@ -1463,7 +1463,7 @@ public class PduPersister {
                 }
                 for (int i = 0; i < partsNum; i++) {
                     final PduPart part = body.getPart(i);
-                    persistPart(part, dummyId, preOpenedFiles);
+                    persistPart(part, placeholderId, preOpenedFiles);
 
                     // If we've got anything besides text/plain or SMIL part, then we've got
                     // an mms message with some other type of attachment.
@@ -1501,14 +1501,14 @@ public class PduPersister {
                 throw new MmsException("persist() failed: return null.");
             }
             // Get the real ID of the PDU and update all parts which were
-            // saved with the dummy ID.
+            // saved with the placeholder ID.
             msgId = ContentUris.parseId(res);
         }
 
         values = new ContentValues(1);
         values.put(Part.MSG_ID, msgId);
         SqliteWrapper.update(mContext, mContentResolver,
-                Uri.parse("content://mms/" + dummyId + "/part"),
+                Uri.parse("content://mms/" + placeholderId + "/part"),
                 values, null, null);
         // We should return the longest URI of the persisted PDU, for
         // example, if input URI is "content://mms/inbox" and the _ID of
@@ -1582,9 +1582,17 @@ public class PduPersister {
                 }
             }
         }
+
+        // If selfNumber is unavailable and there is only a single address in all TO and CC, we can
+        // skip adding it into recipients as assuming it is my own phone number.
+        final boolean isSelfNumberUnavailable = TextUtils.isEmpty(selfNumber);
+        if (isSelfNumberUnavailable && numbers.size() == 1) {
+            return;
+        }
+
         for (final String number : numbers) {
             // Only add numbers which aren't my own number.
-            if (TextUtils.isEmpty(selfNumber) || !PhoneNumberUtils.compare(number, selfNumber)) {
+            if (isSelfNumberUnavailable || !PhoneNumberUtils.compare(number, selfNumber)) {
                 if (!recipients.contains(number)) {
                     // Only add numbers which aren't already included.
                     recipients.add(number);

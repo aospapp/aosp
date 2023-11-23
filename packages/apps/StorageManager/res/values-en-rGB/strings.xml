@@ -26,7 +26,7 @@
     <string name="deletion_helper_app_summary_never_used" msgid="2695210890063792461">"Not used in last year"</string>
     <string name="deletion_helper_app_summary_unknown_used" msgid="8576377054665785558">"Not sure when last used"</string>
     <string name="deletion_helper_free_button" msgid="1760529213407548661">"Free up <xliff:g id="FREEABLE">%1$s</xliff:g>"</string>
-    <string name="deletion_helper_photos_title" msgid="2602723121486729972">"Backed up photos &amp; videos"</string>
+    <string name="deletion_helper_photos_title" msgid="2602723121486729972">"Backed-up photos &amp; videos"</string>
     <string name="deletion_helper_photos_age_summary" msgid="1820871709448371984">"Over 30 days old"</string>
     <!-- no translation found for deletion_helper_photos_summary (3194825464552700889) -->
     <skip />
@@ -54,7 +54,7 @@
     <string name="automatic_storage_manager_notification_summary" msgid="2267399886362245822">"Let Storage Manager free up space by automatically removing old photos and videos when your phone starts to get full again."</string>
     <string name="automatic_storage_manager_cancel_button" msgid="1826365037494962803">"No, thanks"</string>
     <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"Turn on"</string>
-    <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"Backed up photos &amp; videos"</string>
+    <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"Backed-up photos &amp; videos"</string>
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"Finding items…"</string>
     <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"Show all items"</string>
     <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"Hide recent items"</string>

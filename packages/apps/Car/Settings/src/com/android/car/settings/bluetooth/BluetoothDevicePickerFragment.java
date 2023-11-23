@@ -17,7 +17,6 @@
 package com.android.car.settings.bluetooth;
 
 import android.content.Context;
-import android.os.Bundle;
 
 import androidx.annotation.XmlRes;
 
@@ -51,11 +50,6 @@ public class BluetoothDevicePickerFragment extends SettingsFragment {
 
         use(BluetoothDevicePickerPreferenceController.class,
                 R.string.pk_bluetooth_device_picker).setLaunchIntent(requireActivity().getIntent());
-    }
-
-    @Override
-    public void onActivityCreated(Bundle savedInstanceState) {
-        super.onActivityCreated(savedInstanceState);
     }
 
     @Override

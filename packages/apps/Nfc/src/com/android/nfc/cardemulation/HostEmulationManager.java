@@ -31,6 +31,7 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
 import android.os.Messenger;
+import android.os.PowerManager;
 import android.os.RemoteException;
 import android.os.UserHandle;
 import android.util.Log;
@@ -72,6 +73,7 @@ public class HostEmulationManager {
     final Messenger mMessenger = new Messenger (new MessageHandler());
     final KeyguardManager mKeyguard;
     final Object mLock;
+    final PowerManager mPowerManager;
 
     // All variables below protected by mLock
 
@@ -106,6 +108,7 @@ public class HostEmulationManager {
         mAidCache = aidCache;
         mState = STATE_IDLE;
         mKeyguard = (KeyguardManager) context.getSystemService(Context.KEYGUARD_SERVICE);
+        mPowerManager = context.getSystemService(PowerManager.class);
     }
 
     public void onPreferredPaymentServiceChanged(final ComponentName service) {
@@ -179,6 +182,11 @@ public class HostEmulationManager {
                         // Just ignore all future APDUs until next tap
                         mState = STATE_W4_DEACTIVATE;
                         launchTapAgain(resolveInfo.defaultService, resolveInfo.category);
+                        return;
+                    }
+                    if (defaultServiceInfo.requiresScreenOn() && !mPowerManager.isScreenOn()) {
+                        // Just ignore all future APDUs
+                        mState = STATE_W4_DEACTIVATE;
                         return;
                     }
                     // In no circumstance should this be an OffHostService -
@@ -309,12 +317,15 @@ public class HostEmulationManager {
             unbindServiceIfNeededLocked();
             Intent aidIntent = new Intent(HostApduService.SERVICE_INTERFACE);
             aidIntent.setComponent(service);
-            if (mContext.bindServiceAsUser(aidIntent, mConnection,
-                    Context.BIND_AUTO_CREATE | Context.BIND_ALLOW_BACKGROUND_ACTIVITY_STARTS,
-                    UserHandle.CURRENT)) {
-                mServiceBound = true;
-            } else {
-                Log.e(TAG, "Could not bind service.");
+            try {
+                mServiceBound = mContext.bindServiceAsUser(aidIntent, mConnection,
+                        Context.BIND_AUTO_CREATE | Context.BIND_ALLOW_BACKGROUND_ACTIVITY_STARTS,
+                        UserHandle.CURRENT);
+                if (!mServiceBound) {
+                    Log.e(TAG, "Could not bind service.");
+                }
+            } catch (SecurityException e) {
+                Log.e(TAG, "Could not bind service due to security exception.");
             }
             return null;
         }
@@ -464,6 +475,7 @@ public class HostEmulationManager {
                 }
                 mService = new Messenger(service);
                 mServiceName = name;
+                mServiceBound = true;
                 Log.d(TAG, "Service bound");
                 mState = STATE_XFER;
                 // Send pending select APDU
@@ -479,6 +491,7 @@ public class HostEmulationManager {
             synchronized (mLock) {
                 Log.d(TAG, "Service unbound");
                 mService = null;
+                mServiceName = null;
                 mServiceBound = false;
             }
         }

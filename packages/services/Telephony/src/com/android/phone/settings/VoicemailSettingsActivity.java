@@ -238,6 +238,10 @@ public class VoicemailSettingsActivity extends PreferenceActivity
 
         mVoicemailNotificationPreference =
                 findPreference(getString(R.string.voicemail_notifications_key));
+        if (mSubMenuVoicemailSettings == null) {
+            mSubMenuVoicemailSettings =
+                    (EditPhoneNumberPreference) findPreference(BUTTON_VOICEMAIL_KEY);
+        }
         final Intent intent = new Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS);
         intent.putExtra(Settings.EXTRA_CHANNEL_ID,
                 NotificationChannelController.CHANNEL_ID_VOICE_MAIL);
@@ -250,12 +254,6 @@ public class VoicemailSettingsActivity extends PreferenceActivity
         super.onResume();
         mForeground = true;
 
-        PreferenceScreen prefSet = getPreferenceScreen();
-
-        if (mSubMenuVoicemailSettings == null) {
-            mSubMenuVoicemailSettings =
-                    (EditPhoneNumberPreference) findPreference(BUTTON_VOICEMAIL_KEY);
-        }
         if (mSubMenuVoicemailSettings != null) {
             mSubMenuVoicemailSettings.setParentActivity(this, VOICEMAIL_PREF_ID, this);
             mSubMenuVoicemailSettings.setDialogOnClosedListener(this);

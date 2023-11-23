@@ -45,4 +45,6 @@
         <item name="android:textColor">@*android:color/primary_text_default_material_light</item>
     </style>
 
+    <style name="dialog" parent="android:style/Theme.Material.Light.Dialog.Alert" />
+
 </resources>

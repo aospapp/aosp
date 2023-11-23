@@ -101,6 +101,8 @@ public class LogUtils {
         public static final String SET_DISCONNECTED = "SET_DISCONNECTED";
         public static final String SET_DISCONNECTING = "SET_DISCONNECTING";
         public static final String SET_SELECT_PHONE_ACCOUNT = "SET_SELECT_PHONE_ACCOUNT";
+        public static final String SET_AUDIO_PROCESSING = "SET_AUDIO_PROCESSING";
+        public static final String SET_SIMULATED_RINGING = "SET_SIMULATED_RINGING";
         public static final String REQUEST_HOLD = "REQUEST_HOLD";
         public static final String REQUEST_UNHOLD = "REQUEST_UNHOLD";
         public static final String REQUEST_DISCONNECT = "REQUEST_DISCONNECT";
@@ -194,6 +196,12 @@ public class LogUtils {
         public static final String REDIRECTION_USER_CONFIRMATION = "REDIRECTION_USER_CONFIRMATION";
         public static final String REDIRECTION_USER_CONFIRMED = "REDIRECTION_USER_CONFIRMED";
         public static final String REDIRECTION_USER_CANCELLED = "REDIRECTION_USER_CANCELLED";
+        public static final String BT_QUALITY_REPORT = "BT_QUALITY_REPORT";
+        public static final String SET_DISCONNECTED_ORIG = "SET_DISCONNECTED_ORIG";
+        public static final String OVERRIDE_DISCONNECT_MESSAGE = "OVERRIDE_DISCONNECT_MSG";
+        public static final String CALL_DIAGNOSTIC_SERVICE_TIMEOUT =
+                "CALL_DIAGNOSTIC_SERVICE_TIMEOUT";
+        public static final String VERSTAT_CHANGED = "VERSTAT_CHANGED";
 
         public static class Timings {
             public static final String ACCEPT_TIMING = "accept";

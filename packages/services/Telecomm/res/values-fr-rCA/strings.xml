@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3077225713817780583">"Gestion des appels"</string>
+    <string name="telecommAppLabel" product="default" msgid="1825598513414129827">"Appels téléphoniques"</string>
     <string name="userCallActivityLabel" product="default" msgid="3605391260292846248">"Téléphone"</string>
     <string name="unknown" msgid="6993977514360123431">"Inconnu"</string>
     <string name="notification_missedCallTitle" msgid="5060387047205532974">"Appel manqué"</string>
@@ -104,7 +104,7 @@
     <string name="alert_redirect_outgoing_call_or_not" msgid="665409645789521636">"Choisissez comment passer cet appel"</string>
     <string name="alert_place_outgoing_call_with_redirection" msgid="5221065030959024121">"Rediriger l\'appel en utilisant <xliff:g id="OTHER_APP">%1$s</xliff:g>"</string>
     <string name="alert_place_unredirect_outgoing_call" msgid="2467608535225764006">"Appeler en utilisant mon numéro de téléphone"</string>
-    <string name="alert_redirect_outgoing_call_timeout" msgid="5568101425637373060">"Impossible de passer l\'appel au moyen de l\'application <xliff:g id="OTHER_APP">%1$s</xliff:g>. Essayez d\'utiliser une autre application de redirection d\'appels ou de communiquer avec le concepteur de l\'application pour obtenir de l\'aide."</string>
+    <string name="alert_redirect_outgoing_call_timeout" msgid="5568101425637373060">"Impossible de passer l\'appel au moyen de l\'application <xliff:g id="OTHER_APP">%1$s</xliff:g>. Essayez d\'utiliser une autre application de redirection d\'appels ou de communiquer avec le développeur de l\'application pour obtenir de l\'aide."</string>
     <string name="phone_settings_call_blocking_txt" msgid="7311523114822507178">"Blocage des appels"</string>
     <string name="phone_settings_number_not_in_contact_txt" msgid="2602249106007265757">"Numéros non répertoriés dans les contacts"</string>
     <string name="phone_settings_number_not_in_contact_summary_txt" msgid="963327038085718969">"Bloquer les numéros non répertoriés dans vos contacts"</string>

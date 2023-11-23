@@ -60,7 +60,7 @@ public class PreferenceControllerListHelperTest {
             assertThat(controller).isInstanceOf(DefaultRestrictionsPreferenceController.class);
             foundKeys.add(controller.getPreferenceKey());
         }
-        assertThat(foundKeys).containsAllIn(validKeys);
+        assertThat(foundKeys).containsAtLeastElementsIn(validKeys);
     }
 
     @Test

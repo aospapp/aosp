@@ -18,9 +18,7 @@ package com.android.car.settings.location;
 
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
-import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.content.pm.ResolveInfo;
 
 import androidx.annotation.VisibleForTesting;
 import androidx.preference.Preference;
@@ -41,6 +39,7 @@ import java.util.List;
  */
 public class RecentLocationRequestsPreferenceController extends
         PreferenceController<PreferenceGroup> {
+    private final PackageManager mPackageManager;
     private RecentLocationApps mRecentLocationApps;
     // This list will always be sorted by most recent first.
     private List<Request> mRecentLocationRequests;
@@ -49,6 +48,7 @@ public class RecentLocationRequestsPreferenceController extends
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
         mRecentLocationApps = new RecentLocationApps(context);
+        mPackageManager = context.getPackageManager();
     }
 
     @VisibleForTesting
@@ -96,16 +96,24 @@ public class RecentLocationRequestsPreferenceController extends
         pref.setSummary(request.contentDescription);
         pref.setIcon(request.icon);
         pref.setTitle(request.label);
-        Intent intent = new Intent();
-        intent.setPackage(request.packageName);
-        ResolveInfo resolveInfo = getContext().getPackageManager().resolveActivity(intent,
-                PackageManager.MATCH_DEFAULT_ONLY);
-        pref.setOnPreferenceClickListener(p -> {
-            getFragmentController().launchFragment(
-                    ApplicationDetailsFragment.getInstance(resolveInfo.activityInfo.packageName));
-            return true;
-        });
+        if (isPackageInstalled(request.packageName)) {
+            pref.setOnPreferenceClickListener(p -> {
+                getFragmentController().launchFragment(
+                        ApplicationDetailsFragment.getInstance(
+                                request.packageName));
+                return true;
+            });
+        }
         return pref;
+    }
+
+    private boolean isPackageInstalled(String packageName) {
+        try {
+            mPackageManager.getPackageInfo(packageName, PackageManager.GET_META_DATA);
+        } catch (PackageManager.NameNotFoundException e) {
+            return false;
+        }
+        return true;
     }
 
     /**

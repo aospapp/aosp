@@ -62,6 +62,12 @@ class DnsTlsFrontend {
     void set_chain_length(int length) { chain_length_ = length; }
     void setHangOnHandshakeForTesting(bool hangOnHandshake) { hangOnHandshake_ = hangOnHandshake; }
 
+    // Set DnsTlsFrontend to not reply any response until there are |delay| responses or timeout.
+    void setDelayQueries(int delay) { delayQueries_ = delay; }
+    void setDelayQueriesTimeout(int timeout) { delayQueriesTimeout_ = timeout; }
+
+    void setPassiveClose(bool passiveClose) { passiveClose_ = passiveClose; }
+
     static constexpr char kDefaultListenAddr[] = "127.0.0.3";
     static constexpr char kDefaultListenService[] = "853";
     static constexpr char kDefaultBackendAddr[] = "127.0.0.3";
@@ -94,6 +100,9 @@ class DnsTlsFrontend {
     std::mutex update_mutex_;
     int chain_length_ = 1;
     std::atomic<bool> hangOnHandshake_ = false;
+    std::atomic<int> delayQueries_ = 1;
+    std::atomic<int> delayQueriesTimeout_ = 1;
+    std::atomic<bool> passiveClose_ = false;
 };
 
 }  // namespace test

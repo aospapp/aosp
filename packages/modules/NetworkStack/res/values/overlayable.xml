@@ -77,6 +77,13 @@
             <item type="integer" name="config_evaluating_bandwidth_timeout_ms"/>
             <item type="integer" name="config_evaluating_bandwidth_min_retry_timer_ms"/>
             <item type="integer" name="config_evaluating_bandwidth_max_retry_timer_ms"/>
+
+            <!-- Whether the APF Filter in the device should filter out IEEE 802.3 Frames
+            Those frames are identified by the field Eth-type having values less than 0x600 -->
+            <item type="bool" name="config_apfDrop802_3Frames"/>
+            <!-- An array of Denylisted EtherType, packets with EtherTypes within this array
+            will be dropped -->
+            <item type="array" name="config_apfEthTypeDenyList"/>
         </policy>
     </overlayable>
 </resources>

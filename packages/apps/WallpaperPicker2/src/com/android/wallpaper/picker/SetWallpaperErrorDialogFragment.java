@@ -16,6 +16,7 @@
 package com.android.wallpaper.picker;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.DialogInterface;
 import android.os.Bundle;
@@ -23,7 +24,6 @@ import android.os.Bundle;
 import com.android.wallpaper.R;
 import com.android.wallpaper.module.WallpaperPersister.Destination;
 
-import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.DialogFragment;
 import androidx.fragment.app.Fragment;
 

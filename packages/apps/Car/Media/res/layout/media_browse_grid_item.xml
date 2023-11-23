@@ -17,24 +17,30 @@
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/container"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:focusable="true"
-    android:clickable="true"
-    android:foreground="@drawable/grid_item_background"
     android:padding="@dimen/media_browse_grid_item_padding"
     android:layout_marginBottom="@dimen/media_browse_grid_item_margin_bottom">
 
-    <com.android.car.media.common.FixedRatioImageView
-        android:id="@+id/thumbnail"
+    <FrameLayout
+        android:id="@+id/item_container"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:scaleType="centerCrop"
-        app:aspect_ratio="1"
-        app:layout_constraintTop_toTopOf="parent"
+        android:layout_height="wrap_content"
+        android:clickable="true"
+        android:focusable="true"
+        android:foreground="?android:attr/selectableItemBackground"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        app:layout_constraintTop_toTopOf="parent">
+
+        <com.android.car.media.common.FixedRatioImageView
+            android:id="@+id/thumbnail"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:scaleType="centerCrop"
+            app:aspect_ratio="1"/>
+
+    </FrameLayout>
 
     <ImageView
         android:id="@+id/download_icon_with_title"
@@ -68,7 +74,7 @@
         android:includeFontPadding="false"
         android:duplicateParentState="true"
         app:layout_constraintStart_toEndOf="@+id/explicit_icon_with_title"
-        app:layout_constraintTop_toBottomOf="@+id/thumbnail"
+        app:layout_constraintTop_toBottomOf="@+id/item_container"
         app:layout_constraintEnd_toEndOf="parent"/>
 
     <ImageView

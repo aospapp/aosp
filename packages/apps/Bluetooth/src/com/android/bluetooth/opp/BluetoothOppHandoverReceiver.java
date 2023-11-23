@@ -75,16 +75,16 @@ public class BluetoothOppHandoverReceiver extends BroadcastReceiver {
                 }
                 return;
             }
-        } else if (action.equals(Constants.ACTION_WHITELIST_DEVICE)) {
+        } else if (action.equals(Constants.ACTION_ACCEPTLIST_DEVICE)) {
             BluetoothDevice device =
                     (BluetoothDevice) intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
             if (D) {
-                Log.d(TAG, "Adding " + device + " to whitelist");
+                Log.d(TAG, "Adding " + device + " to acceptlist");
             }
             if (device == null) {
                 return;
             }
-            BluetoothOppManager.getInstance(context).addToWhitelist(device.getAddress());
+            BluetoothOppManager.getInstance(context).addToAcceptlist(device.getAddress());
         } else if (action.equals(Constants.ACTION_STOP_HANDOVER)) {
             int id = intent.getIntExtra(Constants.EXTRA_BT_OPP_TRANSFER_ID, -1);
             if (id != -1) {

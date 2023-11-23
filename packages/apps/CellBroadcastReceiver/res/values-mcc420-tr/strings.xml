@@ -23,6 +23,6 @@
     <string name="pws_other_message_identifiers" msgid="7907712751421890873">"Uyarılar"</string>
     <string name="enable_emergency_alerts_message_title" msgid="5267857032926801433">"Uyarılar"</string>
     <string name="enable_emergency_alerts_message_summary" msgid="8961532453478455676">"Can ve mal kaybını önleyebilecek işlem önerileri"</string>
-    <string name="cmas_required_monthly_test" msgid="197559096432885563">"Test Amaçlı Uyarılar"</string>
+    <string name="cmas_required_monthly_test" msgid="5733131786754331921">"Test Uyarıları"</string>
     <string name="cmas_exercise_alert" msgid="7249058541625071454">"Egzersizler"</string>
 </resources>

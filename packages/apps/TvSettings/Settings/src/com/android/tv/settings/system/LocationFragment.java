@@ -16,6 +16,10 @@
 
 package com.android.tv.settings.system;
 
+import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
+import static com.android.tv.settings.util.InstrumentationUtils.logToggleInteracted;
+
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -24,25 +28,28 @@ import android.location.LocationManager;
 import android.os.BatteryManager;
 import android.os.Bundle;
 import android.os.Process;
+import android.os.UserHandle;
 import android.os.UserManager;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.Log;
 
 import androidx.annotation.Keep;
-import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceGroup;
 import androidx.preference.PreferenceScreen;
 import androidx.preference.SwitchPreference;
 
-import com.android.internal.logging.nano.MetricsProto;
+import com.android.settingslib.RestrictedLockUtils;
+import com.android.settingslib.RestrictedLockUtilsInternal;
+import com.android.settingslib.RestrictedPreference;
 import com.android.settingslib.location.RecentLocationApps;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
 import com.android.tv.settings.device.apps.AppManagementFragment;
-import com.android.tv.settings.overlay.FeatureFactory;
+import com.android.tv.settings.overlay.FlavorUtils;
+import com.android.tv.twopanelsettings.SummaryListPreference;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -68,7 +75,8 @@ public class LocationFragment extends SettingsPreferenceFragment implements
     private static final String CURRENT_MODE_KEY = "CURRENT_MODE";
     private static final String NEW_MODE_KEY = "NEW_MODE";
 
-    private ListPreference mLocationMode;
+    private SummaryListPreference mLocationMode;
+    private RestrictedPreference mRestrictedLocationMode;
     private SwitchPreference mAlwaysScan;
 
     private BroadcastReceiver mReceiver = new BroadcastReceiver() {
@@ -92,27 +100,44 @@ public class LocationFragment extends SettingsPreferenceFragment implements
                 themedContext);
         screen.setTitle(R.string.system_location);
 
-        mLocationMode = new ListPreference(themedContext);
-        screen.addPreference(mLocationMode);
-        mLocationMode.setKey(KEY_LOCATION_MODE);
-        mLocationMode.setPersistent(false);
-        mLocationMode.setTitle(R.string.location_status);
-        mLocationMode.setDialogTitle(R.string.location_status);
-        mLocationMode.setSummary("%s");
-        mLocationMode.setEntries(new CharSequence[] {
-                getString(R.string.location_mode_wifi_description),
-                getString(R.string.off)
-        });
-        mLocationMode.setEntryValues(new CharSequence[] {
-                LOCATION_MODE_WIFI,
-                LOCATION_MODE_OFF
-        });
-        mLocationMode.setOnPreferenceChangeListener(this);
+        final RestrictedLockUtils.EnforcedAdmin admin = checkIfUserRestrictionEnforcedByAdmin();
+        if (admin == null) {
+            mLocationMode = new SummaryListPreference(themedContext);
+            screen.addPreference(mLocationMode);
+            mLocationMode.setKey(KEY_LOCATION_MODE);
+            mLocationMode.setPersistent(false);
+            mLocationMode.setTitle(R.string.location_status);
+            mLocationMode.setDialogTitle(R.string.location_status);
+            mLocationMode.setSummary("%s");
+            mLocationMode.setEntries(new CharSequence[] {
+                    getString(R.string.location_mode_wifi_description),
+                    getString(R.string.off)
+            });
+            mLocationMode.setEntryValues(new CharSequence[] {
+                    LOCATION_MODE_WIFI,
+                    LOCATION_MODE_OFF
+            });
+            mLocationMode.setSummaries(new CharSequence[] {
+                    getString(R.string.system_location_summary),
+                    null
+            });
+            mLocationMode.setOnPreferenceChangeListener(this);
+            mLocationMode.setOnPreferenceClickListener(
+                    preference -> {
+                        logEntrySelected(TvSettingsEnums.PRIVACY_LOCATION_STATUS);
+                        return false;
+                    });
 
-        final UserManager um = UserManager.get(getContext());
-        mLocationMode.setEnabled(!um.hasUserRestriction(UserManager.DISALLOW_SHARE_LOCATION));
+            mLocationMode.setEnabled(!hasUserRestriction());
+        } else {
+            mRestrictedLocationMode = new RestrictedPreference(themedContext);
+            screen.addPreference(mRestrictedLocationMode);
+            mRestrictedLocationMode.setPersistent(false);
+            mRestrictedLocationMode.setTitle(R.string.location_status);
+            mRestrictedLocationMode.setDisabledByAdmin(admin);
+        }
 
-        if (FeatureFactory.getFactory(getContext()).isTwoPanelLayout()) {
+        if (FlavorUtils.isTwoPanel(getContext())) {
             mAlwaysScan = new SwitchPreference(themedContext);
             mAlwaysScan.setKey(KEY_WIFI_ALWAYS_SCAN);
             mAlwaysScan.setTitle(R.string.wifi_setting_always_scan);
@@ -142,6 +167,11 @@ public class LocationFragment extends SettingsPreferenceFragment implements
                     pref.setSummary(R.string.location_low_battery_use);
                 }
             }
+            pref.setOnPreferenceClickListener(
+                    preference -> {
+                        logEntrySelected(TvSettingsEnums.PRIVACY_LOCATION_REQUESTED_APP);
+                        return false;
+                    });
             pref.setFragment(AppManagementFragment.class.getName());
             AppManagementFragment.prepareArgs(pref.getExtras(), request.packageName);
             recentLocationPrefs.add(pref);
@@ -160,6 +190,25 @@ public class LocationFragment extends SettingsPreferenceFragment implements
         // TODO: are location services relevant on TV?
 
         setPreferenceScreen(screen);
+    }
+
+    private boolean hasUserRestriction() {
+        final UserManager um = UserManager.get(getContext());
+        return um.hasUserRestriction(UserManager.DISALLOW_SHARE_LOCATION)
+                || um.hasUserRestriction(UserManager.DISALLOW_CONFIG_LOCATION);
+    }
+
+    private RestrictedLockUtils.EnforcedAdmin checkIfUserRestrictionEnforcedByAdmin() {
+        final RestrictedLockUtils.EnforcedAdmin admin = RestrictedLockUtilsInternal
+                .checkIfRestrictionEnforced(getContext(),
+                        UserManager.DISALLOW_SHARE_LOCATION, UserHandle.myUserId());
+
+        if (admin != null) {
+            return admin;
+        }
+
+        return RestrictedLockUtilsInternal.checkIfRestrictionEnforced(getContext(),
+                UserManager.DISALLOW_CONFIG_LOCATION, UserHandle.myUserId());
     }
 
     // When selecting the location preference, LeanbackPreferenceFragment
@@ -200,8 +249,10 @@ public class LocationFragment extends SettingsPreferenceFragment implements
             int mode = Settings.Secure.LOCATION_MODE_OFF;
             if (TextUtils.equals((CharSequence) newValue, LOCATION_MODE_WIFI)) {
                 mode = Settings.Secure.LOCATION_MODE_ON;
+                logEntrySelected(TvSettingsEnums.PRIVACY_LOCATION_STATUS_USE_WIFI);
             } else if (TextUtils.equals((CharSequence) newValue, LOCATION_MODE_OFF)) {
                 mode = Settings.Secure.LOCATION_MODE_OFF;
+                logEntrySelected(TvSettingsEnums.PRIVACY_LOCATION_STATUS_OFF);
             } else {
                 Log.wtf(TAG, "Tried to set unknown location mode!");
             }
@@ -218,6 +269,9 @@ public class LocationFragment extends SettingsPreferenceFragment implements
             Settings.Global.putInt(getActivity().getContentResolver(),
                     Settings.Global.WIFI_SCAN_ALWAYS_AVAILABLE,
                     mAlwaysScan.isChecked() ? 1 : 0);
+            logToggleInteracted(
+                    TvSettingsEnums.PRIVACY_LOCATION_ALWAYS_SCANNING_NETWORKS,
+                    mAlwaysScan.isChecked());
             updateConnectivity();
         }
         return super.onPreferenceTreeClick(preference);
@@ -236,18 +290,27 @@ public class LocationFragment extends SettingsPreferenceFragment implements
     }
 
     private void refreshLocationMode() {
-        if (mLocationMode == null) {
-            return;
+        boolean locationEnabled = getActivity().getSystemService(LocationManager.class)
+                .isLocationEnabled();
+        if (mLocationMode != null) {
+            if (locationEnabled) {
+                mLocationMode.setValue(LOCATION_MODE_WIFI);
+            } else {
+                mLocationMode.setValue(LOCATION_MODE_OFF);
+            }
         }
-        if (getActivity().getSystemService(LocationManager.class).isLocationEnabled()) {
-            mLocationMode.setValue(LOCATION_MODE_WIFI);
-        } else {
-            mLocationMode.setValue(LOCATION_MODE_OFF);
+        if (mRestrictedLocationMode != null) {
+            if (locationEnabled) {
+                mRestrictedLocationMode
+                        .setSummary(getString(R.string.location_mode_wifi_description));
+            } else {
+                mRestrictedLocationMode.setSummary(getString(R.string.off));
+            }
         }
     }
 
     private void updateConnectivity() {
-        if (FeatureFactory.getFactory(getContext()).isTwoPanelLayout()) {
+        if (FlavorUtils.isTwoPanel(getContext())) {
             int scanAlwaysAvailable = Settings.Global.getInt(getActivity().getContentResolver(),
                     Settings.Global.WIFI_SCAN_ALWAYS_AVAILABLE, 0);
             mAlwaysScan.setChecked(scanAlwaysAvailable == 1);
@@ -255,7 +318,7 @@ public class LocationFragment extends SettingsPreferenceFragment implements
     }
 
     @Override
-    public int getMetricsCategory() {
-        return MetricsProto.MetricsEvent.LOCATION;
+    protected int getPageId() {
+        return TvSettingsEnums.PRIVACY_LOCATION;
     }
 }

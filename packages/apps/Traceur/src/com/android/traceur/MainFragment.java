@@ -18,6 +18,7 @@ package com.android.traceur;
 
 import android.annotation.Nullable;
 import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -27,6 +28,7 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import androidx.preference.MultiSelectListPreference;
@@ -59,6 +61,12 @@ public class MainFragment extends PreferenceFragment {
     static final String TAG = TraceUtils.TAG;
 
     public static final String ACTION_REFRESH_TAGS = "com.android.traceur.REFRESH_TAGS";
+
+    private static final String BETTERBUG_PACKAGE_NAME =
+            "com.google.android.apps.internal.betterbug";
+
+    private static final String ROOT_MIME_TYPE = "vnd.android.document/root";
+    private static final String STORAGE_URI = "content://com.android.traceur.documents/root";
 
     private SwitchPreference mTracingOn;
 
@@ -166,6 +174,39 @@ public class MainFragment extends PreferenceFragment {
                     }
                 });
 
+        findPreference("trace_link_button")
+            .setOnPreferenceClickListener(
+                new Preference.OnPreferenceClickListener() {
+                    @Override
+                    public boolean onPreferenceClick(Preference preference) {
+                        Intent intent = buildTraceFileViewIntent();
+                        try {
+                            startActivity(intent);
+                        } catch (ActivityNotFoundException e) {
+                            return false;
+                        }
+                        return true;
+                    }
+                });
+
+        // This disables "Attach to bugreports" when long traces are enabled. This cannot be done in
+        // main.xml because there are some other settings there that are enabled with long traces.
+        SwitchPreference attachToBugreport = findPreference(
+            getString(R.string.pref_key_attach_to_bugreport));
+        findPreference(getString(R.string.pref_key_long_traces))
+            .setOnPreferenceClickListener(
+                new Preference.OnPreferenceClickListener() {
+                    @Override
+                    public boolean onPreferenceClick(Preference preference) {
+                        if (((SwitchPreference) preference).isChecked()) {
+                            attachToBugreport.setEnabled(false);
+                        } else {
+                            attachToBugreport.setEnabled(true);
+                        }
+                        return true;
+                    }
+                });
+
         refreshUi();
 
         mRefreshReceiver = new BroadcastReceiver() {
@@ -217,6 +258,12 @@ public class MainFragment extends PreferenceFragment {
             this.getClass().getName());
     }
 
+    private Intent buildTraceFileViewIntent() {
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        intent.setDataAndType(Uri.parse(STORAGE_URI), ROOT_MIME_TYPE);
+        return intent;
+    }
+
     private void refreshUi() {
         refreshUi(/* restoreDefaultTags =*/ false);
     }
@@ -231,6 +278,10 @@ public class MainFragment extends PreferenceFragment {
         // Make sure the Record Trace toggle matches the preference value.
         mTracingOn.setChecked(mTracingOn.getPreferenceManager().getSharedPreferences().getBoolean(
                 mTracingOn.getKey(), false));
+
+        SwitchPreference stopOnReport =
+                (SwitchPreference) findPreference(getString(R.string.pref_key_stop_on_bugreport));
+        stopOnReport.setChecked(mPrefs.getBoolean(stopOnReport.getKey(), false));
 
         // Update category list to match the categories available on the system.
         Set<Entry<String, String>> availableTags = TraceUtils.listCategories().entrySet();
@@ -278,6 +329,31 @@ public class MainFragment extends PreferenceFragment {
             if (longTraceCategory != null) {
                 getPreferenceScreen().removePreference(longTraceCategory);
             }
+        }
+
+        // Check if BetterBug is installed to see if Traceur should display either the toggle for
+        // 'attach_to_bugreport' or 'stop_on_bugreport'.
+        try {
+            context.getPackageManager().getPackageInfo(BETTERBUG_PACKAGE_NAME,
+                    PackageManager.MATCH_SYSTEM_ONLY);
+            findPreference(getString(R.string.pref_key_attach_to_bugreport)).setVisible(true);
+            findPreference(getString(R.string.pref_key_stop_on_bugreport)).setVisible(false);
+            // TODO(b/188898919): Update summary with a warning that long traces are not
+            // automatically attached to bug reports.
+        } catch (PackageManager.NameNotFoundException e) {
+            // attach_to_bugreport must be disabled here because it's true by default.
+            mPrefs.edit().putBoolean(
+                    getString(R.string.pref_key_attach_to_bugreport), false).commit();
+            findPreference(getString(R.string.pref_key_attach_to_bugreport)).setVisible(false);
+            findPreference(getString(R.string.pref_key_stop_on_bugreport)).setVisible(true);
+        }
+
+        // Check if an activity exists to handle the trace_link_button intent. If not, hide the UI
+        // element
+        PackageManager packageManager = context.getPackageManager();
+        Intent intent = buildTraceFileViewIntent();
+        if (intent.resolveActivity(packageManager) == null) {
+            findPreference("trace_link_button").setVisible(false);
         }
     }
 }

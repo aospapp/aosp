@@ -34,6 +34,8 @@ import com.android.messaging.util.LogUtil;
 public class ResendMessageAction extends Action implements Parcelable {
     private static final String TAG = LogUtil.BUGLE_DATAMODEL_TAG;
 
+    private static final String KEY_SUB_ID = "sub_id";
+
     /**
      * Manual send of existing message (no listener)
      */
@@ -78,14 +80,15 @@ public class ResendMessageAction extends Action implements Parcelable {
 
             final ContentValues values = new ContentValues();
             values.put(MessageColumns.STATUS, MessageData.BUGLE_STATUS_OUTGOING_YET_TO_SEND);
-            values.put(MessageColumns.RECEIVED_TIMESTAMP, timestamp);
-            values.put(MessageColumns.SENT_TIMESTAMP, timestamp);
             values.put(MessageColumns.RETRY_START_TIMESTAMP, timestamp);
 
             // Row must exist as was just loaded above (on ActionService thread)
             BugleDatabaseOperations.updateMessageRow(db, message.getMessageId(), values);
 
             MessagingContentProvider.notifyMessagesChanged(message.getConversationId());
+
+            actionParameters.putInt(KEY_SUB_ID,
+                    BugleDatabaseOperations.getSelfSubscriptionId(db, message.getSelfId()));
 
             // Whether we succeeded or failed we will check and maybe schedule some more work
             ProcessPendingMessagesAction.scheduleProcessPendingMessagesAction(false, this);

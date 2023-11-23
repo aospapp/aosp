@@ -16,5 +16,5 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="cmas_required_monthly_test" msgid="530685628438270164">"Туршилтын зурвас"</string>
+    <string name="cmas_required_monthly_test" msgid="530685628438270164">"Туршилтын мессеж"</string>
 </resources>

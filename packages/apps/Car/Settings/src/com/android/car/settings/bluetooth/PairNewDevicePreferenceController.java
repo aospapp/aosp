@@ -78,7 +78,7 @@ public class PairNewDevicePreferenceController extends PreferenceController<Pref
         if (!getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)) {
             return UNSUPPORTED_ON_DEVICE;
         }
-        return isUserRestricted() ? DISABLED_FOR_USER : AVAILABLE;
+        return isUserRestricted() ? DISABLED_FOR_PROFILE : AVAILABLE;
     }
 
     private boolean isUserRestricted() {

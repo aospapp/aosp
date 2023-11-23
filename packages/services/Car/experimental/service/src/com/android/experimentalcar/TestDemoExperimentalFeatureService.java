@@ -17,10 +17,9 @@
 package com.android.experimentalcar;
 
 import android.car.experimental.ITestDemoExperimental;
+import android.util.IndentingPrintWriter;
 
 import com.android.car.CarServiceBase;
-
-import java.io.PrintWriter;
 
 /**
  * Demo service for testing experimental feature.
@@ -39,7 +38,7 @@ public final class TestDemoExperimentalFeatureService extends ITestDemoExperimen
     }
 
     @Override
-    public void dump(PrintWriter writer) {
+    public void dump(IndentingPrintWriter writer) {
         writer.println("*TestExperimentalFeatureService*");
     }
 

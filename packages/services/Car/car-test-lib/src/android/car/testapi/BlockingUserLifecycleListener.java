@@ -21,10 +21,10 @@ import android.annotation.Nullable;
 import android.annotation.UserIdInt;
 import android.car.user.CarUserManager;
 import android.car.user.CarUserManager.UserLifecycleEvent;
-import android.car.user.CarUserManager.UserLifecycleEventType;
 import android.car.user.CarUserManager.UserLifecycleListener;
 import android.util.Log;
 
+import com.android.car.internal.common.CommonConstants.UserLifecycleEventType;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.util.Preconditions;
 

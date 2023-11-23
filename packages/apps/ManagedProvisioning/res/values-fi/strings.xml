@@ -28,26 +28,30 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Laitettasi hallinnoi seuraava sovellus:"</string>
     <string name="next" msgid="1004321437324424398">"Seuraava"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Työprofiilia luodaan…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"IT-järjestelmänvalvoja voi valvoa ja ylläpitää asetuksia, yrityskäyttöä, sovelluksia, käyttöoikeuksia ja tähän profiiliin liittyvää dataa (mukaan lukien verkkotoimintaa) sekä puheluhistoriaa ja yhteystietojen hakuhistoriaa.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Saat IT-järjestelmänvalvojalta lisätietoja esimerkiksi organisaation tietosuojakäytännöistä."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"IT-järjestelmänvalvoja voi valvoa ja ylläpitää asetuksia, yrityskäyttöä, sovelluksia, käyttöoikeuksia ja tähän laitteeseen liittyvää dataa (mukaan lukien verkkotoimintaa) sekä puheluhistoriaa ja yhteystietojen hakuhistoriaa.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Saat IT-järjestelmänvalvojalta lisätietoja esimerkiksi organisaation tietosuojakäytännöistä."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"IT-järjestelmänvalvoja voi valvoa ja ylläpitää asetuksia, yrityskäyttöä, sovelluksia, käyttöoikeuksia ja tähän profiiliin liittyvää dataa (mukaan lukien verkkotoimintaa) sekä puheluhistoriaa ja yhteystietojen hakuhistoriaa.<xliff:g id="LINE_BREAK">
+
+</xliff:g>Saat IT-järjestelmänvalvojalta lisätietoja esimerkiksi organisaation tietosuojakäytännöistä."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"IT-järjestelmänvalvoja voi valvoa ja ylläpitää asetuksia, yrityskäyttöä, sovelluksia, käyttöoikeuksia ja tähän laitteeseen liittyvää dataa (mukaan lukien verkkotoimintaa) sekä puheluhistoriaa ja yhteystietojen hakuhistoriaa.<xliff:g id="LINE_BREAK">
+
+</xliff:g>Saat IT-järjestelmänvalvojalta lisätietoja esimerkiksi organisaation tietosuojakäytännöistä."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Jotta voit käyttää varkaudenesto-ominaisuuksia, laitteesi täytyy käyttää salasanasuojattua näytön lukitusta."</string>
     <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"Pyydä IT-järjestelmänvalvojalta lisätietoja esimerkiksi organisaation tietosuojakäytännöistä."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Lisätietoja"</string>
-    <string name="cancel_setup" msgid="2949928239276274745">"Peruuta"</string>
+    <string name="cancel_setup" msgid="2949928239276274745">"Peru"</string>
     <string name="ok_setup" msgid="4593707675416137504">"OK"</string>
     <string name="user_consent_msg" msgid="8820951802130353584">"Suostun"</string>
     <string name="url_error" msgid="5958494012986243186">"Tätä linkkiä ei voi näyttää."</string>
+    <string name="navigation_button_description" msgid="6106309408994461239">"Siirry ylös"</string>
     <string name="terms" msgid="8295436105384703903">"Käyttöehdot"</string>
     <string name="work_profile_info" msgid="5433388376309583996">"Työprofiilin tiedot"</string>
     <string name="managed_device_info" msgid="1529447646526616811">"Hallinnoidun laitteen tiedot"</string>
     <string name="default_managed_profile_name" msgid="5370257687074907055">"Työprofiili"</string>
-    <string name="default_first_meat_user_name" msgid="7540515892748490540">"Ensisijainen käyttäjä"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"Poistetaanko nykyinen profiili?"</string>
     <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"Sinulla on jo työprofiili, jota hallinnoi seuraava sovellus:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343"><a href="#read_this_link">"Lue tämä"</a>" ennen kuin jatkat."</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"Jos jatkat, kaikki tämän profiilin sovellukset ja tiedot poistetaan."</string>
     <string name="delete_profile" msgid="2299218578684663459">"Poista"</string>
-    <string name="cancel_delete_profile" msgid="5155447537894046036">"Peruuta"</string>
+    <string name="cancel_delete_profile" msgid="5155447537894046036">"Peru"</string>
     <string name="encrypt_device_text_for_profile_owner_setup" msgid="7828515754696057140">"Laite on salattava ennen työprofiilin määritystä. Tämä voi kestää hetken."</string>
     <string name="encrypt_device_text_for_device_owner_setup" msgid="5194673142404735676">"Laite on salattava ennen määritystä. Tämä voi kestää hetken."</string>
     <string name="encrypt_this_device_question" msgid="8719916619866892601">"Salataanko laite?"</string>
@@ -60,25 +64,16 @@
     <string name="work_profile_cant_be_added_contact_admin" msgid="5393019630297157418">"Työprofiilia ei voi lisätä tälle laitteelle. Jos sinulla on kysyttävää, ota yhteyttä IT-järjestelmänvalvojaan."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"Vaihda laitteen käynnistysohjelma."</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"Työprofiili ei voi käyttää tätä käynnistyssovellusta."</string>
-    <string name="cancel_provisioning" msgid="3408069559452653724">"Peruuta"</string>
+    <string name="cancel_provisioning" msgid="3408069559452653724">"Peru"</string>
     <string name="pick_launcher" msgid="4257084827403983845">"OK"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"Määritys ei ole valmis"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"Työpaikan laitteen käyttäjä"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"Määritetään työlaitetta…"</string>
-    <string name="progress_data_process" msgid="1707745321954672971">"Käsitellään määritystietoja…"</string>
-    <string name="progress_connect_to_wifi" msgid="472251154628863539">"Muodostetaan Wi-Fi-yhteyttä…"</string>
-    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"Yhdistetään mobiiliverkkoon…"</string>
-    <string name="progress_download" msgid="3522436271691064624">"Ladataan hallintasovellusta…"</string>
-    <string name="progress_install" msgid="2258045670385866183">"Asennetaan hallintasovellusta…"</string>
-    <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"Poistetaan valinnaisia järjestelmäsovelluksia"</string>
-    <string name="progress_finishing_touches" msgid="9037776404089697198">"Viimeistellään…"</string>
-    <string name="progress_set_owner" msgid="8214062820093757961">"Määritetään laitteen omistajaa…"</string>
-    <string name="progress_initialize" msgid="1104643492713424939">"Alustetaan laitetta…"</string>
     <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"Määrittäminen edellyttää salaamista, mutta laite ei salli sitä. Pyydä apua IT-järjestelmänvalvojalta."</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"Lopetetaanko määritys ja palautetaanko laite?"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"Tämä palauttaa laitteesi tehdasasetukset ja vie sinut asennuksen alkuun."</string>
     <string name="device_owner_cancel_message" msgid="2529288571742712065">"Haluatko keskeyttää määrittämisen ja tyhjentää laitteen tiedot?"</string>
-    <string name="device_owner_cancel_cancel" msgid="1052951540909389275">"Peruuta"</string>
+    <string name="device_owner_cancel_cancel" msgid="1052951540909389275">"Peru"</string>
     <string name="device_owner_error_ok" msgid="2002250763093787051">"OK"</string>
     <string name="reset" msgid="6467204151306265796">"Palauta"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"Profiilin määritys epäonnistui."</string>
@@ -151,7 +146,7 @@
     <string name="close_list" msgid="9053538299788717597">"Sulje luettelo"</string>
     <string name="cancel_setup_and_factory_reset_dialog_title" msgid="5416045931532004811">"Lopeta asennus ja palauta tehdasasetukset?"</string>
     <string name="cancel_setup_and_factory_reset_dialog_msg" msgid="808442439937994485">"Tämän asennuksen lopettaminen palauttaa laitteesi tehdasasetukset ja vie sinut asennuksen alkuun."</string>
-    <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"Peruuta"</string>
+    <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"Peru"</string>
     <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"Palauta laitteen tehdasasetukset"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g> ja <xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> ja <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
@@ -162,11 +157,10 @@
     <string name="device_owner_description" msgid="168013145812679664">"Organisaatiosi vastaa laitteen turvallisuudesta ja hallinnoi sitä."</string>
     <string name="setup_provisioning_header" msgid="4282483198266806271">"Valmistellaan työlaitteen määritystä…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Hallintasovellusta määritetään"</string>
-    <string name="set_up_everything_else" msgid="4407706086957916501">"Määritä kaikki muu"</string>
-    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"Lisää henkilökohtainen tili, niin saat enemmän irti laitteestasi"</string>
-    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"Nyt kun työprofiili on valmis, lisää myös henkilökohtainen Google-tili voidaksesi käyttää sovelluksia ja sisältöä."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"Tämä on organisaatiosi laite"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"Tätä puhelinta ylläpidetään ja valvotaan seuraavalla sovelluksella"</string>
+    <string name="account_management_disclaimer_header" msgid="8013083414694316564">"Tiliäsi hallinnoidaan"</string>
+    <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"Järjestelmänvalvoja käyttää mobiililaitteiden hallintaa suojauskäytäntöjen täytäntöönpanossa"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Valmistellaan työprofiilin määritystä…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Määritetään työprofiilisi"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Työsovelluksia säilytetään työprofiilissa"</string>
@@ -178,8 +172,16 @@
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Pidä työsovellukset ulottuvillasi"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Tämä laite ei ole yksityinen"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"IT-järjestelmänvalvoja voi nähdä datasi ja toimintasi tällä laitteella."</string>
+    <string name="fully_managed_device_provisioning_permissions_header" msgid="2852101532084770993">"Toimintasi ja datasi"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_header" msgid="4419374850927705136">"Sovellusluvat"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8328298923037335068">"IT-järjestelmänvalvoja voi määrittää luvat tämän laitteen sovelluksille, kuten luvat käyttää mikrofonia, kameraa tai sijaintia."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Määritetään laitetta…"</string>
-    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"Käytä työsovelluksia helposti tällä laitteella. Laite ei ole yksityinen, joten IT-järjestelmänvalvoja voi nähdä datasi ja toimintasi. Pyydä lisätietoja IT-järjestelmänvalvojalta."</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1090645190066781456">"Käytä työsovelluksia helposti tällä laitteella. Laite ei ole yksityinen, joten IT-järjestelmänvalvoja voi nähdä datasi ja toimintasi."</string>
+    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"Käytä työsovelluksia helposti tällä laitteella. Laite ei ole yksityinen, joten IT-järjestelmänvalvoja voi nähdä toimintosi ja datasi. IT-järjestelmänvalvoja voi myös määrittää käyttöoikeudet tämän laitteen sovelluksille, kuten mikrofonille, kameralle ja sijaintiluville."</string>
+    <string name="fully_managed_device_provisioning_return_device_title" msgid="8500829014794276683">"Palauta tämä laite järjestelmänvalvojalle"</string>
+    <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"Palaa edelliselle näytölle tai resetoi laite ja palauta se järjestelmänvalvojalle."</string>
+    <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"Peru käyttöönotto"</string>
+    <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"Resetoi ja palauta laite"</string>
     <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Työsovellukset ovat työprofiilissa ja ne ovat IT- järjestelmänvalvojan ylläpitämiä"</string>
     <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Omat sovellukset ovat erillisiä ja piilossa työsovelluksilta"</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"IT-järjestelmänvalvoja voi käyttää tätä laitetta ja estää sovelluksia"</string>
@@ -187,10 +189,9 @@
     <string name="just_a_sec" msgid="6244676028626237220">"Hetki vain…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Tietosuojamuistutus"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"IT-järjestelmänvalvoja voi nähdä datasi ja toimintasi tällä laitteella."</string>
-    <string name="device_provisioning_finished" msgid="3981783240592092906">"Laite on valmiina käyttöön."</string>
-    <string name="done" msgid="7755227776955952318">"Valmis"</string>
-    <string name="financed_device_screen_header" msgid="7890706080917322376">"Tämä laite ostettiin luottosopimuksella: <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>"</string>
-    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> voi"</string>
-    <string name="install_creditor_app_description" msgid="6159751782301108878">"asentaa sovelluksen <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>, jotta voit tehdä tämän laitteen maksuja"</string>
-    <string name="lock_device_description" msgid="2940362560732989166">"rajoittaa pääsyä tälle laitteelle, jos et suorita maksuja"</string>
+    <string name="financed_device_screen_header" msgid="6875169548352717124">"Tämän laitteen tarjoaa <xliff:g id="CREDITOR_NAME">%s</xliff:g>"</string>
+    <string name="financed_make_payments_subheader_title" msgid="7880606710044254210">"Maksa tällä laitteella"</string>
+    <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> saa asentaa sovelluksen (<xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g>), jotta voit tehdä tämän laitteen maksuja."</string>
+    <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Tätä laitetta voidaan rajoittaa"</string>
+    <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> voi rajoittaa pääsyä tälle laitteelle, jos et suorita maksuja."</string>
 </resources>

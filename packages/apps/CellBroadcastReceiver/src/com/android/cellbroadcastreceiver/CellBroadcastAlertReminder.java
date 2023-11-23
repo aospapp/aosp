@@ -180,7 +180,7 @@ public class CellBroadcastAlertReminder extends Service {
                 prefs.getBoolean(CellBroadcastSettings.KEY_ENABLE_ALERT_VIBRATE, true));
         playIntent.putExtra(SubscriptionManager.EXTRA_SUBSCRIPTION_INDEX, subId);
         sPlayReminderIntent = PendingIntent.getService(context, 0, playIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT);
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         if (alarmManager == null) {

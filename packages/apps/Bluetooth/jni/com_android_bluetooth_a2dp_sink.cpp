@@ -109,7 +109,8 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
   ALOGI("%s: succeeds", __func__);
 }
 
-static void initNative(JNIEnv* env, jobject object) {
+static void initNative(JNIEnv* env, jobject object,
+                       jint maxConnectedAudioDevices) {
   const bt_interface_t* btInf = getBluetoothInterface();
   if (btInf == NULL) {
     ALOGE("Bluetooth module is not loaded");
@@ -136,7 +137,8 @@ static void initNative(JNIEnv* env, jobject object) {
     return;
   }
 
-  bt_status_t status = sBluetoothA2dpInterface->init(&sBluetoothA2dpCallbacks);
+  bt_status_t status = sBluetoothA2dpInterface->init(&sBluetoothA2dpCallbacks,
+                                                     maxConnectedAudioDevices);
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("Failed to initialize Bluetooth A2DP Sink, status: %d", status);
     sBluetoothA2dpInterface = NULL;
@@ -243,7 +245,7 @@ static jboolean setActiveDeviceNative(JNIEnv* env, jobject object,
 
 static JNINativeMethod sMethods[] = {
     {"classInitNative", "()V", (void*)classInitNative},
-    {"initNative", "()V", (void*)initNative},
+    {"initNative", "(I)V", (void*)initNative},
     {"cleanupNative", "()V", (void*)cleanupNative},
     {"connectA2dpNative", "([B)Z", (void*)connectA2dpNative},
     {"disconnectA2dpNative", "([B)Z", (void*)disconnectA2dpNative},

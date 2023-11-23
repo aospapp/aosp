@@ -188,6 +188,9 @@ public class ImsCallingActivity extends Activity {
         sb.append("}, \nIWLAN: ");
         sb.append("{");
         sb.append(caps.get(ImsRegistrationImplBase.REGISTRATION_TECH_IWLAN));
+        sb.append("}, \nCROSS-SIM: ");
+        sb.append("{");
+        sb.append(caps.get(ImsRegistrationImplBase.REGISTRATION_TECH_CROSS_SIM));
         sb.append("}");
         mCapEnabledText.setText(sb.toString());
     }

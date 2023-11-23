@@ -27,6 +27,11 @@
 
     <string name="cmas_presidential_level_alert" translatable="false">@string/emergency_alert</string>
     <string name="cmas_required_monthly_test">Emergency alert: Test message</string>
+    <!-- Required Spanish (es) translation for this message: "Alerta de Emergencia – mensaje de Ejercicio / Simulacro" -->
     <string name="cmas_exercise_alert">Emergency alert: Exercise/Drill message</string>
+    <!-- Required Spanish (es) translation for this message: "Alerta de Emergencia – mensaje de Prueba" -->
     <string name="pws_other_message_identifiers">Emergency alert: Test message</string>
+    <!-- Text for dismiss button in broadcast message view dialog. [CHAR LIMIT=25]
+         Required Spanish (es) translation for this message: "Ocultar" -->
+    <string name="button_dismiss">Hide</string>
 </resources>

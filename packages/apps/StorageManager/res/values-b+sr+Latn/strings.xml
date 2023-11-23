@@ -23,7 +23,7 @@
     <string name="deletion_helper_app_summary" msgid="4904590040180275237">"Pre <xliff:g id="DAYS">%1$d</xliff:g> dana"</string>
     <!-- no translation found for deletion_helper_app_summary_item_size (3770886184921427886) -->
     <skip />
-    <string name="deletion_helper_app_summary_never_used" msgid="2695210890063792461">"Nije korišćena u poslednjih godinu dana"</string>
+    <string name="deletion_helper_app_summary_never_used" msgid="2695210890063792461">"Nije korišćeno u poslednjih godinu dana"</string>
     <string name="deletion_helper_app_summary_unknown_used" msgid="8576377054665785558">"Nije sigurno kada je poslednji put korišćena"</string>
     <string name="deletion_helper_free_button" msgid="1760529213407548661">"Oslobodite <xliff:g id="FREEABLE">%1$s</xliff:g>"</string>
     <string name="deletion_helper_photos_title" msgid="2602723121486729972">"Rezervne kopije slika i video snimaka"</string>

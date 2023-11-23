@@ -1,3 +1,0 @@
-allow servicemanager evs_app:dir search;
-allow servicemanager evs_app:file r_file_perms;
-allow servicemanager evs_app:process getattr;

@@ -21,16 +21,13 @@ import android.content.Context;
 import android.net.LinkProperties;
 import android.net.Network;
 import android.net.NetworkCapabilities;
-import android.net.NetworkInfo;
-import android.net.wifi.WifiConfiguration;
-import android.net.wifi.WifiInfo;
 
 import androidx.preference.Preference;
 
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
 import com.android.car.settings.wifi.WifiUtil;
-import com.android.settingslib.wifi.AccessPoint;
+import com.android.wifitrackerlib.WifiEntry;
 
 /**
  * Controller for logic pertaining to displaying Wifi information. Only available when wifi is
@@ -46,7 +43,7 @@ import com.android.settingslib.wifi.AccessPoint;
 public abstract class WifiDetailsBasePreferenceController<V extends Preference> extends
         PreferenceController<V> implements WifiInfoProvider.Listener {
 
-    private AccessPoint mAccessPoint;
+    private WifiEntry mWifiEntry;
     private WifiInfoProvider mWifiInfoProvider;
 
     public WifiDetailsBasePreferenceController(Context context, String preferenceKey,
@@ -58,18 +55,18 @@ public abstract class WifiDetailsBasePreferenceController<V extends Preference> 
      * Sets all parameters for the controller to run, need to get called as early as possible.
      */
     public WifiDetailsBasePreferenceController init(
-            AccessPoint accessPoint, WifiInfoProvider wifiInfoProvider) {
-        mAccessPoint = accessPoint;
+            WifiEntry wifiEntry, WifiInfoProvider wifiInfoProvider) {
+        mWifiEntry = wifiEntry;
         mWifiInfoProvider = wifiInfoProvider;
         return this;
     }
 
-    /** Gets the access poing that this controller was initialized with. */
-    protected AccessPoint getAccessPoint() {
-        return mAccessPoint;
+    /** Gets the Wi-Fi entry that this controller was initialized with. */
+    protected WifiEntry getWifiEntry() {
+        return mWifiEntry;
     }
 
-    /** Gets the wifi info provider that this controller was initialized with. */
+    /** Gets the Wi-Fi info provider that this controller was initialized with. */
     protected WifiInfoProvider getWifiInfoProvider() {
         return mWifiInfoProvider;
     }
@@ -85,8 +82,8 @@ public abstract class WifiDetailsBasePreferenceController<V extends Preference> 
     }
 
     @Override
-    public void onWifiConfigurationChanged(WifiConfiguration wifiConfiguration,
-            NetworkInfo networkInfo, WifiInfo wifiInfo) {
+    public void onWifiEntryUpdated() {
+        getPreference().setEnabled(true);
         refreshUi();
     }
 
@@ -100,12 +97,6 @@ public abstract class WifiDetailsBasePreferenceController<V extends Preference> 
     }
 
     @Override
-    public void onWifiChanged(NetworkInfo networkInfo, WifiInfo wifiInfo) {
-        getPreference().setEnabled(true);
-        refreshUi();
-    }
-
-    @Override
     public void onLost(Network network) {
         getPreference().setEnabled(false);
         refreshUi();
@@ -116,6 +107,8 @@ public abstract class WifiDetailsBasePreferenceController<V extends Preference> 
         if (!WifiUtil.isWifiAvailable(getContext())) {
             return UNSUPPORTED_ON_DEVICE;
         }
-        return getAccessPoint().isActive() ? AVAILABLE : CONDITIONALLY_UNAVAILABLE;
+        return WifiUtil.isWifiEntryConnectedOrConnecting(getWifiEntry())
+                ? AVAILABLE
+                : CONDITIONALLY_UNAVAILABLE;
     }
 }

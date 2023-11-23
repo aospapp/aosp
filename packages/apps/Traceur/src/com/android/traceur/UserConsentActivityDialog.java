@@ -16,6 +16,8 @@
 
 package com.android.traceur;
 
+import static android.view.WindowManager.LayoutParams.SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS;
+
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -50,6 +52,7 @@ public class UserConsentActivityDialog extends AlertActivity
     public void onCreate(Bundle icicle) {
         super.onCreate(icicle);
 
+        this.getWindow().addSystemFlags(SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS);
         mNextIntent = getIntent().getParcelableExtra(Intent.EXTRA_INTENT);
 
         // If the user has previously indicated to never show this dialog again,

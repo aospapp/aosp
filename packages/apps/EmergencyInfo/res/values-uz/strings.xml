@@ -88,7 +88,7 @@
     <!-- no translation found for organ_donor_entries:1 (4906312680266515592) -->
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
     <string name="emergency_contacts_title" msgid="5462202017417821030">"Favqulodda holatlar uchun kontaktlar"</string>
-    <string name="add_emergency_contact" msgid="4063577069613981029">"Kontakt saqlash"</string>
+    <string name="add_emergency_contact" msgid="4063577069613981029">"Kontaktni saqlash"</string>
     <string name="fail_load_contact_picker" msgid="817205483833876726">"Kontakt tanlash vositasini topib bo‘lmadi"</string>
     <string name="fail_display_contact" msgid="4128854688897045879">"Kontaktni ko‘rsatib bo‘lmadi"</string>
     <string name="remove_contact" msgid="6934983445723096759">"<xliff:g id="CONTACT_NAME">%1$s</xliff:g> favqulodda holatlar uchun kontaktlardan olib tashlansinmi?"</string>

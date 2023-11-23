@@ -41,4 +41,5 @@
       <item quantity="few"><xliff:g id="COUNT">%d</xliff:g> nova sporočila</item>
       <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> novih sporočil</item>
     </plurals>
+    <string name="manage_text" msgid="4225197445283791757">"Upravljaj"</string>
 </resources>

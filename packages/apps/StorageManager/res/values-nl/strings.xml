@@ -41,7 +41,7 @@
     <string name="deletion_helper_upsell_title" msgid="8512037674466762017">"Wil je opslagruimte automatisch beheren?"</string>
     <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"Er is nu <xliff:g id="USED">%1$s</xliff:g> vrij. Opslagbeheer automatisch ruimte laten vrijmaken door content waarvan een back-up is gemaakt, van je apparaat te verwijderen?"</string>
     <string name="deletion_helper_upsell_cancel" msgid="7084167642850053889">"Nee, bedankt"</string>
-    <string name="deletion_helper_upsell_activate" msgid="7157360257760895976">"Inschakelen"</string>
+    <string name="deletion_helper_upsell_activate" msgid="7157360257760895976">"Aanzetten"</string>
     <string name="deletion_helper_apps_group_title" msgid="2578309121350341258">"Weinig gebruikte apps"</string>
     <!-- no translation found for deletion_helper_apps_group_summary (360315517252452356) -->
     <skip />
@@ -53,10 +53,10 @@
     <string name="automatic_storage_manager_notification_title" product="tablet" msgid="3150907918531844467">"Weinig ruimte vrij op je tablet"</string>
     <string name="automatic_storage_manager_notification_summary" msgid="2267399886362245822">"Laat Opslagbeheer automatisch ruimte vrijmaken door oude foto\'s en video\'s van je telefoon te verwijderen zodra je telefoon weer vol begint te raken."</string>
     <string name="automatic_storage_manager_cancel_button" msgid="1826365037494962803">"Nee, bedankt"</string>
-    <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"Inschakelen"</string>
+    <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"Aanzetten"</string>
     <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"Foto\'s en video\'s waarvan een back-up is gemaakt"</string>
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"Items zoeken…"</string>
-    <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"Alle items weergeven"</string>
+    <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"Alle items tonen"</string>
     <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"Recente items verbergen"</string>
     <string name="deletion_helper_clear_dialog_message_first_time" msgid="686530413183529901">"Er wordt <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> aan content verwijderd van je apparaat"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"Je opslag wordt nu beheerd door de opslagbeheerder"</string>

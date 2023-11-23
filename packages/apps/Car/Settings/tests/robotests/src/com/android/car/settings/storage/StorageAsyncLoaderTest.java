@@ -34,9 +34,9 @@ import android.net.TrafficStats;
 import android.os.UserHandle;
 import android.util.SparseArray;
 
+import com.android.car.settings.profiles.ProfileHelper;
 import com.android.car.settings.testutils.ShadowApplicationPackageManager;
 import com.android.car.settings.testutils.ShadowUserHelper;
-import com.android.car.settings.users.UserHelper;
 import com.android.settingslib.applications.StorageStatsSource;
 
 import org.junit.After;
@@ -67,7 +67,7 @@ public class StorageAsyncLoaderTest {
     @Mock
     private StorageStatsSource mSource;
     @Mock
-    private UserHelper mUserHelper;
+    private ProfileHelper mProfileHelper;
 
     private Context mContext;
     private List<ApplicationInfo> mInfo = new ArrayList<>();
@@ -84,8 +84,8 @@ public class StorageAsyncLoaderTest {
         UserInfo info = new UserInfo();
         mUsers = new ArrayList<>();
         mUsers.add(info);
-        ShadowUserHelper.setInstance(mUserHelper);
-        when(mUserHelper.getAllUsers()).thenReturn(mUsers);
+        ShadowUserHelper.setInstance(mProfileHelper);
+        when(mProfileHelper.getAllProfiles()).thenReturn(mUsers);
         when(mSource.getCacheQuotaBytes(any(), anyInt())).thenReturn(DEFAULT_QUOTA);
         // there is always a "com.android.car.settings" package added by default with category
         // otherAppsSize lets remove it first for testing.

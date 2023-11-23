@@ -77,7 +77,7 @@ public class NetlinkSocketTest {
 
             // Verify the messages at least appears minimally reasonable.
             while (response.remaining() > 0) {
-                final NetlinkMessage msg = NetlinkMessage.parse(response);
+                final NetlinkMessage msg = NetlinkMessage.parse(response, NETLINK_ROUTE);
                 assertNotNull(msg);
                 final StructNlMsgHdr hdr = msg.getHeader();
                 assertNotNull(hdr);

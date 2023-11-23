@@ -16,13 +16,20 @@
 
 package com.android.car;
 
+import static android.car.CarOccupantZoneManager.DisplayTypeEnum;
+import static android.car.input.CustomInputEvent.INPUT_CODE_F1;
+
+import static com.android.compatibility.common.util.SystemUtil.eventually;
+
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doNothing;
@@ -30,48 +37,39 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.ignoreStubs;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
-import android.annotation.UserIdInt;
-import android.app.IActivityManager;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothProfile;
+import android.car.CarOccupantZoneManager;
 import android.car.CarProjectionManager;
-import android.car.input.CarInputHandlingService.InputFilter;
-import android.car.input.ICarInputListener;
-import android.car.testapi.BlockingUserLifecycleListener;
-import android.car.user.CarUserManager;
-import android.car.userlib.CarUserManagerHelper;
+import android.car.input.CarInputManager;
+import android.car.input.CustomInputEvent;
+import android.car.input.ICarInputCallback;
+import android.car.input.RotaryEvent;
 import android.content.ComponentName;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.UserInfo;
-import android.content.res.Resources;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
-import android.os.RemoteException;
 import android.os.SystemClock;
 import android.os.UserHandle;
-import android.os.UserManager;
-import android.provider.Settings;
 import android.service.voice.VoiceInteractionSession;
 import android.telecom.TelecomManager;
-import android.test.mock.MockContentResolver;
 import android.view.KeyEvent;
 
 import androidx.test.core.app.ApplicationProvider;
 
 import com.android.car.hal.InputHalService;
-import com.android.car.hal.UserHalService;
 import com.android.car.user.CarUserService;
 import com.android.internal.app.AssistUtils;
-import com.android.internal.util.test.BroadcastInterceptingContext;
-import com.android.internal.util.test.FakeSettingsProvider;
 
 import com.google.common.collect.Range;
 
@@ -83,145 +81,158 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.MockitoJUnitRunner;
+import org.testng.Assert;
 
 import java.util.BitSet;
+import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 
 @RunWith(MockitoJUnitRunner.class)
 public class CarInputServiceTest {
-    // TODO(b/152069895): decrease value once refactored. In fact, it should not even use
-    // runWithScissors(), but only rely on CountdownLatches
-    private static final long DEFAULT_TIMEOUT_MS = 5_000;
 
     @Mock InputHalService mInputHalService;
     @Mock TelecomManager mTelecomManager;
     @Mock AssistUtils mAssistUtils;
     @Mock CarInputService.KeyEventListener mDefaultMainListener;
+    @Mock CarInputService.KeyEventListener mInstrumentClusterKeyListener;
     @Mock Supplier<String> mLastCallSupplier;
     @Mock IntSupplier mLongPressDelaySupplier;
+    @Mock BooleanSupplier mShouldCallButtonEndOngoingCallSupplier;
+    @Mock InputCaptureClientController mCaptureController;
+    @Mock CarOccupantZoneService mCarOccupantZoneService;
+    @Mock BluetoothAdapter mBluetoothAdapter;
 
     @Spy Context mContext = ApplicationProvider.getApplicationContext();
     @Spy Handler mHandler = new Handler(Looper.getMainLooper());
 
-    private MockContext mMockContext;
-    private CarUserService mCarUserService;
+    @Mock CarUserService mCarUserService;
     private CarInputService mCarInputService;
-
-    /**
-     * A mock {@link Context}.
-     * This class uses a mock {@link ContentResolver} and {@link android.content.ContentProvider} to
-     * avoid changing real system settings. Besides, to emulate the case where the OEM changes
-     * {@link R.string.rotaryService} to empty in the resource file (e.g., the OEM doesn't want to
-     * start RotaryService), this class allows to return a given String when retrieving {@link
-     * R.string.rotaryService}.
-     */
-    private static class MockContext extends BroadcastInterceptingContext {
-        private final MockContentResolver mContentResolver;
-        private final FakeSettingsProvider mContentProvider;
-        private final Resources mResources;
-
-        MockContext(Context base, String rotaryService) {
-            super(base);
-            FakeSettingsProvider.clearSettingsProvider();
-            mContentResolver = new MockContentResolver(this);
-            mContentProvider = new FakeSettingsProvider();
-            mContentResolver.addProvider(Settings.AUTHORITY, mContentProvider);
-
-            mResources = spy(base.getResources());
-            doReturn(rotaryService).when(mResources).getString(R.string.rotaryService);
-        }
-
-        void release() {
-            FakeSettingsProvider.clearSettingsProvider();
-        }
-
-        @Override
-        public ContentResolver getContentResolver() {
-            return mContentResolver;
-        }
-
-        @Override
-        public Resources getResources() {
-            return mResources;
-        }
-    }
 
     @Before
     public void setUp() {
-        mCarUserService = mock(CarUserService.class);
         mCarInputService = new CarInputService(mContext, mInputHalService, mCarUserService,
-                mHandler, mTelecomManager, mAssistUtils, mDefaultMainListener, mLastCallSupplier,
-                /* customInputServiceComponent= */ null, mLongPressDelaySupplier);
+                mCarOccupantZoneService, mHandler, mTelecomManager, mAssistUtils,
+                mDefaultMainListener, mLastCallSupplier, mLongPressDelaySupplier,
+                mShouldCallButtonEndOngoingCallSupplier, mCaptureController, mBluetoothAdapter);
+        mCarInputService.setInstrumentClusterKeyListener(mInstrumentClusterKeyListener);
 
         when(mInputHalService.isKeyInputSupported()).thenReturn(true);
         mCarInputService.init();
 
         // Delay Handler callbacks until flushHandler() is called.
         doReturn(true).when(mHandler).sendMessageAtTime(any(), anyLong());
+
+        when(mShouldCallButtonEndOngoingCallSupplier.getAsBoolean()).thenReturn(false);
+    }
+
+    @After
+    public void tearDown() {
+        if (mCarInputService != null) {
+            mCarInputService.release();
+        }
     }
 
     @Test
-    public void rotaryServiceSettingsUpdated_whenRotaryServiceIsNotEmpty() throws Exception {
-        final String rotaryService = "com.android.car.rotary/com.android.car.rotary.RotaryService";
-        init(rotaryService);
-        assertThat(mMockContext.getString(R.string.rotaryService)).isEqualTo(rotaryService);
+    public void testOnRotaryEvent_injectingRotaryNavigationEvent() {
+        RotaryEvent event = new RotaryEvent(
+                /* inputType= */ CarInputManager.INPUT_TYPE_ROTARY_NAVIGATION,
+                /* clockwise= */ true,
+                /* uptimeMillisForClicks= */ new long[]{1, 1});
+        when(mCaptureController.onRotaryEvent(
+                same(CarOccupantZoneManager.DISPLAY_TYPE_MAIN), same(event))).thenReturn(true);
+        when(mCaptureController.onKeyEvent(anyInt(), any(KeyEvent.class))).thenReturn(true);
 
-        final int userId = 11;
+        mCarInputService.onRotaryEvent(event, CarOccupantZoneManager.DISPLAY_TYPE_MAIN);
 
-        // By default RotaryService is not enabled.
-        String enabledServices = Settings.Secure.getStringForUser(
-                mMockContext.getContentResolver(),
-                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
-                userId);
-        assertThat(enabledServices == null ? "" : enabledServices).doesNotContain(rotaryService);
-
-        String enabled = Settings.Secure.getStringForUser(
-                mMockContext.getContentResolver(),
-                Settings.Secure.ACCESSIBILITY_ENABLED,
-                userId);
-        assertThat(enabled).isNull();
-
-        // Enable RotaryService by sending user switch event.
-        sendUserLifecycleEvent(CarUserManager.USER_LIFECYCLE_EVENT_TYPE_SWITCHING, userId);
-
-        enabledServices = Settings.Secure.getStringForUser(
-                mMockContext.getContentResolver(),
-                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
-                userId);
-        assertThat(enabledServices).contains(rotaryService);
-
-        enabled = Settings.Secure.getStringForUser(
-                mMockContext.getContentResolver(),
-                Settings.Secure.ACCESSIBILITY_ENABLED,
-                userId);
-        assertThat(enabled).isEqualTo("1");
+        // Since mCaptureController processed RotaryEvent, then no KeyEvent was generated or
+        // processed
+        verify(mCarOccupantZoneService, never()).getDisplayIdForDriver(anyInt());
+        verify(mCaptureController, never()).onKeyEvent(anyInt(), any(KeyEvent.class));
+        verify(mDefaultMainListener, never()).onKeyEvent(any(KeyEvent.class));
     }
 
     @Test
-    public void rotaryServiceSettingsNotUpdated_whenRotaryServiceIsEmpty() throws Exception {
-        final String rotaryService = "";
-        init(rotaryService);
-        assertThat(mMockContext.getString(R.string.rotaryService)).isEqualTo(rotaryService);
+    public void testOnRotaryEvent_injectingRotaryVolumeEvent() {
+        RotaryEvent event = new RotaryEvent(
+                /* inputType= */ CarInputManager.INPUT_TYPE_ROTARY_VOLUME,
+                /* clockwise= */ true,
+                /* uptimeMillisForClicks= */ new long[]{1, 1});
+        when(mCaptureController.onRotaryEvent(
+                same(CarOccupantZoneManager.DISPLAY_TYPE_MAIN), same(event))).thenReturn(false);
+        when(mCaptureController.onKeyEvent(anyInt(), any(KeyEvent.class))).thenReturn(true);
 
-        final int userId = 11;
+        mCarInputService.onRotaryEvent(event, CarOccupantZoneManager.DISPLAY_TYPE_MAIN);
 
-        // By default the Accessibility is disabled.
-        String enabled = Settings.Secure.getStringForUser(
-                mMockContext.getContentResolver(),
-                Settings.Secure.ACCESSIBILITY_ENABLED,
-                userId);
-        assertThat(enabled).isNull();
+        // Since mCaptureController processed RotaryEvent, then KeyEvent was generated or
+        // processed
+        int numberOfGeneratedKeyEvents = 4;
+        verify(mCarOccupantZoneService, times(numberOfGeneratedKeyEvents)).getDisplayIdForDriver(
+                eq(CarOccupantZoneManager.DISPLAY_TYPE_MAIN));
+        verify(mCaptureController, times(numberOfGeneratedKeyEvents)).onKeyEvent(anyInt(),
+                any(KeyEvent.class));
+        verify(mDefaultMainListener, never()).onKeyEvent(any(KeyEvent.class));
+    }
 
-        sendUserLifecycleEvent(CarUserManager.USER_LIFECYCLE_EVENT_TYPE_SWITCHING, userId);
+    @Test
+    public void testOnRotaryEvent_injectingRotaryNavigation_notConsumedByCaptureController() {
+        RotaryEvent event = new RotaryEvent(
+                /* inputType= */ CarInputManager.INPUT_TYPE_ROTARY_NAVIGATION,
+                /* clockwise= */ true,
+                /* uptimeMillisForClicks= */ new long[]{1, 1});
+        when(mCaptureController.onRotaryEvent(
+                same(CarOccupantZoneManager.DISPLAY_TYPE_MAIN), same(event))).thenReturn(false);
 
-        // Sending user switch event shouldn't enable the Accessibility because RotaryService is
-        // empty.
-        enabled = Settings.Secure.getStringForUser(
-                mMockContext.getContentResolver(),
-                Settings.Secure.ACCESSIBILITY_ENABLED,
-                userId);
-        assertThat(enabled).isNull();
+        mCarInputService.onRotaryEvent(event, CarOccupantZoneManager.DISPLAY_TYPE_MAIN);
+
+        // Since mCaptureController processed RotaryEvent, then KeyEvent was generated or
+        // processed
+        int numberOfGeneratedKeyEvents = 4;
+        verify(mCarOccupantZoneService, times(numberOfGeneratedKeyEvents)).getDisplayIdForDriver(
+                eq(CarOccupantZoneManager.DISPLAY_TYPE_MAIN));
+        verify(mCaptureController, times(numberOfGeneratedKeyEvents)).onKeyEvent(anyInt(),
+                any(KeyEvent.class));
+        verify(mDefaultMainListener, times(numberOfGeneratedKeyEvents)).onKeyEvent(
+                any(KeyEvent.class));
+    }
+
+    @Test
+    public void testRequestInputEventCapture_delegatesToCaptureController() {
+        ICarInputCallback callback = mock(ICarInputCallback.class);
+        int[] inputTypes = new int[]{CarInputManager.INPUT_TYPE_CUSTOM_INPUT_EVENT};
+        int requestFlags = CarInputManager.CAPTURE_REQ_FLAGS_ALLOW_DELAYED_GRANT;
+        mCarInputService.requestInputEventCapture(callback,
+                CarOccupantZoneManager.DISPLAY_TYPE_MAIN, inputTypes, requestFlags);
+
+        verify(mCaptureController).requestInputEventCapture(same(callback),
+                eq(CarOccupantZoneManager.DISPLAY_TYPE_MAIN), same(inputTypes), eq(requestFlags));
+    }
+
+    @Test
+    public void testOnCustomInputEvent_delegatesToCaptureController() {
+        CustomInputEvent event = new CustomInputEvent(INPUT_CODE_F1,
+                CarOccupantZoneManager.DISPLAY_TYPE_MAIN, /* repeatCounter= */ 1);
+
+        mCarInputService.onCustomInputEvent(event);
+
+        verify(mCaptureController).onCustomInputEvent(same(event));
+    }
+
+    @Test
+    public void testReleaseInputEventCapture_delegatesToCaptureController() {
+        ICarInputCallback callback = mock(ICarInputCallback.class);
+        mCarInputService.releaseInputEventCapture(callback,
+                CarOccupantZoneManager.DISPLAY_TYPE_MAIN);
+
+        verify(mCaptureController).releaseInputEventCapture(same(callback),
+                eq(CarOccupantZoneManager.DISPLAY_TYPE_MAIN));
+    }
+
+    @Test
+    public void ensureBluetoothAdapterWasInitialized() {
+        eventually(() -> verify(mBluetoothAdapter).getProfileProxy(same(mContext),
+                any(BluetoothProfile.ServiceListener.class),
+                same(BluetoothProfile.HEADSET_CLIENT)));
     }
 
     @Test
@@ -248,33 +259,52 @@ public class CarInputServiceTest {
     }
 
     @Test
-    public void customEventHandler_capturesRegisteredEvents_ignoresUnregisteredEvents()
-            throws RemoteException {
-        KeyEvent event;
-        ICarInputListener listener = registerInputListener(
-                new InputFilter(KeyEvent.KEYCODE_ENTER, InputHalService.DISPLAY_MAIN),
-                new InputFilter(KeyEvent.KEYCODE_ENTER, InputHalService.DISPLAY_INSTRUMENT_CLUSTER),
-                new InputFilter(KeyEvent.KEYCODE_MENU, InputHalService.DISPLAY_MAIN));
+    public void customEventHandler_capturesDisplayMainEvent_capturedByInputController() {
+        CarInputService.KeyEventListener instrumentClusterListener =
+                setupInstrumentClusterListener();
 
+        // Assume mCaptureController will consume every event.
+        when(mCaptureController.onKeyEvent(anyInt(), any(KeyEvent.class))).thenReturn(true);
+
+        KeyEvent event = send(Key.DOWN, KeyEvent.KEYCODE_ENTER, Display.MAIN);
+        verify(instrumentClusterListener, never()).onKeyEvent(any(KeyEvent.class));
+        verify(mCaptureController).onKeyEvent(CarOccupantZoneManager.DISPLAY_TYPE_MAIN, event);
+        verify(mDefaultMainListener, never()).onKeyEvent(any(KeyEvent.class));
+    }
+
+    @Test
+    public void customEventHandler_capturesDisplayMainEvent_missedByInputController() {
+        CarInputService.KeyEventListener instrumentClusterListener =
+                setupInstrumentClusterListener();
+
+        // Assume mCaptureController will consume every event.
+        when(mCaptureController.onKeyEvent(anyInt(), any(KeyEvent.class))).thenReturn(false);
+
+        KeyEvent event = send(Key.DOWN, KeyEvent.KEYCODE_ENTER, Display.MAIN);
+        verify(instrumentClusterListener, never()).onKeyEvent(any(KeyEvent.class));
+        verify(mCaptureController).onKeyEvent(anyInt(), any(KeyEvent.class));
+        verify(mDefaultMainListener).onKeyEvent(event);
+    }
+
+    @Test
+    public void customEventHandler_capturesClusterEvents_capturedByInstrumentCluster() {
+        CarInputService.KeyEventListener instrumentClusterListener =
+                setupInstrumentClusterListener();
+
+        // Assume mCaptureController will consume every event.
+        when(mCaptureController.onKeyEvent(anyInt(), any(KeyEvent.class))).thenReturn(true);
+
+        KeyEvent event = send(Key.DOWN, KeyEvent.KEYCODE_ENTER, Display.INSTRUMENT_CLUSTER);
+        verify(instrumentClusterListener).onKeyEvent(event);
+        verify(mCaptureController, never()).onKeyEvent(anyInt(), any(KeyEvent.class));
+        verify(mDefaultMainListener, never()).onKeyEvent(any(KeyEvent.class));
+    }
+
+    private CarInputService.KeyEventListener setupInstrumentClusterListener() {
         CarInputService.KeyEventListener instrumentClusterListener =
                 mock(CarInputService.KeyEventListener.class);
         mCarInputService.setInstrumentClusterKeyListener(instrumentClusterListener);
-
-        event = send(Key.DOWN, KeyEvent.KEYCODE_ENTER, Display.MAIN);
-        verify(listener).onKeyEvent(event, InputHalService.DISPLAY_MAIN);
-        verify(mDefaultMainListener, never()).onKeyEvent(any());
-
-        event = send(Key.DOWN, KeyEvent.KEYCODE_ENTER, Display.INSTRUMENT_CLUSTER);
-        verify(listener).onKeyEvent(event, InputHalService.DISPLAY_INSTRUMENT_CLUSTER);
-        verify(instrumentClusterListener, never()).onKeyEvent(any());
-
-        event = send(Key.DOWN, KeyEvent.KEYCODE_MENU, Display.MAIN);
-        verify(listener).onKeyEvent(event, InputHalService.DISPLAY_MAIN);
-        verify(mDefaultMainListener, never()).onKeyEvent(any());
-
-        event = send(Key.DOWN, KeyEvent.KEYCODE_MENU, Display.INSTRUMENT_CLUSTER);
-        verify(listener, never()).onKeyEvent(event, InputHalService.DISPLAY_INSTRUMENT_CLUSTER);
-        verify(instrumentClusterListener).onKeyEvent(event);
+        return instrumentClusterListener;
     }
 
     @Test
@@ -446,6 +476,27 @@ public class CarInputServiceTest {
     }
 
     @Test
+    public void callKey_shortPress_duringCall_endCallViaCallButtonOn_endsCall() {
+        when(mShouldCallButtonEndOngoingCallSupplier.getAsBoolean()).thenReturn(true);
+        when(mTelecomManager.isInCall()).thenReturn(true);
+
+        send(Key.DOWN, KeyEvent.KEYCODE_CALL, Display.MAIN);
+        send(Key.UP, KeyEvent.KEYCODE_CALL, Display.MAIN);
+
+        verify(mTelecomManager).endCall();
+    }
+
+    @Test
+    public void callKey_shortPress_duringCall_endCallViaCallButtonOff_doesNotEndCall() {
+        when(mTelecomManager.isInCall()).thenReturn(true);
+
+        send(Key.DOWN, KeyEvent.KEYCODE_CALL, Display.MAIN);
+        send(Key.UP, KeyEvent.KEYCODE_CALL, Display.MAIN);
+
+        verify(mTelecomManager, never()).endCall();
+    }
+
+    @Test
     public void callKey_longPress_withoutEventHandler_redialsLastCall() {
         ArgumentCaptor<Intent> intentCaptor = ArgumentCaptor.forClass(Intent.class);
 
@@ -524,6 +575,27 @@ public class CarInputServiceTest {
     }
 
     @Test
+    public void callKey_longPress_duringCall_endCallViaCallButtonOn_endsCall() {
+        when(mShouldCallButtonEndOngoingCallSupplier.getAsBoolean()).thenReturn(true);
+        when(mTelecomManager.isInCall()).thenReturn(true);
+
+        send(Key.DOWN, KeyEvent.KEYCODE_CALL, Display.MAIN);
+        flushHandler();
+
+        verify(mTelecomManager).endCall();
+    }
+
+    @Test
+    public void callKey_longPress_duringCall_endCallViaCallButtonOff_doesNotEndCall() {
+        when(mTelecomManager.isInCall()).thenReturn(true);
+
+        send(Key.DOWN, KeyEvent.KEYCODE_CALL, Display.MAIN);
+        flushHandler();
+
+        verify(mTelecomManager, never()).endCall();
+    }
+
+    @Test
     public void callKey_keyDown_withEventHandler_triggersEventHandler() {
         CarProjectionManager.ProjectionKeyEventHandler eventHandler =
                 registerProjectionKeyEventHandler(
@@ -583,52 +655,83 @@ public class CarInputServiceTest {
         assertThat(timeCaptor.getValue()).isIn(Range.closed(then + systemDelay, now + systemDelay));
     }
 
-    @After
-    public void tearDown() {
-        if (mMockContext != null) {
-            mMockContext.release();
-            mMockContext = null;
-        }
+    @Test
+    public void injectKeyEvent_throwsSecurityExceptionWithoutInjectEventsPermission() {
+        // Arrange
+        doReturn(PackageManager.PERMISSION_DENIED).when(mContext).checkCallingOrSelfPermission(
+                android.Manifest.permission.INJECT_EVENTS);
+
+        long currentTime = SystemClock.uptimeMillis();
+        KeyEvent event = new KeyEvent(/* downTime= */ currentTime,
+                /* eventTime= */ currentTime, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER,
+                /* repeat= */ 0);
+
+        // Act and assert
+        Assert.assertThrows(SecurityException.class,
+                () -> mCarInputService.injectKeyEvent(event,
+                        CarOccupantZoneManager.DISPLAY_TYPE_MAIN));
     }
 
-    /**
-     * Initializes {@link #mMockContext}, {@link #mCarUserService}, and {@link #mCarInputService}.
-     */
-    private void init(String rotaryService) {
-        mMockContext = new MockContext(mContext, rotaryService);
+    @Test
+    public void injectKeyEvent_delegatesToOnKeyEvent() {
+        long currentTime = SystemClock.uptimeMillis();
+        KeyEvent event = new KeyEvent(/* downTime= */ currentTime,
+                /* eventTime= */ currentTime, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER,
+                /* repeat= */ 0);
+        event.setDisplayId(android.view.Display.INVALID_DISPLAY);
 
-        UserManager userManager = mock(UserManager.class);
-        UserInfo userInfo = mock(UserInfo.class);
-        doReturn(userInfo).when(userManager).getUserInfo(anyInt());
-        UserHalService userHal = mock(UserHalService.class);
-        CarUserManagerHelper carUserManagerHelper = mock(CarUserManagerHelper.class);
-        IActivityManager iActivityManager = mock(IActivityManager.class);
-        mCarUserService = new CarUserService(mMockContext, userHal, carUserManagerHelper,
-                userManager, iActivityManager, /* maxRunningUsers= */ 2);
+        injectKeyEventAndVerify(event, CarOccupantZoneManager.DISPLAY_TYPE_MAIN);
 
-        mCarInputService = new CarInputService(mMockContext, mInputHalService, mCarUserService,
-                mHandler, mTelecomManager, mAssistUtils, mDefaultMainListener, mLastCallSupplier,
-                /* customInputServiceComponent= */ null, mLongPressDelaySupplier);
-        mCarInputService.init();
+        verify(mDefaultMainListener).onKeyEvent(event);
+        verify(mInstrumentClusterKeyListener, never()).onKeyEvent(event);
     }
 
-    private void sendUserLifecycleEvent(@CarUserManager.UserLifecycleEventType int eventType,
-            @UserIdInt int userId) throws InterruptedException {
-        // Add a blocking listener to ensure CarUserService event notification is completed
-        // before proceeding with test execution.
-        BlockingUserLifecycleListener blockingListener =
-                BlockingUserLifecycleListener.forAnyEvent().build();
-        mCarUserService.addUserLifecycleListener(blockingListener);
+    @Test
+    public void injectKeyEvent_sendingKeyEventWithDefaultDisplayAgainstClusterDisplayType() {
+        long currentTime = SystemClock.uptimeMillis();
+        KeyEvent event = new KeyEvent(/* downTime= */ currentTime,
+                /* eventTime= */ currentTime, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER,
+                /* repeat= */ 0);
+        event.setDisplayId(android.view.Display.INVALID_DISPLAY);
 
-        runOnMainThreadAndWaitForIdle(() -> mCarUserService.onUserLifecycleEvent(eventType,
-                /* timestampMs= */ 0, /* fromUserId= */ UserHandle.USER_NULL, userId));
-        blockingListener.waitForAnyEvent();
+        injectKeyEventAndVerify(event, CarOccupantZoneManager.DISPLAY_TYPE_INSTRUMENT_CLUSTER);
+
+        verify(mDefaultMainListener, never()).onKeyEvent(event);
+        verify(mInstrumentClusterKeyListener).onKeyEvent(event);
     }
 
-    private static void runOnMainThreadAndWaitForIdle(Runnable r) {
-        Handler.getMain().runWithScissors(r, DEFAULT_TIMEOUT_MS);
-        // Run empty runnable to make sure that all posted handlers are done.
-        Handler.getMain().runWithScissors(() -> { }, DEFAULT_TIMEOUT_MS);
+    private void injectKeyEventAndVerify(KeyEvent event, @DisplayTypeEnum int displayType) {
+        doReturn(PackageManager.PERMISSION_GRANTED).when(mContext).checkCallingOrSelfPermission(
+                android.Manifest.permission.INJECT_EVENTS);
+        int someDisplayId = Integer.MAX_VALUE;
+        when(mCarOccupantZoneService.getDisplayIdForDriver(anyInt())).thenReturn(someDisplayId);
+        assertThat(event.getDisplayId()).isNotEqualTo(someDisplayId);
+
+        mCarInputService.injectKeyEvent(event, displayType);
+
+        verify(mCarOccupantZoneService).getDisplayIdForDriver(displayType);
+        assertWithMessage("Event's display id not updated as expected").that(
+                event.getDisplayId()).isEqualTo(someDisplayId);
+    }
+
+    @Test
+    public void onKey_assignDisplayId_mainDisplay() {
+        // Act
+        KeyEvent event = send(Key.DOWN, KeyEvent.KEYCODE_HOME, Display.MAIN);
+
+        // Arrange
+        assertWithMessage("display id expected to be assigned with Display.DEFAULT_DISPLAY").that(
+                event.getDisplayId()).isEqualTo(android.view.Display.DEFAULT_DISPLAY);
+    }
+
+    @Test
+    public void onKey_assignDisplayId_clusterDisplay() {
+        // Act
+        KeyEvent event = send(Key.DOWN, KeyEvent.KEYCODE_HOME, Display.INSTRUMENT_CLUSTER);
+
+        // Arrange
+        assertWithMessage("display id expected to be assigned with Display.DEFAULT_DISPLAY").that(
+                event.getDisplayId()).isEqualTo(android.view.Display.DEFAULT_DISPLAY);
     }
 
     private enum Key {DOWN, UP}
@@ -646,19 +749,13 @@ public class CarInputServiceTest {
                 action == Key.DOWN ? KeyEvent.ACTION_DOWN : KeyEvent.ACTION_UP,
                 keyCode,
                 repeatCount);
+        event.setDisplayId(android.view.Display.INVALID_DISPLAY);
         mCarInputService.onKeyEvent(
                 event,
                 display == Display.MAIN
-                        ? InputHalService.DISPLAY_MAIN
-                        : InputHalService.DISPLAY_INSTRUMENT_CLUSTER);
+                        ? CarOccupantZoneManager.DISPLAY_TYPE_MAIN
+                        : CarOccupantZoneManager.DISPLAY_TYPE_INSTRUMENT_CLUSTER);
         return event;
-    }
-
-    private ICarInputListener registerInputListener(InputFilter... handledKeys) {
-        ICarInputListener listener = mock(ICarInputListener.class);
-        mCarInputService.mCarInputListener = listener;
-        mCarInputService.setHandledKeys(handledKeys);
-        return listener;
     }
 
     private CarProjectionManager.ProjectionKeyEventHandler registerProjectionKeyEventHandler(

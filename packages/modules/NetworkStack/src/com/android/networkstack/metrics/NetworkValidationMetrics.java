@@ -30,7 +30,6 @@ import android.net.INetworkMonitor;
 import android.net.NetworkCapabilities;
 import android.net.captiveportal.CaptivePortalProbeResult;
 import android.net.metrics.ValidationProbeEvent;
-import android.net.util.NetworkStackUtils;
 import android.net.util.Stopwatch;
 import android.stats.connectivity.ProbeResult;
 import android.stats.connectivity.ProbeType;
@@ -40,6 +39,7 @@ import android.stats.connectivity.ValidationResult;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
+import com.android.net.module.util.ConnectivityUtils;
 import com.android.networkstack.apishim.common.CaptivePortalDataShim;
 
 /**
@@ -195,7 +195,7 @@ public class NetworkValidationMetrics {
         // many probes are skipped.
         if (mProbeEventsBuilder.getProbeEventCount() >= MAX_PROBE_EVENTS_COUNT) return;
 
-        int latencyUs = NetworkStackUtils.saturatedCast(durationUs);
+        int latencyUs = ConnectivityUtils.saturatedCast(durationUs);
 
         final ProbeEvent.Builder probeEventBuilder = ProbeEvent.newBuilder()
                 .setLatencyMicros(latencyUs)
@@ -206,10 +206,10 @@ public class NetworkValidationMetrics {
             final long secondsRemaining =
                     (capportData.getExpiryTimeMillis() - currentTimeMillis()) / 1000;
             mCapportApiDataBuilder
-                .setRemainingTtlSecs(NetworkStackUtils.saturatedCast(secondsRemaining))
+                .setRemainingTtlSecs(ConnectivityUtils.saturatedCast(secondsRemaining))
                 // TODO: rename this field to setRemainingKBytes, or use a long
                 .setRemainingBytes(
-                        NetworkStackUtils.saturatedCast(capportData.getByteLimit() / 1000))
+                        ConnectivityUtils.saturatedCast(capportData.getByteLimit() / 1000))
                 .setHasPortalUrl((capportData.getUserPortalUrl() != null))
                 .setHasVenueInfo((capportData.getVenueInfoUrl() != null));
             probeEventBuilder.setCapportApiData(mCapportApiDataBuilder);
@@ -234,7 +234,7 @@ public class NetworkValidationMetrics {
     public NetworkValidationReported maybeStopCollectionAndSend() {
         if (!mWatch.isStarted()) return null;
         mStatsBuilder.setProbeEvents(mProbeEventsBuilder);
-        mStatsBuilder.setLatencyMicros(NetworkStackUtils.saturatedCast(mWatch.stop()));
+        mStatsBuilder.setLatencyMicros(ConnectivityUtils.saturatedCast(mWatch.stop()));
         mStatsBuilder.setValidationIndex(mValidationIndex);
         // write a random value(0 ~ 999) for sampling.
         mStatsBuilder.setRandomNumber((int) (Math.random() * 1000));

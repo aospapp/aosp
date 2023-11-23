@@ -14,45 +14,54 @@
  * limitations under the License.
  */
 
-package android.net.ipsec.ike;
+package android.net.ipsec.test.ike;
 
-import static android.net.ipsec.ike.IkeSessionParams.IKE_DPD_DELAY_SEC_DEFAULT;
-import static android.net.ipsec.ike.IkeSessionParams.IKE_HARD_LIFETIME_SEC_DEFAULT;
-import static android.net.ipsec.ike.IkeSessionParams.IKE_HARD_LIFETIME_SEC_MAXIMUM;
-import static android.net.ipsec.ike.IkeSessionParams.IKE_HARD_LIFETIME_SEC_MINIMUM;
-import static android.net.ipsec.ike.IkeSessionParams.IKE_OPTION_ACCEPT_ANY_REMOTE_ID;
-import static android.net.ipsec.ike.IkeSessionParams.IKE_RETRANS_TIMEOUT_MS_LIST_DEFAULT;
-import static android.net.ipsec.ike.IkeSessionParams.IKE_OPTION_EAP_ONLY_AUTH;
-import static android.net.ipsec.ike.IkeSessionParams.IKE_SOFT_LIFETIME_SEC_DEFAULT;
-import static android.net.ipsec.ike.IkeSessionParams.IkeAuthConfig;
-import static android.net.ipsec.ike.IkeSessionParams.IkeAuthDigitalSignLocalConfig;
-import static android.net.ipsec.ike.IkeSessionParams.IkeAuthDigitalSignRemoteConfig;
-import static android.net.ipsec.ike.IkeSessionParams.IkeAuthEapConfig;
-import static android.net.ipsec.ike.IkeSessionParams.IkeAuthPskConfig;
+import static android.net.ipsec.test.ike.IkeSessionParams.IKE_DPD_DELAY_SEC_DEFAULT;
+import static android.net.ipsec.test.ike.IkeSessionParams.IKE_HARD_LIFETIME_SEC_DEFAULT;
+import static android.net.ipsec.test.ike.IkeSessionParams.IKE_HARD_LIFETIME_SEC_MAXIMUM;
+import static android.net.ipsec.test.ike.IkeSessionParams.IKE_HARD_LIFETIME_SEC_MINIMUM;
+import static android.net.ipsec.test.ike.IkeSessionParams.IKE_OPTION_ACCEPT_ANY_REMOTE_ID;
+import static android.net.ipsec.test.ike.IkeSessionParams.IKE_OPTION_EAP_ONLY_AUTH;
+import static android.net.ipsec.test.ike.IkeSessionParams.IKE_RETRANS_TIMEOUT_MS_LIST_DEFAULT;
+import static android.net.ipsec.test.ike.IkeSessionParams.IKE_SOFT_LIFETIME_SEC_DEFAULT;
+import static android.net.ipsec.test.ike.IkeSessionParams.IkeAuthConfig;
+import static android.net.ipsec.test.ike.IkeSessionParams.IkeAuthDigitalSignLocalConfig;
+import static android.net.ipsec.test.ike.IkeSessionParams.IkeAuthDigitalSignRemoteConfig;
+import static android.net.ipsec.test.ike.IkeSessionParams.IkeAuthEapConfig;
+import static android.net.ipsec.test.ike.IkeSessionParams.IkeAuthPskConfig;
 import static android.system.OsConstants.AF_INET;
 import static android.system.OsConstants.AF_INET6;
 
-import static com.android.internal.net.ipsec.ike.message.IkeConfigPayload.CONFIG_ATTR_IP4_PCSCF;
-import static com.android.internal.net.ipsec.ike.message.IkeConfigPayload.CONFIG_ATTR_IP6_PCSCF;
-import static com.android.internal.net.ipsec.ike.message.IkeConfigPayload.ConfigAttribute;
+import static com.android.internal.net.ipsec.test.ike.message.IkeConfigPayload.CONFIG_ATTR_IP4_PCSCF;
+import static com.android.internal.net.ipsec.test.ike.message.IkeConfigPayload.CONFIG_ATTR_IP6_PCSCF;
+import static com.android.internal.net.ipsec.test.ike.message.IkeConfigPayload.ConfigAttribute;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.InetAddresses;
 import android.net.Network;
-import android.net.eap.EapSessionConfig;
+import android.net.eap.test.EapSessionConfig;
+import android.net.ipsec.test.ike.ike3gpp.Ike3gppExtension;
+import android.net.ipsec.test.ike.ike3gpp.Ike3gppExtension.Ike3gppDataListener;
+import android.net.ipsec.test.ike.ike3gpp.Ike3gppParams;
+import android.os.PersistableBundle;
 import android.telephony.TelephonyManager;
 import android.util.SparseArray;
 
 import com.android.internal.net.TestUtils;
+import com.android.internal.net.ipsec.test.ike.testutils.CertUtils;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -62,11 +71,13 @@ import java.net.Inet6Address;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.DSAPrivateKey;
-import java.security.interfaces.RSAPrivateKey;
+import java.security.interfaces.RSAKey;
+import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
 public final class IkeSessionParamsTest {
     private static final int IKE_OPTION_INVALID = -1;
+    private static final int SUB_ID = 0;
 
     private static final String PSK_HEX_STRING = "6A756E69706572313233";
     private static final byte[] PSK = TestUtils.hexStringToByteArray(PSK_HEX_STRING);
@@ -76,19 +87,23 @@ public final class IkeSessionParamsTest {
     private static final String REMOTE_HOSTNAME = "server.test.android.net";
 
     private static final Inet4Address LOCAL_IPV4_ADDRESS =
-            (Inet4Address) (InetAddresses.parseNumericAddress(LOCAL_IPV4_HOST_ADDRESS));
+            (Inet4Address) InetAddresses.parseNumericAddress(LOCAL_IPV4_HOST_ADDRESS);
     private static final Inet4Address REMOTE_IPV4_ADDRESS =
-            (Inet4Address) (InetAddresses.parseNumericAddress(REMOTE_IPV4_HOST_ADDRESS));
+            (Inet4Address) InetAddresses.parseNumericAddress(REMOTE_IPV4_HOST_ADDRESS);
 
     private static final Inet4Address PCSCF_IPV4_ADDRESS_1 =
-            (Inet4Address) (InetAddresses.parseNumericAddress("192.0.2.1"));
+            (Inet4Address) InetAddresses.parseNumericAddress("192.0.2.1");
     private static final Inet4Address PCSCF_IPV4_ADDRESS_2 =
-            (Inet4Address) (InetAddresses.parseNumericAddress("192.0.2.2"));
+            (Inet4Address) InetAddresses.parseNumericAddress("192.0.2.2");
     private static final Inet6Address PCSCF_IPV6_ADDRESS_1 =
-            (Inet6Address) (InetAddresses.parseNumericAddress("2001:DB8::1"));
+            (Inet6Address) InetAddresses.parseNumericAddress("2001:DB8::1");
     private static final Inet6Address PCSCF_IPV6_ADDRESS_2 =
-            (Inet6Address) (InetAddresses.parseNumericAddress("2001:DB8::2"));
+            (Inet6Address) InetAddresses.parseNumericAddress("2001:DB8::2");
 
+    private static final String EAP_MSCHAP_V2_USERNAME = "username";
+    private static final String EAP_MSCHAP_V2_PASSWORD = "password";
+
+    private Context mMockContext;
     private ConnectivityManager mMockConnectManager;
     private Network mMockDefaultNetwork;
     private Network mMockUserConfigNetwork;
@@ -97,15 +112,25 @@ public final class IkeSessionParamsTest {
     private IkeIdentification mLocalIdentification;
     private IkeIdentification mRemoteIdentification;
 
+    private interface TestRSAPrivateKey extends PrivateKey, RSAKey {}
+
     private X509Certificate mMockServerCaCert;
     private X509Certificate mMockClientEndCert;
-    private PrivateKey mMockRsaPrivateKey;
+    private TestRSAPrivateKey mMockRsaPrivateKey;
 
     @Before
     public void setUp() throws Exception {
+        mMockContext = mock(Context.class);
         mMockConnectManager = mock(ConnectivityManager.class);
         mMockDefaultNetwork = mock(Network.class);
         mMockUserConfigNetwork = mock(Network.class);
+
+        doReturn(Context.CONNECTIVITY_SERVICE)
+                .when(mMockContext)
+                .getSystemServiceName(ConnectivityManager.class);
+        doReturn(mMockConnectManager)
+                .when(mMockContext)
+                .getSystemService(Context.CONNECTIVITY_SERVICE);
         when(mMockConnectManager.getActiveNetwork()).thenReturn(mMockDefaultNetwork);
 
         mIkeSaProposal =
@@ -121,7 +146,7 @@ public final class IkeSessionParamsTest {
 
         mMockServerCaCert = mock(X509Certificate.class);
         mMockClientEndCert = mock(X509Certificate.class);
-        mMockRsaPrivateKey = mock(RSAPrivateKey.class);
+        mMockRsaPrivateKey = mock(TestRSAPrivateKey.class);
     }
 
     private void verifyIkeParamsWithSeverIpAndDefaultValues(IkeSessionParams sessionParams) {
@@ -142,7 +167,7 @@ public final class IkeSessionParamsTest {
         assertEquals(mLocalIdentification, sessionParams.getLocalIdentification());
         assertEquals(mRemoteIdentification, sessionParams.getRemoteIdentification());
 
-        assertFalse(sessionParams.isIkeFragmentationSupported());
+        assertTrue(sessionParams.isIkeFragmentationSupported());
     }
 
     private void verifyAuthPskConfig(IkeSessionParams sessionParams) {
@@ -174,6 +199,7 @@ public final class IkeSessionParamsTest {
         verifyAuthPskConfig(sessionParams);
 
         assertEquals(mMockDefaultNetwork, sessionParams.getNetwork());
+        assertNull(sessionParams.getConfiguredNetwork());
 
         assertEquals(IKE_HARD_LIFETIME_SEC_DEFAULT, sessionParams.getHardLifetimeSeconds());
         assertEquals(IKE_SOFT_LIFETIME_SEC_DEFAULT, sessionParams.getSoftLifetimeSeconds());
@@ -231,6 +257,49 @@ public final class IkeSessionParamsTest {
         verifyAuthPskConfig(sessionParams);
 
         assertFalse(sessionParams.hasIkeOption(IKE_OPTION_ACCEPT_ANY_REMOTE_ID));
+    }
+
+    private IkeSessionParams.Builder createIkeParamsBuilderMinimum() {
+        return new IkeSessionParams.Builder()
+                .setServerHostname(REMOTE_IPV4_HOST_ADDRESS)
+                .addSaProposal(mIkeSaProposal)
+                .setLocalIdentification(mLocalIdentification)
+                .setRemoteIdentification(mRemoteIdentification)
+                .setAuthPsk(PSK);
+    }
+
+    @Test
+    public void testIkeSessionParamsEncodeDecodeIsLossLess() throws Exception {
+        IkeSessionParams sessionParams = createIkeParamsBuilderMinimum().build();
+
+        PersistableBundle bundle = sessionParams.toPersistableBundle();
+        IkeSessionParams result = IkeSessionParams.fromPersistableBundle(bundle);
+
+        assertEquals(sessionParams, result);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testEncodeIkeSessionParamsWithConfiguredNetwork() throws Exception {
+        IkeSessionParams sessionParams =
+                buildWithPskCommon(REMOTE_IPV4_HOST_ADDRESS)
+                        .setNetwork(mMockUserConfigNetwork)
+                        .build();
+
+        PersistableBundle bundle = sessionParams.toPersistableBundle();
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testEncodeIkeSessionParamsWith3gppExtension() throws Exception {
+        Ike3gppExtension ike3gppExtension =
+                new Ike3gppExtension(
+                        new Ike3gppParams.Builder().build(), mock(Ike3gppDataListener.class));
+
+        IkeSessionParams sessionParams =
+                buildWithPskCommon(REMOTE_IPV4_HOST_ADDRESS)
+                        .setIke3gppExtension(ike3gppExtension)
+                        .build();
+
+        PersistableBundle bundle = sessionParams.toPersistableBundle();
     }
 
     @Test
@@ -299,6 +368,57 @@ public final class IkeSessionParamsTest {
     }
 
     @Test
+    public void testBuildWithPskAndNattKeepaliveDelay() throws Exception {
+        final int nattKeepaliveDelay = 100;
+
+        IkeSessionParams sessionParams =
+                buildWithPskCommon(REMOTE_IPV4_HOST_ADDRESS)
+                        .setNattKeepAliveDelaySeconds(nattKeepaliveDelay)
+                        .build();
+
+        // Verify NATT keepalive delay
+        assertEquals(nattKeepaliveDelay, sessionParams.getNattKeepAliveDelaySeconds());
+    }
+
+    @Test
+    public void testNattKeepaliveRange() {
+        // SocketKeepalive#start is documented to require an interval between 10 and 3600 seconds.
+        assertTrue(10 <= IkeSessionParams.IKE_NATT_KEEPALIVE_DELAY_SEC_MIN);
+        assertTrue(3600 >= IkeSessionParams.IKE_NATT_KEEPALIVE_DELAY_SEC_MAX);
+    }
+
+    @Test
+    public void testBuildWithPskAndDscp() throws Exception {
+        final int dscp = 38;
+
+        IkeSessionParams sessionParams =
+                buildWithPskCommon(REMOTE_IPV4_HOST_ADDRESS).setDscp(dscp).build();
+
+        // Verify DSCP value
+        assertEquals(dscp, sessionParams.getDscp());
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testSetInvalidDscp() throws Exception {
+        final int invalidDscp = 100;
+        buildWithPskCommon(REMOTE_IPV4_HOST_ADDRESS).setDscp(invalidDscp).build();
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testBuildWithNattKeepaliveDelayTooShort() throws Exception {
+        final int lowNattKeepaliveDelay = 1;
+        new IkeSessionParams.Builder(mMockConnectManager)
+                .setNattKeepAliveDelaySeconds(lowNattKeepaliveDelay);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testBuildWithNattKeepaliveDelayTooLong() throws Exception {
+        final int highNattKeepaliveDelay = 9999;
+        new IkeSessionParams.Builder(mMockConnectManager)
+                .setNattKeepAliveDelaySeconds(highNattKeepaliveDelay);
+    }
+
+    @Test
     public void testBuildWithPskAndRetransmission() throws Exception {
         final int[] retransmissionTimeoutList = new int[] {1000, 2000, 3000, 4000};
 
@@ -358,6 +478,7 @@ public final class IkeSessionParamsTest {
 
         verifyIkeParamsWithSeverIpAndDefaultValues(sessionParams);
         assertEquals(mMockDefaultNetwork, sessionParams.getNetwork());
+        assertNull(sessionParams.getConfiguredNetwork());
 
         IkeAuthConfig localConfig = sessionParams.getLocalAuthConfig();
         assertTrue(localConfig instanceof IkeAuthEapConfig);
@@ -387,6 +508,7 @@ public final class IkeSessionParamsTest {
 
         verifyIkeParamsWithSeverIpAndDefaultValues(sessionParams);
         assertEquals(mMockUserConfigNetwork, sessionParams.getNetwork());
+        assertEquals(mMockUserConfigNetwork, sessionParams.getConfiguredNetwork());
 
         IkeAuthConfig localConfig = sessionParams.getLocalAuthConfig();
         assertTrue(localConfig instanceof IkeAuthDigitalSignLocalConfig);
@@ -589,10 +711,11 @@ public final class IkeSessionParamsTest {
     @Test
     public void testExceptionOnEapOnlyOptionWithEapOnlyUnsafeMethod() throws Exception {
         try {
-            EapSessionConfig eapSessionConfig = new EapSessionConfig.Builder()
-                    .setEapMsChapV2Config(null, null)
-                    .setEapAkaConfig(0, 0)
-                    .build();
+            EapSessionConfig eapSessionConfig =
+                    new EapSessionConfig.Builder()
+                            .setEapMsChapV2Config(EAP_MSCHAP_V2_USERNAME, EAP_MSCHAP_V2_PASSWORD)
+                            .setEapAkaConfig(0, 0)
+                            .build();
 
             IkeSessionParams sessionParams =
                     buildWithPskCommon(REMOTE_IPV4_HOST_ADDRESS)
@@ -621,5 +744,144 @@ public final class IkeSessionParamsTest {
         assertTrue(sessionParams.hasIkeOption(IKE_OPTION_EAP_ONLY_AUTH));
         IkeAuthConfig localConfig = sessionParams.getLocalAuthConfig();
         assertTrue(localConfig instanceof IkeAuthEapConfig);
+    }
+
+    @Test
+    public void testBuildWithIke3gppExtension() throws Exception {
+        Ike3gppExtension ike3gppExtension =
+                new Ike3gppExtension(
+                        new Ike3gppParams.Builder().build(), mock(Ike3gppDataListener.class));
+
+        IkeSessionParams sessionParams =
+                buildWithPskCommon(REMOTE_IPV4_HOST_ADDRESS)
+                        .setIke3gppExtension(ike3gppExtension)
+                        .build();
+        assertEquals(ike3gppExtension, sessionParams.getIke3gppExtension());
+    }
+
+    private static void verifyPersistableBundleEncodeDecodeIsLossless(IkeAuthConfig config) {
+        PersistableBundle bundle = config.toPersistableBundle();
+        IkeAuthConfig result = IkeAuthConfig.fromPersistableBundle(bundle);
+
+        assertEquals(config, result);
+    }
+
+    @Test
+    public void testPersistableBundleEncodeDecodePskAuth() {
+        verifyPersistableBundleEncodeDecodeIsLossless(new IkeAuthPskConfig(PSK));
+    }
+
+    @Test
+    public void testPersistableBundleEncodeDecodeAuthDigitalSignRemote() throws Exception {
+        X509Certificate caCert = CertUtils.createCertFromPemFile("self-signed-ca-b.pem");
+        verifyPersistableBundleEncodeDecodeIsLossless(new IkeAuthDigitalSignRemoteConfig(caCert));
+    }
+
+    @Test
+    public void testPersistableBundleEncodeDecodeAuthDigitalSignRemoteWithoutCaCert()
+            throws Exception {
+        verifyPersistableBundleEncodeDecodeIsLossless(new IkeAuthDigitalSignRemoteConfig(null));
+    }
+
+    @Test
+    public void testEqualsAuthConfigDigitalSignRemote() throws Exception {
+        X509Certificate caCert = CertUtils.createCertFromPemFile("self-signed-ca-b.pem");
+        assertEquals(
+                new IkeAuthDigitalSignRemoteConfig(caCert),
+                new IkeAuthDigitalSignRemoteConfig(caCert));
+        assertEquals(
+                new IkeAuthDigitalSignRemoteConfig(null), new IkeAuthDigitalSignRemoteConfig(null));
+        assertNotEquals(
+                new IkeAuthDigitalSignRemoteConfig(caCert),
+                new IkeAuthDigitalSignRemoteConfig(null));
+    }
+
+    @Test
+    public void testPersistableBundleEncodeDecodeAuthDigitalSignLocal() throws Exception {
+        X509Certificate endCert = CertUtils.createCertFromPemFile("end-cert-b.pem");
+        X509Certificate intermediateCertOne =
+                CertUtils.createCertFromPemFile("intermediate-ca-b-one.pem");
+        X509Certificate intermediateCertTwo =
+                CertUtils.createCertFromPemFile("intermediate-ca-b-two.pem");
+        PrivateKey key = CertUtils.createRsaPrivateKeyFromKeyFile("end-cert-key-a.key");
+
+        verifyPersistableBundleEncodeDecodeIsLossless(
+                new IkeAuthDigitalSignLocalConfig(
+                        endCert, Arrays.asList(intermediateCertOne, intermediateCertTwo), key));
+    }
+
+    @Test
+    public void testPersistableBundleEncodeDecodeAuthEap() {
+        EapSessionConfig eapSessionConfig =
+                new EapSessionConfig.Builder()
+                        .setEapAkaConfig(SUB_ID, TelephonyManager.APPTYPE_ISIM)
+                        .build();
+        verifyPersistableBundleEncodeDecodeIsLossless(new IkeAuthEapConfig(eapSessionConfig));
+    }
+
+    @Test
+    public void testConstructBuilderWithIkeSessionParams() throws Exception {
+        IkeSessionParams sessionParams = createIkeParamsBuilderMinimum().build();
+
+        IkeSessionParams result = new IkeSessionParams.Builder(sessionParams).build();
+        assertEquals(sessionParams, result);
+    }
+
+    @Test
+    public void testCreateCopyWithNetworkCleared() throws Exception {
+        IkeSessionParams sessionParams =
+                createIkeParamsBuilderMinimum().setNetwork(mMockUserConfigNetwork).build();
+
+        IkeSessionParams result =
+                new IkeSessionParams.Builder(sessionParams).setNetwork(null).build();
+        assertNull(result.getConfiguredNetwork());
+    }
+
+    @Test
+    public void testCreateWithAndWithoutConnectivityMgr() throws Exception {
+        IkeSessionParams withConnectivityMgr =
+                new IkeSessionParams.Builder(mMockConnectManager)
+                        .setServerHostname(REMOTE_IPV4_HOST_ADDRESS)
+                        .addSaProposal(mIkeSaProposal)
+                        .setLocalIdentification(mLocalIdentification)
+                        .setRemoteIdentification(mRemoteIdentification)
+                        .setAuthPsk(PSK)
+                        .build();
+
+        IkeSessionParams withoutConnectivityMgr =
+                new IkeSessionParams.Builder()
+                        .setServerHostname(REMOTE_IPV4_HOST_ADDRESS)
+                        .addSaProposal(mIkeSaProposal)
+                        .setLocalIdentification(mLocalIdentification)
+                        .setRemoteIdentification(mRemoteIdentification)
+                        .setAuthPsk(PSK)
+                        .build();
+        assertEquals(withConnectivityMgr, withoutConnectivityMgr);
+    }
+
+    @Test
+    public void testCreateAndSetNetworkWithoutConnectivityMgr() throws Exception {
+        IkeSessionParams sessionParams =
+                createIkeParamsBuilderMinimum().setNetwork(mMockUserConfigNetwork).build();
+        assertEquals(mMockUserConfigNetwork, sessionParams.getNetwork());
+        assertEquals(mMockUserConfigNetwork, sessionParams.getConfiguredNetwork());
+    }
+
+    @Test
+    public void testNotEqualsWhenNattKeepaliveDelaysAreDifferent() throws Exception {
+        IkeSessionParams sessionParamsA =
+                createIkeParamsBuilderMinimum().setNattKeepAliveDelaySeconds(100).build();
+        IkeSessionParams sessionParamsB =
+                createIkeParamsBuilderMinimum().setNattKeepAliveDelaySeconds(200).build();
+
+        assertNotEquals(sessionParamsA, sessionParamsB);
+    }
+
+    @Test
+    public void testNotEqualsWhenDscpsAreDifferent() throws Exception {
+        IkeSessionParams sessionParamsA = createIkeParamsBuilderMinimum().setDscp(8).build();
+        IkeSessionParams sessionParamsB = createIkeParamsBuilderMinimum().setDscp(48).build();
+
+        assertNotEquals(sessionParamsA, sessionParamsB);
     }
 }

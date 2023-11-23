@@ -17,18 +17,20 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="6995669566699638946">"Mga istilo at wallpaper"</string>
+    <string name="app_name" msgid="1647136562008520313">"Wallpaper &amp; istilo"</string>
     <string name="theme_title" msgid="2144932106319405101">"Istilo"</string>
     <string name="clock_title" msgid="2126046720254613991">"Orasan"</string>
-    <string name="grid_title" msgid="2825094404523390773">"Grid"</string>
-    <string name="wallpaper_title" msgid="6952635398953194544">"Wallpaper"</string>
+    <string name="grid_title" msgid="1688173478777254123">"Grid ng app"</string>
     <string name="apply_theme_btn" msgid="6293081192321303991">"Ilapat"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"I-tap para ma-edit"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"Gamitin ang kasalukuyang wallpaper"</string>
     <string name="apply_btn" msgid="7965877231041987336">"Ilapat"</string>
-    <string name="accessibility_preview_pager" msgid="3548503287402185430">"Page <xliff:g id="ID_1">%1$d</xliff:g> ng <xliff:g id="ID_2">%2$d</xliff:g>"</string>
-    <string name="next_page_content_description" msgid="5290226604542300962">"Susunod"</string>
-    <string name="previous_page_content_description" msgid="6025726405430262788">"Nakaraan"</string>
+    <string name="theme_preview_card_content_description" msgid="5989222908619535533">"Preview ng istilo"</string>
+    <string name="grid_preview_card_content_description" msgid="8449383777584714842">"Preview ng grid"</string>
+    <string name="font_preview_content_description" msgid="128230439293337891">"Preview ng font"</string>
+    <string name="icon_preview_content_description" msgid="7761101284351952890">"Preview ng icon"</string>
+    <string name="color_preview_content_description" msgid="4879120462082058124">"Preview ng kulay"</string>
+    <string name="shape_preview_content_description" msgid="6479487796176550432">"Preview ng hugis"</string>
     <string name="option_applied_description" msgid="5022305212078053534">"<xliff:g id="ID_1">%1$s</xliff:g>, kasalukuyang nakalapat"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"<xliff:g id="ID_1">%1$s</xliff:g>, kasalukuyang nakalapat at pini-preview"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"<xliff:g id="ID_1">%1$s</xliff:g>, kasalukuyang pini-preview"</string>
@@ -41,12 +43,15 @@
     <string name="preview_name_wallpaper" msgid="1738652462949531828">"Wallpaper"</string>
     <string name="font_card_title" msgid="2343292653502548685">"ABC • abc • 123"</string>
     <string name="font_card_body" msgid="6790525594503904468">"Idagdag ang mga paborito mong font sa bawat screen"</string>
+    <string name="grid_options_title" msgid="7071930966989877023">"Pumili ng laki ng grid"</string>
     <string name="grid_title_pattern" msgid="9188866567612607806">"<xliff:g id="ID_1">%1$d</xliff:g>x<xliff:g id="ID_2">%2$d</xliff:g>"</string>
-    <string name="applied_theme_msg" msgid="7348498271552054431">"Inilapat ang istilo"</string>
-    <string name="applied_clock_msg" msgid="1938218786265793285">"Inilapat ang orasan"</string>
+    <string name="applied_theme_msg" msgid="3749018706366796244">"Matagumpay na naitakda ang istilo"</string>
+    <string name="applied_clock_msg" msgid="1303338016701443767">"Matagumpay na naitakda ang orasan"</string>
+    <string name="applied_grid_msg" msgid="3250499654436933034">"Matagumpay na naitakda ang grid"</string>
     <string name="apply_theme_error_msg" msgid="791364062636538317">"Nagkaproblema sa paglalapat ng istilo"</string>
     <string name="custom_theme_next" msgid="6235420097213197301">"Susunod"</string>
     <string name="custom_theme_previous" msgid="4941132112640503022">"Nakaraan"</string>
+    <string name="custom_theme" msgid="1618351922263478163">"Custom"</string>
     <string name="custom_theme_title" msgid="2192300350332693631">"Custom <xliff:g id="ID_1">%1$d</xliff:g>"</string>
     <string name="custom_theme_fragment_title" msgid="6615547284702040280">"Custom na Istilo"</string>
     <string name="custom_theme_delete" msgid="4744494663184126202">"I-delete"</string>
@@ -66,4 +71,16 @@
     <string name="no_thanks" msgid="7286616980115687627">"Hindi, salamat"</string>
     <string name="clock_preview_content_description" msgid="5460561185905717460">"<xliff:g id="ID_1">%1$s</xliff:g> preview ng orasan"</string>
     <string name="something_went_wrong" msgid="529840112449799117">"Oops! May maling nangyari."</string>
+    <string name="theme_preview_icons_section_title" msgid="7064768910744000643">"Kulay / Mga Icon"</string>
+    <string name="style_info_description" msgid="2612473574431003251">"Preview ng font, mga icon, hugis ng app, at kulay"</string>
+    <string name="accessibility_custom_font_title" msgid="966867359157303705">"Custom na font"</string>
+    <string name="accessibility_custom_icon_title" msgid="5753297905849062296">"Custom icon"</string>
+    <string name="accessibility_custom_color_title" msgid="4124246598886320663">"Custom na kulay"</string>
+    <string name="accessibility_custom_shape_title" msgid="7708408259374643129">"Custom na hugis"</string>
+    <string name="accessibility_custom_name_title" msgid="5494460518085463262">"Custom na pangalan ng istilo"</string>
+    <string name="mode_title" msgid="2394873501427436055">"Madilim na tema"</string>
+    <string name="mode_disabled_msg" msgid="9196245518435936512">"Pansamantalang na-disable dahil sa Pantipid ng Baterya"</string>
+    <string name="themed_icon_title" msgid="7312460430471956558">"Mga may temang icon"</string>
+    <string name="beta_title" msgid="8703819523760746458">"Beta"</string>
+    <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"Baguhin ang grid ng app"</string>
 </resources>

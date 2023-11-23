@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="phoneAppLabel" product="tablet" msgid="1916019789885839910">"मोबाईल डेटा"</string>
+    <string name="phoneAppLabel" product="tablet" msgid="1916019789885839910">"मोबाइल डेटा"</string>
     <string name="phoneAppLabel" product="default" msgid="130465039375347763">"फोन सेवा"</string>
     <string name="emergencyDialerIconLabel" msgid="8668005772339436680">"आणीबाणी डायलर"</string>
     <string name="phoneIconLabel" msgid="3015941229249651419">"फोन"</string>
@@ -27,12 +27,12 @@
     <string name="onHold" msgid="6132725550015899006">"होल्ड वर"</string>
     <string name="carrier_mmi_msg_title" msgid="6050165242447507034">"<xliff:g id="MMICARRIER">%s</xliff:g> मेसेज"</string>
     <string name="default_carrier_mmi_msg_title" msgid="7754317179938537213">"वाहक मेसेज"</string>
-    <string name="mmiStarted" msgid="9212975136944568623">"MMI कोड प्रारंभ केला"</string>
+    <string name="mmiStarted" msgid="9212975136944568623">"MMI कोड सुरू केला"</string>
     <string name="ussdRunning" msgid="1163586813106772717">"USSD कोड सुरू…"</string>
     <string name="mmiCancelled" msgid="5339191899200678272">"MMI कोड रद्द केला"</string>
     <string name="cancel" msgid="8984206397635155197">"रद्द करा"</string>
     <string name="enter_input" msgid="6193628663039958990">"USSD मेसेज <xliff:g id="MIN_LEN">%1$d</xliff:g> आणि <xliff:g id="MAX_LEN">%2$d</xliff:g> वर्णांमधील असणे आवश्‍यक आहे. कृपया पुन्‍हा प्रयत्‍न करा."</string>
-    <string name="manageConferenceLabel" msgid="8415044818156353233">"कॉन्फरन्स कॉल व्यवस्थापित करा"</string>
+    <string name="manageConferenceLabel" msgid="8415044818156353233">"कॉंफरन्स कॉल व्यवस्थापित करा"</string>
     <string name="ok" msgid="7818974223666140165">"ठीक"</string>
     <string name="audio_mode_speaker" msgid="243689733219312360">"स्पीकर"</string>
     <string name="audio_mode_earpiece" msgid="2823700267171134282">"हँडसेट इअरपीस"</string>
@@ -50,12 +50,13 @@
     <string name="voice_number_setting_primary_user_only" msgid="3394706575741912843">"केवळ प्राथमिक वापरकर्ता व्हॉइसमेल सेटिंग्ज बदलू शकतो."</string>
     <string name="puk_unlocked" msgid="4627340655215746511">"तुमचे सिम कार्ड अवरोधित करणे रद्द केले गेले आहे. तुमचा फोन अनलॉक होत आहे…"</string>
     <string name="label_ndp" msgid="7617392683877410341">"सिम नेटवर्क अनलॉक पिन"</string>
+    <string name="label_phoneid" msgid="8775611434123577808">"ऑपरेटरसाठी सिम लॉक केले आहे"</string>
     <string name="sim_ndp_unlock_text" msgid="7737338355451978338">"अनलॉक करा"</string>
     <string name="sim_ndp_dismiss_text" msgid="89667342248929777">"डिसमिस करा"</string>
     <string name="requesting_unlock" msgid="930512210309437741">"नेटवर्क अनलॉकची विनंती करत आहे..."</string>
     <string name="unlock_failed" msgid="7103543844840661366">"नेटवर्क अनलॉक विनंती अयशस्वी."</string>
     <string name="unlock_success" msgid="32681089371067565">"नेटवर्क अनलॉक यशस्वी."</string>
-    <string name="mobile_network_settings_not_available" msgid="8678168497517090039">"या वापरकर्त्यासाठी मोबाईल नेटवर्क सेटिंग्ज उपलब्ध नाहीत"</string>
+    <string name="mobile_network_settings_not_available" msgid="8678168497517090039">"या वापरकर्त्यासाठी मोबाइल नेटवर्क सेटिंग्ज उपलब्ध नाहीत"</string>
     <string name="labelGSMMore" msgid="7354182269461281543">"GSM कॉल सेटिंग्ज"</string>
     <string name="labelGsmMore_with_label" msgid="3206015314393246224">"GSM कॉल सेटिंग्ज (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="labelCDMAMore" msgid="7937441382611224632">"CDMA कॉल सेटिंग्ज"</string>
@@ -104,25 +105,32 @@
     <string name="labelCF" msgid="3578719437928476078">"कॉल फॉरवर्डिंग"</string>
     <string name="labelCFU" msgid="8870170873036279706">"नेहमी फॉरवर्ड करा"</string>
     <string name="messageCFU" msgid="1361806450979589744">"नेहमी हा नंबर वापरा"</string>
-    <string name="sum_cfu_enabled_indicator" msgid="9030139213402432776">"सर्व कॉल अग्रेषित करत आहे"</string>
+    <string name="sum_cfu_enabled_indicator" msgid="9030139213402432776">"सर्व कॉल फॉरवर्ड करत आहे"</string>
     <string name="sum_cfu_enabled" msgid="5806923046528144526">"सर्व कॉल <xliff:g id="PHONENUMBER">{0}</xliff:g> वर फॉरवर्ड करत आहे"</string>
     <string name="sum_cfu_enabled_no_number" msgid="7287752761743377930">"नंबर अनुपलब्‍ध आहे"</string>
     <string name="sum_cfu_disabled" msgid="5010617134210809853">"बंद"</string>
     <string name="labelCFB" msgid="615265213360512768">"व्यस्त असताना"</string>
     <string name="messageCFB" msgid="1958017270393563388">"नंबर व्‍यस्‍त असताना"</string>
-    <string name="sum_cfb_enabled" msgid="332037613072049492">"<xliff:g id="PHONENUMBER">{0}</xliff:g> वर अग्रेषित करत आहे"</string>
+    <string name="sum_cfb_enabled" msgid="332037613072049492">"<xliff:g id="PHONENUMBER">{0}</xliff:g> वर फॉरवर्ड करत आहे"</string>
     <string name="sum_cfb_disabled" msgid="3589913334164866035">"बंद"</string>
     <string name="disable_cfb_forbidden" msgid="4831494744351633961">"तुमचा फोन व्‍यस्‍त असताना तुमचा ऑपरेटर कॉल अग्रेषण करणे अक्षम करण्‍यास समर्थन करीत नाही."</string>
     <string name="labelCFNRy" msgid="3403533792248457946">"उत्तर न दिल्यास"</string>
     <string name="messageCFNRy" msgid="7644434155765359009">"नंबर अनुत्तरित असताना"</string>
-    <string name="sum_cfnry_enabled" msgid="3000500837493854799">"<xliff:g id="PHONENUMBER">{0}</xliff:g> वर अग्रेषित करत आहे"</string>
+    <string name="sum_cfnry_enabled" msgid="3000500837493854799">"<xliff:g id="PHONENUMBER">{0}</xliff:g> वर फॉरवर्ड करत आहे"</string>
     <string name="sum_cfnry_disabled" msgid="1990563512406017880">"बंद"</string>
     <string name="disable_cfnry_forbidden" msgid="3174731413216550689">"तुमचा फोन उत्तर देत नसताना तुमचा ऑपरेटर कॉल अग्रेषण करणे अक्षम करण्‍यास समर्थन करीत नाही."</string>
     <string name="labelCFNRc" msgid="4163399350778066013">"आउट ऑफ रीच असताना"</string>
     <string name="messageCFNRc" msgid="6980340731313007250">"नंबर पोहचण्‍यायोग्‍य नसताना"</string>
-    <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"<xliff:g id="PHONENUMBER">{0}</xliff:g> वर अग्रेषित करत आहे"</string>
+    <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"<xliff:g id="PHONENUMBER">{0}</xliff:g> वर फॉरवर्ड करत आहे"</string>
     <string name="sum_cfnrc_disabled" msgid="739289696796917683">"बंद"</string>
     <string name="disable_cfnrc_forbidden" msgid="775348748084726890">"तुमचा फोन पोहचण्‍यायोग्‍य नसताना तुमचा वाहक कॉल अग्रेषण करणे अक्षम करण्‍यास समर्थन करीत नाही."</string>
+    <string name="registration_cf_forbidden" msgid="4386482610771190420">"तुमचा वाहक कॉल फॉरवर्डिंग करण्यास सपोर्ट करत नाही."</string>
+    <string name="cdma_call_waiting" msgid="4565070960879673216">"कॉल वेटिंग सुरू करायचे आहे का?"</string>
+    <string name="enable_cdma_call_waiting_setting" msgid="5906811747921744307">"कॉल दरम्यान येणाऱ्या कॉलबद्दल तुम्हाला सूचित केले जाईल"</string>
+    <string name="enable_cdma_cw" msgid="811047045863422232">"सुरू करा"</string>
+    <string name="disable_cdma_cw" msgid="7119290446496301734">"रद्द करा"</string>
+    <string name="cdma_call_waiting_in_ims_on" msgid="6390979414188659218">"IMS मध्ये CDMA कॉल वेटिंग सुरू आहे"</string>
+    <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"IMS मध्ये CDMA कॉल वेटिंग बंद आहे"</string>
     <string name="updating_title" msgid="6130548922615719689">"कॉल सेटिंग्ज"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"कॉल सेटिंग्ज केवळ प्रशासक वापरकर्त्याद्वारे बदलल्‍या जाऊ शकतात."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"सेटिंग्ज (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -149,7 +157,7 @@
   </string-array>
     <string name="vm_changed" msgid="4739599044379692505">"व्हॉइसमेल नंबर बदलला."</string>
     <string name="vm_change_failed" msgid="7877733929455763566">"व्हॉइसमेल नंबर बदलू शकले नाही.\nही समस्‍या  कायम राहिल्‍यास आपल्‍या वाहकाशी संपर्क साधा."</string>
-    <string name="fw_change_failed" msgid="9179241823460192148">"अग्रेषित करण्‍याचा नंबर बदलू शकलो नाही.\n ही समस्‍या कायम राहिल्‍यास आपल्‍या वाहकाशी संपर्क साधा."</string>
+    <string name="fw_change_failed" msgid="9179241823460192148">"फॉरवर्ड करण्‍याचा नंबर बदलू शकलो नाही.\n ही समस्‍या कायम राहिल्‍यास आपल्‍या वाहकाशी संपर्क साधा."</string>
     <string name="fw_get_in_vm_failed" msgid="2432678237218183844">"वर्तमान अग्रेषण नंबर सेटिंग्‍ज पुनर्प्राप्त करू शकलो नाही आणि सेव्ह करू शकलो नाही.\nतरीही नवीन प्रदात्‍यावर स्‍विच करायचे?"</string>
     <string name="no_change" msgid="3737264882821031892">"कोणतेही बदल केले नाहीत."</string>
     <string name="sum_voicemail_choose_provider" msgid="6750824719081403773">"व्हॉइसमेल सेवा निवडा"</string>
@@ -286,6 +294,9 @@
     <string name="limited_sim_function_notification_title" msgid="612715399099846281">"मर्यादित सिम फंक्शनॅलिटी"</string>
     <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> चे कॉल आणि डेटा सेवा <xliff:g id="PHONE_NUMBER">%2$s</xliff:g> वापरताना ब्लॉक केले जाऊ शकतात."</string>
     <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> चे कॉल आणि डेटा सेवा दुसरे सिम वापरताना ब्लॉक केले जाऊ शकतात."</string>
+    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"आढळलेली आणि काढून टाकलेली कालबाह्य झालेली SIP खाती"</string>
+    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"Android प्लॅटफॉर्मवर आता SIP कॉलिंगला सपोर्ट नाही.\nतुमची अस्तित्वात असलेली SIP खाती <xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g> काढून टाकली आहेत.\nकृपया तुमच्या कॉलिंगसंबंधित डीफॉल्ट खात्याचे सेटिंग कंफर्म करा."</string>
+    <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"सेटिंग्जवर जा"</string>
     <string name="data_usage_title" msgid="8438592133893837464">"अ‍ॅप डेटा वापर"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"<xliff:g id="ID_2">%2$s</xliff:g> दरम्यान <xliff:g id="ID_1">%1$s</xliff:g> मोबाइल डेटा वापरला गेला"</string>
     <string name="advanced_options_title" msgid="9208195294513520934">"प्रगत"</string>
@@ -307,10 +318,10 @@
     <string name="throttle_time_frame" msgid="1813452485948918791">"डेटा वापर कालावधी"</string>
     <string name="throttle_rate" msgid="7641913901133634905">"डेटा रेट धोरण"</string>
     <string name="throttle_help" msgid="2624535757028809735">"अधिक जाणून घ्या"</string>
-    <string name="throttle_status_subtext" msgid="1110276415078236687">"कमाल कालावधी <xliff:g id="USED_2">%3$s</xliff:g> पैकी <xliff:g id="USED_0">%1$s</xliff:g> (<xliff:g id="USED_1">%2$d</xliff:g>٪) \nपुढील  कालावधी <xliff:g id="USED_3">%4$d</xliff:g> दिवसात (<xliff:g id="USED_4">%5$s</xliff:g>) प्रारंभ होतो"</string>
+    <string name="throttle_status_subtext" msgid="1110276415078236687">"कमाल कालावधी <xliff:g id="USED_2">%3$s</xliff:g> पैकी <xliff:g id="USED_0">%1$s</xliff:g> (<xliff:g id="USED_1">%2$d</xliff:g>٪) \nपुढील  कालावधी <xliff:g id="USED_3">%4$d</xliff:g> दिवसात (<xliff:g id="USED_4">%5$s</xliff:g>) सुरू होतो"</string>
     <string name="throttle_data_usage_subtext" msgid="3185429653996709840">"कमाल कालावधी <xliff:g id="USED_2">%3$s</xliff:g> पैकी <xliff:g id="USED_0">%1$s</xliff:g> (<xliff:g id="USED_1">%2$d</xliff:g>٪)"</string>
     <string name="throttle_data_rate_reduced_subtext" msgid="8369839346277847725">"<xliff:g id="USED_0">%1$s</xliff:g> कमाल ओलांडले\nडेटा रेट <xliff:g id="USED_1">%2$d</xliff:g> Kb/s इतका कमी झाला"</string>
-    <string name="throttle_time_frame_subtext" msgid="6462089615392402127">"कालचक्राचा <xliff:g id="USED_0">%1$d</xliff:g>٪ काळ लोटला\nपुढील कालावधी <xliff:g id="USED_1">%2$d</xliff:g> दिवसांमध्‍ये (<xliff:g id="USED_2">%3$s</xliff:g>) प्रारंभ होतो"</string>
+    <string name="throttle_time_frame_subtext" msgid="6462089615392402127">"कालचक्राचा <xliff:g id="USED_0">%1$d</xliff:g>٪ काळ लोटला\nपुढील कालावधी <xliff:g id="USED_1">%2$d</xliff:g> दिवसांमध्‍ये (<xliff:g id="USED_2">%3$s</xliff:g>) सुरू होतो"</string>
     <string name="throttle_rate_subtext" msgid="7221971817325779535">"डेटा वापर मर्यादा ओलांडल्‍यास डेटा रेट <xliff:g id="USED">%1$d</xliff:g> Kb/s इतका कमी केला"</string>
     <string name="throttle_help_subtext" msgid="2817114897095534807">"आपल्‍या वाहकाच्‍या मोबाइल नेटवर्क डेटा वापर धोरणाविषयी अधिक माहिती"</string>
     <string name="cell_broadcast_sms" msgid="4053449797289031063">"सेल प्रसारण SMS"</string>
@@ -504,14 +515,15 @@
     <string name="puk2_requested" msgid="6992374450720307514">"पासवर्ड चुकीचा आहे. सिम आता लॉक केले आहे. PUK2 प्रविष्‍ट करा."</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"PUK2 कायमचे अवरोधित केले आहे."</string>
     <string name="pin2_attempts" msgid="5625178102026453023">\n"आपल्‍याकडे <xliff:g id="NUMBER">%d</xliff:g> शिल्लक प्रयत्न आहेत."</string>
+    <string name="puk2_locked" msgid="6497760825455461057">"PUK2 द्वारे लॉक केले आहे. ते अनलॉक करण्यासाठी सेवा पुरवठादाराशी संपर्क साधा."</string>
     <string name="pin2_unblocked" msgid="4481107908727789303">"पिन2 अवरोधित केला नाही"</string>
     <string name="pin2_error_exception" msgid="8116103864600823641">"नेटवर्क किंवा सिम कार्ड एरर"</string>
     <string name="doneButton" msgid="7371209609238460207">"पूर्ण झाले"</string>
     <string name="voicemail_settings_number_label" msgid="1265118640154688162">"व्हॉइसमेल नंबर"</string>
     <string name="card_title_dialing" msgid="8742182654254431781">"डायल करत आहे"</string>
     <string name="card_title_redialing" msgid="18130232613559964">"रीडायल करत आहे"</string>
-    <string name="card_title_conf_call" msgid="901197309274457427">"कॉन्फरन्स कॉल"</string>
-    <string name="card_title_incoming_call" msgid="881424648458792430">"येणारे कॉल"</string>
+    <string name="card_title_conf_call" msgid="901197309274457427">"कॉंफरन्स कॉल"</string>
+    <string name="card_title_incoming_call" msgid="881424648458792430">"इनकमिंग कॉल"</string>
     <string name="card_title_call_ended" msgid="650223980095026340">"कॉल संपला"</string>
     <string name="card_title_on_hold" msgid="9028319436626975207">"होल्ड वर"</string>
     <string name="card_title_hanging_up" msgid="814874106866647871">"हँग अप करणेे"</string>
@@ -525,6 +537,7 @@
     <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"कॉल करण्‍यासाठी मोबाइल नेटवर्क सुरू करा, विमान मोड बंद करा किंवा बॅटरी बचकर्ता मोड बंद करा."</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"कॉल करण्‍यासाठी विमान मोड बंद करा."</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"कॉल करण्‍यासाठी विमान मोड बंद करा किंवा वायरलेस नेटवर्कशी कनेक्‍ट करा."</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"फोन खूप गरम झाला आहे"</b>\n\n"हा कॉल पूर्ण करू शकत नाही. तुमचा फोन थंड झाल्यावर पुन्हा प्रयत्न करा.\n\nतुम्ही अजूनही आणीबाणी कॉल करू शकता."</string>
     <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"आणीबाणी नसलेला कॉल करण्‍यासाठी आणीबाणी कॉलबॅक मोडमधून बाहेर पडा."</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"नेटवर्कवर नोंदणीकृत नाही."</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"मोबाइल नेटवर्क उपलब्ध नाही."</string>
@@ -565,7 +578,7 @@
     <string name="onscreenHoldText" msgid="4025348842151665191">"होल्ड करा"</string>
     <string name="onscreenEndCallText" msgid="6138725377654842757">"शेवट"</string>
     <string name="onscreenShowDialpadText" msgid="658465753816164079">"डायलपॅड"</string>
-    <string name="onscreenMuteText" msgid="5470306116733843621">"नि:शब्द करा"</string>
+    <string name="onscreenMuteText" msgid="5470306116733843621">"म्यूट करा"</string>
     <string name="onscreenAddCallText" msgid="9075675082903611677">"कॉल जोडा"</string>
     <string name="onscreenMergeCallsText" msgid="3692389519611225407">"कॉल विलीन करा"</string>
     <string name="onscreenSwapCallsText" msgid="2682542150803377991">"अदलाबदल करा"</string>
@@ -772,8 +785,8 @@
     <string name="call_barring_baoicr_enabled" msgid="1615324165512798478">"जाणारे इंटरनॅशनल रोमिंग ब्लॉक करणे बंद करायचे का?"</string>
     <string name="call_barring_baoicr_disabled" msgid="172010175248142831">"जाणारे इंटरनॅशनल रोमिंग ब्लॉक करायचे का?"</string>
     <string name="call_barring_baic" msgid="7941393541678658566">"सर्व येणारे"</string>
-    <string name="call_barring_baic_enabled" msgid="4357332358020337470">"सर्व येणारे कॉल ब्लॉक करणे बंद करायचे का?"</string>
-    <string name="call_barring_baic_disabled" msgid="2355945245938240958">"सर्व येणारे कॉल ब्लॉक करायचे का?"</string>
+    <string name="call_barring_baic_enabled" msgid="4357332358020337470">"सर्व इनकमिंग कॉल ब्लॉक करणे बंद करायचे का?"</string>
+    <string name="call_barring_baic_disabled" msgid="2355945245938240958">"सर्व इनकमिंग कॉल ब्लॉक करायचे का?"</string>
     <string name="call_barring_baicr" msgid="8712249337313034226">"येणारे इंटरनॅशनल रोमिंग"</string>
     <string name="call_barring_baicr_enabled" msgid="64774270234828175">"सर्व येणारे इंटरनॅशनल रोमिंग ब्लॉक करणे बंद करायचे का?"</string>
     <string name="call_barring_baicr_disabled" msgid="3488129262744027262">"येणारे इंटरनॅशनल रोमिंग ब्लॉक करायचे का?"</string>
@@ -798,7 +811,7 @@
     <string name="supp_service_notification_call_waiting" msgid="4577403881609445324">"कॉल प्रतीक्षेत आहे."</string>
     <string name="supp_service_clir_suppression_rejected" msgid="6105737020194776121">"क्रमांक ब्‍लॉक करणे रद्द केले."</string>
     <string name="supp_service_closed_user_group_call" msgid="2811636666505250689">"बंद वापरकर्ता गट कॉल."</string>
-    <string name="supp_service_incoming_calls_barred" msgid="2034627421274447674">"येणारे कॉल अवरोधित केले."</string>
+    <string name="supp_service_incoming_calls_barred" msgid="2034627421274447674">"इनकमिंग कॉल अवरोधित केले."</string>
     <string name="supp_service_outgoing_calls_barred" msgid="5205725332394087112">"जाणारे कॉल अवरोधित केले."</string>
     <string name="supp_service_call_forwarding_active" msgid="7910162960395132464">"कॉल फॉरवर्ड होत आहे."</string>
     <string name="supp_service_additional_call_forwarded" msgid="8772753260008398632">"अतिरिक्‍त कॉल फॉरवर्ड केला."</string>
@@ -867,8 +880,7 @@
     <string name="radio_info_dds" msgid="1122593144425697126">"डीफॉल्ट डेटा सिम SubId:"</string>
     <string name="radio_info_dl_kbps" msgid="2382922659525318726">"DL बँडविड्थ (kbps):"</string>
     <string name="radio_info_ul_kbps" msgid="2102225400904799036">"UL बँडविड्थ (kbps):"</string>
-    <string name="radio_info_signal_location_label" msgid="6188435197086550049">"सेल स्थान माहिती (कालबाह्य झाली):"</string>
-    <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"LTE फिजिकल चॅनेल कॉंफिगरेशन:"</string>
+    <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"LTE फिजिकल चॅनल कॉंफिगरेशन:"</string>
     <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"सेल माहिती रिफ्रेश रेट:"</string>
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"सर्व सेल परिमाण माहिती:"</string>
     <string name="radio_info_gprs_service_label" msgid="6819204246355412952">"डेटा सर्व्हिस:"</string>
@@ -898,6 +910,11 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"रिफ्रेश करा"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"DNS तपासणी टॉगल करा"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"OEM-विशिष्ट माहिती/सेटिंग्ज"</string>
+    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC उपलब्ध:"</string>
+    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR प्रतिबंधित:"</string>
+    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR उपलब्ध:"</string>
+    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR स्थिती:"</string>
+    <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR वारंवारता:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"रेडिओ बँड मोड सेट करा"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"बँड सूची लोड करत आहे…"</string>
     <string name="band_mode_set" msgid="6657819412803771421">"सेट करा"</string>
@@ -907,4 +924,7 @@
     <string name="phone_info_label" product="default" msgid="1784175881556791433">"फोनची माहिती"</string>
     <string name="carrier_provisioning" msgid="2668065041869578376">"वाहक सुविधा माहिती"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"वाहक सुविधा ट्रिगर करा"</string>
+    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"तुमचा ब्लूटूथ सिग्नल कमकुवत आहे. स्पीकरफोनवर स्विच करून पाहा."</string>
+    <string name="call_quality_notification_name" msgid="3476828289553948830">"कॉल गुणवत्ता सूचना"</string>
+    <string name="notification_channel_sip_account" msgid="1261816025156179637">"कालबाह्य झालेली SIP खाती"</string>
 </resources>

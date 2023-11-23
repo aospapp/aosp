@@ -23,14 +23,16 @@ LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
 LOCAL_USE_AAPT2 := true
 
 LOCAL_STATIC_ANDROID_LIBRARIES := \
+    androidx.appcompat_appcompat \
+    androidx.collection_collection \
     androidx.core_core \
+    androidx.fragment_fragment \
     androidx.media_media \
     androidx.legacy_legacy-support-core-utils \
     androidx.legacy_legacy-support-core-ui \
-    androidx.fragment_fragment \
-    androidx.appcompat_appcompat \
     androidx.palette_palette \
     androidx.recyclerview_recyclerview \
+    androidx.viewpager_viewpager \
     androidx.legacy_legacy-support-v13 \
     colorpicker \
     libchips \
@@ -65,6 +67,8 @@ else
 endif
 
 LOCAL_PACKAGE_NAME := messaging
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
 
 LOCAL_CERTIFICATE := platform
 

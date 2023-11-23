@@ -71,7 +71,11 @@
     <string name="accept" msgid="4426153292469698134">"پذیرفتن"</string>
     <string name="reject" msgid="24751635160440693">"رد کردن"</string>
     <string name="connections" msgid="8895413761760117180">"اتصال‌ها"</string>
+    <string name="wifi_direct_problem" msgid="8995174986718516990">"‏«سرویس چاپ پیش‌فرض» نمی‌تواند چاپگرهای Wi-Fi بی‌واسطه را پیدا کند"</string>
+    <string name="disable_wifi_direct" msgid="4824677957241687577">"‏غیرفعال کردن Wi-Fi بی‌واسطه"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"«سرویس چاپ پیش‌فرض» برای پیدا کردن دستگاه‌های نزدیک به اجازه مکان نیاز دارد."</string>
     <string name="fix" msgid="7784394272611365393">"مرور مجوز"</string>
+    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"«سرویس چاپ پیش‌فرض» برای پیدا کردن دستگاه‌های مجاور به خدمات مکان فعال‌شده نیاز دارد."</string>
+    <string name="enable_location" msgid="3627841004298863140">"فعال کردن مکان"</string>
     <string name="print" msgid="7851318072404916362">"چاپ"</string>
 </resources>

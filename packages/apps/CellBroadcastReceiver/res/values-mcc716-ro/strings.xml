@@ -21,4 +21,5 @@
     <string name="cmas_required_monthly_test" msgid="9061179556831144678">"Alertă de urgență: mesaj de testare"</string>
     <string name="cmas_exercise_alert" msgid="3061507852301643814">"Alertă de urgență: mesaj de exercițiu/simulare"</string>
     <string name="pws_other_message_identifiers" msgid="4992476982074198144">"Alertă de urgență: mesaj de testare"</string>
+    <string name="button_dismiss" msgid="5823921161712171097">"Ascundeți"</string>
 </resources>

@@ -48,7 +48,7 @@
     <Preference
         android:key="@string/pk_regulatory_labels"
         android:title="@string/regulatory_labels"
-        settings:controller="com.android.car.settings.common.DefaultRestrictionsPreferenceController">
+        settings:controller="com.android.car.settings.system.RegulatoryInfoPreferenceController">
         <intent android:action="android.settings.SHOW_REGULATORY_INFO"/>
     </Preference>
     <com.android.car.ui.preference.CarUiPreference

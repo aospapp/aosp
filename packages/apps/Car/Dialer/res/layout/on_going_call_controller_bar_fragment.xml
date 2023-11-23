@@ -56,6 +56,7 @@ limitations under the License.
         android:id="@+id/voice_channel_view"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:background="@drawable/dialer_ripple_background"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toEndOf="@+id/end_call_button"
         app:layout_constraintEnd_toStartOf="@+id/button_wrapper"
@@ -65,7 +66,6 @@ limitations under the License.
             android:id="@+id/voice_channel_button"
             android:layout_width="@dimen/in_call_button_size"
             android:layout_height="@dimen/in_call_button_size"
-            android:background="@drawable/dialer_ripple_background"
             android:scaleType="center"
             android:src="@drawable/ic_audio_route_vehicle_activatable"/>
 

@@ -19,5 +19,4 @@
     <!-- Keypad dimensions -->
     <dimen name="keypad_margin_x">48dp</dimen>
     <dimen name="keypad_margin_y">@*android:dimen/car_padding_4</dimen>
-    <dimen name="keypad_margin">@*android:dimen/car_padding_6</dimen>
 </resources>

@@ -25,8 +25,8 @@
         a command of the form:
             protoc -I=<proto_dir> --python_out=<out_dir> <proto_dir>/VehicleHalProto.proto
         For example:
-            protoDir=~/android/master/hardware/interfaces/automotive/vehicle/2.0/default/impl/vhal_v2_0/proto
-            outDir=~/android/master/packages/services/Car/tools/emulator
+            protoDir=$ANDROID_BUILD_TOP/hardware/interfaces/automotive/vehicle/2.0/default/impl/vhal_v2_0/proto
+            outDir=$ANDROID_BUILD_TOP/packages/services/Car/tools/emulator
             protoc -I=$protoDir --python_out=$outDir $protoDir/VehicleHalProto.proto
 """
 
@@ -123,6 +123,12 @@ class VhalTest:
                 elif valType in self._types.TYPE_FLOAT:
                     value = rxMsg.value[0].float_values[0]
                     # Truncate float to 5 decimal places
+                    value = "%.5f" % value
+                    value = float(value)
+                elif valType in self._types.TYPE_MIXED:
+                    # Quick stub to unblock most tests
+                    # Todo: proper implement according to VehiclePropertyType in types.hal
+                    value = rxMsg.value[0].float_values[0]
                     value = "%.5f" % value
                     value = float(value)
                 else:

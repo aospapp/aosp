@@ -21,7 +21,7 @@
     <!-- no translation found for app_name (8773648973927541493) -->
     <skip />
     <string name="select_wallpaper_label" msgid="6989581259339646085">"Kategoritë e imazheve të sfondit"</string>
-    <string name="set_wallpaper_button_text" msgid="4426286890442731310">"Cakto imazhin e sfondit"</string>
+    <string name="set_wallpaper_button_text" msgid="4426286890442731310">"Caktoje si imazh sfondi"</string>
     <string name="set_wallpaper_progress_message" msgid="7986528287618716715">"Po cakton imazhin e sfondit..."</string>
     <string name="try_again" msgid="8278874823700921234">"Provo sërish"</string>
     <string name="set_wallpaper_error_message" msgid="6819986999041085130">"Nuk mund të caktojë imazhin e sfondit"</string>
@@ -32,10 +32,10 @@
     <string name="home_screen_message" msgid="106444102822522813">"Ekrani bazë"</string>
     <string name="lock_screen_message" msgid="1534506081955058013">"Ekrani i kyçjes"</string>
     <string name="home_and_lock_short_label" msgid="2937922943541927983">"\"Ekrani bazë\" dhe \"Kyçja\""</string>
-    <string name="set_wallpaper_dialog_message" msgid="6114951028768599417">"Cakto imazhin e sfondit"</string>
+    <string name="set_wallpaper_dialog_message" msgid="2110475703996853076">"Caktoje aktiv imazhin e sfondit"</string>
     <string name="set_wallpaper_home_screen_destination" msgid="7315594722013109354">"Ekrani bazë"</string>
     <string name="set_wallpaper_lock_screen_destination" msgid="6224685559375417945">"Ekrani i kyçjes"</string>
-    <string name="set_wallpaper_both_destination" msgid="6967226064958263939">"Ekrani bazë dhe ekrani i kyçjes"</string>
+    <string name="set_wallpaper_both_destination" msgid="233216830256235288">"Ekrani i bazë dhe i kyçjes"</string>
     <string name="no_backup_image_wallpaper_label" msgid="6316627676107284851">"Imazh sfondi me rotacion"</string>
     <string name="permission_needed_explanation" msgid="139166837541426823">"Për të shfaqur imazhin aktual të sfondit këtu, <xliff:g id="APP_NAME">%1$s</xliff:g> ka nevojë për qasje te hapësira ruajtëse e pajisjes tënde."</string>
     <string name="permission_needed_explanation_go_to_settings" msgid="3923551582092599609">"Për të afishuar sfondin aktual këtu, \"Imazhet e sfondit\" kanë nevojë të kenë qasje në hapësirën ruajtëse të pajisjes sate.\n\nPër ta ndryshuar këtë cilësim, shko te zona \"Lejet\" në informacionin e aplikacionit \"Imazhet e sfondit\"."</string>
@@ -66,8 +66,6 @@
     <string name="refresh_daily_wallpaper_content_description" msgid="4362142658237147583">"Rifresko imazhin e përditshëm të sfondit"</string>
     <string name="refreshing_daily_wallpaper_dialog_message" msgid="1975910873362855761">"Po rifreskon imazhin e përditshëm të sfondit..."</string>
     <string name="refresh_daily_wallpaper_failed_message" msgid="4749879993812557166">"Rifreskimi i imazhit të përditshëm të sfondit dështoi. Kontrollo lidhjen e rrjetit dhe provo përsëri."</string>
-    <string name="collapse_attribution_panel" msgid="4367971404848122275">"Palos panelin e informacionit të imazhit të sfondit"</string>
-    <string name="expand_attribution_panel" msgid="6975094181456095915">"Zgjero panelin e informacionit të imazhit të sfondit"</string>
     <string name="on_device_wallpapers_category_title" msgid="805819102071369004">"Imazhet e sfondit në pajisje"</string>
     <string name="on_device_wallpapers_category_title_desktop" msgid="316919420410065369">"Në pajisje"</string>
     <string name="on_device_wallpaper_title" msgid="5262564748034629524">"Imazhi i sfondit Android"</string>
@@ -80,4 +78,24 @@
     <string name="center_crop_wallpaper_position" msgid="1681980019815343348">"Prerje qendrore"</string>
     <string name="stretch_wallpaper_position" msgid="5002680983147456935">"E tendosur"</string>
     <string name="preview" msgid="1774602101743861071">"Shiko paraprakisht"</string>
+    <string name="tab_info" msgid="818614080690111416">"Informacione"</string>
+    <string name="tab_customize" msgid="2533745409174959960">"Personalizo"</string>
+    <string name="configure_wallpaper" msgid="849882179182976621">"Cilësimet…"</string>
+    <string name="delete_live_wallpaper" msgid="589212696102662329">"Fshi"</string>
+    <string name="delete_wallpaper_confirmation" msgid="33790318361863778">"Do ta fshish këtë imazh sfondi nga telefoni?"</string>
+    <string name="bottom_action_bar_back" msgid="8237013112999946725">"Pas"</string>
+    <string name="bottom_action_bar_edit" msgid="1214742990893082138">"Modifiko"</string>
+    <string name="bottom_action_bar_download" msgid="3983122338076389421">"Shkarko"</string>
+    <string name="bottom_action_bar_slideshow_wallpaper" msgid="509770525179533154">"Imazhi i sfondit të diafilmit"</string>
+    <string name="bottom_action_bar_apply" msgid="2983308349819178932">"Zbato"</string>
+    <string name="accessibility_preview_pager" msgid="1839869637405028575">"Faqja <xliff:g id="ID_1">%1$d</xliff:g> nga <xliff:g id="ID_2">%2$d</xliff:g>"</string>
+    <string name="next_page_content_description" msgid="6268461446679584152">"Para"</string>
+    <string name="previous_page_content_description" msgid="1138597031571078429">"Pas"</string>
+    <string name="wallpaper_title" msgid="6754214682228331092">"Imazhi i sfondit"</string>
+    <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"Pamja paraprake e imazhit të sfondit"</string>
+    <string name="collection_not_exist_msg" msgid="3504852962885064842">"Koleksioni nuk ekziston"</string>
+    <string name="hide_ui_preview_text" msgid="6766076482511252295">"Fshih pamjen paraprake të ndërfaqes së përdoruesit"</string>
+    <string name="show_ui_preview_text" msgid="5993063062417070806">"Shfaq pamjen paraprake të ndërfaqes së përdoruesit"</string>
+    <string name="wallpaper_picker_entry_title" msgid="5185793991582084891">"Ndrysho imazhin e sfondit"</string>
+    <string name="lockscreen_wallpaper_preview_card_content_description" msgid="2244890820627302245">"Pamja paraprake e imazhit të sfondit të ekranit të kyçjes"</string>
 </resources>

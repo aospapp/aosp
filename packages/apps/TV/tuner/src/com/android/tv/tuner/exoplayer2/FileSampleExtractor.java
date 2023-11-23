@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2019 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,20 +16,29 @@
 
 package com.android.tv.tuner.exoplayer2;
 
+import android.media.MediaFormat;
 import android.os.Handler;
+import android.support.annotation.Nullable;
 
-import com.android.tv.tuner.exoplayer.buffer.BufferManager;
-import com.android.tv.tuner.exoplayer.buffer.PlaybackBufferListener;
-import com.android.tv.tuner.exoplayer.buffer.RecordingSampleBuffer;
+import com.android.tv.tuner.exoplayer2.buffer.BufferManager;
+import com.android.tv.tuner.exoplayer2.buffer.PlaybackBufferListener;
+import com.android.tv.tuner.exoplayer2.buffer.RecordingSampleBuffer;
 
-import com.google.android.exoplayer.MediaFormat;
-import com.google.android.exoplayer.MediaFormatHolder;
-import com.google.android.exoplayer.MediaFormatUtil;
-import com.google.android.exoplayer.SampleHolder;
+import com.google.android.exoplayer2.C;
+import com.google.android.exoplayer2.Format;
+import com.google.android.exoplayer2.FormatHolder;
+import com.google.android.exoplayer2.decoder.DecoderInputBuffer;
+import com.google.android.exoplayer2.source.TrackGroup;
+import com.google.android.exoplayer2.source.TrackGroupArray;
+import com.google.android.exoplayer2.util.MimeTypes;
 import com.google.auto.factory.AutoFactory;
 import com.google.auto.factory.Provided;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -40,15 +49,17 @@ import java.util.List;
 public class FileSampleExtractor implements SampleExtractor {
     private static final String TAG = "FileSampleExtractor";
     private static final boolean DEBUG = false;
+    private final long mRecordingDurationMs;
+    private IOException mOnPrepareException = null;
 
-    private int mTrackCount;
     private boolean mReleased;
-
-    private final List<MediaFormat> mTrackFormats = new ArrayList<>();
     private final BufferManager mBufferManager;
     private final PlaybackBufferListener mBufferListener;
     private BufferManager.SampleBuffer mSampleBuffer;
     private final RecordingSampleBuffer.Factory mRecordingSampleBufferFactory;
+    private TrackGroupArray mTrackGroupArray = new TrackGroupArray();
+    private final Runnable mRunnable;
+    private Callback mCallback;
 
     /**
      * Factory for {@link FileSampleExtractor}}.
@@ -57,59 +68,164 @@ public class FileSampleExtractor implements SampleExtractor {
      * generated class.
      */
     public interface Factory {
-        public FileSampleExtractor create(
-                BufferManager bufferManager, PlaybackBufferListener bufferListener);
+        FileSampleExtractor create(
+                BufferManager bufferManager,
+                PlaybackBufferListener bufferListener,
+                long durationMs);
     }
 
     @AutoFactory(implementing = Factory.class)
     public FileSampleExtractor(
             BufferManager bufferManager,
             PlaybackBufferListener bufferListener,
+            long durationMs,
             @Provided RecordingSampleBuffer.Factory recordingSampleBufferFactory) {
         mBufferManager = bufferManager;
         mBufferListener = bufferListener;
-        mTrackCount = -1;
         mRecordingSampleBufferFactory = recordingSampleBufferFactory;
+        mRecordingDurationMs = durationMs;
+        mRunnable = () -> {
+            try {
+                handlePrepare();
+            } catch (IOException e) {
+                mOnPrepareException = e;
+            }
+        };
     }
 
     @Override
     public void maybeThrowError() throws IOException {
-        // Do nothing.
+        if (mOnPrepareException != null) {
+            throw mOnPrepareException;
+        }
     }
 
     @Override
-    public boolean prepare() throws IOException {
+    public void prepare(Callback callback) {
+        mCallback = callback;
+        mRunnable.run();
+    }
+
+    private void handlePrepare() throws IOException {
         List<BufferManager.TrackFormat> trackFormatList = mBufferManager.readTrackInfoFiles();
         if (trackFormatList == null || trackFormatList.isEmpty()) {
             throw new IOException("Cannot find meta files for the recording.");
         }
-        mTrackCount = trackFormatList.size();
-        List<String> ids = new ArrayList<>();
-        mTrackFormats.clear();
-        for (int i = 0; i < mTrackCount; ++i) {
-            BufferManager.TrackFormat trackFormat = trackFormatList.get(i);
-            ids.add(trackFormat.trackId);
-            mTrackFormats.add(MediaFormatUtil.createMediaFormat(trackFormat.format));
+        List<Format> formats = ImmutableList.copyOf(
+                Lists.transform(trackFormatList, tf -> createFormat(tf.mediaFormat)));
+        Format videoFormat = Iterables.find(formats, f -> MimeTypes.isVideo(f.sampleMimeType));
+        Iterable<TrackGroup> captionTrackGroups = new ArrayList<>();
+        if (videoFormat != null) {
+            Format textFormat = Format.createTextSampleFormat(
+                    /* id= */ null,
+                    MimeTypes.APPLICATION_CEA708,
+                    /* selectionFlags= */ 0,
+                    videoFormat.language,
+                    /* drmInitData= */ null);
+            captionTrackGroups = ImmutableList.of(new TrackGroup(textFormat));
         }
+        Iterable<TrackGroup> trackGroups =
+                Iterables.concat(Iterables.transform(formats, TrackGroup::new), captionTrackGroups);
+        mTrackGroupArray = new TrackGroupArray(Iterables.toArray(trackGroups, TrackGroup.class));
         mSampleBuffer =
                 mRecordingSampleBufferFactory.create(
                         mBufferManager,
                         mBufferListener,
                         true,
                         RecordingSampleBuffer.BUFFER_REASON_RECORDED_PLAYBACK);
-        mSampleBuffer.init(ids, mTrackFormats);
-        return true;
+        mSampleBuffer.init(Lists.transform(trackFormatList, tf -> tf.trackId), formats);
+        mCallback.onPrepared();
+    }
+
+    private Format createFormat(MediaFormat mediaFormat) {
+        String mimeType = mediaFormat.getString(android.media.MediaFormat.KEY_MIME);
+        String language = getOptionalStringV16(mediaFormat, android.media.MediaFormat.KEY_LANGUAGE);
+        int maxInputSize =
+                getOptionalIntegerV16(mediaFormat, android.media.MediaFormat.KEY_MAX_INPUT_SIZE);
+        int width = getOptionalIntegerV16(mediaFormat, android.media.MediaFormat.KEY_WIDTH);
+        int height = getOptionalIntegerV16(mediaFormat, android.media.MediaFormat.KEY_HEIGHT);
+        int rotationDegrees = getOptionalIntegerV16(mediaFormat, "rotation-degrees");
+        int channelCount =
+                getOptionalIntegerV16(mediaFormat, android.media.MediaFormat.KEY_CHANNEL_COUNT);
+        int sampleRate =
+                getOptionalIntegerV16(mediaFormat, android.media.MediaFormat.KEY_SAMPLE_RATE);
+        ArrayList<byte[]> initializationData = new ArrayList<>();
+        for (int i = 0; mediaFormat.containsKey("csd-" + i); i++) {
+            ByteBuffer buffer = mediaFormat.getByteBuffer("csd-" + i);
+            byte[] data = new byte[buffer.limit()];
+            buffer.get(data);
+            initializationData.add(data);
+            buffer.flip();
+        }
+        long durationUs =
+                mediaFormat.containsKey(android.media.MediaFormat.KEY_DURATION)
+                        ? mediaFormat.getLong(android.media.MediaFormat.KEY_DURATION)
+                        : C.TIME_UNSET;
+        int pcmEncoding =
+                MimeTypes.AUDIO_RAW.equals(mimeType) ? C.ENCODING_PCM_16BIT : Format.NO_VALUE;
+        if (MimeTypes.isAudio(mimeType)) {
+            return Format.createAudioSampleFormat(
+                    null,
+                    mimeType,
+                    null,
+                    Format.NO_VALUE,
+                    maxInputSize,
+                    channelCount,
+                    sampleRate,
+                    pcmEncoding,
+                    initializationData,
+                    null,
+                    0,
+                    language);
+        } else if(MimeTypes.isVideo(mimeType)) {
+            return Format.createVideoSampleFormat(
+                    null,
+                    mimeType,
+                    null,
+                    Format.NO_VALUE,
+                    maxInputSize,
+                    width,
+                    height,
+                    Format.NO_VALUE,
+                    initializationData,
+                    rotationDegrees,
+                    Format.NO_VALUE,
+                    null);
+        } else if(MimeTypes.isText(mimeType)) {
+            return Format.createTextSampleFormat(
+                    null,
+                    mimeType,
+                    null,
+                    Format.NO_VALUE,
+                    0,
+                    language,
+                    Format.NO_VALUE,
+                    null,
+                    durationUs,
+                    initializationData);
+        } else {
+            return Format.createSampleFormat(null, mimeType, durationUs);
+        }
+    }
+
+    @Nullable
+    private static String getOptionalStringV16(MediaFormat mediaFormat, String key) {
+        return mediaFormat.containsKey(key) ? mediaFormat.getString(key) : null;
+    }
+
+    private static int getOptionalIntegerV16(MediaFormat mediaFormat, String key) {
+        return mediaFormat.containsKey(key) ? mediaFormat.getInteger(key) : Format.NO_VALUE;
     }
 
     @Override
-    public List<MediaFormat> getTrackFormats() {
-        return mTrackFormats;
+    public TrackGroupArray getTrackGroups() {
+        return mTrackGroupArray;
     }
 
     @Override
-    public void getTrackMediaFormat(int track, MediaFormatHolder outMediaFormatHolder) {
-        outMediaFormatHolder.format = mTrackFormats.get(track);
-        outMediaFormatHolder.drmInitData = null;
+    public void getTrackMediaFormat(int track, FormatHolder outMediaFormatHolder) {
+        outMediaFormatHolder.format = mTrackGroupArray.get(track).getFormat(0);
+        outMediaFormatHolder.format.copyWithDrmInitData(null);
     }
 
     @Override
@@ -138,7 +254,12 @@ public class FileSampleExtractor implements SampleExtractor {
 
     @Override
     public long getBufferedPositionUs() {
-        return mSampleBuffer.getBufferedPositionUs();
+        return C.msToUs(mRecordingDurationMs);
+    }
+
+    @Override
+    public long getNextLoadPositionUs() {
+        return C.TIME_END_OF_SOURCE;
     }
 
     @Override
@@ -147,13 +268,13 @@ public class FileSampleExtractor implements SampleExtractor {
     }
 
     @Override
-    public int readSample(int track, SampleHolder sampleHolder) {
+    public int readSample(int track, DecoderInputBuffer sampleHolder) {
         return mSampleBuffer.readSample(track, sampleHolder);
     }
 
     @Override
-    public boolean continueBuffering(long positionUs) {
-        return mSampleBuffer.continueBuffering(positionUs);
+    public boolean continueLoading(long positionUs) {
+        return mSampleBuffer.continueLoading(positionUs);
     }
 
     @Override

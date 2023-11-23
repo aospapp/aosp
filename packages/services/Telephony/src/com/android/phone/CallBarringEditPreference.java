@@ -26,6 +26,8 @@ import android.os.AsyncResult;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.os.PersistableBundle;
+import android.telephony.CarrierConfigManager;
 import android.text.method.DigitsKeyListener;
 import android.text.method.PasswordTransformationMethod;
 import android.util.AttributeSet;
@@ -35,7 +37,6 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.android.internal.telephony.CommandsInterface;
 import com.android.internal.telephony.CommandException;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneFactory;
@@ -109,7 +110,7 @@ public class CallBarringEditPreference extends EditPinPreference {
         if (!skipReading) {
             // Query call barring status
             mPhone.getCallBarring(mFacility, "", mHandler.obtainMessage(
-                    MyHandler.MESSAGE_GET_CALL_BARRING), CommandsInterface.SERVICE_CLASS_VOICE);
+                    MyHandler.MESSAGE_GET_CALL_BARRING), getServiceClassForCallBarring(mPhone));
             if (mTcpListener != null) {
                 mTcpListener.onStarted(this, true);
             }
@@ -204,7 +205,7 @@ public class CallBarringEditPreference extends EditPinPreference {
             // Send set call barring message to RIL layer.
             mPhone.setCallBarring(mFacility, !mIsActivated, password,
                     mHandler.obtainMessage(MyHandler.MESSAGE_SET_CALL_BARRING),
-                    CommandsInterface.SERVICE_CLASS_VOICE);
+                    getServiceClassForCallBarring(mPhone));
             if (mTcpListener != null) {
                 mTcpListener.onStarted(this, false);
             }
@@ -216,6 +217,18 @@ public class CallBarringEditPreference extends EditPinPreference {
         if (DBG) {
             Log.d(LOG_TAG, "handleCallBarringResult: mIsActivated=" + mIsActivated);
         }
+    }
+
+    private static int getServiceClassForCallBarring(Phone phone) {
+        int serviceClass = CarrierConfigManager.SERVICE_CLASS_VOICE;
+        PersistableBundle carrierConfig = PhoneGlobals.getInstance()
+                .getCarrierConfigForSubId(phone.getSubId());
+        if (carrierConfig != null) {
+            serviceClass = carrierConfig.getInt(
+                    CarrierConfigManager.KEY_CALL_BARRING_DEFAULT_SERVICE_CLASS_INT,
+                    CarrierConfigManager.SERVICE_CLASS_VOICE);
+        }
+        return serviceClass;
     }
 
     void updateSummaryText() {
@@ -327,8 +340,7 @@ public class CallBarringEditPreference extends EditPinPreference {
                     pref.mFacility,
                     "",
                     obtainMessage(MESSAGE_GET_CALL_BARRING, 0, MESSAGE_SET_CALL_BARRING,
-                            ar.exception),
-                    CommandsInterface.SERVICE_CLASS_VOICE);
+                            ar.exception), getServiceClassForCallBarring(pref.mPhone));
         }
     }
 }

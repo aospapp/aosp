@@ -70,14 +70,14 @@ public class SortModelTest {
                     DIMENSION_3
             };
 
-    private static final DummyListener DUMMY_LISTENER = new DummyListener();
+    private static final StubListener STUB_LISTENER = new StubListener();
 
     private SortModel mModel;
 
     @Before
     public void setUp() {
         mModel = new SortModel(Arrays.asList(DIMENSIONS));
-        mModel.addListener(DUMMY_LISTENER);
+        mModel.addListener(STUB_LISTENER);
     }
 
     @Test
@@ -106,7 +106,7 @@ public class SortModelTest {
         mModel.setDimensionVisibility(DIMENSION_1.getId(), View.GONE);
 
         assertEquals(View.GONE, DIMENSION_1.getVisibility());
-        assertEquals(SortModel.UPDATE_TYPE_VISIBILITY, DUMMY_LISTENER.mLastUpdateType);
+        assertEquals(SortModel.UPDATE_TYPE_VISIBILITY, STUB_LISTENER.mLastUpdateType);
     }
 
     @Test
@@ -122,8 +122,8 @@ public class SortModelTest {
         assertSame(DIMENSION_1, sortedDimension);
         assertEquals(DIMENSION_1.getDefaultSortDirection(), sortedDimension.getSortDirection());
 
-        assertSame(mModel, DUMMY_LISTENER.mLastSortModel);
-        assertEquals(SortModel.UPDATE_TYPE_SORTING, DUMMY_LISTENER.mLastUpdateType);
+        assertSame(mModel, STUB_LISTENER.mLastSortModel);
+        assertEquals(SortModel.UPDATE_TYPE_SORTING, STUB_LISTENER.mLastUpdateType);
     }
 
     @Test
@@ -134,8 +134,8 @@ public class SortModelTest {
         assertSame(DIMENSION_1, sortedDimension);
         assertEquals(SortDimension.SORT_DIRECTION_DESCENDING, sortedDimension.getSortDirection());
 
-        assertSame(mModel, DUMMY_LISTENER.mLastSortModel);
-        assertEquals(SortModel.UPDATE_TYPE_SORTING, DUMMY_LISTENER.mLastUpdateType);
+        assertSame(mModel, STUB_LISTENER.mLastSortModel);
+        assertEquals(SortModel.UPDATE_TYPE_SORTING, STUB_LISTENER.mLastUpdateType);
     }
 
     @Test
@@ -147,8 +147,8 @@ public class SortModelTest {
         assertSame(DIMENSION_1, sortedDimension);
         assertEquals(SortDimension.SORT_DIRECTION_DESCENDING, sortedDimension.getSortDirection());
 
-        assertSame(mModel, DUMMY_LISTENER.mLastSortModel);
-        assertEquals(SortModel.UPDATE_TYPE_SORTING, DUMMY_LISTENER.mLastUpdateType);
+        assertSame(mModel, STUB_LISTENER.mLastSortModel);
+        assertEquals(SortModel.UPDATE_TYPE_SORTING, STUB_LISTENER.mLastUpdateType);
     }
 
     @Test
@@ -160,8 +160,8 @@ public class SortModelTest {
         assertSame(DIMENSION_1, sortedDimension);
         assertEquals(SortDimension.SORT_DIRECTION_DESCENDING, sortedDimension.getSortDirection());
 
-        assertSame(mModel, DUMMY_LISTENER.mLastSortModel);
-        assertEquals(SortModel.UPDATE_TYPE_SORTING, DUMMY_LISTENER.mLastUpdateType);
+        assertSame(mModel, STUB_LISTENER.mLastSortModel);
+        assertEquals(SortModel.UPDATE_TYPE_SORTING, STUB_LISTENER.mLastUpdateType);
     }
 
     @Test
@@ -225,7 +225,7 @@ public class SortModelTest {
         return mModel.getDimensionById(sortedDimensionId);
     }
 
-    private static class DummyListener implements UpdateListener {
+    private static class StubListener implements UpdateListener {
 
         private SortModel mLastSortModel;
         private @UpdateType int mLastUpdateType;

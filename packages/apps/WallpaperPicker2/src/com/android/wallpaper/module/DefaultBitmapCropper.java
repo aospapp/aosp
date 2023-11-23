@@ -31,8 +31,8 @@ public class DefaultBitmapCropper implements BitmapCropper {
     private static final boolean FILTER_SCALED_BITMAP = true;
 
     @Override
-    public void cropAndScaleBitmap(Asset asset, float scale, final Rect cropRect,
-                                   final Callback callback) {
+    public void cropAndScaleBitmap(Asset asset, float scale, Rect cropRect,
+            boolean isRtl, Callback callback) {
         // Crop rect in pixels of source image.
         Rect scaledCropRect = new Rect(
                 Math.round((float) cropRect.left / scale),
@@ -40,7 +40,7 @@ public class DefaultBitmapCropper implements BitmapCropper {
                 Math.round((float) cropRect.right / scale),
                 Math.round((float) cropRect.bottom / scale));
 
-        asset.decodeBitmapRegion(scaledCropRect, cropRect.width(), cropRect.height(),
+        asset.decodeBitmapRegion(scaledCropRect, cropRect.width(), cropRect.height(), isRtl,
                 new BitmapReceiver() {
                     @Override
                     public void onBitmapDecoded(Bitmap bitmap) {

@@ -16,13 +16,15 @@
   limitations under the License
   -->
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+                  xmlns:settings="http://schemas.android.com/apk/res-auto"
                   android:title="@string/remotes_and_accessories_category_title">
-    <Preference
+    <com.android.settingslib.RestrictedPreference
         android:icon="@drawable/ic_bluetooth"
         android:key="add_accessory"
-        android:title="@string/accessories_add">
+        android:title="@string/accessories_add"
+        settings:userRestriction="no_config_bluetooth">
         <intent
             android:targetClass="com.android.tv.settings.accessories.AddAccessoryActivity"
             android:targetPackage="com.android.tv.settings"/>
-    </Preference>
+    </com.android.settingslib.RestrictedPreference>
 </PreferenceScreen>

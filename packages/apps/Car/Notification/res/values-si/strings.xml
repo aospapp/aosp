@@ -39,4 +39,5 @@
       <item quantity="one">නව පණිවුඩ <xliff:g id="COUNT">%d</xliff:g>ක්</item>
       <item quantity="other">නව පණිවුඩ <xliff:g id="COUNT">%d</xliff:g>ක්</item>
     </plurals>
+    <string name="manage_text" msgid="4225197445283791757">"කළමනාකරණය කරන්න"</string>
 </resources>

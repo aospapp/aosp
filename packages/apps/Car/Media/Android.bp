@@ -14,6 +14,10 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_app {
     name: "CarMediaApp",
 
@@ -21,7 +25,7 @@ android_app {
 
     resource_dirs: ["res"],
 
-    required: ["privapp_whitelist_com.android.car.media"],
+    required: ["allowed_privapp_com.android.car.media"],
 
     certificate: "platform",
 
@@ -44,6 +48,7 @@ android_app {
         "car-apps-common",
         "car-media-common",
         "car-ui-lib",
+        "car-uxr-client-lib",
     ],
 
     product_variables: {

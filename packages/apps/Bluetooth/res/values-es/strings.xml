@@ -18,8 +18,8 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"Acceso al administrador de descargas"</string>
     <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"Permite que la aplicación acceda al administrador BluetoothShare y lo use para transferir archivos."</string>
-    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"Acceso de dispositivos Bluetooth autorizados"</string>
-    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"Permite que la aplicación autorice temporalmente a un dispositivo Bluetooth para que pueda enviar archivos a este dispositivo sin la confirmación del usuario."</string>
+    <string name="permlab_bluetoothAcceptlist" msgid="2647575807648622053">"Permitir acceso de dispositivo Bluetooth."</string>
+    <string name="permdesc_bluetoothAcceptlist" msgid="2406423665674766442">"Permite que la aplicación autorice temporalmente un dispositivo Bluetooth a enviar archivos a este dispositivo sin la confirmación del usuario."</string>
     <string name="bt_share_picker_label" msgid="6268100924487046932">"Bluetooth"</string>
     <string name="unknown_device" msgid="9221903979877041009">"Dispositivo desconocido"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"Desconocido"</string>
@@ -37,7 +37,7 @@
     <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"Aceptar"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"Se ha agotado el tiempo para aceptar el archivo entrante de \"<xliff:g id="SENDER">%1$s</xliff:g>\"."</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"Archivo entrante"</string>
-    <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="SENDER">%1$s</xliff:g> ya puede enviar <xliff:g id="FILE">%2$s</xliff:g>"</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="6237487486781004992">"<xliff:g id="SENDER">%1$s</xliff:g> ya puede enviar un archivo: <xliff:g id="FILE">%2$s</xliff:g>"</string>
     <string name="notification_receiving" msgid="4674648179652543984">"Bluetooth: recibiendo <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="notification_received" msgid="3324588019186687985">"Compartir con Bluetooth: <xliff:g id="FILE">%1$s</xliff:g> recibido"</string>
     <string name="notification_received_fail" msgid="3619350997285714746">"Bluetooth: <xliff:g id="FILE">%1$s</xliff:g> no recibido"</string>
@@ -83,8 +83,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"Enviando archivo a \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\""</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"Enviando <xliff:g id="NUMBER">%1$s</xliff:g> archivos a \"<xliff:g id="RECIPIENT">%2$s</xliff:g>\""</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"Se ha detenido el envío del archivo a \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\""</string>
-    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"No hay suficiente espacio en el almacenamiento USB para guardar el archivo de \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
-    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"No hay suficiente espacio en la tarjeta SD para guardar el archivo de \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="5354343190503952837">"No hay suficiente espacio en el almacenamiento USB para guardar el archivo."</string>
+    <string name="bt_sm_2_1_default" msgid="2497541206648973852">"No hay suficiente espacio en la tarjeta SD para guardar el archivo."</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"Espacio necesario: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"Se están procesando demasiadas solicitudes. Vuelve a intentarlo más tarde."</string>
     <string name="status_pending" msgid="2503691772030877944">"Aún no se ha iniciado la transferencia de archivos."</string>

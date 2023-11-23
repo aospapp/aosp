@@ -16,6 +16,8 @@
 
 package com.android.car.dialer.ui.dialpad;
 
+import static com.android.car.dialer.ui.dialpad.DialpadRestrictionViewModel.shouldEnforceNoDialpadRestriction;
+
 import android.animation.AnimatorInflater;
 import android.animation.ValueAnimator;
 import android.os.Bundle;
@@ -31,10 +33,12 @@ import android.widget.TextView;
 import androidx.annotation.CallSuper;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.lifecycle.ViewModelProvider;
 
 import com.android.car.dialer.R;
 import com.android.car.dialer.log.L;
 import com.android.car.dialer.ui.common.DialerBaseFragment;
+import com.android.car.dialer.ui.dialpad.DialpadRestrictionViewModel.DialpadUxrMode;
 import com.android.car.dialer.ui.view.ScaleSpan;
 
 /** Fragment that controls the dialpad. */
@@ -68,8 +72,11 @@ public abstract class AbstractDialpadFragment extends DialerBaseFragment impleme
     private TextView mTitleView;
     private int mCurrentlyPlayingTone = KeyEvent.KEYCODE_UNKNOWN;
 
+    private DialpadRestrictionViewModel mDialpadRestrictionViewModel;
+
     /** Defines how the dialed number should be presented. */
-    abstract void presentDialedNumber(@NonNull StringBuffer number);
+    abstract void presentDialedNumber(
+            @NonNull String number, @NonNull DialpadUxrMode dialpadUxrMode);
 
     /** Plays the tone for the pressed keycode when "play DTMF tone" is enabled in settings. */
     abstract void playTone(int keycode);
@@ -80,10 +87,18 @@ public abstract class AbstractDialpadFragment extends DialerBaseFragment impleme
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
         if (savedInstanceState != null) {
             mNumber.append(savedInstanceState.getCharSequence(DIAL_NUMBER_KEY));
         }
         L.d(TAG, "onCreate, number: %s", mNumber);
+
+        if (shouldEnforceNoDialpadRestriction(getActivity())) {
+            mDialpadRestrictionViewModel =
+                    new ViewModelProvider(getActivity()).get(DialpadRestrictionViewModel.class);
+            mDialpadRestrictionViewModel.getDialpadMode()
+                    .observe(this, this::onDialpadUxrModeChange);
+        }
     }
 
     @CallSuper
@@ -191,11 +206,31 @@ public abstract class AbstractDialpadFragment extends DialerBaseFragment impleme
             mInputMotionAnimator.removeAllUpdateListeners();
         }
 
-        presentDialedNumber(mNumber);
+        if (mDialpadRestrictionViewModel != null) {
+            mDialpadRestrictionViewModel.setCurrentPhoneNumber(mNumber.toString());
+        }
+
+        presentDialedNumber(mNumber.toString(), getDialpadUxrMode());
     }
 
     @NonNull
     StringBuffer getNumber() {
         return mNumber;
+    }
+
+    private DialpadUxrMode getDialpadUxrMode() {
+        return mDialpadRestrictionViewModel == null  ? DialpadUxrMode.UNRESTRICTED
+                : mDialpadRestrictionViewModel.getDialpadMode().getValue();
+    }
+
+    /**
+     * A callback to notify of the dialpad mode change.
+     *
+     * NOTE: the method is never triggered if the app is configured to ignore the "no dialpad" UX
+     * restriction.
+     */
+    @CallSuper
+    protected void onDialpadUxrModeChange(DialpadUxrMode dialpadUxrMode) {
+        presentDialedNumber(mNumber.toString(), dialpadUxrMode);
     }
 }

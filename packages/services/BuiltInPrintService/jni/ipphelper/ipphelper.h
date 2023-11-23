@@ -97,7 +97,8 @@ extern status_t set_ipp_version(ipp_t *, char *, http_t *, ipp_version_state);
 /*
  * Parses supported media from the IPP response and copies the list into capabilities
  */
-extern void parse_getMediaSupported(ipp_t *response, media_supported_t *media_supported);
+extern void parse_getMediaSupported(ipp_t *response, media_supported_t *media_supported,
+        printer_capabilities_t *capabilities);
 
 /*
  * Logs printer capabilities

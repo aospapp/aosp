@@ -16,32 +16,46 @@
 
 package com.android.car.audio.hal;
 
-import android.util.Log;
+import android.os.IBinder;
+import android.util.Slog;
+
+import com.android.car.CarLog;
 
 /**
  * Factory for constructing wrappers around IAudioControl HAL instances.
  */
 public final class AudioControlFactory {
-    private static final String TAG = AudioControlWrapper.class.getSimpleName();
+    private static final String TAG = CarLog.tagFor(AudioControlFactory.class);
+
+    private AudioControlFactory() {
+    }
 
     /**
-     * Generates {@link AudioControlWrapper} for interacting with IAudioControl HAL service. Checks
-     * for V2.0 first, and then falls back to V1.0 if that is not available. Will throw if none is
-     * registered on the manifest.
+     * Generates {@link AudioControlWrapper} for interacting with IAudioControl HAL service. The HAL
+     * version priority is: Current AIDL, HIDL V2, HIDL V1. The wrapper will try to fetch the
+     * highest priority service, and then fall back to older versions if it's not available. The
+     * wrapper will throw if none is registered on the manifest.
+     *
      * @return {@link AudioControlWrapper} for registered IAudioControl service.
      */
     public static AudioControlWrapper newAudioControl() {
+        IBinder binder = AudioControlWrapperAidl.getService();
+        if (binder != null) {
+            return new AudioControlWrapperAidl(binder);
+        }
+        Slog.i(TAG, "AIDL AudioControl HAL not in the manifest");
+
         android.hardware.automotive.audiocontrol.V2_0.IAudioControl audioControlV2 =
                 AudioControlWrapperV2.getService();
         if (audioControlV2 != null) {
             return new AudioControlWrapperV2(audioControlV2);
         }
-        Log.i(TAG, "IAudioControl@V2.0 not in the manifest");
+        Slog.i(TAG, "HIDL AudioControl@V2.0 not in the manifest");
 
         android.hardware.automotive.audiocontrol.V1_0.IAudioControl audioControlV1 =
                 AudioControlWrapperV1.getService();
         if (audioControlV1 != null) {
-            Log.w(TAG, "IAudioControl V1.0 is deprecated. Consider upgrading to V2.0");
+            Slog.w(TAG, "HIDL AudioControl V1.0 is deprecated. Consider upgrading to AIDL");
             return new AudioControlWrapperV1(audioControlV1);
         }
 

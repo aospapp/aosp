@@ -16,6 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="missing_rename_error" msgid="9098952207447981103">"Duhet ta riemërtosh këtë"</string>
+    <string name="add_folder_name_error" msgid="6014615052491406810">"Duhet të shtosh një emër dosjeje"</string>
     <string name="files_label" msgid="771781190045103748">"Skedarët"</string>
     <string name="downloads_label" msgid="5462789470049501103">"Shkarkimet"</string>
     <!-- no translation found for app_label (8089292432455111409) -->
@@ -115,7 +117,7 @@
     <string name="toast_failed_delete" msgid="3453846588205817591">"E pamundur të fshihen disa dokumente"</string>
     <string name="toast_share_over_limit" msgid="5805442886537093015">"Nuk mund të ndahen më shumë se <xliff:g id="COUNT">%1$d</xliff:g> skedarë"</string>
     <string name="toast_action_not_allowed" msgid="1329382474450572415">"Veprimi nuk lejohet"</string>
-    <string name="share_via" msgid="8725082736005677161">"Shpërnda nëpërmjet"</string>
+    <string name="share_via" msgid="8725082736005677161">"Shpërndaj nëpërmjet"</string>
     <string name="copy_notification_title" msgid="52256435625098456">"Po kopjon skedarët"</string>
     <string name="compress_notification_title" msgid="6830195148113751021">"Skedarët po ngjishen"</string>
     <string name="extract_notification_title" msgid="5067393961754430469">"Po nxjerr skedarët"</string>
@@ -278,4 +280,6 @@
     <string name="work_tab" msgid="7265359366883747413">"Puna"</string>
     <string name="a11y_work" msgid="7504431382825242153">"Puna"</string>
     <string name="drag_from_another_app" msgid="8310249276199969905">"Nuk mund t\'i zhvendosësh skedarët nga një aplikacion tjetër."</string>
+    <string name="grid_mode_showing" msgid="2803166871485028508">"Po shfaq në modalitetin \"rrjetë\"."</string>
+    <string name="list_mode_showing" msgid="1225413902295895166">"Po shfaq në modalitetin \"listë\"."</string>
 </resources>

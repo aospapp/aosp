@@ -31,4 +31,9 @@
         <attr name="textColorActionBar" format="reference|color" />
     </declare-styleable>
 
+    <declare-styleable name="SliderView">
+        <attr name="android:text" format="reference|string" />
+        <attr name="android:thumb" format="reference" />
+    </declare-styleable>
+
 </resources>

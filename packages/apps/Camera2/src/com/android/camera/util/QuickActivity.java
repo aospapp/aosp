@@ -224,6 +224,16 @@ public abstract class QuickActivity extends Activity {
         return false;
     }
 
+    protected void requestDismissKeyguard(Activity activity,
+            @Nullable KeyguardManager.KeyguardDismissCallback callback) {
+        if (mKeyguardManager == null) {
+            mKeyguardManager = AndroidServices.instance().provideKeyguardManager();
+        }
+        if (mKeyguardManager != null) {
+            mKeyguardManager.requestDismissKeyguard(activity, callback);
+        }
+    }
+
     /**
      * Subclasses should override this in place of {@link Activity#onNewIntent}.
      */

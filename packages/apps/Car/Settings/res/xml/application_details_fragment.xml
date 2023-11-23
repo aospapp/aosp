@@ -20,11 +20,14 @@
     xmlns:settings="http://schemas.android.com/apk/res-auto"
     android:title="@string/applications_settings"
     android:key="@string/psk_application_details">
-    <com.android.car.ui.preference.CarUiPreference
+    <com.android.car.settings.common.EntityHeaderPreference
         android:key="@string/pk_application_details_app"
-        android:selectable="false"
         settings:controller="com.android.car.settings.applications.ApplicationPreferenceController"
-        settings:showChevron="false"/>
+        settings:searchable="false"/>
+    <com.android.car.settings.common.ActionButtonsPreference
+        android:key="@string/pk_application_details_action_buttons"
+        settings:controller="com.android.car.settings.applications.ApplicationActionButtonsPreferenceController"
+        settings:searchable="false"/>
     <SwitchPreference
         android:key="@string/pk_application_details_notifications"
         android:title="@string/notifications_label"
@@ -37,6 +40,16 @@
         android:key="@string/pk_application_details_storage"
         android:title="@string/storage_application_label"
         settings:controller="com.android.car.settings.applications.StoragePreferenceController"/>
+    <SwitchPreference
+        android:key="@string/pk_application_details_peak_performance"
+        android:title="@string/peak_performance_label"
+        settings:controller=
+            "com.android.car.settings.applications.PeakPerformancePreferenceController"/>
+    <SwitchPreference
+        android:key="@string/pk_hibernation_switch"
+        android:title="@string/unused_apps_switch"
+        settings:controller=
+            "com.android.car.settings.applications.appinfo.HibernationSwitchPreferenceController" />
     <com.android.car.ui.preference.CarUiPreference
         android:key="@string/pk_application_details_version"
         settings:controller="com.android.car.settings.applications.VersionPreferenceController"

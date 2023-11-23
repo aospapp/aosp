@@ -17,8 +17,11 @@
 package com.android.internal.net.ipsec.ike;
 
 import static android.net.ipsec.ike.IkeManager.getIkeLog;
+import static android.system.OsConstants.IPPROTO_IP;
+import static android.system.OsConstants.IPPROTO_IPV6;
+import static android.system.OsConstants.IPV6_TCLASS;
+import static android.system.OsConstants.IP_TOS;
 
-import android.net.Network;
 import android.net.ipsec.ike.exceptions.IkeProtocolException;
 import android.os.Handler;
 import android.system.ErrnoException;
@@ -63,8 +66,9 @@ public abstract class IkeSocket implements AutoCloseable {
     /** UDP-encapsulated IKE packets MUST be sent to 4500. */
     public static final int SERVER_PORT_UDP_ENCAPSULATED = 4500;
 
-    // Network this socket bound to.
-    private final Network mNetwork;
+    private static final int RCV_BUFFER_SIZE = 4096;
+
+    private final IkeSocketConfig mIkeSocketConfig;
     private final Handler mHandler;
 
     // Map from locally generated IKE SPI to IkeSessionStateMachine instances.
@@ -76,9 +80,9 @@ public abstract class IkeSocket implements AutoCloseable {
     @VisibleForTesting
     protected final Set<IkeSessionStateMachine> mAliveIkeSessions = new HashSet<>();
 
-    protected IkeSocket(Network network, Handler handler) {
+    protected IkeSocket(IkeSocketConfig sockConfig, Handler handler) {
         mHandler = handler;
-        mNetwork = network;
+        mIkeSocketConfig = sockConfig;
     }
 
     protected static void parseAndDemuxIkePacket(
@@ -107,6 +111,24 @@ public abstract class IkeSocket implements AutoCloseable {
         } catch (IkeProtocolException e) {
             // Handle invalid IKE header
             getIkeLog().i(tag, "Can't parse malformed IKE packet header.");
+        }
+    }
+
+    /** Applies a socket configuration to an input socket. */
+    protected static void applySocketConfig(
+            IkeSocketConfig sockConfig, FileDescriptor sock, boolean isIpv6)
+            throws ErrnoException, IOException {
+        sockConfig.getNetwork().bindSocket(sock);
+        if (isIpv6) {
+            // Traffic class field consists of a 6-bit Differentiated Services Code Point (DSCP)
+            // field and a 2-bit Explicit Congestion Notification (ECN) field.
+            final int tClass = sockConfig.getDscp() << 2;
+            Os.setsockoptInt(sock, IPPROTO_IPV6, IPV6_TCLASS, tClass);
+        } else {
+            // TOS field consists of a 6-bit Differentiated Services Code Point (DSCP) field and a
+            // 2-bit Explicit Congestion Notification (ECN) field.
+            final int tos = sockConfig.getDscp() << 2;
+            Os.setsockoptInt(sock, IPPROTO_IP, IP_TOS, tos);
         }
     }
 
@@ -146,13 +168,19 @@ public abstract class IkeSocket implements AutoCloseable {
 
     private byte[] receiveFromFd() throws IOException {
         FileInputStream in = new FileInputStream(getFd());
-        byte[] inBytes = new byte[4096];
+        byte[] inBytes = new byte[RCV_BUFFER_SIZE];
         int bytesRead = in.read(inBytes);
 
         if (bytesRead < 0) {
             return null; // return null for EOF
-        } else if (bytesRead >= 4096) {
-            throw new IllegalStateException("Too big packet. Fragmentation unsupported");
+        } else if (bytesRead >= RCV_BUFFER_SIZE) {
+            // This packet should not affect any IKE Session because it is not an authenticated IKE
+            // packet.
+            getIkeLog()
+                    .e(
+                            this.getClass().getSimpleName(),
+                            "Too big packet. Fragmentation unsupported.");
+            return new byte[0];
         }
         return Arrays.copyOf(inBytes, bytesRead);
     }
@@ -173,13 +201,9 @@ public abstract class IkeSocket implements AutoCloseable {
 
     protected abstract void handlePacket(byte[] recvbuf, int length);
 
-    /**
-     * Return Network this socket bound to
-     *
-     * @return the bound Network
-     */
-    public final Network getNetwork() {
-        return mNetwork;
+    /** Return the IkeSocketConfig */
+    public final IkeSocketConfig getIkeSocketConfig() {
+        return mIkeSocketConfig;
     }
 
     /**

@@ -29,6 +29,14 @@ public interface ThemesUserEventLogger extends UserEventLogger {
 
     void logThemeApplied(ThemeBundle theme, boolean isCustomTheme);
 
+    /**
+     * Logs the color usage while color is applied.
+     *
+     * @param action color applied action.
+     * @param colorIndex color applied index.
+     */
+    void logColorApplied(int action, int colorIndex);
+
     void logClockSelected(Clockface clock);
 
     void logClockApplied(Clockface clock);

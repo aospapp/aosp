@@ -30,8 +30,8 @@ import static org.mockito.Mockito.when;
 
 import android.annotation.UserIdInt;
 import android.app.ActivityManager;
-import android.app.ActivityManager.StackInfo;
 import android.app.ActivityOptions;
+import android.app.ActivityTaskManager.RootTaskInfo;
 import android.app.IActivityManager;
 import android.app.TaskStackListener;
 import android.car.hardware.power.CarPowerManager;
@@ -140,9 +140,9 @@ public final class FixedActivityServiceTest extends AbstractExtendedMockitoTestC
         ActivityOptions options = new ActivityOptions(new Bundle());
         Intent intent = expectComponentAvailable("test_package", "com.test.dude", userId);
         mockAmGetCurrentUser(userId);
-        expectActivityStackInfo(
-                createEmptyStackInfo(),
-                createStackInfo(intent, userIds, mValidDisplayId, taskIds)
+        expectRootTaskInfo(
+                createEmptyTaskInfo(),
+                createRootTaskInfo(intent, userIds, mValidDisplayId, taskIds)
         );
 
         // No running activities
@@ -170,9 +170,9 @@ public final class FixedActivityServiceTest extends AbstractExtendedMockitoTestC
         Intent anotherIntent = expectComponentAvailable("test_package_II", "com.test.dude_II",
                 userId);
         mockAmGetCurrentUser(userId);
-        expectActivityStackInfo(
-                createEmptyStackInfo(),
-                createStackInfo(intent, userIds, mValidDisplayId, taskIds)
+        expectRootTaskInfo(
+                createEmptyTaskInfo(),
+                createRootTaskInfo(intent, userIds, mValidDisplayId, taskIds)
         );
 
         // No running activities
@@ -200,9 +200,9 @@ public final class FixedActivityServiceTest extends AbstractExtendedMockitoTestC
                 ArgumentCaptor.forClass(BroadcastReceiver.class);
         Intent intent = expectComponentAvailable(packageName, className, userId);
         mockAmGetCurrentUser(userId);
-        expectActivityStackInfo(
-                createEmptyStackInfo(),
-                createStackInfo(intent, userIds, mValidDisplayId, taskIds)
+        expectRootTaskInfo(
+                createEmptyTaskInfo(),
+                createRootTaskInfo(intent, userIds, mValidDisplayId, taskIds)
         );
 
         // No running activities
@@ -219,7 +219,7 @@ public final class FixedActivityServiceTest extends AbstractExtendedMockitoTestC
         int appId = 987;
         BroadcastReceiver receiver = receiverCaptor.getValue();
         Intent packageIntent = new Intent(Intent.ACTION_PACKAGE_CHANGED);
-        packageIntent.setData(new Uri.Builder().path(packageName).build());
+        packageIntent.setData(new Uri.Builder().path("Any package").build());
         packageIntent.putExtra(Intent.EXTRA_UID, UserHandle.getUid(userId, appId));
         receiver.onReceive(mContext, packageIntent);
         verify(mContext).startActivityAsUser(eq(intent), any(Bundle.class),
@@ -357,28 +357,28 @@ public final class FixedActivityServiceTest extends AbstractExtendedMockitoTestC
     }
 
     private void expectNoActivityStack() throws Exception {
-        when(mActivityManager.getAllStackInfos()).thenReturn(createEmptyStackInfo());
+        when(mActivityManager.getAllRootTaskInfos()).thenReturn(createEmptyTaskInfo());
     }
 
-    private void expectActivityStackInfo(List<StackInfo> ...stackInfos) throws Exception {
-        OngoingStubbing<List<StackInfo>> stub = when(mActivityManager.getAllStackInfos());
-        for (List<StackInfo> stackInfo : stackInfos) {
-            stub = stub.thenReturn(stackInfo);
+    private void expectRootTaskInfo(List<RootTaskInfo> ...taskInfos) throws Exception {
+        OngoingStubbing<List<RootTaskInfo>> stub = when(mActivityManager.getAllRootTaskInfos());
+        for (List<RootTaskInfo> taskInfo : taskInfos) {
+            stub = stub.thenReturn(taskInfo);
         }
     }
 
-    private List<StackInfo> createEmptyStackInfo() {
-        return new ArrayList<StackInfo>();
+    private List<RootTaskInfo> createEmptyTaskInfo() {
+        return new ArrayList<RootTaskInfo>();
     }
 
-    private List<StackInfo> createStackInfo(Intent intent, @UserIdInt int[] userIds, int displayId,
-            int[] taskIds) {
-        StackInfo stackInfo = new StackInfo();
-        stackInfo.taskUserIds = userIds;
-        stackInfo.topActivity = intent.getComponent().clone();
-        stackInfo.visible = true;
-        stackInfo.displayId = displayId;
-        stackInfo.taskIds = taskIds;
-        return Arrays.asList(stackInfo);
+    private List<RootTaskInfo> createRootTaskInfo(Intent intent, @UserIdInt int[] userIds,
+            int displayId, int[] taskIds) {
+        RootTaskInfo taskInfo = new RootTaskInfo();
+        taskInfo.childTaskUserIds = userIds;
+        taskInfo.topActivity = intent.getComponent().clone();
+        taskInfo.visible = true;
+        taskInfo.displayId = displayId;
+        taskInfo.childTaskIds = taskIds;
+        return Arrays.asList(taskInfo);
     }
 }

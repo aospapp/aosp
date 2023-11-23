@@ -17,7 +17,9 @@
 package com.android.managedprovisioning.finalization;
 
 import static android.app.admin.DeviceAdminReceiver.ACTION_PROFILE_PROVISIONING_COMPLETE;
+import static android.app.admin.DevicePolicyManager.ACTION_ADMIN_POLICY_COMPLIANCE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISIONING_SUCCESSFUL;
+import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE;
 import static android.content.pm.UserInfo.FLAG_MANAGED_PROFILE;
@@ -28,18 +30,15 @@ import static com.google.common.truth.Truth.assertThat;
 
 import static org.robolectric.Shadows.shadowOf;
 
-import android.annotation.NonNull;
 import android.app.Application;
 import android.app.ApplicationPackageManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.PersistableBundle;
 import android.os.UserManager;
 
-import com.android.managedprovisioning.common.ProvisionLogger;
 import com.android.managedprovisioning.model.ProvisioningParams;
 
 import org.junit.Before;
@@ -51,7 +50,6 @@ import org.robolectric.RuntimeEnvironment;
 import org.robolectric.android.controller.ServiceController;
 
 import java.util.List;
-import java.util.Objects;
 
 /**
  * Unit tests for {@link SendDpcBroadcastService}.
@@ -73,11 +71,21 @@ public class SendDpcBroadcastServiceTest {
     private static final ComponentName TEST_MDM_ADMIN = new ComponentName(TEST_MDM_PACKAGE_NAME,
             TEST_MDM_ADMIN_RECEIVER);
     private static final PersistableBundle TEST_MDM_EXTRA_BUNDLE = new PersistableBundle();
-    private static final ProvisioningParams PARAMS = ProvisioningParams.Builder.builder()
-            .setProvisioningAction(ACTION_PROVISION_MANAGED_PROFILE)
-            .setDeviceAdminComponentName(TEST_MDM_ADMIN)
-            .setAdminExtrasBundle(TEST_MDM_EXTRA_BUNDLE)
-            .build();
+    private static final ProvisioningParams PARAMS =
+            ProvisioningParams.Builder.builder()
+                    .setProvisioningAction(ACTION_PROVISION_MANAGED_PROFILE)
+                    .setDeviceAdminComponentName(TEST_MDM_ADMIN)
+                    .setAdminExtrasBundle(TEST_MDM_EXTRA_BUNDLE)
+                    .setFlowType(ProvisioningParams.FLOW_TYPE_UNSPECIFIED)
+                    .build();
+    private static final ProvisioningParams PARAMS_TRUSTED_SOURCE =
+            ProvisioningParams.Builder.builder()
+                    .setProvisioningAction(ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE)
+                    .setDeviceAdminComponentName(TEST_MDM_ADMIN)
+                    .setAdminExtrasBundle(TEST_MDM_EXTRA_BUNDLE)
+                    .setStartedByTrustedSource(true)
+                    .setFlowType(ProvisioningParams.FLOW_TYPE_ADMIN_INTEGRATED)
+                    .build();
 
     private static final String BOOL_KEY = "mybool";
     private static final boolean BOOL_VALUE = false;
@@ -107,7 +115,7 @@ public class SendDpcBroadcastServiceTest {
     }
 
     @Test
-    public void onStartCommand_launchesDpc() {
+    public void onStartCommand_legacyFlow_launchesDpcProvisioningSuccessful() {
         shadowOf(mPackageManager)
                 .addResolveInfoForIntent(createDpcLaunchIntent(), new ResolveInfo());
 
@@ -121,7 +129,22 @@ public class SendDpcBroadcastServiceTest {
     }
 
     @Test
-    public void onStartCommand_sendsOrderedBroadcast() {
+    public void onStartCommand_adminIntegratedFlow_launchesDpcPolicyCompliance() {
+        addCreatePolicyComplianceResolveInfo();
+        ServiceController<SendDpcBroadcastService> serviceController =
+                buildServiceControllerForPolicyCompliance();
+
+        serviceController.startCommand(/* flags= */ 0, /* startId= */ 0);
+
+        Intent launchedActivityIntent = shadowOf((Application) mContext).getNextStartedActivity();
+        assertThat(launchedActivityIntent.getPackage()).isEqualTo(TEST_MDM_PACKAGE_NAME);
+        assertThat(launchedActivityIntent.getAction()).isEqualTo(ACTION_ADMIN_POLICY_COMPLIANCE);
+        assertThat(launchedActivityIntent.getFlags()).isEqualTo(Intent.FLAG_ACTIVITY_NEW_TASK);
+        assertExtras(launchedActivityIntent);
+    }
+
+    @Test
+    public void onStartCommand_nonSpecifiedFlow_sendsOrderedBroadcast() {
         shadowOf(mPackageManager)
                 .addResolveInfoForIntent(createDpcLaunchIntent(), new ResolveInfo());
 
@@ -130,6 +153,32 @@ public class SendDpcBroadcastServiceTest {
         Intent broadcastIntent = getBroadcastIntentForAction(ACTION_PROFILE_PROVISIONING_COMPLETE);
         assertThat(broadcastIntent.getComponent()).isEqualTo(TEST_MDM_ADMIN);
         assertExtras(broadcastIntent);
+    }
+
+    @Test
+    public void onStartCommand_adminIntegratedFlow_doesNotSendOrderedBroadcast() {
+        ServiceController<SendDpcBroadcastService> controller =
+                buildServiceControllerForPolicyCompliance();
+        addCreatePolicyComplianceResolveInfo();
+
+        controller.startCommand(/* flags= */ 0, /* startId= */ 0);
+
+        Intent broadcastIntent = getBroadcastIntentForAction(ACTION_PROFILE_PROVISIONING_COMPLETE);
+        assertThat(broadcastIntent).isNull();
+    }
+
+    private ServiceController<SendDpcBroadcastService> buildServiceControllerForPolicyCompliance() {
+        final Intent intent =
+                new Intent(RuntimeEnvironment.application, SendDpcBroadcastService.class)
+                        .putExtra(EXTRA_PROVISIONING_PARAMS, PARAMS_TRUSTED_SOURCE);
+        return Robolectric.buildService(SendDpcBroadcastService.class, intent);
+    }
+
+    private void addCreatePolicyComplianceResolveInfo() {
+        shadowOf(mPackageManager)
+                .addResolveInfoForIntent(
+                        createPolicyComplianceIntent(TEST_MDM_PACKAGE_NAME),
+                        new ResolveInfo());
     }
 
     private Intent getBroadcastIntentForAction(String action) {
@@ -159,6 +208,13 @@ public class SendDpcBroadcastServiceTest {
         intent.setPackage(packageName);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         intent.putExtra(EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE, PARAMS.adminExtrasBundle);
+        return intent;
+    }
+
+    private Intent createPolicyComplianceIntent(String packageName) {
+        final Intent intent = new Intent(ACTION_ADMIN_POLICY_COMPLIANCE);
+        intent.setPackage(packageName);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         return intent;
     }
 }

@@ -94,7 +94,7 @@
     <string name="remove_contact" msgid="6934983445723096759">"យក <xliff:g id="CONTACT_NAME">%1$s</xliff:g> ចេញពីទំនាក់ទំនងសង្គ្រោះបន្ទាន់ឬ?"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"យក​ទំនាក់ទំនង​ចេញ"</string>
     <string name="fail_add_contact" msgid="6511490846952942291">"មិន​អាច​អាន​ព័ត៌មាន​ទំនាក់ទំនង​បាន​ត្រឹមត្រូវ​ទេ"</string>
-    <string name="remove" msgid="1243949503772376064">"យកចេញ"</string>
+    <string name="remove" msgid="1243949503772376064">"ដកចេញ"</string>
     <string name="cancel" msgid="7401575239009060939">"បោះបង់"</string>
     <string name="ok" msgid="163967937451981024">"យល់ព្រម"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>

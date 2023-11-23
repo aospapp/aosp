@@ -28,8 +28,12 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"பின்வரும் ஆப்ஸ் உங்கள் சாதனத்தை நிர்வகிக்கும்:"</string>
     <string name="next" msgid="1004321437324424398">"அடுத்து"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"பணிக் கணக்கை அமைக்கிறது…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"அமைப்புகள், கார்ப்பரேட் அணுகல், ஆப்ஸ், அனுமதிகள், இந்தச் சுயவிவரத்துடன் தொடர்புடைய தரவு (உங்கள் நெட்வொர்க் செயல்பாடு, சாதனத்தின் இருப்பிடம், அழைப்பு வரலாறு, தொடர்புத் தேடல் வரலாறு ஆகியவையும் இதில் அடங்கும்) ஆகியவற்றை உங்கள் IT நிர்வாகியால் கண்காணிக்கவும் நிர்வகிக்கவும் முடியும்.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>நிறுவனத்தின் தனியுரிமைக் கொள்கைகள் உட்பட கூடுதல் தகவலுக்கு IT நிர்வாகியைத் தொடர்புகொள்ளவும்."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"அமைப்புகள், கார்ப்பரேட் அணுகல், ஆப்ஸ், அனுமதிகள், இந்தச் சாதனத்துடன் தொடர்புடைய தரவு (உங்கள் நெட்வொர்க் செயல்பாடு, சாதனத்தின் இருப்பிடம், அழைப்பு வரலாறு, தொடர்புத் தேடல் வரலாறு ஆகியவை இதில் அடங்கும்) ஆகியவற்றை உங்கள் IT நிர்வாகியால் கண்காணிக்கவும் நிர்வகிக்கவும் இயலும்.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>நிறுவனத்தின் தனியுரிமைக் கொள்கைகள் உட்பட கூடுதல் தகவலைப் பெற IT நிர்வாகியைத் தொடர்புகொள்ளவும்."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"அமைப்புகள், கார்ப்பரேட் அணுகல், ஆப்ஸ், அனுமதிகள், இந்தச் சுயவிவரத்துடன் தொடர்புடைய தரவு (உங்கள் நெட்வொர்க் செயல்பாடு, சாதனத்தின் இருப்பிடம், அழைப்பு விவரங்கள், தொடர்புகளில் இதுவரை தேடியவை ஆகியவையும் இதில் அடங்கும்) ஆகியவற்றை உங்கள் IT நிர்வாகியால் கண்காணிக்கவும் நிர்வகிக்கவும் முடியும்.<xliff:g id="LINE_BREAK">
+
+</xliff:g>நிறுவனத்தின் தனியுரிமைக் கொள்கைகள் உட்பட கூடுதல் தகவலுக்கு IT நிர்வாகியைத் தொடர்புகொள்ளவும்."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"அமைப்புகள், கார்ப்பரேட் அணுகல், ஆப்ஸ், அனுமதிகள், இந்தச் சாதனத்துடன் தொடர்புடைய தரவு (உங்கள் நெட்வொர்க் செயல்பாடு, சாதனத்தின் இருப்பிடம், அழைப்பு விவரங்கள், தொடர்புகளில் இதுவரை தேடியவை ஆகியவை இதில் அடங்கும்) ஆகியவற்றை உங்கள் IT நிர்வாகியால் கண்காணிக்கவும் நிர்வகிக்கவும் இயலும்.<xliff:g id="LINE_BREAK">
+
+</xliff:g>நிறுவனத்தின் தனியுரிமைக் கொள்கைகள் உட்பட கூடுதல் தகவலைப் பெற IT நிர்வாகியைத் தொடர்புகொள்ளவும்."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"திருட்டிற்கு எதிரான பாதுகாப்பு அம்சங்களைப் பயன்படுத்த, சாதனத்தில் கடவுச்சொல் பாதுகாப்புள்ள திரைப் பூட்டு இருக்க வேண்டும்."</string>
     <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"உங்கள் நிறுவனத்தின் தனியுரிமைக் கொள்கைகள் உள்ளிட்ட கூடுதல் தகவலுக்கு IT நிர்வாகியைத் தொடர்புகொள்ளவும்."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"மேலும் அறிக"</string>
@@ -37,11 +41,11 @@
     <string name="ok_setup" msgid="4593707675416137504">"சரி"</string>
     <string name="user_consent_msg" msgid="8820951802130353584">"ஏற்கிறேன்"</string>
     <string name="url_error" msgid="5958494012986243186">"இந்த இணைப்பைக் காட்ட முடியவில்லை."</string>
+    <string name="navigation_button_description" msgid="6106309408994461239">"மேலே செல்"</string>
     <string name="terms" msgid="8295436105384703903">"விதிமுறைகள்"</string>
     <string name="work_profile_info" msgid="5433388376309583996">"பணிக் கணக்குச் தகவல்"</string>
     <string name="managed_device_info" msgid="1529447646526616811">"நிர்வகிக்கப்படும் சாதனத் தகவல்"</string>
     <string name="default_managed_profile_name" msgid="5370257687074907055">"பணிக் கணக்கு"</string>
-    <string name="default_first_meat_user_name" msgid="7540515892748490540">"முதன்மை பயனர்"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"ஏற்கனவே உள்ள சுயவிவரத்தை நீக்கவா?"</string>
     <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"ஏற்கனவே பணிக் கணக்கு உள்ளது. அதைப் பின்வரும் ஆப்ஸ் நிர்வகிக்கிறது:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"தொடர்வதற்கு முன், "<a href="#read_this_link">"இதைப் படிக்கவும்"</a>"."</string>
@@ -65,15 +69,6 @@
     <string name="user_setup_incomplete" msgid="6494920045526591079">"பயனர் அமைவு முழுமையடையவில்லை"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"பணியிடச் சாதனத்தின் பயனர்"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"பணிச் சாதனத்தை அமைக்கிறது…"</string>
-    <string name="progress_data_process" msgid="1707745321954672971">"அமைவு தரவைச் செயல்படுத்துகிறது…"</string>
-    <string name="progress_connect_to_wifi" msgid="472251154628863539">"வைஃபையுடன் இணைக்கிறது…"</string>
-    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"மொபைல் நெட்வொர்க்குடன் இணைக்கிறது…"</string>
-    <string name="progress_download" msgid="3522436271691064624">"நிர்வாகி ஆப்ஸை இறக்குகிறது…"</string>
-    <string name="progress_install" msgid="2258045670385866183">"நிர்வாகி ஆப்ஸை நிறுவுகிறது…"</string>
-    <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"தேவையற்ற சாதன ஆப்ஸை அகற்றுகிறது…"</string>
-    <string name="progress_finishing_touches" msgid="9037776404089697198">"இறுதியாகச் சில விஷயங்களைச் சேர்க்கிறது…"</string>
-    <string name="progress_set_owner" msgid="8214062820093757961">"சாதன உரிமையாளரை அமைக்கிறது…"</string>
-    <string name="progress_initialize" msgid="1104643492713424939">"சாதனத்தைத் தொடங்குகிறது…"</string>
     <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"அமைப்பதற்குத் தேவையான என்கிரிப்ஷன் இந்தச் சாதனத்தில் அனுமதிக்கப்படவில்லை. உதவிக்கு IT நிர்வாகியைத் தொடர்புகொள்ளவும்."</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"அமைவை நிறுத்தி, சாதனத்தை மீட்டமைக்கவா?"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"இவ்வாறு செய்தால் சாதனம் மீட்டமைக்கப்பட்டு, தொடக்கத் திரை காட்டப்படும்"</string>
@@ -162,11 +157,10 @@
     <string name="device_owner_description" msgid="168013145812679664">"இந்தச் சாதனம் பாதுகாப்பாக வைக்கப்பட்டு, உங்கள் நிறுவனத்தால் நிர்வகிக்கப்படும்"</string>
     <string name="setup_provisioning_header" msgid="4282483198266806271">"பணி மொபைலை அமைக்கத் தயார்படுத்துகிறது…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"நிர்வாக ஆப்ஸை அமைக்கிறது"</string>
-    <string name="set_up_everything_else" msgid="4407706086957916501">"எல்லாவற்றையும் அமைக்கவும்"</string>
-    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"உங்கள் சாதனத்தில் மேலும் பலவற்றைப் பெற தனிப்பட்ட கணக்கு ஒன்றைச் சேருங்கள்"</string>
-    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"பணிக் கணக்கு தற்போது தயாராக உள்ளது, உங்கள் ஆப்ஸையும் உள்ளடக்கத்தையும் அணுக தனிப்பட்ட Google கணக்கு ஒன்றையும் நீங்கள் சேர்க்கலாம்."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"இந்தச் சாதனம் உங்கள் நிறுவனத்துக்குச் சொந்தமானது"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"இந்த மொபைலை நிர்வகிக்கவும் கண்காணிக்கவும் பின்வரும் ஆப்ஸ் பயன்படும்"</string>
+    <string name="account_management_disclaimer_header" msgid="8013083414694316564">"உங்கள் கணக்கு நிர்வகிக்கப்படுகிறது"</string>
+    <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"பாதுகாப்புக் கொள்கைகளைச் செயல்படுத்த, உங்கள் IT நிர்வாகி மொபைல் சாதன நிர்வாகத்தைப் பயன்படுத்துகிறார்"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"பணி அமைவிற்குத் தயாராகிறது…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"உங்கள் பணிக் கணக்கை அமைப்போம்"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"பணிக்கான ஆப்ஸ் உங்கள் பணிக் கணக்கில் இருக்கும்"</string>
@@ -178,8 +172,16 @@
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"பணிக் கணக்கிற்கான ஆப்ஸை உபயோகிக்கத் தயாராக வைக்கவும்"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"இந்தச் சாதனம் தனிப்பட்டது இல்லை"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"இந்தச் சாதனத்தில் உள்ள தரவையும் செயல்பாட்டையும் உங்கள் IT நிர்வாகி பார்க்கக்கூடும்."</string>
+    <string name="fully_managed_device_provisioning_permissions_header" msgid="2852101532084770993">"உங்கள் செயல்பாடு &amp; தரவு"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_header" msgid="4419374850927705136">"ஆப்ஸ் அனுமதிகள்"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8328298923037335068">"இந்தச் சாதனத்தில் உள்ள மைக்ரோஃபோன், கேமரா, இருப்பிடத் தகவல் போன்றவற்றை ஆப்ஸ் பயன்படுத்துவதற்கான அனுமதிகளை உங்கள் IT நிர்வாகி அமைக்க முடியும்."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"உங்கள் சாதனத்தை அமைக்கிறது…"</string>
-    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"உங்கள் பணிக்கான ஆப்ஸை எளிதாக அணுக இந்தச் சாதனத்தைப் பயன்படுத்துங்கள். இந்தச் சாதனம் தனிப்பட்டதில்லை என்பதால் இதிலுள்ள உங்கள் தரவையும் செயல்பாட்டையும் IT நிர்வாகி பார்க்கக்கூடும். மேலும் அறிய IT நிர்வாகியைத் தொடர்புகொள்ளவும்."</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1090645190066781456">"உங்கள் பணி ஆப்ஸை எளிதாக அணுக இந்தச் சாதனத்தைப் பயன்படுத்துங்கள். இந்தச் சாதனம் தனிப்பட்டதில்லை என்பதால் இதிலுள்ள உங்கள் தரவையும் செயல்பாட்டையும் IT நிர்வாகி பார்க்கக்கூடும்."</string>
+    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"உங்கள் பணி ஆப்ஸை எளிதாக அணுக இந்தச் சாதனத்தைப் பயன்படுத்துங்கள். இந்தச் சாதனம் தனிப்பட்டதில்லை என்பதால் இதிலுள்ள உங்கள் செயல்பாட்டையும் தரவையும் IT நிர்வாகி பார்க்கக்கூடும். இந்தச் சாதனத்திலுள்ள ஆப்ஸுக்கான அனுமதிகளை (மைக்ரோஃபோன், கேமரா, இருப்பிடம் போன்றவை) உங்கள் IT நிர்வாகியால் அமைக்கவும் முடியும்."</string>
+    <string name="fully_managed_device_provisioning_return_device_title" msgid="8500829014794276683">"இந்தச் சாதனத்தை உங்கள் IT நிர்வாகியிடம் திருப்பியளியுங்கள்"</string>
+    <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"முந்தைய திரைக்குச் செல்லவும் அல்லது இந்தச் சாதனத்தை மீட்டமைத்து உங்கள் IT நிர்வாகியிடம் திருப்பியளிக்கவும்."</string>
+    <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"அமைவை ரத்துசெய்"</string>
+    <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"சாதனத்தை மீட்டமைத்துத் திருப்பியளி"</string>
     <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"பணி ஆப்ஸ் உங்கள் பணி கணக்கில் இருக்கும், இவற்றை IT நிர்வாகி நிர்வகிப்பார்"</string>
     <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"தனிப்பட்ட ஆப்ஸ் தனியாக, பணி ஆப்ஸிலிருந்து மறைந்திருக்கும்"</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"IT நிர்வாகி சாதனத்தை கட்டுப்படுத்த, சில ஆப்ஸைத் தடுக்கமுடியும்"</string>
@@ -187,10 +189,9 @@
     <string name="just_a_sec" msgid="6244676028626237220">"காத்திருக்கவும்…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"தனியுரிமை நினைவூட்டல்"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"இந்தச் சாதனத்தில் உள்ள உங்கள் தரவையும் செயல்பாட்டையும் IT நிர்வாகி பார்க்கக்கூடும்"</string>
-    <string name="device_provisioning_finished" msgid="3981783240592092906">"உங்கள் சாதனம் பயன்படுத்தத் தயாராக உள்ளது!"</string>
-    <string name="done" msgid="7755227776955952318">"முடிந்தது"</string>
-    <string name="financed_device_screen_header" msgid="7890706080917322376">"இந்தச் சாதனம் <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> மூலம் கிரெடிட்டில் வாங்கப்பட்டது"</string>
-    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> இவற்றைச் செய்ய முடியும்:"</string>
-    <string name="install_creditor_app_description" msgid="6159751782301108878">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> ஆப்ஸை நிறுவுவதன் மூலம் இந்தச் சாதனத்திற்கான பேமெண்ட்டைச் செலுத்த முடியும்"</string>
-    <string name="lock_device_description" msgid="2940362560732989166">"நீங்கள் பேமெண்ட்டைச் செலுத்தவில்லையெனில் கிரெடிட்டரால் இந்தச் சாதனத்திற்கான அணுகலைக் கட்டுப்படுத்த முடியும்"</string>
+    <string name="financed_device_screen_header" msgid="6875169548352717124">"இந்தச் சாதனம் <xliff:g id="CREDITOR_NAME">%s</xliff:g> நிறுவனத்தால் வழங்கப்பட்டது"</string>
+    <string name="financed_make_payments_subheader_title" msgid="7880606710044254210">"இந்தச் சாதனத்திற்கான பேமெண்ட்டுகளைச் செய்யலாம்"</string>
+    <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> ஆப்ஸை <xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> நிறுவுவதன் மூலம் இந்தச் சாதனத்திற்கான பேமெண்ட்டுகளை நீங்கள் செலுத்த முடியும்."</string>
+    <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"இந்தச் சாதனம் தடைசெய்யப்படலாம்"</string>
+    <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"நீங்கள் பேமெண்ட்டுகளைச் செலுத்தவில்லையெனில் இந்தச் சாதனத்திற்கான அணுகலை <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> கட்டுப்படுத்த முடியும்."</string>
 </resources>

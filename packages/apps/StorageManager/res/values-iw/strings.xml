@@ -41,7 +41,7 @@
     <string name="deletion_helper_upsell_title" msgid="8512037674466762017">"האם לנהל אחסון באופן אוטומטי?"</string>
     <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"שטח של <xliff:g id="USED">%1$s</xliff:g> פנוי עכשיו. האם לאפשר למנהל האחסון לפנות באופן אוטומטי שטח אחסון על ידי הסרת תוכן מגובה מהמכשיר?"</string>
     <string name="deletion_helper_upsell_cancel" msgid="7084167642850053889">"לא, תודה"</string>
-    <string name="deletion_helper_upsell_activate" msgid="7157360257760895976">"הפעל"</string>
+    <string name="deletion_helper_upsell_activate" msgid="7157360257760895976">"הפעלה"</string>
     <string name="deletion_helper_apps_group_title" msgid="2578309121350341258">"אפליקציות בשימוש לעתים רחוקות"</string>
     <!-- no translation found for deletion_helper_apps_group_summary (360315517252452356) -->
     <skip />
@@ -51,11 +51,11 @@
     <string name="automatic_storage_manager_service_label" msgid="648592272375278978">"שירות ניהול אחסון אוטומטי"</string>
     <string name="automatic_storage_manager_notification_title" product="default" msgid="8480483265300964701">"אין מספיק שטח אחסון בטלפון"</string>
     <string name="automatic_storage_manager_notification_title" product="tablet" msgid="3150907918531844467">"אין מספיק שטח אחסון בטאבלט"</string>
-    <string name="automatic_storage_manager_notification_summary" msgid="2267399886362245822">"אפשר למנהל האחסון לפנות שטח אחסון על ידי הסרה אוטומטית של תמונות וסרטונים ישנים, כששטח האחסון בטלפון מתחיל להתמלא שוב."</string>
+    <string name="automatic_storage_manager_notification_summary" msgid="2267399886362245822">"מתירים למנהל האחסון לפנות שטח אחסון על ידי הסרה אוטומטית של תמונות וסרטונים ישנים, כששטח האחסון בטלפון מתחיל להתמלא שוב."</string>
     <string name="automatic_storage_manager_cancel_button" msgid="1826365037494962803">"לא, תודה"</string>
-    <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"הפעל"</string>
+    <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"הפעלה"</string>
     <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"תמונות וסרטונים שגובו"</string>
-    <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"מחפש פריטים…"</string>
+    <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"חיפוש פריטים מתבצע…"</string>
     <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"הצגת כל הפריטים"</string>
     <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"הסתרת פריטים אחרונים"</string>
     <string name="deletion_helper_clear_dialog_message_first_time" msgid="686530413183529901">"<xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> של תוכן יוסרו מהמכשיר"</string>

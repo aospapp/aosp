@@ -23,6 +23,7 @@ import android.bluetooth.BluetoothDevice;
 import android.content.Intent;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.MessageQueue;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.rule.ServiceTestRule;
@@ -243,6 +244,41 @@ public class TestUtils {
         runOnLooperSync(looper, () -> {
             // do nothing, just need to make sure looper finishes current task
         });
+    }
+
+    /**
+     * Wait for looper to become idle
+     *
+     * @param looper looper of interest
+     */
+    public static void waitForLooperToBeIdle(Looper looper) {
+        class Idler implements MessageQueue.IdleHandler {
+            private boolean mIdle = false;
+
+            @Override
+            public boolean queueIdle() {
+                synchronized (this) {
+                    mIdle = true;
+                    notifyAll();
+                }
+                return false;
+            }
+
+            public synchronized void waitForIdle() {
+                while (!mIdle) {
+                    try {
+                        wait();
+                    } catch (InterruptedException e) {
+                    }
+                }
+            }
+        }
+
+        Idler idle = new Idler();
+        looper.getQueue().addIdleHandler(idle);
+        // Ensure we are not Idle to begin with so the idle handler will run
+        waitForLooperToFinishScheduledTask(looper);
+        idle.waitForIdle();
     }
 
     /**

@@ -32,10 +32,10 @@
     <string name="home_screen_message" msgid="106444102822522813">"Heimaskjár"</string>
     <string name="lock_screen_message" msgid="1534506081955058013">"Lásskjár"</string>
     <string name="home_and_lock_short_label" msgid="2937922943541927983">"Heima- og lásskjár"</string>
-    <string name="set_wallpaper_dialog_message" msgid="6114951028768599417">"Velja veggfóður"</string>
+    <string name="set_wallpaper_dialog_message" msgid="2110475703996853076">"Velja veggfóður á"</string>
     <string name="set_wallpaper_home_screen_destination" msgid="7315594722013109354">"Heimaskjár"</string>
     <string name="set_wallpaper_lock_screen_destination" msgid="6224685559375417945">"Lásskjár"</string>
-    <string name="set_wallpaper_both_destination" msgid="6967226064958263939">"Heimaskjár og lásskjár"</string>
+    <string name="set_wallpaper_both_destination" msgid="233216830256235288">"Heima- og lásskjár"</string>
     <string name="no_backup_image_wallpaper_label" msgid="6316627676107284851">"Breytilegt veggfóður"</string>
     <string name="permission_needed_explanation" msgid="139166837541426823">"Til að birta núverandi veggfóður hér þarf <xliff:g id="APP_NAME">%1$s</xliff:g> aðgang að geymslu tækisins."</string>
     <string name="permission_needed_explanation_go_to_settings" msgid="3923551582092599609">"Veggfóður þarf að fá aðgang að geymslu tækisins þíns til að birta þetta veggfóður hér.\n\nTil að breyta þessari stillingu skaltu opna heimildir í forritsupplýsingum Veggfóðurs."</string>
@@ -66,8 +66,6 @@
     <string name="refresh_daily_wallpaper_content_description" msgid="4362142658237147583">"Uppfæra daglegt veggfóður"</string>
     <string name="refreshing_daily_wallpaper_dialog_message" msgid="1975910873362855761">"Uppfærir daglegt veggfóður…"</string>
     <string name="refresh_daily_wallpaper_failed_message" msgid="4749879993812557166">"Ekki tókst að endurnýja daglegt veggfóður. Athugaðu nettenginguna og reyndu aftur."</string>
-    <string name="collapse_attribution_panel" msgid="4367971404848122275">"Loka upplýsingasvæði veggfóðurs"</string>
-    <string name="expand_attribution_panel" msgid="6975094181456095915">"Stækka upplýsingasvæði veggfóðurs"</string>
     <string name="on_device_wallpapers_category_title" msgid="805819102071369004">"Veggfóður í tækinu"</string>
     <string name="on_device_wallpapers_category_title_desktop" msgid="316919420410065369">"Í tækinu"</string>
     <string name="on_device_wallpaper_title" msgid="5262564748034629524">"Android veggfóður"</string>
@@ -80,4 +78,24 @@
     <string name="center_crop_wallpaper_position" msgid="1681980019815343348">"Miðjuskurður"</string>
     <string name="stretch_wallpaper_position" msgid="5002680983147456935">"Teygja"</string>
     <string name="preview" msgid="1774602101743861071">"Forskoða"</string>
+    <string name="tab_info" msgid="818614080690111416">"Upplýsingar"</string>
+    <string name="tab_customize" msgid="2533745409174959960">"Sérsníða"</string>
+    <string name="configure_wallpaper" msgid="849882179182976621">"Stillingar…"</string>
+    <string name="delete_live_wallpaper" msgid="589212696102662329">"Eyða"</string>
+    <string name="delete_wallpaper_confirmation" msgid="33790318361863778">"Viltu eyða þessu veggfóðri úr símanum?"</string>
+    <string name="bottom_action_bar_back" msgid="8237013112999946725">"Til baka"</string>
+    <string name="bottom_action_bar_edit" msgid="1214742990893082138">"Breyta"</string>
+    <string name="bottom_action_bar_download" msgid="3983122338076389421">"Sækja"</string>
+    <string name="bottom_action_bar_slideshow_wallpaper" msgid="509770525179533154">"Veggfóður með skyggnusýningu"</string>
+    <string name="bottom_action_bar_apply" msgid="2983308349819178932">"Nota"</string>
+    <string name="accessibility_preview_pager" msgid="1839869637405028575">"Síða <xliff:g id="ID_1">%1$d</xliff:g> af <xliff:g id="ID_2">%2$d</xliff:g>"</string>
+    <string name="next_page_content_description" msgid="6268461446679584152">"Áfram"</string>
+    <string name="previous_page_content_description" msgid="1138597031571078429">"Fyrri"</string>
+    <string name="wallpaper_title" msgid="6754214682228331092">"Veggfóður"</string>
+    <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"Forskoðun veggfóðurs"</string>
+    <string name="collection_not_exist_msg" msgid="3504852962885064842">"Safnið er ekki til"</string>
+    <string name="hide_ui_preview_text" msgid="6766076482511252295">"Fela forskoðun notendaviðmóts"</string>
+    <string name="show_ui_preview_text" msgid="5993063062417070806">"Sýna forskoðun notendaviðmóts"</string>
+    <string name="wallpaper_picker_entry_title" msgid="5185793991582084891">"Skipta um veggfóður"</string>
+    <string name="lockscreen_wallpaper_preview_card_content_description" msgid="2244890820627302245">"Forskoðun veggfóðurs á lásskjá"</string>
 </resources>

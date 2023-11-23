@@ -14,13 +14,23 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 -->
-<ripple
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    android:color="@color/notification_accent_color">
-    <item>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_focused="true">
         <shape android:shape="rectangle">
             <corners android:radius="@dimen/action_button_radius"/>
-            <solid android:color="@color/action_button_background_color"/>
+            <solid android:color="@color/car_ui_rotary_focus_fill_color"/>
+            <stroke android:width="@dimen/car_ui_rotary_focus_stroke_width"
+                    android:color="@color/car_ui_rotary_focus_stroke_color"/>
         </shape>
     </item>
-</ripple>
+    <item>
+        <ripple android:color="@color/notification_accent_color">
+            <item>
+                <shape android:shape="rectangle">
+                    <corners android:radius="@dimen/action_button_radius"/>
+                    <solid android:color="@color/action_button_background_color"/>
+                </shape>
+            </item>
+        </ripple>
+    </item>
+</selector>

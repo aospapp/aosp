@@ -16,6 +16,7 @@
 
 package android.net;
 
+@JavaDerive(toString=true)
 parcelable PrivateDnsConfigParcel {
     String hostname;
     String[] ips;

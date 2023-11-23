@@ -51,7 +51,8 @@ public class DefaultCurrentWallpaperInfoFactory implements CurrentWallpaperInfoF
     @Override
     public synchronized void createCurrentWallpaperInfos(final WallpaperInfoCallback callback,
                                                          boolean forceRefresh) {
-        if (!forceRefresh && mHomeWallpaper != null) {
+        if (!forceRefresh && mHomeWallpaper != null
+                && mPresentationMode != WallpaperPreferences.PRESENTATION_MODE_ROTATING) {
             callback.onWallpaperInfoCreated(mHomeWallpaper, mLockWallpaper, mPresentationMode);
             return;
         }

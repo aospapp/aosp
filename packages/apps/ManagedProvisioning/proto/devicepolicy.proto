@@ -20,7 +20,7 @@ package com.android.managedprovisioning;
 option java_package = "com.android.managedprovisioning";
 option java_outer_classname = "DevicePolicyProtos";
 
-// Copied from frameworks/base/cmds/statsd/src/atoms.proto
+// Copied from frameworks/proto_logging/stats/atoms.proto
 // Both proto files must be kept in sync.
 message DevicePolicyEvent {
   // The event id - unique for each event.

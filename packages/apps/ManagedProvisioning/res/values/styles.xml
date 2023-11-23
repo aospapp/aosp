@@ -36,16 +36,6 @@
         <item name="android:paddingLeft">@dimen/checkbox_padding_left</item>
     </style>
 
-    <style name="TransparentButton" parent="@android:style/Widget.Material.Button.Borderless.Colored">
-        <item name="android:layout_width">wrap_content</item>
-        <item name="android:layout_height">wrap_content</item>
-        <item name="android:gravity">center</item>
-        <item name="android:textSize">@dimen/button_text_size</item>
-        <item name="android:fontFamily">sans-serif-medium</item>
-        <item name="android:background">@color/transparent</item>
-        <item name="android:textAllCaps">true</item>
-    </style>
-
     <style name="MainTextContainer">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">match_parent</item>
@@ -78,21 +68,12 @@
         <item name="android:scrollbarStyle">outsideOverlay</item>
     </style>
 
-    <style name="ManagedProvisioningDialogTheme" parent="@android:style/Theme.Material.Light.Dialog">
-        <item name="android:windowFullscreen">true</item>
-        <item name="android:windowNoTitle">true</item>
-        <item name="android:windowBackground">@color/transparent</item>
-        <!-- Color for checked checkbox -->
-        <item name="android:colorControlActivated">@color/orange</item>
-        <!-- Color for enabled button -->
-        <item name="android:colorAccent">@color/accent</item>
-    </style>
-
-    <style name="Provisioning2Theme" parent="SudThemeGlifV3.Light">
+    <style name="Provisioning2Theme" parent="SudThemeGlifV3.DayNight">
         <item name="android:windowBackground">@color/white</item>
         <item name="android:colorBackground">@color/white</item>
         <item name="swiper_color">@color/teal2</item>
-        <item name="sudMarginSides">@dimen/intro_margin</item>
+        <item name="sudMarginStart">@dimen/intro_margin</item>
+        <item name="sudMarginEnd">@dimen/intro_margin</item>
     </style>
 
     <style name="Provisioning2Theme.Text">
@@ -100,15 +81,11 @@
     </style>
 
     <style name="Provisioning2Theme.Text.Primary">
-        <item name="android:textColor">@color/black_text_primary</item>
+        <item name="android:fontFamily">@string/sudFontSecondary</item>
+        <item name="android:textColor">?android:attr/textColorPrimary</item>
         <!--notice: line height 20sp (textSize + leading)-->
         <item name="android:textSize">16sp</item>
         <item name="android:lineSpacingExtra">4sp</item>
-    </style>
-
-    <style name="Provisioning2Theme.Text.Primary.Title">
-        <item name="android:fontFamily">sans-serif-medium</item>
-        <item name="android:textSize">@dimen/info_text_title_size</item>
     </style>
 
     <style name="InfoAnimationTitle" parent="SudBaseHeaderTitle">
@@ -120,7 +97,7 @@
     </style>
 
     <style name="Provisioning2Theme.Text.Secondary">
-        <item name="android:textColor">@color/black_text_secondary</item>
+        <item name="android:textColor">?android:attr/textColorSecondary</item>
         <!--notice: line height 20sp (textSize + leading)-->
         <item name="android:textSize">14sp</item>
         <item name="android:lineSpacingExtra">6sp</item>
@@ -129,6 +106,27 @@
     <style name="Provisioning2Theme.Text.Secondary.SmallerLineSpacing" parent="Provisioning2Theme.Text.Secondary">
         <item name="android:lineSpacingExtra">4sp</item>
         <item name="android:letterSpacing">0.01</item>
+    </style>
+
+    <style name="Provisioning2Theme.Text.Primary.Small" parent="Provisioning2Theme.Text.Primary">
+        <!--notice: line height 20sp (textSize + leading)-->
+        <item name="android:textSize">14sp</item>
+        <item name="android:lineSpacingExtra">6sp</item>
+        <item name="android:letterSpacing">0.02</item>
+    </style>
+
+    <style name="Provisioning2Theme.Text.Primary.Medium" parent="Provisioning2Theme.Text.Primary">
+        <!--notice: line height 24sp (textSize + leading)-->
+        <item name="android:textSize">16sp</item>
+        <item name="android:lineSpacingExtra">8sp</item>
+        <item name="android:letterSpacing">0.02</item>
+    </style>
+
+    <style name="Provisioning2Theme.Text.Primary.Large" parent="Provisioning2Theme.Text.Primary">
+        <!--notice: line height 24sp (textSize + leading)-->
+        <item name="android:textSize">20sp</item>
+        <item name="android:lineSpacingExtra">4sp</item>
+        <item name="android:letterSpacing">0</item>
     </style>
 
     <style name="Provisioning2Theme.Text.Secondary.Small">
@@ -161,37 +159,21 @@
     </style>
 
     <style name="Provisioning2Theme.Button.Transparent">
-        <item name="android:textColor">@color/blue_text</item>
+        <item name="android:textColor">?attr/colorAccent</item>
         <item name="android:background">@null</item>
         <item name="android:textAllCaps">false</item>
     </style>
 
-    <style name="Provisioning2Theme.Divider">
+    <style name="Provisioning2Theme.TermsList">
         <item name="android:layout_width">match_parent</item>
-        <item name="android:layout_height">1dp</item>
-        <item name="android:background">@color/gray_divider</item>
-    </style>
-
-    <style name="NonGlifTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
-        <item name="android:windowAnimationStyle">@style/Animation.SudWindowAnimation</item>
-        <item name="actionBarTheme">@style/NonGlifToolbarTheme</item>
-    </style>
-
-    <style name="NonGlifToolbarTheme" parent="android:style/Theme.Material.Light.DarkActionBar">
-        <item name="android:background">#FFFFFF</item>
-        <item name="android:textColorPrimary">@*android:color/accent_device_default_light</item>
-        <item name="android:textColorSecondary">@*android:color/accent_device_default_light</item>
-        <item name="android:navigationIcon">@drawable/ic_arrow_back_24dp</item>
-        <item name="android:navigationContentDescription">@*android:string/action_bar_up_description</item>
-    </style>
-
-    <style name="ProvisioningProgressText">
-        <item name="android:textColor">@color/blue_text</item>
+        <item name="android:layout_height">match_parent</item>
     </style>
 
     <style name="SetupWizardPartnerResource">
         <!-- Disable to use partner overlay theme for outside setupwizard flow. -->
-        <item name="sucUsePartnerResource">false</item>
+        <item name="sucUsePartnerResource">true</item>
+        <!-- Enable heavy theme style. -->
+        <item name="sudUsePartnerHeavyTheme">true</item>
     </style>
 </resources>
 

@@ -16,7 +16,7 @@
 
 package com.android.tv.settings.system.development;
 
-import android.app.Fragment;
+import androidx.fragment.app.Fragment;
 
 import com.android.tv.settings.BaseSettingsFragment;
 import com.android.tv.settings.TvSettingsActivity;

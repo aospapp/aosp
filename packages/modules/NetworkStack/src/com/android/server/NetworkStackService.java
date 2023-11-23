@@ -20,6 +20,7 @@ import static android.net.dhcp.IDhcpServer.STATUS_INVALID_ARGUMENT;
 import static android.net.dhcp.IDhcpServer.STATUS_SUCCESS;
 import static android.net.dhcp.IDhcpServer.STATUS_UNKNOWN_ERROR;
 
+import static com.android.net.module.util.DeviceConfigUtils.getResBooleanConfig;
 import static com.android.server.util.PermissionUtil.checkDumpPermission;
 
 import android.app.Service;
@@ -31,6 +32,7 @@ import android.net.INetd;
 import android.net.INetworkMonitor;
 import android.net.INetworkMonitorCallbacks;
 import android.net.INetworkStackConnector;
+import android.net.INetworkStackStatusCallback;
 import android.net.LinkProperties;
 import android.net.Network;
 import android.net.NetworkCapabilities;
@@ -58,6 +60,7 @@ import androidx.annotation.VisibleForTesting;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.util.IndentingPrintWriter;
 import com.android.networkstack.NetworkStackNotifier;
+import com.android.networkstack.R;
 import com.android.networkstack.apishim.common.ShimUtils;
 import com.android.server.connectivity.NetworkMonitor;
 import com.android.server.connectivity.ipmemorystore.IpMemoryStoreService;
@@ -409,6 +412,15 @@ public class NetworkStackService extends Service {
         }
 
         @Override
+        public void allowTestUid(int uid, @Nullable INetworkStackStatusCallback cb)
+                throws RemoteException {
+            // setTestUid does its own permission checks
+            PermissionUtil.setTestUid(mContext, uid);
+            mLog.i("Allowing test uid " + uid);
+            if (cb != null) cb.onStatusAvailable(0);
+        }
+
+        @Override
         protected void dump(@NonNull FileDescriptor fd, @NonNull PrintWriter fout,
                 @Nullable String[] args) {
             checkDumpPermission();
@@ -462,6 +474,11 @@ public class NetworkStackService extends Service {
                     pw.decreaseIndent();
                 }
             }
+
+            pw.println();
+            pw.print("useNeighborResource: ");
+            pw.println(getResBooleanConfig(mContext,
+                    R.bool.config_no_sim_card_uses_neighbor_mcc, false));
         }
 
         /**

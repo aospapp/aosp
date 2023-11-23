@@ -16,6 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="missing_rename_error" msgid="9098952207447981103">"يجب إعادة تسمية هذا."</string>
+    <string name="add_folder_name_error" msgid="6014615052491406810">"يجب إضافة اسم للمجلد."</string>
     <string name="files_label" msgid="771781190045103748">"الملفات"</string>
     <string name="downloads_label" msgid="5462789470049501103">"عمليات التنزيل"</string>
     <!-- no translation found for app_label (8089292432455111409) -->
@@ -92,9 +94,9 @@
     <string name="query_error" msgid="6625421453613879336">"يتعذر تحميل المحتوى في الوقت الحالي"</string>
     <string name="quiet_mode_error_title" msgid="9126656325282792843">"تم إيقاف الملف الشخصي للعمل مؤقتًا"</string>
     <string name="quiet_mode_button" msgid="6977115032320235420">"تفعيل"</string>
-    <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"لا يمكن اختيار ملفات العمل."</string>
+    <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"لا يمكن اختيار ملفات العمل"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"لا يسمح لك مشرف تكنولوجيا المعلومات بالوصول إلى ملفات العمل من تطبيق شخصي."</string>
-    <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"لا يمكن اختيار ملفات شخصية."</string>
+    <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"لا يمكن اختيار ملفات شخصية"</string>
     <string name="cant_select_personal_files_error_message" msgid="4105905035459118209">"لا يسمح لك مشرف تكنولوجيا المعلومات بالوصول إلى الملفات الشخصية من تطبيق عمل."</string>
     <string name="cant_save_to_work_error_title" msgid="1351323070040641358">"لا يمكن حفظ الملفات في الملف الشخصي للعمل"</string>
     <string name="cant_save_to_work_error_message" msgid="4975583233814059890">"لا يسمح لك مشرف تكنولوجيا المعلومات بحفظ الملفات الشخصية في ملفك الشخصي للعمل."</string>
@@ -366,4 +368,6 @@
     <string name="work_tab" msgid="7265359366883747413">"للعمل"</string>
     <string name="a11y_work" msgid="7504431382825242153">"عمل"</string>
     <string name="drag_from_another_app" msgid="8310249276199969905">"لا يمكنك نقل الملفات من تطبيق آخر."</string>
+    <string name="grid_mode_showing" msgid="2803166871485028508">"يتم العرض في وضع الشبكة."</string>
+    <string name="list_mode_showing" msgid="1225413902295895166">"يتم العرض في وضع القائمة."</string>
 </resources>

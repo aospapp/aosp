@@ -42,12 +42,12 @@ public class DocumentsSwipeRefreshLayout extends SwipeRefreshLayout {
     public DocumentsSwipeRefreshLayout(Context context, AttributeSet attrs) {
         super(context, attrs);
 
-        final int[] styledAttrs = {android.R.attr.colorPrimary};
+        final int[] styledAttrs = {android.R.attr.colorAccent};
 
         TypedArray a = context.obtainStyledAttributes(styledAttrs);
         @ColorRes int colorId = a.getResourceId(0, -1);
         if (colorId == -1) {
-            Log.w(TAG, "Retrive colorPrimary colorId from theme fail, assign R.color.primary");
+            Log.w(TAG, "Retrieve colorAccent colorId from theme fail, assign R.color.primary");
             colorId = R.color.primary;
         }
         a.recycle();

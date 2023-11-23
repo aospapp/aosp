@@ -2,7 +2,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="system_tracing" msgid="4719188511746319848">"Järjestelmän seuranta"</string>
-    <string name="record_system_activity" msgid="4339462312915377825">"Tallenna järjestelmän tapahtumia ja analysoi niitä myöhemmin suorituskyvyn parantamiseksi."</string>
+    <string name="record_system_activity" msgid="4339462312915377825">"Tallenna järjestelmän tapahtumia ja analysoi niitä myöhemmin suorituskyvyn parantamiseksi"</string>
     <string name="record_trace" msgid="6416875085186661845">"Tallenna jälkiä"</string>
     <string name="trace_debuggable_applications" msgid="7957069895298887899">"Tallenna viankorjausta tukevien sovellusten jäljet"</string>
     <string name="categories" msgid="2280163673538611008">"Luokat"</string>
@@ -20,6 +20,9 @@
     <string name="saving_trace" msgid="1468692734770800541">"Tallennetaan jälkeä"</string>
     <string name="trace_saved" msgid="5869970594780992309">"Jälki tallennettu"</string>
     <string name="tap_to_share" msgid="6766732404489536899">"Jaa jälki napauttamalla"</string>
+    <string name="attaching_to_report" msgid="2629202947947275886">"Jäljitystä liitetään virheraporttiin"</string>
+    <string name="attached_to_report" msgid="5806905349184608870">"Jäljitys liitetty virheraporttiin"</string>
+    <string name="attached_to_report_summary" msgid="7665675771190391355">"Avaa BetterBug napauttamalla"</string>
     <string name="stop_tracing" msgid="8916938308534164152">"Lopeta jälkien tallentaminen"</string>
     <string name="tracing_categories_unavailable" msgid="5609076391417077752">"Osa jälkiluokista ei ole käytettävissä:"</string>
     <string name="trace_is_being_recorded" msgid="5947378146009337469">"Jälkeä tallennetaan"</string>
@@ -56,4 +59,9 @@
     <string name="sixteen_thousand_kb" msgid="7342517169232459259">"16 384 Kt"</string>
     <string name="thirtytwo_thousand_kb" msgid="654328198799196150">"32 768 Kt"</string>
     <string name="sixtyfive_thousand_kb" msgid="8168144138598305306">"65 536 Kt"</string>
+    <string name="stop_on_bugreport" msgid="2045328149107284734">"Lopeta jäljitys virheraporttien aikana"</string>
+    <string name="stop_on_bugreport_summary" msgid="7844074306038850040">"Lopettaa aktiiviset jäljitystallenteet, kun virheraportti luodaan"</string>
+    <string name="attach_to_bug_report" msgid="2953745117960948415">"Liitä jäljitys virheraportteihin"</string>
+    <string name="attach_to_bug_report_summary" msgid="2225208904634565377">"Lähetä keskeneräiset jäljitykset BetterBugille automaattisesti virheraportin keräyksen yhteydessä"</string>
+    <string name="link_to_traces" msgid="6569969595898995517">"Katso jäljitystiedostot"</string>
 </resources>

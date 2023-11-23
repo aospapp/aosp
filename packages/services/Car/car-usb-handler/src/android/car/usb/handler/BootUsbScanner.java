@@ -20,7 +20,7 @@ public class BootUsbScanner extends BroadcastReceiver {
         // as a "real" user. This ensures the service is started only once and is started even on a
         // foreground user switch.
         if (context.getUserId() == UserHandle.USER_SYSTEM
-                && !UserManager.isHeadlessSystemUserMode()) {
+                && UserManager.isHeadlessSystemUserMode()) {
             return;
         }
         // we defer this processing to BootUsbService so that we are very quick to process

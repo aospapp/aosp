@@ -15,29 +15,26 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
-        package="android.car.apitest"
-        android:sharedUserId="com.google.android.car.uid.kitchensink"
-        android:debuggable="true" >
+     xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
+     package="android.car.apitest"
+     android:sharedUserId="com.google.android.car.uid.kitchensink"
+     android:debuggable="true">
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-            android:targetPackage="android.car.apitest"
-            android:label="Tests for Car APIs"
-            android:debuggable="true" />
+         android:targetPackage="android.car.apitest"
+         android:label="Tests for Car APIs"
+         android:debuggable="true"/>
 
     <application android:label="CarApiTest"
-                 android:debuggable="true">
-        <uses-library android:name="android.test.runner" />
-        <activity android:name=".TestCarProxyActivity">
+         android:debuggable="true">
+        <uses-library android:name="android.test.runner"/>
+        <activity android:name=".TestCarProxyActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
+                <action android:name="android.intent.action.MAIN"/>
             </intent-filter>
         </activity>
         <service android:name=".CarProjectionManagerTest$TestService"
-                 android:exported="true" />
-        <activity android:name=".CarActivityViewDisplayIdTestBase$ActivityInActivityView"/>
-        <activity android:name=".CarActivityViewDisplayIdTestBase$ActivityViewTestActivity"/>
-        <activity android:name=".CarActivityViewDisplayIdTestBase$MultiProcessActivityViewTestActivity"
-                  android:exported="true" android:process=":activity_view_test"/>
+             android:exported="true"/>
     </application>
 </manifest>

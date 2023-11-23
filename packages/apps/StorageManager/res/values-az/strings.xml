@@ -27,7 +27,7 @@
     <string name="deletion_helper_app_summary_unknown_used" msgid="8576377054665785558">"Son istifadə vaxtı dəqiq deyil"</string>
     <string name="deletion_helper_free_button" msgid="1760529213407548661">"<xliff:g id="FREEABLE">%1$s</xliff:g> yer boşaldın"</string>
     <string name="deletion_helper_photos_title" msgid="2602723121486729972">"Yedəklənmiş foto və videolar"</string>
-    <string name="deletion_helper_photos_age_summary" msgid="1820871709448371984">"30 gündən köhnədir"</string>
+    <string name="deletion_helper_photos_age_summary" msgid="1820871709448371984">"30 gündən köhnə"</string>
     <!-- no translation found for deletion_helper_photos_summary (3194825464552700889) -->
     <skip />
     <string name="deletion_helper_downloads_title" msgid="8002058095019254694">"Endirmələr"</string>

@@ -53,6 +53,8 @@
 #define MAX_ID_STRING_LENGTH    (64)
 #define MAX_NAME_LENGTH         (255)
 
+#define HTTP_TIMEOUT_MILLIS 30000
+
 #ifdef __cplusplus
 extern "C"
 {

@@ -21,4 +21,5 @@
     <string name="cmas_required_monthly_test" msgid="9061179556831144678">"ತುರ್ತು ಎಚ್ಚರಿಕೆ: ಪರಿಕ್ಷಾ ಸಂದೇಶ"</string>
     <string name="cmas_exercise_alert" msgid="3061507852301643814">"ತುರ್ತು ಎಚ್ಚರಿಕೆ: ಪ್ರಾಯೋಗಿಕ/ಪ್ರಾತ್ಯಕ್ಷಿಕೆ ಕುರಿತಾದ ಸಂದೇಶ"</string>
     <string name="pws_other_message_identifiers" msgid="4992476982074198144">"ತುರ್ತು ಎಚ್ಚರಿಕೆ: ಪರೀಕ್ಷಾ ಸಂದೇಶ"</string>
+    <string name="button_dismiss" msgid="5823921161712171097">"ಮರೆಮಾಡಿ"</string>
 </resources>

@@ -27,8 +27,8 @@ import androidx.annotation.StringRes;
 
 import com.android.documentsui.R;
 import com.android.documentsui.base.DocumentInfo;
-import com.android.documentsui.base.DummyLookup;
 import com.android.documentsui.base.Lookup;
+import com.android.documentsui.base.StubLookup;
 import com.android.documentsui.inspector.InspectorController.DebugDisplay;
 
 import java.text.NumberFormat;
@@ -47,7 +47,7 @@ public class DebugView extends TableView implements DebugDisplay {
 
     private final Context mContext;
     private final Resources mRes;
-    private Lookup<String, Executor> mExecutors = new DummyLookup<>();
+    private Lookup<String, Executor> mExecutors = new StubLookup<>();
 
     public DebugView(Context context) {
         this(context, null);

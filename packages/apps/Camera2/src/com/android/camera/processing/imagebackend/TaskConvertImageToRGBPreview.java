@@ -111,7 +111,7 @@ public class TaskConvertImageToRGBPreview extends TaskImageContainer {
     /**
      * Way to calculate the resultant image sizes of inscribed circles:
      * colorInscribedDataCircleFromYuvImage,
-     * dummyColorInscribedDataCircleFromYuvImage, colorDataCircleFromYuvImage
+     * stubColorInscribedDataCircleFromYuvImage, colorDataCircleFromYuvImage
      *
      * @param height height of the input image
      * @param width width of the input image
@@ -202,7 +202,7 @@ public class TaskConvertImageToRGBPreview extends TaskImageContainer {
      * <p>
      * <b>Known Image Artifacts</b> Since this class produces bitmaps that are
      * transient on the screen, the implementation is geared toward efficiency
-     * rather than image quality. The image created is a straight, dumb integer
+     * rather than image quality. The image created is a straight, arbitrary integer
      * subsample of the YUV space with an acceptable color conversion, but w/o any
      * sort of re-sampling. So, expect the usual aliasing noise. Furthermore, when a
      * subsample factor of n is chosen, the resultant UV pixels will have the same
@@ -518,7 +518,7 @@ public class TaskConvertImageToRGBPreview extends TaskImageContainer {
      * <p>
      * <b>Known Image Artifacts</b> Since this class produces bitmaps that are
      * transient on the screen, the implementation is geared toward efficiency
-     * rather than image quality. The image created is a straight, dumb integer
+     * rather than image quality. The image created is a straight, arbitrary integer
      * subsample of the YUV space with an acceptable color conversion, but w/o any
      * sort of re-sampling. So, expect the usual aliasing noise. Furthermore, when a
      * subsample factor of n is chosen, the resultant UV pixels will have the same
@@ -779,8 +779,8 @@ public class TaskConvertImageToRGBPreview extends TaskImageContainer {
      * @param subsample width/height subsample factor
      * @return inscribed image as ARGB_8888
      */
-    protected int[] dummyColorInscribedDataCircleFromYuvImage(ImageProxy img, int subsample) {
-        logWrapper("RUNNING DUMMY dummyColorInscribedDataCircleFromYuvImage");
+    protected int[] stubColorInscribedDataCircleFromYuvImage(ImageProxy img, int subsample) {
+        logWrapper("RUNNING STUB stubColorInscribedDataCircleFromYuvImage");
         int w = img.getWidth() / subsample;
         int h = img.getHeight() / subsample;
         int r = inscribedCircleRadius(w, h);
@@ -847,7 +847,7 @@ public class TaskConvertImageToRGBPreview extends TaskImageContainer {
     protected int[] runSelectedConversion(ImageProxy img, Rect crop, int subsample) {
         switch (mThumbnailShape) {
             case DEBUG_SQUARE_ASPECT_CIRCULAR_INSET:
-                return dummyColorInscribedDataCircleFromYuvImage(img, subsample);
+                return stubColorInscribedDataCircleFromYuvImage(img, subsample);
             case SQUARE_ASPECT_CIRCULAR_INSET:
                 return colorInscribedDataCircleFromYuvImage(img, crop, subsample);
             case SQUARE_ASPECT_NO_INSET:

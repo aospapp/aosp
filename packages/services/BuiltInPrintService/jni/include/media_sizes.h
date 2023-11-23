@@ -141,6 +141,13 @@ typedef enum {
     PHOTO_KG_SIZE_CARD = 124,
     PHOTO_2E_SIZE_CARD = 125,
     PHOTO_2L_SIZE_CARD = 126,
+    ARCH_A = 176,
+    ARCH_B = 177,
+    ARCH_C = 178,
+    ARCH_D = 179,
+    ARCH_E = 180,
+    ARCH_E1 = 181,
+    F_SIZE = 182,
 
     /* Rotated Media (add 256 to the unrotated value) */
     US_EXECUTIVE_ROTATED = 257,

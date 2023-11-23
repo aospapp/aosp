@@ -37,6 +37,7 @@
             android:label="@string/title_scanned_tag"
             android:launchMode="singleTop"
             android:priority="-10"
+            android:exported="true"
             android:permission="android.permission.NFC"
         >
             <!-- Offer to display anything with NDEF data -->

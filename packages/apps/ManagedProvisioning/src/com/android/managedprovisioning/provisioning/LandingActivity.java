@@ -18,18 +18,19 @@ package com.android.managedprovisioning.provisioning;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
-import android.widget.TextView;
 
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.managedprovisioning.R;
+import com.android.managedprovisioning.ManagedProvisioningScreens;
 import com.android.managedprovisioning.common.AccessibilityContextMenuMaker;
-import com.android.managedprovisioning.common.ClickableSpanFactory;
+import com.android.managedprovisioning.common.SettingsFacade;
 import com.android.managedprovisioning.common.SetupGlifLayoutActivity;
+import com.android.managedprovisioning.common.ThemeHelper;
+import com.android.managedprovisioning.common.ThemeHelper.DefaultNightModeChecker;
+import com.android.managedprovisioning.common.ThemeHelper.DefaultSetupWizardBridge;
 import com.android.managedprovisioning.common.Utils;
-import com.android.managedprovisioning.model.CustomizationParams;
 import com.android.managedprovisioning.model.ProvisioningParams;
+
 import com.google.android.setupcompat.util.WizardManagerHelper;
-import com.google.android.setupdesign.GlifLayout;
 
 /**
  * The first activity shown during provisioning.
@@ -37,14 +38,18 @@ import com.google.android.setupdesign.GlifLayout;
 public class LandingActivity extends SetupGlifLayoutActivity {
     private static final int ADMIN_INTEGRATED_FLOW_PREPARE_REQUEST_CODE = 1;
     private final AccessibilityContextMenuMaker mContextMenuMaker;
+    private LandingActivityBridge mBridge;
+    private ProvisioningParams mParams;
 
     public LandingActivity() {
-        this(new Utils(), null);
+        this(new Utils(), /* contextMenuMaker */ null, new SettingsFacade(),
+                new ThemeHelper(new DefaultNightModeChecker(), new DefaultSetupWizardBridge()));
     }
 
     @VisibleForTesting
-    LandingActivity(Utils utils, AccessibilityContextMenuMaker contextMenuMaker) {
-        super(utils);
+    LandingActivity(Utils utils, AccessibilityContextMenuMaker contextMenuMaker,
+            SettingsFacade settingsFacade, ThemeHelper themeHelper) {
+        super(utils, settingsFacade, themeHelper);
         mContextMenuMaker = contextMenuMaker != null
                 ? contextMenuMaker
                 : new AccessibilityContextMenuMaker(this);
@@ -53,57 +58,58 @@ public class LandingActivity extends SetupGlifLayoutActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        final ProvisioningParams params =
-                getIntent().getParcelableExtra(ProvisioningParams.EXTRA_PROVISIONING_PARAMS);
-        initializeUi(params);
+        mParams = getIntent().getParcelableExtra(ProvisioningParams.EXTRA_PROVISIONING_PARAMS);
+        mBridge = createBridge();
+        mBridge.initiateUi(this);
     }
 
-    private void initializeUi(ProvisioningParams params) {
-        final int headerResId = R.string.brand_screen_header;
-        final int titleResId = R.string.setup_device_progress;
-
-        final CustomizationParams customizationParams =
-                CustomizationParams.createInstance(params, this, mUtils);
-        initializeLayoutParams(R.layout.landing_screen, headerResId, customizationParams);
-        setTitle(titleResId);
-
-        handleSupportUrl(customizationParams);
-        final GlifLayout layout = findViewById(R.id.setup_wizard_layout);
-        Utils.addNextButton(layout, v -> onNextButtonClicked(params));
-
-        if (Utils.isSilentProvisioning(this, params)) {
-            onNextButtonClicked(params);
-        }
+    protected LandingActivityBridge createBridge() {
+        return LandingActivityBridgeImpl.builder()
+                .setBridgeCallbacks(createBridgeCallbacks())
+                .setParams(mParams)
+                .setInitializeLayoutParamsConsumer(LandingActivity.this::initializeLayoutParams)
+                .setUtils(mUtils)
+                .setAccessibilityContextMenuMaker(mContextMenuMaker)
+                .build();
     }
 
-    private void onNextButtonClicked(ProvisioningParams params) {
-        if (AdminIntegratedFlowPrepareActivity.shouldRunPrepareActivity(mUtils, this, params)) {
-            final Intent intent = new Intent(this, AdminIntegratedFlowPrepareActivity.class);
+    private LandingActivityBridgeCallbacks createBridgeCallbacks() {
+        return new LandingActivityBridgeCallbacks() {
+            @Override
+            public void onNextButtonClicked() {
+                LandingActivity.this.onNextButtonClicked();
+            }
+
+            @Override
+            public void onContactYourItAdminClicked(Intent webIntent) {
+                getTransitionHelper().startActivityWithTransition(
+                        LandingActivity.this, webIntent);
+            }
+        };
+    }
+
+    private void onNextButtonClicked() {
+        if (AdminIntegratedFlowPrepareActivity
+                .shouldRunPrepareActivity(mUtils, this, mParams)) {
+            Intent intent = new Intent(this,
+                    getActivityForScreen(ManagedProvisioningScreens.ADMIN_INTEGRATED_PREPARE));
             WizardManagerHelper.copyWizardManagerExtras(getIntent(), intent);
-            intent.putExtra(ProvisioningParams.EXTRA_PROVISIONING_PARAMS, params);
-            startActivityForResult(intent, ADMIN_INTEGRATED_FLOW_PREPARE_REQUEST_CODE);
+            intent.putExtra(ProvisioningParams.EXTRA_PROVISIONING_PARAMS, mParams);
+            getTransitionHelper().startActivityForResultWithTransition(
+                    this, intent, ADMIN_INTEGRATED_FLOW_PREPARE_REQUEST_CODE);
         } else {
             setResult(Activity.RESULT_OK);
-            finish();
+            getTransitionHelper().finishActivity(this);
         }
-    }
-
-    private void handleSupportUrl(CustomizationParams customizationParams) {
-        final TextView info = findViewById(R.id.provider_info);
-        final String deviceProvider = getString(R.string.organization_admin);
-        final String contactDeviceProvider =
-                getString(R.string.contact_device_provider, deviceProvider);
-        final ClickableSpanFactory clickableSpanFactory =
-                new ClickableSpanFactory(getColor(R.color.blue_text));
-        mUtils.handleSupportUrl(this, customizationParams, clickableSpanFactory,
-                mContextMenuMaker, info, deviceProvider, contactDeviceProvider);
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == ADMIN_INTEGRATED_FLOW_PREPARE_REQUEST_CODE) {
             setResult(resultCode);
-            finish();
+            getTransitionHelper().finishActivity(this);
+        } else {
+            super.onActivityResult(requestCode, resultCode, data);
         }
     }
 }

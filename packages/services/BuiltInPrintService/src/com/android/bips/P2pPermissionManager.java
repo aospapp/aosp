@@ -25,11 +25,12 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.drawable.Icon;
+import android.location.LocationManager;
+import android.provider.Settings;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -45,6 +46,7 @@ public class P2pPermissionManager {
 
     private static final String CHANNEL_ID_CONNECTIONS = "connections";
     public static final int REQUEST_P2P_PERMISSION_CODE = 1000;
+    public static final int REQUEST_LOCATION_ENABLE = 1001;
 
     private static final String STATE_KEY = "state";
 
@@ -73,7 +75,7 @@ public class P2pPermissionManager {
      * Update the current P2P permissions request state.
      */
     public void setState(State state) {
-        if (DEBUG) Log.d(TAG, "Setting state=" + state);
+        if (DEBUG) Log.d(TAG, "State from " + mPrefs.getString(STATE_KEY, "?") + " to " + state);
         mPrefs.edit().putString(STATE_KEY, state.name()).apply();
     }
 
@@ -91,11 +93,15 @@ public class P2pPermissionManager {
         closeNotification();
         if (hasP2pPermission()) {
             setState(State.ALLOWED);
-        } else {
-            // Inform the user and don't try again for the rest of this session.
-            setState(permanent ? State.DISABLED : State.TEMPORARILY_DISABLED);
-            Toast.makeText(mContext, R.string.wifi_direct_permission_rationale, Toast.LENGTH_LONG)
-                    .show();
+        } else if (getState() != State.DISABLED) {
+            if (permanent) {
+                setState(State.DISABLED);
+            } else {
+                // Inform the user and don't try again for the rest of this session.
+                setState(State.TEMPORARILY_DISABLED);
+                Toast.makeText(mContext, R.string.wifi_direct_permission_rationale,
+                        Toast.LENGTH_LONG).show();
+            }
         }
     }
 
@@ -133,10 +139,15 @@ public class P2pPermissionManager {
 
         if (mContext instanceof Activity) {
             Activity activity = (Activity) mContext;
-            if (explain && activity.shouldShowRequestPermissionRationale(ACCESS_FINE_LOCATION)) {
-                explain(activity);
-            } else {
-                request(activity);
+            if (!isLocationEnabled()) {
+                requestLocation(activity);
+            } else if (!hasP2pPermission()) {
+                if (explain && activity.shouldShowRequestPermissionRationale(
+                        ACCESS_FINE_LOCATION)) {
+                    explain(activity);
+                } else {
+                    request(activity);
+                }
             }
         } else {
             showNotification();
@@ -159,16 +170,28 @@ public class P2pPermissionManager {
 
     private void explain(Activity activity) {
         // User denied, but asked us to use P2P, so explain and redirect to settings
-        DialogInterface.OnClickListener clickListener = (dialog, which) -> {
-            if (which == DialogInterface.BUTTON_POSITIVE) {
-                request(activity);
-            }
-        };
-
         new AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
                 .setMessage(mContext.getString(R.string.wifi_direct_permission_rationale))
-                .setPositiveButton(R.string.fix, clickListener)
+                .setPositiveButton(R.string.fix, (dialog, which) -> request(activity))
                 .show();
+    }
+
+    /**
+     * Request location services be enabled globally.
+     */
+    private void requestLocation(Activity activity) {
+        new AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
+            .setMessage(mContext.getString(R.string.wifi_direct_location_rationale))
+            .setPositiveButton(R.string.enable_location, (dialog, which) ->
+                activity.startActivityForResult(new Intent(
+                        Settings.ACTION_LOCATION_SOURCE_SETTINGS), REQUEST_LOCATION_ENABLE)
+            )
+            .setOnCancelListener(dialog -> {
+                if (getState() == State.DENIED) {
+                    setState(State.TEMPORARILY_DISABLED);
+                }
+            })
+            .show();
     }
 
     private SharedPreferences.OnSharedPreferenceChangeListener listenForPreferenceChanges(
@@ -202,7 +225,7 @@ public class P2pPermissionManager {
         proceedIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         proceedIntent.putExtra(AddPrintersFragment.EXTRA_FIX_P2P_PERMISSION, true);
         PendingIntent proceedPendingIntent = PendingIntent.getActivity(mContext, 0,
-                proceedIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+                proceedIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         Notification.Action fixAction = new Notification.Action.Builder(
                 Icon.createWithResource(mContext, R.drawable.ic_printservice),
                 mContext.getString(R.string.fix), proceedPendingIntent).build();
@@ -211,20 +234,27 @@ public class P2pPermissionManager {
                 .setAction(BuiltInPrintService.ACTION_P2P_PERMISSION_CANCEL);
         PendingIntent cancelPendingIndent = PendingIntent.getService(mContext,
                 BuiltInPrintService.P2P_PERMISSION_REQUEST_ID, cancelIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT);
-        Notification.Action cancelAction = new Notification.Action.Builder(
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        Intent disableIntent = new Intent(mContext, BuiltInPrintService.class)
+                .setAction(BuiltInPrintService.ACTION_P2P_DISABLE);
+        PendingIntent disablePendingIndent = PendingIntent.getService(mContext,
+                BuiltInPrintService.P2P_PERMISSION_REQUEST_ID, disableIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        Notification.Action disableAction = new Notification.Action.Builder(
                 Icon.createWithResource(mContext, R.drawable.ic_printservice),
-                mContext.getString(android.R.string.cancel), cancelPendingIndent).build();
+                mContext.getString(R.string.disable_wifi_direct), disablePendingIndent).build();
 
         Notification notification = new Notification.Builder(mContext, CHANNEL_ID_CONNECTIONS)
                 .setSmallIcon(R.drawable.ic_printservice)
+                .setContentText(mContext.getString(R.string.wifi_direct_problem))
                 .setStyle(new Notification.BigTextStyle().bigText(
-                        mContext.getString(R.string.wifi_direct_permission_rationale)))
+                        mContext.getString(R.string.wifi_direct_problem)))
                 .setAutoCancel(true)
                 .setContentIntent(proceedPendingIntent)
                 .setDeleteIntent(cancelPendingIndent)
                 .addAction(fixAction)
-                .addAction(cancelAction)
+                .addAction(disableAction)
                 .build();
 
         mNotificationManager.notify(BuiltInPrintService.P2P_PERMISSION_REQUEST_ID, notification);
@@ -243,16 +273,25 @@ public class P2pPermissionManager {
             return state;
         }
 
-        boolean hasPermission = hasP2pPermission();
-        if (hasPermission && state != State.ALLOWED) {
+        boolean allowed = isLocationEnabled() && hasP2pPermission();
+        if (allowed && state != State.ALLOWED) {
             // Upgrade state if now allowed
             state = State.ALLOWED;
             setState(state);
-        } else if (!hasPermission && state == State.ALLOWED) {
+        } else if (!allowed && state == State.ALLOWED) {
             state = State.DENIED;
             setState(state);
         }
         return state;
+    }
+
+    /**
+     * Return true if location services are enabled.
+     */
+    private boolean isLocationEnabled() {
+        LocationManager manager = (LocationManager) mContext.getSystemService(
+                Context.LOCATION_SERVICE);
+        return manager.isProviderEnabled(LocationManager.PASSIVE_PROVIDER);
     }
 
     /**

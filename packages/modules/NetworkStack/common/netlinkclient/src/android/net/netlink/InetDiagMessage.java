@@ -120,7 +120,7 @@ public class InetDiagMessage extends NetlinkMessage {
         NetlinkSocket.sendMessage(fd, msg, 0, msg.length, TIMEOUT_MS);
         ByteBuffer response = NetlinkSocket.recvMessage(fd, DEFAULT_RECV_BUFSIZE, TIMEOUT_MS);
 
-        final NetlinkMessage nlMsg = NetlinkMessage.parse(response);
+        final NetlinkMessage nlMsg = NetlinkMessage.parse(response, NETLINK_INET_DIAG);
         final StructNlMsgHdr hdr = nlMsg.getHeader();
         if (hdr.nlmsg_type == NetlinkConstants.NLMSG_DONE) {
             return INVALID_UID;
@@ -213,7 +213,8 @@ public class InetDiagMessage extends NetlinkMessage {
     @Override
     public String toString() {
         return "InetDiagMessage{ "
-                + "nlmsghdr{" + (mHeader == null ? "" : mHeader.toString()) + "}, "
+                + "nlmsghdr{"
+                + (mHeader == null ? "" : mHeader.toString(NETLINK_INET_DIAG)) + "}, "
                 + "inet_diag_msg{"
                 + (mStructInetDiagMsg == null ? "" : mStructInetDiagMsg.toString()) + "} "
                 + "}";

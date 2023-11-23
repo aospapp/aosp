@@ -26,16 +26,16 @@
     <string name="try_again" msgid="8278874823700921234">"Обиди се пак"</string>
     <string name="set_wallpaper_error_message" msgid="6819986999041085130">"Тапетот не може да се постави."</string>
     <string name="load_wallpaper_error_message" msgid="7913278480467707374">"Тапетот не може да се вчита. Сликата е оштетена или недостапна."</string>
-    <string name="static_wallpaper_presentation_mode_message" msgid="417940227049360906">"Моментално поставен"</string>
+    <string name="static_wallpaper_presentation_mode_message" msgid="417940227049360906">"Моментално"</string>
     <string name="rotating_wallpaper_presentation_mode_message" msgid="3361676041605733288">"Дневен тапет"</string>
     <string name="wallpaper_destination_both" msgid="1124197176741944063">"Почетен и заклучен екран"</string>
     <string name="home_screen_message" msgid="106444102822522813">"Почетен екран"</string>
     <string name="lock_screen_message" msgid="1534506081955058013">"Заклучен екран"</string>
     <string name="home_and_lock_short_label" msgid="2937922943541927983">"Почетен и заклучен екран"</string>
-    <string name="set_wallpaper_dialog_message" msgid="6114951028768599417">"Поставете го тапетот"</string>
+    <string name="set_wallpaper_dialog_message" msgid="2110475703996853076">"Постави тапет"</string>
     <string name="set_wallpaper_home_screen_destination" msgid="7315594722013109354">"Почетен екран"</string>
     <string name="set_wallpaper_lock_screen_destination" msgid="6224685559375417945">"Заклучен екран"</string>
-    <string name="set_wallpaper_both_destination" msgid="6967226064958263939">"Почетен и заклучен екран"</string>
+    <string name="set_wallpaper_both_destination" msgid="233216830256235288">"Почетен и заклучен екран"</string>
     <string name="no_backup_image_wallpaper_label" msgid="6316627676107284851">"Тапет со ротирачки слики"</string>
     <string name="permission_needed_explanation" msgid="139166837541426823">"За да го прикаже тековниот тапет тука, <xliff:g id="APP_NAME">%1$s</xliff:g> бара пристап до меморијата на уредот."</string>
     <string name="permission_needed_explanation_go_to_settings" msgid="3923551582092599609">"За да го прикаже тековниот тапет тука, Wallpapers бара пристап до меморијата на уредот.\n\nЗа да ја промените поставкава, одете во областа „Дозволи“ во информациите за апликацијата Wallpapers."</string>
@@ -66,8 +66,6 @@
     <string name="refresh_daily_wallpaper_content_description" msgid="4362142658237147583">"Освежи го дневниот тапет"</string>
     <string name="refreshing_daily_wallpaper_dialog_message" msgid="1975910873362855761">"Се освежува дневниот тапет…"</string>
     <string name="refresh_daily_wallpaper_failed_message" msgid="4749879993812557166">"Освежувањето на дневниот тапет не успеа. Проверете ја мрежната врска и обидете се повторно."</string>
-    <string name="collapse_attribution_panel" msgid="4367971404848122275">"Собери ја информациската табла на тапетот"</string>
-    <string name="expand_attribution_panel" msgid="6975094181456095915">"Прошири ја информациската табла на тапетот"</string>
     <string name="on_device_wallpapers_category_title" msgid="805819102071369004">"Тапети на уредот"</string>
     <string name="on_device_wallpapers_category_title_desktop" msgid="316919420410065369">"На уредот"</string>
     <string name="on_device_wallpaper_title" msgid="5262564748034629524">"Тапет од Android"</string>
@@ -80,4 +78,24 @@
     <string name="center_crop_wallpaper_position" msgid="1681980019815343348">"Исечи централно"</string>
     <string name="stretch_wallpaper_position" msgid="5002680983147456935">"Растегни"</string>
     <string name="preview" msgid="1774602101743861071">"Преглед"</string>
+    <string name="tab_info" msgid="818614080690111416">"Информации"</string>
+    <string name="tab_customize" msgid="2533745409174959960">"Приспособување"</string>
+    <string name="configure_wallpaper" msgid="849882179182976621">"Поставки…"</string>
+    <string name="delete_live_wallpaper" msgid="589212696102662329">"Избриши"</string>
+    <string name="delete_wallpaper_confirmation" msgid="33790318361863778">"Да се избрише тапетов од телефонот?"</string>
+    <string name="bottom_action_bar_back" msgid="8237013112999946725">"Назад"</string>
+    <string name="bottom_action_bar_edit" msgid="1214742990893082138">"Измени"</string>
+    <string name="bottom_action_bar_download" msgid="3983122338076389421">"Преземи"</string>
+    <string name="bottom_action_bar_slideshow_wallpaper" msgid="509770525179533154">"Тапет со приказ на слајдови"</string>
+    <string name="bottom_action_bar_apply" msgid="2983308349819178932">"Примени"</string>
+    <string name="accessibility_preview_pager" msgid="1839869637405028575">"Страница <xliff:g id="ID_1">%1$d</xliff:g> од <xliff:g id="ID_2">%2$d</xliff:g>"</string>
+    <string name="next_page_content_description" msgid="6268461446679584152">"Следнa"</string>
+    <string name="previous_page_content_description" msgid="1138597031571078429">"Претходна"</string>
+    <string name="wallpaper_title" msgid="6754214682228331092">"Тапет"</string>
+    <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"Преглед на тапет"</string>
+    <string name="collection_not_exist_msg" msgid="3504852962885064842">"Збирката не постои"</string>
+    <string name="hide_ui_preview_text" msgid="6766076482511252295">"Сокриј го прегледот на UI"</string>
+    <string name="show_ui_preview_text" msgid="5993063062417070806">"Прикажи го прегледот на UI"</string>
+    <string name="wallpaper_picker_entry_title" msgid="5185793991582084891">"Сменете го тапетот"</string>
+    <string name="lockscreen_wallpaper_preview_card_content_description" msgid="2244890820627302245">"Преглед на тапетот за заклучен екран"</string>
 </resources>

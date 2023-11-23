@@ -12,18 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 apex_test {
     name: "test_com.android.sdkext",
-    visibility: [ "//system/apex/tests/sdkextensions" ],
     defaults: ["com.android.sdkext-defaults"],
-    java_libs: [ "test_framework-sdkextensions" ],
+    bootclasspath_fragments: ["test_com.android.sdkext-bootclasspath-fragment"],
     manifest: "test_manifest.json",
-    prebuilts: [ "sdkinfo_45" ],
+    prebuilts: [
+        "sdkinfo_45",
+        "test_extensions_db",
+    ],
     file_contexts: ":com.android.sdkext-file_contexts",
     installable: false, // Should never be installed on the systemimage
     multilib: {
         prefer32: {
-            binaries: ["derive_sdk_prefer32"],
+            binaries: [
+                "derive_classpath_prefer32",
+                "derive_sdk_prefer32",
+            ],
         },
     },
     // The automated test infra ends up building this apex for 64+32-bit and
@@ -32,54 +41,92 @@ apex_test {
     compile_multilib: "prefer32",
 }
 
+// Encapsulate the contributions made by the test_com.android.sdkext to the
+// bootclasspath.
+bootclasspath_fragment {
+    name: "test_com.android.sdkext-bootclasspath-fragment",
+    contents: [
+        "framework-sdkextensions",
+        "test_framework-sdkextensions",
+    ],
+    apex_available: ["test_com.android.sdkext"],
+
+    // The bootclasspath_fragments that provide APIs on which this depends.
+    fragments: [
+        {
+            apex: "com.android.art",
+            module: "art-bootclasspath-fragment",
+        },
+    ],
+}
+
 genrule {
     name: "sdkinfo_45_src",
-    out: [ "sdkinfo.binarypb" ],
-    tools: [ "gen_sdkinfo" ],
+    out: ["sdkinfo.pb"],
+    tools: ["gen_sdkinfo"],
     cmd: "$(location) -v 45 -o $(out)",
 }
 
 prebuilt_etc {
     name: "sdkinfo_45",
     src: ":sdkinfo_45_src",
-    filename: "sdkinfo.binarypb",
+    filename: "sdkinfo.pb",
     installable: false,
     visibility: [
         ":__pkg__",
-        "//frameworks/av/apex/testing"
+        "//frameworks/av/apex/testing",
     ],
+}
+
+genrule {
+    name: "test_extensions_db.pb",
+    srcs: ["test_extensions_db.textpb"],
+    out: ["test_extensions_db.pb"],
+    tools: ["gen_sdk"],
+    cmd: "$(location gen_sdk) --action print_binary --database $(location test_extensions_db.textpb) > $(out)",
+    visibility: ["//visibility:private"],
+}
+
+prebuilt_etc {
+    name: "test_extensions_db",
+    src: ":test_extensions_db.pb",
+    filename: "extensions_db.pb",
+    installable: false,
+    visibility: ["//visibility:private"],
 }
 
 filegroup {
     name: "test_framework-sdkextensions-sources",
-    srcs: ["impl-src/**/*.java"],
+    srcs: ["impl-src/android/os/ext/test/Test.java"],
     path: "impl-src",
+    visibility: [
+        "//packages/modules/SdkExtensions:__subpackages__",
+    ],
 }
 
-
-dex_import {
+java_sdk_library {
     name: "test_framework-sdkextensions",
-    jars: ["test_framework-sdkextensions.jar"],
-    stem: "framework-sdkextensions",
-    apex_available: ["test_com.android.sdkext"],
-}
+    defaults: ["framework-module-defaults"],
+    srcs: [":test_framework-sdkextensions-sources"],
+    permitted_packages: ["android.os.ext.test"],
+    min_sdk_version: "30",
+    apex_available: [
+        "test_com.android.sdkext",
+    ],
+    impl_library_visibility: [
+        "//packages/modules/SdkExtensions/tests/e2e:__subpackages__",
+    ],
+    lint: {
+        strict_updatability_linting: true,
+    },
 
-// It isn't currently possible to build this from source because of limitations
-// in the build + hiddenapi generation.
-//java_library {
-//    name: "test_framework-sdkextensions",
-//    srcs: ["impl-src/**/*.java"],
-//    static_libs: ["framework-sdkextensions.impl"],
-//    libs: ["framework-annotations-lib"],
-//    stem: "framework-sdkextensions",
-//    sdk_version: "module_current",
-//    installable: true,
-//    hostdex: true, // for hiddenapi check
-//}
+    // Test only SDK, don't check against released APIs.
+    unsafe_ignore_missing_latest_api: true,
 
-java_library {
-    name: "test_framework-sdkextensions-stubs",
-    srcs: ["stub-src/**/*.java"],
-    sdk_version: "current",
-    visibility: [ "//system/apex/tests/sdkextensions" ],
+    // Output the api files to a special directory that won't trigger an API
+    // review as it is a test only API.
+    api_dir: "apis_for_tests",
+
+    // Testing only.
+    no_dist: true,
 }

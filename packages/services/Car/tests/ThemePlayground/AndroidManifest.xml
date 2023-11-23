@@ -15,60 +15,68 @@
   ~ limitations under the License
   -->
 
-
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="com.android.car.themeplayground">
-    <uses-sdk
-        android:minSdkVersion="26"
-        android:targetSdkVersion="26"/>
-    <uses-permission android:name="android.permission.MODIFY_DAY_NIGHT_MODE" />
-    <application
-        android:allowBackup="true"
-        android:icon="@drawable/ic_launcher"
-        android:label="@string/app_name"
-        android:supportsRtl="true"
-        android:theme="@style/Theme.App">
-        <activity
-            android:name=".TextSamples"
-            android:label="@string/app_name"
-            android:windowSoftInputMode="stateUnchanged"
-            android:resizeableActivity="true"
-            android:allowEmbedded="true">
+     package="com.android.car.themeplayground">
+    <uses-sdk android:minSdkVersion="26"
+         android:targetSdkVersion="26"/>
+    <uses-permission android:name="android.permission.MODIFY_DAY_NIGHT_MODE"/>
+    <application android:allowBackup="true"
+         android:icon="@drawable/ic_launcher"
+         android:label="@string/app_name"
+         android:supportsRtl="true"
+         android:theme="@style/Theme.App">
+        <activity android:name=".TextSamples"
+             android:label="@string/app_name"
+             android:windowSoftInputMode="stateUnchanged"
+             android:resizeableActivity="true"
+             android:allowEmbedded="true"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <activity
-            android:name=".ColorSamples"
-            android:label="@string/panel_elements"
-            android:windowSoftInputMode="stateUnchanged"
-            android:resizeableActivity="true"
-            android:allowEmbedded="true">
+        <activity android:name=".ButtonSamples"
+                  android:label="@string/button_elements"
+                  android:windowSoftInputMode="stateUnchanged"
+                  android:resizeableActivity="true"
+                  android:allowEmbedded="true">
+        </activity>
+        <activity android:name=".ColorSamples"
+             android:label="@string/panel_elements"
+             android:windowSoftInputMode="stateUnchanged"
+             android:resizeableActivity="true"
+             android:allowEmbedded="true">
+        </activity>
+        <activity android:name=".ProgressBarSamples"
+                  android:label="@string/progress_bar_elements"
+                  android:windowSoftInputMode="stateUnchanged"
+                  android:resizeableActivity="true"
+                  android:allowEmbedded="true">
         </activity>
         <activity android:name=".DialogSamples"
-                  android:label="@string/dialog_elements"
-                  android:parentActivityName="com.android.car.themeplayground.TextSamples">
+             android:label="@string/dialog_elements"
+             android:parentActivityName="com.android.car.themeplayground.TextSamples">
         </activity>
         <activity android:name=".WidgetsSamples"
-            android:label="@string/widgets"
-            android:parentActivityName="com.android.car.themeplayground.TextSamples">
+             android:label="@string/widgets"
+             android:parentActivityName="com.android.car.themeplayground.TextSamples">
         </activity>
         <activity android:name=".RecyclerViewSamples"
-                  android:label="@string/recycler_view"
-                  android:parentActivityName="com.android.car.themeplayground.TextSamples">
+             android:label="@string/recycler_view"
+             android:parentActivityName="com.android.car.themeplayground.TextSamples">
         </activity>
         <activity android:name=".CarUiRecyclerViewSamples"
-            android:label="@string/car_ui_recycler_view"
-            android:parentActivityName="com.android.car.themeplayground.TextSamples">
+             android:label="@string/car_ui_recycler_view"
+             android:parentActivityName="com.android.car.themeplayground.TextSamples">
         </activity>
         <activity android:name=".DefaultThemeSamples"
-                  android:label="@string/default_themes"
-                  android:parentActivityName="com.android.car.themeplayground.TextSamples">
+             android:label="@string/default_themes"
+             android:parentActivityName="com.android.car.themeplayground.TextSamples">
         </activity>
         <activity android:name=".MultipleIntentSamples"
-                  android:label="@string/multiple_intent"
-                  android:parentActivityName="com.android.car.themeplayground.TextSamples">
+             android:label="@string/multiple_intent"
+             android:parentActivityName="com.android.car.themeplayground.TextSamples">
         </activity>
     </application>
 </manifest>

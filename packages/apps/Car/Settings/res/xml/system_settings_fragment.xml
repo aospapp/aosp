@@ -21,14 +21,6 @@
     android:title="@string/system_setting_title"
     android:key="@string/psk_system_settings">
     <Preference
-        android:key="@string/pk_languages_and_input_settings"
-        android:icon="@drawable/ic_language"
-        android:title="@string/languages_and_input_settings"
-        settings:controller="com.android.car.settings.common.DefaultRestrictionsPreferenceController">
-        <intent android:targetPackage="com.android.car.settings"
-                android:targetClass="com.android.car.settings.common.CarSettingActivities$LanguagesAndInputActivity"/>
-    </Preference>
-    <Preference
         android:icon="@drawable/ic_system_update"
         android:key="@string/pk_system_update_settings"
         android:title="@string/system_update_settings_title"
@@ -36,30 +28,52 @@
         <intent android:action="android.settings.SYSTEM_UPDATE_SETTINGS"/>
     </Preference>
     <Preference
+        android:fragment="com.android.car.settings.language.LanguagesAndInputFragment"
+        android:key="@string/pk_languages_and_input_settings"
+        android:icon="@drawable/ic_language"
+        android:title="@string/languages_and_input_settings"
+        settings:controller="com.android.car.settings.common.DefaultRestrictionsPreferenceController"
+        settings:searchable="false"/>
+    <Preference
+        android:fragment="com.android.car.settings.units.UnitsSettingsFragment"
+        android:icon="@drawable/ic_units"
+        android:key="@string/pk_units_settings_entry"
+        android:title="@string/units_settings"
+        settings:controller="com.android.car.settings.common.DefaultRestrictionsPreferenceController"/>
+    <Preference
+        android:fragment="com.android.car.settings.datetime.DatetimeSettingsFragment"
+        android:key="@string/pk_date_time_settings_entry"
+        android:icon="@drawable/ic_date_time"
+        android:title="@string/date_and_time_settings_title"
+        settings:controller="com.android.car.settings.common.DefaultRestrictionsPreferenceController"/>
+    <Preference
+        android:fragment="com.android.car.settings.storage.StorageSettingsFragment"
+        android:icon="@drawable/ic_storage"
+        android:key="@string/pk_storage_settings_entry"
+        android:title="@string/storage_settings_title"
+        settings:controller="com.android.car.settings.common.DefaultRestrictionsPreferenceController"/>
+    <Preference
+        android:fragment="com.android.car.settings.system.AboutSettingsFragment"
         android:icon="@drawable/ic_settings_about"
         android:key="@string/pk_about_settings_entry"
         android:title="@string/about_settings"
-        settings:controller="com.android.car.settings.system.AboutSettingsEntryPreferenceController">
-        <intent android:targetPackage="com.android.car.settings"
-                android:targetClass="com.android.car.settings.common.CarSettingActivities$AboutSettingsActivity"/>
-    </Preference>
+        settings:controller="com.android.car.settings.system.AboutSettingsEntryPreferenceController"
+        settings:searchable="false"/>
     <Preference
+        android:fragment="com.android.car.settings.system.LegalInformationFragment"
         android:icon="@drawable/ic_settings_about"
         android:key="@string/pk_legal_information_entry"
         android:title="@string/legal_information"
-        settings:controller="com.android.car.settings.common.DefaultRestrictionsPreferenceController">
-        <intent android:targetPackage="com.android.car.settings"
-                android:targetClass="com.android.car.settings.common.CarSettingActivities$LegalInformationActivity"/>
-    </Preference>
+        settings:controller="com.android.car.settings.common.DefaultRestrictionsPreferenceController"
+        settings:searchable="false"/>
     <Preference
+        android:fragment="com.android.car.settings.system.ResetOptionsFragment"
         android:icon="@drawable/ic_restore"
         android:key="@string/pk_reset_options_entry"
         android:summary="@string/reset_options_summary"
         android:title="@string/reset_options_title"
-        settings:controller="com.android.car.settings.common.DefaultRestrictionsPreferenceController">
-        <intent android:targetPackage="com.android.car.settings"
-                android:targetClass="com.android.car.settings.common.CarSettingActivities$ResetOptionsActivity"/>
-    </Preference>
+        settings:controller="com.android.car.settings.common.DefaultRestrictionsPreferenceController"
+        settings:searchable="false"/>
     <Preference
         android:icon="@drawable/ic_settings_development"
         android:key="@string/pk_developer_options_entry"
@@ -70,7 +84,7 @@
     <com.android.car.settings.common.LogicalPreferenceGroup
         android:key="@string/pk_system_extra_settings"
         settings:controller="com.android.car.settings.common.ExtraSettingsPreferenceController">
-        <intent android:action="com.android.settings.action.EXTRA_SETTINGS">
+        <intent>
             <extra android:name="com.android.settings.category"
                    android:value="com.android.settings.category.ia.system"/>
         </intent>

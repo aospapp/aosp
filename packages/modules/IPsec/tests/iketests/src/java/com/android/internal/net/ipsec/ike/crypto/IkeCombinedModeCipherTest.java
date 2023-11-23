@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.ipsec.ike.crypto;
+package com.android.internal.net.ipsec.test.ike.crypto;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -23,10 +23,10 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import android.net.IpSecAlgorithm;
-import android.net.ipsec.ike.SaProposal;
+import android.net.ipsec.test.ike.SaProposal;
 
 import com.android.internal.net.TestUtils;
-import com.android.internal.net.ipsec.ike.message.IkeSaPayload.EncryptionTransform;
+import com.android.internal.net.ipsec.test.ike.message.IkeSaPayload.EncryptionTransform;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -49,16 +49,35 @@ public final class IkeCombinedModeCipherTest {
     private static final String KEY =
             "7C04513660DEC572D896105254EF92608054F8E6EE19E79CE52AB8697B2B5F2C2AA90C29";
 
+    private static final String CHACHA_POLY_IV = "1011121314151617";
+    private static final String CHACHA_POLY_ENCRYPTED_DATA_WITH_CHECKSUM =
+            "24039428b97f417e3c13753a4f05087b67c352e6a7fab1b982d466ef407ae5c614ee8099"
+                    + "d52844eb61aa95dfab4c02f72aa71e7c4c4f64c9befe2facc638e8f3cbec163fac469b50"
+                    + "2773f6fb94e664da9165b82829f641e076aaa8266b7fb0f7b11b369907e1ad43";
+    private static final String CHACHA_POLY_UNENCRYPTED_DATA =
+            "45000054a6f200004001e778c6336405c000020508005b7a3a080000553bec1000073627"
+                    + "08090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b"
+                    + "2c2d2e2f303132333435363701020204";
+    private static final String CHACHA_POLY_ADDITIONAL_AUTH_DATA = "0102030400000005";
+    private static final String CHACHA_POLY_KEY =
+            "808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3";
+
     private static final int AES_GCM_IV_LEN = 8;
     private static final int AES_GCM_16_CHECKSUM_LEN = 128;
 
     private IkeCombinedModeCipher mAesGcm16Cipher;
-
     private byte[] mAesGcmKey;
     private byte[] mIv;
     private byte[] mEncryptedPaddedDataWithChecksum;
     private byte[] mUnencryptedPaddedData;
     private byte[] mAdditionalAuthData;
+
+    private IkeCombinedModeCipher mChaChaPolyCipher;
+    private byte[] mChaChaPolyKey;
+    private byte[] mChaChaPolyIv;
+    private byte[] mChaChaPolyEncryptedDataWithChecksum;
+    private byte[] mChaChaPolyUnencryptedData;
+    private byte[] mChaChaPolyAdditionalAuthData;
 
     @Before
     public void setUp() {
@@ -75,6 +94,20 @@ public final class IkeCombinedModeCipherTest {
                 TestUtils.hexStringToByteArray(ENCRYPTED_PADDED_DATA_WITH_CHECKSUM);
         mUnencryptedPaddedData = TestUtils.hexStringToByteArray(UNENCRYPTED_PADDED_DATA);
         mAdditionalAuthData = TestUtils.hexStringToByteArray(ADDITIONAL_AUTH_DATA);
+
+        mChaChaPolyCipher =
+                (IkeCombinedModeCipher)
+                        IkeCipher.create(
+                                new EncryptionTransform(
+                                        SaProposal.ENCRYPTION_ALGORITHM_CHACHA20_POLY1305));
+
+        mChaChaPolyKey = TestUtils.hexStringToByteArray(CHACHA_POLY_KEY);
+        mChaChaPolyIv = TestUtils.hexStringToByteArray(CHACHA_POLY_IV);
+        mChaChaPolyEncryptedDataWithChecksum =
+                TestUtils.hexStringToByteArray(CHACHA_POLY_ENCRYPTED_DATA_WITH_CHECKSUM);
+        mChaChaPolyUnencryptedData = TestUtils.hexStringToByteArray(CHACHA_POLY_UNENCRYPTED_DATA);
+        mChaChaPolyAdditionalAuthData =
+                TestUtils.hexStringToByteArray(CHACHA_POLY_ADDITIONAL_AUTH_DATA);
     }
 
     @Test
@@ -89,21 +122,45 @@ public final class IkeCombinedModeCipherTest {
     }
 
     @Test
-    public void testEncrypt() throws Exception {
-        byte[] calculatedData =
+    public void testAesGcmEncrypt() throws Exception {
+        byte[] encryptedCiphertext =
                 mAesGcm16Cipher.encrypt(
                         mUnencryptedPaddedData, mAdditionalAuthData, mAesGcmKey, mIv);
 
-        assertArrayEquals(mEncryptedPaddedDataWithChecksum, calculatedData);
+        assertArrayEquals(mEncryptedPaddedDataWithChecksum, encryptedCiphertext);
     }
 
     @Test
-    public void testDecrypt() throws Exception {
-        byte[] calculatedData =
+    public void testAesGcmDecrypt() throws Exception {
+        byte[] decryptedPlaintext =
                 mAesGcm16Cipher.decrypt(
                         mEncryptedPaddedDataWithChecksum, mAdditionalAuthData, mAesGcmKey, mIv);
 
-        assertArrayEquals(mUnencryptedPaddedData, calculatedData);
+        assertArrayEquals(mUnencryptedPaddedData, decryptedPlaintext);
+    }
+
+    @Test
+    public void testChaChaPolyEncrypt() throws Exception {
+        byte[] encryptedCiphertext =
+                mChaChaPolyCipher.encrypt(
+                        mChaChaPolyUnencryptedData,
+                        mChaChaPolyAdditionalAuthData,
+                        mChaChaPolyKey,
+                        mChaChaPolyIv);
+
+        assertArrayEquals(mChaChaPolyEncryptedDataWithChecksum, encryptedCiphertext);
+    }
+
+    @Test
+    public void testChaChaPolyDecrypt() throws Exception {
+        byte[] decryptedPlaintext =
+                mChaChaPolyCipher.decrypt(
+                        mChaChaPolyEncryptedDataWithChecksum,
+                        mChaChaPolyAdditionalAuthData,
+                        mChaChaPolyKey,
+                        mChaChaPolyIv);
+
+        assertArrayEquals(mChaChaPolyUnencryptedData, decryptedPlaintext);
     }
 
     @Test

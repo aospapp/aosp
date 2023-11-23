@@ -18,11 +18,11 @@ package com.android.internal.net.ipsec.ike.message;
 
 import android.annotation.Nullable;
 import android.net.ipsec.ike.exceptions.IkeProtocolException;
+import android.net.ipsec.ike.exceptions.InvalidSyntaxException;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.net.ipsec.ike.crypto.IkeCipher;
 import com.android.internal.net.ipsec.ike.crypto.IkeMacIntegrity;
-import com.android.internal.net.ipsec.ike.exceptions.InvalidSyntaxException;
 
 import java.nio.ByteBuffer;
 import java.security.GeneralSecurityException;

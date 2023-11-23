@@ -29,8 +29,8 @@
     <string name="default_carrier_mmi_msg_title" msgid="7754317179938537213">"ବାହକ ମେସେଜ୍"</string>
     <string name="mmiStarted" msgid="9212975136944568623">"MMI କୋଡ୍‌କୁ ଆରମ୍ଭ କରାଯାଇଛି"</string>
     <string name="ussdRunning" msgid="1163586813106772717">"USSD କୋଡ୍ ରନ୍ କରୁଛି…"</string>
-    <string name="mmiCancelled" msgid="5339191899200678272">"MMI କୋଡ୍‌କୁ କ୍ୟାନ୍ସଲ୍ କରାଯାଇଛି"</string>
-    <string name="cancel" msgid="8984206397635155197">"କ୍ୟାନ୍ସଲ୍‍ କରନ୍ତୁ"</string>
+    <string name="mmiCancelled" msgid="5339191899200678272">"MMI କୋଡ୍‌କୁ ବାତିଲ୍ କରାଯାଇଛି"</string>
+    <string name="cancel" msgid="8984206397635155197">"ବାତିଲ୍‍ କରନ୍ତୁ"</string>
     <string name="enter_input" msgid="6193628663039958990">"USSD ମେସେଜ୍ ନିଶ୍ଚିତରୂପେ <xliff:g id="MIN_LEN">%1$d</xliff:g> ଓ <xliff:g id="MAX_LEN">%2$d</xliff:g>ଟି ଅକ୍ଷର ମଧ୍ୟରେ ରହିବ। ଦୟାକରି ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।"</string>
     <string name="manageConferenceLabel" msgid="8415044818156353233">"କନଫରେନ୍ସ କଲ୍‌କୁ ପରିଚାଳନା କରନ୍ତୁ"</string>
     <string name="ok" msgid="7818974223666140165">"ଠିକ୍ ଅଛି"</string>
@@ -50,6 +50,7 @@
     <string name="voice_number_setting_primary_user_only" msgid="3394706575741912843">"କେବଳ ପ୍ରାଥମିକ ୟୁଜରଙ୍କ ଦ୍ଵାରା ଭଏସମେଲ୍ ସେଟିଙ୍ଗକୁ ସଂଶୋଧିତ କରାଯାଇପାରିବ।"</string>
     <string name="puk_unlocked" msgid="4627340655215746511">"ଆପଣଙ୍କର SIM କାର୍ଡକୁ ଅବରୋଧ କରିଦିଆଯାଇଛି। ଆପଣଙ୍କର ଫୋନ୍ ଅନଲକ୍ ହେଉଛି…"</string>
     <string name="label_ndp" msgid="7617392683877410341">"SIM ନେଟ୍‌ୱର୍କ‌କୁ ଅନଲକ୍ କରିବା ପାଇଁ PIN"</string>
+    <string name="label_phoneid" msgid="8775611434123577808">"ଅପରେଟର୍ ପାଇଁ SIM ଲକ୍ କରାଯାଇଛି"</string>
     <string name="sim_ndp_unlock_text" msgid="7737338355451978338">"ଅନଲକ୍‌ କରନ୍ତୁ"</string>
     <string name="sim_ndp_dismiss_text" msgid="89667342248929777">"ଖାରଜ କରନ୍ତୁ"</string>
     <string name="requesting_unlock" msgid="930512210309437741">"ନେଟ୍‌ୱର୍କକୁ ଅନଲକ୍ କରିବା ପାଇଁ ଅନୁରୋଧ କରାଯାଉଛି…"</string>
@@ -123,6 +124,13 @@
     <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"<xliff:g id="PHONENUMBER">{0}</xliff:g>କୁ ଫରୱାର୍ଡ କରାଯାଉଛି"</string>
     <string name="sum_cfnrc_disabled" msgid="739289696796917683">"ବନ୍ଦ ଅଛି"</string>
     <string name="disable_cfnrc_forbidden" msgid="775348748084726890">"ଆପଣଙ୍କର ଫୋନ୍ ଅପହଞ୍ଚ ଦୂରତାରେ ଥିବାବେଳେ ଆପଣଙ୍କର କେରିଅର୍ କଲ୍ ଫର୍‌ୱାର୍ଡିଙ୍ଗକୁ ଅକ୍ଷମ କରିବାରେ ସପୋର୍ଟ କରିବେ ନାହିଁ।"</string>
+    <string name="registration_cf_forbidden" msgid="4386482610771190420">"ଆପଣଙ୍କ ମୋବାଇଲ କମ୍ପାନୀ କଲ୍‌ ଫର୍‌ୱାର୍ଡିଂ ସୁବିଧାର ସମର୍ଥନ କରେ ନାହିଁ।"</string>
+    <string name="cdma_call_waiting" msgid="4565070960879673216">"\'କଲ୍ ୱେଟିଂ\' ସୁବିଧା ଚାଲୁ କରିବେ?"</string>
+    <string name="enable_cdma_call_waiting_setting" msgid="5906811747921744307">"କଲ୍ ସମୟରେ, ଇନକମିଂ କଲଗୁଡ଼ିକ ବିଷୟରେ ଆପଣଙ୍କୁ ସୂଚିତ କରାଯିବ"</string>
+    <string name="enable_cdma_cw" msgid="811047045863422232">"ଚାଲୁ କରନ୍ତୁ"</string>
+    <string name="disable_cdma_cw" msgid="7119290446496301734">"ବାତିଲ୍ କରନ୍ତୁ"</string>
+    <string name="cdma_call_waiting_in_ims_on" msgid="6390979414188659218">"IMSରେ CDMA \'କଲ୍ ୱେଟିଂ\' ସୁବିଧା ଚାଲୁ ଅଛି"</string>
+    <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"IMSରେ CDMA \'କଲ୍ ୱେଟିଂ\' ସୁବିଧା ବନ୍ଦ ଅଛି"</string>
     <string name="updating_title" msgid="6130548922615719689">"କଲ୍‌ ସେଟିଂସ୍"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"କଲ୍ ସେଟିଙ୍ଗକୁ କେବଳ ଆଡମିନ୍ ୟୁଜର୍‌ ବଦଳାଇପାରିବେ।"</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"ସେଟିଙ୍ଗ (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -286,6 +294,9 @@
     <string name="limited_sim_function_notification_title" msgid="612715399099846281">"ସୀମିତ SIM ପ୍ରକାର୍ଯ୍ୟ"</string>
     <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"<xliff:g id="PHONE_NUMBER">%2$s</xliff:g> ବ୍ୟବହାର କରିବା ସମୟରେ <xliff:g id="CARRIER_NAME">%1$s</xliff:g> କଲ୍ ଏବଂ ଡାଟା ସେବାଗୁଡ଼ିକ ବ୍ଲକ୍ କରାଯାଇପାରେ।"</string>
     <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"ଅନ୍ୟ SIM ବ୍ୟବହାର କରିବା ସମୟରେ <xliff:g id="CARRIER_NAME">%1$s</xliff:g> କଲ୍ ଏବଂ ଡାଟା ସେବାଗୁଡ଼ିକ ବ୍ଲକ୍ କରାଯାଇପାରେ।"</string>
+    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"ଅସମର୍ଥିତ SIP ଆକାଉଣ୍ଟଗୁଡ଼ିକ ମିଳିଛି ଏବଂ କାଢ଼ି ଦିଆଯାଇଛି"</string>
+    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"SIP କଲିଂ ଆଉ Android ପ୍ଲାଟଫର୍ମ ଦ୍ୱାରା ସମର୍ଥିତ ନୁହେଁ।\nଆପଣଙ୍କର ପୂର୍ବରୁ ଥିବା SIP ଆକାଉଣ୍ଟ <xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g>କୁ କାଢ଼ି ଦିଆଯାଇଛି।\nଦୟାକରି ଆପଣଙ୍କ ଡିଫଲ୍ଟ କଲିଂ ଆକାଉଣ୍ଟ ସେଟିଂକୁ ସୁନିଶ୍ଚିତ କରନ୍ତୁ।"</string>
+    <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"ସେଟିଂସକୁ ଯାଆନ୍ତୁ"</string>
     <string name="data_usage_title" msgid="8438592133893837464">"ଆପ୍‌ ଦ୍ୱାରା ଡାଟା ବ୍ୟବହାର"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"<xliff:g id="ID_2">%2$s</xliff:g>ରେ <xliff:g id="ID_1">%1$s</xliff:g> ମୋବାଇଲ୍ ଡାଟା ବ୍ୟବହାର କରାଯାଇଛି"</string>
     <string name="advanced_options_title" msgid="9208195294513520934">"ଉନ୍ନତ"</string>
@@ -504,6 +515,7 @@
     <string name="puk2_requested" msgid="6992374450720307514">"ଭୁଲ୍ ପାସ୍‌ୱର୍ଡ। ବର୍ତ୍ତମାନ SIM ଲକ୍ ହୋ‌ଇଗଲା। PUK2କୁ ପ୍ରବେଶ କରନ୍ତୁ।"</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"PUK2କୁ ସ୍ଥାୟୀରୂପେ ଅବରୋଧ କରାଯାଇଛି।"</string>
     <string name="pin2_attempts" msgid="5625178102026453023">\n"ଆପଣଙ୍କର <xliff:g id="NUMBER">%d</xliff:g>ଟି ସୁଯୋଗ ବଳକା ଅଛି।"</string>
+    <string name="puk2_locked" msgid="6497760825455461057">"PUK2 ଲକ୍ କରାଯାଇଛି। ଅନଲକ୍ କରିବାକୁ ସେବା ପ୍ରଦାନକାରୀ ସହ ଯୋଗାଯୋଗ କରନ୍ତୁ।"</string>
     <string name="pin2_unblocked" msgid="4481107908727789303">"PIN2କୁ ଆଉ ଅବରୋଧ କରାଯାଇନାହିଁ"</string>
     <string name="pin2_error_exception" msgid="8116103864600823641">"ନେଟ୍‌ୱର୍କ କିମ୍ବା SIM କାର୍ଡ ତ୍ରୁଟି"</string>
     <string name="doneButton" msgid="7371209609238460207">"ହୋଇଗଲା"</string>
@@ -525,6 +537,7 @@
     <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"କଲ୍ କରିବା ପାଇଁ ମୋବାଇଲ୍ ନେଟ୍‌ୱର୍କକୁ ଚାଲୁ କରନ୍ତୁ, ଏୟାରପ୍ଲେନ୍ ମୋଡ୍‌କୁ ବନ୍ଦ କରନ୍ତୁ କିମ୍ବା ବ୍ୟାଟେରୀ ସେଭର୍‌କୁ ବନ୍ଦ କରନ୍ତୁ।"</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"ଗୋଟିଏ କଲ୍ କରିବା ପାଇଁ ଏୟାରପ୍ଲେନ୍ ମୋଡ୍‌କୁ ବନ୍ଦ କରନ୍ତୁ।"</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"ଗୋଟିଏ କଲ୍ କରିବା ପାଇଁ ଏୟାରପ୍ଲେନ୍ ମୋଡ୍‌କୁ ବନ୍ଦ କରନ୍ତୁ କିମ୍ବା ଏକ ତାରବିହୀନ ନେଟ୍‌ୱର୍କ ସହ କନେକ୍ଟ କରନ୍ତୁ।"</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"ଫୋନଟି ବହୁତ ଗରମ ହୋଇଯାଇଛି"</b>\n\n"ଏହି କଲକୁ ସମ୍ପୂର୍ଣ୍ଣ କରାଯାଇପାରିବ ନାହିଁ। ଆପଣଙ୍କ ଫୋନ୍ ଥଣ୍ଡା ହେବା ପରେ ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ। \n\nଆପଣ ଏବେ ବି ଜରୁରୀକାଳୀନ କଲ୍ କରିପାରିବେ।"</string>
     <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"ଗୋଟିଏ ସାଧାରଣ କଲ୍ କରିବା ପାଇଁ ଜରୁରିକାଳୀନ କଲବ୍ୟାକ୍ ମୋଡ୍‌ରୁ ବାହାରି ଆସନ୍ତୁ।"</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"ନେଟ୍‌ୱର୍କରେ ପଞ୍ଜୀକୃତ କରାଯାଇନାହିଁ।"</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"ମୋବାଇଲ୍ ନେଟ୍‌ୱର୍କ ଉପଲବ୍ଧ ନାହିଁ।"</string>
@@ -682,7 +695,7 @@
     <string name="callFailed_wfc_service_not_available_in_this_location" msgid="3624536608369524988">"ଏହି ଲୋକେସନ୍‌ରେ ୱାଇ-ଫାଇ କଲିଂ ଉପଲବ୍ଧ ନାହିଁ।"</string>
     <string name="change_pin_title" msgid="3564254326626797321">"ଭଏସମେଲ୍ PINକୁ ବଦଳାନ୍ତୁ"</string>
     <string name="change_pin_continue_label" msgid="5177011752453506371">"ଜାରି ରଖନ୍ତୁ"</string>
-    <string name="change_pin_cancel_label" msgid="2301711566758827936">"କ୍ୟାନ୍ସଲ୍‍ କରନ୍ତୁ"</string>
+    <string name="change_pin_cancel_label" msgid="2301711566758827936">"ବାତିଲ୍‍ କରନ୍ତୁ"</string>
     <string name="change_pin_ok_label" msgid="6861082678817785330">"ଠିକ୍ ଅଛି"</string>
     <string name="change_pin_enter_old_pin_header" msgid="853151335217594829">"ଆପଣଙ୍କର ପୁରୁଣା PINକୁ ନିଶ୍ଚିତ କରନ୍ତୁ"</string>
     <string name="change_pin_enter_old_pin_hint" msgid="8801292976275169367">"ଜାରି ରଖିବା ପାଇଁ ଆପଣଙ୍କର ଭଏସମେଲ୍ PINକୁ ପ୍ରବେଶ କରନ୍ତୁ।"</string>
@@ -705,9 +718,9 @@
     <string name="mobile_data_activate_diag_title" msgid="5401741936224757312">"ଡାଟାକୁ ଯୋଡ଼ିବେ?"</string>
     <string name="mobile_data_activate_diag_message" msgid="3527260988020415441">"ଆପଣଙ୍କୁ <xliff:g id="PROVIDER_NAME">%s</xliff:g> ମାଧ୍ୟମରେ ଡାଟା ଯୋଡ଼ିବାକୁ ପଡ଼ିପାରେ"</string>
     <string name="mobile_data_activate_button" msgid="1139792516354374612">"ଡାଟା ଯୋଡ଼ନ୍ତୁ"</string>
-    <string name="mobile_data_activate_cancel_button" msgid="3530174817572005860">"କ୍ୟାନ୍ସଲ୍‍ କରନ୍ତୁ"</string>
+    <string name="mobile_data_activate_cancel_button" msgid="3530174817572005860">"ବାତିଲ୍‍ କରନ୍ତୁ"</string>
     <string name="clh_card_title_call_ended_txt" msgid="5977978317527299698">"କଲ୍ ସମାପ୍ତ ହୋ‌ଇଛି"</string>
-    <string name="clh_callFailed_powerOff_txt" msgid="8279934912560765361">"ଏୟାରପ୍ଲେନ୍ ମୋଡ୍ ଅନ୍‌ ଅଛି"</string>
+    <string name="clh_callFailed_powerOff_txt" msgid="8279934912560765361">"ଏୟାରପ୍ଲେନ୍ ମୋଡ୍ ଚାଲୁ ଅଛି"</string>
     <string name="clh_callFailed_simError_txt" msgid="5128538525762326413">"SIM କାର୍ଡକୁ ଆକ୍ସେସ୍ କରିହେଉନାହିଁ"</string>
     <string name="clh_incall_error_out_of_service_txt" msgid="2736010617446749869">"ମୋବାଇଲ୍ ନେଟ୍‌ୱର୍କ ଉପଲବ୍ଧ ଅଛି"</string>
     <string name="clh_callFailed_unassigned_number_txt" msgid="141967660286695682">"ଆପଣ ଡାଏଲ୍ କରିବା ପାଇଁ ଚେଷ୍ଟା କରୁଥିବା ଫୋନ୍ ନମ୍ବର୍‌ରେ ସମସ୍ୟା ଅଛି। ତ୍ରୁଟି କୋଡ୍ 1।"</string>
@@ -867,7 +880,6 @@
     <string name="radio_info_dds" msgid="1122593144425697126">"ଡିଫଲ୍ଟ ଡାଟା SIMର SubId:"</string>
     <string name="radio_info_dl_kbps" msgid="2382922659525318726">"DL ବ୍ୟାଣ୍ଡୱିଡଥ୍ (kbps):"</string>
     <string name="radio_info_ul_kbps" msgid="2102225400904799036">"UL ବ୍ୟାଣ୍ଡୱିଡଥ୍ (kbps):"</string>
-    <string name="radio_info_signal_location_label" msgid="6188435197086550049">"ସେଲ୍ ଲୋକେସନ୍ ସୂଚନା (ଅନୁରୋଧ କରାଯାଇଛି):"</string>
     <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"LTE ଫିଜିକାଲ୍ ଚ୍ୟାନେଲ୍ କନ୍‌ଫିଗରେସନ୍:"</string>
     <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"ସେଲ୍ ସୂଚନା ରିଫ୍ରେସ୍ ଦର:"</string>
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"ସମସ୍ତ ସେଲ୍ ପରିମାପ ସୂଚନା:"</string>
@@ -898,6 +910,11 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"ରିଫ୍ରେସ୍ କରନ୍ତୁ"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"DNS ଯାଞ୍ଚ ଟୋଗଲ୍ କରନ୍ତୁ"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"OEM-ନିର୍ଦ୍ଦିଷ୍ଟ ସୂଚନା/ସେଟିଂସ୍"</string>
+    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC ଉପଲବ୍ଧ:"</string>
+    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR ପ୍ରତିବନ୍ଧିତ:"</string>
+    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR ଉପଲବ୍ଧ:"</string>
+    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR ସ୍ଥିତି:"</string>
+    <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR ଫ୍ରିକ୍ୱେନ୍ସୀ:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"ରେଡିଓ ବ୍ୟାଣ୍ଡ ମୋଡ୍ ସେଟ୍ କରନ୍ତୁ"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"ବ୍ୟାଣ୍ଡ ତାଲିକା ଲୋଡ୍ କରାଯାଉଛି…"</string>
     <string name="band_mode_set" msgid="6657819412803771421">"ସେଟ୍ କରନ୍ତୁ"</string>
@@ -907,4 +924,7 @@
     <string name="phone_info_label" product="default" msgid="1784175881556791433">"ଫୋନ୍ ସୂଚନା"</string>
     <string name="carrier_provisioning" msgid="2668065041869578376">"ମୋବାଇଲ୍ କମ୍ପାନୀ ପ୍ରାବଧାନ ସୂଚନା"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"କେରିଅର୍ ପ୍ରୋଭିଜନିଂ ଟ୍ରିଗର୍ କରନ୍ତୁ"</string>
+    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"ଆପଣଙ୍କ ବ୍ଲୁଟୁଥ୍ ସିଗନାଲ୍ ଦୁର୍ବଳ ଅଛି। ସ୍ପିକରଫୋନକୁ ସ୍ୱିଚ୍ କରିବା ପାଇଁ ଚେଷ୍ଟା କରନ୍ତୁ।"</string>
+    <string name="call_quality_notification_name" msgid="3476828289553948830">"କଲ୍ ଗୁଣବତ୍ତା ବିଜ୍ଞପ୍ତି"</string>
+    <string name="notification_channel_sip_account" msgid="1261816025156179637">"ଅସମର୍ଥିତ SIP ଆକାଉଣ୍ଟଗୁଡ଼ିକ"</string>
 </resources>

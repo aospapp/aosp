@@ -79,6 +79,16 @@ public class RingerTest extends TelecomTestCase {
         }
 
         @Override
+        public VibrationEffect resolve(int defaultAmplitude) {
+            return this;
+        }
+
+        @Override
+        public VibrationEffect scale(float scaleFactor) {
+            return this;
+        }
+
+        @Override
         public void validate() {
             // not needed
         }

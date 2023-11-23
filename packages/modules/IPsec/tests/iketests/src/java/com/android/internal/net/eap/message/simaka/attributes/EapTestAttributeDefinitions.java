@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.eap.message.simaka.attributes;
+package com.android.internal.net.eap.test.message.simaka.attributes;
 
 import static com.android.internal.net.TestUtils.hexStringToByteArray;
 

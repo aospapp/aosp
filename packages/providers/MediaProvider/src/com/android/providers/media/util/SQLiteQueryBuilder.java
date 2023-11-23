@@ -45,6 +45,8 @@ import androidx.annotation.VisibleForTesting;
 
 import com.android.providers.media.DatabaseHelper;
 
+import com.google.common.base.Strings;
+
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
@@ -61,6 +63,9 @@ import java.util.regex.Pattern;
  * {@link SQLiteDatabase} objects.
  */
 public class SQLiteQueryBuilder {
+
+    public static final String ROWID_COLUMN = "rowid";
+
     private static final String TAG = "SQLiteQueryBuilder";
 
     private static final Pattern sAggregationPattern = Pattern.compile(
@@ -75,6 +80,7 @@ public class SQLiteQueryBuilder {
                     + "mov|asf|avi|divx|mpg|mpeg|mkv|webm|mk3d|mks|3gp|mpegts|ts|m2ts|m2t)");
     private static final Pattern sPattern156832140 = Pattern.compile(
             "(?i)%com\\.gopro\\.smarty%");
+    private static final Pattern sPattern158537159 = Pattern.compile("(?i)localized");
 
     private static final Pattern sCustomCollatorPattern = Pattern.compile(
             "(?i)custom_[a-zA-Z]+");
@@ -226,6 +232,14 @@ public class SQLiteQueryBuilder {
         } else {
             mProjectionMap = null;
         }
+    }
+
+    /** Adds {@code column} to the projection map. */
+    public void allowColumn(String column) {
+        if (mProjectionMap == null) {
+            mProjectionMap = new ArrayMap<>();
+        }
+        mProjectionMap.put(column, column);
     }
 
     /**
@@ -515,7 +529,7 @@ public class SQLiteQueryBuilder {
         if (isStrictGrammar()) {
             enforceStrictGrammar(selection, groupBy, having, sortOrder, limit);
         }
-        if (isStrict()) {
+        if (isStrict() && hasUserWhere(selection)) {
             // Validate the user-supplied selection to detect syntactic anomalies
             // in the selection string that could indicate a SQL injection attempt.
             // The idea is to ensure that the selection clause is a valid SQL expression
@@ -635,7 +649,7 @@ public class SQLiteQueryBuilder {
         if (isStrictGrammar()) {
             enforceStrictGrammar(selection, null, null, null, null);
         }
-        if (isStrict()) {
+        if (isStrict() && hasUserWhere(selection)) {
             // Validate the user-supplied selection to detect syntactic anomalies
             // in the selection string that could indicate a SQL injection attempt.
             // The idea is to ensure that the selection clause is a valid SQL expression
@@ -717,7 +731,7 @@ public class SQLiteQueryBuilder {
         if (isStrictGrammar()) {
             enforceStrictGrammar(selection, null, null, null, null);
         }
-        if (isStrict()) {
+        if (isStrict() && hasUserWhere(selection)) {
             // Validate the user-supplied selection to detect syntactic anomalies
             // in the selection string that could indicate a SQL injection attempt.
             // The idea is to ensure that the selection clause is a valid SQL expression
@@ -752,14 +766,24 @@ public class SQLiteQueryBuilder {
         return com.android.providers.media.util.DatabaseUtils.executeUpdateDelete(db, sql, sqlArgs);
     }
 
+    private static boolean hasUserWhere(@Nullable String selection) {
+        return !Strings.isNullOrEmpty(selection);
+    }
+
     private void enforceStrictColumns(@Nullable String[] projection) {
         Objects.requireNonNull(mProjectionMap, "No projection map defined");
+        if (!isStrictColumns()) {
+            return;
+        }
 
         computeProjection(projection);
     }
 
     private void enforceStrictColumns(@NonNull ContentValues values) {
         Objects.requireNonNull(mProjectionMap, "No projection map defined");
+        if (!isStrictColumns()) {
+            return;
+        }
 
         final ArrayMap<String, Object> rawValues = com.android.providers.media.util.DatabaseUtils
                 .getValues(values);
@@ -817,6 +841,7 @@ public class SQLiteQueryBuilder {
             // proper SQL string substitution
             if (sPattern154193772.matcher(token).matches()) return;
             if (sPattern156832140.matcher(token).matches()) return;
+            if (sPattern158537159.matcher(token).matches()) return;
         }
 
         throw new IllegalArgumentException("Invalid token " + token);
@@ -1024,7 +1049,10 @@ public class SQLiteQueryBuilder {
         if (column != null) {
             return column;
         } else {
-            throw new IllegalArgumentException("Invalid column " + userColumn);
+            if (isStrictColumns()) {
+                throw new IllegalArgumentException("Invalid column " + userColumn);
+            }
+            return userColumn;
         }
     }
 
@@ -1120,7 +1148,13 @@ public class SQLiteQueryBuilder {
         }
     }
 
-    private static boolean shouldAppendRowId(ContentValues values) {
-        return !values.containsKey(MediaColumns._ID) && values.containsKey(MediaColumns.DATA);
+    @VisibleForTesting
+    boolean shouldAppendRowId(ContentValues values) {
+        // When no projectionMap provided, don't add the row
+        final boolean hasIdInProjectionMap = mProjectionMap != null && mProjectionMap.containsKey(
+                MediaColumns._ID) && TextUtils.equals(mProjectionMap.get(MediaColumns._ID),
+                MediaColumns._ID);
+        return !values.containsKey(MediaColumns._ID) && values.containsKey(MediaColumns.DATA)
+                && hasIdInProjectionMap;
     }
 }

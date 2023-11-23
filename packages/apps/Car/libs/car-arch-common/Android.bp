@@ -16,6 +16,10 @@
 
 // This is an unbundled target, sdk_version must be "system_current". If the car library is ever
 // needed, android."car-stubs" or "android.car-system-stubs" must be used.
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_library {
     name: "car-arch-common",
 

@@ -109,7 +109,7 @@ public class PictureSizeLoader {
      * devices running Camera API 1.
      * <p>
      * We then calculate the resolutions that should be available and in the end
-     * filter it in case a resolution is on the blacklist for this device.
+     * filter it in case a resolution is on the disallowedlist for this device.
      */
     public PictureSizes computePictureSizes() {
         List<Size> backCameraSizes = computeSizesForCamera(SettingsUtil.CAMERA_FACING_BACK);
@@ -137,9 +137,9 @@ public class PictureSizeLoader {
                 sizes = ResolutionUtil
                         .getDisplayableSizesFromSupported(sizes,
                                 facingSelector == SettingsUtil.CAMERA_FACING_BACK);
-                String blacklisted = GservicesHelper
-                        .getBlacklistedResolutionsBack(mContentResolver);
-                sizes = ResolutionUtil.filterBlackListedSizes(sizes, blacklisted);
+                String disallowedlisted = GservicesHelper
+                        .getDisallowedlistedResolutionsBack(mContentResolver);
+                sizes = ResolutionUtil.filterDisallowedListedSizes(sizes, disallowedlisted);
                 return sizes;
             }
         }

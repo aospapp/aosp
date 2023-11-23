@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.eap;
+package com.android.internal.net.eap.test;
 
 import static android.telephony.TelephonyManager.APPTYPE_USIM;
 
-import android.net.eap.EapSessionConfig;
+import android.net.eap.test.EapSessionConfig;
 
 import java.util.HashMap;
 

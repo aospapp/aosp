@@ -16,6 +16,13 @@
 
 package com.android.tv.settings.device.displaysound;
 
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_CLASSIC;
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_TWO_PANEL;
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_VENDOR;
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_X;
+import static com.android.tv.settings.util.InstrumentationUtils.logToggleInteracted;
+
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.media.AudioManager;
@@ -29,6 +36,9 @@ import androidx.preference.TwoStatePreference;
 
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
+import com.android.tv.settings.overlay.FlavorUtils;
+import com.android.tv.settings.util.SliceUtils;
+import com.android.tv.twopanelsettings.slices.SlicePreference;
 
 /**
  * The "Display & sound" screen in TV Settings.
@@ -37,6 +47,7 @@ import com.android.tv.settings.SettingsPreferenceFragment;
 public class DisplaySoundFragment extends SettingsPreferenceFragment {
 
     static final String KEY_SOUND_EFFECTS = "sound_effects";
+    private static final String KEY_CEC = "cec";
 
     private AudioManager mAudioManager;
 
@@ -55,18 +66,40 @@ public class DisplaySoundFragment extends SettingsPreferenceFragment {
         super.onAttach(context);
     }
 
+    private int getPreferenceScreenResId() {
+        switch (FlavorUtils.getFlavor(getContext())) {
+            case FLAVOR_CLASSIC:
+            case FLAVOR_TWO_PANEL:
+                return R.xml.display_sound;
+            case FLAVOR_X:
+            case FLAVOR_VENDOR:
+                return R.xml.display_sound_x;
+            default:
+                return R.xml.display_sound;
+        }
+    }
+
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
-        setPreferencesFromResource(R.xml.display_sound, null);
+        setPreferencesFromResource(getPreferenceScreenResId(), null);
 
         final TwoStatePreference soundPref = findPreference(KEY_SOUND_EFFECTS);
         soundPref.setChecked(getSoundEffectsEnabled());
+        updateCecPreference();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        // Update the subtitle of CEC setting when navigating back to this page.
+        updateCecPreference();
     }
 
     @Override
     public boolean onPreferenceTreeClick(Preference preference) {
         if (TextUtils.equals(preference.getKey(), KEY_SOUND_EFFECTS)) {
             final TwoStatePreference soundPref = (TwoStatePreference) preference;
+            logToggleInteracted(TvSettingsEnums.DISPLAY_SOUND_SYSTEM_SOUNDS, soundPref.isChecked());
             setSoundEffectsEnabled(soundPref.isChecked());
         }
         return super.onPreferenceTreeClick(preference);
@@ -86,8 +119,25 @@ public class DisplaySoundFragment extends SettingsPreferenceFragment {
                 Settings.System.SOUND_EFFECTS_ENABLED, enabled ? 1 : 0);
     }
 
+    private void updateCecPreference() {
+        Preference cecPreference = findPreference(KEY_CEC);
+        if (cecPreference instanceof SlicePreference
+                && SliceUtils.isSliceProviderValid(
+                        getContext(), ((SlicePreference) cecPreference).getUri())) {
+            ContentResolver resolver = getContext().getContentResolver();
+            // Note that default CEC is enabled. You'll find similar retrieval of property in
+            // HdmiControlService.
+            boolean cecEnabled =
+                    Settings.Global.getInt(resolver, Settings.Global.HDMI_CONTROL_ENABLED, 1) != 0;
+            cecPreference.setSummary(cecEnabled ? R.string.enabled : R.string.disabled);
+            cecPreference.setVisible(true);
+        } else {
+            cecPreference.setVisible(false);
+        }
+    }
+
     @Override
-    public int getMetricsCategory() {
-        return 0;
+    protected int getPageId() {
+        return TvSettingsEnums.DISPLAY_SOUND;
     }
 }

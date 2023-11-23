@@ -16,6 +16,10 @@
 
 // Experimental API backed by Experimental Car service.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_library {
 
     name: "car-experimental-api-static-lib",

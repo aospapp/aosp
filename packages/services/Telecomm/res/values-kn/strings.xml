@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3077225713817780583">"ಕರೆ ನಿರ್ವಹಣೆ"</string>
+    <string name="telecommAppLabel" product="default" msgid="1825598513414129827">"ಫೋನ್ ಕರೆಗಳು"</string>
     <string name="userCallActivityLabel" product="default" msgid="3605391260292846248">"ಫೋನ್"</string>
     <string name="unknown" msgid="6993977514360123431">"ಅಪರಿಚಿತ"</string>
     <string name="notification_missedCallTitle" msgid="5060387047205532974">"ಮಿಸ್ಡ್‌ ಕಾಲ್‌"</string>
@@ -98,7 +98,7 @@
     <string name="notification_channel_missed_call" msgid="7168893015283909012">"ಮಿಸ್ಡ್‌ ಕಾಲ್‍‍ಗಳು"</string>
     <string name="notification_channel_call_blocking" msgid="2028807677868598710">"ಕರೆ ನಿರ್ಬಂಧಿಸುವಿಕೆ"</string>
     <string name="notification_channel_background_calls" msgid="7785659903711350506">"ಹಿನ್ನೆಲೆ ಕರೆಗಳು"</string>
-    <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"ಕರೆಗಳ ಕನೆಕ್ಷನ್ ಅನ್ನು ಕಡಿತಗೊಳಿಸಲಾಗಿದೆ"</string>
+    <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"ಡಿಸ್ಕನೆಕ್ಟ್ ಮಾಡಲಾದ ಕರೆಗಳು"</string>
     <string name="notification_channel_in_call_service_crash" msgid="7313237519166984267">"ಕ್ರ್ಯಾಶ್ ಆಗಿರುವ ಫೋನ್ ಆ್ಯಪ್‌ಗಳು"</string>
     <string name="alert_outgoing_call" msgid="5319895109298927431">"ಈ ಕರೆಯನ್ನು ಮಾಡುವುದರಿಂದ ನಿಮ್ಮ <xliff:g id="OTHER_APP">%1$s</xliff:g> ಕರೆಯು ಅಂತ್ಯಗೊಳ್ಳುತ್ತದೆ."</string>
     <string name="alert_redirect_outgoing_call_or_not" msgid="665409645789521636">"ಈ ಕರೆ ಮಾಡುವುದು ಹೇಗೆ ಎಂಬುದನ್ನು ಆಯ್ಕೆಮಾಡಿ"</string>

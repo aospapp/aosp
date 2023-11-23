@@ -19,7 +19,7 @@ package com.google.android.car.kitchensink.users;
  * Represents a user restriction in a list.  Contains the key for the user restriction and the
  * "checked" status of the checkbox in the list.
  */
-public class UserRestrictionListItem {
+public final class UserRestrictionListItem {
     private final String mKey;
     private boolean mIsChecked;
 
@@ -38,5 +38,10 @@ public class UserRestrictionListItem {
 
     public boolean getIsChecked() {
         return mIsChecked;
+    }
+
+    @Override
+    public String toString() {
+        return mKey + "(" + (mIsChecked ? "on" : "off") + ")";
     }
 }

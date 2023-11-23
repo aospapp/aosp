@@ -35,6 +35,13 @@
                 android:layout_height="wrap_content"
                 android:text="@string/label_ndp"/>
 
+        <TextView
+                android:id="@+id/perso_phoneid_text"
+                android:textAppearance="?android:attr/textAppearanceMedium"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/label_phoneid"/>
+
         <EditText android:id="@+id/pin_entry"
                 android:inputType="textPassword"
                 android:imeOptions="actionDone"

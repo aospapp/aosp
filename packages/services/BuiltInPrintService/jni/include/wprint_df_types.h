@@ -60,6 +60,7 @@ typedef enum {
     MEDIA_PRINTABLE_CD,
     MEDIA_PREMIUM_PRESENTATION,
 
+    MEDIA_AUTO = 98,
     MEDIA_UNKNOWN = 99 // New types above this line
 } media_type_t;
 

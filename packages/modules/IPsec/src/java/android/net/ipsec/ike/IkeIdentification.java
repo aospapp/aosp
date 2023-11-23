@@ -17,10 +17,10 @@
 package android.net.ipsec.ike;
 
 import android.annotation.IntDef;
-import android.annotation.SystemApi;
+import android.annotation.NonNull;
+import android.net.ipsec.ike.exceptions.AuthenticationFailedException;
+import android.os.PersistableBundle;
 import android.util.ArraySet;
-
-import com.android.internal.net.ipsec.ike.exceptions.AuthenticationFailedException;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -38,9 +38,7 @@ import java.util.Set;
  *
  * @see <a href="https://tools.ietf.org/html/rfc7296#section-3.5">RFC 7296, Internet Key Exchange
  *     Protocol Version 2 (IKEv2)</a>
- * @hide
  */
-@SystemApi
 public abstract class IkeIdentification {
     // Set of supported ID types.
     private static final Set<Integer> SUPPORTED_ID_TYPES;
@@ -90,12 +88,51 @@ public abstract class IkeIdentification {
     /** @hide Subject Alternative Name Type for IP Address defined in RFC 5280 */
     protected static final int SAN_TYPE_IP_ADDRESS = 7;
 
+    private static final String ID_TYPE_KEY = "idType";
     /** @hide */
     public final int idType;
 
     /** @hide */
     protected IkeIdentification(@IdType int type) {
         idType = type;
+    }
+
+    /**
+     * Constructs this object by deserializing a PersistableBundle
+     *
+     * @hide
+     */
+    @NonNull
+    public static IkeIdentification fromPersistableBundle(@NonNull PersistableBundle in) {
+        int idType = in.getInt(ID_TYPE_KEY);
+        switch (idType) {
+            case ID_TYPE_IPV4_ADDR:
+                return IkeIpv4AddrIdentification.fromPersistableBundle(in);
+            case ID_TYPE_FQDN:
+                return IkeFqdnIdentification.fromPersistableBundle(in);
+            case ID_TYPE_RFC822_ADDR:
+                return IkeRfc822AddrIdentification.fromPersistableBundle(in);
+            case ID_TYPE_IPV6_ADDR:
+                return IkeIpv6AddrIdentification.fromPersistableBundle(in);
+            case ID_TYPE_DER_ASN1_DN:
+                return IkeDerAsn1DnIdentification.fromPersistableBundle(in);
+            case ID_TYPE_KEY_ID:
+                return IkeKeyIdIdentification.fromPersistableBundle(in);
+            default:
+                throw new IllegalArgumentException("Invalid ID type: " + idType);
+        }
+    }
+
+    /**
+     * Serializes this object to a PersistableBundle
+     *
+     * @hide
+     */
+    @NonNull
+    public PersistableBundle toPersistableBundle() {
+        final PersistableBundle result = new PersistableBundle();
+        result.putInt(ID_TYPE_KEY, idType);
+        return result;
     }
 
     /**

@@ -579,37 +579,28 @@ public class GsmSmsCbMessageTest extends CellBroadcastServiceTestBase {
     }
 
     @Test
-    public void testGetMessageBody8Bit() {
+    public void testGetMessageBodyGsm8Bit() {
         byte[] pdu = {
                 (byte) 0xC0, (byte) 0x00, (byte) 0x00, (byte) 0x32, (byte) 0x44, (byte) 0x11,
-                (byte) 0x41,
-                (byte) 0x42, (byte) 0x43, (byte) 0x44, (byte) 0x45, (byte) 0x46, (byte) 0x47,
-                (byte) 0x41,
-                (byte) 0x42, (byte) 0x43, (byte) 0x44, (byte) 0x45, (byte) 0x46, (byte) 0x47,
-                (byte) 0x41,
-                (byte) 0x42, (byte) 0x43, (byte) 0x44, (byte) 0x45, (byte) 0x46, (byte) 0x47,
-                (byte) 0x41,
-                (byte) 0x42, (byte) 0x43, (byte) 0x44, (byte) 0x45, (byte) 0x46, (byte) 0x47,
-                (byte) 0x41,
-                (byte) 0x42, (byte) 0x43, (byte) 0x44, (byte) 0x45, (byte) 0x46, (byte) 0x47,
-                (byte) 0x41,
-                (byte) 0x42, (byte) 0x43, (byte) 0x44, (byte) 0x45, (byte) 0x46, (byte) 0x47,
-                (byte) 0x41,
-                (byte) 0x42, (byte) 0x43, (byte) 0x44, (byte) 0x45, (byte) 0x46, (byte) 0x47,
-                (byte) 0x41,
-                (byte) 0x42, (byte) 0x43, (byte) 0x44, (byte) 0x45, (byte) 0x46, (byte) 0x47,
-                (byte) 0x41,
-                (byte) 0x42, (byte) 0x43, (byte) 0x44, (byte) 0x45, (byte) 0x46, (byte) 0x47,
-                (byte) 0x41,
-                (byte) 0x42, (byte) 0x43, (byte) 0x44, (byte) 0x45, (byte) 0x46, (byte) 0x47,
-                (byte) 0x41,
-                (byte) 0x42, (byte) 0x43, (byte) 0x44, (byte) 0x45, (byte) 0x46, (byte) 0x47,
-                (byte) 0x41,
-                (byte) 0x42, (byte) 0x43, (byte) 0x44, (byte) 0x45
+                (byte) 0x41, (byte) 0x20, (byte) 0x47, (byte) 0x53, (byte) 0x4D, (byte) 0x20,
+                (byte) 0x38, (byte) 0x2D, (byte) 0x62, (byte) 0x69, (byte) 0x74, (byte) 0x20,
+                (byte) 0x6D, (byte) 0x65, (byte) 0x73, (byte) 0x73, (byte) 0x61, (byte) 0x67,
+                (byte) 0x65, (byte) 0x20, (byte) 0x77, (byte) 0x69, (byte) 0x74, (byte) 0x68,
+                (byte) 0x20, (byte) 0x63, (byte) 0x61, (byte) 0x72, (byte) 0x72, (byte) 0x69,
+                (byte) 0x61, (byte) 0x67, (byte) 0x65, (byte) 0x20, (byte) 0x72, (byte) 0x65,
+                (byte) 0x74, (byte) 0x75, (byte) 0x72, (byte) 0x6E, (byte) 0x20, (byte) 0x70,
+                (byte) 0x61, (byte) 0x64, (byte) 0x64, (byte) 0x69, (byte) 0x6E, (byte) 0x67,
+                (byte) 0x0D, (byte) 0x0D, (byte) 0x0D, (byte) 0x0D, (byte) 0x0D, (byte) 0x0D,
+                (byte) 0x0D, (byte) 0x0D, (byte) 0x0D, (byte) 0x0D, (byte) 0x0D, (byte) 0x0D,
+                (byte) 0x0D, (byte) 0x0D, (byte) 0x0D, (byte) 0x0D, (byte) 0x0D, (byte) 0x0D,
+                (byte) 0x0D, (byte) 0x0D, (byte) 0x0D, (byte) 0x0D, (byte) 0x0D, (byte) 0x0D,
+                (byte) 0x0D, (byte) 0x0D, (byte) 0x0D, (byte) 0x0D, (byte) 0x0D, (byte) 0x0D,
+                (byte) 0x0D, (byte) 0x0D, (byte) 0x0D, (byte) 0x0D
         };
         SmsCbMessage msg = createFromPdu(pdu);
 
-        assertEquals("8-bit message body should be empty", "", msg.getMessageBody());
+        assertEquals("Unexpected 8-bit string decoded",
+                "A GSM 8-bit message with carriage return padding", msg.getMessageBody());
     }
 
     @Test
@@ -643,7 +634,7 @@ public class GsmSmsCbMessageTest extends CellBroadcastServiceTestBase {
         };
         SmsCbMessage msg = createFromPdu(pdu);
 
-        assertEquals("Unexpected 7-bit string decoded",
+        assertEquals("Unexpected UCS2 string decoded",
                 "A UCS2 message containing a \u0434 character", msg.getMessageBody());
     }
 
@@ -673,7 +664,7 @@ public class GsmSmsCbMessageTest extends CellBroadcastServiceTestBase {
         };
         SmsCbMessage msg = createFromPdu(pdu);
 
-        assertEquals("Unexpected 7-bit string decoded",
+        assertEquals("Unexpected UCS2 decoded",
                 "A UCS2 message containing a \u0434 character", msg.getMessageBody());
     }
 
@@ -755,7 +746,7 @@ public class GsmSmsCbMessageTest extends CellBroadcastServiceTestBase {
         };
         SmsCbMessage msg = createFromPdu(pdu);
 
-        assertEquals("Unexpected 7-bit string decoded",
+        assertEquals("Unexpected UCS2 string decoded",
                 "A UCS2 message containing a \u0434 character", msg.getMessageBody());
 
         assertEquals("Unexpected language indicator decoded", "xx", msg.getLanguageCode());
@@ -787,7 +778,7 @@ public class GsmSmsCbMessageTest extends CellBroadcastServiceTestBase {
         };
         SmsCbMessage msg = createFromPdu(pdu);
 
-        assertEquals("Unexpected 7-bit string decoded",
+        assertEquals("Unexpected UCS2 string decoded",
                 "A UCS2 message containing a \u0434 character", msg.getMessageBody());
 
         assertEquals("Unexpected language indicator decoded", "xx", msg.getLanguageCode());

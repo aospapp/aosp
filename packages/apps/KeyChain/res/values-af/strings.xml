@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"Jy kan sertifikate installeer van \'n PKCS#12-lêer met \'n %1$s- of \'n %2$s-uitbreiding wat in eksterne berging geleë is."</string>
     <string name="allow_button" msgid="3030990695030371561">"Kies"</string>
     <string name="deny_button" msgid="3766539809121892584">"Weier"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"Laai tans sertifikate …"</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"%s soek tans vir \'n sertifikaat …"</string>
 </resources>

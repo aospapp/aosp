@@ -22,9 +22,12 @@ import static android.system.OsConstants.AF_INET6;
 import android.annotation.IntRange;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.annotation.SuppressLint;
 import android.annotation.SystemApi;
 import android.net.LinkAddress;
+import android.os.PersistableBundle;
 
+import com.android.internal.net.ipsec.ike.message.IkeConfigPayload.ConfigAttribute;
 import com.android.internal.net.ipsec.ike.message.IkeConfigPayload.ConfigAttributeIpv4Address;
 import com.android.internal.net.ipsec.ike.message.IkeConfigPayload.ConfigAttributeIpv4Dhcp;
 import com.android.internal.net.ipsec.ike.message.IkeConfigPayload.ConfigAttributeIpv4Dns;
@@ -32,24 +35,25 @@ import com.android.internal.net.ipsec.ike.message.IkeConfigPayload.ConfigAttribu
 import com.android.internal.net.ipsec.ike.message.IkeConfigPayload.ConfigAttributeIpv6Address;
 import com.android.internal.net.ipsec.ike.message.IkeConfigPayload.ConfigAttributeIpv6Dns;
 import com.android.internal.net.ipsec.ike.message.IkeConfigPayload.TunnelModeChildConfigAttribute;
+import com.android.server.vcn.util.PersistableBundleUtils;
 
 import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 
 /**
  * TunnelModeChildSessionParams represents proposed configurations for negotiating a tunnel mode
  * Child Session.
- *
- * @hide
  */
-@SystemApi
 public final class TunnelModeChildSessionParams extends ChildSessionParams {
+    /** @hide */
+    private static final String CONFIG_ATTRIBUTES_KEY = "mConfigRequests";
+
     @NonNull private final TunnelModeChildConfigAttribute[] mConfigRequests;
 
     private TunnelModeChildSessionParams(
@@ -67,6 +71,67 @@ public final class TunnelModeChildSessionParams extends ChildSessionParams {
                 softLifetimeSec,
                 false /*isTransport*/);
         mConfigRequests = configRequests;
+    }
+
+    /**
+     * Constructs this object by deserializing a PersistableBundle
+     *
+     * <p>Constructed TunnelModeChildSessionParams is guaranteed to be valid, as checked by the
+     * TunnelModeChildSessionParams.Builder
+     *
+     * @hide
+     */
+    @NonNull
+    public static TunnelModeChildSessionParams fromPersistableBundle(
+            @NonNull PersistableBundle in) {
+        Objects.requireNonNull(in, "PersistableBundle not provided");
+
+        TunnelModeChildSessionParams.Builder builder = new TunnelModeChildSessionParams.Builder();
+
+        for (ChildSaProposal p : getProposalsFromPersistableBundle(in)) {
+            builder.addSaProposal(p);
+        }
+
+        for (IkeTrafficSelector ts : getTsFromPersistableBundle(in, INBOUND_TS_KEY)) {
+            builder.addInboundTrafficSelectors(ts);
+        }
+
+        for (IkeTrafficSelector ts : getTsFromPersistableBundle(in, OUTBOUND_TS_KEY)) {
+            builder.addOutboundTrafficSelectors(ts);
+        }
+
+        builder.setLifetimeSeconds(
+                in.getInt(HARD_LIFETIME_SEC_KEY), in.getInt(SOFT_LIFETIME_SEC_KEY));
+
+        PersistableBundle configAttributeBundle = in.getPersistableBundle(CONFIG_ATTRIBUTES_KEY);
+        List<ConfigAttribute> configReqList =
+                PersistableBundleUtils.toList(
+                        configAttributeBundle, ConfigAttribute::fromPersistableBundle);
+
+        for (ConfigAttribute a : configReqList) {
+            builder.addConfigRequest((TunnelModeChildConfigAttribute) a);
+        }
+
+        return builder.build();
+    }
+
+    /**
+     * Serializes this object to a PersistableBundle
+     *
+     * @hide
+     */
+    @Override
+    @NonNull
+    public PersistableBundle toPersistableBundle() {
+        final PersistableBundle result = super.toPersistableBundle();
+
+        PersistableBundle configAttributeBundle =
+                PersistableBundleUtils.fromList(
+                        Arrays.asList(mConfigRequests),
+                        TunnelModeChildConfigAttribute::toPersistableBundle);
+        result.putPersistableBundle(CONFIG_ATTRIBUTES_KEY, configAttributeBundle);
+
+        return result;
     }
 
     /** @hide */
@@ -124,18 +189,71 @@ public final class TunnelModeChildSessionParams extends ChildSessionParams {
     /** Represents an IPv6 DNS Server request */
     public interface ConfigRequestIpv6DnsServer extends TunnelModeChildConfigRequest {}
 
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), Arrays.hashCode(mConfigRequests));
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!super.equals(o) || !(o instanceof ChildSessionParams)) {
+            return false;
+        }
+
+        TunnelModeChildSessionParams other = (TunnelModeChildSessionParams) o;
+
+        return Arrays.equals(mConfigRequests, other.mConfigRequests);
+    }
+
     /** This class can be used to incrementally construct a {@link TunnelModeChildSessionParams}. */
     public static final class Builder extends ChildSessionParams.Builder {
         private static final int IPv4_DEFAULT_PREFIX_LEN = 32;
 
         private boolean mHasIp4AddressRequest;
-        private List<TunnelModeChildConfigAttribute> mConfigRequestList;
+        private boolean mHasIp4NetmaskRequest;
+        private List<TunnelModeChildConfigAttribute> mConfigRequestList = new ArrayList<>();
 
-        /** Create a Builder for negotiating a transport mode Child Session. */
+        /** Create a Builder for negotiating a tunnel mode Child Session. */
         public Builder() {
             super();
             mHasIp4AddressRequest = false;
-            mConfigRequestList = new LinkedList<>();
+            mHasIp4NetmaskRequest = false;
+        }
+
+        /**
+         * Construct Builder from the {@link TunnelModeChildSessionParams} object.
+         *
+         * @param childParams the object this Builder will be constructed with.
+         */
+        public Builder(@NonNull TunnelModeChildSessionParams childParams) {
+            super(childParams);
+            mConfigRequestList.addAll(Arrays.asList(childParams.mConfigRequests));
+            for (TunnelModeChildConfigAttribute config : mConfigRequestList) {
+                if (config instanceof ConfigAttributeIpv4Address) {
+                    mHasIp4AddressRequest = true;
+                } else if (config instanceof ConfigAttributeIpv4Netmask) {
+                    mHasIp4NetmaskRequest = true;
+                }
+            }
+        }
+
+        /**
+         * Adds an Child SA proposal to the {@link TunnelModeChildSessionParams} being built.
+         *
+         * @param proposal Child SA proposal.
+         * @return Builder this, to facilitate chaining.
+         * @deprecated Callers should use {@link #addChildSaProposal(ChildSaProposal)}. This method
+         *     is deprecated because its name does not match the input type.
+         * @hide
+         */
+        // The matching getter is defined in the super class. Please see
+        // {@link ChildSessionParams#getSaProposals}
+        @SuppressLint("MissingGetterMatchingBuilder")
+        @Deprecated
+        @SystemApi
+        @NonNull
+        public Builder addSaProposal(@NonNull ChildSaProposal proposal) {
+            return addChildSaProposal(proposal);
         }
 
         /**
@@ -144,8 +262,11 @@ public final class TunnelModeChildSessionParams extends ChildSessionParams {
          * @param proposal Child SA proposal.
          * @return Builder this, to facilitate chaining.
          */
+        // The matching getter is defined in the super class. Please see
+        // {@link ChildSessionParams#getChildSaProposals}
+        @SuppressLint("MissingGetterMatchingBuilder")
         @NonNull
-        public Builder addSaProposal(@NonNull ChildSaProposal proposal) {
+        public Builder addChildSaProposal(@NonNull ChildSaProposal proposal) {
             if (proposal == null) {
                 throw new NullPointerException("Required argument not provided");
             }
@@ -168,6 +289,9 @@ public final class TunnelModeChildSessionParams extends ChildSessionParams {
          * @param trafficSelector the inbound {@link IkeTrafficSelector}.
          * @return Builder this, to facilitate chaining.
          */
+        // The matching getter is defined in the super class. Please see {@link
+        // ChildSessionParams#getInboundTrafficSelectors}
+        @SuppressLint("MissingGetterMatchingBuilder")
         @NonNull
         public Builder addInboundTrafficSelectors(@NonNull IkeTrafficSelector trafficSelector) {
             Objects.requireNonNull(trafficSelector, "Required argument not provided");
@@ -189,6 +313,9 @@ public final class TunnelModeChildSessionParams extends ChildSessionParams {
          * @param trafficSelector the outbound {@link IkeTrafficSelector}.
          * @return Builder this, to facilitate chaining.
          */
+        // The matching getter is defined in the super class. Please see {@link
+        // ChildSessionParams#getOutboundTrafficSelectors}
+        @SuppressLint("MissingGetterMatchingBuilder")
         @NonNull
         public Builder addOutboundTrafficSelectors(@NonNull IkeTrafficSelector trafficSelector) {
             Objects.requireNonNull(trafficSelector, "Required argument not provided");
@@ -209,6 +336,10 @@ public final class TunnelModeChildSessionParams extends ChildSessionParams {
          *     Defaults to 3600 seconds (1 hour). MUST be at least 120 seconds (2 minutes), and at
          *     least 60 seconds (1 minute) shorter than the hard lifetime.
          */
+        // The matching getters are defined in the super class. Please see {@link
+        // ChildSessionParams#getHardLifetimeSeconds and {@link
+        // ChildSessionParams#getSoftLifetimeSeconds}
+        @SuppressLint("MissingGetterMatchingBuilder")
         @NonNull
         public Builder setLifetimeSeconds(
                 @IntRange(
@@ -229,10 +360,13 @@ public final class TunnelModeChildSessionParams extends ChildSessionParams {
          * Adds an internal IP address request to the {@link TunnelModeChildSessionParams} being
          * built.
          *
-         * @param addressFamily the address family. Only {@link OsConstants.AF_INET} and {@link
-         *     OsConstants.AF_INET6} are allowed.
+         * @param addressFamily the address family. Only {@code AF_INET} and {@code AF_INET6} are
+         *     allowed
          * @return Builder this, to facilitate chaining.
          */
+        // #getConfigurationRequests has been defined for callers to retrieve internal address
+        // requests
+        @SuppressLint("MissingGetterMatchingBuilder")
         @NonNull
         public Builder addInternalAddressRequest(int addressFamily) {
             if (addressFamily == AF_INET) {
@@ -254,6 +388,9 @@ public final class TunnelModeChildSessionParams extends ChildSessionParams {
          * @param address the requested IPv4 address.
          * @return Builder this, to facilitate chaining.
          */
+        // #getConfigurationRequests has been defined for callers to retrieve internal address
+        // requests
+        @SuppressLint("MissingGetterMatchingBuilder")
         @NonNull
         public Builder addInternalAddressRequest(@NonNull Inet4Address address) {
             if (address == null) {
@@ -273,6 +410,9 @@ public final class TunnelModeChildSessionParams extends ChildSessionParams {
          * @param prefixLen length of the IPv6 address prefix length.
          * @return Builder this, to facilitate chaining.
          */
+        // #getConfigurationRequests has been defined for callers to retrieve internal address
+        // requests
+        @SuppressLint("MissingGetterMatchingBuilder")
         @NonNull
         public Builder addInternalAddressRequest(@NonNull Inet6Address address, int prefixLen) {
             if (address == null) {
@@ -288,10 +428,13 @@ public final class TunnelModeChildSessionParams extends ChildSessionParams {
          * Adds an internal DNS server request to the {@link TunnelModeChildSessionParams} being
          * built.
          *
-         * @param addressFamily the address family. Only {@link OsConstants.AF_INET} and {@link
-         *     OsConstants.AF_INET6} are allowed.
+         * @param addressFamily the address family. Only {@code AF_INET} and {@code AF_INET6} are
+         *     allowed
          * @return Builder this, to facilitate chaining.
          */
+        // #getConfigurationRequests has been defined for callers to retrieve internal DNS server
+        // requests
+        @SuppressLint("MissingGetterMatchingBuilder")
         @NonNull
         public Builder addInternalDnsServerRequest(int addressFamily) {
             if (addressFamily == AF_INET) {
@@ -331,14 +474,17 @@ public final class TunnelModeChildSessionParams extends ChildSessionParams {
         }
 
         /**
-         * Adds internal DHCP server requests to the {@link TunnelModeChildSessionParams} being
+         * Adds an internal DHCP server request to the {@link TunnelModeChildSessionParams} being
          * built.
          *
          * <p>Only DHCPv4 server requests are supported.
          *
-         * @param addressFamily the address family. Only {@link OsConstants.AF_INET} is allowed.
+         * @param addressFamily the address family. Only {@code AF_INET} is allowed
          * @return Builder this, to facilitate chaining.
          */
+        // #getConfigurationRequests has been defined for callers to retrieve internal DHCP server
+        // requests.
+        @SuppressLint("MissingGetterMatchingBuilder")
         @NonNull
         public Builder addInternalDhcpServerRequest(int addressFamily) {
             if (addressFamily == AF_INET) {
@@ -374,6 +520,28 @@ public final class TunnelModeChildSessionParams extends ChildSessionParams {
         }
 
         /**
+         * Adds Configuration requests. Internal use only.
+         *
+         * @hide
+         */
+        @NonNull
+        public Builder addConfigRequest(@NonNull TunnelModeChildConfigAttribute attribute) {
+            if (attribute instanceof ConfigAttributeIpv4Address) {
+                mHasIp4AddressRequest = true;
+            } else if (attribute instanceof ConfigAttributeIpv4Netmask) {
+                if (((ConfigAttributeIpv4Netmask) attribute).address != null) {
+                    throw new IllegalArgumentException(
+                            "Requesting specific a netmask is disallowed");
+                } else {
+                    mHasIp4NetmaskRequest = true;
+                }
+            }
+
+            mConfigRequestList.add(attribute);
+            return this;
+        }
+
+        /**
          * Validates and builds the {@link TunnelModeChildSessionParams}.
          *
          * @return the validated {@link TunnelModeChildSessionParams}.
@@ -383,7 +551,11 @@ public final class TunnelModeChildSessionParams extends ChildSessionParams {
             addDefaultTsIfNotConfigured();
             validateOrThrow();
 
-            if (mHasIp4AddressRequest) {
+            if (!mHasIp4AddressRequest && mHasIp4NetmaskRequest) {
+                throw new IllegalArgumentException(
+                        "Requesting netmask without IPv4 address is disallowed");
+            }
+            if (mHasIp4AddressRequest && !mHasIp4NetmaskRequest) {
                 mConfigRequestList.add(new ConfigAttributeIpv4Netmask());
             }
 

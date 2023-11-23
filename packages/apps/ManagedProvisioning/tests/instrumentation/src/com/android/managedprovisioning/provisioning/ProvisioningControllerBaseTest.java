@@ -22,9 +22,13 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
+import android.os.UserHandle;
+import android.os.UserManager;
 import android.test.AndroidTestCase;
 
 import com.android.managedprovisioning.task.AbstractProvisioningTask;
+import com.android.managedprovisioning.task.InstallExistingPackageTask;
+import com.android.managedprovisioning.task.InstallPackageTask;
 
 import org.mockito.MockitoAnnotations;
 
@@ -63,6 +67,17 @@ public abstract class ProvisioningControllerBaseTest extends AndroidTestCase {
         AbstractProvisioningTask task = verifyTaskRun(expected);
         // WHEN the task completes successfully
         mController.onSuccess(task);
+    }
+
+    protected void tasksDownloadAndInstallDeviceOwnerPackageSucceeded(int userId)
+            throws Exception {
+        // the install package task should be run
+        taskSucceeded(InstallPackageTask.class);
+
+        // additional task for headless system user mode
+        if (UserManager.isHeadlessSystemUserMode() && userId != UserHandle.USER_SYSTEM) {
+            taskSucceeded(InstallExistingPackageTask.class);
+        }
     }
 
     protected AbstractProvisioningTask verifyTaskRun(Class expected) throws Exception {

@@ -17,38 +17,48 @@
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/error_fragment"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <com.android.car.apps.common.UxrTextView
-        android:id="@+id/error_message"
-        style="@style/FullScreenErrorMessageStyle"
-        android:layout_marginHorizontal="@dimen/fragment_error_message_margin_x"
+    <include layout="@layout/ui_guides"/>
+
+    <com.android.car.ui.FocusArea
+        android:layout_width="0dp"
+        android:layout_height="0dp"
         app:layout_constraintVertical_chainStyle="packed"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/app_bar"
-        app:layout_constraintBottom_toTopOf="@+id/error_button"
-    />
+        app:layout_constraintStart_toStartOf="@+id/ui_content_start_guideline"
+        app:layout_constraintEnd_toEndOf="@+id/ui_content_end_guideline"
+        app:layout_constraintTop_toBottomOf="@+id/ui_content_top_guideline"
+        app:layout_constraintBottom_toBottomOf="@+id/ui_content_bottom_guideline">
 
-    <com.android.car.apps.common.UxrButton
-        android:id="@+id/error_button"
-        style="@style/FullScreenErrorButtonStyle"
-        android:layout_marginTop="@dimen/fragment_error_button_margin_top"
-        android:layout_marginBottom="@dimen/fragment_error_button_margin_bottom"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/error_message"
-        app:layout_constraintBottom_toBottomOf="parent"
-    />
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            app:layout_constraintVertical_chainStyle="packed">
 
-    <com.android.car.media.widgets.AppBarView
-        android:id="@+id/app_bar"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        app:layout_constraintTop_toTopOf="parent"
-        app:showMenuItemsWhileSearching="false"
-    />
+            <com.android.car.apps.common.UxrTextView
+                android:id="@+id/error_message"
+                style="@style/FullScreenErrorMessageStyle"
+                android:layout_marginHorizontal="@dimen/fragment_error_message_margin_x"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toTopOf="@+id/error_button"
+            />
+
+            <com.android.car.apps.common.UxrButton
+                android:id="@+id/error_button"
+                style="@style/FullScreenErrorButtonStyle"
+                android:layout_marginTop="@dimen/fragment_error_button_margin_top"
+                android:layout_marginBottom="@dimen/fragment_error_button_margin_bottom"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/error_message"
+                app:layout_constraintBottom_toBottomOf="parent"
+            />
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+    </com.android.car.ui.FocusArea>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

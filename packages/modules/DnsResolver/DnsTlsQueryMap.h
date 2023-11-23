@@ -36,6 +36,8 @@ class DnsTlsQueryMap {
   public:
     enum class Response : uint8_t { success, network_error, limit_error, internal_error };
 
+    DnsTlsQueryMap();
+
     struct Query {
         // The new ID number assigned to this query.
         uint16_t newId;
@@ -80,6 +82,7 @@ class DnsTlsQueryMap {
 
     // The maximum number of times we will send a query before abandoning it.
     static constexpr int kMaxTries = 3;
+    int mMaxTries;
 
   private:
     std::mutex mLock;

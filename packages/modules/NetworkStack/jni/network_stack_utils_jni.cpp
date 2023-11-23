@@ -16,6 +16,7 @@
 
 #define LOG_TAG "NetworkStackUtils-JNI"
 
+#include <dlfcn.h>
 #include <errno.h>
 #include <jni.h>
 #include <linux/filter.h>
@@ -27,10 +28,13 @@
 #include <netinet/ip6.h>
 #include <netinet/udp.h>
 #include <stdlib.h>
+#include <sys/system_properties.h>
 
 #include <string>
 
 #include <nativehelper/JNIHelp.h>
+#include <netjniutils/netjniutils.h>
+
 #include <android/log.h>
 
 namespace android {
@@ -82,7 +86,7 @@ static void network_stack_utils_addArpEntry(JNIEnv *env, jobject thiz, jbyteArra
     env->GetStringUTFRegion(ifname, 0, ifLen, req.arp_dev);
 
     req.arp_flags = ATF_COM;  // Completed entry (ha valid)
-    int fd = jniGetFDFromFileDescriptor(env, javaFd);
+    int fd = netjniutils::GetNativeFileDescriptor(env, javaFd);
     if (fd < 0) {
         jniThrowExceptionFmt(env, "java/io/IOException", "Invalid file descriptor");
         return;
@@ -120,7 +124,7 @@ static void network_stack_utils_attachDhcpFilter(JNIEnv *env, jobject clazz, job
         filter_code,
     };
 
-    int fd = jniGetFDFromFileDescriptor(env, javaFd);
+    int fd = netjniutils::GetNativeFileDescriptor(env, javaFd);
     if (setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &filter, sizeof(filter)) != 0) {
         jniThrowExceptionFmt(env, "java/net/SocketException",
                 "setsockopt(SO_ATTACH_FILTER): %s", strerror(errno));
@@ -153,7 +157,7 @@ static void network_stack_utils_attachRaFilter(JNIEnv *env, jobject clazz, jobje
         filter_code,
     };
 
-    int fd = jniGetFDFromFileDescriptor(env, javaFd);
+    int fd = netjniutils::GetNativeFileDescriptor(env, javaFd);
     if (setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &filter, sizeof(filter)) != 0) {
         jniThrowExceptionFmt(env, "java/net/SocketException",
                 "setsockopt(SO_ATTACH_FILTER): %s", strerror(errno));
@@ -228,7 +232,7 @@ static void network_stack_utils_attachControlPacketFilter(
         filter_code,
     };
 
-    int fd = jniGetFDFromFileDescriptor(env, javaFd);
+    int fd = netjniutils::GetNativeFileDescriptor(env, javaFd);
     if (setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &filter, sizeof(filter)) != 0) {
         jniThrowExceptionFmt(env, "java/net/SocketException",
                 "setsockopt(SO_ATTACH_FILTER): %s", strerror(errno));

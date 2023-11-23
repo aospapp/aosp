@@ -174,9 +174,9 @@ public class DataModel {
                         Uri albumArtUri = ContentUris.withAppendedId(ART_BASE_URI,
                                 cursor.getLong(albumId));
                         try {
-                            InputStream dummy = mResolver.openInputStream(albumArtUri);
+                            InputStream unused = mResolver.openInputStream(albumArtUri);
                             albumArt = albumArtUri.toString();
-                            dummy.close();
+                            unused.close();
                         } catch (IOException e) {
                             // Ignored because the albumArt is intialized correctly anyway.
                         }

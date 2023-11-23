@@ -44,7 +44,6 @@ public class InCallDialpadFragmentTest {
     @Before
     public void setup() {
         ((TestDialerApplication) RuntimeEnvironment.application).setupInCallServiceImpl();
-        ((TestDialerApplication) RuntimeEnvironment.application).initUiCallManager();
     }
 
     @Test

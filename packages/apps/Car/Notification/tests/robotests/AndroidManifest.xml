@@ -16,5 +16,5 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="com.android.car.notification.test">
+          package="com.android.car.notification.tests.robotests">
 </manifest>

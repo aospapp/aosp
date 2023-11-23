@@ -33,7 +33,8 @@
         <item name="colorControlHighlight">@color/ripple_material_dark</item>
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
-        <item name="toolbarNavigationButtonStyle">@style/Widget.AppCompat.Toolbar.Button.Navigation</item>
+        <item name="toolbarNavigationButtonStyle">@android:style/Widget.Toolbar.Button.Navigation
+        </item>
 
         <item name="android:windowActionBar">false</item>
         <item name="android:windowNoTitle">true</item>
@@ -43,5 +44,8 @@
     <style name="LightDialogTheme" parent="@android:style/Theme.DeviceDefault.Light.Dialog.NoActionBar">
         <item name="android:layout">@layout/abc_alert_dialog_material</item>
         <item name="windowActionBar">false</item>
+        <item name="android:windowMinWidthMajor">@android:dimen/dialog_min_width_major</item>
+        <item name="android:windowMinWidthMinor">@android:dimen/dialog_min_width_minor</item>
+        <item name="android:dialogCornerRadius">24dp</item>
     </style>
 </resources>

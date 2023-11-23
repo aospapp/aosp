@@ -21,11 +21,14 @@ import android.app.ResourcesManager;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.Intent;
+import android.os.Handler;
 import android.test.ActivityUnitTestCase;
 import android.util.Log;
 import android.view.Display;
 
 import java.util.HashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 public class CellBroadcastActivityTestCase<T extends Activity> extends ActivityUnitTestCase<T> {
 
@@ -59,8 +62,13 @@ public class CellBroadcastActivityTestCase<T extends Activity> extends ActivityU
         return mActivity;
     }
 
-    protected void stopActivity() throws Exception {
-        getInstrumentation().callActivityOnStop(mActivity);
+    protected void stopActivity() throws Throwable {
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                getInstrumentation().callActivityOnStop(mActivity);
+            }
+        });
     }
 
     public static void waitForMs(long ms) {
@@ -79,6 +87,17 @@ public class CellBroadcastActivityTestCase<T extends Activity> extends ActivityU
         mContext.injectSystemService(cls, service);
     }
 
+    protected final void waitForHandlerAction(Handler h, long timeoutMillis) {
+        final CountDownLatch lock = new CountDownLatch(1);
+        h.post(lock::countDown);
+        while (lock.getCount() > 0) {
+            try {
+                lock.await(timeoutMillis, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                // do nothing
+            }
+        }
+    }
     public static class TestContext extends ContextWrapper {
 
         private static final String TAG = TestContext.class.getSimpleName();

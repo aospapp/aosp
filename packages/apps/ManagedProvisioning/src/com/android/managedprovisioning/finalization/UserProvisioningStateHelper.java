@@ -18,11 +18,12 @@ package com.android.managedprovisioning.finalization;
 
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE;
 import static android.app.admin.DevicePolicyManager.STATE_USER_PROFILE_COMPLETE;
+import static android.app.admin.DevicePolicyManager.STATE_USER_PROFILE_FINALIZED;
 import static android.app.admin.DevicePolicyManager.STATE_USER_SETUP_COMPLETE;
 import static android.app.admin.DevicePolicyManager.STATE_USER_SETUP_FINALIZED;
-import static android.app.admin.DevicePolicyManager.STATE_USER_SETUP_INCOMPLETE;
 import static android.app.admin.DevicePolicyManager.STATE_USER_UNMANAGED;
 import static android.content.Context.DEVICE_POLICY_SERVICE;
+
 import static com.android.internal.util.Preconditions.checkNotNull;
 
 import android.app.admin.DevicePolicyManager;
@@ -94,6 +95,9 @@ public class UserProvisioningStateHelper {
             if (userSetupCompleted) {
                 // SUW on current user is complete, so nothing much to do beyond indicating we're
                 // all done.
+                if (!isUserProvisioningStateProfileFinalized()) {
+                    newState = STATE_USER_PROFILE_FINALIZED;
+                }
                 newProfileState = STATE_USER_SETUP_FINALIZED;
             } else {
                 // We're still in SUW, so indicate that a managed-profile was setup on current user,
@@ -102,26 +106,21 @@ public class UserProvisioningStateHelper {
                 newProfileState = STATE_USER_SETUP_COMPLETE;
             }
         } else if (userSetupCompleted) {
-            if (params.isTransitioningFromRegularToChild) {
-                // During a transition to child, the user had already been through the unmanaged
-                // setup flow once, but now it is going through the DO provisioning flow. Therefore,
-                // update the provisioning state so that the flow can continue.
-                ProvisionLogger.logw("User transitioning to child, updating provisioning state.");
+            if (params.allowProvisioningAfterUserSetupComplete) {
+                ProvisionLogger.logw("Provisioning after user setup complete is allowed, "
+                        + "updating provisioning state.");
                 newState = STATE_USER_SETUP_COMPLETE;
             } else {
                 // User setup was previously completed this is an unexpected case.
                 ProvisionLogger.logw("user_setup_complete set, but provisioning was started");
             }
-        } else if (params.skipUserSetup) {
-            // DPC requested setup-wizard is skipped, indicate this to SUW.
-            newState = STATE_USER_SETUP_COMPLETE;
         } else {
-            // DPC requested setup-wizard is not skipped, indicate this to SUW.
-            newState = STATE_USER_SETUP_INCOMPLETE;
+            newState = STATE_USER_SETUP_COMPLETE;
         }
 
         if (newState != null) {
             setUserProvisioningState(newState, mMyUserId);
+            maybeSetHeadlessSystemUserProvisioningState(newState);
         }
         if (newProfileState != null) {
             setUserProvisioningState(newProfileState, managedProfileUserId);
@@ -129,7 +128,7 @@ public class UserProvisioningStateHelper {
     }
 
     /**
-     * Finalize the current users userProvisioningState depending on the following factors:
+     * Finalize the current user's userProvisioningState depending on the following factors:
      * <ul>
      *     <li>We're setting up a managed-profile - need to set state on two users.</li>
      * </ul>
@@ -140,25 +139,52 @@ public class UserProvisioningStateHelper {
      */
     @VisibleForTesting
     public void markUserProvisioningStateFinalized(ProvisioningParams params) {
-
         if (params.provisioningAction.equals(ACTION_PROVISION_MANAGED_PROFILE)) {
             // Managed profiles are a special case as two users are involved.
             final int managedProfileUserId = mUtils.getManagedProfile(mContext).getIdentifier();
             setUserProvisioningState(STATE_USER_SETUP_FINALIZED, managedProfileUserId);
-            setUserProvisioningState(STATE_USER_UNMANAGED, mMyUserId);
+            setUserProvisioningState(STATE_USER_PROFILE_FINALIZED, mMyUserId);
         } else {
             setUserProvisioningState(STATE_USER_SETUP_FINALIZED, mMyUserId);
+            maybeSetHeadlessSystemUserProvisioningState(STATE_USER_SETUP_FINALIZED);
         }
     }
 
+    /**
+     * Returns whether the calling user's provision state is unmanaged, finanalized or
+     * user profile finalized.
+     */
     @VisibleForTesting
     public boolean isStateUnmanagedOrFinalized() {
         final int currentState = mDevicePolicyManager.getUserProvisioningState();
-        return currentState == STATE_USER_UNMANAGED || currentState == STATE_USER_SETUP_FINALIZED;
+        return currentState == STATE_USER_UNMANAGED
+                || currentState == STATE_USER_SETUP_FINALIZED
+                || currentState == STATE_USER_PROFILE_FINALIZED;
+    }
+
+    /**
+     * Resets the provisioning state for {@link UserHandle#USER_SYSTEM} to {@link
+     * DevicePolicyManager#STATE_USER_UNMANAGED}.
+     */
+    public void resetPrimaryUserProvisioningState() {
+        setUserProvisioningState(STATE_USER_UNMANAGED, UserHandle.USER_SYSTEM);
+    }
+
+    private boolean isUserProvisioningStateProfileFinalized() {
+        final int currentState = mDevicePolicyManager.getUserProvisioningState();
+        return currentState == STATE_USER_PROFILE_FINALIZED;
     }
 
     private void setUserProvisioningState(int state, int userId) {
         ProvisionLogger.logi("Setting userProvisioningState for user " + userId + " to: " + state);
         mDevicePolicyManager.setUserProvisioningState(state, userId);
+    }
+
+    private void maybeSetHeadlessSystemUserProvisioningState(int newState) {
+        if (mUtils.isHeadlessSystemUserMode() && mMyUserId != UserHandle.USER_SYSTEM) {
+            // Headless system user's DO has to be set on system user and therefore system
+            // user has to be marked the same as the calling user.
+            setUserProvisioningState(newState, UserHandle.USER_SYSTEM);
+        }
     }
 }

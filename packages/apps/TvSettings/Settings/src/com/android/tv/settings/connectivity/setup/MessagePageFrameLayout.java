@@ -49,9 +49,9 @@ public class MessagePageFrameLayout extends FrameLayout {
 
     private static float getKeyLinePercent(Context context) {
         TypedArray ta = context.getTheme().obtainStyledAttributes(
-                androidx.leanback.R.styleable.LeanbackGuidedStepTheme);
+                R.styleable.LeanbackGuidedStepTheme);
         float percent = ta.getFloat(
-                androidx.leanback.R.styleable.LeanbackGuidedStepTheme_guidedStepKeyline,
+                R.styleable.LeanbackGuidedStepTheme_guidedStepKeyline,
                 40);
         ta.recycle();
         return percent;

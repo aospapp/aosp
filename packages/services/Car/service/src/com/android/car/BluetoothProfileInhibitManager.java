@@ -26,11 +26,11 @@ import android.content.Context;
 import android.os.Binder;
 import android.os.Handler;
 import android.os.IBinder;
-import android.os.Looper;
 import android.os.RemoteException;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.Log;
+import android.util.Slog;
 
 import com.android.internal.annotations.GuardedBy;
 
@@ -44,7 +44,7 @@ import java.util.stream.Collectors;
  * Manages the inhibiting of Bluetooth profile connections to and from specific devices.
  */
 public class BluetoothProfileInhibitManager {
-    private static final String TAG = "BluetoothProfileInhibitManager";
+    private static final String TAG = CarLog.tagFor(BluetoothProfileInhibitManager.class);
     private static final boolean DBG = Log.isLoggable(TAG, Log.DEBUG);
     private static final String SETTINGS_DELIMITER = ",";
     private static final Binder RESTORED_PROFILE_INHIBIT_TOKEN = new Binder();
@@ -68,8 +68,8 @@ public class BluetoothProfileInhibitManager {
     @GuardedBy("mProfileInhibitsLock")
     private final HashSet<BluetoothConnection> mAlreadyDisabledProfiles = new HashSet<>();
 
-    private final Handler mHandler = new Handler(Looper.getMainLooper());
-
+    private final Handler mHandler = new Handler(
+            CarServiceUtils.getHandlerThread(CarBluetoothService.THREAD_NAME).getLooper());
     /**
      * BluetoothConnection - encapsulates the information representing a connection to a device on a
      * given profile. This object is hashable, encodable and decodable.
@@ -333,7 +333,7 @@ public class BluetoothProfileInhibitManager {
         record = findInhibitRecord(params, token);
 
         if (record == null) {
-            Log.e(TAG, "Record not found");
+            Slog.e(TAG, "Record not found");
             return false;
         }
 
@@ -352,14 +352,14 @@ public class BluetoothProfileInhibitManager {
 
             Set<InhibitRecord> previousRecords = mProfileInhibits.get(params);
             if (findInhibitRecord(params, record.getToken()) != null) {
-                Log.e(TAG, "Inhibit request already registered - skipping duplicate");
+                Slog.e(TAG, "Inhibit request already registered - skipping duplicate");
                 return false;
             }
 
             try {
                 record.getToken().linkToDeath(record, 0);
             } catch (RemoteException e) {
-                Log.e(TAG, "Could not link to death on inhibit token (already dead?)", e);
+                Slog.e(TAG, "Could not link to death on inhibit token (already dead?)", e);
                 return false;
             }
 
@@ -393,7 +393,7 @@ public class BluetoothProfileInhibitManager {
                                 + " for device " + params.getDevice());
                     }
                 } catch (RemoteException e) {
-                    Log.e(TAG, "Could not disable profile", e);
+                    Slog.e(TAG, "Could not disable profile", e);
                     record.getToken().unlinkToDeath(record, 0);
                     mProfileInhibits.remove(params, record);
                     return false;
@@ -432,7 +432,7 @@ public class BluetoothProfileInhibitManager {
                 return false;
             }
             if (!mProfileInhibits.containsEntry(params, record)) {
-                Log.e(TAG, "Record already removed");
+                Slog.e(TAG, "Record already removed");
                 // Removing something a second time vacuously succeeds.
                 return true;
             }
@@ -594,7 +594,7 @@ public class BluetoothProfileInhibitManager {
      */
     private void logd(String msg) {
         if (DBG) {
-            Log.d(TAG, "[User: " + mUserId + "] " + msg);
+            Slog.d(TAG, "[User: " + mUserId + "] " + msg);
         }
     }
 
@@ -602,13 +602,13 @@ public class BluetoothProfileInhibitManager {
      * Log a message to Log.WARN
      */
     private void logw(String msg) {
-        Log.w(TAG, "[User: " + mUserId + "] " + msg);
+        Slog.w(TAG, "[User: " + mUserId + "] " + msg);
     }
 
     /**
      * Log a message to Log.ERROR
      */
     private void loge(String msg) {
-        Log.e(TAG, "[User: " + mUserId + "] " + msg);
+        Slog.e(TAG, "[User: " + mUserId + "] " + msg);
     }
 }

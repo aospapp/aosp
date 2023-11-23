@@ -16,9 +16,10 @@
 
 package com.android.internal.net.eap.statemachine;
 
+import static android.net.eap.EapSessionConfig.EapMethodConfig.EAP_TYPE_MSCHAP_V2;
+
 import static com.android.internal.net.eap.EapAuthenticator.LOG;
 import static com.android.internal.net.eap.message.EapData.EAP_NOTIFICATION;
-import static com.android.internal.net.eap.message.EapData.EAP_TYPE_MSCHAP_V2;
 import static com.android.internal.net.eap.message.EapData.EAP_TYPE_STRING;
 import static com.android.internal.net.eap.message.EapMessage.EAP_CODE_FAILURE;
 import static com.android.internal.net.eap.message.EapMessage.EAP_CODE_RESPONSE;
@@ -30,6 +31,7 @@ import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2TypeData.
 import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2TypeData.EapMsChapV2FailureResponse.getEapMsChapV2FailureResponse;
 import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2TypeData.EapMsChapV2SuccessResponse.getEapMsChapV2SuccessResponse;
 
+import android.net.eap.EapSessionConfig.EapMethodConfig.EapMethod;
 import android.net.eap.EapSessionConfig.EapMsChapV2Config;
 
 import com.android.internal.annotations.VisibleForTesting;
@@ -43,7 +45,6 @@ import com.android.internal.net.eap.exceptions.EapInvalidRequestException;
 import com.android.internal.net.eap.exceptions.EapSilentException;
 import com.android.internal.net.eap.exceptions.mschapv2.EapMsChapV2ParsingException;
 import com.android.internal.net.eap.message.EapData;
-import com.android.internal.net.eap.message.EapData.EapMethod;
 import com.android.internal.net.eap.message.EapMessage;
 import com.android.internal.net.eap.message.mschapv2.EapMsChapV2TypeData;
 import com.android.internal.net.eap.message.mschapv2.EapMsChapV2TypeData.EapMsChapV2ChallengeRequest;
@@ -113,7 +114,10 @@ public class EapMsChapV2MethodStateMachine extends EapMethodStateMachine {
     private static final int SHS_PAD_LEN = 40;
     private static final int MASTER_KEY_LEN = 16;
     private static final int SESSION_KEY_LEN = 16;
-    private static final int MASTER_SESSION_KEY_LEN = 2 * SESSION_KEY_LEN;
+
+    // 32B (2 * SESSION_KEY_LEN) of data zero-padded to 64B
+    private static final int MSK_LEN = MIN_MSK_LEN_BYTES;
+    private static final int EMSK_LEN = MIN_EMSK_LEN_BYTES;
 
     // Reserved for future use and must be 0 (EAP MSCHAPv2#2.2)
     private static final int FLAGS = 0;
@@ -269,8 +273,8 @@ public class EapMsChapV2MethodStateMachine extends EapMethodStateMachine {
                         generateNtResponse(
                                 challengeRequest.challenge,
                                 peerChallenge,
-                                mEapMsChapV2Config.username,
-                                mEapMsChapV2Config.password);
+                                mEapMsChapV2Config.getUsername(),
+                                mEapMsChapV2Config.getPassword());
             } catch (GeneralSecurityException ex) {
                 LOG.e(mTAG, "Error generating EAP MSCHAPv2 Challenge response", ex);
                 return new EapError(ex);
@@ -279,7 +283,7 @@ public class EapMsChapV2MethodStateMachine extends EapMethodStateMachine {
             LOG.d(
                     mTAG,
                     "Generating Challenge Response:"
-                            + " Username=" + LOG.pii(mEapMsChapV2Config.username)
+                            + " Username=" + LOG.pii(mEapMsChapV2Config.getUsername())
                             + " Peer-Challenge=" + LOG.pii(peerChallenge)
                             + " NT-Response=" + LOG.pii(ntResponse));
 
@@ -290,7 +294,7 @@ public class EapMsChapV2MethodStateMachine extends EapMethodStateMachine {
                                 peerChallenge,
                                 ntResponse,
                                 FLAGS,
-                                usernameToBytes(mEapMsChapV2Config.username));
+                                usernameToBytes(mEapMsChapV2Config.getUsername()));
                 transitionTo(
                         new ValidateAuthenticatorState(
                                 challengeRequest.challenge, peerChallenge, ntResponse));
@@ -359,11 +363,11 @@ public class EapMsChapV2MethodStateMachine extends EapMethodStateMachine {
                     try {
                         isSuccessfulAuth =
                                 checkAuthenticatorResponse(
-                                        mEapMsChapV2Config.password,
+                                        mEapMsChapV2Config.getPassword(),
                                         mNtResponse,
                                         mPeerChallenge,
                                         mAuthenticatorChallenge,
-                                        mEapMsChapV2Config.username,
+                                        mEapMsChapV2Config.getUsername(),
                                         successRequest.authBytes);
                     } catch (GeneralSecurityException | UnsupportedEncodingException ex) {
                         LOG.e(mTAG, "Error validating MSCHAPv2 Authenticator Response", ex);
@@ -449,9 +453,9 @@ public class EapMsChapV2MethodStateMachine extends EapMethodStateMachine {
             }
 
             try {
-                byte[] msk = generateMsk(mEapMsChapV2Config.password, mNtResponse);
+                byte[] msk = generateMsk(mEapMsChapV2Config.getPassword(), mNtResponse);
                 transitionTo(new FinalState());
-                return new EapSuccess(msk, new byte[0]);
+                return new EapSuccess(msk, new byte[EMSK_LEN]);
             } catch (GeneralSecurityException | UnsupportedEncodingException ex) {
                 LOG.e(mTAG, "Error generating MSK for EAP MSCHAPv2", ex);
                 return new EapError(ex);
@@ -665,8 +669,8 @@ public class EapMsChapV2MethodStateMachine extends EapMethodStateMachine {
         byte[] passwordHashHash = hashNtPasswordHash(passwordHash);
         byte[] masterKey = getMasterKey(passwordHashHash, ntResponse);
 
-        // MSK: SendKey + ReceiveKey
-        ByteBuffer msk = ByteBuffer.allocate(MASTER_SESSION_KEY_LEN);
+        // MSK: SendKey + ReceiveKey (zero-padded to 64B)
+        ByteBuffer msk = ByteBuffer.allocate(MSK_LEN);
         msk.put(getAsymmetricStartKey(masterKey, true /* isSend */));
         msk.put(getAsymmetricStartKey(masterKey, false /* isSend */));
 

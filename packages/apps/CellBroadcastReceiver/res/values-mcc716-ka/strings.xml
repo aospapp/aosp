@@ -21,4 +21,5 @@
     <string name="cmas_required_monthly_test" msgid="9061179556831144678">"გაფრთხილება საგანგებო ვითარების შესახებ: სატესტო შეტყობინება"</string>
     <string name="cmas_exercise_alert" msgid="3061507852301643814">"გაფრთხილება საგანგებო ვითარების შესახებ: სავარჯიშო შეტყობინება"</string>
     <string name="pws_other_message_identifiers" msgid="4992476982074198144">"გაფრთხილება საგანგებო ვითარების შესახებ: სატესტო შეტყობინება"</string>
+    <string name="button_dismiss" msgid="5823921161712171097">"დამალვა"</string>
 </resources>

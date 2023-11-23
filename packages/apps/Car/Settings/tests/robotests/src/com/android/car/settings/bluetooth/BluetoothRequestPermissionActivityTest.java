@@ -127,20 +127,51 @@ public class BluetoothRequestPermissionActivityTest {
         getShadowLocalBluetoothAdapter().setState(BluetoothAdapter.STATE_ON);
         mAdapter.setScanMode(BluetoothAdapter.SCAN_MODE_NONE);
 
-        String callerPackageName = "system.suwapp";
-        Intent setupIntent = new Intent(Intent.ACTION_MAIN);
-        setupIntent.addCategory(Intent.CATEGORY_SETUP_WIZARD);
-        ResolveInfo suwInfo =
-                ShadowResolveInfo.newResolveInfo("SetupWizard app", callerPackageName);
-        Shadows.shadowOf(mActivity).setCallingPackage(callerPackageName);
-        suwInfo.activityInfo.applicationInfo.flags |= ApplicationInfo.FLAG_SYSTEM;
-
-        getShadowPackageManager().addResolveInfoForIntent(setupIntent, suwInfo);
-
-        Intent intent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
-        intent.putExtra(BluetoothRequestPermissionActivity.EXTRA_BYPASS_CONFIRM_DIALOG, true);
+        Intent intent = createSetupWizardIntent();
         mActivity.setIntent(intent);
         mActivityController.create();
+
+        assertThat(mAdapter.getScanMode()).isEqualTo(
+                BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE);
+    }
+
+    @Test
+    public void onCreate_requestDiscoverableIntent_bypassforSetup_turningOn_noDialog() {
+        getShadowLocalBluetoothAdapter().setState(BluetoothAdapter.STATE_TURNING_ON);
+        mAdapter.setScanMode(BluetoothAdapter.SCAN_MODE_NONE);
+
+        Intent intent = createSetupWizardIntent();
+        mActivity.setIntent(intent);
+        mActivityController.create();
+
+        assertThat(mActivity.getCurrentDialog()).isNull();
+    }
+
+    @Test
+    public void onCreate_requestDiscoverableIntent_bypassforSetup_turningOn_receiverRegistered() {
+        getShadowLocalBluetoothAdapter().setState(BluetoothAdapter.STATE_TURNING_ON);
+        mAdapter.setScanMode(BluetoothAdapter.SCAN_MODE_NONE);
+
+        Intent intent = createSetupWizardIntent();
+        mActivity.setIntent(intent);
+        mActivityController.create();
+
+        assertThat(mActivity.getCurrentReceiver()).isNotNull();
+    }
+
+    @Test
+    public void onCreate_requestDiscoverableIntent_bypassforSetup_turningOn_enableDiscovery() {
+        getShadowLocalBluetoothAdapter().setState(BluetoothAdapter.STATE_TURNING_ON);
+        mAdapter.setScanMode(BluetoothAdapter.SCAN_MODE_NONE);
+
+        Intent intent = createSetupWizardIntent();
+        mActivity.setIntent(intent);
+        mActivityController.create();
+
+        // Simulate bluetooth callback from STATE_TURNING_ON to STATE_ON
+        Intent stateChangedIntent = new Intent();
+        stateChangedIntent.putExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.STATE_ON);
+        mActivity.getCurrentReceiver().onReceive(mContext, stateChangedIntent);
 
         assertThat(mAdapter.getScanMode()).isEqualTo(
                 BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE);
@@ -291,6 +322,22 @@ public class BluetoothRequestPermissionActivityTest {
         button.performClick();
 
         assertThat(mAdapter.isEnabled()).isTrue();
+    }
+
+    private Intent createSetupWizardIntent() {
+        String callerPackageName = "system.suwapp";
+        Intent setupIntent = new Intent(Intent.ACTION_MAIN);
+        setupIntent.addCategory(Intent.CATEGORY_SETUP_WIZARD);
+        ResolveInfo suwInfo =
+                ShadowResolveInfo.newResolveInfo("SetupWizard app", callerPackageName);
+        Shadows.shadowOf(mActivity).setCallingPackage(callerPackageName);
+        suwInfo.activityInfo.applicationInfo.flags |= ApplicationInfo.FLAG_SYSTEM;
+
+        getShadowPackageManager().addResolveInfoForIntent(setupIntent, suwInfo);
+
+        Intent intent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
+        intent.putExtra(BluetoothRequestPermissionActivity.EXTRA_BYPASS_CONFIRM_DIALOG, true);
+        return intent;
     }
 
     private ShadowLocalBluetoothAdapter getShadowLocalBluetoothAdapter() {

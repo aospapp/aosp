@@ -39,9 +39,9 @@ public class CustomTheme extends ThemeBundle {
      */
     private final String mId;
 
-    public CustomTheme(@NonNull String id, String title, Map<String, String> overlayPackages,
+    private CustomTheme(@NonNull String id, String title, Map<String, String> overlayPackages,
             @Nullable PreviewInfo previewInfo) {
-        super(title, overlayPackages, false, null, null, previewInfo);
+        super(title, overlayPackages, false, previewInfo);
         mId = id;
     }
 
@@ -76,13 +76,13 @@ public class CustomTheme extends ThemeBundle {
     }
 
     @Override
-    public boolean shouldUseThemeWallpaper() {
-        return false;
+    public boolean isActive(CustomizationManager<ThemeBundle> manager) {
+        return isDefined() && super.isActive(manager);
     }
 
     @Override
-    public boolean isActive(CustomizationManager<ThemeBundle> manager) {
-        return isDefined() && super.isActive(manager);
+    public boolean isEquivalent(ThemeBundle other) {
+        return isDefined() && super.isEquivalent(other);
     }
 
     public boolean isDefined() {
@@ -94,7 +94,8 @@ public class CustomTheme extends ThemeBundle {
 
         @Override
         public CustomTheme build(Context context) {
-            return new CustomTheme(mId, mTitle, mPackages, createPreviewInfo(context));
+            return new CustomTheme(mId, mTitle, mPackages,
+                    mPackages.isEmpty() ? null : createPreviewInfo(context));
         }
 
         public Builder setId(String id) {

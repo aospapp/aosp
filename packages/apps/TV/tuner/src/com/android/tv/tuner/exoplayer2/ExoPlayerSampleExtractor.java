@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2019 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,29 +20,24 @@ import android.net.Uri;
 import android.os.ConditionVariable;
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.os.Looper;
 import android.os.Message;
 import android.os.SystemClock;
 import android.support.annotation.Nullable;
 import android.support.annotation.VisibleForTesting;
 import android.util.Pair;
 
-import com.android.tv.tuner.exoplayer.audio.MpegTsDefaultAudioTrackRenderer;
-import com.android.tv.tuner.exoplayer.buffer.BufferManager;
-import com.android.tv.tuner.exoplayer.buffer.PlaybackBufferListener;
-import com.android.tv.tuner.exoplayer.buffer.RecordingSampleBuffer;
-import com.android.tv.tuner.exoplayer.buffer.SimpleSampleBuffer;
+import com.android.tv.tuner.exoplayer2.buffer.BufferManager;
+import com.android.tv.tuner.exoplayer2.buffer.MemorySampleBuffer;
+import com.android.tv.tuner.exoplayer2.buffer.PlaybackBufferListener;
+import com.android.tv.tuner.exoplayer2.buffer.RecordingSampleBuffer;
 
-import com.google.android.exoplayer.MediaFormat;
-import com.google.android.exoplayer.MediaFormatHolder;
-import com.google.android.exoplayer.SampleHolder;
 import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.Format;
 import com.google.android.exoplayer2.FormatHolder;
 import com.google.android.exoplayer2.decoder.DecoderInputBuffer;
-import com.google.android.exoplayer2.source.ExtractorMediaSource;
 import com.google.android.exoplayer2.source.MediaPeriod;
 import com.google.android.exoplayer2.source.MediaSource;
+import com.google.android.exoplayer2.source.ProgressiveMediaSource;
 import com.google.android.exoplayer2.source.SampleStream;
 import com.google.android.exoplayer2.source.TrackGroupArray;
 import com.google.android.exoplayer2.trackselection.FixedTrackSelection;
@@ -65,9 +60,19 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * For demux, this class relies on {@link com.google.android.exoplayer.extractor.ts.TsExtractor}.
  */
 public class ExoPlayerSampleExtractor implements SampleExtractor {
-    private static final String TAG = "ExoPlayerSampleExtracto";
+    private static final String TAG = "ExoPlayerSampleExtractor";
 
     private static final int INVALID_TRACK_INDEX = -1;
+
+    // ATSC/53 allows sample rate to be only 48Khz.
+    // One AC3 sample has 1536 frames, and its duration is 32ms.
+    private static final long AC3_SAMPLE_DURATION_US = 32000;
+    // This is around 150ms, 150ms is big enough not to under-run AudioTrack,
+    // and  150ms is also small enough to fill the buffer rapidly.
+    private static final int BUFFERED_SAMPLES_IN_AUDIOTRACK = 5;
+    private static final long INITIAL_AUDIO_BUFFERING_TIME_US =
+            BUFFERED_SAMPLES_IN_AUDIOTRACK * AC3_SAMPLE_DURATION_US;
+
     private final HandlerThread mSourceReaderThread;
     private final long mId;
 
@@ -76,17 +81,20 @@ public class ExoPlayerSampleExtractor implements SampleExtractor {
     private BufferManager.SampleBuffer mSampleBuffer;
     private Handler mSourceReaderHandler;
     private volatile boolean mPrepared;
-    private AtomicBoolean mOnCompletionCalled = new AtomicBoolean();
+    private final AtomicBoolean mOnCompletionCalled = new AtomicBoolean();
     private IOException mExceptionOnPrepare;
-    private List<MediaFormat> mTrackFormats;
+    private List<Format> mTrackFormats;
+    private TrackGroupArray mTrackGroupArray;
     private int mVideoTrackIndex = INVALID_TRACK_INDEX;
     private boolean mVideoTrackMet;
     private long mBaseSamplePts = Long.MIN_VALUE;
-    private HashMap<Integer, Long> mLastExtractedPositionUsMap = new HashMap<>();
-    private final List<Pair<Integer, SampleHolder>> mPendingSamples = new ArrayList<>();
+    private final HashMap<Integer, Long> mLastExtractedPositionUsMap = new HashMap<>();
+    private final List<Pair<Integer, DecoderInputBuffer>> mPendingSamples = new ArrayList<>();
     private OnCompletionListener mOnCompletionListener;
     private Handler mOnCompletionListenerHandler;
     private IOException mError;
+    private MediaPeriod mMediaPeriod;
+    private Callback mCallback;
 
     /**
      * Factory for {@link ExoPlayerSampleExtractor}.
@@ -95,7 +103,7 @@ public class ExoPlayerSampleExtractor implements SampleExtractor {
      * generated class.
      */
     public interface Factory {
-        public ExoPlayerSampleExtractor create(
+        ExoPlayerSampleExtractor create(
                 Uri uri,
                 DataSource source,
                 @Nullable BufferManager bufferManager,
@@ -117,20 +125,17 @@ public class ExoPlayerSampleExtractor implements SampleExtractor {
                 bufferManager,
                 bufferListener,
                 isRecording,
-                Looper.myLooper(),
                 new HandlerThread("SourceReaderThread"),
                 recordingSampleBufferFactory);
     }
 
     @VisibleForTesting
-    @SuppressWarnings("MissingOverride")
-    public ExoPlayerSampleExtractor(
+    ExoPlayerSampleExtractor(
             Uri uri,
             DataSource source,
             BufferManager bufferManager,
             PlaybackBufferListener bufferListener,
             boolean isRecording,
-            Looper workerLooper,
             HandlerThread sourceReaderThread,
             RecordingSampleBuffer.Factory recordingSampleBufferFactory) {
         // It'll be used as a timeshift file chunk name's prefix.
@@ -139,12 +144,7 @@ public class ExoPlayerSampleExtractor implements SampleExtractor {
         mSourceReaderThread = sourceReaderThread;
         mSourceReaderWorker =
                 new SourceReaderWorker(
-                        new ExtractorMediaSource(
-                                uri,
-                                /* dataSourceFactory= */ () -> source,
-                                new ExoPlayerExtractorsFactory(),
-                                new Handler(workerLooper),
-                                /* eventListener= */ error -> mError = error));
+                        new ProgressiveMediaSource.Factory(() -> source).createMediaSource(uri));
         if (isRecording) {
             mSampleBuffer =
                     recordingSampleBufferFactory.create(
@@ -154,7 +154,7 @@ public class ExoPlayerSampleExtractor implements SampleExtractor {
                             RecordingSampleBuffer.BUFFER_REASON_RECORDING);
         } else {
             if (bufferManager == null) {
-                mSampleBuffer = new SimpleSampleBuffer(bufferListener);
+                mSampleBuffer = new MemorySampleBuffer(bufferListener);
             } else {
                 mSampleBuffer =
                         recordingSampleBufferFactory.create(
@@ -173,23 +173,22 @@ public class ExoPlayerSampleExtractor implements SampleExtractor {
     }
 
     private class SourceReaderWorker implements Handler.Callback, MediaPeriod.Callback {
-        public static final int MSG_PREPARE = 1;
-        public static final int MSG_FETCH_SAMPLES = 2;
-        public static final int MSG_RELEASE = 3;
+        private static final int MSG_PREPARE = 1;
+        private static final int MSG_FETCH_SAMPLES = 2;
+        private static final int MSG_RELEASE = 3;
         private static final int RETRY_INTERVAL_MS = 50;
 
         private final MediaSource mSampleSource;
         private final MediaSource.SourceInfoRefreshListener mSampleSourceListener;
-        private MediaPeriod mMediaPeriod;
         private SampleStream[] mStreams;
         private boolean[] mTrackMetEos;
         private boolean mMetEos = false;
         private long mCurrentPosition;
-        private DecoderInputBuffer mDecoderInputBuffer;
-        private SampleHolder mSampleHolder;
+        private final DecoderInputBuffer mDecoderInputBuffer;
+        private final DecoderInputBuffer mDecoderInputBufferDuplicate;
         private boolean mPrepareRequested;
 
-        public SourceReaderWorker(MediaSource sampleSource) {
+        SourceReaderWorker(MediaSource sampleSource) {
             mSampleSource = sampleSource;
             mSampleSourceListener =
                     (source, timeline, manifest) -> {
@@ -199,53 +198,8 @@ public class ExoPlayerSampleExtractor implements SampleExtractor {
             mSampleSource.prepareSource(mSampleSourceListener, null);
             mDecoderInputBuffer =
                     new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL);
-            mSampleHolder = new SampleHolder(SampleHolder.BUFFER_REPLACEMENT_MODE_NORMAL);
-        }
-
-        MediaFormat convertFormat(Format format) {
-            if (format.sampleMimeType.startsWith("audio/")) {
-                return MediaFormat.createAudioFormat(
-                        format.id,
-                        format.sampleMimeType,
-                        format.bitrate,
-                        format.maxInputSize,
-                        com.google.android.exoplayer.C.UNKNOWN_TIME_US,
-                        format.channelCount,
-                        format.sampleRate,
-                        format.initializationData,
-                        format.language,
-                        format.pcmEncoding);
-            } else if (format.sampleMimeType.startsWith("video/")) {
-                return MediaFormat.createVideoFormat(
-                        format.id,
-                        format.sampleMimeType,
-                        format.bitrate,
-                        format.maxInputSize,
-                        com.google.android.exoplayer.C.UNKNOWN_TIME_US,
-                        format.width,
-                        format.height,
-                        format.initializationData,
-                        format.rotationDegrees,
-                        format.pixelWidthHeightRatio,
-                        format.projectionData,
-                        format.stereoMode,
-                        null // colorInfo
-                        );
-            } else if (format.sampleMimeType.endsWith("/cea-608")
-                    || format.sampleMimeType.startsWith("text/")) {
-                return MediaFormat.createTextFormat(
-                        format.id,
-                        format.sampleMimeType,
-                        format.bitrate,
-                        com.google.android.exoplayer.C.UNKNOWN_TIME_US,
-                        format.language);
-            } else {
-                return MediaFormat.createFormatForMimeType(
-                        format.id,
-                        format.sampleMimeType,
-                        format.bitrate,
-                        com.google.android.exoplayer.C.UNKNOWN_TIME_US);
-            }
+            mDecoderInputBufferDuplicate =
+                    new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL);
         }
 
         @Override
@@ -255,6 +209,7 @@ public class ExoPlayerSampleExtractor implements SampleExtractor {
                 return;
             }
             TrackGroupArray trackGroupArray = mMediaPeriod.getTrackGroups();
+            mTrackGroupArray = trackGroupArray;
             TrackSelection[] selections = new TrackSelection[trackGroupArray.length];
             for (int i = 0; i < selections.length; ++i) {
                 selections[i] = new FixedTrackSelection(trackGroupArray.get(i), 0);
@@ -266,7 +221,7 @@ public class ExoPlayerSampleExtractor implements SampleExtractor {
             if (mTrackFormats == null) {
                 int trackCount = trackGroupArray.length;
                 mTrackMetEos = new boolean[trackCount];
-                List<MediaFormat> trackFormats = new ArrayList<>();
+                List<Format> trackFormats = new ArrayList<>();
                 int videoTrackCount = 0;
                 for (int i = 0; i < trackCount; i++) {
                     Format format = trackGroupArray.get(i).getFormat(0);
@@ -274,7 +229,7 @@ public class ExoPlayerSampleExtractor implements SampleExtractor {
                         videoTrackCount++;
                         mVideoTrackIndex = i;
                     }
-                    trackFormats.add(convertFormat(format));
+                    trackFormats.add(format);
                 }
                 if (videoTrackCount > 1) {
                     // Disable dropping samples when there are multiple video tracks.
@@ -296,6 +251,7 @@ public class ExoPlayerSampleExtractor implements SampleExtractor {
                 }
                 mSourceReaderHandler.sendEmptyMessage(MSG_FETCH_SAMPLES);
                 mPrepared = true;
+                mCallback.onPrepared();
             }
         }
 
@@ -413,35 +369,26 @@ public class ExoPlayerSampleExtractor implements SampleExtractor {
             if (mVideoTrackIndex != INVALID_TRACK_INDEX) {
                 if (!mVideoTrackMet) {
                     if (index != mVideoTrackIndex) {
-                        SampleHolder sample =
-                                new SampleHolder(SampleHolder.BUFFER_REPLACEMENT_MODE_NORMAL);
-                        mSampleHolder.flags =
-                                (mDecoderInputBuffer.isKeyFrame()
-                                                ? com.google.android.exoplayer.C.SAMPLE_FLAG_SYNC
-                                                : 0)
-                                        | (mDecoderInputBuffer.isDecodeOnly()
-                                                ? com.google
-                                                        .android
-                                                        .exoplayer
-                                                        .C
-                                                        .SAMPLE_FLAG_DECODE_ONLY
-                                                : 0);
+                        DecoderInputBuffer sample =
+                                new DecoderInputBuffer(
+                                        DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL);
+                        sample.setFlags(
+                                (mDecoderInputBuffer.isDecodeOnly() ? C.BUFFER_FLAG_DECODE_ONLY : 0)
+                                | (mDecoderInputBuffer.isEncrypted() ? C.BUFFER_FLAG_ENCRYPTED : 0)
+                                | (mDecoderInputBuffer.isKeyFrame() ? C.BUFFER_FLAG_KEY_FRAME : 0));
                         sample.timeUs = mDecoderInputBuffer.timeUs;
-                        sample.size = mDecoderInputBuffer.data.position();
-                        sample.ensureSpaceForWrite(sample.size);
+                        int size = mDecoderInputBuffer.data.position();
+                        sample.ensureSpaceForWrite(size);
                         mDecoderInputBuffer.flip();
-                        sample.data.position(0);
+                        sample.data.position(0).limit(size);
                         sample.data.put(mDecoderInputBuffer.data);
                         sample.data.flip();
                         mPendingSamples.add(Pair.create(index, sample));
                         return;
                     }
                     mVideoTrackMet = true;
-                    mBaseSamplePts =
-                            mDecoderInputBuffer.timeUs
-                                    - MpegTsDefaultAudioTrackRenderer
-                                            .INITIAL_AUDIO_BUFFERING_TIME_US;
-                    for (Pair<Integer, SampleHolder> pair : mPendingSamples) {
+                    mBaseSamplePts = mDecoderInputBuffer.timeUs - INITIAL_AUDIO_BUFFERING_TIME_US;
+                    for (Pair<Integer, DecoderInputBuffer> pair : mPendingSamples) {
                         if (pair.second.timeUs >= mBaseSamplePts) {
                             mSampleBuffer.writeSample(pair.first, pair.second, conditionVariable);
                         }
@@ -453,28 +400,24 @@ public class ExoPlayerSampleExtractor implements SampleExtractor {
                     }
                 }
             }
-            // Copy the decoder input to the sample holder.
-            mSampleHolder.clearData();
-            mSampleHolder.flags =
-                    (mDecoderInputBuffer.isKeyFrame()
-                                    ? com.google.android.exoplayer.C.SAMPLE_FLAG_SYNC
-                                    : 0)
-                            | (mDecoderInputBuffer.isDecodeOnly()
-                                    ? com.google.android.exoplayer.C.SAMPLE_FLAG_DECODE_ONLY
-                                    : 0);
-            mSampleHolder.timeUs = mDecoderInputBuffer.timeUs;
-            mSampleHolder.size = mDecoderInputBuffer.data.position();
-            mSampleHolder.ensureSpaceForWrite(mSampleHolder.size);
+            // Copy the decoder input buffer to pass to sample buffer.
+            mDecoderInputBufferDuplicate.clear();
+            mDecoderInputBufferDuplicate.setFlags(
+                    (mDecoderInputBuffer.isDecodeOnly() ? C.BUFFER_FLAG_DECODE_ONLY : 0)
+                            | (mDecoderInputBuffer.isEncrypted() ? C.BUFFER_FLAG_ENCRYPTED : 0)
+                            | (mDecoderInputBuffer.isKeyFrame() ? C.BUFFER_FLAG_KEY_FRAME : 0));
+            mDecoderInputBufferDuplicate.timeUs = mDecoderInputBuffer.timeUs;
+            int size = mDecoderInputBuffer.data.position();
+            mDecoderInputBufferDuplicate.ensureSpaceForWrite(size);
             mDecoderInputBuffer.flip();
-            mSampleHolder.data.position(0);
-            mSampleHolder.data.put(mDecoderInputBuffer.data);
-            mSampleHolder.data.flip();
+            mDecoderInputBufferDuplicate.data.position(0);
+            mDecoderInputBufferDuplicate.data.put(mDecoderInputBuffer.data);
             long writeStartTimeNs = SystemClock.elapsedRealtimeNanos();
-            mSampleBuffer.writeSample(index, mSampleHolder, conditionVariable);
-
+            mSampleBuffer.writeSample(index, mDecoderInputBufferDuplicate, conditionVariable);
             // Checks whether the storage has enough bandwidth for recording samples.
             if (mSampleBuffer.isWriteSpeedSlow(
-                    mSampleHolder.size, SystemClock.elapsedRealtimeNanos() - writeStartTimeNs)) {
+                    mDecoderInputBufferDuplicate.data.position(),
+                    SystemClock.elapsedRealtimeNanos() - writeStartTimeNs)) {
                 mSampleBuffer.handleWriteSpeedSlow();
             }
         }
@@ -490,7 +433,8 @@ public class ExoPlayerSampleExtractor implements SampleExtractor {
     }
 
     @Override
-    public boolean prepare() throws IOException {
+    public void prepare(Callback callback) throws IOException {
+        mCallback = callback;
         if (!mSourceReaderThread.isAlive()) {
             mSourceReaderThread.start();
             mSourceReaderHandler =
@@ -498,20 +442,15 @@ public class ExoPlayerSampleExtractor implements SampleExtractor {
             mSourceReaderHandler.sendEmptyMessage(SourceReaderWorker.MSG_PREPARE);
         }
         if (mExceptionOnPrepare != null) {
-            throw mExceptionOnPrepare;
+            IOException e = mExceptionOnPrepare;
+            mExceptionOnPrepare = null;
+            throw e;
         }
-        return mPrepared;
     }
 
     @Override
-    public List<MediaFormat> getTrackFormats() {
-        return mTrackFormats;
-    }
-
-    @Override
-    public void getTrackMediaFormat(int track, MediaFormatHolder outMediaFormatHolder) {
-        outMediaFormatHolder.format = mTrackFormats.get(track);
-        outMediaFormatHolder.drmInitData = null;
+    public void getTrackMediaFormat(int track, FormatHolder outMediaFormatHolder) {
+        outMediaFormatHolder.format = mTrackGroupArray.get(track).getFormat(0);
     }
 
     @Override
@@ -526,12 +465,17 @@ public class ExoPlayerSampleExtractor implements SampleExtractor {
 
     @Override
     public long getBufferedPositionUs() {
-        return mSampleBuffer.getBufferedPositionUs();
+        return (mPrepared ? mMediaPeriod.getBufferedPositionUs() : 0);
     }
 
     @Override
-    public boolean continueBuffering(long positionUs) {
-        return mSampleBuffer.continueBuffering(positionUs);
+    public long getNextLoadPositionUs() {
+        return (mPrepared ? mMediaPeriod.getNextLoadPositionUs() : 0);
+    }
+
+    @Override
+    public boolean continueLoading(long positionUs) {
+        return mSampleBuffer.continueLoading(positionUs);
     }
 
     @Override
@@ -540,7 +484,7 @@ public class ExoPlayerSampleExtractor implements SampleExtractor {
     }
 
     @Override
-    public int readSample(int track, SampleHolder sampleHolder) {
+    public int readSample(int track, DecoderInputBuffer sampleHolder) {
         return mSampleBuffer.readSample(track, sampleHolder);
     }
 
@@ -556,6 +500,11 @@ public class ExoPlayerSampleExtractor implements SampleExtractor {
         } else {
             cleanUp();
         }
+    }
+
+    @Override
+    public TrackGroupArray getTrackGroups() {
+        return mTrackGroupArray;
     }
 
     private void cleanUp() {

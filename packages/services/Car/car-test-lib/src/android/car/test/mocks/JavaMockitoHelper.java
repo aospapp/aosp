@@ -19,13 +19,18 @@ import android.annotation.NonNull;
 import android.util.Log;
 
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Provides common Mockito calls for core Java classes.
  */
 public final class JavaMockitoHelper {
+
+    static final long ASYNC_TIMEOUT_MS = 500;
 
     private static final String TAG = JavaMockitoHelper.class.getSimpleName();
 
@@ -77,6 +82,32 @@ public final class JavaMockitoHelper {
             return false;
         }
         return called;
+    }
+
+    /**
+     * Gets the result of a future, or throw a {@link IllegalStateException} if it times out after
+     * {@value #ASYNC_TIMEOUT_MS} ms.
+     */
+    @NonNull
+    public static <T> T getResult(@NonNull Future<T> future) {
+        return getResult(future, ASYNC_TIMEOUT_MS);
+    }
+
+    /**
+     * Gets the result of a future, or throw a {@link IllegalStateException} if it times out.
+     */
+    @NonNull
+    public static <T> T getResult(@NonNull Future<T> future, long timeoutMs) {
+        try {
+            return future.get(timeoutMs, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("future interrupted", e);
+        } catch (TimeoutException e) {
+            throw new IllegalStateException("future not called in " + ASYNC_TIMEOUT_MS + "ms", e);
+        } catch (ExecutionException e) {
+            throw new IllegalStateException("failed to get future", e);
+        }
     }
 
     private JavaMockitoHelper() {

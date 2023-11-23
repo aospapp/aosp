@@ -38,7 +38,7 @@
     <color name="improper_image_refs_tint_color">#C8FF0000</color>
 
     <color name="control_bar_background_color">@android:color/transparent</color>
-    <color name="minimized_control_bar_background_color">#F50E1013</color>
+    <color name="minimized_control_bar_background_color">#D60E1013</color>
     <color name="scrim_overlay_color">#C7000000</color>
     <color name="app_bar_background_color">#E0000000</color>
     <color name="icon_tint">@color/car_grey_50</color>
@@ -50,9 +50,6 @@
     <color name="car_tab_unselected_color_dark">#80FFFFFF</color>
     <color name="car_tab_unselected_color_light">#90FFFFFF</color>
 
-    <color name="primary_text_color">#FFFFFFFF</color>
-    <color name="secondary_text_color">#B8FFFFFF</color>
-
     <color name="primary_app_icon_color">#FFFFFFFF</color>
     <color name="secondary_app_icon_color">#B8FFFFFF</color>
     <color name="car_card_ripple_background">#17000000</color>
@@ -60,14 +57,12 @@
     <color name="background_image_30p_black">#4D000000</color>
 
     <color name="uxr_button_image_color">@color/primary_app_icon_color</color>
-    <color name="uxr_button_text_color">@color/primary_text_color</color>
     <color name="uxr_button_image_disabled_color">#80FFFFFF</color>
-    <color name="uxr_button_text_disabled_color">#80FFFFFF</color>
 
     <color name="control_bar_button_background_color">#66ffffff</color>
 
     <color name="hero_button_background_color">@color/car_grey_868</color>
-    <color name="hero_button_text_color">@color/uxr_button_text_color_selector</color>
+    <color name="hero_button_text_color">@color/primary_text_color</color>
 
 
 

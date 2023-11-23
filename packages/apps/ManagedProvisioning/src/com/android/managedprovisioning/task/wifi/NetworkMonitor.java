@@ -18,33 +18,20 @@ package com.android.managedprovisioning.task.wifi;
 
 import static com.android.internal.util.Preconditions.checkNotNull;
 
-import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.net.ConnectivityManager;
+import android.net.ConnectivityManager.NetworkCallback;
+import android.net.Network;
+import android.net.NetworkCapabilities;
 
-import com.android.internal.annotations.VisibleForTesting;
 import com.android.managedprovisioning.common.ProvisionLogger;
-import com.android.managedprovisioning.common.Utils;
 
 /**
- * Monitor the state of the data network and the checkin service. Invoke a callback when the network
- * is connected and checkin has succeeded.
+ * Monitor the state of the data network. Invoke a callback when the network is connected.
+ *
+ * The callback may be called multiple times for the same network as its status changes.
  */
 public class NetworkMonitor {
-
-    @VisibleForTesting
-    static final IntentFilter FILTER;
-    static {
-        FILTER = new IntentFilter();
-        FILTER.addAction(ConnectivityManager.CONNECTIVITY_ACTION);
-        // Listen to immediate connectivity changes which are 3 seconds
-        // earlier than CONNECTIVITY_ACTION and may not have IPv6 routes
-        // setup. However, this may allow us to start up services like
-        // the CheckinService a bit earlier.
-        FILTER.addAction(ConnectivityManager.INET_CONDITION_ACTION);
-    }
 
     /** State notification callback. Expect some duplicate notifications. */
     public interface NetworkConnectedCallback {
@@ -52,25 +39,20 @@ public class NetworkMonitor {
     }
 
     private final Context mContext;
-    private final Utils mUtils ;
+    private final boolean mWaitForValidated;
 
     private NetworkConnectedCallback mCallback = null;
 
     /**
-     * Start watching the network and monitoring the checkin service. Immediately invokes one of the
-     * callback methods to report the current state, and then invokes callback methods over time as
-     * the state changes.
+     * Start watching the network. Immediately invokes the callback method to report the
+     * current default network if any, and then invokes callback methods over time as the default
+     * network changes.
      *
      * @param context to use for intent observers and such
      */
-    public NetworkMonitor(Context context) {
-        this(context, new Utils());
-    }
-
-    @VisibleForTesting
-    NetworkMonitor(Context context, Utils utils) {
+    public NetworkMonitor(Context context, boolean waitForValidated) {
         mContext = checkNotNull(context);
-        mUtils = checkNotNull(utils);
+        mWaitForValidated = waitForValidated;
     }
 
     /**
@@ -79,7 +61,14 @@ public class NetworkMonitor {
      */
     public synchronized void startListening(NetworkConnectedCallback callback) {
         mCallback = checkNotNull(callback);
-        mContext.registerReceiver(mBroadcastReceiver, FILTER);
+        // TODO: this code has always kept track of the default network, but it should probably
+        // instead use registerNetworkCallback or even requestNetwork with a specific
+        // NetworkRequest.Builder#addTransportType transport depending on the caller. For example,
+        // ConnectMobileNetworkTask should file a request for TRANSPORT_CELLULAR instead of waiting
+        // for any network to be available. When requestNetwork is not used, cellular data is also
+        // not guaranteed to connect after being enabled if another network is already available.
+        mContext.getSystemService(ConnectivityManager.class)
+                .registerDefaultNetworkCallback(mConnectivityCallback);
     }
 
     /**
@@ -91,21 +80,54 @@ public class NetworkMonitor {
         }
 
         mCallback = null;
-        mContext.unregisterReceiver(mBroadcastReceiver);
+        mContext.getSystemService(ConnectivityManager.class)
+                .unregisterNetworkCallback(mConnectivityCallback);
     }
 
-    private final BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
+    private final NetworkCallback mConnectivityCallback = new NetworkCallback() {
+        private boolean mBlocked;
+        private boolean mValidated;
+
         @Override
-        public void onReceive(Context context, Intent intent) {
-            ProvisionLogger.logd("NetworkMonitor.onReceive: " + intent);
-            if (!FILTER.matchAction(intent.getAction())) {
+        public void onAvailable(Network network) {
+            // Default network switched to a new network. Set internal state to values that will
+            // not cause a callback to be sent. onBlockedStatusChanged and onCapabilitiesChanged
+            // will be called immediately after (then later on changes).
+            mBlocked = true;
+            mValidated = false;
+        }
+
+        @Override
+        public void onBlockedStatusChanged(Network network, boolean blocked) {
+            if (mBlocked == blocked) {
+                return;
+            }
+            ProvisionLogger.logd("NetworkMonitor.onBlockedStatusChanged: " + network
+                    + " blocked=" + blocked);
+            mBlocked = blocked;
+            maybeSendCallback();
+        }
+
+        @Override
+        public void onCapabilitiesChanged(Network network, NetworkCapabilities caps) {
+            final boolean validated = caps.hasCapability(
+                    NetworkCapabilities.NET_CAPABILITY_VALIDATED);
+            if (!mWaitForValidated || mValidated == validated) {
+                return;
+            }
+            ProvisionLogger.logd("NetworkMonitor.onCapabilitiesChanged: " + network
+                    + " validated=" + validated);
+            mValidated = validated;
+            maybeSendCallback();
+        }
+
+        private void maybeSendCallback() {
+            // Receiving blocked=false is the equivalent to legacy behavior that would verify
+            // getActiveNetworkInfo().isConnected()
+            if (mBlocked || (mWaitForValidated && !mValidated)) {
                 return;
             }
             synchronized (NetworkMonitor.this) {
-                if (!mUtils.isConnectedToNetwork(context)) {
-                    ProvisionLogger.logd("NetworkMonitor: not connected to network");
-                    return;
-                }
                 if (mCallback != null) {
                     mCallback.onNetworkConnected();
                 }

@@ -23,7 +23,8 @@
             android:theme="@style/ThemeCamera"
             android:hardwareAccelerated="true">
         <uses-library android:name="com.google.android.media.effects" android:required="false" />
-        <receiver android:name="com.android.camera.CameraButtonIntentReceiver">
+        <receiver android:name="com.android.camera.CameraButtonIntentReceiver"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.CAMERA_BUTTON"/>
             </intent-filter>
@@ -31,6 +32,7 @@
         <activity android:name="com.android.camera.Camera"
                 android:configChanges="orientation|screenSize|keyboardHidden"
                 android:clearTaskOnLaunch="true"
+                android:exported="true"
                 android:windowSoftInputMode="stateAlwaysHidden|adjustPan">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -51,6 +53,7 @@
                 android:configChanges="orientation|screenSize|keyboardHidden"
                 android:icon="@mipmap/ic_launcher_video_camera"
                 android:clearTaskOnLaunch="true"
+                android:exported="true"
                 android:windowSoftInputMode="stateAlwaysHidden|adjustPan">
             <intent-filter>
                 <action android:name="android.media.action.VIDEO_CAMERA" />

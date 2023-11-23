@@ -28,7 +28,6 @@ import static android.stats.devicepolicy.DevicePolicyEnums.PROVISIONING_MANAGED_
 
 import static com.android.internal.logging.nano.MetricsProto.MetricsEvent.PROVISIONING_ACTION;
 import static com.android.internal.logging.nano.MetricsProto.MetricsEvent.PROVISIONING_CANCELLED;
-import static com.android.internal.logging.nano.MetricsProto.MetricsEvent.PROVISIONING_COPY_ACCOUNT_STATUS;
 import static com.android.internal.logging.nano.MetricsProto.MetricsEvent.PROVISIONING_DPC_INSTALLED_BY_PACKAGE;
 import static com.android.internal.logging.nano.MetricsProto.MetricsEvent.PROVISIONING_DPC_PACKAGE_NAME;
 import static com.android.internal.logging.nano.MetricsProto.MetricsEvent.PROVISIONING_ENTRY_POINT_NFC;
@@ -50,9 +49,9 @@ import android.content.Intent;
 import android.stats.devicepolicy.DevicePolicyEnums;
 
 import com.android.managedprovisioning.common.ManagedProvisioningSharedPreferences;
-import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.task.AbstractProvisioningTask;
+
 import java.util.List;
 
 /**
@@ -75,21 +74,6 @@ public class ProvisioningAnalyticsTracker {
         CANCELLED_DURING_PROVISIONING,
         CANCELLED_DURING_PROVISIONING_PREPARE})
     public @interface CancelState {}
-
-    // Only add to the end of the list. Do not change or rearrange these values, that will break
-    // historical data. Do not use negative numbers or zero, logger only handles positive
-    // integers.
-    public static final int COPY_ACCOUNT_SUCCEEDED = 1;
-    public static final int COPY_ACCOUNT_FAILED = 2;
-    public static final int COPY_ACCOUNT_TIMED_OUT = 3;
-    public static final int COPY_ACCOUNT_EXCEPTION = 4;
-
-    @IntDef({
-        COPY_ACCOUNT_SUCCEEDED,
-        COPY_ACCOUNT_FAILED,
-        COPY_ACCOUNT_TIMED_OUT,
-        COPY_ACCOUNT_EXCEPTION})
-    public @interface CopyAccountStatus {}
 
     private static final int PROVISIONING_FLOW_TYPE_ADMIN_INTEGRATED = 1;
     private static final int PROVISIONING_FLOW_TYPE_LEGACY = 2;
@@ -116,7 +100,6 @@ public class ProvisioningAnalyticsTracker {
     public void logProvisioningStarted(Context context, ProvisioningParams params) {
         logDpcPackageInformation(context, params.inferDeviceAdminPackageName());
         logNetworkType(context);
-        maybeLogProvisioningFlowType(params);
     }
 
     /**
@@ -128,20 +111,6 @@ public class ProvisioningAnalyticsTracker {
     public void logPreProvisioningStarted(Context context, Intent intent) {
         logProvisioningExtras(context, intent);
         maybeLogEntryPoint(context, intent);
-    }
-
-    /**
-     * Logs status of copy account to user task.
-     *
-     * @param context Context passed to MetricsLogger
-     * @param status Status of copy account to user task
-     */
-    public void logCopyAccountStatus(Context context, @CopyAccountStatus int status) {
-        mMetricsLoggerWrapper.logAction(context, PROVISIONING_COPY_ACCOUNT_STATUS, status);
-        mMetricsWriter.write(DevicePolicyEventLogger
-                .createEvent(DevicePolicyEnums.PROVISIONING_COPY_ACCOUNT_STATUS)
-                .setInt(status)
-                .setTimePeriod(AnalyticsUtils.getProvisioningTime(mSharedPreferences)));
     }
 
     /**
@@ -343,16 +312,33 @@ public class ProvisioningAnalyticsTracker {
      *
      * @param params Used to extract whether this is the admin integrated flow
      */
-    private void maybeLogProvisioningFlowType(ProvisioningParams params) {
-        if (!params.isOrganizationOwnedProvisioning) {
-            return;
-        }
-        final boolean isAdminIntegratedFlow = new Utils().isAdminIntegratedFlow(params);
+    public void logProvisioningFlowType(ProvisioningParams params) {
         mMetricsWriter.write(DevicePolicyEventLogger
                 .createEvent(DevicePolicyEnums.PROVISIONING_FLOW_TYPE)
-                .setInt(isAdminIntegratedFlow
+                .setInt(params.flowType == ProvisioningParams.FLOW_TYPE_ADMIN_INTEGRATED
                         ? PROVISIONING_FLOW_TYPE_ADMIN_INTEGRATED
                         : PROVISIONING_FLOW_TYPE_LEGACY)
+                .setTimePeriod(AnalyticsUtils.getProvisioningTime(mSharedPreferences)));
+    }
+
+    /**
+     * Logs whether an {@link android.app.Activity} is in landscape mode, along with its name.
+     */
+    public void logIsLandscape(boolean isLandscape, String activityName) {
+        mMetricsWriter.write(DevicePolicyEventLogger
+                .createEvent(DevicePolicyEnums.PROVISIONING_IS_LANDSCAPE)
+                .setBoolean(isLandscape)
+                .setStrings(activityName)
+                .setTimePeriod(AnalyticsUtils.getProvisioningTime(mSharedPreferences)));
+    }
+
+    /**
+     * Logs whether the app is in night mode.
+     */
+    public void logIsNightMode(boolean isNightMode) {
+        mMetricsWriter.write(DevicePolicyEventLogger
+                .createEvent(DevicePolicyEnums.PROVISIONING_IS_NIGHT_MODE)
+                .setBoolean(isNightMode)
                 .setTimePeriod(AnalyticsUtils.getProvisioningTime(mSharedPreferences)));
     }
 

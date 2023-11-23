@@ -29,13 +29,14 @@ import android.content.pm.ApplicationInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.UserHandle;
+import android.os.UserManager;
 
 import androidx.annotation.NonNull;
 import androidx.leanback.widget.GuidanceStylist;
 
-import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
+import com.android.settingslib.RestrictedLockUtils;
+import com.android.settingslib.RestrictedLockUtilsInternal;
 import com.android.settingslib.applications.ApplicationsState;
-import com.android.settingslib.core.instrumentation.MetricsFeatureProvider;
 import com.android.tv.settings.R;
 
 public class ForceStopPreference extends AppActionPreference {
@@ -44,6 +45,18 @@ public class ForceStopPreference extends AppActionPreference {
         super(context, entry);
         ConfirmationFragment.prepareArgs(getExtras(), mEntry.info.packageName);
         refresh();
+
+        UserManager userManager = getContext().getSystemService(UserManager.class);
+        if (userManager.hasUserRestriction(UserManager.DISALLOW_APPS_CONTROL)) {
+            final RestrictedLockUtils.EnforcedAdmin admin =
+                    RestrictedLockUtilsInternal.checkIfRestrictionEnforced(context,
+                            UserManager.DISALLOW_APPS_CONTROL, UserHandle.myUserId());
+            if (admin != null) {
+                setDisabledByAdmin(admin);
+            } else {
+                setEnabled(false);
+            }
+        }
     }
 
     public void refresh() {
@@ -86,9 +99,6 @@ public class ForceStopPreference extends AppActionPreference {
     public static class ConfirmationFragment extends AppActionPreference.ConfirmationFragment {
         private static final String ARG_PACKAGE_NAME = "packageName";
 
-        private final MetricsFeatureProvider mMetricsFeatureProvider =
-                new MetricsFeatureProvider();
-
         private static void prepareArgs(@NonNull Bundle args, String packageName) {
             args.putString(ARG_PACKAGE_NAME, packageName);
         }
@@ -107,8 +117,6 @@ public class ForceStopPreference extends AppActionPreference {
         @Override
         public void onOk() {
             String pkgName = getArguments().getString(ARG_PACKAGE_NAME);
-            mMetricsFeatureProvider.action(getContext(), MetricsEvent.ACTION_APP_FORCE_STOP,
-                    pkgName);
             ActivityManager am = (ActivityManager)
                     getActivity().getSystemService(Context.ACTIVITY_SERVICE);
             am.forceStopPackage(pkgName);

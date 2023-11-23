@@ -34,9 +34,15 @@ public class EapAkaPrimeTypeData extends EapAkaTypeData {
             new EapAkaPrimeTypeDataDecoder();
 
     @VisibleForTesting
-    EapAkaPrimeTypeData(
-            int eapSubType, LinkedHashMap<Integer, EapSimAkaAttribute> attributeMap) {
+    EapAkaPrimeTypeData(int eapSubType, LinkedHashMap<Integer, EapSimAkaAttribute> attributeMap) {
         super(eapSubType, attributeMap);
+    }
+
+    private EapAkaPrimeTypeData(
+            int eapSubType,
+            LinkedHashMap<Integer, EapSimAkaAttribute> attributeMap,
+            byte[] reservedBytes) {
+        super(eapSubType, attributeMap, reservedBytes);
     }
 
     /**
@@ -88,8 +94,10 @@ public class EapAkaPrimeTypeData extends EapAkaTypeData {
 
         @Override
         protected EapAkaPrimeTypeData getInstance(
-                int eapSubtype, LinkedHashMap<Integer, EapSimAkaAttribute> attributeMap) {
-            return new EapAkaPrimeTypeData(eapSubtype, attributeMap);
+                int eapSubtype,
+                LinkedHashMap<Integer, EapSimAkaAttribute> attributeMap,
+                byte[] reservedBytes) {
+            return new EapAkaPrimeTypeData(eapSubtype, attributeMap, reservedBytes);
         }
     }
 }

@@ -34,6 +34,10 @@ class FocusFinder {
      */
     private static final long MAJOR_AXIS_BIAS = 13;
 
+    private static final int[] DIRECTIONS = new int[]{
+            View.FOCUS_LEFT, View.FOCUS_RIGHT, View.FOCUS_UP, View.FOCUS_DOWN
+    };
+
     /**
      * Returns whether part of {@code destRect} is in {@code direction} of part of {@code srcRect}.
      *
@@ -58,6 +62,46 @@ class FocusFinder {
     }
 
     /**
+     * Returns whether part of {@code destRect} is in {@code direction} of {@code srcRect} and
+     * {@code destRect} is not strictly in any of other 3 directions of {@code srcRect}.
+     *
+     * @param srcRect   the source rectangle
+     * @param destRect  the destination rectangle
+     * @param direction must be {@link View#FOCUS_UP}, {@link View#FOCUS_DOWN},
+     *                  {@link View#FOCUS_LEFT}, or {@link View#FOCUS_RIGHT}
+     */
+    static boolean isInDirection(Rect srcRect, Rect destRect, int direction) {
+        // If destRect is strictly in the given direction of srcRect, destRect is in the given
+        // direction of srcRect.
+        if (isStrictlyInDirection(srcRect, destRect, direction)) {
+            return true;
+        }
+
+        // If destRect is strictly in any of the other directions of srcRect, destRect is not in
+        // the given direction of srcRect.
+        for (int i = 0; i < DIRECTIONS.length; i++) {
+            if (direction != DIRECTIONS[i]
+                    && isStrictlyInDirection(srcRect, destRect, DIRECTIONS[i])) {
+                return false;
+            }
+        }
+
+        // Otherwise check whether part of destRect is in the given direction of srcRect.
+        switch (direction) {
+            case View.FOCUS_LEFT:
+                return destRect.left < srcRect.left;
+            case View.FOCUS_RIGHT:
+                return destRect.right > srcRect.right;
+            case View.FOCUS_UP:
+                return destRect.top < srcRect.top;
+            case View.FOCUS_DOWN:
+                return destRect.bottom > srcRect.bottom;
+        }
+        throw new IllegalArgumentException("direction must be "
+                + "FOCUS_UP, FOCUS_DOWN, FOCUS_LEFT, or FOCUS_RIGHT.");
+    }
+
+    /**
      * Returns whether {@code destRect} is a candidate for the next focus given the {@code
      * direction}.
      *
@@ -68,8 +112,6 @@ class FocusFinder {
      *  <li> and one of the following conditions must be true:
      *  <ul>
      *   <li> {@code destRect.right} is on the left of {@code srcRect.right}
-     *   <li> {@code destRect.right} equals {@code srcRect.right}, and {@code destRect} and {@code
-     *        srcRect} overlap in Y axis (an edge case)
      *   <li> {@code destRect.right} equals or is on the left of {@code srcRect.left} (an edge case
      *        for an empty {@code srcRect}, which is used in some cases when searching from a point
      *        on the screen)
@@ -84,27 +126,17 @@ class FocusFinder {
     static boolean isCandidate(Rect srcRect, Rect destRect, int direction) {
         switch (direction) {
             case View.FOCUS_LEFT:
-                return srcRect.left > destRect.left
-                        && (srcRect.right > destRect.right
-                        || (srcRect.right == destRect.right && overlapOnYAxis(srcRect,
-                        destRect))
-                        || srcRect.left >= destRect.right);
+                return (srcRect.right > destRect.right || srcRect.left >= destRect.right)
+                        && srcRect.left > destRect.left;
             case View.FOCUS_RIGHT:
-                return srcRect.right < destRect.right
-                        && (srcRect.left < destRect.left
-                        || (srcRect.left == destRect.left && overlapOnYAxis(srcRect, destRect))
-                        || srcRect.right <= destRect.left);
+                return (srcRect.left < destRect.left || srcRect.right <= destRect.left)
+                        && srcRect.right < destRect.right;
             case View.FOCUS_UP:
-                return srcRect.top > destRect.top
-                        && (srcRect.bottom > destRect.bottom
-                        || (srcRect.bottom == destRect.bottom && overlapOnXAxis(srcRect,
-                        destRect))
-                        || srcRect.top >= destRect.bottom);
+                return (srcRect.bottom > destRect.bottom || srcRect.top >= destRect.bottom)
+                        && srcRect.top > destRect.top;
             case View.FOCUS_DOWN:
-                return srcRect.bottom < destRect.bottom
-                        && (srcRect.top < destRect.top
-                        || (srcRect.top == destRect.top && overlapOnXAxis(srcRect, destRect))
-                        || srcRect.bottom <= destRect.top);
+                return (srcRect.top < destRect.top || srcRect.bottom <= destRect.top)
+                        && srcRect.bottom < destRect.bottom;
         }
         throw new IllegalArgumentException("direction must be one of "
                 + "{FOCUS_UP, FOCUS_DOWN, FOCUS_LEFT, FOCUS_RIGHT}.");
@@ -114,6 +146,12 @@ class FocusFinder {
      * Returns whether {@code rect1} is a better candidate than {@code rect2} for a focus search in
      * a particular {@code direction} from a {@code source} rect.  This is the core routine that
      * determines the order of focus searching.
+     * <p>
+     * Note: this method doesn't check whether {@code rect1} and {@code rect2} are candidates in the
+     * first place, because the strategy to determine a candidate varies: geometry is used for
+     * focusable views, while view hierarchy and geometry are used for focus areas. The caller is
+     * responsible for using a proper strategy to exclude the non-candidates before calling this
+     * method.
      *
      * @param direction must be {@link View#FOCUS_UP},{@link View#FOCUS_DOWN},
      *                  {@link View#FOCUS_LEFT},or {@link View#FOCUS_RIGHT}
@@ -122,16 +160,6 @@ class FocusFinder {
      * @param rect2     the current best candidate
      */
     static boolean isBetterCandidate(int direction, Rect source, Rect rect1, Rect rect2) {
-        // To be a better candidate, need to at least be a candidate in the first place.
-        if (!isCandidate(source, rect1, direction)) {
-            return false;
-        }
-
-        // We know that rect1 is a candidate. If rect2 is not a candidate, rect1 is better.
-        if (!isCandidate(source, rect2, direction)) {
-            return true;
-        }
-
         // If rect1 is better by beam, it wins.
         if (beamBeats(direction, source, rect1, rect2)) {
             return true;
@@ -298,18 +326,56 @@ class FocusFinder {
     }
 
     /**
-     * Projects {@code rect1} and {@code rect2} onto Y axis, and returns whether the two projected
-     * intervals overlap. The overlap length must be > 0, otherwise it's not considered overlap.
+     * Returns whether {@code destRect} is strictly in {@code direction} of {@code srcRect}.
+     * <p>
+     * For example, iff {@code destRect} is strictly to the {@link View#FOCUS_LEFT} of {@code
+     * srcRect}, the following conditions must be true:
+     * <ul>
+     *   <li> {@code destRect.left} is on the left of {@code srcRect.left}
+     *   <li> {@code destRect.right} overlaps with or is on the left of {@code srcRect.right}
+     *   <li> [{@code destRect.top}, {@code destRect.bottom}] contains or is contained by
+     *        [{@code srcRect.top}, {@code srcRect.bottom}]
+     * </ul>
+     *
+     * @param srcRect   the source rectangle
+     * @param destRect  the destination rectangle
+     * @param direction must be {@link View#FOCUS_UP}, {@link View#FOCUS_DOWN},
+     *                  {@link View#FOCUS_LEFT}, or {@link View#FOCUS_RIGHT}
      */
-    private static boolean overlapOnYAxis(Rect rect1, Rect rect2) {
-        return rect1.bottom > rect2.top && rect1.top < rect2.bottom;
+    private static boolean isStrictlyInDirection(Rect srcRect, Rect destRect, int direction) {
+        switch (direction) {
+            case View.FOCUS_LEFT:
+                return destRect.left < srcRect.left && destRect.right <= srcRect.right
+                        && containsOrIsContainedVertically(srcRect, destRect);
+            case View.FOCUS_RIGHT:
+                return destRect.right > srcRect.right && destRect.left >= srcRect.left
+                        && containsOrIsContainedVertically(srcRect, destRect);
+            case View.FOCUS_UP:
+                return destRect.top < srcRect.top && destRect.bottom <= srcRect.bottom
+                        && containsOrIsContainedHorizontally(srcRect, destRect);
+            case View.FOCUS_DOWN:
+                return destRect.bottom > srcRect.bottom && destRect.top >= srcRect.top
+                        && containsOrIsContainedHorizontally(srcRect, destRect);
+        }
+        throw new IllegalArgumentException("direction must be "
+                + "FOCUS_UP, FOCUS_DOWN, FOCUS_LEFT, or FOCUS_RIGHT.");
     }
 
     /**
-     * Projects {@code rect1} and {@code rect2} onto X axis, and returns whether the two projected
-     * intervals overlap. The overlap length must be > 0, otherwise it's not considered overlap.
+     * Returns true if the projection of {@code rect1} on the Y-axis contains or is contained by the
+     * projection of {@code rect2} on the Y-axis.
      */
-    private static boolean overlapOnXAxis(Rect rect1, Rect rect2) {
-        return rect1.left < rect2.right && rect1.right > rect2.left;
+    private static boolean containsOrIsContainedVertically(Rect rect1, Rect rect2) {
+        return (rect1.top <= rect2.top && rect1.bottom >= rect2.bottom)
+                || (rect2.top <= rect1.top && rect2.bottom >= rect1.bottom);
+    }
+
+    /**
+     * Returns true if the projection of {@code rect1} on the X-axis contains or is contained by the
+     * projection of {@code rect2} on the X-axis.
+     */
+    private static boolean containsOrIsContainedHorizontally(Rect rect1, Rect rect2) {
+        return (rect1.left <= rect2.left && rect1.right >= rect2.right)
+                || (rect2.left <= rect1.left && rect2.right >= rect1.right);
     }
 }

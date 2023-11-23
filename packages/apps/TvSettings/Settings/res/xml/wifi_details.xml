@@ -37,13 +37,13 @@
         android:persistent="false"
         android:entries="@array/random_mac_settings_entries"
         android:entryValues="@array/random_mac_settings_entry_values" />
-    <Preference
+    <com.android.settingslib.RestrictedPreference
         android:key="proxy_settings"
         android:title="@string/title_wifi_proxy_settings" />
-    <Preference
+    <com.android.settingslib.RestrictedPreference
         android:key="ip_settings"
         android:title="@string/title_wifi_ip_settings" />
-    <Preference
+    <com.android.settingslib.RestrictedPreference
         android:key="forget_network"
         android:title="@string/wifi_forget_network" />
 </PreferenceScreen>

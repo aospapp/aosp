@@ -24,7 +24,7 @@
         android:id="@+id/card_carousel_container"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="28dp"
+        android:layout_marginTop="@dimen/card_carousel_container_margin_top"
         android:orientation="vertical"
         android:clipChildren="false"
         android:visibility="gone">

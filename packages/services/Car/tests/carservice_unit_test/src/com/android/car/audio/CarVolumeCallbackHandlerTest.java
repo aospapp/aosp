@@ -62,12 +62,29 @@ public class CarVolumeCallbackHandlerTest {
     }
 
     @Test
-    public void onVolumeGroupChange_doesntCallUnregisteredCallbacks() throws RemoteException {
+    public void onVolumeGroupChange_doesNotCallUnregisteredCallbacks() throws RemoteException {
         mHandler.unregisterCallback(mCallback1.asBinder());
         mHandler.onVolumeGroupChange(ZONE_ID, GROUP_ID, FLAGS);
 
         verify(mCallback1.getSpy(), never()).onGroupVolumeChanged(ZONE_ID, GROUP_ID, FLAGS);
         verify(mCallback2.getSpy()).onGroupVolumeChanged(ZONE_ID, GROUP_ID, FLAGS);
+    }
+
+    @Test
+    public void onGroupMuteChange_callsAllRegisteredCallbacks() throws RemoteException {
+        mHandler.onGroupMuteChange(ZONE_ID, GROUP_ID, FLAGS);
+
+        verify(mCallback1.getSpy()).onGroupMuteChanged(ZONE_ID, GROUP_ID, FLAGS);
+        verify(mCallback2.getSpy()).onGroupMuteChanged(ZONE_ID, GROUP_ID, FLAGS);
+    }
+
+    @Test
+    public void onGroupMuteChanged_doesNotCallUnregisteredCallbacks() throws RemoteException {
+        mHandler.unregisterCallback(mCallback1.asBinder());
+        mHandler.onGroupMuteChange(ZONE_ID, GROUP_ID, FLAGS);
+
+        verify(mCallback1.getSpy(), never()).onGroupMuteChanged(ZONE_ID, GROUP_ID, FLAGS);
+        verify(mCallback2.getSpy()).onGroupMuteChanged(ZONE_ID, GROUP_ID, FLAGS);
     }
 
     @Test
@@ -95,6 +112,11 @@ public class CarVolumeCallbackHandlerTest {
         public void onGroupVolumeChanged(int zoneId, int groupId, int flags)
                 throws RemoteException {
             mSpy.onGroupVolumeChanged(zoneId, groupId, flags);
+        }
+
+        @Override
+        public void onGroupMuteChanged(int zoneId, int groupId, int flags) throws RemoteException {
+            mSpy.onGroupMuteChanged(zoneId, groupId, flags);
         }
 
         @Override

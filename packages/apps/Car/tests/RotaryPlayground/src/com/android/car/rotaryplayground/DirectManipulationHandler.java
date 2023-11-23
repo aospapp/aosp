@@ -54,9 +54,18 @@ import androidx.core.util.Preconditions;
 public class DirectManipulationHandler implements View.OnKeyListener,
         View.OnGenericMotionListener {
 
-    private final DirectManipulationState mDirectManipulationMode;
-    private final View.OnKeyListener mNudgeDelegate;
-    private final View.OnGenericMotionListener mRotationDelegate;
+    /**
+     * Sets the provided {@link DirectManipulationHandler} to the key listener and motion
+     * listener of the provided view.
+     */
+    public static void setDirectManipulationHandler(@Nullable View view,
+            DirectManipulationHandler handler) {
+        if (view == null) {
+            return;
+        }
+        view.setOnKeyListener(handler);
+        view.setOnGenericMotionListener(handler);
+    }
 
     /**
      * A builder for {@link DirectManipulationHandler}.
@@ -65,45 +74,59 @@ public class DirectManipulationHandler implements View.OnKeyListener,
         private final DirectManipulationState mDmState;
         private View.OnKeyListener mNudgeDelegate;
         private View.OnGenericMotionListener mRotationDelegate;
+        private View.OnKeyListener mBackDelegate;
 
         public Builder(DirectManipulationState dmState) {
             Preconditions.checkNotNull(dmState);
             this.mDmState = dmState;
         }
 
-        public Builder setNudgeHandler(View.OnKeyListener directionalDelegate) {
-            Preconditions.checkNotNull(directionalDelegate);
-            this.mNudgeDelegate = directionalDelegate;
+        public Builder setNudgeHandler(View.OnKeyListener nudgeDelegate) {
+            Preconditions.checkNotNull(nudgeDelegate);
+            this.mNudgeDelegate = nudgeDelegate;
             return this;
         }
 
-        public Builder setRotationHandler(View.OnGenericMotionListener motionDelegate) {
-            Preconditions.checkNotNull(motionDelegate);
-            this.mRotationDelegate = motionDelegate;
+        public Builder setBackHandler(View.OnKeyListener backDelegate) {
+            Preconditions.checkNotNull(backDelegate);
+            this.mBackDelegate = backDelegate;
+            return this;
+        }
+
+        public Builder setRotationHandler(View.OnGenericMotionListener rotationDelegate) {
+            Preconditions.checkNotNull(rotationDelegate);
+            this.mRotationDelegate = rotationDelegate;
             return this;
         }
 
         public DirectManipulationHandler build() {
             if (mNudgeDelegate == null && mRotationDelegate == null) {
-                throw new IllegalStateException("At least one delegate must be provided.");
+                throw new IllegalStateException("Nudge and/or rotation delegate must be provided.");
             }
-            return new DirectManipulationHandler(mDmState, mNudgeDelegate, mRotationDelegate);
+            return new DirectManipulationHandler(mDmState, mNudgeDelegate, mBackDelegate,
+                    mRotationDelegate);
         }
     }
 
+    private final DirectManipulationState mDirectManipulationMode;
+    private final View.OnKeyListener mNudgeDelegate;
+    private final View.OnKeyListener mBackDelegate;
+    private final View.OnGenericMotionListener mRotationDelegate;
+
     private DirectManipulationHandler(DirectManipulationState dmState,
             @Nullable View.OnKeyListener nudgeDelegate,
+            @Nullable View.OnKeyListener backDelegate,
             @Nullable View.OnGenericMotionListener rotationDelegate) {
-        Preconditions.checkNotNull(dmState);
         mDirectManipulationMode = dmState;
         mNudgeDelegate = nudgeDelegate;
+        mBackDelegate = backDelegate;
         mRotationDelegate = rotationDelegate;
     }
 
     @Override
     public boolean onKey(View view, int keyCode, KeyEvent keyEvent) {
         boolean isActionUp = keyEvent.getAction() == KeyEvent.ACTION_UP;
-        Log.d(L.TAG, "View: " + view + " is handling " + keyCode
+        Log.d(L.TAG, "View: " + view + " is handling " + KeyEvent.keyCodeToString(keyCode)
                 + " and action " + keyEvent.getAction()
                 + " direct manipulation mode is "
                 + (mDirectManipulationMode.isActive() ? "active" : "inactive"));
@@ -121,18 +144,29 @@ public class DirectManipulationHandler implements View.OnKeyListener,
                 if (mDirectManipulationMode.isActive() && isActionUp) {
                     mDirectManipulationMode.disable();
                 }
-                return true;
-            default:
-                // This handler is only responsible for behavior during Direct Manipulation
+                // If no delegate is present, silently consume the events.
+                if (mBackDelegate == null) {
+                    return true;
+                }
+
+                return mBackDelegate.onKey(view, keyCode, keyEvent);
+            case KeyEvent.KEYCODE_DPAD_UP:
+            case KeyEvent.KEYCODE_DPAD_DOWN:
+            case KeyEvent.KEYCODE_DPAD_LEFT:
+            case KeyEvent.KEYCODE_DPAD_RIGHT:
+                // This handler is only responsible for nudging behavior during Direct Manipulation
                 // mode. When the mode is disabled, ignore events.
                 if (!mDirectManipulationMode.isActive()) {
                     return false;
                 }
-                // If no delegate present, silently consume the events.
+                // If no delegate is present, silently consume the events.
                 if (mNudgeDelegate == null) {
                     return true;
                 }
                 return mNudgeDelegate.onKey(view, keyCode, keyEvent);
+            default:
+                // Ignore all other key events.
+                return false;
         }
     }
 
@@ -143,7 +177,7 @@ public class DirectManipulationHandler implements View.OnKeyListener,
         if (!mDirectManipulationMode.isActive()) {
             return false;
         }
-        // If no delegate present, silently consume the events.
+        // If no delegate is present, silently consume the events.
         if (mRotationDelegate == null) {
             return true;
         }

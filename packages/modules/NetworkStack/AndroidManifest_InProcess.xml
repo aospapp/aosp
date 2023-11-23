@@ -23,6 +23,7 @@
     <application>
         <service android:name="com.android.server.NetworkStackService"
                  android:process="system"
+                 android:exported="true"
                  android:permission="android.permission.MAINLINE_NETWORK_STACK">
             <intent-filter>
                 <action android:name="android.net.INetworkStackConnector.InProcess"/>

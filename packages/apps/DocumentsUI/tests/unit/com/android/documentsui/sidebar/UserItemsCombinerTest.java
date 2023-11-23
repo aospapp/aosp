@@ -61,18 +61,10 @@ public class UserItemsCombinerTest {
     );
 
     private static final Correspondence<Item, Item> ITEM_CORRESPONDENCE =
-            new Correspondence<Item, Item>() {
-                @Override
-                public boolean compare(Item actual, Item expected) {
+            Correspondence.from((Item actual, Item expected) -> {
                     return Objects.equals(actual.title, expected.title)
                             && Objects.equals(actual.userId, expected.userId);
-                }
-
-                @Override
-                public String toString() {
-                    return "has same title and userId as in";
-                }
-            };
+            }, "has same title and userId as in");
 
     private final State mState = new State();
     private final Resources mResources =

@@ -26,18 +26,6 @@
     <string name="media_app_title" msgid="94717597743776797">"Multimedia"</string>
     <string name="search_hint" msgid="5401750426238148416">"Np. utwór lub wykonawca"</string>
     <string name="fragment_playback_title" msgid="5014481549024607614">"Teraz odtwarzane"</string>
-    <string name="default_error_message" msgid="6365377134388091079">"Coś poszło nie tak. Spróbuj później."</string>
-    <string name="error_code_app_error" msgid="1726372057192704809">"Teraz nie można tego zrobić"</string>
-    <string name="error_code_not_supported" msgid="1435878548411799387">"Wybrana aplikacja nie ma takiej funkcji"</string>
-    <string name="error_code_authentication_expired" msgid="905154133202017052">"Zaloguj się, by używać tej aplikacji"</string>
-    <string name="error_code_premium_account_required" msgid="4736461331592855166">"Wymagany jest dostęp na poziomie premium"</string>
-    <string name="error_code_concurrent_stream_limit" msgid="1279573243715957403">"Słuchasz zbyt wielu urządzeń"</string>
-    <string name="error_code_parental_control_restricted" msgid="5222841294702530806">"Te materiały są zablokowane"</string>
-    <string name="error_code_not_available_in_region" msgid="4106605584926645567">"Te materiały są niedostępne w tym regionie"</string>
-    <string name="error_code_content_already_playing" msgid="8050972499898729459">"Te materiały są już odtwarzane"</string>
-    <string name="error_code_skip_limit_reached" msgid="8926507875025988831">"Nie można pominąć większej liczby utworów"</string>
-    <string name="error_code_action_aborted" msgid="3889734248905737169">"Nie udało się dokończyć. Spróbuj ponownie."</string>
-    <string name="error_code_end_of_queue" msgid="2842652212154074468">"Nie ma już nic w kolejce"</string>
     <string name="service_notification_title" msgid="8085444675783592744">"Łączenie z multimediami"</string>
     <string name="menu_item_sound_settings_title" msgid="58887078120809669">"Ustawienia dźwięku"</string>
     <string name="menu_item_app_selector_title" msgid="4587248991114338595">"Przełącz aplikacje"</string>

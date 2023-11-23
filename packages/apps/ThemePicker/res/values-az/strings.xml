@@ -17,18 +17,20 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="6995669566699638946">"Üslub və divar kağızları"</string>
+    <string name="app_name" msgid="1647136562008520313">"Divar kağızı və üslub"</string>
     <string name="theme_title" msgid="2144932106319405101">"Üslub"</string>
     <string name="clock_title" msgid="2126046720254613991">"Saat"</string>
-    <string name="grid_title" msgid="2825094404523390773">"Tor"</string>
-    <string name="wallpaper_title" msgid="6952635398953194544">"Divar kağızı"</string>
+    <string name="grid_title" msgid="1688173478777254123">"Tətbiq toru"</string>
     <string name="apply_theme_btn" msgid="6293081192321303991">"Tətbiq edin"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"Redaktə etmək üçün klikləyin"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"Cari divar kağızını saxlayın"</string>
     <string name="apply_btn" msgid="7965877231041987336">"Tətbiq edin"</string>
-    <string name="accessibility_preview_pager" msgid="3548503287402185430">"Səhifə <xliff:g id="ID_1">%1$d</xliff:g>/<xliff:g id="ID_2">%2$d</xliff:g>"</string>
-    <string name="next_page_content_description" msgid="5290226604542300962">"Növbəti"</string>
-    <string name="previous_page_content_description" msgid="6025726405430262788">"Əvvəlki"</string>
+    <string name="theme_preview_card_content_description" msgid="5989222908619535533">"Üslub önizləməsi"</string>
+    <string name="grid_preview_card_content_description" msgid="8449383777584714842">"Tor önizləməsi"</string>
+    <string name="font_preview_content_description" msgid="128230439293337891">"Şrift önizləməsi"</string>
+    <string name="icon_preview_content_description" msgid="7761101284351952890">"İkona önizləməsi"</string>
+    <string name="color_preview_content_description" msgid="4879120462082058124">"Rəng önizləməsi"</string>
+    <string name="shape_preview_content_description" msgid="6479487796176550432">"Forma önizləməsi"</string>
     <string name="option_applied_description" msgid="5022305212078053534">"Hazırda <xliff:g id="ID_1">%1$s</xliff:g> tətbiq edilir"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"<xliff:g id="ID_1">%1$s</xliff:g> hazırda tətbiq edilir və önizlənilir"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"<xliff:g id="ID_1">%1$s</xliff:g> hazırda önizlənilir"</string>
@@ -41,12 +43,15 @@
     <string name="preview_name_wallpaper" msgid="1738652462949531828">"Divar kağızı"</string>
     <string name="font_card_title" msgid="2343292653502548685">"ABC • abc • 123"</string>
     <string name="font_card_body" msgid="6790525594503904468">"Sevimli şriftlərinizi hər ekrana əlavə edin"</string>
+    <string name="grid_options_title" msgid="7071930966989877023">"Tor ölçüsü seçin"</string>
     <string name="grid_title_pattern" msgid="9188866567612607806">"<xliff:g id="ID_1">%1$d</xliff:g>x<xliff:g id="ID_2">%2$d</xliff:g>"</string>
-    <string name="applied_theme_msg" msgid="7348498271552054431">"Üslub tətbiq edildi"</string>
-    <string name="applied_clock_msg" msgid="1938218786265793285">"Saat tətbiq edildi"</string>
+    <string name="applied_theme_msg" msgid="3749018706366796244">"Üslub uğurla ayarlandı"</string>
+    <string name="applied_clock_msg" msgid="1303338016701443767">"Saat uğurla ayarlandı"</string>
+    <string name="applied_grid_msg" msgid="3250499654436933034">"Tor uğurla ayarlandı"</string>
     <string name="apply_theme_error_msg" msgid="791364062636538317">"Üslub tətbiq edilərkən xəta baş verdi"</string>
     <string name="custom_theme_next" msgid="6235420097213197301">"Növbəti"</string>
     <string name="custom_theme_previous" msgid="4941132112640503022">"Əvvəlki"</string>
+    <string name="custom_theme" msgid="1618351922263478163">"Fərdi"</string>
     <string name="custom_theme_title" msgid="2192300350332693631">"Fərdi <xliff:g id="ID_1">%1$d</xliff:g>"</string>
     <string name="custom_theme_fragment_title" msgid="6615547284702040280">"Fərdi Üslub"</string>
     <string name="custom_theme_delete" msgid="4744494663184126202">"Silin"</string>
@@ -66,4 +71,16 @@
     <string name="no_thanks" msgid="7286616980115687627">"Xeyr, təşəkkürlər"</string>
     <string name="clock_preview_content_description" msgid="5460561185905717460">"<xliff:g id="ID_1">%1$s</xliff:g>, saatın önizlənməsi"</string>
     <string name="something_went_wrong" msgid="529840112449799117">"Ups! Xəta baş verdi."</string>
+    <string name="theme_preview_icons_section_title" msgid="7064768910744000643">"Rəng / İkonalar"</string>
+    <string name="style_info_description" msgid="2612473574431003251">"Şrift, ikonalar, tətbiq forması və rəng önizləməsi"</string>
+    <string name="accessibility_custom_font_title" msgid="966867359157303705">"Fərdi şrift"</string>
+    <string name="accessibility_custom_icon_title" msgid="5753297905849062296">"Fərdi ikona"</string>
+    <string name="accessibility_custom_color_title" msgid="4124246598886320663">"Fərdi rəng"</string>
+    <string name="accessibility_custom_shape_title" msgid="7708408259374643129">"Fərdi forma"</string>
+    <string name="accessibility_custom_name_title" msgid="5494460518085463262">"Fərdi üslub adı"</string>
+    <string name="mode_title" msgid="2394873501427436055">"Tünd tema"</string>
+    <string name="mode_disabled_msg" msgid="9196245518435936512">"Enerjiyə Qənaət rejiminə görə müvəqqəti deaktivdir"</string>
+    <string name="themed_icon_title" msgid="7312460430471956558">"Temalı ikonalar"</string>
+    <string name="beta_title" msgid="8703819523760746458">"Beta"</string>
+    <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"Tətbiq torunu dəyişin"</string>
 </resources>

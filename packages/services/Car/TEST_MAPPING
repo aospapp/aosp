@@ -1,4 +1,9 @@
 {
+  "auto-service-experimental-code-presubmit": [
+    {
+      "name": "ExperimentalCarServiceTests"
+    }
+  ],
   "auto-postsubmit": [
     {
       "name": "AndroidCarApiTest",

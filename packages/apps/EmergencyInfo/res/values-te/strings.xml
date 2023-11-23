@@ -21,7 +21,7 @@
     <string name="add_medical_info" msgid="483921612415907139">"సమాచారాన్ని జోడించండి"</string>
     <string name="edit_info" msgid="5973929805855224805">"అత్యవసర సమాచారాన్ని సవరిస్తుంది"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"సమాచారం"</string>
-    <string name="tab_title_contacts" msgid="4298341166404791209">"పరిచయాలు"</string>
+    <string name="tab_title_contacts" msgid="4298341166404791209">"కాంటాక్ట్‌లు"</string>
     <string name="name" msgid="4286267457738861977">"పేరు"</string>
     <string name="unknown_name" msgid="2834802479170495056">"తెలియదు"</string>
     <string name="address" msgid="6449303483151189969">"చిరునామా"</string>
@@ -87,7 +87,7 @@
     <!-- no translation found for organ_donor_entries:0 (4680498266537823362) -->
     <!-- no translation found for organ_donor_entries:1 (4906312680266515592) -->
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
-    <string name="emergency_contacts_title" msgid="5462202017417821030">"అత్యవసర పరిచయాలు"</string>
+    <string name="emergency_contacts_title" msgid="5462202017417821030">"ఎమర్జెన్సీ కాంటాక్టులు"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"పరిచయాన్ని జోడించండి"</string>
     <string name="fail_load_contact_picker" msgid="817205483833876726">"పరిచయ పికర్ కనుగొనబడలేదు"</string>
     <string name="fail_display_contact" msgid="4128854688897045879">"పరిచయాన్ని ప్రదర్శించడం సాధ్యం కాదు"</string>

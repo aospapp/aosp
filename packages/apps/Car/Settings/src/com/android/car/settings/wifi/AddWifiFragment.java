@@ -27,6 +27,7 @@ import android.os.Looper;
 import android.text.TextUtils;
 import android.widget.Toast;
 
+import androidx.annotation.VisibleForTesting;
 import androidx.annotation.XmlRes;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
@@ -34,7 +35,7 @@ import com.android.car.settings.R;
 import com.android.car.settings.common.Logger;
 import com.android.car.settings.common.SettingsFragment;
 import com.android.car.ui.toolbar.MenuItem;
-import com.android.settingslib.wifi.AccessPoint;
+import com.android.wifitrackerlib.WifiEntry;
 
 import java.util.Collections;
 import java.util.List;
@@ -49,7 +50,8 @@ public class AddWifiFragment extends SettingsFragment {
     private static final String KEY_NETWORK_NAME = "network_name";
     private static final String KEY_SECURITY_TYPE = "security_type";
 
-    private final BroadcastReceiver mNameChangeReceiver = new BroadcastReceiver() {
+    @VisibleForTesting
+    final BroadcastReceiver mNameChangeReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             mNetworkName = intent.getStringExtra(
@@ -58,12 +60,13 @@ public class AddWifiFragment extends SettingsFragment {
         }
     };
 
-    private final BroadcastReceiver mSecurityChangeReceiver = new BroadcastReceiver() {
+    @VisibleForTesting
+    final BroadcastReceiver mSecurityChangeReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             mSecurityType = intent.getIntExtra(
                     NetworkSecurityPreferenceController.KEY_SECURITY_TYPE,
-                    AccessPoint.SECURITY_NONE);
+                    WifiEntry.SECURITY_NONE);
             setButtonEnabledState();
         }
     };
@@ -87,7 +90,7 @@ public class AddWifiFragment extends SettingsFragment {
 
     private MenuItem mAddWifiButton;
     private String mNetworkName;
-    private int mSecurityType = AccessPoint.SECURITY_NONE;
+    private int mSecurityType = WifiEntry.SECURITY_NONE;
 
     @Override
     public List<MenuItem> getToolbarMenuItems() {
@@ -105,14 +108,14 @@ public class AddWifiFragment extends SettingsFragment {
         super.onCreate(savedInstanceState);
         if (savedInstanceState != null) {
             mNetworkName = savedInstanceState.getString(KEY_NETWORK_NAME);
-            mSecurityType = savedInstanceState.getInt(KEY_SECURITY_TYPE, AccessPoint.SECURITY_NONE);
+            mSecurityType = savedInstanceState.getInt(KEY_SECURITY_TYPE, WifiEntry.SECURITY_NONE);
         }
 
         mAddWifiButton = new MenuItem.Builder(getContext())
                 .setTitle(R.string.wifi_setup_connect)
                 .setOnClickListener(i -> {
                     // This only needs to handle hidden/unsecure networks.
-                    WifiUtil.connectToAccessPoint(getContext(), mNetworkName,
+                    WifiUtil.connectToWifiEntry(getContext(), mNetworkName,
                             mSecurityType, /* password= */ null, /* hidden= */ true,
                             mConnectionListener);
                 })

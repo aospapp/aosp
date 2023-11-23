@@ -13,16 +13,24 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<androidx.recyclerview.widget.RecyclerView xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/category_grid"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:clipToPadding="false"
-    android:fitsSystemWindows="true"
-    android:paddingHorizontal="@dimen/grid_edge_space"
-    android:scrollbarSize="@dimen/grid_padding"
-    android:scrollbarStyle="outsideOverlay"
-    android:scrollbarThumbVertical="@color/scrollbar_thumb_color_dark"
-    android:scrollbars="vertical"
-    app:layout_behavior="@string/bottom_sheet_behavior" />
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <include
+        android:id="@+id/header_bar"
+        layout="@layout/section_header" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/category_grid"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipToPadding="false"
+        android:paddingTop="@dimen/category_grid_padding_top"
+        android:paddingHorizontal="@dimen/category_grid_edge_space"
+        android:scrollbarSize="@dimen/grid_padding"
+        android:scrollbarStyle="outsideOverlay"
+        android:scrollbarThumbVertical="?android:attr/textColorSecondary"
+        android:scrollbars="vertical" />
+</LinearLayout>

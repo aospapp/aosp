@@ -12,6 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["packages_apps_TvSettings_Settings_license"],
+}
+
+// Added automatically by a large-scale-change
+// http://go/android-license-faq
+license {
+    name: "packages_apps_TvSettings_Settings_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
 prebuilt_etc {
     name: "privapp_whitelist_com.android.tv.settings",
     system_ext_specific: true,
@@ -20,38 +37,7 @@ prebuilt_etc {
     filename_from_src: true,
 }
 
-android_app {
-    name: "TvSettings",
-    defaults: ["SettingsLibDefaults"],
-    platform_apis: true,
-    certificate: "platform",
-    system_ext_specific: true,
-    required: ["privapp_whitelist_com.android.tv.settings"],
-
-    optimize: {
-        proguard_flags_files: ["proguard.cfg"],
-    },
-
-    privileged: true,
-
-    static_libs: [
-        "androidx.recyclerview_recyclerview",
-        "androidx.preference_preference",
-        "androidx.appcompat_appcompat",
-        "androidx.legacy_legacy-preference-v14",
-        "androidx.leanback_leanback-preference",
-        "androidx.leanback_leanback",
-        "androidx.lifecycle_lifecycle-extensions",
-        "androidx.lifecycle_lifecycle-common-java8",
-        "androidx.annotation_annotation",
-        "statslog-tvsettings",
-        "TwoPanelSettingsLib"
-    ],
-
-    resource_dirs: ["res"],
-
-    srcs: [
-        "src/**/*.java",
-        "src/**/I*.aidl",
-    ],
+java_library {
+    name: "tvsettings-logtags",
+    srcs: ["src/**/*.logtags"],
 }

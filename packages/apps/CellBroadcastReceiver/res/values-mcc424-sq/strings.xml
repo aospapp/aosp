@@ -16,12 +16,17 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="cmas_presidential_level_alert" msgid="175237477015066795">"Sinjalizim urgjence kombëtare"</string>
-    <string name="pws_other_message_identifiers" msgid="9062780351883657067">"Sinjalizim paralajmërues"</string>
-    <string name="public_safety_message" msgid="2187283654023170988">"Sinjalizim i sigurisë publike"</string>
+    <string name="cmas_presidential_level_alert" msgid="569470769079166304">"Sinjalizim urgjence kombëtare"</string>
+    <string name="cmas_extreme_alert" msgid="9135130008703049274">"Sinjalizim urgjence"</string>
+    <string name="cmas_extreme_immediate_observed_alert" msgid="713620529362685655">"Sinjalizim urgjence"</string>
+    <string name="cmas_extreme_immediate_likely_alert" msgid="6858545279275537101">"Sinjalizim urgjence"</string>
+    <string name="cmas_severe_alert" msgid="6255792641522355328">"Sinjalizim urgjence"</string>
+    <string name="pws_other_message_identifiers" msgid="2219849459734958071">"Sinjalizim paralajmërues"</string>
+    <string name="public_safety_message" msgid="6430821308078207535">"Sinjalizim i sigurisë publike"</string>
     <string name="cmas_exercise_alert" msgid="5775307523978007483">"Ushtrimi"</string>
-    <string name="cmas_required_monthly_test" msgid="7606843318721168353">"Sinjalizim testimi"</string>
-    <string name="state_local_test_alert" msgid="3092681020067564217">"Sinjalizim testimi"</string>
-    <string name="enable_emergency_alerts_message_title" msgid="876981179796412627">"Sinjalizimet paralajmëruese"</string>
-    <string name="enable_public_safety_messages_title" msgid="4810131816678424099">"Sinjalizime të sigurisë publike"</string>
+    <string name="cmas_required_monthly_test" msgid="638043663020315444">"Sinjalizim testimi"</string>
+    <string name="state_local_test_alert" msgid="5347253401221487116">"Sinjalizim testimi"</string>
+    <string name="enable_emergency_alerts_message_title" msgid="5365080705719184919">"Sinjalizime paralajmëruese"</string>
+    <string name="enable_public_safety_messages_title" msgid="4702006823902961758">"Sinjalizime të sigurisë publike"</string>
+    <string name="enable_cmas_test_alerts_title" msgid="3586102183699625309">"Sinjalizime testimi"</string>
 </resources>

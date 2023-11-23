@@ -17,6 +17,7 @@
 <configuration description="Runs Frameworks Ike Tests.">
     <option name="test-suite-tag" value="apct" />
     <option name="test-suite-tag" value="apct-instrumentation" />
+    <option name="config-descriptor:metadata" key="mainline-param" value="com.google.android.ipsec.apex" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="FrameworksIkeTests.apk" />

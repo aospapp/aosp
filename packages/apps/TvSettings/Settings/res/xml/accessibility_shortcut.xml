@@ -17,7 +17,7 @@
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
         android:title="@string/accessibility_shortcut">
-    <SwitchPreference
+    <com.android.tv.settings.widget.SwitchWithSoundPreference
             android:key="enable"
             android:persistent="true"
             android:title="@string/accessibility_shortcut_enable" />

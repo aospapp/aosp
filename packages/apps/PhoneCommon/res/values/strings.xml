@@ -16,30 +16,30 @@
   -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <!--  Do not translate. -->
-    <string name="dialpad_star_number">*</string>
+    <string name="dialpad_star_number" translatable="false">*</string>
     <!--  Do not translate. -->
-    <string name="dialpad_pound_number">#</string>
+    <string name="dialpad_pound_number" translatable="false">#</string>
 
     <!--  Do not translate. -->
-    <string name="dialpad_0_letters">+</string>
+    <string name="dialpad_0_letters" translatable="false">+</string>
     <!--  Do not translate. -->
     <string name="dialpad_1_letters"></string>
     <!--  Do not translate. -->
-    <string name="dialpad_2_letters">ABC</string>
+    <string name="dialpad_2_letters" translatable="false">ABC</string>
     <!--  Do not translate. -->
-    <string name="dialpad_3_letters">DEF</string>
+    <string name="dialpad_3_letters" translatable="false">DEF</string>
     <!--  Do not translate. -->
-    <string name="dialpad_4_letters">GHI</string>
+    <string name="dialpad_4_letters" translatable="false">GHI</string>
     <!--  Do not translate. -->
-    <string name="dialpad_5_letters">JKL</string>
+    <string name="dialpad_5_letters" translatable="false">JKL</string>
     <!--  Do not translate. -->
-    <string name="dialpad_6_letters">MNO</string>
+    <string name="dialpad_6_letters" translatable="false">MNO</string>
     <!--  Do not translate. -->
-    <string name="dialpad_7_letters">PQRS</string>
+    <string name="dialpad_7_letters" translatable="false">PQRS</string>
     <!--  Do not translate. -->
-    <string name="dialpad_8_letters">TUV</string>
+    <string name="dialpad_8_letters" translatable="false">TUV</string>
     <!--  Do not translate. -->
-    <string name="dialpad_9_letters">WXYZ</string>
+    <string name="dialpad_9_letters" translatable="false">WXYZ</string>
     <!--  Do not translate. -->
     <string name="dialpad_star_letters"></string>
     <!--  Do not translate. -->

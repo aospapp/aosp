@@ -113,7 +113,7 @@ public final class PackageInfoFragment extends Fragment{
 
         for (PackageInfo packageInfo : packages) {
             Log.d(TAG, "checking package: " + packageInfo);
-            boolean toBlacklist = true;
+            boolean toDenyList = true;
             // check share user id, show package does not have sharedUserId or not system uid
             if (mFilterSharedUid) {
                 if (DEBUG) {
@@ -121,7 +121,7 @@ public final class PackageInfoFragment extends Fragment{
                                 || !packageInfo.sharedUserId.equals(SYSTEM_UID)));
                 }
 
-                toBlacklist &= (packageInfo.sharedUserId == null
+                toDenyList &= (packageInfo.sharedUserId == null
                         || !packageInfo.sharedUserId.equals(SYSTEM_UID));
             }
 
@@ -133,7 +133,7 @@ public final class PackageInfoFragment extends Fragment{
                     }
                 }
 
-                toBlacklist &= !(Arrays.asList(packageInfo.requestedPermissions).stream().anyMatch(
+                toDenyList &= !(Arrays.asList(packageInfo.requestedPermissions).stream().anyMatch(
                         info -> IMPORTANT_PERMISSIONS.contains(info)));
             }
             // check services, w/o service or service not exported and w/o single user flag
@@ -145,7 +145,7 @@ public final class PackageInfoFragment extends Fragment{
                     }
                 }
 
-                toBlacklist &= Arrays.asList(packageInfo.services).stream().anyMatch(info ->
+                toDenyList &= Arrays.asList(packageInfo.services).stream().anyMatch(info ->
                     !info.exported && (info.flags & ServiceInfo.FLAG_SINGLE_USER) == 0);
             }
             // check activities
@@ -156,11 +156,11 @@ public final class PackageInfoFragment extends Fragment{
                             && packageInfo.services == null
                             && packageInfo.providers == null));
                 }
-                toBlacklist &= (packageInfo.activities != null
+                toDenyList &= (packageInfo.activities != null
                     && packageInfo.services == null && packageInfo.providers == null);
             }
 
-            if (toBlacklist) {
+            if (toDenyList) {
                 mPackagesToDisableForSystemUser.add(packageInfo);
             }
         }

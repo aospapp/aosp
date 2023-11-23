@@ -274,7 +274,7 @@ static jboolean connectHidNative(JNIEnv* env, jobject object,
 
   jboolean ret = JNI_TRUE;
   bt_status_t status = sBluetoothHidInterface->connect((RawAddress*)addr);
-  if (status != BT_STATUS_SUCCESS) {
+  if (status != BT_STATUS_SUCCESS && status != BT_STATUS_BUSY) {
     ALOGE("Failed HID channel connection, status: %d", status);
     ret = JNI_FALSE;
   }

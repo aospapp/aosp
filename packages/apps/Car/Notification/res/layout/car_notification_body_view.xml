@@ -37,7 +37,7 @@
         android:layout_marginEnd="@dimen/card_end_margin"
         style="@style/NotificationBodyContentText"/>
 
-    <ImageButton
+    <ImageView
         android:id="@+id/notification_body_icon"
         android:layout_width="@dimen/notification_touch_target_size"
         android:layout_height="@dimen/notification_touch_target_size"

@@ -111,12 +111,12 @@ public final class ContentUriAsset extends StreamableAsset {
 
     @Override
     public void decodeBitmapRegion(final Rect rect, int targetWidth, int targetHeight,
-                                   final BitmapReceiver receiver) {
+            boolean shouldAdjustForRtl, final BitmapReceiver receiver) {
         // BitmapRegionDecoder only supports images encoded in either JPEG or PNG, so if the content
         // URI asset is encoded with another format (for example, GIF), then fall back to cropping a
         // bitmap region from the full-sized bitmap.
         if (isJpeg() || isPng()) {
-            super.decodeBitmapRegion(rect, targetWidth, targetHeight, receiver);
+            super.decodeBitmapRegion(rect, targetWidth, targetHeight, shouldAdjustForRtl, receiver);
             return;
         }
 

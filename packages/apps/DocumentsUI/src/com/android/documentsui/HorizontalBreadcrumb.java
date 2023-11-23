@@ -176,7 +176,6 @@ public final class HorizontalBreadcrumb extends RecyclerView implements Breadcru
         public void onBindViewHolder(BreadcrumbHolder holder, int position) {
             final int padding = (int) holder.itemView.getResources()
                     .getDimension(R.dimen.breadcrumb_item_padding);
-            final int enableColor = holder.itemView.getContext().getColor(R.color.primary);
             final boolean isFirst = position == 0;
             // Note that when isFirst is true, there might not be a DocumentInfo on the stack as it
             // could be an error state screen accessible from the root info.
@@ -184,7 +183,7 @@ public final class HorizontalBreadcrumb extends RecyclerView implements Breadcru
 
             holder.mTitle.setText(
                     isFirst ? mEnv.getCurrentRoot().title : mState.stack.get(position).displayName);
-            holder.mTitle.setTextColor(isLast ? enableColor : holder.mDefaultTextColor);
+            holder.mTitle.setEnabled(isLast);
             holder.mTitle.setPadding(isFirst ? padding * 3 : padding,
                     padding, isLast ? padding * 2 : padding, padding);
             holder.mArrow.setVisibility(isLast ? View.GONE : View.VISIBLE);

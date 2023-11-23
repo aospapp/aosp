@@ -14,12 +14,17 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CaptivePortalLoginTests",
+    defaults: ["framework-connectivity-test-defaults"],
     srcs: ["src/**/*.java", "src/**/*.kt"],
     platform_apis: true,
+    min_sdk_version: "29",
     test_suites: ["device-tests"],
-    certificate: "platform",
 
     static_libs: [
         "androidx.test.rules",
@@ -46,4 +51,9 @@ android_test {
         "libdexmakerjvmtiagent",
         "libstaticjvmtiagent",
     ],
+    // If CaptivePortalLoginActivityTest wants to run on Q device, it needs to set sdk_version for
+    // using the portable JNI libraries.
+    // jni_uses_sdk_apis is a workaround for CaptivePortalLoginActivityTest to run on Q device.
+    // See b/154665579 to get more detail.
+    jni_uses_sdk_apis: true,
 }

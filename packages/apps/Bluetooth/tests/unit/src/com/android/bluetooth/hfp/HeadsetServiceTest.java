@@ -110,16 +110,17 @@ public class HeadsetServiceTest {
                 .getRemoteUuids(any(BluetoothDevice.class));
         doReturn(BluetoothDevice.BOND_BONDED).when(mAdapterService)
                 .getBondState(any(BluetoothDevice.class));
+        doReturn(mDatabaseManager).when(mAdapterService).getDatabase();
+        doReturn(true, false).when(mAdapterService).isStartedProfile(anyString());
         doAnswer(invocation -> {
             Set<BluetoothDevice> keys = mStateMachines.keySet();
             return keys.toArray(new BluetoothDevice[keys.size()]);
         }).when(mAdapterService).getBondedDevices();
         // Mock system interface
-        doNothing().when(mSystemInterface).init();
         doNothing().when(mSystemInterface).stop();
         when(mSystemInterface.getHeadsetPhoneState()).thenReturn(mPhoneState);
         when(mSystemInterface.getAudioManager()).thenReturn(mAudioManager);
-        when(mSystemInterface.isCallIdle()).thenReturn(true);
+        when(mSystemInterface.isCallIdle()).thenReturn(true, false, true, false);
         // Mock methods in HeadsetNativeInterface
         mNativeInterface = spy(HeadsetNativeInterface.getInstance());
         doNothing().when(mNativeInterface).init(anyInt(), anyBoolean());
@@ -148,9 +149,7 @@ public class HeadsetServiceTest {
         verify(mObjectsFactory).getNativeInterface();
         mHeadsetServiceBinder = (IBluetoothHeadset.Stub) mHeadsetService.initBinder();
         Assert.assertNotNull(mHeadsetServiceBinder);
-        mHeadsetServiceBinder.setForceScoAudio(true);
-        // Mock database for getConnectionPolicy()
-        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        mHeadsetServiceBinder.setForceScoAudio(true, mAdapter.getAttributionSource());
     }
 
     @After
@@ -704,7 +703,10 @@ public class HeadsetServiceTest {
                         TEST_PHONE_NUMBER, 128, "");
         mHeadsetServiceBinder.phoneStateChanged(headsetCallState.mNumActive,
                 headsetCallState.mNumHeld, headsetCallState.mCallState, headsetCallState.mNumber,
-                headsetCallState.mType, headsetCallState.mName);
+                headsetCallState.mType, headsetCallState.mName, mAdapter.getAttributionSource());
+        TestUtils.waitForLooperToFinishScheduledTask(
+                mHeadsetService.getStateMachinesThreadLooper());
+        verify(mAudioManager, never()).setParameters("A2dpSuspended=true");
         HeadsetTestUtils.verifyPhoneStateChangeSetters(mPhoneState, headsetCallState,
                 ASYNC_CALL_TIMEOUT_MILLIS);
     }
@@ -718,7 +720,7 @@ public class HeadsetServiceTest {
     @Test
     public void testPhoneStateChange_oneDeviceSaveState() throws RemoteException {
         HeadsetCallState headsetCallState =
-                new HeadsetCallState(1, 0, HeadsetHalConstants.CALL_STATE_ALERTING,
+                new HeadsetCallState(0, 0, HeadsetHalConstants.CALL_STATE_IDLE,
                         TEST_PHONE_NUMBER, 128, "");
         when(mDatabaseManager.getProfileConnectionPolicy(any(BluetoothDevice.class),
                 eq(BluetoothProfile.HEADSET)))
@@ -758,13 +760,34 @@ public class HeadsetServiceTest {
         // Change phone state
         mHeadsetServiceBinder.phoneStateChanged(headsetCallState.mNumActive,
                 headsetCallState.mNumHeld, headsetCallState.mCallState, headsetCallState.mNumber,
-                headsetCallState.mType, headsetCallState.mName);
+                headsetCallState.mType, headsetCallState.mName, mAdapter.getAttributionSource());
+        TestUtils.waitForLooperToFinishScheduledTask(
+                mHeadsetService.getStateMachinesThreadLooper());
+
+        // Should not ask Audio HAL to suspend A2DP without active device
+        verify(mAudioManager, never()).setParameters("A2dpSuspended=true");
         // Make sure we notify device about this change
         verify(mStateMachines.get(mCurrentDevice)).sendMessage(
                 HeadsetStateMachine.CALL_STATE_CHANGED, headsetCallState);
         // Make sure state is updated once in phone state holder
         HeadsetTestUtils.verifyPhoneStateChangeSetters(mPhoneState, headsetCallState,
                 ASYNC_CALL_TIMEOUT_MILLIS);
+
+        // Set the device first as the active device
+        Assert.assertTrue(mHeadsetService.setActiveDevice(mCurrentDevice));
+        // Change phone state
+        headsetCallState.mCallState = HeadsetHalConstants.CALL_STATE_ALERTING;
+        mHeadsetServiceBinder.phoneStateChanged(headsetCallState.mNumActive,
+                headsetCallState.mNumHeld, headsetCallState.mCallState, headsetCallState.mNumber,
+                headsetCallState.mType, headsetCallState.mName, mAdapter.getAttributionSource());
+        TestUtils.waitForLooperToFinishScheduledTask(
+                mHeadsetService.getStateMachinesThreadLooper());
+        // Ask Audio HAL to suspend A2DP
+        verify(mAudioManager).setParameters("A2dpSuspended=true");
+        // Make sure state is updated
+        verify(mStateMachines.get(mCurrentDevice)).sendMessage(
+                HeadsetStateMachine.CALL_STATE_CHANGED, headsetCallState);
+        verify(mPhoneState).setCallState(eq(headsetCallState.mCallState));
     }
 
     /**
@@ -817,11 +840,15 @@ public class HeadsetServiceTest {
                     Matchers.containsInAnyOrder(connectedDevices.toArray()));
             mHeadsetService.onConnectionStateChangedFromStateMachine(mCurrentDevice,
                     BluetoothProfile.STATE_CONNECTING, BluetoothProfile.STATE_CONNECTED);
+            Assert.assertTrue(mHeadsetService.setActiveDevice(mCurrentDevice));
         }
         // Change phone state
         mHeadsetServiceBinder.phoneStateChanged(headsetCallState.mNumActive,
                 headsetCallState.mNumHeld, headsetCallState.mCallState, headsetCallState.mNumber,
-                headsetCallState.mType, headsetCallState.mName);
+                headsetCallState.mType, headsetCallState.mName, mAdapter.getAttributionSource());
+        // Ask Audio HAL to suspend A2DP
+        verify(mAudioManager, timeout(ASYNC_CALL_TIMEOUT_MILLIS))
+                .setParameters("A2dpSuspended=true");
         // Make sure we notify devices about this change
         for (BluetoothDevice device : connectedDevices) {
             verify(mStateMachines.get(device)).sendMessage(HeadsetStateMachine.CALL_STATE_CHANGED,

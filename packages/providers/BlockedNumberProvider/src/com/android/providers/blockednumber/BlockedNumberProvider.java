@@ -45,7 +45,6 @@ import android.provider.BlockedNumberContract;
 import android.provider.BlockedNumberContract.SystemContract;
 import android.telecom.TelecomManager;
 import android.telephony.CarrierConfigManager;
-import android.telephony.PhoneNumberUtils;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.Log;
@@ -407,9 +406,10 @@ public class BlockedNumberProvider extends ContentProvider {
             return false;
         }
 
-        final String e164Number = Utils.getE164Number(getContext(), phoneNumber, null);
-        return PhoneNumberUtils.isEmergencyNumber(phoneNumber)
-                || PhoneNumberUtils.isEmergencyNumber(e164Number);
+        Context context = getContext();
+        final String e164Number = Utils.getE164Number(context, phoneNumber, null);
+        TelephonyManager tm = context.getSystemService(TelephonyManager.class);
+        return tm.isEmergencyNumber(phoneNumber) || tm.isEmergencyNumber(e164Number);
     }
 
     private boolean isBlocked(String phoneNumber) {
@@ -632,8 +632,13 @@ public class BlockedNumberProvider extends ContentProvider {
 
             final TelephonyManager telephonyManager =
                     getContext().getSystemService(TelephonyManager.class);
-            return telephonyManager.checkCarrierPrivilegesForPackageAnyPhone(callingPackage) ==
-                    TelephonyManager.CARRIER_PRIVILEGE_STATUS_HAS_ACCESS;
+            final long token = Binder.clearCallingIdentity();
+            try {
+                return telephonyManager.checkCarrierPrivilegesForPackageAnyPhone(callingPackage) ==
+                        TelephonyManager.CARRIER_PRIVILEGE_STATUS_HAS_ACCESS;
+            } finally {
+                Binder.restoreCallingIdentity(token);
+            }
         }
         return false;
     }

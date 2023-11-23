@@ -64,6 +64,7 @@ public class DhcpRequestPacket extends DhcpPacket {
         }
         addCommonClientTlvs(buffer);
         addTlv(buffer, DHCP_PARAMETER_LIST, mRequestedParams);
+        addCustomizedClientTlvs(buffer);
         addTlvEnd(buffer);
     }
 }

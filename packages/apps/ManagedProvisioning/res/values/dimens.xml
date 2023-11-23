@@ -57,6 +57,7 @@
 
     <!-- General -->
     <dimen name="spacer_0">0dp</dimen>
+    <dimen name="spacer_2">2dp</dimen>
     <dimen name="spacer_8">8dp</dimen>
     <dimen name="spacer_12">12dp</dimen>
     <dimen name="spacer_16">16dp</dimen>
@@ -65,6 +66,7 @@
     <dimen name="spacer_32">32dp</dimen>
     <dimen name="spacer_36">36dp</dimen>
     <dimen name="spacer_40">40dp</dimen>
+    <dimen name="spacer_52">52dp</dimen>
     <dimen name="spacer_60">60dp</dimen>
     <dimen name="spacer_64">64dp</dimen>
     <dimen name="spacer_112">112dp</dimen>
@@ -81,11 +83,10 @@
     <dimen name="intro_margin">@dimen/spacer_24</dimen>
     <dimen name="intro_animation_min_height">240dp</dimen>
 
-    <dimen name="terms_screen_margin">@dimen/spacer_0</dimen>
-    <dimen name="terms_screen_padding">@dimen/spacer_0</dimen>
-
     <dimen name="car_avatar_icon_size">56dp</dimen>
 
-    <!-- Provisioning -->
-    <dimen name="animation_height">162dp</dimen>
+    <dimen name="terms_screen_header_margin_top">64dp</dimen>
+
+    <!-- An arbitrarily large number to make the max size fit the parent -->
+    <dimen name="animation_max_size">1000dp</dimen>
 </resources>

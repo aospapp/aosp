@@ -18,8 +18,8 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"ເຂົ້າເຖິງໂຕຈັດການການດາວໂຫລດ​."</string>
     <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"ອະນຸຍາດໃຫ້ແອັບຯນີ້ເຂົາເຖິງໂຕຈັດການ BluetoothShare ແລະໃຊ້ມັນເພື່ອສົ່ງໄຟລ໌."</string>
-    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"ເຮັດບັນຊີອະນຸຍາດການເຂົ້າເຖິງອຸປະກອນ bluetooth."</string>
-    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"ອະນຸຍາດໃຫ້ແອັບຯດັ່ງກ່າວຕັ້ງບັນຊີຂາວໃຫ້ກັບອຸປະກອນ Bluetooth ຊົ່ວຄາວ, ການອະນຸຍາດໃຫ້ອຸປະກອນນັ້ນສົ່ງໄຟລ໌ມາທີ່ອຸປະກອນນີ້ໂດຍທີ່ບໍ່ຈຳເປັນຕ້ອງມີການຢືນຢັນຈາກຜູ່ໃຊ້."</string>
+    <string name="permlab_bluetoothAcceptlist" msgid="2647575807648622053">"ສ້າງລາຍຊື່ຍອມຮັບການເຂົ້າເຖິງອຸປະກອນ Bluetooth."</string>
+    <string name="permdesc_bluetoothAcceptlist" msgid="2406423665674766442">"ອະນຸຍາດໃຫ້ແອັບສ້າງລາຍຊື່ຍອມຮັບການເຂົ້າເຖິງອຸປະກອນ Bluetooth ຊົ່ວຄາວໄດ້, ເຊິ່ງຈະເຮັດໃຫ້ອຸປະກອນນັ້ນສົ່ງໄຟລ໌ໄປຫາອຸປະກອນນີ້ໄດ້ໂດຍບໍ່ຕ້ອງໃຫ້ຜູ້ໃຊ້ຢືນຢັນ."</string>
     <string name="bt_share_picker_label" msgid="6268100924487046932">"Bluetooth"</string>
     <string name="unknown_device" msgid="9221903979877041009">"ອຸປະກອນທີ່ບໍ່ຮູ້ຈັກ"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"ບໍ່ຮູ້ຈັກ"</string>
@@ -37,7 +37,7 @@
     <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"ຕົກລົງ"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"ເກີດມີການໝົດເວລາໃນລະຫວ່າງທີ່ກຳລັງຮັບເອົາໄຟລ໌ທີ່ເຂົ້າມາຈາກ \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"ໄຟ​ລ໌​ເຂົ້າ​ມາ"</string>
-    <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="SENDER">%1$s</xliff:g> ພ້ອມ​ທີ່​ຈະ​ສົ່ງ <xliff:g id="FILE">%2$s</xliff:g>"</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="6237487486781004992">"<xliff:g id="SENDER">%1$s</xliff:g> ພ້ອມສົ່ງໄຟລ໌ແລ້ວ: <xliff:g id="FILE">%2$s</xliff:g>"</string>
     <string name="notification_receiving" msgid="4674648179652543984">"ແບ່ງປັນໃນ Bluetooth: ກຳລັງຮັບເອົາ <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="notification_received" msgid="3324588019186687985">"ແບ່ງປັນໃນ Bluetooth: ໄດ້ຮັບ <xliff:g id="FILE">%1$s</xliff:g> ແລ້ວ"</string>
     <string name="notification_received_fail" msgid="3619350997285714746">"ແບ່ງປັນໃນ Bluetooth: ບໍ່ໄດ້ຮັບ <xliff:g id="FILE">%1$s</xliff:g>"</string>
@@ -83,8 +83,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"ກຳລັງສົ່ງໄຟລ໌ໄປຫາ \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\""</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"ກຳລັງສົ່ງ <xliff:g id="NUMBER">%1$s</xliff:g> ໄຟລ​໌​ໄປຫາ \"<xliff:g id="RECIPIENT">%2$s</xliff:g>\""</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"ຢຸດການສົ່ງໄຟລ໌ໄປຫາ \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" ແລ້ວ"</string>
-    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"ບ່ອນຈັດເກັບຂໍ້ມູນ USB ບໍ່ພຽງພໍທີ່ຈະບັນທຶກໄຟລ໌ດັ່ງກ່າວຈາກ \"<xliff:g id="SENDER">%1$s</xliff:g>\" ໄດ້"</string>
-    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"ບ່ອນຈັດເກັບຂໍ້ມູນ SD ກາດບໍ່ພຽງພໍທີ່ຈະບັນທຶກໄຟລ໌ດັ່ງກ່າວຈາກ \"<xliff:g id="SENDER">%1$s</xliff:g>\" ໄດ້"</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="5354343190503952837">"ມີພື້ນທີ່ຢູ່ບ່ອນຈັດເກັບຂໍ້ມູນ USB ບໍ່ພຽງພໍໃຫ້ບັນທຶກໄຟລ໌."</string>
+    <string name="bt_sm_2_1_default" msgid="2497541206648973852">"ມີພື້ນທີ່ຢູ່ SD card ບໍ່ພຽງພໍໃຫ້ບັນທຶກໄຟລ໌."</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"ພື້ນທີ່ທີ່ຕ້ອງການ​: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"ມີການຮ້ອງຂໍຫຼາຍເກີນໄປ, ກະລຸນາລອງໃໝ່ພາຍຫຼັງ."</string>
     <string name="status_pending" msgid="2503691772030877944">"ການໂອນໄຟລ໌ຍັງບໍ່ທັນໄດ້ເລີ່ມເທື່ອ."</string>

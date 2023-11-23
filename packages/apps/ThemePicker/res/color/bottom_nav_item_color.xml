@@ -20,5 +20,5 @@
         android:color="?android:colorAccent" />
     <item
         android:state_checked="false"
-        android:color="@color/material_grey500" />
+        android:color="?android:textColorTertiary" />
 </selector>

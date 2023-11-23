@@ -17,7 +17,7 @@
 
 #include "DnsQueryLog.h"
 
-#include <android-base/stringprintf.h>
+#include "util.h"
 
 namespace android::net {
 
@@ -45,25 +45,10 @@ std::string maskIps(const std::vector<std::string>& ips) {
     return ret.empty() ? "" : ret.substr(0, ret.length() - 2);
 }
 
-// Return the readable string format "hr:min:sec.ms".
-std::string timestampToString(const std::chrono::system_clock::time_point& ts) {
-    using std::chrono::duration_cast;
-    using std::chrono::milliseconds;
-    const auto time_sec = std::chrono::system_clock::to_time_t(ts);
-    char buf[32];
-    std::strftime(buf, sizeof(buf), "%H:%M:%S", std::localtime(&time_sec));
-    int ms = duration_cast<milliseconds>(ts.time_since_epoch()).count() % 1000;
-    return android::base::StringPrintf("%s.%03d", buf, ms);
-}
-
 }  // namespace
 
 void DnsQueryLog::push(Record&& record) {
-    std::lock_guard guard(mLock);
-    mQueue.push_back(std::move(record));
-    if (mQueue.size() > mCapacity) {
-        mQueue.pop_front();
-    }
+    mQueue.push(std::move(record));
 }
 
 void DnsQueryLog::dump(netdutils::DumpWriter& dw) const {
@@ -71,8 +56,7 @@ void DnsQueryLog::dump(netdutils::DumpWriter& dw) const {
     netdutils::ScopedIndent indentStats(dw);
     const auto now = std::chrono::system_clock::now();
 
-    std::lock_guard guard(mLock);
-    for (const auto& record : mQueue) {
+    for (const auto& record : mQueue.copy()) {
         if (now - record.timestamp > mValidityTimeMs) continue;
 
         const std::string maskedHostname = maskHostname(record.hostname);

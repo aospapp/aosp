@@ -35,12 +35,11 @@ import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceScreen;
 
-import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.applications.DefaultAppInfo;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
 import com.android.tv.settings.autofill.AutofillHelper;
-import com.android.tv.settings.overlay.FeatureFactory;
+import com.android.tv.settings.overlay.FlavorUtils;
 import com.android.tv.settings.util.SliceUtils;
 import com.android.tv.twopanelsettings.slices.SlicePreference;
 
@@ -169,8 +168,7 @@ public class KeyboardFragment extends SettingsPreferenceFragment {
             final String key = KEY_KEYBOARD_SETTINGS_PREFIX + info.getId();
 
             Preference preference = preferenceScreen.findPreference(key);
-            boolean useSlice = FeatureFactory.getFactory(getContext()).isTwoPanelLayout()
-                    && uri != null;
+            boolean useSlice = FlavorUtils.isTwoPanel(getContext()) && uri != null;
             if (preference == null) {
                 if (useSlice) {
                     preference = new SlicePreference(preferenceContext);
@@ -282,11 +280,6 @@ public class KeyboardFragment extends SettingsPreferenceFragment {
                 i++;
             }
         }
-    }
-
-    @Override
-    public int getMetricsCategory() {
-        return MetricsProto.MetricsEvent.INPUTMETHOD_KEYBOARD;
     }
 
     @Override

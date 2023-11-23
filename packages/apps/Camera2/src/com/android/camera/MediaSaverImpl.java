@@ -22,6 +22,7 @@ import android.graphics.BitmapFactory;
 import android.location.Location;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.provider.MediaStore;
 import android.provider.MediaStore.Video;
 
 import com.android.camera.app.MediaSaver;
@@ -37,7 +38,6 @@ import java.io.IOException;
  */
 public class MediaSaverImpl implements MediaSaver {
     private static final Log.Tag TAG = new Log.Tag("MediaSaverImpl");
-    private static final String VIDEO_BASE_URI = "content://media/external/video/media";
 
     /** The memory limit for unsaved image is 30MB. */
     // TODO: Revert this back to 20 MB when CaptureSession API supports saving
@@ -107,10 +107,9 @@ public class MediaSaverImpl implements MediaSaver {
     }
 
     @Override
-    public void addVideo(String path, ContentValues values, OnMediaSavedListener l) {
-        // We don't set a queue limit for video saving because the file
-        // is already in the storage. Only updating the database.
-        new VideoSaveTask(path, values, l, mContentResolver).execute();
+    public void addVideo(Uri uri, ContentValues values, OnMediaSavedListener l) {
+        // This updates the content resolver for the final saving of the video file.
+        new VideoSaveTask(uri, values, l, mContentResolver).execute();
     }
 
     @Override
@@ -179,7 +178,7 @@ public class MediaSaverImpl implements MediaSaver {
                 height = options.outHeight;
             }
             try {
-                return Storage.addImage(
+                return Storage.instance().addImage(
                         resolver, title, date, loc, orientation, exif, data, width, height,
                         mimeType);
             } catch (IOException e) {
@@ -201,49 +200,35 @@ public class MediaSaverImpl implements MediaSaver {
         }
     }
 
-    private class VideoSaveTask extends AsyncTask <Void, Void, Uri> {
-        private String path;
+    private class VideoSaveTask extends AsyncTask <Void, Void, Void> {
+        private final Uri uri;
         private final ContentValues values;
         private final OnMediaSavedListener listener;
         private final ContentResolver resolver;
 
-        public VideoSaveTask(String path, ContentValues values, OnMediaSavedListener l,
+        public VideoSaveTask(Uri u, ContentValues values, OnMediaSavedListener l,
                              ContentResolver r) {
-            this.path = path;
+            this.uri = u;
             this.values = new ContentValues(values);
             this.listener = l;
             this.resolver = r;
         }
 
         @Override
-        protected Uri doInBackground(Void... v) {
-            Uri uri = null;
+        protected Void doInBackground(Void... v) {
             try {
-                Uri videoTable = Uri.parse(VIDEO_BASE_URI);
-                uri = resolver.insert(videoTable, values);
-
-                // Rename the video file to the final name. This avoids other
-                // apps reading incomplete data.  We need to do it after we are
-                // certain that the previous insert to MediaProvider is completed.
-                String finalName = values.getAsString(Video.Media.DATA);
-                File finalFile = new File(finalName);
-                if (new File(path).renameTo(finalFile)) {
-                    path = finalName;
-                }
                 resolver.update(uri, values, null, null);
             } catch (Exception e) {
-                // We failed to insert into the database. This can happen if
-                // the SD card is unmounted.
-                Log.e(TAG, "failed to add video to media store", e);
-                uri = null;
+                // We failed to update the database.
+                Log.e(TAG, "failed to update video to media store", e);
             } finally {
                 Log.v(TAG, "Current video URI: " + uri);
+                return null;
             }
-            return uri;
         }
 
         @Override
-        protected void onPostExecute(Uri uri) {
+        protected void onPostExecute(Void v) {
             if (listener != null) {
                 listener.onMediaSaved(uri);
             }

@@ -37,6 +37,6 @@ public class WifiSecurityPreferenceController extends
 
     @Override
     protected void updateState(WifiDetailsPreference preference) {
-        preference.setDetailText(getAccessPoint().getSecurityString(/* concise= */ false));
+        preference.setDetailText(getWifiEntry().getSecurityString(/* concise= */ false));
     }
 }

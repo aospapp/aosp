@@ -209,7 +209,7 @@ public class ExportProcessor extends ProcessorBase {
             mService.updateMediaScanner(request.destUri.getPath());
 
             successful = true;
-            final String filename = ExportVCardActivity.getOpenableUriDisplayName(mService, uri);
+            final String filename = request.displayName;
             // If it is a local file (i.e. not a file from Drive), we need to allow user to share
             // the file by pressing the notification; otherwise, it would be a file in Drive, we
             // don't need to enable this action in notification since the file is already uploaded.
@@ -304,11 +304,12 @@ public class ExportProcessor extends ProcessorBase {
         intent.setType(Contacts.CONTENT_VCARD_TYPE);
         intent.putExtra(Intent.EXTRA_STREAM, uri);
         // Securely grant access using temporary access permissions
-        intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        // Use FLAG_ACTIVITY_NEW_TASK to set it as new task, to get rid of cached files.
+        intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
         // Build notification
         final Notification notification =
-                NotificationImportExportListener.constructFinishNotificationWithFlags(
-                        mService, title, description, intent, Intent.FLAG_ACTIVITY_NEW_TASK);
+                NotificationImportExportListener.constructFinishNotification(
+                        mService, title, description, intent);
         mNotificationManager.notify(NotificationImportExportListener.DEFAULT_NOTIFICATION_TAG,
                 mJobId, notification);
     }

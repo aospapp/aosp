@@ -166,9 +166,9 @@ public class CarUxRestrictionsConfigurationXmlParserTest {
         assertEquals(configs.size(), 2);
 
         // 1 and 2 are specified in test xml.
-        Set<Byte> expected = new ArraySet<>();
-        expected.add((byte) 1);
-        expected.add((byte) 2);
+        Set<Integer> expected = new ArraySet<>();
+        expected.add(1);
+        expected.add(2);
         for (CarUxRestrictionsConfiguration config : configs) {
             assertTrue(expected.contains(config.getPhysicalPort()));
         }

@@ -39,6 +39,7 @@ import android.widget.Toast;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
+import com.google.android.car.kitchensink.KitchenSinkActivity;
 import com.google.android.car.kitchensink.R;
 
 public class BluetoothHeadsetFragment extends Fragment {
@@ -86,13 +87,19 @@ public class BluetoothHeadsetFragment extends Fragment {
         mEndOutgoingCall = (Button) v.findViewById(R.id.bluetooth_end_outgoing_call);
         mOutgoingPhoneNumber = (EditText) v.findViewById(R.id.bluetooth_outgoing_phone_number);
 
-        // Pick a bluetooth device
-        mDevicePicker.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                launchDevicePicker();
-            }
-        });
+        if (!BluetoothConnectionPermissionChecker.isPermissionGranted(
+                (KitchenSinkActivity) getHost())) {
+            BluetoothConnectionPermissionChecker.requestPermission(this,
+                    this::setDevicePickerButtonClickable,
+                    () -> {
+                        setDevicePickerButtonUnclickable();
+                        Toast.makeText(getContext(),
+                                "Device picker can't run without BLUETOOTH_CONNECT permission. "
+                                        + "(You can change permissions in Settings.)",
+                                Toast.LENGTH_SHORT).show();
+                    }
+            );
+        }
 
         // Connect profile
         mConnect.setOnClickListener(new View.OnClickListener() {
@@ -175,6 +182,22 @@ public class BluetoothHeadsetFragment extends Fragment {
         });
 
         return v;
+    }
+
+    private void setDevicePickerButtonClickable() {
+        mDevicePicker.setClickable(true);
+
+        // Pick a bluetooth device
+        mDevicePicker.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                launchDevicePicker();
+            }
+        });
+    }
+
+    private void setDevicePickerButtonUnclickable() {
+        mDevicePicker.setClickable(false);
     }
 
     void launchDevicePicker() {
@@ -370,6 +393,13 @@ public class BluetoothHeadsetFragment extends Fragment {
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         mBluetoothAdapter.getProfileProxy(
             getContext(), new ProfileServiceListener(), BluetoothProfile.HEADSET_CLIENT);
+
+        if (BluetoothConnectionPermissionChecker.isPermissionGranted(
+                (KitchenSinkActivity) getHost())) {
+            setDevicePickerButtonClickable();
+        } else {
+            setDevicePickerButtonUnclickable();
+        }
     }
 
     @Override

@@ -15,6 +15,8 @@
  */
 package com.android.car;
 
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.BOILERPLATE_CODE;
+
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.SuppressLint;
@@ -22,6 +24,8 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
 import android.util.SparseArray;
+
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -140,7 +144,7 @@ public class Utils {
      * A specific service in CarService can choose to use a circular buffer of N records to keep
      * track of the last N transitions.
      */
-    public static class TransitionLog {
+    public static final class TransitionLog {
         private String mServiceName; // name of the service or tag
         private Object mFromState; // old state
         private Object mToState; // new state
@@ -166,8 +170,9 @@ public class Utils {
 
         @Override
         public String toString() {
-            return timeToLog(mTimestampMs) + " " + mServiceName + ": " + (mExtra != null ? mExtra
-                    : "") + " changed from " + mFromState + " to " + mToState;
+            return timeToLog(mTimestampMs) + " " + mServiceName + ": "
+                    + (mExtra != null ? mExtra + " " : "")
+                    + "changed from " + mFromState + " to " + mToState;
         }
     }
 
@@ -278,4 +283,9 @@ public class Utils {
         return outputStream.toByteArray();
     }
 
+    @ExcludeFromCodeCoverageGeneratedReport(reason = BOILERPLATE_CODE,
+            details = "private constructor")
+    private Utils() {
+        throw new UnsupportedOperationException("contains only static methods");
+    }
 }

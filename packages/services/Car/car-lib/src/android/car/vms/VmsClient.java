@@ -154,10 +154,7 @@ public final class VmsClient {
     }
 
     /**
-     * Disables the monitoring of Vehicle Map Service packets by this client.
-     *
-     * <p>If monitoring is disabled, this client will receive only packets for its subscriptions.
-     * Disabling monitoring does not affect the client's existing subscriptions.
+     * Returns the current monitoring state of the client.
      */
     @RequiresPermission(Car.PERMISSION_VMS_SUBSCRIBER)
     public boolean isMonitoringEnabled() {

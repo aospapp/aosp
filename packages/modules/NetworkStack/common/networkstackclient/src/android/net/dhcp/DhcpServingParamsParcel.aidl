@@ -17,6 +17,7 @@
 
 package android.net.dhcp;
 
+@JavaDerive(toString=true)
 parcelable DhcpServingParamsParcel {
     int serverAddr;
     int serverAddrPrefixLength;

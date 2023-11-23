@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_app {
     name: "EmergencyInfo",
     platform_apis: true,
@@ -23,7 +27,8 @@ android_app {
     required: ["privapp_whitelist_com.android.emergency"],
     privileged: true,
     static_libs: [
-        "EmergencyInfo-lib"
+        "EmergencyInfo-lib",
+        "EmergencyGestureContentProvider",
     ],
     certificate: "platform",
 }
@@ -34,6 +39,7 @@ android_library {
     resource_dirs: ["res"],
     srcs: ["src/**/*.java"],
     static_libs: [
+        "android-support-v4",
         "androidx.legacy_legacy-preference-v14",
         "androidx.legacy_legacy-support-v13",
         "androidx.appcompat_appcompat",
@@ -42,6 +48,8 @@ android_library {
         "androidx.legacy_legacy-support-v4",
         "com.google.android.material_material",
         "androidx.transition_transition",
+        "guava",
+        "EmergencyGestureAction",
     ],
     defaults: ["SettingsLibDefaults"],
 }

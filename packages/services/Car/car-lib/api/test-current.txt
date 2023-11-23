@@ -2,6 +2,7 @@
 package android.car {
 
   public final class Car {
+    field public static final String CAR_DEVICE_POLICY_SERVICE = "car_device_policy_service";
     field public static final String CAR_USER_SERVICE = "car_user_service";
   }
 
@@ -25,6 +26,60 @@ package android.car {
 
 }
 
+package android.car.admin {
+
+  public final class CarDevicePolicyManager {
+    method @NonNull @RequiresPermission(anyOf={android.Manifest.permission.MANAGE_USERS, android.Manifest.permission.CREATE_USERS}) public android.car.admin.CreateUserResult createUser(@Nullable String, int);
+    method @NonNull @RequiresPermission(anyOf={android.Manifest.permission.MANAGE_USERS, android.Manifest.permission.CREATE_USERS}) public android.car.admin.RemoveUserResult removeUser(@NonNull android.os.UserHandle);
+    method @NonNull @RequiresPermission(anyOf={android.Manifest.permission.MANAGE_USERS, android.Manifest.permission.CREATE_USERS}) public android.car.admin.StartUserInBackgroundResult startUserInBackground(@NonNull android.os.UserHandle);
+    method @NonNull @RequiresPermission(anyOf={android.Manifest.permission.MANAGE_USERS, android.Manifest.permission.CREATE_USERS}) public android.car.admin.StopUserResult stopUser(@NonNull android.os.UserHandle);
+    field public static final int USER_TYPE_ADMIN = 1; // 0x1
+    field public static final int USER_TYPE_GUEST = 2; // 0x2
+    field public static final int USER_TYPE_REGULAR = 0; // 0x0
+  }
+
+  public final class CreateUserResult {
+    method public int getStatus();
+    method @Nullable public android.os.UserHandle getUserHandle();
+    method public boolean isSuccess();
+    field public static final int STATUS_FAILURE_GENERIC = 100; // 0x64
+    field public static final int STATUS_FAILURE_INVALID_ARGUMENTS = 2; // 0x2
+    field public static final int STATUS_SUCCESS = 1; // 0x1
+  }
+
+  public final class RemoveUserResult {
+    method public int getStatus();
+    method public boolean isSuccess();
+    field public static final int STATUS_FAILURE_GENERIC = 100; // 0x64
+    field public static final int STATUS_FAILURE_INVALID_ARGUMENTS = 5; // 0x5
+    field public static final int STATUS_FAILURE_USER_DOES_NOT_EXIST = 4; // 0x4
+    field public static final int STATUS_SUCCESS = 1; // 0x1
+    field public static final int STATUS_SUCCESS_LAST_ADMIN_REMOVED = 2; // 0x2
+    field public static final int STATUS_SUCCESS_LAST_ADMIN_SET_EPHEMERAL = 6; // 0x6
+    field public static final int STATUS_SUCCESS_SET_EPHEMERAL = 3; // 0x3
+  }
+
+  public final class StartUserInBackgroundResult {
+    method public int getStatus();
+    method public boolean isSuccess();
+    field public static final int STATUS_FAILURE_GENERIC = 100; // 0x64
+    field public static final int STATUS_FAILURE_USER_DOES_NOT_EXIST = 3; // 0x3
+    field public static final int STATUS_SUCCESS = 1; // 0x1
+    field public static final int STATUS_SUCCESS_CURRENT_USER = 2; // 0x2
+  }
+
+  public final class StopUserResult {
+    method public int getStatus();
+    method public boolean isSuccess();
+    field public static final int STATUS_FAILURE_CURRENT_USER = 2; // 0x2
+    field public static final int STATUS_FAILURE_GENERIC = 100; // 0x64
+    field public static final int STATUS_FAILURE_SYSTEM_USER = 3; // 0x3
+    field public static final int STATUS_FAILURE_USER_DOES_NOT_EXIST = 4; // 0x4
+    field public static final int STATUS_SUCCESS = 1; // 0x1
+  }
+
+}
+
 package android.car.content.pm {
 
   public final class CarPackageManager {
@@ -44,7 +99,7 @@ package android.car.drivingstate {
 package android.car.media {
 
   public final class CarAudioManager {
-    method public boolean isDynamicRoutingEnabled();
+    method @Deprecated public boolean isDynamicRoutingEnabled();
   }
 
 }

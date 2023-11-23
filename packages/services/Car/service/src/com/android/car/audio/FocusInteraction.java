@@ -15,6 +15,8 @@
  */
 package com.android.car.audio;
 
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
+
 import android.annotation.NonNull;
 import android.annotation.UserIdInt;
 import android.car.settings.CarSettings;
@@ -26,14 +28,15 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.UserHandle;
 import android.provider.Settings;
-import android.util.Log;
+import android.util.IndentingPrintWriter;
+import android.util.Slog;
 
-import androidx.annotation.VisibleForTesting;
-
+import com.android.car.CarLog;
 import com.android.car.audio.CarAudioContext.AudioContext;
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.Preconditions;
 
-import java.io.PrintWriter;
 import java.util.List;
 import java.util.Objects;
 
@@ -44,7 +47,7 @@ import java.util.Objects;
  */
 final class FocusInteraction {
 
-    private static final String TAG = FocusInteraction.class.getSimpleName();
+    private static final String TAG = CarLog.tagFor(FocusInteraction.class);
 
     @VisibleForTesting
     static final Uri AUDIO_FOCUS_NAVIGATION_REJECTED_DURING_CALL_URI =
@@ -354,7 +357,7 @@ final class FocusInteraction {
                     }
                     return AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
                 default:
-                    Log.e(TAG, String.format("Unsupported CarAudioContext %d - rejecting request",
+                    Slog.e(TAG, String.format("Unsupported CarAudioContext %d - rejecting request",
                             holderRow[requestedContext]));
                     return AudioManager.AUDIOFOCUS_REQUEST_FAILED;
             }
@@ -410,10 +413,11 @@ final class FocusInteraction {
         return interactionMatrixClone;
     }
 
-    public void dump(String indent, PrintWriter writer) {
+    @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
+    public void dump(IndentingPrintWriter writer) {
         boolean rejectNavigationOnCall =
                 mInteractionMatrix[CarAudioContext.CALL][CarAudioContext.NAVIGATION]
                 == INTERACTION_REJECT;
-        writer.printf("%sReject Navigation on Call: %b\n", indent, rejectNavigationOnCall);
+        writer.printf("Reject Navigation on Call: %b\n", rejectNavigationOnCall);
     }
 }

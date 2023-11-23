@@ -44,4 +44,11 @@ public class CheckLockActivity extends BaseCarSettingsActivity implements CheckL
         setResult(RESULT_OK);
         finish();
     }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+
+        PasswordHelper.zeroizeCredentials();
+    }
 }

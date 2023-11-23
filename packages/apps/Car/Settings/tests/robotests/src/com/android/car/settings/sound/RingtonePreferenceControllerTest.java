@@ -146,30 +146,4 @@ public class RingtonePreferenceControllerTest {
         assertThat(intent.getValue().getBooleanExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT,
                 false)).isTrue();
     }
-
-    @Test
-    public void testProcessActivityResult_wrongResult_defaultRingtoneNotSet() {
-        mController.processActivityResult(RingtonePreferenceController.REQUEST_CODE,
-                ACTIVITY_RESULT_CANCELLED, new Intent());
-        assertThat(ShadowRingtoneManager.getActualDefaultRingtoneUri(mContext,
-                TEST_RINGTONE_TYPE)).isNull();
-    }
-
-    @Test
-    public void testProcessActivityResult_correctResult_nullIntent_defaultRingtoneNotSet() {
-        mController.processActivityResult(RingtonePreferenceController.REQUEST_CODE,
-                ACTIVITY_RESULT_OK, null);
-        assertThat(ShadowRingtoneManager.getActualDefaultRingtoneUri(mContext,
-                TEST_RINGTONE_TYPE)).isNull();
-    }
-
-    @Test
-    public void testProcessActivityResult_correctResult_validIntent_defaultRingtoneSet() {
-        Intent data = new Intent();
-        data.putExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI, TEST_URI);
-        mController.processActivityResult(RingtonePreferenceController.REQUEST_CODE,
-                ACTIVITY_RESULT_OK, data);
-        assertThat(ShadowRingtoneManager.getActualDefaultRingtoneUri(mContext,
-                TEST_RINGTONE_TYPE)).isEqualTo(TEST_URI);
-    }
 }

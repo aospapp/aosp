@@ -16,6 +16,8 @@
 
 package com.android.car.settings.testutils;
 
+import static com.android.car.ui.core.CarUi.requireToolbar;
+
 import android.car.drivingstate.CarUxRestrictions;
 import android.os.Bundle;
 
@@ -26,6 +28,7 @@ import androidx.fragment.app.FragmentActivity;
 import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentHost;
 import com.android.car.settings.common.UxRestrictionsProvider;
+import com.android.car.ui.toolbar.ToolbarController;
 
 /**
  * Test activity used for testing {@code BaseFragment} instances.
@@ -65,6 +68,11 @@ public class BaseTestActivity extends FragmentActivity implements FragmentHost,
     @Override
     public void showBlockingMessage() {
         // no-op
+    }
+
+    @Override
+    public ToolbarController getToolbar() {
+        return requireToolbar(this);
     }
 
     @Override

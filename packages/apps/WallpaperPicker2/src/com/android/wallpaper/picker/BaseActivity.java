@@ -21,7 +21,7 @@ import androidx.appcompat.app.AppCompatActivity;
  * Base activity that keeps track of whether fragment transactions are safe to commit given the
  * activity's current lifecycle state.
  */
-public class BaseActivity extends AppCompatActivity {
+public class BaseActivity extends AppCompatActivity implements FragmentTransactionChecker {
 
     private boolean mIsSafeToCommitFragmentTransaction;
 
@@ -37,6 +37,7 @@ public class BaseActivity extends AppCompatActivity {
         mIsSafeToCommitFragmentTransaction = false;
     }
 
+    @Override
     public boolean isSafeToCommitFragmentTransaction() {
         return mIsSafeToCommitFragmentTransaction;
     }

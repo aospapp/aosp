@@ -38,6 +38,9 @@ public class BugInfoAdapter extends RecyclerView.Adapter<BugInfoAdapter.BugInfoV
     static final int BUTTON_TYPE_MOVE = 1;
     static final int BUTTON_TYPE_ADD_AUDIO = 2;
 
+     /** If bugreport TTL points go below this number, show a notice message. */
+    private static final int MIN_TTL_POINTS_TO_SHOW_NOTICE = 10;
+
     /** Provides a handler for click events*/
     interface ItemClickedListener {
         /**
@@ -65,6 +68,9 @@ public class BugInfoAdapter extends RecyclerView.Adapter<BugInfoAdapter.BugInfoV
         /** Message View */
         TextView mMessageView;
 
+        /** Expiration Notice View */
+        TextView mExpirationNoticeView;
+
         /** Move Button */
         Button mMoveButton;
 
@@ -78,7 +84,8 @@ public class BugInfoAdapter extends RecyclerView.Adapter<BugInfoAdapter.BugInfoV
             super(v);
             mTitleView = itemView.findViewById(R.id.bug_info_row_title);
             mStatusView = itemView.findViewById(R.id.bug_info_row_status);
-            mMessageView = itemView.findViewById(R.id.bug_info_row_message);
+            mMessageView = itemView.findViewById(R.id.bug_info_row_status_message);
+            mExpirationNoticeView = itemView.findViewById(R.id.bug_info_row_expiration_notice);
             mMoveButton = itemView.findViewById(R.id.bug_info_move_button);
             mUploadButton = itemView.findViewById(R.id.bug_info_upload_button);
             mAddAudioButton = itemView.findViewById(R.id.bug_info_add_audio_button);
@@ -115,6 +122,12 @@ public class BugInfoAdapter extends RecyclerView.Adapter<BugInfoAdapter.BugInfoV
             holder.mMessageView.setVisibility(View.GONE);
         } else {
             holder.mMessageView.setVisibility(View.VISIBLE);
+        }
+        if (bugreport.getTtlPoints() <= MIN_TTL_POINTS_TO_SHOW_NOTICE
+                && BugStorageUtils.canBugReportBeExpired(bugreport.getStatus())) {
+            holder.mExpirationNoticeView.setVisibility(View.VISIBLE);
+        } else {
+            holder.mExpirationNoticeView.setVisibility(View.GONE);
         }
         boolean enableUserActionButtons =
                 bugreport.getStatus() == Status.STATUS_PENDING_USER_ACTION.getValue()

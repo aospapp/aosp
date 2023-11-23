@@ -18,8 +18,8 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"Hozzáférés a letöltéskezelőhöz."</string>
     <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"Lehetővé teszi az alkalmazás számára a BluetoothShare kezelő elérését és használatát fájlátvitelre."</string>
-    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"Bluetooth-eszköz hozzáférésének engedélyezése."</string>
-    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"Lehetővé teszi az alkalmazás számára egy Bluetooth-eszköz ideiglenesen engedélyezését, amely így a felhasználó jóváhagyása nélkül küldhet fájlokat erre a készülékre."</string>
+    <string name="permlab_bluetoothAcceptlist" msgid="2647575807648622053">"Bluetooth-eszköz hozzáférésének engedélyezése"</string>
+    <string name="permdesc_bluetoothAcceptlist" msgid="2406423665674766442">"Lehetővé teszi az alkalmazás számára Bluetooth-eszközök ideiglenes engedélyezését, amelyek így a felhasználó jóváhagyása nélkül küldhetnek fájlokat erre az eszközre."</string>
     <string name="bt_share_picker_label" msgid="6268100924487046932">"Bluetooth"</string>
     <string name="unknown_device" msgid="9221903979877041009">"Ismeretlen eszköz"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"Ismeretlen"</string>
@@ -37,7 +37,7 @@
     <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"OK"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"Időtúllépés történt \"<xliff:g id="SENDER">%1$s</xliff:g>\" feladótól érkező fájl fogadása során"</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"Beérkező fájl"</string>
-    <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="SENDER">%1$s</xliff:g> készen áll a következő küldésére: <xliff:g id="FILE">%2$s</xliff:g>"</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="6237487486781004992">"<xliff:g id="SENDER">%1$s</xliff:g> fájlt szeretne küldeni: <xliff:g id="FILE">%2$s</xliff:g>"</string>
     <string name="notification_receiving" msgid="4674648179652543984">"Bluetooth megosztás: <xliff:g id="FILE">%1$s</xliff:g> fogadása"</string>
     <string name="notification_received" msgid="3324588019186687985">"Bluetooth megosztás: <xliff:g id="FILE">%1$s</xliff:g> fogadva"</string>
     <string name="notification_received_fail" msgid="3619350997285714746">"Bluetooth megosztás: <xliff:g id="FILE">%1$s</xliff:g> fájl fogadása nem sikerült"</string>
@@ -83,8 +83,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"Fájl küldése a következőnek: \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\""</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"<xliff:g id="NUMBER">%1$s</xliff:g> fájl küldése a következőnek: \"<xliff:g id="RECIPIENT">%2$s</xliff:g>\""</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"A fájl küldése \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" címzettnek leállítva"</string>
-    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"Nincs elég hely az USB-háttértárban a(z) „<xliff:g id="SENDER">%1$s</xliff:g>” által küldött fájl mentéséhez"</string>
-    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"Nincs elég hely az SD-kártyán a(z) „<xliff:g id="SENDER">%1$s</xliff:g>” által küldött fájl mentéséhez"</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="5354343190503952837">"Nincs elég hely az USB-háttértáron a fájl mentéséhez."</string>
+    <string name="bt_sm_2_1_default" msgid="2497541206648973852">"Nincs elég hely az SD-kártyán a fájl mentéséhez."</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"Szükséges tárterület: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"Túl sok kérés áll feldolgozás alatt. Próbálja újra később."</string>
     <string name="status_pending" msgid="2503691772030877944">"A fájlátvitel még nem kezdődött el."</string>

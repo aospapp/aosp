@@ -16,10 +16,13 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
            xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="cmas_presidential_level_alert">Extreme emergency alert</string>
-    <string name="cmas_extreme_alert">Emergency alert</string>
+    <string name="cmas_presidential_level_alert">Extreme Emergency Alert</string>
+    <string name="cmas_extreme_alert">Emergency Alert</string>
     <string name="cmas_extreme_immediate_observed_alert" translatable="false">@string/cmas_extreme_alert</string>
     <string name="cmas_extreme_immediate_likely_alert" translatable="false">@string/cmas_extreme_alert</string>
     <string name="cmas_severe_alert" translatable="false">@string/cmas_extreme_alert</string>
-    <string name="cmas_required_monthly_test">Test message</string>
+    <string name="cmas_required_monthly_test">Test Message</string>
+    <string name="enable_emergency_alerts_message_summary">Receive emergency alerts</string>
+    <string name="enable_cmas_test_alerts_title">Test messages</string>
+    <string name="enable_cmas_test_alerts_summary">Receive test messages</string>
 </resources>

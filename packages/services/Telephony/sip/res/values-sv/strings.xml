@@ -41,7 +41,7 @@
     <string name="registration_status_still_trying" msgid="7178623685868766282">"Försöker fortfarande ..."</string>
     <string name="registration_status_not_receiving" msgid="3873074208531938401">"Tar inte emot samtal."</string>
     <string name="registration_status_no_data" msgid="2987064560116584121">"Kontoregistreringen avbröts eftersom det inte finns någon internetanslutning."</string>
-    <string name="registration_status_no_wifi_data" msgid="685470618241482948">"Kontoregistreringen avbröts eftersom det inte finns någon Wi-Fi-anslutning."</string>
+    <string name="registration_status_no_wifi_data" msgid="685470618241482948">"Kontoregistreringen avbröts eftersom det inte finns någon wifi-anslutning."</string>
     <string name="registration_status_not_running" msgid="6236403137652262659">"Det gick inte att registrera kontot."</string>
     <string name="registration_status_done" msgid="6787397199273357721">"Tar emot samtal."</string>
     <string name="registration_status_failed_try_later" msgid="7855389184910312091">"Det gick inte att registrera kontot: (<xliff:g id="REGISTRATION_ERROR_MESSAGE">%s</xliff:g>); försöker igen senare"</string>
@@ -72,7 +72,7 @@
     <string name="empty_alert" msgid="3693655518612836718">"<xliff:g id="INPUT_FIELD_NAME">%s</xliff:g> är ett obligatoriskt fält som måste fyllas i."</string>
     <string name="not_a_valid_port" msgid="3664668836663491376">"Portnumret ska vara mellan 1000 och 65534."</string>
     <string name="no_internet_available" msgid="161720645084325479">"Om du vill ringa ett SIP-samtal kontrollerar du först att du är ansluten till internet."</string>
-    <string name="no_wifi_available" msgid="1179092018692306312">"Du måste vara ansluten till Wi-Fi för att kunna ringa SIP-samtal (du ändrar detta i inställningarna för Trådlöst och nätverk)."</string>
+    <string name="no_wifi_available" msgid="1179092018692306312">"Du måste vara ansluten till wifi för att kunna ringa SIP-samtal (du ändrar detta i inställningarna för Trådlöst och nätverk)."</string>
     <string name="no_voip" msgid="3366395789297981738">"SIP-samtal stöds inte"</string>
     <string name="sip_system_decide" msgid="197230378376326430">"Automatiskt"</string>
     <string name="sip_always_send_keepalive" msgid="4986533673960084769">"Skicka alltid"</string>

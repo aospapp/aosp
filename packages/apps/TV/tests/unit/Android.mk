@@ -21,6 +21,8 @@ LOCAL_JAVA_LIBRARIES := \
 LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/../common/res
 
 LOCAL_PACKAGE_NAME := TVUnitTests
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 
 LOCAL_INSTRUMENTATION_FOR := LiveTv
 
@@ -28,4 +30,3 @@ LOCAL_SDK_VERSION := system_current
 
 LOCAL_PROGUARD_ENABLED := disabled
 include $(BUILD_PACKAGE)
-

@@ -32,10 +32,10 @@ import android.provider.Settings;
 import android.service.autofill.AutofillService;
 import android.view.autofill.AutofillManager;
 
-import com.android.car.settings.common.ButtonPreference;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
 import com.android.car.settings.testutils.ShadowAutofillServiceInfo;
 import com.android.car.settings.testutils.ShadowSecureSettings;
+import com.android.car.ui.preference.CarUiTwoActionIconPreference;
 import com.android.settingslib.applications.DefaultAppInfo;
 
 import com.google.android.collect.Lists;
@@ -66,7 +66,7 @@ public class DefaultAutofillPickerEntryPreferenceControllerTest {
     private static final int TEST_USER_ID = 10;
 
     private Context mContext;
-    private ButtonPreference mButtonPreference;
+    private CarUiTwoActionIconPreference mButtonPreference;
     private DefaultAutofillPickerEntryPreferenceController mController;
     private PreferenceControllerTestHelper<DefaultAutofillPickerEntryPreferenceController>
             mControllerHelper;
@@ -79,7 +79,7 @@ public class DefaultAutofillPickerEntryPreferenceControllerTest {
         Shadows.shadowOf(RuntimeEnvironment.application).setSystemService(
                 Context.AUTOFILL_MANAGER_SERVICE, mAutofillManager);
         mContext = RuntimeEnvironment.application;
-        mButtonPreference = new ButtonPreference(mContext);
+        mButtonPreference = new CarUiTwoActionIconPreference(mContext);
         mControllerHelper = new PreferenceControllerTestHelper<>(mContext,
                 DefaultAutofillPickerEntryPreferenceController.class, mButtonPreference);
         mController = mControllerHelper.getController();
@@ -100,7 +100,7 @@ public class DefaultAutofillPickerEntryPreferenceControllerTest {
                 Context.AUTOFILL_MANAGER_SERVICE, null);
 
         // Reinitialize so that it uses the system service set in this test.
-        ButtonPreference preference = new ButtonPreference(mContext);
+        CarUiTwoActionIconPreference preference = new CarUiTwoActionIconPreference(mContext);
         PreferenceControllerTestHelper<DefaultAutofillPickerEntryPreferenceController> helper =
                 new PreferenceControllerTestHelper<>(mContext,
                         DefaultAutofillPickerEntryPreferenceController.class, preference);

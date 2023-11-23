@@ -14,10 +14,16 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_defaults {
     name: "CaptivePortalLoginDefaults",
     srcs: ["src/**/*.java"],
     sdk_version: "system_current",
+    min_sdk_version: "29",
+    target_sdk_version: "30",
     static_libs: [
         "androidx.annotation_annotation",
         "androidx.legacy_legacy-support-v4",
@@ -32,8 +38,6 @@ android_app {
     name: "CaptivePortalLogin",
     defaults: ["CaptivePortalLoginDefaults"],
     certificate: "networkstack",
-    min_sdk_version: "29",
-    target_sdk_version: "30",
     updatable: true,
 }
 

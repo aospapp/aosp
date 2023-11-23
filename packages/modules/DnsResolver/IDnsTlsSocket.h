@@ -40,6 +40,8 @@ class IDnsTlsSocket {
     // notified that the socket is closed.
     // Note that a true return value indicates successful sending, not receipt of a response.
     virtual bool query(uint16_t id, const netdutils::Slice query) = 0;
+
+    virtual bool startHandshake() = 0;
 };
 
 }  // end of namespace net

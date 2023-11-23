@@ -22,6 +22,7 @@ import android.animation.Animator;
 import android.app.ActionBar;
 import android.app.Activity;
 import android.app.Dialog;
+import android.app.KeyguardManager.KeyguardDismissCallback;
 import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
@@ -888,7 +889,7 @@ public class CameraActivity extends QuickActivity
                 @Override
                 public void onSessionQueued(final Uri uri) {
                     Log.v(TAG, "onSessionQueued: " + uri);
-                    if (!Storage.isSessionUri(uri)) {
+                    if (!Storage.instance().isSessionUri(uri)) {
                         return;
                     }
                     Optional<SessionItem> newData = SessionItem.create(getApplicationContext(), uri);
@@ -906,7 +907,7 @@ public class CameraActivity extends QuickActivity
                 @Override
                 public void onSessionDone(final Uri sessionUri) {
                     Log.v(TAG, "onSessionDone:" + sessionUri);
-                    Uri contentUri = Storage.getContentUriForSessionUri(sessionUri);
+                    Uri contentUri = Storage.instance().getContentUriForSessionUri(sessionUri);
                     if (contentUri == null) {
                         mDataAdapter.refresh(sessionUri);
                         return;
@@ -935,7 +936,7 @@ public class CameraActivity extends QuickActivity
                                 && mFilmstripController.isVisible(oldSessionData)) {
                             Log.v(TAG, "session item visible, setting transition placeholder");
                             newData.setSessionPlaceholderBitmap(
-                                    Storage.getPlaceholderForSession(sessionUri));
+                                    Storage.instance().getPlaceholderForSession(sessionUri));
                         }
                         mDataAdapter.updateItemAt(pos, newData);
                     }
@@ -1931,8 +1932,7 @@ public class CameraActivity extends QuickActivity
         }
 
         if (checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED &&
-                checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED &&
-                checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
+                checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
             mHasCriticalPermissions = true;
         } else {
             mHasCriticalPermissions = false;
@@ -2380,7 +2380,7 @@ public class CameraActivity extends QuickActivity
             @Override
             protected Long doInBackground(Void ... arg) {
                 synchronized (mStorageSpaceLock) {
-                    mStorageSpaceBytes = Storage.getAvailableSpace();
+                    mStorageSpaceBytes = Storage.instance().getAvailableSpace();
                     return mStorageSpaceBytes;
                 }
             }
@@ -2513,7 +2513,32 @@ public class CameraActivity extends QuickActivity
         UsageStatistics.instance().controlUsed(
                 eventprotos.ControlEvent.ControlType.OVERALL_SETTINGS);
         Intent intent = new Intent(this, CameraSettingsActivity.class);
-        startActivity(intent);
+        if (!isKeyguardLocked()) {
+            startActivity(intent);
+        } else {
+            /* Need to explicitly request keyguard dismissal for PIN/pattern
+             * entry to show up directly. */
+            requestDismissKeyguard(
+                /* requesting Activity: */ CameraActivity.this,
+                new KeyguardDismissCallback() {
+                    @Override
+                    public void onDismissSucceeded() {
+                        /* Need to use launchActivityByIntent() so that going
+                         * back from settings after unlock leads to main
+                         * activity instead of dismissing camera entirely. */
+                        launchActivityByIntent(intent);
+                    }
+                    @Override
+                    public void onDismissError() {
+                        Log.e(TAG, "Keyguard dismissal failed.");
+                    }
+                    @Override
+                    public void onDismissCancelled() {
+                        Log.d(TAG, "Keyguard dismissal canceled.");
+                    }
+                }
+            );
+        }
     }
 
     @Override
@@ -2977,21 +3002,7 @@ public class CameraActivity extends QuickActivity
             showProcessError(sessionManager.getErrorMessageId(contentUri));
         } else {
             filmstripBottomPanel.hideProgressError();
-            CaptureSession session = sessionManager.getSession(contentUri);
-
-            if (session != null) {
-                int sessionProgress = session.getProgress();
-
-                if (sessionProgress < 0) {
-                    hideSessionProgress();
-                } else {
-                    int progressMessageId = session.getProgressMessageId();
-                    showSessionProgress(progressMessageId);
-                    updateSessionProgress(sessionProgress);
-                }
-            } else {
-                hideSessionProgress();
-            }
+            hideSessionProgress();
         }
 
         /* View button */

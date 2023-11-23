@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.ipsec.ike.message;
+package com.android.internal.net.ipsec.test.ike.message;
 
-import static com.android.internal.net.ipsec.ike.message.IkeMessage.DECODE_STATUS_UNPROTECTED_ERROR;
+import static com.android.internal.net.ipsec.test.ike.message.IkeMessage.DECODE_STATUS_UNPROTECTED_ERROR;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -24,12 +24,12 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 
-import android.net.ipsec.ike.exceptions.IkeProtocolException;
+import android.net.ipsec.test.ike.exceptions.IkeProtocolException;
 import android.util.Pair;
 
 import com.android.internal.net.TestUtils;
-import com.android.internal.net.ipsec.ike.message.IkeMessage.DecodeResult;
-import com.android.internal.net.ipsec.ike.message.IkeMessage.DecodeResultError;
+import com.android.internal.net.ipsec.test.ike.message.IkeMessage.DecodeResult;
+import com.android.internal.net.ipsec.test.ike.message.IkeMessage.DecodeResultError;
 
 import java.nio.ByteBuffer;
 

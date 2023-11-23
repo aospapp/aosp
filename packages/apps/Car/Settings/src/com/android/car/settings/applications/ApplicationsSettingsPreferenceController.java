@@ -18,14 +18,11 @@ package com.android.car.settings.applications;
 
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
-import android.content.Intent;
 import android.graphics.drawable.Drawable;
-import android.provider.Settings;
 
 import androidx.preference.Preference;
 import androidx.preference.PreferenceGroup;
 
-import com.android.car.settings.common.CarSettingActivities;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
 import com.android.car.ui.preference.CarUiPreference;
@@ -66,10 +63,8 @@ public class ApplicationsSettingsPreferenceController extends
         preference.setIcon(icon);
         preference.setKey(packageName);
         preference.setOnPreferenceClickListener(p -> {
-            Intent intent = new Intent(getContext(),
-                    CarSettingActivities.ApplicationsDetailsActivity.class);
-            intent.putExtra(Settings.EXTRA_APP_PACKAGE, packageName);
-            getContext().startActivity(intent);
+            getFragmentController().launchFragment(
+                    ApplicationDetailsFragment.getInstance(packageName));
             return true;
         });
         return preference;

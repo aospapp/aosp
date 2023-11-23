@@ -17,13 +17,16 @@
 package com.android.managedprovisioning.parser;
 
 import static android.nfc.NfcAdapter.ACTION_NDEF_DISCOVERED;
+
 import static com.android.internal.util.Preconditions.checkNotNull;
 
 import android.content.Context;
 import android.content.Intent;
+
 import androidx.annotation.VisibleForTesting;
 
 import com.android.managedprovisioning.common.IllegalProvisioningArgumentException;
+import com.android.managedprovisioning.common.SettingsFacade;
 import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.ProvisioningParams;
 
@@ -36,16 +39,21 @@ import com.android.managedprovisioning.model.ProvisioningParams;
 public class MessageParser implements ProvisioningDataParser {
 
     private final Utils mUtils;
+    private final ParserUtils mParserUtils;
+    private final SettingsFacade mSettingsFacade;
     private final Context mContext;
 
     public MessageParser(Context context) {
-        this(context, new Utils());
+        this(context, new Utils(), new ParserUtils(), new SettingsFacade());
     }
 
     @VisibleForTesting
-    MessageParser(Context context, Utils utils) {
+    MessageParser(Context context, Utils utils, ParserUtils parserUtils,
+            SettingsFacade settingsFacade) {
         mContext = checkNotNull(context);
         mUtils = checkNotNull(utils);
+        mParserUtils = checkNotNull(parserUtils);
+        mSettingsFacade = checkNotNull(settingsFacade);
     }
 
     @Override
@@ -57,9 +65,10 @@ public class MessageParser implements ProvisioningDataParser {
     @VisibleForTesting
     ProvisioningDataParser getParser(Intent provisioningIntent) {
         if (ACTION_NDEF_DISCOVERED.equals(provisioningIntent.getAction())) {
-            return new PropertiesProvisioningDataParser(mContext, mUtils);
+            return new PropertiesProvisioningDataParser(mContext, mParserUtils, mSettingsFacade);
         } else {
-            return new ExtrasProvisioningDataParser(mContext, mUtils);
+            return new ExtrasProvisioningDataParser(
+                    mContext, mUtils, mParserUtils, mSettingsFacade);
         }
     }
 }

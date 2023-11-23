@@ -57,6 +57,16 @@ public class CollapsibleCategory extends PreferenceCategory {
         return super.getPreferenceCount();
     }
 
+    private int getVisiblePreferenceCount() {
+        int count = 0;
+        for (int i = 0; i < super.getPreferenceCount(); i++) {
+            if (getPreference(i).isVisible()) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     /**
      * Only show the collapse preference if the list would be longer than the collapsed list
      * plus the collapse preference itself.
@@ -64,7 +74,7 @@ public class CollapsibleCategory extends PreferenceCategory {
      * @return true if collapse pref should be shown
      */
     public boolean shouldShowCollapsePref() {
-        return super.getPreferenceCount() >= COLLAPSED_ITEM_COUNT + 1;
+        return getVisiblePreferenceCount() >= COLLAPSED_ITEM_COUNT + 1;
     }
 
     public boolean isCollapsed() {

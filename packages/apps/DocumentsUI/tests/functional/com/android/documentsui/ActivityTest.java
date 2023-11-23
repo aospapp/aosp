@@ -32,6 +32,7 @@ import android.support.test.uiautomator.Configurator;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObjectNotFoundException;
 import android.test.ActivityInstrumentationTestCase2;
+import android.view.KeyEvent;
 import android.view.MotionEvent;
 
 import com.android.documentsui.base.Features;
@@ -125,6 +126,8 @@ public abstract class ActivityTest<T extends Activity> extends ActivityInstrumen
                 getTestingProviderAuthority());
 
         device.setOrientationNatural();
+        device.pressKeyCode(KeyEvent.KEYCODE_WAKEUP);
+        device.pressKeyCode(KeyEvent.KEYCODE_MENU);
         setupTestingRoots();
 
         launchActivity();

@@ -67,6 +67,7 @@ public class CarrierXmlParser {
 
     // To define feature's item name in xml
     public static final String FEATURE_CALL_FORWARDING = "callforwarding";
+    public static final String FEATURE_CALL_WAITING = "callwaiting";
     public static final String FEATURE_CALLER_ID = "callerid";
 
     // COMMAND_NAME is xml's command name.

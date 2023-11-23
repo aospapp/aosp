@@ -27,8 +27,6 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteException;
 import android.media.MediaMetadataRetriever;
-import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
@@ -1113,51 +1111,6 @@ public class MmsUtils {
         return subject;
     }
 
-    // return a semicolon separated list of phone numbers from a smsto: uri.
-    public static String getSmsRecipients(final Uri uri) {
-        String recipients = uri.getSchemeSpecificPart();
-        final int pos = recipients.indexOf('?');
-        if (pos != -1) {
-            recipients = recipients.substring(0, pos);
-        }
-        recipients = replaceUnicodeDigits(recipients).replace(',', ';');
-        return recipients;
-    }
-
-    // This function was lifted from Telephony.PhoneNumberUtils because it was @hide
-    /**
-     * Replace arabic/unicode digits with decimal digits.
-     * @param number
-     *            the number to be normalized.
-     * @return the replaced number.
-     */
-    private static String replaceUnicodeDigits(final String number) {
-        final StringBuilder normalizedDigits = new StringBuilder(number.length());
-        for (final char c : number.toCharArray()) {
-            final int digit = Character.digit(c, 10);
-            if (digit != -1) {
-                normalizedDigits.append(digit);
-            } else {
-                normalizedDigits.append(c);
-            }
-        }
-        return normalizedDigits.toString();
-    }
-
-    /**
-     * @return Whether the data roaming is enabled
-     */
-    private static boolean isDataRoamingEnabled() {
-        boolean dataRoamingEnabled = false;
-        final ContentResolver cr = Factory.get().getApplicationContext().getContentResolver();
-        if (OsUtil.isAtLeastJB_MR1()) {
-            dataRoamingEnabled = (Settings.Global.getInt(cr, Settings.Global.DATA_ROAMING, 0) != 0);
-        } else {
-            dataRoamingEnabled = (Settings.System.getInt(cr, Settings.System.DATA_ROAMING, 0) != 0);
-        }
-        return dataRoamingEnabled;
-    }
-
     /**
      * @return Whether to auto retrieve MMS
      */
@@ -1203,7 +1156,9 @@ public class MmsUtils {
     public static SmsMessage getSmsMessageFromDeliveryReport(final Intent intent) {
         final byte[] pdu = intent.getByteArrayExtra("pdu");
         final String format = intent.getStringExtra("format");
-        return SmsMessage.createFromPdu(pdu, format);
+        return OsUtil.isAtLeastM()
+                ? SmsMessage.createFromPdu(pdu, format)
+                : SmsMessage.createFromPdu(pdu);
     }
 
     /**
@@ -1544,7 +1499,7 @@ public class MmsUtils {
                 cursor = SqliteWrapper.query(
                         context,
                         resolver,
-                        Telephony.Carriers.SIM_APN_URI,
+                        Telephony.Carriers.CONTENT_URI,
                         TEST_CARRIERS_PROJECTION,
                         null/*selection*/,
                         null/*selectionArgs*/,
@@ -1927,10 +1882,9 @@ public class MmsUtils {
             final long expiry, final RetrieveConf retrieveConf) {
         final byte[] notificationTransactionId = stringToBytes(transactionId, "UTF-8");
         Uri messageUri = null;
-        int status = MMS_REQUEST_MANUAL_RETRY;
-        int retrieveStatus = PDU_HEADER_VALUE_UNDEFINED;
+        final int status;
+        final int retrieveStatus = retrieveConf.getRetrieveStatus();
 
-        retrieveStatus = retrieveConf.getRetrieveStatus();
         if (retrieveStatus == PduHeaders.RETRIEVE_STATUS_OK) {
             status = MMS_REQUEST_SUCCEEDED;
         } else if (retrieveStatus >= PduHeaders.RETRIEVE_STATUS_ERROR_TRANSIENT_FAILURE &&
@@ -1965,17 +1919,9 @@ public class MmsUtils {
             final Uri inboxUri = MmsUtils.insertReceivedMmsMessage(context, retrieveConf, subId,
                     subPhoneNumber, receivedTimestampInSeconds, expiry, transactionId);
             messageUri = ContentUris.withAppendedId(Mms.CONTENT_URI, ContentUris.parseId(inboxUri));
-        } else if (status == MMS_REQUEST_AUTO_RETRY) {
-            // For a retry do nothing
-        } else if (status == MMS_REQUEST_MANUAL_RETRY && autoDownload) {
-            // Failure from autodownload - just treat like manual download
-            sendNotifyResponseForMmsDownload(
-                    context,
-                    subId,
-                    notificationTransactionId,
-                    contentLocation,
-                    PduHeaders.STATUS_DEFERRED);
         }
+        // Do nothing for MMS_REQUEST_AUTO_RETRY and MMS_REQUEST_NO_RETRY.
+
         return new StatusPlusUri(status, retrieveStatus, messageUri);
     }
 
@@ -2093,16 +2039,6 @@ public class MmsUtils {
         return !phoneUtils.isAirplaneModeOn();
     }
 
-    public static boolean isMobileDataEnabled(final int subId) {
-        final PhoneUtils phoneUtils = PhoneUtils.get(subId);
-        return phoneUtils.isMobileDataEnabled();
-    }
-
-    public static boolean isAirplaneModeOn(final int subId) {
-        final PhoneUtils phoneUtils = PhoneUtils.get(subId);
-        return phoneUtils.isAirplaneModeOn();
-    }
-
     public static StatusPlusUri sendMmsMessage(final Context context, final int subId,
             final Uri messageUri, final Bundle extras) {
         int status = MMS_REQUEST_MANUAL_RETRY;
@@ -2145,7 +2081,7 @@ public class MmsUtils {
 
     public static StatusPlusUri updateSentMmsMessageStatus(final Context context,
             final Uri messageUri, final SendConf sendConf) {
-        int status = MMS_REQUEST_MANUAL_RETRY;
+        final int status;
         final int respStatus = sendConf.getResponseStatus();
 
         final ContentValues values = new ContentValues(2);
@@ -2158,12 +2094,16 @@ public class MmsUtils {
                 messageUri, values, null, null);
         if (respStatus == PduHeaders.RESPONSE_STATUS_OK) {
             status = MMS_REQUEST_SUCCEEDED;
-        } else if (respStatus == PduHeaders.RESPONSE_STATUS_ERROR_TRANSIENT_FAILURE ||
-                respStatus == PduHeaders.RESPONSE_STATUS_ERROR_TRANSIENT_NETWORK_PROBLEM ||
-                respStatus == PduHeaders.RESPONSE_STATUS_ERROR_TRANSIENT_PARTIAL_SUCCESS) {
+        } else if (respStatus >= PduHeaders.RESPONSE_STATUS_ERROR_TRANSIENT_FAILURE
+                && respStatus < PduHeaders.RESPONSE_STATUS_ERROR_PERMANENT_FAILURE) {
+            // Only RESPONSE_STATUS_ERROR_TRANSIENT_FAILURE and RESPONSE_STATUS_ERROR_TRANSIENT
+            // _NETWORK_PROBLEM are used in the M-Send.conf. But for others transient failures
+            // including reserved values for future purposes, it should work same as transient
+            // failure always. (OMA-MMS-ENC-V1_2, 7.2.37. X-Mms-Response-Status field)
             status = MMS_REQUEST_AUTO_RETRY;
         } else {
             // else permanent failure
+            status = MMS_REQUEST_MANUAL_RETRY;
             LogUtil.e(TAG, "MmsUtils: failed to send message; respStatus = "
                     + String.format("0x%X", respStatus));
         }
@@ -2659,26 +2599,6 @@ public class MmsUtils {
                 break;
         }
         return stringResId;
-    }
-
-    /**
-     * The absence of a connection type.
-     */
-    public static final int TYPE_NONE = -1;
-
-    public static int getConnectivityEventNetworkType(final Context context, final Intent intent) {
-        final ConnectivityManager connMgr = (ConnectivityManager)
-                context.getSystemService(Context.CONNECTIVITY_SERVICE);
-        if (OsUtil.isAtLeastJB_MR1()) {
-            return intent.getIntExtra(ConnectivityManager.EXTRA_NETWORK_TYPE, TYPE_NONE);
-        } else {
-            final NetworkInfo info = (NetworkInfo) intent.getParcelableExtra(
-                    ConnectivityManager.EXTRA_NETWORK_INFO);
-            if (info != null) {
-                return info.getType();
-            }
-        }
-        return TYPE_NONE;
     }
 
     /**

@@ -141,10 +141,10 @@ int dn_skipname(const uint8_t* ptr, const uint8_t* eom) {
 #define domainchar(c) ((c) > 0x20 && (c) < 0x7f)
 
 bool res_hnok(const char* dn) {
-    int pch = PERIOD, ch = *dn++;
+    char pch = PERIOD, ch = *dn++;
 
     while (ch != '\0') {
-        int nch = *dn++;
+        char nch = *dn++;
 
         if (periodchar(ch)) {
             ;
@@ -163,7 +163,7 @@ bool res_hnok(const char* dn) {
  * recommendations.
  */
 bool res_dnok(const char* dn) {
-    int ch;
+    char ch;
 
     while ((ch = *dn++) != '\0')
         if (!domainchar(ch)) return false;

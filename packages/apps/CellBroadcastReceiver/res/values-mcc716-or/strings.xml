@@ -21,4 +21,5 @@
     <string name="cmas_required_monthly_test" msgid="9061179556831144678">"ଜରୁରୀକାଳୀନ ଆଲର୍ଟ: ପରୀକ୍ଷାମୂଳକ ମେସେଜ୍"</string>
     <string name="cmas_exercise_alert" msgid="3061507852301643814">"ଜରୁରୀକାଳୀନ ଆଲର୍ଟ: ବ୍ୟାୟାମ/ଡ୍ରିଲ୍ ସମ୍ବନ୍ଧିତ ମେସେଜ୍"</string>
     <string name="pws_other_message_identifiers" msgid="4992476982074198144">"ଜରୁରୀକାଳୀନ ଆଲର୍ଟ: ଟେକ୍ସଟ୍ ମେସେଜ୍"</string>
+    <string name="button_dismiss" msgid="5823921161712171097">"ଲୁଚାନ୍ତୁ"</string>
 </resources>

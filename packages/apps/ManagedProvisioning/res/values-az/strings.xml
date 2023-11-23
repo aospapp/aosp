@@ -28,26 +28,30 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Aşağıdakı app sizin cihaz idarə edəcək:"</string>
     <string name="next" msgid="1004321437324424398">"Növbəti"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"İş profili quraşdırılır..."</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Şəbəkə fəaliyyəti, cihaz məkanı, zəng tarixçəsi və kontakt axtarış tarixçəsi daxil olmaqla bu profil ilə əlaqədar ayarlar, korporativ giriş, tətbiqlər, icazələr və dataya nəzarət edə və idarə edə bilər.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Təşkilatın məxfilik siyasətləri də daxil olmaqla ətraflı məlumat əldə etmək üçün IT admini ilə əlaqə saxlayın."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"IT admini cihaz məkanı, zəng tarixçəsi və kontakt axtarış tarixçəsi daxil olmaqla bu cihaz ilə əlaqədar ayarlar, korporativ giriş, tətbiqlər, icazələr və dataya nəzarət edə və idarə edə bilər.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Təşkilatın məxfilik siyasəti də daxil olmaqla ətraflı məlumat əldə etmək üçün IT admini ilə əlaqə saxlayın."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Şəbəkə fəaliyyəti, cihaz məkanı, zəng tarixçəsi və kontakt axtarış tarixçəsi daxil olmaqla bu profil ilə əlaqədar ayarlar, korporativ giriş, tətbiqlər, icazələr və dataya nəzarət edə və idarə edə bilər.<xliff:g id="LINE_BREAK">
+
+</xliff:g>Təşkilatın məxfilik siyasətləri də daxil olmaqla ətraflı məlumat əldə etmək üçün IT admini ilə əlaqə saxlayın."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"IT admini cihaz məkanı, zəng tarixçəsi və kontakt axtarış tarixçəsi daxil olmaqla bu cihaz ilə əlaqədar ayarlar, korporativ giriş, tətbiqlər, icazələr və dataya nəzarət edə və idarə edə bilər.<xliff:g id="LINE_BREAK">
+
+</xliff:g>Təşkilatın məxfilik siyasəti də daxil olmaqla ətraflı məlumat əldə etmək üçün IT admini ilə əlaqə saxlayın."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Oğurluğa qarşı qorunma xüsusiyyətlərini istifadə etmək üçün, cihazınızda parol ilə qorunan ekran kilidi olmalıdır."</string>
     <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"Təşkilatın məxfilik siyasətləri daxil olmaq ətraflı məlumat əldə etmək üçün IT admini ilə əlaqə saxlayın."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Ətraflı öyrənin"</string>
-    <string name="cancel_setup" msgid="2949928239276274745">"Ləğv et"</string>
+    <string name="cancel_setup" msgid="2949928239276274745">"Ləğv edin"</string>
     <string name="ok_setup" msgid="4593707675416137504">"Ok"</string>
     <string name="user_consent_msg" msgid="8820951802130353584">"Razıyam"</string>
     <string name="url_error" msgid="5958494012986243186">"Bu linki göstərmək olmur."</string>
+    <string name="navigation_button_description" msgid="6106309408994461239">"Yuxarı keçin"</string>
     <string name="terms" msgid="8295436105384703903">"Şərtlər"</string>
     <string name="work_profile_info" msgid="5433388376309583996">"İş profili məlumatı"</string>
     <string name="managed_device_info" msgid="1529447646526616811">"İdarə edilən cihaz məlumatı"</string>
     <string name="default_managed_profile_name" msgid="5370257687074907055">"İş profili"</string>
-    <string name="default_first_meat_user_name" msgid="7540515892748490540">"Əsas istifadəçi"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"Mövcud profil silinsin?"</string>
     <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"Artıq iş profiliniz var. O aşağıdakı tətbiqin istifadəsi ilə idarə olunur:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"Davam etməmişdən əvvəl "<a href="#read_this_link">"bunu oxuyun"</a>"."</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"Davam etsəniz, bu profildə bütün tətbiqlər və data silinəcək."</string>
     <string name="delete_profile" msgid="2299218578684663459">"Sil"</string>
-    <string name="cancel_delete_profile" msgid="5155447537894046036">"Ləğv et"</string>
+    <string name="cancel_delete_profile" msgid="5155447537894046036">"Ləğv edin"</string>
     <string name="encrypt_device_text_for_profile_owner_setup" msgid="7828515754696057140">"İş profilini quraşdırmaq üçün əvvəlcə cihazı şifrələməli olacaqsınız. Bu proses bir az vaxt ala bilər."</string>
     <string name="encrypt_device_text_for_device_owner_setup" msgid="5194673142404735676">"Bu cihazı quraşdırmaq üçün əvvəlcə onu şifrələməli olacaqsınız. Bu proses bir az vaxt ala bilər."</string>
     <string name="encrypt_this_device_question" msgid="8719916619866892601">"Cihaz şifrələnsin?"</string>
@@ -60,20 +64,11 @@
     <string name="work_profile_cant_be_added_contact_admin" msgid="5393019630297157418">"İş profilini bu cihaza əlavə etmək mümkün deyil. Sualınız varsa, IT admini ilə əlaqə saxlayın."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"Cihaz başladıcısını dəyişin"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"Bu işəsalma tətbiqi iş profili tərəfindən istifadə edilə bilməz"</string>
-    <string name="cancel_provisioning" msgid="3408069559452653724">"Ləğv et"</string>
+    <string name="cancel_provisioning" msgid="3408069559452653724">"Ləğv edin"</string>
     <string name="pick_launcher" msgid="4257084827403983845">"Ok"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"İstifadəçi Ayarı Tamamlanmayıb"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"İş cihazı istifadəçisi"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"İş cihazı quraşdırılır…"</string>
-    <string name="progress_data_process" msgid="1707745321954672971">"Quraşdırma datası prosesdən keçirilir..."</string>
-    <string name="progress_connect_to_wifi" msgid="472251154628863539">"Wi-Fi\'a qoşulur..."</string>
-    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"Mobil şəbəkəyə qoşulur…"</string>
-    <string name="progress_download" msgid="3522436271691064624">"Admin tətbiqi endirilir..."</string>
-    <string name="progress_install" msgid="2258045670385866183">"Admin tətbiqi quraşdırılır..."</string>
-    <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"Tələb olunmayan sistem tətbiqləri silinir..."</string>
-    <string name="progress_finishing_touches" msgid="9037776404089697198">"Tamamlama toxunuşları edilir..."</string>
-    <string name="progress_set_owner" msgid="8214062820093757961">"Cihaz sahibi ayarlanır..."</string>
-    <string name="progress_initialize" msgid="1104643492713424939">"Cihaz sıfırlanır..."</string>
     <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"Bu cihaz quraşdırma üçün tələb edilən şifrələməyə icazə vermir. Yardım üçün IT admini ilə əlaqə saxlayın."</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"Quraşdırma dayandırılsın və cihaz sıfırlansın?"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"Bu cihazın sıfırlanmasına və ilk ekrana qayıtmağınıza səbəb olacaq"</string>
@@ -157,16 +152,15 @@
     <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> və <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
-    <string name="take_a_few_minutes" msgid="6282806501305322838">"Bu, bir neçə dəqiqə çəkə bilər"</string>
+    <string name="take_a_few_minutes" msgid="6282806501305322838">"Bir az gözləyin"</string>
     <string name="work_profile_description" msgid="8524116010729569213">"İş tətbiqləriniz bu profildə saxlanılacaq və təşkilat tərəfindən idarə ediləcək"</string>
     <string name="device_owner_description" msgid="168013145812679664">"Təşkilatınız bu cihazı təhlükəsiz saxlayaraq idarə edəcək"</string>
     <string name="setup_provisioning_header" msgid="4282483198266806271">"İş cihazının quraşdırılması hazırlanır…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Admin tətbiqi quraşdırılır"</string>
-    <string name="set_up_everything_else" msgid="4407706086957916501">"Digərlərini quraşdırın"</string>
-    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"Cihazınızdan daha çox faydalanmaq üçün şəxsi hesab əlavə edin"</string>
-    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"İş profiliniz hazırdır, tətbiqlər və məzmuna giriş üçün şəxsi Google Hesabı da əlavə edə bilərsiniz."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"Bu cihaz təşkilatınıza məxsusdur"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"Aşağıdakı tətbiqdən bu telefonu idarə etmək və nəzarət etmək üçün istifadə ediləcək"</string>
+    <string name="account_management_disclaimer_header" msgid="8013083414694316564">"Hesabınız idarə edilir"</string>
+    <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"İT admininiz təhlükəsizlik siyasətlərini tətbiq etmək üçün mobil cihaz idarəetməsindən istifadə edir"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Cihaz iş quraşdırması üçün hazırlanır…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"İş profili quraşdırın"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"İş tətbiqləri iş profilinizdə saxlanılır"</string>
@@ -176,10 +170,18 @@
     <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"İş tətbiqləri iş profilində saxlanılır. İşiniz bitdikdə iş tətbiqlərinə fasilə verə bilərsiz. İş profilinizdəki datanı IT admininiz görə bilir."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"İş cihazı quraşdırın"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"İş tətbiqlərini əlinizin altında saxlayın"</string>
-    <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Bu cihaz şəxsidir"</string>
+    <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Bu cihaz şəxsi deyil"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"IT admini bu cihazda data və fəaliyyətinizə baxa bilər."</string>
+    <string name="fully_managed_device_provisioning_permissions_header" msgid="2852101532084770993">"Fəaliyyət və datanız"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_header" msgid="4419374850927705136">"Tətbiq icazələri"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8328298923037335068">"İT admini mikrofon, kamera və məkan icazələri kimi bu cihazdakı tətbiqlər üçün icazələr təyin edə bilər."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Cihaz quraşdırılır..."</string>
-    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"İş tətbiqlərinə asanlıqla daxil olmaq üçün bu cihazdan istifadə edin. Bu cihaz şəxsi deyil, buna görə də IT admini data və fəaliyyətinizə baxa bilər. Ətraflı məlumat üçün IT admini ilə əlaqə saxlayın."</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1090645190066781456">"İş tətbiqlərinə asanlıqla daxil olmaq üçün bu cihazdan istifadə edin. Bu cihaz şəxsi deyil, buna görə də IT admini data və fəaliyyətinizə baxa bilər."</string>
+    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"İş tətbiqlərinə asanlıqla daxil olmaq üçün bu cihazdan istifadə edin. Bu cihaz şəxsi deyil, buna görə də İT admini fəaliyyət və datanıza baxa bilər. İT admini həmçinin mikrofon, kamera və məkan icazələri kimi bu cihazdakı tətbiqlər üçün icazələr təyin edə bilər."</string>
+    <string name="fully_managed_device_provisioning_return_device_title" msgid="8500829014794276683">"Bu cihazı İT admininizə qaytarın"</string>
+    <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"Əvvəlki ekrana qayıdın və ya bu cihazı sıfırlayın və İT admininizə qaytarın."</string>
+    <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"Ayarlamanı ləğv edin"</string>
+    <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"Cihazı sıfırlayın və qaytarın"</string>
     <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"İş tətbiqləri iş profilində qalır və İT admini onları idarə edir"</string>
     <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Şəxsi tətbiqlər iş tətbiqlərindən ayrı və gizli olur"</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"IT admini bu cihazı idarə və bəzi tətbiqləri bloklaya bilər"</string>
@@ -187,10 +189,9 @@
     <string name="just_a_sec" msgid="6244676028626237220">"Bir saniyə…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Məxfilik xatırlatması"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"IT admini bu cihazda data və fəaliyyətinizə baxa bilər"</string>
-    <string name="device_provisioning_finished" msgid="3981783240592092906">"Cihaz hazırdır!"</string>
-    <string name="done" msgid="7755227776955952318">"Hazırdır"</string>
-    <string name="financed_device_screen_header" msgid="7890706080917322376">"Bu cihaz kredit əsasında <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> adlı kreditordan alınıb"</string>
-    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> bunu edə bilər:"</string>
-    <string name="install_creditor_app_description" msgid="6159751782301108878">"Bu cihaz üçün ödəniş etmək üçün <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> tətbiqini quraşdırın"</string>
-    <string name="lock_device_description" msgid="2940362560732989166">"Ödəniş etmirsinizsə, bu cihaza girişi məhdudlaşdırın"</string>
+    <string name="financed_device_screen_header" msgid="6875169548352717124">"Bu cihaz <xliff:g id="CREDITOR_NAME">%s</xliff:g> tərəfindən təmin edilib"</string>
+    <string name="financed_make_payments_subheader_title" msgid="7880606710044254210">"Bu cihaz üçün ödənişlər edin"</string>
+    <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"Bu cihaz üçün ödəniş etmək üçün <xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> tətbiqini quraşdıra bilər."</string>
+    <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Bu cihaz məhdudlaşdırıla bilər"</string>
+    <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> ödəniş etməsəniz, bu cihaza girişi məhdudlaşdıra bilər."</string>
 </resources>

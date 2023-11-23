@@ -25,7 +25,9 @@ import android.util.Log;
  * Handles device boot intents.
  *
  * <ul>
- *     <li>Starts {@link UploadJob}</li>
+ *     <li>Schedules {@link UploadJob}</li>
+ *     <li>Schedules {@link ExpireOldBugReportsJob}</li>
+ *     <li>Starts {@link TtlPointsDecremental}</li>
  * </ul>
  */
 public class StartUpBootReceiver extends BroadcastReceiver {
@@ -36,17 +38,32 @@ public class StartUpBootReceiver extends BroadcastReceiver {
         if (!Config.isBugReportEnabled()) {
             return;
         }
+
         // Run it only once for the system user (u0) and ignore for other users.
         UserManager userManager = (UserManager) context.getSystemService(Context.USER_SERVICE);
         if (!userManager.isSystemUser()) {
             return;
         }
-
-        if (Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())) {
-            Log.d(TAG, "StartUpBootReceiver BOOT_COMPLETED");
-            // We removed "persisted" from UploadJob scheduling, instead we will manually schedule
-            // the job on boot, because "persisted" seems more fragile.
-            JobSchedulingUtils.scheduleUploadJob(context);
+        if (!Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())) {
+            return;
         }
+
+        Log.d(TAG, "StartUpBootReceiver BOOT_COMPLETED");
+
+        // We removed "persisted" from UploadJob scheduling, instead we will manually schedule
+        // the job on boot, because "persisted" seems more fragile.
+        JobSchedulingUtils.scheduleUploadJob(context);
+
+        // We schedule ExpireOldBugReportsJob after every boot, so it can be run in garage mode
+        // during shutdown.
+        JobSchedulingUtils.scheduleExpireOldBugReportsJobInGarageMode(context);
+
+        // Use goAsync() to allow TtlPointsDecremental to complete.
+        startTtlPointsDecremental(context, goAsync());
+    }
+
+    /** Start {@link TtlPointsDecremental} in a separate thread. */
+    private void startTtlPointsDecremental(Context context, PendingResult bootReceiverResult) {
+        new Thread(new TtlPointsDecremental(context, bootReceiverResult::finish)).start();
     }
 }

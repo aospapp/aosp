@@ -68,6 +68,8 @@ public class BuiltInPrintService extends PrintService {
             BuiltInPrintService.class.getCanonicalName() + ".CERTIFICATE_REJECT";
     public static final String ACTION_P2P_PERMISSION_CANCEL =
             BuiltInPrintService.class.getCanonicalName() + ".P2P_PERMISSION_CANCEL";
+    public static final String ACTION_P2P_DISABLE =
+            BuiltInPrintService.class.getCanonicalName() + ".ACTION_P2P_DISABLE";
     private static final String EXTRA_CERTIFICATE = "certificate";
     private static final String EXTRA_PRINTER_ID = "printer-id";
     private static final String EXTRA_PRINTER_UUID = "printer-uuid";
@@ -315,13 +317,13 @@ public class BuiltInPrintService extends PrintService {
                 .setAction(ACTION_CERTIFICATE_REJECT)
                 .putExtra(EXTRA_PRINTER_ID, printerId);
         PendingIntent pendingRejectIntent = PendingIntent.getService(this, CERTIFICATE_REQUEST_ID,
-                rejectIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+                rejectIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         Notification.Action rejectAction = new Notification.Action.Builder(
                 Icon.createWithResource(this, R.drawable.ic_printservice),
                 getString(R.string.reject), pendingRejectIntent).build();
 
         PendingIntent deleteIntent = PendingIntent.getService(this, CERTIFICATE_REQUEST_ID,
-                rejectIntent, 0);
+                rejectIntent,  PendingIntent.FLAG_IMMUTABLE);
 
         Intent acceptIntent = new Intent(this, BuiltInPrintService.class)
                 .setAction(ACTION_CERTIFICATE_ACCEPT)
@@ -331,7 +333,7 @@ public class BuiltInPrintService extends PrintService {
             acceptIntent.putExtra(EXTRA_CERTIFICATE, certificate);
         }
         PendingIntent pendingAcceptIntent = PendingIntent.getService(this, CERTIFICATE_REQUEST_ID,
-                acceptIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+                acceptIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         Notification.Action acceptAction = new Notification.Action.Builder(
                 Icon.createWithResource(this, R.drawable.ic_printservice),
                 getString(R.string.accept), pendingAcceptIntent).build();
@@ -377,6 +379,8 @@ public class BuiltInPrintService extends PrintService {
         } else if (ACTION_P2P_PERMISSION_CANCEL.equals(intent.getAction())) {
             // Inform p2pPermissionManager the user canceled the notification (non-permanent)
             mP2pPermissionManager.applyPermissionChange(false);
+        } else if (ACTION_P2P_DISABLE.equals(intent.getAction())) {
+            mP2pPermissionManager.applyPermissionChange(true);
         }
         return START_NOT_STICKY;
     }

@@ -12,4 +12,5 @@
     <int name="maxMessageSize" value="1228800"/>
     <int name="maxImageWidth" value="4320"/>
     <string name="httpParams">X-MDN: ##LINE1##</string>
+    <boolean name="inflate_signal_strength_bool" value="true" />
 </carrier_config>

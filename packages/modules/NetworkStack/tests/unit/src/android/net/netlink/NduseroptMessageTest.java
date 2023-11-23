@@ -18,6 +18,7 @@ package android.net.netlink;
 
 import static android.net.InetAddresses.parseNumericAddress;
 import static android.system.OsConstants.AF_INET6;
+import static android.system.OsConstants.NETLINK_ROUTE;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -94,7 +95,7 @@ public class NduseroptMessageTest {
         assertEquals(68, buf.limit());
         buf.order(ByteOrder.nativeOrder());
 
-        NetlinkMessage nlMsg = NetlinkMessage.parse(buf);
+        NetlinkMessage nlMsg = NetlinkMessage.parse(buf, NETLINK_ROUTE);
         assertNotNull(nlMsg);
         assertTrue(nlMsg instanceof NduseroptMessage);
 
@@ -123,7 +124,7 @@ public class NduseroptMessageTest {
         assertEquals(76, buf.limit());
         buf.order(ByteOrder.nativeOrder());
 
-        NetlinkMessage nlMsg = NetlinkMessage.parse(buf);
+        NetlinkMessage nlMsg = NetlinkMessage.parse(buf, NETLINK_ROUTE);
         assertNotNull(nlMsg);
         assertTrue(nlMsg instanceof NduseroptMessage);
 
@@ -184,13 +185,13 @@ public class NduseroptMessageTest {
         String hexString = HDR_32BYTE + OPT_PREF64;
         ByteBuffer buf = toBuffer(hexString);
         assertEquals(32, buf.limit());
-        assertNull(NduseroptMessage.parse(toBuffer(hexString)));
+        assertNull(NduseroptMessage.parse(toBuffer(hexString), NETLINK_ROUTE));
 
         // Header claims 32 bytes of options. Buffer ends at end of options with no source address.
         hexString = HDR_32BYTE + OPT_PREF64 + OPT_PREF64;
         buf = toBuffer(hexString);
         assertEquals(48, buf.limit());
-        assertNull(NduseroptMessage.parse(toBuffer(hexString)));
+        assertNull(NduseroptMessage.parse(toBuffer(hexString), NETLINK_ROUTE));
     }
 
     @Test

@@ -22,7 +22,7 @@
     <string name="sip_receive_calls" msgid="3403644006618369349">"Примај долазне позиве"</string>
     <string name="sip_receive_calls_summary" msgid="5306603671778761443">"Више троши батерију"</string>
     <string name="sip_call_options_title" msgid="5027066677561068192">"Користите SIP позивање"</string>
-    <string name="sip_call_options_wifi_only_title" msgid="6663105297927456484">"Користите SIP позивање (само за Wi-Fi)"</string>
+    <string name="sip_call_options_wifi_only_title" msgid="6663105297927456484">"Користите SIP позивање (само за WiFi)"</string>
     <string name="sip_call_options_entry_1" msgid="4722647332760934261">"За све позиве када је мрежа за пренос података доступна"</string>
     <string name="sip_call_options_entry_2" msgid="7338504256051655013">"Само за SIP позиве"</string>
     <string name="sip_call_options_wifi_only_entry_1" msgid="922329055414010991">"За све позиве"</string>
@@ -41,7 +41,7 @@
     <string name="registration_status_still_trying" msgid="7178623685868766282">"И даље покушава..."</string>
     <string name="registration_status_not_receiving" msgid="3873074208531938401">"Не примамо позиве."</string>
     <string name="registration_status_no_data" msgid="2987064560116584121">"Регистрација налога је заустављена зато што не постоји интернет веза."</string>
-    <string name="registration_status_no_wifi_data" msgid="685470618241482948">"Регистрација налога је заустављена зато што не постоји Wi-Fi веза."</string>
+    <string name="registration_status_no_wifi_data" msgid="685470618241482948">"Регистрација налога је заустављена зато што не постоји WiFi веза."</string>
     <string name="registration_status_not_running" msgid="6236403137652262659">"Регистрација налога није успела."</string>
     <string name="registration_status_done" msgid="6787397199273357721">"Примамо позиве."</string>
     <string name="registration_status_failed_try_later" msgid="7855389184910312091">"Регистрација налога није успела: <xliff:g id="REGISTRATION_ERROR_MESSAGE">%s</xliff:g>; покушаћемо касније"</string>
@@ -72,7 +72,7 @@
     <string name="empty_alert" msgid="3693655518612836718">"Поље <xliff:g id="INPUT_FIELD_NAME">%s</xliff:g> је обавезно и не може да буде празно."</string>
     <string name="not_a_valid_port" msgid="3664668836663491376">"Број порта би требало да буде између 1000 и 65.534."</string>
     <string name="no_internet_available" msgid="161720645084325479">"Да бисте упутили SIP позив, прво проверите интернет везу."</string>
-    <string name="no_wifi_available" msgid="1179092018692306312">"Треба да будете повезани са Wi-Fi мрежом да бисте упућивали SIP позиве (користите Подешавања бежичних веза и мрежа)."</string>
+    <string name="no_wifi_available" msgid="1179092018692306312">"Треба да будете повезани са WiFi мрежом да бисте упућивали SIP позиве (користите Подешавања бежичних веза и мрежа)."</string>
     <string name="no_voip" msgid="3366395789297981738">"SIP позивање није подржано"</string>
     <string name="sip_system_decide" msgid="197230378376326430">"Аутоматски"</string>
     <string name="sip_always_send_keepalive" msgid="4986533673960084769">"Увек шаљи"</string>

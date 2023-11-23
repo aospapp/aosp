@@ -18,6 +18,9 @@ package com.android.internal.net.ipsec.ike.utils;
 import android.util.CloseGuard;
 import android.util.Pair;
 
+import com.android.internal.annotations.VisibleForTesting;
+
+import java.io.IOException;
 import java.net.InetAddress;
 import java.util.HashSet;
 import java.util.Set;
@@ -41,7 +44,7 @@ public final class IkeSecurityParameterIndex implements AutoCloseable {
     // accessed only by IkeSecurityParameterIndex and IkeSpiGenerator
     static final Set<Pair<InetAddress, Long>> sAssignedIkeSpis = new HashSet<>();
 
-    private final InetAddress mSourceAddress;
+    private InetAddress mSourceAddress;
     private final long mSpi;
     private final CloseGuard mCloseGuard = new CloseGuard();
 
@@ -61,6 +64,12 @@ public final class IkeSecurityParameterIndex implements AutoCloseable {
         return mSpi;
     }
 
+    /** Gets the current source address for this IkeSecurityParameterIndex. */
+    @VisibleForTesting
+    public InetAddress getSourceAddress() {
+        return mSourceAddress;
+    }
+
     /** Release an SPI that was previously reserved. */
     @Override
     public void close() {
@@ -75,5 +84,26 @@ public final class IkeSecurityParameterIndex implements AutoCloseable {
             mCloseGuard.warnIfOpen();
         }
         close();
+    }
+
+    /** Migrate this IkeSecurityParameterIndex to the specified InetAddress. */
+    public void migrate(InetAddress newSourceAddress) throws IOException {
+        if (mSourceAddress.equals(newSourceAddress)) {
+            // not actually migrating - this is a no op
+            return;
+        }
+
+        if (!sAssignedIkeSpis.add(new Pair<>(newSourceAddress, mSpi))) {
+            throw new IOException(
+                    String.format(
+                            "SPI colllision migrating IKE SPI <%s, %d> to <%s, %d>",
+                            mSourceAddress.getHostAddress(),
+                            mSpi,
+                            newSourceAddress.getHostAddress(),
+                            mSpi));
+        }
+
+        sAssignedIkeSpis.remove(new Pair<InetAddress, Long>(mSourceAddress, mSpi));
+        mSourceAddress = newSourceAddress;
     }
 }

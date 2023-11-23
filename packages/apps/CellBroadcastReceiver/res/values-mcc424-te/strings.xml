@@ -16,12 +16,17 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="cmas_presidential_level_alert" msgid="175237477015066795">"జాతీయ అత్యవసర హెచ్చరిక"</string>
-    <string name="pws_other_message_identifiers" msgid="9062780351883657067">"హెచ్చరిక అలర్ట్"</string>
-    <string name="public_safety_message" msgid="2187283654023170988">"పబ్లిక్ భద్రత అలర్ట్"</string>
+    <string name="cmas_presidential_level_alert" msgid="569470769079166304">"జాతీయ అత్యవసర అలర్ట్"</string>
+    <string name="cmas_extreme_alert" msgid="9135130008703049274">"అత్యవసర అలర్ట్"</string>
+    <string name="cmas_extreme_immediate_observed_alert" msgid="713620529362685655">"అత్యవసర అలర్ట్"</string>
+    <string name="cmas_extreme_immediate_likely_alert" msgid="6858545279275537101">"అత్యవసర అలర్ట్"</string>
+    <string name="cmas_severe_alert" msgid="6255792641522355328">"అత్యవసర అలర్ట్"</string>
+    <string name="pws_other_message_identifiers" msgid="2219849459734958071">"హెచ్చరిక అలర్ట్"</string>
+    <string name="public_safety_message" msgid="6430821308078207535">"పబ్లిక్ భద్రత అలర్ట్"</string>
     <string name="cmas_exercise_alert" msgid="5775307523978007483">"వ్యాయామం"</string>
-    <string name="cmas_required_monthly_test" msgid="7606843318721168353">"పరీక్ష హెచ్చరిక"</string>
-    <string name="state_local_test_alert" msgid="3092681020067564217">"పరీక్ష అలర్ట్"</string>
-    <string name="enable_emergency_alerts_message_title" msgid="876981179796412627">"హెచ్చరిక అలర్ట్‌లు"</string>
-    <string name="enable_public_safety_messages_title" msgid="4810131816678424099">"పబ్లిక్ భద్రత అలర్ట్‌లు"</string>
+    <string name="cmas_required_monthly_test" msgid="638043663020315444">"పరీక్ష అలర్ట్"</string>
+    <string name="state_local_test_alert" msgid="5347253401221487116">"పరీక్ష అలర్ట్"</string>
+    <string name="enable_emergency_alerts_message_title" msgid="5365080705719184919">"హెచ్చరిక అలర్ట్‌లు"</string>
+    <string name="enable_public_safety_messages_title" msgid="4702006823902961758">"పబ్లిక్ భద్రత అలర్ట్‌లు"</string>
+    <string name="enable_cmas_test_alerts_title" msgid="3586102183699625309">"పరీక్ష అలర్ట్‌లు"</string>
 </resources>

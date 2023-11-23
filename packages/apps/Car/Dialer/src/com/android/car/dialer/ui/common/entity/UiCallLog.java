@@ -16,11 +16,17 @@
 
 package com.android.car.dialer.ui.common.entity;
 
+import android.content.Context;
+import android.text.TextUtils;
+
 import androidx.annotation.Nullable;
 
+import com.android.car.dialer.R;
 import com.android.car.dialer.livedata.CallHistoryLiveData;
 import com.android.car.telephony.common.Contact;
 import com.android.car.telephony.common.PhoneCallLog;
+
+import com.google.common.base.Joiner;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -31,26 +37,22 @@ import java.util.List;
  */
 public class UiCallLog {
     private final String mTitle;
-    private String mText;
+    private final String mAltTitle;
     private final String mNumber;
     @Nullable
     private final Contact mContact;
     private final List<PhoneCallLog.Record> mCallRecords;
 
-    public UiCallLog(String title, String text, String number, @Nullable Contact contact,
+    private String mRelativeTime;
+    private CharSequence mLabel;
+
+    public UiCallLog(String title, String altTitle, String number, @Nullable Contact contact,
             List<PhoneCallLog.Record> callRecords) {
         mTitle = title;
-        mText = text;
+        mAltTitle = altTitle;
         mNumber = number;
         mContact = contact;
         mCallRecords = new ArrayList<>(callRecords);
-    }
-
-    /**
-     * Updates the body text.
-     */
-    public void setText(String text) {
-        mText = text;
     }
 
     /**
@@ -61,10 +63,48 @@ public class UiCallLog {
     }
 
     /**
-     * Returns the body text of a call log item.
+     * Returns the alternative title of a call log item. If this phone number is stored as a
+     * contact, alternative title will be the contact's alternative display name. Otherwise, it will
+     * be the same as title.
      */
-    public String getText() {
-        return mText;
+    public String getAltTitle() {
+        return mAltTitle;
+    }
+
+    /**
+     * Sets the relative time of a call log item.
+     *
+     * @return Boolean if the relative time field has been updated.
+     */
+    public boolean setRelativeTime(String relativeTime) {
+        if (TextUtils.equals(relativeTime, mRelativeTime)) {
+            return false;
+        }
+        mRelativeTime = relativeTime;
+        return true;
+    }
+
+    /**
+     * Sets the type label of the phone number for this call log.
+     *
+     * @return Boolean if the label field has been updated.
+     */
+    public boolean setLabel(@Nullable CharSequence label) {
+        if (TextUtils.equals(label, mLabel)) {
+            return false;
+        }
+        mLabel = label;
+        return true;
+    }
+
+    /** Returns the secondary text for this call log showing phone number label and time. */
+    public String getText(Context context) {
+        if (!TextUtils.isEmpty(mLabel)) {
+            return Joiner.on(context.getString(R.string.comma_delimiter)).join(mLabel,
+                    mRelativeTime);
+        } else {
+            return mRelativeTime;
+        }
     }
 
     /**

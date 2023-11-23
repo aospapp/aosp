@@ -63,7 +63,9 @@ public class SipUtil {
         Intent intent = new Intent(context, SipIncomingCallReceiver.class);
         intent.setAction(SipManager.ACTION_SIP_INCOMING_CALL);
         intent.putExtra(EXTRA_PHONE_ACCOUNT, SipUtil.createAccountHandle(context, sipProfileName));
-        return PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+        return PendingIntent.getBroadcast(context, 0, intent,
+                // Mutable because information associated with the call is passed back here.
+                PendingIntent.FLAG_MUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
     }
 
     public static boolean isPhoneIdle(Context context) {

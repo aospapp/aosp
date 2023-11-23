@@ -61,7 +61,7 @@ public class CursorToSearchResultConverter {
 
     private final int LONG_TITLE_LENGTH = 20;
 
-    private static final String[] whiteList = {
+    private static final String[] allowList = {
             "main_toggle_wifi",
             "main_toggle_bluetooth",
             "main_toggle_bluetooth_obsolete",
@@ -73,7 +73,7 @@ public class CursorToSearchResultConverter {
             "data_usage_enable",
             "button_roaming_key",
     };
-    private static final Set<String> prioritySettings = new HashSet(Arrays.asList(whiteList));
+    private static final Set<String> prioritySettings = new HashSet(Arrays.asList(allowList));
 
 
     public CursorToSearchResultConverter(Context context) {

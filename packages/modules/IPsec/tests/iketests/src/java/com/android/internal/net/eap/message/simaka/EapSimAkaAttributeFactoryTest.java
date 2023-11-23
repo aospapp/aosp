@@ -14,20 +14,20 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.eap.message.simaka;
+package com.android.internal.net.eap.test.message.simaka;
 
 import static com.android.internal.net.TestUtils.hexStringToByteArray;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.SKIPPABLE_DATA;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.SKIPPABLE_DATA_BYTES;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.SKIPPABLE_INVALID_ATTRIBUTE;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.SKIPPABLE_DATA;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.SKIPPABLE_DATA_BYTES;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.SKIPPABLE_INVALID_ATTRIBUTE;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.android.internal.net.eap.exceptions.simaka.EapSimAkaUnsupportedAttributeException;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EapSimAkaUnsupportedAttribute;
+import com.android.internal.net.eap.test.exceptions.simaka.EapSimAkaUnsupportedAttributeException;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EapSimAkaUnsupportedAttribute;
 
 import org.junit.Before;
 import org.junit.Test;

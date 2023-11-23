@@ -17,7 +17,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="inspector_title" msgid="1924760928091740238">"Информации"</string>
-    <string name="inspector_load_error" msgid="7522190243413249291">"Не можеше да се вчитаат информациите за датотеката"</string>
+    <string name="inspector_load_error" msgid="7522190243413249291">"Не може да се вчитаат информациите за датотеката"</string>
     <string name="inspector_debug_section" msgid="2576052661505700421">"Инф. за отстранување грешки (само за програмери)"</string>
     <string name="inspector_debug_metadata_section" msgid="5875140675600744846">"Необработени метаподатоци: <xliff:g id="METADATATYPE">%1$s</xliff:g>"</string>
     <string name="inspector_metadata_section" msgid="6077622515328240575">"Детали за аудиовизуелните содржини"</string>

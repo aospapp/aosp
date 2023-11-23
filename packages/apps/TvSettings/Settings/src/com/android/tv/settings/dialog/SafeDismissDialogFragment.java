@@ -17,7 +17,8 @@
 package com.android.tv.settings.dialog;
 
 import android.app.Activity;
-import android.app.DialogFragment;
+
+import androidx.fragment.app.DialogFragment;
 
 /**
  * Provides the safe dismiss feature regardless of the DialogFragment's life cycle.

@@ -15,7 +15,7 @@
 package com.android.camera.one.v2;
 
 import android.annotation.TargetApi;
-import android.content.Context;
+import android.app.Activity;
 import android.graphics.ImageFormat;
 import android.graphics.Rect;
 import android.hardware.camera2.CameraAccessException;
@@ -1090,7 +1090,7 @@ public class OneCameraZslImpl extends AbstractOneCamera {
     }
 
     @Override
-    public Size pickPreviewSize(Size pictureSize, Context context) {
+    public Size pickPreviewSize(Size pictureSize, Activity context) {
         if (pictureSize == null) {
             // TODO The default should be selected by the caller, and
             // pictureSize should never be null.
@@ -1098,7 +1098,7 @@ public class OneCameraZslImpl extends AbstractOneCamera {
         }
         float pictureAspectRatio = pictureSize.getWidth() / (float) pictureSize.getHeight();
         return CaptureModuleUtil.getOptimalPreviewSize(getSupportedPreviewSizes(),
-              pictureAspectRatio);
+              pictureAspectRatio, context);
     }
 
     @Override

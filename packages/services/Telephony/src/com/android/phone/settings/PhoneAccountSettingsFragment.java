@@ -6,14 +6,11 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.drawable.Icon;
-import android.net.sip.SipManager;
 import android.os.Bundle;
 import android.os.UserManager;
-import android.preference.ListPreference;
 import android.preference.Preference;
 import android.preference.PreferenceCategory;
 import android.preference.PreferenceFragment;
-import android.preference.SwitchPreference;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
@@ -28,9 +25,6 @@ import com.android.internal.telephony.Phone;
 import com.android.phone.PhoneUtils;
 import com.android.phone.R;
 import com.android.phone.SubscriptionInfoHelper;
-import com.android.services.telephony.sip.SipAccountRegistry;
-import com.android.services.telephony.sip.SipPreferences;
-import com.android.services.telephony.sip.SipUtil;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -47,11 +41,6 @@ public class PhoneAccountSettingsFragment extends PreferenceFragment
             "phone_accounts_accounts_list_category_key";
 
     private static final String ALL_CALLING_ACCOUNTS_KEY = "phone_accounts_all_calling_accounts";
-
-    private static final String SIP_SETTINGS_CATEGORY_PREF_KEY =
-            "phone_accounts_sip_settings_category_key";
-    private static final String USE_SIP_PREF_KEY = "use_sip_calling_options_key";
-    private static final String SIP_RECEIVE_CALLS_PREF_KEY = "sip_receive_calls_key";
 
     private static final String MAKE_AND_RECEIVE_CALLS_CATEGORY_KEY =
             "make_and_receive_calls_settings_category_key";
@@ -83,10 +72,6 @@ public class PhoneAccountSettingsFragment extends PreferenceFragment
 
     private PreferenceCategory mMakeAndReceiveCallsCategory;
     private boolean mMakeAndReceiveCallsCategoryPresent;
-
-    private ListPreference mUseSipCalling;
-    private SwitchPreference mSipReceiveCallsPreference;
-    private SipPreferences mSipPreferences;
 
     private final SubscriptionManager.OnSubscriptionsChangedListener
             mOnSubscriptionsChangeListener =
@@ -154,39 +139,6 @@ public class PhoneAccountSettingsFragment extends PreferenceFragment
         updateAccounts();
         updateMakeCallsOptions();
 
-        if (isPrimaryUser() && SipUtil.isVoipSupported(getActivity())) {
-            mSipPreferences = new SipPreferences(getActivity());
-
-            mUseSipCalling = (ListPreference)
-                    getPreferenceScreen().findPreference(USE_SIP_PREF_KEY);
-            mUseSipCalling.setEntries(!SipManager.isSipWifiOnly(getActivity())
-                    ? R.array.sip_call_options_wifi_only_entries
-                    : R.array.sip_call_options_entries);
-            mUseSipCalling.setOnPreferenceChangeListener(this);
-
-            int optionsValueIndex =
-                    mUseSipCalling.findIndexOfValue(mSipPreferences.getSipCallOption());
-            if (optionsValueIndex == -1) {
-                // If the option is invalid (eg. deprecated value), default to SIP_ADDRESS_ONLY.
-                mSipPreferences.setSipCallOption(
-                        getResources().getString(R.string.sip_address_only));
-                optionsValueIndex =
-                        mUseSipCalling.findIndexOfValue(mSipPreferences.getSipCallOption());
-            }
-            mUseSipCalling.setValueIndex(optionsValueIndex);
-            mUseSipCalling.setSummary(mUseSipCalling.getEntry());
-
-            mSipReceiveCallsPreference = (SwitchPreference)
-                    getPreferenceScreen().findPreference(SIP_RECEIVE_CALLS_PREF_KEY);
-            mSipReceiveCallsPreference.setEnabled(SipUtil.isPhoneIdle(getActivity()));
-            mSipReceiveCallsPreference.setChecked(
-                    mSipPreferences.isReceivingCallsEnabled());
-            mSipReceiveCallsPreference.setOnPreferenceChangeListener(this);
-        } else {
-            getPreferenceScreen().removePreference(
-                    getPreferenceScreen().findPreference(SIP_SETTINGS_CATEGORY_PREF_KEY));
-        }
-
         SubscriptionManager.from(getActivity()).addOnSubscriptionsChangedListener(
                 mOnSubscriptionsChangeListener);
     }
@@ -207,21 +159,6 @@ public class PhoneAccountSettingsFragment extends PreferenceFragment
      */
     @Override
     public boolean onPreferenceChange(Preference pref, Object objValue) {
-        if (pref == mUseSipCalling) {
-            String option = objValue.toString();
-            mSipPreferences.setSipCallOption(option);
-            mUseSipCalling.setValueIndex(mUseSipCalling.findIndexOfValue(option));
-            mUseSipCalling.setSummary(mUseSipCalling.getEntry());
-            return true;
-        } else if (pref == mSipReceiveCallsPreference) {
-            final boolean isEnabled = !mSipReceiveCallsPreference.isChecked();
-            new Thread(new Runnable() {
-                public void run() {
-                    handleSipReceiveCallsOption(isEnabled);
-                }
-            }).start();
-            return true;
-        }
         return false;
     }
 
@@ -255,22 +192,6 @@ public class PhoneAccountSettingsFragment extends PreferenceFragment
 
     @Override
     public void onAccountChanged(AccountSelectionPreference pref) {}
-
-    private synchronized void handleSipReceiveCallsOption(boolean isEnabled) {
-        Context context = getActivity();
-        if (context == null) {
-            // Return if the fragment is detached from parent activity before executed by thread.
-            return;
-        }
-
-        mSipPreferences.setReceivingCallsEnabled(isEnabled);
-
-        SipUtil.useSipToReceiveIncomingCalls(context, isEnabled);
-
-        // Restart all Sip services to ensure we reflect whether we are receiving calls.
-        SipAccountRegistry sipAccountRegistry = SipAccountRegistry.getInstance();
-        sipAccountRegistry.restartSipService(context);
-    }
 
     /**
      * Queries the telcomm manager to update the default outgoing account selection preference
@@ -409,32 +330,24 @@ public class PhoneAccountSettingsFragment extends PreferenceFragment
             mAccountList.removeAll();
             List<PhoneAccountHandle> allNonSimAccounts =
                     getCallingAccounts(false /* includeSims */, true /* includeDisabled */);
-            // Check to see if we should show the entire section at all.
-            if (shouldShowConnectionServiceList(allNonSimAccounts)) {
-                List<PhoneAccountHandle> enabledAccounts =
-                        getCallingAccounts(true /* includeSims */, false /* includeDisabled */);
-                // Initialize the account list with the set of enabled & SIM accounts.
-                initAccountList(enabledAccounts);
 
-                // Only show the 'Make Calls With..." option if there are multiple accounts.
-                if (enabledAccounts.size() > 1) {
-                    mMakeAndReceiveCallsCategory.addPreference(mDefaultOutgoingAccount);
-                    mMakeAndReceiveCallsCategoryPresent = true;
-                    mDefaultOutgoingAccount.setListener(this);
-                    updateDefaultOutgoingAccountsModel();
-                } else {
-                    mMakeAndReceiveCallsCategory.removePreference(mDefaultOutgoingAccount);
-                }
+            List<PhoneAccountHandle> enabledAccounts =
+                    getCallingAccounts(true /* includeSims */, false /* includeDisabled */);
+            // Initialize the account list with the set of enabled & SIM accounts.
+            initAccountList(enabledAccounts);
 
-                // If there are no third party (nonSim) accounts,
-                // then don't show enable/disable dialog.
-                if (!allNonSimAccounts.isEmpty()) {
-                    mAccountList.addPreference(mAllCallingAccounts);
-                } else {
-                    mAccountList.removePreference(mAllCallingAccounts);
-                }
+            // Always show the 'Make Calls With..." option
+            mMakeAndReceiveCallsCategory.addPreference(mDefaultOutgoingAccount);
+            mMakeAndReceiveCallsCategoryPresent = true;
+            mDefaultOutgoingAccount.setListener(this);
+            updateDefaultOutgoingAccountsModel();
+
+            // If there are no third party (nonSim) accounts,
+            // then don't show enable/disable dialog.
+            if (!allNonSimAccounts.isEmpty()) {
+                mAccountList.addPreference(mAllCallingAccounts);
             } else {
-                getPreferenceScreen().removePreference(mAccountList);
+                mAccountList.removePreference(mAllCallingAccounts);
             }
         }
     }

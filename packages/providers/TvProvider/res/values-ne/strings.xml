@@ -18,5 +18,5 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="7454398782183407432">"टिभी भण्डारण"</string>
     <string name="permlab_readTvListings" msgid="5272001606068276291">"सबै टिभी सूची दृश्यहरू पढ्नुहोस्"</string>
-    <string name="permdesc_readTvListings" msgid="1165157606059567535">"आफ्नो यन्त्रमा उपलब्ध सबै टिभी सूची दृश्यहरू पढ्नुहोस्"</string>
+    <string name="permdesc_readTvListings" msgid="1165157606059567535">"आफ्नो डिभाइसमा उपलब्ध सबै टिभी सूची दृश्यहरू पढ्नुहोस्"</string>
 </resources>

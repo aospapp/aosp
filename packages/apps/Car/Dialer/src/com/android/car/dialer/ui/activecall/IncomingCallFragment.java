@@ -24,13 +24,16 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.lifecycle.ViewModelProviders;
+import androidx.lifecycle.ViewModelProvider;
 
 import com.android.car.dialer.R;
 import com.android.car.telephony.common.CallDetail;
 
+import dagger.hilt.android.AndroidEntryPoint;
+
 /** Fragment that presents the incoming call. */
-public class IncomingCallFragment extends InCallFragment {
+@AndroidEntryPoint(InCallFragment.class)
+public class IncomingCallFragment extends Hilt_IncomingCallFragment {
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
             @Nullable Bundle savedInstanceState) {
@@ -38,7 +41,7 @@ public class IncomingCallFragment extends InCallFragment {
         TextView mCallStateView = fragmentView.findViewById(R.id.user_profile_call_state);
         mCallStateView.setText(getString(R.string.call_state_call_ringing));
 
-        InCallViewModel inCallViewModel = ViewModelProviders.of(getActivity()).get(
+        InCallViewModel inCallViewModel = new ViewModelProvider(getActivity()).get(
                 InCallViewModel.class);
         inCallViewModel.getIncomingCall().observe(this, call -> bindUserProfileView(
                 call == null ? null : CallDetail.fromTelecomCallDetail(call.getDetails())));

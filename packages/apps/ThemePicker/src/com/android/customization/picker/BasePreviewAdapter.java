@@ -17,6 +17,7 @@ package com.android.customization.picker;
 
 import static androidx.core.view.ViewCompat.LAYOUT_DIRECTION_RTL;
 
+import android.app.Activity;
 import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -29,6 +30,7 @@ import androidx.core.view.ViewCompat;
 import androidx.viewpager.widget.PagerAdapter;
 
 import com.android.customization.picker.BasePreviewAdapter.PreviewPage;
+import com.android.wallpaper.util.SizeCalculator;
 import com.android.wallpaper.widget.PreviewPager;
 
 import java.util.ArrayList;
@@ -103,11 +105,24 @@ public class BasePreviewAdapter<T extends PreviewPage> extends PagerAdapter {
         protected final String title;
         protected CardView card;
 
-        protected PreviewPage(String title) {
+        private Activity mActivity;
+
+        protected PreviewPage(String title, Activity activity) {
             this.title = title;
+            mActivity = activity;
         }
 
         public void setCard(CardView card) {
+            card.addOnLayoutChangeListener(
+                    new View.OnLayoutChangeListener() {
+                        @Override
+                        public void onLayoutChange(View v, int left, int top, int right, int bottom,
+                                int oldLeft, int oldTop, int oldRight, int oldBottom) {
+                            card.setRadius(SizeCalculator.getPreviewCornerRadius(
+                                    mActivity, card.getMeasuredWidth()));
+                            card.removeOnLayoutChangeListener(this);
+                        }
+                    });
             this.card = card;
         }
 

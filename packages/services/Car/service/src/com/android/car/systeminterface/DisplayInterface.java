@@ -37,12 +37,12 @@ import android.os.SystemClock;
 import android.os.UserHandle;
 import android.provider.Settings.SettingNotFoundException;
 import android.provider.Settings.System;
-import android.util.Log;
+import android.util.Slog;
 import android.view.Display;
 import android.view.InputDevice;
 
 import com.android.car.CarLog;
-import com.android.car.CarPowerManagementService;
+import com.android.car.power.CarPowerManagementService;
 import com.android.internal.annotations.GuardedBy;
 
 /**
@@ -50,12 +50,37 @@ import com.android.internal.annotations.GuardedBy;
  */
 public interface DisplayInterface {
     /**
+     * Sets display brightness.
+     *
      * @param brightness Level from 0 to 100%
      */
     void setDisplayBrightness(int brightness);
+
+    /**
+     * Turns on or off display.
+     *
+     * @param on {@code true} to turn on, {@code false} to turn off.
+     */
     void setDisplayState(boolean on);
+
+    /**
+     * Starts monitoring the display state change.
+     *
+     * <p> When there is a change, {@link CarPowerManagementService} is notified.
+     *
+     * @param service {@link CarPowerManagementService} to listen to the change.
+     */
     void startDisplayStateMonitoring(CarPowerManagementService service);
+
+    /**
+     * Stops monitoring the display state change.
+     */
     void stopDisplayStateMonitoring();
+
+    /**
+     * Gets the current on/off state of display.
+     */
+    boolean isDisplayEnabled();
 
     /**
      * Refreshing display brightness. Used when user is switching and car turned on.
@@ -140,7 +165,7 @@ public interface DisplayInterface {
         public void refreshDisplayBrightness() {
             synchronized (mLock) {
                 if (mService == null) {
-                    Log.e(CarLog.TAG_POWER,
+                    Slog.e(CarLog.TAG_POWER,
                             "Could not set brightness: no CarPowerManagementService");
                     return;
                 }
@@ -152,7 +177,7 @@ public interface DisplayInterface {
                             ActivityManager.getCurrentUser());
                     gamma = convertLinearToGamma(linear, mMinimumBacklight, mMaximumBacklight);
                 } catch (SettingNotFoundException e) {
-                    Log.e(CarLog.TAG_POWER, "Could not get SCREEN_BRIGHTNESS: " + e);
+                    Slog.e(CarLog.TAG_POWER, "Could not get SCREEN_BRIGHTNESS: ", e);
                 }
                 int percentBright = (gamma * 100 + ((GAMMA_SPACE_MAX + 1) / 2)) / GAMMA_SPACE_MAX;
                 mService.sendDisplayBrightness(percentBright);
@@ -222,11 +247,11 @@ public interface DisplayInterface {
             }
             if (on) {
                 mWakeLockInterface.switchToFullWakeLock();
-                Log.i(CarLog.TAG_POWER, "on display");
+                Slog.i(CarLog.TAG_POWER, "on display");
                 mPowerManager.wakeUp(SystemClock.uptimeMillis());
             } else {
                 mWakeLockInterface.switchToPartialWakeLock();
-                Log.i(CarLog.TAG_POWER, "off display");
+                Slog.i(CarLog.TAG_POWER, "off display");
                 mPowerManager.goToSleep(SystemClock.uptimeMillis());
             }
             // Turn touchscreen input devices on or off, the same as the display
@@ -242,6 +267,11 @@ public interface DisplayInterface {
                     }
                 }
             }
+        }
+
+        @Override
+        public boolean isDisplayEnabled() {
+            return isMainDisplayOn();
         }
 
         private void onUsersUpdate() {

@@ -65,13 +65,17 @@
     <string name="recommendation_install_summary" msgid="374785283809791669">"ස්ථාපනය කිරීමට තෝරන්න"</string>
     <string name="recommendation_enable_summary" msgid="3500907868251326224">"සබල කිරීමට තෝරන්න"</string>
     <string name="recommendation_manage" msgid="4683640588502866284">"සේවා කළමණාකරණය කරන්න"</string>
-    <string name="security" msgid="2279008326210305401">"ආරක්‍ෂාව"</string>
+    <string name="security" msgid="2279008326210305401">"ආරක්ෂාව"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"මෙම මුද්‍රකය නව ආරක්‍ෂණ සහතිතකයක් සැපයුවේය, නැති නම් වෙනත් උපාංගයක් එය මූර්තිමත් කරයි. නව සහතිකය පිළිගන්නේද?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"මෙම මුද්‍රණ යන්ත්‍රය සංකේතනය කළ කාර්යයන් තවදුරටත් පිළිනොගනී. මුද්‍රණය කිරිම දිගටම කර ගෙන යන්නද?"</string>
     <string name="accept" msgid="4426153292469698134">"පිළිගන්න"</string>
     <string name="reject" msgid="24751635160440693">"ප්‍රතික්‍ෂේප කරන්න"</string>
     <string name="connections" msgid="8895413761760117180">"සබැඳුම්"</string>
+    <string name="wifi_direct_problem" msgid="8995174986718516990">"පෙරනිමි මුද්‍රණ සේවාවට Wi-Fi Direct මුද්‍රණ යන්ත්‍ර සොයා ගත නොහැකිය"</string>
+    <string name="disable_wifi_direct" msgid="4824677957241687577">"Wi-Fi Direct අබල කර."</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"අවට උපාංග සෙවීමට පෙරනිමි මුද්‍රණ සේවාවට ස්ථාන අවසරය අවශ්‍යයි."</string>
     <string name="fix" msgid="7784394272611365393">"අවසරය සමාලෝචනය කරන්න"</string>
+    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"අවට උපාංග සෙවීමට පෙරනිමි මුද්‍රණ සේවාවට ස්ථාන සේවා සබල කර තිබීම අවශ්‍යයි."</string>
+    <string name="enable_location" msgid="3627841004298863140">"ස්ථානය සබල කරන්න"</string>
     <string name="print" msgid="7851318072404916362">"මුද්‍රණ කරන්න"</string>
 </resources>

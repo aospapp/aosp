@@ -15,20 +15,21 @@
 -->
 <com.android.tv.settings.connectivity.setup.GuidanceRelativeLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:paddingStart="@dimen/setup_description_padding_start"
-    android:paddingEnd="@dimen/setup_description_padding_end"
     android:layout_height="match_parent"
-    android:gravity="start" >
+    android:clipChildren="false"
+    style="?attr/guidanceContainerStyle">
+
+  <ImageView
+      android:id="@+id/guidance_icon"
+      android:layout_above="@+id/guidance_title"
+      style="?attr/guidanceIconStyle" />
 
   <TextView
       android:id="@+id/guidance_title"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
-      android:gravity="start|bottom"
-      android:lineSpacingMultiplier="@dimen/setup_title_line_spacing_multiplier"
-      android:textAppearance="@style/Setup.Description.Title" />
+      style="?attr/guidanceTitleStyle" />
 
   <TextView
       android:id="@+id/guidance_description"
@@ -36,7 +37,6 @@
       android:layout_height="wrap_content"
       android:layout_below="@id/guidance_title"
       android:layout_marginTop="@dimen/setup_description_margin_top"
-      android:lineSpacingMultiplier="@dimen/setup_description_line_spacing_multiplier"
-      android:textAppearance="@style/Setup.Description.Description" />
+      style ="?attr/guidanceDescriptionStyle"/>
 
 </com.android.tv.settings.connectivity.setup.GuidanceRelativeLayout>

@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"तपाइँले प्रमाणपत्रहरू बाह्य भण्डारणमा अवस्थित %1$s वा एक %2$s विस्तारका साथ PKCS#12 फाइलबाट स्थापना गर्न सक्नुहुन्छ।"</string>
     <string name="allow_button" msgid="3030990695030371561">"चयन गर्नुहोस्"</string>
     <string name="deny_button" msgid="3766539809121892584">"अस्वीकार गर्नुहोस्"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"प्रमाणपत्रहरू लोड गर्दै..."</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"%s ले प्रमाणपत्र छ कि छैन भन्ने कुरा जाँच्दै छ…"</string>
 </resources>

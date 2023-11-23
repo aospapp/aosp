@@ -20,6 +20,7 @@ import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.os.Build;
 
+import androidx.annotation.VisibleForTesting;
 import androidx.preference.Preference;
 
 import com.android.car.settings.R;
@@ -52,8 +53,8 @@ public class HardwareInfoPreferenceController extends PreferenceController<Prefe
                 getContext().getString(R.string.hardware_info_summary, getDeviceModel()));
     }
 
-    private static String getDeviceModel() {
-        FutureTask<String> msvSuffixTask = new FutureTask<>(() -> DeviceInfoUtils.getMsvSuffix());
+    private String getDeviceModel() {
+        FutureTask<String> msvSuffixTask = createMsvSuffixTask();
 
         msvSuffixTask.run();
         try {
@@ -68,5 +69,10 @@ public class HardwareInfoPreferenceController extends PreferenceController<Prefe
         // If we can't get an msv suffix value successfully,
         // it's better to return model name.
         return Build.MODEL;
+    }
+
+    @VisibleForTesting
+    FutureTask<String> createMsvSuffixTask() {
+        return new FutureTask<>(() -> DeviceInfoUtils.getMsvSuffix());
     }
 }

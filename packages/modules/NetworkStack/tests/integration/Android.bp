@@ -14,6 +14,10 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_defaults {
     name: "NetworkStackIntegrationTestsJniDefaults",
     defaults: ["libnetworkstackutilsjni_deps"],
@@ -30,7 +34,10 @@ java_defaults {
 
 java_defaults {
     name: "NetworkStackIntegrationTestsDefaults",
-    srcs: ["src/**/*.java"],
+    srcs: [
+        "src/**/*.java",
+        "src/**/*.kt",
+    ],
     static_libs: [
         "androidx.annotation_annotation",
         "androidx.test.rules",
@@ -91,7 +98,10 @@ android_library {
     platform_apis: true,
     min_sdk_version: "29",
     jarjar_rules: ":NetworkStackJarJarRules",
-    static_libs: ["NetworkStaticLibTestsLib"],
+    static_libs: [
+        "NetworkStaticLibTestsLib",
+        "NetdStaticLibTestsLib",
+    ],
 }
 
 // Special version of the network stack tests that includes all tests necessary for code coverage
@@ -105,6 +115,7 @@ android_test {
     test_config: "AndroidTest_Coverage.xml",
     defaults: ["NetworkStackIntegrationTestsJniDefaults"],
     static_libs: [
+        "modules-utils-native-coverage-listener",
         "NetworkStackTestsLib",
         "NetworkStackIntegrationTestsLib",
         "NetworkStackStaticLibTestsLib",

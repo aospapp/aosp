@@ -12,22 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-vndk_libraries_txt {
-  name: "llndk.libraries.txt",
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-vndk_libraries_txt {
-  name: "vndkcore.libraries.txt",
+llndk_libraries_txt {
+    name: "llndk.libraries.txt",
 }
 
-vndk_libraries_txt {
-  name: "vndksp.libraries.txt",
+vndkcore_libraries_txt {
+    name: "vndkcore.libraries.txt",
 }
 
-vndk_libraries_txt {
-  name: "vndkprivate.libraries.txt",
+vndksp_libraries_txt {
+    name: "vndksp.libraries.txt",
 }
 
-vndk_libraries_txt {
+vndkprivate_libraries_txt {
+    name: "vndkprivate.libraries.txt",
+}
+
+vndkproduct_libraries_txt {
+  name: "vndkproduct.libraries.txt",
+}
+
+vndkcorevariant_libraries_txt {
   name: "vndkcorevariant.libraries.txt",
+  insert_vndk_version: false,
 }

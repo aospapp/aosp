@@ -65,6 +65,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.net.module.util.DeviceConfigUtils;
 import com.android.networkstack.apishim.NetworkShimImpl;
 import com.android.networkstack.apishim.common.ShimUtils;
 import com.android.networkstack.apishim.common.UnsupportedApiLevelException;
@@ -569,7 +570,7 @@ public class TcpSocketTracker {
          */
         public int getDeviceConfigPropertyInt(@NonNull final String namespace,
                 @NonNull final String name, final int defaultValue) {
-            return NetworkStackUtils.getDeviceConfigPropertyInt(namespace, name, defaultValue);
+            return DeviceConfigUtils.getDeviceConfigPropertyInt(namespace, name, defaultValue);
         }
 
         /**

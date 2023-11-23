@@ -141,6 +141,23 @@ public class CallIntentProcessor {
             clientExtras.putString(TelecomManager.EXTRA_CALL_SUBJECT, callsubject);
         }
 
+        if (intent.hasExtra(android.telecom.TelecomManager.EXTRA_PRIORITY)) {
+            clientExtras.putInt(android.telecom.TelecomManager.EXTRA_PRIORITY, intent.getIntExtra(
+                    android.telecom.TelecomManager.EXTRA_PRIORITY,
+                            android.telecom.TelecomManager.PRIORITY_NORMAL));
+        }
+
+        if (intent.hasExtra(android.telecom.TelecomManager.EXTRA_LOCATION)) {
+            clientExtras.putParcelable(android.telecom.TelecomManager.EXTRA_LOCATION,
+                    intent.getParcelableExtra(android.telecom.TelecomManager.EXTRA_LOCATION));
+        }
+
+        if (intent.hasExtra(android.telecom.TelecomManager.EXTRA_OUTGOING_PICTURE)) {
+            clientExtras.putParcelable(android.telecom.TelecomManager.EXTRA_OUTGOING_PICTURE,
+                    intent.getParcelableExtra(
+                            android.telecom.TelecomManager.EXTRA_OUTGOING_PICTURE));
+        }
+
         final int videoState = intent.getIntExtra( TelecomManager.EXTRA_START_CALL_WITH_VIDEO_STATE,
                 VideoProfile.STATE_AUDIO_ONLY);
         clientExtras.putInt(TelecomManager.EXTRA_START_CALL_WITH_VIDEO_STATE, videoState);

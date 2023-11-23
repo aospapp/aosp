@@ -26,7 +26,7 @@
 // representing the pass/fail value of the function. The functions check to see
 // if the API call is actually possible. If it is the function's tuple will
 // contain the actual result and an integer that indicates the value passed. If
-// the function is not possible then there will be a dummy return value in the
+// the function is not possible then there will be a mock return value in the
 // first position of the tuple and the second value in the tuple indicates the
 // value failed. Therefore it is up to the function to decide whether the
 // expected api call is actually possible before calling it.

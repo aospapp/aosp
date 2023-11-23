@@ -69,7 +69,7 @@
     <string name="home_and_lock_short_label">Home &#38; Lock</string>
 
     <!-- Label for a dialog which lets the user set an image as wallpaper. [CHAR LIMIT=50] -->
-    <string name="set_wallpaper_dialog_message">Set wallpaper</string>
+    <string name="set_wallpaper_dialog_message">Set wallpaper on</string>
 
     <!-- Label referring to the home screen of the device, i.e. shown behind the launcher.
          [CHAR LIMIT=100] -->
@@ -81,7 +81,7 @@
 
     <!-- Label referring to both the home screen and the lock screen of the
          device. [CHAR LIMIT=100] -->
-    <string name="set_wallpaper_both_destination">Home screen and lock screen</string>
+    <string name="set_wallpaper_both_destination">Home and lock screen</string>
 
     <!-- Label describing a live wallpaper whose responsibility is to display a different wallpaper
          on a periodic basis (i.e., in a daily rotation). [CHAR LIMIT=80] -->
@@ -240,14 +240,6 @@
         Failed to refresh daily wallpaper. Please check your network connection and try again.
     </string>
 
-    <!-- Content description for a button letting the user collapse a visual panel showing info
-         about the wallpaper being previewed. [CHAR LIMIT=none] -->
-    <string name="collapse_attribution_panel">Collapse wallpaper info panel</string>
-
-    <!-- Content description for a button letting the user expand a visual panel showing info about
-         the wallpaper being previewed. [CHAR LIMIT=none] -->
-    <string name="expand_attribution_panel">Expand wallpaper info panel</string>
-
     <!-- Content -->
     <!-- Title of the collection of wallpapers stored on the device itself. [CHAR LIMIT=30] -->
     <string name="on_device_wallpapers_category_title">On-device wallpapers</string>
@@ -316,8 +308,21 @@
     <!-- Confirmation dialog. Shown after user selects to delete one wallpaper. [CHAR LIMIT=NONE] -->
     <string name="delete_wallpaper_confirmation">Delete this wallpaper from your phone?</string>
 
-    <!-- The class name for the ScaleBehavior -->
-    <string name="scalable_container_behavior" translatable="false">com.android.wallpaper.picker.ScaleBehavior</string>
+    <!-- Content description of back button on the bottom action bar. [CHAR LIMIT=30] -->
+    <string name="bottom_action_bar_back">Back</string>
+
+    <!-- Content description of edit button on the bottom action bar. [CHAR LIMIT=30] -->
+    <string name="bottom_action_bar_edit">Edit</string>
+
+    <!-- TODO(b/154299462): Separate downloadable related actions from WallpaperPicker. -->
+    <!-- Content description of download button on the bottom action bar. [CHAR LIMIT=30] -->
+    <string name="bottom_action_bar_download">Download</string>
+
+    <!-- Content description of "slideshow wallpaper" button on the bottom action bar. [CHAR LIMIT=50] -->
+    <string name="bottom_action_bar_slideshow_wallpaper">Slideshow Wallpaper</string>
+
+    <!-- Apply button on the bottom action bar. [CHAR LIMIT=30] -->
+    <string name="bottom_action_bar_apply">Apply</string>
 
     <!-- Accessibility label for paging indicator in theme picker preview [CHAR LIMIT=NONE] -->
     <string name="accessibility_preview_pager" msgid="3548503287402185430">Page <xliff:g name="current_page" example="1">%1$d</xliff:g> of <xliff:g name="num_pages" example="2">%2$d</xliff:g></string>
@@ -330,4 +335,26 @@
     corresponding to a ContentProvider in launcher to provide available grids and
     allow for changing them -->
     <string name="grid_control_metadata_name" translatable="false">com.android.launcher3.grid.control</string>
+
+    <!-- Title of the tool bar in the wallpaper picker. [CHAR LIMIT=19] -->
+    <string name="wallpaper_title">Wallpaper</string>
+
+    <!-- Content description of wallpaper preview card. [CHAR_LIMIT=40]-->
+    <string name="wallpaper_preview_card_content_description">Wallpaper preview</string>
+
+    <!-- Error message of the wallpaper's collection doesn't exist. [CHAR_LIMIT=NONE] -->
+    <string name="collection_not_exist_msg">The collection doesn\'t exist</string>
+
+    <!-- Label for a button which lets user hide certain parts of the fullscreen preview UI. [CHAR LIMIT=30] -->
+    <string name="hide_ui_preview_text">Hide UI Preview</string>
+
+    <!-- Label for a button which lets user show certain parts of the fullscreen preview UI. [CHAR LIMIT=30] -->
+    <string name="show_ui_preview_text">Show UI Preview</string>
+
+    <!-- The title of wallpaper picker entry in new picker. [CHAR LIMIT=30]  -->
+    <string name="wallpaper_picker_entry_title" msgid="7039652539125902659">Change wallpaper</string>
+
+    <!-- Content description of wallpaper preview card (lockscreen). [CHAR_LIMIT=40]-->
+    <string name="lockscreen_wallpaper_preview_card_content_description" msgid="8575577284424318765">Lockscreen wallpaper preview</string>
+
 </resources>

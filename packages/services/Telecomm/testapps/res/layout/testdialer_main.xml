@@ -59,6 +59,11 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/startCallWithRtt"/>
+    <CheckBox
+        android:id="@+id/add_composer_attachments_checkbox"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/addComposerAttachments"/>
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

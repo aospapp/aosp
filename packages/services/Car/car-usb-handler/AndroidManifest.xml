@@ -29,7 +29,7 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
 
-    <!-- "queries" to specify what car-usb-handler will query for due to  Android 11's
+    <!-- "queries" to specify what car-usb-handler will query for due to Android 11's
          package visibility update. -->
     <queries>
         <intent>

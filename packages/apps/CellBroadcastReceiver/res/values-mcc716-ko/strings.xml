@@ -21,4 +21,5 @@
     <string name="cmas_required_monthly_test" msgid="9061179556831144678">"비상사태 경고: 테스트 메시지"</string>
     <string name="cmas_exercise_alert" msgid="3061507852301643814">"비상사태 경고: 훈련 메시지"</string>
     <string name="pws_other_message_identifiers" msgid="4992476982074198144">"비상사태 경고: 테스트 메시지"</string>
+    <string name="button_dismiss" msgid="5823921161712171097">"숨기기"</string>
 </resources>

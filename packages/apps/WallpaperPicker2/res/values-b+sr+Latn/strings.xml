@@ -32,10 +32,10 @@
     <string name="home_screen_message" msgid="106444102822522813">"Početni ekran"</string>
     <string name="lock_screen_message" msgid="1534506081955058013">"Zaključan ekran"</string>
     <string name="home_and_lock_short_label" msgid="2937922943541927983">"Početni i zaključani ekran"</string>
-    <string name="set_wallpaper_dialog_message" msgid="6114951028768599417">"Podesite pozadinu"</string>
+    <string name="set_wallpaper_dialog_message" msgid="2110475703996853076">"Podesite pozadinu na"</string>
     <string name="set_wallpaper_home_screen_destination" msgid="7315594722013109354">"Početni ekran"</string>
     <string name="set_wallpaper_lock_screen_destination" msgid="6224685559375417945">"Zaključan ekran"</string>
-    <string name="set_wallpaper_both_destination" msgid="6967226064958263939">"Početni ekran i zaključani ekran"</string>
+    <string name="set_wallpaper_both_destination" msgid="233216830256235288">"Početni i zaključani ekran"</string>
     <string name="no_backup_image_wallpaper_label" msgid="6316627676107284851">"Rotirajuća pozadina sa slikom"</string>
     <string name="permission_needed_explanation" msgid="139166837541426823">"Da bi se aktuelna pozadina prikazivala ovde, aplikacija <xliff:g id="APP_NAME">%1$s</xliff:g> treba da ima pristup memorijskom prostoru na uređaju."</string>
     <string name="permission_needed_explanation_go_to_settings" msgid="3923551582092599609">"Da bi se aktuelna pozadina prikazivala ovde, aplikacija Pozadine mora da ima pristup memorijskom prostoru na uređaju.\n\nDa biste promenili ovo podešavanje, idite u odeljak Dozvole u informacijama o aplikaciji Pozadine."</string>
@@ -44,7 +44,7 @@
     <string name="daily_refresh_tile_title" msgid="3270456074558525091">"Dnevna pozadina"</string>
     <string name="daily_refresh_tile_subtitle" msgid="3976682014885446443">"Dodirnite da biste uključili"</string>
     <string name="start_rotation_dialog_body_live_wallpaper_needed" msgid="5132580257563846082">"Pozadina se automatski menja svaki dan. Da biste dovršili podešavanje, dodirnite &lt;strong&gt;Podesi pozadinu&lt;/strong&gt; na sledećem ekranu."</string>
-    <string name="start_rotation_dialog_wifi_only_option_message" msgid="3126269859713666225">"Preuzimaj buduće pozadine samo preko Wi-Fi mreže"</string>
+    <string name="start_rotation_dialog_wifi_only_option_message" msgid="3126269859713666225">"Preuzimaj buduće pozadine samo preko WiFi mreže"</string>
     <string name="start_rotation_dialog_continue" msgid="276678987852274872">"Nastavi"</string>
     <string name="start_rotation_progress_message" msgid="7872623873682262083">"Preuzima se prva pozadina…"</string>
     <string name="start_rotation_error_message" msgid="3053799836719618972">"Preuzimanje prve pozadine nije uspelo. Proverite podešavanja mreže i probajte ponovo."</string>
@@ -66,8 +66,6 @@
     <string name="refresh_daily_wallpaper_content_description" msgid="4362142658237147583">"Osveži dnevnu pozadinu"</string>
     <string name="refreshing_daily_wallpaper_dialog_message" msgid="1975910873362855761">"Dnevna pozadina se osvežava…"</string>
     <string name="refresh_daily_wallpaper_failed_message" msgid="4749879993812557166">"Osvežavanje dnevne pozadine nije uspelo. Proverite mrežnu vezu i probajte ponovo."</string>
-    <string name="collapse_attribution_panel" msgid="4367971404848122275">"Skupi tablu sa informacijama o pozadini"</string>
-    <string name="expand_attribution_panel" msgid="6975094181456095915">"Proširi tablu sa informacijama o pozadini"</string>
     <string name="on_device_wallpapers_category_title" msgid="805819102071369004">"Pozadine na uređaju"</string>
     <string name="on_device_wallpapers_category_title_desktop" msgid="316919420410065369">"Na uređaju"</string>
     <string name="on_device_wallpaper_title" msgid="5262564748034629524">"Android pozadina"</string>
@@ -80,4 +78,24 @@
     <string name="center_crop_wallpaper_position" msgid="1681980019815343348">"Opseci u centru"</string>
     <string name="stretch_wallpaper_position" msgid="5002680983147456935">"Razvuci"</string>
     <string name="preview" msgid="1774602101743861071">"Pregled"</string>
+    <string name="tab_info" msgid="818614080690111416">"Informacije"</string>
+    <string name="tab_customize" msgid="2533745409174959960">"Prilagodite"</string>
+    <string name="configure_wallpaper" msgid="849882179182976621">"Podešavanja…"</string>
+    <string name="delete_live_wallpaper" msgid="589212696102662329">"Izbriši"</string>
+    <string name="delete_wallpaper_confirmation" msgid="33790318361863778">"Želite da izbrišete ovu pozadinu sa telefona?"</string>
+    <string name="bottom_action_bar_back" msgid="8237013112999946725">"Nazad"</string>
+    <string name="bottom_action_bar_edit" msgid="1214742990893082138">"Izmeni"</string>
+    <string name="bottom_action_bar_download" msgid="3983122338076389421">"Preuzmi"</string>
+    <string name="bottom_action_bar_slideshow_wallpaper" msgid="509770525179533154">"Projekcija slajdova u pozadini"</string>
+    <string name="bottom_action_bar_apply" msgid="2983308349819178932">"Primeni"</string>
+    <string name="accessibility_preview_pager" msgid="1839869637405028575">"<xliff:g id="ID_1">%1$d</xliff:g>. stranica od <xliff:g id="ID_2">%2$d</xliff:g>"</string>
+    <string name="next_page_content_description" msgid="6268461446679584152">"Sledeća"</string>
+    <string name="previous_page_content_description" msgid="1138597031571078429">"Prethodna"</string>
+    <string name="wallpaper_title" msgid="6754214682228331092">"Pozadina"</string>
+    <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"Pregled pozadine"</string>
+    <string name="collection_not_exist_msg" msgid="3504852962885064842">"Kolekcija ne postoji"</string>
+    <string name="hide_ui_preview_text" msgid="6766076482511252295">"Sakrij korisnički interfejs"</string>
+    <string name="show_ui_preview_text" msgid="5993063062417070806">"Prikaži korisnički interfejs"</string>
+    <string name="wallpaper_picker_entry_title" msgid="5185793991582084891">"Promenite pozadinu"</string>
+    <string name="lockscreen_wallpaper_preview_card_content_description" msgid="2244890820627302245">"Pregled pozadine zaključanog ekrana"</string>
 </resources>

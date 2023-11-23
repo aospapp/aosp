@@ -16,8 +16,10 @@
 
 package com.android.camera.settings;
 
+import android.app.Activity;
 import android.content.Context;
 import android.util.DisplayMetrics;
+import android.view.Display;
 import android.view.WindowManager;
 
 import com.android.camera.exif.Rational;
@@ -405,35 +407,37 @@ public class ResolutionUtil {
         return maxSize;
     }
 
-    public static DisplayMetrics getDisplayMetrics(Context context) {
+    public static DisplayMetrics getDisplayMetrics(Activity context) {
         DisplayMetrics displayMetrics = new DisplayMetrics();
-        WindowManager wm = AndroidServices.instance().provideWindowManager();
-        if (wm != null) {
-            wm.getDefaultDisplay().getMetrics(displayMetrics);
+        Display d = context.getDisplay();
+        if (d != null) {
+            d.getMetrics(displayMetrics);
         }
         return displayMetrics;
     }
 
     /**
-     * Takes selected sizes and a list of blacklisted sizes. All the blacklistes
+     * Takes selected sizes and a list of disallowedlisted sizes. All the disallowedlistes
      * sizes will be removed from the 'sizes' list.
      *
      * @param sizes the sizes to be filtered.
-     * @param blacklistString a String containing a comma-separated list of
+     * @param disallowedlistString a String containing a comma-separated list of
      *            sizes that should be removed from the original list.
      * @return A list that contains the filtered items.
      */
     @ParametersAreNonnullByDefault
-    public static List<Size> filterBlackListedSizes(List<Size> sizes, String blacklistString) {
-        String[] blacklistStringArray = blacklistString.split(",");
-        if (blacklistStringArray.length == 0) {
+    public static List<Size> filterDisallowedListedSizes(List<Size> sizes,
+            String disallowedlistString) {
+        String[] disallowedlistStringArray = disallowedlistString.split(",");
+        if (disallowedlistStringArray.length == 0) {
             return sizes;
         }
 
-        Set<String> blacklistedSizes = new HashSet(Lists.newArrayList(blacklistStringArray));
+        Set<String> disallowedlistedSizes = new HashSet(Lists.newArrayList(
+                disallowedlistStringArray));
         List<Size> newSizeList = new ArrayList<>();
         for (Size size : sizes) {
-            if (!isBlackListed(size, blacklistedSizes)) {
+            if (!isDisallowedListed(size, disallowedlistedSizes)) {
                 newSizeList.add(size);
             }
         }
@@ -441,24 +445,27 @@ public class ResolutionUtil {
     }
 
     /**
-     * Returns whether the given size is within the blacklist string.
+     * Returns whether the given size is within the disallowedlist string.
      *
      * @param size the size to check
-     * @param blacklistString a String containing a comma-separated list of
+     * @param disallowedlistString a String containing a comma-separated list of
      *            sizes that should not be available on the device.
-     * @return Whether the given size is blacklisted.
+     * @return Whether the given size is disallowedlisted.
      */
-    public static boolean isBlackListed(@Nonnull Size size, @Nonnull String blacklistString) {
-        String[] blacklistStringArray = blacklistString.split(",");
-        if (blacklistStringArray.length == 0) {
+    public static boolean isDisallowedListed(@Nonnull Size size,
+            @Nonnull String disallowedlistString) {
+        String[] disallowedlistStringArray = disallowedlistString.split(",");
+        if (disallowedlistStringArray.length == 0) {
             return false;
         }
-        Set<String> blacklistedSizes = new HashSet(Lists.newArrayList(blacklistStringArray));
-        return isBlackListed(size, blacklistedSizes);
+        Set<String> disallowedlistedSizes = new HashSet(Lists.newArrayList(
+                disallowedlistStringArray));
+        return isDisallowedListed(size, disallowedlistedSizes);
     }
 
-    private static boolean isBlackListed(@Nonnull Size size, @Nonnull Set<String> blacklistedSizes) {
+    private static boolean isDisallowedListed(@Nonnull Size size,
+            @Nonnull Set<String> disallowedlistedSizes) {
         String sizeStr = size.getWidth() + "x" + size.getHeight();
-        return blacklistedSizes.contains(sizeStr);
+        return disallowedlistedSizes.contains(sizeStr);
     }
 }

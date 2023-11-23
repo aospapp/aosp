@@ -32,10 +32,10 @@
     <string name="home_screen_message" msgid="106444102822522813">"මුල් පිටු තිරය"</string>
     <string name="lock_screen_message" msgid="1534506081955058013">"අගුලු තිරය"</string>
     <string name="home_and_lock_short_label" msgid="2937922943541927983">"මුල් පිටුව සහ අගුල"</string>
-    <string name="set_wallpaper_dialog_message" msgid="6114951028768599417">"වෝල්පේපරය සකසන්න"</string>
+    <string name="set_wallpaper_dialog_message" msgid="2110475703996853076">"වෝල්පේපරය සැකසීම ක්‍රියාත්මකයි"</string>
     <string name="set_wallpaper_home_screen_destination" msgid="7315594722013109354">"මුල් පිටු තිරය"</string>
     <string name="set_wallpaper_lock_screen_destination" msgid="6224685559375417945">"අගුලු තිරය"</string>
-    <string name="set_wallpaper_both_destination" msgid="6967226064958263939">"මුල් පිටු තිරය සහ අගුලු තිරය"</string>
+    <string name="set_wallpaper_both_destination" msgid="233216830256235288">"මුල් පිටු සහ අගුලු තිරය"</string>
     <string name="no_backup_image_wallpaper_label" msgid="6316627676107284851">"කැරකෙන රූප වෝල්පේපරය"</string>
     <string name="permission_needed_explanation" msgid="139166837541426823">"මෙහි වත්මන් වෝල්පේපරය සංදර්ශනය කිරීමට, <xliff:g id="APP_NAME">%1$s</xliff:g> හට ඔබේ උපාංගයේ ගබඩාව වෙත ප්‍රවේශය අවශ්‍යයි."</string>
     <string name="permission_needed_explanation_go_to_settings" msgid="3923551582092599609">"මෙහි වත්මන් වෝල්පේපරය පෙන්වීමට, වෝල්පේපර වෙත ඔබගේ උපාංග ගබඩාව වෙත ප්‍රවේශය අවශ්‍යයි.\n\nමෙම සැකසීම වෙනස් කිරීමට, වෝල්පේපර යෙදුම් තොරතුරු වල අවසර වෙත යන්න."</string>
@@ -66,8 +66,6 @@
     <string name="refresh_daily_wallpaper_content_description" msgid="4362142658237147583">"දිනපතා වෝල්පේපරය නැවුම් කරන්න"</string>
     <string name="refreshing_daily_wallpaper_dialog_message" msgid="1975910873362855761">"දෛනික වෝල්පේපරය නැවුම් කරමින්…"</string>
     <string name="refresh_daily_wallpaper_failed_message" msgid="4749879993812557166">"දෛනික වෝල්පේපරය යළි නැවුම් කිරීම අසාර්ථක විය. කරුණාකර ඔබගේ ජාල සම්බන්ධතාව පරික්ෂා කර නැවත උත්සාහ කරන්න."</string>
-    <string name="collapse_attribution_panel" msgid="4367971404848122275">"වෝල්පේපර තතු පැනලය හකුළුවන්න"</string>
-    <string name="expand_attribution_panel" msgid="6975094181456095915">"වෝල්පේපර තතු පැනලය දිග හරින්න"</string>
     <string name="on_device_wallpapers_category_title" msgid="805819102071369004">"උපාංගය-මත වෝල්පේපර"</string>
     <string name="on_device_wallpapers_category_title_desktop" msgid="316919420410065369">"උපාංගයේ"</string>
     <string name="on_device_wallpaper_title" msgid="5262564748034629524">"Android වෝල්පේපරය"</string>
@@ -80,4 +78,24 @@
     <string name="center_crop_wallpaper_position" msgid="1681980019815343348">"මැද කප්පාදු කිරීම"</string>
     <string name="stretch_wallpaper_position" msgid="5002680983147456935">"අදින්න"</string>
     <string name="preview" msgid="1774602101743861071">"පෙරදසුන"</string>
+    <string name="tab_info" msgid="818614080690111416">"තතු"</string>
+    <string name="tab_customize" msgid="2533745409174959960">"අභිරුචිකරණය කරන්න"</string>
+    <string name="configure_wallpaper" msgid="849882179182976621">"සැකසීම්…"</string>
+    <string name="delete_live_wallpaper" msgid="589212696102662329">"මකන්න"</string>
+    <string name="delete_wallpaper_confirmation" msgid="33790318361863778">"මෙම බිතුපත ඔබේ දුරකථනයෙන් මකන්නද?"</string>
+    <string name="bottom_action_bar_back" msgid="8237013112999946725">"ආපසු යන්න"</string>
+    <string name="bottom_action_bar_edit" msgid="1214742990893082138">"සංස්කරණය කරන්න"</string>
+    <string name="bottom_action_bar_download" msgid="3983122338076389421">"බාගන්න"</string>
+    <string name="bottom_action_bar_slideshow_wallpaper" msgid="509770525179533154">"වෝල්පේපර ස්ලයිඩ දර්ශනය"</string>
+    <string name="bottom_action_bar_apply" msgid="2983308349819178932">"යොදන්න"</string>
+    <string name="accessibility_preview_pager" msgid="1839869637405028575">"<xliff:g id="ID_2">%2$d</xliff:g> න් <xliff:g id="ID_1">%1$d</xliff:g> පිටුව"</string>
+    <string name="next_page_content_description" msgid="6268461446679584152">"ඊළඟ"</string>
+    <string name="previous_page_content_description" msgid="1138597031571078429">"පෙර"</string>
+    <string name="wallpaper_title" msgid="6754214682228331092">"වෝල්පේපරය"</string>
+    <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"වෝල්පේපර පෙරදසුන"</string>
+    <string name="collection_not_exist_msg" msgid="3504852962885064842">"එකතුව නොපවතී"</string>
+    <string name="hide_ui_preview_text" msgid="6766076482511252295">"UI පෙරදසුන සඟවන්න"</string>
+    <string name="show_ui_preview_text" msgid="5993063062417070806">"UI පෙරදසුන පෙන්වන්න"</string>
+    <string name="wallpaper_picker_entry_title" msgid="5185793991582084891">"වෝල්පේපරය වෙනස් කරන්න"</string>
+    <string name="lockscreen_wallpaper_preview_card_content_description" msgid="2244890820627302245">"අගුලු තිර වෝල්පේපර පෙරදසුන"</string>
 </resources>

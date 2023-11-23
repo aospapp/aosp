@@ -21,6 +21,7 @@ import static android.app.Activity.RESULT_OK;
 import android.content.Intent;
 import android.os.Bundle;
 
+import androidx.annotation.VisibleForTesting;
 import androidx.annotation.XmlRes;
 
 import com.android.car.settings.R;
@@ -39,7 +40,8 @@ import java.util.List;
 public class ResetNetworkFragment extends SettingsFragment {
 
     // Arbitrary request code for starting CheckLockActivity when the reset button is clicked.
-    private static final int REQUEST_CODE = 123;
+    @VisibleForTesting
+    static final int REQUEST_CODE = 123;
 
     private MenuItem mResetButton;
 

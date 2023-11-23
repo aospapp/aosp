@@ -59,8 +59,8 @@
     <string name="transport_title" msgid="1661659138226029178">"نوع حمل‌ونقل"</string>
     <string name="send_keepalive_title" msgid="5319788151608946049">"ارسال حفظ اتصال"</string>
     <string name="advanced_settings" msgid="2704644977548662872">"تنظیمات اختیاری"</string>
-    <string name="auth_username_title" msgid="9002505242616662698">"نام کاربری برای احراز هویت"</string>
-    <string name="auth_username_summary" msgid="6346313945275377230">"نام کاربری مورد استفاده برای احراز هویت"</string>
+    <string name="auth_username_title" msgid="9002505242616662698">"نام کاربری برای اصالت‌سنجی"</string>
+    <string name="auth_username_summary" msgid="6346313945275377230">"نام کاربری مورد استفاده برای اصالت‌سنجی"</string>
     <string name="default_preference_summary_username" msgid="8788114717555599222">"‏&lt;تنظیم نشده&gt;"</string>
     <string name="default_preference_summary_password" msgid="3695366978153175549">"‏&lt;تنظیم نشده&gt;"</string>
     <string name="default_preference_summary_domain_address" msgid="443247296785732364">"‏&lt;تنظیم نشده&gt;"</string>

@@ -67,6 +67,6 @@ public class RootInfoTest {
 
         RootInfo copied = RootInfo.copyRootInfo(rootInfo);
         assertThat(copied).isEqualTo(rootInfo);
-        assertThat(copied).isNotSameAs(rootInfo);
+        assertThat(copied).isNotSameInstanceAs(rootInfo);
     }
 }

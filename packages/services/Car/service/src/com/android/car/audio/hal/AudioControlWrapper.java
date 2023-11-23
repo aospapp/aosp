@@ -16,18 +16,39 @@
 
 package com.android.car.audio.hal;
 
-import android.hardware.automotive.audiocontrol.V2_0.IFocusListener;
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
+
+import android.annotation.IntDef;
+import android.annotation.NonNull;
+import android.annotation.Nullable;
+import android.hardware.automotive.audiocontrol.MutingInfo;
 import android.media.AudioAttributes.AttributeUsage;
+import android.util.IndentingPrintWriter;
 
-import androidx.annotation.Nullable;
+import com.android.car.audio.CarDuckingInfo;
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 
-import java.io.PrintWriter;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.util.List;
 
 /**
  * AudioControlWrapper wraps IAudioControl HAL interface, handling version specific support so that
  * the rest of CarAudioService doesn't need to know about it.
  */
 public interface AudioControlWrapper {
+    int AUDIOCONTROL_FEATURE_AUDIO_FOCUS = 0;
+    int AUDIOCONTROL_FEATURE_AUDIO_DUCKING = 1;
+    int AUDIOCONTROL_FEATURE_AUDIO_GROUP_MUTING = 2;
+
+    @IntDef({
+            AUDIOCONTROL_FEATURE_AUDIO_FOCUS,
+            AUDIOCONTROL_FEATURE_AUDIO_DUCKING,
+            AUDIOCONTROL_FEATURE_AUDIO_GROUP_MUTING
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    @interface AudioControlFeature {
+    }
 
     /**
      * Closes the focus listener that's registered on the AudioControl HAL
@@ -35,9 +56,13 @@ public interface AudioControlWrapper {
     void unregisterFocusListener();
 
     /**
-     * Indicates if HAL can support making and abandoning audio focus requests.
+     * Indicates if HAL can support specified feature
+     *
+     * @param feature to check support for. it's expected to be one of the features defined by
+     * {@link AudioControlWrapper.AudioControlFeature}.
+     * @return boolean indicating whether feature is supported
      */
-    boolean supportsHalAudioFocus();
+    boolean supportsFeature(@AudioControlFeature int feature);
 
     /**
      * Registers listener for HAL audio focus requests with IAudioControl. Only works if
@@ -45,7 +70,7 @@ public interface AudioControlWrapper {
      *
      * @param focusListener the listener to register on the IAudioControl HAL.
      */
-    void registerFocusListener(IFocusListener focusListener);
+    void registerFocusListener(HalFocusListener focusListener);
 
     /**
      * Notifies HAL of change in audio focus for a request it has made.
@@ -59,10 +84,10 @@ public interface AudioControlWrapper {
     /**
      * dumps the current state of the AudioControlWrapper
      *
-     * @param indent indent to append to each new line
      * @param writer stream to write current state
      */
-    void dump(String indent, PrintWriter writer);
+    @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
+    void dump(IndentingPrintWriter writer);
 
     /**
      * Sets the fade for the vehicle.
@@ -79,7 +104,24 @@ public interface AudioControlWrapper {
     void setBalanceTowardRight(float value);
 
     /**
+     * Notifies HAL of changes in usages holding focus and the corresponding ducking changes for a
+     * given zone.
+     *
+     * @param carDuckingInfos list of information about focus and addresses to duck for each
+     * impacted zone to relay to the HAL.
+     */
+    void onDevicesToDuckChange(@NonNull List<CarDuckingInfo> carDuckingInfos);
+
+    /**
+     * Notifies HAL of changes in muting changes for all audio zones.
+     *
+     * @param carZonesMutingInfo list of information about addresses to mute to relay to the HAL.
+     */
+    void onDevicesToMuteChange(@NonNull List<MutingInfo> carZonesMutingInfo);
+
+    /**
      * Registers recipient to be notified if AudioControl HAL service dies.
+     *
      * @param deathRecipient to be notified upon HAL service death.
      */
     void linkToDeath(@Nullable AudioControlDeathRecipient deathRecipient);

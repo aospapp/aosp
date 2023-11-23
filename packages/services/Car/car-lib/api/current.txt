@@ -9,23 +9,23 @@ package android.car {
     method @Nullable public static android.car.Car createCar(android.content.Context, @Nullable android.os.Handler);
     method @NonNull public static android.car.Car createCar(@NonNull android.content.Context, @Nullable android.os.Handler, long, @NonNull android.car.Car.CarServiceLifecycleListener);
     method public void disconnect();
-    method public int getCarConnectionType();
+    method @Deprecated public int getCarConnectionType();
     method @Nullable public Object getCarManager(String);
     method public boolean isConnected();
     method public boolean isConnecting();
     method public boolean isFeatureEnabled(@NonNull String);
     field public static final String APP_FOCUS_SERVICE = "app_focus";
     field public static final String AUDIO_SERVICE = "audio";
-    field public static final String CAR_CONFIGURATION_SERVICE = "configuration";
     field public static final String CAR_EXTRA_BROWSE_SERVICE_FOR_SESSION = "android.media.session.BROWSE_SERVICE";
-    field public static final String CAR_EXTRA_MEDIA_COMPONENT = "android.car.intent.extra.MEDIA_COMPONENT";
-    field public static final String CAR_INTENT_ACTION_MEDIA_TEMPLATE = "android.car.intent.action.MEDIA_TEMPLATE";
+    field @Deprecated public static final String CAR_EXTRA_MEDIA_COMPONENT = "android.car.intent.extra.MEDIA_COMPONENT";
+    field @Deprecated public static final String CAR_INTENT_ACTION_MEDIA_TEMPLATE = "android.car.intent.action.MEDIA_TEMPLATE";
     field public static final String CAR_NAVIGATION_SERVICE = "car_navigation_service";
     field public static final String CAR_OCCUPANT_ZONE_SERVICE = "car_occupant_zone_service";
     field public static final String CAR_UX_RESTRICTION_SERVICE = "uxrestriction";
     field public static final long CAR_WAIT_TIMEOUT_DO_NOT_WAIT = 0L; // 0x0L
     field public static final long CAR_WAIT_TIMEOUT_WAIT_FOREVER = -1L; // 0xffffffffffffffffL
-    field public static final int CONNECTION_TYPE_EMBEDDED = 5; // 0x5
+    field public static final String CAR_WATCHDOG_SERVICE = "car_watchdog";
+    field @Deprecated public static final int CONNECTION_TYPE_EMBEDDED = 5; // 0x5
     field public static final String INFO_SERVICE = "info";
     field public static final String META_DATA_DISTRACTION_OPTIMIZED = "distractionOptimized";
     field public static final String META_DATA_REQUIRES_CAR_FEATURE = "requires-car-feature";
@@ -41,10 +41,12 @@ package android.car {
     field public static final String PERMISSION_EXTERIOR_ENVIRONMENT = "android.car.permission.CAR_EXTERIOR_ENVIRONMENT";
     field public static final String PERMISSION_IDENTIFICATION = "android.car.permission.CAR_IDENTIFICATION";
     field public static final String PERMISSION_POWERTRAIN = "android.car.permission.CAR_POWERTRAIN";
+    field public static final String PERMISSION_READ_CAR_POWER_POLICY = "android.car.permission.READ_CAR_POWER_POLICY";
     field public static final String PERMISSION_READ_DISPLAY_UNITS = "android.car.permission.READ_CAR_DISPLAY_UNITS";
     field public static final String PERMISSION_READ_INTERIOR_LIGHTS = "android.car.permission.READ_CAR_INTERIOR_LIGHTS";
     field public static final String PERMISSION_READ_STEERING_STATE = "android.car.permission.READ_CAR_STEERING";
     field public static final String PERMISSION_SPEED = "android.car.permission.CAR_SPEED";
+    field public static final String POWER_SERVICE = "power";
     field public static final String PROPERTY_SERVICE = "property";
     field @Deprecated public static final String SENSOR_SERVICE = "sensor";
   }
@@ -224,7 +226,7 @@ package android.car {
   }
 
   public final class VehiclePropertyIds {
-    ctor public VehiclePropertyIds();
+    ctor @Deprecated public VehiclePropertyIds();
     method public static String toString(int);
     field @RequiresPermission("android.car.permission.CAR_DYNAMICS_STATE") public static final int ABS_ACTIVE = 287310858; // 0x1120040a
     field @RequiresPermission("android.car.permission.CAR_POWER") public static final int AP_POWER_BOOTUP_REASON = 289409538; // 0x11400a02
@@ -232,17 +234,21 @@ package android.car {
     field @RequiresPermission("android.car.permission.CAR_POWER") public static final int AP_POWER_STATE_REQ = 289475072; // 0x11410a00
     field @RequiresPermission(android.car.Car.PERMISSION_READ_INTERIOR_LIGHTS) public static final int CABIN_LIGHTS_STATE = 289410817; // 0x11400f01
     field @RequiresPermission(android.car.Car.PERMISSION_CONTROL_INTERIOR_LIGHTS) public static final int CABIN_LIGHTS_SWITCH = 289410818; // 0x11400f02
+    field @RequiresPermission("android.car.permission.CAR_TIRES") public static final int CRITICALLY_LOW_TIRE_PRESSURE = 392168202; // 0x1760030a
     field @RequiresPermission(android.car.Car.PERMISSION_POWERTRAIN) public static final int CURRENT_GEAR = 289408001; // 0x11400401
     field @RequiresPermission("android.car.permission.CAR_POWER") public static final int DISPLAY_BRIGHTNESS = 289409539; // 0x11400a03
     field @RequiresPermission.Read(@androidx.annotation.RequiresPermission(android.car.Car.PERMISSION_READ_DISPLAY_UNITS)) @RequiresPermission.Write(@androidx.annotation.RequiresPermission(allOf={android.car.Car.PERMISSION_CONTROL_DISPLAY_UNITS, "android.car.permission.CAR_VENDOR_EXTENSION"})) public static final int DISTANCE_DISPLAY_UNITS = 289408512; // 0x11400600
     field @RequiresPermission("android.car.permission.CONTROL_CAR_DOORS") public static final int DOOR_LOCK = 371198722; // 0x16200b02
     field @RequiresPermission("android.car.permission.CONTROL_CAR_DOORS") public static final int DOOR_MOVE = 373295873; // 0x16400b01
     field @RequiresPermission("android.car.permission.CONTROL_CAR_DOORS") public static final int DOOR_POS = 373295872; // 0x16400b00
+    field @RequiresPermission(android.car.Car.PERMISSION_CAR_INFO) public static final int ELECTRONIC_TOLL_COLLECTION_CARD_STATUS = 289410874; // 0x11400f3a
+    field @RequiresPermission(android.car.Car.PERMISSION_CAR_INFO) public static final int ELECTRONIC_TOLL_COLLECTION_CARD_TYPE = 289410873; // 0x11400f39
     field @RequiresPermission("android.car.permission.CAR_ENGINE_DETAILED") public static final int ENGINE_COOLANT_TEMP = 291504897; // 0x11600301
     field @RequiresPermission("android.car.permission.CAR_ENGINE_DETAILED") public static final int ENGINE_OIL_LEVEL = 289407747; // 0x11400303
     field @RequiresPermission("android.car.permission.CAR_ENGINE_DETAILED") public static final int ENGINE_OIL_TEMP = 291504900; // 0x11600304
     field @RequiresPermission("android.car.permission.CAR_ENGINE_DETAILED") public static final int ENGINE_RPM = 291504901; // 0x11600305
     field @RequiresPermission(android.car.Car.PERMISSION_EXTERIOR_ENVIRONMENT) public static final int ENV_OUTSIDE_TEMPERATURE = 291505923; // 0x11600703
+    field @RequiresPermission("android.car.permission.CAR_EPOCH_TIME") public static final int EPOCH_TIME = 290457094; // 0x11500606
     field @RequiresPermission.Read(@androidx.annotation.RequiresPermission(android.car.Car.PERMISSION_READ_DISPLAY_UNITS)) @RequiresPermission.Write(@androidx.annotation.RequiresPermission(allOf={android.car.Car.PERMISSION_CONTROL_DISPLAY_UNITS, "android.car.permission.CAR_VENDOR_EXTENSION"})) public static final int EV_BATTERY_DISPLAY_UNITS = 289408515; // 0x11400603
     field @RequiresPermission(android.car.Car.PERMISSION_ENERGY) public static final int EV_BATTERY_INSTANTANEOUS_CHARGE_RATE = 291504908; // 0x1160030c
     field @RequiresPermission(android.car.Car.PERMISSION_ENERGY) public static final int EV_BATTERY_LEVEL = 291504905; // 0x11600309
@@ -282,6 +288,7 @@ package android.car {
     field @RequiresPermission("android.car.permission.CONTROL_CAR_CLIMATE") public static final int HVAC_TEMPERATURE_CURRENT = 358614274; // 0x15600502
     field @RequiresPermission("android.car.permission.CONTROL_CAR_CLIMATE") public static final int HVAC_TEMPERATURE_DISPLAY_UNITS = 289408270; // 0x1140050e
     field @RequiresPermission("android.car.permission.CONTROL_CAR_CLIMATE") public static final int HVAC_TEMPERATURE_SET = 358614275; // 0x15600503
+    field @RequiresPermission("android.car.permission.CONTROL_CAR_CLIMATE") public static final int HVAC_TEMPERATURE_VALUE_SUGGESTION = 291570965; // 0x11610515
     field public static final int HW_KEY_INPUT = 289475088; // 0x11410a10
     field @RequiresPermission(android.car.Car.PERMISSION_POWERTRAIN) public static final int IGNITION_STATE = 289408009; // 0x11400409
     field @RequiresPermission(android.car.Car.PERMISSION_CAR_INFO) public static final int INFO_DRIVER_SEAT = 356516106; // 0x1540010a
@@ -347,6 +354,7 @@ package android.car {
     field @RequiresPermission("android.car.permission.CONTROL_CAR_SEATS") public static final int SEAT_OCCUPANCY = 356518832; // 0x15400bb0
     field @RequiresPermission("android.car.permission.CONTROL_CAR_SEATS") public static final int SEAT_TILT_MOVE = 356518800; // 0x15400b90
     field @RequiresPermission("android.car.permission.CONTROL_CAR_SEATS") public static final int SEAT_TILT_POS = 356518799; // 0x15400b8f
+    field @RequiresPermission("android.car.permission.STORAGE_ENCRYPTION_BINDING_SEED") public static final int STORAGE_ENCRYPTION_BINDING_SEED = 292554247; // 0x11700607
     field @RequiresPermission("android.car.permission.CAR_TIRES") public static final int TIRE_PRESSURE = 392168201; // 0x17600309
     field @RequiresPermission.Read(@androidx.annotation.RequiresPermission(android.car.Car.PERMISSION_READ_DISPLAY_UNITS)) @RequiresPermission.Write(@androidx.annotation.RequiresPermission(allOf={android.car.Car.PERMISSION_CONTROL_DISPLAY_UNITS, "android.car.permission.CAR_VENDOR_EXTENSION"})) public static final int TIRE_PRESSURE_DISPLAY_UNITS = 289408514; // 0x11400602
     field @RequiresPermission("android.car.permission.CAR_DYNAMICS_STATE") public static final int TRACTION_CONTROL_ACTIVE = 287310859; // 0x1120040b
@@ -546,6 +554,62 @@ package android.car.hardware {
 
 }
 
+package android.car.hardware.power {
+
+  public class CarPowerManager {
+    method @RequiresPermission(android.car.Car.PERMISSION_READ_CAR_POWER_POLICY) public void addPowerPolicyListener(@NonNull java.util.concurrent.Executor, @NonNull android.car.hardware.power.CarPowerPolicyFilter, @NonNull android.car.hardware.power.CarPowerManager.CarPowerPolicyListener);
+    method @Nullable @RequiresPermission(android.car.Car.PERMISSION_READ_CAR_POWER_POLICY) public android.car.hardware.power.CarPowerPolicy getCurrentPowerPolicy();
+    method @RequiresPermission(android.car.Car.PERMISSION_READ_CAR_POWER_POLICY) public void removePowerPolicyListener(@NonNull android.car.hardware.power.CarPowerManager.CarPowerPolicyListener);
+  }
+
+  public static interface CarPowerManager.CarPowerPolicyListener {
+    method public void onPolicyChanged(@NonNull android.car.hardware.power.CarPowerPolicy);
+  }
+
+  public final class CarPowerPolicy implements android.os.Parcelable {
+    method public int describeContents();
+    method @NonNull public int[] getDisabledComponents();
+    method @NonNull public int[] getEnabledComponents();
+    method @NonNull public String getPolicyId();
+    method public boolean isComponentEnabled(int);
+    method public void writeToParcel(@NonNull android.os.Parcel, int);
+    field @NonNull public static final android.os.Parcelable.Creator<android.car.hardware.power.CarPowerPolicy> CREATOR;
+  }
+
+  public final class CarPowerPolicyFilter implements android.os.Parcelable {
+    method public int describeContents();
+    method @NonNull public int[] getComponents();
+    method public void writeToParcel(@NonNull android.os.Parcel, int);
+    field @NonNull public static final android.os.Parcelable.Creator<android.car.hardware.power.CarPowerPolicyFilter> CREATOR;
+  }
+
+  public static final class CarPowerPolicyFilter.Builder {
+    ctor public CarPowerPolicyFilter.Builder();
+    method @NonNull public android.car.hardware.power.CarPowerPolicyFilter build();
+    method @NonNull public android.car.hardware.power.CarPowerPolicyFilter.Builder setComponents(@NonNull int...);
+  }
+
+  @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.CLASS) public @interface PowerComponent {
+    field public static final int AUDIO = 1; // 0x1
+    field public static final int BLUETOOTH = 4; // 0x4
+    field public static final int CELLULAR = 6; // 0x6
+    field public static final int CPU = 16; // 0x10
+    field public static final int DISPLAY = 3; // 0x3
+    field public static final int ETHERNET = 7; // 0x7
+    field public static final int INPUT = 10; // 0xa
+    field public static final int LOCATION = 14; // 0xe
+    field public static final int MEDIA = 2; // 0x2
+    field public static final int MICROPHONE = 15; // 0xf
+    field public static final int NFC = 9; // 0x9
+    field public static final int PROJECTION = 8; // 0x8
+    field public static final int TRUSTED_DEVICE_DETECTION = 13; // 0xd
+    field public static final int VISUAL_INTERACTION = 12; // 0xc
+    field public static final int VOICE_INTERACTION = 11; // 0xb
+    field public static final int WIFI = 5; // 0x5
+  }
+
+}
+
 package android.car.hardware.property {
 
   public class CarInternalErrorException extends java.lang.RuntimeException {
@@ -597,37 +661,94 @@ package android.car.hardware.property {
   public class PropertyNotAvailableException extends java.lang.IllegalStateException {
   }
 
+  public class VehicleElectronicTollCollectionCardStatus {
+    field public static final int ELECTRONIC_TOLL_COLLECTION_CARD_INVALID = 2; // 0x2
+    field public static final int ELECTRONIC_TOLL_COLLECTION_CARD_NOT_INSERTED = 3; // 0x3
+    field public static final int ELECTRONIC_TOLL_COLLECTION_CARD_VALID = 1; // 0x1
+    field public static final int UNKNOWN = 0; // 0x0
+  }
+
+  public final class VehicleElectronicTollCollectionCardType {
+    field public static final int JP_ELECTRONIC_TOLL_COLLECTION_CARD = 1; // 0x1
+    field public static final int JP_ELECTRONIC_TOLL_COLLECTION_CARD_V2 = 2; // 0x2
+    field public static final int UNKNOWN = 0; // 0x0
+  }
+
 }
 
 package android.car.media {
 
   public final class CarAudioManager {
+    method public boolean isAudioFeatureEnabled(int);
     method public void registerCarVolumeCallback(@NonNull android.car.media.CarAudioManager.CarVolumeCallback);
     method public void unregisterCarVolumeCallback(@NonNull android.car.media.CarAudioManager.CarVolumeCallback);
+    field public static final int AUDIO_FEATURE_DYNAMIC_ROUTING = 1; // 0x1
+    field public static final int AUDIO_FEATURE_VOLUME_GROUP_MUTING = 2; // 0x2
   }
 
   public abstract static class CarAudioManager.CarVolumeCallback {
     ctor public CarAudioManager.CarVolumeCallback();
+    method public void onGroupMuteChanged(int, int, int);
     method public void onGroupVolumeChanged(int, int, int);
     method public void onMasterMuteChanged(int, int);
   }
 
-}
-
-package android.car.settings {
-
-  @Deprecated public class CarConfigurationManager {
-    method @Deprecated public android.car.settings.SpeedBumpConfiguration getSpeedBumpConfiguration();
+  public final class CarMediaIntents {
+    field public static final String ACTION_MEDIA_TEMPLATE = "android.car.intent.action.MEDIA_TEMPLATE";
+    field public static final String EXTRA_MEDIA_COMPONENT = "android.car.intent.extra.MEDIA_COMPONENT";
+    field public static final String EXTRA_SEARCH_QUERY = "android.car.media.extra.SEARCH_QUERY";
   }
 
-  @Deprecated public final class SpeedBumpConfiguration implements android.os.Parcelable {
-    ctor @Deprecated public SpeedBumpConfiguration(double, double, long);
-    method @Deprecated public int describeContents();
-    method @Deprecated public double getAcquiredPermitsPerSecond();
-    method @Deprecated public double getMaxPermitPool();
-    method @Deprecated public long getPermitFillDelay();
-    method @Deprecated public void writeToParcel(android.os.Parcel, int);
-    field @Deprecated public static final android.os.Parcelable.Creator<android.car.settings.SpeedBumpConfiguration> CREATOR;
+}
+
+package android.car.watchdog {
+
+  public final class CarWatchdogManager {
+    method public void addResourceOveruseListener(@NonNull java.util.concurrent.Executor, int, @NonNull android.car.watchdog.CarWatchdogManager.ResourceOveruseListener);
+    method @NonNull public android.car.watchdog.ResourceOveruseStats getResourceOveruseStats(int, int);
+    method public void removeResourceOveruseListener(@NonNull android.car.watchdog.CarWatchdogManager.ResourceOveruseListener);
+    field public static final int FLAG_RESOURCE_OVERUSE_IO = 1; // 0x1
+    field public static final int STATS_PERIOD_CURRENT_DAY = 1; // 0x1
+    field public static final int STATS_PERIOD_PAST_15_DAYS = 4; // 0x4
+    field public static final int STATS_PERIOD_PAST_30_DAYS = 5; // 0x5
+    field public static final int STATS_PERIOD_PAST_3_DAYS = 2; // 0x2
+    field public static final int STATS_PERIOD_PAST_7_DAYS = 3; // 0x3
+  }
+
+  public static interface CarWatchdogManager.ResourceOveruseListener {
+    method public void onOveruse(@NonNull android.car.watchdog.ResourceOveruseStats);
+  }
+
+  public final class IoOveruseStats implements android.os.Parcelable {
+    method public int describeContents();
+    method public long getDurationInSeconds();
+    method @NonNull public android.car.watchdog.PerStateBytes getRemainingWriteBytes();
+    method public long getStartTime();
+    method public long getTotalBytesWritten();
+    method public long getTotalOveruses();
+    method public long getTotalTimesKilled();
+    method public boolean isKillableOnOveruse();
+    method public void writeToParcel(@NonNull android.os.Parcel, int);
+    field @NonNull public static final android.os.Parcelable.Creator<android.car.watchdog.IoOveruseStats> CREATOR;
+  }
+
+  public final class PerStateBytes implements android.os.Parcelable {
+    ctor public PerStateBytes(long, long, long);
+    method public int describeContents();
+    method public long getBackgroundModeBytes();
+    method public long getForegroundModeBytes();
+    method public long getGarageModeBytes();
+    method public void writeToParcel(@NonNull android.os.Parcel, int);
+    field @NonNull public static final android.os.Parcelable.Creator<android.car.watchdog.PerStateBytes> CREATOR;
+  }
+
+  public final class ResourceOveruseStats implements android.os.Parcelable {
+    method public int describeContents();
+    method @Nullable public android.car.watchdog.IoOveruseStats getIoOveruseStats();
+    method @NonNull public String getPackageName();
+    method @NonNull public android.os.UserHandle getUserHandle();
+    method public void writeToParcel(@NonNull android.os.Parcel, int);
+    field @NonNull public static final android.os.Parcelable.Creator<android.car.watchdog.ResourceOveruseStats> CREATOR;
   }
 
 }

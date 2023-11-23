@@ -12,12 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 apex_vndk {
     name: "com.android.vndk.current",
     manifest: "apex_manifest.current.json",
     key: "com.android.vndk.current.key",
     certificate: ":com.android.vndk.current.certificate",
     file_contexts: ":com.android.vndk-file_contexts",
+    updatable: false,
+    generate_hashtree: false,
 }
 
 override_apex {
@@ -38,6 +44,28 @@ android_app_certificate {
 }
 
 apex_vndk {
+    name: "com.android.vndk.v30",
+    manifest: "apex_manifest.v30.json",
+    key: "com.android.vndk.v30.key",
+    certificate: ":com.android.vndk.v30.certificate",
+    vndk_version: "30",
+    system_ext_specific: true,
+    file_contexts: ":com.android.vndk-file_contexts",
+    updatable: false,
+}
+
+apex_key {
+    name: "com.android.vndk.v30.key",
+    public_key: "com.android.vndk.v30.pubkey",
+    private_key: "com.android.vndk.v30.pem",
+}
+
+android_app_certificate {
+    name: "com.android.vndk.v30.certificate",
+    certificate: "com.android.vndk.v30",
+}
+
+apex_vndk {
     name: "com.android.vndk.v29",
     manifest: "apex_manifest.v29.json",
     key: "com.android.vndk.v29.key",
@@ -45,6 +73,7 @@ apex_vndk {
     vndk_version: "29",
     system_ext_specific: true,
     file_contexts: ":com.android.vndk-file_contexts",
+    updatable: false,
 }
 
 apex_key {
@@ -66,6 +95,7 @@ apex_vndk {
     vndk_version: "28",
     system_ext_specific: true,
     file_contexts: ":com.android.vndk-file_contexts",
+    updatable: false,
 }
 
 apex_key {
@@ -77,25 +107,4 @@ apex_key {
 android_app_certificate {
     name: "com.android.vndk.v28.certificate",
     certificate: "com.android.vndk.v28",
-}
-
-apex_vndk {
-    name: "com.android.vndk.v27",
-    manifest: "apex_manifest.v27.json",
-    key: "com.android.vndk.v27.key",
-    certificate: ":com.android.vndk.v27.certificate",
-    vndk_version: "27",
-    system_ext_specific: true,
-    file_contexts: ":com.android.vndk-file_contexts",
-}
-
-apex_key {
-    name: "com.android.vndk.v27.key",
-    public_key: "com.android.vndk.v27.pubkey",
-    private_key: "com.android.vndk.v27.pem",
-}
-
-android_app_certificate {
-    name: "com.android.vndk.v27.certificate",
-    certificate: "com.android.vndk.v27",
 }

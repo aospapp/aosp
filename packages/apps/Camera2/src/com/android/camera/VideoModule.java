@@ -148,9 +148,6 @@ public class VideoModule extends CameraModule
     private long mRecordingStartTime;
     private boolean mRecordingTimeCountsDown = false;
     private long mOnResumeTime;
-    // The video file that the hardware camera is about to record into
-    // (or is recording into.
-    private String mVideoFilename;
     private ParcelFileDescriptor mVideoFileDescriptor;
 
     // The video file that has already been recorded, and that is being
@@ -256,7 +253,7 @@ public class VideoModule extends CameraModule
                     // down and camera app is opened. Rotation animation will
                     // take some time and the rotation value we have got may be
                     // wrong. Framework does not have a callback for this now.
-                    if ((CameraUtil.getDisplayRotation() != mDisplayRotation)
+                    if ((CameraUtil.getDisplayRotation(mActivity) != mDisplayRotation)
                             && !mMediaRecorderRecording && !mSwitchingCamera) {
                         startPreview();
                     }
@@ -783,7 +780,7 @@ public class VideoModule extends CameraModule
 
         mCameraSettings = mCameraDevice.getSettings();
         Point desiredPreviewSize = getDesiredPreviewSize(
-              mCameraCapabilities, mProfile, mUI.getPreviewScreenSize());
+                mCameraCapabilities, mProfile, mUI.getPreviewScreenSize(), mActivity);
         mDesiredPreviewWidth = desiredPreviewSize.x;
         mDesiredPreviewHeight = desiredPreviewSize.y;
         mUI.setPreviewSize(mDesiredPreviewWidth, mDesiredPreviewHeight);
@@ -807,7 +804,7 @@ public class VideoModule extends CameraModule
      *         opened yet.
      */
     private static Point getDesiredPreviewSize(CameraCapabilities capabilities,
-          CamcorderProfile profile, Point previewScreenSize) {
+            CamcorderProfile profile, Point previewScreenSize, Activity context) {
         if (capabilities.getSupportedVideoSizes() == null ||
             capabilities.getSupportedVideoSizes().isEmpty()) {
             // Driver doesn't support separate outputs for preview and video.
@@ -846,7 +843,7 @@ public class VideoModule extends CameraModule
         }
 
         Size optimalSize = CameraUtil.getOptimalPreviewSize(sizes,
-                (double) profile.videoFrameWidth / profile.videoFrameHeight);
+                (double) profile.videoFrameWidth / profile.videoFrameHeight, context);
         return new Point(optimalSize.width(), optimalSize.height());
     }
 
@@ -865,7 +862,7 @@ public class VideoModule extends CameraModule
     }
 
     private void setDisplayOrientation() {
-        mDisplayRotation = CameraUtil.getDisplayRotation();
+        mDisplayRotation = CameraUtil.getDisplayRotation(mActivity);
         Characteristics info =
                 mActivity.getCameraProvider().getCharacteristics(mCameraId);
         mCameraDisplayOrientation = info.getPreviewOrientation(mDisplayRotation);
@@ -883,7 +880,7 @@ public class VideoModule extends CameraModule
         if (mMediaRecorderRecording) {
             return;
         }
-        if (mDisplayRotation != CameraUtil.getDisplayRotation()) {
+        if (mDisplayRotation != CameraUtil.getDisplayRotation(mActivity)) {
             setDisplayOrientation();
         }
     }
@@ -1087,16 +1084,6 @@ public class VideoModule extends CameraModule
         mActivity.finish();
     }
 
-    private void cleanupEmptyFile() {
-        if (mVideoFilename != null) {
-            File f = new File(mVideoFilename);
-            if (f.length() == 0 && f.delete()) {
-                Log.v(TAG, "Empty video file deleted: " + mVideoFilename);
-                mVideoFilename = null;
-            }
-        }
-    }
-
     // Prepares media recorder.
     private void initializeRecorder() {
         Log.i(TAG, "initializeRecorder: " + Thread.currentThread());
@@ -1124,7 +1111,23 @@ public class VideoModule extends CameraModule
                 }
             }
             requestedSizeLimit = myExtras.getLong(MediaStore.EXTRA_SIZE_LIMIT);
+        } else {
+            generateVideoValues();
+            Uri videoTable = MediaStore.Video.Media.getContentUri(
+                   MediaStore.VOLUME_EXTERNAL_PRIMARY);
+            Uri videoUri = mContentResolver.insert(videoTable, mCurrentVideoValues);
+
+            try {
+                mVideoFileDescriptor =
+                        mContentResolver.openFileDescriptor(videoUri, "rw");
+                mCurrentVideoUri = videoUri;
+            } catch (java.io.FileNotFoundException ex) {
+                // invalid uri
+                mContentResolver.delete(videoUri, null, null);
+                Log.e(TAG, ex.toString());
+            }
         }
+
         mMediaRecorder = new MediaRecorder();
         // Unlock the camera object before passing it to media recorder.
         mCameraDevice.unlock();
@@ -1149,14 +1152,12 @@ public class VideoModule extends CameraModule
 
         setRecordLocation();
 
-        // Set output file.
-        // Try Uri in the intent first. If it doesn't exist, use our own
-        // instead.
+        // Set output file using video Uri.
         if (mVideoFileDescriptor != null) {
             mMediaRecorder.setOutputFile(mVideoFileDescriptor.getFileDescriptor());
         } else {
-            generateVideoFilename(mProfile.fileFormat);
-            mMediaRecorder.setOutputFile(mVideoFilename);
+            releaseMediaRecorder();
+            throw new RuntimeException("No valid video file descriptor");
         }
 
         // Set maximum file size.
@@ -1185,7 +1186,7 @@ public class VideoModule extends CameraModule
         try {
             mMediaRecorder.prepare();
         } catch (IOException e) {
-            Log.e(TAG, "prepare failed for " + mVideoFilename, e);
+            Log.e(TAG, "prepare failed", e);
             releaseMediaRecorder();
             throw new RuntimeException(e);
         }
@@ -1209,41 +1210,34 @@ public class VideoModule extends CameraModule
     private void releaseMediaRecorder() {
         Log.i(TAG, "Releasing media recorder.");
         if (mMediaRecorder != null) {
-            cleanupEmptyFile();
             mMediaRecorder.reset();
             mMediaRecorder.release();
             mMediaRecorder = null;
         }
-        mVideoFilename = null;
     }
 
-    private void generateVideoFilename(int outputFileFormat) {
+    private void generateVideoValues() {
         long dateTaken = System.currentTimeMillis();
         String title = createName(dateTaken);
         // Used when emailing.
-        String filename = title + convertOutputFormatToFileExt(outputFileFormat);
-        String mime = convertOutputFormatToMimeType(outputFileFormat);
-        String path = Storage.DIRECTORY + '/' + filename;
-        String tmpPath = path + ".tmp";
+        String mime = convertOutputFormatToMimeType(mProfile.fileFormat);
         mCurrentVideoValues = new ContentValues(9);
         mCurrentVideoValues.put(Video.Media.TITLE, title);
-        mCurrentVideoValues.put(Video.Media.DISPLAY_NAME, filename);
+        mCurrentVideoValues.put(Video.Media.DISPLAY_NAME, title);
         mCurrentVideoValues.put(Video.Media.DATE_TAKEN, dateTaken);
         mCurrentVideoValues.put(MediaColumns.DATE_MODIFIED, dateTaken / 1000);
         mCurrentVideoValues.put(Video.Media.MIME_TYPE, mime);
-        mCurrentVideoValues.put(Video.Media.DATA, path);
         mCurrentVideoValues.put(Video.Media.WIDTH, mProfile.videoFrameWidth);
         mCurrentVideoValues.put(Video.Media.HEIGHT, mProfile.videoFrameHeight);
         mCurrentVideoValues.put(Video.Media.RESOLUTION,
                 Integer.toString(mProfile.videoFrameWidth) + "x" +
                 Integer.toString(mProfile.videoFrameHeight));
+        mCurrentVideoValues.put(Video.Media.IS_PENDING, 1);
         Location loc = mLocationManager.getCurrentLocation();
         if (loc != null) {
             mCurrentVideoValues.put(Video.Media.LATITUDE, loc.getLatitude());
             mCurrentVideoValues.put(Video.Media.LONGITUDE, loc.getLongitude());
         }
-        mVideoFilename = tmpPath;
-        Log.v(TAG, "New video filename: " + mVideoFilename);
     }
 
     private void logVideoCapture(long duration) {
@@ -1253,26 +1247,25 @@ public class VideoModule extends CameraModule
         boolean gridLinesOn = Keys.areGridLinesOn(mActivity.getSettingsManager());
         int width = (Integer) mCurrentVideoValues.get(Video.Media.WIDTH);
         int height = (Integer) mCurrentVideoValues.get(Video.Media.HEIGHT);
-        long size = new File(mCurrentVideoFilename).length();
-        String name = new File(mCurrentVideoValues.getAsString(Video.Media.DATA)).getName();
+        long size = (Long) mCurrentVideoValues.get(Video.Media.SIZE);
+        String name = (String) mCurrentVideoValues.get(Video.Media.DISPLAY_NAME);
         UsageStatistics.instance().videoCaptureDoneEvent(name, duration, isCameraFrontFacing(),
                 currentZoomValue(), width, height, size, flashSetting, gridLinesOn);
     }
 
     private void saveVideo() {
-        if (mVideoFileDescriptor == null) {
-            long duration = SystemClock.uptimeMillis() - mRecordingStartTime;
-            if (duration > 0) {
-                //
-            } else {
-                Log.w(TAG, "Video duration <= 0 : " + duration);
-            }
-            mCurrentVideoValues.put(Video.Media.SIZE, new File(mCurrentVideoFilename).length());
-            mCurrentVideoValues.put(Video.Media.DURATION, duration);
-            getServices().getMediaSaver().addVideo(mCurrentVideoFilename,
-                    mCurrentVideoValues, mOnVideoSavedListener);
-            logVideoCapture(duration);
+        long duration = SystemClock.uptimeMillis() - mRecordingStartTime;
+        if (duration > 0) {
+            //
+        } else {
+            Log.w(TAG, "Video duration <= 0 : " + duration);
         }
+        mCurrentVideoValues.put(Video.Media.SIZE, mVideoFileDescriptor.getStatSize());
+        mCurrentVideoValues.put(Video.Media.DURATION, duration);
+        mCurrentVideoValues.put(Video.Media.IS_PENDING, 0);
+        getServices().getMediaSaver().addVideo(mCurrentVideoUri,
+                mCurrentVideoValues, mOnVideoSavedListener);
+        logVideoCapture(duration);
         mCurrentVideoValues = null;
     }
 
@@ -1489,13 +1482,8 @@ public class VideoModule extends CameraModule
                 mMediaRecorder.setOnInfoListener(null);
                 mMediaRecorder.stop();
                 shouldAddToMediaStoreNow = true;
-                mCurrentVideoFilename = mVideoFilename;
-                Log.v(TAG, "stopVideoRecording: current video filename: " + mCurrentVideoFilename);
             } catch (RuntimeException e) {
                 Log.e(TAG, "stop fail",  e);
-                if (mVideoFilename != null) {
-                    deleteVideoFile(mVideoFilename);
-                }
                 fail = true;
             }
             mMediaRecorderRecording = false;
@@ -1517,11 +1505,11 @@ public class VideoModule extends CameraModule
             mUI.setOrientationIndicator(0, true);
             mActivity.enableKeepScreenOn(false);
             if (shouldAddToMediaStoreNow && !fail) {
-                if (mVideoFileDescriptor == null) {
-                    saveVideo();
-                } else if (mIsVideoCaptureIntent) {
+                if (mIsVideoCaptureIntent) {
                     // if no file save is needed, we can show the post capture UI now
                     showCaptureResult();
+                } else {
+                    saveVideo();
                 }
             }
         }

@@ -26,18 +26,6 @@
     <string name="media_app_title" msgid="94717597743776797">"Media"</string>
     <string name="search_hint" msgid="5401750426238148416">"Sök låt, artist m.m."</string>
     <string name="fragment_playback_title" msgid="5014481549024607614">"Nu spelas"</string>
-    <string name="default_error_message" msgid="6365377134388091079">"Något är fel. Försök igen senare."</string>
-    <string name="error_code_app_error" msgid="1726372057192704809">"Det går inte just nu"</string>
-    <string name="error_code_not_supported" msgid="1435878548411799387">"Det går inte med den här appen"</string>
-    <string name="error_code_authentication_expired" msgid="905154133202017052">"Logga in om du vill använda appen"</string>
-    <string name="error_code_premium_account_required" msgid="4736461331592855166">"Premium-konto krävs"</string>
-    <string name="error_code_concurrent_stream_limit" msgid="1279573243715957403">"För många enheter streamas"</string>
-    <string name="error_code_parental_control_restricted" msgid="5222841294702530806">"Det innehållet har blockerats"</string>
-    <string name="error_code_not_available_in_region" msgid="4106605584926645567">"Det innehållet är inte tillgängligt här"</string>
-    <string name="error_code_content_already_playing" msgid="8050972499898729459">"Det innehållet spelas redan"</string>
-    <string name="error_code_skip_limit_reached" msgid="8926507875025988831">"Det går inte att hoppa över fler låtar"</string>
-    <string name="error_code_action_aborted" msgid="3889734248905737169">"Det gick inte att slutföra. Försök igen."</string>
-    <string name="error_code_end_of_queue" msgid="2842652212154074468">"Inget annat har lagts i uppspelningskön"</string>
     <string name="service_notification_title" msgid="8085444675783592744">"Ansluter till mediakälla"</string>
     <string name="menu_item_sound_settings_title" msgid="58887078120809669">"Ljudinställningar"</string>
     <string name="menu_item_app_selector_title" msgid="4587248991114338595">"Byt app"</string>

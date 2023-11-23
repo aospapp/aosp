@@ -47,6 +47,8 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import java.io.File;
+
 /**
  * Unit tests for {@link VerifyPackageTask}.
  */
@@ -58,6 +60,7 @@ public class VerifyPackageTaskTest {
     private static final String TEST_ADMIN_NAME = TEST_PACKAGE_NAME + ".DeviceAdmin";
     private static final String TEST_PACKAGE_LOCATION = "http://www.some.uri.com";
     private static final String TEST_LOCAL_FILENAME = "/local/filename";
+    private static final File TEST_LOCAL_FILE = new File(TEST_LOCAL_FILENAME);
     private static final int TEST_USER_ID = 123;
     private static final byte[] TEST_BAD_HASH = new byte[] { 'b', 'a', 'd' };
     private static final byte[] TEST_PACKAGE_CHECKSUM_HASH = new byte[] { '1', '2', '3', '4', '5' };
@@ -88,7 +91,7 @@ public class VerifyPackageTaskTest {
                 PackageManager.GET_SIGNATURES | PackageManager.GET_RECEIVERS))
                 .thenReturn(mPackageInfo);
 
-        when(mDownloadPackageTask.getDownloadedPackageLocation()).thenReturn(TEST_LOCAL_FILENAME);
+        when(mDownloadPackageTask.getPackageLocation()).thenReturn(TEST_LOCAL_FILE);
 
         when(mUtils.findDeviceAdminInPackageInfo(TEST_PACKAGE_NAME, null, mPackageInfo))
                 .thenReturn(new ComponentName(TEST_PACKAGE_NAME, TEST_ADMIN_NAME));
@@ -97,7 +100,7 @@ public class VerifyPackageTaskTest {
     @Test
     public void testDownloadLocationNull() {
         // GIVEN that the download package location is null
-        when(mDownloadPackageTask.getDownloadedPackageLocation()).thenReturn(null);
+        when(mDownloadPackageTask.getPackageLocation()).thenReturn(null);
 
         // WHEN running the VerifyPackageTask
         runWithDownloadInfo(TEST_PACKAGE_CHECKSUM_HASH, EMPTY_BYTE_ARRAY);

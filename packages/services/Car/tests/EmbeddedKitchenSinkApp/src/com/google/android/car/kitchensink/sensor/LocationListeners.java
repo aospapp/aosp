@@ -151,7 +151,7 @@ public class LocationListeners {
         if (mLocationMgr != null) {
             if (mLocationMgr.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
                 mLocationMgr.removeUpdates(mLocationListener);
-                mTextUpdateHandler.setMagField("GPS stopped");
+                mTextUpdateHandler.setLocationField("GPS stopped");
             }
         }
 
@@ -163,13 +163,22 @@ public class LocationListeners {
         @Override
         public void onLocationChanged(Location location) {
             String s = String.format("Location: lat=%10.6f, lon=%10.6f, altitude=%5.0f, "
-                                   + "speed=%5.1f, bearing=%3.0f, accuracy=%5.1f",
+                                   + "speed=%5.1f, bearing=%3.0f, accuracy=%5.1f, "
+                                   + "hasBearingAccuracy=%B, bearingAccuracy=%f, "
+                                   + "hasSpeedAccuracy=%B, speedAccuracy=%f, "
+                                   + "hasVerticalAccuracy=%B, verticalAccuracy=%f",
                     location.getLatitude(),
                     location.getLongitude(),
                     location.getAltitude(),
                     location.getSpeed(),
                     location.getBearing(),
-                    location.getAccuracy());
+                    location.getAccuracy(),
+                    location.hasBearingAccuracy(),
+                    location.getBearingAccuracyDegrees(),
+                    location.hasSpeedAccuracy(),
+                    location.getSpeedAccuracyMetersPerSecond(),
+                    location.hasVerticalAccuracy(),
+                    location.getVerticalAccuracyMeters());
 
             mTextUpdateHandler.setLocationField(s);
         }

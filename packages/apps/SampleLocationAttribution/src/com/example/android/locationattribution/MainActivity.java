@@ -133,8 +133,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void showRequestLocationPermissionDialog() {
         ActivityCompat.requestPermissions(this,
-                new String[]{Manifest.permission.ACCESS_FINE_LOCATION,
-                        Manifest.permission.ACCESS_BACKGROUND_LOCATION},
+                new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
                 NON_FRAMEWORK_LOCATION_PERMISSION);
     }
 

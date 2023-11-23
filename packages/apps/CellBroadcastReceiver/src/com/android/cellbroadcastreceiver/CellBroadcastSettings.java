@@ -18,7 +18,7 @@ package com.android.cellbroadcastreceiver;
 
 import android.annotation.NonNull;
 import android.app.ActionBar;
-import android.app.Activity;
+import android.app.ActivityManager;
 import android.app.Fragment;
 import android.app.backup.BackupManager;
 import android.content.BroadcastReceiver;
@@ -31,10 +31,13 @@ import android.content.res.Resources;
 import android.os.Bundle;
 import android.os.PersistableBundle;
 import android.os.UserManager;
+import android.os.Vibrator;
 import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionManager;
+import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.view.MenuItem;
+import android.widget.Switch;
 
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.preference.ListPreference;
@@ -46,6 +49,10 @@ import androidx.preference.PreferenceScreen;
 import androidx.preference.TwoStatePreference;
 
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.modules.utils.build.SdkLevel;
+import com.android.settingslib.collapsingtoolbar.CollapsingToolbarBaseActivity;
+import com.android.settingslib.widget.MainSwitchPreference;
+import com.android.settingslib.widget.OnMainSwitchChangeListener;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -53,26 +60,39 @@ import java.util.Map;
 /**
  * Settings activity for the cell broadcast receiver.
  */
-public class CellBroadcastSettings extends Activity {
+public class CellBroadcastSettings extends CollapsingToolbarBaseActivity {
 
     private static final String TAG = "CellBroadcastSettings";
 
     private static final boolean DBG = false;
 
+    /**
+     * Keys for user preferences.
+     * When adding a new preference, make sure to clear its value in resetAllPreferences.
+     */
     // Preference key for alert header (A text view, not clickable).
     public static final String KEY_ALERTS_HEADER = "alerts_header";
 
-    // Preference key for a master toggle to enable/disable all alerts message (default enabled).
+    // Preference key for a main toggle to enable/disable all alerts message (default enabled).
     public static final String KEY_ENABLE_ALERTS_MASTER_TOGGLE = "enable_alerts_master_toggle";
 
     // Preference key for whether to enable public safety messages (default enabled).
     public static final String KEY_ENABLE_PUBLIC_SAFETY_MESSAGES = "enable_public_safety_messages";
 
+    // Preference key for whether to show full-screen public safety message (pop-up dialog), If set
+    // to false, only display from message history and sms inbox if enabled. A foreground
+    // notification might also be shown if enabled.
+    public static final String KEY_ENABLE_PUBLIC_SAFETY_MESSAGES_FULL_SCREEN =
+            "enable_public_safety_messages_full_screen";
+
     // Preference key for whether to enable emergency alerts (default enabled).
     public static final String KEY_ENABLE_EMERGENCY_ALERTS = "enable_emergency_alerts";
 
-    // Enable vibration on alert (unless master volume is silent).
+    // Enable vibration on alert (unless main volume is silent).
     public static final String KEY_ENABLE_ALERT_VIBRATE = "enable_alert_vibrate";
+
+    // Speak contents of alert after playing the alert sound.
+    public static final String KEY_ENABLE_ALERT_SPEECH = "enable_alert_speech";
 
     // Play alert sound in full volume regardless Do Not Disturb is on.
     public static final String KEY_OVERRIDE_DND = "override_dnd";
@@ -105,6 +125,12 @@ public class CellBroadcastSettings extends Activity {
     // Whether to display monthly test messages (default is disabled).
     public static final String KEY_ENABLE_TEST_ALERTS = "enable_test_alerts";
 
+    // Whether to display exercise test alerts.
+    public static final String KEY_ENABLE_EXERCISE_ALERTS = "enable_exercise_alerts";
+
+    // Whether to display operator defined test alerts
+    public static final String KEY_OPERATOR_DEFINED_ALERTS = "enable_operator_defined_alerts";
+
     // Whether to display state/local test messages (default disabled).
     public static final String KEY_ENABLE_STATE_LOCAL_TEST_ALERTS =
             "enable_state_local_test_alerts";
@@ -126,24 +152,49 @@ public class CellBroadcastSettings extends Activity {
     // For watch layout
     private static final String KEY_WATCH_ALERT_REMINDER = "watch_alert_reminder";
 
-    // Resource cache
-    private static final Map<Integer, Resources> sResourcesCache = new HashMap<>();
-
-    // Test override for disabling the subId specific resources
-    private static boolean sUseResourcesForSubId = true;
-
     // Whether to receive alert in second language code
     public static final String KEY_RECEIVE_CMAS_IN_SECOND_LANGUAGE =
             "receive_cmas_in_second_language";
 
+    /* End of user preferences keys section. */
+
+    // Resource cache
+    private static final Map<Integer, Resources> sResourcesCache = new HashMap<>();
+
+    // Intent sent from cellbroadcastreceiver to notify cellbroadcastservice that area info update
+    // is disabled/enabled.
+    private static final String AREA_INFO_UPDATE_ACTION =
+            "com.android.cellbroadcastreceiver.action.AREA_UPDATE_INFO_ENABLED";
+    private static final String AREA_INFO_UPDATE_ENABLED_EXTRA = "enable";
+
+    /**
+     * This permission is only granted to the cellbroadcast mainline module and thus can be
+     * used for permission check within CBR and CBS.
+     */
+    private static final String CBR_MODULE_PERMISSION =
+            "com.android.cellbroadcastservice.FULL_ACCESS_CELL_BROADCAST_HISTORY";
+
+    // Key for shared preference which represents whether user has changed any preference
+    private static final String ANY_PREFERENCE_CHANGED_BY_USER = "any_preference_changed_by_user";
+
+    // Test override for disabling the subId specific resources
+    private static boolean sUseResourcesForSubId = true;
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        // for backward compatibility on R devices
+        if (!SdkLevel.isAtLeastS()) {
+            setCustomizeContentView(R.layout.cell_broadcast_list_collapsing_no_toobar);
+        }
         super.onCreate(savedInstanceState);
 
-        ActionBar actionBar = getActionBar();
-        if (actionBar != null) {
-            // android.R.id.home will be triggered in onOptionsItemSelected()
-            actionBar.setDisplayHomeAsUpEnabled(true);
+        // for backward compatibility on R devices
+        if (!SdkLevel.isAtLeastS()) {
+            ActionBar actionBar = getActionBar();
+            if (actionBar != null) {
+                // android.R.id.home will be triggered in onOptionsItemSelected()
+                actionBar.setDisplayHomeAsUpEnabled(true);
+            }
         }
 
         UserManager userManager = (UserManager) getSystemService(Context.USER_SERVICE);
@@ -153,12 +204,13 @@ public class CellBroadcastSettings extends Activity {
         }
 
         // We only add new CellBroadcastSettingsFragment if no fragment is restored.
-        Fragment fragment = getFragmentManager().findFragmentById(android.R.id.content);
+        Fragment fragment = getFragmentManager().findFragmentById(
+                com.android.settingslib.collapsingtoolbar.R.id.content_frame);
         if (fragment == null) {
             fragment = new CellBroadcastSettingsFragment();
             getFragmentManager()
                     .beginTransaction()
-                    .add(android.R.id.content, fragment)
+                    .add(com.android.settingslib.collapsingtoolbar.R.id.content_frame, fragment)
                     .commit();
         }
     }
@@ -183,6 +235,65 @@ public class CellBroadcastSettings extends Activity {
     }
 
     /**
+     * Reset all user values for preferences (stored in shared preferences).
+     *
+     * @param c the application context
+     */
+    public static void resetAllPreferences(Context c) {
+        SharedPreferences.Editor e = PreferenceManager.getDefaultSharedPreferences(c).edit();
+        e.remove(KEY_ENABLE_CMAS_EXTREME_THREAT_ALERTS)
+                .remove(KEY_ENABLE_CMAS_SEVERE_THREAT_ALERTS)
+                .remove(KEY_ENABLE_CMAS_AMBER_ALERTS)
+                .remove(KEY_ENABLE_PUBLIC_SAFETY_MESSAGES)
+                .remove(KEY_ENABLE_PUBLIC_SAFETY_MESSAGES_FULL_SCREEN)
+                .remove(KEY_ENABLE_EMERGENCY_ALERTS)
+                .remove(KEY_ALERT_REMINDER_INTERVAL)
+                .remove(KEY_ENABLE_ALERT_SPEECH)
+                .remove(KEY_OVERRIDE_DND)
+                .remove(KEY_ENABLE_AREA_UPDATE_INFO_ALERTS)
+                .remove(KEY_ENABLE_TEST_ALERTS)
+                .remove(KEY_ENABLE_STATE_LOCAL_TEST_ALERTS)
+                .remove(KEY_ENABLE_ALERT_VIBRATE)
+                .remove(KEY_ENABLE_CMAS_PRESIDENTIAL_ALERTS)
+                .remove(KEY_RECEIVE_CMAS_IN_SECOND_LANGUAGE)
+                .remove(KEY_ENABLE_EXERCISE_ALERTS)
+                .remove(KEY_OPERATOR_DEFINED_ALERTS);
+        // If the device is in test harness mode, reset main toggle should only happen on the
+        // first boot.
+        if (!ActivityManager.isRunningInUserTestHarness()) {
+          Log.d(TAG, "In not test harness mode. reset main toggle.");
+          e.remove(KEY_ENABLE_ALERTS_MASTER_TOGGLE);
+        }
+        PackageManager pm = c.getPackageManager();
+        if (pm.hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+            e.remove(KEY_WATCH_ALERT_REMINDER);
+        }
+        e.commit();
+
+        if (pm.hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+            PreferenceManager.setDefaultValues(c, R.xml.watch_preferences, true);
+        } else {
+            PreferenceManager.setDefaultValues(c, R.xml.preferences, true);
+        }
+        setPreferenceChanged(c, false);
+    }
+
+    /**
+     * Return true if user has modified any preference manually.
+     * @param c the application context
+     * @return
+     */
+    public static boolean hasAnyPreferenceChanged(Context c) {
+        return PreferenceManager.getDefaultSharedPreferences(c)
+                .getBoolean(ANY_PREFERENCE_CHANGED_BY_USER, false);
+    }
+
+    private static void setPreferenceChanged(Context c, boolean changed) {
+        SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(c);
+        sp.edit().putBoolean(ANY_PREFERENCE_CHANGED_BY_USER, changed).apply();
+    }
+
+    /**
      * New fragment-style implementation of preferences.
      */
     public static class CellBroadcastSettingsFragment extends PreferenceFragment {
@@ -190,13 +301,17 @@ public class CellBroadcastSettings extends Activity {
         private TwoStatePreference mExtremeCheckBox;
         private TwoStatePreference mSevereCheckBox;
         private TwoStatePreference mAmberCheckBox;
-        private TwoStatePreference mMasterToggle;
+        private MainSwitchPreference mMasterToggle;
         private TwoStatePreference mPublicSafetyMessagesChannelCheckBox;
+        private TwoStatePreference mPublicSafetyMessagesChannelFullScreenCheckBox;
         private TwoStatePreference mEmergencyAlertsCheckBox;
         private ListPreference mReminderInterval;
+        private TwoStatePreference mSpeechCheckBox;
         private TwoStatePreference mOverrideDndCheckBox;
         private TwoStatePreference mAreaUpdateInfoCheckBox;
         private TwoStatePreference mTestCheckBox;
+        private TwoStatePreference mExerciseTestCheckBox;
+        private TwoStatePreference mOperatorDefinedCheckBox;
         private TwoStatePreference mStateLocalTestCheckBox;
         private TwoStatePreference mEnableVibrateCheckBox;
         private Preference mAlertHistory;
@@ -214,7 +329,7 @@ public class CellBroadcastSettings extends Activity {
         // on/off switch in settings for receiving alert in second language code
         private TwoStatePreference mReceiveCmasInSecondLanguageCheckBox;
 
-        private final BroadcastReceiver mTestingModeChangedReeiver = new BroadcastReceiver() {
+        private final BroadcastReceiver mTestingModeChangedReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
                 switch (intent.getAction()) {
@@ -225,43 +340,34 @@ public class CellBroadcastSettings extends Activity {
             }
         };
 
-        @Override
-        public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
-
-            LocalBroadcastManager.getInstance(getContext())
-                    .registerReceiver(mTestingModeChangedReeiver, new IntentFilter(
-                            CellBroadcastReceiver.ACTION_TESTING_MODE_CHANGED));
-
-            // Load the preferences from an XML resource
-            PackageManager pm = getActivity().getPackageManager();
-            if (pm.hasSystemFeature(PackageManager.FEATURE_WATCH)) {
-                addPreferencesFromResource(R.xml.watch_preferences);
-            } else {
-                addPreferencesFromResource(R.xml.preferences);
-            }
-
-            PreferenceScreen preferenceScreen = getPreferenceScreen();
-
+        private void initPreferences() {
             mExtremeCheckBox = (TwoStatePreference)
                     findPreference(KEY_ENABLE_CMAS_EXTREME_THREAT_ALERTS);
             mSevereCheckBox = (TwoStatePreference)
                     findPreference(KEY_ENABLE_CMAS_SEVERE_THREAT_ALERTS);
             mAmberCheckBox = (TwoStatePreference)
                     findPreference(KEY_ENABLE_CMAS_AMBER_ALERTS);
-            mMasterToggle = (TwoStatePreference)
+            mMasterToggle = (MainSwitchPreference)
                     findPreference(KEY_ENABLE_ALERTS_MASTER_TOGGLE);
             mPublicSafetyMessagesChannelCheckBox = (TwoStatePreference)
                     findPreference(KEY_ENABLE_PUBLIC_SAFETY_MESSAGES);
+            mPublicSafetyMessagesChannelFullScreenCheckBox = (TwoStatePreference)
+                    findPreference(KEY_ENABLE_PUBLIC_SAFETY_MESSAGES_FULL_SCREEN);
             mEmergencyAlertsCheckBox = (TwoStatePreference)
                     findPreference(KEY_ENABLE_EMERGENCY_ALERTS);
             mReminderInterval = (ListPreference)
                     findPreference(KEY_ALERT_REMINDER_INTERVAL);
+            mSpeechCheckBox = (TwoStatePreference)
+                    findPreference(KEY_ENABLE_ALERT_SPEECH);
             mOverrideDndCheckBox = (TwoStatePreference)
                     findPreference(KEY_OVERRIDE_DND);
             mAreaUpdateInfoCheckBox = (TwoStatePreference)
                     findPreference(KEY_ENABLE_AREA_UPDATE_INFO_ALERTS);
             mTestCheckBox = (TwoStatePreference)
                     findPreference(KEY_ENABLE_TEST_ALERTS);
+            mExerciseTestCheckBox = (TwoStatePreference) findPreference(KEY_ENABLE_EXERCISE_ALERTS);
+            mOperatorDefinedCheckBox = (TwoStatePreference)
+                    findPreference(KEY_OPERATOR_DEFINED_ALERTS);
             mStateLocalTestCheckBox = (TwoStatePreference)
                     findPreference(KEY_ENABLE_STATE_LOCAL_TEST_ALERTS);
             mAlertHistory = findPreference(KEY_EMERGENCY_ALERT_HISTORY);
@@ -274,6 +380,7 @@ public class CellBroadcastSettings extends Activity {
             mPresidentialCheckBox = (TwoStatePreference)
                     findPreference(KEY_ENABLE_CMAS_PRESIDENTIAL_ALERTS);
 
+            PackageManager pm = getActivity().getPackageManager();
             if (pm.hasSystemFeature(PackageManager.FEATURE_WATCH)) {
                 mAlertReminder = (TwoStatePreference)
                         findPreference(KEY_WATCH_ALERT_REMINDER);
@@ -300,20 +407,45 @@ public class CellBroadcastSettings extends Activity {
                 mAlertCategory = (PreferenceCategory)
                         findPreference(KEY_CATEGORY_EMERGENCY_ALERTS);
             }
+        }
 
-            Resources res = CellBroadcastSettings.getResources(getContext(),
-                    SubscriptionManager.DEFAULT_SUBSCRIPTION_ID);
+        @Override
+        public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
 
-            SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(getContext());
+            LocalBroadcastManager.getInstance(getContext())
+                    .registerReceiver(mTestingModeChangedReceiver, new IntentFilter(
+                            CellBroadcastReceiver.ACTION_TESTING_MODE_CHANGED));
+
+            // Load the preferences from an XML resource
+            PackageManager pm = getActivity().getPackageManager();
+            if (pm.hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+                addPreferencesFromResource(R.xml.watch_preferences);
+            } else {
+                addPreferencesFromResource(R.xml.preferences);
+            }
+
+            initPreferences();
+
+            Resources res = CellBroadcastSettings.getResourcesForDefaultSubId(getContext());
+
             mDisableSevereWhenExtremeDisabled = res.getBoolean(
                     R.bool.disable_severe_when_extreme_disabled);
+
+            final OnMainSwitchChangeListener mainSwitchListener = new OnMainSwitchChangeListener() {
+                @Override
+                public void onSwitchChanged(Switch switchView, boolean isChecked) {
+                    setAlertsEnabled(isChecked);
+                }
+            };
 
             // Handler for settings that require us to reconfigure enabled channels in radio
             Preference.OnPreferenceChangeListener startConfigServiceListener =
                     new Preference.OnPreferenceChangeListener() {
                         @Override
                         public boolean onPreferenceChange(Preference pref, Object newValue) {
-                            CellBroadcastReceiver.startConfigService(pref.getContext());
+                            CellBroadcastReceiver.startConfigService(pref.getContext(),
+                                    CellBroadcastConfigService.ACTION_ENABLE_CHANNELS);
+                            setPreferenceChanged(getContext(), true);
 
                             if (mDisableSevereWhenExtremeDisabled) {
                                 if (pref.getKey().equals(KEY_ENABLE_CMAS_EXTREME_THREAT_ALERTS)) {
@@ -325,9 +457,10 @@ public class CellBroadcastSettings extends Activity {
                                 }
                             }
 
-                            if (pref.getKey().equals(KEY_ENABLE_ALERTS_MASTER_TOGGLE)) {
-                                boolean isEnableAlerts = (Boolean) newValue;
-                                setAlertsEnabled(isEnableAlerts);
+                            // check if area update was disabled
+                            if (pref.getKey().equals(KEY_ENABLE_AREA_UPDATE_INFO_ALERTS)) {
+                                boolean isEnabledAlert = (Boolean) newValue;
+                                notifyAreaInfoUpdate(isEnabledAlert);
                             }
 
                             // Notify backup manager a backup pass is needed.
@@ -339,14 +472,15 @@ public class CellBroadcastSettings extends Activity {
             initReminderIntervalList();
 
             if (mMasterToggle != null) {
-                mMasterToggle.setOnPreferenceChangeListener(startConfigServiceListener);
+                mMasterToggle.addOnSwitchChangeListener(mainSwitchListener);
                 // If allow alerts are disabled, we turn all sub-alerts off. If it's enabled, we
                 // leave them as they are.
                 if (!mMasterToggle.isChecked()) {
                     setAlertsEnabled(false);
                 }
             }
-
+            // note that mPresidentialCheckBox does not use the startConfigServiceListener because
+            // the user is never allowed to change the preference
             if (mAreaUpdateInfoCheckBox != null) {
                 mAreaUpdateInfoCheckBox.setOnPreferenceChangeListener(startConfigServiceListener);
             }
@@ -355,6 +489,10 @@ public class CellBroadcastSettings extends Activity {
             }
             if (mPublicSafetyMessagesChannelCheckBox != null) {
                 mPublicSafetyMessagesChannelCheckBox.setOnPreferenceChangeListener(
+                        startConfigServiceListener);
+            }
+            if (mPublicSafetyMessagesChannelFullScreenCheckBox != null) {
+                mPublicSafetyMessagesChannelFullScreenCheckBox.setOnPreferenceChangeListener(
                         startConfigServiceListener);
             }
             if (mEmergencyAlertsCheckBox != null) {
@@ -374,10 +512,18 @@ public class CellBroadcastSettings extends Activity {
             if (mTestCheckBox != null) {
                 mTestCheckBox.setOnPreferenceChangeListener(startConfigServiceListener);
             }
+            if (mExerciseTestCheckBox != null) {
+                mExerciseTestCheckBox.setOnPreferenceChangeListener(startConfigServiceListener);
+            }
+            if (mOperatorDefinedCheckBox != null) {
+                mOperatorDefinedCheckBox.setOnPreferenceChangeListener(startConfigServiceListener);
+            }
             if (mStateLocalTestCheckBox != null) {
                 mStateLocalTestCheckBox.setOnPreferenceChangeListener(
                         startConfigServiceListener);
             }
+
+            SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(getContext());
 
             if (mOverrideDndCheckBox != null) {
                 if (!sp.getBoolean(KEY_OVERRIDE_DND_SETTINGS_CHANGED, false)) {
@@ -431,11 +577,14 @@ public class CellBroadcastSettings extends Activity {
          * Dynamically update each preference's visibility based on configuration.
          */
         private void updatePreferenceVisibility() {
-            Resources res = CellBroadcastSettings.getResources(getContext(),
-                    SubscriptionManager.DEFAULT_SUBSCRIPTION_ID);
+            Resources res = CellBroadcastSettings.getResourcesForDefaultSubId(getContext());
 
             CellBroadcastChannelManager channelManager = new CellBroadcastChannelManager(
-                    getContext(), SubscriptionManager.DEFAULT_SUBSCRIPTION_ID);
+                    getContext(), SubscriptionManager.getDefaultSubscriptionId());
+
+            if (mMasterToggle != null) {
+                mMasterToggle.setVisible(res.getBoolean(R.bool.show_main_switch_settings));
+            }
 
             if (mPresidentialCheckBox != null) {
                 mPresidentialCheckBox.setVisible(
@@ -467,9 +616,45 @@ public class CellBroadcastSettings extends Activity {
                                         R.array.public_safety_messages_channels_range_strings)
                                 .isEmpty());
             }
+            // this is the matching full screen settings for public safety toggle. shown only if
+            // public safety toggle is displayed.
+            if (mPublicSafetyMessagesChannelFullScreenCheckBox != null) {
+                mPublicSafetyMessagesChannelFullScreenCheckBox.setVisible(
+                        res.getBoolean(R.bool.show_public_safety_full_screen_settings)
+                                && (mPublicSafetyMessagesChannelCheckBox != null
+                                && mPublicSafetyMessagesChannelCheckBox.isVisible()));
+            }
 
             if (mTestCheckBox != null) {
                 mTestCheckBox.setVisible(isTestAlertsToggleVisible(getContext()));
+            }
+
+            if (mExerciseTestCheckBox != null) {
+                boolean visible = false;
+                if (res.getBoolean(R.bool.show_separate_exercise_settings)) {
+                    if (res.getBoolean(R.bool.show_exercise_settings)
+                            || CellBroadcastReceiver.isTestingMode(getContext())) {
+                        if (!channelManager.getCellBroadcastChannelRanges(
+                                R.array.exercise_alert_range_strings).isEmpty()) {
+                            visible = true;
+                        }
+                    }
+                }
+                mExerciseTestCheckBox.setVisible(visible);
+            }
+
+            if (mOperatorDefinedCheckBox != null) {
+                boolean visible = false;
+                if (res.getBoolean(R.bool.show_separate_operator_defined_settings)) {
+                    if (res.getBoolean(R.bool.show_operator_defined_settings)
+                            || CellBroadcastReceiver.isTestingMode(getContext())) {
+                        if (!channelManager.getCellBroadcastChannelRanges(
+                                R.array.operator_defined_alert_range_strings).isEmpty()) {
+                            visible = true;
+                        }
+                    }
+                }
+                mOperatorDefinedCheckBox.setVisible(visible);
             }
 
             if (mEmergencyAlertsCheckBox != null) {
@@ -503,19 +688,26 @@ public class CellBroadcastSettings extends Activity {
                 // override DND default is turned off.
                 // In some countries, override DND is always on, which means vibration is always on.
                 // In that case, no need to show vibration toggle for users.
-                mEnableVibrateCheckBox.setVisible(
-                        res.getBoolean(R.bool.show_override_dnd_settings)
-                                || !res.getBoolean(R.bool.override_dnd_default));
+                Vibrator vibrator = getContext().getSystemService(Vibrator.class);
+                boolean supportVibration = (vibrator != null) && vibrator.hasVibrator();
+                mEnableVibrateCheckBox.setVisible(supportVibration
+                        && (res.getBoolean(R.bool.show_override_dnd_settings) ||
+                        !res.getBoolean(R.bool.override_dnd)));
             }
             if (mAlertsHeader != null) {
                 mAlertsHeader.setVisible(
                         !getContext().getString(R.string.alerts_header_summary).isEmpty());
             }
+
+            if (mSpeechCheckBox != null) {
+                mSpeechCheckBox.setVisible(res.getBoolean(R.bool.show_alert_speech_setting)
+                        || getActivity().getPackageManager()
+                        .hasSystemFeature(PackageManager.FEATURE_WATCH));
+            }
         }
 
         private void initReminderIntervalList() {
-            Resources res = CellBroadcastSettings.getResources(
-                    getContext(), SubscriptionManager.DEFAULT_SUBSCRIPTION_ID);
+            Resources res = CellBroadcastSettings.getResourcesForDefaultSubId(getContext());
 
             String[] activeValues =
                     res.getStringArray(R.array.alert_reminder_interval_active_values);
@@ -565,9 +757,7 @@ public class CellBroadcastSettings extends Activity {
             if (mAreaUpdateInfoCheckBox != null) {
                 mAreaUpdateInfoCheckBox.setEnabled(alertsEnabled);
                 mAreaUpdateInfoCheckBox.setChecked(alertsEnabled);
-            }
-            if (mAlertPreferencesCategory != null) {
-                mAlertPreferencesCategory.setEnabled(alertsEnabled);
+                notifyAreaInfoUpdate(alertsEnabled);
             }
             if (mEmergencyAlertsCheckBox != null) {
                 mEmergencyAlertsCheckBox.setEnabled(alertsEnabled);
@@ -585,7 +775,24 @@ public class CellBroadcastSettings extends Activity {
                 mTestCheckBox.setEnabled(alertsEnabled);
                 mTestCheckBox.setChecked(alertsEnabled);
             }
+            if (mExerciseTestCheckBox != null) {
+                mExerciseTestCheckBox.setEnabled(alertsEnabled);
+                mExerciseTestCheckBox.setChecked(alertsEnabled);
+            }
+            if (mOperatorDefinedCheckBox != null) {
+                mOperatorDefinedCheckBox.setEnabled(alertsEnabled);
+                mOperatorDefinedCheckBox.setChecked(alertsEnabled);
+            }
         }
+
+        private void notifyAreaInfoUpdate(boolean enabled) {
+            Intent areaInfoIntent = new Intent(AREA_INFO_UPDATE_ACTION);
+            areaInfoIntent.putExtra(AREA_INFO_UPDATE_ENABLED_EXTRA, enabled);
+            // sending broadcast protected by the permission which is only
+            // granted for CBR mainline module.
+            getContext().sendBroadcast(areaInfoIntent, CBR_MODULE_PERMISSION);
+        }
+
 
         @Override
         public void onResume() {
@@ -597,21 +804,24 @@ public class CellBroadcastSettings extends Activity {
         public void onDestroy() {
             super.onDestroy();
             LocalBroadcastManager.getInstance(getContext())
-                    .unregisterReceiver(mTestingModeChangedReeiver);
+                    .unregisterReceiver(mTestingModeChangedReceiver);
         }
     }
 
     public static boolean isTestAlertsToggleVisible(Context context) {
         CellBroadcastChannelManager channelManager = new CellBroadcastChannelManager(context,
-                SubscriptionManager.DEFAULT_SUBSCRIPTION_ID);
-        Resources res = CellBroadcastSettings.getResources(context,
-                SubscriptionManager.DEFAULT_SUBSCRIPTION_ID);
+                SubscriptionManager.getDefaultSubscriptionId());
+        Resources res = CellBroadcastSettings.getResourcesForDefaultSubId(context);
         boolean isTestAlertsAvailable = !channelManager.getCellBroadcastChannelRanges(
                 R.array.required_monthly_test_range_strings).isEmpty()
-                || !channelManager.getCellBroadcastChannelRanges(
+                || (!channelManager.getCellBroadcastChannelRanges(
                 R.array.exercise_alert_range_strings).isEmpty()
-                || !channelManager.getCellBroadcastChannelRanges(
+                /** exercise toggle is controlled under the main test toggle */
+                && (!res.getBoolean(R.bool.show_separate_exercise_settings)))
+                || (!channelManager.getCellBroadcastChannelRanges(
                 R.array.operator_defined_alert_range_strings).isEmpty()
+                /** operator defined toggle is controlled under the main test toggle */
+                && (!res.getBoolean(R.bool.show_separate_operator_defined_settings)))
                 || !channelManager.getCellBroadcastChannelRanges(
                 R.array.etws_test_alerts_range_strings).isEmpty();
 
@@ -653,8 +863,14 @@ public class CellBroadcastSettings extends Activity {
      * @return The resource
      */
     public static @NonNull Resources getResources(@NonNull Context context, int subId) {
+        // based on the latest design, subId can be valid earlier than mcc mnc is known to telephony
+        // check if sim is loaded to avoid caching the wrong resources.
+        TelephonyManager tm = context.getSystemService(TelephonyManager.class);
+        boolean isSimLoaded = tm.getSimApplicationState(SubscriptionManager.getSlotIndex(subId))
+                == TelephonyManager.SIM_STATE_LOADED;
         if (subId == SubscriptionManager.DEFAULT_SUBSCRIPTION_ID
-                || !SubscriptionManager.isValidSubscriptionId(subId) || !sUseResourcesForSubId) {
+                || !SubscriptionManager.isValidSubscriptionId(subId) || !sUseResourcesForSubId
+                || !isSimLoaded) {
             return context.getResources();
         }
 
@@ -666,5 +882,15 @@ public class CellBroadcastSettings extends Activity {
         sResourcesCache.put(subId, res);
 
         return res;
+    }
+
+    /**
+     * Get the resources using the default subscription ID.
+     * @param context Context
+     * @return the Resources for the default subscription ID, or if there is no default subscription
+     * from SubscriptionManager, the resources for the latest loaded SIM.
+     */
+    public static @NonNull Resources getResourcesForDefaultSubId(@NonNull Context context) {
+        return getResources(context, SubscriptionManager.getDefaultSubscriptionId());
     }
 }

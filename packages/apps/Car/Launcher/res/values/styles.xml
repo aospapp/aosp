@@ -27,6 +27,7 @@
     <style name="TitleText">
         <item name="android:textAppearance">?android:attr/textAppearanceLarge</item>
         <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textAlignment">viewStart</item>
     </style>
 
     <style name="HorizontalLineDivider">

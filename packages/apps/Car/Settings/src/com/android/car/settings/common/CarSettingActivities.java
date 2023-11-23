@@ -19,18 +19,19 @@ package com.android.car.settings.common;
 import android.annotation.Nullable;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Bundle;
 import android.os.UserHandle;
-import android.os.UserManager;
 import android.provider.Settings;
 import android.text.TextUtils;
 
 import androidx.fragment.app.Fragment;
 
-import com.android.car.settings.accounts.AccountSettingsFragment;
+import com.android.car.settings.R;
 import com.android.car.settings.accounts.ChooseAccountFragment;
 import com.android.car.settings.applications.ApplicationDetailsFragment;
 import com.android.car.settings.applications.ApplicationsSettingsFragment;
-import com.android.car.settings.applications.AppsAndNotificationsFragment;
+import com.android.car.settings.applications.AppsFragment;
+import com.android.car.settings.applications.assist.AssistantAndVoiceFragment;
 import com.android.car.settings.applications.defaultapps.DefaultAutofillPickerFragment;
 import com.android.car.settings.applications.specialaccess.ModifySystemSettingsFragment;
 import com.android.car.settings.applications.specialaccess.NotificationAccessFragment;
@@ -42,7 +43,6 @@ import com.android.car.settings.bluetooth.BluetoothSettingsFragment;
 import com.android.car.settings.datausage.DataUsageFragment;
 import com.android.car.settings.datetime.DatetimeSettingsFragment;
 import com.android.car.settings.display.DisplaySettingsFragment;
-import com.android.car.settings.home.HomepageFragment;
 import com.android.car.settings.inputmethod.KeyboardFragment;
 import com.android.car.settings.language.LanguagePickerFragment;
 import com.android.car.settings.language.LanguagesAndInputFragment;
@@ -50,9 +50,13 @@ import com.android.car.settings.location.LocationSettingsFragment;
 import com.android.car.settings.network.MobileNetworkFragment;
 import com.android.car.settings.network.MobileNetworkListFragment;
 import com.android.car.settings.network.NetworkAndInternetFragment;
+import com.android.car.settings.notifications.NotificationsFragment;
 import com.android.car.settings.privacy.PrivacySettingsFragment;
+import com.android.car.settings.privacy.VehicleDataFragment;
+import com.android.car.settings.profiles.ProfileDetailsFragment;
 import com.android.car.settings.quicksettings.QuickSettingFragment;
 import com.android.car.settings.security.SecuritySettingsFragment;
+import com.android.car.settings.sound.RingtonePickerFragment;
 import com.android.car.settings.sound.SoundSettingsFragment;
 import com.android.car.settings.storage.StorageSettingsFragment;
 import com.android.car.settings.system.AboutSettingsFragment;
@@ -61,8 +65,6 @@ import com.android.car.settings.system.ResetOptionsFragment;
 import com.android.car.settings.system.SystemSettingsFragment;
 import com.android.car.settings.tts.TextToSpeechOutputFragment;
 import com.android.car.settings.units.UnitsSettingsFragment;
-import com.android.car.settings.users.UserDetailsFragment;
-import com.android.car.settings.users.UsersListFragment;
 import com.android.car.settings.wifi.AddWifiFragment;
 import com.android.car.settings.wifi.WifiSettingsFragment;
 import com.android.car.settings.wifi.WifiTetherFragment;
@@ -93,7 +95,19 @@ public class CarSettingActivities {
         @Nullable
         @Override
         protected Fragment getInitialFragment() {
-            return new HomepageFragment();
+            try {
+                return getSupportFragmentManager().getFragmentFactory().instantiate(
+                        getClassLoader(), getString(R.string.config_homepage_fragment_class));
+            } catch (Fragment.InstantiationException e) {
+                LOG.e("Unable to instantiate homepage fragment", e);
+                return null;
+            }
+        }
+
+        @Override
+        protected boolean shouldFocusContentOnLaunch() {
+            // Focus should stay with the top-level menu for the HomepageActivity.
+            return false;
         }
     }
 
@@ -118,6 +132,20 @@ public class CarSettingActivities {
         @Override
         protected Fragment getInitialFragment() {
             return new SoundSettingsFragment();
+        }
+    }
+
+    /**
+     * Ringtone Picker Activity.
+     */
+    public static class RingtonePickerActivity extends BaseCarSettingsActivity {
+        @Nullable
+        @Override
+        protected Fragment getInitialFragment() {
+            Bundle args = getIntent().getExtras().deepCopy();
+            Fragment fragment = new RingtonePickerFragment();
+            fragment.setArguments(args);
+            return fragment;
         }
     }
 
@@ -166,13 +194,24 @@ public class CarSettingActivities {
     }
 
     /**
-     * Apps and Notifications Activity.
+     * Apps Activity.
      */
-    public static class AppsAndNotificationsActivity extends BaseCarSettingsActivity {
+    public static class AppsActivity extends BaseCarSettingsActivity {
         @Nullable
         @Override
         protected Fragment getInitialFragment() {
-            return new AppsAndNotificationsFragment();
+            return new AppsFragment();
+        }
+    }
+
+    /**
+     * Notifications Activity.
+     */
+    public static class NotificationsActivity extends BaseCarSettingsActivity {
+        @Nullable
+        @Override
+        protected Fragment getInitialFragment() {
+            return new NotificationsFragment();
         }
     }
 
@@ -188,34 +227,13 @@ public class CarSettingActivities {
     }
 
     /**
-     * User Details Activity.
-     * The initial fragment shown is based on whether the current user is an admin.
+     * Profile Details Activity.
      */
-    public static class UserDetailsActivity extends BaseCarSettingsActivity {
+    public static class ProfileDetailsActivity extends BaseCarSettingsActivity {
         @Nullable
         @Override
         protected Fragment getInitialFragment() {
-            UserManager userManager = UserManager.get(this);
-            if (userManager.isAdminUser()) {
-                // Admins can see a full list of users in Settings.
-                LOG.v("Creating UsersListFragment for admin user.");
-                return new UsersListFragment();
-            } else {
-                // Non-admins can only manage themselves in Settings.
-                LOG.v("Creating UserDetailsFragment for non-admin.");
-                return UserDetailsFragment.newInstance(UserHandle.myUserId());
-            }
-        }
-    }
-
-    /**
-     * Account Settings Activity.
-     */
-    public static class AccountSettingsActivity extends BaseCarSettingsActivity {
-        @Nullable
-        @Override
-        protected Fragment getInitialFragment() {
-            return new AccountSettingsFragment();
+            return ProfileDetailsFragment.newInstance(UserHandle.myUserId());
         }
     }
 
@@ -227,6 +245,17 @@ public class CarSettingActivities {
         @Override
         protected Fragment getInitialFragment() {
             return new PrivacySettingsFragment();
+        }
+    }
+
+    /**
+     * Vehicle Data Activity.
+     */
+    public static class VehicleDataActivity extends BaseCarSettingsActivity {
+        @Nullable
+        @Override
+        protected Fragment getInitialFragment() {
+            return new VehicleDataFragment();
         }
     }
 
@@ -249,6 +278,17 @@ public class CarSettingActivities {
         @Override
         protected Fragment getInitialFragment() {
             return new SecuritySettingsFragment();
+        }
+    }
+
+    /**
+     * Assistant & voice Settings Activity.
+     */
+    public static class AssistantAndVoiceSettingsActivity extends BaseCarSettingsActivity {
+        @Nullable
+        @Override
+        protected Fragment getInitialFragment() {
+            return new AssistantAndVoiceFragment();
         }
     }
 

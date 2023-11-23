@@ -21,7 +21,7 @@ import static android.os.UserManager.DISALLOW_BLUETOOTH;
 import static android.os.UserManager.DISALLOW_CONFIG_BLUETOOTH;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
-import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_USER;
+import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
 import static com.android.car.settings.common.PreferenceController.UNSUPPORTED_ON_DEVICE;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -121,7 +121,7 @@ public class PairNewDevicePreferenceControllerTest {
         getShadowUserManager().setUserRestriction(
                 UserHandle.of(UserHandle.myUserId()), DISALLOW_BLUETOOTH, true);
 
-        assertThat(mController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_USER);
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_PROFILE);
     }
 
     @Test
@@ -131,7 +131,7 @@ public class PairNewDevicePreferenceControllerTest {
         getShadowUserManager().setUserRestriction(
                 UserHandle.of(UserHandle.myUserId()), DISALLOW_CONFIG_BLUETOOTH, true);
 
-        assertThat(mController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_USER);
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_PROFILE);
     }
 
     @Test

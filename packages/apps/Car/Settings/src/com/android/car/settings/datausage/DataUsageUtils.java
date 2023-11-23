@@ -23,13 +23,16 @@ import android.telephony.SubscriptionManager;
 import android.telephony.SubscriptionPlan;
 import android.telephony.TelephonyManager;
 import android.text.BidiFormatter;
+import android.text.format.DateUtils;
 import android.text.format.Formatter;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
+import com.android.car.settings.R;
 import com.android.internal.util.CollectionUtils;
 
+import java.util.Calendar;
 import java.util.List;
 
 /** Provides helpful utilities related to data usage. */
@@ -78,6 +81,21 @@ public final class DataUsageUtils {
                 Formatter.FLAG_IEC_UNITS);
         return BidiFormatter.getInstance().unicodeWrap(context.getString(
                 com.android.internal.R.string.fileSizeSuffix, res.value, res.units));
+    }
+
+    /**
+     * Generate a string that lists byte value to readable string using IEC units, and date range
+     * from specified start date to current date.
+     */
+    public static CharSequence formatDataUsageInCycle(Context context, long byteValue,
+            long fromTimeInMillis) {
+        CharSequence usage = bytesToIecUnits(context, byteValue);
+        int flags = DateUtils.FORMAT_ABBREV_MONTH | DateUtils.FORMAT_NO_YEAR;
+        String fromText = DateUtils.formatDateTime(context, fromTimeInMillis, flags);
+        String toText = DateUtils.formatDateTime(context, Calendar.getInstance().getTimeInMillis(),
+                flags);
+        return context.getString(R.string.network_and_internet_data_usage_time_range_summary, usage,
+                fromText, toText);
     }
 
     /**

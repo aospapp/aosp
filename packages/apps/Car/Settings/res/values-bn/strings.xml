@@ -22,12 +22,8 @@
     <string name="display_settings" msgid="5325515247739279185">"ডিসপ্লে"</string>
     <string name="brightness" msgid="2919605130898772866">"উজ্জ্বলতার স্তর"</string>
     <string name="auto_brightness_title" msgid="9124647862844666581">"অভিযোজিত উজ্জ্বলতা"</string>
-    <string name="auto_brightness_summary" msgid="4741887033140384352">"উপলভ্য আলোর পরিপ্রেক্ষিতে উজ্জ্বলতার স্তর অপ্টিমাইজ করুন"</string>
+    <string name="auto_brightness_summary" msgid="2002570577219479702">"পরিবেশ অনুযায়ী স্ক্রিনের উজ্জ্বলতা অ্যাডজাস্ট করুন"</string>
     <string name="condition_night_display_title" msgid="3777509730126972675">"নাইট লাইট চালু আছে"</string>
-    <string name="keywords_display" msgid="3978416985146943922">"স্ক্রিন, টাচস্ক্রিন"</string>
-    <string name="keywords_display_brightness_level" msgid="3956411572536209195">"অনুজ্জ্বল স্ক্রিন, টাচস্ক্রিন, ব্যাটারি"</string>
-    <string name="keywords_display_auto_brightness" msgid="2700310050333468752">"অনুজ্জ্বল স্ক্রিন, টাচস্ক্রিন, ব্যাটারি"</string>
-    <string name="keywords_display_night_display" msgid="2922294576679769957">"অনুজ্জ্বল স্ক্রিন, রাত্রি, আভা"</string>
     <string name="night_mode_tile_label" msgid="6603597795502131664">"রাতের মোড"</string>
     <string name="network_and_internet" msgid="4229023630498537530">"নেটওয়ার্ক এবং ইন্টারনেট"</string>
     <string name="mobile_network_settings" msgid="1708621113321368597">"মোবাইল নেটওয়ার্ক"</string>
@@ -70,7 +66,7 @@
     <string name="launch_manage_plan_text" msgid="906657488611815787">"প্ল্যান দেখুন"</string>
     <string name="app_data_usage" msgid="3878609885080232877">"অ্যাপ ডেটার ব্যবহার"</string>
     <string name="data_usage_app_restricted" msgid="4570970078120010951">"সীমাবদ্ধ"</string>
-    <string name="cycle_reset_day_of_month_picker_title" msgid="1374568502823735361">"ব্যবহার চক্র আবার সেট করার তারিখ"</string>
+    <string name="cycle_reset_day_of_month_picker_title" msgid="1374568502823735361">"ব্যবহার চক্র রিসেট করার তারিখ"</string>
     <string name="cycle_reset_day_of_month_picker_subtitle" msgid="5361061448258189846">"প্রতি মাসের তারিখ:"</string>
     <string name="cycle_reset_day_of_month_picker_positive_button" msgid="6919858010423269305">"সেট করুন"</string>
     <string name="data_warning_limit_title" msgid="4950868241810828601">"ডেটা সম্পর্কিত সতর্কতা ও সীমা"</string>
@@ -84,6 +80,10 @@
     <string name="data_usage_warning_editor_title" msgid="2041517150169038813">"ডেটা ব্যবহারের সতর্কতা সেট করুন"</string>
     <string name="data_usage_limit_editor_title" msgid="133468242379286689">"ডেটা ব্যবহারের সীমা সেট করুন"</string>
     <string name="usage_bytes_threshold_picker_positive_button" msgid="4625479840977965519">"সেট করুন"</string>
+    <string name="network_and_internet_oem_network_title" msgid="6436902713696212250">"OEM নেটওয়ার্ক"</string>
+    <string name="network_and_internet_data_usage_time_range_summary" msgid="1792995626433410056">"%2$s - %3$s-এর মধ্যে %1$s ব্যবহার করা হয়েছে"</string>
+    <string name="network_and_internet_join_other_network_title" msgid="7126831320010062712">"অন্যান্য নেটওয়ার্কে যোগ করুন"</string>
+    <string name="network_and_internet_network_preferences_title" msgid="2983548049081168876">"নেটওয়ার্ক সংক্রান্ত পছন্দ"</string>
     <string name="wifi_settings" msgid="7701477685273103841">"ওয়াই-ফাই"</string>
     <string name="wifi_starting" msgid="473253087503153167">"ওয়াই-ফাই চালু করা হচ্ছে..."</string>
     <string name="wifi_stopping" msgid="3534173972547890148">"ওয়াই-ফাই বন্ধ করা হচ্ছে..."</string>
@@ -93,6 +93,8 @@
     <string name="wifi_failed_connect_message" msgid="4447498225022147324">"নেটওয়ার্কে কানেক্ট করা যায়নি"</string>
     <string name="wifi_setup_add_network" msgid="3660498520389954620">"নেটওয়ার্ক যোগ করুন"</string>
     <string name="wifi_setup_connect" msgid="3512399573397979101">"কানেক্ট"</string>
+    <string name="wifi_connecting" msgid="1930665730621677960">"কানেক্ট করা হচ্ছে…"</string>
+    <string name="wifi_not_in_range_message" msgid="2617126307140203787">"নেটওয়ার্ক পরিষেবা সীমার মধ্যে নেই"</string>
     <string name="wifi_password" msgid="5565632142720292397">"পাসওয়ার্ড"</string>
     <string name="wifi_show_password" msgid="8423293211933521097">"পাসওয়ার্ড দেখুন"</string>
     <string name="wifi_no_network_name" msgid="6819604337231313594">"নেটওয়ার্কের নাম লিখুন"</string>
@@ -152,11 +154,19 @@
     <string name="wifi_ap_5G" msgid="4945574428537860279">"৫.০ GHz"</string>
     <string name="wifi_ap_band_select_one" msgid="615578175244067396">"ওয়াই-ফাই হটস্পটের জন্য অন্তত একটি ব্যান্ড বেছে নিন:"</string>
     <string name="tether_settings_title_all" msgid="4663704772599383169">"হটস্পট ও টিথারিং"</string>
+    <string name="hotspot_settings_title" msgid="8220814387592756713">"হটস্পট"</string>
     <string name="wifi_hotspot_auto_off_title" msgid="7871858619924599922">"নিজে থেকে হটস্পট বন্ধ করুন"</string>
     <string name="wifi_hotspot_auto_off_summary" msgid="4830341947541735136">"কোনও ডিভাইস কানেক্ট করা না থাকলে ওয়াই-ফাই হটস্পট বন্ধ হয়ে যাবে"</string>
     <string name="wifi_ask_enable" msgid="4452418245680754578">"<xliff:g id="REQUESTER">%s</xliff:g> ওয়াই-ফাই বন্ধ করতে চান"</string>
     <string name="wifi_ask_disable" msgid="2949290055916181553">"<xliff:g id="REQUESTER">%s</xliff:g> ওয়াই-ফাই বন্ধ করতে চাইছেন"</string>
     <string name="wifi_error" msgid="3105105447117289410">"সমস্যা"</string>
+    <string name="network_connection_request_dialog_title" msgid="8449606155059098762">"<xliff:g id="APPNAME">%1$s</xliff:g> ব্যবহার করা যাবে এমন ডিভাইস"</string>
+    <string name="network_connection_timeout_dialog_message" msgid="2536299451668687586">"কোনও ডিভাইস খুঁজে পাওয়া যায়নি। ডিভাইস চালু আছে এবং কানেক্ট করার জন্য তৈরি কিনা তা ভাল করে দেখে নিন।"</string>
+    <string name="network_connection_timeout_dialog_ok" msgid="2228662561126434792">"আবার চেষ্টা করুন"</string>
+    <string name="network_connection_errorstate_dialog_message" msgid="4268321315241218483">"কোনও সমস্যা হয়েছে। ডিভাইস বেছে নেওয়ার আবেদনটি এই অ্যাপ্লিকেশনের মাধ্যমে বাতিল করা হয়েছে।"</string>
+    <string name="network_connection_connect_successful" msgid="7893957133113302365">"কানেক্ট করা হয়েছে"</string>
+    <string name="network_connection_request_dialog_showall" msgid="776613149566461487">"সব দেখুন"</string>
+    <string name="progress_scanning" msgid="7191583064717479795">"সার্চ করা হচ্ছে"</string>
     <string name="bluetooth_settings_title" msgid="3794688574569688649">"ব্লুটুথ"</string>
     <string name="bluetooth_device" msgid="3178478829314083240">"নামবিহীন ডিভাইস"</string>
     <string name="bluetooth_paired_devices" msgid="6463199569164652410">"পেয়ার করা ডিভাইসগুলি"</string>
@@ -164,7 +174,7 @@
     <string name="bluetooth_pair_new_device_summary" msgid="2497221247690369031">"পেয়ার করার জন্য ব্লুটুথ চালু হবে"</string>
     <string name="bluetooth_disconnect_title" msgid="7675271355910637528">"ডিভাইস ডিসকানেক্ট করতে চান?"</string>
     <string name="bluetooth_disconnect_all_profiles" msgid="2017519733701757244">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g>.ডিভাইস থেকে আপনার গাড়িটি ডিসকানেক্ট হয়ে যাবে।"</string>
-    <string name="bluetooth_vehicle_mac_address" msgid="7069234636525805937">"গাড়িতে ব্যবহার হওয়া ব্লুটুথ ঠিকানা: <xliff:g id="ADDRESS">%1$s</xliff:g>"</string>
+    <string name="bluetooth_vehicle_mac_address" msgid="7069234636525805937">"গাড়িতে ব্যবহার হওয়া ব্লুটুথ অ্যাড্রেস: <xliff:g id="ADDRESS">%1$s</xliff:g>"</string>
     <string name="bluetooth_device_mac_address" msgid="3949829271575045069">"ডিভাইসে ব্যবহার হওয়া ব্লুটুথ ঠিকানা: <xliff:g id="ADDRESS">%1$s</xliff:g>"</string>
     <string name="bluetooth_name" msgid="2609869978821094114">"গাড়ির নাম"</string>
     <string name="bluetooth_rename_vehicle" msgid="5769424875066563154">"এই গাড়িটির আবার নামকরণ করুন"</string>
@@ -183,9 +193,14 @@
     <string name="bluetooth_ask_discovery_no_name" msgid="164397600370102369">"একটি অ্যাপ আপনার হেডইউনিটটিকে অন্যান্য ব্লুটুথ ডিভাইসের জন্য <xliff:g id="TIMEOUT">%1$d</xliff:g> সেকেন্ড দেখাতে চায়।"</string>
     <string name="bluetooth_ask_enablement_and_discovery" msgid="5487502083015708674">"<xliff:g id="APP_NAME">%1$s</xliff:g> ব্লুটুথ চালু করতে চায় এবং আপনার হেডইউনিটটিকে অন্যান্য ডিভাইসের জন্য <xliff:g id="TIMEOUT">%2$d</xliff:g> সেকেন্ড দেখাতে চায়।"</string>
     <string name="bluetooth_ask_enablement_and_discovery_no_name" msgid="907153034209916282">"একটি অ্যাপ ব্লুটুথ চালু করতে চায় এবং আপনার হেডইউনিটটিকে অন্যান্য ডিভাইসের জন্য <xliff:g id="TIMEOUT">%1$d</xliff:g> সেকেন্ড দেখাতে চায়।"</string>
+    <string name="bluetooth_state_switch_summary" msgid="171929910916432266">"অন্যান্য ডিভাইসে %1$s হিসেবে দেখা যাবে"</string>
+    <string name="bluetooth_my_devices" msgid="6352010339607939612">"আমার ডিভাইস"</string>
+    <string name="bluetooth_previously_connected" msgid="5206229557831180323">"আগে কানেক্ট করা আছে"</string>
+    <string name="bluetooth_device_connected_toast" msgid="4614765282582494488">"%1$s কানেক্ট করা আছে"</string>
+    <string name="bluetooth_device_disconnected_toast" msgid="8889122688851623920">"%1$s কানেক্ট করা নেই"</string>
     <string name="bluetooth_notif_ticker" msgid="7192577740198156792">"ব্লুটুথ পেয়ার করার অনুরোধ"</string>
     <string name="bluetooth_device_context_pair_connect" msgid="3138105800372470422">"পেয়ার এবং কানেক্ট করুন"</string>
-    <string name="bluetooth_pairing_key_msg" msgid="5066825929751599037">"ব্লুটুথ এর সাথে পেয়ার করার কোড"</string>
+    <string name="bluetooth_pairing_key_msg" msgid="5066825929751599037">"ব্লুটুথ-এর সাথে পেয়ার করার কোড"</string>
     <string name="bluetooth_enable_alphanumeric_pin" msgid="1636575922217263060">"পিনে অক্ষর বা চিহ্ন রয়েছে"</string>
     <string name="bluetooth_enter_passkey_msg" msgid="5955236916732265593">"যুক্ত করার কোড লিখে রিটার্ন অথবা এন্টার টিপুন"</string>
     <string name="bluetooth_pairing_request" msgid="4769675459526556801">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> এর সাথে পেয়ার করবেন?"</string>
@@ -211,7 +226,7 @@
     <string name="tts_reset" msgid="6289481549801844709">"রিসেট করুন"</string>
     <string name="sound_settings" msgid="3072423952331872246">"সাউন্ড"</string>
     <string name="ring_volume_title" msgid="3135241004980719442">"রিং ভলিউম"</string>
-    <string name="navi_volume_title" msgid="946292066759195165">"ন্যাভিগেশন ভলিউম"</string>
+    <string name="navi_volume_title" msgid="946292066759195165">"নেভিগেশন ভলিউম"</string>
     <string name="incoming_call_volume_title" msgid="6972117872424656876">"রিংটোন"</string>
     <string name="notification_volume_title" msgid="6749411263197157876">"বিজ্ঞপ্তি"</string>
     <string name="media_volume_title" msgid="6697416686272606865">"মিডিয়া"</string>
@@ -220,6 +235,11 @@
     <string name="ringtone_title" msgid="8370531086214517972">"ফোনের রিংটোন"</string>
     <string name="notification_ringtone_title" msgid="8661716239594010288">"ডিফল্ট বিজ্ঞপ্তির সাউন্ড"</string>
     <string name="alarm_ringtone_title" msgid="3257364170646440908">"ডিফল্ট অ্যালার্মের শব্দ"</string>
+    <string name="ringtone_picker_save_title" msgid="4388137432517227001">"সেভ করুন"</string>
+    <string name="sound_alert_sounds" msgid="6838044721739163867">"সতর্কতা বিজ্ঞপ্তির সাউন্ড"</string>
+    <string name="sound_alert_sounds_summary" msgid="816501423095651281">"রিংটোন, বিজ্ঞপ্তি, সতর্কতা"</string>
+    <string name="display_brightness" msgid="5718970880488110840">"উজ্জ্বলতা"</string>
+    <string name="display_night_mode_summary" msgid="4939425286027546230">"কম আলোর জন্য স্ক্রিন অ্যাডজাস্ট করুন"</string>
     <string name="units_settings" msgid="402325305096925886">"একক"</string>
     <string name="units_speed_title" msgid="7115143916747108160">"গতি"</string>
     <string name="units_distance_title" msgid="6257691565990474635">"দূরত্ব"</string>
@@ -272,24 +292,36 @@
     <string name="all_applications" msgid="7798210477486822168">"সব অ্যাপ দেখুন"</string>
     <string name="default_applications" msgid="1558183275638697087">"ডিফল্ট অ্যাপ"</string>
     <string name="app_permissions" msgid="32799922508313948">"অ্যাপের অনুমতি"</string>
-    <string name="app_permissions_summary" msgid="1842858532315056367">"অ্যাপ <xliff:g id="APPS">%1$s</xliff:g> ব্যবহার করছে"</string>
+    <string name="app_permissions_summary" msgid="5402214755935368418">"আপনার ডেটায় অ্যাপের অ্যাক্সেস কন্ট্রোল করুন"</string>
     <string name="applications_settings" msgid="794261395191035632">"অ্যাপের তথ্য"</string>
     <string name="force_stop" msgid="2153183697014720520">"জোর করে বন্ধ করুন"</string>
     <string name="force_stop_dialog_title" msgid="3342850939200388694">"জোর করে বন্ধ করবেন?"</string>
     <string name="force_stop_dialog_text" msgid="4354954014318432599">"আপনি একটি অ্যাপকে জোর করে বন্ধ করলে, তা সঠিক ভাবে কাজ নাও করতে পারে।"</string>
+    <string name="peak_performance_dialog_title" msgid="5970933611683430870">"\'পারফর্ম্যান্স সুরক্ষিত করা\' বন্ধ করবেন?"</string>
+    <string name="peak_performance_dialog_text" msgid="7648337738884134499">"আপনি এটি করলে, ফোনের সফ্টওয়্যার ও হার্ডওয়্যার সঠিকভাবে কাজ নাও করতে পারে।"</string>
+    <string name="peak_performance_dialog_action_on" msgid="2139033153500237350">"চালু থাক"</string>
+    <string name="peak_performance_dialog_action_off" msgid="1019653666533456482">"বন্ধ করুন"</string>
     <string name="disable_text" msgid="4358165448648990820">"বন্ধ করুন"</string>
     <string name="enable_text" msgid="1794971777861881238">"চালু করুন"</string>
     <string name="uninstall_text" msgid="277907956072833012">"আনইনস্টল করুন"</string>
     <string name="app_disable_dialog_text" msgid="7731155411006654025">"আপনি এই অ্যাপটি বন্ধ করলে, Android এবং অন্যান্য অ্যাপকে যে কাজের উদ্দেশ্যে তৈরি করা হয়েছিল সেগুলি আর কাজ নাও করতে পারে।"</string>
     <string name="app_disable_dialog_positive" msgid="4448684722791563349">"অ্যাপ বন্ধ করুন"</string>
-    <string name="not_installed" msgid="4218816013370552746">"এই ব্যবহারকারীর জন্য ইনস্টল করা নেই"</string>
+    <string name="not_installed" msgid="4163454337822508007">"এই প্রোফাইলের জন্য ইনস্টল করা নেই"</string>
     <string name="permissions_label" msgid="2701446753515612685">"অনুমতিগুলি"</string>
     <string name="notifications_label" msgid="6586089149665170731">"বিজ্ঞপ্তি"</string>
     <string name="storage_application_label" msgid="5911779903670978586">"স্টোরেজ ও ক্যাশে"</string>
+    <string name="peak_performance_label" msgid="1592816366516845648">"সর্বোচ্চ পারফর্ম্যান্স নিশ্চিত করুন"</string>
     <string name="application_version_label" msgid="8556889839783311649">"ভার্সন: %1$s"</string>
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"কোনও অনুমতি দেওয়া হয় নি"</string>
     <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"কোনও অনুমতির অনুরোধ জানানো হয়নি"</string>
+    <string name="unused_apps" msgid="648471933781010395">"ব্যবহার করা হয়নি এমন অ্যাপ"</string>
+    <plurals name="unused_apps_summary" formatted="false" msgid="6410080383909014362">
+      <item quantity="one">ব্যবহার হয়নি এমন <xliff:g id="COUNT_1">%d</xliff:g>টি অ্যাপ</item>
+      <item quantity="other">ব্যবহার হয়নি এমন <xliff:g id="COUNT_1">%d</xliff:g>টি অ্যাপ</item>
+    </plurals>
+    <string name="unused_apps_switch" msgid="4433958286200341563">"অনুমতি সরান এবং স্পেস খালি করুন"</string>
     <string name="storage_type_internal" msgid="8918688427078709570">"ইন্টারনাল স্টোরেজে %s রয়েছে"</string>
+    <string name="peak_performance_summary" msgid="2450911487290019786">"রিসোর্সের অতিরিক্ত ব্যবহার আটকাতে প্রয়োজন মতো অ্যাপ বন্ধ করুন"</string>
     <string name="data_usage_summary_title" msgid="4368024763485916986">"ডেটা ব্যবহার"</string>
     <string name="data_usage_app_summary_title" msgid="5012851696585421420">"অ্যাপ ডেটার ব্যবহার"</string>
     <string name="computing_size" msgid="5791407621793083965">"কম্পিউটিং..."</string>
@@ -326,9 +358,17 @@
     <string name="app_link_open_ask" msgid="7242075065136237456">"প্রতিবার জিজ্ঞেস করুন"</string>
     <string name="app_link_open_never" msgid="2173174327831792316">"এই অ্যাপে খুলবেন না"</string>
     <string name="app_launch_supported_domain_urls_title" msgid="7345116365785981158">"সমর্থিত লিঙ্ক"</string>
+    <string name="apps_settings_title" msgid="3982535942394315336">"অ্যাপ"</string>
+    <string name="apps_recently_opened" msgid="5320377037971195984">"সম্প্রতি খোলা হয়েছে"</string>
+    <string name="apps_view_all_apps_title" msgid="2322120325505230530">"সব %1$d অ্যাপ দেখুন"</string>
+    <string name="apps_permission_manager_title" msgid="8776335943862484131">"অনুমতি ম্যানেজার"</string>
+    <string name="apps_permission_manager_summary" msgid="4180424218228141274">"আপনার ডেটায় অ্যাপের অ্যাক্সেস কন্ট্রোল করুন"</string>
+    <string name="apps_default_apps_summary" msgid="2017792579839972926">"Assistant এবং আরও অনেক কিছুর জন্য"</string>
+    <string name="apps_special_app_access_summary" msgid="6464767436309742163">"সিস্টেম এবং অন্যান্য সেটিংসের জন্য"</string>
     <string name="special_access" msgid="5730278220917123811">"অ্যাপের বিশেষ অ্যাক্সেস"</string>
     <string name="show_system" msgid="4401355756969485287">"সিস্টেম অ্যাপ দেখুন"</string>
     <string name="hide_system" msgid="8845453295584638040">"সিস্টেম লুকান"</string>
+    <string name="hide_system_apps" msgid="6583947381056154020">"সিস্টেম অ্যাপ আড়াল করুন"</string>
     <string name="modify_system_settings_title" msgid="4596320571562433972">"সিস্টেম সেটিংস পরিবর্তন করুন"</string>
     <string name="modify_system_settings_description" msgid="5295023124419592452">"এই অনুমতিটি কোনও অ্যাপকে সিস্টেম সেটিংস পরিবর্তন করার অনুমতি দেয়।"</string>
     <string name="notification_access_title" msgid="1467340098885813473">"বিজ্ঞপ্তি অ্যাক্সেস"</string>
@@ -349,8 +389,12 @@
     <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"কোনও সাম্প্রতিক লোকেশনের অনুরোধ নেই"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"অ্যাপ-লেবেল অনুমতি"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"লোকেশন পরিষেবা"</string>
+    <string name="location_use_location_title" msgid="117735895374606680">"লোকেশন ব্যবহার করুন"</string>
+    <string name="location_settings_footer" msgid="296892848338100051">"আপনি কোথায় আছেন তা জানতে \'লোকেশন\' সেটিংস আপনার মোবাইলের জিপিএস, ওয়াই-ফাই, মোবাইল নেটওয়ার্ক ও সেন্সর ব্যবহার করতে পারে।"</string>
     <string name="system_setting_title" msgid="6864599341809463440">"সিস্টেম"</string>
     <string name="system_update_settings_title" msgid="8448588267784138855">"সিস্টেম আপডেট"</string>
+    <string name="system_advanced_title" msgid="6303355131691523362">"উন্নত"</string>
+    <string name="system_advanced_summary" msgid="5833643795981791953">"এই বিষয়ে, আইন সংক্রান্ত তথ্য, রিসেট করা এবং আরও অনেক কিছু"</string>
     <string name="firmware_version" msgid="8491753744549309333">"Android ভার্সন"</string>
     <string name="security_patch" msgid="4794276590178386903">"Android সুরক্ষার প্যাচ লেবেল"</string>
     <string name="hardware_info" msgid="3973165746261507658">"মডেল ও হার্ডওয়্যার"</string>
@@ -410,24 +454,23 @@
     <string name="reset_network_complete_toast" msgid="3804108209431416865">"নেটওয়ার্ক সেটিংস রিসেট করা হয়েছে"</string>
     <string name="reset_app_pref_title" msgid="5855420038951743992">"অ্যাপের অভিরুচি রিসেট করুন"</string>
     <string name="reset_app_pref_desc" msgid="579392665146962149">"এটি এইগুলির জন্য সব পছন্দ রিসেট করবে:\n\n"<li>" বন্ধ করা অ্যাপ"</li>\n<li>" বন্ধ করা অ্যাপের বিজ্ঞপ্তি"</li>\n<li>" অ্যাকশনের জন্য ডিফল্ট অ্যাপ্লিকেশন"</li>\n<li>" অ্যাপের জন্য ব্যাকগ্রাউন্ড ডেটার সীমাবদ্ধতা"</li>\n<li>" যেকোনও অনুমতির সীমাবদ্ধতা"</li>\n\n" আপনি কোনও অ্যাপের ডেটা হারাবেন না।"</string>
-    <string name="reset_app_pref_button_text" msgid="6270820447321231609">"অ্যাপ আবার সেট করুন"</string>
-    <string name="reset_app_pref_complete_toast" msgid="8709072932243594166">"অ্যাপের পছন্দ রিসেট করা হয়েছে"</string>
-    <string name="master_clear_title" msgid="8515335233363214414">"সমস্ত ডেটা মুছে ফেলুন (ফ্যাক্টরি রিসেট)"</string>
-    <string name="master_clear_desc" msgid="9058719802779893535">"এটি গাড়ির প্রধান ডিসপ্লে ইউনিট থেকে সমস্ত ডেটা মুছে ফেলবে, নিম্নলিখিত বিষয়গুলি অন্তর্ভুক্ত:\n\n"<li>"আপনার Google অ্যাকাউন্ট"</li>\n<li>"সিস্টেম এবং অ্যাপের ডেটা এবং সেটিংস"</li>\n<li>"ডাউনলোড করা অ্যাপ"</li></string>
-    <string name="master_clear_accounts" msgid="7797522012993567494">"আপনি বর্তমানে নিম্নলিখিত অ্যাকাউন্টে সাইন-ইন করে আছেন:"</string>
-    <string name="master_clear_other_users_present" msgid="8383376863095743337">"এই গাড়িতে অন্য ব্যবহারকারী আছেন।"</string>
-    <string name="master_clear_button_text" msgid="8010754220392741160">"গাড়ি রিসেট করুন"</string>
-    <string name="master_clear_confirm_title" msgid="8646455623132887370">"রিসেট করবেন?"</string>
-    <string name="master_clear_confirm_desc" msgid="8920446291698038558">"আপনার সমস্ত ব্যক্তিগত তথ্য এবং ডাউনলোড করা অ্যাপ মুছে দিতে চান? আপনি এই প্রক্রিয়াটি আগের অবস্থায় ফেরাতে পারবেন না!"</string>
-    <string name="master_clear_confirm_button_text" msgid="7981254968588121786">"সবকিছু মুছে দিন"</string>
-    <string name="master_clear_progress_title" msgid="7087480656932674774">"মোছা হচ্ছে"</string>
-    <string name="master_clear_progress_text" msgid="3440789441935303176">"অপেক্ষা করুন..."</string>
+    <string name="reset_app_pref_button_text" msgid="6270820447321231609">"অ্যাপ রিসেট করুন"</string>
+    <string name="reset_app_pref_complete_toast" msgid="8709072932243594166">"অ্যাপের অভিরুচি রিসেট করা হয়েছে"</string>
+    <string name="factory_reset_title" msgid="4019066569214122052">"সমস্ত ডেটা মুছুন (ফ্যাক্টরি রিসেট)"</string>
+    <string name="factory_reset_summary" msgid="854815182943504327">"ইনফোটেইনমেন্ট সিস্টেম থেকে সব ডেটা এবং প্রোফাইল মুছুন"</string>
+    <string name="factory_reset_desc" msgid="1688333312943433244">"এটি গাড়ির ইনফোটেইনমেন্ট সিস্টেম থেকে সব ডেটা মুছে ফেলবে:\n\n"<li>"আপনার Google অ্যাকাউন্ট"</li>\n<li>"সিস্টেম এবং অ্যাপ ডেটা এবং সেটিংস"</li>\n<li>"ডাউনলোড করা অ্যাপ"</li></string>
+    <string name="factory_reset_accounts" msgid="5523956654938834209">"আপনি বর্তমানে নিম্নলিখিত অ্যাকাউন্টে সাইন-ইন করে আছেন:"</string>
+    <string name="factory_reset_other_users_present" msgid="3852324375352090570">"এই গাড়ির জন্য অন্যান্য প্রোফাইল সেট-আপ করা হয়েছে।"</string>
+    <string name="factory_reset_button_text" msgid="2626666247051368256">"সব ডেটা মুছুন"</string>
+    <string name="factory_reset_confirm_title" msgid="3354542161765761879">"সব ডেটা মুছতে চান?"</string>
+    <string name="factory_reset_confirm_desc" msgid="2037199381372030510">"এটি এই ইনফোটেইনমেন্ট সিস্টেমে আপনার সব ব্যক্তিগত প্রোফাইল ডেটা, অ্যাকাউন্ট এবং ডাউনলোড করা অ্যাপ মুছে ফেলবে।\n\nএই অ্যাকশনটি আগের অবস্থায় আর ফিরিয়ে আনতে পারবেন না।"</string>
+    <string name="factory_reset_confirm_button_text" msgid="1797490544756481809">"সবকিছু মুছে দিন"</string>
+    <string name="factory_reset_progress_title" msgid="4580937077054738173">"মুছে ফেলা হচ্ছে"</string>
+    <string name="factory_reset_progress_text" msgid="7704636573522634757">"অপেক্ষা করুন..."</string>
     <string name="date_and_time_settings_title" msgid="4058492663544475485">"দিন ও তারিখ"</string>
     <string name="date_and_time_settings_summary" msgid="7669856855390804666">"তারিখ, সময়, টাইম জোন ও ফর্ম্যাট সেট করুন"</string>
-    <string name="date_time_auto" msgid="3570339569471779767">"অটোমেটিক তারিখ ও সময়"</string>
-    <string name="date_time_auto_summary" msgid="3311706425095342759">"নেটওয়ার্ক প্রদত্ত সময় ব্যবহার করুন"</string>
-    <string name="zone_auto" msgid="3701878581920206160">"অটোমেটিক টাইম জোন"</string>
-    <string name="zone_auto_summary" msgid="4345856882906981864">"নেটওয়ার্ক প্রদত্ত অঞ্চলের সময় ব্যবহার করুন"</string>
+    <string name="date_time_auto" msgid="6018635902717385962">"সময় অটোমেটিক সেট করুন"</string>
+    <string name="zone_auto" msgid="4174874778459184605">"টাইম জোন অটোমেটিক সেট করুন"</string>
     <string name="date_time_24hour_title" msgid="3025576547136168692">"২৪-ঘণ্টার ফর্ম্যাট"</string>
     <string name="date_time_24hour" msgid="1137618702556486913">"২৪ ঘন্টার ফর্ম্যাট ব্যবহার করুন"</string>
     <string name="date_time_set_time_title" msgid="5884883050656937853">"সময়"</string>
@@ -442,35 +485,36 @@
     <string name="time_picker_title" msgid="7436045944320504639">"সময়"</string>
     <string name="user_admin" msgid="1535484812908584809">"অ্যাডমিন"</string>
     <string name="signed_in_admin_user" msgid="1267225622818673274">"অ্যাডমিন হিসেবে সাইন-ইন করেছেন"</string>
-    <string name="grant_admin_permissions_title" msgid="4628430467359951437">"সকল অ্যাডমিন অনুমতি সহকারে"</string>
+    <string name="grant_admin_permissions_title" msgid="4496239754512028468">"অ্যাডমিন অনুমতি দেবেন?"</string>
     <string name="grant_admin_permissions_button_text" msgid="988239414372882401">"নতুন অ্যাডমিন বেছে নিন"</string>
-    <string name="grant_admin_permissions_message" msgid="1751910369004774830">"ব্যবহারকারী অন্যান্য অ্যাডমিন সহ ব্যবহারকারীদের মুছে দিতে পারবে এবং ফ্যাক্টরি সিস্টেমটি রিসেট করবে।"</string>
+    <string name="grant_admin_permissions_message" msgid="5205433947453539566">"অ্যাডমিন অন্যান্য অ্যাডমিনদের প্রোফাইল সহ অন্যান্য প্রোফাইলগুলি মুছতে এবং ইনফোটেইনমেন্ট সিস্টেমে ফ্যাক্টরি রিসেট করতে পারে।"</string>
     <string name="action_not_reversible_message" msgid="740401337875726973">"এই অ্যাকশনটি আগের অবস্থায় ফেরানো যাবে না।"</string>
     <string name="confirm_grant_admin" msgid="7852596890218647682">"হ্যাঁ, নতুন অ্যাডমিন বেছে নিন"</string>
-    <string name="create_user_permission_title" msgid="7781550880565935298">"নতুন ব্যবহারকারী তৈরি করুন"</string>
+    <string name="create_user_permission_title" msgid="2402003632264628632">"নতুন প্রোফাইল তৈরি করুন"</string>
     <string name="outgoing_calls_permission_title" msgid="1230180443712099293">"ফোন কল করে দেখুন"</string>
     <string name="sms_messaging_permission_title" msgid="6099328509729071243">"গাড়ির মোবাইল ডেটা ব্যবহার করে মেসেজিং"</string>
     <string name="install_apps_permission_title" msgid="3099705360827925296">"নতুন অ্যাপ ইনস্টল করে দেখুন"</string>
     <string name="uninstall_apps_permission_title" msgid="8448422340567430659">"অ্যাপ আনইনস্টল করে দেখুন"</string>
-    <string name="user_add_user_menu" msgid="5319151436895941496">"ব্যবহারকারী যোগ করুন"</string>
-    <string name="user_new_user_name" msgid="7115771396412339662">"নতুন ব্যবহারকারী"</string>
-    <string name="user_add_user_title" msgid="7458813670614932479">"ব্যবহারকারী যোগ করবেন?"</string>
-    <string name="user_add_user_message_setup" msgid="6030901156040053106">"আপনি একজন নতুন ব্যবহারকারী যোগ করলে তাকে তার স্পেস সেট-আপ করে নিতে হবে৷"</string>
-    <string name="user_add_user_message_update" msgid="1528170913388932459">"যেকোনও ব্যবহারকারী বাকি সব ব্যবহারকারীর জন্য অ্যাপ আপডেট করতে পারবেন।"</string>
-    <string name="user_limit_reached_title" msgid="8803355734556061238">"আর কোনও প্রোফাইল যোগ করা যাবে না"</string>
-    <plurals name="user_limit_reached_message" formatted="false" msgid="2651922256448824747">
-      <item quantity="one">আপনি <xliff:g id="COUNT">%d</xliff:g>টি প্রোফাইল তৈরি করতে পারবেন।</item>
-      <item quantity="other">আপনি <xliff:g id="COUNT">%d</xliff:g>টি প্রোফাইল তৈরি করতে পারবেন।</item>
+    <string name="user_add_user_menu" msgid="4125869008006021799">"প্রোফাইল যোগ করুন"</string>
+    <string name="user_new_user_name" msgid="906698527658609819">"নতুন প্রোফাইল"</string>
+    <string name="user_add_user_title" msgid="6296827596015729982">"নতুন প্রোফাইল যোগ করতে চান?"</string>
+    <string name="user_add_user_message_setup" msgid="812616230454605159">"আপনি নতুন প্রোফাইল তৈরি করার পর, সেই ব্যক্তি নিজের জন্য এটি কাস্টমাইজ করতে পারবেন।"</string>
+    <string name="user_add_user_message_update" msgid="3836353291078729240">"অন্যান্য সমস্ত প্রোফাইলের জন্য ব্যবহার করতে অ্যাপগুলি যেকোনও প্রোফাইল থেকে আপডেট করা যেতে পারে।"</string>
+    <string name="user_limit_reached_title" msgid="5677729355746623293">"আর কোনও প্রোফাইল তৈরি করা যাবে না"</string>
+    <plurals name="user_limit_reached_message" formatted="false" msgid="3310152546154693349">
+      <item quantity="one">আপনি সর্বাধিক <xliff:g id="COUNT">%d</xliff:g>টি প্রোফাইল তৈরি করতে পারবেন।</item>
+      <item quantity="other">আপনি সর্বাধিক <xliff:g id="COUNT">%d</xliff:g>টি প্রোফাইল তৈরি করতে পারবেন।</item>
     </plurals>
-    <string name="add_user_error_title" msgid="3206300411663817038">"নতুন প্রোফাইল তৈরি করা যায়নি"</string>
-    <string name="delete_user_dialog_title" msgid="3422867434431562007">"এই ব্যবহারকারীর অ্যাকাউন্টটি মুছবেন?"</string>
-    <string name="delete_user_dialog_message" msgid="4346777604351785057">"সব অ্যাপ ও ডেটা মুছে ফেলা হবে।"</string>
-    <string name="delete_user_error_title" msgid="7609819398530124827">"ব্যবহারকারীকে মুছে ফেলা যায়নি।"</string>
+    <string name="add_user_error_title" msgid="7589792057846396341">"নতুন প্রোফাইল তৈরি করা যায়নি"</string>
+    <string name="delete_user_dialog_title" msgid="575517556232943687">"এই প্রোফাইল মুছতে চান?"</string>
+    <string name="delete_user_dialog_message" msgid="3916865958419051299">"এই প্রোফাইলের সব অ্যাপ এবং ডেটা মুছে যাবে"</string>
+    <string name="delete_user_error_title" msgid="6422249596301690254">"প্রোফাইল মুছে ফেলা যায়নি।"</string>
+    <string name="delete_user_error_set_ephemeral_title" msgid="9062453678745644817">"আপনার প্রোফাইল পরিবর্তন বা গাড়ি রিস্টার্ট করলে এই প্রোফাইলটি মুছে ফেলা হবে।"</string>
     <string name="delete_user_error_dismiss" msgid="429156446763738273">"খারিজ"</string>
     <string name="delete_user_error_retry" msgid="5116434895572670563">"আবার চেষ্টা করুন"</string>
-    <string name="delete_last_user_dialog_title" msgid="3644392025675369680">"শেষ ব্যবহারকারীকে মুছে দিতে চান?"</string>
-    <string name="delete_last_user_admin_created_message" msgid="1856897729010319054">"এই গাড়ির আগের ব্যবহারকারীকে মুছে ফেলার পর, নতুন অ্যাডমিন ব্যবহারকারী তৈরি করা হবে।"</string>
-    <string name="delete_last_user_system_setup_required_message" msgid="8550730509371697989">"এই ব্যবহারকারীর সব ডেটা, সেটিংস, এবং অ্যাপ মুছে ফেলা হবে। আপনাকে সিস্টেম আবার সেট-আপ করতে হবে।"</string>
+    <string name="delete_last_user_dialog_title" msgid="3454454005909291260">"বাকি থাকা সর্বশেষ প্রোফাইল মুছতে চান?"</string>
+    <string name="delete_last_user_delete_warning" msgid="7189499586859833988">"এই গাড়ির জন্য একমাত্র বাকি থাকা প্রোফাইল মুছে দিলে এই প্রোফাইল সম্পর্কিত সব ডেটা, সেটিংস এবং অ্যাপ মুছে যাবে।"</string>
+    <string name="delete_last_user_system_setup_required_message" msgid="726196874941282088">"রিসেট করার পরে আপনি নতুন প্রোফাইল সেট আপ করতে পারবেন।"</string>
     <string name="choose_new_admin_title" msgid="1915428454917699587">"নতুন অ্যাডমিন বেছে নিন"</string>
     <string name="choose_new_admin_message" msgid="7468286545352043354">"আপনার একজন অ্যাডমিন প্রয়োজন। এটি মুছে ফেলতে, অন্য একটি বিকল্প বেছে নিন।"</string>
     <string name="choose_new_admin_label" msgid="5987653639387437939">"অ্যাডমিন বেছে নিন"</string>
@@ -480,21 +524,22 @@
     <string name="current_user_name" msgid="3813671533249316823">"আপনি (%1$s)"</string>
     <string name="user_name_label" msgid="3210832645046206845">"নাম"</string>
     <string name="user_summary_not_set_up" msgid="1473688119241224145">"সেট-আপ করা নেই"</string>
-    <string name="edit_user_name_title" msgid="6890782937520262478">"ব্যবহারকারীর নাম এডিট করুন"</string>
+    <string name="edit_user_name_title" msgid="1118500707473139995">"প্রোফাইলের নাম এডিট করুন"</string>
     <string name="name_input_blank_error" msgid="2088850865880984123">"ক্ষেত্র খালি রাখা যাবে না।"</string>
-    <string name="name_input_invalid_error" msgid="3523545780580744273">"ব্যবহারকারীর যে নাম লেখা হয়েছে তা সঠিক নয়।"</string>
+    <string name="name_input_invalid_error" msgid="4355625213535164704">"প্রোফাইলের যে নাম লেখা হয়েছে সেটি সঠিক নয়।"</string>
     <string name="users_list_title" msgid="770764290290240909">"ব্যবহারকারী"</string>
+    <string name="profiles_list_title" msgid="1443396686780460221">"প্রোফাইল"</string>
     <string name="user_details_admin_title" msgid="3530292857178371891">"%1$s কে অনুমতি দেওয়া হয়েছে"</string>
     <string name="storage_settings_title" msgid="8957054192781341797">"স্টোরেজ"</string>
     <string name="storage_music_audio" msgid="7827147379976134040">"মিউজিক ও অডিও"</string>
     <string name="storage_other_apps" msgid="945509804756782640">"অন্যান্য অ্যাপ"</string>
-    <string name="storage_files" msgid="6382081694781340364">"Files"</string>
+    <string name="storage_files" msgid="6382081694781340364">"ফাইল"</string>
     <string name="storage_system" msgid="1271345630248014010">"সিস্টেম"</string>
     <string name="storage_detail_dialog_system" msgid="796365720531622361">"Android ভার্সন <xliff:g id="VERSION">%s</xliff:g> চালানোর জন্য সিস্টেমের মধ্যে ফাইল থাকে"</string>
     <string name="storage_audio_files_title" msgid="5183170457027181700">"অডিও ফাইলগুলি"</string>
     <string name="memory_calculating_size" msgid="1672238502950390033">"হিসেব করা হচ্ছে…"</string>
     <string name="storage_application_size_label" msgid="1146156683170661354">"অ্যাপের সাইজ"</string>
-    <string name="storage_data_size_label" msgid="5022911581004239367">"ব্যবহারকারীর ডেটা"</string>
+    <string name="storage_data_size_label" msgid="7986110464268960652">"প্রোফাইল ডেটা"</string>
     <string name="storage_cache_size_label" msgid="6361308766707419555">"ক্যাশ"</string>
     <string name="storage_total_size_label" msgid="3892138268243791912">"মোট"</string>
     <string name="storage_clear_user_data_text" msgid="8787615136779130680">"স্টোরেজ মুছুন"</string>
@@ -536,6 +581,15 @@
     <string name="sync_button_sync_cancel" msgid="7739510554513641393">"সিঙ্ক বাতিল করুন"</string>
     <string name="sync_is_failing" msgid="5766255460901806206">"সিঙ্কে বর্তমানে সমস্যা দেখা দিচ্ছে। এটি খুব শীঘ্রই ঠিক হয়ে যাবে।"</string>
     <string name="privacy_settings_title" msgid="3150145262029229572">"গোপনীয়তা"</string>
+    <string name="privacy_vehicle_data_title" msgid="6385777370742595651">"ইনফোটেইনমেন্ট সিস্টেম ডেটা"</string>
+    <string name="privacy_location_summary" msgid="7019817848470566242">"আপনার লোকেশনে অ্যাপের অ্যাক্সেস কন্ট্রোল করুন"</string>
+    <string name="mute_mic_title" msgid="2813215197799569553">"মাইক্রোফোন"</string>
+    <string name="mute_mic_summary" msgid="5426953935775303904">"মাইক্রোফোনে অ্যাপের অ্যাক্সেস কন্ট্রোল করুন"</string>
+    <string name="vehicle_data_title" msgid="935933215161763721">"ইনফোটেইনমেন্ট সিস্টেম ডেটা"</string>
+    <string name="vehicle_data_summary" msgid="9204836361819386115">"এই ডিভাইসে সেভ করা অ্যাক্টিভিটি এবং তথ্য ম্যানেজ করুন"</string>
+    <string name="vehicle_data_delete_user_title" msgid="9132472153739085346">"আপনার প্রোফাইল মুছুন"</string>
+    <string name="vehicle_data_delete_user_summary" msgid="5900205773710111394">"ইনফোটেইনমেন্ট সিস্টেম থেকে আপনার প্রোফাইল এবং অ্যাকাউন্ট মুছুন"</string>
+    <string name="action_unavailable" msgid="7087119418684417249">"আপনার প্রোফাইলে অ্যাকশনটি উপলভ্য নেই"</string>
     <string name="security_settings_title" msgid="6955331714774709746">"নিরাপত্তা"</string>
     <string name="security_settings_subtitle" msgid="2244635550239273229">"স্ক্রিন লক"</string>
     <string name="security_lock_none" msgid="1054645093754839638">"কোনওটিই নয়"</string>
@@ -552,7 +606,6 @@
     <string name="lockscreen_skip_button_text" msgid="3755748786396198091">"এড়িয়ে যান"</string>
     <string name="set_screen_lock" msgid="5239317292691332780">"একটি স্ক্রিন লক সেট করুন"</string>
     <string name="lockscreen_choose_your_pin" msgid="1645229555410061526">"আপনার পিন বেছে নিন"</string>
-    <string name="lockscreen_choose_your_pattern" msgid="6801175111142593404">"আপনার প্যাটার্ন বেছে নিন"</string>
     <string name="lockscreen_choose_your_password" msgid="4487577710136014069">"আপনার পাসওয়ার্ড বেছে নিন"</string>
     <string name="current_screen_lock" msgid="637651611145979587">"বর্তমান স্ক্রিন লক"</string>
     <string name="choose_lock_pattern_message" msgid="6242765203541309524">"নিরাপত্তার জন্য একটি প্যাটার্ন সেট করুন"</string>
@@ -567,9 +620,12 @@
     <string name="lockpattern_pattern_wrong" msgid="929223969555399363">"ভুল প্যাটার্ন"</string>
     <string name="lockpattern_settings_help_how_to_record" msgid="4436556875843192284">"কীভাবে একটি আনলক প্যাটার্ন আঁকবেন"</string>
     <string name="error_saving_lockpattern" msgid="2933512812768570130">"প্যাটার্ন সেভ করার সময় সমস্যা"</string>
+    <string name="lockpattern_too_many_failed_confirmation_attempts" msgid="4636307830951251013">"অনেকবার ভুল প্রচেষ্টা করা হয়েছে। <xliff:g id="NUMBER">%d</xliff:g> সেকেন্ডের মধ্যে আবার চেষ্টা করুন।"</string>
     <string name="okay" msgid="4589873324439764349">"ঠিক আছে"</string>
     <string name="remove_screen_lock_title" msgid="1234382338764193387">"স্ক্রিন লক সরিয়ে দেবেন?"</string>
     <string name="remove_screen_lock_message" msgid="6675850371585564965">"এর ফলে যেকেউ আপনার অ্যাকাউন্ট অ্যাক্সেস করতে পারবেন"</string>
+    <string name="security_profile_lock_title" msgid="3082523481292617350">"প্রোফাইল লক"</string>
+    <string name="security_unlock_profile_summary" msgid="6742592419759865631">"অটোমেটিক আনলক করার সুবিধা সেট আপ করুন"</string>
     <string name="lock_settings_enter_pin" msgid="1669172111244633904">"পিন লিখুন"</string>
     <string name="lock_settings_enter_password" msgid="2636669926649496367">"পাসওয়ার্ড লিখুন"</string>
     <string name="choose_lock_pin_message" msgid="2963792070267774417">"নিরাপত্তার জন্য একটি পিন সেট করুন"</string>
@@ -593,7 +649,7 @@
     <string name="lockpassword_pin_too_long" msgid="62957683396974404">"<xliff:g id="NUMBER">%d</xliff:g>টি সংখ্যার চেয়ে কম হতে হবে"</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"শুধুমাত্র ০-৯ এর মতো সংখ্যা থাকতে পারে।"</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"ডিভাইস অ্যাডমিন একটি সাম্প্রতিক পিন ব্যবহার করতে দেয় না"</string>
-    <string name="lockpassword_pin_blacklisted_by_admin" msgid="7412709707800738442">"একইধরনের পিন আপনার আইটি অ্যাডমিনের মাধ্যমে ব্লক করা হয়। অন্য একটি পিন ব্যবহার করার চেষ্টা করুন।"</string>
+    <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"আপনার আইটি অ্যাডমিন একই ধরনের পিন ব্লক করে দেয়। অন্য একটি পিন ব্যবহার করে চেষ্টা করুন।"</string>
     <string name="lockpassword_illegal_character" msgid="1984970060523635618">"কোনও নিষিদ্ধ অক্ষর ব্যবহার করা যাবে না।"</string>
     <string name="lockpassword_invalid_password" msgid="1690956113717418430">"এই পাসওয়ার্ডটি ব্যবহার করা যাবে না, এতে অন্তত ৪টি অক্ষর থাকতে হবে।"</string>
     <plurals name="lockpassword_password_requires_letters" formatted="false" msgid="424616259312760303">
@@ -622,7 +678,7 @@
     </plurals>
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"ডিভাইস অ্যাডমিন একটি সাম্প্রতিক পাসওয়ার্ড ব্যবহার করতে দেয় না"</string>
     <string name="error_saving_password" msgid="8334882262622500658">"পাসওয়ার্ড সেভ করার সময় সমস্যা"</string>
-    <string name="lockpassword_password_blacklisted_by_admin" msgid="7965893810326503891">"একইধরনের পাসওয়ার্ড আপনার আইটি অ্যাডমিনের মাধ্যমে ব্লক করা হয়। অন্য একটি পাসওয়ার্ড ব্যবহার করার চেষ্টা করুন।"</string>
+    <string name="lockpassword_password_denylisted_by_admin" msgid="8611831198794524730">"আপনার আইটি অ্যাডমিন একই ধরনের পাসওয়ার্ড ব্লক করে দেয়। অন্য একটি পাসওয়ার্ড ব্যবহার করে চেষ্টা করুন।"</string>
     <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"ছোট থেকে বড়, বড় থেকে ছোট সংখ্যা অথবা নির্দিষ্ট কয়েকটি সংখ্যা বার বার লেখা যাবে না।"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"স্ক্রিন লকের বিকল্প"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : <xliff:g id="NUM_DAYS">%3$s</xliff:g> দিন আগে"</string>
@@ -643,10 +699,24 @@
     <string name="enter_key" msgid="2121394305541579468">"বোতাম টিপুন"</string>
     <string name="exit_retail_button_text" msgid="6093240315583384473">"ডেমো মোড ছেড়ে যান"</string>
     <string name="exit_retail_mode_dialog_title" msgid="7970631760237469168">"ডেমো মোড ছেড়ে বেরিয়ে আসুন"</string>
-    <string name="exit_retail_mode_dialog_body" msgid="8314316171782527301">"এর ফলে ডেমো অ্যাকাউন্টটি মুছে দেওয়া হবে এবং সিস্টেমের ডেটা ফ্যাক্টরি রিসেট করা হবে। ব্যবহারকারীর সমস্ত ডেটা মুছে যাবে।"</string>
+    <string name="exit_retail_mode_dialog_body" msgid="6513854703627380365">"এর ফলে ডেমো অ্যাকাউন্টটি মুছে দেওয়া হবে এবং সিস্টেমের ডেটা ফ্যাক্টরি রিসেট করা হবে। তার সাথে প্রোফাইলের সব ডেটা মুছে যাবে।"</string>
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"ডেমো মোড ছেড়ে যান"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"খারিজ করুন"</string>
     <string name="restricted_while_driving" msgid="6587569249519274524">"ড্রাইভ করার সময় এই ফিচার কাজ করবে না"</string>
-    <string name="add_user_restricted_while_driving" msgid="4754946754222453656">"ড্রাইভ করার সময় ব্যবহারকারীকে যোগ করতে পারবেন না"</string>
-    <string name="default_search_query" msgid="3137420627428857068">"সার্চ"</string>
+    <string name="add_user_restricted_while_driving" msgid="1037301074725362944">"ড্রাইভ করার সময় প্রোফাইল যোগ করতে পারবেন না"</string>
+    <string name="default_search_query" msgid="3137420627428857068">"Search"</string>
+    <string name="assistant_and_voice_setting_title" msgid="737733881661819853">"Assistant ও ভয়েস"</string>
+    <string name="assistant_and_voice_assistant_app_title" msgid="5981647244625171285">"ডিজিটাল অ্যাসিস্ট্যান্ট অ্যাপ"</string>
+    <string name="assistant_and_voice_use_text_from_screen_title" msgid="5851460943413795599">"স্ক্রিন থেকে টেক্সট ব্যবহার করুন"</string>
+    <string name="assistant_and_voice_use_text_from_screen_summary" msgid="4161751708121301541">"Assistant-কে স্ক্রিনের কন্টেন্ট অ্যাক্সেস করার অনুমতি দিন"</string>
+    <string name="assistant_and_voice_use_screenshot_title" msgid="1930735578425470046">"স্ক্রিনশট ব্যবহার করুন"</string>
+    <string name="assistant_and_voice_use_screenshot_summary" msgid="3738474919393817950">"Assistant-কে স্ক্রিনের ছবি অ্যাক্সেস করার অনুমতি দিন"</string>
+    <string name="notifications_recently_sent" msgid="9051696542615302799">"সম্প্রতি পাঠানো হয়েছে"</string>
+    <string name="notifications_all_apps" msgid="3557079551048958846">"সব অ্যাপ"</string>
+    <string name="profiles_and_accounts_settings_title" msgid="2672643892127659812">"প্রোফাইল এবং অ্যাকাউন্ট"</string>
+    <string name="manage_other_profiles_button_text" msgid="2262188413455510828">"অন্যান্য প্রোফাইল ম্যানেজ করুন"</string>
+    <string name="add_a_profile_button_text" msgid="8027395095117925114">"প্রোফাইল যোগ করুন"</string>
+    <string name="delete_this_profile_text" msgid="6035404714526922665">"এই প্রোফাইল মুছুন"</string>
+    <string name="add_profile_text" msgid="9118410102199116969">"প্রোফাইল যোগ করুন"</string>
+    <string name="power_component_disabled" msgid="7084144472096800457">"এই সেটিং এই মুহূর্তে পরিবর্তন করা যাবে না"</string>
 </resources>

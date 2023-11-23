@@ -27,10 +27,10 @@ import android.car.occupantawareness.SystemStatusEvent.DetectionTypeFlags;
 import android.car.occupantawareness.SystemStatusEvent.SystemStatus;
 import android.hardware.automotive.occupant_awareness.IOccupantAwareness;
 import android.hardware.automotive.occupant_awareness.OccupantAwarenessStatus;
-import android.util.Log;
+import android.util.Slog;
 
 /*package*/ final class OccupantAwarenessUtils {
-    private static final String TAG = "OccupantAwarenessUtils";
+    private static final String TAG = CarLog.tagFor(OccupantAwarenessUtils.class);
 
     private OccupantAwarenessUtils() {}
 
@@ -57,7 +57,7 @@ import android.util.Log;
                 break;
 
             default:
-                Log.e(TAG, "Invalid status code: " + inputStatus);
+                Slog.e(TAG, "Invalid status code: " + inputStatus);
                 break;
         }
 
@@ -82,7 +82,7 @@ import android.util.Log;
                 break;
 
             default:
-                Log.e(TAG, "Invalid status code: " + inputDetectionFlags);
+                Slog.e(TAG, "Invalid status code: " + inputDetectionFlags);
                 break;
         }
 

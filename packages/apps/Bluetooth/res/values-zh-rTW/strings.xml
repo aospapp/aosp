@@ -18,8 +18,8 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"存取下載管理員。"</string>
     <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"允許應用程式存取 BluetoothShare 管理員，並可使用 BluetoothShare 管理員傳輸檔案。"</string>
-    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"將藍牙裝置列入許可清單。"</string>
-    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"允許應用程式暫時將藍牙裝置加入許可名單，使其不需經過使用者確認即可將檔案傳送到裝置。"</string>
+    <string name="permlab_bluetoothAcceptlist" msgid="2647575807648622053">"將藍牙裝置存取權限加入許可清單。"</string>
+    <string name="permdesc_bluetoothAcceptlist" msgid="2406423665674766442">"允許應用程式暫時將藍牙裝置加入許可清單，讓該裝置可以直接傳送檔案到這部裝置，不用經過使用者確認。"</string>
     <string name="bt_share_picker_label" msgid="6268100924487046932">"藍牙"</string>
     <string name="unknown_device" msgid="9221903979877041009">"未知的裝置"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"不明"</string>
@@ -37,7 +37,7 @@
     <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"確定"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"接收來自「<xliff:g id="SENDER">%1$s</xliff:g>」的檔案時發生作業逾時"</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"有人傳送檔案給你"</string>
-    <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="SENDER">%1$s</xliff:g>已準備好傳送<xliff:g id="FILE">%2$s</xliff:g>"</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="6237487486781004992">"「<xliff:g id="SENDER">%1$s</xliff:g>」準備要傳送檔案：<xliff:g id="FILE">%2$s</xliff:g>"</string>
     <string name="notification_receiving" msgid="4674648179652543984">"藍牙分享：正在接收 <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="notification_received" msgid="3324588019186687985">"藍牙分享：已接收 <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="notification_received_fail" msgid="3619350997285714746">"藍牙分享：未收到檔案 <xliff:g id="FILE">%1$s</xliff:g>"</string>
@@ -83,8 +83,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"正在將檔案傳送給「<xliff:g id="RECIPIENT">%1$s</xliff:g>」"</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"正在將 <xliff:g id="NUMBER">%1$s</xliff:g> 個檔案傳送給「<xliff:g id="RECIPIENT">%2$s</xliff:g>」"</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"已停止將檔案傳送給「<xliff:g id="RECIPIENT">%1$s</xliff:g>」"</string>
-    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"USB 儲存空間上沒有足夠的空間可以儲存「<xliff:g id="SENDER">%1$s</xliff:g>」傳來的檔案"</string>
-    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"SD 卡上沒有足夠的空間可以儲存「<xliff:g id="SENDER">%1$s</xliff:g>」傳來的檔案"</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="5354343190503952837">"USB 儲存空間不足，無法儲存這個檔案。"</string>
+    <string name="bt_sm_2_1_default" msgid="2497541206648973852">"SD 卡的空間不足，無法儲存這個檔案。"</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"所需儲存空間：<xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"系統正在處理多個要求，請稍後再試。"</string>
     <string name="status_pending" msgid="2503691772030877944">"尚未開始傳輸檔案。"</string>

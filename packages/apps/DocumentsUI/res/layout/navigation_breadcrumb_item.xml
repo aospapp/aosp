@@ -40,7 +40,6 @@
         android:layout_height="match_parent"
         android:maxWidth="275dp"
         android:gravity="center_vertical"
-        android:duplicateParentState="true"
         android:maxLines="1"
         android:ellipsize="end"
         android:textAppearance="@style/BreadcrumbText"

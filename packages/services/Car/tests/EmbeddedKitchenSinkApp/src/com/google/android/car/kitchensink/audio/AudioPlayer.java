@@ -16,10 +16,25 @@
 
 package com.google.android.car.kitchensink.audio;
 
+import static android.media.AudioManager.AUDIOFOCUS_GAIN;
+import static android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT;
+import static android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE;
+import static android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK;
+import static android.media.AudioManager.AUDIOFOCUS_LOSS;
+import static android.media.AudioManager.AUDIOFOCUS_LOSS_TRANSIENT;
+import static android.media.AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK;
+import static android.media.AudioManager.AUDIOFOCUS_REQUEST_DELAYED;
+import static android.media.AudioManager.AUDIOFOCUS_REQUEST_FAILED;
+import static android.media.AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
+
+import static com.google.android.car.kitchensink.audio.AudioTestFragment.getAudioLogTag;
+
+import android.annotation.IntDef;
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.media.AudioAttributes;
 import android.media.AudioDeviceInfo;
+import android.media.AudioFocusRequest;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.util.Log;
@@ -27,6 +42,8 @@ import android.util.Log;
 import androidx.annotation.Nullable;
 
 import java.io.IOException;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -40,11 +57,26 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class AudioPlayer {
 
-    public interface PlayStateListener {
-        void onCompletion();
-    }
+    private static final String TAG = getAudioLogTag(AudioPlayer.class);
 
-    private static final String TAG = AudioPlayer.class.getSimpleName();
+    @IntDef(flag = false, prefix = "PLAYER_STATE", value = {
+            PLAYER_STATE_COMPLETED,
+            PLAYER_STATE_STARTED,
+            PLAYER_STATE_STOPPED,
+            PLAYER_STATE_DELAYED,
+            PLAYER_STATE_PAUSED,
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface AudioPlayerState {}
+    public static final int PLAYER_STATE_COMPLETED = 0;
+    public static final int PLAYER_STATE_STARTED = 1;
+    public static final int PLAYER_STATE_STOPPED = 2;
+    public static final int PLAYER_STATE_DELAYED = 3;
+    public static final int PLAYER_STATE_PAUSED = 4;
+
+    public interface PlayStateListener {
+        void onStateChange(@AudioPlayerState int state);
+    }
 
     private final AudioManager.OnAudioFocusChangeListener mFocusListener =
             new AudioManager.OnAudioFocusChangeListener() {
@@ -55,34 +87,45 @@ public class AudioPlayer {
                 Log.e(TAG, "mPlayer is null");
                 return;
             }
-            if (focusChange == AudioManager.AUDIOFOCUS_GAIN) {
-                Log.i(TAG, "Audio focus change AUDIOFOCUS_GAIN for usage " + mAttrib.getUsage());
-                mPlayer.setVolume(1.0f, 1.0f);
-                if (mRepeat && isPlaying()) {
-                    // Resume
-                    Log.i(TAG, "resuming player");
-                    mPlayer.start();
-                }
-            } else if (focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK) {
-                // While we used to setVolume on the player to 20%, we don't do this anymore
-                // because we expect the car's audio hal do handle ducking as it sees fit.
-                Log.i(TAG, "Audio focus change AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> do nothing");
-            } else if (focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
-                Log.i(TAG, "Audio focus change AUDIOFOCUS_LOSS_TRANSIENT for usage "
-                        + mAttrib.getUsage());
-                if (mRepeat && isPlaying()) {
-                    Log.i(TAG, "pausing repeating player");
-                    mPlayer.pause();
-                } else {
-                    Log.i(TAG, "stopping one shot player");
-                    stop();
-                }
-            } else {
-                Log.e(TAG, "Unrecognized audio focus change " + focusChange);
-                if (isPlaying()) {
-                    Log.i(TAG, "stopping player");
-                    stop();
-                }
+            switch (focusChange) {
+                case AUDIOFOCUS_GAIN:
+                case AUDIOFOCUS_GAIN_TRANSIENT:
+                case AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE:
+                case AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK:
+                    Log.i(TAG, "Audio focus change AUDIOFOCUS_GAIN for usage "
+                            + mAttrib.getUsage());
+                    mPlayer.setVolume(1.0f, 1.0f);
+                    if (mRepeat && isPlaying()) {
+                        // Resume
+                        Log.i(TAG, "resuming player");
+                        mPlayer.start();
+                        sendPlayerStateChanged(PLAYER_STATE_STARTED);
+                    }
+                    return;
+                case AUDIOFOCUS_LOSS_TRANSIENT:
+                    Log.i(TAG, "Audio focus change AUDIOFOCUS_LOSS_TRANSIENT for usage "
+                            + mAttrib.getUsage());
+                    if (mRepeat && isPlaying()) {
+                        Log.i(TAG, "pausing repeating player");
+                        mPlayer.pause();
+                        sendPlayerStateChanged(PLAYER_STATE_PAUSED);
+                    } else {
+                        Log.i(TAG, "stopping one shot player");
+                        stop();
+                    }
+                    return;
+                case AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
+                    // While we used to setVolume on the player to 20%, we don't do this anymore
+                    // because we expect the car's audio hal do handle ducking as it sees fit.
+                    Log.i(TAG, "Audio focus change AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK "
+                                    + "-> do nothing");
+                    return;
+                case AUDIOFOCUS_LOSS:
+                default:
+                    if (isPlaying()) {
+                        Log.i(TAG, "stopping player");
+                        stop();
+                    }
             }
         }
     };
@@ -99,8 +142,8 @@ public class AudioPlayer {
 
     private volatile boolean mHandleFocus;
     private volatile boolean mRepeat;
-
     private PlayStateListener mListener;
+    private AudioFocusRequest mFocusRequest;
 
 
     public AudioPlayer(Context context, int resourceId, AudioAttributes attrib) {
@@ -115,6 +158,10 @@ public class AudioPlayer {
         mPreferredDeviceInfo = preferredDeviceInfo;
     }
 
+    public int getUsage() {
+        return mAttrib.getSystemUsage();
+    }
+
     /**
      * Starts player
      * @param handleFocus true to handle focus
@@ -125,19 +172,34 @@ public class AudioPlayer {
         mHandleFocus = handleFocus;
         mRepeat = repeat;
         mAudioManager = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
-        int ret = AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
+        int ret = AUDIOFOCUS_REQUEST_GRANTED;
         if (mHandleFocus) {
             // NOTE:  We are CONSCIOUSLY asking for focus again even if already playing in order
             // exercise the framework's focus logic when faced with a (sloppy) application which
             // might do this.
             Log.i(TAG, "Asking for focus for usage " + mAttrib.getUsage());
-            ret = mAudioManager.requestAudioFocus(mFocusListener, mAttrib, focusRequest, 0);
+            mFocusRequest = new AudioFocusRequest
+                    .Builder(focusRequest)
+                    .setAudioAttributes(mAttrib)
+                    .setOnAudioFocusChangeListener(mFocusListener)
+                    .setForceDucking(false)
+                    .setWillPauseWhenDucked(false)
+                    .setAcceptsDelayedFocusGain(false)
+                    .build();
+            ret = mAudioManager.requestAudioFocus(mFocusRequest);
         }
-        if (ret == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
-            Log.i(TAG, "MediaPlayer got focus for usage " + mAttrib.getUsage());
-            doStart();
-        } else {
-            Log.i(TAG, "MediaPlayer denied focus for usage " + mAttrib.getUsage());
+        switch (ret) {
+            case AUDIOFOCUS_REQUEST_GRANTED:
+                Log.i(TAG, "MediaPlayer got focus for usage " + mAttrib.getUsage());
+                doStart();
+                break;
+            case AUDIOFOCUS_REQUEST_DELAYED:
+                Log.i(TAG, "MediaPlayer delayed focus for usage " + mAttrib.getUsage());
+                sendPlayerStateChanged(PLAYER_STATE_DELAYED);
+                break;
+            case AUDIOFOCUS_REQUEST_FAILED:
+            default:
+                Log.i(TAG, "MediaPlayer denied focus for usage " + mAttrib.getUsage());
         }
     }
 
@@ -165,6 +227,7 @@ public class AudioPlayer {
                     mPlayer.release();
                     mPlayer = null;
                     mAudioManager.abandonAudioFocus(mFocusListener);
+                    sendPlayerStateChanged(PLAYER_STATE_STOPPED);
                 }
                 return false;
             }
@@ -179,9 +242,7 @@ public class AudioPlayer {
                     mPlayer.stop();
                     mPlayer = null;
                     mAudioManager.abandonAudioFocus(mFocusListener);
-                    if (mListener != null) {
-                        mListener.onCompletion();
-                    }
+                    sendPlayerStateChanged(PLAYER_STATE_COMPLETED);
                 }
             }
         });
@@ -206,28 +267,41 @@ public class AudioPlayer {
         if (mPreferredDeviceInfo != null) {
             mPlayer.setPreferredDevice(mPreferredDeviceInfo);
             Log.d(TAG, "doStart preferred device address: " + mPreferredDeviceInfo.getAddress());
-
         }
 
         mPlayer.start();
+        sendPlayerStateChanged(PLAYER_STATE_STARTED);
     }
 
     public void stop() {
         if (!mPlaying.getAndSet(false)) {
             Log.i(TAG, "already stopped");
+            if (mPlayer == null) {
+                return;
+            }
+            mPlayer.release();
+            mPlayer = null;
             return;
         }
         Log.i(TAG, "stop");
 
         mPlayer.stop();
+        mPlayer.release();
         mPlayer = null;
+        sendPlayerStateChanged(PLAYER_STATE_STOPPED);
 
         if (mHandleFocus) {
-            mAudioManager.abandonAudioFocus(mFocusListener);
+            mAudioManager.abandonAudioFocusRequest(mFocusRequest);
         }
     }
 
     public boolean isPlaying() {
         return mPlaying.get();
+    }
+
+    private void sendPlayerStateChanged(@AudioPlayerState int state) {
+        if (mListener != null) {
+            mListener.onStateChange(state);
+        }
     }
 }

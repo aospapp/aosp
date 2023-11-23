@@ -31,7 +31,6 @@ import androidx.preference.PreferenceGroup;
 import androidx.preference.SwitchPreference;
 import androidx.preference.TwoStatePreference;
 
-import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.applications.ApplicationsState;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
@@ -148,11 +147,6 @@ public class PictureInPicture extends SettingsPreferenceFragment
     @Override
     public PreferenceGroup getAppPreferenceGroup() {
         return getPreferenceScreen();
-    }
-
-    @Override
-    public int getMetricsCategory() {
-        return MetricsProto.MetricsEvent.SETTINGS_MANAGE_PICTURE_IN_PICTURE;
     }
 
     @Override

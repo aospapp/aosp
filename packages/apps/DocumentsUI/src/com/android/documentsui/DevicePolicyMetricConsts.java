@@ -23,7 +23,7 @@ import java.lang.annotation.RetentionPolicy;
 
 /**
  * All constants are based on the enums in
- * frameworks/base/core/proto/android/stats/devicepolicy/device_policy_enums.proto.
+ * frameworks/proto_logging/stats/enums/stats/devicepolicy/device_policy_enums.proto.
  */
 public class DevicePolicyMetricConsts {
 

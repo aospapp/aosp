@@ -28,8 +28,12 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"下列應用程式將管理你的裝置："</string>
     <string name="next" msgid="1004321437324424398">"繼續"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"正在設定工作資料夾…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"你的 IT 管理員可以監控及管理與這個工作資料夾相關聯的設定、公司系統權限、應用程式、權限和資料，包括你的網路活動，以及裝置的位置資訊、通話記錄和聯絡人搜尋記錄。<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>如要瞭解詳情 (包括貴機構的隱私權政策)，請與你的 IT 管理員聯絡。"</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"你的 IT 管理員可以監控及管理與這個裝置相關聯的設定、公司系統權限、應用程式、權限和資料，包括你的網路活動，以及裝置的位置資訊、通話記錄和聯絡人搜尋記錄。<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>如要瞭解詳情 (包括貴機構的隱私權政策)，請與你的 IT 管理員聯絡。"</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"你的 IT 管理員可以監控及管理與這個工作資料夾相關聯的設定、公司系統權限、應用程式、權限和資料，包括你的網路活動，以及裝置的位置資訊、通話記錄和聯絡人搜尋記錄。<xliff:g id="LINE_BREAK">
+
+</xliff:g>如要瞭解詳情 (包括貴機構的隱私權政策)，請與你的 IT 管理員聯絡。"</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"你的 IT 管理員可以監控及管理與這個裝置相關聯的設定、公司系統權限、應用程式、權限和資料，包括你的網路活動，以及裝置的位置資訊、通話記錄和聯絡人搜尋記錄。<xliff:g id="LINE_BREAK">
+
+</xliff:g>如要瞭解詳情 (包括貴機構的隱私權政策)，請與你的 IT 管理員聯絡。"</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"你必須為裝置設定以密碼保護的螢幕鎖定，才能使用防盜功能。"</string>
     <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"如需詳細資訊 (包括貴機構的隱私權政策)，請與你的 IT 管理員聯絡。"</string>
     <string name="learn_more_link" msgid="3012495805919550043">"瞭解詳情"</string>
@@ -37,11 +41,11 @@
     <string name="ok_setup" msgid="4593707675416137504">"確定"</string>
     <string name="user_consent_msg" msgid="8820951802130353584">"我同意"</string>
     <string name="url_error" msgid="5958494012986243186">"無法顯示這個連結。"</string>
+    <string name="navigation_button_description" msgid="6106309408994461239">"回到頂端"</string>
     <string name="terms" msgid="8295436105384703903">"條款"</string>
     <string name="work_profile_info" msgid="5433388376309583996">"工作資料夾資訊"</string>
     <string name="managed_device_info" msgid="1529447646526616811">"受管理的裝置資訊"</string>
     <string name="default_managed_profile_name" msgid="5370257687074907055">"工作設定檔"</string>
-    <string name="default_first_meat_user_name" msgid="7540515892748490540">"主要使用者"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"要刪除現有的設定檔嗎？"</string>
     <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"你已經有透過下列應用程式管理的工作資料夾："</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"在繼續之前，請參閱"<a href="#read_this_link">"詳細資訊"</a>"。"</string>
@@ -65,15 +69,6 @@
     <string name="user_setup_incomplete" msgid="6494920045526591079">"使用者設定未完成"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"工作裝置使用者"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"正在設定 Work 裝置…"</string>
-    <string name="progress_data_process" msgid="1707745321954672971">"正在處理設定資料…"</string>
-    <string name="progress_connect_to_wifi" msgid="472251154628863539">"正在連線至 Wi-Fi…"</string>
-    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"正在連線至行動網路…"</string>
-    <string name="progress_download" msgid="3522436271691064624">"正在下載管理應用程式…"</string>
-    <string name="progress_install" msgid="2258045670385866183">"正在安裝管理應用程式…"</string>
-    <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"正在移除不需要的系統應用程式…"</string>
-    <string name="progress_finishing_touches" msgid="9037776404089697198">"正在進行最後的幾項設定…"</string>
-    <string name="progress_set_owner" msgid="8214062820093757961">"正在設定裝置擁有者…"</string>
-    <string name="progress_initialize" msgid="1104643492713424939">"正在初始化裝置…"</string>
     <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"這個裝置不支援加密功能，但如果不進行加密就無法完成設定。如需協助，請與你的 IT 管理員聯絡。"</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"要停止設定並重設裝置嗎？"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"這樣做會重設你的裝置，且你將返回第一個畫面"</string>
@@ -162,11 +157,10 @@
     <string name="device_owner_description" msgid="168013145812679664">"這個裝置將由貴機構負責管理，並確保其安全"</string>
     <string name="setup_provisioning_header" msgid="4282483198266806271">"正在準備設定工作用裝置…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"設定管理員應用程式"</string>
-    <string name="set_up_everything_else" msgid="4407706086957916501">"進行其他設定"</string>
-    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"新增個人帳戶即可讓裝置發揮更大的效用"</string>
-    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"工作資料夾已設定完成。你還可以新增個人 Google 帳戶，就能存取你的應用程式和內容。"</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"這個裝置為貴機構所有"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"以下應用程式將用於管理及監控這支手機"</string>
+    <string name="account_management_disclaimer_header" msgid="8013083414694316564">"你的帳戶是受管理的帳戶"</string>
+    <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"你的 IT 管理員透過行動裝置管理服務強制執行安全性政策"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"正在準備工作設定…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"設定你的工作資料夾"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"工作應用程式會儲存在你的工作資料夾中"</string>
@@ -177,20 +171,27 @@
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"設定你的工作用裝置"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"輕鬆存取工作應用程式"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"這不是私人裝置"</string>
-    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"你的 IT 管理員或許可以查看你在這個裝置的資料和活動。"</string>
+    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"IT 管理員或許可以查看你在這個裝置的資料和活動。"</string>
+    <string name="fully_managed_device_provisioning_permissions_header" msgid="2852101532084770993">"你的活動和資料"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_header" msgid="4419374850927705136">"應用程式權限"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8328298923037335068">"IT 管理員可以設定這部裝置上的應用程式權限，例如麥克風、相機和位置存取權。"</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"正在設定你的裝置…"</string>
-    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"使用這個裝置輕鬆存取你的工作應用程式。請注意，這不是私人裝置，因此你的 IT 管理員或許可以查看你的資料和活動。如要瞭解詳情，請與你的 IT 管理員聯絡。"</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1090645190066781456">"你可以在這部裝置上輕鬆存取工作應用程式。這不是私人裝置，因此 IT 管理員或許可以查看你的資料和活動。"</string>
+    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"你可以在這部裝置上輕鬆存取工作應用程式。這不是私人裝置，因此 IT 管理員或許可以查看你的活動和資料。此外，IT 管理員還可以設定這部裝置上的應用程式權限，例如麥克風、相機和位置存取權。"</string>
+    <string name="fully_managed_device_provisioning_return_device_title" msgid="8500829014794276683">"將這部裝置還給 IT 管理員"</string>
+    <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"請返回上一個畫面，或將這部裝置重設並還給 IT 管理員。"</string>
+    <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"取消設定"</string>
+    <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"重設並歸還裝置"</string>
     <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"工作應用程式會保存在工作資料夾中，並由你的 IT 管理員管理"</string>
     <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"系統會區隔個人與工作應用程式，因此兩者不會同時顯示"</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"你的 IT 管理員可以控制這部裝置及封鎖特定應用程式"</string>
     <string name="cope_provisioning_summary" msgid="993014104601034878">"工作應用程式會保存在你的工作資料夾中，並由你的 IT 管理員管理。系統會區隔個人應用程式與工作應用程式，因此兩者不會同時顯示。你的 IT 管理員可以控制這部裝置及封鎖特定應用程式。"</string>
     <string name="just_a_sec" msgid="6244676028626237220">"請稍候…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"隱私權提醒"</string>
-    <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"你的 IT 管理員或許可以查看你在這個裝置的資料和活動"</string>
-    <string name="device_provisioning_finished" msgid="3981783240592092906">"你的裝置已準備就緒！"</string>
-    <string name="done" msgid="7755227776955952318">"完成"</string>
-    <string name="financed_device_screen_header" msgid="7890706080917322376">"這部裝置是你以抵免額向「<xliff:g id="CREDITOR_NAME">%1$s</xliff:g>」購買的"</string>
-    <string name="creditor_capabilities_header" msgid="6217362648469323253">"「<xliff:g id="CREDITOR_NAME">%1$s</xliff:g>」可以執行以下動作："</string>
-    <string name="install_creditor_app_description" msgid="6159751782301108878">"在這部裝置上安裝「<xliff:g id="CREDITOR_NAME">%1$s</xliff:g>」應用程式，以便你付款"</string>
-    <string name="lock_device_description" msgid="2940362560732989166">"如果你未付款，就可以限制你存取這部裝置"</string>
+    <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"IT 管理員或許可以查看你在這個裝置的資料和活動"</string>
+    <string name="financed_device_screen_header" msgid="6875169548352717124">"這是「<xliff:g id="CREDITOR_NAME">%s</xliff:g>」提供的裝置"</string>
+    <string name="financed_make_payments_subheader_title" msgid="7880606710044254210">"支付這部裝置的費用"</string>
+    <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"「<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g>」可在這部裝置上安裝「<xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g>」應用程式，以便你支付這部裝置的費用。"</string>
+    <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"這部裝置可能會受到限制"</string>
+    <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"如果你未支付費用，「<xliff:g id="CREDITOR_NAME">%1$s</xliff:g>」可以限制你使用這部裝置。"</string>
 </resources>

@@ -16,40 +16,42 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          coreApp="true"
-          package="com.android.phone.testapps.imstestapp">
+     coreApp="true"
+     package="com.android.phone.testapps.imstestapp">
     <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
     <!--Beware, declaring the below permission will cause the device to not boot unless you add
         this app and permission to frameworks/base/data/etc/privapp-permissions-platform.xml-->
-    <uses-permission android:name="android.permission.READ_PRIVILEGED_PHONE_STATE" />
-    <application
-        android:label="ImsTestService"
-        android:directBootAware="true">
-        <activity
-            android:name=".ImsTestServiceApp"
-            android:label="ImsTestService">
+    <!--uses-permission android:name="android.permission.READ_PRIVILEGED_PHONE_STATE"/-->
+    <application android:label="ImsTestService"
+         android:directBootAware="true">
+        <activity android:name=".ImsTestServiceApp"
+             android:label="ImsTestService"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
 
-        <activity android:name=".ImsRegistrationActivity" android:label="IMS Registration" />
-        <activity android:name=".ImsCallingActivity" android:label="IMS Calling" />
-        <activity android:name=".ImsConfigActivity" android:label="IMS Config" />
+        <activity android:name=".ImsRegistrationActivity"
+             android:label="IMS Registration"/>
+        <activity android:name=".ImsCallingActivity"
+             android:label="IMS Calling"/>
+        <activity android:name=".ImsConfigActivity"
+             android:label="IMS Config"/>
 
         <service android:name=".TestImsService"
-                 android:exported="true"
-                 android:enabled="true"
-                 android:persistent="true"
-                 android:permission="android.permission.BIND_IMS_SERVICE">
-            <!--meta-data android:name="android.telephony.ims.MMTEL_FEATURE" android:value="true"/-->
+             android:exported="true"
+             android:enabled="true"
+             android:persistent="true"
+             android:permission="android.permission.BIND_IMS_SERVICE">
+            <!--meta-data android:name="android.telephony.ims.MMTEL_FEATURE"
+                 android:value="true"/-->
             <!-- No features means we will get queried for dynamic config. -->
             <intent-filter>
-                <action android:name="android.telephony.ims.ImsService" />
+                <action android:name="android.telephony.ims.ImsService"/>
             </intent-filter>
         </service>
     </application>
 </manifest>
-

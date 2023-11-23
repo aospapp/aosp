@@ -18,11 +18,17 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:overScrollMode="never"
     android:scrollbars="none">
-    <LinearLayout
-        android:id="@+id/search_chip_group"
+
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:paddingEnd="@dimen/search_chip_spacing"/>
+        android:layout_height="wrap_content" >
+
+        <LinearLayout
+            android:id="@+id/search_chip_group"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/search_chip_group_margin"
+            android:layout_marginEnd="@dimen/search_chip_group_margin"/>
+    </FrameLayout>
 </HorizontalScrollView>

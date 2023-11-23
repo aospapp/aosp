@@ -17,7 +17,7 @@
 <resources>
     <!-- Channel 4370 -->
     <string-array name="cmas_presidential_alerts_channels_range_strings" translatable="false">
-        <item>0x1112:rat=gsm, emergency=true, alert_duration=86400000</item>
+        <item>0x1112:rat=gsm, emergency=true, alert_duration=86400000, always_on=true</item>
     </string-array>
 
     <!-- Channel 50 and 919 -->
@@ -28,7 +28,7 @@
     </string-array>
 
     <!-- Play alert sound in full volume regardless Do Not Disturb is on -->
-    <bool name="override_dnd_default">true</bool>
+    <bool name="override_dnd">true</bool>
 
     <!-- Show area update info settings in CellBroadcastReceiver and information in SIM status in Settings app -->
     <bool name="config_showAreaUpdateInfoSettings">true</bool>

@@ -259,7 +259,9 @@ public abstract class SaRecord implements AutoCloseable {
                             IkePayload.PAYLOAD_TYPE_KE, IkeKePayload.class);
 
             return IkeKePayload.getSharedKey(
-                    keLocalPayload.localPrivateKey, keRemotePayload.keyExchangeData);
+                    keLocalPayload.localPrivateKey,
+                    keRemotePayload.keyExchangeData,
+                    keRemotePayload.dhGroup);
         }
 
         /**
@@ -349,25 +351,38 @@ public abstract class SaRecord implements AutoCloseable {
                                     IkeNoncePayload.class,
                                     respPayloads)
                             .nonceData;
-
-            // Check if KE Payload exists and get DH shared key. Encoding/Decoding of payload list
-            // guarantees that there is either no KE payload in the reqPayloads and respPayloads
-            // lists, or only one KE payload in each list.
-            byte[] sharedDhKey = new byte[0];
-            IkeKePayload keInitPayload =
-                    IkePayload.getPayloadForTypeInProvidedList(
-                            IkePayload.PAYLOAD_TYPE_KE, IkeKePayload.class, reqPayloads);
-            if (keInitPayload != null) {
-                IkeKePayload keRespPayload =
-                        IkePayload.getPayloadForTypeInProvidedList(
-                                IkePayload.PAYLOAD_TYPE_KE, IkeKePayload.class, respPayloads);
-                sharedDhKey =
-                        IkeKePayload.getSharedKey(
-                                keInitPayload.localPrivateKey, keRespPayload.keyExchangeData);
-            }
+            byte[] sharedDhKey =
+                    getChildSharedKey(reqPayloads, respPayloads, childSaRecordConfig.isLocalInit);
 
             return makeChildSaRecord(sharedDhKey, nonceInit, nonceResp, childSaRecordConfig);
         }
+
+        @VisibleForTesting
+        static byte[] getChildSharedKey(
+                List<IkePayload> reqPayloads, List<IkePayload> respPayloads, boolean isLocalInit)
+                throws GeneralSecurityException {
+            // Check if KE Payload exists and get DH shared key. Encoding/Decoding of payload list
+            // guarantees that there is either no KE payload in the reqPayloads and respPayloads
+            // lists, or only one KE payload in each list.
+            IkeKePayload keInitPayload =
+                    IkePayload.getPayloadForTypeInProvidedList(
+                            IkePayload.PAYLOAD_TYPE_KE, IkeKePayload.class, reqPayloads);
+
+            if (keInitPayload == null) {
+                return new byte[0];
+            }
+
+            IkeKePayload keRespPayload =
+                    IkePayload.getPayloadForTypeInProvidedList(
+                            IkePayload.PAYLOAD_TYPE_KE, IkeKePayload.class, respPayloads);
+            IkeKePayload localKePayload = isLocalInit ? keInitPayload : keRespPayload;
+            IkeKePayload remoteKePayload = isLocalInit ? keRespPayload : keInitPayload;
+            return IkeKePayload.getSharedKey(
+                    localKePayload.localPrivateKey,
+                    remoteKePayload.keyExchangeData,
+                    remoteKePayload.dhGroup);
+        }
+
         /**
          * Package private method for calculating keys, build IpSecTransforms and construct
          * ChildSaRecord.
@@ -643,6 +658,7 @@ public abstract class SaRecord implements AutoCloseable {
 
         private int mLocalRequestMessageId;
         private int mRemoteRequestMessageId;
+        private int mLastSentRespMsgId;
 
         private DecodeResultPartial mCollectedReqFragments;
         private DecodeResultPartial mCollectedRespFragments;
@@ -684,6 +700,7 @@ public abstract class SaRecord implements AutoCloseable {
 
             mLocalRequestMessageId = 0;
             mRemoteRequestMessageId = 0;
+            mLastSentRespMsgId = -1;
 
             mCollectedReqFragments = null;
             mCollectedRespFragments = null;
@@ -763,9 +780,19 @@ public abstract class SaRecord implements AutoCloseable {
             return mInitiatorSpiResource.getSpi();
         }
 
+        @VisibleForTesting
+        IkeSecurityParameterIndex getInitiatorIkeSecurityParameterIndex() {
+            return mInitiatorSpiResource;
+        }
+
         /** Package private */
         long getResponderSpi() {
             return mResponderSpiResource.getSpi();
+        }
+
+        @VisibleForTesting
+        IkeSecurityParameterIndex getResponderIkeSecurityParameterIndex() {
+            return mResponderSpiResource;
         }
 
         /** Package private */
@@ -892,8 +919,14 @@ public abstract class SaRecord implements AutoCloseable {
         }
 
         /** Update all packets of last sent response. */
-        public void updateLastSentRespAllPackets(List<byte[]> respPacketList) {
+        public void updateLastSentRespAllPackets(List<byte[]> respPacketList, int msgId) {
             mLastSentRespAllPackets = respPacketList;
+            mLastSentRespMsgId = msgId;
+        }
+
+        /** Return the message ID of the last sent out response. */
+        public int getLastSentRespMsgId() {
+            return mLastSentRespMsgId;
         }
 
         /** Returns if received IKE packet is the first packet of a re-transmistted request. */
@@ -912,6 +945,13 @@ public abstract class SaRecord implements AutoCloseable {
             super.close();
             mInitiatorSpiResource.close();
             mResponderSpiResource.close();
+        }
+
+        /** Migrate this IKE SA to the specified address pair. */
+        public void migrate(InetAddress initiatorAddress, InetAddress responderAddress)
+                throws IOException {
+            mInitiatorSpiResource.migrate(initiatorAddress);
+            mResponderSpiResource.migrate(responderAddress);
         }
     }
 

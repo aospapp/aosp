@@ -17,4 +17,5 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="cmas_presidential_level_alert" msgid="6968323372438785870">"Obaveštenje o kritičnom hitnom slučaju"</string>
+    <string name="alerts_header_summary" msgid="8898082819299479687">"Telefon može da vam šalje upozorenja, poput uputstva za evakuaciju, tokom prirodnih katastrofa. Ova usluga predstavlja saradnju između Nacionalne agencije za upravljanje hitnim slučajevima, mrežnih operatera i proizvođača uređaja.\n\nMožda nećete dobijati upozorenja ako dođe do problema sa uređajem ili ako mreža nije dovoljno jaka."</string>
 </resources>

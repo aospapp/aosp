@@ -23,9 +23,9 @@
     </string-array>
 
     <!-- Security types for wireless tether -->
-    <string-array translatable="false" name="wifi_tether_security">
-        <item>@string/wifi_security_wpa2</item>
-        <item>@string/wifi_security_none</item>
+    <string-array name="wifi_tether_security">
+        <item>@string/wifi_hotspot_wpa2_personal</item>
+        <item>@string/wifi_hotspot_security_none</item>
     </string-array>
 
     <!-- Wi-Fi AP band settings.  Either Auto, 2.4GHz or 5GHz. -->
@@ -53,5 +53,15 @@
     <string-array translatable="false" name="wifi_ap_band_config_2G_only">
         <item>@string/wifi_ap_choose_auto</item>
         <item>@string/wifi_ap_choose_2G</item>
+    </string-array>
+
+    <string-array translatable="false" name="recent_apps_ignored_packages">
+        <item>android</item>
+        <item>com.android.phone</item>
+        <item>com.android.settings</item>
+        <item>com.android.car.settings</item>
+        <item>com.android.systemui</item>
+        <item>com.android.providers.calendar</item>
+        <item>com.android.providers.media</item>
     </string-array>
 </resources>

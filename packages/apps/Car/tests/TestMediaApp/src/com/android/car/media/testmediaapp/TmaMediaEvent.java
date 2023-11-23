@@ -53,7 +53,7 @@ public class TmaMediaEvent {
 
     public static final TmaMediaEvent INSTANT_PLAYBACK =
             new TmaMediaEvent(EventState.PLAYING, StateErrorCode.UNKNOWN_ERROR, null, null,
-                    ResolutionIntent.NONE, Action.NONE, 0, null);
+                    ResolutionIntent.NONE, Action.NONE, 0, null, null);
 
     /** The name of each entry is the value used in the json file. */
     public enum EventState {
@@ -120,10 +120,11 @@ public class TmaMediaEvent {
     /** How long to wait before sending the event to the app. */
     final int mPostDelayMs;
     private final String mExceptionClass;
+    final String mMediaItemIdToToggle;
 
     public TmaMediaEvent(EventState state, StateErrorCode errorCode, String errorMessage,
             String actionLabel, ResolutionIntent resolutionIntent, Action action, int postDelayMs,
-            String exceptionClass) {
+            String exceptionClass, String mediaItemIdToToggle) {
         mState = state;
         mErrorCode = errorCode;
         mErrorMessage = errorMessage;
@@ -132,6 +133,7 @@ public class TmaMediaEvent {
         mAction = action;
         mPostDelayMs = postDelayMs;
         mExceptionClass = exceptionClass;
+        mMediaItemIdToToggle = mediaItemIdToToggle;
     }
 
     boolean premiumAccountRequired() {

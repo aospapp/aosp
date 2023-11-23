@@ -15,11 +15,13 @@
  */
 package com.android.car.audio;
 
+import static android.car.media.CarAudioManager.PRIMARY_AUDIO_ZONE;
+
 import android.annotation.NonNull;
-import android.car.media.CarAudioManager;
 import android.media.AudioDeviceAttributes;
 import android.media.AudioDeviceInfo;
 import android.text.TextUtils;
+import android.util.SparseArray;
 import android.util.SparseIntArray;
 import android.util.Xml;
 
@@ -33,7 +35,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -118,9 +119,10 @@ import java.util.stream.Collectors;
         }
     }
 
-    static void bindNonLegacyContexts(CarVolumeGroup group, CarAudioDeviceInfo info) {
+    static void setNonLegacyContexts(CarVolumeGroup.Builder groupBuilder,
+            CarAudioDeviceInfo info) {
         for (@AudioContext int audioContext : NON_LEGACY_CONTEXTS) {
-            group.bind(audioContext, info);
+            groupBuilder.setDeviceInfoForContext(audioContext, info);
         }
     }
 
@@ -131,8 +133,8 @@ import java.util.stream.Collectors;
     private final SparseIntArray mZoneIdToOccupantZoneIdMapping;
     private final Set<Integer> mAudioZoneIds;
     private final Set<String> mInputAudioDevices;
+    private final boolean mUseCarVolumeGroupMute;
 
-    private boolean mHasPrimaryZone;
     private int mNextSecondaryZoneId;
     private int mCurrentVersion;
 
@@ -143,7 +145,7 @@ import java.util.stream.Collectors;
     CarAudioZonesHelper(@NonNull CarAudioSettings carAudioSettings,
             @NonNull InputStream inputStream,
             @NonNull List<CarAudioDeviceInfo> carAudioDeviceInfos,
-            @NonNull AudioDeviceInfo[] inputDeviceInfo) {
+            @NonNull AudioDeviceInfo[] inputDeviceInfo, boolean useCarVolumeGroupMute) {
         mCarAudioSettings = Objects.requireNonNull(carAudioSettings);
         mInputStream = Objects.requireNonNull(inputStream);
         Objects.requireNonNull(carAudioDeviceInfos);
@@ -152,21 +154,19 @@ import java.util.stream.Collectors;
                 carAudioDeviceInfos);
         mAddressToInputAudioDeviceInfo =
                 CarAudioZonesHelper.generateAddressToInputAudioDeviceInfoMap(inputDeviceInfo);
-        mNextSecondaryZoneId = CarAudioManager.PRIMARY_AUDIO_ZONE + 1;
+        mNextSecondaryZoneId = PRIMARY_AUDIO_ZONE + 1;
         mZoneIdToOccupantZoneIdMapping = new SparseIntArray();
         mAudioZoneIds = new HashSet<>();
         mInputAudioDevices = new HashSet<>();
+        mUseCarVolumeGroupMute = useCarVolumeGroupMute;
     }
 
     SparseIntArray getCarAudioZoneIdToOccupantZoneIdMapping() {
         return mZoneIdToOccupantZoneIdMapping;
     }
 
-    // TODO: refactor this method to return List<CarAudioZone>
-    CarAudioZone[] loadAudioZones() throws IOException, XmlPullParserException {
-        List<CarAudioZone> carAudioZones = new ArrayList<>();
-        parseCarAudioZones(carAudioZones, mInputStream);
-        return carAudioZones.toArray(new CarAudioZone[0]);
+    SparseArray<CarAudioZone> loadAudioZones() throws IOException, XmlPullParserException {
+        return parseCarAudioZones(mInputStream);
     }
 
     private static Map<String, CarAudioDeviceInfo> generateAddressToInfoMap(
@@ -189,9 +189,9 @@ import java.util.stream.Collectors;
         return deviceAddressToInputDeviceMap;
     }
 
-    private void parseCarAudioZones(List<CarAudioZone> carAudioZones, InputStream stream)
+    private SparseArray<CarAudioZone> parseCarAudioZones(InputStream stream)
             throws XmlPullParserException, IOException {
-        final XmlPullParser parser = Xml.newPullParser();
+        XmlPullParser parser = Xml.newPullParser();
         parser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, NAMESPACE != null);
         parser.setInput(stream, null);
 
@@ -214,35 +214,50 @@ import java.util.stream.Collectors;
         while (parser.next() != XmlPullParser.END_TAG) {
             if (parser.getEventType() != XmlPullParser.START_TAG) continue;
             if (TAG_AUDIO_ZONES.equals(parser.getName())) {
-                parseAudioZones(parser, carAudioZones);
+                return parseAudioZones(parser);
             } else {
                 skip(parser);
             }
         }
+        throw new RuntimeException(TAG_AUDIO_ZONES + " is missing from configuration");
     }
 
-    private void parseAudioZones(XmlPullParser parser, List<CarAudioZone> carAudioZones)
+    private SparseArray<CarAudioZone> parseAudioZones(XmlPullParser parser)
             throws XmlPullParserException, IOException {
+        SparseArray<CarAudioZone> carAudioZones = new SparseArray<>();
+
         while (parser.next() != XmlPullParser.END_TAG) {
             if (parser.getEventType() != XmlPullParser.START_TAG) continue;
             if (TAG_AUDIO_ZONE.equals(parser.getName())) {
-                carAudioZones.add(parseAudioZone(parser));
+                CarAudioZone zone = parseAudioZone(parser);
+                verifyOnlyOnePrimaryZone(zone, carAudioZones);
+                carAudioZones.put(zone.getId(), zone);
             } else {
                 skip(parser);
             }
         }
-        Preconditions.checkArgument(mHasPrimaryZone, "Requires one primary zone");
-        carAudioZones.sort(Comparator.comparing(CarAudioZone::getId));
+
+        verifyPrimaryZonePresent(carAudioZones);
+        return carAudioZones;
+    }
+
+    private void verifyOnlyOnePrimaryZone(CarAudioZone newZone, SparseArray<CarAudioZone> zones) {
+        if (newZone.getId() == PRIMARY_AUDIO_ZONE && zones.contains(PRIMARY_AUDIO_ZONE)) {
+            throw new RuntimeException("More than one zone parsed with primary audio zone ID: "
+                            + PRIMARY_AUDIO_ZONE);
+        }
+    }
+
+    private void verifyPrimaryZonePresent(SparseArray<CarAudioZone> zones) {
+        if (!zones.contains(PRIMARY_AUDIO_ZONE)) {
+            throw new RuntimeException("Primary audio zone is required");
+        }
     }
 
     private CarAudioZone parseAudioZone(XmlPullParser parser)
             throws XmlPullParserException, IOException {
         final boolean isPrimary = Boolean.parseBoolean(
                 parser.getAttributeValue(NAMESPACE, ATTR_IS_PRIMARY));
-        if (isPrimary) {
-            Preconditions.checkArgument(!mHasPrimaryZone, "Only one primary zone is allowed");
-            mHasPrimaryZone = true;
-        }
         final String zoneName = parser.getAttributeValue(NAMESPACE, ATTR_ZONE_NAME);
         final int audioZoneId = getZoneId(isPrimary, parser);
         parseOccupantZoneId(audioZoneId, parser);
@@ -268,25 +283,25 @@ import java.util.stream.Collectors;
                     "Invalid audio attribute %s"
                             + ", Please update car audio configurations file "
                             + "to version to 2 to use it.", ATTR_ZONE_ID);
-            return isPrimary ? CarAudioManager.PRIMARY_AUDIO_ZONE
+            return isPrimary ? PRIMARY_AUDIO_ZONE
                     : getNextSecondaryZoneId();
         }
         // Primary zone does not need to define it
         if (isPrimary && audioZoneIdString == null) {
-            return CarAudioManager.PRIMARY_AUDIO_ZONE;
+            return PRIMARY_AUDIO_ZONE;
         }
         Objects.requireNonNull(audioZoneIdString, () ->
                 "Requires " + ATTR_ZONE_ID + " for all audio zones.");
         int zoneId = parsePositiveIntAttribute(ATTR_ZONE_ID, audioZoneIdString);
         //Verify that primary zone id is PRIMARY_AUDIO_ZONE
         if (isPrimary) {
-            Preconditions.checkArgument(zoneId == CarAudioManager.PRIMARY_AUDIO_ZONE,
+            Preconditions.checkArgument(zoneId == PRIMARY_AUDIO_ZONE,
                     "Primary zone %s must be %d or it can be left empty.",
-                    ATTR_ZONE_ID, CarAudioManager.PRIMARY_AUDIO_ZONE);
+                    ATTR_ZONE_ID, PRIMARY_AUDIO_ZONE);
         } else {
-            Preconditions.checkArgument(zoneId != CarAudioManager.PRIMARY_AUDIO_ZONE,
+            Preconditions.checkArgument(zoneId != PRIMARY_AUDIO_ZONE,
                     "%s can only be %d for primary zone.",
-                    ATTR_ZONE_ID, CarAudioManager.PRIMARY_AUDIO_ZONE);
+                    ATTR_ZONE_ID, PRIMARY_AUDIO_ZONE);
         }
         validateAudioZoneIdIsUnique(zoneId);
         return zoneId;
@@ -387,18 +402,20 @@ import java.util.stream.Collectors;
 
     private CarVolumeGroup parseVolumeGroup(XmlPullParser parser, int zoneId, int groupId)
             throws XmlPullParserException, IOException {
-        CarVolumeGroup group = new CarVolumeGroup(mCarAudioSettings, zoneId, groupId);
+        CarVolumeGroup.Builder groupBuilder =
+                new CarVolumeGroup.Builder(zoneId, groupId, mCarAudioSettings,
+                        mUseCarVolumeGroupMute);
         while (parser.next() != XmlPullParser.END_TAG) {
             if (parser.getEventType() != XmlPullParser.START_TAG) continue;
             if (TAG_AUDIO_DEVICE.equals(parser.getName())) {
                 String address = parser.getAttributeValue(NAMESPACE, ATTR_DEVICE_ADDRESS);
                 validateOutputDeviceExist(address);
-                parseVolumeGroupContexts(parser, group, address);
+                parseVolumeGroupContexts(parser, groupBuilder, address);
             } else {
                 skip(parser);
             }
         }
-        return group;
+        return groupBuilder.build();
     }
 
     private void validateOutputDeviceExist(String address) {
@@ -410,7 +427,7 @@ import java.util.stream.Collectors;
     }
 
     private void parseVolumeGroupContexts(
-            XmlPullParser parser, CarVolumeGroup group, String address)
+            XmlPullParser parser, CarVolumeGroup.Builder groupBuilder, String address)
             throws XmlPullParserException, IOException {
         while (parser.next() != XmlPullParser.END_TAG) {
             if (parser.getEventType() != XmlPullParser.START_TAG) continue;
@@ -419,11 +436,11 @@ import java.util.stream.Collectors;
                         parser.getAttributeValue(NAMESPACE, ATTR_CONTEXT_NAME));
                 validateCarAudioContextSupport(carAudioContext);
                 CarAudioDeviceInfo info = mAddressToCarAudioDeviceInfo.get(address);
-                group.bind(carAudioContext, info);
+                groupBuilder.setDeviceInfoForContext(carAudioContext, info);
 
                 // If V1, default new contexts to same device as DEFAULT_AUDIO_USAGE
                 if (isVersionOne() && carAudioContext == CarAudioService.DEFAULT_AUDIO_CONTEXT) {
-                    bindNonLegacyContexts(group, info);
+                    setNonLegacyContexts(groupBuilder, info);
                 }
             }
             // Always skip to upper level since we're at the lowest.

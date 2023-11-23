@@ -18,12 +18,25 @@ package android.net.ip;
 
 import static android.net.RouteInfo.RTN_UNICAST;
 import static android.net.dhcp.DhcpResultsParcelableUtil.toStableParcelable;
+import static android.net.util.NetworkStackUtils.IPCLIENT_DISABLE_ACCEPT_RA_VERSION;
+import static android.net.util.NetworkStackUtils.IPCLIENT_GARP_NA_ROAMING_VERSION;
+import static android.net.util.NetworkStackUtils.IPCLIENT_GRATUITOUS_NA_VERSION;
+import static android.net.util.SocketUtils.makePacketSocketAddress;
 import static android.provider.DeviceConfig.NAMESPACE_CONNECTIVITY;
+import static android.system.OsConstants.AF_PACKET;
+import static android.system.OsConstants.ETH_P_ARP;
+import static android.system.OsConstants.ETH_P_IPV6;
+import static android.system.OsConstants.SOCK_NONBLOCK;
+import static android.system.OsConstants.SOCK_RAW;
 
-import static com.android.server.util.NetworkStackConstants.VENDOR_SPECIFIC_IE_ID;
+import static com.android.net.module.util.NetworkStackConstants.ARP_REPLY;
+import static com.android.net.module.util.NetworkStackConstants.ETHER_BROADCAST;
+import static com.android.net.module.util.NetworkStackConstants.IPV6_ADDR_ALL_ROUTERS_MULTICAST;
+import static com.android.net.module.util.NetworkStackConstants.VENDOR_SPECIFIC_IE_ID;
 import static com.android.server.util.PermissionUtil.enforceNetworkStackCallingPermission;
 
 import android.content.Context;
+import android.content.res.Resources;
 import android.net.ConnectivityManager;
 import android.net.DhcpResults;
 import android.net.INetd;
@@ -46,6 +59,7 @@ import android.net.dhcp.DhcpClient;
 import android.net.dhcp.DhcpPacket;
 import android.net.metrics.IpConnectivityLog;
 import android.net.metrics.IpManagerEvent;
+import android.net.networkstack.aidl.dhcp.DhcpOption;
 import android.net.shared.InitialConfiguration;
 import android.net.shared.ProvisioningConfiguration;
 import android.net.shared.ProvisioningConfiguration.ScanResultInfo;
@@ -61,6 +75,9 @@ import android.os.RemoteException;
 import android.os.ServiceSpecificException;
 import android.os.SystemClock;
 import android.stats.connectivity.DisconnectCode;
+import android.stats.connectivity.NetworkQuirkEvent;
+import android.system.ErrnoException;
+import android.system.Os;
 import android.text.TextUtils;
 import android.util.LocalLog;
 import android.util.Log;
@@ -77,17 +94,27 @@ import com.android.internal.util.MessageUtils;
 import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
 import com.android.internal.util.WakeupMessage;
+import com.android.net.module.util.DeviceConfigUtils;
+import com.android.networkstack.R;
 import com.android.networkstack.apishim.NetworkInformationShimImpl;
+import com.android.networkstack.apishim.SocketUtilsShimImpl;
 import com.android.networkstack.apishim.common.NetworkInformationShim;
 import com.android.networkstack.apishim.common.ShimUtils;
+import com.android.networkstack.arp.ArpPacket;
 import com.android.networkstack.metrics.IpProvisioningMetrics;
+import com.android.networkstack.metrics.NetworkQuirkMetrics;
+import com.android.networkstack.packets.NeighborAdvertisement;
 import com.android.server.NetworkObserverRegistry;
 import com.android.server.NetworkStackService.NetworkStackServiceManager;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
+import java.net.Inet4Address;
+import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.MalformedURLException;
+import java.net.SocketAddress;
+import java.net.SocketException;
 import java.net.URL;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
@@ -97,6 +124,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -132,6 +160,7 @@ public class IpClient extends StateMachine {
     private final NetworkStackIpMemoryStore mIpMemoryStore;
     private final NetworkInformationShim mShim = NetworkInformationShimImpl.newInstance();
     private final IpProvisioningMetrics mIpProvisioningMetrics = new IpProvisioningMetrics();
+    private final NetworkQuirkMetrics mNetworkQuirkMetrics;
 
     /**
      * Dump all state machine and connectivity packet logs to the specified writer.
@@ -432,6 +461,17 @@ public class IpClient extends StateMachine {
                     new byte[] { (byte) 0x00, (byte) 0x17, (byte) 0xf2, (byte) 0x06 }
     ));
 
+    // Allows Wi-Fi to pass in DHCP options when particular vendor-specific IEs are present.
+    // Maps each DHCP option code to a list of IEs, any of which will allow that option.
+    private static final Map<Byte, List<byte[]>> DHCP_OPTIONS_ALLOWED = Map.of(
+            (byte) 60, Arrays.asList(
+                    // KT OUI: 00:17:C3, type: 17. See b/170928882.
+                    new byte[]{ (byte) 0x00, (byte) 0x17, (byte) 0xc3, (byte) 0x17 }),
+            (byte) 77, Arrays.asList(
+                    // KT OUI: 00:17:C3, type: 17. See b/170928882.
+                    new byte[]{ (byte) 0x00, (byte) 0x17, (byte) 0xc3, (byte) 0x17 })
+    );
+
     // Initialize configurable particular SSID set supporting DHCP Roaming feature. See
     // b/131797393 for more details.
     private static final Set<String> DHCP_ROAMING_SSID_SET = new HashSet<>(
@@ -466,6 +506,8 @@ public class IpClient extends StateMachine {
     private final MessageHandlingLogger mMsgStateLogger;
     private final IpConnectivityLog mMetricsLog;
     private final InterfaceController mInterfaceCtrl;
+    // Set of IPv6 addresses for which unsolicited gratuitous NA packets have been sent.
+    private final Set<Inet6Address> mGratuitousNaTargetAddresses = new HashSet<>();
 
     // Ignore nonzero RDNSS option lifetimes below this value. 0 = disabled.
     private final int mMinRdnssLifetimeSec;
@@ -488,7 +530,7 @@ public class IpClient extends StateMachine {
     private boolean mMulticastFiltering;
     private long mStartTimeMillis;
     private MacAddress mCurrentBssid;
-    private boolean mHasDisabledIPv6OnProvLoss;
+    private boolean mHasDisabledIpv6OrAcceptRaOnProvLoss;
 
     /**
      * Reading the snapshot is an asynchronous operation initiated by invoking
@@ -541,7 +583,7 @@ public class IpClient extends StateMachine {
          * Read an integer DeviceConfig property.
          */
         public int getDeviceConfigPropertyInt(String name, int defaultValue) {
-            return NetworkStackUtils.getDeviceConfigPropertyInt(NAMESPACE_CONNECTIVITY, name,
+            return DeviceConfigUtils.getDeviceConfigPropertyInt(NAMESPACE_CONNECTIVITY, name,
                     defaultValue);
         }
 
@@ -550,6 +592,30 @@ public class IpClient extends StateMachine {
          */
         public IpConnectivityLog getIpConnectivityLog() {
             return new IpConnectivityLog();
+        }
+
+        public NetworkQuirkMetrics getNetworkQuirkMetrics() {
+            return new NetworkQuirkMetrics();
+        }
+
+        /**
+         * Return whether a feature guarded by a feature flag is enabled.
+         * @see NetworkStackUtils#isFeatureEnabled(Context, String, String)
+         */
+        public boolean isFeatureEnabled(final Context context, final String name,
+                boolean defaultEnabled) {
+            return DeviceConfigUtils.isFeatureEnabled(context, NAMESPACE_CONNECTIVITY, name,
+                    defaultEnabled);
+        }
+
+        /**
+         * Create an APF filter if apfCapabilities indicates support for packet filtering using
+         * APF programs.
+         * @see ApfFilter#maybeCreate
+         */
+        public ApfFilter maybeCreateApfFilter(Context context, ApfFilter.ApfConfiguration config,
+                InterfaceParams ifParams, IpClientCallbacksWrapper cb) {
+            return ApfFilter.maybeCreate(context, config, ifParams, cb);
         }
     }
 
@@ -573,6 +639,7 @@ public class IpClient extends StateMachine {
         mClatInterfaceName = CLAT_PREFIX + ifName;
         mDependencies = deps;
         mMetricsLog = deps.getIpConnectivityLog();
+        mNetworkQuirkMetrics = deps.getNetworkQuirkMetrics();
         mShutdownLatch = new CountDownLatch(1);
         mCm = mContext.getSystemService(ConnectivityManager.class);
         mObserverRegistry = observerRegistry;
@@ -632,6 +699,21 @@ public class IpClient extends StateMachine {
 
                 final String msg = "interfaceRemoved(" + iface + ")";
                 logMsg(msg);
+            }
+
+            @Override
+            public void onInterfaceAddressRemoved(LinkAddress address, String iface) {
+                super.onInterfaceAddressRemoved(address, iface);
+                if (!mInterfaceName.equals(iface)) return;
+                if (!address.isIpv6()) return;
+                final Inet6Address targetIp = (Inet6Address) address.getAddress();
+                if (mGratuitousNaTargetAddresses.contains(targetIp)) {
+                    mGratuitousNaTargetAddresses.remove(targetIp);
+
+                    final String msg = "Global IPv6 address: " + targetIp
+                            + " has removed from the set of gratuitous NA target address.";
+                    logMsg(msg);
+                }
             }
 
             private void logMsg(String msg) {
@@ -777,6 +859,44 @@ public class IpClient extends StateMachine {
 
     private void stopStateMachineUpdaters() {
         mObserverRegistry.unregisterObserver(mLinkObserver);
+        mLinkObserver.shutdown();
+    }
+
+    private boolean isGratuitousNaEnabled() {
+        return mDependencies.isFeatureEnabled(mContext, IPCLIENT_GRATUITOUS_NA_VERSION,
+                false /* defaultEnabled */);
+    }
+
+    private boolean isGratuitousArpNaRoamingEnabled() {
+        return mDependencies.isFeatureEnabled(mContext, IPCLIENT_GARP_NA_ROAMING_VERSION,
+                false /* defaultEnabled */);
+    }
+
+    private void setInitialBssid(final ProvisioningConfiguration req) {
+        final ScanResultInfo scanResultInfo = req.mScanResultInfo;
+        mCurrentBssid = null;
+        // http://b/185202634
+        // ScanResultInfo is not populated in some situations.
+        // On S and above, prefer getting the BSSID from the Layer2Info.
+        // On R and below, get the BSSID from the ScanResultInfo and fall back to
+        // getting it from the Layer2Info. This ensures no regressions if any R
+        // devices pass in a null or meaningless BSSID in the Layer2Info.
+        if (!ShimUtils.isAtLeastS() && scanResultInfo != null) {
+            try {
+                mCurrentBssid = MacAddress.fromString(scanResultInfo.getBssid());
+            } catch (IllegalArgumentException e) {
+                Log.wtf(mTag, "Invalid BSSID: " + scanResultInfo.getBssid()
+                        + " in provisioning configuration", e);
+            }
+        }
+        if (mCurrentBssid == null && req.mLayer2Info != null) {
+            mCurrentBssid = req.mLayer2Info.mBssid;
+        }
+    }
+
+    private boolean shouldDisableAcceptRaOnProvisioningLoss() {
+        return mDependencies.isFeatureEnabled(mContext, IPCLIENT_DISABLE_ACCEPT_RA_VERSION,
+                true /* defaultEnabled */);
     }
 
     @Override
@@ -802,17 +922,7 @@ public class IpClient extends StateMachine {
             return;
         }
 
-        final ScanResultInfo scanResultInfo = req.mScanResultInfo;
-        mCurrentBssid = null;
-        if (scanResultInfo != null) {
-            try {
-                mCurrentBssid = MacAddress.fromString(scanResultInfo.getBssid());
-            } catch (IllegalArgumentException e) {
-                Log.wtf(mTag, "Invalid BSSID: " + scanResultInfo.getBssid()
-                        + " in provisioning configuration", e);
-            }
-        }
-
+        setInitialBssid(req);
         if (req.mLayer2Info != null) {
             mL2Key = req.mLayer2Info.mL2Key;
             mCluster = req.mLayer2Info.mCluster;
@@ -1106,6 +1216,21 @@ public class IpClient extends StateMachine {
         return config.isProvisionedBy(lp.getLinkAddresses(), lp.getRoutes());
     }
 
+    private void setIpv6AcceptRa(int acceptRa) {
+        try {
+            mNetd.setProcSysNet(INetd.IPV6, INetd.CONF, mInterfaceParams.name, "accept_ra",
+                    Integer.toString(acceptRa));
+        } catch (Exception e) {
+            Log.e(mTag, "Failed to set accept_ra to " + acceptRa);
+        }
+    }
+
+    private void restartIpv6WithAcceptRaDisabled() {
+        mInterfaceCtrl.disableIPv6();
+        setIpv6AcceptRa(0 /* accept_ra */);
+        startIPv6();
+    }
+
     // TODO: Investigate folding all this into the existing static function
     // LinkProperties.compareProvisioning() or some other single function that
     // takes two LinkProperties objects and returns a ProvisioningChange
@@ -1155,7 +1280,7 @@ public class IpClient extends StateMachine {
         // Note that we can still be disconnected by IpReachabilityMonitor
         // if the IPv6 default gateway (but not the IPv6 DNS servers; see
         // accompanying code in IpReachabilityMonitor) is unreachable.
-        final boolean ignoreIPv6ProvisioningLoss = mHasDisabledIPv6OnProvLoss
+        final boolean ignoreIPv6ProvisioningLoss = mHasDisabledIpv6OrAcceptRaOnProvLoss
                 || (mConfiguration != null && mConfiguration.mUsingMultinetworkPolicyTracker
                         && !mCm.shouldAvoidBadWifi());
 
@@ -1183,18 +1308,31 @@ public class IpClient extends StateMachine {
         if (oldLp.hasGlobalIpv6Address() && (lostIPv6Router && !ignoreIPv6ProvisioningLoss)) {
             // Although link properties have lost IPv6 default route in this case, if IPv4 is still
             // working with appropriate routes and DNS servers, we can keep the current connection
-            // without disconnecting from the network, just disable IPv6 on that given network until
-            // to the next provisioning. Disabling IPv6 will result in all IPv6 connectivity torn
-            // down and all IPv6 sockets being closed, the non-routable IPv6 DNS servers will be
-            // stripped out, so applications will be able to reconnect immediately over IPv4. See
-            // b/131781810.
+            // without disconnecting from the network, just disable IPv6 or accept_ra parameter on
+            // that given network until to the next provisioning.
+            //
+            // Disabling IPv6 stack will result in all IPv6 connectivity torn down and all IPv6
+            // sockets being closed, the non-routable IPv6 DNS servers will be stripped out, so
+            // applications will be able to reconnect immediately over IPv4. See b/131781810.
+            //
+            // Sometimes disabling IPv6 stack might introduce other issues(see b/179222860),
+            // instead disabling accept_ra will result in only IPv4 provisioning and IPv6 link
+            // local address left on the interface, so applications will be able to reconnect
+            // immediately over IPv4 and keep IPv6 link-local capable.
             if (newLp.isIpv4Provisioned()) {
-                mInterfaceCtrl.disableIPv6();
-                mHasDisabledIPv6OnProvLoss = true;
-                delta = PROV_CHANGE_STILL_PROVISIONED;
-                if (DBG) {
-                    mLog.log("Disable IPv6 stack completely when the default router has gone");
+                if (shouldDisableAcceptRaOnProvisioningLoss()) {
+                    restartIpv6WithAcceptRaDisabled();
+                } else {
+                    mInterfaceCtrl.disableIPv6();
                 }
+                mNetworkQuirkMetrics.setEvent(NetworkQuirkEvent.QE_IPV6_PROVISIONING_ROUTER_LOST);
+                mNetworkQuirkMetrics.statsWrite();
+                mHasDisabledIpv6OrAcceptRaOnProvLoss = true;
+                delta = PROV_CHANGE_STILL_PROVISIONED;
+                mLog.log(shouldDisableAcceptRaOnProvisioningLoss()
+                        ? "Disabled accept_ra parameter "
+                        : "Disabled IPv6 stack completely "
+                        + "when the IPv6 default router has gone");
             } else {
                 delta = PROV_CHANGE_LOST_PROVISIONING;
             }
@@ -1363,11 +1501,104 @@ public class IpClient extends StateMachine {
         }
     }
 
+    private void transmitPacket(final ByteBuffer packet, final SocketAddress sockAddress,
+            final String msg) {
+        FileDescriptor sock = null;
+        try {
+            sock = Os.socket(AF_PACKET, SOCK_RAW | SOCK_NONBLOCK, 0 /* protocol */);
+            Os.sendto(sock, packet.array(), 0 /* byteOffset */, packet.limit() /* byteCount */,
+                    0 /* flags */, sockAddress);
+        } catch (SocketException | ErrnoException e) {
+            logError(msg, e);
+        } finally {
+            NetworkStackUtils.closeSocketQuietly(sock);
+        }
+    }
+
+    private void sendGratuitousNA(final Inet6Address srcIp, final Inet6Address targetIp) {
+        final int flags = 0; // R=0, S=0, O=0
+        final Inet6Address dstIp = IPV6_ADDR_ALL_ROUTERS_MULTICAST;
+        // Ethernet multicast destination address: 33:33:00:00:00:02.
+        final MacAddress dstMac = NetworkStackUtils.ipv6MulticastToEthernetMulticast(dstIp);
+        final ByteBuffer packet = NeighborAdvertisement.build(mInterfaceParams.macAddr, dstMac,
+                srcIp, dstIp, flags, targetIp);
+        final SocketAddress sockAddress =
+                SocketUtilsShimImpl.newInstance().makePacketSocketAddress(ETH_P_IPV6,
+                        mInterfaceParams.index, dstMac.toByteArray());
+
+        transmitPacket(packet, sockAddress, "Failed to send Gratuitous Neighbor Advertisement");
+    }
+
+    private void sendGratuitousARP(final Inet4Address srcIp) {
+        final ByteBuffer packet = ArpPacket.buildArpPacket(ETHER_BROADCAST /* dstMac */,
+                mInterfaceParams.macAddr.toByteArray() /* srcMac */,
+                srcIp.getAddress() /* targetIp */,
+                ETHER_BROADCAST /* targetHwAddress */,
+                srcIp.getAddress() /* senderIp */, (short) ARP_REPLY);
+        final SocketAddress sockAddress =
+                makePacketSocketAddress(ETH_P_ARP, mInterfaceParams.index);
+
+        transmitPacket(packet, sockAddress, "Failed to send GARP");
+    }
+
+    private static Inet6Address getIpv6LinkLocalAddress(final LinkProperties newLp) {
+        for (LinkAddress la : newLp.getLinkAddresses()) {
+            if (!la.isIpv6()) continue;
+            final Inet6Address ip = (Inet6Address) la.getAddress();
+            if (ip.isLinkLocalAddress()) return ip;
+        }
+        return null;
+    }
+
+    private void maybeSendGratuitousNAs(final LinkProperties lp, boolean afterRoaming) {
+        if (!lp.hasGlobalIpv6Address()) return;
+
+        final Inet6Address srcIp = getIpv6LinkLocalAddress(lp);
+        if (srcIp == null) return;
+
+        // TODO: add experiment with sending only one gratuitous NA packet instead of one
+        // packet per address.
+        for (LinkAddress la : lp.getLinkAddresses()) {
+            if (!la.isIpv6() || !la.isGlobalPreferred()) continue;
+            final Inet6Address targetIp = (Inet6Address) la.getAddress();
+            // Already sent gratuitous NA with this target global IPv6 address. But for
+            // the L2 roaming case, device should always (re)transmit Gratuitous NA for
+            // each IPv6 global unicast address respectively after roaming.
+            if (!afterRoaming && mGratuitousNaTargetAddresses.contains(targetIp)) continue;
+            if (DBG) {
+                mLog.log("send Gratuitous NA from " + srcIp.getHostAddress() + " for "
+                        + targetIp.getHostAddress() + (afterRoaming ? " after roaming" : ""));
+            }
+            sendGratuitousNA(srcIp, targetIp);
+            if (!afterRoaming) mGratuitousNaTargetAddresses.add(targetIp);
+        }
+    }
+
+    private void maybeSendGratuitousARP(final LinkProperties lp) {
+        for (LinkAddress address : lp.getLinkAddresses()) {
+            if (address.getAddress() instanceof Inet4Address) {
+                final Inet4Address srcIp = (Inet4Address) address.getAddress();
+                if (DBG) {
+                    mLog.log("send GARP for " + srcIp.getHostAddress() + " HW address: "
+                            + mInterfaceParams.macAddr);
+                }
+                sendGratuitousARP(srcIp);
+            }
+        }
+    }
+
     // Returns false if we have lost provisioning, true otherwise.
     private boolean handleLinkPropertiesUpdate(boolean sendCallbacks) {
         final LinkProperties newLp = assembleLinkProperties();
         if (Objects.equals(newLp, mLinkProperties)) {
             return true;
+        }
+
+        // Check if new assigned IPv6 GUA is available in the LinkProperties now. If so, initiate
+        // gratuitous multicast unsolicited Neighbor Advertisements as soon as possible to inform
+        // first-hop routers that the new GUA host is goning to use.
+        if (isGratuitousNaEnabled()) {
+            maybeSendGratuitousNAs(newLp, false /* isGratuitousNaAfterRoaming */);
         }
 
         // Either success IPv4 or IPv6 provisioning triggers new LinkProperties update,
@@ -1395,7 +1626,7 @@ public class IpClient extends StateMachine {
         return ssid;
     }
 
-    private List<ByteBuffer> getVendorSpecificIEs(@NonNull ScanResultInfo scanResultInfo) {
+    private static List<ByteBuffer> getVendorSpecificIEs(@NonNull ScanResultInfo scanResultInfo) {
         ArrayList<ByteBuffer> vendorSpecificPayloadList = new ArrayList<>();
         for (InformationElement ie : scanResultInfo.getInformationElements()) {
             if (ie.getId() == VENDOR_SPECIFIC_IE_ID) {
@@ -1405,16 +1636,9 @@ public class IpClient extends StateMachine {
         return vendorSpecificPayloadList;
     }
 
-    private boolean detectUpstreamHotspotFromVendorIe() {
-        if (mConfiguration.mScanResultInfo == null) return false;
-        final ScanResultInfo scanResultInfo = mConfiguration.mScanResultInfo;
-        final String ssid = scanResultInfo.getSsid();
+    private boolean checkIfOuiAndTypeMatched(@NonNull ScanResultInfo scanResultInfo,
+            @NonNull List<byte[]> patternList) {
         final List<ByteBuffer> vendorSpecificPayloadList = getVendorSpecificIEs(scanResultInfo);
-
-        if (mConfiguration.mDisplayName == null
-                || !removeDoubleQuotes(mConfiguration.mDisplayName).equals(ssid)) {
-            return false;
-        }
 
         for (ByteBuffer payload : vendorSpecificPayloadList) {
             byte[] ouiAndType = new byte[4];
@@ -1424,17 +1648,28 @@ public class IpClient extends StateMachine {
                 Log.e(mTag, "Couldn't parse vendor specific IE, buffer underflow");
                 return false;
             }
-            for (byte[] pattern : METERED_IE_PATTERN_LIST) {
+            for (byte[] pattern : patternList) {
                 if (Arrays.equals(pattern, ouiAndType)) {
                     if (DBG) {
-                        Log.d(mTag, "detected upstream hotspot that matches OUI:"
-                                + HexDump.toHexString(ouiAndType));
+                        Log.d(mTag, "match pattern: " + HexDump.toHexString(ouiAndType));
                     }
                     return true;
                 }
             }
         }
         return false;
+    }
+
+    private boolean detectUpstreamHotspotFromVendorIe() {
+        final ScanResultInfo scanResultInfo = mConfiguration.mScanResultInfo;
+        if (scanResultInfo == null) return false;
+        final String ssid = scanResultInfo.getSsid();
+
+        if (mConfiguration.mDisplayName == null
+                || !removeDoubleQuotes(mConfiguration.mDisplayName).equals(ssid)) {
+            return false;
+        }
+        return checkIfOuiAndTypeMatched(scanResultInfo, METERED_IE_PATTERN_LIST);
     }
 
     private void handleIPv4Success(DhcpResults dhcpResults) {
@@ -1582,7 +1817,11 @@ public class IpClient extends StateMachine {
             return;
         }
 
-        if (params.index != mInterfaceParams.index) {
+        // Check whether "mInterfaceParams" is null or not to prevent the potential NPE
+        // introduced if the interface was initially not found, but came back before this
+        // method was called. See b/162808916 for more details. TODO: query the new interface
+        // parameters by the interface index instead and check that the index has not changed.
+        if (mInterfaceParams == null || params.index != mInterfaceParams.index) {
             Log.w(mTag, "interface: " + mInterfaceName + " has a different index: " + params.index);
             return;
         }
@@ -1601,13 +1840,28 @@ public class IpClient extends StateMachine {
         mL2Key = info.l2Key;
         mCluster = info.cluster;
 
+        // Sometimes the wifi code passes in a null BSSID. Don't use Log.wtf in R because
+        // it's a known bug that will not be fixed in R.
         if (info.bssid == null || mCurrentBssid == null) {
-            Log.wtf(mTag, "bssid in the parcelable or current tracked bssid should be non-null");
+            final String msg = "bssid in the parcelable: " + info.bssid + " or "
+                    + "current tracked bssid: " + mCurrentBssid + " is null";
+            if (ShimUtils.isAtLeastS()) {
+                Log.wtf(mTag, msg);
+            } else {
+                Log.w(mTag, msg);
+            }
             return;
         }
 
         // If the BSSID has not changed, there is nothing to do.
         if (info.bssid.equals(mCurrentBssid)) return;
+
+        // Before trigger probing to the interesting neighbors, send Gratuitous ARP
+        // and Neighbor Advertisment in advance to propgate host's IPv4/v6 addresses.
+        if (isGratuitousArpNaRoamingEnabled()) {
+            maybeSendGratuitousARP(mLinkProperties);
+            maybeSendGratuitousNAs(mLinkProperties, true /* isGratuitousNaAfterRoaming */);
+        }
 
         if (mIpReachabilityMonitor != null) {
             mIpReachabilityMonitor.probeAll();
@@ -1631,7 +1885,9 @@ public class IpClient extends StateMachine {
         @Override
         public void enter() {
             stopAllIP();
-            mHasDisabledIPv6OnProvLoss = false;
+            setIpv6AcceptRa(2 /* accept_ra */);
+            mHasDisabledIpv6OrAcceptRaOnProvLoss = false;
+            mGratuitousNaTargetAddresses.clear();
 
             mLinkObserver.clearInterfaceParams();
             resetLinkProperties();
@@ -1743,10 +1999,35 @@ public class IpClient extends StateMachine {
         return mConfiguration.mEnablePreconnection && mConfiguration.mStaticIpConfig == null;
     }
 
+    /**
+     * Check if the customized DHCP client options passed from Wi-Fi are allowed to be put
+     * in PRL or in the DHCP packet.
+     */
+    private List<DhcpOption> maybeFilterCustomizedDhcpOptions() {
+        final List<DhcpOption> options = new ArrayList<DhcpOption>();
+        if (mConfiguration.mDhcpOptions == null
+                || mConfiguration.mScanResultInfo == null) return options; // empty DhcpOption list
+
+        for (DhcpOption option : mConfiguration.mDhcpOptions) {
+            final List<byte[]> patternList = DHCP_OPTIONS_ALLOWED.get(option.type);
+            // requested option won't be added if no vendor-specific IE oui/type allows this option.
+            if (patternList == null) continue;
+            if (checkIfOuiAndTypeMatched(mConfiguration.mScanResultInfo, patternList)) {
+                options.add(option);
+            }
+        }
+        Collections.sort(options, (o1, o2) ->
+                Integer.compare(Byte.toUnsignedInt(o1.type), Byte.toUnsignedInt(o2.type)));
+        return options;
+    }
+
     private void startDhcpClient() {
         // Start DHCPv4.
         mDhcpClient = mDependencies.makeDhcpClient(mContext, IpClient.this, mInterfaceParams,
                 mDependencies.getDhcpClientDependencies(mIpMemoryStore, mIpProvisioningMetrics));
+
+        // Check if the vendor-specific IE oui/type matches and filters the customized DHCP options.
+        final List<DhcpOption> options = maybeFilterCustomizedDhcpOptions();
 
         // If preconnection is enabled, there is no need to ask Wi-Fi to disable powersaving
         // during DHCP, because the DHCP handshake will happen during association. In order to
@@ -1755,7 +2036,7 @@ public class IpClient extends StateMachine {
         // messages.
         if (!isUsingPreconnection()) mDhcpClient.registerForPreDhcpNotification();
         mDhcpClient.sendMessage(DhcpClient.CMD_START_DHCP, new DhcpClient.Configuration(mL2Key,
-                isUsingPreconnection()));
+                isUsingPreconnection(), options));
     }
 
     class ClearingIpAddressesState extends State {
@@ -1926,10 +2207,19 @@ public class IpClient extends StateMachine {
             apfConfig.apfCapabilities = mConfiguration.mApfCapabilities;
             apfConfig.multicastFilter = mMulticastFiltering;
             // Get the Configuration for ApfFilter from Context
-            apfConfig.ieee802_3Filter = ApfCapabilities.getApfDrop8023Frames();
-            apfConfig.ethTypeBlackList = ApfCapabilities.getApfEtherTypeBlackList();
+            // Resource settings were moved from ApfCapabilities APIs to NetworkStack resources in S
+            if (ShimUtils.isReleaseOrDevelopmentApiAbove(Build.VERSION_CODES.R)) {
+                final Resources res = mContext.getResources();
+                apfConfig.ieee802_3Filter = res.getBoolean(R.bool.config_apfDrop802_3Frames);
+                apfConfig.ethTypeBlackList = res.getIntArray(R.array.config_apfEthTypeDenyList);
+            } else {
+                apfConfig.ieee802_3Filter = ApfCapabilities.getApfDrop8023Frames();
+                apfConfig.ethTypeBlackList = ApfCapabilities.getApfEtherTypeBlackList();
+            }
+
             apfConfig.minRdnssLifetimeSec = mMinRdnssLifetimeSec;
-            mApfFilter = ApfFilter.maybeCreate(mContext, apfConfig, mInterfaceParams, mCallback);
+            mApfFilter = mDependencies.maybeCreateApfFilter(mContext, apfConfig, mInterfaceParams,
+                    mCallback);
             // TODO: investigate the effects of any multicast filtering racing/interfering with the
             // rest of this IP configuration startup.
             if (mApfFilter == null) {
@@ -2156,7 +2446,8 @@ public class IpClient extends StateMachine {
                 //     a) initial address acquisition succeeds,
                 //     b) renew succeeds or is NAK'd,
                 //     c) rebind succeeds or is NAK'd, or
-                //     c) the lease expires,
+                //     d) the lease expires, or
+                //     e) the IPv6-only preferred option is enabled and entering Ipv6OnlyWaitState.
                 //
                 // but never when initial address acquisition fails. The latter
                 // condition is now governed by the provisioning timeout.
@@ -2169,6 +2460,8 @@ public class IpClient extends StateMachine {
                             break;
                         case DhcpClient.DHCP_FAILURE:
                             handleIPv4Failure();
+                            break;
+                        case DhcpClient.DHCP_IPV6_ONLY:
                             break;
                         default:
                             logError("Unknown CMD_POST_DHCP_ACTION status: %s", msg.arg1);

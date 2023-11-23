@@ -75,7 +75,7 @@ public class BluetoothUnbondedDevicesPreferenceController extends
         int availabilityStatus = super.getAvailabilityStatus();
         if (availabilityStatus == AVAILABLE
                 && getUserManager().hasUserRestriction(DISALLOW_CONFIG_BLUETOOTH)) {
-            return DISABLED_FOR_USER;
+            return DISABLED_FOR_PROFILE;
         }
         return availabilityStatus;
     }
@@ -85,7 +85,7 @@ public class BluetoothUnbondedDevicesPreferenceController extends
         public boolean matches(BluetoothDevice device) {
             int[] unbondedMajorClassFilter = getContext()
                     .getResources()
-                    .getIntArray(R.array.config_unbonded_device_filter_whitelist);
+                    .getIntArray(R.array.config_unbonded_device_filter_allowlist);
             boolean matches = device.getBondState() != BluetoothDevice.BOND_BONDED;
             if (matches && unbondedMajorClassFilter.length > 0) {
                 matches = device.getBluetoothClass() != null

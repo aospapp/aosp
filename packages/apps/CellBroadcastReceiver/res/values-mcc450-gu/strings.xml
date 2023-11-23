@@ -17,4 +17,5 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="cmas_presidential_level_alert" msgid="6968323372438785870">"જટિલ કટોકટીની ચેતવણી"</string>
+    <string name="alerts_header_summary" msgid="8898082819299479687">"તમારો ફોન તમને કુદરતી આફતો દરમિયાન સ્થળાંતર સૂચના જેવા અલર્ટ મોકલી શકે છે. આ સેવા રાષ્ટ્રીય ઇમર્જન્સી મેનેજમેન્ટ એજન્સી, નેટવર્ક પ્રદાતાઓ અને ડિવાઇસ નિર્માતા વચ્ચેનો સહયોગ છે.\n\nતમારા ડિવાઇસમાં કોઈ સમસ્યા હોય અથવા નેટવર્ક ખરાબ હોય તો તમને કદાચ અલર્ટ ન પણ મળે."</string>
 </resources>

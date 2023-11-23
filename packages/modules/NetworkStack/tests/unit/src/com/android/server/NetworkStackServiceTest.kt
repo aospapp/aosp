@@ -31,6 +31,7 @@ import android.net.ip.IIpClientCallbacks
 import android.net.ip.IpClient
 import android.os.Build
 import android.os.IBinder
+import android.os.Process
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SmallTest
 import com.android.net.module.util.Inet4AddressUtils.inet4AddressToIntHTH
@@ -42,6 +43,8 @@ import com.android.server.connectivity.ipmemorystore.IpMemoryStoreService
 import com.android.testutils.DevSdkIgnoreRule
 import com.android.testutils.DevSdkIgnoreRule.IgnoreAfter
 import com.android.testutils.DevSdkIgnoreRule.IgnoreUpTo
+import com.android.testutils.ExceptionUtils
+import com.android.testutils.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -172,6 +175,7 @@ class NetworkStackServiceTest {
                 mock(IBinder::class.java)))
         doReturn(9990003).`when`(mockNetworkMonitorCb).interfaceVersion
         doReturn("networkmonitor_hash").`when`(mockNetworkMonitorCb).interfaceHash
+        INetworkMonitorCallbacks.Stub.setDefaultImpl(INetworkMonitorCallbacks.Default())
 
         connector.makeNetworkMonitor(Network(123), "test_nm", mockNetworkMonitorCb)
 
@@ -202,8 +206,14 @@ class NetworkStackServiceTest {
         connector.makeDhcpServer(TEST_IFACE, testParams, mockDhcpCb)
         verify(mockDhcpCb, times(2)).onDhcpServerCreated(eq(IDhcpServer.STATUS_SUCCESS), any())
 
-        // Verify all methods were covered by the test (4 methods + getVersion + getHash)
-        assertEquals(6, INetworkStackConnector::class.declaredMemberFunctions.count {
+        // allowTestUid does not need to record the caller's version
+        assertThrows(SecurityException::class.java, ExceptionUtils.ThrowingRunnable {
+            // Should throw because the test does not run as root
+            connector.allowTestUid(Process.myUid(), null)
+        })
+
+        // Verify all methods were covered by the test (5 methods + getVersion + getHash)
+        assertEquals(7, INetworkStackConnector::class.declaredMemberFunctions.count {
             it.visibility == KVisibility.PUBLIC
         })
     }

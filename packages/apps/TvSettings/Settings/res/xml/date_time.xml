@@ -43,8 +43,9 @@
                 android:title="@string/system_set_time_zone"
                 android:fragment="com.android.tv.settings.system.TimeZoneFragment" />
 
-    <SwitchPreference android:key="use_24_hour"
-                      android:persistent="true"
-                      android:title="@string/system_set_time_format" />
+    <com.android.tv.settings.widget.SwitchWithSoundPreference
+        android:key="use_24_hour"
+        android:persistent="true"
+        android:title="@string/system_set_time_format" />
 
 </PreferenceScreen>

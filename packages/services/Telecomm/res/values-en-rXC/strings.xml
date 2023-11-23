@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3077225713817780583">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‎‏‎‏‎‏‎‏‎‏‏‎‏‎‎‏‎‎‎‎‎‎‎‎‏‏‏‏‎‏‏‏‎‎‏‏‏‎‏‏‏‎‎‏‏‏‎‏‎‎‎‎‎‎‏‎‏‏‎‎‏‏‏‎Call Management‎‏‎‎‏‎"</string>
+    <string name="telecommAppLabel" product="default" msgid="1825598513414129827">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‎‏‏‏‎‎‏‎‏‎‏‎‏‎‏‏‏‎‏‎‏‎‎‎‎‏‎‏‏‎‎‏‏‏‎‏‏‏‎‏‎‎‎‎‏‏‏‏‏‎‎‏‎‎‎‏‎‏‎‎‎‏‏‎Phone Calls‎‏‎‎‏‎"</string>
     <string name="userCallActivityLabel" product="default" msgid="3605391260292846248">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‎‏‏‎‎‏‎‎‎‎‎‏‎‎‎‏‏‏‎‏‏‎‎‎‎‏‏‏‏‏‏‏‏‎‎‎‎‏‎‎‎‎‎‏‏‎‏‏‎‎‏‎‎‏‎‏‎‏‎‏‎‎‎‎Phone‎‏‎‎‏‎"</string>
     <string name="unknown" msgid="6993977514360123431">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‏‏‏‎‎‎‎‏‎‎‎‎‏‏‏‏‏‎‎‏‏‎‎‏‎‏‏‏‏‏‏‎‎‏‎‏‏‏‏‎‏‎‎‎‎‎‎‏‎‎‏‏‎‎‎‎‎‎‏‎‎‏‏‏‎Unknown‎‏‎‎‏‎"</string>
     <string name="notification_missedCallTitle" msgid="5060387047205532974">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‏‏‎‎‎‏‏‎‎‎‏‏‏‎‏‎‎‎‎‏‏‎‏‏‎‎‏‏‎‏‎‏‎‏‎‏‎‏‏‎‏‎‏‎‏‏‎‎‎‏‏‏‎‏‎‏‎‎‏‎‏‏‏‎‎Missed call‎‏‎‎‏‎"</string>

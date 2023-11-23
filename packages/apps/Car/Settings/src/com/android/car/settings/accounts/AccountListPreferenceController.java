@@ -34,7 +34,7 @@ import androidx.preference.PreferenceCategory;
 import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
-import com.android.car.settings.users.UserHelper;
+import com.android.car.settings.profiles.ProfileHelper;
 import com.android.car.ui.preference.CarUiPreference;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.settingslib.accounts.AuthenticatorHelper;
@@ -73,9 +73,8 @@ public class AccountListPreferenceController extends
     public AccountListPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mUserInfo = UserHelper.getInstance(context).getCurrentProcessUserInfo();
-        mAuthenticatorHelper = new AuthenticatorHelper(context,
-                mUserInfo.getUserHandle(), /* listener= */ this);
+        mUserInfo = ProfileHelper.getInstance(context).getCurrentProcessUserInfo();
+        mAuthenticatorHelper = createAuthenticatorHelper();
     }
 
     /** Sets the account authorities that are available. */
@@ -95,9 +94,9 @@ public class AccountListPreferenceController extends
 
     @Override
     protected int getAvailabilityStatus() {
-        boolean canModifyAccounts = UserHelper.getInstance(getContext())
+        boolean canModifyAccounts = ProfileHelper.getInstance(getContext())
                 .canCurrentProcessModifyAccounts();
-        return canModifyAccounts ? AVAILABLE : DISABLED_FOR_USER;
+        return canModifyAccounts ? AVAILABLE : DISABLED_FOR_PROFILE;
     }
 
     /**
@@ -132,6 +131,11 @@ public class AccountListPreferenceController extends
         forceUpdateAccountsCategory();
     }
 
+    @VisibleForTesting
+    AuthenticatorHelper createAuthenticatorHelper() {
+        return new AuthenticatorHelper(getContext(), mUserInfo.getUserHandle(), this);
+    }
+
     private boolean onAccountPreferenceClicked(AccountPreference preference) {
         // Show the account's details when an account is clicked on.
         getFragmentController().launchFragment(AccountDetailsFragment.newInstance(
@@ -147,8 +151,7 @@ public class AccountListPreferenceController extends
 
         // Recreate the authentication helper to refresh the list of enabled accounts
         mAuthenticatorHelper.stopListeningToAccountUpdates();
-        mAuthenticatorHelper = new AuthenticatorHelper(getContext(), mUserInfo.getUserHandle(),
-                this);
+        mAuthenticatorHelper = createAuthenticatorHelper();
         if (mListenerRegistered) {
             mAuthenticatorHelper.listenToAccountUpdates();
         }

@@ -12,6 +12,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["packages_apps_DocumentsUI_license"],
+}
+
+// Added automatically by a large-scale-change that took the approach of
+// 'apply every license found to every target'. While this makes sure we respect
+// every license restriction, it may not be entirely correct.
+//
+// e.g. GPL in an MIT project might only apply to the contrib/ directory.
+//
+// Please consider splitting the single license below into multiple licenses,
+// taking care not to lose any license_kind information, and overriding the
+// default license using the 'licenses: [...]' property on targets as needed.
+//
+// For unused files, consider creating a 'fileGroup' with "//visibility:private"
+// to attach the license to, and including a comment whether the files may be
+// used in the current project.
+// See: http://go/android-license-faq
+license {
+    name: "packages_apps_DocumentsUI_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+        "legacy_unencumbered",
+    ],
+    // large-scale-change unable to identify any license_text files
+}
+
 java_defaults {
     name: "documentsui_defaults",
 
@@ -41,6 +69,7 @@ java_defaults {
     },
 
     sdk_version: "system_current",
+    target_sdk_version: "30",
     min_sdk_version: "29",
 
     plugins: [
@@ -71,7 +100,8 @@ java_library {
 genrule {
     name: "statslog-docsui-java-gen",
     tools: ["stats-log-api-gen"],
-    cmd: "$(location stats-log-api-gen) --java $(out) --module docsui --javaPackage com.android.documentsui --javaClass DocumentsStatsLog --supportQ",
+    cmd: "$(location stats-log-api-gen) --java $(out) --module docsui" +
+         " --javaPackage com.android.documentsui --javaClass DocumentsStatsLog --minApiLevel 29",
     out: ["com/android/documentsui/DocumentsStatsLog.java"],
 }
 
@@ -94,6 +124,7 @@ android_library {
     ],
 
     sdk_version: "system_current",
+    target_sdk_version: "30",
     min_sdk_version: "29",
 }
 
@@ -116,6 +147,7 @@ android_library {
     ],
 
     sdk_version: "system_current",
+    target_sdk_version: "30",
     min_sdk_version: "29",
 }
 
@@ -136,5 +168,6 @@ android_app {
 
     required: ["privapp_whitelist_com.android.documentsui"],
 
+    target_sdk_version: "30",
     min_sdk_version: "29",
 }

@@ -43,7 +43,6 @@ import androidx.annotation.Keep;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceGroup;
 
-import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.accounts.AuthenticatorHelper;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
@@ -180,7 +179,7 @@ public class AccountSyncFragment extends SettingsPreferenceFragment implements
                 if (syncOn != oldSyncState) {
                     // if we're enabling sync, this will request a sync as well
                     ContentResolver.setSyncAutomaticallyAsUser(account, authority, syncOn, userId);
-                    // if the master sync switch is off, the request above will
+                    // if the main sync switch is off, the request above will
                     // get dropped.  when the user clicks on this toggle,
                     // we want to force the sync, however.
                     if (!ContentResolver.getMasterSyncAutomaticallyAsUser(userId) || !syncOn) {
@@ -424,11 +423,6 @@ public class AccountSyncFragment extends SettingsPreferenceFragment implements
         preference.setTitle(title);
         preference.setKey(authority);
         return preference;
-    }
-
-    @Override
-    public int getMetricsCategory() {
-        return MetricsProto.MetricsEvent.ACCOUNTS_ACCOUNT_SYNC;
     }
 
     @Override

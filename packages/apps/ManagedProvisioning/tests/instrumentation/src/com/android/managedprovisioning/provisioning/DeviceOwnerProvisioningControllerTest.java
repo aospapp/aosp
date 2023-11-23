@@ -27,18 +27,15 @@ import android.content.ComponentName;
 import androidx.test.filters.SmallTest;
 
 import com.android.managedprovisioning.R;
+import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.PackageDownloadInfo;
 import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.model.WifiInfo;
 import com.android.managedprovisioning.task.AbstractProvisioningTask;
 import com.android.managedprovisioning.task.AddWifiNetworkTask;
 import com.android.managedprovisioning.task.ConnectMobileNetworkTask;
-import com.android.managedprovisioning.task.DeleteNonRequiredAppsTask;
-import com.android.managedprovisioning.task.DeviceOwnerInitializeProvisioningTask;
-import com.android.managedprovisioning.task.DisallowAddUserTask;
 import com.android.managedprovisioning.task.DownloadPackageTask;
-import com.android.managedprovisioning.task.InstallPackageTask;
-import com.android.managedprovisioning.task.SetDevicePolicyTask;
+import com.android.managedprovisioning.task.ProvisionFullyManagedDeviceTask;
 import com.android.managedprovisioning.task.VerifyPackageTask;
 
 import org.mockito.Mock;
@@ -64,7 +61,11 @@ public class DeviceOwnerProvisioningControllerTest extends ProvisioningControlle
             .setSignatureChecksum(TEST_PACKAGE_CHECKSUM)
             .build();
 
-    @Mock private ProvisioningControllerCallback mCallback;
+    @Mock
+    private ProvisioningControllerCallback mCallback;
+
+    @Mock
+    private Utils mUtils;
 
     @SmallTest
     public void testRunAllTasks() throws Exception {
@@ -73,9 +74,6 @@ public class DeviceOwnerProvisioningControllerTest extends ProvisioningControlle
 
         // WHEN starting the test run
         mController.start(mHandler);
-
-        // THEN the initialization task is run first
-        taskSucceeded(DeviceOwnerInitializeProvisioningTask.class);
 
         // THEN the add wifi task should be run
         taskSucceeded(AddWifiNetworkTask.class);
@@ -86,17 +84,11 @@ public class DeviceOwnerProvisioningControllerTest extends ProvisioningControlle
         // THEN the verify package task should be run
         taskSucceeded(VerifyPackageTask.class);
 
-        // THEN the install package task should be run
-        taskSucceeded(InstallPackageTask.class);
+        // THEN the install package tasks should be run
+        tasksDownloadAndInstallDeviceOwnerPackageSucceeded(TEST_USER_ID);
 
-        // THEN the delete non-required apps task should be run
-        taskSucceeded(DeleteNonRequiredAppsTask.class);
-
-        // THEN the set device policy task should be run
-        taskSucceeded(SetDevicePolicyTask.class);
-
-        // THEN the disallow add user task should be run
-        taskSucceeded(DisallowAddUserTask.class);
+        // THEN the provisioning task should be run
+        taskSucceeded(ProvisionFullyManagedDeviceTask.class);
 
         // THEN the provisioning complete callback should have happened
         verify(mCallback).provisioningTasksCompleted();
@@ -110,26 +102,17 @@ public class DeviceOwnerProvisioningControllerTest extends ProvisioningControlle
         // WHEN starting the test run
         mController.start(mHandler);
 
-        // THEN the initialization task is run first
-        taskSucceeded(DeviceOwnerInitializeProvisioningTask.class);
-
         // THEN the download package task should be run
         taskSucceeded(DownloadPackageTask.class);
 
         // THEN the verify package task should be run
         taskSucceeded(VerifyPackageTask.class);
 
-        // THEN the install package task should be run
-        taskSucceeded(InstallPackageTask.class);
+        // THEN the install package tasks should be run
+        tasksDownloadAndInstallDeviceOwnerPackageSucceeded(TEST_USER_ID);
 
-        // THEN the delete non-required apps task should be run
-        taskSucceeded(DeleteNonRequiredAppsTask.class);
-
-        // THEN the set device policy task should be run
-        taskSucceeded(SetDevicePolicyTask.class);
-
-        // THEN the disallow add user task should be run
-        taskSucceeded(DisallowAddUserTask.class);
+        // THEN the provisioning task should be run
+        taskSucceeded(ProvisionFullyManagedDeviceTask.class);
 
         // THEN the provisioning complete callback should have happened
         verify(mCallback).provisioningTasksCompleted();
@@ -144,20 +127,11 @@ public class DeviceOwnerProvisioningControllerTest extends ProvisioningControlle
         // WHEN starting the test run
         mController.start(mHandler);
 
-        // THEN the initialization task is run first
-        taskSucceeded(DeviceOwnerInitializeProvisioningTask.class);
-
         // THEN the add wifi task should be run
         taskSucceeded(AddWifiNetworkTask.class);
 
-        // THEN the delete non-required apps task should be run
-        taskSucceeded(DeleteNonRequiredAppsTask.class);
-
-        // THEN the set device policy task should be run
-        taskSucceeded(SetDevicePolicyTask.class);
-
-        // THEN the disallow add user task should be run
-        taskSucceeded(DisallowAddUserTask.class);
+        // THEN the provisioning task should be run
+        taskSucceeded(ProvisionFullyManagedDeviceTask.class);
 
         // THEN the provisioning complete callback should have happened
         verify(mCallback).provisioningTasksCompleted();
@@ -170,9 +144,6 @@ public class DeviceOwnerProvisioningControllerTest extends ProvisioningControlle
 
         // WHEN starting the test run
         mController.start(mHandler);
-
-        // THEN the initialization task is run first
-        taskSucceeded(DeviceOwnerInitializeProvisioningTask.class);
 
         // THEN the add wifi task should be run
         AbstractProvisioningTask task = verifyTaskRun(AddWifiNetworkTask.class);
@@ -191,9 +162,6 @@ public class DeviceOwnerProvisioningControllerTest extends ProvisioningControlle
 
         // WHEN starting the test run
         mController.start(mHandler);
-
-        // THEN the initialization task is run first
-        taskSucceeded(DeviceOwnerInitializeProvisioningTask.class);
 
         // THEN the add wifi task should be run
         taskSucceeded(AddWifiNetworkTask.class);
@@ -214,7 +182,6 @@ public class DeviceOwnerProvisioningControllerTest extends ProvisioningControlle
         createController(
                 createProvisioningParamsBuilder().setWifiInfo(null).setUseMobileData(true).build());
         mController.start(mHandler);
-        taskSucceeded(DeviceOwnerInitializeProvisioningTask.class);
         taskSucceeded(ConnectMobileNetworkTask.class);
     }
 
@@ -227,16 +194,16 @@ public class DeviceOwnerProvisioningControllerTest extends ProvisioningControlle
                         .setUseMobileData(true)
                         .build());
         mController.start(mHandler);
-        taskSucceeded(DeviceOwnerInitializeProvisioningTask.class);
         taskSucceeded(AddWifiNetworkTask.class);
     }
 
     private void createController(ProvisioningParams params) {
-        mController = new DeviceOwnerProvisioningController(
+        mController = DeviceOwnerProvisioningController.createInstance(
                 getContext(),
                 params,
                 TEST_USER_ID,
-                mCallback);
+                mCallback,
+                mUtils);
     }
 
     private ProvisioningParams.Builder createProvisioningParamsBuilder() {

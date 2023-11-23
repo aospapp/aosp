@@ -24,13 +24,14 @@ import android.os.Parcelable;
  * data is stored in a sensor-type specific format in the object's float and byte arrays.
  *
  * To aid unmarshalling the object's data arrays, this class provides static nested classes and
- * conversion methods, for example {@link EnvironmentData} and {@link #getEnvironmentData}. The
- * conversion methods each have an optional data parameter which, if not null, will be used and
- * returned. This parameter should be used to avoid unnecessary object churn whenever possible.
- * Additionally, calling a conversion method on a CarSensorEvent object with an inappropriate type
- * will result in an {@code UnsupportedOperationException} being thrown.
+ * conversion methods. The conversion methods each have an optional data parameter which,
+ * if not null, will be used and returned. This parameter should be used to avoid unnecessary
+ * object churn whenever possible. Additionally, calling a conversion method on a CarSensorEvent
+ * object with an inappropriate type will result in an {@code UnsupportedOperationException}
+ * being thrown.
  *
- * @deprecated consider using {@link android.car.hardware.property.CarPropertyEvent} instead.
+ * @deprecated consider using {@link CarPropertyValue} and
+ * {@link android.car.hardware.property.CarPropertyManager} instead.
  */
 @Deprecated
 public class CarSensorEvent implements Parcelable {

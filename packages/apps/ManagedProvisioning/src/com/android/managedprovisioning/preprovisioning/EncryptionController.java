@@ -18,6 +18,9 @@ package com.android.managedprovisioning.preprovisioning;
 
 import static com.android.internal.util.Preconditions.checkNotNull;
 
+import static java.util.Objects.requireNonNull;
+
+import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -30,10 +33,12 @@ import com.android.managedprovisioning.common.Globals;
 import com.android.managedprovisioning.common.NotificationHelper;
 import com.android.managedprovisioning.common.ProvisionLogger;
 import com.android.managedprovisioning.common.SettingsFacade;
+import com.android.managedprovisioning.common.TransitionHelper;
 import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.ProvisioningParams;
 
 import java.io.File;
+import java.util.function.Consumer;
 
 /**
  * This controller manages all things related to the encryption reboot.
@@ -59,19 +64,31 @@ public class EncryptionController {
 
     private static final String PROVISIONING_PARAMS_FILE_NAME
             = "encryption_controller_provisioning_params.xml";
+    private static final Object LOCK = new Object();
 
-    public static synchronized EncryptionController getInstance(Context context) {
-        if (sInstance == null) {
-            sInstance = new EncryptionController(context);
+    /**
+     * Returns an instance of {@link EncryptionController}.
+     *
+     * <p>This method is thread-safe.
+     */
+    public static EncryptionController getInstance(
+            Context context,
+            ComponentName homeReceiver) {
+        requireNonNull(context);
+        requireNonNull(homeReceiver);
+        synchronized (LOCK) {
+            if (sInstance == null) {
+                sInstance = new EncryptionController(context.getApplicationContext(), homeReceiver);
+            }
+            return sInstance;
         }
-        return sInstance;
     }
 
-    private EncryptionController(Context context) {
+    private EncryptionController(Context context, ComponentName homeReceiver) {
         this(context,
                 new Utils(),
                 new SettingsFacade(),
-                new ComponentName(context, PostEncryptionActivity.class),
+                homeReceiver,
                 new NotificationHelper(context),
                 UserHandle.myUserId());
     }
@@ -133,6 +150,21 @@ public class EncryptionController {
      * <p>Note that this method has to be called on the main thread.
      */
     public void resumeProvisioning() {
+        resumeProvisioningInternal(mContext::startActivity);
+    }
+
+    /**
+     * Similar to {@link #resumeProvisioning()}, but starts provisioning with a cross-activity
+     * transition.
+     * @param activity the parent {@link Activity} to launch provisioning
+     * @param transitionHelper helper to determine the appropriate transition to use
+     */
+    public void resumeProvisioning(Activity activity, TransitionHelper transitionHelper) {
+        resumeProvisioningInternal(
+                intent -> transitionHelper.startActivityWithTransition(activity, intent));
+    }
+
+    private void resumeProvisioningInternal(Consumer<Intent> launchActivityConsumer) {
         // verify that this method was called on the main thread.
         if (Looper.myLooper() != Looper.getMainLooper()) {
             throw new IllegalStateException("resumeProvisioning must be called on the main thread");
@@ -165,10 +197,10 @@ public class EncryptionController {
                 if (mSettingsFacade.isUserSetupCompleted(mContext)) {
                     mNotificationHelper.showResumeNotification(resumeIntent);
                 } else {
-                    mContext.startActivity(resumeIntent);
+                    launchActivityConsumer.accept(resumeIntent);
                 }
             } else if (mUtils.isDeviceOwnerAction(action)) {
-                mContext.startActivity(resumeIntent);
+                launchActivityConsumer.accept(resumeIntent);
             } else {
                 ProvisionLogger.loge("Unknown intent action loaded from the intent store: "
                         + action);

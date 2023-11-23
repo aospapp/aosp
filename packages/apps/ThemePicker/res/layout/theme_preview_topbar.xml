@@ -27,7 +27,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="start|center_vertical"
-        android:textColor="@color/icon_thumbnail_color"
+        android:textColor="?android:textColorSecondary"
         android:textSize="@dimen/preview_theme_cover_topbar_clock_size"
         tools:text="8:10"/>
     <LinearLayout
@@ -40,17 +40,17 @@
             android:id="@+id/preview_icon_0"
             android:layout_width="@dimen/preview_theme_cover_topbar_icon_size"
             android:layout_height="@dimen/preview_theme_cover_topbar_icon_size"
-            android:tint="@color/icon_thumbnail_color"/>
+            android:tint="?android:textColorSecondary"/>
         <ImageView
             android:id="@+id/preview_icon_1"
             android:layout_width="@dimen/preview_theme_cover_topbar_icon_size"
             android:layout_height="@dimen/preview_theme_cover_topbar_icon_size"
             android:layout_marginHorizontal="8dp"
-            android:tint="@color/icon_thumbnail_color"/>
+            android:tint="?android:textColorSecondary"/>
         <ImageView
             android:id="@+id/preview_icon_2"
             android:layout_width="@dimen/preview_theme_cover_topbar_icon_size"
             android:layout_height="@dimen/preview_theme_cover_topbar_icon_size"
-            android:tint="@color/icon_thumbnail_color"/>
+            android:tint="?android:textColorSecondary"/>
     </LinearLayout>
 </FrameLayout>

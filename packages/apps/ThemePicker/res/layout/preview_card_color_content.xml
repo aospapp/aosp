@@ -22,9 +22,8 @@
     android:gravity="center_horizontal"
     android:orientation="vertical">
     <LinearLayout
-        android:layout_width="match_parent"
+        android:layout_width="@dimen/preview_theme_color_component_size"
         android:layout_height="wrap_content"
-        android:layout_weight="0"
         android:gravity="center|bottom"
         android:orientation="horizontal">
         <FrameLayout
@@ -89,7 +88,7 @@
         android:layout_height="0dp"
         android:layout_weight="1" />
     <LinearLayout
-        android:layout_width="match_parent"
+        android:layout_width="@dimen/preview_theme_color_component_size"
         android:layout_height="wrap_content"
         android:layout_weight="0"
         android:orientation="horizontal"
@@ -109,9 +108,8 @@
         android:layout_height="0dp"
         android:layout_weight="1" />
     <LinearLayout
-        android:layout_width="match_parent"
+        android:layout_width="@dimen/preview_theme_color_component_size"
         android:layout_height="wrap_content"
-        android:layout_weight="0"
         android:gravity="center"
         android:orientation="horizontal">
         <FrameLayout
@@ -159,8 +157,4 @@
                 android:enabled="false"/>
         </FrameLayout>
     </LinearLayout>
-    <Space
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1" />
 </LinearLayout>

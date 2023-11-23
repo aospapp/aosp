@@ -18,7 +18,9 @@ limitations under the License.
     android:orientation="vertical"
     android:layout_gravity="center"
     android:layout_width="@dimen/keypad_minimum_size"
-    android:layout_height="@dimen/keypad_minimum_size">
+    android:layout_height="@dimen/keypad_minimum_size"
+    android:stateListAnimator="@xml/keypad_button_state_animation"
+    android:duplicateParentState="true">
 
     <TextView
         android:id="@+id/keypad_number"

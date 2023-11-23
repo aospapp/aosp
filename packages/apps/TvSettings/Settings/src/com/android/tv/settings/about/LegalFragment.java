@@ -18,6 +18,7 @@ package com.android.tv.settings.about;
 
 import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
 
+import android.app.AlertDialog;
 import android.app.tvsettings.TvSettingsEnums;
 import android.content.Context;
 import android.os.Bundle;
@@ -26,11 +27,10 @@ import androidx.annotation.Keep;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceScreen;
 
-import com.android.internal.logging.nano.MetricsProto;
 import com.android.tv.settings.PreferenceUtils;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
-import com.android.tv.settings.overlay.FeatureFactory;
+import com.android.tv.settings.overlay.FlavorUtils;
 
 @Keep
 public class LegalFragment extends SettingsPreferenceFragment {
@@ -55,7 +55,7 @@ public class LegalFragment extends SettingsPreferenceFragment {
                 findPreference(KEY_COPYRIGHT), PreferenceUtils.FLAG_SET_TITLE);
         PreferenceUtils.resolveSystemActivityOrRemove(context, screen,
                 findPreference(KEY_WEBVIEW_LICENSE), PreferenceUtils.FLAG_SET_TITLE);
-        if (FeatureFactory.getFactory(getContext()).isTwoPanelLayout()) {
+        if (FlavorUtils.isTwoPanel(getContext())) {
             Preference adsPref = findPreference(KEY_ADS);
             if (adsPref != null) {
                 adsPref.setVisible(false);
@@ -83,12 +83,21 @@ public class LegalFragment extends SettingsPreferenceFragment {
     }
 
     @Override
-    public int getMetricsCategory() {
-        return MetricsProto.MetricsEvent.ABOUT_LEGAL_SETTINGS;
+    protected int getPageId() {
+        return TvSettingsEnums.SYSTEM_ABOUT_LEGAL_INFO;
     }
 
     @Override
-    protected int getPageId() {
-        return TvSettingsEnums.SYSTEM_ABOUT_LEGAL_INFO;
+    public void onDisplayPreferenceDialog(Preference preference) {
+        if (preference instanceof ConsumerInformationDialogPreference) {
+            new AlertDialog.Builder(getContext())
+                    .setMessage(((ConsumerInformationDialogPreference) preference)
+                            .getDialogMessage())
+                    .setPositiveButton(((ConsumerInformationDialogPreference) preference)
+                            .getPositiveButtonText(), (dialog, which) -> {})
+                    .show();
+        } else {
+            super.onDisplayPreferenceDialog(preference);
+        }
     }
 }

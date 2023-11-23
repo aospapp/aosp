@@ -19,27 +19,14 @@ import android.annotation.Nullable;
 import android.content.Context;
 import android.webkit.URLUtil;
 
-import com.android.internal.annotations.VisibleForTesting;
 import com.android.managedprovisioning.common.Utils;
 
 /**
  * Captures parameters related to brand customization (e.g. tint color).
  */
 public class CustomizationParams {
-    @VisibleForTesting
-    public static final int DEFAULT_STATUS_BAR_COLOR_ID = android.R.color.white;
-
-    /** Status bar color */
-    public final int statusBarColor;
-
-    /** Use Status bar color from SUW partner configuration */
-    public final boolean useSetupStatusBarColor;
-
     /** Color used in everywhere else */
-    public final int mainColor;
-
-    /** Name of the organization where the device is being provisioned. */
-    public final @Nullable String orgName;
+    public final int logoColor;
 
     /** Support url of the organization where the device is being provisioned. */
     public final @Nullable String supportUrl;
@@ -51,38 +38,20 @@ public class CustomizationParams {
      */
     public static CustomizationParams createInstance(
             ProvisioningParams params, Context context, Utils utils) {
-        return createInstance(
-                params.mainColor, params.organizationName, params.supportUrl, context, utils);
+        return createInstance(params.supportUrl, context, utils);
     }
 
     private static CustomizationParams createInstance(
-            @Nullable Integer mainColor,
-            @Nullable String orgName,
             @Nullable String supportUrl,
             Context context,
             Utils utils) {
-        int statusBarColor;
-        boolean useSetupStatusBarColor = false;
-        if (mainColor != null) {
-            statusBarColor = mainColor;
-        } else {
-            useSetupStatusBarColor = true;
-            statusBarColor = context.getColor(DEFAULT_STATUS_BAR_COLOR_ID);
-            mainColor = utils.getAccentColor(context);
-        }
-
+        int logoColor = utils.getAccentColor(context);
         supportUrl = URLUtil.isNetworkUrl(supportUrl) ? supportUrl : null;
-
-        return new CustomizationParams(
-                mainColor, statusBarColor, useSetupStatusBarColor, orgName, supportUrl);
+        return new CustomizationParams(logoColor, supportUrl);
     }
 
-    private CustomizationParams(int mainColor, int statusBarColor, boolean useSetupStatusBarColor,
-            String orgName, String supportUrl) {
-        this.mainColor = mainColor;
-        this.statusBarColor = statusBarColor;
-        this.useSetupStatusBarColor = useSetupStatusBarColor;
-        this.orgName = orgName;
+    private CustomizationParams(int logoColor, String supportUrl) {
+        this.logoColor = logoColor;
         this.supportUrl = supportUrl;
     }
 }

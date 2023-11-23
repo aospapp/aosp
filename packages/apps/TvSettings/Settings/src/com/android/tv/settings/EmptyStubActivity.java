@@ -17,10 +17,11 @@
 package com.android.tv.settings;
 
 import android.annotation.Nullable;
-import android.app.Activity;
 import android.os.Bundle;
 
-public class EmptyStubActivity extends Activity {
+import androidx.fragment.app.FragmentActivity;
+
+public class EmptyStubActivity extends FragmentActivity {
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);

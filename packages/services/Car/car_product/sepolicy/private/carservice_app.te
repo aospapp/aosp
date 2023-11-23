@@ -6,6 +6,9 @@ hal_client_domain(carservice_app, hal_audiocontrol)
 hal_client_domain(carservice_app, hal_health)
 hal_client_domain(carservice_app, hal_vehicle)
 
+# Allow Car Service to use EVS service
+hal_client_domain(carservice_app, hal_evs)
+
 # Allow to set boot.car_service_created property
 set_prop(carservice_app, system_prop)
 
@@ -39,6 +42,7 @@ allow carservice_app {
     statsmanager_service
     surfaceflinger_service
     telecom_service
+    tethering_service
     thermal_service
     uimode_service
     voiceinteraction_service
@@ -66,17 +70,33 @@ allow carservice_app procfsinspector:binder call;
 allow carservice_app statsd:binder call;
 
 # To access /sys/fs/<type>/<partition>/lifetime_write_kbytes
-r_dir_file(carservice_app, sysfs_fs_ext4)
-r_dir_file(carservice_app, sysfs_fs_f2fs)
+allow carservice_app sysfs:dir { open read search };
+allow carservice_app sysfs_fs_ext4_features:dir { open read search};
+allow carservice_app sysfs_fs_f2fs:dir { open read search };
 
+# Allow reading and writing /sys/power/
+allow carservice_app sysfs_power:file rw_file_perms;
+
+# Allow reading system property sys.boot.reason
+allow carservice_app system_boot_reason_prop:file { getattr open read map };
+
+## CarBugreportManagerService rules
 set_prop(carservice_app, ctl_start_prop)
 set_prop(carservice_app, ctl_stop_prop)
 unix_socket_connect(carservice_app, dumpstate, dumpstate)
+# Allow setting "dumpstate.dry_run"
+userdebug_or_eng(`
+  set_prop(carservice_app, exported_dumpstate_prop)
+')
 
 # Allow reading vehicle-specific configuration
 get_prop(carservice_app, vehicle_hal_prop)
 
+# Allow CarWatchdogService to access car watchdog daemon
 carwatchdog_client_domain(carservice_app)
+
+# Allow CarPowerManagementService to access car power policy daemon
+allow carservice_app carpowerpolicyd_service:service_manager find;
 
 # For ActivityBlockingActiviy
 allow carservice_app gpu_device:chr_file rw_file_perms;

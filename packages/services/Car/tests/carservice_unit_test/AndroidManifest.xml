@@ -23,7 +23,7 @@
             android:label="Unit Tests for Car APIs"/>
     <uses-permission android:name="android.car.permission.CAR_ENROLL_TRUST" />
 
-    <application android:label="CarServiceUnitTest"
+    <application android:label="@string/app_title"
             android:debuggable="true">
         <uses-library android:name="android.test.runner" />
         <activity android:name="com.android.car.SystemActivityMonitoringServiceTest$ActivityA"/>

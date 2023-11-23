@@ -101,6 +101,14 @@ public class MmsSmsUtils {
     }
 
     /**
+     * This pattern is intended for searching for carrier specific phone numbers starting with star
+     * sign and digits such as the voice mail number.
+     * (e.g. *20 Chile Claro)
+     */
+    private static final Pattern PHONE_NUMBER_STARTING_WITH_STAR_PATTERN =
+            Pattern.compile("\\*[0-9]+");
+
+    /**
      * Returns true if the number is a Phone number
      *
      * @param number the input number to be tested
@@ -111,8 +119,12 @@ public class MmsSmsUtils {
             return false;
         }
 
-        final Matcher match = Patterns.PHONE.matcher(number);
-        return match.matches();
+        Matcher match = Patterns.PHONE.matcher(number);
+        if (!match.matches()) {
+            match = PHONE_NUMBER_STARTING_WITH_STAR_PATTERN.matcher(number);
+            return match.matches();
+        }
+        return true;
     }
 
     /**

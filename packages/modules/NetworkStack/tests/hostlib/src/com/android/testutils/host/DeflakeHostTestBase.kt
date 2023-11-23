@@ -16,7 +16,7 @@
 
 package com.android.testutils.host
 
-import com.android.tests.util.ModuleTestUtils
+import android.cts.install.lib.host.InstallUtilsHost
 import com.android.tradefed.config.Option
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test
@@ -99,7 +99,7 @@ abstract class DeflakeHostTestBase : BaseHostJUnit4Test() {
 
     @Test
     fun testDeflake() {
-        val apkFile = ModuleTestUtils(this).getTestFile(testApkFilename)
+        val apkFile = InstallUtilsHost(this).getTestFile(testApkFilename)
         val pkgName = AaptParser.parse(apkFile)?.packageName
                 ?: fail("Could not parse test package name")
 

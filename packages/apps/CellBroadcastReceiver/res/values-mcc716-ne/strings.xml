@@ -18,7 +18,8 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="public_safety_message" msgid="7237115648380675159">"सूचनामूलक सन्देश"</string>
     <string name="enable_public_safety_messages_title" msgid="4037404034274507696">"सूचनामूलक सन्देश"</string>
-    <string name="cmas_required_monthly_test" msgid="9061179556831144678">"आपत्कालीन सतर्कता: परीक्षण सन्देश"</string>
-    <string name="cmas_exercise_alert" msgid="3061507852301643814">"आपत्कालीन सतर्कता: व्यायाम/कसरतसम्बन्धी सन्देश"</string>
-    <string name="pws_other_message_identifiers" msgid="4992476982074198144">"आपत्कालीन सतर्कता: परीक्षण सन्देश"</string>
+    <string name="cmas_required_monthly_test" msgid="9061179556831144678">"आपत्‌कालीन सतर्कता: परीक्षण सन्देश"</string>
+    <string name="cmas_exercise_alert" msgid="3061507852301643814">"आपत्‌कालीन सतर्कता: व्यायाम/कसरतसम्बन्धी सन्देश"</string>
+    <string name="pws_other_message_identifiers" msgid="4992476982074198144">"आपत्‌कालीन सतर्कता: परीक्षण सन्देश"</string>
+    <string name="button_dismiss" msgid="5823921161712171097">"नदेखिने पारियोस्"</string>
 </resources>

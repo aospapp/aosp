@@ -124,7 +124,7 @@ public class AoapPhoneCompanionActivity extends Activity {
             Intent intent = new Intent(ACTION_USB_ACCESSORY_PERMISSION);
             intent.setPackage(getPackageName());
             PendingIntent pendingIntent = PendingIntent.getBroadcast(
-                    this, 0, intent, PendingIntent.FLAG_ONE_SHOT);
+                    this, 0, intent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_ONE_SHOT);
             mUsbManager.requestPermission(accessory, pendingIntent);
             return;
         }

@@ -21,8 +21,8 @@ import android.hardware.health.V2_0.IHealth;
 import android.hardware.health.V2_0.Result;
 import android.hardware.health.V2_0.StorageInfo;
 import android.os.RemoteException;
-import android.util.Log;
 import android.util.MutableInt;
+import android.util.Slog;
 
 import com.android.car.CarLog;
 
@@ -78,28 +78,28 @@ public class HealthServiceWearInfoProvider implements WearInformationProvider {
             }};
 
         if (healthService == null) {
-            Log.w(CarLog.TAG_STORAGE, "No health service is available to fetch wear information.");
+            Slog.w(CarLog.TAG_STORAGE, "No health service is available to fetch wear information.");
             return null;
         }
 
         try {
             healthService.getStorageInfo(getStorageInfoCallback);
         } catch (Exception e) {
-            Log.w(CarLog.TAG_STORAGE, "Failed to get storage information from"
+            Slog.w(CarLog.TAG_STORAGE, "Failed to get storage information from"
                     + "health service, exception :" + e);
             return null;
         }
 
         if (success.value != Result.SUCCESS) {
-            Log.w(CarLog.TAG_STORAGE, "Health service returned result :" + success.value);
+            Slog.w(CarLog.TAG_STORAGE, "Health service returned result :" + success.value);
             return null;
         } else if (foundInternalStorageDeviceInfo.value == 0) {
-            Log.w(CarLog.TAG_STORAGE, "Failed to find storage information for"
+            Slog.w(CarLog.TAG_STORAGE, "Failed to find storage information for"
                     + "internal storage device");
             return null;
         } else {
-            return new WearInformation(lifetimeA.value, lifetimeB.value,
-                                      preEol.value);
+            return new WearInformation(convertLifetime(lifetimeA.value),
+                convertLifetime(lifetimeB.value), preEol.value);
         }
     }
 

@@ -39,4 +39,5 @@
       <item quantity="one"><xliff:g id="COUNT">%d</xliff:g> ny besked</item>
       <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> nye beskeder</item>
     </plurals>
+    <string name="manage_text" msgid="4225197445283791757">"Administrer"</string>
 </resources>

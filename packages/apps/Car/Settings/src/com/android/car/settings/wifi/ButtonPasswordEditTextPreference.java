@@ -22,6 +22,8 @@ import android.view.View;
 import androidx.preference.PreferenceViewHolder;
 
 import com.android.car.settings.common.PasswordEditTextPreference;
+import com.android.car.ui.R;
+import com.android.car.ui.utils.CarUiUtils;
 
 /**
  * A {@link PasswordEditTextPreference} which has a second button which can perform another
@@ -60,14 +62,17 @@ public class ButtonPasswordEditTextPreference extends PasswordEditTextPreference
     @Override
     public void onBindViewHolder(PreferenceViewHolder holder) {
         super.onBindViewHolder(holder);
+        View containerWithoutWidget = CarUiUtils.findViewByRefId(holder.itemView,
+                R.id.car_ui_preference_container_without_widget);
         View actionContainer = getWidgetActionContainer(holder);
         View widgetFrame = holder.findViewById(android.R.id.widget_frame);
-        if (mIsButtonShown) {
-            actionContainer.setVisibility(View.VISIBLE);
-            widgetFrame.setOnClickListener(v -> performButtonClick());
-        } else {
-            actionContainer.setVisibility(View.GONE);
-        }
+        holder.itemView.setFocusable(!mIsButtonShown);
+        containerWithoutWidget.setOnClickListener(mIsButtonShown ? this::performClick : null);
+        containerWithoutWidget.setClickable(mIsButtonShown);
+        containerWithoutWidget.setFocusable(mIsButtonShown);
+        actionContainer.setVisibility(mIsButtonShown ? View.VISIBLE : View.GONE);
+        widgetFrame.setOnClickListener(mIsButtonShown ? v -> performButtonClick() : null);
+        widgetFrame.setFocusable(mIsButtonShown);
     }
 
     /**

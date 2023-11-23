@@ -26,6 +26,7 @@ import com.android.managedprovisioning.common.ProvisionLogger;
 /**
  * This receiver is invoked after a managed user is created.
  */
+// TODO(b/178711424): move this into the framework.
 public class ManagedUserCreationListener extends BroadcastReceiver {
 
     @Override

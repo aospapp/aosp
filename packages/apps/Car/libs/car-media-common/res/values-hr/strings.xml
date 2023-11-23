@@ -19,4 +19,16 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="album_art" msgid="3392647029019061691">"Slika naslovnice albuma"</string>
     <string name="metadata_default_title" msgid="5902775732281325081">"Bez naslova"</string>
+    <string name="default_error_message" msgid="4044331619453864482">"Nešto nije u redu. Pokušajte kasnije."</string>
+    <string name="error_code_app_error" msgid="3608680401453743688">"Trenutačno to ne možemo učiniti"</string>
+    <string name="error_code_not_supported" msgid="8004310657548193089">"Ova aplikacija nema tu mogućnost"</string>
+    <string name="error_code_authentication_expired" msgid="1727285213286610186">"Prijavite se za upotrebu te aplikacije."</string>
+    <string name="error_code_premium_account_required" msgid="2328664287270814966">"Potreban je pristup uz dodatnu naplatu"</string>
+    <string name="error_code_concurrent_stream_limit" msgid="493048763425570552">"Slušate na previše uređaja"</string>
+    <string name="error_code_parental_control_restricted" msgid="325145513462419399">"Taj je sadržaj blokiran"</string>
+    <string name="error_code_not_available_in_region" msgid="5840935836875073145">"Taj sadržaj nije dostupan ovdje"</string>
+    <string name="error_code_content_already_playing" msgid="1306236349553004461">"Taj se sadržaj već reproducira"</string>
+    <string name="error_code_skip_limit_reached" msgid="4203743406433151146">"Ne možete više preskakati pjesme"</string>
+    <string name="error_code_action_aborted" msgid="8611777981356536501">"Završavanje nije uspjelo. Pokušajte ponovo."</string>
+    <string name="error_code_end_of_queue" msgid="6935022448319288887">"Nema više ničeg u redu čekanja"</string>
 </resources>

@@ -27,14 +27,12 @@ public final class BreadcrumbHolder extends RecyclerView.ViewHolder {
 
     protected TextView mTitle;
     protected ImageView mArrow;
-    protected int mDefaultTextColor;
     protected boolean mLast;
 
     public BreadcrumbHolder(View itemView) {
         super(itemView);
         mTitle = itemView.findViewById(R.id.breadcrumb_text);
         mArrow = itemView.findViewById(R.id.breadcrumb_arrow);
-        mDefaultTextColor = mTitle.getTextColors().getDefaultColor();
         mLast = false;
     }
 

@@ -16,7 +16,6 @@
 
 package com.android.car.dialer.log;
 
-import android.os.Build;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -32,7 +31,7 @@ public class L {
      * <p>@see String#format(String, Object...) for formatting log string.
      */
     public static void v(String tag, @NonNull String msg, Object... args) {
-        if (Log.isLoggable(tag, Log.VERBOSE) || Build.IS_DEBUGGABLE) {
+        if (Log.isLoggable(tag, Log.VERBOSE)) {
             Log.v(tag, String.format(msg, args));
         }
     }
@@ -43,7 +42,7 @@ public class L {
      * <p>@see String#format(String, Object...) for formatting log string.
      */
     public static void d(String tag, @NonNull String msg, Object... args) {
-        if (Log.isLoggable(tag, Log.DEBUG) || Build.IS_DEBUGGABLE) {
+        if (Log.isLoggable(tag, Log.DEBUG)) {
             Log.d(tag, String.format(msg, args));
         }
     }
@@ -54,7 +53,7 @@ public class L {
      * <p>@see String#format(String, Object...) for formatting log string.
      */
     public static void i(String tag, @NonNull String msg, Object... args) {
-        if (Log.isLoggable(tag, Log.INFO) || Build.IS_DEBUGGABLE) {
+        if (Log.isLoggable(tag, Log.INFO)) {
             Log.i(tag, String.format(msg, args));
         }
     }
@@ -65,7 +64,7 @@ public class L {
      * <p>@see String#format(String, Object...) for formatting log string.
      */
     public static void w(String tag, @NonNull String msg, Object... args) {
-        if (Log.isLoggable(tag, Log.WARN) || Build.IS_DEBUGGABLE) {
+        if (Log.isLoggable(tag, Log.WARN)) {
             Log.w(tag, String.format(msg, args));
         }
     }

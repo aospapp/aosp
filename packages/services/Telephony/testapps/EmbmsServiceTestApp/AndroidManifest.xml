@@ -15,30 +15,31 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
-        package="com.android.phone.testapps.embmsmw"
-        coreApp="true">
+     xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
+     package="com.android.phone.testapps.embmsmw"
+     coreApp="true">
   <uses-permission android:name="android.permission.SEND_EMBMS_INTENTS"/>
 
   <application android:label="EmbmsTestMiddleware">
     <service android:name="com.android.phone.testapps.embmsmw.EmbmsTestStreamingService"
-            android:launchMode="singleInstance"
-            androidprv:systemUserOnly="true">
+         android:launchMode="singleInstance"
+         androidprv:systemUserOnly="true"
+         android:exported="true">
       <intent-filter>
-        <action android:name="android.telephony.action.EmbmsStreaming" />
+        <action android:name="android.telephony.action.EmbmsStreaming"/>
       </intent-filter>
     </service>
     <service android:name="com.android.phone.testapps.embmsmw.EmbmsSampleDownloadService"
-             android:launchMode="singleInstance"
-             androidprv:systemUserOnly="true">
+         android:launchMode="singleInstance"
+         androidprv:systemUserOnly="true"
+         android:exported="true">
       <intent-filter>
-        <action android:name="android.telephony.action.EmbmsDownload" />
+        <action android:name="android.telephony.action.EmbmsDownload"/>
       </intent-filter>
     </service>
 
     <receiver android:name="com.android.phone.testapps.embmsmw.SideChannelReceiver"
-              android:enabled="true"
-              android:exported="true"/>
+         android:enabled="true"
+         android:exported="true"/>
   </application>
 </manifest>
-

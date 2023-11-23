@@ -14,8 +14,6 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-
-
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -26,20 +24,7 @@
     android:clipToPadding="false"
     android:maxHeight="@dimen/preview_theme_max_height"
     android:minHeight="@dimen/preview_theme_min_height"
-    android:paddingHorizontal="@dimen/preview_card_padding"
-    android:paddingTop="@dimen/preview_card_top_padding">
-
-        <ViewStub
-            android:id="@+id/theme_preview_top_bar"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout="@layout/theme_preview_topbar"
-            app:layout_constraintBottom_toTopOf="@+id/theme_preview_card_header"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintHorizontal_bias="0.5"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintVertical_chainStyle="spread_inside"/>
+    android:paddingTop="64dp">
 
         <TextView
             android:id="@+id/theme_preview_card_header"
@@ -48,12 +33,12 @@
             android:layout_gravity="center_horizontal"
             android:drawablePadding="@dimen/theme_preview_header_drawable_padding"
             android:textAppearance="@style/CardTitleTextAppearance"
+            android:importantForAccessibility="no"
             app:layout_constraintBottom_toTopOf="@id/theme_preview_card_body_container"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintHorizontal_bias="0.5"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/theme_preview_top_bar"
-            app:layout_goneMarginTop="@dimen/card_header_top_margin"
+            app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintVertical_chainStyle="spread_inside"
             tools:text="Default"/>
 
@@ -61,42 +46,13 @@
             android:id="@+id/theme_preview_card_body_container"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_marginHorizontal="8dp"
             android:layout_marginTop="@dimen/preview_theme_content_margin"
             android:clipChildren="false"
-            app:layout_constraintBottom_toTopOf="@+id/guideline"
+            android:importantForAccessibility="noHideDescendants"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintHeight_max="@dimen/preview_theme_content_max_height"
             app:layout_constraintHeight_min="@dimen/preview_theme_content_min_height"
             app:layout_constraintHorizontal_bias="0.5"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/theme_preview_card_header"/>
-
-        <androidx.constraintlayout.widget.Guideline
-            android:id="@+id/guideline"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            app:layout_constraintBottom_toTopOf="@+id/edit_label"
-            app:layout_constraintGuide_end="@dimen/preview_theme_content_bottom"
-            app:layout_constraintTop_toBottomOf="@+id/theme_preview_card_body_container"/>
-
-        <TextView
-            android:id="@+id/edit_label"
-            style="@style/EditLabelStyle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:minHeight="@dimen/min_taptarget_height"
-            android:drawableStart="@drawable/ic_tune"
-            android:drawablePadding="8dp"
-            android:gravity="center"
-            android:text="@string/edit_custom_theme_lbl"
-            android:visibility="invisible"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintHorizontal_bias="0.5"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/guideline"
-            app:layout_constraintVertical_bias="0.5"/>
-
 </androidx.constraintlayout.widget.ConstraintLayout>

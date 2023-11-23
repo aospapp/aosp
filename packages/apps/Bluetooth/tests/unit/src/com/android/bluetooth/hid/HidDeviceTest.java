@@ -38,6 +38,7 @@ import androidx.test.runner.AndroidJUnit4;
 import com.android.bluetooth.R;
 import com.android.bluetooth.TestUtils;
 import com.android.bluetooth.btservice.AdapterService;
+import com.android.bluetooth.btservice.storage.DatabaseManager;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -74,6 +75,7 @@ public class HidDeviceTest {
     private static final int CALLBACK_ON_VIRTUAL_UNPLUG = 6;
 
     @Mock private AdapterService mAdapterService;
+    @Mock private DatabaseManager mDatabaseManager;
     @Mock private HidDeviceNativeInterface mHidDeviceNativeInterface;
 
     private BluetoothAdapter mAdapter;
@@ -108,6 +110,8 @@ public class HidDeviceTest {
         // Set up mocks and test assets
         MockitoAnnotations.initMocks(this);
         TestUtils.setAdapterService(mAdapterService);
+        doReturn(mDatabaseManager).when(mAdapterService).getDatabase();
+        doReturn(true, false).when(mAdapterService).isStartedProfile(anyString());
         setHidDeviceNativeInterfaceInstance(mHidDeviceNativeInterface);
         // This line must be called to make sure relevant objects are initialized properly
         mAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -163,7 +167,7 @@ public class HidDeviceTest {
             try {
                 mConnectionStateChangedQueue.put(intent);
             } catch (InterruptedException e) {
-                Assert.fail("Cannot add Intent to the queue");
+                throw new AssertionError("Cannot add Intent to the queue", e);
             }
         }
     }
@@ -174,9 +178,8 @@ public class HidDeviceTest {
             Assert.assertNotNull(intent);
             return intent;
         } catch (InterruptedException e) {
-            Assert.fail("Cannot obtain an Intent from the queue");
+            throw new AssertionError("Cannot obtain an Intent from the queue", e);
         }
-        return null;
     }
 
     private void verifyConnectionStateIntent(int timeoutMs, BluetoothDevice device, int newState,
@@ -197,7 +200,7 @@ public class HidDeviceTest {
             int lastCallbackType = lastCallback;
             Assert.assertEquals(callbackType, lastCallbackType);
         } catch (InterruptedException e) {
-            Assert.fail("Cannot obtain a callback from the queue");
+            throw new AssertionError("Cannot obtain a callback from the queue", e);
         }
     }
 
@@ -210,7 +213,7 @@ public class HidDeviceTest {
                     mCallbackQueue.put(CALLBACK_APP_UNREGISTERED);
                 }
             } catch (InterruptedException e) {
-                Assert.fail("Cannot add Intent to the queue");
+                throw new AssertionError("Cannot add Intent to the queue", e);
             }
         }
 
@@ -222,7 +225,7 @@ public class HidDeviceTest {
             try {
                 mCallbackQueue.put(CALLBACK_ON_GET_REPORT);
             } catch (InterruptedException e) {
-                Assert.fail("Cannot add Intent to the queue");
+                throw new AssertionError("Cannot add Intent to the queue", e);
             }
         }
 
@@ -230,7 +233,7 @@ public class HidDeviceTest {
             try {
                 mCallbackQueue.put(CALLBACK_ON_SET_REPORT);
             } catch (InterruptedException e) {
-                Assert.fail("Cannot add Intent to the queue");
+                throw new AssertionError("Cannot add Intent to the queue", e);
             }
         }
 
@@ -238,7 +241,7 @@ public class HidDeviceTest {
             try {
                 mCallbackQueue.put(CALLBACK_ON_SET_PROTOCOL);
             } catch (InterruptedException e) {
-                Assert.fail("Cannot add Intent to the queue");
+                throw new AssertionError("Cannot add Intent to the queue", e);
             }
         }
 
@@ -246,7 +249,8 @@ public class HidDeviceTest {
             try {
                 mCallbackQueue.put(CALLBACK_ON_INTR_DATA);
             } catch (InterruptedException e) {
-                Assert.fail("Cannot add Intent to the queue");
+                throw new AssertionError("Cannot add Intent to the queue", e);
+
             }
         }
 
@@ -254,7 +258,7 @@ public class HidDeviceTest {
             try {
                 mCallbackQueue.put(CALLBACK_ON_VIRTUAL_UNPLUG);
             } catch (InterruptedException e) {
-                Assert.fail("Cannot add Intent to the queue");
+                throw new AssertionError("Cannot add Intent to the queue", e);
             }
         }
     }

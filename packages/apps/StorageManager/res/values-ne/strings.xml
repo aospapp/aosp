@@ -26,7 +26,7 @@
     <string name="deletion_helper_app_summary_never_used" msgid="2695210890063792461">"गत वर्ष प्रयोग गरिएन"</string>
     <string name="deletion_helper_app_summary_unknown_used" msgid="8576377054665785558">"पछिल्लो पटक कहिले प्रयोग गरियो भन्ने बारे निश्चित छैन"</string>
     <string name="deletion_helper_free_button" msgid="1760529213407548661">"<xliff:g id="FREEABLE">%1$s</xliff:g> खाली गर्नुहोस्"</string>
-    <string name="deletion_helper_photos_title" msgid="2602723121486729972">"ब्याक अप गरिएका तस्बिर तथा भिडियोहरू"</string>
+    <string name="deletion_helper_photos_title" msgid="2602723121486729972">"ब्याक अप गरिएका फोटो तथा भिडियोहरू"</string>
     <string name="deletion_helper_photos_age_summary" msgid="1820871709448371984">"कम्तीमा ३० दिन पुरानो"</string>
     <!-- no translation found for deletion_helper_photos_summary (3194825464552700889) -->
     <skip />
@@ -51,10 +51,10 @@
     <string name="automatic_storage_manager_service_label" msgid="648592272375278978">"स्वतः भण्डारण व्यवस्थापन सेवा"</string>
     <string name="automatic_storage_manager_notification_title" product="default" msgid="8480483265300964701">"तपाईँको फोनमा ठाउँको कमी छ"</string>
     <string name="automatic_storage_manager_notification_title" product="tablet" msgid="3150907918531844467">"तपाईंको ट्याब्लेटमा खाली ठाउँ कम छ"</string>
-    <string name="automatic_storage_manager_notification_summary" msgid="2267399886362245822">"तपाईँको फोन फेरि भरिन थाल्दा भण्डारण प्रबन्धकलाई पुराना तस्बिर र भिडियोहरू स्वतः हटाएर ठाउँ खाली गर्न दिनुहोस्।"</string>
+    <string name="automatic_storage_manager_notification_summary" msgid="2267399886362245822">"तपाईँको फोन फेरि भरिन थाल्दा भण्डारण प्रबन्धकलाई पुराना फोटो र भिडियोहरू स्वतः हटाएर ठाउँ खाली गर्न दिनुहोस्।"</string>
     <string name="automatic_storage_manager_cancel_button" msgid="1826365037494962803">"पर्दैन, धन्यवाद"</string>
     <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"सक्रिय गर्नुहोस्"</string>
-    <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"ब्याक अप गरिएका तस्बिर तथा भिडियोहरू"</string>
+    <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"ब्याक अप गरिएका फोटो तथा भिडियोहरू"</string>
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"वस्तुहरू भेट्टाउँदै…"</string>
     <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"सबै वस्तुहरू देखाउनुहोस्"</string>
     <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"हालैका वस्तुहरू लुकाउनुहोस्"</string>
@@ -62,6 +62,6 @@
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"तपाईंको भण्डारण अहिले भण्डारण प्रबन्धकद्वारा व्यवस्थापन भइरहेको छ"</string>
     <string name="empty_state_title" msgid="4033285438176545309">"हटाउनु पर्ने कुनै कुरा छैन"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"हालैका वस्तुहरूको समीक्षा गर्नुहोस्"</string>
-    <string name="empty_state_summary" msgid="8439893007424243790">"हटाउनु पर्ने कुनै पुराना फाइलहरू छैनन्। ठाउँ खाली गर्नाका लागि हालैका तस्बिर, भिडियो तथा एपहरू हटाउनुहोस्।"</string>
+    <string name="empty_state_summary" msgid="8439893007424243790">"हटाउनु पर्ने कुनै पुराना फाइलहरू छैनन्। ठाउँ खाली गर्नाका लागि हालैका फोटो, भिडियो तथा एपहरू हटाउनुहोस्।"</string>
     <string name="app_requesting_space" msgid="857425181289960167">"<xliff:g id="APP">%1$s</xliff:g> लाई <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> खाली ठाउँ आवश्यक हुन्छ"</string>
 </resources>

@@ -19,13 +19,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
   package="com.android.networkstack"
   android:sharedUserId="android.uid.networkstack"
-  android:versionCode="300000000"
-  android:versionName="2019-09"
+  android:versionCode="319999900"
+  android:versionName="s_aml_319999900"
 >
     <!-- Permissions must be defined here, and not in the base manifest, as the network stack
          running in the system server process does not need any permission, and having privileged
          permissions added would cause crashes on startup unless they are also added to the
-         privileged permissions whitelist for that package. -->
+         privileged permissions allowlist for that package. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -44,9 +44,21 @@
         android:persistent="true"
         android:process="com.android.networkstack.process">
         <service android:name="com.android.server.NetworkStackService"
+                 android:exported="true"
                  android:permission="android.permission.MAINLINE_NETWORK_STACK">
             <intent-filter>
                 <action android:name="android.net.INetworkStackConnector"/>
+            </intent-filter>
+        </service>
+        <!-- Test instrumentation service, only usable on debuggable builds.
+             The service is protected by NETWORK_SETTINGS permissions as there is no better
+             networking-related permission that exists on Q, is sufficiently protected (signature),
+             and can be obtained via shell permissions. -->
+        <service android:name="com.android.server.TestNetworkStackService"
+                 android:permission="android.permission.NETWORK_SETTINGS"
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="android.net.INetworkStackConnector.Test"/>
             </intent-filter>
         </service>
         <service android:name="com.android.server.connectivity.ipmemorystore.RegularMaintenanceJobService"

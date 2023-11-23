@@ -50,6 +50,7 @@
     <string name="voice_number_setting_primary_user_only" msgid="3394706575741912843">"Només l\'usuari principal pot modificar la configuració dels missatges de veu."</string>
     <string name="puk_unlocked" msgid="4627340655215746511">"La targeta SIM s\'ha desbloquejat. El telèfon s\'està desbloquejant..."</string>
     <string name="label_ndp" msgid="7617392683877410341">"PIN de desbloqueig de xarxa SIM"</string>
+    <string name="label_phoneid" msgid="8775611434123577808">"SIM bloquejada per a l\'operador"</string>
     <string name="sim_ndp_unlock_text" msgid="7737338355451978338">"Desbloqueja"</string>
     <string name="sim_ndp_dismiss_text" msgid="89667342248929777">"Ignora"</string>
     <string name="requesting_unlock" msgid="930512210309437741">"S\'està sol·licitant el desbloqueig de la xarxa..."</string>
@@ -123,6 +124,13 @@
     <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"S\'està desviant a <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfnrc_disabled" msgid="739289696796917683">"Desactivat"</string>
     <string name="disable_cfnrc_forbidden" msgid="775348748084726890">"El teu operador de telefonia mòbil no permet desactivar la desviació de trucades quan el telèfon estigui il·localitzable."</string>
+    <string name="registration_cf_forbidden" msgid="4386482610771190420">"El teu operador no admet la desviació de trucades."</string>
+    <string name="cdma_call_waiting" msgid="4565070960879673216">"Vols activar l\'opció de trucada en espera?"</string>
+    <string name="enable_cdma_call_waiting_setting" msgid="5906811747921744307">"Durant una trucada, rebràs una notificació si tens cap trucada entrant"</string>
+    <string name="enable_cdma_cw" msgid="811047045863422232">"Activa"</string>
+    <string name="disable_cdma_cw" msgid="7119290446496301734">"Cancel·la"</string>
+    <string name="cdma_call_waiting_in_ims_on" msgid="6390979414188659218">"L\'opció de trucada en espera de CDMA a IMS està activada"</string>
+    <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"L\'opció de trucada en espera de CDMA a IMS està desactivada"</string>
     <string name="updating_title" msgid="6130548922615719689">"Configuració de trucada"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"Només l\'administrador pot canviar la configuració de trucades."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"Configuració (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -286,6 +294,9 @@
     <string name="limited_sim_function_notification_title" msgid="612715399099846281">"Funcionalitat de la SIM limitada"</string>
     <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"Pot ser que les trucades i els serveis de dades de <xliff:g id="CARRIER_NAME">%1$s</xliff:g> es bloquegin mentre fas servir el número <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>."</string>
     <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"Les trucades i dades que t\'ofereix <xliff:g id="CARRIER_NAME">%1$s</xliff:g> es poden bloquejar quan tens una altra SIM."</string>
+    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"S\'han trobat comptes SIP obsolets i s\'han suprimit"</string>
+    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"La plataforma Android ja no admet les trucades SIP.\nEls teus comptes SIP existents <xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g> s\'han suprimit.\nConfirma la configuració predeterminada de trucades del teu compte."</string>
+    <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"Ves a la configuració"</string>
     <string name="data_usage_title" msgid="8438592133893837464">"Ús de dades de l\'aplicació"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"S\'han utilitzat <xliff:g id="ID_1">%1$s</xliff:g> en el període <xliff:g id="ID_2">%2$s</xliff:g>"</string>
     <string name="advanced_options_title" msgid="9208195294513520934">"Configuració avançada"</string>
@@ -504,6 +515,7 @@
     <string name="puk2_requested" msgid="6992374450720307514">"La contrasenya no és correcta i la SIM s\'ha bloquejat. Introdueix el PUK2."</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"El PUK2 s\'ha bloquejat permanentment."</string>
     <string name="pin2_attempts" msgid="5625178102026453023">\n"Et queden <xliff:g id="NUMBER">%d</xliff:g> intents."</string>
+    <string name="puk2_locked" msgid="6497760825455461057">"El PUK2 s\'ha bloquejat. Contacta amb el proveïdor de serveis per desbloquejar-lo."</string>
     <string name="pin2_unblocked" msgid="4481107908727789303">"El PIN2 ja no està bloquejat."</string>
     <string name="pin2_error_exception" msgid="8116103864600823641">"Error de la xarxa o de targeta SIM"</string>
     <string name="doneButton" msgid="7371209609238460207">"Fet"</string>
@@ -525,6 +537,7 @@
     <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"Per fer una trucada, activa la xarxa mòbil o desactiva el mode d\'avió o el mode d\'estalvi de bateria."</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"Per fer una trucada, desactiva el mode d\'avió."</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"Per fer una trucada, desactiva el mode d\'avió o connecta amb una xarxa sense fil."</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"El telèfon està massa calent"</b>\n\n"No es pot completar aquesta trucada. Torna-ho a provar quan el telèfon es refredi.\n\nPots fer trucades d\'emergència igualment."</string>
     <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"Surt del mode de devolució de trucada d\'emergència per fer un altre tipus de trucada."</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"No registrat a la xarxa."</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"La xarxa mòbil no està disponible."</string>
@@ -563,7 +576,7 @@
     <string name="description_concat_format" msgid="2014471565101724088">"%1$s, %2$s"</string>
     <string name="dialerKeyboardHintText" msgid="1115266533703764049">"Utilitzeu el teclat per marcar"</string>
     <string name="onscreenHoldText" msgid="4025348842151665191">"Posa en espera"</string>
-    <string name="onscreenEndCallText" msgid="6138725377654842757">"Final"</string>
+    <string name="onscreenEndCallText" msgid="6138725377654842757">"Finalitza"</string>
     <string name="onscreenShowDialpadText" msgid="658465753816164079">"Teclat"</string>
     <string name="onscreenMuteText" msgid="5470306116733843621">"Silencia"</string>
     <string name="onscreenAddCallText" msgid="9075675082903611677">"Afegeix una trucada"</string>
@@ -867,7 +880,6 @@
     <string name="radio_info_dds" msgid="1122593144425697126">"Subidentificador de la SIM de dades predeterminada:"</string>
     <string name="radio_info_dl_kbps" msgid="2382922659525318726">"Amplada de banda de baixada (kbps):"</string>
     <string name="radio_info_ul_kbps" msgid="2102225400904799036">"Amplada de banda de pujada (kbps):"</string>
-    <string name="radio_info_signal_location_label" msgid="6188435197086550049">"Informació d\'ubicació del mòbil (obsoleta):"</string>
     <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"Configuració del canal físic de LTE:"</string>
     <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"Freqüència d\'actualització de la informació del mòbil:"</string>
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"Tota la informació de mesures del mòbil:"</string>
@@ -898,6 +910,11 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Actualitza"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"Activa o desactiva la comprovació de DNS"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"Informació/configuració específica d\'OEM"</string>
+    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC disponible:"</string>
+    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR amb restriccions:"</string>
+    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR disponible:"</string>
+    <string name="radio_info_nr_state" msgid="1337571996788535356">"Estat d\'NR:"</string>
+    <string name="radio_info_nr_frequency" msgid="1201156032796584128">"Freqüència d\'NR:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Configura el mode de banda de senyal mòbil"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"S\'està carregant la llista de bandes…"</string>
     <string name="band_mode_set" msgid="6657819412803771421">"Defineix"</string>
@@ -907,4 +924,7 @@
     <string name="phone_info_label" product="default" msgid="1784175881556791433">"Informació del telèfon"</string>
     <string name="carrier_provisioning" msgid="2668065041869578376">"Informació de serveis de l\'operador"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"Activa els serveis de l\'operador"</string>
+    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"El senyal del Bluetooth és feble. Fes servir l\'altaveu."</string>
+    <string name="call_quality_notification_name" msgid="3476828289553948830">"Notificació sobre la qualitat de la trucada"</string>
+    <string name="notification_channel_sip_account" msgid="1261816025156179637">"Comptes SIP obsolets"</string>
 </resources>

@@ -27,7 +27,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.util.Arrays;
 
 /**
- * Parcelable to hold information on app blocking whitelist or blacklist for a package.
+ * Parcelable to hold information on app blocking allowlist or denylist for a package.
  * @hide
  */
 @SystemApi
@@ -38,7 +38,7 @@ public final class AppBlockingPackageInfo implements Parcelable {
 
     /** Represents system app which does not need {@link #signature}. */
     public static final int FLAG_SYSTEM_APP = 0x1;
-    /** Blacklist or whitelist every Activities in the package. When this is set,
+    /** Denylist or allowlist every Activities in the package. When this is set,
      *  {@link #activities} may be null. */
     public static final int FLAG_WHOLE_ACTIVITY = 0x2;
     /** @hide */

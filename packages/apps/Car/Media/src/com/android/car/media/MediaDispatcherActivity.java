@@ -67,6 +67,8 @@ public class MediaDispatcherActivity extends FragmentActivity {
             // Launch custom app (e.g. Radio)
             String srcPackage = mediaSrc.getPackageName();
             newIntent = getPackageManager().getLaunchIntentForPackage(srcPackage);
+            newIntent.putExtra(Car.CAR_EXTRA_MEDIA_COMPONENT,
+                    mediaSrc.getBrowseServiceComponentName().flattenToString());
             if (Log.isLoggable(TAG, Log.DEBUG)) {
                 Log.d(TAG, "Getting launch intent for package : " + srcPackage + (newIntent != null
                         ? " succeeded" : " failed"));

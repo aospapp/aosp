@@ -22,7 +22,7 @@
     <string name="tag_unknown" msgid="2897956823877728783">"ไม่รู้จักประเภทแท็ก"</string>
     <string name="tag_empty" msgid="3726529819932095782">"แท็กว่างเปล่า"</string>
     <string name="button_done" msgid="7048822758098308158">"เสร็จสิ้น"</string>
-    <string name="action_text" msgid="577417996159152923">"ส่งข้อความถึง <xliff:g id="PHONE_NUMBER">%s</xliff:g>"</string>
+    <string name="action_text" msgid="577417996159152923">"ส่ง SMS ถึง <xliff:g id="PHONE_NUMBER">%s</xliff:g>"</string>
     <string name="action_call" msgid="6226253647953184035">"โทร <xliff:g id="PHONE_NUMBER">%s</xliff:g>"</string>
     <string name="empty_tag_prompt" msgid="4206394383309956030">"แท็กนี้ว่างเปล่า"</string>
     <string name="import_vcard" msgid="5104299047930666528">"นำเข้า ^1"</string>

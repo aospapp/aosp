@@ -98,6 +98,10 @@ public class MapMceTestFragment extends Fragment {
     private static final int SEND_NEW_MMS_LONG = 4;
     private int mSendNewMsgCounter = 0;
     private static final String TAG = "CAR.BLUETOOTH.KS";
+    private static final String ACTION_MESSAGE_SENT_SUCCESSFULLY =
+            "com.google.android.car.kitchensink.bluetooth.MESSAGE_SENT_SUCCESSFULLY";
+    private static final String ACTION_MESSAGE_DELIVERED_SUCCESSFULLY =
+            "com.google.android.car.kitchensink.bluetooth.MESSAGE_DELIVERED_SUCCESSFULLY";
     private static final int SEND_SMS_PERMISSIONS_REQUEST = 1;
     BluetoothMapClient mMapProfile;
     BluetoothAdapter mBluetoothAdapter;
@@ -124,6 +128,18 @@ public class MapMceTestFragment extends Fragment {
             @Nullable Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.sms_received, container, false);
         mActivity = (KitchenSinkActivity) getHost();
+
+        if (!BluetoothConnectionPermissionChecker.isPermissionGranted(mActivity)) {
+            BluetoothConnectionPermissionChecker.requestPermission(this,
+                    this::registerMapServiceListenerAndNotificationReceiver,
+                    () -> {
+                    Toast.makeText(getContext(),
+                        "Connected devices can't be detected without BLUETOOTH_CONNECT "
+                                + "permission. (You can change permissions in Settings.)",
+                        Toast.LENGTH_SHORT).show();
+                });
+        }
+
         Button reply = (Button) v.findViewById(R.id.reply);
         Button checkMessages = (Button) v.findViewById(R.id.check_messages);
         mBluetoothDevice = (TextView) v.findViewById(R.id.bluetoothDevice);
@@ -135,8 +151,8 @@ public class MapMceTestFragment extends Fragment {
         mOriginatorDisplayName = (TextView) v.findViewById(R.id.messageOriginatorDisplayName);
         mSent = (CheckBox) v.findViewById(R.id.sent_checkbox);
         mDelivered = (CheckBox) v.findViewById(R.id.delivered_checkbox);
-        mSendIntent = new Intent(BluetoothMapClient.ACTION_MESSAGE_SENT_SUCCESSFULLY);
-        mDeliveryIntent = new Intent(BluetoothMapClient.ACTION_MESSAGE_DELIVERED_SUCCESSFULLY);
+        mSendIntent = new Intent(ACTION_MESSAGE_SENT_SUCCESSFULLY);
+        mDeliveryIntent = new Intent(ACTION_MESSAGE_DELIVERED_SUCCESSFULLY);
         mMessage = (TextView) v.findViewById(R.id.messageContent);
         mDevicePicker = (Button) v.findViewById(R.id.bluetooth_pick_device);
         mDeviceDisconnect = (Button) v.findViewById(R.id.bluetooth_disconnect_device);
@@ -204,7 +220,6 @@ public class MapMceTestFragment extends Fragment {
             }
         });
 
-        mTransmissionStatusReceiver = new NotificationReceiver();
         return v;
     }
 
@@ -230,22 +245,19 @@ public class MapMceTestFragment extends Fragment {
     public void onResume() {
         super.onResume();
 
-        mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        mBluetoothAdapter.getProfileProxy(getContext(), new MapServiceListener(),
-                BluetoothProfile.MAP_CLIENT);
-
-        IntentFilter intentFilter = new IntentFilter();
-        intentFilter.addAction(BluetoothMapClient.ACTION_MESSAGE_SENT_SUCCESSFULLY);
-        intentFilter.addAction(BluetoothMapClient.ACTION_MESSAGE_DELIVERED_SUCCESSFULLY);
-        intentFilter.addAction(BluetoothMapClient.ACTION_MESSAGE_RECEIVED);
-        intentFilter.addAction(BluetoothMapClient.ACTION_CONNECTION_STATE_CHANGED);
-        getContext().registerReceiver(mTransmissionStatusReceiver, intentFilter);
+        if (BluetoothConnectionPermissionChecker.isPermissionGranted(mActivity)) {
+            registerMapServiceListenerAndNotificationReceiver();
+        }
     }
 
     @Override
     public void onPause() {
         super.onPause();
-        getContext().unregisterReceiver(mTransmissionStatusReceiver);
+
+        if (mTransmissionStatusReceiver != null) {
+            getContext().unregisterReceiver(mTransmissionStatusReceiver);
+            mTransmissionStatusReceiver = null;
+        }
     }
 
     private void getMessages() {
@@ -264,6 +276,20 @@ public class MapMceTestFragment extends Fragment {
                 mMapProfile.getUnreadMessages(remoteDevice);
             }
         }
+    }
+
+    private void registerMapServiceListenerAndNotificationReceiver() {
+        mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        mBluetoothAdapter.getProfileProxy(getContext(), new MapServiceListener(),
+                BluetoothProfile.MAP_CLIENT);
+
+        mTransmissionStatusReceiver = new NotificationReceiver();
+        IntentFilter intentFilter = new IntentFilter();
+        intentFilter.addAction(ACTION_MESSAGE_SENT_SUCCESSFULLY);
+        intentFilter.addAction(ACTION_MESSAGE_DELIVERED_SUCCESSFULLY);
+        intentFilter.addAction(BluetoothMapClient.ACTION_MESSAGE_RECEIVED);
+        intentFilter.addAction(BluetoothMapClient.ACTION_CONNECTION_STATE_CHANGED);
+        getContext().registerReceiver(mTransmissionStatusReceiver, intentFilter);
     }
 
     private void sendNewMsgOnClick(int msgType) {
@@ -340,9 +366,9 @@ public class MapMceTestFragment extends Fragment {
                 }
 
                 mSentIntent = PendingIntent.getBroadcast(getContext(), 0, mSendIntent,
-                        PendingIntent.FLAG_ONE_SHOT);
+                        PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE);
                 mDeliveredIntent = PendingIntent.getBroadcast(getContext(), 0, mDeliveryIntent,
-                        PendingIntent.FLAG_ONE_SHOT);
+                        PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE);
                 Log.d(TAG,"Sending message in kitchesink app: " + message);
                 mMapProfile.sendMessage(
                         remoteDevice,
@@ -401,10 +427,9 @@ public class MapMceTestFragment extends Fragment {
                             == BluetoothProfile.STATE_DISCONNECTED) {
                         mBluetoothDevice.setText("Disconnected");
                     }
-                } else if (action.equals(BluetoothMapClient.ACTION_MESSAGE_SENT_SUCCESSFULLY)) {
+                } else if (action.equals(ACTION_MESSAGE_SENT_SUCCESSFULLY)) {
                     mSent.setChecked(true);
-                } else if (action.equals(
-                        BluetoothMapClient.ACTION_MESSAGE_DELIVERED_SUCCESSFULLY)) {
+                } else if (action.equals(ACTION_MESSAGE_DELIVERED_SUCCESSFULLY)) {
                     mDelivered.setChecked(true);
                 } else if (action.equals(BluetoothMapClient.ACTION_MESSAGE_RECEIVED)) {
                     String senderUri =

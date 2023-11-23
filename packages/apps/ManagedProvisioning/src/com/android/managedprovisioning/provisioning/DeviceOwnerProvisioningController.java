@@ -17,20 +17,16 @@
 package com.android.managedprovisioning.provisioning;
 
 import android.content.Context;
-import android.os.UserHandle;
 
 import com.android.managedprovisioning.R;
+import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.task.AbstractProvisioningTask;
 import com.android.managedprovisioning.task.AddWifiNetworkTask;
 import com.android.managedprovisioning.task.ConnectMobileNetworkTask;
-import com.android.managedprovisioning.task.CopyAccountToUserTask;
-import com.android.managedprovisioning.task.DeleteNonRequiredAppsTask;
-import com.android.managedprovisioning.task.DeviceOwnerInitializeProvisioningTask;
-import com.android.managedprovisioning.task.DisallowAddUserTask;
 import com.android.managedprovisioning.task.DownloadPackageTask;
 import com.android.managedprovisioning.task.InstallPackageTask;
-import com.android.managedprovisioning.task.SetDevicePolicyTask;
+import com.android.managedprovisioning.task.ProvisionFullyManagedDeviceTask;
 import com.android.managedprovisioning.task.VerifyPackageTask;
 
 /**
@@ -38,7 +34,28 @@ import com.android.managedprovisioning.task.VerifyPackageTask;
  */
 public class DeviceOwnerProvisioningController extends AbstractProvisioningController {
 
-    public DeviceOwnerProvisioningController(
+    private Utils mUtils;
+
+    /**
+     * Instantiates a new {@link DeviceOwnerProvisioningController} instance and creates the
+     * relevant tasks.
+     *
+     * @return the newly created instance
+     */
+    static DeviceOwnerProvisioningController createInstance(
+            Context context,
+            ProvisioningParams params,
+            int userId,
+            ProvisioningControllerCallback callback,
+            Utils utils) {
+        DeviceOwnerProvisioningController controller =
+                new DeviceOwnerProvisioningController(context, params, userId, callback);
+        controller.mUtils = utils;
+        controller.setUpTasks();
+        return controller;
+    }
+
+    private DeviceOwnerProvisioningController(
             Context context,
             ProvisioningParams params,
             int userId,
@@ -47,33 +64,19 @@ public class DeviceOwnerProvisioningController extends AbstractProvisioningContr
     }
 
     protected void setUpTasks() {
-        addTasks(new DeviceOwnerInitializeProvisioningTask(mContext, mParams, this));
-
-        // If new flow is not supported then we should still download the package.
-        if (!mParams.isOrganizationOwnedProvisioning) {
+        // If the admin-integrated flow preconditions aren't met, then the admin app was not
+        // installed as part of the admin-integrated flow preparation.
+        // We must install the admin app here instead.
+        if (!mUtils.checkAdminIntegratedFlowPreconditions(mParams)) {
             if (mParams.wifiInfo != null) {
                 addTasks(new AddWifiNetworkTask(mContext, mParams, this));
             } else if (mParams.useMobileData) {
                 addTasks(new ConnectMobileNetworkTask(mContext, mParams, this));
             }
 
-            if (mParams.deviceAdminDownloadInfo != null) {
-                DownloadPackageTask downloadTask = new DownloadPackageTask(mContext, mParams, this);
-                addTasks(downloadTask,
-                        new VerifyPackageTask(downloadTask, mContext, mParams, this),
-                        new InstallPackageTask(downloadTask, mContext, mParams, this));
-            }
+            addDownloadAndInstallDeviceOwnerPackageTasks();
         }
-
-        addTasks(
-                new DeleteNonRequiredAppsTask(true /* new profile */, mContext, mParams, this),
-                new SetDevicePolicyTask(mContext, mParams, this),
-                new DisallowAddUserTask(mContext, mParams, this)
-        );
-
-        if (mParams.accountToMigrate != null) {
-            addTasks(new CopyAccountToUserTask(UserHandle.USER_SYSTEM, mContext, mParams, this));
-        }
+        addTasks(new ProvisionFullyManagedDeviceTask(mContext, mParams, this));
     }
 
     @Override protected int getErrorTitle() {
@@ -112,12 +115,6 @@ public class DeviceOwnerProvisioningController extends AbstractProvisioningContr
 
     @Override
     protected boolean getRequireFactoryReset(AbstractProvisioningTask task, int errorCode) {
-        return !((task instanceof AddWifiNetworkTask)
-                || (task instanceof DeviceOwnerInitializeProvisioningTask));
-    }
-
-    @Override
-    protected void performCleanup() {
-        // Do nothing, because a factory reset will be triggered.
+        return !(task instanceof AddWifiNetworkTask);
     }
 }

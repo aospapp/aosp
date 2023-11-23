@@ -23,17 +23,24 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 
+import com.android.internal.annotations.VisibleForTesting;
+
 /**
  * Container activity for CMAS opt-in/opt-out alert dialog.
  */
 public class CellBroadcastOptOutActivity extends Activity {
     private static final String TAG = "CellBroadcastOptOutActivity";
 
+    @VisibleForTesting
+    public static TestableShowAlertDialog sShowDialog = AlertDialog::show;
+
+    @VisibleForTesting
+    public AlertDialog mAlertDialog;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Log.d(TAG, "created activity");
-        showOptOutDialog(this);
+        mAlertDialog = showOptOutDialog(this);
     }
 
     /**
@@ -42,7 +49,8 @@ public class CellBroadcastOptOutActivity extends Activity {
      * so that the dialog appears underneath the lock screen. The user must unlock the device
      * to configure the settings, so we don't want to show the opt-in dialog before then.
      */
-    static AlertDialog showOptOutDialog(final Activity activity) {
+    @VisibleForTesting
+    public static AlertDialog showOptOutDialog(final Activity activity) {
         AlertDialog.Builder builder = new AlertDialog.Builder(activity);
         AlertDialog alertdialog = builder.setMessage(R.string.cmas_opt_out_dialog_text)
                 .setPositiveButton(R.string.cmas_opt_out_button_yes,
@@ -74,8 +82,21 @@ public class CellBroadcastOptOutActivity extends Activity {
                             }
                         })
                 .create();
-        alertdialog.show();
+        sShowDialog.show(alertdialog);
 
         return alertdialog;
+    }
+
+    /**
+     * An interface that defines the action of showing a AlertDialog, which can be replaced with
+     * mock in testing so that it can be monitored.
+     */
+    @VisibleForTesting
+    public interface TestableShowAlertDialog {
+        /**
+         * Method to show the alert dialog. In production should be simply AlertDialog::show.
+         * @param alertDialog
+         */
+        void show(AlertDialog alertDialog);
     }
 }

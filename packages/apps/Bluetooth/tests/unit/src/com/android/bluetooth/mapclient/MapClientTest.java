@@ -21,7 +21,9 @@ import static org.mockito.Mockito.*;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
+import android.bluetooth.IBluetoothMapClient;
 import android.content.Context;
+import android.os.UserHandle;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.MediumTest;
@@ -30,6 +32,7 @@ import androidx.test.runner.AndroidJUnit4;
 
 import com.android.bluetooth.R;
 import com.android.bluetooth.TestUtils;
+import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.storage.DatabaseManager;
 
@@ -68,12 +71,13 @@ public class MapClientTest {
                 mTargetContext.getResources().getBoolean(R.bool.profile_supported_mapmce));
         MockitoAnnotations.initMocks(this);
         TestUtils.setAdapterService(mAdapterService);
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        doReturn(true, false).when(mAdapterService).isStartedProfile(anyString());
         MapUtils.setMnsService(mMockMnsService);
         TestUtils.startService(mServiceRule, MapClientService.class);
         mService = MapClientService.getMapClientService();
         Assert.assertNotNull(mService);
         mAdapter = BluetoothAdapter.getDefaultAdapter();
-        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
     }
 
     @After
@@ -179,6 +183,22 @@ public class MapClientTest {
         // Try to connect one more device. Should fail.
         BluetoothDevice last = makeBluetoothDevice("11:22:33:44:55:66");
         Assert.assertFalse(mService.connect(last));
+    }
+
+    /**
+     * Test calling connect via Binder
+     */
+    @Test
+    public void testConnectViaBinder() {
+        BluetoothDevice device = makeBluetoothDevice("11:11:11:11:11:11");
+        mockDevicePriority(device, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
+        IBluetoothMapClient.Stub mapClientBinder = (IBluetoothMapClient.Stub) mService.initBinder();
+        try {
+            Utils.setForegroundUserId(UserHandle.getCallingUserId());
+            Assert.assertTrue(mapClientBinder.connect(device, mAdapter.getAttributionSource()));
+        } catch (Exception e) {
+            Assert.fail(e.toString());
+        }
     }
 
     private BluetoothDevice makeBluetoothDevice(String address) {

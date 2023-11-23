@@ -22,9 +22,11 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.drawable.Drawable;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import androidx.cardview.widget.CardView;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.SimpleItemAnimator;
@@ -45,6 +47,7 @@ import java.util.List;
 public class GroupNotificationViewHolder extends CarNotificationBaseViewHolder
         implements CarUxRestrictionsManager.OnUxRestrictionsChangedListener {
     private final Context mContext;
+    private final CardView mCardView;
     private final View mHeaderDividerView;
     private final ImageView mToggleIcon;
     private final TextView mExpansionFooterView;
@@ -64,6 +67,7 @@ public class GroupNotificationViewHolder extends CarNotificationBaseViewHolder
         super(view, clickHandlerFactory);
         mContext = view.getContext();
 
+        mCardView = itemView.findViewById(R.id.card_view);
         mGroupHeaderView = view.findViewById(R.id.group_header);
         mHeaderDividerView = view.findViewById(R.id.header_divider);
         mToggleIcon = view.findViewById(R.id.group_toggle_icon);
@@ -175,9 +179,17 @@ public class GroupNotificationViewHolder extends CarNotificationBaseViewHolder
         mToggleIcon.setVisibility(View.VISIBLE);
         mToggleIcon.setImageDrawable(isExpanded ? mCollapseDrawable : mExpandDrawable);
 
+        // Don't allow most controls to be focused when collapsed.
+        mNotificationListView.setDescendantFocusability(isExpanded
+                ? ViewGroup.FOCUS_BEFORE_DESCENDANTS : ViewGroup.FOCUS_BLOCK_DESCENDANTS);
+        mNotificationListView.setFocusable(false);
+        mGroupHeaderView.setFocusable(isExpanded);
+        mExpansionFooterView.setFocusable(isExpanded);
+
         // expansion button in the group footer
         if (isExpanded) {
             mExpansionFooterView.setText(mContext.getString(R.string.show_less));
+            hideDismissButton();
             return;
         }
 
@@ -186,6 +198,7 @@ public class GroupNotificationViewHolder extends CarNotificationBaseViewHolder
                 unshownCount <= 0
                         ? mContext.getString(R.string.show_more)
                         : mContext.getString(R.string.show_count_more, unshownCount));
+        updateDismissButton(getAlertEntry(), /* isHeadsUp= */ false);
     }
 
     private void updateOnClickListener(
@@ -197,6 +210,13 @@ public class GroupNotificationViewHolder extends CarNotificationBaseViewHolder
             mAdapter.notifyDataSetChanged();
         };
 
+        if (isExpanded) {
+            mCardView.setOnClickListener(null);
+            mCardView.setClickable(false);
+            mCardView.setFocusable(false);
+        } else {
+            mCardView.setOnClickListener(expansionClickListener);
+        }
         mGroupHeaderView.setOnClickListener(expansionClickListener);
         mExpansionFooterView.setOnClickListener(expansionClickListener);
         mTouchInterceptorView.setOnClickListener(expansionClickListener);
@@ -211,6 +231,7 @@ public class GroupNotificationViewHolder extends CarNotificationBaseViewHolder
     @Override
     void reset() {
         super.reset();
+        mCardView.setOnClickListener(null);
         mGroupHeaderView.reset();
     }
 

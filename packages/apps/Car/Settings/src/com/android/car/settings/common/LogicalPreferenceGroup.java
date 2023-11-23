@@ -17,11 +17,15 @@
 package com.android.car.settings.common;
 
 import android.content.Context;
+import android.content.res.TypedArray;
 import android.util.AttributeSet;
 
+import androidx.preference.Preference;
 import androidx.preference.PreferenceGroup;
 
-import com.android.car.settings.R;
+import com.android.car.ui.R;
+import com.android.car.ui.preference.CarUiEditTextPreference;
+import com.android.car.ui.preference.CarUiPreference;
 
 /**
  * {@link PreferenceGroup} which does not display a title, icon, or summary. This allows for
@@ -29,10 +33,20 @@ import com.android.car.settings.R;
  */
 public class LogicalPreferenceGroup extends PreferenceGroup {
 
+    private final boolean mShouldShowChevron;
+
     public LogicalPreferenceGroup(Context context, AttributeSet attrs, int defStyleAttr,
             int defStyleRes) {
         super(context, attrs, defStyleAttr, defStyleRes);
         setLayoutResource(R.layout.logical_preference_group);
+        TypedArray a = context.obtainStyledAttributes(
+                attrs,
+                R.styleable.PreferenceGroup,
+                defStyleAttr,
+                defStyleRes);
+
+        mShouldShowChevron = a.getBoolean(R.styleable.PreferenceGroup_showChevron, true);
+        a.recycle();
     }
 
     public LogicalPreferenceGroup(Context context, AttributeSet attrs, int defStyleAttr) {
@@ -45,5 +59,14 @@ public class LogicalPreferenceGroup extends PreferenceGroup {
 
     public LogicalPreferenceGroup(Context context) {
         this(context, null);
+    }
+
+    @Override
+    public boolean addPreference(Preference preference) {
+        if (!mShouldShowChevron && (preference instanceof CarUiPreference
+                || preference instanceof CarUiEditTextPreference)) {
+            ((CarUiPreference) preference).setShowChevron(false);
+        }
+        return super.addPreference(preference);
     }
 }

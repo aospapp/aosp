@@ -17,22 +17,44 @@
 package com.android.car.dialer;
 
 import android.app.Application;
+import android.bluetooth.BluetoothDevice;
 
-import com.android.car.dialer.notification.InCallNotificationController;
+import androidx.lifecycle.LiveData;
+
+import com.android.car.dialer.bluetooth.CallHistoryManager;
+import com.android.car.dialer.bluetooth.UiBluetoothMonitor;
+import com.android.car.dialer.framework.AndroidFramework;
 import com.android.car.dialer.notification.MissedCallNotificationController;
-import com.android.car.dialer.telecom.UiBluetoothMonitor;
 import com.android.car.dialer.telecom.UiCallManager;
 import com.android.car.telephony.common.InMemoryPhoneBook;
 
-public class DialerApplication extends Application {
+import javax.inject.Inject;
+import javax.inject.Named;
+
+import dagger.hilt.android.HiltAndroidApp;
+
+/** Application for Dialer app. */
+@HiltAndroidApp(Application.class)
+public final class DialerApplication extends Hilt_DialerApplication {
+    // Explicit injection for components that need to init on application create.
+    @Inject
+    UiCallManager mUiCallManager;
+    @Inject
+    UiBluetoothMonitor mUiBluetoothMonitor;
+    @Inject @Named("Hfp")
+    LiveData<BluetoothDevice> mCurrentHfpDeviceLiveData;
+    @Inject
+    CallHistoryManager mCallHistoryManager;
+    @Inject
+    MissedCallNotificationController mMissedCallNotificationController;
+
+    @Inject
+    AndroidFramework mAndroidFramework;
 
     @Override
     public void onCreate() {
         super.onCreate();
+        mAndroidFramework.start();
         InMemoryPhoneBook.init(this);
-        UiCallManager.init(this);
-        UiBluetoothMonitor.init(this);
-        InCallNotificationController.init(this);
-        MissedCallNotificationController.init(this);
     }
 }

@@ -33,6 +33,8 @@ import android.content.ContextWrapper;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.res.Resources;
+import android.frameworks.automotive.powerpolicy.internal.ICarPowerPolicySystemNotification;
+import android.frameworks.automotive.powerpolicy.internal.PolicyState;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropertyAccess;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropertyChangeMode;
@@ -47,7 +49,7 @@ import android.util.SparseArray;
 import androidx.test.annotation.UiThreadTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 
-import com.android.car.pm.CarPackageManagerService;
+import com.android.car.power.CarPowerManagementService;
 import com.android.car.systeminterface.ActivityManagerInterface;
 import com.android.car.systeminterface.DisplayInterface;
 import com.android.car.systeminterface.IOInterface;
@@ -85,8 +87,8 @@ import java.util.Map;
  * per test set up that should be done before starting.
  */
 public class MockedCarTestBase {
-    static final long DEFAULT_WAIT_TIMEOUT_MS = 3000;
-    static final long SHORT_WAIT_TIMEOUT_MS = 500;
+    protected static final long DEFAULT_WAIT_TIMEOUT_MS = 3000;
+    protected static final long SHORT_WAIT_TIMEOUT_MS = 500;
     private static final String TAG = MockedCarTestBase.class.getSimpleName();
     private static final IBinder sCarServiceToken = new Binder();
     private static boolean sRealCarServiceReleased;
@@ -95,7 +97,6 @@ public class MockedCarTestBase {
     private ICarImpl mCarImpl;
     private MockedVehicleHal mMockedVehicleHal;
     private SystemInterface mFakeSystemInterface;
-    private MockResources mResources;
     private MockedCarTestContext mMockedCarTestContext;
 
     private final List<UserLifecycleListener> mUserLifecycleListeners = new ArrayList<>();
@@ -106,6 +107,7 @@ public class MockedCarTestBase {
             new HashMap<>();
     private final SparseArray<VehiclePropConfigBuilder> mPropToConfigBuilder = new SparseArray<>();
     private final CarWatchdogService mCarWatchdogService = mock(CarWatchdogService.class);
+    private final FakeCarPowerPolicyDaemon mPowerPolicyDaemon = new FakeCarPowerPolicyDaemon();
 
     private MockitoSession mSession;
 
@@ -124,6 +126,18 @@ public class MockedCarTestBase {
     protected synchronized void configureMockedHal() {
     }
 
+    /**
+     * Called after {@codeICarImpl} is created and before {@code ICarImpl.init()} is called.
+     *
+     * <p> Subclass that intend to apply spyOn() to the service under testing should override this.
+     * <pre class="prettyprint">
+     * @Override
+     * protected synchronized void spyOnBeforeCarImplInit() {
+     *     mServiceUnderTest = CarLocalServices.getService(CarXXXService.class);
+     *     ExtendedMockito.spyOn(mServiceUnderTest);
+     * }
+     * </pre>
+     */
     protected synchronized void spyOnBeforeCarImplInit() {
     }
 
@@ -145,6 +159,8 @@ public class MockedCarTestBase {
         resources.overrideResource(com.android.car.R.bool.audioUseDynamicRouting, false);
         resources.overrideResource(com.android.car.R.array.config_earlyStartupServices,
                 new String[0]);
+        resources.overrideResource(com.android.car.R.integer.maxGarageModeRunningDurationInSecs,
+                900);
     }
 
     protected synchronized Context getContext() {
@@ -216,7 +232,8 @@ public class MockedCarTestBase {
         // This should be done here as feature property is accessed inside the constructor.
         initMockedHal();
         mCarImpl = new ICarImpl(mMockedCarTestContext, mMockedVehicleHal, mFakeSystemInterface,
-                /* errorNotifier= */ null , "MockedCar", mCarUserService, mCarWatchdogService);
+                "MockedCar", mCarUserService, mCarWatchdogService,
+                mPowerPolicyDaemon);
 
         spyOnBeforeCarImplInit();
         mCarImpl.init();
@@ -249,10 +266,6 @@ public class MockedCarTestBase {
         }
     }
 
-    public CarPropertyService getCarPropertyService() {
-        return (CarPropertyService) mCarImpl.getCarService(Car.PROPERTY_SERVICE);
-    }
-
     public void injectErrorEvent(int propId, int areaId, int errorCode) {
         mMockedVehicleHal.injectError(errorCode, propId, areaId);
     }
@@ -262,10 +275,6 @@ public class MockedCarTestBase {
      */
     public Car createNewCar() {
         return new Car(mMockedCarTestContext, mCarImpl, null /* handler */);
-    }
-
-    public CarPackageManagerService getPackageManagerService() {
-        return (CarPackageManagerService) mCarImpl.getCarService(Car.PACKAGE_SERVICE);
     }
 
     protected synchronized void reinitializeMockedHal() throws Exception {
@@ -392,6 +401,11 @@ public class MockedCarTestBase {
 
         @Override
         public void refreshDisplayBrightness() {}
+
+        @Override
+        public boolean isDisplayEnabled() {
+            return true;
+        }
     }
 
     static final class MockIOInterface implements IOInterface {
@@ -444,7 +458,7 @@ public class MockedCarTestBase {
         }
     }
 
-    static final class MockResources extends Resources {
+    protected static final class MockResources extends Resources {
         private final HashMap<Integer, Boolean> mBooleanOverrides = new HashMap<>();
         private final HashMap<Integer, Integer> mIntegerOverrides = new HashMap<>();
         private final HashMap<Integer, String> mStringOverrides = new HashMap<>();
@@ -480,22 +494,22 @@ public class MockedCarTestBase {
                     super.getStringArray(id));
         }
 
-        MockResources overrideResource(int id, boolean value) {
+        public MockResources overrideResource(int id, boolean value) {
             mBooleanOverrides.put(id, value);
             return this;
         }
 
-        MockResources overrideResource(int id, int value) {
+        public MockResources overrideResource(int id, int value) {
             mIntegerOverrides.put(id, value);
             return this;
         }
 
-        MockResources overrideResource(int id, String value) {
+        public MockResources overrideResource(int id, String value) {
             mStringOverrides.put(id, value);
             return this;
         }
 
-        MockResources overrideResource(int id, String[] value) {
+        public MockResources overrideResource(int id, String[] value) {
             mStringArrayOverrides.put(id, value);
             return this;
         }
@@ -535,5 +549,24 @@ public class MockedCarTestBase {
 
         @Override
         public void switchToFullWakeLock() {}
+    }
+
+    static final class FakeCarPowerPolicyDaemon extends ICarPowerPolicySystemNotification.Stub {
+        @Override
+        public PolicyState notifyCarServiceReady() {
+            // do nothing
+            return null;
+        }
+
+        @Override
+        public void notifyPowerPolicyChange(String policyId) {
+            // do nothing
+        }
+
+        @Override
+        public void notifyPowerPolicyDefinition(String policyId, String[] enabledComponents,
+                String[] disabledComponents) {
+            // do nothing
+        }
     }
 }

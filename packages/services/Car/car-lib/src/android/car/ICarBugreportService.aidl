@@ -31,9 +31,13 @@ interface ICarBugreportService {
      * zip file. The "extra_output" file descriptor will be provided to add files that does not
      * exist in the original file.
      * The file descriptor is written by the service and will be read by the client.
+     * @param dryRun if set true, dumpstate will be run in dry_run mode.
      */
-    void requestBugreport(in ParcelFileDescriptor output,
-            in ParcelFileDescriptor extraOutput, ICarBugreportCallback callback) = 1;
+    void requestBugreport(
+            in ParcelFileDescriptor output,
+            in ParcelFileDescriptor extraOutput,
+            ICarBugreportCallback callback,
+            boolean dryRun) = 1;
 
     /**
      * Cancels the running bugreport.

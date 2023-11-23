@@ -30,7 +30,10 @@ import android.Manifest;
 import android.app.AppOpsManager;
 import android.app.NotificationManager;
 import android.app.StatusBarManager;
+import android.app.UiModeManager;
 import android.app.role.RoleManager;
+import android.content.AttributionSource;
+import android.content.AttributionSourceState;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.ContentResolver;
@@ -39,12 +42,15 @@ import android.content.IContentProvider;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.PermissionInfo;
 import android.content.pm.ResolveInfo;
 import android.content.pm.ServiceInfo;
 import android.content.res.Configuration;
 import android.content.res.Resources;
+import android.hardware.SensorPrivacyManager;
 import android.location.Country;
 import android.location.CountryDetector;
 import android.media.AudioManager;
@@ -52,8 +58,12 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.IInterface;
 import android.os.PersistableBundle;
+import android.os.PowerWhitelistManager;
+import android.os.Process;
 import android.os.UserHandle;
 import android.os.UserManager;
+import android.os.VibratorManager;
+import android.permission.PermissionCheckerManager;
 import android.telecom.CallAudioState;
 import android.telecom.ConnectionService;
 import android.telecom.Log;
@@ -65,6 +75,7 @@ import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.telephony.TelephonyRegistryManager;
 import android.test.mock.MockContext;
+import android.util.DisplayMetrics;
 
 import java.io.File;
 import java.io.IOException;
@@ -76,7 +87,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Executor;
 
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.matches;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
@@ -203,6 +216,14 @@ public class ComponentContextFixture implements TestFixture<Context> {
                     return mRoleManager;
                 case Context.TELEPHONY_REGISTRY_SERVICE:
                     return mTelephonyRegistryManager;
+                case Context.UI_MODE_SERVICE:
+                    return mUiModeManager;
+                case Context.VIBRATOR_MANAGER_SERVICE:
+                    return mVibratorManager;
+                case Context.PERMISSION_CHECKER_SERVICE:
+                    return mPermissionCheckerManager;
+                case Context.SENSOR_PRIVACY_SERVICE:
+                    return mSensorPrivacyManager;
                 default:
                     return null;
             }
@@ -224,6 +245,14 @@ public class ComponentContextFixture implements TestFixture<Context> {
                 return Context.TELEPHONY_SUBSCRIPTION_SERVICE;
             } else if (svcClass == TelephonyRegistryManager.class) {
                 return Context.TELEPHONY_REGISTRY_SERVICE;
+            } else if (svcClass == UiModeManager.class) {
+                return Context.UI_MODE_SERVICE;
+            } else if (svcClass == VibratorManager.class) {
+                return Context.VIBRATOR_MANAGER_SERVICE;
+            } else if (svcClass == PermissionCheckerManager.class) {
+                return Context.PERMISSION_CHECKER_SERVICE;
+            } else if (svcClass == SensorPrivacyManager.class) {
+                return Context.SENSOR_PRIVACY_SERVICE;
             }
             throw new UnsupportedOperationException();
         }
@@ -246,6 +275,11 @@ public class ComponentContextFixture implements TestFixture<Context> {
         @Override
         public ApplicationInfo getApplicationInfo() {
             return mTestApplicationInfo;
+        }
+
+        @Override
+        public AttributionSource getAttributionSource() {
+            return mAttributionSource;
         }
 
         @Override
@@ -320,6 +354,12 @@ public class ComponentContextFixture implements TestFixture<Context> {
         }
 
         @Override
+        public void sendBroadcastAsUser(Intent intent, UserHandle user, String receiverPermission,
+                Bundle options) {
+            // Override so that this can be verified via spy.
+        }
+
+        @Override
         public void sendOrderedBroadcastAsUser(Intent intent, UserHandle user,
                 String receiverPermission, BroadcastReceiver resultReceiver, Handler scheduler,
                 int initialCode, String initialData, Bundle initialExtras) {
@@ -347,6 +387,11 @@ public class ComponentContextFixture implements TestFixture<Context> {
 
         @Override
         public int checkCallingOrSelfPermission(String permission) {
+            return PackageManager.PERMISSION_GRANTED;
+        }
+
+        @Override
+        public int checkSelfPermission(String permission) {
             return PackageManager.PERMISSION_GRANTED;
         }
 
@@ -430,10 +475,15 @@ public class ComponentContextFixture implements TestFixture<Context> {
         }
     }
 
+    private static final String PACKAGE_NAME = "com.android.server.telecom.tests";
+    private final AttributionSource mAttributionSource =
+            new AttributionSource.Builder(Process.myUid()).setPackageName(PACKAGE_NAME).build();
+
     private final Multimap<String, ComponentName> mComponentNamesByAction =
             ArrayListMultimap.create();
     private final Map<ComponentName, IInterface> mServiceByComponentName = new HashMap<>();
     private final Map<ComponentName, ServiceInfo> mServiceInfoByComponentName = new HashMap<>();
+    private final Map<ComponentName, ActivityInfo> mActivityInfoByComponentName = new HashMap<>();
     private final Map<IInterface, ComponentName> mComponentNameByService = new HashMap<>();
     private final Map<ServiceConnection, IInterface> mServiceByServiceConnection = new HashMap<>();
 
@@ -459,6 +509,7 @@ public class ComponentContextFixture implements TestFixture<Context> {
     private final Resources.Theme mResourcesTheme = mock(Resources.Theme.class);
     private final Resources mResources = mock(Resources.class);
     private final Context mApplicationContextSpy = spy(mApplicationContext);
+    private final DisplayMetrics mDisplayMetrics = mock(DisplayMetrics.class);
     private final PackageManager mPackageManager = mock(PackageManager.class);
     private final Executor mMainExecutor = mock(Executor.class);
     private final AudioManager mAudioManager = spy(new FakeAudioManager(mContext));
@@ -476,6 +527,12 @@ public class ComponentContextFixture implements TestFixture<Context> {
     private final RoleManager mRoleManager = mock(RoleManager.class);
     private final TelephonyRegistryManager mTelephonyRegistryManager =
             mock(TelephonyRegistryManager.class);
+    private final VibratorManager mVibratorManager = mock(VibratorManager.class);
+    private final UiModeManager mUiModeManager = mock(UiModeManager.class);
+    private final PermissionCheckerManager mPermissionCheckerManager =
+            mock(PermissionCheckerManager.class);
+    private final PermissionInfo mPermissionInfo = mock(PermissionInfo.class);
+    private final SensorPrivacyManager mSensorPrivacyManager = mock(SensorPrivacyManager.class);
 
     private TelecomManager mTelecomManager = mock(TelecomManager.class);
 
@@ -484,6 +541,9 @@ public class ComponentContextFixture implements TestFixture<Context> {
         when(mResources.getConfiguration()).thenReturn(mResourceConfiguration);
         when(mResources.getString(anyInt())).thenReturn("");
         when(mResources.getStringArray(anyInt())).thenReturn(new String[0]);
+        when(mResources.newTheme()).thenReturn(mResourcesTheme);
+        when(mResources.getDisplayMetrics()).thenReturn(mDisplayMetrics);
+        mDisplayMetrics.density = 3.125f;
         mResourceConfiguration.setLocale(Locale.TAIWAN);
 
         // TODO: Move into actual tests
@@ -507,10 +567,38 @@ public class ComponentContextFixture implements TestFixture<Context> {
             }
         }).when(mPackageManager).queryIntentServicesAsUser((Intent) any(), anyInt(), anyInt());
 
+        doAnswer(new Answer<List<ResolveInfo>>() {
+            @Override
+            public List<ResolveInfo> answer(InvocationOnMock invocation) throws Throwable {
+                return doQueryIntentReceivers(
+                        (Intent) invocation.getArguments()[0],
+                        (Integer) invocation.getArguments()[1]);
+            }
+        }).when(mPackageManager).queryBroadcastReceivers((Intent) any(), anyInt());
+
+        doAnswer(new Answer<List<ResolveInfo>>() {
+            @Override
+            public List<ResolveInfo> answer(InvocationOnMock invocation) throws Throwable {
+                return doQueryIntentReceivers(
+                        (Intent) invocation.getArguments()[0],
+                        (Integer) invocation.getArguments()[1]);
+            }
+        }).when(mPackageManager).queryBroadcastReceiversAsUser((Intent) any(), anyInt(), anyInt());
+
         // By default, tests use non-ui apps instead of 3rd party companion apps.
-        when(mPackageManager.checkPermission(
-                matches(Manifest.permission.CALL_COMPANION_APP), anyString()))
-                .thenReturn(PackageManager.PERMISSION_DENIED);
+        when(mPermissionCheckerManager.checkPermission(
+                matches(Manifest.permission.CALL_COMPANION_APP), any(AttributionSourceState.class),
+                nullable(String.class), anyBoolean(), anyBoolean(), anyBoolean(), anyInt()))
+                .thenReturn(PermissionCheckerManager.PERMISSION_HARD_DENIED);
+
+        try {
+            when(mPackageManager.getPermissionInfo(anyString(), anyInt())).thenReturn(
+                    mPermissionInfo);
+        } catch (PackageManager.NameNotFoundException ex) {
+        }
+
+        when(mPermissionInfo.isAppOp()).thenReturn(true);
+        when(mVibratorManager.getVibratorIds()).thenReturn(new int[0]);
 
         // Used in CreateConnectionProcessor to rank emergency numbers by viability.
         // For the test, make them all equal to INVALID so that the preferred PhoneAccount will be
@@ -578,11 +666,23 @@ public class ComponentContextFixture implements TestFixture<Context> {
         serviceInfo.name = componentName.getClassName();
         mServiceInfoByComponentName.put(componentName, serviceInfo);
 
-        // Used in InCallController to check permissions for CONTROL_INCALL_EXPERIENCE
+        // Used in InCallController to check permissions for CONTROL_INCALL_fvEXPERIENCE
         when(mPackageManager.getPackagesForUid(eq(uid))).thenReturn(new String[] {
                 componentName.getPackageName() });
         when(mPackageManager.checkPermission(eq(Manifest.permission.CONTROL_INCALL_EXPERIENCE),
                 eq(componentName.getPackageName()))).thenReturn(PackageManager.PERMISSION_GRANTED);
+        when(mPermissionCheckerManager.checkPermission(
+                eq(Manifest.permission.CONTROL_INCALL_EXPERIENCE),
+                any(AttributionSourceState.class), anyString(), anyBoolean(), anyBoolean(),
+                anyBoolean(), anyInt())).thenReturn(PackageManager.PERMISSION_GRANTED);
+    }
+
+    public void addIntentReceiver(String action, ComponentName name) {
+        mComponentNamesByAction.put(action, name);
+        ActivityInfo activityInfo = new ActivityInfo();
+        activityInfo.packageName = name.getPackageName();
+        activityInfo.name = name.getClassName();
+        mActivityInfoByComponentName.put(name, activityInfo);
     }
 
     public void putResource(int id, final String value) {
@@ -617,6 +717,10 @@ public class ComponentContextFixture implements TestFixture<Context> {
         return mTelephonyManager;
     }
 
+    public NotificationManager getNotificationManager() {
+        return mNotificationManager;
+    }
+
     private void addService(String action, ComponentName name, IInterface service) {
         mComponentNamesByAction.put(action, name);
         mServiceByComponentName.put(name, service);
@@ -631,6 +735,16 @@ public class ComponentContextFixture implements TestFixture<Context> {
             resolveInfo.serviceInfo.metaData = new Bundle();
             resolveInfo.serviceInfo.metaData.putBoolean(
                     TelecomManager.METADATA_INCLUDE_EXTERNAL_CALLS, true);
+            result.add(resolveInfo);
+        }
+        return result;
+    }
+
+    private List<ResolveInfo> doQueryIntentReceivers(Intent intent, int flags) {
+        List<ResolveInfo> result = new ArrayList<>();
+        for (ComponentName componentName : mComponentNamesByAction.get(intent.getAction())) {
+            ResolveInfo resolveInfo = new ResolveInfo();
+            resolveInfo.activityInfo = mActivityInfoByComponentName.get(componentName);
             result.add(resolveInfo);
         }
         return result;

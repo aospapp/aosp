@@ -20,7 +20,7 @@ package com.android.car.hal;
 import android.annotation.NonNull;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropConfig;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
-import android.util.Log;
+import android.util.Slog;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -39,7 +39,7 @@ public abstract class HalServiceBase {
     /** For dispatching events. Kept here to avoid alloc every time */
     private final ArrayList<VehiclePropValue> mDispatchList = new ArrayList<>(1);
 
-    final static int NOT_SUPPORTED_PROPERTY = -1;
+    static final int NOT_SUPPORTED_PROPERTY = -1;
 
     public List<VehiclePropValue> getDispatchList() {
         return mDispatchList;
@@ -90,10 +90,13 @@ public abstract class HalServiceBase {
      * Handles errors and pass error codes  when setting properties.
      */
     public void onPropertySetError(int property, int area, int errorCode) {
-        Log.d(MY_TAG, getClass().getSimpleName() + ".onPropertySetError(): property=" + property
+        Slog.d(MY_TAG, getClass().getSimpleName() + ".onPropertySetError(): property=" + property
                 + ", area=" + area + " , errorCode = " + errorCode);
     }
 
+    /**
+     * Dumps HAL service related info to the writer passed as parameter.
+     */
     public abstract void dump(PrintWriter writer);
 
     /**

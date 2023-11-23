@@ -16,7 +16,10 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="cmas_presidential_level_alert" msgid="2500559695815098491">"هشدار وضع اضطراری شدید"</string>
-    <string name="cmas_extreme_alert" msgid="6487533089309567518">"هشدار اضطراری"</string>
-    <string name="cmas_required_monthly_test" msgid="4861373660989211951">"پیام آزمایشی"</string>
+    <string name="cmas_presidential_level_alert" msgid="8798462930675572592">"هشدار وضعیت اضطراری بحرانی"</string>
+    <string name="cmas_extreme_alert" msgid="666310502927269524">"هشدار وضعیت اضطراری"</string>
+    <string name="cmas_required_monthly_test" msgid="3412608025684914213">"پیام آزمایشی"</string>
+    <string name="enable_emergency_alerts_message_summary" msgid="8186076761036041808">"دریافت هشدارهای وضعیت اضطراری"</string>
+    <string name="enable_cmas_test_alerts_title" msgid="4587011587057993053">"پیام‌های آزمایشی"</string>
+    <string name="enable_cmas_test_alerts_summary" msgid="6148921520813876460">"دریافت پیام‌های آزمایشی"</string>
 </resources>

@@ -57,6 +57,7 @@ import android.util.Log;
 import com.android.bluetooth.BluetoothObexTransport;
 import com.android.bluetooth.IObexConnectionHandler;
 import com.android.bluetooth.ObexServerSockets;
+import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.sdp.SdpManager;
 import com.android.internal.annotations.VisibleForTesting;
@@ -146,7 +147,7 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
 
     boolean mAcceptNewConnections;
 
-    private BluetoothAdapter mAdapter;
+    private AdapterService mAdapterService;
 
     private static final String INVISIBLE =
             BluetoothShare.VISIBILITY + "=" + BluetoothShare.VISIBILITY_HIDDEN;
@@ -162,8 +163,8 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
                     + BluetoothShare.USER_CONFIRMATION_PENDING;
 
     private static final String WHERE_INVISIBLE_UNCONFIRMED =
-            "(" + BluetoothShare.STATUS + ">=" + BluetoothShare.STATUS_SUCCESS + " AND " + INVISIBLE
-                    + ") OR (" + WHERE_CONFIRM_PENDING_INBOUND + ")";
+            "(" + BluetoothShare.STATUS + " > " + BluetoothShare.STATUS_SUCCESS + " AND "
+                    + INVISIBLE + ") OR (" + WHERE_CONFIRM_PENDING_INBOUND + ")";
 
     private static BluetoothOppService sBluetoothOppService;
 
@@ -208,12 +209,6 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
         IntentFilter filter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
         registerReceiver(mBluetoothReceiver, filter);
 
-        mAdapter = BluetoothAdapter.getDefaultAdapter();
-        synchronized (BluetoothOppService.this) {
-            if (mAdapter == null) {
-                Log.w(TAG, "Local BT device is not enabled");
-            }
-        }
         if (V) {
             BluetoothOppPreference preference = BluetoothOppPreference.getInstance(this);
             if (preference != null) {
@@ -229,6 +224,7 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
         if (V) {
             Log.v(TAG, "start()");
         }
+        mAdapterService = AdapterService.getAdapterService();
         mObserver = new BluetoothShareContentObserver();
         getContentResolver().registerContentObserver(BluetoothShare.CONTENT_URI, true, mObserver);
         mNotifier = new BluetoothOppNotification(this);
@@ -252,7 +248,7 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
 
     private void startListener() {
         if (!mListenStarted) {
-            if (mAdapter.isEnabled()) {
+            if (mAdapterService.isEnabled()) {
                 if (V) {
                     Log.v(TAG, "Starting RfcommListener");
                 }
@@ -358,7 +354,7 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
                     mNotifier.cancelNotifications();
                     break;
                 case START_LISTENER:
-                    if (mAdapter.isEnabled()) {
+                    if (mAdapterService.isEnabled()) {
                         startSocketListener();
                     }
                     break;
@@ -847,8 +843,10 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
 
         info.mId = cursor.getInt(cursor.getColumnIndexOrThrow(BluetoothShare._ID));
         if (info.mUri != null) {
-            info.mUri =
-                    Uri.parse(stringFromCursor(info.mUri.toString(), cursor, BluetoothShare.URI));
+            String uriString = stringFromCursor(info.mUri.toString(), cursor, BluetoothShare.URI);
+            if (uriString != null) {
+                info.mUri = Uri.parse(uriString);
+            }
         } else {
             Log.w(TAG, "updateShare() called for ID " + info.mId + " with null URI");
         }
@@ -1162,7 +1160,8 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
     }
 
     private void stopListeners() {
-        if (mAdapter != null && mOppSdpHandle >= 0 && SdpManager.getDefaultManager() != null) {
+        if (mAdapterService != null && mOppSdpHandle >= 0
+                && SdpManager.getDefaultManager() != null) {
             if (D) {
                 Log.d(TAG, "Removing SDP record mOppSdpHandle :" + mOppSdpHandle);
             }

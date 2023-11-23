@@ -14,12 +14,18 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_defaults {
     name: "NetworkPermissionConfigDefaults",
     // TODO: mark app as hasCode=false in manifest once soong stops complaining about apps without
     // a classes.dex.
     srcs: ["src/**/*.java"],
     platform_apis: true,
+    target_sdk_version: "30",
+    min_sdk_version: "29",
     privileged: true,
     manifest: "AndroidManifest.xml",
 }
@@ -29,8 +35,6 @@ android_app {
     name: "NetworkPermissionConfig",
     defaults: ["NetworkPermissionConfigDefaults"],
     certificate: "networkstack",
-    target_sdk_version: "30",
-    min_sdk_version: "29",
 }
 
 // Alternative stub APK signed with platform certificate. To use with InProcessNetworkStack.

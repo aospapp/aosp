@@ -16,9 +16,9 @@
 
 package com.android.tv.settings;
 
-import android.app.Activity;
-import android.app.Fragment;
-import android.content.SharedPreferences;
+import static com.android.tv.settings.overlay.FlavorUtils.ALL_FLAVORS_MASK;
+
+import android.content.Intent;
 import android.os.Bundle;
 import android.transition.Scene;
 import android.transition.Slide;
@@ -30,28 +30,42 @@ import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 
 import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentActivity;
 
-import com.android.settingslib.core.instrumentation.MetricsFeatureProvider;
-import com.android.settingslib.core.instrumentation.SharedPreferencesLogger;
-import com.android.tv.settings.overlay.FeatureFactory;
+import com.android.tv.settings.overlay.FlavorUtils;
 
-public abstract class TvSettingsActivity extends Activity {
+public abstract class TvSettingsActivity extends FragmentActivity {
     private static final String TAG = "TvSettingsActivity";
 
     private static final String SETTINGS_FRAGMENT_TAG =
             "com.android.tv.settings.MainSettings.SETTINGS_FRAGMENT";
 
+    private static final int REQUEST_CODE_STARTUP_VERIFICATION = 1;
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if ((FlavorUtils.getFlavor(this) & getAvailableFlavors()) == 0) {
+            Log.w(TAG, "Activity is not supported in current flavor");
+            finish();
+        }
         if (savedInstanceState == null) {
 
             final Fragment fragment = createSettingsFragment();
             if (fragment == null) {
                 return;
             }
-            if (FeatureFactory.getFactory(this).isTwoPanelLayout()) {
-                getFragmentManager().beginTransaction()
+            if (isStartupVerificationRequired()) {
+                if (FlavorUtils.getFeatureFactory(this)
+                        .getStartupVerificationFeatureProvider()
+                        .startStartupVerificationActivityForResult(
+                                this, REQUEST_CODE_STARTUP_VERIFICATION)) {
+                    return;
+                }
+            }
+            if (FlavorUtils.isTwoPanel(this)) {
+                getSupportFragmentManager().beginTransaction()
                         .setCustomAnimations(android.R.animator.fade_in,
                                 android.R.animator.fade_out)
                         .add(android.R.id.content, fragment, SETTINGS_FRAGMENT_TAG)
@@ -72,7 +86,7 @@ public abstract class TvSettingsActivity extends Activity {
                                     Log.d(TAG, "Got torn down before adding fragment");
                                     return;
                                 }
-                                getFragmentManager().beginTransaction()
+                                getSupportFragmentManager().beginTransaction()
                                         .add(android.R.id.content, fragment,
                                                 SETTINGS_FRAGMENT_TAG)
                                         .commitNow();
@@ -93,8 +107,8 @@ public abstract class TvSettingsActivity extends Activity {
 
     @Override
     public void finish() {
-        final Fragment fragment = getFragmentManager().findFragmentByTag(SETTINGS_FRAGMENT_TAG);
-        if (FeatureFactory.getFactory(this).isTwoPanelLayout()) {
+        final Fragment fragment = getSupportFragmentManager().findFragmentByTag(SETTINGS_FRAGMENT_TAG);
+        if (FlavorUtils.isTwoPanel(this)) {
             super.finish();
             return;
         }
@@ -102,7 +116,7 @@ public abstract class TvSettingsActivity extends Activity {
         if (isResumed() && fragment != null) {
             final ViewGroup root = findViewById(android.R.id.content);
             final Scene scene = new Scene(root);
-            scene.setEnterAction(() -> getFragmentManager().beginTransaction()
+            scene.setEnterAction(() -> getSupportFragmentManager().beginTransaction()
                     .remove(fragment)
                     .commitNow());
             final Slide slide = new Slide(Gravity.END);
@@ -140,20 +154,49 @@ public abstract class TvSettingsActivity extends Activity {
 
     protected abstract Fragment createSettingsFragment();
 
-    private String getMetricsTag() {
-        String tag = getClass().getName();
-        if (tag.startsWith("com.android.tv.settings.")) {
-            tag = tag.replace("com.android.tv.settings.", "");
-        }
-        return tag;
+    /**
+     * Subclass may override this to return true to indicate that the Activity may only be started
+     * after some verification. Example: in special mode, we need to challenge the user with re-auth
+     * before launching account settings.
+     *
+     * This only works in certain flavors as we do not have features requiring the startup
+     * verification in classic flavor or ordinary two panel flavor.
+     */
+    protected boolean isStartupVerificationRequired() {
+        return false;
+    }
+
+    /** Subclass may override this to specify the flavor, in which the activity is available. */
+    protected int getAvailableFlavors() {
+        return ALL_FLAVORS_MASK;
     }
 
     @Override
-    public SharedPreferences getSharedPreferences(String name, int mode) {
-        if (name.equals(getPackageName() + "_preferences")) {
-            return new SharedPreferencesLogger(this, getMetricsTag(),
-                    new MetricsFeatureProvider());
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_CODE_STARTUP_VERIFICATION) {
+            if (resultCode == RESULT_OK) {
+                Log.v(TAG, "Startup verification succeeded.");
+                if (FlavorUtils.getFlavor(this) == FlavorUtils.FLAVOR_X
+                        || FlavorUtils.getFlavor(this) == FlavorUtils.FLAVOR_VENDOR) {
+                    if (createSettingsFragment() == null) {
+                        Log.e(TAG, "Fragment is null.");
+                        finish();
+                        return;
+                    }
+                    getSupportFragmentManager().beginTransaction()
+                            .setCustomAnimations(
+                                    android.R.animator.fade_in, android.R.animator.fade_out)
+                            .add(
+                                    android.R.id.content,
+                                    createSettingsFragment(),
+                                    SETTINGS_FRAGMENT_TAG)
+                            .commitNow();
+                }
+            } else {
+                Log.v(TAG, "Startup verification cancelled or failed.");
+                finish();
+            }
         }
-        return super.getSharedPreferences(name, mode);
     }
 }

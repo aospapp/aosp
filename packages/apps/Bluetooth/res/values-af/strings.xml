@@ -18,8 +18,8 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"Maak toegang aflaaibestuurder oop."</string>
     <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"Gee aan die program toegang tot die BluetoothShare-bestuurder en om dit te gebruik om lêers oor te dra."</string>
-    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"Witlys Bluetooth-toesteltoegang."</string>
-    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"Laat die program toe om \'n Bluetooth-toestel tydelik te witlys, sodat daardie toestel lêers na hierdie toestel kan stuur sonder die gebruiker se bevestiging."</string>
+    <string name="permlab_bluetoothAcceptlist" msgid="2647575807648622053">"Voeg Bluetooth-toesteltoegang by aanvaarlys."</string>
+    <string name="permdesc_bluetoothAcceptlist" msgid="2406423665674766442">"Laat die program toe om \'n Bluetooth-toestel tydelik by aanvaarlys te voeg, sodat daardie toestel lêers na hierdie toestel kan stuur sonder die gebruiker se bevestiging."</string>
     <string name="bt_share_picker_label" msgid="6268100924487046932">"Bluetooth"</string>
     <string name="unknown_device" msgid="9221903979877041009">"Onbekende toestel"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"Onbekend"</string>
@@ -37,7 +37,7 @@
     <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"OK"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"Daar was \'n uittelling terwyl \'n inkomende lêer van \"<xliff:g id="SENDER">%1$s</xliff:g>\" aanvaar is"</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"Inkomende lêer"</string>
-    <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="SENDER">%1$s</xliff:g> is gereed om <xliff:g id="FILE">%2$s</xliff:g> te stuur"</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="6237487486781004992">"<xliff:g id="SENDER">%1$s</xliff:g> is gereed om \'n lêer te stuur: <xliff:g id="FILE">%2$s</xliff:g>"</string>
     <string name="notification_receiving" msgid="4674648179652543984">"Bluetooth-deling: Ontvang <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="notification_received" msgid="3324588019186687985">"Bluetooth-deling: Het \"<xliff:g id="FILE">%1$s</xliff:g>\" ontvang"</string>
     <string name="notification_received_fail" msgid="3619350997285714746">"Bluetooth-deling: Lêer <xliff:g id="FILE">%1$s</xliff:g> nie ontvang nie"</string>
@@ -83,8 +83,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"Stuur lêer na \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\""</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"Stuur <xliff:g id="NUMBER">%1$s</xliff:g> lêers na \"<xliff:g id="RECIPIENT">%2$s</xliff:g>\""</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"Opgehou om lêer na \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" te stuur"</string>
-    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"Daar is te min spasie op die USB-berging om die lêer van \"<xliff:g id="SENDER">%1$s</xliff:g>\" af te stoor"</string>
-    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"Daar is te min spasie op die SD-kaart om die lêer van \"<xliff:g id="SENDER">%1$s</xliff:g>\" af te stoor"</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="5354343190503952837">"Daar is te min spasie in die USB-berging om die lêer te stoor."</string>
+    <string name="bt_sm_2_1_default" msgid="2497541206648973852">"Daar is te min spasie op die SD-kaart om die lêer te stoor."</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"Spasie nodig: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"Te veel versoeke word verwerk. Probeer later weer."</string>
     <string name="status_pending" msgid="2503691772030877944">"Lêeroordrag nog nie begin nie."</string>

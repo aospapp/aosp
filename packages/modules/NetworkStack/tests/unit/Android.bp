@@ -14,6 +14,10 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_defaults {
     name: "NetworkStackTestsDefaults",
     platform_apis: true,
@@ -32,7 +36,10 @@ java_defaults {
         "android.test.base",
         "android.test.mock",
     ],
-    defaults: ["libnetworkstackutilsjni_deps"],
+    defaults: [
+        "framework-connectivity-test-defaults",
+        "libnetworkstackutilsjni_deps"
+    ],
     jni_libs: [
         // For mockito extended
         "libdexmakerjvmtiagent",
@@ -46,10 +53,17 @@ java_defaults {
 // Tests for NetworkStackNext.
 android_test {
     name: "NetworkStackNextTests",
+    target_sdk_version: "current",
+    min_sdk_version: "29",
     srcs: [], // TODO: tests that only apply to the current, non-stable API can be added here
-    test_suites: ["device-tests"],
+    test_suites: ["general-tests"],
+    test_mainline_modules: [
+        "CaptivePortalLoginGoogle.apk+NetworkStackGoogle.apk+com.google.android.resolv.apex",
+        "CaptivePortalLoginGoogle.apk+NetworkStackGoogle.apk+com.google.android.resolv.apex+com.google.android.tethering.apex"
+    ],
     defaults: ["NetworkStackTestsDefaults"],
     static_libs: ["NetworkStackApiCurrentLib"],
+    compile_multilib: "both", // Workaround for b/147785146 for mainline-presubmit
 }
 
 // Library containing the unit tests. This is used by the coverage test target to pull in the
@@ -62,14 +76,20 @@ android_library {
     static_libs: ["NetworkStackApiStableLib"],
     visibility: [
         "//packages/modules/NetworkStack/tests/integration",
-        "//frameworks/base/packages/Tethering/tests/integration",
+        "//packages/modules/Connectivity/tests:__subpackages__",
+        "//packages/modules/Connectivity/Tethering/tests:__subpackages__",
     ]
 }
 
 android_test {
     name: "NetworkStackTests",
     min_sdk_version: "29",
-    test_suites: ["device-tests", "mts"],
+    target_sdk_version: "30",
+    test_suites: ["general-tests", "mts"],
+    test_mainline_modules: [
+        "CaptivePortalLoginGoogle.apk+NetworkStackGoogle.apk+com.google.android.resolv.apex",
+        "CaptivePortalLoginGoogle.apk+NetworkStackGoogle.apk+com.google.android.resolv.apex+com.google.android.tethering.apex"
+    ],
     defaults: ["NetworkStackTestsDefaults"],
     static_libs: ["NetworkStackApiStableLib"],
     compile_multilib: "both",

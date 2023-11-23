@@ -16,5 +16,9 @@ limitations under the License.
 <resources>
     <!-- Columns -->
     <integer name="car_app_selector_column_number">3</integer>
+
+    <integer name="card_content_text_block_max_lines">3</integer>
+    <!-- Number of buttons shown for the media playback controls bar -->
+    <integer name="playback_controls_bar_columns">3</integer>
 </resources>
 

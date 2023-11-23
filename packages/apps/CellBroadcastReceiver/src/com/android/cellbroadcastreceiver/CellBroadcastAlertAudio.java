@@ -20,6 +20,8 @@ import static android.telephony.PhoneStateListener.LISTEN_NONE;
 
 import static com.android.cellbroadcastreceiver.CellBroadcastReceiver.DBG;
 
+import android.app.AlarmManager;
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
@@ -39,9 +41,11 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
+import android.os.SystemClock;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.preference.PreferenceManager;
+import android.provider.Settings;
 import android.speech.tts.TextToSpeech;
 import android.telephony.PhoneStateListener;
 import android.telephony.SubscriptionManager;
@@ -59,7 +63,7 @@ import java.util.Locale;
  * it can continue to play if another activity overrides the CellBroadcastListActivity.
  */
 public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnInitListener,
-        TextToSpeech.OnUtteranceCompletedListener {
+        TextToSpeech.OnUtteranceCompletedListener, AudioManager.OnAudioFocusChangeListener {
     private static final String TAG = "CellBroadcastAlertAudio";
 
     /** Action to start playing alert audio/vibration/speech. */
@@ -78,7 +82,7 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
     public static final String ALERT_AUDIO_TONE_TYPE =
             "com.android.cellbroadcastreceiver.ALERT_AUDIO_TONE_TYPE";
 
-    /** Extra for alert vibration pattern (unless master volume is silent). */
+    /** Extra for alert vibration pattern (unless main volume is silent). */
     public static final String ALERT_AUDIO_VIBRATION_PATTERN_EXTRA =
             "com.android.cellbroadcastreceiver.ALERT_AUDIO_VIBRATION_PATTERN";
 
@@ -103,9 +107,13 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
     private static final int STATE_ALERTING = 1;
     private static final int STATE_PAUSING = 2;
     private static final int STATE_SPEAKING = 3;
+    private static final int STATE_STOPPING = 4;
 
     /** Default LED flashing frequency is 250 milliseconds */
     private static final long DEFAULT_LED_FLASH_INTERVAL_MSEC = 250L;
+
+    /** Default delay for resent alert audio intent */
+    private static final long DEFAULT_RESENT_DELAY_MSEC = 200L;
 
     private int mState;
 
@@ -120,6 +128,8 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
     private boolean mEnableVibrate;
     private boolean mEnableAudio;
     private boolean mEnableLedFlash;
+    private boolean mIsMediaPlayerStarted;
+    private boolean mIsTextToSpeechSpeaking;
     private boolean mOverrideDnd;
     private boolean mResetAlarmVolumeNeeded;
     private int mUserSetAlarmVolume;
@@ -192,9 +202,9 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
         if (utteranceId.equals(TTS_UTTERANCE_ID)) {
             // When we reach here, it could be TTS completed or TTS was cut due to another
             // new alert started playing. We don't want to stop the service in the later case.
-            if (mState == STATE_SPEAKING) {
+            if (getState() == STATE_SPEAKING) {
                 if (DBG) log("TTS completed. Stop CellBroadcastAlertAudio service");
-                stopSelf();
+                stopAlertAudioService();
             }
         }
     }
@@ -216,15 +226,14 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
                         if (mMessageBody != null && mTtsEngineReady && mTtsLanguageSupported) {
                             sendMessageDelayed(mHandler.obtainMessage(ALERT_PAUSE_FINISHED),
                                     PAUSE_DURATION_BEFORE_SPEAKING_MSEC);
-                            mState = STATE_PAUSING;
+                            setState(STATE_PAUSING);
                         } else {
                             if (DBG) {
                                 log("MessageEmpty = " + (mMessageBody == null)
                                         + ", mTtsEngineReady = " + mTtsEngineReady
                                         + ", mTtsLanguageSupported = " + mTtsLanguageSupported);
                             }
-                            stopSelf();
-                            mState = STATE_IDLE;
+                            stopAlertAudioService();
                         }
                         // Set alert reminder depending on user preference
                         CellBroadcastAlertReminder.queueAlertReminder(getApplicationContext(),
@@ -238,15 +247,15 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
                         if (mMessageBody != null && mTtsEngineReady && mTtsLanguageSupported) {
                             if (DBG) log("Speaking broadcast text: " + mMessageBody);
 
-                            mTts.setAudioAttributes(getAlertAudioAttributes(mAlertType));
+                            mTts.setAudioAttributes(getAlertAudioAttributes());
                             res = mTts.speak(mMessageBody, 2, null, TTS_UTTERANCE_ID);
-                            mState = STATE_SPEAKING;
+                            mIsTextToSpeechSpeaking = true;
+                            setState(STATE_SPEAKING);
                         }
                         if (res != TextToSpeech.SUCCESS) {
                             loge("TTS engine not ready or language not supported or speak() "
                                     + "failed");
-                            stopSelf();
-                            mState = STATE_IDLE;
+                            stopAlertAudioService();
                         }
                         break;
 
@@ -270,7 +279,7 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
                 if (state != TelephonyManager.CALL_STATE_IDLE
                         && state != mInitialCallState) {
                     if (DBG) log("Call interrupted. Stop CellBroadcastAlertAudio service");
-                    stopSelf();
+                    stopAlertAudioService();
                 }
             }
         };
@@ -279,6 +288,7 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
 
     @Override
     public void onDestroy() {
+        setState(STATE_STOPPING);
         // stop audio, vibration and TTS
         if (DBG) log("onDestroy");
         stop();
@@ -297,7 +307,7 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
             // Release the audio focus so other audio (e.g. music) can resume.
             // Do not do this in stop() because stop() is also called when we stop the tone (before
             // TTS is playing). We only want to release the focus when tone and TTS are played.
-            mAudioManager.abandonAudioFocus(null);
+            mAudioManager.abandonAudioFocus(this);
         }
     }
 
@@ -308,11 +318,33 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (DBG) log("onStartCommand");
         // No intent, tell the system not to restart us.
         if (intent == null) {
             if (DBG) log("Null intent. Stop CellBroadcastAlertAudio service");
-            stopSelf();
+            stopAlertAudioService();
             return START_NOT_STICKY;
+        }
+
+        // Check if service stop is in progress
+        if (getState() == STATE_STOPPING) {
+            if (DBG) log("stop is in progress");
+            PendingIntent pi;
+            pi = PendingIntent.getService(this, 1 /*REQUEST_CODE_CONTENT_INTENT*/, intent,
+                    PendingIntent.FLAG_ONE_SHOT
+                            | PendingIntent.FLAG_UPDATE_CURRENT
+                            | PendingIntent.FLAG_IMMUTABLE);
+            AlarmManager alarmManager = getSystemService(AlarmManager.class);
+            if (alarmManager == null) {
+                loge("can't get Alarm Service");
+                return START_NOT_STICKY;
+            }
+            if (DBG) log("resent intent");
+            // resent again
+            long triggerTime = SystemClock.elapsedRealtime() + DEFAULT_RESENT_DELAY_MSEC;
+            alarmManager.setExact(AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                    triggerTime, pi);
+            return START_STICKY;
         }
 
         // Get text to speak (if enabled by user)
@@ -377,7 +409,7 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
             playAlertTone(mAlertType, mVibrationPattern);
         } else {
             if (DBG) log("No audio/vibrate playing. Stop CellBroadcastAlertAudio service");
-            stopSelf();
+            stopAlertAudioService();
             return START_NOT_STICKY;
         }
 
@@ -424,8 +456,7 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
             }
 
             AudioAttributes.Builder attrBuilder = new AudioAttributes.Builder();
-            attrBuilder.setUsage(alertType == AlertType.INFO
-                    ? AudioAttributes.USAGE_NOTIFICATION : AudioAttributes.USAGE_ALARM);
+            attrBuilder.setUsage(AudioAttributes.USAGE_ALARM);
             if (mOverrideDnd) {
                 // Set the flags to bypass DnD mode if override dnd is turned on.
                 attrBuilder.setFlags(AudioAttributes.FLAG_BYPASS_INTERRUPTION_POLICY
@@ -490,7 +521,8 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
                         setDataSourceFromResource(res, mMediaPlayer, R.raw.etws_default);
                         break;
                     case INFO:
-                        setDataSourceFromResource(res, mMediaPlayer, R.raw.info);
+                    case AREA:
+                        mMediaPlayer.setDataSource(this, Settings.System.DEFAULT_NOTIFICATION_URI);
                         break;
                     case TEST:
                     case DEFAULT:
@@ -498,11 +530,19 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
                         setDataSourceFromResource(res, mMediaPlayer, R.raw.default_tone);
                 }
 
-                // Request audio focus (though we're going to play even if we don't get it)
-                mAudioManager.requestAudioFocus(null, AudioManager.STREAM_ALARM,
-                        AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
-                mMediaPlayer.setAudioAttributes(getAlertAudioAttributes(mAlertType));
-                setAlertVolume(mAlertType);
+                // Request audio focus (though we're going to play even if we don't get it). The
+                // only scenario we are not getting focus immediately is a voice call is holding
+                // focus, since we are passing AUDIOFOCUS_FLAG_DELAY_OK, the focus will be granted
+                // once voice call ends.
+                mAudioManager.requestAudioFocus(this,
+                        new AudioAttributes.Builder().setLegacyStreamType(
+                                (alertType == AlertType.INFO || alertType == AlertType.AREA) ?
+                                        AudioManager.STREAM_NOTIFICATION
+                                        : AudioManager.STREAM_ALARM).build(),
+                        AudioManager.AUDIOFOCUS_GAIN_TRANSIENT,
+                        AudioManager.AUDIOFOCUS_FLAG_DELAY_OK);
+                mMediaPlayer.setAudioAttributes(getAlertAudioAttributes());
+                setAlertVolume();
 
                 // If we are using the custom alert duration, set looping to true so we can repeat
                 // the alert. The tone playing will stop when ALERT_SOUND_FINISHED arrives.
@@ -510,6 +550,7 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
                 mMediaPlayer.setLooping(customAlertDuration >= 0);
                 mMediaPlayer.prepare();
                 mMediaPlayer.start();
+                mIsMediaPlayerStarted = true;
 
             } catch (Exception ex) {
                 loge("Failed to play alert sound: " + ex);
@@ -525,8 +566,7 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
             mHandler.sendMessageDelayed(mHandler.obtainMessage(ALERT_SOUND_FINISHED),
                     customAlertDuration >= 0 ? customAlertDuration : vibrateDuration);
         }
-
-        mState = STATE_ALERTING;
+        setState(STATE_ALERTING);
     }
 
     private static void setDataSourceFromResource(Resources resources,
@@ -584,49 +624,68 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
         mHandler.removeMessages(ALERT_PAUSE_FINISHED);
         mHandler.removeMessages(ALERT_LED_FLASH_TOGGLE);
 
-        resetAlarmStreamVolume(mAlertType);
+        resetAlarmStreamVolume();
 
-        if (mState == STATE_ALERTING) {
-            // Stop audio playing
-            if (mMediaPlayer != null) {
-                try {
-                    mMediaPlayer.stop();
-                    mMediaPlayer.release();
-                } catch (IllegalStateException e) {
-                    // catch "Unable to retrieve AudioTrack pointer for stop()" exception
-                    loge("exception trying to stop media player");
-                }
-                mMediaPlayer = null;
+        // Stop audio playing
+        if (mMediaPlayer != null && mIsMediaPlayerStarted) {
+            try {
+                mMediaPlayer.stop();
+                mMediaPlayer.release();
+            } catch (IllegalStateException e) {
+                // catch "Unable to retrieve AudioTrack pointer for stop()" exception
+                loge("exception trying to stop media player");
             }
+            mIsMediaPlayerStarted = false;
+            mMediaPlayer = null;
+        }
 
-            // Stop vibrator
-            mVibrator.cancel();
-            if (mEnableLedFlash) {
-                enableLedFlash(false);
-            }
-        } else if (mState == STATE_SPEAKING && mTts != null) {
+        // Stop vibrator
+        mVibrator.cancel();
+        if (mEnableLedFlash) {
+            enableLedFlash(false);
+        }
+
+        if (mTts != null && mIsTextToSpeechSpeaking) {
             try {
                 mTts.stop();
             } catch (IllegalStateException e) {
                 // catch "Unable to retrieve AudioTrack pointer for stop()" exception
                 loge("exception trying to stop text-to-speech");
             }
+            mIsTextToSpeechSpeaking = false;
         }
-        mState = STATE_IDLE;
+
+        // Service will be destroyed if the state is STATE_STOPPING,
+        // so it should not be changed to another state.
+        if (getState() != STATE_STOPPING) {
+            setState(STATE_IDLE);
+        }
+    }
+
+    @Override
+    public void onAudioFocusChange(int focusChange) {
+        log("onAudioFocusChanged: " + focusChange);
+        // Do nothing, as we don't care if focus was steal from other apps, as emergency alerts will
+        // play anyway.
     }
 
     /**
      * Get audio attribute for the alarm.
      */
-    private AudioAttributes getAlertAudioAttributes(AlertType alertType) {
+    private AudioAttributes getAlertAudioAttributes() {
         AudioAttributes.Builder builder = new AudioAttributes.Builder();
 
         builder.setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION);
-        builder.setUsage((alertType == AlertType.INFO
-                ? AudioAttributes.USAGE_NOTIFICATION : AudioAttributes.USAGE_ALARM));
+        builder.setUsage((mAlertType == AlertType.INFO || mAlertType == AlertType.AREA) ?
+                AudioAttributes.USAGE_NOTIFICATION : AudioAttributes.USAGE_ALARM);
         if (mOverrideDnd) {
             // Set FLAG_BYPASS_INTERRUPTION_POLICY and FLAG_BYPASS_MUTE so that it enables
             // audio in any DnD mode, even in total silence DnD mode (requires MODIFY_PHONE_STATE).
+
+            // Note: this only works when the audio attributes usage is set to USAGE_ALARM. If
+            // regulatory concerns mean that we need to bypass DnD for AlertType.INFO or
+            // AlertType.AREA as well, we'll need to add a config flag to have INFO go over the
+            // alarm stream as well for those jurisdictions in which those regulatory concerns apply
             builder.setFlags(AudioAttributes.FLAG_BYPASS_INTERRUPTION_POLICY
                     | AudioAttributes.FLAG_BYPASS_MUTE);
         }
@@ -637,7 +696,7 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
     /**
      * Set volume for alerts.
      */
-    private void setAlertVolume(AlertType alertType) {
+    private void setAlertVolume() {
         if (mTelephonyManager.getCallState() != TelephonyManager.CALL_STATE_IDLE
                 || isOnEarphone()) {
             // If we are in a call, play the alert
@@ -648,7 +707,7 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
             // If override DnD is turned on,
             // we overwrite volume setting of STREAM_ALARM to full, play at
             // max possible volume, and reset it after it's finished.
-            setAlarmStreamVolumeToFull(alertType);
+            setAlarmStreamVolumeToFull();
         }
     }
 
@@ -671,27 +730,57 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
     /**
      * Set volume of STREAM_ALARM to full.
      */
-    private void setAlarmStreamVolumeToFull(AlertType alertType) {
-        log("setting alarm volume to full for cell broadcast alerts.");
-        int streamType = (alertType == AlertType.INFO)
-                ? AudioManager.STREAM_NOTIFICATION : AudioManager.STREAM_ALARM;
-        mUserSetAlarmVolume = mAudioManager.getStreamVolume(streamType);
-        mResetAlarmVolumeNeeded = true;
-        mAudioManager.setStreamVolume(streamType,
-                mAudioManager.getStreamMaxVolume(streamType), 0);
+    private void setAlarmStreamVolumeToFull() {
+        if (mAlertType != AlertType.INFO && mAlertType != AlertType.AREA) {
+            log("setting alarm volume to full for cell broadcast alerts.");
+            int streamType = AudioManager.STREAM_ALARM;
+            mUserSetAlarmVolume = mAudioManager.getStreamVolume(streamType);
+            mResetAlarmVolumeNeeded = true;
+            mAudioManager.setStreamVolume(streamType,
+                    mAudioManager.getStreamMaxVolume(streamType), 0);
+        } else {
+            log("Skipping setting alarm volume to full for alert type INFO and AREA");
+        }
     }
 
     /**
      * Reset volume of STREAM_ALARM, if needed.
      */
-    private void resetAlarmStreamVolume(AlertType alertType) {
+    private void resetAlarmStreamVolume() {
         if (mResetAlarmVolumeNeeded) {
             log("resetting alarm volume to back to " + mUserSetAlarmVolume);
-            mAudioManager.setStreamVolume(alertType == AlertType.INFO
-                            ? AudioManager.STREAM_NOTIFICATION : AudioManager.STREAM_ALARM,
-                    mUserSetAlarmVolume, 0);
+            mAudioManager.setStreamVolume(AudioManager.STREAM_ALARM, mUserSetAlarmVolume, 0);
             mResetAlarmVolumeNeeded = false;
         }
+    }
+
+    /**
+     * Stop CellBroadcastAlertAudio Service and set state to STATE_STOPPING
+     */
+    private void stopAlertAudioService() {
+        if (DBG) log("stopAlertAudioService, current state is " + getState());
+        if (getState() != STATE_STOPPING) {
+            setState(STATE_STOPPING);
+            stopSelf();
+        }
+    }
+
+    /**
+     * Set AlertAudioService state
+     *
+     * @param state service status
+     */
+    private synchronized void setState(int state) {
+        if (DBG) log("Set state from " + mState + " to " + state);
+        mState = state;
+    }
+
+    /**
+     * Get AlertAudioService status
+     * @return service status
+     */
+    private synchronized int getState() {
+        return mState;
     }
 
     private static void log(String msg) {

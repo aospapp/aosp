@@ -24,8 +24,12 @@ import android.telephony.CbGeoUtils.Polygon;
 import android.text.TextUtils;
 import android.util.Log;
 
+import com.android.internal.annotations.VisibleForTesting;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -148,5 +152,271 @@ public class CbGeoUtils {
     private static LatLng parseLatLngFromString(@NonNull String str) {
         String[] latLng = str.split("\\s*,\\s*");
         return new LatLng(Double.parseDouble(latLng[0]), Double.parseDouble(latLng[1]));
+    }
+
+    private static final double SCALE = 1000.0 * 100.0;
+
+
+    /**
+     * Computes the shortest distance of {@code geo} to {@code latLng}.  If {@code geo} does not
+     * support this functionality, {@code Optional.empty()} is returned.
+     *
+     * @hide
+     * @param geo shape
+     * @param latLng point to calculate against
+     * @return the distance in meters
+     */
+    @VisibleForTesting
+    public static Optional<Double> distance(Geometry geo,
+            @NonNull LatLng latLng) {
+        if (geo instanceof android.telephony.CbGeoUtils.Polygon) {
+            CbGeoUtils.DistancePolygon distancePolygon =
+                    new CbGeoUtils.DistancePolygon((Polygon) geo);
+            return Optional.of(distancePolygon.distance(latLng));
+        } else if (geo instanceof android.telephony.CbGeoUtils.Circle) {
+            CbGeoUtils.DistanceCircle distanceCircle =
+                    new CbGeoUtils.DistanceCircle((Circle) geo);
+            return Optional.of(distanceCircle.distance(latLng));
+        } else {
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Will be merged with {@code CbGeoUtils.Circle} in future release.
+     *
+     * @hide
+     */
+    @VisibleForTesting
+    public static class DistanceCircle {
+        private final Circle mCircle;
+
+        DistanceCircle(Circle circle) {
+            mCircle = circle;
+        }
+
+        /**
+         * Distance in meters.  If you are within the bounds of the circle, returns a
+         * negative distance to the edge.
+         * @param latLng the coordinate to calculate distance against
+         * @return the distance given in meters
+         */
+        public double distance(@NonNull final LatLng latLng) {
+            return latLng.distance(mCircle.getCenter()) - mCircle.getRadius();
+        }
+    }
+    /**
+     * Will be merged with {@code CbGeoUtils.Polygon} in future release.
+     *
+     * @hide
+     */
+    @VisibleForTesting
+    public static class DistancePolygon {
+
+        @NonNull private final Polygon mPolygon;
+        @NonNull private final LatLng mOrigin;
+
+        public DistancePolygon(@NonNull final Polygon polygon) {
+            mPolygon = polygon;
+
+            // Find the point with smallest longitude as the mOrigin point.
+            int idx = 0;
+            for (int i = 1; i < polygon.getVertices().size(); i++) {
+                if (polygon.getVertices().get(i).lng < polygon.getVertices().get(idx).lng) {
+                    idx = i;
+                }
+            }
+            mOrigin = polygon.getVertices().get(idx);
+        }
+
+        /**
+         * Returns the meters difference between {@code latLng} to the closest point in the polygon.
+         *
+         * Note: The distance given becomes less accurate as you move further north and south.
+         *
+         * @param latLng the coordinate to calculate distance against
+         * @return the distance given in meters
+         */
+        public double distance(@NonNull final LatLng latLng) {
+            double minDistance = Double.MAX_VALUE;
+            List<LatLng> vertices = mPolygon.getVertices();
+            int n = mPolygon.getVertices().size();
+            for (int i = 0; i < n; i++) {
+                LatLng a = vertices.get(i);
+                LatLng b = vertices.get((i + 1) % n);
+
+                // The converted points are distances (in meters) to the origin point.
+                // see: #convertToDistanceFromOrigin
+                Point sa = convertToDistanceFromOrigin(a);
+                Point sb = convertToDistanceFromOrigin(b);
+                Point sp = convertToDistanceFromOrigin(latLng);
+
+                CbGeoUtils.LineSegment l = new CbGeoUtils.LineSegment(sa, sb);
+                double d = l.distance(sp);
+                minDistance = Math.min(d, minDistance);
+            }
+            return minDistance;
+        }
+
+        /**
+         * Move the given point {@code latLng} to the coordinate system with {@code mOrigin} as the
+         * origin. {@code mOrigin} is selected from the vertices of a polygon, it has
+         * the smallest longitude value among all of the polygon vertices.  The unit distance
+         * between points is meters.
+         *
+         * @param latLng the point need to be converted and scaled.
+         * @Return a {@link Point} object
+         */
+        private Point convertToDistanceFromOrigin(LatLng latLng) {
+            return CbGeoUtils.convertToDistanceFromOrigin(mOrigin, latLng);
+        }
+    }
+
+    /**
+     * We calculate the new point by finding the distances between the latitude and longitude
+     * components independently from {@code latLng} to the {@code origin}.
+     *
+     * This ends up giving us a {@code Point} such that:
+     * {@code x = distance(latLng.lat, origin.lat)}
+     * {@code y = distance(latLng.lng, origin.lng)}
+     *
+     * This allows us to use simple formulas designed for a cartesian coordinate system when
+     * calculating the distance from a point to a line segment.
+     *
+     * @param origin the origin lat lng in which to convert and scale {@code latLng}
+     * @param latLng the lat lng need to be converted and scaled.
+     * @return a {@link Point} object.
+     *
+     * @hide
+     */
+    @VisibleForTesting
+    public static Point convertToDistanceFromOrigin(@NonNull final LatLng origin,
+            @NonNull final LatLng latLng) {
+        double x = new LatLng(latLng.lat, origin.lng).distance(new LatLng(origin.lat, origin.lng));
+        double y = new LatLng(origin.lat, latLng.lng).distance(new LatLng(origin.lat, origin.lng));
+
+        x = latLng.lat > origin.lat ? x : -x;
+        y = latLng.lng > origin.lng ? y : -y;
+        return new Point(x, y);
+    }
+
+    /**
+     * @hide
+     */
+    @VisibleForTesting
+    public static class Point {
+        /**
+         * x-coordinate
+         */
+        public final double x;
+
+        /**
+         * y-coordinate
+         */
+        public final double y;
+
+        /**
+         * ..ctor
+         * @param x
+         * @param y
+         */
+        public Point(double x, double y) {
+            this.x = x;
+            this.y = y;
+        }
+
+        /**
+         * Subtracts the two points
+         * @param p
+         * @return
+         */
+        public Point subtract(Point p) {
+            return new Point(x - p.x, y - p.y);
+        }
+
+        /**
+         * Calculates the distance between the two points
+         * @param pt
+         * @return
+         */
+        public double distance(Point pt) {
+            return Math.sqrt(Math.pow(x - pt.x, 2) + Math.pow(y - pt.y, 2));
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            Point point = (Point) o;
+            return Double.compare(point.x, x) == 0
+                    && Double.compare(point.y, y) == 0;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(x, y);
+        }
+
+        @Override
+        public String toString() {
+            return "(" + x + ", " + y + ")";
+        }
+    }
+
+    /**
+     * Represents a line segment. This is used for handling geo-fenced cell broadcasts.
+     * More information regarding cell broadcast geo-fencing logic is
+     * laid out in 3GPP TS 23.041 and ATIS-0700041.
+     */
+    @VisibleForTesting
+    public static final class LineSegment {
+        @NonNull final Point mPtA;
+        @NonNull final Point mPtB;
+
+        public LineSegment(@NonNull final Point ptA, @NonNull final Point ptB) {
+            this.mPtA = ptA;
+            this.mPtB = ptB;
+        }
+
+        public double getLength() {
+            return this.mPtA.distance(this.mPtB);
+        }
+
+        /**
+         * Calculates the closest distance from {@code pt} to this line segment.
+         *
+         * @param pt the point to calculate against
+         * @return the distance in meters
+         */
+        public double distance(Point pt) {
+            final double lengthSquared = getLength() * getLength();
+            if (lengthSquared == 0.0) {
+                return pt.distance(this.mPtA);
+            }
+
+            Point sub1 = pt.subtract(mPtA);
+            Point sub2 = mPtB.subtract(mPtA);
+            double dot = sub1.x * sub2.x + sub1.y * sub2.y;
+
+            //Magnitude of projection
+            double magnitude = dot / lengthSquared;
+
+            //Keep bounded between 0.0 and 1.0
+            if (magnitude > 1.0) {
+                magnitude = 1.0;
+            } else if (magnitude < 0.0) {
+                magnitude = 0.0;
+            }
+
+            final double projX = calcProjCoordinate(this.mPtA.x, this.mPtB.x, magnitude);
+            final double projY = calcProjCoordinate(this.mPtA.y, this.mPtB.y, magnitude);
+
+            final Point proj = new Point(projX, projY);
+            return proj.distance(pt);
+        }
+
+        private static double calcProjCoordinate(double aVal, double bVal, double m) {
+            return aVal + ((bVal - aVal) * m);
+        }
     }
 }

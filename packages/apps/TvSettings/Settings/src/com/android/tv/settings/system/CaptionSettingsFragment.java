@@ -21,6 +21,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.res.Resources;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -34,6 +35,7 @@ import com.android.internal.widget.SubtitleView;
 import com.android.settingslib.accessibility.AccessibilityUtils;
 import com.android.tv.settings.BaseSettingsFragment;
 import com.android.tv.settings.R;
+import com.android.tv.settings.overlay.FlavorUtils;
 
 import java.util.Locale;
 
@@ -116,6 +118,22 @@ public class CaptionSettingsFragment extends BaseSettingsFragment {
         super.onViewCreated(view, savedInstanceState);
         mPreviewText = view.findViewById(R.id.preview_text);
         mPreviewWindow = view.findViewById(R.id.preview_window);
+        if (FlavorUtils.isTwoPanel(getContext())) {
+            // Customize the padding and layout of caption settings in two panel case
+            View v = getView().findViewById(R.id.settings_preference_fragment_container);
+            Resources res = getResources();
+            ViewGroup.LayoutParams lP = v.getLayoutParams();
+            lP.width = res.getDimensionPixelSize(R.dimen.caption_preference_two_panel_width);
+            v.setLayoutParams(lP);
+            v.setBackgroundColor(res.getColor(R.color.tp_fragment_container_background_color));
+            v.setPaddingRelative(
+                    res.getDimensionPixelOffset(R.dimen.caption_preference_two_panel_padding_start),
+                    v.getPaddingTop(),
+                    res.getDimensionPixelOffset(R.dimen.caption_preference_two_panel_padding_end),
+                    v.getPaddingBottom());
+            ((ViewGroup) v).setClipChildren(false);
+            ((ViewGroup) v).setClipToPadding(false);
+        }
     }
 
     @Override

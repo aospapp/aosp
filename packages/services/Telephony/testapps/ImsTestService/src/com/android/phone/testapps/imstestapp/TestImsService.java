@@ -39,6 +39,7 @@ public class TestImsService extends ImsService {
     public TestMmTelFeatureImpl mTestMmTelFeature;
     public TestRcsFeatureImpl mTestRcsFeature;
     public TestImsConfigImpl mTestImsConfig;
+    public SipTransportImpl mSipTransportImpl;
 
     public static TestImsService getInstance() {
         return mInstance;
@@ -51,7 +52,8 @@ public class TestImsService extends ImsService {
         mTestMmTelFeature = TestMmTelFeatureImpl.getInstance();
         mTestRcsFeature = new TestRcsFeatureImpl();
         mTestImsConfig = TestImsConfigImpl.getInstance();
-
+        mSipTransportImpl = SipTransportImpl.getInstance(
+                getApplicationContext().getMainExecutor());
         mInstance = this;
     }
 
@@ -60,7 +62,13 @@ public class TestImsService extends ImsService {
         return new ImsFeatureConfiguration.Builder()
                 .addFeature(0, ImsFeature.FEATURE_EMERGENCY_MMTEL)
                 .addFeature(0, ImsFeature.FEATURE_MMTEL)
+                .addFeature(0, ImsFeature.FEATURE_RCS)
                 .build();
+    }
+
+    @Override
+    public long getImsServiceCapabilities() {
+        return CAPABILITY_SIP_DELEGATE_CREATION;
     }
 
     @Override
@@ -83,5 +91,10 @@ public class TestImsService extends ImsService {
     @Override
     public ImsConfigImplBase getConfig(int slotId) {
         return mTestImsConfig;
+    }
+
+    @Override
+    public SipTransportImpl getSipTransport(int slotId) {
+        return mSipTransportImpl;
     }
 }

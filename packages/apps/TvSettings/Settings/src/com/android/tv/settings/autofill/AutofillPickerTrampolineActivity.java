@@ -15,11 +15,12 @@
  */
 package com.android.tv.settings.autofill;
 
-import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.autofill.AutofillManager;
+
+import androidx.fragment.app.FragmentActivity;
 
 /**
  * Standalone activity used to launch a {@link AutofillPickerActivity" from a
@@ -28,7 +29,7 @@ import android.view.autofill.AutofillManager;
  * <p>It first checks for cases that can fail fast, then forwards to {@link AutofillPickerActivity}
  * if necessary.
  */
-public class AutofillPickerTrampolineActivity extends Activity {
+public class AutofillPickerTrampolineActivity extends FragmentActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

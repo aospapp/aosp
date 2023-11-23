@@ -16,9 +16,15 @@
 
 package com.android.bluetooth.avrcp;
 
+import android.annotation.RequiresPermission;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.util.Log;
+
+import com.android.bluetooth.audio_util.ListItem;
+import com.android.bluetooth.audio_util.Metadata;
+import com.android.bluetooth.audio_util.PlayStatus;
+import com.android.bluetooth.audio_util.PlayerInfo;
 
 import java.util.List;
 
@@ -55,6 +61,20 @@ public class AvrcpNativeInterface {
         d("Cleanup AvrcpNativeInterface");
         mAvrcpService = null;
         cleanupNative();
+    }
+
+    void registerBipServer(int l2capPsm) {
+        d("Register our BIP server at psm=" + l2capPsm);
+        registerBipServerNative(l2capPsm);
+    }
+
+    void unregisterBipServer() {
+        d("Unregister any BIP server");
+        unregisterBipServerNative();
+    }
+
+    void setBipClientStatus(String bdaddr, boolean connected) {
+        setBipClientStatusNative(bdaddr, connected);
     }
 
     Metadata getCurrentSongInfo() {
@@ -235,6 +255,8 @@ public class AvrcpNativeInterface {
 
     private static native void classInitNative();
     private native void initNative();
+    private native void registerBipServerNative(int l2capPsm);
+    private native void unregisterBipServerNative();
     private native void sendMediaUpdateNative(
             boolean trackChanged, boolean playState, boolean playPos);
     private native void sendFolderUpdateNative(
@@ -246,6 +268,7 @@ public class AvrcpNativeInterface {
     private native boolean connectDeviceNative(String bdaddr);
     private native boolean disconnectDeviceNative(String bdaddr);
     private native void sendVolumeChangedNative(String bdaddr, int volume);
+    private native void setBipClientStatusNative(String bdaddr, boolean connected);
 
     private static void d(String msg) {
         if (DEBUG) {

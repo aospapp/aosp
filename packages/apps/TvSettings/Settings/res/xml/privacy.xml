@@ -25,6 +25,14 @@
         android:key="location"
         android:title="@string/system_location"
         android:fragment="com.android.tv.settings.system.LocationFragment" />
+    <Preference
+        android:key="microphone"
+        android:title="@string/microphone"
+        android:fragment="com.android.tv.settings.privacy.SensorFragment" />
+    <Preference
+        android:key="camera"
+        android:title="@string/camera"
+        android:fragment="com.android.tv.settings.privacy.SensorFragment" />
     <com.android.tv.twopanelsettings.slices.SlicePreference
         android:key="usageAndDiag"
         android:title="@string/system_diagnostic"
@@ -34,17 +42,35 @@
     </com.android.tv.twopanelsettings.slices.SlicePreference>
     <Preference
         android:key="ads"
-        android:title="@string/about_ads">
-        <intent android:action="com.google.android.gms.settings.ADS_PRIVACY" />
-    </Preference>
+        android:title="@string/about_ads"/>
+
+    <PreferenceCategory
+        android:key="accountSettings"
+        android:title="@string/privacy_account_settings_category"
+        android:visible="false" />
+
+    <com.android.tv.twopanelsettings.slices.SlicePreference
+        android:key="assistant"
+        android:title="@string/privacy_assistant_settings_title"
+        android:fragment="com.android.tv.twopanelsettings.slices.SliceFragment"
+        custom:isPreferenceVisible="false"
+        custom:uri="@string/privacy_assistant_slice_uri" />
+
+    <com.android.tv.twopanelsettings.slices.SlicePreference
+        android:key="purchases"
+        android:title="@string/privacy_purchases_settings_title"
+        android:visible="false"
+        android:fragment="com.android.tv.twopanelsettings.slices.SliceFragment"
+        custom:isPreferenceVisible="false"
+        custom:uri="@string/privacy_purchases_slice_uri" />
 
     <PreferenceCategory android:title="@string/privacy_app_settings_category" />
 
-    <com.android.tv.twopanelsettings.slices.SlicePreference
+    <Preference
         android:key="permissions"
-        android:title="@string/device_apps_permissions"
-        android:fragment="com.android.tv.twopanelsettings.slices.SliceFragment"
-        custom:uri="content://com.android.packageinstaller.permission/general" />
+        android:title="@string/device_apps_permissions">
+        <intent android:action="android.intent.action.MANAGE_PERMISSIONS"/>
+    </Preference>
     <Preference
         android:key="specialAccess"
         android:title="@string/special_access"

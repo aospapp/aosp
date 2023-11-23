@@ -22,6 +22,8 @@ import java.util.List;
 public class LegacyCellBroadcastContentProvider extends ContentProvider {
     // shared preference under developer settings
     private static final String ENABLE_ALERT_MASTER_PREF = "enable_alerts_master_toggle";
+    // shared preference for alert reminder interval
+    private static final String ALERT_REMINDER_INTERVAL_PREF = "alert_reminder_interval";
 
     private static final String TAG = LegacyCellBroadcastContentProvider.class.getSimpleName();
     /** A list of preference supported by legacy app **/
@@ -37,7 +39,8 @@ public class LegacyCellBroadcastContentProvider extends ContentProvider {
             CellBroadcasts.Preference.ENABLE_EMERGENCY_PERF,
             CellBroadcasts.Preference.ENABLE_ALERT_VIBRATION_PREF,
             CellBroadcasts.Preference.ENABLE_CMAS_IN_SECOND_LANGUAGE_PREF,
-            ENABLE_ALERT_MASTER_PREF
+            ENABLE_ALERT_MASTER_PREF,
+            ALERT_REMINDER_INTERVAL_PREF
     );
 
     /** The database for this content provider. */
@@ -79,7 +82,11 @@ public class LegacyCellBroadcastContentProvider extends ContentProvider {
                 // if preference value does not exists, return null.
                 if (sp != null && sp.contains(name)) {
                     Bundle result = new Bundle();
-                    result.putBoolean(name, sp.getBoolean(name, true));
+                    if (ALERT_REMINDER_INTERVAL_PREF.equals(name)) {
+                        result.putString(name, sp.getString(name, "0"));
+                    } else {
+                        result.putBoolean(name, sp.getBoolean(name, true));
+                    }
                     Log.d(TAG, "migrate sharedpreference: " + name + " val: " + result.get(name));
                     return result;
                 }

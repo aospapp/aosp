@@ -210,13 +210,13 @@ public class RootItem extends Item {
     }
 
     /**
-     * Creates a dummy root item for a user. A dummy root item is used as a place holder when
+     * Creates a stub root item for a user. A stub root item is used as a place holder when
      * there is no such root available. We can therefore show the item on the UI.
      */
-    public static RootItem createDummyItem(RootItem item, UserId targetUser) {
-        RootInfo dummyRootInfo = RootInfo.copyRootInfo(item.root);
-        dummyRootInfo.userId = targetUser;
-        RootItem dummy = new RootItem(dummyRootInfo, item.mActionHandler, item.mMaybeShowBadge);
-        return dummy;
+    public static RootItem createStubItem(RootItem item, UserId targetUser) {
+        RootInfo stubRootInfo = RootInfo.copyRootInfo(item.root);
+        stubRootInfo.userId = targetUser;
+        RootItem stub = new RootItem(stubRootInfo, item.mActionHandler, item.mMaybeShowBadge);
+        return stub;
     }
 }

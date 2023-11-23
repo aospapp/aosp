@@ -111,7 +111,6 @@
 
 #include "res_comp.h"
 #include "res_debug.h"
-#include "res_init.h"
 #include "resolv_cache.h"
 #include "stats.h"
 #include "stats.pb.h"
@@ -125,7 +124,6 @@ using android::net::CacheStatus;
 using android::net::DnsQueryEvent;
 using android::net::DnsTlsDispatcher;
 using android::net::DnsTlsTransport;
-using android::net::gPrivateDnsConfiguration;
 using android::net::IpVersion;
 using android::net::IV_IPV4;
 using android::net::IV_IPV6;
@@ -135,6 +133,7 @@ using android::net::NetworkDnsEventReported;
 using android::net::NS_T_INVALID;
 using android::net::NsRcode;
 using android::net::NsType;
+using android::net::PrivateDnsConfiguration;
 using android::net::PrivateDnsMode;
 using android::net::PrivateDnsModes;
 using android::net::PrivateDnsStatus;
@@ -143,8 +142,6 @@ using android::net::PROTO_UDP;
 using android::netdutils::IPSockAddr;
 using android::netdutils::Slice;
 using android::netdutils::Stopwatch;
-
-static DnsTlsDispatcher sDnsTlsDispatcher;
 
 static int send_vc(res_state statp, res_params* params, const uint8_t* buf, int buflen,
                    uint8_t* ans, int anssiz, int* terrno, size_t ns, time_t* at, int* rcode,
@@ -497,6 +494,15 @@ int res_nsend(res_state statp, const uint8_t* buf, int buflen, uint8_t* ans, int
     int usableServersCount = android_net_res_stats_get_usable_servers(
             &params, stats, statp->nameserverCount(), usable_servers);
 
+    if (statp->sort_nameservers) {
+        // It's unnecessary to mark a DNS server as unusable since broken servers will be less
+        // likely to be chosen.
+        for (int i = 0; i < statp->nameserverCount(); i++) {
+            usable_servers[i] = true;
+        }
+    }
+
+    // TODO: Let it always choose the first nameserver when sort_nameservers is enabled.
     if ((flags & ANDROID_RESOLV_NO_RETRY) && usableServersCount > 1) {
         auto hp = reinterpret_cast<const HEADER*>(buf);
 
@@ -589,8 +595,8 @@ int res_nsend(res_state statp, const uint8_t* buf, int buflen, uint8_t* ans, int
                     // TODO: Replace usable_servers of legacy stats with new one.
                     resolv_cache_add_resolver_stats_sample(
                             statp->netid, revision_id, serverSockAddr, sample, params.max_samples);
+                    resolv_stats_add(statp->netid, receivedServerAddr, dnsQueryEvent);
                 }
-                resolv_stats_add(statp->netid, receivedServerAddr, dnsQueryEvent);
             }
 
             if (resplen == 0) continue;
@@ -829,6 +835,9 @@ read_len:
             else
                 break;
         }
+        LOG(WARNING) << __func__ << ": resplen " << resplen << " exceeds buf size " << anssiz;
+        // return size should never exceed container size
+        resplen = anssiz;
     }
     /*
      * If the calling application has bailed out of
@@ -839,7 +848,7 @@ read_len:
      */
     if (hp->id != anhp->id) {
         LOG(DEBUG) << __func__ << ": ld answer (unexpected):";
-        res_pquery(ans, (resplen > anssiz) ? anssiz : resplen);
+        res_pquery(ans, resplen);
         goto read_len;
     }
 
@@ -1200,7 +1209,8 @@ static int res_tls_send(res_state statp, const Slice query, const Slice answer, 
     int resplen = 0;
     const unsigned netId = statp->netid;
 
-    PrivateDnsStatus privateDnsStatus = gPrivateDnsConfiguration.getStatus(netId);
+    auto& privateDnsConfiguration = PrivateDnsConfiguration::getInstance();
+    PrivateDnsStatus privateDnsStatus = privateDnsConfiguration.getStatus(netId);
     statp->event->set_private_dns_modes(convertEnumType(privateDnsStatus.mode));
 
     if (privateDnsStatus.mode == PrivateDnsMode::OFF) {
@@ -1229,8 +1239,8 @@ static int res_tls_send(res_state statp, const Slice query, const Slice answer, 
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 // Calling getStatus() to merely check if there's any validated server seems
                 // wasteful. Consider adding a new method in PrivateDnsConfiguration for speed ups.
-                if (!gPrivateDnsConfiguration.getStatus(netId).validatedServers().empty()) {
-                    privateDnsStatus = gPrivateDnsConfiguration.getStatus(netId);
+                if (!privateDnsConfiguration.getStatus(netId).validatedServers().empty()) {
+                    privateDnsStatus = privateDnsConfiguration.getStatus(netId);
                     break;
                 }
             }
@@ -1242,8 +1252,8 @@ static int res_tls_send(res_state statp, const Slice query, const Slice answer, 
 
     LOG(INFO) << __func__ << ": performing query over TLS";
 
-    const auto response = sDnsTlsDispatcher.query(privateDnsStatus.validatedServers(), statp, query,
-                                                  answer, &resplen);
+    const auto response = DnsTlsDispatcher::getInstance().query(privateDnsStatus.validatedServers(),
+                                                                statp, query, answer, &resplen);
 
     LOG(INFO) << __func__ << ": TLS query result: " << static_cast<int>(response);
 
@@ -1287,8 +1297,7 @@ int resolv_res_nsend(const android_net_context* netContext, const uint8_t* msg, 
                      uint8_t* ans, int ansLen, int* rcode, uint32_t flags,
                      NetworkDnsEventReported* event) {
     assert(event != nullptr);
-    ResState res;
-    res_init(&res, netContext, event);
+    ResState res(netContext, event);
     resolv_populate_res_for_net(&res);
     *rcode = NOERROR;
     return res_nsend(&res, msg, msgLen, ans, ansLen, rcode, flags);

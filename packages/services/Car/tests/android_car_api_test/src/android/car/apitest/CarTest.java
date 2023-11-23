@@ -82,7 +82,7 @@ public class CarTest {
         assertThat(carSensorManager).isNotNull();
         CarSensorManager carSensorManager2 =
                 (CarSensorManager) car.getCarManager(Car.SENSOR_SERVICE);
-        assertThat(carSensorManager2).isSameAs(carSensorManager);
+        assertThat(carSensorManager2).isSameInstanceAs(carSensorManager);
         Object noSuchService = car.getCarManager("No such service");
         assertThat(noSuchService).isNull();
         // double disconnect should be safe.

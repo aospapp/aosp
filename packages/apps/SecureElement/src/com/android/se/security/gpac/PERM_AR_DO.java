@@ -71,7 +71,7 @@ public class PERM_AR_DO extends BerTlv {
      */
     public void build(ByteArrayOutputStream stream) throws DO_Exception {
 
-        // sanity checks
+        // quick checks
         if (mPermissionMask.length != PERM_MASK_LEN) {
             throw new DO_Exception("Invalid value length for PERM-AR-DO!");
         }

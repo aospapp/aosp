@@ -19,6 +19,8 @@ package com.android.cellbroadcastservice.tests;
 import android.testing.AndroidTestingRunner;
 import android.testing.TestableLooper;
 
+import com.android.cellbroadcastservice.GsmCellBroadcastHandler.SmsCbConcatInfo;
+import com.android.cellbroadcastservice.SmsCbHeader;
 import com.android.cellbroadcastservice.SmsHeader;
 
 import org.junit.After;
@@ -27,6 +29,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.ArrayList;
+import org.mockito.Mockito;
 
 @RunWith(AndroidTestingRunner.class)
 @TestableLooper.RunWithLooper
@@ -115,4 +118,13 @@ public class SmsHeaderTest extends CellBroadcastServiceTestBase {
         SmsHeader convertedSmsHeader = SmsHeader.fromByteArray(SmsHeader.toByteArray(mSmsHeader));
         assertEquals(mSmsHeader, convertedSmsHeader);
     }
+
+    @Test
+    public void testHashCode() {
+        // construct another header object for comparison
+        SmsHeader convertedSmsHeader = SmsHeader.fromByteArray(SmsHeader.toByteArray(mSmsHeader));
+        convertedSmsHeader.languageTable = 0x26;
+        assertNotSame(convertedSmsHeader.hashCode(), mSmsHeader.hashCode());
+    }
+
 }

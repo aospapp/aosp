@@ -150,7 +150,7 @@ public class MainActivityLayout extends FrameLayout {
         if (mNonDecorWindowSizeChangedListener != null) {
             mNonDecorWindowSizeChangedListener.onNonDecorWindowSizeChanged(
                     MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.getSize(heightMeasureSpec),
-                    CameraUtil.getDisplayRotation());
+                    CameraUtil.getDisplayRotation((Activity) getContext()));
         }
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
     }
@@ -166,7 +166,7 @@ public class MainActivityLayout extends FrameLayout {
         if (mNonDecorWindowSizeChangedListener != null) {
             mNonDecorWindowSizeChangedListener.onNonDecorWindowSizeChanged(
                     getMeasuredWidth(), getMeasuredHeight(),
-                    CameraUtil.getDisplayRotation());
+                    CameraUtil.getDisplayRotation((Activity) getContext()));
         }
     }
 }

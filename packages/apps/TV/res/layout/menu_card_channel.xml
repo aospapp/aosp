@@ -32,9 +32,9 @@
             android:layout_gravity="top"
             android:scaleType="centerCrop"/>
 
-        <!-- The bottom margin specified in the redline is 8dp, but the redline doesn't consider
-             the descenders. So actually, if the bottom margin is set to 8dp, the bottom line of
-             the text lies 11dp above the bottom of the poster art due to the descenders.
+        <!-- The bottom margin specified in the UI annotation is 8dp, but the annotation doesn't
+             consider the descenders. So actually, if the bottom margin is set to 8dp, the bottom
+             line of the text lies 11dp above the bottom of the poster art due to the descenders.
              Therefore the bottom margin needs to be set to 5dp(=8dp-3dp) here.
              If the text size or font is changed, the bottom margin needs to be changed. -->
         <TextView android:id="@+id/channel_number_and_name"

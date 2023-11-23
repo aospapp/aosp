@@ -124,13 +124,13 @@ public abstract class TaskJpegEncode extends TaskImageContainer {
     }
 
     /**
-     * Creates a dummy shaded image for testing in packed NV21 format.
+     * Creates a stub shaded image for testing in packed NV21 format.
      *
      * @param dataCopy Buffer to contained shaded test image
      * @param w Width of image
      * @param h Height of Image
      */
-    public void dummyConvertYUV420ImageToPackedNV21(byte[] dataCopy,
+    public void stubConvertYUV420ImageToPackedNV21(byte[] dataCopy,
             final int w, final int h) {
         final int y_size = w * h;
         final int data_offset = w * h;

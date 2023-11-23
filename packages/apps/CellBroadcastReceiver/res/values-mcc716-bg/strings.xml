@@ -21,4 +21,5 @@
     <string name="cmas_required_monthly_test" msgid="9061179556831144678">"Сигнал при спешни случаи: Тестово съобщение"</string>
     <string name="cmas_exercise_alert" msgid="3061507852301643814">"Сигнал при спешни случаи: Съобщение за провеждане на учение/тренировка"</string>
     <string name="pws_other_message_identifiers" msgid="4992476982074198144">"Сигнал при спешни случаи: Тестово съобщение"</string>
+    <string name="button_dismiss" msgid="5823921161712171097">"Скриване"</string>
 </resources>

@@ -16,7 +16,6 @@
 package com.android.customization.model;
 
 import android.util.Log;
-import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 

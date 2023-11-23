@@ -20,9 +20,10 @@ import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected
 
 import android.accounts.AccountManager;
 import android.annotation.SuppressLint;
-import android.app.Fragment;
+import android.app.admin.DevicePolicyManager;
 import android.app.tvsettings.TvSettingsEnums;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -42,12 +43,12 @@ import android.util.Log;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.IntDef;
 import androidx.annotation.Keep;
-import androidx.leanback.preference.LeanbackSettingsFragment;
+import androidx.fragment.app.Fragment;
+import androidx.leanback.preference.LeanbackSettingsFragmentCompat;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceGroup;
 
-import com.android.internal.logging.nano.MetricsProto;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
 import com.android.tv.settings.dialog.PinDialogFragment;
@@ -60,6 +61,7 @@ import com.android.tv.twopanelsettings.TwoPanelSettingsFragment;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.List;
 
 /**
  * The security settings screen in Tv settings.
@@ -78,6 +80,8 @@ public class SecurityFragment extends SettingsPreferenceFragment
     private static final String KEY_RESTRICTED_PROFILE_PIN = "restricted_profile_pin";
     private static final String KEY_RESTRICTED_PROFILE_CREATE = "restricted_profile_create";
     private static final String KEY_RESTRICTED_PROFILE_DELETE = "restricted_profile_delete";
+    private static final String KEY_MANAGE_DEVICE_ADMIN = "manage_device_admin";
+    private static final String KEY_ENTERPRISE_PRIVACY = "enterprise_privacy";
 
     private static final String ACTION_RESTRICTED_PROFILE_CREATED =
             "SecurityFragment.RESTRICTED_PROFILE_CREATED";
@@ -105,6 +109,9 @@ public class SecurityFragment extends SettingsPreferenceFragment
     private Preference mRestrictedProfilePinPref;
     private Preference mRestrictedProfileCreatePref;
     private Preference mRestrictedProfileDeletePref;
+
+    private Preference mManageDeviceAdminPref;
+    private Preference mEnterprisePrivacyPref;
 
     private RestrictedProfileModel mRestrictedProfile;
 
@@ -211,6 +218,9 @@ public class SecurityFragment extends SettingsPreferenceFragment
         mRestrictedProfilePinPref = findPreference(KEY_RESTRICTED_PROFILE_PIN);
         mRestrictedProfileCreatePref = findPreference(KEY_RESTRICTED_PROFILE_CREATE);
         mRestrictedProfileDeletePref = findPreference(KEY_RESTRICTED_PROFILE_DELETE);
+
+        mManageDeviceAdminPref = findPreference(KEY_MANAGE_DEVICE_ADMIN);
+        mEnterprisePrivacyPref = findPreference(KEY_ENTERPRISE_PRIVACY);
     }
 
     private void refresh() {
@@ -266,6 +276,9 @@ public class SecurityFragment extends SettingsPreferenceFragment
         mRestrictedProfileCreatePref.setEnabled(sCreateRestrictedProfileTask == null);
 
         mUnknownSourcesPref.setEnabled(!isUnknownSourcesBlocked());
+
+        mManageDeviceAdminPref.setVisible(hasActiveAdmins());
+        mEnterprisePrivacyPref.setVisible(isDeviceManaged());
     }
 
     @Override
@@ -318,6 +331,19 @@ public class SecurityFragment extends SettingsPreferenceFragment
     private boolean isUnknownSourcesBlocked() {
         final UserManager um = (UserManager) getContext().getSystemService(Context.USER_SERVICE);
         return um.hasUserRestriction(UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES);
+    }
+
+    private boolean isDeviceManaged() {
+        final DevicePolicyManager devicePolicyManager = getContext().getSystemService(
+                DevicePolicyManager.class);
+        return devicePolicyManager.isDeviceManaged();
+    }
+
+    private boolean hasActiveAdmins() {
+        final DevicePolicyManager devicePolicyManager = getContext().getSystemService(
+                DevicePolicyManager.class);
+        final List<ComponentName> admins = devicePolicyManager.getActiveAdmins();
+        return (admins != null && !admins.isEmpty());
     }
 
     private void launchPinDialog(@PinMode int pinMode) {
@@ -401,8 +427,8 @@ public class SecurityFragment extends SettingsPreferenceFragment
             final AppRestrictionsFragment restrictionsFragment =
                     AppRestrictionsFragment.newInstance(userId, true);
             final Fragment settingsFragment = getCallbackFragment();
-            if (settingsFragment instanceof LeanbackSettingsFragment) {
-                ((LeanbackSettingsFragment) settingsFragment)
+            if (settingsFragment instanceof LeanbackSettingsFragmentCompat) {
+                ((LeanbackSettingsFragmentCompat) settingsFragment)
                         .startPreferenceFragment(restrictionsFragment);
             } else if (settingsFragment instanceof TwoPanelSettingsFragment) {
                 ((TwoPanelSettingsFragment) settingsFragment)
@@ -471,11 +497,6 @@ public class SecurityFragment extends SettingsPreferenceFragment
             icon.draw(new Canvas(bitmap));
             return bitmap;
         }
-    }
-
-    @Override
-    public int getMetricsCategory() {
-        return MetricsProto.MetricsEvent.SECURITY;
     }
 
     @Override

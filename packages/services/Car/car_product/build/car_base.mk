@@ -17,7 +17,16 @@
 # Base platform for car builds
 # car packages should be added to car.mk instead of here
 
+ifeq ($(DISABLE_CAR_PRODUCT_CONFIG_OVERLAY),)
 PRODUCT_PACKAGE_OVERLAYS += packages/services/Car/car_product/overlay
+endif
+
+ifeq ($(DISABLE_CAR_PRODUCT_VISUAL_OVERLAY),)
+PRODUCT_PACKAGE_OVERLAYS += packages/services/Car/car_product/overlay-visual
+endif
+
+PRODUCT_COPY_FILES += \
+    packages/services/Car/car_product/build/component-overrides.xml:$(TARGET_COPY_OUT_VENDOR)/etc/sysconfig/component-overrides.xml \
 
 PRODUCT_PACKAGES += \
     com.android.wifi \
@@ -43,25 +52,43 @@ PRODUCT_PACKAGES += \
     MmsService \
     ExternalStorageProvider \
     atrace \
-    cameraserver \
     libandroidfw \
     libaudioutils \
     libmdnssd \
     libnfc_ndef \
     libpowermanager \
-    libspeexresampler \
     libvariablespeed \
-    libwebrtc_audio_preprocessing \
     A2dpSinkService \
     PackageInstaller \
-    car-bugreportd \
+    carbugreportd \
 
-# EVS resources
-PRODUCT_PACKAGES += android.automotive.evs.manager@1.0
-# The following packages, or their vendor specific equivalents should be include in the device.mk
-#PRODUCT_PACKAGES += evs_app
-#PRODUCT_PACKAGES += evs_app_default_resources
-#PRODUCT_PACKAGES += android.hardware.automotive.evs@1.0-service
+# ENABLE_CAMERA_SERVICE must be set as true from the product's makefile if it wants to support
+# Android Camera service.
+ifneq ($(ENABLE_CAMERA_SERVICE), true)
+PRODUCT_PROPERTY_OVERRIDES += config.disable_cameraservice=true
+endif
+
+# EVS service
+include packages/services/Car/cpp/evs/manager/evsmanager.mk
+
+ifeq ($(ENABLE_EVS_SAMPLE), true)
+# ENABLE_EVS_SAMPLE should set be true or their vendor specific equivalents should be included in
+# the device.mk with the corresponding selinux policies
+PRODUCT_PRODUCT_PROPERTIES += persist.automotive.evs.mode=0
+PRODUCT_PACKAGES += evs_app \
+                    android.hardware.automotive.evs@1.1-sample \
+                    android.frameworks.automotive.display@1.0-service
+include packages/services/Car/cpp/evs/apps/sepolicy/evsapp.mk
+include packages/services/Car/cpp/evs/sampleDriver/sepolicy/evsdriver.mk
+endif
+ifeq ($(ENABLE_CAREVSSERVICE_SAMPLE), true)
+PRODUCT_PACKAGES += CarEvsCameraPreviewApp \
+                    CarSystemUIEvsRRO
+endif
+ifeq ($(ENABLE_REAR_VIEW_CAMERA_SAMPLE), true)
+PRODUCT_PACKAGES += SampleRearViewCamera
+PRODUCT_PACKAGE_OVERLAYS += packages/services/Car/tests/SampleRearViewCamera/overlay
+endif
 
 # Device running Android is a car
 PRODUCT_COPY_FILES += \
@@ -69,7 +96,6 @@ PRODUCT_COPY_FILES += \
 
 # Default permission grant exceptions
 PRODUCT_COPY_FILES += \
-    packages/services/Car/car_product/build/default-car-permissions.xml:system/etc/default-permissions/default-car-permissions.xml \
     packages/services/Car/car_product/build/preinstalled-packages-product-car-base.xml:system/etc/sysconfig/preinstalled-packages-product-car-base.xml
 
 $(call inherit-product, $(SRC_TARGET_DIR)/product/core_minimal.mk)
@@ -84,4 +110,7 @@ PRODUCT_COPY_FILES += \
     packages/services/Car/car_product/init/init.car.rc:system/etc/init/init.car.rc
 
 # Enable car watchdog
-include packages/services/Car/watchdog/product/carwatchdog.mk
+include packages/services/Car/cpp/watchdog/product/carwatchdog.mk
+
+# Enable car power policy
+include packages/services/Car/cpp/powerpolicy/product/carpowerpolicy.mk

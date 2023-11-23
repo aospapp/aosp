@@ -217,7 +217,7 @@ public class OpportunisticNetworkService extends Service {
         @Override
         public boolean isEnabled(String callingPackage) {
             TelephonyPermissions
-                    .enforeceCallingOrSelfReadPrivilegedPhoneStatePermissionOrCarrierPrivilege(
+                    .enforceCallingOrSelfReadPrivilegedPhoneStatePermissionOrCarrierPrivilege(
                             mContext, mSubscriptionManager.getDefaultSubscriptionId(), "isEnabled");
             return mIsEnabled;
         }

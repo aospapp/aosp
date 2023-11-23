@@ -19,11 +19,10 @@ package com.android.internal.net.ipsec.ike.crypto;
 import com.android.internal.util.HexDump;
 
 import java.nio.ByteBuffer;
+import java.security.GeneralSecurityException;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
@@ -33,8 +32,8 @@ import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
 public class AesXCbcImpl {
-    private static final Set<String> sSupportedAlgorithms =
-            new HashSet<>(Arrays.asList("AES/CBC/NoPadding", "AES_128/CBC/NoPadding"));
+    // Use AES CBC as per NIST Special Publication 800-38B 6.2
+    private static final String AES_CBC = "AES/CBC/NoPadding";
 
     private static final int AES_CBC_IV_LEN = 16;
 
@@ -50,16 +49,12 @@ public class AesXCbcImpl {
 
     private static final byte[] E_INITIAL = new byte[AES_CBC_BLOCK_LEN];
 
-    public AesXCbcImpl(Cipher aesCbcCipher) {
-        String algorithmName = aesCbcCipher.getAlgorithm();
-        if (!sSupportedAlgorithms.contains(algorithmName)) {
-            throw new IllegalArgumentException("Cannot use AES_XCBC for " + algorithmName);
-        }
-
-        mCipher = aesCbcCipher;
+    public AesXCbcImpl() throws GeneralSecurityException {
+        mCipher = Cipher.getInstance(AES_CBC);
     }
 
-    public byte[] signBytes(byte[] keyBytes, byte[] dataToSign, boolean needTruncation) {
+    /** Calculate the MAC */
+    public byte[] mac(byte[] keyBytes, byte[] dataToSign, boolean needTruncation) {
         // See RFC 3566#section-4 for the algorithm
         int blockSize = mCipher.getBlockSize();
         boolean isPaddingNeeded = dataToSign.length % blockSize != 0;

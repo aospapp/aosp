@@ -22,10 +22,10 @@ import android.bluetooth.IBluetoothManager;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.res.Resources;
-import android.os.SystemProperties;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.ServiceManager;
+import android.os.SystemProperties;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.Log;
@@ -111,6 +111,8 @@ public class Config {
 
     private static Class[] sSupportedProfiles = new Class[0];
 
+    private static boolean sIsGdEnabledUptoScanningLayer = false;
+
     static void init(Context ctx) {
         if (ctx == null) {
             return;
@@ -143,10 +145,15 @@ public class Config {
             }
         }
         sSupportedProfiles = profiles.toArray(new Class[profiles.size()]);
+        sIsGdEnabledUptoScanningLayer = resources.getBoolean(R.bool.enable_gd_up_to_scanning_layer);
     }
 
     static Class[] getSupportedProfiles() {
         return sSupportedProfiles;
+    }
+
+    static boolean isGdEnabledUpToScanningLayer() {
+        return sIsGdEnabledUptoScanningLayer;
     }
 
     private static long getProfileMask(Class profile) {

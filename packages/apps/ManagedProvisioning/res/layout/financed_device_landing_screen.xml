@@ -21,63 +21,26 @@
     android:id="@+id/setup_wizard_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
-
-  <LinearLayout
-      android:layout_width="match_parent"
-      android:layout_height="match_parent"
-      android:layout_marginLeft="?attr/sudMarginSides"
-      android:layout_marginRight="?attr/sudMarginSides"
-      android:orientation="vertical">
-
-    <TextView
-        android:id="@+id/creditor_capabilities_header"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/spacer_8"
-        android:gravity="center_horizontal"
-        style="@style/Provisioning2Theme.Text.Secondary.SmallerLineSpacing"/>
-
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/spacer_36"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
-
-      <ImageView
-          android:layout_width="@dimen/spacer_24"
-          android:layout_height="@dimen/spacer_24"
-          android:src="@drawable/ic_install_app_good"/>
-
-      <TextView
-          android:id="@+id/install_creditor_app"
-          android:layout_width="wrap_content"
-          android:layout_height="wrap_content"
-          android:layout_marginStart="@dimen/spacer_16"
-          android:text="@string/install_creditor_app_description"
-          style="@style/Provisioning2Theme.Text.Secondary.SmallerLineSpacing"/>
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        style="@style/SudContentFrame">
+        <Space
+            android:layout_width="1dp"
+            android:layout_height="@dimen/sud_items_margin_top"/>
+        <include
+            android:id="@+id/item1"
+            layout="@layout/icon_with_label_item"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+        <Space
+            android:layout_width="1dp"
+            android:layout_height="@dimen/sud_items_margin_inbetween"/>
+        <include
+            android:id="@+id/item2"
+            layout="@layout/icon_with_label_item"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
     </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/spacer_12"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
-
-      <ImageView
-          android:layout_width="@dimen/spacer_24"
-          android:layout_height="@dimen/spacer_24"
-          android:src="@drawable/ic_lock"/>
-
-      <TextView
-          android:layout_width="wrap_content"
-          android:layout_height="wrap_content"
-          android:layout_marginStart="@dimen/spacer_16"
-          android:text="@string/lock_device_description"
-          style="@style/Provisioning2Theme.Text.Secondary.SmallerLineSpacing"/>
-    </LinearLayout>
-
-  </LinearLayout>
-
 </com.google.android.setupdesign.GlifLayout>

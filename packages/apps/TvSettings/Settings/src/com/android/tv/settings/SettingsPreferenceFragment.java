@@ -25,6 +25,7 @@ import static androidx.lifecycle.Lifecycle.Event.ON_STOP;
 
 import static com.android.tv.settings.util.InstrumentationUtils.logPageFocused;
 
+import android.animation.AnimatorInflater;
 import android.annotation.CallSuper;
 import android.app.tvsettings.TvSettingsEnums;
 import android.content.Context;
@@ -34,41 +35,45 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.accessibility.AccessibilityEvent;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
-import androidx.leanback.preference.LeanbackPreferenceFragment;
+import androidx.leanback.preference.LeanbackPreferenceFragmentCompat;
 import androidx.lifecycle.LifecycleOwner;
+import androidx.lifecycle.ViewModelProvider;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceGroup;
+import androidx.preference.PreferenceGroupAdapter;
 import androidx.preference.PreferenceScreen;
+import androidx.preference.PreferenceViewHolder;
+import androidx.recyclerview.widget.RecyclerView;
 
-import com.android.settingslib.core.instrumentation.Instrumentable;
-import com.android.settingslib.core.instrumentation.MetricsFeatureProvider;
-import com.android.settingslib.core.instrumentation.VisibilityLoggerMixin;
 import com.android.settingslib.core.lifecycle.Lifecycle;
+import com.android.tv.settings.overlay.FlavorUtils;
+import com.android.tv.settings.util.SettingsPreferenceUtil;
+import com.android.tv.settings.widget.SettingsViewModel;
+import com.android.tv.settings.widget.TsPreference;
 import com.android.tv.twopanelsettings.TwoPanelSettingsFragment;
 
 /**
- * A {@link LeanbackPreferenceFragment} that has hooks to observe fragment lifecycle events
+ * A {@link LeanbackPreferenceFragmentCompat} that has hooks to observe fragment lifecycle events
  * and allow for instrumentation.
  */
-public abstract class SettingsPreferenceFragment extends LeanbackPreferenceFragment
-        implements LifecycleOwner, Instrumentable,
+public abstract class SettingsPreferenceFragment extends LeanbackPreferenceFragmentCompat
+        implements LifecycleOwner,
         TwoPanelSettingsFragment.PreviewableComponentCallback {
     private final Lifecycle mLifecycle = new Lifecycle(this);
-    private final VisibilityLoggerMixin mVisibilityLoggerMixin;
-    protected MetricsFeatureProvider mMetricsFeatureProvider;
 
+    // Rename getLifecycle() to getSettingsLifecycle() as androidx Fragment has already implemented
+    // getLifecycle(), overriding here would cause unexpected crash in framework.
     @NonNull
-    public Lifecycle getLifecycle() {
+    public Lifecycle getSettingsLifecycle() {
         return mLifecycle;
     }
 
     public SettingsPreferenceFragment() {
-        mMetricsFeatureProvider = new MetricsFeatureProvider();
-        // Mixin that logs visibility change for activity.
-        mVisibilityLoggerMixin = new VisibilityLoggerMixin(getMetricsCategory(),
-                mMetricsFeatureProvider);
-        getLifecycle().addObserver(mVisibilityLoggerMixin);
     }
 
     @CallSuper
@@ -106,10 +111,77 @@ public abstract class SettingsPreferenceFragment extends LeanbackPreferenceFragm
             // it is RTL.
             if (titleView != null
                     && getResources().getConfiguration().getLayoutDirection()
-                            == View.LAYOUT_DIRECTION_RTL) {
+                        == View.LAYOUT_DIRECTION_RTL) {
                 titleView.setGravity(Gravity.RIGHT);
             }
+            if (FlavorUtils.isTwoPanel(getContext())) {
+                ViewGroup decor = view.findViewById(R.id.decor_title_container);
+                if (decor != null) {
+                    decor.setOutlineProvider(null);
+                    decor.setBackgroundResource(R.color.tp_preference_panel_background_color);
+                }
+            } else {
+                // We only want to set the title in this location for one-panel settings.
+                // TwoPanelSettings behavior is handled moveToPanel in TwoPanelSettingsFragment
+                // since we only want the active/main panel to announce its title.
+                // For some reason, setAccessibiltyPaneTitle interferes with the initial a11y focus
+                // of this screen.
+                if (getActivity().getWindow() != null) {
+                    getActivity().getWindow().setTitle(getPreferenceScreen().getTitle());
+                    view.sendAccessibilityEvent(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED);
+                }
+            }
+            removeAnimationClipping(view);
         }
+        SettingsViewModel settingsViewModel = new ViewModelProvider(this.getActivity(),
+                ViewModelProvider.AndroidViewModelFactory.getInstance(
+                        this.getActivity().getApplication())).get(SettingsViewModel.class);
+        iteratePreferenceAndSetObserver(settingsViewModel, getPreferenceScreen());
+    }
+
+    private void iteratePreferenceAndSetObserver(SettingsViewModel viewModel,
+            PreferenceGroup preferenceGroup) {
+        for (int i = 0; i < preferenceGroup.getPreferenceCount(); i++) {
+            Preference pref = preferenceGroup.getPreference(i);
+            if (pref instanceof TsPreference
+                    && ((TsPreference) pref).updatableFromGoogleSettings()) {
+                viewModel.getVisibilityLiveData(
+                        SettingsPreferenceUtil.getCompoundKey(this, pref))
+                        .observe(getViewLifecycleOwner(), (Boolean b) -> pref.setVisible(b));
+            }
+            if (pref instanceof PreferenceGroup) {
+                iteratePreferenceAndSetObserver(viewModel, (PreferenceGroup) pref);
+            }
+        }
+    }
+
+    protected void removeAnimationClipping(View v) {
+        if (v instanceof ViewGroup) {
+            ((ViewGroup) v).setClipChildren(false);
+            ((ViewGroup) v).setClipToPadding(false);
+            for (int index = 0; index < ((ViewGroup) v).getChildCount(); index++) {
+                View child = ((ViewGroup) v).getChildAt(index);
+                removeAnimationClipping(child);
+            }
+        }
+    }
+
+    @Override
+    protected RecyclerView.Adapter onCreateAdapter(PreferenceScreen preferenceScreen) {
+        if (FlavorUtils.isTwoPanel(getContext())) {
+            return new PreferenceGroupAdapter(preferenceScreen) {
+                @Override
+                @NonNull
+                public PreferenceViewHolder onCreateViewHolder(@NonNull ViewGroup parent,
+                        int viewType) {
+                    PreferenceViewHolder vh = super.onCreateViewHolder(parent, viewType);
+                    vh.itemView.setStateListAnimator(AnimatorInflater.loadStateListAnimator(
+                            getContext(), R.animator.preference));
+                    return vh;
+                }
+            };
+        }
+        return new PreferenceGroupAdapter(preferenceScreen);
     }
 
     @Override
@@ -135,7 +207,6 @@ public abstract class SettingsPreferenceFragment extends LeanbackPreferenceFragm
     @CallSuper
     @Override
     public void onResume() {
-        mVisibilityLoggerMixin.setSourceMetricsCategory(getActivity());
         super.onResume();
         mLifecycle.handleLifecycleEvent(ON_RESUME);
         if (getCallbackFragment() instanceof TwoPanelSettingsFragment) {

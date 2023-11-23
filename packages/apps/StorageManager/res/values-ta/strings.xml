@@ -42,7 +42,7 @@
     <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"இப்போது <xliff:g id="USED">%1$s</xliff:g> இடம் காலியாக உள்ளது. காப்புப் பிரதி எடுத்த உள்ளடக்கத்தை உங்கள் சாதனத்திலிருந்து அகற்றி இடத்தைக் காலியாக்க, சேமிப்பக நிர்வாகியை அனுமதிக்கவா?"</string>
     <string name="deletion_helper_upsell_cancel" msgid="7084167642850053889">"வேண்டாம்"</string>
     <string name="deletion_helper_upsell_activate" msgid="7157360257760895976">"இயக்கு"</string>
-    <string name="deletion_helper_apps_group_title" msgid="2578309121350341258">"அடிக்கடிப் பயன்படுத்தாத ஆப்ஸ்"</string>
+    <string name="deletion_helper_apps_group_title" msgid="2578309121350341258">"அடிக்கடி பயன்படுத்தாத ஆப்ஸ்"</string>
     <!-- no translation found for deletion_helper_apps_group_summary (360315517252452356) -->
     <skip />
     <string name="deletion_helper_automatic_title" msgid="4610119358490679299">"தானியங்கு"</string>

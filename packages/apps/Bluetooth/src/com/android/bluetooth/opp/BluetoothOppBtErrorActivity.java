@@ -32,8 +32,9 @@
 
 package com.android.bluetooth.opp;
 
+import static android.view.WindowManager.LayoutParams.SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS;
+
 import android.bluetooth.AlertActivity;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
@@ -44,13 +45,13 @@ import com.android.bluetooth.R;
 /**
  * This class is designed to show BT error messages;
  */
-public class BluetoothOppBtErrorActivity extends AlertActivity
-        implements DialogInterface.OnClickListener {
+public class BluetoothOppBtErrorActivity extends AlertActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        getWindow().addPrivateFlags(SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS);
         Intent intent = getIntent();
         String errorTitle = intent.getStringExtra("title");
         String errorContent = intent.getStringExtra("content");
@@ -59,7 +60,7 @@ public class BluetoothOppBtErrorActivity extends AlertActivity
         mAlertBuilder.setIconAttribute(android.R.attr.alertDialogIcon);
         mAlertBuilder.setTitle(errorTitle);
         mAlertBuilder.setView(createView(errorContent));
-        mAlertBuilder.setPositiveButton(R.string.bt_error_btn_ok, this);
+        mAlertBuilder.setPositiveButton(R.string.bt_error_btn_ok, (dialog, which) -> {});
         setupAlert();
     }
 
@@ -70,11 +71,4 @@ public class BluetoothOppBtErrorActivity extends AlertActivity
         return view;
     }
 
-    @Override
-    public void onClick(DialogInterface dialog, int which) {
-        switch (which) {
-            case DialogInterface.BUTTON_POSITIVE:
-                break;
-        }
-    }
 }

@@ -298,6 +298,27 @@ public class HeadsetNativeInterface {
     }
 
     /**
+     * Checks whether the device support echo cancellation and/or noise reduction via the AT+BRSF
+     * bitmask
+     *
+     * @param device target headset
+     * @return true if the device support echo cancellation or noise reduction, false otherwise
+     */
+    public boolean isNoiseReductionSupported(BluetoothDevice device) {
+        return isNoiseReductionSupportedNative(Utils.getByteAddress(device));
+    }
+
+    /**
+     * Checks whether the device supports voice recognition via the AT+BRSF bitmask
+     *
+     * @param device target headset
+     * @return true if the device supports voice recognition, false otherwise
+     */
+    public boolean isVoiceRecognitionSupported(BluetoothDevice device) {
+        return isVoiceRecognitionSupportedNative(Utils.getByteAddress(device));
+    }
+
+    /**
      * Start voice recognition
      *
      * @param device target headset
@@ -474,6 +495,10 @@ public class HeadsetNativeInterface {
     private native boolean connectAudioNative(byte[] address);
 
     private native boolean disconnectAudioNative(byte[] address);
+
+    private native boolean isNoiseReductionSupportedNative(byte[] address);
+
+    private native boolean isVoiceRecognitionSupportedNative(byte[] address);
 
     private native boolean startVoiceRecognitionNative(byte[] address);
 

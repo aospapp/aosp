@@ -19,6 +19,8 @@ import android.app.Activity;
 import android.view.View;
 import android.widget.ImageView;
 
+import androidx.recyclerview.widget.RecyclerView.ViewHolder;
+
 import com.android.wallpaper.R;
 import com.android.wallpaper.asset.Asset;
 import com.android.wallpaper.asset.Asset.DrawableLoadedListener;
@@ -26,8 +28,7 @@ import com.android.wallpaper.model.WallpaperRotationInitializer;
 import com.android.wallpaper.module.InjectorProvider;
 import com.android.wallpaper.module.WallpaperPreferences;
 import com.android.wallpaper.picker.RotationStarter;
-
-import androidx.recyclerview.widget.RecyclerView.ViewHolder;
+import com.android.wallpaper.util.ResourceUtils;
 
 /**
  * IndividualHolder subclass for a wallpaper tile in the RecyclerView for which a click should
@@ -107,7 +108,8 @@ class DesktopRotationHolder extends ViewHolder implements View.OnClickListener,
      */
     public void updateThumbnail(
             Asset newThumbnailAsset, DrawableLoadedListener drawableLoadedListener) {
-        int placeholderColor = mActivity.getResources().getColor(R.color.secondary_color);
+        int placeholderColor =
+                ResourceUtils.getColorAttr(mActivity, android.R.attr.colorSecondary);
 
         // Load the first image more quickly than subsequent ones in the rotation.
         int crossfadeDuration =

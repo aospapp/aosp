@@ -31,4 +31,7 @@
 
     <!-- Ripple color of button background. -->
     <color name="ripple_background">@*android:color/car_card_ripple_background_dark</color>
+
+    <!-- Color of warning notification icon -->
+    <color name="red_warning">#ffc53929</color>
 </resources>

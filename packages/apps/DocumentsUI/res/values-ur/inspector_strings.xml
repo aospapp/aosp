@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="inspector_title" msgid="1924760928091740238">"معلومات"</string>
     <string name="inspector_load_error" msgid="7522190243413249291">"فائل کى معلومات لوڈ نہیں کی جا سکی"</string>
-    <string name="inspector_debug_section" msgid="2576052661505700421">"ڈیبگ کی معلومات (ڈیولپر فقط)"</string>
+    <string name="inspector_debug_section" msgid="2576052661505700421">"ڈیبگ کی معلومات (ڈویلپر فقط)"</string>
     <string name="inspector_debug_metadata_section" msgid="5875140675600744846">"خام میٹا ڈیٹا: <xliff:g id="METADATATYPE">%1$s</xliff:g>"</string>
     <string name="inspector_metadata_section" msgid="6077622515328240575">"میڈیا کی تفصیلات"</string>
     <string name="handler_app_file_opens_with" msgid="5272329600389613550">"اس قسم کی فائل اس کے ساتھ کُھلتی ہے"</string>

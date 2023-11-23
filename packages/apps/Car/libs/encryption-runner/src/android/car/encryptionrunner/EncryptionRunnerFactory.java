@@ -16,9 +16,8 @@
 
 package android.car.encryptionrunner;
 
-import android.annotation.IntDef;
-
-import com.android.internal.annotations.VisibleForTesting;
+import androidx.annotation.IntDef;
+import androidx.annotation.VisibleForTesting;
 
 /**
  * Factory that creates encryption runner.
@@ -29,10 +28,12 @@ public class EncryptionRunnerFactory {
         // prevent instantiation.
     }
 
-    @IntDef({EncryptionRunnerType.UKEY2})
+    @IntDef({EncryptionRunnerType.UKEY2, EncryptionRunnerType.OOB_UKEY2})
     public @interface EncryptionRunnerType {
         /** Use Ukey2 as underlying key exchange. */
         int UKEY2 = 0;
+        /** Use Ukey2 and an out of band channel as underlying key exchange. */
+        int OOB_UKEY2 = 1;
     }
 
     /**
@@ -42,6 +43,8 @@ public class EncryptionRunnerFactory {
         switch (type) {
             case EncryptionRunnerType.UKEY2:
                 return new Ukey2EncryptionRunner();
+            case EncryptionRunnerType.OOB_UKEY2:
+                return new OobUkey2EncryptionRunner();
             default:
                 throw new IllegalArgumentException("Unknown EncryptionRunnerType: " + type);
         }
@@ -62,7 +65,16 @@ public class EncryptionRunnerFactory {
      * for testing.
      */
     @VisibleForTesting
-    public static EncryptionRunner newDummyRunner() {
-        return new DummyEncryptionRunner();
+    public static EncryptionRunner newFakeRunner() {
+        return new FakeEncryptionRunner();
+    }
+
+    /**
+     * Creates a new {@link EncryptionRunner} that doesn't actually do encryption but is useful
+     * for out of band association testing.
+     */
+    @VisibleForTesting
+    public static EncryptionRunner newOobFakeRunner() {
+        return new OobFakeEncryptionRunner();
     }
 }

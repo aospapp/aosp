@@ -19,7 +19,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
         package="com.android.documentsui">
 
-    <uses-sdk android:minSdkVersion="29" />
+    <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="30"/>
 
     <uses-permission android:name="android.permission.MANAGE_DOCUMENTS" />
     <uses-permission android:name="android.permission.REMOVE_TASKS" />
@@ -30,26 +30,13 @@
     <uses-permission android:name="android.permission.CHANGE_OVERLAY_PACKAGES" />
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
     <uses-permission android:name="android.permission.MODIFY_QUIET_MODE" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
 
     <!-- Permissions required for reading and logging compat changes -->
     <uses-permission android:name="android.permission.LOG_COMPAT_CHANGE"/>
     <uses-permission android:name="android.permission.READ_COMPAT_CHANGE_CONFIG"/>
 
-    <!-- For App enumeration -->
-    <queries>
-        <intent>
-            <action android:name="android.intent.action.SEND" />
-            <data android:mimeType="*/*" />
-        </intent>
-        <intent>
-            <action android:name="android.intent.action.SEND_MULTIPLE" />
-            <data android:mimeType="*/*" />
-        </intent>
-        <intent>
-            <action android:name="android.intent.action.VIEW" />
-            <data android:mimeType="*/*" />
-        </intent>
-    </queries>
+    <uses-permission android:name="android.permission.START_FOREGROUND_SERVICES_FROM_BACKGROUND"/>
 
     <application
         android:name=".DocumentsApplication"
@@ -184,7 +171,8 @@
             </intent-filter>
         </provider>
 
-        <receiver android:name=".PackageReceiver">
+        <receiver android:name=".PackageReceiver"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.PACKAGE_FULLY_REMOVED" />
                 <action android:name="android.intent.action.PACKAGE_DATA_CLEARED" />
@@ -192,13 +180,15 @@
             </intent-filter>
         </receiver>
 
-        <receiver android:name=".roots.BootReceiver" android:enabled="false">
+        <receiver android:name=".roots.BootReceiver" android:enabled="false"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
 
-        <receiver android:name=".PreBootReceiver">
+        <receiver android:name=".PreBootReceiver"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.PRE_BOOT_COMPLETED" />
             </intent-filter>
@@ -216,6 +206,7 @@
         <activity
             android:name=".selection.demo.SelectionDemoActivity"
             android:label="Selection Demo"
+            android:exported="true"
             android:theme="@style/DocumentsTheme">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

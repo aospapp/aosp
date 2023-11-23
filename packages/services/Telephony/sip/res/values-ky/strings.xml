@@ -29,8 +29,8 @@
     <string name="add_sip_account" msgid="5754758646745144384">"Аккаунт кошуу"</string>
     <string name="remove_sip_account" msgid="8272617403399636513">"Аккаунтту өчүрүү"</string>
     <string name="sip_account_list" msgid="2596262496233721769">"SIP аккаунттары"</string>
-    <string name="saving_account" msgid="3390358043846687266">"Каттоо эсеби сакталууда…"</string>
-    <string name="removing_account" msgid="1544132880414780408">"Каттоо эсеби жок кылынууда…"</string>
+    <string name="saving_account" msgid="3390358043846687266">"Аккаунт сакталууда…"</string>
+    <string name="removing_account" msgid="1544132880414780408">"Аккаунт жок кылынууда…"</string>
     <string name="sip_menu_save" msgid="4377112554203123060">"Сактоо"</string>
     <string name="sip_menu_discard" msgid="1883166691772895243">"Жокко чыгаруу"</string>
     <string name="alert_dialog_close" msgid="1734746505531110706">"Профилди жабуу"</string>

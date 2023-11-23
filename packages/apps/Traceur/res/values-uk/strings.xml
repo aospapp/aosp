@@ -22,6 +22,9 @@
     <string name="saving_trace" msgid="1468692734770800541">"Трасування зберігається"</string>
     <string name="trace_saved" msgid="5869970594780992309">"Трасування збережено"</string>
     <string name="tap_to_share" msgid="6766732404489536899">"Торкніться, щоб поділитися трасуванням"</string>
+    <string name="attaching_to_report" msgid="2629202947947275886">"Трасування долучається до звіту про помилки"</string>
+    <string name="attached_to_report" msgid="5806905349184608870">"Трасування долучено до звіту про помилки"</string>
+    <string name="attached_to_report_summary" msgid="7665675771190391355">"Натисніть, щоб відкрити BetterBug"</string>
     <string name="stop_tracing" msgid="8916938308534164152">"Припинити трасування"</string>
     <string name="tracing_categories_unavailable" msgid="5609076391417077752">"Деякі категорії трасування недоступні:"</string>
     <string name="trace_is_being_recorded" msgid="5947378146009337469">"Записується трасування"</string>
@@ -58,4 +61,9 @@
     <string name="sixteen_thousand_kb" msgid="7342517169232459259">"16 384 КБ"</string>
     <string name="thirtytwo_thousand_kb" msgid="654328198799196150">"32 768 КБ"</string>
     <string name="sixtyfive_thousand_kb" msgid="8168144138598305306">"65 536 КБ"</string>
+    <string name="stop_on_bugreport" msgid="2045328149107284734">"Зупиняти трасування, коли формуються звіти про помилки"</string>
+    <string name="stop_on_bugreport_summary" msgid="7844074306038850040">"Завершувати активні трасування, коли починає формуватися звіт про помилки"</string>
+    <string name="attach_to_bug_report" msgid="2953745117960948415">"Долучати трасування до звітів про помилки"</string>
+    <string name="attach_to_bug_report_summary" msgid="2225208904634565377">"Автоматично надсилати активні трасування в BetterBug під час формування звіту про помилки"</string>
+    <string name="link_to_traces" msgid="6569969595898995517">"Переглянути файли трасування"</string>
 </resources>

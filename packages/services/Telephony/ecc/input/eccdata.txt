@@ -1,4 +1,4 @@
-revision: 1
+revision: 2
 countries {
   iso_code: "AD"
   eccs {
@@ -792,6 +792,54 @@ countries {
     types: POLICE
     types: AMBULANCE
     types: FIRE
+  }
+  eccs {
+    phone_number: "15"
+    types: AMBULANCE
+  }
+  eccs {
+    phone_number: "17"
+    types: POLICE
+  }
+  eccs {
+    phone_number: "18"
+    types: FIRE
+  }
+  eccs {
+    phone_number: "115"
+    types: TYPE_UNSPECIFIED
+  }
+  eccs {
+    phone_number: "116000"
+    types: TYPE_UNSPECIFIED
+  }
+  eccs {
+    phone_number: "114"
+    types: TYPE_UNSPECIFIED
+  }
+  eccs {
+    phone_number: "191"
+    types: TYPE_UNSPECIFIED
+  }
+  eccs {
+    phone_number: "196"
+    types: MARINE_GUARD
+  }
+  eccs {
+    phone_number: "197"
+    types: TYPE_UNSPECIFIED
+  }
+  eccs {
+    phone_number: "116117"
+    types: TYPE_UNSPECIFIED
+  }
+  eccs {
+    phone_number: "116111"
+    types: TYPE_UNSPECIFIED
+  }
+  eccs {
+    phone_number: "119"
+    types: TYPE_UNSPECIFIED
   }
   ecc_fallback: "112"
 }

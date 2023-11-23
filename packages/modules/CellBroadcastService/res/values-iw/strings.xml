@@ -16,9 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="etws_primary_default_message_earthquake" msgid="6322509321590329419">"הישאר רגוע וחפש מחסה בקרבת מקום."</string>
+    <string name="etws_primary_default_message_earthquake" msgid="6322509321590329419">"יש להישאר רגועים ולחפש מחסה בקרבת מקום."</string>
     <string name="etws_primary_default_message_tsunami" msgid="2521384573822842618">"יש להתפנות מיידית מאזורים הסמוכים לחופים ולנהרות למקום בטוח יותר, כגון שטח גבוה יותר."</string>
-    <string name="etws_primary_default_message_earthquake_and_tsunami" msgid="7826176257527823396">"הישאר רגוע וחפש מחסה בקרבת מקום."</string>
+    <string name="etws_primary_default_message_earthquake_and_tsunami" msgid="7826176257527823396">"יש להישאר רגועים ולחפש מחסה בקרבת מקום."</string>
     <string name="etws_primary_default_message_test" msgid="2739829278266087553">"בדיקה של הודעות חירום"</string>
-    <string name="etws_primary_default_message_others" msgid="3271611843755121534">"התראה שפרסמה ממשלה מקומית. מידע נוסף יתפרסם בקרוב."</string>
+    <string name="etws_primary_default_message_others" msgid="3271611843755121534">"התרעה של הממשל המקומי. מידע נוסף יתפרסם בקרוב."</string>
 </resources>

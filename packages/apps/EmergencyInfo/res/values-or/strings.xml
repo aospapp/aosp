@@ -95,7 +95,7 @@
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"ଯୋଗାଯୋଗକୁ କାଢ଼ିଦିଅନ୍ତୁ"</string>
     <string name="fail_add_contact" msgid="6511490846952942291">"ଯୋଗାଯୋଗ ସୂଚନାକୁ ଠିକ୍ ଭାବେ ପଢ଼ି ହେଉନାହିଁ"</string>
     <string name="remove" msgid="1243949503772376064">"କାଢ଼ିଦିଅନ୍ତୁ"</string>
-    <string name="cancel" msgid="7401575239009060939">"କ୍ୟାନ୍ସଲ୍‍"</string>
+    <string name="cancel" msgid="7401575239009060939">"ବାତିଲ୍‍"</string>
     <string name="ok" msgid="163967937451981024">"ଠିକ୍ ଅଛି"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="no_info_provided" msgid="716200382010821001">"ଫୋନ୍ ମାଲିକଙ୍କର କିଛି ସୂଚନା ନାହିଁ"</string>

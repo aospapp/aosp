@@ -23,11 +23,21 @@
         <activity
             android:name=".RotaryActivity"
             android:label="@string/app_name"
+            android:exported="true"
             android:allowEmbedded="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Define app-specific custom off-screen nudge up action:
+                 GLOBAL_ACTION_NOTIFICATIONS -->
+            <meta-data android:name="nudge.up.globalAction" android:value="4"/>
+            <!-- Define app-specific custom off-screen nudge left action: KEYCODE_BACK -->
+            <meta-data android:name="nudge.left.keyCode" android:value="4"/>
+            <!-- Define app-specific custom off-screen nudge down action: launch Settings -->
+            <meta-data
+                android:name="nudge.down.intent"
+                android:value="intent:#Intent;action=android.settings.SETTINGS;category=android.intent.category.DEFAULT;end"/>
         </activity>
     </application>
 </manifest>

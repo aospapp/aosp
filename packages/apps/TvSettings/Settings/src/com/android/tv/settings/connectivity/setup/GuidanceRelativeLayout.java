@@ -20,6 +20,7 @@ package com.android.tv.settings.connectivity.setup;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.util.AttributeSet;
+import android.widget.ImageView;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
@@ -59,6 +60,7 @@ public class GuidanceRelativeLayout extends RelativeLayout {
 
         TextView titleView = getRootView().findViewById(R.id.guidance_title);
         TextView descriptionView = getRootView().findViewById(R.id.guidance_description);
+        ImageView iconView = getRootView().findViewById(R.id.guidance_icon);
 
         int mTitleKeylinePixels = (int) (getMeasuredHeight() * mTitleKeylinePercent / 100);
         if (titleView != null && titleView.getParent() == this) {
@@ -82,6 +84,9 @@ public class GuidanceRelativeLayout extends RelativeLayout {
 
             if (descriptionView != null && descriptionView.getParent() == this) {
                 descriptionView.offsetTopAndBottom(offset);
+            }
+            if (iconView != null && iconView.getParent() == this) {
+                iconView.offsetTopAndBottom(offset);
             }
         }
     }

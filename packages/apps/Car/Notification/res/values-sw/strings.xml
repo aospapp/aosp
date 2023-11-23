@@ -39,4 +39,5 @@
       <item quantity="other">Ujumbe <xliff:g id="COUNT">%d</xliff:g> mpya</item>
       <item quantity="one">Ujumbe 1 mpya</item>
     </plurals>
+    <string name="manage_text" msgid="4225197445283791757">"Dhibiti"</string>
 </resources>

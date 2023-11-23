@@ -19,14 +19,17 @@ package com.android.car.settings.common;
 import android.car.drivingstate.CarUxRestrictions;
 import android.car.drivingstate.CarUxRestrictionsManager.OnUxRestrictionsChangedListener;
 import android.content.Context;
+import android.widget.Toast;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
 import androidx.lifecycle.DefaultLifecycleObserver;
 import androidx.lifecycle.LifecycleOwner;
 import androidx.preference.Preference;
+import androidx.preference.PreferenceGroup;
 
 import com.android.car.settings.R;
+import com.android.car.ui.preference.UxRestrictablePreference;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -94,7 +97,7 @@ public abstract class PreferenceController<V extends Preference> implements
      * @see #getAvailabilityStatus()
      */
     @Retention(RetentionPolicy.SOURCE)
-    @IntDef({AVAILABLE, CONDITIONALLY_UNAVAILABLE, UNSUPPORTED_ON_DEVICE, DISABLED_FOR_USER,
+    @IntDef({AVAILABLE, CONDITIONALLY_UNAVAILABLE, UNSUPPORTED_ON_DEVICE, DISABLED_FOR_PROFILE,
             AVAILABLE_FOR_VIEWING})
     public @interface AvailabilityStatus {
     }
@@ -106,7 +109,7 @@ public abstract class PreferenceController<V extends Preference> implements
 
     /**
      * The setting is currently unavailable but may become available in the future. Use
-     * {@link #DISABLED_FOR_USER} if it describes the condition more accurately.
+     * {@link #DISABLED_FOR_PROFILE} if it describes the condition more accurately.
      */
     public static final int CONDITIONALLY_UNAVAILABLE = 1;
 
@@ -116,9 +119,9 @@ public abstract class PreferenceController<V extends Preference> implements
     public static final int UNSUPPORTED_ON_DEVICE = 2;
 
     /**
-     * The setting cannot be changed by the current user.
+     * The setting cannot be changed by the current profile.
      */
-    public static final int DISABLED_FOR_USER = 3;
+    public static final int DISABLED_FOR_PROFILE = 3;
 
     /**
      * The setting cannot be changed.
@@ -140,10 +143,12 @@ public abstract class PreferenceController<V extends Preference> implements
     private final Context mContext;
     private final String mPreferenceKey;
     private final FragmentController mFragmentController;
+    private final String mRestrictedWhileDrivingMessage;
 
     private CarUxRestrictions mUxRestrictions;
     private V mPreference;
     private boolean mIsCreated;
+    private boolean mIsStarted;
 
     /**
      * Controllers should be instantiated from XML. To pass additional arguments see
@@ -159,6 +164,8 @@ public abstract class PreferenceController<V extends Preference> implements
                 mContext.getResources().getStringArray(R.array.config_ignore_ux_restrictions)));
         mAlwaysIgnoreUxRestrictions =
                 mContext.getResources().getBoolean(R.bool.config_always_ignore_ux_restrictions);
+        mRestrictedWhileDrivingMessage =
+                mContext.getResources().getString(R.string.car_ui_restricted_while_driving);
     }
 
     /**
@@ -287,6 +294,7 @@ public abstract class PreferenceController<V extends Preference> implements
             return;
         }
         onStartInternal();
+        mIsStarted = true;
         refreshUi();
     }
 
@@ -323,6 +331,7 @@ public abstract class PreferenceController<V extends Preference> implements
         if (getAvailabilityStatus() == UNSUPPORTED_ON_DEVICE) {
             return;
         }
+        mIsStarted = false;
         onStopInternal();
     }
 
@@ -446,10 +455,36 @@ public abstract class PreferenceController<V extends Preference> implements
      * additional driving restrictions.
      */
     protected void onApplyUxRestrictions(CarUxRestrictions uxRestrictions) {
+        boolean restrict = false;
         if (!isUxRestrictionsIgnored(mAlwaysIgnoreUxRestrictions,
                 mPreferencesIgnoringUxRestrictions)
-                && CarUxRestrictionsHelper.isNoSetup(uxRestrictions)) {
-            mPreference.setEnabled(false);
+                && CarUxRestrictionsHelper.isNoSetup(uxRestrictions)
+                && getAvailabilityStatus() != AVAILABLE_FOR_VIEWING) {
+            restrict = true;
+        }
+        restrictPreference(mPreference, restrict);
+    }
+
+    /**
+     * Updates the UxRestricted state and action for a preference. This will also update all child
+     * preferences with the same state and action when {@param preference} is a PreferenceGroup.
+     *
+     * @param preference the preference to update
+     * @param restrict whether or not the preference should be restricted
+     */
+    protected void restrictPreference(Preference preference, boolean restrict) {
+        if (preference instanceof UxRestrictablePreference) {
+            UxRestrictablePreference restrictablePreference = (UxRestrictablePreference) preference;
+            restrictablePreference.setUxRestricted(restrict);
+            restrictablePreference.setOnClickWhileRestrictedListener(p ->
+                    Toast.makeText(mContext, mRestrictedWhileDrivingMessage,
+                            Toast.LENGTH_LONG).show());
+        }
+        if (preference instanceof PreferenceGroup) {
+            PreferenceGroup preferenceGroup = (PreferenceGroup) preference;
+            for (int i = 0; i < preferenceGroup.getPreferenceCount(); i++) {
+                restrictPreference(preferenceGroup.getPreference(i), restrict);
+            }
         }
     }
 
@@ -480,5 +515,9 @@ public abstract class PreferenceController<V extends Preference> implements
 
     protected boolean isUxRestrictionsIgnored(boolean allIgnores, Set prefsThatIgnore) {
         return allIgnores || prefsThatIgnore.contains(mPreferenceKey);
+    }
+
+    protected final boolean isStarted() {
+        return mIsStarted;
     }
 }

@@ -17,4 +17,5 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="cmas_presidential_level_alert" msgid="6968323372438785870">"බරපතළ හදිසි අවස්ථා ඇඟවීම"</string>
+    <string name="alerts_header_summary" msgid="8898082819299479687">"ස්වාභාවික විපත්වලදී, ඉවත් වීමේ උපදෙස් වැනි ඇඟවීම් ඔබගේ දුරකථනය ඔබට එවිය හැකිය. මෙම සේවාව ජාතික හදිසි අවස්ථා කළමනාකරණ ඒජන්සිය, ජාල සැපයුම්කරුවන් සහ උපාංග නිෂ්පාදකයින් අතර සහයෝගීතාවකි.\n\nඔබගේ උපාංගයේ ගැටලුවක් තිබේ නම් හෝ ජාල තත්ත්ව දුර්වල නම් ඔබට ඇඟවීම් නොලැබිය හැකිය."</string>
 </resources>

@@ -21,6 +21,7 @@
     <string name="bugreport_info_quit" msgid="5590138890181142473">"বন্ধ কৰক"</string>
     <string name="bugreport_info_start" msgid="667324824650830832">"বাগ ৰিপ’ৰ্ট আৰম্ভ কৰক"</string>
     <string name="bugreport_info_status" msgid="7211044508792815451">"স্থিতি:"</string>
+    <string name="bugreport_info_expires_soon_notice" msgid="927139313070992675">"এই বাগ সম্পর্কীয় অভিযোগৰ ম্যাদ সোনকালে উকলিব"</string>
     <string name="bugreport_dialog_submit" msgid="2789636252713280633">"দাখিল কৰক"</string>
     <string name="bugreport_dialog_cancel" msgid="4741928791364757040">"বাতিল কৰক"</string>
     <string name="bugreport_dialog_upload" msgid="2517386929450370781">"আপল’ড কৰক"</string>

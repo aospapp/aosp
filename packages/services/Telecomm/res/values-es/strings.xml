@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3077225713817780583">"Gestión de llamadas"</string>
+    <string name="telecommAppLabel" product="default" msgid="1825598513414129827">"Llamadas"</string>
     <string name="userCallActivityLabel" product="default" msgid="3605391260292846248">"Teléfono"</string>
     <string name="unknown" msgid="6993977514360123431">"Desconocido"</string>
     <string name="notification_missedCallTitle" msgid="5060387047205532974">"Llamada perdida"</string>
@@ -99,7 +99,7 @@
     <string name="notification_channel_call_blocking" msgid="2028807677868598710">"Bloqueo de llamadas"</string>
     <string name="notification_channel_background_calls" msgid="7785659903711350506">"Llamadas en segundo plano"</string>
     <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"Llamadas interrumpidas"</string>
-    <string name="notification_channel_in_call_service_crash" msgid="7313237519166984267">"Aplicaciones para teléfonos con bloqueos"</string>
+    <string name="notification_channel_in_call_service_crash" msgid="7313237519166984267">"Aplicaciones para teléfonos con fallos"</string>
     <string name="alert_outgoing_call" msgid="5319895109298927431">"Si haces esta llamada, se finalizará la de <xliff:g id="OTHER_APP">%1$s</xliff:g>."</string>
     <string name="alert_redirect_outgoing_call_or_not" msgid="665409645789521636">"Elige cómo quieres hacer esta llamada"</string>
     <string name="alert_place_outgoing_call_with_redirection" msgid="5221065030959024121">"Redirigir llamada con <xliff:g id="OTHER_APP">%1$s</xliff:g>"</string>

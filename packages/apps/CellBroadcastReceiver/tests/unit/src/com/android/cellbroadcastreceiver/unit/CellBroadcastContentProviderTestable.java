@@ -44,12 +44,23 @@ public class CellBroadcastContentProviderTestable extends CellBroadcastContentPr
         mOpenHelper.close();
     }
 
-    public static class InMemoryCellBroadcastProviderDbHelper extends SQLiteOpenHelper {
+    @Override
+    protected SQLiteDatabase awaitInitAndGetWritableDatabase() {
+        // Do not wait on latch in testing
+        return mOpenHelper.getWritableDatabase();
+    }
+
+    @Override
+    protected SQLiteDatabase awaitInitAndGetReadableDatabase() {
+        // Do not wait on latch in testing
+        return mOpenHelper.getReadableDatabase();
+    }
+
+    public static class InMemoryCellBroadcastProviderDbHelper extends CellBroadcastDatabaseHelper {
         public InMemoryCellBroadcastProviderDbHelper() {
             super(InstrumentationRegistry.getTargetContext(),
-                    null,    // db file name is null for in-memory db
-                    null,    // CursorFactory is null by default
-                    1);      // db version is no-op for tests
+                    false,
+                    null);    // db file name is null for in-memory db
         }
 
         @Override

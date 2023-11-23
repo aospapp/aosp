@@ -32,6 +32,8 @@
 
 package com.android.bluetooth.pbap;
 
+import static android.view.WindowManager.LayoutParams.SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS;
+
 import android.bluetooth.AlertActivity;
 import android.bluetooth.BluetoothDevice;
 import android.content.BroadcastReceiver;
@@ -59,8 +61,7 @@ import com.android.bluetooth.R;
  * remote Bluetooth device.
  */
 public class BluetoothPbapActivity extends AlertActivity
-        implements DialogInterface.OnClickListener, Preference.OnPreferenceChangeListener,
-        TextWatcher {
+        implements Preference.OnPreferenceChangeListener, TextWatcher {
     private static final String TAG = "BluetoothPbapActivity";
 
     private static final boolean V = BluetoothPbapService.VERBOSE;
@@ -102,6 +103,8 @@ public class BluetoothPbapActivity extends AlertActivity
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        getWindow().addPrivateFlags(SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS);
         Intent i = getIntent();
         String action = i.getAction();
         mDevice = i.getParcelableExtra(BluetoothPbapService.EXTRA_DEVICE);
@@ -122,8 +125,10 @@ public class BluetoothPbapActivity extends AlertActivity
             case DIALOG_YES_NO_AUTH:
                 mAlertBuilder.setTitle(getString(R.string.pbap_session_key_dialog_header));
                 mAlertBuilder.setView(createView(DIALOG_YES_NO_AUTH));
-                mAlertBuilder.setPositiveButton(android.R.string.ok, this);
-                mAlertBuilder.setNegativeButton(android.R.string.cancel, this);
+                mAlertBuilder.setPositiveButton(android.R.string.ok,
+                        (dialog, which) -> onPositive());
+                mAlertBuilder.setNegativeButton(android.R.string.cancel,
+                        (dialog, which) -> onNegative());
                 setupAlert();
                 changeButtonEnabled(DialogInterface.BUTTON_POSITIVE, false);
                 break;
@@ -160,6 +165,10 @@ public class BluetoothPbapActivity extends AlertActivity
     }
 
     private void onPositive() {
+        if (mCurrentDialog == DIALOG_YES_NO_AUTH) {
+            mSessionKey = mKeyView.getText().toString();
+        }
+
         if (!mTimeout) {
             if (mCurrentDialog == DIALOG_YES_NO_AUTH) {
                 sendIntentToReceiver(BluetoothPbapService.AUTH_RESPONSE_ACTION,
@@ -188,24 +197,6 @@ public class BluetoothPbapActivity extends AlertActivity
             intent.putExtra(extraName, extraValue);
         }
         sendBroadcast(intent);
-    }
-
-    @Override
-    public void onClick(DialogInterface dialog, int which) {
-        switch (which) {
-            case DialogInterface.BUTTON_POSITIVE:
-                if (mCurrentDialog == DIALOG_YES_NO_AUTH) {
-                    mSessionKey = mKeyView.getText().toString();
-                }
-                onPositive();
-                break;
-
-            case DialogInterface.BUTTON_NEGATIVE:
-                onNegative();
-                break;
-            default:
-                break;
-        }
     }
 
     private void onTimeout() {

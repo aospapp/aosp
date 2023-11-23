@@ -20,13 +20,18 @@ import android.annotation.IntDef;
 import android.app.Activity;
 import android.app.DialogFragment;
 import android.os.Bundle;
+
 import androidx.annotation.VisibleForTesting;
+
 import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.common.DialogBuilder;
+import com.android.managedprovisioning.common.SettingsFacade;
 import com.android.managedprovisioning.common.SetupGlifLayoutActivity;
 import com.android.managedprovisioning.common.SimpleDialog;
+import com.android.managedprovisioning.common.ThemeHelper;
 import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.ProvisioningParams;
+
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
@@ -45,11 +50,13 @@ public abstract class AbstractProvisioningActivity extends SetupGlifLayoutActivi
 
     static final int STATE_PROVISIONING_INTIIALIZING = 1;
     static final int STATE_PROVISIONING_STARTED = 2;
-    static final int STATE_PROVISIONING_FINALIZED = 3;
+    static final int STATE_PROVISIONING_COMPLETED = 3;
+    static final int STATE_PROVISIONING_FINALIZED = 4;
 
     @Retention(RetentionPolicy.SOURCE)
     @IntDef({STATE_PROVISIONING_INTIIALIZING,
             STATE_PROVISIONING_STARTED,
+            STATE_PROVISIONING_COMPLETED,
             STATE_PROVISIONING_FINALIZED})
     private @interface ProvisioningState {}
 
@@ -60,13 +67,13 @@ public abstract class AbstractProvisioningActivity extends SetupGlifLayoutActivi
     @VisibleForTesting static final String CANCEL_PROVISIONING_DIALOG_RESET
             = "CancelProvisioningDialogReset";
 
-    protected ProvisioningManagerInterface mProvisioningManager;
     protected ProvisioningParams mParams;
     protected @ProvisioningState int mState;
 
     @VisibleForTesting
-    protected AbstractProvisioningActivity(Utils utils) {
-        super(utils);
+    protected AbstractProvisioningActivity(
+            Utils utils, SettingsFacade settingsFacade, ThemeHelper themeHelper) {
+        super(utils, settingsFacade, themeHelper);
     }
 
     // Lazily initialize ProvisioningManager, since we can't call in ProvisioningManager.getInstance
@@ -74,14 +81,12 @@ public abstract class AbstractProvisioningActivity extends SetupGlifLayoutActivi
     protected abstract ProvisioningManagerInterface getProvisioningManager();
     // Show the dialog when user press back button while provisioning.
     protected abstract void decideCancelProvisioningDialog();
-    // Initialize UI for this activity.
-    protected abstract void initializeUi(ProvisioningParams params);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+        // initialize params so they're accessible for prechecks in onCreate
         mParams = getIntent().getParcelableExtra(ProvisioningParams.EXTRA_PROVISIONING_PARAMS);
-        initializeUi(mParams);
+        super.onCreate(savedInstanceState);
 
         if (savedInstanceState != null) {
             mState = savedInstanceState.getInt(KEY_ACTIVITY_STATE,
@@ -125,11 +130,6 @@ public abstract class AbstractProvisioningActivity extends SetupGlifLayoutActivi
 
     @Override
     public void onBackPressed() {
-        // if EXTRA_PROVISIONING_SKIP_USER_CONSENT is specified, don't allow user to cancel
-        if (mParams.skipUserConsent) {
-            return;
-        }
-
         decideCancelProvisioningDialog();
     }
 
@@ -164,7 +164,7 @@ public abstract class AbstractProvisioningActivity extends SetupGlifLayoutActivi
 
     private void onProvisioningAborted() {
         setResult(Activity.RESULT_CANCELED);
-        finish();
+        getTransitionHelper().finishActivity(this);
     }
 
     @Override
@@ -188,14 +188,14 @@ public abstract class AbstractProvisioningActivity extends SetupGlifLayoutActivi
                 onProvisioningAborted();
                 break;
             case CANCEL_PROVISIONING_DIALOG_RESET:
-                getUtils().sendFactoryResetBroadcast(this, "Provisioning cancelled by user");
+                getUtils().factoryReset(this, "Provisioning cancelled by user");
                 onProvisioningAborted();
                 break;
             case ERROR_DIALOG_OK:
                 onProvisioningAborted();
                 break;
             case ERROR_DIALOG_RESET:
-                getUtils().sendFactoryResetBroadcast(this, "Error during provisioning");
+                getUtils().factoryReset(this, "Error during provisioning");
                 onProvisioningAborted();
                 break;
             default:

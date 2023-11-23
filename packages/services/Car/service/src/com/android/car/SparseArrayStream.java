@@ -15,8 +15,13 @@
  */
 package com.android.car;
 
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.BOILERPLATE_CODE;
+
 import android.util.Pair;
 import android.util.SparseArray;
+
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
+
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -35,5 +40,11 @@ public class SparseArrayStream {
     public static <E> Stream<Pair<Integer, E>> pairStream(SparseArray<E> array) {
         return IntStream.range(0, array.size()).mapToObj(
             i -> new Pair<>(array.keyAt(i), array.valueAt(i)));
+    }
+
+    @ExcludeFromCodeCoverageGeneratedReport(reason = BOILERPLATE_CODE,
+            details = "private constructor")
+    private SparseArrayStream() {
+        throw new UnsupportedOperationException("contains only static methods");
     }
 }

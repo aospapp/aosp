@@ -16,7 +16,7 @@
 
 package com.android.networkstack.hosttests
 
-import com.android.tests.util.ModuleTestUtils
+import android.cts.install.lib.host.InstallUtilsHost
 import com.android.tradefed.device.ITestDevice
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test
@@ -42,8 +42,7 @@ private const val NETWORKSTACK_TIMEOUT_MS = 5 * 60_000
 @RunWith(DeviceJUnit4ClassRunner::class)
 class NetworkStackHostTests : BaseHostJUnit4Test() {
 
-    private val mUtils = ModuleTestUtils(this)
-    private val mModuleApk = mUtils.getTestFile(APP_APK)
+    private val mModuleApk = InstallUtilsHost(this).getTestFile(APP_APK)
     private val mPackageName = AaptParser.parse(mModuleApk)?.packageName
             ?: throw IllegalStateException("Could not parse test package name")
     private val mDevice by lazy { getDevice() }
@@ -74,12 +73,10 @@ class NetworkStackHostTests : BaseHostJUnit4Test() {
         assumeFalse(error != null && error.contains("Unknown option --staged"))
         assertNull(error, "Error installing module package: $error")
         try {
-            mUtils.waitForStagedSessionReady()
             applyUpdateAndCheckNetworkStackRegistered()
             assertNotEquals(initialUpdateTime, getLastUpdateTime(), "Update time did not change")
         } finally {
             assertCommandSucceeds("pm rollback-app $mPackageName")
-            mUtils.waitForStagedSessionReady()
             applyUpdateAndCheckNetworkStackRegistered()
         }
     }

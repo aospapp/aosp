@@ -25,28 +25,18 @@ import androidx.annotation.XmlRes;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.SettingsFragment;
-import com.android.car.ui.toolbar.MenuItem;
 import com.android.settingslib.bluetooth.CachedBluetoothDevice;
 import com.android.settingslib.bluetooth.LocalBluetoothManager;
 
-import java.util.Arrays;
-import java.util.List;
-
 /**
  * Page which displays information for a remote Bluetooth device including the name, icon,
- * connection status, supported profiles, and MAC. Buttons are shown to enable
- * connecting/disconnecting and forgetting the device.
+ * connection status, supported profiles, and MAC.
  */
 public class BluetoothDeviceDetailsFragment extends SettingsFragment {
 
     private static final String KEY_DEVICE_ADDRESS = "device_address";
 
-    private final CachedBluetoothDevice.Callback mDeviceCallback =
-            this::updateConnectionButtonState;
-
     private CachedBluetoothDevice mCachedDevice;
-    private MenuItem mConnectionButton;
-    private MenuItem mForgetButton;
 
     /**
      * Returns a new {@link BluetoothDeviceDetailsFragment} for the given {@code device}.
@@ -57,26 +47,6 @@ public class BluetoothDeviceDetailsFragment extends SettingsFragment {
         BluetoothDeviceDetailsFragment fragment = new BluetoothDeviceDetailsFragment();
         fragment.setArguments(args);
         return fragment;
-    }
-
-    @Override
-    public List<MenuItem> getToolbarMenuItems() {
-        return Arrays.asList(mConnectionButton, mForgetButton);
-    }
-
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-
-        mConnectionButton = new MenuItem.Builder(getContext()).build();
-        updateConnectionButtonState();
-        mForgetButton = new MenuItem.Builder(getContext())
-                .setTitle(R.string.forget)
-                .setOnClickListener(i -> {
-                    mCachedDevice.unpair();
-                    goBack();
-                })
-                .build();
     }
 
     @Override
@@ -104,34 +74,11 @@ public class BluetoothDeviceDetailsFragment extends SettingsFragment {
 
         use(BluetoothDeviceNamePreferenceController.class,
                 R.string.pk_bluetooth_device_name).setCachedDevice(mCachedDevice);
+        use(BluetoothDeviceActionButtonsPreferenceController.class,
+                R.string.pk_bluetooth_device_action_buttons).setCachedDevice(mCachedDevice);
         use(BluetoothDeviceProfilesPreferenceController.class,
                 R.string.pk_bluetooth_device_profiles).setCachedDevice(mCachedDevice);
         use(BluetoothDeviceAddressPreferenceController.class,
                 R.string.pk_bluetooth_device_address).setCachedDevice(mCachedDevice);
-    }
-
-    @Override
-    public void onStart() {
-        super.onStart();
-        mCachedDevice.registerCallback(mDeviceCallback);
-        updateConnectionButtonState();
-    }
-
-    @Override
-    public void onStop() {
-        super.onStop();
-        mCachedDevice.unregisterCallback(mDeviceCallback);
-    }
-
-    private void updateConnectionButtonState() {
-        mConnectionButton.setEnabled(!mCachedDevice.isBusy());
-        if (mCachedDevice.isConnected()) {
-            mConnectionButton.setTitle(R.string.disconnect);
-            mConnectionButton.setOnClickListener(view -> mCachedDevice.disconnect());
-        } else {
-            mConnectionButton.setTitle(R.string.connect);
-            mConnectionButton.setOnClickListener(
-                    view -> mCachedDevice.connect(/* connectAllProfiles= */ true));
-        }
     }
 }

@@ -17,7 +17,6 @@
 package com.android.car.dialer.ui.activecall;
 
 import android.content.Context;
-import android.graphics.drawable.Drawable;
 import android.text.TextUtils;
 import android.view.View;
 import android.widget.ImageView;
@@ -25,16 +24,10 @@ import android.widget.TextView;
 
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.android.car.apps.common.LetterTileDrawable;
 import com.android.car.dialer.R;
 import com.android.car.dialer.ui.view.ContactAvatarOutputlineProvider;
 import com.android.car.telephony.common.CallDetail;
 import com.android.car.telephony.common.TelecomUtils;
-
-import com.bumptech.glide.Glide;
-import com.bumptech.glide.request.RequestOptions;
-import com.bumptech.glide.request.target.SimpleTarget;
-import com.bumptech.glide.request.transition.Transition;
 
 /**
  * View holder for a user profile of a conference
@@ -79,27 +72,11 @@ public class ConferenceProfileViewHolder extends RecyclerView.ViewHolder {
                             && !phoneNumberLabel.equals(info.getDisplayName())) {
                         mNumber.setText(phoneNumberLabel);
                     } else {
-                        mNumber.setText(null);
+                        mNumber.setText(mContext.getString(R.string.unknown));
                     }
 
-                    LetterTileDrawable letterTile = TelecomUtils.createLetterTile(
-                            mContext, info.getInitials(), info.getDisplayName());
-
-                    Glide.with(mContext)
-                            .load(info.getAvatarUri())
-                            .apply(new RequestOptions().centerCrop().error(letterTile))
-                            .into(new SimpleTarget<Drawable>() {
-                                @Override
-                                public void onResourceReady(Drawable resource,
-                                        Transition<? super Drawable> glideAnimation) {
-                                    mAvatar.setImageDrawable(resource);
-                                }
-
-                                @Override
-                                public void onLoadFailed(Drawable errorDrawable) {
-                                    mAvatar.setImageDrawable(letterTile);
-                                }
-                            });
+                    TelecomUtils.setContactBitmapAsync(mContext, mAvatar,
+                            info.getAvatarUri(), info.getInitials(), info.getDisplayName());
 
                 }, mContext.getMainExecutor());
     }

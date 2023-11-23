@@ -16,6 +16,8 @@
   -->
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:custom="http://schemas.android.com/apk/res-auto"
+    xmlns:settings="http://schemas.android.com/apk/res-auto"
     android:title="@string/about_preference">
 
     <!-- Entry point to Tutorials app - launches activity displaying feature tours -->
@@ -26,10 +28,7 @@
 
     <!-- System update settings - launches activity -->
     <Preference android:key="system_update_settings"
-        android:title="@string/about_system_update">
-        <intent android:action="android.settings.SYSTEM_UPDATE_SETTINGS" />
-    </Preference>
-
+        android:title="@string/about_system_update" />
 
     <Preference android:key="additional_system_update_settings"
         android:title="@string/additional_system_update_settings_list_item_title">
@@ -43,13 +42,10 @@
         <intent android:action="android.settings.DEVICE_NAME" />
     </Preference>
 
-    <Preference
+    <com.android.settingslib.RestrictedPreference
         android:key="reset"
-        android:title="@string/device_reset">
-        <intent
-            android:targetClass="com.android.tv.settings.device.storage.ResetActivity"
-            android:targetPackage="com.android.tv.settings"/>
-    </Preference>
+        android:title="@string/device_reset"
+        settings:userRestriction="no_factory_reset" />
 
     <!-- Device status - launches as activity, must run in separate process -->
     <Preference android:key="status_info"
@@ -120,4 +116,9 @@
         android:title="@string/selinux_status"
         android:summary="@string/selinux_status_enforcing"/>
 
+    <!-- General information for arbitrary content -->
+    <com.android.tv.twopanelsettings.slices.EmbeddedSlicePreference
+        android:key="general_info"
+        custom:uri="@string/general_info_slice_uri"
+        custom:isPreferenceVisible="false" />
 </PreferenceScreen>

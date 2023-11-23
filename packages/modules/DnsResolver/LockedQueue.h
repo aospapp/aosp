@@ -46,6 +46,30 @@ class LockedQueue {
     std::deque<T> mQueue GUARDED_BY(mLock);
 };
 
+template <typename T>
+class LockedRingBuffer {
+  public:
+    explicit LockedRingBuffer(size_t size) : mCapacity(size) {}
+
+    void push(T&& record) {
+        std::lock_guard guard(mLock);
+        mQueue.push_back(std::move(record));
+        if (mQueue.size() > mCapacity) {
+            mQueue.pop_front();
+        }
+    }
+
+    std::deque<T> copy() const {
+        std::lock_guard guard(mLock);
+        return mQueue;
+    }
+
+  private:
+    mutable std::mutex mLock;
+    const size_t mCapacity;
+    std::deque<T> mQueue GUARDED_BY(mLock);
+};
+
 }  // end of namespace net
 }  // end of namespace android
 

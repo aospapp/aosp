@@ -19,6 +19,8 @@ package com.android.car.settings.bluetooth;
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 
+import androidx.annotation.VisibleForTesting;
+
 import com.android.car.settings.R;
 import com.android.car.settings.common.SettingsFragment;
 import com.android.settingslib.bluetooth.BluetoothCallback;
@@ -31,7 +33,8 @@ import com.android.settingslib.bluetooth.LocalBluetoothManager;
  */
 public class BluetoothPairingSelectionFragment extends SettingsFragment {
 
-    private final BluetoothCallback mCallback = new BluetoothCallback() {
+    @VisibleForTesting
+    final BluetoothCallback mCallback = new BluetoothCallback() {
         @Override
         public void onScanningStateChanged(boolean started) {
         }

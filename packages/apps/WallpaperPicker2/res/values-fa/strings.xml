@@ -32,10 +32,10 @@
     <string name="home_screen_message" msgid="106444102822522813">"صفحه اصلی"</string>
     <string name="lock_screen_message" msgid="1534506081955058013">"صفحه در حالت قفل"</string>
     <string name="home_and_lock_short_label" msgid="2937922943541927983">"صفحه اصلی و صفحه در حالت قفل"</string>
-    <string name="set_wallpaper_dialog_message" msgid="6114951028768599417">"تنظیم کاغذدیواری"</string>
+    <string name="set_wallpaper_dialog_message" msgid="2110475703996853076">"تنظیم کاغذدیواری برای"</string>
     <string name="set_wallpaper_home_screen_destination" msgid="7315594722013109354">"صفحه اصلی"</string>
     <string name="set_wallpaper_lock_screen_destination" msgid="6224685559375417945">"صفحه در حالت قفل"</string>
-    <string name="set_wallpaper_both_destination" msgid="6967226064958263939">"صفحه اصلی و صفحه قفل"</string>
+    <string name="set_wallpaper_both_destination" msgid="233216830256235288">"صفحه اصلی و صفحه قفل"</string>
     <string name="no_backup_image_wallpaper_label" msgid="6316627676107284851">"کاغذ‌دیواری با تصویر چرخشی"</string>
     <string name="permission_needed_explanation" msgid="139166837541426823">"برای نمایش کاغذدیواری فعلی در اینجا، <xliff:g id="APP_NAME">%1$s</xliff:g> باید به حافظه دستگاهتان دسترسی داشته باشد."</string>
     <string name="permission_needed_explanation_go_to_settings" msgid="3923551582092599609">"‏برای اینکه کاغذدیواری کنونی اینجا نمایش داده شود، Wallpapers باید به حافظه دستگاهتان دسترسی داشته باشد.\n\nبرای تغییر این تنظیم، به بخش «مجوزها»ی اطلاعات برنامه Wallpapers بروید."</string>
@@ -43,7 +43,7 @@
     <string name="no_backup_image_wallpaper_description" msgid="8303268619408738057">"سرویس کاغذ‌دیواری پویا برای کاغذدیواری‌های چرخشی"</string>
     <string name="daily_refresh_tile_title" msgid="3270456074558525091">"کاغذ‌دیواری روزانه"</string>
     <string name="daily_refresh_tile_subtitle" msgid="3976682014885446443">"برای روشن کردن، ضربه بزنید"</string>
-    <string name="start_rotation_dialog_body_live_wallpaper_needed" msgid="5132580257563846082">"‏کاغذ‌دیواری هر روز به‌طور خودکار تغییر خواهد کرد. برای اتمام راه‌اندازی، روی &lt;strong&gt;تنظیم کاغذدیواری &lt;/strong&gt; در صفحه بعدی ضربه بزنید."</string>
+    <string name="start_rotation_dialog_body_live_wallpaper_needed" msgid="5132580257563846082">"‏کاغذ‌دیواری هر روز به‌طور خودکار تغییر خواهد کرد. برای اتمام راه‌اندازی، روی &lt;strong&gt;تنظیم کاغذدیواری &lt;/strong&gt; در صفحه بعد ضربه بزنید."</string>
     <string name="start_rotation_dialog_wifi_only_option_message" msgid="3126269859713666225">"‏کاغذ‌دیواری‌های بعدی فقط ازطریق Wi-Fi بارگیری شود"</string>
     <string name="start_rotation_dialog_continue" msgid="276678987852274872">"ادامه"</string>
     <string name="start_rotation_progress_message" msgid="7872623873682262083">"درحال بارگیری اولین کاغذ‌دیواری..."</string>
@@ -66,8 +66,6 @@
     <string name="refresh_daily_wallpaper_content_description" msgid="4362142658237147583">"بازخوانی کاغذدیواری روزانه"</string>
     <string name="refreshing_daily_wallpaper_dialog_message" msgid="1975910873362855761">"درحال بازخوانی کاغذدیواری روزانه…"</string>
     <string name="refresh_daily_wallpaper_failed_message" msgid="4749879993812557166">"کاغذدیواری روزانه بازخوانی نشد. لطفاً اتصال شبکه‌تان را بررسی و دوباره امتحان کنید."</string>
-    <string name="collapse_attribution_panel" msgid="4367971404848122275">"کوچک کردن پانل اطلاعات کاغذ‌دیواری"</string>
-    <string name="expand_attribution_panel" msgid="6975094181456095915">"بزرگ کردن پانل اطلاعات کاغذ‌دیواری"</string>
     <string name="on_device_wallpapers_category_title" msgid="805819102071369004">"کاغذدیواری‌های موجود در دستگاه"</string>
     <string name="on_device_wallpapers_category_title_desktop" msgid="316919420410065369">"در دستگاه"</string>
     <string name="on_device_wallpaper_title" msgid="5262564748034629524">"‏کاغذ‌دیواری Android"</string>
@@ -80,4 +78,24 @@
     <string name="center_crop_wallpaper_position" msgid="1681980019815343348">"برش از مرکز برای پر کردن صفحه."</string>
     <string name="stretch_wallpaper_position" msgid="5002680983147456935">"کشیدن برای پر کردن صفحه"</string>
     <string name="preview" msgid="1774602101743861071">"پیش‌نمایش"</string>
+    <string name="tab_info" msgid="818614080690111416">"اطلاعات"</string>
+    <string name="tab_customize" msgid="2533745409174959960">"سفارشی کردن"</string>
+    <string name="configure_wallpaper" msgid="849882179182976621">"تنظیمات…"</string>
+    <string name="delete_live_wallpaper" msgid="589212696102662329">"حذف"</string>
+    <string name="delete_wallpaper_confirmation" msgid="33790318361863778">"این کاغذدیواری از تلفن حذف شود؟"</string>
+    <string name="bottom_action_bar_back" msgid="8237013112999946725">"برگشت"</string>
+    <string name="bottom_action_bar_edit" msgid="1214742990893082138">"ویرایش"</string>
+    <string name="bottom_action_bar_download" msgid="3983122338076389421">"بارگیری"</string>
+    <string name="bottom_action_bar_slideshow_wallpaper" msgid="509770525179533154">"نمایش اسلاید کاغذدیواری"</string>
+    <string name="bottom_action_bar_apply" msgid="2983308349819178932">"اِعمال"</string>
+    <string name="accessibility_preview_pager" msgid="1839869637405028575">"صفحه <xliff:g id="ID_1">%1$d</xliff:g> از <xliff:g id="ID_2">%2$d</xliff:g>"</string>
+    <string name="next_page_content_description" msgid="6268461446679584152">"بعدی"</string>
+    <string name="previous_page_content_description" msgid="1138597031571078429">"قبلی"</string>
+    <string name="wallpaper_title" msgid="6754214682228331092">"کاغذدیواری"</string>
+    <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"پیش‌نمای کاغذدیواری"</string>
+    <string name="collection_not_exist_msg" msgid="3504852962885064842">"مجموعه وجود ندارد"</string>
+    <string name="hide_ui_preview_text" msgid="6766076482511252295">"پنهان کردن پیش‌نمای رابط کاربری"</string>
+    <string name="show_ui_preview_text" msgid="5993063062417070806">"نمایش دادن پیش‌نمای رابط کاربری"</string>
+    <string name="wallpaper_picker_entry_title" msgid="5185793991582084891">"تغییر کاغذدیواری"</string>
+    <string name="lockscreen_wallpaper_preview_card_content_description" msgid="2244890820627302245">"پیش‌نمای کاغذدیواری صفحه قفل"</string>
 </resources>

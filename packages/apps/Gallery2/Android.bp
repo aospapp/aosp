@@ -1,3 +1,7 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_app {
     name: "Gallery2",
 
@@ -39,6 +43,8 @@ android_app {
     },
 
     libs: ["org.apache.http.legacy"],
+
+    optional_uses_libs: ["com.google.android.media.effects"],
 
     jarjar_rules: "jarjar-rules.txt",
 }

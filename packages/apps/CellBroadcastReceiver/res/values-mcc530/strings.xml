@@ -16,6 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
            xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <!-- Special New Zealand requirement for the presidential alert toggle and description -->
+    <string name="enable_cmas_presidential_alerts_title">@string/enable_emergency_alerts_message_title</string>
+    <string name="enable_cmas_presidential_alerts_summary">@string/enable_emergency_alerts_message_summary</string>
     <!-- Special New Zealand requirement for the presidential alert title -->
     <string name="cmas_presidential_level_alert" translatable="false">@string/emergency_alert</string>
     <!-- CMAS dialog title for extreme alert. [CHAR LIMIT=50] -->

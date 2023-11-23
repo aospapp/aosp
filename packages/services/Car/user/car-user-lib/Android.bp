@@ -12,14 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_library {
     name: "android.car.userlib",
     srcs: [
         "src/**/*.java",
     ],
-    static_libs: [
-        "android.car.settings",
+    libs: [
         "android.hardware.automotive.vehicle-V2.0-java",
+        "android.car.settings",
+        "com.android.car.internal.common",
     ],
     product_variables: {
         pdk: {

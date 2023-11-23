@@ -24,9 +24,7 @@
     <string name="ok" msgid="6584612582120777209">"Në rregull"</string>
     <string name="page_info_address" msgid="1290683284404217554">"Adresa:"</string>
     <string name="page_info" msgid="46593086046896385">"Informacionet e faqes"</string>
-    <!-- String.format failed for translation -->
-    <!-- no translation found for downloading_paramfile (685182551665849043) -->
-    <skip />
+    <string name="downloading_paramfile" msgid="685182551665849043">"Po shkarkon %1$s"</string>
     <string name="download_completed" msgid="5430865338124330584">"Shkarkimi përfundoi"</string>
     <string name="error_downloading_paramfile" msgid="2431082160412515409">"Nuk mund të shkarkohet %1$s"</string>
     <string name="channel_name_downloads" msgid="8446786286617933444">"Shkarkimet"</string>

@@ -32,6 +32,8 @@ import com.android.internal.widget.LockscreenCredential;
  */
 public class ChooseLockTypeFragment extends SettingsFragment {
 
+    private LockscreenCredential mLockscreenCredential;
+
     @Override
     @XmlRes
     protected int getPreferenceScreenResId() {
@@ -46,8 +48,7 @@ public class ChooseLockTypeFragment extends SettingsFragment {
         super.onCreate(savedInstanceState);
         Bundle args = getArguments();
         if (args != null) {
-            LockscreenCredential currPassword = args.getParcelable(
-                    PasswordHelper.EXTRA_CURRENT_SCREEN_LOCK);
+            mLockscreenCredential = args.getParcelable(PasswordHelper.EXTRA_CURRENT_SCREEN_LOCK);
             int passwordQuality = args.getInt(PasswordHelper.EXTRA_CURRENT_PASSWORD_QUALITY);
 
             PreferenceScreen preferenceScreen = getPreferenceScreen();
@@ -55,10 +56,17 @@ public class ChooseLockTypeFragment extends SettingsFragment {
             for (int i = 0; i < preferenceCount; i++) {
                 Preference preference = preferenceScreen.getPreference(i);
                 preference.getExtras().putParcelable(
-                        PasswordHelper.EXTRA_CURRENT_SCREEN_LOCK, currPassword);
+                        PasswordHelper.EXTRA_CURRENT_SCREEN_LOCK, mLockscreenCredential);
                 preference.getExtras().putInt(
                         PasswordHelper.EXTRA_CURRENT_PASSWORD_QUALITY, passwordQuality);
             }
         }
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+
+        PasswordHelper.zeroizeCredentials(mLockscreenCredential);
     }
 }

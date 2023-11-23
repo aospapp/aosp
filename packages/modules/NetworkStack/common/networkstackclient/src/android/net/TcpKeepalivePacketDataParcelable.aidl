@@ -16,6 +16,7 @@
 
 package android.net;
 
+@JavaDerive(toString=true)
 parcelable TcpKeepalivePacketDataParcelable {
     byte[] srcAddress;
     int srcPort;

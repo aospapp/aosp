@@ -31,6 +31,7 @@ static const Uuid UUID_PBAP_PSE = Uuid::From16Bit(0x112F);
 static const Uuid UUID_MAP_MAS = Uuid::From16Bit(0x1132);
 static const Uuid UUID_MAP_MNS = Uuid::From16Bit(0x1133);
 static const Uuid UUID_SAP = Uuid::From16Bit(0x112D);
+static const Uuid UUID_DIP = Uuid::From16Bit(0x1200);
 
 namespace android {
 static jmethodID method_sdpRecordFoundCallback;
@@ -39,6 +40,7 @@ static jmethodID method_sdpMnsRecordFoundCallback;
 static jmethodID method_sdpPseRecordFoundCallback;
 static jmethodID method_sdpOppOpsRecordFoundCallback;
 static jmethodID method_sdpSapsRecordFoundCallback;
+static jmethodID method_sdpDipRecordFoundCallback;
 
 static const btsdp_interface_t* sBluetoothSdpInterface = NULL;
 
@@ -96,6 +98,9 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
   /* SAP Server record */
   method_sdpSapsRecordFoundCallback = env->GetMethodID(
       clazz, "sdpSapsRecordFoundCallback", "(I[B[BIILjava/lang/String;Z)V");
+  /* DIP record */
+  method_sdpDipRecordFoundCallback = env->GetMethodID(
+      clazz, "sdpDipRecordFoundCallback", "(I[B[BIIIIIZZ)V");
 }
 
 static jboolean sdpSearchNative(JNIEnv* env, jobject obj, jbyteArray address,
@@ -213,6 +218,17 @@ static void sdp_search_callback(bt_status_t status, const RawAddress& bd_addr,
           sCallbacksObj, method_sdpSapsRecordFoundCallback, (jint)status,
           addr.get(), uuid.get(), (jint)record->mas.hdr.rfcomm_channel_number,
           (jint)record->mas.hdr.profile_version, service_name.get(),
+          more_results);
+    } else if (uuid_in == UUID_DIP) {
+      ALOGD("%s, Get UUID_DIP", __func__);
+      sCallbackEnv->CallVoidMethod(
+          sCallbacksObj, method_sdpDipRecordFoundCallback, (jint)status,
+          addr.get(), uuid.get(), (jint)record->dip.spec_id,
+          (jint)record->dip.vendor,
+          (jint)record->dip.vendor_id_source,
+          (jint)record->dip.product,
+          (jint)record->dip.version,
+          record->dip.primary_record,
           more_results);
     } else {
       // we don't have a wrapper for this uuid, send as raw data

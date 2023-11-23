@@ -48,7 +48,7 @@ public class DirectoryResultTest {
         DocumentInfo doc = new DocumentInfo();
 
         result.client = mClient;
-        result.cursor = mCursor;
+        result.setCursor(mCursor);
         result.doc = doc;
 
         result.close();

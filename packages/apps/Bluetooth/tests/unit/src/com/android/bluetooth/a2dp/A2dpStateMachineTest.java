@@ -26,6 +26,7 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Bundle;
 import android.os.HandlerThread;
 
 import androidx.test.InstrumentationRegistry;
@@ -149,7 +150,7 @@ public class A2dpStateMachineTest {
 
         // Verify that no connection state broadcast is executed
         verify(mA2dpService, after(TIMEOUT_MS).never()).sendBroadcast(any(Intent.class),
-                                                                      anyString());
+                anyString(), any(Bundle.class));
         // Check that we are in Disconnected state
         Assert.assertThat(mA2dpStateMachine.getCurrentState(),
                           IsInstanceOf.instanceOf(A2dpStateMachine.Disconnected.class));
@@ -172,7 +173,7 @@ public class A2dpStateMachineTest {
         // Verify that one connection state broadcast is executed
         ArgumentCaptor<Intent> intentArgument1 = ArgumentCaptor.forClass(Intent.class);
         verify(mA2dpService, timeout(TIMEOUT_MS).times(1)).sendBroadcast(intentArgument1.capture(),
-                                                                         anyString());
+                anyString(), any(Bundle.class));
         Assert.assertEquals(BluetoothProfile.STATE_CONNECTING,
                 intentArgument1.getValue().getIntExtra(BluetoothProfile.EXTRA_STATE, -1));
 
@@ -192,7 +193,7 @@ public class A2dpStateMachineTest {
         // - one call to broadcastAudioState() when entering Connected state
         ArgumentCaptor<Intent> intentArgument2 = ArgumentCaptor.forClass(Intent.class);
         verify(mA2dpService, timeout(TIMEOUT_MS).times(3)).sendBroadcast(intentArgument2.capture(),
-                anyString());
+                anyString(), any(Bundle.class));
         // Verify that the last broadcast was to change the A2DP playing state
         // to STATE_NOT_PLAYING
         Assert.assertEquals(BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED,
@@ -219,7 +220,7 @@ public class A2dpStateMachineTest {
         // Verify that one connection state broadcast is executed
         ArgumentCaptor<Intent> intentArgument1 = ArgumentCaptor.forClass(Intent.class);
         verify(mA2dpService, timeout(TIMEOUT_MS).times(1)).sendBroadcast(intentArgument1.capture(),
-                                                                         anyString());
+                anyString(), any(Bundle.class));
         Assert.assertEquals(BluetoothProfile.STATE_CONNECTING,
                 intentArgument1.getValue().getIntExtra(BluetoothProfile.EXTRA_STATE, -1));
 
@@ -230,7 +231,8 @@ public class A2dpStateMachineTest {
         // Verify that one connection state broadcast is executed
         ArgumentCaptor<Intent> intentArgument2 = ArgumentCaptor.forClass(Intent.class);
         verify(mA2dpService, timeout(A2dpStateMachine.sConnectTimeoutMs * 2).times(
-                2)).sendBroadcast(intentArgument2.capture(), anyString());
+                2)).sendBroadcast(intentArgument2.capture(), anyString(),
+                any(Bundle.class));
         Assert.assertEquals(BluetoothProfile.STATE_DISCONNECTED,
                 intentArgument2.getValue().getIntExtra(BluetoothProfile.EXTRA_STATE, -1));
 
@@ -258,7 +260,7 @@ public class A2dpStateMachineTest {
         // Verify that one connection state broadcast is executed
         ArgumentCaptor<Intent> intentArgument1 = ArgumentCaptor.forClass(Intent.class);
         verify(mA2dpService, timeout(TIMEOUT_MS).times(1)).sendBroadcast(intentArgument1.capture(),
-                anyString());
+                anyString(), any(Bundle.class));
         Assert.assertEquals(BluetoothProfile.STATE_CONNECTING,
                 intentArgument1.getValue().getIntExtra(BluetoothProfile.EXTRA_STATE, -1));
 
@@ -269,7 +271,8 @@ public class A2dpStateMachineTest {
         // Verify that one connection state broadcast is executed
         ArgumentCaptor<Intent> intentArgument2 = ArgumentCaptor.forClass(Intent.class);
         verify(mA2dpService, timeout(A2dpStateMachine.sConnectTimeoutMs * 2).times(
-                2)).sendBroadcast(intentArgument2.capture(), anyString());
+                2)).sendBroadcast(intentArgument2.capture(), anyString(),
+                any(Bundle.class));
         Assert.assertEquals(BluetoothProfile.STATE_DISCONNECTED,
                 intentArgument2.getValue().getIntExtra(BluetoothProfile.EXTRA_STATE, -1));
 
@@ -341,7 +344,7 @@ public class A2dpStateMachineTest {
         // - one call to broadcastAudioState() when entering Connected state
         ArgumentCaptor<Intent> intentArgument2 = ArgumentCaptor.forClass(Intent.class);
         verify(mA2dpService, timeout(TIMEOUT_MS).times(2)).sendBroadcast(intentArgument2.capture(),
-                anyString());
+                anyString(), any(Bundle.class));
 
         // Verify that state machine update optional codec when enter connected state
         verify(mA2dpService, times(1)).updateOptionalCodecsSupport(mTestDevice);

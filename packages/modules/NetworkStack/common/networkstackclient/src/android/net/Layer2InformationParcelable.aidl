@@ -18,6 +18,7 @@ package android.net;
 
 import android.net.MacAddress;
 
+@JavaDerive(toString=true)
 parcelable Layer2InformationParcelable {
     String l2Key;
     String cluster;

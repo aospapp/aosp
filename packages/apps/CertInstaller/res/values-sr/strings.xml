@@ -63,10 +63,10 @@
     <string name="credential_usage_label" msgid="1513892208033156805">"Коришћење акредитива:"</string>
   <string-array name="credential_usage">
     <item msgid="375085478373011304">"VPN и апликације"</item>
-    <item msgid="692322974985472861">"Wi-Fi"</item>
+    <item msgid="692322974985472861">"WiFi"</item>
   </string-array>
     <string name="certificate_capabilities_warning" msgid="4158609401937799110">"Напомена: Издавалац овог сертификата може да надгледа сав саобраћај до и са уређаја."</string>
-    <string name="wifi_title" msgid="8475811746333426489">"Профил за Wi-Fi"</string>
+    <string name="wifi_title" msgid="8475811746333426489">"Профил за WiFi"</string>
     <string name="wifi_detail_title" msgid="3627332137252994395">"Детаљи за %s"</string>
     <string name="wifi_detail_label" msgid="3032151019356747583">"Детаљи"</string>
     <string name="wifi_install_label" msgid="1449629407724323233">"Инсталирај"</string>
@@ -80,12 +80,12 @@
     <string name="wifi_sim_config_text" msgid="1666019954520831840">"SIM: %s\n"</string>
     <string name="wifi_trust_config_text" msgid="5916047381475747783">"Поуздани сертификат:\n%s\n"</string>
     <string name="install_done_title" msgid="4822989918460334497">"Акредитив је инсталиран"</string>
-    <string name="install_done" msgid="1522718684172097080">"Акредитив за <xliff:g id="NAME">%1$s</xliff:g> је додат у сачуване Wi-Fi мреже."</string>
+    <string name="install_done" msgid="1522718684172097080">"Акредитив за <xliff:g id="NAME">%1$s</xliff:g> је додат у сачуване WiFi мреже."</string>
     <string name="done_label" msgid="5597425930652904250">"ГОТОВО"</string>
-    <string name="wifi_installer_detail" msgid="63879632832701669">"Инсталирајте акредитив за Wi-Fi да бисте се повезали на мреже доступне преко <xliff:g id="NAME">%1$s</xliff:g>."</string>
+    <string name="wifi_installer_detail" msgid="63879632832701669">"Инсталирајте акредитив за WiFi да бисте се повезали на мреже доступне преко <xliff:g id="NAME">%1$s</xliff:g>."</string>
     <string name="wifi_installer_download_error" msgid="5429453090956277692">"Постоје проблеми у преузетој датотеци и она не може да се инсталира. Проверите да ли сте датотеку преузели из одговарајућег извора."</string>
-    <string name="wifi_installer_fail" msgid="894483173306576331">"Инсталирање акредитива за Wi-Fi није могуће. Покушајте да поново преузмете датотеку."</string>
+    <string name="wifi_installer_fail" msgid="894483173306576331">"Инсталирање акредитива за WiFi није могуће. Покушајте да поново преузмете датотеку."</string>
     <string name="wifi_installer_fail_no_wifi_title" msgid="8358191074828840533">"Инсталација је отказана"</string>
     <string name="wifi_installer_fail_title" msgid="5547079779067835479">"Није могуће инсталирати"</string>
-    <string name="wifi_installer_fail_no_wifi" msgid="2044576439984209921">"Укључите Wi-Fi и покушајте поново."</string>
+    <string name="wifi_installer_fail_no_wifi" msgid="2044576439984209921">"Укључите WiFi и покушајте поново."</string>
 </resources>

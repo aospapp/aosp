@@ -75,6 +75,16 @@
                 android:textSize="30sp"/>
 
             <Button
+                android:id="@+id/category_message_mute_action_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_margin="10dp"
+                android:background="#ffa9a8"
+                android:foreground="?android:attr/selectableItemBackground"
+                android:text="Message with mute pending intent provided"
+                android:textSize="30sp"/>
+
+            <Button
                 android:id="@+id/test_message_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -199,7 +209,6 @@
                 android:background="#ffa9a8"
                 android:foreground="?android:attr/selectableItemBackground"
                 android:text="Car Emergency"
-                android:enabled="false"
                 android:textSize="30sp"/>
 
             <Button
@@ -210,7 +219,6 @@
                 android:background="#ffa9a8"
                 android:foreground="?android:attr/selectableItemBackground"
                 android:text="Car Warning"
-                android:enabled="false"
                 android:textSize="30sp"/>
 
             <Button
@@ -219,7 +227,6 @@
                 android:layout_height="wrap_content"
                 android:layout_margin="10dp"
                 android:text="Car Information"
-                android:enabled="false"
                 android:textSize="30sp"/>
         </LinearLayout>
     </LinearLayout>

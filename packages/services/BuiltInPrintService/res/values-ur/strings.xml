@@ -40,7 +40,7 @@
     <string name="media_size_4x6in" msgid="3093276425529958253">"4x6 in"</string>
     <string name="printer_description" msgid="8580767673213837142">"%1$s – %2$s"</string>
     <string name="title_activity_add_printer" msgid="9119216095769228566">"پرنٹر شامل کریں"</string>
-    <string name="add_printer_by_ip" msgid="562864787592910327">"‏IP پتہ کے ذریعہ پرنٹر شامل کریں"</string>
+    <string name="add_printer_by_ip" msgid="562864787592910327">"‏IP پتے کے ذریعے پرنٹر شامل کریں"</string>
     <string name="hostname_or_ip" msgid="3460546103553992915">"‏میزبان کا نام یا IP پتہ"</string>
     <string name="ip_hint" msgid="7939777481941979799">"192.168.0.4"</string>
     <string name="add" msgid="1950342261671100906">"شامل کریں"</string>
@@ -71,7 +71,11 @@
     <string name="accept" msgid="4426153292469698134">"قبول کریں"</string>
     <string name="reject" msgid="24751635160440693">"مسترد کریں"</string>
     <string name="connections" msgid="8895413761760117180">"کنکشنز"</string>
+    <string name="wifi_direct_problem" msgid="8995174986718516990">"‏ڈیفالٹ پرنٹ سروس Wi-Fi ڈائریکٹ پرنٹرز تلاش نہیں کر سکی"</string>
+    <string name="disable_wifi_direct" msgid="4824677957241687577">"‏Wi-Fi ڈائریکٹ غیر فعال کریں"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"قریبی آلات تلاش کرنے کے لیے ڈیفالٹ پرنٹ سروس کو مقام کی اجازت درکار ہے۔"</string>
     <string name="fix" msgid="7784394272611365393">"اجازت کا جائزہ لیں"</string>
+    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"قریبی آلات تلاش کرنے کے لیے ڈیفالٹ پرنٹ سروس کو مقام کی سروسز فعال کرنے کی ضرورت ہے۔"</string>
+    <string name="enable_location" msgid="3627841004298863140">"مقام فعال کریں"</string>
     <string name="print" msgid="7851318072404916362">"پرنٹ کریں"</string>
 </resources>

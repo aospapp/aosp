@@ -44,6 +44,7 @@ public class GattServiceTest {
                 mTargetContext.getResources().getBoolean(R.bool.profile_supported_gatt));
         MockitoAnnotations.initMocks(this);
         TestUtils.setAdapterService(mAdapterService);
+        doReturn(true).when(mAdapterService).isStartedProfile(anyString());
         TestUtils.startService(mServiceRule, GattService.class);
         mService = GattService.getGattService();
         Assert.assertNotNull(mService);
@@ -54,6 +55,7 @@ public class GattServiceTest {
         if (!mTargetContext.getResources().getBoolean(R.bool.profile_supported_gatt)) {
             return;
         }
+        doReturn(false).when(mAdapterService).isStartedProfile(anyString());
         TestUtils.stopService(mServiceRule, GattService.class);
         mService = GattService.getGattService();
         Assert.assertNull(mService);
@@ -69,6 +71,7 @@ public class GattServiceTest {
     public void testServiceUpAndDown() throws Exception {
         for (int i = 0; i < TIMES_UP_AND_DOWN; i++) {
             GattService gattService = GattService.getGattService();
+            doReturn(false).when(mAdapterService).isStartedProfile(anyString());
             TestUtils.stopService(mServiceRule, GattService.class);
             mService = GattService.getGattService();
             Assert.assertNull(mService);
@@ -76,6 +79,7 @@ public class GattServiceTest {
             TestUtils.clearAdapterService(mAdapterService);
             reset(mAdapterService);
             TestUtils.setAdapterService(mAdapterService);
+            doReturn(true).when(mAdapterService).isStartedProfile(anyString());
             TestUtils.startService(mServiceRule, GattService.class);
             mService = GattService.getGattService();
             Assert.assertNotNull(mService);
@@ -89,5 +93,4 @@ public class GattServiceTest {
         });
         Assert.assertEquals(99700000000L, timestampNanos);
     }
-
 }

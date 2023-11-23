@@ -17,6 +17,7 @@
 
 <resources>
     <dimen name="icon_size">@*android:dimen/car_primary_icon_size</dimen>
+    <dimen name="secondary_icon_size">@*android:dimen/car_secondary_icon_size</dimen>
     <dimen name="touch_target_size">@*android:dimen/car_touch_target_size</dimen>
 
     <dimen name="button_min_width">@*android:dimen/car_button_min_width</dimen>
@@ -51,6 +52,11 @@
     <dimen name="brightness_seekbar_track_height">6dp</dimen>
     <dimen name="brightness_seekbar_track_corner">3dp</dimen>
     <dimen name="brightness_knob_size">44dp</dimen>
+    <dimen name="brightness_knob_inner_ring_inner_radius">22dp</dimen>
+    <dimen name="brightness_knob_thumb_inner_ring_thickness">8dp</dimen>
+    <dimen name="brightness_knob_thumb_outer_ring_inner_radius">30dp</dimen>
+    <dimen name="brightness_knob_thumb_outer_ring_thickness">8dp</dimen>
+
     <dimen name="tile_margin_start">@*android:dimen/car_padding_2</dimen>
     <dimen name="tile_margin_end">@*android:dimen/car_padding_2</dimen>
     <dimen name="tile_margin_bottom">@*android:dimen/car_padding_5</dimen>
@@ -67,6 +73,12 @@
     <dimen name="bluetooth_pin_dialog_text_margin_start">@*android:dimen/car_keyline_3</dimen>
     <dimen name="bluetooth_pin_dialog_text_margin_end">@*android:dimen/car_keyline_3</dimen>
     <dimen name="bluetooth_pin_dialog_subtext_margin_top">@*android:dimen/car_padding_1</dimen>
+    <dimen name="bluetooth_bonded_device_button_size">80dp</dimen>
+    <dimen name="bluetooth_bonded_device_button_radius">16dp</dimen>
+    <dimen name="bluetooth_bonded_device_foreground_icon_inset">18dp</dimen>
+    <dimen name="bluetooth_bonded_device_border_width">2dp</dimen>
+    <dimen name="bluetooth_device_icon_size">44dp</dimen>
+    <dimen name="bluetooth_device_foreground_icon_inset">8dp</dimen>
 
     <!-- Edit Username -->
     <dimen name="edit_username_padding_start">@*android:dimen/car_margin</dimen>
@@ -85,15 +97,18 @@
     <dimen name="confirm_pattern_dimension">350dp</dimen>
     <dimen name="confirm_lock_message_vertical_spacing">@*android:dimen/car_padding_2</dimen>
 
-    <!-- User Switcher -->
-    <dimen name="user_switcher_image_avatar_size">96dp</dimen>
-    <dimen name="user_switcher_vertical_spacing_between_users">@*android:dimen/car_padding_5
+    <!-- Profile Switcher -->
+    <dimen name="profile_switcher_image_avatar_size">96dp</dimen>
+    <dimen name="profile_switcher_vertical_spacing_between_profiles">@*android:dimen/car_padding_5
     </dimen>
-    <dimen name="user_switcher_vertical_spacing_between_name_and_avatar">
+    <dimen name="profile_switcher_vertical_spacing_between_name_and_avatar">
         @*android:dimen/car_padding_4
     </dimen>
-    <dimen name="user_switcher_current_user_circle_width">126dp</dimen>
-    <dimen name="user_switcher_current_user_circle_stroke_width">7dp</dimen>
+    <dimen name="profile_switcher_current_profile_circle_width">126dp</dimen>
+    <dimen name="profile_switcher_current_profile_circle_stroke_width">7dp</dimen>
+    <dimen name="profile_switcher_margin_bottom">@*android:dimen/car_padding_4</dimen>
+    <dimen name="profile_switcher_managed_badge_size">@*android:dimen/car_large_avatar_badge_size</dimen>
+    <dimen name="profile_switcher_managed_badge_margin">1dp</dimen>
 
     <!-- Preferences -->
     <dimen name="two_action_preference_divider_width">1dp</dimen>
@@ -125,6 +140,11 @@
     <dimen name="progress_bar_preference_label_margin_top">@*android:dimen/car_padding_0</dimen>
     <dimen name="progress_bar_preference_padding_top">@*android:dimen/car_padding_1</dimen>
     <dimen name="progress_bar_preference_padding_bottom">@*android:dimen/car_padding_1</dimen>
+    <dimen name="multi_action_preference_item_divider_margin_end">12dp</dimen>
+    <dimen name="multi_action_preference_item_container_padding">@dimen/car_ui_padding_2</dimen>
+    <dimen name="multi_action_preference_toggle_button_size">80dp</dimen>
+    <dimen name="multi_action_preference_toggle_button_radius">11dp</dimen>
+    <dimen name="multi_action_preference_toggle_button_margin">12dp</dimen>
 
     <!-- Data usage -->
     <dimen name="usage_number_text_size">36sp</dimen>
@@ -144,4 +164,34 @@
     <dimen name="alert_dialog_password_checkbox_margin_end">@*android:dimen/car_padding_3</dimen>
     <dimen name="alert_dialog_password_checkbox_margin_start">@*android:dimen/car_padding_3</dimen>
     <dimen name="alert_dialog_password_checkbox_margin_top">@*android:dimen/car_padding_1</dimen>
+
+    <!-- Preference access point -->
+    <dimen name="ap_preference_item_padding_start">@*android:dimen/car_keyline_1</dimen>
+    <dimen name="ap_preference_item_padding_end">@*android:dimen/car_keyline_1</dimen>
+    <dimen name="ap_preference_item_icon_margin_end">@*android:dimen/car_padding_2</dimen>
+
+    <!-- Divider Preference -->
+    <dimen name="divider_preference_height">1dp</dimen>
+    <dimen name="divider_preference_margin_top">@*android:dimen/car_padding_2</dimen>
+    <dimen name="divider_preference_margin_bottom">@*android:dimen/car_padding_2</dimen>
+
+    <!-- Entity Header Preference -->
+    <dimen name="entity_header_icon_size">@*android:dimen/car_icon_size</dimen>
+    <dimen name="entity_header_margin_bottom">@*android:dimen/car_padding_1</dimen>
+    <dimen name="entity_header_inner_margin">@*android:dimen/car_padding_1</dimen>
+
+    <!-- Action Buttons Preference -->
+    <dimen name="action_buttons_margin_top">@*android:dimen/car_padding_1</dimen>
+    <dimen name="action_buttons_margin_bottom">@*android:dimen/car_padding_1</dimen>
+    <dimen name="action_buttons_icon_margin_end">@*android:dimen/car_padding_1</dimen>
+    <dimen name="action_buttons_divider_height">@dimen/divider_preference_height</dimen>
+
+    <!-- Top-level menu -->
+    <dimen name="top_level_menu_width">550dp</dimen>
+    <dimen name="top_level_divider_width">1dp</dimen>
+    <dimen name="top_level_preference_min_height">80dp</dimen>
+    <dimen name="top_level_preference_corner_radius">40dp</dimen>
+    <dimen name="top_level_recyclerview_margin_right">@*android:dimen/car_padding_2</dimen>
+    <dimen name="top_level_foreground_icon_inset">8dp</dimen>
+
 </resources>

@@ -21,11 +21,11 @@ import static com.android.car.messenger.common.Utils.BMC_EXTRA_MESSAGE_HANDLE;
 import static com.android.car.messenger.common.Utils.BMC_EXTRA_MESSAGE_READ_STATUS;
 import static com.android.car.messenger.common.Utils.BMC_EXTRA_MESSAGE_TIMESTAMP;
 
-import android.annotation.Nullable;
 import android.bluetooth.BluetoothDevice;
 import android.content.Intent;
-import android.os.Build;
 import android.util.Log;
+
+import androidx.annotation.Nullable;
 
 import com.android.car.messenger.NotificationMsgProto.NotificationMsg;
 import com.android.car.messenger.NotificationMsgProto.NotificationMsg.MessagingStyleMessage;
@@ -77,7 +77,7 @@ public class Message {
             MessagingStyleMessage updatedMessage, SenderKey senderKey) {
 
         if (!Utils.isValidMessagingStyleMessage(updatedMessage)) {
-            if (Log.isLoggable(TAG, Log.DEBUG) || Build.IS_DEBUGGABLE) {
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
                 throw new IllegalArgumentException(
                         "MessagingStyleMessage is missing required fields");
             } else {
@@ -103,7 +103,7 @@ public class Message {
      **/
     public static Message parseFromIntent(Intent intent) {
         if (!Utils.isValidMapClientIntent(intent)) {
-            if (Log.isLoggable(TAG, Log.DEBUG) || Build.IS_DEBUGGABLE) {
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
                 throw new IllegalArgumentException(
                         "BluetoothMapClient intent is missing required fields");
             } else {

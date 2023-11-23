@@ -41,4 +41,8 @@
             android:key="picture_in_picture"
             android:title="@string/picture_in_picture_title"
             android:fragment="com.android.tv.settings.device.apps.specialaccess.PictureInPicture" />
+    <Preference
+            android:key="alarms_and_reminders"
+            android:title="@string/alarms_and_reminders_title"
+            android:fragment="com.android.tv.settings.device.apps.specialaccess.AlarmsAndReminders" />
 </PreferenceScreen>

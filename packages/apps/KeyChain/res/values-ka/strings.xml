@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"თქვენ შეგიძლიათ დააყენოთ სერტიფიკატი %1$s ან  %2$s გაფართოების ფაილიდან - PKCS#12,   რომელიც გარე მეხსიერებაში მდებარეობს."</string>
     <string name="allow_button" msgid="3030990695030371561">"არჩევა"</string>
     <string name="deny_button" msgid="3766539809121892584">"უარყოფა"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"მიმდინარეობს სერტიფიკატების ჩატვირთვა..."</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"%s ამოწმებს სერტიფიკატის არსებობას…"</string>
 </resources>

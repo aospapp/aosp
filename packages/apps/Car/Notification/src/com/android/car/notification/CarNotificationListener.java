@@ -114,6 +114,11 @@ public class CarNotificationListener extends NotificationListenerService impleme
 
     @Override
     public void onNotificationPosted(StatusBarNotification sbn, RankingMap rankingMap) {
+        if (sbn == null) {
+            Log.e(TAG, "onNotificationPosted: StatusBarNotification is null");
+            return;
+        }
+
         Log.d(TAG, "onNotificationPosted: " + sbn);
         if (!isNotificationForCurrentUser(sbn)) {
             return;
@@ -125,8 +130,12 @@ public class CarNotificationListener extends NotificationListenerService impleme
 
     @Override
     public void onNotificationRemoved(StatusBarNotification sbn) {
-        Log.d(TAG, "onNotificationRemoved: " + sbn);
+        if (sbn == null) {
+            Log.e(TAG, "onNotificationRemoved: StatusBarNotification is null");
+            return;
+        }
 
+        Log.d(TAG, "onNotificationRemoved: " + sbn);
         AlertEntry alertEntry = mActiveNotifications.get(sbn.getKey());
 
         if (alertEntry != null) {

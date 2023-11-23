@@ -41,7 +41,7 @@
     <com.android.car.settings.common.LogicalPreferenceGroup
         android:key="@string/pk_sounds_extra_settings"
         settings:controller="com.android.car.settings.common.ExtraSettingsPreferenceController">
-        <intent android:action="com.android.settings.action.EXTRA_SETTINGS">
+        <intent>
             <extra android:name="com.android.settings.category"
                    android:value="com.android.settings.category.ia.sound"/>
         </intent>

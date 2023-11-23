@@ -19,62 +19,22 @@ package com.android.car.notification.headsup;
 import android.content.Context;
 import android.graphics.PixelFormat;
 import android.view.Gravity;
-import android.view.LayoutInflater;
-import android.view.View;
 import android.view.WindowManager;
-import android.widget.FrameLayout;
 
-import com.android.car.notification.R;
-
-public class CarHeadsUpNotificationAppContainer implements CarHeadsUpNotificationContainer {
-    // view that contains scrim and notification content
-    protected final View mHeadsUpPanel;
-    // framelayout that notification content should be added to.
-    protected final FrameLayout mHeadsUpContentFrame;
-
-    protected final Context mContext;
+/**
+ * A controller for Notification application's HUN display.
+ *
+ * Used to attach HUNs views to window.
+ */
+public class CarHeadsUpNotificationAppContainer extends CarHeadsUpNotificationContainer {
+    private static final String TAG = "CarHUNContainerApp";
 
     public CarHeadsUpNotificationAppContainer(Context context) {
-        mContext = context;
-        mHeadsUpPanel = createHeadsUpPanel();
-        mHeadsUpContentFrame = mHeadsUpPanel.findViewById(R.id.headsup_content);
-        addHeadsUpPanelToDisplay();
+        super(context, context.getSystemService(WindowManager.class));
     }
 
     @Override
-    public void displayNotification(View notificationView) {
-        if (!isVisible()) {
-            mHeadsUpPanel.setVisibility(View.VISIBLE);
-        }
-        mHeadsUpContentFrame.addView(notificationView);
-    }
-
-    @Override
-    public void removeNotification(View notificationView) {
-        mHeadsUpContentFrame.removeView(notificationView);
-        if (mHeadsUpContentFrame.getChildCount() == 0) {
-            mHeadsUpPanel.setVisibility(View.INVISIBLE);
-        }
-    }
-
-    @Override
-    public boolean isVisible() {
-        return mHeadsUpPanel.getVisibility() == View.VISIBLE;
-    }
-
-    /**
-     * Construct and return the heads up panel.
-     *
-     * @return view that contains R.id.headsup_content
-     */
-    private View createHeadsUpPanel() {
-        return LayoutInflater.from(mContext).inflate(R.layout.headsup_container, null);
-    }
-
-    /**
-     * Attach the heads up panel to the display
-     */
-    private void addHeadsUpPanelToDisplay() {
+    protected WindowManager.LayoutParams getWindowManagerLayoutParams() {
         WindowManager.LayoutParams wrapperParams = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.MATCH_PARENT,
@@ -83,10 +43,7 @@ public class CarHeadsUpNotificationAppContainer implements CarHeadsUpNotificatio
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
                         | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
                 PixelFormat.TRANSLUCENT);
-        wrapperParams.gravity = Gravity.TOP;
-        mHeadsUpPanel.setVisibility(View.INVISIBLE);
-        WindowManager windowManager = (WindowManager) mContext.getSystemService(
-                Context.WINDOW_SERVICE);
-        windowManager.addView(mHeadsUpPanel, wrapperParams);
+        wrapperParams.gravity = getShowHunOnBottom() ? Gravity.BOTTOM : Gravity.TOP;
+        return wrapperParams;
     }
 }

@@ -16,25 +16,30 @@
 
 package com.android.car;
 
+import static android.car.CarOccupantZoneManager.DisplayTypeEnum;
+
 import static java.util.Map.entry;
 
 import android.annotation.NonNull;
+import android.car.Car;
+import android.car.CarOccupantZoneManager;
 import android.car.input.CarInputManager;
+import android.car.input.CustomInputEvent;
 import android.car.input.ICarInputCallback;
 import android.car.input.RotaryEvent;
+import android.content.ComponentName;
 import android.content.Context;
 import android.os.Binder;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.util.ArrayMap;
-import android.util.Log;
+import android.util.Slog;
 import android.util.SparseArray;
 import android.view.KeyEvent;
 
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.util.ArrayUtils;
 import com.android.internal.util.Preconditions;
-
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -54,11 +59,11 @@ public class InputCaptureClientController {
     private static final boolean DBG_DISPATCH = false;
     private static final boolean DBG_CALLS = false;
 
-    private static final String TAG = CarLog.TAG_INPUT;
+    private static final String TAG = CarLog.tagFor(InputCaptureClientController.class);
     /**
-     *  This table decides which input key goes into which input type. Not mapped here means it is
-     *  not supported for capturing. Rotary events are treated separately and this is only for
-     *  key events.
+     * This table decides which input key goes into which input type. Not mapped here means it is
+     * not supported for capturing. Rotary events are treated separately and this is only for
+     * key events.
      */
     private static final Map<Integer, Integer> KEY_EVENT_TO_INPUT_TYPE = Map.ofEntries(
             entry(KeyEvent.KEYCODE_DPAD_CENTER, CarInputManager.INPUT_TYPE_DPAD_KEYS),
@@ -89,7 +94,8 @@ public class InputCaptureClientController {
             CarInputManager.INPUT_TYPE_ROTARY_NAVIGATION,
             CarInputManager.INPUT_TYPE_DPAD_KEYS,
             CarInputManager.INPUT_TYPE_NAVIGATE_KEYS,
-            CarInputManager.INPUT_TYPE_SYSTEM_NAVIGATE_KEYS
+            CarInputManager.INPUT_TYPE_SYSTEM_NAVIGATE_KEYS,
+            CarInputManager.INPUT_TYPE_CUSTOM_INPUT_EVENT
     );
 
     private static final Set<Integer> VALID_ROTARY_TYPES = Set.of(
@@ -98,7 +104,8 @@ public class InputCaptureClientController {
 
     // TODO(b/150818155) Need to migrate cluster code to use this to enable it.
     private static final List<Integer> SUPPORTED_DISPLAY_TYPES = List.of(
-            CarInputManager.TARGET_DISPLAY_TYPE_MAIN
+            CarOccupantZoneManager.DISPLAY_TYPE_MAIN,
+            CarOccupantZoneManager.DISPLAY_TYPE_INSTRUMENT_CLUSTER
     );
 
     private static final int[] EMPTY_INPUT_TYPES = new int[0];
@@ -214,13 +221,21 @@ public class InputCaptureClientController {
     /** Accessed from dispatch thread only */
     private final ArrayList<RotaryEvent> mRotaryEventDispatchScratchList = new ArrayList<>(1);
 
+    /** Accessed from dispatch thread only */
+    private final ArrayList<CustomInputEvent> mCustomInputEventDispatchScratchList =
+            new ArrayList<>(1);
+
     @GuardedBy("mLock")
     private int mNumKeyEventsDispatched;
     @GuardedBy("mLock")
     private int mNumRotaryEventsDispatched;
 
+    private final String mClusterHomePackage;
+
     public InputCaptureClientController(Context context) {
         mContext = context;
+        mClusterHomePackage = ComponentName.unflattenFromString(
+                mContext.getString(R.string.config_clusterHomeActivity)).getPackageName();
     }
 
     /**
@@ -228,9 +243,10 @@ public class InputCaptureClientController {
      * {@link CarInputManager#requestInputEventCapture(CarInputManager.CarInputCaptureCallback,
      * int, int[], int)}.
      */
-    public int requestInputEventCapture(ICarInputCallback callback, int targetDisplayType,
+    public int requestInputEventCapture(ICarInputCallback callback,
+            @DisplayTypeEnum int targetDisplayType,
             int[] inputTypes, int requestFlags) {
-        ICarImpl.assertPermission(mContext, android.Manifest.permission.MONITOR_INPUT);
+        ICarImpl.assertPermission(mContext, Car.PERMISSION_CAR_MONITOR_INPUT);
 
         Preconditions.checkArgument(SUPPORTED_DISPLAY_TYPES.contains(targetDisplayType),
                 "Display not supported yet:" + targetDisplayType);
@@ -238,14 +254,20 @@ public class InputCaptureClientController {
         boolean isRequestingAllEvents =
                 (requestFlags & CarInputManager.CAPTURE_REQ_FLAGS_TAKE_ALL_EVENTS_FOR_DISPLAY) != 0;
         if (isRequestingAllEvents) {
-            ICarImpl.assertCallingFromSystemProcessOrSelf();
+            if (targetDisplayType != CarOccupantZoneManager.DISPLAY_TYPE_INSTRUMENT_CLUSTER) {
+                ICarImpl.assertCallingFromSystemProcessOrSelf();
+            } else {  // for DISPLAY_TYPE_INSTRUMENT_CLUSTER
+                if (!ICarImpl.isCallingFromSystemProcessOrSelf()) {
+                    CarServiceUtils.assertPackageName(mContext, mClusterHomePackage);
+                }
+            }
             if (inputTypes.length != 1 || inputTypes[0] != CarInputManager.INPUT_TYPE_ALL_INPUTS) {
                 throw new IllegalArgumentException("Input type should be INPUT_TYPE_ALL_INPUTS"
                         + " for CAPTURE_REQ_FLAGS_TAKE_ALL_EVENTS_FOR_DISPLAY");
             }
         }
-        if (targetDisplayType != CarInputManager.TARGET_DISPLAY_TYPE_CLUSTER
-                && targetDisplayType != CarInputManager.TARGET_DISPLAY_TYPE_MAIN) {
+        if (targetDisplayType != CarOccupantZoneManager.DISPLAY_TYPE_INSTRUMENT_CLUSTER
+                && targetDisplayType != CarOccupantZoneManager.DISPLAY_TYPE_MAIN) {
             throw new IllegalArgumentException("Unrecognized display type:" + targetDisplayType);
         }
         if (inputTypes == null) {
@@ -258,7 +280,7 @@ public class InputCaptureClientController {
                 (requestFlags & CarInputManager.CAPTURE_REQ_FLAGS_ALLOW_DELAYED_GRANT) != 0;
         int ret = CarInputManager.INPUT_CAPTURE_RESPONSE_SUCCEEDED;
         if (DBG_CALLS) {
-            Log.i(TAG,
+            Slog.i(TAG,
                     "requestInputEventCapture callback:" + callback
                             + ", display:" + targetDisplayType
                             + ", inputTypes:" + Arrays.toString(inputTypes)
@@ -294,7 +316,7 @@ public class InputCaptureClientController {
                 newClient.linkToDeath();
             } catch (RemoteException e) {
                 // client died
-                Log.i(TAG, "requestInputEventCapture, cannot linkToDeath to client, pid:"
+                Slog.i(TAG, "requestInputEventCapture, cannot linkToDeath to client, pid:"
                         + Binder.getCallingUid());
                 return CarInputManager.INPUT_CAPTURE_RESPONSE_FAILED;
             }
@@ -410,8 +432,8 @@ public class InputCaptureClientController {
                 "Display not supported yet:" + targetDisplayType);
 
         if (DBG_CALLS) {
-            Log.i(TAG, "releaseInputEventCapture callback:" + callback
-                            + ", display:" + targetDisplayType);
+            Slog.i(TAG, "releaseInputEventCapture callback:" + callback
+                    + ", display:" + targetDisplayType);
         }
         ClientsToDispatch clientsToDispatch = new ClientsToDispatch(targetDisplayType);
         synchronized (mLock) {
@@ -419,7 +441,7 @@ public class InputCaptureClientController {
                     targetDisplayType);
             ClientInfoForDisplay clientInfo = allClientsForDisplay.remove(callback.asBinder());
             if (clientInfo == null) {
-                Log.w(TAG, "Cannot find client for releaseInputEventCapture:" + callback);
+                Slog.w(TAG, "Cannot find client for releaseInputEventCapture:" + callback);
                 return;
             }
             clientInfo.unlinkToDeath();
@@ -444,7 +466,7 @@ public class InputCaptureClientController {
             SparseArray<LinkedList<ClientInfoForDisplay>> perInputStacks =
                     mPerInputTypeCapturers.get(targetDisplayType);
             if (DBG_STACK) {
-                Log.i(TAG, "releaseInputEventCapture, fullCaptureActive:"
+                Slog.i(TAG, "releaseInputEventCapture, fullCaptureActive:"
                         + fullCaptureActive + ", perInputStacks:" + perInputStacks);
             }
             if (perInputStacks != null) {
@@ -481,18 +503,18 @@ public class InputCaptureClientController {
     /**
      * Dispatches the given {@code KeyEvent} to a capturing client if there is one.
      *
-     * @param displayType Should be a display type defined in {@code CarInputManager} such as
-     *                    {@link CarInputManager#TARGET_DISPLAY_TYPE_MAIN}.
-     * @param event
+     * @param displayType the display type defined in {@code CarInputManager} such as
+     *                    {@link CarOccupantZoneManager#DISPLAY_TYPE_MAIN}
+     * @param event       the key event to handle
      * @return true if the event was consumed.
      */
-    public boolean onKeyEvent(int displayType, KeyEvent event) {
+    public boolean onKeyEvent(@DisplayTypeEnum int displayType, KeyEvent event) {
         if (!SUPPORTED_DISPLAY_TYPES.contains(displayType)) {
             return false;
         }
         Integer inputType = KEY_EVENT_TO_INPUT_TYPE.get(event.getKeyCode());
         if (inputType == null) { // not supported key
-            return false;
+            inputType = CarInputManager.INPUT_TYPE_ALL_INPUTS;
         }
         ICarInputCallback callback;
         synchronized (mLock) {
@@ -510,19 +532,19 @@ public class InputCaptureClientController {
     /**
      * Dispatches the given {@code RotaryEvent} to a capturing client if there is one.
      *
-     * @param displayType Should be a display type defined in {@code CarInputManager} such as
-     *                    {@link CarInputManager#TARGET_DISPLAY_TYPE_MAIN}.
-     * @param event
+     * @param displayType the display type defined in {@code CarInputManager} such as
+     *                    {@link CarOccupantZoneManager#DISPLAY_TYPE_MAIN}
+     * @param event       the Rotary event to handle
      * @return true if the event was consumed.
      */
-    public boolean onRotaryEvent(int displayType, RotaryEvent event) {
+    public boolean onRotaryEvent(@DisplayTypeEnum int displayType, RotaryEvent event) {
         if (!SUPPORTED_DISPLAY_TYPES.contains(displayType)) {
-            Log.w(TAG, "onRotaryEvent for not supported display:" + displayType);
+            Slog.w(TAG, "onRotaryEvent for not supported display:" + displayType);
             return false;
         }
         int inputType = event.getInputType();
         if (!VALID_ROTARY_TYPES.contains(inputType)) {
-            Log.w(TAG, "onRotaryEvent for not supported input type:" + inputType);
+            Slog.w(TAG, "onRotaryEvent for not supported input type:" + inputType);
             return false;
         }
 
@@ -531,7 +553,7 @@ public class InputCaptureClientController {
             callback = getClientForInputTypeLocked(displayType, inputType);
             if (callback == null) {
                 if (DBG_DISPATCH) {
-                    Log.i(TAG, "onRotaryEvent no client for input type:" + inputType);
+                    Slog.i(TAG, "onRotaryEvent no client for input type:" + inputType);
                 }
                 return false;
             }
@@ -539,6 +561,37 @@ public class InputCaptureClientController {
         }
 
         dispatchRotaryEvent(displayType, event, callback);
+        return true;
+    }
+
+    /**
+     * Dispatches the given {@link CustomInputEvent} to a capturing client if there is one.
+     * Nothing happens if no callback was registered for the incoming event. In this case this
+     * method will return {@code false}.
+     * <p>
+     * In case of there are more than one client registered for this event, then only the first one
+     * will be notified.
+     *
+     * @param event the {@link CustomInputEvent} to dispatch
+     * @return {@code true} if the event was consumed.
+     */
+    public boolean onCustomInputEvent(CustomInputEvent event) {
+        int displayType = event.getTargetDisplayType();
+        if (!SUPPORTED_DISPLAY_TYPES.contains(displayType)) {
+            Slog.w(TAG, "onCustomInputEvent for not supported display:" + displayType);
+            return false;
+        }
+        ICarInputCallback callback;
+        synchronized (mLock) {
+            callback = getClientForInputTypeLocked(displayType,
+                    CarInputManager.INPUT_TYPE_CUSTOM_INPUT_EVENT);
+            if (callback == null) {
+                Slog.w(TAG, "No client for input: " + CarInputManager.INPUT_TYPE_CUSTOM_INPUT_EVENT
+                        + " and display: " + displayType);
+                return false;
+            }
+        }
+        dispatchCustomInputEvent(displayType, event, callback);
         return true;
     }
 
@@ -571,14 +624,14 @@ public class InputCaptureClientController {
     public void dump(PrintWriter writer) {
         writer.println("**InputCaptureClientController**");
         synchronized (mLock) {
-            for (int display: SUPPORTED_DISPLAY_TYPES) {
+            for (int display : SUPPORTED_DISPLAY_TYPES) {
                 writer.println("***Display:" + display);
 
                 HashMap<IBinder, ClientInfoForDisplay> allClientsForDisplay = mAllClients.get(
                         display);
                 if (allClientsForDisplay != null) {
                     writer.println("****All clients:");
-                    for (ClientInfoForDisplay client: allClientsForDisplay.values()) {
+                    for (ClientInfoForDisplay client : allClientsForDisplay.values()) {
                         writer.println(client);
                     }
                 }
@@ -587,7 +640,7 @@ public class InputCaptureClientController {
                         mFullDisplayEventCapturers.get(display);
                 if (fullCapturersStack != null) {
                     writer.println("****Full capture stack");
-                    for (ClientInfoForDisplay client: fullCapturersStack) {
+                    for (ClientInfoForDisplay client : fullCapturersStack) {
                         writer.println(client);
                     }
                 }
@@ -599,7 +652,7 @@ public class InputCaptureClientController {
                         LinkedList<ClientInfoForDisplay> perInputStack = perInputStacks.valueAt(i);
                         if (perInputStack.size() > 0) {
                             writer.println("**** Per Input stack, input type:" + inputType);
-                            for (ClientInfoForDisplay client: perInputStack) {
+                            for (ClientInfoForDisplay client : perInputStack) {
                                 writer.println(client);
                             }
                         }
@@ -616,7 +669,7 @@ public class InputCaptureClientController {
             return;
         }
         if (DBG_DISPATCH) {
-            Log.i(TAG, "dispatchClientCallbackLocked, number of clients:"
+            Slog.i(TAG, "dispatchClientCallbackLocked, number of clients:"
                     + clientsToDispatch.mClientsToDispatch.size());
         }
         mClientDispatchQueue.add(clientsToDispatch);
@@ -630,7 +683,7 @@ public class InputCaptureClientController {
             }
 
             if (DBG_DISPATCH) {
-                Log.i(TAG, "dispatching to clients, num of clients:"
+                Slog.i(TAG, "dispatching to clients, num of clients:"
                         + clients.mClientsToDispatch.size()
                         + ", display:" + clients.mDisplayType);
             }
@@ -639,7 +692,7 @@ public class InputCaptureClientController {
                 int[] inputTypes = clients.mClientsToDispatch.valueAt(i);
                 Arrays.sort(inputTypes);
                 if (DBG_DISPATCH) {
-                    Log.i(TAG, "dispatching to client, callback:"
+                    Slog.i(TAG, "dispatching to client, callback:"
                             + callback + ", inputTypes:" + Arrays.toString(inputTypes));
                 }
                 try {
@@ -659,7 +712,9 @@ public class InputCaptureClientController {
             try {
                 callback.onKeyEvents(targetDisplayType, mKeyEventDispatchScratchList);
             } catch (RemoteException e) {
-                // Ignore. Let death handler deal with it.
+                if (DBG_DISPATCH) {
+                    Slog.e(TAG, "Failed to dispatch KeyEvent " + event, e);
+                }
             }
         });
     }
@@ -667,15 +722,39 @@ public class InputCaptureClientController {
     private void dispatchRotaryEvent(int targetDisplayType, RotaryEvent event,
             ICarInputCallback callback) {
         if (DBG_DISPATCH) {
-            Log.i(TAG, "dispatchRotaryEvent:" + event);
+            Slog.i(TAG, "dispatchRotaryEvent:" + event);
         }
+        // TODO(b/159623196): Use HandlerThread for dispatching rather than relying on the main
+        //     thread. Change here and other dispatch methods.
         CarServiceUtils.runOnMain(() -> {
             mRotaryEventDispatchScratchList.clear();
             mRotaryEventDispatchScratchList.add(event);
             try {
                 callback.onRotaryEvents(targetDisplayType, mRotaryEventDispatchScratchList);
             } catch (RemoteException e) {
-                // Ignore. Let death handler deal with it.
+                if (DBG_DISPATCH) {
+                    Slog.e(TAG, "Failed to dispatch RotaryEvent " + event, e);
+                }
+            }
+        });
+    }
+
+    private void dispatchCustomInputEvent(@DisplayTypeEnum int targetDisplayType,
+            CustomInputEvent event,
+            ICarInputCallback callback) {
+        if (DBG_DISPATCH) {
+            Slog.d(TAG, "dispatchCustomInputEvent:" + event);
+        }
+        CarServiceUtils.runOnMain(() -> {
+            mCustomInputEventDispatchScratchList.clear();
+            mCustomInputEventDispatchScratchList.add(event);
+            try {
+                callback.onCustomInputEvents(targetDisplayType,
+                        mCustomInputEventDispatchScratchList);
+            } catch (RemoteException e) {
+                if (DBG_DISPATCH) {
+                    Slog.e(TAG, "Failed to dispatch CustomInputEvent " + event, e);
+                }
             }
         });
     }

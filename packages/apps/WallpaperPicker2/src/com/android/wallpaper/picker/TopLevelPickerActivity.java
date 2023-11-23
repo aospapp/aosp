@@ -16,12 +16,12 @@
 package com.android.wallpaper.picker;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Insets;
-import android.graphics.Point;
 import android.graphics.PorterDuff.Mode;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
@@ -42,7 +42,6 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.Toolbar;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
@@ -74,9 +73,12 @@ import com.android.wallpaper.module.WallpaperPreferences;
 import com.android.wallpaper.module.WallpaperPreferences.PresentationMode;
 import com.android.wallpaper.module.WallpaperRotationRefresher;
 import com.android.wallpaper.module.WallpaperRotationRefresher.Listener;
+import com.android.wallpaper.picker.AppbarFragment.AppbarFragmentHost;
 import com.android.wallpaper.picker.CategoryFragment.CategoryFragmentHost;
 import com.android.wallpaper.picker.WallpaperDisabledFragment.WallpaperSupportLevel;
 import com.android.wallpaper.picker.individual.IndividualPickerFragment;
+import com.android.wallpaper.util.ActivityUtils;
+import com.android.wallpaper.util.ResourceUtils;
 import com.android.wallpaper.util.ScreenSizeCalculator;
 import com.android.wallpaper.util.ThrowableAnalyzer;
 
@@ -93,7 +95,7 @@ import java.util.List;
  */
 public class TopLevelPickerActivity extends BaseActivity implements WallpapersUiContainer,
         CurrentWallpaperBottomSheetPresenter, SetWallpaperErrorDialogFragment.Listener,
-        MyPhotosStarter, CategoryFragmentHost {
+        MyPhotosStarter, AppbarFragmentHost, CategoryFragmentHost {
 
     private static final String TAG_SET_WALLPAPER_ERROR_DIALOG_FRAGMENT =
             "toplevel_set_wallpaper_error_dialog";
@@ -107,6 +109,7 @@ public class TopLevelPickerActivity extends BaseActivity implements WallpapersUi
     private NetworkStatusNotifier mNetworkStatusNotifier;
     private NetworkStatusNotifier.Listener mNetworkStatusListener;
     private WallpaperPersister mWallpaperPersister;
+    private WallpaperPreferences mWallpaperPreferences;
     private boolean mWasCustomPhotoWallpaperSet;
     @WallpaperPosition
     private int mCustomPhotoWallpaperPosition;
@@ -149,8 +152,11 @@ public class TopLevelPickerActivity extends BaseActivity implements WallpapersUi
      */
     private WallpaperInfo mPendingSetWallpaperInfo;
 
-    private static int getTextColorIdForWallpaperPositionButton(boolean isSelected) {
-        return isSelected ? R.color.accent_color : R.color.material_grey500;
+    private int getTextColorForWallpaperPositionButton(boolean isSelected) {
+        int textColorId = isSelected
+                ? android.R.attr.colorAccent
+                : android.R.attr.textColorTertiary;
+        return ResourceUtils.getColorAttr(this, textColorId);
     }
 
     @Override
@@ -164,7 +170,10 @@ public class TopLevelPickerActivity extends BaseActivity implements WallpapersUi
         mUserEventLogger = injector.getUserEventLogger(this);
         mNetworkStatusNotifier = injector.getNetworkStatusNotifier(this);
         mWallpaperPersister = injector.getWallpaperPersister(this);
+        mWallpaperPreferences = injector.getPreferences(this);
         mWasCustomPhotoWallpaperSet = false;
+
+        mDelegate.getCategoryProvider().resetIfNeeded();
 
         @WallpaperSupportLevel int wallpaperSupportLevel = mDelegate.getWallpaperSupportLevel();
         if (wallpaperSupportLevel != WallpaperDisabledFragment.SUPPORTED_CAN_SET) {
@@ -227,8 +236,8 @@ public class TopLevelPickerActivity extends BaseActivity implements WallpapersUi
 
     @Override
     public void onBackPressed() {
-        CategoryFragment categoryFragment = getCategoryFragment();
-        if (categoryFragment != null && categoryFragment.popChildFragment()) {
+        Fragment fragment = getSupportFragmentManager().findFragmentById(R.id.fragment_container);
+        if (fragment != null && fragment.getChildFragmentManager().popBackStackImmediate()) {
             return;
         }
         super.onBackPressed();
@@ -253,12 +262,15 @@ public class TopLevelPickerActivity extends BaseActivity implements WallpapersUi
 
     private void initializeMobile(boolean shouldForceRefresh) {
         setContentView(R.layout.activity_top_level_picker);
+        if (ActivityUtils.isSUWMode(getBaseContext())) {
+            findViewById(R.id.fragment_main).setFitsSystemWindows(/* fitSystemWindows= */ true);
+        }
         getWindow().getDecorView().setSystemUiVisibility(
                 getWindow().getDecorView().getSystemUiVisibility()
                         | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
                         | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
-        findViewById(R.id.fragment_container)
-                .setOnApplyWindowInsetsListener((view, windowInsets) -> {
+        View fragmentContainer = findViewById(R.id.fragment_container);
+        fragmentContainer.setOnApplyWindowInsetsListener((view, windowInsets) -> {
             view.setPadding(view.getPaddingLeft(), windowInsets.getSystemWindowInsetTop(),
                     view.getPaddingRight(), view.getPaddingBottom());
             // Consume only the top inset (status bar), to let other content in the Activity consume
@@ -285,8 +297,9 @@ public class TopLevelPickerActivity extends BaseActivity implements WallpapersUi
         Fragment fragment = fm.findFragmentById(R.id.fragment_container);
 
         if (fragment == null) {
-            // App launch specific logic: log the "app launched" event and set up daily logging.
-            mUserEventLogger.logAppLaunched();
+            // App launch specific logic: log the "app launch source" event.
+            mUserEventLogger.logAppLaunched(getIntent());
+            mWallpaperPreferences.incrementAppLaunched();
             DailyLoggingAlarmScheduler.setAlarm(getApplicationContext());
 
             CategoryFragment newFragment = CategoryFragment.newInstance(
@@ -295,8 +308,6 @@ public class TopLevelPickerActivity extends BaseActivity implements WallpapersUi
                     .add(R.id.fragment_container, newFragment)
                     .commit();
         }
-
-        mDelegate.initialize(shouldForceRefresh);
     }
 
     private void initializeDesktop(Bundle savedInstanceState) {
@@ -347,8 +358,9 @@ public class TopLevelPickerActivity extends BaseActivity implements WallpapersUi
         Fragment fragment = fm.findFragmentById(R.id.fragment_container);
 
         if (fragment == null) {
-            // App launch specific logic: log the "app launched" event and set up daily logging.
-            mUserEventLogger.logAppLaunched();
+            // App launch specific logic: log the "app launch source" event.
+            mUserEventLogger.logAppLaunched(getIntent());
+            mWallpaperPreferences.incrementAppLaunched();
             DailyLoggingAlarmScheduler.setAlarm(getApplicationContext());
         }
 
@@ -413,7 +425,7 @@ public class TopLevelPickerActivity extends BaseActivity implements WallpapersUi
         // tab for a category not yet repopulated.
         mLastSelectedCategoryTabIndex = -1;
 
-        mDelegate.populateCategories(true /* forceCategoryRefresh */);
+        mDelegate.populateCategories(/* forceRefresh= */ true);
 
         setDesktopLoading(false);
         setCurrentWallpapersExpanded(false);
@@ -439,12 +451,12 @@ public class TopLevelPickerActivity extends BaseActivity implements WallpapersUi
      * Returns the width (in physical px) to use for the "currently set wallpaper" thumbnail.
      */
     private int getSingleWallpaperImageWidthPx() {
-        Point screenSize = ScreenSizeCalculator.getInstance().getScreenSize(
-                getWindowManager().getDefaultDisplay());
+        final float screenAspectRatio =
+                ScreenSizeCalculator.getInstance().getScreenAspectRatio(this);
 
         int height = getResources().getDimensionPixelSize(
                 R.dimen.current_wallpaper_bottom_sheet_thumb_height);
-        return height * screenSize.x / screenSize.y;
+        return (int) (height / screenAspectRatio);
     }
 
     /**
@@ -464,7 +476,8 @@ public class TopLevelPickerActivity extends BaseActivity implements WallpapersUi
                     nextWallpaperButtonDrawable.getConstantState().newDrawable().mutate();
             // Color the "compass" icon with the accent color.
             nextWallpaperButtonDrawable.setColorFilter(
-                    getResources().getColor(R.color.accent_color), Mode.SRC_IN);
+                    ResourceUtils.getColorAttr(this,
+                            android.R.attr.colorAccent), Mode.SRC_IN);
             ButtonDrawableSetterCompat.setDrawableToButtonStart(
                     mCurrentWallpaperSkipWallpaperButton, nextWallpaperButtonDrawable);
         }
@@ -572,7 +585,8 @@ public class TopLevelPickerActivity extends BaseActivity implements WallpapersUi
                                     .newDrawable().mutate();
                             // Color the "compass" icon with the accent color.
                             exploreButtonDrawable.setColorFilter(
-                                    getResources().getColor(R.color.accent_color), Mode.SRC_IN);
+                                    ResourceUtils.getColorAttr(TopLevelPickerActivity.this,
+                                            android.R.attr.colorAccent), Mode.SRC_IN);
 
                             ButtonDrawableSetterCompat.setDrawableToButtonStart(
                                     mCurrentWallpaperExploreButton, exploreButtonDrawable);
@@ -639,12 +653,13 @@ public class TopLevelPickerActivity extends BaseActivity implements WallpapersUi
 
     @Override
     @Nullable
-    public CategoryFragment getCategoryFragment() {
+    public CategorySelectorFragment getCategorySelectorFragment() {
         if (mDelegate.getFormFactor() != FormFactorChecker.FORM_FACTOR_MOBILE) {
             return null;
         }
         FragmentManager fm = getSupportFragmentManager();
-        return (CategoryFragment) fm.findFragmentById(R.id.fragment_container);
+        return ((CategoryFragment) fm.findFragmentById(
+                R.id.fragment_container)).getCategorySelectorFragment();
     }
 
     /**
@@ -777,8 +792,23 @@ public class TopLevelPickerActivity extends BaseActivity implements WallpapersUi
     /**
      * Shows the view-only preview activity for the given wallpaper.
      */
-    public void showViewOnlyPreview(WallpaperInfo wallpaperInfo) {
-        mDelegate.showViewOnlyPreview(wallpaperInfo);
+    public void showViewOnlyPreview(WallpaperInfo wallpaperInfo, boolean isViewAsHome) {
+        mDelegate.showViewOnlyPreview(wallpaperInfo, isViewAsHome);
+    }
+
+    @Override
+    public void show(String collectionId) {
+        mDelegate.show(collectionId);
+    }
+
+    @Override
+    public void fetchCategories() {
+        mDelegate.initialize(!mDelegate.getCategoryProvider().isCategoriesFetched());
+    }
+
+    @Override
+    public void cleanUp() {
+        mDelegate.cleanUp();
     }
 
     @Override
@@ -1044,19 +1074,19 @@ public class TopLevelPickerActivity extends BaseActivity implements WallpapersUi
     private void setCenterWallpaperPositionButtonSelected(Button button, boolean isSelected) {
         int drawableId = isSelected ? R.drawable.center_blue : R.drawable.center_grey;
         ButtonDrawableSetterCompat.setDrawableToButtonStart(button, getDrawable(drawableId));
-        button.setTextColor(getColor(getTextColorIdForWallpaperPositionButton(isSelected)));
+        button.setTextColor(getTextColorForWallpaperPositionButton(isSelected));
     }
 
     private void setCenterCropWallpaperPositionButtonSelected(Button button, boolean isSelected) {
         int drawableId = isSelected ? R.drawable.center_crop_blue : R.drawable.center_crop_grey;
         ButtonDrawableSetterCompat.setDrawableToButtonStart(button, getDrawable(drawableId));
-        button.setTextColor(getColor(getTextColorIdForWallpaperPositionButton(isSelected)));
+        button.setTextColor(getTextColorForWallpaperPositionButton(isSelected));
     }
 
     private void setStretchWallpaperPositionButtonSelected(Button button, boolean isSelected) {
         int drawableId = isSelected ? R.drawable.stretch_blue : R.drawable.stretch_grey;
         ButtonDrawableSetterCompat.setDrawableToButtonStart(button, getDrawable(drawableId));
-        button.setTextColor(getColor(getTextColorIdForWallpaperPositionButton(isSelected)));
+        button.setTextColor(getTextColorForWallpaperPositionButton(isSelected));
     }
 
     private void showSettingWallpaperProgressDialog() {
@@ -1093,6 +1123,16 @@ public class TopLevelPickerActivity extends BaseActivity implements WallpapersUi
         } else {
             mStagedSetWallpaperErrorDialogFragment = dialogFragment;
         }
+    }
+
+    @Override
+    public void onUpArrowPressed() {
+        onBackPressed();
+    }
+
+    @Override
+    public boolean isUpArrowSupported() {
+        return !ActivityUtils.isSUWMode(getBaseContext());
     }
 
     private interface AssetReceiver {

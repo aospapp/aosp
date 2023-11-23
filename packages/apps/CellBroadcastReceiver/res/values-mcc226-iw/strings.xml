@@ -16,12 +16,12 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="enable_public_safety_messages_title" msgid="2315613513862198922">"התראה כתומה"</string>
-    <string name="public_safety_message" msgid="2115576467671679192">"התראה ברומניה: התראה כתומה"</string>
-    <string name="cmas_presidential_level_alert" msgid="8476571012670281437">"התראה ברומניה: התראה נשיאותית"</string>
-    <string name="cmas_extreme_alert" msgid="1713701020039340032">"התראה ברומניה: התראה קיצונית"</string>
+    <string name="enable_public_safety_messages_title" msgid="2315613513862198922">"התרעה כתומה"</string>
+    <string name="public_safety_message" msgid="2115576467671679192">"התרעה ברומניה: התרעה כתומה"</string>
+    <string name="cmas_presidential_level_alert" msgid="8476571012670281437">"התרעה ברומניה: התרעה נשיאותית"</string>
+    <string name="cmas_extreme_alert" msgid="1713701020039340032">"התרעה ברומניה: התרעה קיצונית"</string>
     <string name="cmas_extreme_immediate_observed_alert" msgid="9008972835754333116">"התראה ברומניה: התראה קיצונית"</string>
-    <string name="cmas_extreme_immediate_likely_alert" msgid="4535498659302678812">"התראה ברומניה: התראה קיצונית"</string>
-    <string name="cmas_severe_alert" msgid="9170931869067635495">"התראה ברומניה: התראה חמורה"</string>
-    <string name="cmas_exercise_alert" msgid="5696553249081579138">"התראה ברומניה: התראת תרגול"</string>
+    <string name="cmas_extreme_immediate_likely_alert" msgid="4535498659302678812">"התרעה ברומניה: התרעה קיצונית"</string>
+    <string name="cmas_severe_alert" msgid="9170931869067635495">"התרעה ברומניה: התרעה חמורה"</string>
+    <string name="cmas_exercise_alert" msgid="5696553249081579138">"התרעה ברומניה: התרעת תרגול"</string>
 </resources>

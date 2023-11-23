@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"Voit asentaa varmenteita PKCS#12-tiedostosta, jos ulkoisessa tallennustilassa on %1$s tai %2$s-laajennus."</string>
     <string name="allow_button" msgid="3030990695030371561">"Valitse"</string>
     <string name="deny_button" msgid="3766539809121892584">"Hylkää"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"Ladataan varmenteita…"</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"%s tarkistaa varmennetta…"</string>
 </resources>

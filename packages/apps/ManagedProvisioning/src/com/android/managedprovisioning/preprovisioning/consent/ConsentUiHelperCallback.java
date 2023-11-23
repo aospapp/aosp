@@ -23,8 +23,14 @@ import com.android.managedprovisioning.model.CustomizationParams;
  * A callback that handles consent screen UI changes.
  */
 public interface ConsentUiHelperCallback {
-    void nextAfterUserConsent();
 
-    void initializeLayoutParams(int layoutResourceId, @Nullable Integer headerResourceId,
+    /**
+     * Callback invoked when the UI is being initiated.
+     *
+     * <p>This callback must set up the content view.
+     */
+    void onInitiateUi(
+            int layoutResourceId,
+            @Nullable Integer headerResourceId,
             CustomizationParams params);
 }

@@ -17,6 +17,8 @@
 package com.android.camera.session;
 
 import android.content.ContentResolver;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.location.Location;
 import android.net.Uri;
 
@@ -62,16 +64,18 @@ public class StackSaverImpl implements StackSaver {
     public Uri saveStackedImage(File inputImagePath, String title, int width, int height,
             int imageOrientation, long captureTimeEpoch, String mimeType) {
         String filePath =
-                Storage.generateFilepath(mStackDirectory.getAbsolutePath(), title, mimeType);
+                Storage.instance().generateFilepath(mStackDirectory.getAbsolutePath(),
+                title, mimeType);
         Log.d(TAG, "Saving using stack image saver: " + filePath);
         File outputImagePath = new File(filePath);
+        Bitmap bitmap = BitmapFactory.decodeFile(filePath);
 
-        if (Storage.renameFile(inputImagePath, outputImagePath)) {
+        if (Storage.instance().renameFile(inputImagePath, outputImagePath)) {
             long fileLength = outputImagePath.length();
             if (fileLength > 0) {
-                return Storage.addImageToMediaStore(mContentResolver, title, captureTimeEpoch,
-                        mGpsLocation, imageOrientation, fileLength, filePath, width, height,
-                        mimeType);
+                return Storage.instance().addImageToMediaStore(mContentResolver, title,
+                        captureTimeEpoch, mGpsLocation, imageOrientation, fileLength, bitmap,
+                        width, height, mimeType, null);
             }
         }
 

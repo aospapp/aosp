@@ -12,4 +12,8 @@
         <item value="404"/>
         <item value="405"/>
     </string-array>
+    <string-array name="allowed_initial_attach_apn_types_string_array" num="2">
+        <item value="ia"/>
+        <item value="default"/>
+    </string-array>
 </carrier_config>

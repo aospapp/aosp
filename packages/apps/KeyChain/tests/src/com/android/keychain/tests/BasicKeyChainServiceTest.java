@@ -18,6 +18,7 @@ package com.android.keychain.tests;
 import static android.os.Process.WIFI_UID;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.testng.Assert.assertThrows;
 
@@ -36,13 +37,16 @@ import android.security.KeyChain;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
 import android.security.keystore.ParcelableKeyGenParameterSpec;
+import android.util.Base64;
 import android.util.Log;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 import com.android.keychain.tests.support.IKeyChainServiceTestSupport;
 import java.io.IOException;
+import java.security.KeyStore;
 import java.security.KeyStore.PrivateKeyEntry;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import libcore.java.security.TestKeyStore;
 import org.junit.After;
@@ -135,8 +139,8 @@ public class BasicKeyChainServiceTest {
     public void testCanAccessKeyAfterGettingGrant()
             throws RemoteException, IOException, CertificateException {
         Log.d(TAG, "Testing access to imported key after getting grant.");
-        assertThat(mTestSupportService.keystoreReset()).isTrue();
-        installFirstKey();
+        removeKeyPair(ALIAS_1);
+        generateRsaKey(ALIAS_1);
         assertThat(mKeyChainService.requestPrivateKey(ALIAS_1)).isNull();
         mTestSupportService.grantAppPermission(Process.myUid(), ALIAS_1);
         assertThat(mKeyChainService.requestPrivateKey(ALIAS_1)).isNotNull();
@@ -146,7 +150,7 @@ public class BasicKeyChainServiceTest {
     public void testInstallAndRemoveKeyPair()
             throws RemoteException, IOException, CertificateException {
         Log.d(TAG, "Testing importing key.");
-        assertThat(mTestSupportService.keystoreReset()).isTrue();
+        removeKeyPair(ALIAS_IMPORTED);
         // No key installed, all should fail.
         assertThat(mKeyChainService.requestPrivateKey(ALIAS_IMPORTED)).isNull();
         assertThat(mKeyChainService.getCertificate(ALIAS_IMPORTED)).isNull();
@@ -159,10 +163,11 @@ public class BasicKeyChainServiceTest {
                     Credentials.convertToPem(privateKeyEntry.getCertificateChain()),
                     ALIAS_IMPORTED)).isTrue();
 
-        // No grant, all should still fail.
+        // No grant, Private key access should still fail.
         assertThat(mKeyChainService.requestPrivateKey(ALIAS_IMPORTED)).isNull();
-        assertThat(mKeyChainService.getCertificate(ALIAS_IMPORTED)).isNull();
-        assertThat(mKeyChainService.getCaCertificates(ALIAS_IMPORTED)).isNull();
+        // Certificate access succeeds because this test runs as AID_SYSTEM.
+        assertThat(mKeyChainService.getCertificate(ALIAS_IMPORTED)).isNotNull();
+        assertThat(mKeyChainService.getCaCertificates(ALIAS_IMPORTED)).isNotNull();
         // Grant access
         mTestSupportService.grantAppPermission(Process.myUid(), ALIAS_IMPORTED);
         // Has grant, all should succeed.
@@ -176,7 +181,7 @@ public class BasicKeyChainServiceTest {
     @Test
     public void testUserSelectability() throws RemoteException, IOException, CertificateException {
         Log.d(TAG, "Testing user-selectability of a key.");
-        assertThat(mTestSupportService.keystoreReset()).isTrue();
+        removeKeyPair(ALIAS_IMPORTED);
         PrivateKeyEntry privateKeyEntry =
                 TestKeyStore.getClientCertificate().getPrivateKey("RSA", "RSA");
         assertThat(mTestSupportService.installKeyPair(privateKeyEntry.getPrivateKey().getEncoded(),
@@ -204,18 +209,6 @@ public class BasicKeyChainServiceTest {
                 new ParcelableKeyGenParameterSpec(specBadUid);
         assertThat(mTestSupportService.generateKeyPair("RSA", parcelableSpec)).isEqualTo(
                 KeyChain.KEY_GEN_MISSING_ALIAS);
-    }
-
-    @Test
-    public void testGenerateKeyPairErrorsOnSuperflousAttestationChallenge() throws RemoteException {
-        KeyGenParameterSpec specWithChallenge =
-                new KeyGenParameterSpec.Builder(buildRsaKeySpec(ALIAS_GENERATED))
-                        .setAttestationChallenge(DUMMY_CHALLENGE)
-                        .build();
-        ParcelableKeyGenParameterSpec parcelableSpec =
-                new ParcelableKeyGenParameterSpec(specWithChallenge);
-        assertThat(mTestSupportService.generateKeyPair("RSA", parcelableSpec)).isEqualTo(
-                KeyChain.KEY_GEN_SUPERFLUOUS_ATTESTATION_CHALLENGE);
     }
 
     @Test
@@ -247,31 +240,69 @@ public class BasicKeyChainServiceTest {
         assertThat(mKeyChainService.requestPrivateKey(ALIAS_GENERATED)).isNotNull();
     }
 
-    @Test
-    public void testAttestKeyFailsOnMissingChallenge() throws RemoteException {
-        generateRsaKey(ALIAS_GENERATED);
-        assertThat(mTestSupportService.attestKey(ALIAS_GENERATED, null, new int[]{}
-                )).isEqualTo(KeyChain.KEY_ATTESTATION_MISSING_CHALLENGE);
-    }
+    private static final String USER_CERT1 =
+            "MIIC+DCCAeACAQEwDQYJKoZIhvcNAQELBQAwRTELMAkGA1UEBhMCVVMxEzARBgNV" +
+            "BAgMClNvbWUtU3RhdGUxITAfBgNVBAoMGEludGVybmV0IFdpZGdpdHMgUHR5IEx0" +
+            "ZDAeFw0yMTAyMTAwMDEyMDNaFw00ODA2MjgwMDEyMDNaMD8xCzAJBgNVBAYTAlVT" +
+            "MQswCQYDVQQIDAJDQTEUMBIGA1UEBwwLTWVkaW9jcmV0b24xDTALBgNVBAoMBENv" +
+            "Q28wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC2LieaIDILjZPtNvZI" +
+            "I6VSvKIPIdY5STadoWjmt9TqjyvszJ+oEceBPqwevOdtXpJCiHhP91B314XBT33z" +
+            "8re1b0A5k31YKcy0PU+3OMh4XG6O3/Z5/9GfsekfQZK3jagbn3uqJ2emyj0JK+HY" +
+            "ipD6iwyO21DerUYavPpC0uo8PKAxc9l6XjILg9qoi68yCi8P3tkLLAFWCsc7GUkA" +
+            "v97zUjGq8iz/gIrwmzJBB3O//7e1nuHO5AswgJiwWa9aY6uHKWm97xP0Kw4pShFI" +
+            "eEsdNKj82FURpWIvrWsztYPaEM/+nG8cNiJ1XRT3DfnlKzXVVQi7pE82HkUpFNLQ" +
+            "4wCbAgMBAAEwDQYJKoZIhvcNAQELBQADggEBAJwq05ykEDK5etwC5jDYsX7hyiYI" +
+            "TAephAfhMqT7CtwScVlurSWt4ivv3IBx2huibQqdwq9zyCG9UzQKACMrEAaINerr" +
+            "VPwq+MpfgOUJRlZOCchr1KaN+quoOstStsGqemHZSTyUow6OrG2a+DIGQZy84yza" +
+            "y4+NZYtTjbVKFAmQkji344cVd6qFjCG5Dgo+1u4+YOWV4QTVWwbjgjCGiDNyZKeO" +
+            "Y8n8pdsv4ygat4VCotch22bqiUJLgY/abiprqKz3jfkko9urHkWsrdqzc3mS29AC" +
+            "tWVhomOQq/51A0wfQRbSw2MY+j5LaF22Sz5rnPk0u6Vcm2eLUI5gSJ/HZOU=";
 
-    @Test
-    public void testAttestKeyFailsOnNonExistentKey() throws RemoteException {
-        assertThat(mTestSupportService.attestKey(ALIAS_NON_EXISTING, DUMMY_CHALLENGE, new int[]{}
-                )).isEqualTo(KeyChain.KEY_ATTESTATION_FAILURE);
-    }
+    private static final String USER_CERT2 =
+            "MIIDETCCAfkCFDEBBiFSwkBDAZMyhMjrr7P4wHklMA0GCSqGSIb3DQEBCwUAMEUx" +
+            "CzAJBgNVBAYTAlVTMRMwEQYDVQQIDApTb21lLVN0YXRlMSEwHwYDVQQKDBhJbnRl" +
+            "cm5ldCBXaWRnaXRzIFB0eSBMdGQwHhcNMjEwMjIyMTgwNzE2WhcNNDgwNzEwMTgw" +
+            "NzE2WjBFMQswCQYDVQQGEwJVUzETMBEGA1UECAwKU29tZS1TdGF0ZTEhMB8GA1UE" +
+            "CgwYSW50ZXJuZXQgV2lkZ2l0cyBQdHkgTHRkMIIBIjANBgkqhkiG9w0BAQEFAAOC" +
+            "AQ8AMIIBCgKCAQEA8XLlpvOvG22fJ4ZNSEdc/QIzkbjmtP5rmqX8dgfZdZ7xdUNO" +
+            "24Coyv9f+GiXJdDlL2+KIK3ZTpcuVdd5oO+GdrxB1Dnvhqt2YgOb/+VyeMOdsEre" +
+            "Bqw4Y+v8A92zpWlYlh9xyjVE53ismdQg2RT8kIxQt2ydMyZRx8KzNmZRsXouiVSi" +
+            "ngWlXdtkpXNiVt5CkSBwscfVNMkF4EfcKqYGLJzFTXcSsRVZoknGNtgJZIsHaOJh" +
+            "etmrfxATcbvNYdDhm9xs2ud/WwaRDqbMme9KVOrk9g5NBZIn7SpWDUyBk36W2CgQ" +
+            "U/3OPnDOUS6oW+YKE1xvJ3i2FhLD2ufJyNh4WwIDAQABMA0GCSqGSIb3DQEBCwUA" +
+            "A4IBAQDkl+8ZlYgKwSHjqxHjJsoBXBlwWUw0FQDaFz0tlPv/f5w80NsTXImVgRcP" +
+            "MBWxLrVa/JKCm7GPZgIotvYsRKL0/DRZDUuva86C2hi9C/E7OtgFkDO0d/t9QIQM" +
+            "gSNgdEgda/+lixc7XrsjJKAufFlYhzk/q5uyiD3SbqFzdlADumWtY9Xu6fqU2JB5" +
+            "TFOTxqpU5c2b+sXL6uc+dA2pSP94wL+7g+uKVhdJGsimbXIq1jl9r+C2ykrUjuz+" +
+            "b7uBJ5Qzq81tdmNCZ4pLtqmatTAMj2LYsKiXUe9Fh0nd/2aZek6I1YHaIBGg7jns" +
+            "ZYEWPj4Rd0KiE3L/ymeQ4VQx6SW2";
 
-    @Test
-    public void testAttestKeySucceedsOnGeneratedKey() throws RemoteException {
-        generateRsaKey(ALIAS_GENERATED);
-        assertThat(mTestSupportService.attestKey(ALIAS_GENERATED, DUMMY_CHALLENGE,
-                null)).isEqualTo(KeyChain.KEY_ATTESTATION_SUCCESS);
-    }
+    private static final String CA_CERT =
+            "MIIDazCCAlOgAwIBAgIUVA2nyBJMc/OcO0C/yPt/E1TwREIwDQYJKoZIhvcNAQEL" +
+            "BQAwRTELMAkGA1UEBhMCVVMxEzARBgNVBAgMClNvbWUtU3RhdGUxITAfBgNVBAoM" +
+            "GEludGVybmV0IFdpZGdpdHMgUHR5IEx0ZDAeFw0yMTAyMDkyMzAzMzdaFw00ODA2" +
+            "MjcyMzAzMzdaMEUxCzAJBgNVBAYTAlVTMRMwEQYDVQQIDApTb21lLVN0YXRlMSEw" +
+            "HwYDVQQKDBhJbnRlcm5ldCBXaWRnaXRzIFB0eSBMdGQwggEiMA0GCSqGSIb3DQEB" +
+            "AQUAA4IBDwAwggEKAoIBAQDxcuWm868bbZ8nhk1IR1z9AjORuOa0/muapfx2B9l1" +
+            "nvF1Q07bgKjK/1/4aJcl0OUvb4ogrdlOly5V13mg74Z2vEHUOe+Gq3ZiA5v/5XJ4" +
+            "w52wSt4GrDhj6/wD3bOlaViWH3HKNUTneKyZ1CDZFPyQjFC3bJ0zJlHHwrM2ZlGx" +
+            "ei6JVKKeBaVd22Slc2JW3kKRIHCxx9U0yQXgR9wqpgYsnMVNdxKxFVmiScY22Alk" +
+            "iwdo4mF62at/EBNxu81h0OGb3Gza539bBpEOpsyZ70pU6uT2Dk0FkiftKlYNTIGT" +
+            "fpbYKBBT/c4+cM5RLqhb5goTXG8neLYWEsPa58nI2HhbAgMBAAGjUzBRMB0GA1Ud" +
+            "DgQWBBSsg7KE2+ypUJrrk9pBIVYpgjZM3TAfBgNVHSMEGDAWgBSsg7KE2+ypUJrr" +
+            "k9pBIVYpgjZM3TAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUAA4IBAQBx" +
+            "pUWwTL8vsrq3hNEDOui1Y6kYPiaAs2Fd//tBjPhgc9tlKS8KLkGU0yW8kEyPovvK" +
+            "M6/IUDZhrHzli8Y9iJxiZ43o/fni1DOLHLU+CCOaKGrmBDBhgDlz1m2nXsCOb8uF" +
+            "ohz4Yp1SLMy1YpQPmltiaILXNTw33B8xFa0d9ChZbBudyiiNs0vijdFMMYetqAGM" +
+            "aXCjPXdM6hGjHxc6vf2ECJOrfVg3D22VOJ0WzrrJDM9pRxJgJ/IFG0eirKvE7G8s" +
+            "zk1Og79JAFr3qMKEnUS7nuym7J69HSQlFHc7JEMzeS78YR7EHOlOlK/bEX/8cHF9" +
+            "ZlGCOS1Ds0rmVe3CoQIp";
 
     @Test
     public void testSetKeyPairCertificate() throws RemoteException {
         generateRsaKey(ALIAS_GENERATED);
-        final byte[] userCert = new byte[] {'a', 'b', 'c'};
-        final byte[] certChain = new byte[] {'d', 'e', 'f'};
+        final byte[] userCert = Base64.decode(USER_CERT1, Base64.DEFAULT);
+        final byte[] certChain = Base64.decode(CA_CERT, Base64.DEFAULT);
 
         assertThat(mTestSupportService.setKeyPairCertificate(ALIAS_GENERATED, userCert,
                 certChain)).isTrue();
@@ -280,7 +311,8 @@ public class BasicKeyChainServiceTest {
         assertThat(mKeyChainService.getCertificate(ALIAS_GENERATED)).isEqualTo(userCert);
         assertThat(mKeyChainService.getCaCertificates(ALIAS_GENERATED)).isEqualTo(certChain);
 
-        final byte[] newUserCert = new byte[] {'x', 'y', 'z'};
+        final byte[] newUserCert = Base64.decode(USER_CERT2, Base64.DEFAULT);
+
         assertThat(mTestSupportService.setKeyPairCertificate(ALIAS_GENERATED, newUserCert,
                 null)).isTrue();
         assertThat(mKeyChainService.getCertificate(ALIAS_GENERATED)).isEqualTo(newUserCert);
@@ -364,35 +396,54 @@ public class BasicKeyChainServiceTest {
         }
     }
 
-    void installFirstKey() throws RemoteException, IOException, CertificateException {
-        String intermediate = "-intermediate";
-        String root = "-root";
+    @Test
+    public void testContainsKeyPair_NonExisting() throws RemoteException {
+        assertThat(mKeyChainService.containsKeyPair(ALIAS_NON_EXISTING)).isFalse();
+    }
 
-        String alias1PrivateKey = Credentials.USER_PRIVATE_KEY + ALIAS_1;
-        String alias1ClientCert = Credentials.USER_CERTIFICATE + ALIAS_1;
-        String alias1IntermediateCert = (Credentials.CA_CERTIFICATE + ALIAS_1 + intermediate);
-        String alias1RootCert = (Credentials.CA_CERTIFICATE + ALIAS_1 + root);
-        PrivateKeyEntry privateKeyEntry =
+    @Test
+    public void testContainsKeyPair_ImportedKey() throws Exception {
+        installTestRsaKey();
+        assertThat(mKeyChainService.containsKeyPair(ALIAS_IMPORTED)).isTrue();
+    }
+
+    @Test
+    public void testContainsKeyPair_RemovedKey() throws Exception {
+        installTestRsaKey();
+        mKeyChainService.removeKeyPair(ALIAS_IMPORTED);
+        assertThat(mKeyChainService.containsKeyPair(ALIAS_IMPORTED)).isFalse();
+    }
+
+    @Test
+    public void testGetGrants_NonExisting() {
+        assertThrows(IllegalArgumentException.class,
+                () -> mKeyChainService.getGrants(ALIAS_NON_EXISTING));
+    }
+
+    @Test
+    public void testGetGrants_Empty() throws Exception {
+        installTestRsaKey();
+
+        assertThat(mKeyChainService.getGrants(ALIAS_IMPORTED)).isEmpty();
+    }
+
+    @Test
+    public void testGetGrants_NonEmpty() throws Exception {
+        final int uid = Process.myUid();
+
+        installTestRsaKey();
+        mTestSupportService.grantAppPermission(uid, ALIAS_IMPORTED);
+
+        assertThat(mKeyChainService.getGrants(ALIAS_IMPORTED)).isEqualTo(new int[] {uid});
+    }
+
+    private void installTestRsaKey() throws Exception {
+        final PrivateKeyEntry privateKeyEntry =
                 TestKeyStore.getClientCertificate().getPrivateKey("RSA", "RSA");
-        Certificate intermediate1 = privateKeyEntry.getCertificateChain()[1];
-        Certificate root1 = TestKeyStore.getClientCertificate().getRootCertificate("RSA");
-
-        assertThat(
-                mTestSupportService.keystoreImportKey(
-                    alias1PrivateKey, privateKeyEntry.getPrivateKey().getEncoded()))
-            .isTrue();
-        assertThat(
-                mTestSupportService.keystorePut(
-                    alias1ClientCert,
-                    Credentials.convertToPem(privateKeyEntry.getCertificate())))
-            .isTrue();
-        assertThat(
-                mTestSupportService.keystorePut(
-                    alias1IntermediateCert, Credentials.convertToPem(intermediate1)))
-            .isTrue();
-        assertThat(
-                mTestSupportService.keystorePut(alias1RootCert, Credentials.convertToPem(root1)))
-            .isTrue();
+        mTestSupportService.installKeyPair(privateKeyEntry.getPrivateKey().getEncoded(),
+                privateKeyEntry.getCertificate().getEncoded(),
+                Credentials.convertToPem(privateKeyEntry.getCertificateChain()),
+                ALIAS_IMPORTED);
     }
 
     void waitForSupportService() {

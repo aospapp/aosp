@@ -27,7 +27,7 @@ import androidx.preference.ListPreference;
 import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
-import com.android.settingslib.wifi.AccessPoint;
+import com.android.wifitrackerlib.WifiEntry;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -48,13 +48,13 @@ public class NetworkSecurityPreferenceController extends PreferenceController<Li
             createSecurityTypeDescMap();
 
     private static final List<Integer> SECURITY_TYPES = Arrays.asList(
-            AccessPoint.SECURITY_NONE,
-            AccessPoint.SECURITY_WEP,
-            AccessPoint.SECURITY_PSK,
-            AccessPoint.SECURITY_EAP,
-            AccessPoint.SECURITY_SAE,
-            AccessPoint.SECURITY_OWE,
-            AccessPoint.SECURITY_EAP_SUITE_B);
+            WifiEntry.SECURITY_NONE,
+            WifiEntry.SECURITY_WEP,
+            WifiEntry.SECURITY_PSK,
+            WifiEntry.SECURITY_EAP,
+            WifiEntry.SECURITY_SAE,
+            WifiEntry.SECURITY_OWE,
+            WifiEntry.SECURITY_EAP_SUITE_B);
 
     private CharSequence[] mSecurityTypeNames;
     private CharSequence[] mSecurityTypeIds;
@@ -78,40 +78,40 @@ public class NetworkSecurityPreferenceController extends PreferenceController<Li
         WifiManager wifiManager = getContext().getSystemService(WifiManager.class);
 
         securityTypeNamesList.add(getContext().getString(
-                SECURITY_TYPE_TO_DESC_RES.get(AccessPoint.SECURITY_NONE)));
-        securityTypeIdsList.add(Integer.toString(AccessPoint.SECURITY_NONE));
+                SECURITY_TYPE_TO_DESC_RES.get(WifiEntry.SECURITY_NONE)));
+        securityTypeIdsList.add(Integer.toString(WifiEntry.SECURITY_NONE));
 
         if (wifiManager.isEnhancedOpenSupported()) {
             securityTypeNamesList.add(getContext().getString(
-                    SECURITY_TYPE_TO_DESC_RES.get(AccessPoint.SECURITY_OWE)));
-            securityTypeIdsList.add(Integer.toString(AccessPoint.SECURITY_OWE));
+                    SECURITY_TYPE_TO_DESC_RES.get(WifiEntry.SECURITY_OWE)));
+            securityTypeIdsList.add(Integer.toString(WifiEntry.SECURITY_OWE));
         }
 
         securityTypeNamesList.add(getContext().getString(
-                SECURITY_TYPE_TO_DESC_RES.get(AccessPoint.SECURITY_WEP)));
-        securityTypeIdsList.add(Integer.toString(AccessPoint.SECURITY_WEP));
+                SECURITY_TYPE_TO_DESC_RES.get(WifiEntry.SECURITY_WEP)));
+        securityTypeIdsList.add(Integer.toString(WifiEntry.SECURITY_WEP));
 
         securityTypeNamesList.add(getContext().getString(
-                SECURITY_TYPE_TO_DESC_RES.get(AccessPoint.SECURITY_PSK)));
-        securityTypeIdsList.add(Integer.toString(AccessPoint.SECURITY_PSK));
+                SECURITY_TYPE_TO_DESC_RES.get(WifiEntry.SECURITY_PSK)));
+        securityTypeIdsList.add(Integer.toString(WifiEntry.SECURITY_PSK));
 
         if (wifiManager.isWpa3SaeSupported()) {
             securityTypeNamesList.add(getContext().getString(
-                    SECURITY_TYPE_TO_DESC_RES.get(AccessPoint.SECURITY_SAE)));
-            securityTypeIdsList.add(Integer.toString(AccessPoint.SECURITY_SAE));
+                    SECURITY_TYPE_TO_DESC_RES.get(WifiEntry.SECURITY_SAE)));
+            securityTypeIdsList.add(Integer.toString(WifiEntry.SECURITY_SAE));
         }
 
         securityTypeNamesList.add(getContext().getString(
-                SECURITY_TYPE_TO_DESC_RES.get(AccessPoint.SECURITY_EAP)));
-        securityTypeIdsList.add(Integer.toString(AccessPoint.SECURITY_EAP));
+                SECURITY_TYPE_TO_DESC_RES.get(WifiEntry.SECURITY_EAP)));
+        securityTypeIdsList.add(Integer.toString(WifiEntry.SECURITY_EAP));
 
         if (wifiManager.isWpa3SuiteBSupported()) {
             securityTypeNamesList.add(getContext().getString(
-                    SECURITY_TYPE_TO_DESC_RES.get(AccessPoint.SECURITY_EAP_SUITE_B)));
-            securityTypeIdsList.add(Integer.toString(AccessPoint.SECURITY_EAP_SUITE_B));
+                    SECURITY_TYPE_TO_DESC_RES.get(WifiEntry.SECURITY_EAP_SUITE_B)));
+            securityTypeIdsList.add(Integer.toString(WifiEntry.SECURITY_EAP_SUITE_B));
         }
 
-        mSelectedSecurityType = AccessPoint.SECURITY_NONE;
+        mSelectedSecurityType = WifiEntry.SECURITY_NONE;
         mSecurityTypeNames = new CharSequence[securityTypeNamesList.size()];
         mSecurityTypeNames = securityTypeNamesList.toArray(mSecurityTypeNames);
         mSecurityTypeIds = new CharSequence[securityTypeIdsList.size()];
@@ -119,7 +119,7 @@ public class NetworkSecurityPreferenceController extends PreferenceController<Li
 
         getPreference().setEntries(mSecurityTypeNames);
         getPreference().setEntryValues(mSecurityTypeIds);
-        getPreference().setDefaultValue(Integer.toString(AccessPoint.SECURITY_NONE));
+        getPreference().setDefaultValue(Integer.toString(WifiEntry.SECURITY_NONE));
     }
 
     @Override
@@ -143,13 +143,13 @@ public class NetworkSecurityPreferenceController extends PreferenceController<Li
 
     private static Map<Integer, Integer> createSecurityTypeDescMap() {
         Map<Integer, Integer> map = new HashMap<>();
-        map.put(AccessPoint.SECURITY_NONE, R.string.wifi_security_none);
-        map.put(AccessPoint.SECURITY_WEP, R.string.wifi_security_wep);
-        map.put(AccessPoint.SECURITY_PSK, R.string.wifi_security_psk_generic);
-        map.put(AccessPoint.SECURITY_EAP, R.string.wifi_security_eap);
-        map.put(AccessPoint.SECURITY_SAE, R.string.wifi_security_sae);
-        map.put(AccessPoint.SECURITY_OWE, R.string.wifi_security_owe);
-        map.put(AccessPoint.SECURITY_EAP_SUITE_B, R.string.wifi_security_eap_suiteb);
+        map.put(WifiEntry.SECURITY_NONE, R.string.wifi_security_none);
+        map.put(WifiEntry.SECURITY_WEP, R.string.wifi_security_wep);
+        map.put(WifiEntry.SECURITY_PSK, R.string.wifi_security_psk_generic);
+        map.put(WifiEntry.SECURITY_EAP, R.string.wifi_security_eap);
+        map.put(WifiEntry.SECURITY_SAE, R.string.wifi_security_sae);
+        map.put(WifiEntry.SECURITY_OWE, R.string.wifi_security_owe);
+        map.put(WifiEntry.SECURITY_EAP_SUITE_B, R.string.wifi_security_eap_suiteb);
         return map;
     }
 }

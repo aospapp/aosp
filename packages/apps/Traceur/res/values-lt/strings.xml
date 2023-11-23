@@ -22,6 +22,9 @@
     <string name="saving_trace" msgid="1468692734770800541">"Išsaugomas pėdsakas"</string>
     <string name="trace_saved" msgid="5869970594780992309">"Pėdsakas išsaugotas"</string>
     <string name="tap_to_share" msgid="6766732404489536899">"Palieskite ir bendrinkite pėdsaką"</string>
+    <string name="attaching_to_report" msgid="2629202947947275886">"Pridedamas pėdsakas prie pranešimo apie riktą"</string>
+    <string name="attached_to_report" msgid="5806905349184608870">"Pridėtas pėdsakas prie pranešimo apie riktą"</string>
+    <string name="attached_to_report_summary" msgid="7665675771190391355">"Palieskite, kad atidarytumėte „BetterBug“"</string>
     <string name="stop_tracing" msgid="8916938308534164152">"Nebežymėti"</string>
     <string name="tracing_categories_unavailable" msgid="5609076391417077752">"Kai kurios pėdsakų įrašymo kategorijos nepasiekiamos:"</string>
     <string name="trace_is_being_recorded" msgid="5947378146009337469">"Pėdsakas įrašomas"</string>
@@ -58,4 +61,9 @@
     <string name="sixteen_thousand_kb" msgid="7342517169232459259">"16 384 KB"</string>
     <string name="thirtytwo_thousand_kb" msgid="654328198799196150">"32 768 KB"</string>
     <string name="sixtyfive_thousand_kb" msgid="8168144138598305306">"65 536 KB"</string>
+    <string name="stop_on_bugreport" msgid="2045328149107284734">"Neberegistruoti pėdsakų pranešimams apie riktus"</string>
+    <string name="stop_on_bugreport_summary" msgid="7844074306038850040">"Užbaigiami aktyvūs pėdsakų registravimo seansai, kai pradedamas generuoti pranešimas apie riktą"</string>
+    <string name="attach_to_bug_report" msgid="2953745117960948415">"Pridėti pėdsakų prie pranešimų apie riktus"</string>
+    <string name="attach_to_bug_report_summary" msgid="2225208904634565377">"Automatiškai siųsti vykdomos veiklos pėdsakus į sistemą „BetterBug“, kai gaunamas pranešimas apie riktą"</string>
+    <string name="link_to_traces" msgid="6569969595898995517">"Žr. pėdsakų failus"</string>
 </resources>

@@ -50,6 +50,7 @@
     <string name="voice_number_setting_primary_user_only" msgid="3394706575741912843">"Maaari lang baguhin ng Pangunahing User ang Mga Setting ng Voicemail."</string>
     <string name="puk_unlocked" msgid="4627340655215746511">"Na-unblock ang iyong SIM card. Nag-a-unlock ang telepono mo…"</string>
     <string name="label_ndp" msgid="7617392683877410341">"PIN na pang-unlock ng SIM network"</string>
+    <string name="label_phoneid" msgid="8775611434123577808">"Na-lock para sa operator ang SIM"</string>
     <string name="sim_ndp_unlock_text" msgid="7737338355451978338">"I-unlock"</string>
     <string name="sim_ndp_dismiss_text" msgid="89667342248929777">"Balewalain"</string>
     <string name="requesting_unlock" msgid="930512210309437741">"Humihiling ng pag-unlock sa network…"</string>
@@ -123,6 +124,13 @@
     <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"Pinapasa sa <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfnrc_disabled" msgid="739289696796917683">"Naka-off"</string>
     <string name="disable_cfnrc_forbidden" msgid="775348748084726890">"Hindi sinusuportahan ng iyong carrier ang hindi pagpapagana ng pagpasa ng tawag kapag hindi maabot ang iyong telepono."</string>
+    <string name="registration_cf_forbidden" msgid="4386482610771190420">"Hindi sinusuportahan ng iyong carrier ang pagpasa ng tawag."</string>
+    <string name="cdma_call_waiting" msgid="4565070960879673216">"I-on ang call waiting?"</string>
+    <string name="enable_cdma_call_waiting_setting" msgid="5906811747921744307">"Habang tumatawag, aabisuhan ka sa mga papasok na tawag"</string>
+    <string name="enable_cdma_cw" msgid="811047045863422232">"I-on"</string>
+    <string name="disable_cdma_cw" msgid="7119290446496301734">"Kanselahin"</string>
+    <string name="cdma_call_waiting_in_ims_on" msgid="6390979414188659218">"Naka-on ang CDMA Call Waiting sa IMS"</string>
+    <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"Naka-off ang CDMA Call Waiting sa IMS"</string>
     <string name="updating_title" msgid="6130548922615719689">"Mga setting ng tawag"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"Ang admin user lang ang maaaring magbago sa mga setting ng tawag."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"Mga Setting (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -286,6 +294,9 @@
     <string name="limited_sim_function_notification_title" msgid="612715399099846281">"Limitadong functionality ng SIM"</string>
     <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"Ang mga tawag at serbisyo ng data ng <xliff:g id="CARRIER_NAME">%1$s</xliff:g> ay puwedeng ma-block habang ginagamit ang <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>."</string>
     <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"Ang tawag at serbisyo ng data ng <xliff:g id="CARRIER_NAME">%1$s</xliff:g> ay maba-block habang ginagamit ang isa pang SIM."</string>
+    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"Nakita at naalis ang mga hindi na ginagamit na SIP account"</string>
+    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"Hindi na sinusuportahan ng Android Platform ang pagtawag sa pamamagitan ng SIP.\nNaalis na ang iyong mga kasalukuyang SIP account na <xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g>.\nPakikumpirma ang iyong default na setting ng account para sa pagtawag."</string>
+    <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"Pumunta sa mga setting"</string>
     <string name="data_usage_title" msgid="8438592133893837464">"Paggamit ng data ng app"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"<xliff:g id="ID_1">%1$s</xliff:g> na mobile data ang nagamit noong <xliff:g id="ID_2">%2$s</xliff:g>"</string>
     <string name="advanced_options_title" msgid="9208195294513520934">"Advanced"</string>
@@ -306,7 +317,7 @@
     <string name="throttle_current_usage" msgid="7483859109708658613">"Ginamit na data sa kasalukuyang panahon"</string>
     <string name="throttle_time_frame" msgid="1813452485948918791">"Panahon ng paggamit ng data"</string>
     <string name="throttle_rate" msgid="7641913901133634905">"Patakaran ng rate ng data"</string>
-    <string name="throttle_help" msgid="2624535757028809735">"Matuto nang higit pa"</string>
+    <string name="throttle_help" msgid="2624535757028809735">"Matuto pa"</string>
     <string name="throttle_status_subtext" msgid="1110276415078236687">"<xliff:g id="USED_0">%1$s</xliff:g> (<xliff:g id="USED_1">%2$d</xliff:g>٪) ng <xliff:g id="USED_2">%3$s</xliff:g> maximum na tagal ng panahon\nMagsisimula ang susunod na tagal ng panahon sa loob ng <xliff:g id="USED_3">%4$d</xliff:g> (na) araw (<xliff:g id="USED_4">%5$s</xliff:g>)"</string>
     <string name="throttle_data_usage_subtext" msgid="3185429653996709840">"<xliff:g id="USED_0">%1$s</xliff:g> (<xliff:g id="USED_1">%2$d</xliff:g>٪) ng <xliff:g id="USED_2">%3$s</xliff:g> maximum na period"</string>
     <string name="throttle_data_rate_reduced_subtext" msgid="8369839346277847725">"Ang <xliff:g id="USED_0">%1$s</xliff:g> na maximum ay lumagpas sa\nBinabaan ang rate ng data sa <xliff:g id="USED_1">%2$d</xliff:g> Kb/s"</string>
@@ -504,6 +515,7 @@
     <string name="puk2_requested" msgid="6992374450720307514">"Mali ang password. Naka-lock na ngayon ang SIM. Ilagay ang PUK2."</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"Permanenteng na-block ang PUK2."</string>
     <string name="pin2_attempts" msgid="5625178102026453023">\n"Mayroon ka na lang <xliff:g id="NUMBER">%d</xliff:g> (na) natitirang pagsubok."</string>
+    <string name="puk2_locked" msgid="6497760825455461057">"Na-lock ang PUK2. Makipag-ugnayan sa service provider para i-unlock."</string>
     <string name="pin2_unblocked" msgid="4481107908727789303">"Hindi na naka-block ang PIN2"</string>
     <string name="pin2_error_exception" msgid="8116103864600823641">"Error sa network o SIM card"</string>
     <string name="doneButton" msgid="7371209609238460207">"Tapos na"</string>
@@ -525,6 +537,7 @@
     <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"I-on ang mobile network, i-off ang airplane mode o i-off ang battery saver mode upang tumawag."</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"I-off ang airplane mode upang makatawag."</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"I-off ang airplane mode o kumonekta sa isang wireless network upang makatawag."</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"Masyadong mainit ang telepono"</b>\n\n"Hindi makumpleto ang tawag na ito. Subukan ulit kapag lumamig ang iyong telepono.\n\nMakakagawa ka pa rin ng mga emergency na tawag."</string>
     <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"Lumabas sa emergency callback mode upang makapagsagawa ng hindi pang-emergency na pagtawag."</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"Hindi nakarehistro sa network."</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"Hindi available ang mobile network."</string>
@@ -867,7 +880,6 @@
     <string name="radio_info_dds" msgid="1122593144425697126">"SubId ng default na data SIM:"</string>
     <string name="radio_info_dl_kbps" msgid="2382922659525318726">"DL Bandwidth (kbps):"</string>
     <string name="radio_info_ul_kbps" msgid="2102225400904799036">"UL Bandwidth (kbps):"</string>
-    <string name="radio_info_signal_location_label" msgid="6188435197086550049">"Impormasyon ng Lokasyon ng Cell (hindi na ginagamit):"</string>
     <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"Configuration ng LTE Physical Channel:"</string>
     <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"Rate ng Pag-refresh ng Impormasyon ng Cell:"</string>
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"Impormasyon ng Pagsukat sa Lahat ng Cell:"</string>
@@ -898,6 +910,11 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"I-refresh"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"I-toggle ang DNS Check"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"Impormasyon/Mga Setting na partikular sa OEM"</string>
+    <string name="radio_info_endc_available" msgid="4410653375290113436">"Available ang EN-DC:"</string>
+    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"Pinaghihigpitan ang DCNR:"</string>
+    <string name="radio_info_nr_available" msgid="1321318331361249997">"Available ang NR:"</string>
+    <string name="radio_info_nr_state" msgid="1337571996788535356">"Status ng NR:"</string>
+    <string name="radio_info_nr_frequency" msgid="1201156032796584128">"Frequency ng NR:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Itakda ang Band Mode ng Radyo"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Nilo-load ang Listahan ng Band…"</string>
     <string name="band_mode_set" msgid="6657819412803771421">"Itakda"</string>
@@ -907,4 +924,7 @@
     <string name="phone_info_label" product="default" msgid="1784175881556791433">"Impormasyon ng telepono"</string>
     <string name="carrier_provisioning" msgid="2668065041869578376">"Impormasyon sa Provisioning ng Carrier"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"I-trigger ang Provisioning ng Carrier"</string>
+    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"Mahina ang signal ng iyong bluetooth. Subukang lumipat sa speakerphone."</string>
+    <string name="call_quality_notification_name" msgid="3476828289553948830">"Notification sa Kalidad ng Tawag"</string>
+    <string name="notification_channel_sip_account" msgid="1261816025156179637">"Mga hindi na ginagamit na SIP account"</string>
 </resources>

@@ -17,18 +17,20 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="6995669566699638946">"শৈলী আৰু ৱালপেপাৰ"</string>
+    <string name="app_name" msgid="1647136562008520313">"ৱালপেপাৰ আৰু শৈলী"</string>
     <string name="theme_title" msgid="2144932106319405101">"শৈলী"</string>
     <string name="clock_title" msgid="2126046720254613991">"ঘড়ী"</string>
-    <string name="grid_title" msgid="2825094404523390773">"গ্ৰিড"</string>
-    <string name="wallpaper_title" msgid="6952635398953194544">"ৱালপেপাৰ"</string>
+    <string name="grid_title" msgid="1688173478777254123">"এপৰ গ্ৰিড"</string>
     <string name="apply_theme_btn" msgid="6293081192321303991">"প্ৰয়োগ কৰক"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"সম্পাদনা কৰিবলৈ টিপক"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"বৰ্তমানৰ ৱালপেপাৰখন ৰাখক"</string>
     <string name="apply_btn" msgid="7965877231041987336">"প্ৰয়োগ কৰক"</string>
-    <string name="accessibility_preview_pager" msgid="3548503287402185430">"পৃষ্ঠা <xliff:g id="ID_2">%2$d</xliff:g>ৰ <xliff:g id="ID_1">%1$d</xliff:g>"</string>
-    <string name="next_page_content_description" msgid="5290226604542300962">"পৰৱৰ্তী"</string>
-    <string name="previous_page_content_description" msgid="6025726405430262788">"আগৰ"</string>
+    <string name="theme_preview_card_content_description" msgid="5989222908619535533">"শৈলীৰ পূৰ্বদৰ্শন"</string>
+    <string name="grid_preview_card_content_description" msgid="8449383777584714842">"গ্ৰিডৰ পূৰ্বদৰ্শন"</string>
+    <string name="font_preview_content_description" msgid="128230439293337891">"ফণ্টৰ পূৰ্বদৰ্শন"</string>
+    <string name="icon_preview_content_description" msgid="7761101284351952890">"চিহ্নৰ পূৰ্বদৰ্শন"</string>
+    <string name="color_preview_content_description" msgid="4879120462082058124">"ৰঙৰ পূৰ্বদৰ্শন"</string>
+    <string name="shape_preview_content_description" msgid="6479487796176550432">"আকৃতিৰ পূৰ্বদৰ্শন"</string>
     <string name="option_applied_description" msgid="5022305212078053534">"বৰ্তমান <xliff:g id="ID_1">%1$s</xliff:g> প্ৰয়োগ কৰা হৈছে"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"<xliff:g id="ID_1">%1$s</xliff:g>, বৰ্তমান প্ৰয়োগ আৰু পূৰ্বদৰ্শন কৰি থকা হৈছে"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"<xliff:g id="ID_1">%1$s</xliff:g>, বৰ্তমান পূৰ্বদৰ্শন কৰি থকা হৈছে"</string>
@@ -41,12 +43,15 @@
     <string name="preview_name_wallpaper" msgid="1738652462949531828">"ৱালপেপাৰ"</string>
     <string name="font_card_title" msgid="2343292653502548685">"ABC • abc • 123"</string>
     <string name="font_card_body" msgid="6790525594503904468">"প্ৰত্যেকখন স্ক্ৰীণত আপোনাৰ প্ৰিয় ফণ্ট যোগ কৰক"</string>
+    <string name="grid_options_title" msgid="7071930966989877023">"এটা গ্ৰিডৰ আকাৰ বাছনি কৰক"</string>
     <string name="grid_title_pattern" msgid="9188866567612607806">"<xliff:g id="ID_1">%1$d</xliff:g>x<xliff:g id="ID_2">%2$d</xliff:g>"</string>
-    <string name="applied_theme_msg" msgid="7348498271552054431">"শৈলী প্ৰয়োগ কৰা হ’ল"</string>
-    <string name="applied_clock_msg" msgid="1938218786265793285">"ঘড়ী প্ৰয়োগ কৰা হ’ল"</string>
+    <string name="applied_theme_msg" msgid="3749018706366796244">"শৈলী সফলতাৰে ছেট কৰা হ’ল"</string>
+    <string name="applied_clock_msg" msgid="1303338016701443767">"ঘড়ী সফলতাৰে ছেট কৰা হ’ল"</string>
+    <string name="applied_grid_msg" msgid="3250499654436933034">"গ্ৰিড সফলতাৰে ছেট কৰা হ’ল"</string>
     <string name="apply_theme_error_msg" msgid="791364062636538317">"শৈলীটো প্ৰয়োগ কৰোঁতে কিবা সমস্যা হৈছে"</string>
     <string name="custom_theme_next" msgid="6235420097213197301">"পৰৱৰ্তী"</string>
     <string name="custom_theme_previous" msgid="4941132112640503022">"পূৰ্বৱৰ্তী"</string>
+    <string name="custom_theme" msgid="1618351922263478163">"কাষ্টম"</string>
     <string name="custom_theme_title" msgid="2192300350332693631">"কাষ্টম <xliff:g id="ID_1">%1$d</xliff:g>"</string>
     <string name="custom_theme_fragment_title" msgid="6615547284702040280">"কাষ্টম শৈলী"</string>
     <string name="custom_theme_delete" msgid="4744494663184126202">"মচক"</string>
@@ -66,4 +71,16 @@
     <string name="no_thanks" msgid="7286616980115687627">"নালাগে, ধন্যবাদ"</string>
     <string name="clock_preview_content_description" msgid="5460561185905717460">"<xliff:g id="ID_1">%1$s</xliff:g> ঘড়ীৰ পূৰ্বদৰ্শন"</string>
     <string name="something_went_wrong" msgid="529840112449799117">"দুঃখিত! কিবা ভুল হ’ল।"</string>
+    <string name="theme_preview_icons_section_title" msgid="7064768910744000643">"ৰং / চিহ্ন"</string>
+    <string name="style_info_description" msgid="2612473574431003251">"ফণ্ট, চিহ্নসমূহ, এপৰ আকৃতি আৰু ৰঙৰ পূৰ্বদৰ্শন"</string>
+    <string name="accessibility_custom_font_title" msgid="966867359157303705">"কাষ্টম ফণ্ট"</string>
+    <string name="accessibility_custom_icon_title" msgid="5753297905849062296">"কাষ্টম চিহ্ন"</string>
+    <string name="accessibility_custom_color_title" msgid="4124246598886320663">"কাষ্টম ৰং"</string>
+    <string name="accessibility_custom_shape_title" msgid="7708408259374643129">"কাষ্টম আকৃতি"</string>
+    <string name="accessibility_custom_name_title" msgid="5494460518085463262">"কাষ্টম শৈলীৰ নাম"</string>
+    <string name="mode_title" msgid="2394873501427436055">"গাঢ় ৰঙৰ থীম"</string>
+    <string name="mode_disabled_msg" msgid="9196245518435936512">"বেটাৰী সঞ্চয়কাৰীৰ বাবে অস্থায়ীভাৱে অক্ষম কৰা হৈছে"</string>
+    <string name="themed_icon_title" msgid="7312460430471956558">"থীমযুক্ত চিহ্ন"</string>
+    <string name="beta_title" msgid="8703819523760746458">"বিটা"</string>
+    <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"এপৰ গ্ৰিড সলনি কৰক"</string>
 </resources>

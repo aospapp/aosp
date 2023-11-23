@@ -15,8 +15,9 @@
  */
 package com.android.tv.settings;
 
-import android.app.Fragment;
 import android.os.Bundle;
+
+import androidx.fragment.app.Fragment;
 
 /**
  * Provides a settings fragment for display in either the normal or two panel layout.

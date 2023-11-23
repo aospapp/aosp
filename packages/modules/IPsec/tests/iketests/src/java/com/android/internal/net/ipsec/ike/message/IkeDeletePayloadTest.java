@@ -14,20 +14,21 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.ipsec.ike.message;
+package com.android.internal.net.ipsec.test.ike.message;
 
-import static com.android.internal.net.ipsec.ike.message.IkePayload.PROTOCOL_ID_ESP;
-import static com.android.internal.net.ipsec.ike.message.IkePayload.PROTOCOL_ID_IKE;
-import static com.android.internal.net.ipsec.ike.message.IkePayload.SPI_LEN_IPSEC;
-import static com.android.internal.net.ipsec.ike.message.IkePayload.SPI_LEN_NOT_INCLUDED;
+import static com.android.internal.net.ipsec.test.ike.message.IkePayload.PROTOCOL_ID_ESP;
+import static com.android.internal.net.ipsec.test.ike.message.IkePayload.PROTOCOL_ID_IKE;
+import static com.android.internal.net.ipsec.test.ike.message.IkePayload.SPI_LEN_IPSEC;
+import static com.android.internal.net.ipsec.test.ike.message.IkePayload.SPI_LEN_NOT_INCLUDED;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import android.net.ipsec.test.ike.exceptions.InvalidSyntaxException;
+
 import com.android.internal.net.TestUtils;
-import com.android.internal.net.ipsec.ike.exceptions.InvalidSyntaxException;
 
 import org.junit.Test;
 

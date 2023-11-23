@@ -16,84 +16,142 @@
 
 package com.android.car.settings.accounts;
 
-import android.accounts.Account;
+import android.accounts.AccountManager;
+import android.accounts.AccountManagerCallback;
+import android.accounts.AuthenticatorException;
+import android.accounts.OperationCanceledException;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
-import android.os.UserHandle;
+import android.content.Intent;
+import android.os.Bundle;
 
 import androidx.annotation.CallSuper;
-import androidx.preference.Preference;
+import androidx.annotation.VisibleForTesting;
 
+import com.android.car.settings.R;
+import com.android.car.settings.common.ActivityResultCallback;
+import com.android.car.settings.common.ConfirmationDialogFragment;
+import com.android.car.settings.common.ErrorDialog;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.Logger;
-import com.android.car.settings.common.PreferenceController;
-import com.android.settingslib.accounts.AuthenticatorHelper;
+import com.android.car.settings.profiles.ProfileHelper;
 
-/** Controller for the preference that shows the details of an account. */
-public class AccountDetailsPreferenceController extends PreferenceController<Preference> {
+import java.io.IOException;
+
+/**
+ * Controller for the preference that shows the details of an account. It also handles a secondary
+ * button for account removal.
+ */
+public class AccountDetailsPreferenceController extends AccountDetailsBasePreferenceController
+        implements ActivityResultCallback {
     private static final Logger LOG = new Logger(AccountDetailsPreferenceController.class);
+    private static final int REMOVE_ACCOUNT_REQUEST = 101;
 
-    private Account mAccount;
-    private UserHandle mUserHandle;
+    private AccountManagerCallback<Bundle> mCallback =
+            future -> {
+                // If already out of this screen, don't proceed.
+                if (!isStarted()) {
+                    return;
+                }
+
+                boolean done = true;
+                boolean success = false;
+                try {
+                    Bundle result = future.getResult();
+                    Intent removeIntent = result.getParcelable(AccountManager.KEY_INTENT);
+                    if (removeIntent != null) {
+                        done = false;
+                        getFragmentController().startActivityForResult(removeIntent,
+                                REMOVE_ACCOUNT_REQUEST, this);
+                    } else {
+                        success = future.getResult().getBoolean(AccountManager.KEY_BOOLEAN_RESULT);
+                    }
+                } catch (OperationCanceledException | IOException | AuthenticatorException e) {
+                    LOG.v("removeAccount error: " + e);
+                }
+                if (done) {
+                    if (!success) {
+                        showErrorDialog();
+                    } else {
+                        getFragmentController().goBack();
+                    }
+                }
+            };
+
+    private ConfirmationDialogFragment.ConfirmListener mConfirmListener = arguments -> {
+        AccountManager.get(getContext()).removeAccountAsUser(getAccount(), /* activity= */ null,
+                mCallback, null, getUserHandle());
+        ConfirmationDialogFragment dialog =
+                (ConfirmationDialogFragment) getFragmentController().findDialogByTag(
+                        ConfirmationDialogFragment.TAG);
+        if (dialog != null) {
+            dialog.dismiss();
+        }
+    };
 
     public AccountDetailsPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
     }
 
-    /** Sets the account that the details are shown for. */
-    public void setAccount(Account account) {
-        mAccount = account;
-    }
-
-    /** Returns the account the details are shown for. */
-    public Account getAccount() {
-        return mAccount;
-    }
-
-    /** Sets the UserHandle used by the controller. */
-    public void setUserHandle(UserHandle userHandle) {
-        mUserHandle = userHandle;
-    }
-
-    /** Returns the UserHandle used by the controller. */
-    public UserHandle getUserHandle() {
-        return mUserHandle;
-    }
-
-    @Override
-    protected Class<Preference> getPreferenceType() {
-        return Preference.class;
-    }
-
-    /**
-     * Verifies that the controller was properly initialized with
-     * {@link #setAccount(Account)} and {@link #setUserHandle(UserHandle)}.
-     *
-     * @throws IllegalStateException if the account or user handle are {@code null}
-     */
     @Override
     @CallSuper
-    protected void checkInitialized() {
-        LOG.v("checkInitialized");
-        if (mAccount == null) {
-            throw new IllegalStateException(
-                    "AccountDetailsPreferenceController must be initialized by calling "
-                            + "setAccount(Account)");
+    protected void onCreateInternal() {
+        super.onCreateInternal();
+        ConfirmationDialogFragment dialog =
+                (ConfirmationDialogFragment) getFragmentController().findDialogByTag(
+                        ConfirmationDialogFragment.TAG);
+        ConfirmationDialogFragment.resetListeners(
+                dialog,
+                mConfirmListener,
+                /* rejectListener= */ null,
+                /* neutralListener= */ null);
+
+        getPreference().setSecondaryActionVisible(getProfileHelper()
+                .canCurrentProcessModifyAccounts());
+        getPreference().setOnSecondaryActionClickListener(this::onRemoveAccountClicked);
+    }
+
+    @Override
+    public void processActivityResult(int requestCode, int resultCode, Intent data) {
+        if (!isStarted()) {
+            return;
         }
-        if (mUserHandle == null) {
-            throw new IllegalStateException(
-                    "AccountDetailsPreferenceController must be initialized by calling "
-                            + "setUserHandle(UserHandle)");
+        if (requestCode == REMOVE_ACCOUNT_REQUEST) {
+            // Activity result code may not adequately reflect the account removal status, so
+            // KEY_BOOLEAN_RESULT is used here instead. If the intent does not have this value
+            // included, a no-op will be performed and the account update listener in
+            // {@link AccountDetailsFragment} will still handle the back navigation upon removal.
+            if (data != null && data.hasExtra(AccountManager.KEY_BOOLEAN_RESULT)) {
+                boolean success = data.getBooleanExtra(AccountManager.KEY_BOOLEAN_RESULT, false);
+                if (success) {
+                    getFragmentController().goBack();
+                } else {
+                    showErrorDialog();
+                }
+            }
         }
     }
 
-    @Override
-    @CallSuper
-    protected void updateState(Preference preference) {
-        preference.setTitle(mAccount.name);
-        // Get the icon corresponding to the account's type and set it.
-        AuthenticatorHelper helper = new AuthenticatorHelper(getContext(), mUserHandle, null);
-        preference.setIcon(helper.getDrawableForType(getContext(), mAccount.type));
+    private void onRemoveAccountClicked() {
+        ConfirmationDialogFragment dialog =
+                new ConfirmationDialogFragment.Builder(getContext())
+                        .setTitle(R.string.really_remove_account_title)
+                        .setMessage(R.string.really_remove_account_message)
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .setPositiveButton(R.string.remove_account_title, mConfirmListener)
+                        .build();
+
+        getFragmentController().showDialog(dialog, ConfirmationDialogFragment.TAG);
+    }
+
+    private void showErrorDialog() {
+        getFragmentController().showDialog(
+                ErrorDialog.newInstance(R.string.remove_account_error_title), /* tag= */ null);
+    }
+
+    @VisibleForTesting
+    ProfileHelper getProfileHelper() {
+        return ProfileHelper.getInstance(getContext());
     }
 }
